@@ -101,6 +101,10 @@ export async function testit(): Promise<void> {
       if (!render.includes("viewSize=260x340") || !/viewNonwhite=[1-9]\d{2,}/.test(render))
         throw new Error(`Render: ${render}`);
       await request(client, ControlCommand.TestSeedTextSelection, [1]);
+      await request(client, ControlCommand.TestTocSidebarNav, [1]);
+      await expectPage(client, 2);
+      sendCommand(frame, cmdId("CmdNavigateBack"));
+      await expectPage(client, 1);
       await request(client, ControlCommand.TestTocNavigate, [1]);
       await expectPage(client, 2);
       sendCommand(frame, cmdId("CmdNavigateBack"));

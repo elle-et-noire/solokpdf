@@ -265,11 +265,68 @@ as an engine-only change. Raw data:
 There is no established Release navigation-speed win: the difference is small
 and changes direction at four tabs. PDFium startup and private memory remain
 higher. Next work should profile document/outline destination loading, font
-caches and serialization costs before changing cache policy. The current code
-eagerly loads a target page to normalize bookmark coordinates; deferring that
-until navigation is a profiling candidate, not a measured fix.
+caches and serialization costs before changing cache policy. At `48eb0f96a`,
+bookmark coordinate normalization eagerly loaded the target page.
+
+### Deferred destination coordinates (2026-10-25)
+
+`EnginePdfium.cpp` now copies destination page/coordinates/zoom without loading
+the target page's content. `GetRect()` normalizes coordinates on first use and
+caches the result under the existing PDFium mutex. No PDFium destination handle
+is retained. Rendering, text and tile cache policy are unchanged.
+
+Compared the Release executable from `48eb0f96a` with this change, using identical
+PDFium/MuPDF DLLs. Same machine, PDF, requested window, zoom, isolated settings,
+warm file cache and PDB exclusion as above. Two rounds of three launches per
+variant/tab count; variant order reverses in each round's middle run. No build
+ran during measurement. Raw samples, PDF/executable/DLL hashes and round numbers:
+`docs/solokpdf-benchmark-lazy-dest-2026-10-25.json`.
+
+Keep the before executable/PDB under `out/solok-phase4-baseline/`, with the same
+DLLs as the current portable build, then run:
+
+```powershell
+bun experiments/pdfium/benchmark-ui.ts --release --before out/solok-phase4-baseline/SolokPDF.exe --output out/solok-phase4-paired
+bun experiments/pdfium/benchmark-ui.ts --release --before out/solok-phase4-baseline/SolokPDF.exe --output out/solok-phase4-paired-repeat
+```
+
+Medians of six launches per row; MiB uses process counters:
+
+| Release engine        | PDF tabs | First render idle, ms | Private Bytes at first idle, MiB | Private Bytes after all tabs visited, MiB | Working set after all tabs visited, MiB |
+| --------------------- | -------: | --------------------: | -------------------------------: | ----------------------------------------: | --------------------------------------: |
+| Before PDFium         |        1 |                1606.0 |                             97.8 |                                     100.9 |                                   124.7 |
+| Deferred PDFium       |        1 |                1594.2 |                             96.6 |                                     100.5 |                                   124.4 |
+| Before PDFium         |        4 |                2023.2 |                            136.9 |                                     150.2 |                                   174.2 |
+| Deferred PDFium       |        4 |                1972.3 |                            134.6 |                                     141.5 |                                   165.6 |
+| Current MuPDF control |        1 |                1263.1 |                            103.1 |                                     107.6 |                                   142.6 |
+| Current MuPDF control |        4 |                1467.4 |                            123.4 |                                     109.8 |                                   164.1 |
+
+Four-tab private memory after visiting all tabs fell in both rounds
+(152.6→141.5 and 147.8→141.4 MiB). The combined median fell 8.7 MiB (5.8%).
+One-tab savings are small. Startup timings overlap; the one-tab difference
+reversed in round two. These data do not establish a startup-speed improvement.
+Page-4 request medians were 46.8→49.1 ms (one tab), 48.7→48.5 ms (four tabs).
+PDFium still starts slower than the MuPDF control and uses more private memory
+at four tabs. One paper and six launches do not establish general performance.
+
+The expanded `tests/ad-hoc-pdfium.ts` passed before and after in Release and
+after the change in Debug,
+including the actual deferred TOC-click path, cropped/rotated link coordinates,
+search/selection, view/print bitmap generation, history, Tab Groups and close
+with pending renders. The benchmark's before/after page-4 screenshots are
+byte-identical and were visually inspected. This is limited regression evidence.
+
+Debug and Release builds passed with zero warnings/errors. Fresh executables
+initially rejected reads/launches; Debug also hit `LNK1104` on output DLLs/exe.
+Retries passed without ACL/security changes. Logs:
+`out/solok-phase4-build-{debug,release}.log`,
+`out/solok-phase4-test-{debug,release}.log`. Next: profile page/font retention and
+test larger math/scan corpora before another cache or startup change.
 
 ## Phase 5: portable development identity
+
+The packaging results below describe `48eb0f96a`. The ZIP archives have not been
+rebuilt for the deferred-coordinate change above.
 
 Both Debug and Release builds completed and passed the targeted GUI validation.
 Release produced `out/solokpdf-portable/SolokPDF.exe` (14,285,312 bytes). This host

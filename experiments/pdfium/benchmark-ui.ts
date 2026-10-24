@@ -1,15 +1,20 @@
-import { copyFileSync, existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { resolve, join, dirname } from "node:path";
+import { parseArgs } from "node:util";
 import { ControlCommand, withControlledSumatra } from "../../tests/control.ts";
 import { cmdId } from "../../tests/util.ts";
 import { waitForFrame, sendCommand, findCanvas } from "../../tests/win-automation.ts";
 import { processMemory, sendMessage, captureWindowToPng } from "../../tests/winapi.ts";
 
-const release = process.argv.includes("--release");
-const input = resolve(
-  process.argv.slice(2).find((arg) => arg !== "--release") ?? ".work/corpus/attention-1706.03762v7.pdf",
-);
-const out = resolve(release ? "out/pdfium-benchmark-release" : "out/pdfium-benchmark");
+const { values, positionals } = parseArgs({
+  args: process.argv.slice(2),
+  allowPositionals: true,
+  options: { release: { type: "boolean" }, before: { type: "string" }, output: { type: "string" } },
+});
+const release = values.release;
+const input = resolve(positionals[0] ?? ".work/corpus/attention-1706.03762v7.pdf");
+const out = resolve(values.output ?? (release ? "out/pdfium-benchmark-release" : "out/pdfium-benchmark"));
 const appDir = release ? "out/solokpdf-portable" : "out/solokpdf-dev";
 mkdirSync(out, { recursive: true });
 const pdfs = Array.from({ length: 4 }, (_, i) => join(out, `paper-${i + 1}.pdf`));
@@ -17,15 +22,26 @@ for (const pdf of pdfs) copyFileSync(input, pdf);
 const variants = [
   ...(!release ? [{ name: "baseline-mupdf", exe: resolve("out/baseline/bin/SumatraPDF.exe"), engine: "mupdf" }] : []),
   { name: "integrated-mupdf", exe: resolve(appDir, "SolokPDF.exe"), engine: "mupdf" },
+  ...(values.before ? [{ name: "before-pdfium", exe: resolve(values.before), engine: "pdfium" }] : []),
   { name: "integrated-pdfium", exe: resolve(appDir, "SolokPDF.exe"), engine: "pdfium" },
 ];
+const sha256 = (file: string) => createHash("sha256").update(readFileSync(file)).digest("hex");
+const binaries = variants.map((variant) => ({
+  ...variant,
+  sha256: sha256(variant.exe),
+  dependencies: ["pdfium.dll", "libsumatrapdf.dll"]
+    .map((name) => join(dirname(variant.exe), name))
+    .filter(existsSync)
+    .map((file) => ({ file, sha256: sha256(file) })),
+}));
+const inputSha256 = sha256(input);
 const results: unknown[] = [];
 const hiddenPdbs: [string, string][] = [];
 try {
-  for (const file of [
+  for (const file of new Set([
     release ? "out/rel64/SumatraPDF.pdb" : "out/dbg64/SumatraPDF.pdb",
-    join(appDir, "SolokPDF.pdb"),
-  ]) {
+    ...variants.map((variant) => variant.exe.replace(/\.exe$/i, ".pdb")),
+  ])) {
     const source = resolve(file);
     const dest = source + ".benchmark-hidden";
     if (!source.startsWith(resolve("out") + "\\") || !dest.startsWith(resolve("out") + "\\"))
@@ -37,7 +53,8 @@ try {
     }
   }
   for (let run = 0; run < 3; run++) {
-    for (const variant of variants) {
+    const ordered = values.before && run % 2 === 1 ? [...variants].reverse() : variants;
+    for (const variant of ordered) {
       for (const tabs of [1, 4]) {
         const id = `${variant.name}-${tabs}tabs-${run}`;
         const settings = join(out, id);
@@ -107,7 +124,9 @@ try {
           JSON.stringify(
             {
               input,
-              conditions: `${release ? "Release" : "Debug"} x64; application PDBs temporarily unavailable for all variants; same 900x1000 window; 100% virtual zoom; fresh isolated settings; process starts, warm OS file cache; request-to-render-idle includes control/polling/UI work; not input-to-photon latency; memory is whole-process`,
+              inputSha256,
+              binaries,
+              conditions: `${release ? "Release" : "Debug"} x64; application PDBs temporarily unavailable for all variants; same 900x1000 window; 100% virtual zoom; fresh isolated settings; process starts, warm OS file cache; request-to-render-idle includes control/polling/UI work; not input-to-photon latency; memory is whole-process; ${values.before ? "variant order reversed on odd runs" : "fixed variant order"}`,
               results,
             },
             null,

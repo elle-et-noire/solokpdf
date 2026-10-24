@@ -179,6 +179,32 @@ class EnginePdfium : public EngineBase {
         return RectF::FromXY(ToPage(page, info, left, bottom), ToPage(page, info, right, top));
     }
 
+    struct PdfiumDest : PageDestination {
+        EnginePdfium* engine = nullptr;
+        PointF point;
+        bool hasX = false;
+        bool hasY = false;
+
+        // Normalize coordinates on demand so outlines don't parse unvisited pages.
+        RectF GetRect() override {
+            ScopedMutex lock(&gPdfiumLock);
+            if (!engine) {
+                return rect;
+            }
+            auto* info = engine->Page(pageNo);
+            FPDF_PAGE page = info ? gPdfium.FPDF_LoadPage(engine->doc, pageNo - 1) : nullptr;
+            if (!page) {
+                return rect;
+            }
+            PointF pt = engine->ToPage(page, info, point.x, point.y);
+            rect.x = hasX ? pt.x : 0;
+            rect.y = hasY ? pt.y : 0;
+            gPdfium.FPDF_ClosePage(page);
+            engine = nullptr;
+            return rect;
+        }
+    };
+
     IPageDestination* Destination(FPDF_DEST dest, FPDF_ACTION action, Arena* dstArena = nullptr) {
         if (!dest && action && gPdfium.FPDFAction_GetType(action) == PDFACTION_GOTO) {
             dest = gPdfium.FPDFAction_GetDest(doc, action);
@@ -206,17 +232,17 @@ class EnginePdfium : public EngineBase {
         }
         FPDF_BOOL hasX = 0, hasY = 0, hasZoom = 0;
         float x = 0, y = 0, zoom = 0;
-        RectF rect(0, 0, kDestUseDefault, kDestUseDefault);
-        if (gPdfium.FPDFDest_GetLocationInPage(dest, &hasX, &hasY, &hasZoom, &x, &y, &zoom) && (hasX || hasY)) {
-            FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
-            if (page) {
-                PointF pt = ToPage(page, info, x, y);
-                rect.x = hasX ? pt.x : 0;
-                rect.y = hasY ? pt.y : 0;
-                gPdfium.FPDF_ClosePage(page);
-            }
-        }
-        return NewSimpleDest(dstArena, pageNo, rect, hasZoom ? zoom : 0.f);
+        bool hasLocation = gPdfium.FPDFDest_GetLocationInPage(dest, &hasX, &hasY, &hasZoom, &x, &y, &zoom) != 0;
+        auto* result = dstArena ? New<PdfiumDest>(dstArena) : new PdfiumDest();
+        result->engine = hasLocation && (hasX || hasY) ? this : nullptr;
+        result->point = PointF(x, y);
+        result->hasX = hasX != 0;
+        result->hasY = hasY != 0;
+        result->pageNo = pageNo;
+        result->rect = RectF(0, 0, kDestUseDefault, kDestUseDefault);
+        result->kind = kindDestinationScrollTo;
+        result->zoom = hasZoom ? zoom : 0.f;
+        return result;
     }
 
     void LoadLinks(int pageNo, PdfiumPage* info) {

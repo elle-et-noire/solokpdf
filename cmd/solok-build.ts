@@ -31,6 +31,7 @@ for (const name of [
   "docs/solokpdf-progress.md",
   "docs/solokpdf-benchmark-2026-10-24.json",
   "docs/solokpdf-benchmark-release-2026-10-25.json",
+  "docs/solokpdf-benchmark-lazy-dest-2026-10-25.json",
 ]) {
   if (existsSync(name)) {
     mkdirSync(join(portable, name, ".."), { recursive: true });
