@@ -18,6 +18,10 @@ TempStr BuiltOnDate();
 extern Str currentVersion; // e.g. "3.2.1138"
 extern Str gitCommidId;
 
+#if defined(SOLOKPDF_PDFIUM)
+constexpr const char* kExeName = "SolokPDF.exe";
+#else
 constexpr const char* kExeName = "SumatraPDF.exe";
+#endif
 
 int GetAppIconID();

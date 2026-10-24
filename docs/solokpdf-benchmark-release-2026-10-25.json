@@ -1,0 +1,234 @@
+{
+  "input": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+  "conditions": "Release x64; application PDBs temporarily unavailable for all variants; same 900x1000 window; 100% virtual zoom; fresh isolated settings; process starts, warm OS file cache; request-to-render-idle includes control/polling/UI work; not input-to-photon latency; memory is whole-process",
+  "results": [
+    {
+      "variant": "integrated-mupdf",
+      "run": 0,
+      "tabs": 1,
+      "control_connected_ms": 681.5350000000001,
+      "first_render_idle_ms": 697.0083,
+      "page4_request_to_idle_ms": 58.43799999999999,
+      "scroll_12_lines_to_idle_ms": 453.67279999999994,
+      "first_memory": {
+        "peakWorkingSetBytes": 124264448,
+        "workingSetBytes": 124231680,
+        "privateBytes": 99065856
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 134737920,
+        "workingSetBytes": 120516608,
+        "privateBytes": 89075712
+      }
+    },
+    {
+      "variant": "integrated-mupdf",
+      "run": 0,
+      "tabs": 4,
+      "control_connected_ms": 769.396,
+      "first_render_idle_ms": 914.8300000000002,
+      "page4_request_to_idle_ms": 51.00909999999976,
+      "scroll_12_lines_to_idle_ms": 452.5250000000001,
+      "first_memory": {
+        "peakWorkingSetBytes": 167837696,
+        "workingSetBytes": 167837696,
+        "privateBytes": 121552896
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 178274304,
+        "workingSetBytes": 161718272,
+        "privateBytes": 109977600
+      }
+    },
+    {
+      "variant": "integrated-pdfium",
+      "run": 0,
+      "tabs": 1,
+      "control_connected_ms": 1017.9155000000001,
+      "first_render_idle_ms": 1047.5792000000001,
+      "page4_request_to_idle_ms": 54.9357,
+      "scroll_12_lines_to_idle_ms": 472.3912,
+      "first_memory": {
+        "peakWorkingSetBytes": 117190656,
+        "workingSetBytes": 117190656,
+        "privateBytes": 93130752
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 143122432,
+        "workingSetBytes": 133591040,
+        "privateBytes": 109674496
+      }
+    },
+    {
+      "variant": "integrated-pdfium",
+      "run": 0,
+      "tabs": 4,
+      "control_connected_ms": 1534.4423000000006,
+      "first_render_idle_ms": 1622.1694000000007,
+      "page4_request_to_idle_ms": 55.09450000000015,
+      "scroll_12_lines_to_idle_ms": 456.77449999999953,
+      "first_memory": {
+        "peakWorkingSetBytes": 160419840,
+        "workingSetBytes": 160419840,
+        "privateBytes": 136306688
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 186490880,
+        "workingSetBytes": 169377792,
+        "privateBytes": 145141760
+      }
+    },
+    {
+      "variant": "integrated-mupdf",
+      "run": 1,
+      "tabs": 1,
+      "control_connected_ms": 640.6581999999999,
+      "first_render_idle_ms": 663.9494999999997,
+      "page4_request_to_idle_ms": 60.29860000000008,
+      "scroll_12_lines_to_idle_ms": 483.47159999999985,
+      "first_memory": {
+        "peakWorkingSetBytes": 121724928,
+        "workingSetBytes": 121724928,
+        "privateBytes": 96722944
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 134434816,
+        "workingSetBytes": 120729600,
+        "privateBytes": 89268224
+      }
+    },
+    {
+      "variant": "integrated-mupdf",
+      "run": 1,
+      "tabs": 4,
+      "control_connected_ms": 826.3935000000001,
+      "first_render_idle_ms": 908.0658999999996,
+      "page4_request_to_idle_ms": 48.837100000000646,
+      "scroll_12_lines_to_idle_ms": 480.27269999999953,
+      "first_memory": {
+        "peakWorkingSetBytes": 162324480,
+        "workingSetBytes": 162324480,
+        "privateBytes": 115838976
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 173842432,
+        "workingSetBytes": 161726464,
+        "privateBytes": 109907968
+      }
+    },
+    {
+      "variant": "integrated-pdfium",
+      "run": 1,
+      "tabs": 1,
+      "control_connected_ms": 1012.5298000000003,
+      "first_render_idle_ms": 1040.657299999999,
+      "page4_request_to_idle_ms": 52.84779999999955,
+      "scroll_12_lines_to_idle_ms": 453.4377999999997,
+      "first_memory": {
+        "peakWorkingSetBytes": 117391360,
+        "workingSetBytes": 117391360,
+        "privateBytes": 93335552
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 142462976,
+        "workingSetBytes": 132952064,
+        "privateBytes": 109047808
+      }
+    },
+    {
+      "variant": "integrated-pdfium",
+      "run": 1,
+      "tabs": 4,
+      "control_connected_ms": 1401.0810000000001,
+      "first_render_idle_ms": 1544.0702,
+      "page4_request_to_idle_ms": 52.65649999999914,
+      "scroll_12_lines_to_idle_ms": 454.4447,
+      "first_memory": {
+        "peakWorkingSetBytes": 160751616,
+        "workingSetBytes": 160751616,
+        "privateBytes": 136798208
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 186679296,
+        "workingSetBytes": 169185280,
+        "privateBytes": 144891904
+      }
+    },
+    {
+      "variant": "integrated-mupdf",
+      "run": 2,
+      "tabs": 1,
+      "control_connected_ms": 640.7024000000001,
+      "first_render_idle_ms": 698.2837,
+      "page4_request_to_idle_ms": 58.23059999999896,
+      "scroll_12_lines_to_idle_ms": 454.3099000000002,
+      "first_memory": {
+        "peakWorkingSetBytes": 123273216,
+        "workingSetBytes": 123273216,
+        "privateBytes": 96759808
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 134733824,
+        "workingSetBytes": 121090048,
+        "privateBytes": 89485312
+      }
+    },
+    {
+      "variant": "integrated-mupdf",
+      "run": 2,
+      "tabs": 4,
+      "control_connected_ms": 827.4607999999989,
+      "first_render_idle_ms": 930.4784999999993,
+      "page4_request_to_idle_ms": 46.8781999999992,
+      "scroll_12_lines_to_idle_ms": 447.06410000000324,
+      "first_memory": {
+        "peakWorkingSetBytes": 168300544,
+        "workingSetBytes": 168300544,
+        "privateBytes": 121987072
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 179097600,
+        "workingSetBytes": 162086912,
+        "privateBytes": 110465024
+      }
+    },
+    {
+      "variant": "integrated-pdfium",
+      "run": 2,
+      "tabs": 1,
+      "control_connected_ms": 948.6319999999978,
+      "first_render_idle_ms": 978.0306999999993,
+      "page4_request_to_idle_ms": 47.85789999999906,
+      "scroll_12_lines_to_idle_ms": 457.0697,
+      "first_memory": {
+        "peakWorkingSetBytes": 117293056,
+        "workingSetBytes": 117293056,
+        "privateBytes": 93257728
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 141451264,
+        "workingSetBytes": 125149184,
+        "privateBytes": 101224448
+      }
+    },
+    {
+      "variant": "integrated-pdfium",
+      "run": 2,
+      "tabs": 4,
+      "control_connected_ms": 1332.049500000001,
+      "first_render_idle_ms": 1430.7209999999977,
+      "page4_request_to_idle_ms": 50.05210000000079,
+      "scroll_12_lines_to_idle_ms": 438.8655000000035,
+      "first_memory": {
+        "peakWorkingSetBytes": 154869760,
+        "workingSetBytes": 154869760,
+        "privateBytes": 130752512
+      },
+      "after_activating_all_tabs_memory": {
+        "peakWorkingSetBytes": 180707328,
+        "workingSetBytes": 169213952,
+        "privateBytes": 144879616
+      }
+    }
+  ]
+}

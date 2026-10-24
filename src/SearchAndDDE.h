@@ -1,7 +1,11 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
    License: GPLv3 */
 
+#if defined(SOLOKPDF_PDFIUM)
+constexpr const WCHAR* kSumatraDdeServer = L"SOLOKPDF";
+#else
 constexpr const WCHAR* kSumatraDdeServer = L"SUMATRA";
+#endif
 constexpr const WCHAR* kSumatraDdeTopic = L"control";
 
 struct Gfx;

@@ -2413,3 +2413,35 @@ export function getWindowVirtualDesktopId(hwnd: number): string {
   }
   return guidString(guid);
 }
+
+const psapi = IS_WIN
+  ? dlopen("psapi.dll", {
+      GetProcessMemoryInfo: { args: [FFIType.u64, FFIType.ptr, FFIType.u32], returns: FFIType.bool },
+    })
+  : null;
+
+export function processMemory(pid: number): {
+  workingSetBytes: number;
+  privateBytes: number;
+  peakWorkingSetBytes: number;
+} {
+  if (!psapi || process.arch !== "x64") throw new Error("processMemory requires Windows x64");
+  const processQueryInformation = 0x0400;
+  const processVmRead = 0x0010;
+  const handle = kernel32.symbols.OpenProcess(processQueryInformation | processVmRead, false, pid);
+  if (!handle) throw new Error(`Cannot open process ${pid} for memory counters`);
+  try {
+    const counters = Buffer.alloc(80);
+    counters.writeUInt32LE(counters.length);
+    if (!psapi.symbols.GetProcessMemoryInfo(handle, ptr(counters), counters.length)) {
+      throw new Error(`Cannot read memory counters for ${pid}`);
+    }
+    return {
+      peakWorkingSetBytes: Number(counters.readBigUInt64LE(8)),
+      workingSetBytes: Number(counters.readBigUInt64LE(16)),
+      privateBytes: Number(counters.readBigUInt64LE(72)),
+    };
+  } finally {
+    kernel32.symbols.CloseHandle(handle);
+  }
+}

@@ -42,3 +42,26 @@ tests/tmp/
 /mcps/tasks/tools
 /bin/resvg.exe
 /scratch.txt
+
+# Native compiler intermediates, including ad-hoc local builds.
+*.obj
+*.o
+*.pdb
+*.ilk
+*.pch
+*.idb
+*.iobj
+*.ipdb
+*.exp
+
+# Keep portable packages and local viewer state out of the source tree.
+/*.exe
+/*.dll
+/*.lib
+/*.zip
+/*.7z
+/*.tgz
+/*.log
+/*.dmp
+/SolokPDF-settings.txt
+/SolokPDF-data/

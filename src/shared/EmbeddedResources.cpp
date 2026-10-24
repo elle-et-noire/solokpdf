@@ -44,7 +44,13 @@ static HMODULE GetArchiveModule() {
     }
     TempStr path = GetPathInExeDirTemp(StrL("SumatraPDF.exe"));
     WStr wpath = ToWStrTemp(path);
-    return LoadLibraryExW(wpath.s, nullptr, LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+    HMODULE module = LoadLibraryExW(wpath.s, nullptr, LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+    if (!module) {
+        path = GetPathInExeDirTemp(StrL("SolokPDF.exe"));
+        module = LoadLibraryExW(CWStrTemp(ToWStrTemp(path)), nullptr,
+                                LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+    }
+    return module;
 }
 #endif
 

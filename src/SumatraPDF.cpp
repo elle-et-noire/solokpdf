@@ -8845,7 +8845,7 @@ TempStr GetSumatraDataDirTemp() {
     if (len(dir) == 0) {
         return {};
     }
-    return path::JoinTemp(dir, StrL("SumatraPDF-data"));
+    return path::JoinTemp(dir, str::JoinTemp(StrL(kAppName), StrL("-data")));
 }
 
 TempStr GetSumatraBuildSpecificDirTemp() {
@@ -13826,7 +13826,7 @@ static HWND FindExistingSumatraProcessHwnd(HANDLE* hMutex, bool* openInNewWindow
     TempStr combinedPath = str::JoinTemp(GetSelfExePathTemp(), StrL("|"), GetAppDataDirTemp());
     str::ToLowerInPlace(combinedPath);
     u32 hash = MurmurHash2(combinedPath);
-    TempStr mapId = fmt("SumatraPDF-%08x", hash);
+    TempStr mapId = fmt("%s-%08x", StrL(kAppName), hash);
 
     int retriesLeft = 3;
     HANDLE hMap = nullptr;

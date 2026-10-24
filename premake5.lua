@@ -73,6 +73,11 @@ newoption {
   description = "use clang-cl.exe instead of cl.exe"
 }
 
+newoption {
+  trigger = "with-pdfium",
+  description = "enable the experimental SolokPDF PDFium backend (original Windows app)"
+}
+
 -- TODO: test this option
 -- usestandardpreprocessor 'On'
 

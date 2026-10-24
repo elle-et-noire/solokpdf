@@ -90,6 +90,11 @@ PortableZip32: https://www.sumatrapdfreader.org/dl/prerel/14276/SumatraPDF-prere
 */
 
 static bool ShouldCheckForUpdate(UpdateCheck updateCheckType) {
+#if defined(SOLOKPDF_PDFIUM)
+    (void)updateCheckType;
+    log(StrL("SolokPDF: upstream binary updates are disabled.\n"));
+    return false;
+#else
     UpdateCheckFacts f;
     f.inProgress = gUpdateCheckInProgress;
     // when forcing, we download pre-release, which shows a greater version
@@ -108,6 +113,7 @@ static bool ShouldCheckForUpdate(UpdateCheck updateCheckType) {
     GetSystemTimeAsFileTime(&currentTimeFt);
     f.secsSinceLast = FileTimeDiffInSecs(currentTimeFt, gSettings->timeOfLastUpdateCheck);
     return DecideUpdateCheck(f) == UpdateCheckChoice::Check;
+#endif
 }
 
 void StartInstallerAutoUpgrade(Str installerPath) {

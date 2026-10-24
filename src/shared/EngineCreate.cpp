@@ -18,6 +18,10 @@
 
 #include "EngineAll.h"
 
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+#include "solokpdf/EnginePdfium.h"
+#endif
+
 // Keep engine creation independent of the application UI headers.
 TempStr GetSumatraDataDirTemp();
 bool IsStressTesting();
@@ -254,6 +258,20 @@ static EngineBase* CreateEngineForKind(FileType kind, FileType contentHintKind, 
     }
     int dpi = DpiGet();
     EngineBase* engine = nullptr;
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (kind == FileType::PDF && PdfiumRequested()) {
+        TempStr error;
+        engine = CreateEnginePdfium(path, &error);
+        if (engine) {
+            return engine;
+        }
+        engine = CreateEngineMupdfFromFile(path, kind, dpi, pwdUI);
+        if (engine) {
+            engine->AppendError(fmt("%s Using MuPDF fallback.", error));
+        }
+        return engine;
+    }
+#endif
     // markdown has no native SumatraPDF engine; always use mupdf (cmark-gfm),
     // regardless of gEnableEpubWithPdfEngine.
     if (kind == FileType::PDF || kind == FileType::Xps || kind == FileType::Markdown || IsOfficeFileType(kind)) {

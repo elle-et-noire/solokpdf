@@ -30,6 +30,7 @@
 #include "EngineAll.h"
 #include "PdfCad.h"
 #include "SumatraConfig.h"
+#include "Version.h"
 #include "FileHistory.h"
 #include "SumatraPDF.h"
 #if !defined(SUMATRA_NG)
@@ -277,7 +278,7 @@ static int cmpFloat(const float* a, const float* b) {
 }
 
 TempStr GetSettingsFileNameTemp() {
-    return str::DupTemp(StrL("SumatraPDF-settings.txt"));
+    return str::JoinTemp(StrL(kAppName), StrL("-settings.txt"));
 }
 
 // this could be virtual path when running in app store

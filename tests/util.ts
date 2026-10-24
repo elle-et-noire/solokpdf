@@ -62,7 +62,7 @@ function exeFromArgv(argv: string[]): string {
   const ps = `(Get-Item -LiteralPath '${full}').VersionInfo.ProductName`;
   const p = Bun.spawnSync(["powershell", "-NoProfile", "-Command", ps]);
   const product = p.stdout.toString().trim();
-  if (!/sumatrapdf/i.test(product)) {
+  if (!/sumatrapdf|solokpdf/i.test(product)) {
     bail(`not a SumatraPDF executable (ProductName is '${product}'): ${full}`);
   }
   return full;
@@ -105,6 +105,10 @@ export function prepareTestEnvironment(): void {
     const sourceDll = join(dirname(sourceExe), "libsumatrapdf.dll");
     if (existsSync(sourceDll)) {
       copyFileSync(sourceDll, join(TESTS_TMP_DIR, "libsumatrapdf.dll"));
+    }
+    const sourcePdfium = join(dirname(sourceExe), "pdfium.dll");
+    if (existsSync(sourcePdfium)) {
+      copyFileSync(sourcePdfium, join(TESTS_TMP_DIR, "pdfium.dll"));
     }
     const sourceTool = join(dirname(sourceExe), "sumatrapdf-tool.exe");
     if (existsSync(sourceTool)) {

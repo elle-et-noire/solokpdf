@@ -42,4 +42,8 @@
 #define kCopyrightStr "Copyright 2006-2026 all authors (GPLv3)"
 #define kPublisherStr "Krzysztof Kowalczyk"
 
+#if defined(SOLOKPDF_PDFIUM)
+#define kAppName "SolokPDF"
+#else
 #define kAppName "SumatraPDF"
+#endif
