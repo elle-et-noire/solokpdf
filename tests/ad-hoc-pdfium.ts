@@ -57,6 +57,38 @@ async function expectOverwriteReload(): Promise<void> {
   );
 }
 
+// pages labeled i, ii, 1, 2, 3; "-named-dest 2" falls back to the page labeled "2" (page 4)
+async function expectPageLabels(): Promise<void> {
+  const page = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >>";
+  const path = tmpPath("pdfium/labels.pdf");
+  const pdf = assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [0 << /S /r >> 2 << /S /D >>] >> >>",
+    "<< /Type /Pages /Count 5 /Kids [3 0 R 4 0 R 5 0 R 6 0 R 7 0 R] >>",
+    page,
+    page,
+    page,
+    page,
+    page,
+  ]);
+  writeFileSync(path, pdf, "latin1");
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      await client.waitForRenderIdle();
+      await expectPage(client, 4);
+      for (const deadline = Date.now() + 5000; Date.now() < deadline; await Bun.sleep(50)) {
+        if ((await client.virtTree()).some((r) => r.text === " / 3 (4 / 5)")) {
+          console.log("Page labels shown and resolved");
+          return;
+        }
+      }
+      throw new Error("Toolbar did not show page labels");
+    },
+    ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", tmpPath("pdfium/labels.log"), "-named-dest", "2", path],
+    { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
+  );
+}
+
 async function request(client: ControlClient, cmd: ControlCommand, args: (string | number)[] = []): Promise<string> {
   const r = await client.request(cmd, args);
   const text = String(r[1] ?? "");
@@ -114,6 +146,7 @@ export async function testit(): Promise<void> {
       if (!frame || !captureWindowToPng(frame, image)) throw new Error("Cannot capture the Win32 window");
       const info = await request(client, ControlCommand.TestPageInfo);
       if (!info.includes("pages=2 widths=260,260")) throw new Error(`Crop/rotation geometry: ${info}`);
+      if (!(await client.virtTree()).some((r) => r.text === " / 2")) throw new Error("Unlabeled page total changed");
       const text = await request(client, ControlCommand.TestSearch, [pdf, "Needle"]);
       if (!text.includes("FOUND needle=Needle page=1")) throw new Error(`Search: ${text}`);
       const links = await request(client, ControlCommand.TestPageLinks, [pdf, 1]);
@@ -189,6 +222,7 @@ export async function testit(): Promise<void> {
     throw new Error("SumatraPDF settings were modified");
   }
   await expectOverwriteReload();
+  await expectPageLabels();
   const missingDir = tmpPath("pdfium/missing-dll");
   mkdirSync(missingDir, { recursive: true });
   const missingExe = join(missingDir, basename(EXE));

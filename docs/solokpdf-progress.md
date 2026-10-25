@@ -1410,9 +1410,11 @@ display/search and normal shutdown, without relying on a PDB or a source tree.
 - PDFium currently handles ordinary file-backed PDFs. Stream/data factories,
   shell preview/filter DLLs and PDFs generated inside other document engines
   retain their upstream paths. Files above 4 GiB fall back.
-- Password UI, page labels, automatic URL detection, PDF link Contents tooltips,
+- Password UI, automatic URL detection, PDF link Contents tooltips,
   remote-file/embedded links, non-XYZ Fit destinations, initial OpenAction and
   some permissions metadata remain incomplete.
+- Page labels match MuPDF in the toolbar and label lookup (fixture plus
+  Attention/BERT/IPA). Labels are read eagerly at open, one call per page.
 - Interactive forms/widgets, JavaScript/XFA, annotation editing, signatures,
   attachments, PDF editing/merging and advanced object-level dark rendering
   need PDFium implementations. Unsupported features are reported in document

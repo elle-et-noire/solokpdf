@@ -53,7 +53,8 @@
     X(FPDFBookmark_GetTitle)       \
     X(FPDFBookmark_GetDest)        \
     X(FPDFBookmark_GetAction)      \
-    X(FPDF_GetMetaText)
+    X(FPDF_GetMetaText)            \
+    X(FPDF_GetPageLabel)
 
 // PDFium forbids concurrent calls even for different documents.
 static Mutex gPdfiumLock;
@@ -217,6 +218,7 @@ class EnginePdfium : public EngineBase {
     bool runtime = false;
     Vec<PdfiumPage*> pages;
     Vec<IPageDestination*> namedDests;
+    StrVec pageLabels;
     TocTree* toc = nullptr;
     bool tocLoaded = false;
 
@@ -489,8 +491,51 @@ class EnginePdfium : public EngineBase {
         unsigned long permissions = gPdfium.FPDF_GetDocPermissions(doc);
         allowsPrinting = (permissions & (1UL << 2)) != 0;
         allowsCopyingText = (permissions & (1UL << 4)) != 0;
+        LoadPageLabels();
         logf("PDFium 158.0.8111.0: opened '%s', %d pages; no MuPDF document\n", path, pageCount);
         return true;
+    }
+
+    // Caller holds gPdfiumLock. Like EngineMupdf, logical page count is the largest numeric label.
+    void LoadPageLabels() {
+        // a document with /PageLabels labels page 1 (possibly with "")
+        if (gPdfium.FPDF_GetPageLabel(doc, 0, nullptr, 0) == 0) {
+            return;
+        }
+        constexpr unsigned long kMaxLabelBytes = 64 * 1024;
+        for (int i = 0; i < pageCount; i++) {
+            unsigned long bytes = gPdfium.FPDF_GetPageLabel(doc, i, nullptr, 0);
+            if (bytes < sizeof(WCHAR) || bytes > kMaxLabelBytes || bytes % sizeof(WCHAR) != 0) {
+                pageLabels.Append(StrL(""));
+                continue;
+            }
+            WCHAR* buf = AllocArrayTemp<WCHAR>((int)(bytes / sizeof(WCHAR)));
+            bool ok = gPdfium.FPDF_GetPageLabel(doc, i, buf, bytes) == bytes;
+            pageLabels.Append(ok ? ToUtf8Temp(WStr(buf, (int)(bytes / sizeof(WCHAR)) - 1)) : StrL(""));
+        }
+        hasPageLabels = true;
+        for (int i = 0; i < len(pageLabels); i++) {
+            int v = 0;
+            if (str::Parse(pageLabels[i], "%d%$", &v).s && v > logicalPageCount) {
+                logicalPageCount = v;
+            }
+        }
+    }
+
+    TempStr GetPageLabeTemp(int pageNo) const override {
+        if (pageNo < 1 || pageNo > len(pageLabels)) {
+            return EngineBase::GetPageLabeTemp(pageNo);
+        }
+        Str label = pageLabels[pageNo - 1];
+        if (len(label) == 0 || str::ContainsI(label, StrL(".pdg"))) {
+            return EngineBase::GetPageLabeTemp(pageNo);
+        }
+        return str::DupTemp(label);
+    }
+
+    int GetPageByLabel(Str label) const override {
+        int pageNo = pageLabels.Find(label) + 1;
+        return pageNo > 0 ? pageNo : EngineBase::GetPageByLabel(label);
     }
 
     EngineBase* Clone() override {
@@ -770,7 +815,7 @@ class EnginePdfium : public EngineBase {
         if (prop == DocProp::UnsupportedFeatures) {
             return StrL(
                 "Experimental PDFium: annotation editing, interactive forms, JavaScript, signatures, "
-                "attachments, page labels, automatic links and advanced PDF dark mode are not implemented.");
+                "attachments, automatic links and advanced PDF dark mode are not implemented.");
         }
         const char* key = nullptr;
         switch (prop) {
