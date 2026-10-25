@@ -223,7 +223,10 @@ Implementation details:
 
 - All PDFium calls, initialization, document/page close and shutdown share one
   process-wide mutex. PDFium is dynamically loaded only when selected.
-- File handle and custom reader outlive the document. Pages/text pages/render
+- Like MuPDF, files under 32 MiB are read into memory and their handle is
+  closed, so producers (e.g. LaTeX) can overwrite the open PDF and it reloads.
+  This costs the file size per open document. Larger files keep a handle and
+  custom reader for the document's lifetime. Pages/text pages/render
   handles are closed after each operation; no second engine's PDF is retained.
 - Existing cache owns BGRA pixmaps; progressive render pause callbacks consume
   an atomic AbortCookie. Queued cancellation is checked after acquiring the
@@ -1430,9 +1433,10 @@ display/search and normal shutdown, without relying on a PDB or a source tree.
 - The existing clipboard unit-test failure was observed on the unchanged baseline;
   its cause is unresolved. The complete unit suite is not green. No tests were
   removed or disabled.
-- Saving file data after the original path is renamed/deleted is not
-  implemented by the new engine yet. Its open file handle also does not share
-  in-place writes; producer/reload workflows need further work.
+- Files of 32 MiB or more keep a handle without write sharing: producers
+  cannot overwrite them while open, and Save As after rename/delete reads the
+  path. `tests/ad-hoc-pdfium.ts` covers overwrite-and-reload of a small file
+  only; Save As after rename is not GUI-tested.
 
 The first development milestone (native build, PDFium pages in the original
 UI, MuPDF comparison, reproducible steps and explicit gaps) has been reached.

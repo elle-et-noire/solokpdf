@@ -206,9 +206,13 @@ class PdfiumCookie : public AbortCookie {
     void* GetData() override { return &pause; }
 };
 
+// same limit as EngineMupdf: smaller files are read into memory
+constexpr i64 kMaxMemoryFileSize = 32LL * 1024 * 1024;
+
 class EnginePdfium : public EngineBase {
     FPDF_DOCUMENT doc = nullptr;
     HANDLE file = INVALID_HANDLE_VALUE;
+    Str fileData;
     FPDF_FILEACCESS access{};
     bool runtime = false;
     Vec<PdfiumPage*> pages;
@@ -221,11 +225,31 @@ class EnginePdfium : public EngineBase {
         if (offset > e->access.m_FileLen || count > e->access.m_FileLen - offset) {
             return 0;
         }
+        if (e->fileData.s) {
+            memcpy(data, e->fileData.s + offset, count);
+            return 1;
+        }
         LARGE_INTEGER pos{};
         pos.QuadPart = offset;
         DWORD read = 0;
         return SetFilePointerEx(e->file, pos, nullptr, FILE_BEGIN) && ReadFile(e->file, data, count, &read, nullptr) &&
                read == count;
+    }
+
+    // Release the handle of a small file so producers (e.g. LaTeX) can overwrite it while it's shown.
+    bool ReadIntoMemory() {
+        int n = (int)access.m_FileLen;
+        char* d = AllocArray<char>(n + 1);
+        DWORD read = 0;
+        bool ok = d && ReadFile(file, d, (DWORD)n, &read, nullptr) && read == (DWORD)n;
+        CloseHandle(file);
+        file = INVALID_HANDLE_VALUE;
+        if (!ok) {
+            free(d);
+            return false;
+        }
+        fileData = Str(d, n);
+        return true;
     }
 
     PdfiumPage* Page(int pageNo) {
@@ -416,6 +440,7 @@ class EnginePdfium : public EngineBase {
         if (file != INVALID_HANDLE_VALUE) {
             CloseHandle(file);
         }
+        str::Free(fileData);
         if (runtime) {
             gPdfium.Release();
         }
@@ -442,6 +467,10 @@ class EnginePdfium : public EngineBase {
             return false;
         }
         access.m_FileLen = (unsigned long)size.QuadPart;
+        if (size.QuadPart < kMaxMemoryFileSize && !ReadIntoMemory()) {
+            *error = StrL("PDFium file read failed.");
+            return false;
+        }
         access.m_GetBlock = ReadBlock;
         access.m_Param = this;
         doc = gPdfium.FPDF_LoadCustomDocument(&access, nullptr);
@@ -784,8 +813,10 @@ class EnginePdfium : public EngineBase {
         return ToUtf8Temp(WStr(buf, (int)(bytes / sizeof(WCHAR)) - 1));
     }
 
-    Str GetFileData() override { return file::ReadFile(FilePath()); }
-    bool SaveFileAs(Str path) override { return file::Copy(path, FilePath(), false); }
+    Str GetFileData() override { return fileData.s ? str::Dup(fileData) : file::ReadFile(FilePath()); }
+    bool SaveFileAs(Str path) override {
+        return fileData.s ? file::WriteFile(path, fileData) : file::Copy(path, FilePath(), false);
+    }
     bool HasClipOptimizations(int) override { return true; }
     bool BenchLoadPage(int pageNo) override {
         ScopedMutex lock(&gPdfiumLock);

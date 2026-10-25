@@ -23,6 +23,40 @@ function fixture(): string {
   ]);
 }
 
+function rewrittenFixture(): string {
+  const text = "BT /F1 18 Tf 40 200 Td (Rewritten by producer) Tj ET";
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+  ]);
+}
+
+// A LaTeX-style producer must be able to overwrite the open PDF, which then reloads.
+async function expectOverwriteReload(): Promise<void> {
+  const path = tmpPath("pdfium/overwrite.pdf");
+  writeFileSync(path, fixture(), "latin1");
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      await client.waitForRenderIdle();
+      writeFileSync(path, rewrittenFixture(), "latin1");
+      for (const deadline = Date.now() + 5000; Date.now() < deadline; await Bun.sleep(50)) {
+        const r = await client.request(ControlCommand.TestPageInfo);
+        if (r[0] === 0 && String(r[1]).includes("pages=1 ")) {
+          console.log("Overwritten PDF reloaded");
+          return;
+        }
+      }
+      throw new Error("Overwritten PDF was not reloaded");
+    },
+    ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", tmpPath("pdfium/overwrite.log"), path],
+    { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
+  );
+}
+
 async function request(client: ControlClient, cmd: ControlCommand, args: (string | number)[] = []): Promise<string> {
   const r = await client.request(cmd, args);
   const text = String(r[1] ?? "");
@@ -154,6 +188,7 @@ export async function testit(): Promise<void> {
   if (readFileSync(sentinel, "utf8") !== "SumatraPDF settings sentinel\n") {
     throw new Error("SumatraPDF settings were modified");
   }
+  await expectOverwriteReload();
   const missingDir = tmpPath("pdfium/missing-dll");
   mkdirSync(missingDir, { recursive: true });
   const missingExe = join(missingDir, basename(EXE));
