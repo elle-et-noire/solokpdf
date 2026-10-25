@@ -3,6 +3,7 @@
 #include "base/Base.h"
 #include "base/File.h"
 #include "base/Pixmap.h"
+#include "base/Timer.h"
 #include "gui/UIModels.h"
 #include "DocProperties.h"
 #include "EngineBase.h"
@@ -110,6 +111,33 @@ struct PdfiumPage {
     SizeF size;
     bool linksLoaded = false;
     Vec<IPageElement*> links;
+};
+
+struct PdfiumProfile {
+    Str operation;
+    int pageNo;
+    TimeStamp start{};
+    bool enabled;
+
+    PdfiumProfile(Str operation, int pageNo = 0) : operation(operation), pageNo(pageNo) {
+        static bool requested = [] {
+            WCHAR value[2]{};
+            return GetEnvironmentVariableW(L"SOLOKPDF_PROFILE", value, dimofi(value)) == 1 && value[0] == L'1';
+        }();
+        enabled = requested;
+        if (enabled) {
+            start = TimeGet();
+        }
+    }
+
+    void Mark(Str phase) {
+        if (!enabled) {
+            return;
+        }
+        logf("PDFium profile: %s thread=%lu page=%d %s=%.3f ms\n", operation, GetCurrentThreadId(), pageNo, phase,
+             TimeSinceInMs(start));
+        start = TimeGet();
+    }
 };
 
 class PdfiumCookie : public AbortCookie {
@@ -249,6 +277,7 @@ class EnginePdfium : public EngineBase {
         if (info->linksLoaded) {
             return;
         }
+        PdfiumProfile profile(StrL("links"), pageNo);
         FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
         if (!page) {
             return;
@@ -272,6 +301,7 @@ class EnginePdfium : public EngineBase {
         }
         gPdfium.FPDF_ClosePage(page);
         info->linksLoaded = true;
+        profile.Mark(StrL("load-and-scan"));
     }
 
     TocItem* ReadBookmarks(FPDF_BOOKMARK first, TocItem* parent, int depth, int& budget, int& id) {
@@ -337,12 +367,15 @@ class EnginePdfium : public EngineBase {
     }
 
     bool Load(Str path, TempStr* error) {
+        PdfiumProfile profile(StrL("load"));
         ScopedMutex lock(&gPdfiumLock);
+        profile.Mark(StrL("lock"));
         SetFilePath(path);
         if (!gPdfium.Acquire(error)) {
             return false;
         }
         runtime = true;
+        profile.Mark(StrL("runtime"));
         file = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         LARGE_INTEGER size{};
@@ -360,6 +393,7 @@ class EnginePdfium : public EngineBase {
                          gPdfium.FPDF_GetLastError());
             return false;
         }
+        profile.Mark(StrL("document"));
         pageCount = gPdfium.FPDF_GetPageCount(doc);
         if (pageCount < 1 || pageCount > 1000000) {
             *error = StrL("PDFium document has an invalid or unsupported page count.");
@@ -385,6 +419,7 @@ class EnginePdfium : public EngineBase {
     }
 
     Pixmap* RenderPage(RenderPageArgs& args) override {
+        PdfiumProfile profile(StrL("render"), args.pageNo);
         PdfiumCookie localCookie;
         PdfiumCookie* cookie = &localCookie;
         if (args.cookie_out) {
@@ -409,7 +444,9 @@ class EnginePdfium : public EngineBase {
         if (!pixmap) {
             return nullptr;
         }
+        profile.Mark(StrL("setup"));
         ScopedMutex lock(&gPdfiumLock);
+        profile.Mark(StrL("lock"));
         if (AtomicIntGet(&cookie->aborted)) {
             FreePixmap(pixmap);
             return nullptr;
@@ -419,6 +456,7 @@ class EnginePdfium : public EngineBase {
             FreePixmap(pixmap);
             return nullptr;
         }
+        profile.Mark(StrL("page"));
         FPDF_BITMAP bmp =
             gPdfium.FPDFBitmap_CreateEx(pixmap->width, pixmap->height, FPDFBitmap_BGRA, pixmap->data, pixmap->stride);
         int status = FPDF_RENDER_FAILED;
@@ -444,6 +482,7 @@ class EnginePdfium : public EngineBase {
             gPdfium.FPDFBitmap_Destroy(bmp);
         }
         gPdfium.FPDF_ClosePage(page);
+        profile.Mark(StrL("bitmap"));
         if (status != FPDF_RENDER_DONE || AtomicIntGet(&cookie->aborted)) {
             FreePixmap(pixmap);
             return nullptr;
@@ -465,7 +504,9 @@ class EnginePdfium : public EngineBase {
     }
 
     PageText ExtractPageText(int pageNo) override {
+        PdfiumProfile profile(StrL("text"), pageNo);
         ScopedMutex lock(&gPdfiumLock);
+        profile.Mark(StrL("lock"));
         auto* info = Page(pageNo);
         if (!info) {
             return {};
@@ -475,7 +516,9 @@ class EnginePdfium : public EngineBase {
             return {};
         }
         PageText result;
+        profile.Mark(StrL("page"));
         FPDF_TEXTPAGE textPage = gPdfium.FPDFText_LoadPage(page);
+        profile.Mark(StrL("text-page"));
         if (textPage) {
             int count = gPdfium.FPDFText_CountChars(textPage);
             constexpr int kMaxPageChars = 2000000;
@@ -510,6 +553,7 @@ class EnginePdfium : public EngineBase {
             gPdfium.FPDFText_ClosePage(textPage);
         }
         gPdfium.FPDF_ClosePage(page);
+        profile.Mark(StrL("characters"));
         return result;
     }
 
@@ -559,6 +603,7 @@ class EnginePdfium : public EngineBase {
     TocTree* GetToc() override {
         ScopedMutex lock(&gPdfiumLock);
         if (!tocLoaded) {
+            PdfiumProfile profile(StrL("outline"));
             int budget = 4096, id = 0;
             auto* root = AllocTocItem(arena, {}, 0);
             root->child = ReadBookmarks(gPdfium.FPDFBookmark_GetFirstChild(doc, nullptr), root, 0, budget, id);
@@ -566,6 +611,7 @@ class EnginePdfium : public EngineBase {
                 toc = AllocTocTree(arena, root);
             }
             tocLoaded = true;
+            profile.Mark(StrL("read"));
         }
         return toc;
     }

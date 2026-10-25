@@ -1,0 +1,1680 @@
+{
+  "baseCommit": "c80d298c40a7a543a04d8503a112c06e5eabda41",
+  "note": "Release baselines use the c80d298c4 implementation. Debug diagnostics add optional timing only. Font-info v2 is a standalone probe experiment and was rejected; the application keeps its default font policy.",
+  "corpus": {
+    "source": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+    "sourceSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+    "tool": "D:\\solokpdf\\out\\solokpdf-portable\\sumatrapdf-tool.exe",
+    "toolSha256": "9f67224758bb0000ac3be8dc7f1232f1501f25c058d7959966e4be4d32a55a0d",
+    "commands": [
+      [
+        "D:\\solokpdf\\out\\solokpdf-portable\\sumatrapdf-tool.exe",
+        "merge",
+        "-o",
+        "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+        "-O",
+        "reproducible",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15"
+      ],
+      [
+        "D:\\solokpdf\\out\\solokpdf-portable\\sumatrapdf-tool.exe",
+        "draw",
+        "-q",
+        "-r",
+        "144",
+        "-c",
+        "gray",
+        "-F",
+        "pclm",
+        "-o",
+        "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+        "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "1-15"
+      ]
+    ],
+    "note": "Derived size/raster stress fixtures, not independent papers or real scans. Repeated content adds no independent font diversity; merge does not preserve the original outline. No PDFs are redistributed.",
+    "files": [
+      {
+        "file": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+        "bytes": 41387517,
+        "sha256": "cd9eee188e4235880c0f11446d2718f4018029577ac8d07aa9b3eed3e3e72310"
+      },
+      {
+        "file": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+        "bytes": 2648331,
+        "sha256": "aead3c8ad9554b38028c5cec2339eac052ca5947501cabe7e8bab679df6bce5d"
+      }
+    ],
+    "regenerationCheck": {
+      "files": [
+        {
+          "file": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+          "bytes": 41393953,
+          "sha256": "faa13a1412207cdd5356efe5740313bd020258c500280a99b7f72cefb0feb53c"
+        },
+        {
+          "file": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+          "bytes": 2648331,
+          "sha256": "aead3c8ad9554b38028c5cec2339eac052ca5947501cabe7e8bab679df6bce5d"
+        }
+      ],
+      "note": "Vector regeneration changed bytes despite the reproducible writer option. Measured input copies were restored; use their hashes for comparisons."
+    }
+  },
+  "baselines": [
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+      "inputSha256": "cd9eee188e4235880c0f11446d2718f4018029577ac8d07aa9b3eed3e3e72310",
+      "binaries": [
+        {
+          "name": "integrated-mupdf",
+          "exe": "D:\\solokpdf\\out\\solokpdf-portable\\SolokPDF.exe",
+          "engine": "mupdf",
+          "sha256": "d6580af8a00c6beff0bc48f7d96d679c48239c3b549efcbf393f2ea02cf351d7",
+          "dependencies": [
+            {
+              "file": "D:\\solokpdf\\out\\solokpdf-portable\\pdfium.dll",
+              "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+            },
+            {
+              "file": "D:\\solokpdf\\out\\solokpdf-portable\\libsumatrapdf.dll",
+              "sha256": "9fc626701c4aa0b413eb21367e3abdfebcff9a0e91c11e4088959202a0eda178"
+            }
+          ]
+        },
+        {
+          "name": "integrated-pdfium",
+          "exe": "D:\\solokpdf\\out\\solokpdf-portable\\SolokPDF.exe",
+          "engine": "pdfium",
+          "sha256": "d6580af8a00c6beff0bc48f7d96d679c48239c3b549efcbf393f2ea02cf351d7",
+          "dependencies": [
+            {
+              "file": "D:\\solokpdf\\out\\solokpdf-portable\\pdfium.dll",
+              "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+            },
+            {
+              "file": "D:\\solokpdf\\out\\solokpdf-portable\\libsumatrapdf.dll",
+              "sha256": "9fc626701c4aa0b413eb21367e3abdfebcff9a0e91c11e4088959202a0eda178"
+            }
+          ]
+        }
+      ],
+      "conditions": "Release x64; application PDBs temporarily unavailable for all variants; same 900x1000 window; 100% virtual zoom; fresh isolated settings; process starts, warm OS file cache; request-to-render-idle includes control/polling/UI work; not input-to-photon latency; memory is whole-process; fixed variant order",
+      "results": [
+        {
+          "variant": "integrated-mupdf",
+          "run": 0,
+          "tabs": 1,
+          "control_connected_ms": 3813.9676999999974,
+          "first_render_idle_ms": 4163.473999999998,
+          "page4_request_to_idle_ms": 76.14080000000104,
+          "scroll_12_lines_to_idle_ms": 465.46810000000187,
+          "first_memory": {
+            "peakWorkingSetBytes": 143319040,
+            "workingSetBytes": 125628416,
+            "privateBytes": 94322688
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 147210240,
+            "workingSetBytes": 147070976,
+            "privateBytes": 110260224
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 0,
+          "tabs": 4,
+          "control_connected_ms": 1582.5067000000017,
+          "first_render_idle_ms": 1778.0275000000001,
+          "page4_request_to_idle_ms": 43.15780000000086,
+          "scroll_12_lines_to_idle_ms": 456.190300000002,
+          "first_memory": {
+            "peakWorkingSetBytes": 186064896,
+            "workingSetBytes": 186064896,
+            "privateBytes": 141971456
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 195637248,
+            "workingSetBytes": 195637248,
+            "privateBytes": 138604544
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 0,
+          "tabs": 1,
+          "control_connected_ms": 1972.5828999999976,
+          "first_render_idle_ms": 2071.7901999999995,
+          "page4_request_to_idle_ms": 55.878499999998894,
+          "scroll_12_lines_to_idle_ms": 496.89980000000287,
+          "first_memory": {
+            "peakWorkingSetBytes": 145584128,
+            "workingSetBytes": 134492160,
+            "privateBytes": 107204608
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 160501760,
+            "workingSetBytes": 150507520,
+            "privateBytes": 122929152
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 0,
+          "tabs": 4,
+          "control_connected_ms": 2299.8891000000003,
+          "first_render_idle_ms": 2700.909099999997,
+          "page4_request_to_idle_ms": 58.621399999996356,
+          "scroll_12_lines_to_idle_ms": 603.0489999999991,
+          "first_memory": {
+            "peakWorkingSetBytes": 209620992,
+            "workingSetBytes": 209473536,
+            "privateBytes": 182116352
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 230662144,
+            "workingSetBytes": 209199104,
+            "privateBytes": 181198848
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 1,
+          "tabs": 1,
+          "control_connected_ms": 1718.828300000001,
+          "first_render_idle_ms": 1853.266300000003,
+          "page4_request_to_idle_ms": 42.238499999999476,
+          "scroll_12_lines_to_idle_ms": 543.2591999999931,
+          "first_memory": {
+            "peakWorkingSetBytes": 143724544,
+            "workingSetBytes": 143724544,
+            "privateBytes": 112451584
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 153841664,
+            "workingSetBytes": 134041600,
+            "privateBytes": 97484800
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 1,
+          "tabs": 4,
+          "control_connected_ms": 1961.1068000000014,
+          "first_render_idle_ms": 2218.674500000001,
+          "page4_request_to_idle_ms": 44.73730000000069,
+          "scroll_12_lines_to_idle_ms": 624.328300000001,
+          "first_memory": {
+            "peakWorkingSetBytes": 185810944,
+            "workingSetBytes": 174399488,
+            "privateBytes": 124841984
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 198504448,
+            "workingSetBytes": 189579264,
+            "privateBytes": 132599808
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 1,
+          "tabs": 1,
+          "control_connected_ms": 1972.7249999999985,
+          "first_render_idle_ms": 2107.087099999997,
+          "page4_request_to_idle_ms": 52.500599999999395,
+          "scroll_12_lines_to_idle_ms": 593.5031999999992,
+          "first_memory": {
+            "peakWorkingSetBytes": 145063936,
+            "workingSetBytes": 135659520,
+            "privateBytes": 108388352
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 161124352,
+            "workingSetBytes": 151105536,
+            "privateBytes": 123523072
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 1,
+          "tabs": 4,
+          "control_connected_ms": 2351.977300000006,
+          "first_render_idle_ms": 2720.035800000005,
+          "page4_request_to_idle_ms": 53.42389999999432,
+          "scroll_12_lines_to_idle_ms": 620.0471000000034,
+          "first_memory": {
+            "peakWorkingSetBytes": 202305536,
+            "workingSetBytes": 202158080,
+            "privateBytes": 174923776
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 223395840,
+            "workingSetBytes": 208474112,
+            "privateBytes": 180523008
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 2,
+          "tabs": 1,
+          "control_connected_ms": 1653.0699999999997,
+          "first_render_idle_ms": 1818.1252000000022,
+          "page4_request_to_idle_ms": 43.67519999999786,
+          "scroll_12_lines_to_idle_ms": 620.0960999999952,
+          "first_memory": {
+            "peakWorkingSetBytes": 143908864,
+            "workingSetBytes": 143908864,
+            "privateBytes": 112672768
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 153575424,
+            "workingSetBytes": 133791744,
+            "privateBytes": 97001472
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 2,
+          "tabs": 4,
+          "control_connected_ms": 1906.1924999999974,
+          "first_render_idle_ms": 2210.9240999999965,
+          "page4_request_to_idle_ms": 48.49409999999625,
+          "scroll_12_lines_to_idle_ms": 587.1442999999999,
+          "first_memory": {
+            "peakWorkingSetBytes": 183713792,
+            "workingSetBytes": 172195840,
+            "privateBytes": 124039168
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 196395008,
+            "workingSetBytes": 188866560,
+            "privateBytes": 131969024
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 2,
+          "tabs": 1,
+          "control_connected_ms": 1841.7837999999974,
+          "first_render_idle_ms": 1983.8957999999984,
+          "page4_request_to_idle_ms": 50.18839999999909,
+          "scroll_12_lines_to_idle_ms": 649.7891999999993,
+          "first_memory": {
+            "peakWorkingSetBytes": 145866752,
+            "workingSetBytes": 145661952,
+            "privateBytes": 118337536
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 166932480,
+            "workingSetBytes": 142036992,
+            "privateBytes": 114384896
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 2,
+          "tabs": 4,
+          "control_connected_ms": 2156.5141000000003,
+          "first_render_idle_ms": 2477.456600000005,
+          "page4_request_to_idle_ms": 50.428799999994226,
+          "scroll_12_lines_to_idle_ms": 584.0991999999969,
+          "first_memory": {
+            "peakWorkingSetBytes": 208584704,
+            "workingSetBytes": 208379904,
+            "privateBytes": 181243904
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 229642240,
+            "workingSetBytes": 208785408,
+            "privateBytes": 180981760
+          }
+        }
+      ]
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+      "inputSha256": "aead3c8ad9554b38028c5cec2339eac052ca5947501cabe7e8bab679df6bce5d",
+      "binaries": [
+        {
+          "name": "integrated-mupdf",
+          "exe": "D:\\solokpdf\\out\\solokpdf-portable\\SolokPDF.exe",
+          "engine": "mupdf",
+          "sha256": "d6580af8a00c6beff0bc48f7d96d679c48239c3b549efcbf393f2ea02cf351d7",
+          "dependencies": [
+            {
+              "file": "D:\\solokpdf\\out\\solokpdf-portable\\pdfium.dll",
+              "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+            },
+            {
+              "file": "D:\\solokpdf\\out\\solokpdf-portable\\libsumatrapdf.dll",
+              "sha256": "9fc626701c4aa0b413eb21367e3abdfebcff9a0e91c11e4088959202a0eda178"
+            }
+          ]
+        },
+        {
+          "name": "integrated-pdfium",
+          "exe": "D:\\solokpdf\\out\\solokpdf-portable\\SolokPDF.exe",
+          "engine": "pdfium",
+          "sha256": "d6580af8a00c6beff0bc48f7d96d679c48239c3b549efcbf393f2ea02cf351d7",
+          "dependencies": [
+            {
+              "file": "D:\\solokpdf\\out\\solokpdf-portable\\pdfium.dll",
+              "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+            },
+            {
+              "file": "D:\\solokpdf\\out\\solokpdf-portable\\libsumatrapdf.dll",
+              "sha256": "9fc626701c4aa0b413eb21367e3abdfebcff9a0e91c11e4088959202a0eda178"
+            }
+          ]
+        }
+      ],
+      "conditions": "Release x64; application PDBs temporarily unavailable for all variants; same 900x1000 window; 100% virtual zoom; fresh isolated settings; process starts, warm OS file cache; request-to-render-idle includes control/polling/UI work; not input-to-photon latency; memory is whole-process; fixed variant order",
+      "results": [
+        {
+          "variant": "integrated-mupdf",
+          "run": 0,
+          "tabs": 1,
+          "control_connected_ms": 1629.2415999999998,
+          "first_render_idle_ms": 1768.4427,
+          "page4_request_to_idle_ms": 36.61970000000019,
+          "scroll_12_lines_to_idle_ms": 605.0348000000004,
+          "first_memory": {
+            "peakWorkingSetBytes": 134672384,
+            "workingSetBytes": 134672384,
+            "privateBytes": 108142592
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 143994880,
+            "workingSetBytes": 130445312,
+            "privateBytes": 102559744
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 0,
+          "tabs": 4,
+          "control_connected_ms": 1840.6238000000003,
+          "first_render_idle_ms": 2272.0938000000006,
+          "page4_request_to_idle_ms": 49.44920000000093,
+          "scroll_12_lines_to_idle_ms": 643.0985000000001,
+          "first_memory": {
+            "peakWorkingSetBytes": 169668608,
+            "workingSetBytes": 155951104,
+            "privateBytes": 124768256
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 178413568,
+            "workingSetBytes": 170713088,
+            "privateBytes": 134500352
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 0,
+          "tabs": 1,
+          "control_connected_ms": 1455.1800999999996,
+          "first_render_idle_ms": 1625.1605,
+          "page4_request_to_idle_ms": 36.660399999998845,
+          "scroll_12_lines_to_idle_ms": 681.0802000000003,
+          "first_memory": {
+            "peakWorkingSetBytes": 122286080,
+            "workingSetBytes": 122081280,
+            "privateBytes": 97964032
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 130240512,
+            "workingSetBytes": 126406656,
+            "privateBytes": 102146048
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 0,
+          "tabs": 4,
+          "control_connected_ms": 1719.9075999999986,
+          "first_render_idle_ms": 2034.8616000000002,
+          "page4_request_to_idle_ms": 100.4927000000007,
+          "scroll_12_lines_to_idle_ms": 515.2574000000004,
+          "first_memory": {
+            "peakWorkingSetBytes": 159776768,
+            "workingSetBytes": 159752192,
+            "privateBytes": 135897088
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 169967616,
+            "workingSetBytes": 168177664,
+            "privateBytes": 143609856
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 1,
+          "tabs": 1,
+          "control_connected_ms": 1458.515800000001,
+          "first_render_idle_ms": 1629.261699999999,
+          "page4_request_to_idle_ms": 38.21589999999924,
+          "scroll_12_lines_to_idle_ms": 572.4157999999989,
+          "first_memory": {
+            "peakWorkingSetBytes": 135188480,
+            "workingSetBytes": 135188480,
+            "privateBytes": 108748800
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 144449536,
+            "workingSetBytes": 130191360,
+            "privateBytes": 102338560
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 1,
+          "tabs": 4,
+          "control_connected_ms": 1780.9756000000016,
+          "first_render_idle_ms": 2042.050000000003,
+          "page4_request_to_idle_ms": 45.55710000000181,
+          "scroll_12_lines_to_idle_ms": 589.104800000001,
+          "first_memory": {
+            "peakWorkingSetBytes": 169680896,
+            "workingSetBytes": 155136000,
+            "privateBytes": 123904000
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 177094656,
+            "workingSetBytes": 177094656,
+            "privateBytes": 142004224
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 1,
+          "tabs": 1,
+          "control_connected_ms": 1452.8786,
+          "first_render_idle_ms": 1634.9149999999972,
+          "page4_request_to_idle_ms": 35.20939999999973,
+          "scroll_12_lines_to_idle_ms": 719.6700999999994,
+          "first_memory": {
+            "peakWorkingSetBytes": 121929728,
+            "workingSetBytes": 121724928,
+            "privateBytes": 97591296
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 130048000,
+            "workingSetBytes": 126242816,
+            "privateBytes": 101961728
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 1,
+          "tabs": 4,
+          "control_connected_ms": 1728.4235999999983,
+          "first_render_idle_ms": 2033.6960999999974,
+          "page4_request_to_idle_ms": 121.59609999999884,
+          "scroll_12_lines_to_idle_ms": 535.8434000000016,
+          "first_memory": {
+            "peakWorkingSetBytes": 154046464,
+            "workingSetBytes": 151195648,
+            "privateBytes": 127201280
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 168538112,
+            "workingSetBytes": 165318656,
+            "privateBytes": 140742656
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 2,
+          "tabs": 1,
+          "control_connected_ms": 1456.1301000000021,
+          "first_render_idle_ms": 1623.1814000000013,
+          "page4_request_to_idle_ms": 43.039600000000064,
+          "scroll_12_lines_to_idle_ms": 605.8106000000007,
+          "first_memory": {
+            "peakWorkingSetBytes": 136290304,
+            "workingSetBytes": 136290304,
+            "privateBytes": 109912064
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 145674240,
+            "workingSetBytes": 130633728,
+            "privateBytes": 102813696
+          }
+        },
+        {
+          "variant": "integrated-mupdf",
+          "run": 2,
+          "tabs": 4,
+          "control_connected_ms": 1960.6583999999966,
+          "first_render_idle_ms": 2368.0279999999984,
+          "page4_request_to_idle_ms": 39.7216999999946,
+          "scroll_12_lines_to_idle_ms": 644.1999999999971,
+          "first_memory": {
+            "peakWorkingSetBytes": 166281216,
+            "workingSetBytes": 161583104,
+            "privateBytes": 127778816
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 176144384,
+            "workingSetBytes": 171577344,
+            "privateBytes": 135630848
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 2,
+          "tabs": 1,
+          "control_connected_ms": 2334.7221000000063,
+          "first_render_idle_ms": 2499.8875000000044,
+          "page4_request_to_idle_ms": 34.15060000000085,
+          "scroll_12_lines_to_idle_ms": 607.0797999999995,
+          "first_memory": {
+            "peakWorkingSetBytes": 122490880,
+            "workingSetBytes": 122286080,
+            "privateBytes": 98234368
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 130641920,
+            "workingSetBytes": 126361600,
+            "privateBytes": 102174720
+          }
+        },
+        {
+          "variant": "integrated-pdfium",
+          "run": 2,
+          "tabs": 4,
+          "control_connected_ms": 1961.6615999999995,
+          "first_render_idle_ms": 2284.887499999997,
+          "page4_request_to_idle_ms": 134.76429999999527,
+          "scroll_12_lines_to_idle_ms": 532.577099999995,
+          "first_memory": {
+            "peakWorkingSetBytes": 158965760,
+            "workingSetBytes": 158760960,
+            "privateBytes": 134991872
+          },
+          "after_activating_all_tabs_memory": {
+            "peakWorkingSetBytes": 166993920,
+            "workingSetBytes": 166318080,
+            "privateBytes": 141885440
+          }
+        }
+      ]
+    }
+  ],
+  "diagnostic": {
+    "exe": "D:\\solokpdf\\out\\solokpdf-dev\\SolokPDF.exe",
+    "note": "Diagnostic Debug runs with logging; not a Release performance comparison.",
+    "results": [
+      {
+        "pdf": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "pages": 15,
+        "firstMemory": {
+          "peakWorkingSetBytes": 164364288,
+          "workingSetBytes": 164155392,
+          "privateBytes": 136323072
+        },
+        "samples": [
+          {
+            "page": 4,
+            "memory": {
+              "peakWorkingSetBytes": 169099264,
+              "workingSetBytes": 169086976,
+              "privateBytes": 144568320
+            }
+          },
+          {
+            "page": 8,
+            "memory": {
+              "peakWorkingSetBytes": 186232832,
+              "workingSetBytes": 176267264,
+              "privateBytes": 148217856
+            }
+          },
+          {
+            "page": 15,
+            "memory": {
+              "peakWorkingSetBytes": 189116416,
+              "workingSetBytes": 189100032,
+              "privateBytes": 161067008
+            }
+          },
+          {
+            "page": 1,
+            "memory": {
+              "peakWorkingSetBytes": 189140992,
+              "workingSetBytes": 189140992,
+              "privateBytes": 161107968
+            }
+          }
+        ]
+      },
+      {
+        "pdf": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+        "pages": 300,
+        "firstMemory": {
+          "peakWorkingSetBytes": 178745344,
+          "workingSetBytes": 178745344,
+          "privateBytes": 151142400
+        },
+        "samples": [
+          {
+            "page": 4,
+            "memory": {
+              "peakWorkingSetBytes": 202076160,
+              "workingSetBytes": 191864832,
+              "privateBytes": 164057088
+            }
+          },
+          {
+            "page": 150,
+            "memory": {
+              "peakWorkingSetBytes": 202076160,
+              "workingSetBytes": 199327744,
+              "privateBytes": 171524096
+            }
+          },
+          {
+            "page": 300,
+            "memory": {
+              "peakWorkingSetBytes": 210522112,
+              "workingSetBytes": 210522112,
+              "privateBytes": 182804480
+            }
+          },
+          {
+            "page": 1,
+            "memory": {
+              "peakWorkingSetBytes": 210612224,
+              "workingSetBytes": 210612224,
+              "privateBytes": 182829056
+            }
+          }
+        ]
+      },
+      {
+        "pdf": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+        "pages": 15,
+        "firstMemory": {
+          "peakWorkingSetBytes": 160456704,
+          "workingSetBytes": 160157696,
+          "privateBytes": 133169152
+        },
+        "samples": [
+          {
+            "page": 4,
+            "memory": {
+              "peakWorkingSetBytes": 172982272,
+              "workingSetBytes": 172982272,
+              "privateBytes": 145920000
+            }
+          },
+          {
+            "page": 8,
+            "memory": {
+              "peakWorkingSetBytes": 175239168,
+              "workingSetBytes": 175239168,
+              "privateBytes": 148180992
+            }
+          },
+          {
+            "page": 15,
+            "memory": {
+              "peakWorkingSetBytes": 176037888,
+              "workingSetBytes": 162328576,
+              "privateBytes": 135032832
+            }
+          },
+          {
+            "page": 1,
+            "memory": {
+              "peakWorkingSetBytes": 176037888,
+              "workingSetBytes": 163065856,
+              "privateBytes": 135745536
+            }
+          }
+        ]
+      }
+    ],
+    "exeSha256": "9049cf4944b872a39e9ee4f55eb68cab120bf0a19d6c802c4a4eaf344197e09b",
+    "traces": [
+      {
+        "pdf": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "phases": [
+          "PDFium profile: load thread=8464 page=0 lock=0.000 ms",
+          "PDFium profile: load thread=8464 page=0 runtime=1.388 ms",
+          "PDFium profile: load thread=8464 page=0 document=39.498 ms",
+          "PDFium profile: outline thread=8464 page=0 read=0.474 ms",
+          "PDFium profile: render thread=22684 page=1 setup=0.030 ms",
+          "PDFium profile: render thread=8456 page=2 setup=0.039 ms",
+          "PDFium profile: render thread=22684 page=1 lock=0.001 ms",
+          "PDFium profile: render thread=22684 page=1 page=368.811 ms",
+          "PDFium profile: render thread=22684 page=1 bitmap=8.869 ms",
+          "PDFium profile: render thread=8456 page=2 lock=384.876 ms",
+          "PDFium profile: render thread=8456 page=2 page=6.330 ms",
+          "PDFium profile: render thread=8456 page=2 bitmap=8.847 ms",
+          "PDFium profile: load thread=20092 page=0 lock=0.000 ms",
+          "PDFium profile: load thread=20092 page=0 runtime=0.030 ms",
+          "PDFium profile: load thread=20092 page=0 document=23.040 ms",
+          "PDFium profile: render thread=20092 page=1 setup=0.022 ms",
+          "PDFium profile: render thread=20092 page=1 lock=0.001 ms",
+          "PDFium profile: render thread=20092 page=1 page=3.171 ms",
+          "PDFium profile: render thread=20092 page=1 bitmap=1.837 ms",
+          "PDFium profile: render thread=8456 page=4 setup=0.025 ms",
+          "PDFium profile: render thread=8456 page=4 lock=0.001 ms",
+          "PDFium profile: render thread=22684 page=5 setup=0.017 ms",
+          "PDFium profile: render thread=8456 page=4 page=6.636 ms",
+          "PDFium profile: render thread=8456 page=4 bitmap=15.127 ms",
+          "PDFium profile: render thread=22684 page=5 lock=18.853 ms",
+          "PDFium profile: render thread=22684 page=5 page=0.818 ms",
+          "PDFium profile: render thread=22684 page=5 bitmap=4.912 ms",
+          "PDFium profile: render thread=8456 page=3 setup=0.050 ms",
+          "PDFium profile: render thread=8456 page=3 lock=0.001 ms",
+          "PDFium profile: render thread=8456 page=3 page=1.454 ms",
+          "PDFium profile: render thread=8456 page=3 bitmap=21.817 ms",
+          "PDFium profile: render thread=8456 page=8 setup=0.016 ms",
+          "PDFium profile: render thread=8456 page=8 lock=0.001 ms",
+          "PDFium profile: render thread=22684 page=9 setup=0.017 ms",
+          "PDFium profile: render thread=8456 page=8 page=4.012 ms",
+          "PDFium profile: render thread=8456 page=8 bitmap=4.875 ms",
+          "PDFium profile: render thread=22684 page=9 lock=11.719 ms",
+          "PDFium profile: render thread=22684 page=9 page=0.590 ms",
+          "PDFium profile: render thread=22684 page=9 bitmap=4.933 ms",
+          "PDFium profile: render thread=8456 page=7 setup=0.021 ms",
+          "PDFium profile: render thread=8456 page=7 lock=0.001 ms",
+          "PDFium profile: render thread=8456 page=7 page=0.831 ms",
+          "PDFium profile: render thread=8456 page=7 bitmap=4.694 ms",
+          "PDFium profile: render thread=22684 page=15 setup=0.016 ms",
+          "PDFium profile: render thread=22684 page=15 lock=0.001 ms",
+          "PDFium profile: render thread=8456 page=14 setup=0.016 ms",
+          "PDFium profile: render thread=22684 page=15 page=37.633 ms",
+          "PDFium profile: render thread=22684 page=15 bitmap=19.797 ms",
+          "PDFium profile: render thread=8456 page=14 lock=54.379 ms",
+          "PDFium profile: render thread=8456 page=14 page=30.350 ms",
+          "PDFium profile: render thread=8456 page=14 bitmap=16.779 ms",
+          "PDFium profile: render thread=22684 page=1 setup=0.023 ms",
+          "PDFium profile: render thread=22684 page=1 lock=0.001 ms",
+          "PDFium profile: render thread=8456 page=2 setup=0.028 ms",
+          "PDFium profile: render thread=22684 page=1 page=0.435 ms",
+          "PDFium profile: render thread=22684 page=1 bitmap=3.033 ms",
+          "PDFium profile: render thread=8456 page=2 lock=5.954 ms",
+          "PDFium profile: render thread=8456 page=2 page=0.802 ms",
+          "PDFium profile: render thread=8456 page=2 bitmap=4.452 ms"
+        ]
+      },
+      {
+        "pdf": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+        "phases": [
+          "PDFium profile: load thread=31112 page=0 lock=0.000 ms",
+          "PDFium profile: load thread=31112 page=0 runtime=1.187 ms",
+          "PDFium profile: load thread=31112 page=0 document=12.513 ms",
+          "PDFium profile: outline thread=31112 page=0 read=3.146 ms",
+          "PDFium profile: render thread=31132 page=2 setup=0.045 ms",
+          "PDFium profile: render thread=31132 page=2 lock=0.000 ms",
+          "PDFium profile: render thread=26780 page=1 setup=0.028 ms",
+          "PDFium profile: render thread=31132 page=2 page=3.847 ms",
+          "PDFium profile: render thread=31132 page=2 bitmap=11.238 ms",
+          "PDFium profile: render thread=26780 page=1 lock=17.370 ms",
+          "PDFium profile: render thread=26780 page=1 page=352.620 ms",
+          "PDFium profile: render thread=26780 page=1 bitmap=7.462 ms",
+          "PDFium profile: load thread=21012 page=0 lock=356.473 ms",
+          "PDFium profile: load thread=21012 page=0 runtime=0.023 ms",
+          "PDFium profile: load thread=21012 page=0 document=12.704 ms",
+          "PDFium profile: render thread=21012 page=1 setup=0.016 ms",
+          "PDFium profile: render thread=21012 page=1 lock=0.001 ms",
+          "PDFium profile: render thread=21012 page=1 page=3.099 ms",
+          "PDFium profile: render thread=21012 page=1 bitmap=2.045 ms",
+          "PDFium profile: render thread=1416 page=4 setup=0.023 ms",
+          "PDFium profile: render thread=31132 page=5 setup=0.033 ms",
+          "PDFium profile: render thread=1416 page=4 lock=0.002 ms",
+          "PDFium profile: render thread=1416 page=4 page=2.099 ms",
+          "PDFium profile: render thread=1416 page=4 bitmap=14.868 ms",
+          "PDFium profile: render thread=31132 page=5 lock=25.105 ms",
+          "PDFium profile: render thread=31132 page=5 page=1.048 ms",
+          "PDFium profile: render thread=31132 page=5 bitmap=5.447 ms",
+          "PDFium profile: render thread=26780 page=3 setup=0.043 ms",
+          "PDFium profile: render thread=26780 page=3 lock=0.001 ms",
+          "PDFium profile: render thread=26780 page=3 page=0.574 ms",
+          "PDFium profile: render thread=26780 page=3 bitmap=20.816 ms",
+          "PDFium profile: render thread=31132 page=151 setup=0.014 ms",
+          "PDFium profile: render thread=1416 page=150 setup=0.021 ms",
+          "PDFium profile: render thread=31132 page=151 lock=0.001 ms",
+          "PDFium profile: render thread=31132 page=151 page=3.030 ms",
+          "PDFium profile: render thread=31132 page=151 bitmap=8.242 ms",
+          "PDFium profile: render thread=1416 page=150 lock=18.383 ms",
+          "PDFium profile: render thread=1416 page=150 page=24.804 ms",
+          "PDFium profile: render thread=1416 page=150 bitmap=22.626 ms",
+          "PDFium profile: render thread=26780 page=149 setup=0.011 ms",
+          "PDFium profile: render thread=26780 page=149 lock=0.001 ms",
+          "PDFium profile: render thread=26780 page=149 page=23.761 ms",
+          "PDFium profile: render thread=26780 page=149 bitmap=16.302 ms",
+          "PDFium profile: render thread=31132 page=300 setup=0.022 ms",
+          "PDFium profile: render thread=31132 page=300 lock=0.001 ms",
+          "PDFium profile: render thread=1416 page=299 setup=0.016 ms",
+          "PDFium profile: render thread=31132 page=300 page=23.087 ms",
+          "PDFium profile: render thread=31132 page=300 bitmap=22.453 ms",
+          "PDFium profile: render thread=1416 page=299 lock=43.567 ms",
+          "PDFium profile: render thread=1416 page=299 page=23.248 ms",
+          "PDFium profile: render thread=1416 page=299 bitmap=18.691 ms",
+          "PDFium profile: render thread=31132 page=1 setup=0.027 ms",
+          "PDFium profile: render thread=26780 page=2 setup=0.016 ms",
+          "PDFium profile: render thread=31132 page=1 lock=0.001 ms",
+          "PDFium profile: render thread=31132 page=1 page=0.377 ms",
+          "PDFium profile: render thread=31132 page=1 bitmap=3.486 ms",
+          "PDFium profile: render thread=26780 page=2 lock=13.474 ms",
+          "PDFium profile: render thread=26780 page=2 page=0.468 ms",
+          "PDFium profile: render thread=26780 page=2 bitmap=4.531 ms"
+        ]
+      },
+      {
+        "pdf": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+        "phases": [
+          "PDFium profile: load thread=37696 page=0 lock=0.000 ms",
+          "PDFium profile: load thread=37696 page=0 runtime=0.890 ms",
+          "PDFium profile: load thread=37696 page=0 document=10.599 ms",
+          "PDFium profile: outline thread=37696 page=0 read=0.015 ms",
+          "PDFium profile: render thread=27248 page=1 setup=0.031 ms",
+          "PDFium profile: render thread=18008 page=2 setup=0.038 ms",
+          "PDFium profile: render thread=27248 page=1 lock=0.001 ms",
+          "PDFium profile: render thread=27248 page=1 page=2.054 ms",
+          "PDFium profile: render thread=27248 page=1 bitmap=8.995 ms",
+          "PDFium profile: render thread=18008 page=2 lock=15.201 ms",
+          "PDFium profile: render thread=18008 page=2 page=1.865 ms",
+          "PDFium profile: render thread=18008 page=2 bitmap=10.397 ms",
+          "PDFium profile: load thread=26068 page=0 lock=7.350 ms",
+          "PDFium profile: load thread=26068 page=0 runtime=0.047 ms",
+          "PDFium profile: load thread=26068 page=0 document=11.279 ms",
+          "PDFium profile: render thread=26068 page=1 setup=0.034 ms",
+          "PDFium profile: render thread=26068 page=1 lock=0.001 ms",
+          "PDFium profile: render thread=26068 page=1 page=1.808 ms",
+          "PDFium profile: render thread=26068 page=1 bitmap=4.226 ms",
+          "PDFium profile: render thread=27248 page=5 setup=0.044 ms",
+          "PDFium profile: render thread=10404 page=4 setup=0.058 ms",
+          "PDFium profile: render thread=27248 page=5 lock=0.001 ms",
+          "PDFium profile: render thread=27248 page=5 page=2.288 ms",
+          "PDFium profile: render thread=27248 page=5 bitmap=9.467 ms",
+          "PDFium profile: render thread=10404 page=4 lock=20.179 ms",
+          "PDFium profile: render thread=10404 page=4 page=1.978 ms",
+          "PDFium profile: render thread=10404 page=4 bitmap=9.301 ms",
+          "PDFium profile: render thread=18008 page=3 setup=0.022 ms",
+          "PDFium profile: render thread=18008 page=3 lock=0.002 ms",
+          "PDFium profile: render thread=18008 page=3 page=2.085 ms",
+          "PDFium profile: render thread=18008 page=3 bitmap=8.409 ms",
+          "PDFium profile: render thread=18008 page=8 setup=0.012 ms",
+          "PDFium profile: render thread=27248 page=9 setup=0.019 ms",
+          "PDFium profile: render thread=18008 page=8 lock=0.001 ms",
+          "PDFium profile: render thread=18008 page=8 page=1.671 ms",
+          "PDFium profile: render thread=18008 page=8 bitmap=9.811 ms",
+          "PDFium profile: render thread=27248 page=9 lock=19.507 ms",
+          "PDFium profile: render thread=27248 page=9 page=1.639 ms",
+          "PDFium profile: render thread=27248 page=9 bitmap=8.958 ms",
+          "PDFium profile: render thread=10404 page=7 setup=0.014 ms",
+          "PDFium profile: render thread=10404 page=7 lock=0.001 ms",
+          "PDFium profile: render thread=10404 page=7 page=1.583 ms",
+          "PDFium profile: render thread=10404 page=7 bitmap=8.618 ms",
+          "PDFium profile: render thread=18008 page=15 setup=0.052 ms",
+          "PDFium profile: render thread=18008 page=15 lock=0.001 ms",
+          "PDFium profile: render thread=27248 page=14 setup=0.021 ms",
+          "PDFium profile: render thread=18008 page=15 page=1.558 ms",
+          "PDFium profile: render thread=18008 page=15 bitmap=7.366 ms",
+          "PDFium profile: render thread=27248 page=14 lock=12.282 ms",
+          "PDFium profile: render thread=27248 page=14 page=1.609 ms",
+          "PDFium profile: render thread=27248 page=14 bitmap=8.455 ms",
+          "PDFium profile: render thread=10404 page=1 setup=0.026 ms",
+          "PDFium profile: render thread=10404 page=1 lock=0.001 ms",
+          "PDFium profile: render thread=18008 page=2 setup=0.019 ms",
+          "PDFium profile: render thread=10404 page=1 page=0.447 ms",
+          "PDFium profile: render thread=10404 page=1 bitmap=7.764 ms",
+          "PDFium profile: render thread=18008 page=2 lock=10.891 ms",
+          "PDFium profile: render thread=18008 page=2 page=0.568 ms",
+          "PDFium profile: render thread=18008 page=2 bitmap=8.851 ms"
+        ]
+      }
+    ]
+  },
+  "fontExperiment": {
+    "probeSha256": "017dcc2bfadb83805479f77e27e3c9681c4feb85ca96a5972552b364f16bf85e",
+    "pdfiumSha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f",
+    "names": [
+      "Times-Roman",
+      "Times-Bold",
+      "Times-Italic",
+      "Times-BoldItalic",
+      "Helvetica",
+      "Helvetica-Bold",
+      "Helvetica-Oblique",
+      "Helvetica-BoldOblique",
+      "Courier",
+      "Courier-Bold",
+      "Courier-Oblique",
+      "Courier-BoldOblique",
+      "Symbol",
+      "ZapfDingbats",
+      "Arial",
+      "ArialMT",
+      "Arial-BoldMT",
+      "Arial-BoldItalicMT",
+      "Calibri",
+      "Calibri-Bold",
+      "Cambria",
+      "CambriaMath",
+      "Consolas",
+      "CourierNewPSMT",
+      "TimesNewRomanPSMT",
+      "TimesNewRomanPS-BoldMT",
+      "SegoeUI",
+      "SegoeUI-Bold",
+      "Meiryo",
+      "MS-Gothic"
+    ],
+    "results": [
+      {
+        "run": 0,
+        "name": "paper-1",
+        "pdf": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "pdfSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+        "page": 1,
+        "identical": true,
+        "changedFonts": [],
+        "rows": [
+          {
+            "version": 1,
+            "sha256": "55e96281f4852691e7435a468dffd469e15f5d3a3299622a026162f209b11c63",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7286784,
+                "private_bytes": 3526656,
+                "peak_working_set_bytes": 7286784
+              },
+              "init_ms": 2.3745,
+              "document_load_ms": 0.999,
+              "page_load_ms": 337.4176,
+              "page": 1,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [5.6717, 1.5324, 1.4762],
+              "after_render": {
+                "working_set_bytes": 16658432,
+                "private_bytes": 10518528,
+                "peak_working_set_bytes": 16658432
+              },
+              "png_ms": 19.2207,
+              "png_saved": true
+            }
+          },
+          {
+            "version": 2,
+            "sha256": "55e96281f4852691e7435a468dffd469e15f5d3a3299622a026162f209b11c63",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7294976,
+                "private_bytes": 3530752,
+                "peak_working_set_bytes": 7294976
+              },
+              "init_ms": 3.205,
+              "document_load_ms": 0.7973,
+              "page_load_ms": 4.3795,
+              "page": 1,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [5.5155, 1.5105, 1.491],
+              "after_render": {
+                "working_set_bytes": 16031744,
+                "private_bytes": 9945088,
+                "peak_working_set_bytes": 16031744
+              },
+              "png_ms": 18.8462,
+              "png_saved": true
+            }
+          }
+        ]
+      },
+      {
+        "run": 0,
+        "name": "paper-4",
+        "pdf": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "pdfSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+        "page": 4,
+        "identical": true,
+        "changedFonts": [],
+        "rows": [
+          {
+            "version": 1,
+            "sha256": "c08543e199458435b5bd990a40c0c869478a86babcb2d284b3c1baf994e57f42",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7286784,
+                "private_bytes": 3514368,
+                "peak_working_set_bytes": 7286784
+              },
+              "init_ms": 2.5455,
+              "document_load_ms": 0.7558,
+              "page_load_ms": 3.7899,
+              "page": 4,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [14.0116, 6.9282, 6.3902],
+              "after_render": {
+                "working_set_bytes": 21766144,
+                "private_bytes": 16678912,
+                "peak_working_set_bytes": 22941696
+              },
+              "png_ms": 18.8366,
+              "png_saved": true
+            }
+          },
+          {
+            "version": 2,
+            "sha256": "c08543e199458435b5bd990a40c0c869478a86babcb2d284b3c1baf994e57f42",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7290880,
+                "private_bytes": 3534848,
+                "peak_working_set_bytes": 7290880
+              },
+              "init_ms": 2.2926,
+              "document_load_ms": 0.78,
+              "page_load_ms": 4.2735,
+              "page": 4,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [13.7445, 6.6954, 6.6214],
+              "after_render": {
+                "working_set_bytes": 21676032,
+                "private_bytes": 16412672,
+                "peak_working_set_bytes": 22876160
+              },
+              "png_ms": 20.6048,
+              "png_saved": true
+            }
+          }
+        ]
+      },
+      {
+        "run": 0,
+        "name": "fonts",
+        "pdf": "D:\\solokpdf\\out\\solok-phase4-font-check\\fonts.pdf",
+        "pdfSha256": "e63ebcbc373b1afae908df26428a220f5355229c8402b76dc5a66386913fca3a",
+        "page": 1,
+        "identical": false,
+        "changedFonts": [
+          "Calibri",
+          "Calibri-Bold",
+          "Cambria",
+          "CambriaMath",
+          "Consolas",
+          "SegoeUI",
+          "SegoeUI-Bold",
+          "Meiryo",
+          "MS-Gothic"
+        ],
+        "rows": [
+          {
+            "version": 1,
+            "sha256": "b9aa24d4187cc024baa78ead3a65c281726450366bf900e5cc6378a9c88298e4",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7290880,
+                "private_bytes": 3526656,
+                "peak_working_set_bytes": 7290880
+              },
+              "init_ms": 1.742,
+              "document_load_ms": 0.1421,
+              "page_load_ms": 304.6994,
+              "page": 1,
+              "pages": 1,
+              "width": 816,
+              "height": 1627,
+              "render_ms": [7.8529, 1.313, 1.1552],
+              "after_render": {
+                "working_set_bytes": 54136832,
+                "private_bytes": 48103424,
+                "peak_working_set_bytes": 54136832
+              },
+              "png_ms": 25.0249,
+              "png_saved": true
+            }
+          },
+          {
+            "version": 2,
+            "sha256": "0af425c4c49a17637becdf9dfe7dff81c2c8b18e9260e4092ee758c36c33c08a",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7294976,
+                "private_bytes": 3538944,
+                "peak_working_set_bytes": 7294976
+              },
+              "init_ms": 2.2657,
+              "document_load_ms": 0.1545,
+              "page_load_ms": 15.0264,
+              "page": 1,
+              "pages": 1,
+              "width": 816,
+              "height": 1627,
+              "render_ms": [8.5452, 1.349, 1.3199],
+              "after_render": {
+                "working_set_bytes": 33259520,
+                "private_bytes": 27209728,
+                "peak_working_set_bytes": 33259520
+              },
+              "png_ms": 24.9008,
+              "png_saved": true
+            }
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "name": "paper-1",
+        "pdf": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "pdfSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+        "page": 1,
+        "identical": true,
+        "changedFonts": [],
+        "rows": [
+          {
+            "version": 1,
+            "sha256": "55e96281f4852691e7435a468dffd469e15f5d3a3299622a026162f209b11c63",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7286784,
+                "private_bytes": 3530752,
+                "peak_working_set_bytes": 7286784
+              },
+              "init_ms": 2.9521,
+              "document_load_ms": 0.7681,
+              "page_load_ms": 262.2407,
+              "page": 1,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [5.838, 1.5285, 1.4678],
+              "after_render": {
+                "working_set_bytes": 16662528,
+                "private_bytes": 10514432,
+                "peak_working_set_bytes": 16662528
+              },
+              "png_ms": 19.8048,
+              "png_saved": true
+            }
+          },
+          {
+            "version": 2,
+            "sha256": "55e96281f4852691e7435a468dffd469e15f5d3a3299622a026162f209b11c63",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7294976,
+                "private_bytes": 3543040,
+                "peak_working_set_bytes": 7294976
+              },
+              "init_ms": 2.6105,
+              "document_load_ms": 0.8227,
+              "page_load_ms": 3.6644,
+              "page": 1,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [6.1236, 1.5338, 1.5385],
+              "after_render": {
+                "working_set_bytes": 16084992,
+                "private_bytes": 9994240,
+                "peak_working_set_bytes": 16084992
+              },
+              "png_ms": 19.9498,
+              "png_saved": true
+            }
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "name": "paper-4",
+        "pdf": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "pdfSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+        "page": 4,
+        "identical": true,
+        "changedFonts": [],
+        "rows": [
+          {
+            "version": 1,
+            "sha256": "c08543e199458435b5bd990a40c0c869478a86babcb2d284b3c1baf994e57f42",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7286784,
+                "private_bytes": 3526656,
+                "peak_working_set_bytes": 7286784
+              },
+              "init_ms": 1.84,
+              "document_load_ms": 0.7897,
+              "page_load_ms": 3.7708,
+              "page": 4,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [14.5843, 7.6049, 7.186],
+              "after_render": {
+                "working_set_bytes": 21544960,
+                "private_bytes": 15572992,
+                "peak_working_set_bytes": 22880256
+              },
+              "png_ms": 20.0851,
+              "png_saved": true
+            }
+          },
+          {
+            "version": 2,
+            "sha256": "c08543e199458435b5bd990a40c0c869478a86babcb2d284b3c1baf994e57f42",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7294976,
+                "private_bytes": 3530752,
+                "peak_working_set_bytes": 7294976
+              },
+              "init_ms": 1.9057,
+              "document_load_ms": 0.7884,
+              "page_load_ms": 3.8439,
+              "page": 4,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [13.7622, 6.7426, 6.9844],
+              "after_render": {
+                "working_set_bytes": 21762048,
+                "private_bytes": 16670720,
+                "peak_working_set_bytes": 22937600
+              },
+              "png_ms": 19.522,
+              "png_saved": true
+            }
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "name": "fonts",
+        "pdf": "D:\\solokpdf\\out\\solok-phase4-font-check\\fonts.pdf",
+        "pdfSha256": "e63ebcbc373b1afae908df26428a220f5355229c8402b76dc5a66386913fca3a",
+        "page": 1,
+        "identical": false,
+        "changedFonts": [
+          "Calibri",
+          "Calibri-Bold",
+          "Cambria",
+          "CambriaMath",
+          "Consolas",
+          "SegoeUI",
+          "SegoeUI-Bold",
+          "Meiryo",
+          "MS-Gothic"
+        ],
+        "rows": [
+          {
+            "version": 1,
+            "sha256": "b9aa24d4187cc024baa78ead3a65c281726450366bf900e5cc6378a9c88298e4",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7294976,
+                "private_bytes": 3538944,
+                "peak_working_set_bytes": 7294976
+              },
+              "init_ms": 2.0957,
+              "document_load_ms": 0.1847,
+              "page_load_ms": 330.7629,
+              "page": 1,
+              "pages": 1,
+              "width": 816,
+              "height": 1627,
+              "render_ms": [7.9679, 1.2001, 1.2016],
+              "after_render": {
+                "working_set_bytes": 54177792,
+                "private_bytes": 48197632,
+                "peak_working_set_bytes": 54177792
+              },
+              "png_ms": 24.1424,
+              "png_saved": true
+            }
+          },
+          {
+            "version": 2,
+            "sha256": "0af425c4c49a17637becdf9dfe7dff81c2c8b18e9260e4092ee758c36c33c08a",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7294976,
+                "private_bytes": 3534848,
+                "peak_working_set_bytes": 7294976
+              },
+              "init_ms": 1.7866,
+              "document_load_ms": 0.1556,
+              "page_load_ms": 33.9612,
+              "page": 1,
+              "pages": 1,
+              "width": 816,
+              "height": 1627,
+              "render_ms": [7.4953, 1.2541, 1.1398],
+              "after_render": {
+                "working_set_bytes": 33280000,
+                "private_bytes": 27222016,
+                "peak_working_set_bytes": 33280000
+              },
+              "png_ms": 24.3083,
+              "png_saved": true
+            }
+          }
+        ]
+      },
+      {
+        "run": 2,
+        "name": "paper-1",
+        "pdf": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "pdfSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+        "page": 1,
+        "identical": true,
+        "changedFonts": [],
+        "rows": [
+          {
+            "version": 1,
+            "sha256": "55e96281f4852691e7435a468dffd469e15f5d3a3299622a026162f209b11c63",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7286784,
+                "private_bytes": 3522560,
+                "peak_working_set_bytes": 7286784
+              },
+              "init_ms": 2.5377,
+              "document_load_ms": 0.7948,
+              "page_load_ms": 220.0538,
+              "page": 1,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [5.8744, 1.5486, 1.4956],
+              "after_render": {
+                "working_set_bytes": 16695296,
+                "private_bytes": 10518528,
+                "peak_working_set_bytes": 16695296
+              },
+              "png_ms": 19.8486,
+              "png_saved": true
+            }
+          },
+          {
+            "version": 2,
+            "sha256": "55e96281f4852691e7435a468dffd469e15f5d3a3299622a026162f209b11c63",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7290880,
+                "private_bytes": 3522560,
+                "peak_working_set_bytes": 7290880
+              },
+              "init_ms": 2.3863,
+              "document_load_ms": 0.8518,
+              "page_load_ms": 3.2762,
+              "page": 1,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [5.5953, 1.5087, 1.743],
+              "after_render": {
+                "working_set_bytes": 16093184,
+                "private_bytes": 10002432,
+                "peak_working_set_bytes": 16093184
+              },
+              "png_ms": 19.2255,
+              "png_saved": true
+            }
+          }
+        ]
+      },
+      {
+        "run": 2,
+        "name": "paper-4",
+        "pdf": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+        "pdfSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+        "page": 4,
+        "identical": true,
+        "changedFonts": [],
+        "rows": [
+          {
+            "version": 1,
+            "sha256": "c08543e199458435b5bd990a40c0c869478a86babcb2d284b3c1baf994e57f42",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7286784,
+                "private_bytes": 3526656,
+                "peak_working_set_bytes": 7286784
+              },
+              "init_ms": 2.3995,
+              "document_load_ms": 0.7243,
+              "page_load_ms": 3.788,
+              "page": 4,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [12.7932, 7.7339, 7.1679],
+              "after_render": {
+                "working_set_bytes": 21696512,
+                "private_bytes": 16424960,
+                "peak_working_set_bytes": 22884352
+              },
+              "png_ms": 19.171,
+              "png_saved": true
+            }
+          },
+          {
+            "version": 2,
+            "sha256": "c08543e199458435b5bd990a40c0c869478a86babcb2d284b3c1baf994e57f42",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7294976,
+                "private_bytes": 3534848,
+                "peak_working_set_bytes": 7294976
+              },
+              "init_ms": 2.59,
+              "document_load_ms": 0.7919,
+              "page_load_ms": 4.6794,
+              "page": 4,
+              "pages": 15,
+              "width": 816,
+              "height": 1056,
+              "render_ms": [14.7598, 7.5415, 6.9361],
+              "after_render": {
+                "working_set_bytes": 21770240,
+                "private_bytes": 16519168,
+                "peak_working_set_bytes": 22966272
+              },
+              "png_ms": 20.8082,
+              "png_saved": true
+            }
+          }
+        ]
+      },
+      {
+        "run": 2,
+        "name": "fonts",
+        "pdf": "D:\\solokpdf\\out\\solok-phase4-font-check\\fonts.pdf",
+        "pdfSha256": "e63ebcbc373b1afae908df26428a220f5355229c8402b76dc5a66386913fca3a",
+        "page": 1,
+        "identical": false,
+        "changedFonts": [
+          "Calibri",
+          "Calibri-Bold",
+          "Cambria",
+          "CambriaMath",
+          "Consolas",
+          "SegoeUI",
+          "SegoeUI-Bold",
+          "Meiryo",
+          "MS-Gothic"
+        ],
+        "rows": [
+          {
+            "version": 1,
+            "sha256": "b9aa24d4187cc024baa78ead3a65c281726450366bf900e5cc6378a9c88298e4",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7294976,
+                "private_bytes": 3538944,
+                "peak_working_set_bytes": 7294976
+              },
+              "init_ms": 2.239,
+              "document_load_ms": 0.1219,
+              "page_load_ms": 380.9972,
+              "page": 1,
+              "pages": 1,
+              "width": 816,
+              "height": 1627,
+              "render_ms": [8.3706, 1.4571, 1.3429],
+              "after_render": {
+                "working_set_bytes": 54181888,
+                "private_bytes": 48173056,
+                "peak_working_set_bytes": 54181888
+              },
+              "png_ms": 23.4869,
+              "png_saved": true
+            }
+          },
+          {
+            "version": 2,
+            "sha256": "0af425c4c49a17637becdf9dfe7dff81c2c8b18e9260e4092ee758c36c33c08a",
+            "metrics": {
+              "engine": "pdfium-158.0.8111.0",
+              "renderer": "build-default (AGG)",
+              "flags": 3,
+              "dpi": 96,
+              "before_init": {
+                "working_set_bytes": 7294976,
+                "private_bytes": 3530752,
+                "peak_working_set_bytes": 7294976
+              },
+              "init_ms": 2.3817,
+              "document_load_ms": 0.1535,
+              "page_load_ms": 13.9394,
+              "page": 1,
+              "pages": 1,
+              "width": 816,
+              "height": 1627,
+              "render_ms": [7.3351, 1.2054, 1.1421],
+              "after_render": {
+                "working_set_bytes": 33247232,
+                "private_bytes": 27213824,
+                "peak_working_set_bytes": 33247232
+              },
+              "png_ms": 25.5522,
+              "png_saved": true
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

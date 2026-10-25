@@ -1,5 +1,24 @@
 # SolokPDF development log
 
+## Current priority and handoff
+
+The move to PDFium is for its current text appearance: the user wants to avoid
+MuPDF's thinner-looking text. Preserve PDFium's font selection, antialiasing,
+render resolution and color processing. Do not switch the default to MuPDF to
+meet memory/startup targets. Font-info v2 remains probe-only because it changes
+rendered output.
+
+Next work: measure inactive-tab caches, queued/cancelled render buffers and
+temporary document lifetimes. Change one thing at a time, compare identical
+inputs/settings, and require matching page pixels at the same zoom/DPI. Include
+font aliases and math in appearance checks; record any extra redraw/tab-switch
+latency. No further optimization has started or is authorized by this handoff.
+
+Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
+Use the Phase 4 sections and checked-in JSON for measured results. The current
+Release folder includes the deferred-destination change; Debug additionally
+includes optional profiling. ZIP archives remain at the earlier checkpoint.
+
 ## Baseline (2026-10-24)
 
 - The initial repository had no commits or files. Its `origin` remains
@@ -322,6 +341,71 @@ Retries passed without ACL/security changes. Logs:
 `out/solok-phase4-build-{debug,release}.log`,
 `out/solok-phase4-test-{debug,release}.log`. Next: profile page/font retention and
 test larger math/scan corpora before another cache or startup change.
+
+### Font-loading diagnosis (2026-10-25)
+
+This iteration adds diagnostics; it adopts no new rendering/font policy.
+Raw measurements and hashes: `docs/solokpdf-profile-2026-10-25.json`.
+
+`experiments/pdfium/make-corpus.ts` verifies the original paper's hash and creates
+two ignored fixtures: 20 copies merged into 300 vector pages (39.5 MiB), and all
+15 pages rasterized at 144 DPI in grayscale (2.5 MiB). They exercise size and
+image paths, not independent papers, font diversity or real scans. The merged
+document's outline differs from the source. Vector regeneration changed bytes
+despite the writer's `reproducible` option; exact measured copies were restored
+from the benchmark output and their hashes retained. Never regenerate inputs
+between compared variants.
+
+Release baselines use the `c80d298c4` implementation, unchanged since the previous
+iteration. Same requested window, zoom, settings, warm file cache and PDB
+exclusion; three launches per row, fixed MuPDF→PDFium order. These are exploratory
+baselines, not before/after optimization results.
+
+| Derived fixture   | Engine | Tabs | First render idle, ms | Private Bytes after all tabs visited, MiB |
+| ----------------- | ------ | ---: | --------------------: | ----------------------------------------: |
+| Vector, 300 pages | MuPDF  |    1 |                1853.3 |                                      93.0 |
+| Vector, 300 pages | PDFium |    1 |                2071.8 |                                     117.2 |
+| Vector, 300 pages | MuPDF  |    4 |                2210.9 |                                     126.5 |
+| Vector, 300 pages | PDFium |    4 |                2700.9 |                                     172.6 |
+| Raster, 15 pages  | MuPDF  |    1 |                1629.3 |                                      97.8 |
+| Raster, 15 pages  | PDFium |    1 |                1634.9 |                                      97.4 |
+| Raster, 15 pages  | MuPDF  |    4 |                2272.1 |                                     129.3 |
+| Raster, 15 pages  | PDFium |    4 |                2034.9 |                                     135.3 |
+
+`SOLOKPDF_PROFILE=1` now enables per-phase logs in `EnginePdfium.cpp`.
+`experiments/pdfium/profile-ui.ts` opens each supplied PDF and visits page 4,
+the middle, the last page and page 1, recording memory and logs. These Debug
+diagnostics retain PDBs and logging; their process counters/times are not
+comparable to the Release table.
+
+For the original paper and 300-page fixture, the first page load took 368.8 and
+352.6 ms, while bitmap rendering took 8.9 and 7.5 ms. Another renderer waited
+384.9 ms on the PDFium mutex in the original-paper run. The raster first-page
+load took 2.1 ms. No text-extraction calls appeared during these diagnostic
+launches; per-character coordinate conversion was left unchanged.
+
+The paper's first page has an unembedded Times-Roman font. The pinned SDK offers
+[per-request system font matching](https://pdfium.googlesource.com/pdfium/+/refs/heads/main/public/fpdf_sysfontinfo.h)
+(`FPDF_SYSFONTINFO.version=2`), which skips full font enumeration. This is an
+experimental API. `pdfium-render.exe --font-info-v2` tests it only in the
+standalone probe; the application does not enable it.
+
+`experiments/pdfium/font-check.ts` compares both modes in three rounds, reversing
+their order in the middle round. Paper-page-1 load medians fell 262.2→3.7 ms;
+page-1/page-4 PNGs matched in all rounds. A generated fixture with the 14 standard
+fonts and 16 unembedded TrueType font names/aliases changed nine rows every time:
+Calibri, Calibri-Bold, Cambria, CambriaMath, Consolas, SegoeUI, SegoeUI-Bold,
+Meiryo and MS-Gothic. The fixture uses Latin text, not Japanese glyph coverage.
+The script intentionally exits nonzero on a rendering difference. This candidate
+was rejected; the speedup is not an application startup improvement.
+
+The diagnostic Debug build passed with zero warnings/errors. The existing
+`tests/ad-hoc-pdfium.ts` passed with profiling disabled and enabled. The optimized
+standalone probe also built successfully. Output-file `LNK1104` failures cleared
+on retries without ACL/security changes. Logs: `out/solok-phase4-profile-build.log`,
+`out/solok-phase4-profile{,-enabled}-test.log`, `out/solok-phase4-font-check.log`.
+Next: preserve font-name/style matching while reducing enumeration work, and
+attribute the vector-document memory gap before changing cache policy.
 
 ## Phase 5: portable development identity
 

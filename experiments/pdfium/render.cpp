@@ -7,21 +7,25 @@
 #include <stdlib.h>
 #include <math.h>
 #include <fpdfview.h>
+#include <fpdf_sysfontinfo.h>
 
-#define PDF_API(X)                \
-    X(FPDF_InitLibraryWithConfig) \
-    X(FPDF_DestroyLibrary)        \
-    X(FPDF_LoadCustomDocument)    \
-    X(FPDF_GetLastError)          \
-    X(FPDF_CloseDocument)         \
-    X(FPDF_GetPageCount)          \
-    X(FPDF_LoadPage)              \
-    X(FPDF_ClosePage)             \
-    X(FPDF_GetPageWidthF)         \
-    X(FPDF_GetPageHeightF)        \
-    X(FPDFBitmap_CreateEx)        \
-    X(FPDFBitmap_Destroy)         \
-    X(FPDFBitmap_FillRect)        \
+#define PDF_API(X)                    \
+    X(FPDF_InitLibraryWithConfig)     \
+    X(FPDF_DestroyLibrary)            \
+    X(FPDF_GetDefaultSystemFontInfo)  \
+    X(FPDF_SetSystemFontInfo)         \
+    X(FPDF_FreeDefaultSystemFontInfo) \
+    X(FPDF_LoadCustomDocument)        \
+    X(FPDF_GetLastError)              \
+    X(FPDF_CloseDocument)             \
+    X(FPDF_GetPageCount)              \
+    X(FPDF_LoadPage)                  \
+    X(FPDF_ClosePage)                 \
+    X(FPDF_GetPageWidthF)             \
+    X(FPDF_GetPageHeightF)            \
+    X(FPDFBitmap_CreateEx)            \
+    X(FPDFBitmap_Destroy)             \
+    X(FPDFBitmap_FillRect)            \
     X(FPDF_RenderPageBitmap)
 
 struct PdfApi {
@@ -56,11 +60,13 @@ struct PdfRuntime {
     FPDF_DOCUMENT doc = nullptr;
     FPDF_PAGE page = nullptr;
     FPDF_BITMAP bitmap = nullptr;
+    FPDF_SYSFONTINFO* fontInfo = nullptr;
     ~PdfRuntime() {
         if (bitmap) api.FPDFBitmap_Destroy(bitmap);
         if (page) api.FPDF_ClosePage(page);
         if (doc) api.FPDF_CloseDocument(doc);
         if (initialized) api.FPDF_DestroyLibrary();
+        if (fontInfo) api.FPDF_FreeDefaultSystemFontInfo(fontInfo);
     }
 };
 
@@ -143,9 +149,9 @@ static void Memory(const char* phase) {
 
 int wmain(int argc, wchar_t** argv) {
     if (argc < 5) {
-        fprintf(
-            stderr,
-            "usage: pdfium-render.exe input.pdf page dpi output.png [--lcd] [--repeat N] [--scale N] [--dll path]\n");
+        fprintf(stderr,
+                "usage: pdfium-render.exe input.pdf page dpi output.png [--lcd] [--font-info-v2] [--repeat N] [--scale "
+                "N] [--dll path]\n");
         return 2;
     }
     wchar_t* end = nullptr;
@@ -155,6 +161,7 @@ int wmain(int argc, wchar_t** argv) {
     if (!end || *end || !isfinite(dpi) || dpi <= 0 || dpi > 2400) return 2;
     int repeat = 1;
     int flags = FPDF_ANNOT;
+    bool fontInfoV2 = false;
     wchar_t dllPath[32768]{};
     DWORD n = GetModuleFileNameW(nullptr, dllPath, _countof(dllPath));
     if (!n || n >= _countof(dllPath)) return 1;
@@ -164,6 +171,10 @@ int wmain(int argc, wchar_t** argv) {
     for (int i = 5; i < argc; i++) {
         if (wcscmp(argv[i], L"--lcd") == 0) {
             flags |= FPDF_LCD_TEXT;
+            continue;
+        }
+        if (wcscmp(argv[i], L"--font-info-v2") == 0) {
+            fontInfoV2 = true;
             continue;
         }
         if (i + 1 >= argc) return 2;
@@ -196,6 +207,13 @@ int wmain(int argc, wchar_t** argv) {
     config.version = 2;
     pdf.api.FPDF_InitLibraryWithConfig(&config);
     pdf.initialized = true;
+    if (fontInfoV2) {
+        pdf.fontInfo = pdf.api.FPDF_GetDefaultSystemFontInfo();
+        if (!pdf.fontInfo) return 1;
+        constexpr int kPerRequestFonts = 2;
+        pdf.fontInfo->version = kPerRequestFonts;
+        pdf.api.FPDF_SetSystemFontInfo(pdf.fontInfo);
+    }
     printf("\"init_ms\":%.6f,\n", NowMs() - start);
     start = NowMs();
     pdf.doc = pdf.api.FPDF_LoadCustomDocument(&file.access, nullptr);
