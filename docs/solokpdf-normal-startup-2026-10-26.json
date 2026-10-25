@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-26",
+  "scope": "Measurement and continue decision only; application source and PDFium rendering unchanged.",
+  "method": "Release x64, same executable/DLLs, fresh isolated settings, 900x1000 window, warm OS file cache, hidden app PDBs. One PDF opened from an empty window, waited for render idle, sampled after 1 s, closed and sampled after 1 s. Independent 200 ms host/target CPU and memory monitor. Engine order alternated.",
+  "limits": "Document open from an already running empty window, not process startup or first paint. Whole-process Private Bytes do not identify allocation owners. Single-page, one-tab snapshots; no long-lived session. Third PDF has no qualifying pair. Prior first-page phase timings came from Debug diagnostics, not these Release runs.",
+  "gate": {
+    "start": "Three consecutive 1 s samples with busy CPU <=10% and OS memory load <=85%",
+    "row": "Other-CPU mean <=10%, p95 <=20% over 200 ms samples, OS memory load <=90%",
+    "pair": "Starting OS memory load within 3 percentage points",
+    "eligibleOtherCpuMeanPercentRange": [3.2, 9.8],
+    "eligibleOtherCpuP95PercentMax": 17.2,
+    "eligibleMemoryLoadPercentMax": 61,
+    "eligibleMonitorGapMsMax": 216.8
+  },
+  "inputs": [
+    {
+      "name": "attention-1706.03762v7.pdf",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697"
+    },
+    {
+      "name": "bert-1810.04805.pdf",
+      "sha256": "5692a5514787a8c6727b4ff3b726a3385798bc68e12138d1d4af83947e2acf6e"
+    },
+    {
+      "name": "ipa-2026-soshiki.pdf",
+      "sha256": "9508c58abc9c7e4c61619f9a89a66a67fdef52937e5811ca8d130d1868d6fb67"
+    }
+  ],
+  "binaries": {
+    "exeSha256": "2f35a5916c6f862bf3cbc4a3c2008fce5e13bad6f21435495f227a63a47d1494",
+    "pdfiumDllSha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f",
+    "libsumatrapdfDllSha256": "6ee56e3c1752b5c3aa2aa002fd6bba13d0e68ab04a9320398f7d1e46b1b54be0"
+  },
+  "qualifiedPairs": 6,
+  "excludedPairs": 4,
+  "median": [
+    {
+      "pdf": "attention-1706.03762v7.pdf",
+      "pairs": 3,
+      "pdfium": { "openMs": 282.8, "openPrivateDeltaMiB": 7.7, "closedPrivateDeltaMiB": 0.5 },
+      "mupdf": { "openMs": 131.1, "openPrivateDeltaMiB": 5.8, "closedPrivateDeltaMiB": 1.1 }
+    },
+    {
+      "pdf": "bert-1810.04805.pdf",
+      "pairs": 3,
+      "pdfium": { "openMs": 256.0, "openPrivateDeltaMiB": 9.6, "closedPrivateDeltaMiB": 0.2 },
+      "mupdf": { "openMs": 123.7, "openPrivateDeltaMiB": 3.7, "closedPrivateDeltaMiB": 1.6 }
+    }
+  ],
+  "exclusions": "Two BERT and two IPA pairs exceeded background CPU limits. The final IPA attempt timed out after 60 s without three quiet start samples; no IPA pair qualified.",
+  "attribution": "Prior Debug phase trace: attention first-page load 368.8 ms versus bitmap rendering 8.9 ms; raster first-page load 2.1 ms. Font matching is plausible, not proven. Prior four-document Private Bytes 80.8 MiB empty, 153.1 MiB visited; known cached pixel payload 23.1 MiB, leaving about 49 MiB unassigned. Current one-document PDFium memory returns within 0.2-0.5 MiB of empty after close.",
+  "decision": "Continue targeted diagnosis. Do not adopt font-info v2 or change cache policy; font-info v2 changes alias text pixels. No optimization implemented or approved.",
+  "next": "Measure direct process launch under the same load gates; profile first-page and font lookup in Release for independent text PDFs; attribute non-pixel memory by cache/GDI/SDK ownership; require matching PDFium text pixels including aliases and Japanese glyphs before any font-path change.",
+  "raw": {
+    "path": "out/solok-normal-startup-2026-10-26/results.json",
+    "sha256": "934a286c54fa8d064bcd1a3ae7017a9048732406d4f01f3637d87f706cf5ee2a"
+  }
+}

@@ -7,6 +7,7 @@
 #include "gui/UIModels.h"
 #include "DocProperties.h"
 #include "EngineBase.h"
+#include <psapi.h>
 #include <fpdfview.h>
 #include <fpdf_doc.h>
 #include <fpdf_text.h>
@@ -134,8 +135,13 @@ struct PdfiumProfile {
         if (!enabled) {
             return;
         }
-        logf("PDFium profile: %s thread=%lu page=%d %s=%.3f ms\n", operation, GetCurrentThreadId(), pageNo, phase,
-             TimeSinceInMs(start));
+        PROCESS_MEMORY_COUNTERS_EX memory{};
+        memory.cb = sizeof(memory);
+        if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&memory, memory.cb)) {
+            logf("PDFium profile: %s thread=%lu page=%d %s=%.3f ms private=%llu working=%llu\n", operation,
+                 GetCurrentThreadId(), pageNo, phase, TimeSinceInMs(start), (u64)memory.PrivateUsage,
+                 (u64)memory.WorkingSetSize);
+        }
         start = TimeGet();
     }
 };
@@ -387,6 +393,8 @@ class EnginePdfium : public EngineBase {
     }
 
     ~EnginePdfium() override {
+        PdfiumProfile profile(StrL("close"));
+        profile.Mark(StrL("start"));
         ScopedMutex lock(&gPdfiumLock);
         DestroyTocTree(toc);
         for (auto* p : pages) {
@@ -404,16 +412,19 @@ class EnginePdfium : public EngineBase {
         if (doc) {
             gPdfium.FPDF_CloseDocument(doc);
         }
+        profile.Mark(StrL("document"));
         if (file != INVALID_HANDLE_VALUE) {
             CloseHandle(file);
         }
         if (runtime) {
             gPdfium.Release();
         }
+        profile.Mark(StrL("runtime"));
     }
 
     bool Load(Str path, TempStr* error) {
         PdfiumProfile profile(StrL("load"));
+        profile.Mark(StrL("start"));
         ScopedMutex lock(&gPdfiumLock);
         profile.Mark(StrL("lock"));
         SetFilePath(path);

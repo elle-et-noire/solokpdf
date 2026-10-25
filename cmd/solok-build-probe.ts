@@ -1,10 +1,10 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { detectVisualStudio2026, runLogged } from "./util";
+import { detectVisualStudio, runLogged } from "./util";
 import { fetchPdfium } from "./solok-fetch-pdfium";
 
 const pdfium = await fetchPdfium();
-const { vsRoot } = detectVisualStudio2026();
+const { vsRoot } = detectVisualStudio();
 const versions = readdirSync(join(vsRoot, "VC/Tools/MSVC")).sort().reverse();
 const compilerDir = join(vsRoot, "VC/Tools/MSVC", versions[0], "bin/Hostx64/x64");
 const sdkRoot = String.raw`C:\Program Files (x86)\Windows Kits\10`;
@@ -45,6 +45,26 @@ await runLogged(join(compilerDir, "cl.exe"), [
   ...["ucrt", "um"].map((d) => "/LIBPATH:" + join(sdkRoot, "Lib", sdk, d, "x64")),
   "ole32.lib",
   "windowscodecs.lib",
+  "psapi.lib",
+]);
+await runLogged(join(compilerDir, "cl.exe"), [
+  "/nologo",
+  "/std:c++17",
+  "/W4",
+  "/WX",
+  "/O2",
+  "/MT",
+  "/EHsc",
+  "/utf-8",
+  "/I" + join(toolRoot, "include"),
+  ...["ucrt", "shared", "um", "winrt"].map((d) => "/I" + join(sdkRoot, "Include", sdk, d)),
+  "/I" + join(pdfium, "include"),
+  resolve("experiments/pdfium/multi-alloc.cpp"),
+  "/Fo" + join(out, "multi-alloc.obj"),
+  "/Fe" + join(out, "pdfium-multi-alloc.exe"),
+  "/link",
+  "/LIBPATH:" + join(toolRoot, "lib/x64"),
+  ...["ucrt", "um"].map((d) => "/LIBPATH:" + join(sdkRoot, "Lib", sdk, d, "x64")),
   "psapi.lib",
 ]);
 copyFileSync(join(pdfium, "bin/pdfium.dll"), join(out, "pdfium.dll"));

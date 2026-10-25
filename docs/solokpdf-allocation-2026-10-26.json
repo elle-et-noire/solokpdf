@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-26",
+  "scope": "Normal PDF startup and resident-memory allocation attribution; investigation only",
+  "status": "diagnosis complete to available instrumentation; exact application allocation stacks unavailable",
+  "build": {
+    "instrumentedExeSha256": "913c4876244141eec93b058f2a395d82d92ff767ccb9dfc3b283659bb193ce80",
+    "stablePortableExeSha256": "2f35a5916c6f862bf3cbc4a3c2008fce5e13bad6f21435495f227a63a47d1494",
+    "pdfiumDllSha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f",
+    "renderProbeSha256": "b3d64d264b44ce9ddf64edfdb88640f73acaca7609690fc9e7797390fcf58e2f",
+    "multiProbeSha256": "d84a5ed8f225f92e6eaddbc0fd7a69838c9b103d3c743508ca2bda3bfef97c46",
+    "warnings": 0,
+    "targetedGuiTest": "tests/ad-hoc-pdfium.ts --no-build passed"
+  },
+  "gates": {
+    "beforeStandaloneRun": "three consecutive 1-second host CPU samples <=10% and OS memory load <=85%",
+    "caveat": "No continuous background CPU gate during short standalone probes; do not treat their timing as performance evidence"
+  },
+  "singleDocument": {
+    "runsPerPdf": 3,
+    "defaultPathPngsMatched": 12,
+    "pageLoadPrivateMiBMedian": {
+      "attention": 2.05,
+      "bert": 2.23,
+      "ipa": 3.91,
+      "fontAliasFixture": 36.17
+    },
+    "fontCallbackDataMiB": {
+      "attention": 1.44,
+      "bert": 1.44,
+      "ipa": 0,
+      "fontAliasFixture": 36.88
+    },
+    "fontEnumerationCalls": {
+      "attention": 1,
+      "bert": 1,
+      "ipa": 0,
+      "fontAliasFixture": 1
+    },
+    "fontDataCalls": {
+      "attention": 225,
+      "bert": 225,
+      "ipa": 0,
+      "fontAliasFixture": 299
+    },
+    "v2ProbeOnlyPageLoadPrivateMiBMedian": {
+      "attention": 1.6,
+      "bert": 1.84,
+      "ipa": 3.89,
+      "fontAliasFixture": 16.34
+    },
+    "v2AliasFontCallbackDataMiB": 15.39,
+    "v2AliasPngsMatched": 0,
+    "v2AliasPngsCompared": 3,
+    "conclusion": "Alias fixture memory is dominated by document-lifetime font data; v2 changes alias text pixels and is rejected"
+  },
+  "multipleDocuments": {
+    "pdfiumStandaloneFourOpenNetPrivateMiB": [42.22, 42.2, 42.3],
+    "pdfiumStandaloneFourAfterCloseNetPrivateMiB": [0.57, 0.57, 0.66],
+    "pdfiumStandaloneNormalThreeOpenNetPrivateMiB": [7.99, 7.69, 8.14],
+    "pdfiumStandaloneAliasOnlyOpenNetPrivateMiB": [36.21, 36.21, 36.21],
+    "appFourDocumentVisitedAllPrivateMiB": {
+      "pdfium": [152.85, 152.61],
+      "mupdf": [143.41, 143.34]
+    },
+    "appFourDocumentCachedPixelMiB": {
+      "pdfium": 23.1,
+      "mupdf": 29.67
+    },
+    "appFourDocumentAfterClosePrivateMiB": {
+      "pdfium": [83.64, 84.71],
+      "mupdf": [116.57, 116.86]
+    },
+    "caveat": "Standalone probe uses PDFium's file-path loader rather than the app's custom file callback. Net SDK memory, measured pixel payload, and application Private Bytes are not exact additive ownership buckets"
+  },
+  "allocationStackLimit": {
+    "attempt": "wpr -start HeapSnapshot -filemode",
+    "result": "Access is denied; heap snapshot configuration disabled",
+    "otherTools": "UMDH, GFlags and VMMap unavailable; pinned PDFium package has no PDB"
+  },
+  "decision": "Continue narrow diagnosis; no optimization implementation or tile-cache policy change",
+  "next": [
+    "Capture privileged allocation stacks for ordinary-PDF application residual when available",
+    "Construct a font-lookup candidate preserving PDFium font choice and text pixels for aliases and Japanese glyphs",
+    "Re-run controlled startup and resident-memory pairs only after pixel identity is established"
+  ],
+  "raw": [
+    "out/solok-attrib-direct-2026-10-26/results.json",
+    "out/solok-attrib-four-pdfium/results.json",
+    "out/solok-attrib-four-mupdf/results.json",
+    "out/solok-attrib-four-pdfium-r2/results.json",
+    "out/solok-attrib-four-mupdf-r2/results.json",
+    "out/solok-alloc-probe-2026-10-26/results.json",
+    "out/solok-alloc-probe-v2-2026-10-26/results.json",
+    "out/solok-alloc-probe-alias-2026-10-26/results.json",
+    "out/solok-alloc-probe-alias-v2-2026-10-26/results.json",
+    "out/solok-alloc-fontprofile-2026-10-26/results.json",
+    "out/solok-alloc-fontprofile-v2-2026-10-26/results.json",
+    "out/solok-multi-alloc-2026-10-26/results.json",
+    "out/solok-multi-alloc-normal-2026-10-26/results.json",
+    "out/solok-multi-alloc-alias-2026-10-26/results.json"
+  ]
+}

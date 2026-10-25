@@ -268,6 +268,7 @@ int wmain(int argc, wchar_t** argv) {
         if (fontProfile) FontProfile::fonts.Install(pdf.fontInfo);
         pdf.api.FPDF_SetSystemFontInfo(pdf.fontInfo);
     }
+    Memory("after_init");
     printf("\"init_ms\":%.6f,\n", NowMs() - start);
     start = NowMs();
     pdf.doc = pdf.api.FPDF_LoadCustomDocument(&file.access, nullptr);
@@ -275,18 +276,21 @@ int wmain(int argc, wchar_t** argv) {
         fprintf(stderr, "PDF load failed (PDFium error %lu).\n", pdf.api.FPDF_GetLastError());
         return 1;
     }
+    Memory("after_document");
     printf("\"document_load_ms\":%.6f,\n", NowMs() - start);
     int count = pdf.api.FPDF_GetPageCount(pdf.doc);
     if (pageNo > count) {
         fprintf(stderr, "Page out of range (1..%d).\n", count);
         return 2;
     }
+    Memory("before_page");
     start = NowMs();
     pdf.page = pdf.api.FPDF_LoadPage(pdf.doc, static_cast<int>(pageNo - 1));
     if (!pdf.page) {
         fprintf(stderr, "PDF page load failed.\n");
         return 1;
     }
+    Memory("after_page");
     printf("\"page_load_ms\":%.6f,\n", NowMs() - start);
     double w = ceil(pdf.api.FPDF_GetPageWidthF(pdf.page) * dpi / 72);
     double h = ceil(pdf.api.FPDF_GetPageHeightF(pdf.page) * dpi / 72);
@@ -303,6 +307,7 @@ int wmain(int argc, wchar_t** argv) {
         free(pixels);
         return 1;
     }
+    Memory("after_bitmap_alloc");
     printf("\"page\":%ld,\"pages\":%d,\"width\":%d,\"height\":%d,\n\"render_ms\":[", pageNo, count, width, height);
     for (int i = 0; i < repeat; i++) {
         pdf.api.FPDFBitmap_FillRect(pdf.bitmap, 0, 0, width, height, 0xffffffff);
@@ -319,14 +324,26 @@ int wmain(int argc, wchar_t** argv) {
             "\"data_ms\":%.6f,\"data_bytes\":%llu},\n",
             pdf.fontInfo->version, p.enumCalls, p.enumMs, p.dataCalls, p.dataMs, p.dataBytes);
     }
+    pdf.api.FPDFBitmap_Destroy(pdf.bitmap);
+    pdf.bitmap = nullptr;
+    Memory("after_bitmap_close");
+    pdf.api.FPDF_ClosePage(pdf.page);
+    pdf.page = nullptr;
+    Memory("after_page_close");
+    pdf.api.FPDF_CloseDocument(pdf.doc);
+    pdf.doc = nullptr;
+    Memory("after_document_close");
+    pdf.api.FPDF_DestroyLibrary();
+    pdf.initialized = false;
+    Memory("after_shutdown");
     start = NowMs();
     HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     bool saved = SUCCEEDED(com) && SavePng(argv[4], pixels, width, height);
     if (SUCCEEDED(com)) CoUninitialize();
-    printf("\"png_ms\":%.6f,\"png_saved\":%s\n}\n", NowMs() - start, saved ? "true" : "false");
-    pdf.api.FPDFBitmap_Destroy(pdf.bitmap);
-    pdf.bitmap = nullptr;
+    double pngMs = NowMs() - start;
     free(pixels);
+    Memory("after_pixel_free");
+    printf("\"png_ms\":%.6f,\"png_saved\":%s\n}\n", pngMs, saved ? "true" : "false");
     if (!saved) fprintf(stderr, "Cannot save PNG. Ensure the output directory exists.\n");
     return saved ? 0 : 1;
 }

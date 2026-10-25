@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-26",
+  "scope": "Controlled direct-launch and diagnostic Release profiling; no application optimization or rendering change.",
+  "method": "Same Release executable and DLLs, fresh isolated settings, 900x1000 window, 100% zoom, warm OS file cache, application PDBs hidden. PDFs passed on the process command line with -for-testing. Independent Bun monitor ready before spawn and attached 6-9 ms after it. First render idle, one-second settled memory, Cache Info pixel payload and one-second post-close memory recorded. Engine order alternated.",
+  "limits": "Process start to render idle includes UI and control polling, not first paint or cold boot. CPU monitor misses the first 6-9 ms. Cache pixels are measured payload, not a complete allocation map; process Private Bytes include other SDK/UI/GDI/allocator state. Three qualifying pairs per PDF. Profile runs are diagnostic and excluded from performance medians.",
+  "gate": {
+    "start": "Three consecutive 1 s samples with busy CPU <=10% and OS memory load <=85%",
+    "row": "Other-CPU mean <=10%, p95 <=20% over 200 ms samples, OS memory load <=90%, monitor lag <=100 ms",
+    "pair": "Starting OS memory load within 3 percentage points",
+    "qualifiedPairs": 9,
+    "excludedPairs": 1,
+    "exclusion": "One IPA pair exceeded background-CPU p95; retry qualified",
+    "eligibleOtherCpuMeanPercentMax": 7.5,
+    "eligibleOtherCpuP95PercentMax": 17.7,
+    "eligibleMemoryLoadPercentMax": 64,
+    "eligibleMonitorGapMsMax": 218.6
+  },
+  "binaries": {
+    "exeSha256": "2f35a5916c6f862bf3cbc4a3c2008fce5e13bad6f21435495f227a63a47d1494",
+    "pdfiumDllSha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f",
+    "libsumatrapdfDllSha256": "6ee56e3c1752b5c3aa2aa002fd6bba13d0e68ab04a9320398f7d1e46b1b54be0"
+  },
+  "median": [
+    {
+      "pdf": "attention-1706.03762v7.pdf",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "pairs": 3,
+      "pdfium": { "firstIdleMs": 1606.3, "settledPrivateMiB": 86.5, "cachePixelsMiB": 5.1 },
+      "mupdf": { "firstIdleMs": 1154.9, "settledPrivateMiB": 83.4, "cachePixelsMiB": 6.4 },
+      "pairedPdfiumMinusMupdf": { "firstIdleMs": 429.4, "settledPrivateMiB": 3.1 }
+    },
+    {
+      "pdf": "bert-1810.04805.pdf",
+      "sha256": "5692a5514787a8c6727b4ff3b726a3385798bc68e12138d1d4af83947e2acf6e",
+      "pairs": 3,
+      "pdfium": { "firstIdleMs": 1420.3, "settledPrivateMiB": 88.1, "cachePixelsMiB": 8.0 },
+      "mupdf": { "firstIdleMs": 1111.9, "settledPrivateMiB": 80.9, "cachePixelsMiB": 10.6 },
+      "pairedPdfiumMinusMupdf": { "firstIdleMs": 283.8, "settledPrivateMiB": 7.2 }
+    },
+    {
+      "pdf": "ipa-2026-soshiki.pdf",
+      "sha256": "9508c58abc9c7e4c61619f9a89a66a67fdef52937e5811ca8d130d1868d6fb67",
+      "pairs": 3,
+      "pdfium": { "firstIdleMs": 1567.6, "settledPrivateMiB": 92.0, "cachePixelsMiB": 8.0 },
+      "mupdf": { "firstIdleMs": 1508.5, "settledPrivateMiB": 96.7, "cachePixelsMiB": 10.6 },
+      "pairedPdfiumMinusMupdf": { "firstIdleMs": 12.9, "settledPrivateMiB": -4.7 }
+    }
+  ],
+  "releaseProfile": {
+    "attentionFirstPageLoadMs": 366.5,
+    "bertFirstPageLoadMs": [289.5, 404.8],
+    "ipaFirstPageLoadMs": [2.8, 10.3],
+    "textPdfDrawMsRange": [6.7, 7.3],
+    "ipaDrawMsRange": [23.9, 24.3],
+    "documentLoadMsRange": [15.1, 41.3],
+    "note": "Phase wall times include scheduling. Diagnostic logging is excluded from launch comparisons. First page may not be the first render thread to acquire the PDFium lock."
+  },
+  "fontProbe": {
+    "source": "out/solok-font-attribution/results.json",
+    "samePdfiumDll": true,
+    "pngPairsMatch": true,
+    "attentionAndBertEnumerationCallsEach": 1,
+    "attentionAndBertEnumerationMsRange": [242.7, 306.1],
+    "ipaEnumerationCalls": 0,
+    "note": "Standalone default-v1 callback diagnostic, not an application API trace. Font-info v2 changed alias pixels and remains rejected."
+  },
+  "decision": "First-use font enumeration is the leading startup cause for the two text PDFs; IPA shows no general PDFium startup penalty. Memory direction is document-dependent, and smaller PDFium tile payload does not explain text-PDF Private Bytes. Continue only font-lookup and allocation-ownership diagnosis. No cache-policy or font-rendering change approved.",
+  "next": "Attribute post-visit non-pixel memory by SDK/UI/GDI allocation owner. Consider only a font-matching candidate that preserves application-rendered pixels for aliases and Japanese glyphs, with unchanged font selection, antialiasing, resolution and colors.",
+  "raw": [
+    {
+      "path": "out/solok-direct-startup-2026-10-26/results.json",
+      "sha256": "8a6b4c430e97994f680e773fcfa9f05cc218e9e46ab6ffb18310ded18e8e3077"
+    },
+    {
+      "path": "out/solok-direct-startup-ipa-2026-10-26/results.json",
+      "sha256": "35bddcf6bd5c4f9950b803581e418ab9e23460f4e4751ee41323c76ac4678a61"
+    },
+    {
+      "path": "out/solok-direct-profile-2026-10-26/results.json",
+      "sha256": "604f76394b0b737c30848145a54ba1305b85487b77a7cc26b0131dc93f228709"
+    },
+    {
+      "path": "out/solok-direct-profile-ipa-2026-10-26/results.json",
+      "sha256": "ed3660d9a6685a1b6f8c86281d1b9b4c9d0358f358db4f81560fd98fdd9d42a2"
+    },
+    {
+      "path": "out/solok-font-attribution/results.json",
+      "sha256": "0ac3c4d38853b2a87e4f110d367b31a98e18ebbae34d3d22f6c208499d9b6d4d"
+    }
+  ]
+}

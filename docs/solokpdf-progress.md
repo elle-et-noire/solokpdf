@@ -33,6 +33,25 @@ rendering. Release/Debug folders and ZIPs were refreshed and checked. Evidence:
 `out/solok-ownership-after-release/SolokPDF.exe`. General resident-memory and
 startup improvements remain unestablished.
 
+The 2026-10-26 normal-PDF diagnostic used one Release executable for PDFium and
+MuPDF, with independent background-load sampling. Six pairs across two documents
+qualified; the third document did not qualify before host load blocked further
+runs. PDFium's document open-to-render-idle median was 282.8 vs 131.1 ms and
+256.0 vs 123.7 ms. Its extra Private Bytes while open were 1.9 and 5.9 MiB;
+nearly all one-document memory was released on close. Continue targeted
+diagnosis; do not adopt font-info v2 or change cache policy on this evidence.
+See the normal-PDF diagnostic section below.
+
+A controlled direct-launch pass now has three qualifying pairs for each of
+Attention, BERT and IPA. Paired PDFium minus MuPDF render-idle medians are
++429, +284 and +13 ms. Release phase logs put the text PDFs' first-page load
+at 290–405 ms versus 3–10 ms on IPA. Known tile pixels are smaller with
+PDFium in all three cases, while settled Private Bytes are higher on the two
+text PDFs and lower on IPA. Isolated probes now attribute most of the synthetic
+font-alias fixture's 36 MiB page state to font data and measure 2–4 MiB of
+document state per ordinary PDF. The remaining application-side bytes lack
+allocation stacks. See the direct-launch and allocation sections below.
+
 ## Baseline (2026-10-24)
 
 - The initial repository had no commits or files. Its `origin` remains
@@ -1137,6 +1156,218 @@ focused harness passed 27 checks. Full unit suites were not run; the clipboard
 baseline failure remains. Raw logs/PNGs stay in `out/solok-*`; condensed results,
 hashes, exclusions and controlled CPU samples are in
 `solokpdf-memory-2026-10-26.json`.
+
+### Normal-PDF startup and resident-memory diagnosis (2026-10-26)
+
+`experiments/pdfium/normal-startup-ui.ts` opens a PDF from a fresh empty Release
+window, waits for render idle, samples after one second, closes it and samples
+again after one second. It uses the same executable and DLLs for both engines,
+fresh isolated settings, a warm OS file cache, hidden application PDBs and the
+same 900x1000 window. An independent Bun process samples host and target CPU,
+process memory and OS memory load every 200 ms while the UI driver may block.
+The existing background-load gates apply: three quiet one-second start samples;
+other-CPU mean <=10%, p95 <=20%, OS memory load <=90%, and paired starting
+memory load within three points. Attempts alternate engine order.
+
+```powershell
+.work/tools/bun-windows-x64/bun.exe experiments/pdfium/normal-startup-ui.ts --runs 3 --output out/solok-normal-startup-2026-10-26 .work/corpus/attention-1706.03762v7.pdf .work/corpus/independent/bert-1810.04805.pdf .work/corpus/independent/ipa-2026-soshiki.pdf
+```
+
+Three qualifying pairs each for the attention paper and independent BERT PDF:
+
+| PDF       | Open to render idle, PDFium / MuPDF | Private Bytes above empty, PDFium / MuPDF | Private Bytes above empty after close, PDFium / MuPDF |
+| --------- | ----------------------------------: | ----------------------------------------: | ----------------------------------------------------: |
+| Attention |                    282.8 / 131.1 ms |                             7.7 / 5.8 MiB |                                         0.5 / 1.1 MiB |
+| BERT      |                    256.0 / 123.7 ms |                             9.6 / 3.7 MiB |                                         0.2 / 1.6 MiB |
+
+Eligible other-CPU means ranged 3.2–9.8%, p95 reached 17.2%, OS memory load
+reached 61%, and the largest monitor gap was 216.8 ms. Four pairs were excluded
+for background CPU (two BERT, two IPA attempts); the final IPA attempt could
+not start after the host exceeded the quiet-start limit for 60 seconds. No IPA
+performance or memory comparison qualifies. Full samples, exclusions, hashes
+and logs: `out/solok-normal-startup-2026-10-26/results.json`; condensed record:
+`docs/solokpdf-normal-startup-2026-10-26.json`. A pilot caught and corrected an
+empty-window `WaitRenderIdle` call in the measurement script; pilot data are
+excluded. Application C/C++ code and PDFium rendering were not changed.
+
+This isolates PDF opening from process startup. The two qualifying documents
+point to PDFium's first-page path as a startup cost, not a general shell-start
+cost. Prior phase logging measured a 368.8 ms first-page load versus an 8.9 ms
+bitmap render on the attention paper; a raster first-page load took 2.1 ms.
+Its unembedded Times-Roman and the font-info v2 probe make font matching a
+plausible cause, not a proven allocation or CPU breakdown. Font-info v2 changed
+alias text pixels and remains probe-only. The normal-PDF runs did not enable
+profiling, so their open times cannot be assigned to one PDFium API. Background
+windows span open, settle and close; a brief load spike during open can still
+bias one timing. Three pairs per document do not establish a general speed gap.
+
+The empty window used about 81–82 MiB regardless of the selected engine. After
+closing one document, PDFium's Private Bytes were within 0.2–0.5 MiB of its
+empty baseline. This does not support a large one-document SDK leak. Prior
+four-document accounting measured 153.1 MiB after visits versus 80.8 MiB empty;
+23.1 MiB was known cached pixel payload, leaving roughly 49 MiB across SDK,
+GDI, UI caches and allocator overhead unassigned. Whole-process counters cannot
+identify an owner or justify cache eviction changes. These warm open timings
+are not direct process-launch or first-paint measurements. A controlled direct
+launch comparison follows.
+
+Decision at this stage: continue diagnosis only. Measure direct process launch,
+time first-page loading in Release, and attribute non-pixel memory before
+proposing a change. Any font-path candidate must preserve PDFium's font
+selection, antialiasing, resolution and colors and match rendered text pixels,
+including aliases and Japanese glyphs.
+
+### Controlled direct launch and first-page attribution (2026-10-26)
+
+`experiments/pdfium/direct-startup-ui.ts` launches the same Release executable
+with each PDF on its command line. An independent CPU/memory monitor is ready
+before process creation and attached within 6–9 ms. The script waits for render
+idle, samples memory again after one second, then reads Cache Info's measured
+pixel payload and closes the PDF. It uses the same settings, window, DLLs, PDB
+exclusion and background gates as the empty-window open comparison. Profiling
+is disabled in performance rows; separate profile runs are diagnostic only.
+
+```powershell
+.work/tools/bun-windows-x64/bun.exe experiments/pdfium/direct-startup-ui.ts --runs 3 --output out/solok-direct-startup-2026-10-26 .work/corpus/attention-1706.03762v7.pdf .work/corpus/independent/bert-1810.04805.pdf
+.work/tools/bun-windows-x64/bun.exe experiments/pdfium/direct-startup-ui.ts --runs 3 --output out/solok-direct-startup-ipa-2026-10-26 .work/corpus/independent/ipa-2026-soshiki.pdf
+```
+
+All six text-PDF pairs and three IPA pairs qualified. One additional IPA pair
+was excluded for background-CPU p95 above 20%. Eligible other-CPU means were
+at most 7.5%, p95 at most 17.7%, OS memory load at most 64%, and the longest
+monitor gap was 218.6 ms. Medians of three pairs per document:
+
+| PDF       | Launch to render idle, PDFium / MuPDF | Paired PDFium delay | Settled Private Bytes, PDFium / MuPDF | Cache pixels, PDFium / MuPDF |
+| --------- | ------------------------------------: | ------------------: | ------------------------------------: | ---------------------------: |
+| Attention |                        1606 / 1155 ms |             +429 ms |                       86.5 / 83.4 MiB |                5.1 / 6.4 MiB |
+| BERT      |                        1420 / 1112 ms |             +284 ms |                       88.1 / 80.9 MiB |               8.0 / 10.6 MiB |
+| IPA       |                        1568 / 1509 ms |              +13 ms |                       92.0 / 96.7 MiB |               8.0 / 10.6 MiB |
+
+The paired Private-Bytes differences were +3.1, +7.2 and -4.7 MiB. After
+closing, both engines returned to about 79–81 MiB in these fresh processes.
+GDI and handle counts were similar. PDFium's smaller measured tile payload
+cannot explain its higher text-PDF Private Bytes. It does not identify the
+remaining bytes: SDK, other app caches and allocator/GDI overhead are still
+combined. A sampled startup peak is not an allocation trace, and 200 ms polls
+can miss short peaks. These are warm-file, process-start-to-render-idle times,
+including UI/control work, not cold boot or first-paint latency. The separate
+pilot pair is excluded from the planned primary comparison.
+
+With `SOLOKPDF_PROFILE=1`, Release logged first-page `FPDF_LoadPage` time of
+366.5 ms for Attention and 289.5/404.8 ms for BERT; drawing took 6.7–7.3 ms.
+IPA's first-page load took 2.8/10.3 ms, with 23.9–24.3 ms drawing. Document
+load took 15–41 ms in these traces. The same pinned PDFium DLL was used by the
+earlier standalone font probe: it recorded one 243–306 ms font enumeration on
+both text PDFs and none on IPA across three rounds. Its instrumented default-v1
+path matched all 15 paired PNGs, but it is not an in-app allocation trace.
+The font-info v2 path changed alias text pixels and remains rejected. The
+combined evidence makes first-use font enumeration the leading startup cause
+for these text PDFs; it does not prove the exact application font calls or
+their retained memory.
+
+Decision: continue only a narrow font-lookup and allocation-ownership
+investigation. A startup saving appears plausible on documents that trigger
+enumeration; the IPA control shows no general PDFium delay. No general
+resident-memory saving is established, so do not change tile cache policy.
+Before adopting any font-path change, compare application-rendered text pixels
+for aliases and Japanese glyphs, as well as font selection, antialiasing,
+resolution and colors. The next diagnostic is allocation attribution of
+post-visit non-pixel memory, followed by a pixel-identical font-matching
+candidate if one can be constructed. No application optimization was made.
+
+Condensed results and hashes: `docs/solokpdf-direct-startup-2026-10-26.json`.
+Raw samples, exclusions, Cache Info text and logs are in
+`out/solok-direct-startup-2026-10-26/`,
+`out/solok-direct-startup-ipa-2026-10-26/` and their `-profile-` counterparts.
+
+### Non-pixel allocation attribution and continuation decision (2026-10-26)
+
+An opt-in Release profile now records process Private Bytes and working set at
+PDFium load/render/close phase markers. It built with zero warnings/errors, and
+`tests/ad-hoc-pdfium.ts --no-build` passed against the instrumented executable.
+The instrumented executable is kept in `out/solok-attrib-release/`; the stable
+portable executable was restored after the build. Profile-phase deltas in the
+application overlap UI and render allocations, so they are not PDFium-only
+allocation counts. Six direct-launch pairs qualified and three were excluded by
+background CPU or monitor gaps; they are diagnostic and excluded from the
+performance medians above.
+
+`experiments/pdfium/render.cpp` now snapshots process memory around PDFium
+initialization, document/page load, bitmap/render, and each close. The
+standalone `alloc-probe.ts` checks three consecutive quiet one-second host
+samples before each launch (CPU <=10%, OS memory load <=85%), then compares
+the rendered PNG with the earlier unmodified probe. Three runs per document
+used the pinned DLL, page 1, 96 DPI and LCD text. All nine default-path PNGs
+matched. Median net Private Bytes at `FPDF_LoadPage`:
+
+| PDF                | Default page load | Font data returned by callbacks | After document close |
+| ------------------ | ----------------: | ------------------------------: | -------------------: |
+| Attention          |         +2.05 MiB |                        1.44 MiB |            -2.05 MiB |
+| BERT               |         +2.23 MiB |                        1.44 MiB |            -1.57 MiB |
+| IPA                |         +3.91 MiB |                               0 |            -3.89 MiB |
+| Font-alias fixture |        +36.17 MiB |                       36.88 MiB |           -36.03 MiB |
+
+The font callback profile separately matched the default-path PNGs. Attention,
+BERT and the alias fixture each triggered one font enumeration; IPA triggered
+none. The first two returned 225 font-data blocks; the alias fixture returned 299. Their callback time is consistent with the previously observed slow first
+page, but these short runs have no continuous background CPU gate and are not
+new timing evidence. The alias fixture is 16 KiB yet makes PDFium retain about
+36 MiB until document close. This identifies font data as the principal source
+of that fixture's non-pixel memory. For the normal text PDFs, font data accounts
+for part of the roughly 2 MiB page state, not the entire application's memory.
+The IPA page state arises without this font enumeration.
+
+The probe-only font-info v2 path reduced page-load Private Bytes to 1.60 MiB
+for Attention, 1.84 MiB for BERT and 16.34 MiB for the alias fixture. For the
+alias fixture it returned 15.39 MiB of font data in 62 calls, versus 36.88 MiB
+in 299 calls on the default path. V2's alias PNG differed from the default
+path in all three trials; an earlier application comparison also found alias
+text pixel changes. It is therefore rejected as an application change.
+
+`multi-alloc.cpp` isolates PDFium from the application and tile cache. It opens
+the same four documents, loads/closes page 1 of each, holds all documents, then
+closes them. Three alternating-order runs, each after the quiet-start gate,
+measured +42.20–42.30 MiB Private Bytes while open and +0.57–0.66 MiB after
+close relative to the post-initialization baseline. This probe uses PDFium's
+file-path loader rather than the application's custom file callback. The three
+ordinary PDFs without the alias fixture used +7.69–8.14 MiB while open, and
+the alias fixture alone used +36.21 MiB. The latter dominates the
+four-document result; it must not be generalized to ordinary PDFs. These are
+process-wide net measurements of the isolated SDK path, not allocation stacks
+or a complete application memory breakdown.
+
+The corresponding application four-document diagnostic was repeated in reverse
+engine order. PDFium's visited-all Private Bytes were 152.9/152.6 MiB versus
+MuPDF's 143.4/143.3 MiB. PDFium's measured cached pixel payload was 23.1 MiB
+versus MuPDF's 29.7 MiB. After all tabs closed and settled, PDFium returned to
+83.6/84.7 MiB from 82.8/81.7 MiB empty; MuPDF remained at 116.6/116.9 MiB
+from 81.7/81.6 MiB empty. GDI/handle counts were similar. The isolated PDFium
+probe explains why the synthetic alias document can dominate PDFium's open-tab
+Private Bytes. Pixel payload, SDK net memory and application Private Bytes
+cannot be added as exact ownership buckets: GDI backing, allocator overhead,
+render work and UI caches differ between processes. The remaining ordinary-PDF
+application increment is not assigned to an exact allocation stack.
+
+Windows heap ETW capture was attempted with `wpr -start HeapSnapshot -filemode`
+and denied by the OS (`Access is denied`); snapshot heap configuration was
+disabled. UMDH, GFlags and VMMap were unavailable here, and the pinned PDFium
+package contains no PDB. Thus exact heap call stacks and the remaining
+application-side buckets cannot be established in this environment. This is
+the remaining measurement limit, not evidence of a PDFium leak. The small
+post-close residuals and repeated document-close recovery argue against a
+large persistent PDFium leak in this corpus.
+
+Decision: continue diagnosis only; no optimization is justified yet. The most
+specific startup candidate is first-use font enumeration on PDFs that request
+unembedded fonts. A resident-memory improvement is plausible for font-heavy
+documents, but the measured v2 shortcut changes text pixels. Next, capture
+privileged allocation stacks for the ordinary-PDF application residual and
+test a font-lookup candidate that keeps PDFium's font choice and rendered text
+pixels identical for aliases and Japanese glyphs. Keep tile-cache policy and
+rendering settings unchanged until that evidence exists. No optimization was
+implemented. Condensed results and hashes are in
+`docs/solokpdf-allocation-2026-10-26.json`; raw rows/PNGs/logs are under
+`out/solok-alloc-*`, `out/solok-multi-alloc-*` and `out/solok-attrib-*`.
 
 ## Phase 5: portable development identity
 
