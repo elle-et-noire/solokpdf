@@ -10,14 +10,16 @@ rendered output.
 
 Opaque views now use an identity gray palette when every rendered pixel is
 opaque and R=G=B; other opaque views use BGR. PDFium still renders unchanged BGRA.
-The latest paired measurements use `e258f5944` as the baseline. Continue measuring
-inactive-tab caches and temporary document lifetimes with identical inputs,
-settings, zoom/DPI and pixels. Include font aliases/math and redraw latency.
+The batched Phase 4 pass keeps row-level cancellation and rejects already-canceled
+allocations. It preserves PDFium output and the existing cache policy. A separate
+size-cache candidate was rejected for higher large-tile peaks. The four planned
+checks are complete; general resident-memory/startup improvements remain
+unestablished. See the batch section and `solokpdf-phase4-batch-2026-10-25.json`.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 Use the Phase 4 sections and checked-in JSON for measured results. The validated
-Release is `out/solok-gray-after-release/SolokPDF.exe`; validated Debug is
-`out/solok-gray-after-debug/SolokPDF.exe`. The running portable executable was
+Release is `out/solok-finish-after-release/SolokPDF.exe`; validated Debug is
+`out/solok-finish-after-debug/SolokPDF.exe`. The running portable executable was
 not replaced. ZIP archives remain at the earlier checkpoint.
 
 ## Baseline (2026-10-24)
@@ -572,6 +574,298 @@ bun experiments/pdfium/memory-ui.ts --before out/solok-gray-before/SolokPDF.exe 
 
 Next: independent PDFs, long-lived GDI resource counts and larger-tile
 cancellation before changing font or cache policy.
+
+### Independent documents, retention and cancellation (2026-10-25)
+
+This continues `d7fd279f3` without changing the application. The same frozen
+Release executables and DLLs from the gray-storage comparison are reused;
+their hashes and the current engine/pixmap source hashes match the prior record.
+Only measurement helpers and fixtures change. Fonts, rendering and cache policy
+remain unchanged.
+
+The additional independent inputs are [BERT](https://arxiv.org/pdf/1810.04805)
+and IPA's Japanese [2026 organization guide](https://www.ipa.go.jp/security/10threats/omgdg50000008fi8-att/kaisetsu_2026_soshiki.pdf).
+Downloaded PDFs remain under `.work/corpus/independent/`, outside Git. Freeze
+their SHA-256 values before comparing builds; an unversioned URL may change.
+These add real Japanese text and another paper, not broad compatibility coverage.
+The IPA file has 64 pages; its font scan lists MS-Gothic, MS-PGothic and
+MS-Mincho subsets among 18 fonts. View comparisons primarily cover pages 1/4,
+not every font/page or unembedded CJK substitution. Japanese body text and the
+BERT page-4 view were also visually inspected.
+
+The standard workload uses the same requested 900x1000 window and measured
+120 DPI as before. Two rounds of two launches per variant/input/tab count,
+alternating order and reversing the starting order in round two. Fresh settings,
+identical DLLs, warm file cache and application PDBs hidden for both variants.
+No build or other GUI test ran concurrently. Machine load and OS memory pressure
+were not fixed. Medians across four launches, BGR → gray, MiB:
+
+| Input | Tabs | Private after visits | Working set after visits | Sampled peak Private |
+| ----- | ---: | -------------------: | -----------------------: | -------------------: |
+| BERT  |    1 |        108.4 → 125.3 |            134.4 → 149.1 |        154.1 → 152.8 |
+| BERT  |    4 |        147.2 → 150.8 |            173.1 → 175.1 |        180.4 → 184.8 |
+| IPA   |    1 |        111.9 → 112.1 |            138.2 → 135.8 |        150.6 → 127.2 |
+| IPA   |    4 |        194.4 → 179.5 |            220.6 → 203.7 |        222.1 → 189.4 |
+
+IPA four-tab post-visit working sets and sampled peaks fell in both rounds.
+BERT four-tab working sets and peaks reversed direction between rounds;
+one-tab BERT working sets rose in both. Gray storage does not establish a
+general process-memory reduction. All 32 view comparisons match.
+Four-tab switch medians were BERT 56.3→54.2 ms and IPA 67.7→63.9 ms;
+zoom/cancel medians were 385.8→390.5 and 381.8→384.3 ms. One BERT gray
+pending-close sample took 499.3 ms; no tail-latency improvement is established.
+
+`memory-ui.ts` now records current/peak GDI and USER counts at lifecycle
+snapshots, supports mixed-document tabs and a timed hold, and verifies pixels
+after holding and reactivating tabs. Its idle responses record actual viewport,
+zoom, tile resolution and cache limits. Private Bytes polling remains 5 ms
+during activity and changes to 1000 ms during the hold. Synchronous UI calls
+can delay polling. Native DIB/kernel costs remain incompletely accounted for.
+
+The retention workload opens the original paper, BERT, the IPA guide and
+`tests/issue-6101.pdf` in four separate tabs. After visiting each tab it holds
+for 120 seconds, performs 24 cycles of four tab switches, then runs zoom
+requests and closes all tabs. Snapshots include 500 ms and 5.5 seconds after
+close. This bounds observation to minutes; it does not establish long-run
+leak freedom or attribute retained memory to fonts.
+
+Two launches per variant, alternating order; MiB and GDI counts:
+
+| Variant / run | Private after visits → 120 s → reactivation → closed | Working set at 120 s | GDI at 120 s → reactivation → closed |
+| ------------- | ---------------------------------------------------: | -------------------: | -----------------------------------: |
+| BGR / 0       |                         123.1 → 120.3 → 121.7 → 84.1 |                145.4 |                      217 → 219 → 216 |
+| Gray / 0      |                         141.9 → 117.7 → 119.1 → 83.9 |                140.4 |                      218 → 220 → 216 |
+| Gray / 1      |                         139.2 → 116.7 → 119.1 → 84.3 |                141.7 |                      217 → 220 → 216 |
+| BGR / 1       |                         121.6 → 119.3 → 121.5 → 84.1 |                140.1 |                      216 → 218 → 215 |
+
+Closed values are 5.5 seconds after closing. Gray's immediate post-visit Private
+Bytes are higher in both launches; by 120 seconds they are slightly lower.
+The working-set direction reverses between runs. A single 500 ms snapshot is
+insufficient to claim a retention improvement.
+
+Across all 24 reactivation-cycle snapshots, GDI ranges were 219–219 / 220–220
+in run 0 (BGR / gray), and 218–218 / 219–220 in run 1. USER counts stayed within
+96–98; closed counts were 89–90. No growing resource trend appeared in this
+bounded workload. No inactive-tab eviction or font-lifetime change was made.
+All 15 comparisons matched: 11 cross-variant views and four within-variant
+hold/reactivation checks. Per-launch reactivation medians were 41.4/43.3 ms
+for BGR and 43.4/40.2 ms for gray; no redraw-latency benefit is established.
+
+`make-wide-fixture.ts` creates two 14000x420-point pages (one with odd dimensions
+and a small channel difference). Gray levels, text and 2000 diagonal paths
+exercise large, shallow tiles. This is synthetic allocation/cancellation stress,
+not another independent document. The `--large` workload includes settled
+1600/6400% captures, alternates 100/1600/25% with 20 ms pauses and closes during
+a new 100% request. Requests are cancellation pressure, not a count of confirmed
+PDFium aborts.
+
+The requested 2400x1800 window was constrained: recorded viewport at 100% was
+839x1026, with a 1920x1200 cache tile limit. The shallow-page rule nevertheless
+selected resolution 0 at render zoom 1.667: approximately 23334x700 pixels
+(16.3 million) for page 1. High zoom used smaller tiles (resolution 6/8 at
+1600/6400%). This is large-tile stress from aspect ratio, not a 4K-display test.
+
+Two rounds of two launches per variant/tab count; medians, BGR → gray:
+
+| Tabs | Post-visit working set, MiB | Sampled peak Private, MiB | Zoom requests → idle, ms | Pending close, ms |
+| ---: | --------------------------: | ------------------------: | -----------------------: | ----------------: |
+|    1 |               202.0 → 170.0 |             302.0 → 311.1 |          1660.4 → 1763.3 |     486.1 → 481.1 |
+|    4 |               484.1 → 358.8 |             583.7 → 523.2 |          1644.8 → 1719.3 |     508.6 → 506.7 |
+
+Post-visit working sets fell in both rounds for both tab counts. One-tab sampled
+peaks rose in both rounds. Four-tab peak savings differed substantially between
+rounds: 615.4→523.2 and 538.5→500.3 MiB. One-tab zoom/cancel medians increased
+in both rounds (1510.0→1713.8 and 1779.8→1788.1 ms); four-tab direction reversed.
+Pending close across both variants ranged 285.2–662.1 ms. The total workload
+times include fixed command pauses and final rendering; they do not isolate
+abort latency. All 20 view pairs match, including 1600/6400% captures. The
+gray/line view was visually inspected.
+
+All 52 final launches and 67 image comparisons completed. Counters, phase
+summaries, executable/DLL/PDF/source hashes and image hashes are in
+`docs/solokpdf-memory-extended-2026-10-25.json`; full polling samples and PNGs
+remain under its `experiments[].path` directories. Earlier exploratory runs
+(`out/solok-independent-preflight`, `out/solok-independent-paired`) are excluded:
+the measurement helpers were still being extended. All temporarily hidden PDBs
+were restored. No application rebuild, full unit suite or portable replacement
+was needed for these diagnostic-only changes.
+
+Reproduce with the frozen inputs and saved executables:
+
+```powershell
+$bgrExe = 'out/solok-gray-before/SolokPDF.exe'
+$grayExe = 'out/solok-gray-after-release/SolokPDF.exe'
+$extraPdfs = @('.work/corpus/independent/bert-1810.04805.pdf',
+    '.work/corpus/independent/ipa-2026-soshiki.pdf')
+bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --runs 2 --output out/solok-independent-final-paired @extraPdfs
+bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --runs 2 --reverse --output out/solok-independent-final-repeat @extraPdfs
+$mixedPdfs = @('.work/corpus/attention-1706.03762v7.pdf', $extraPdfs[0],
+    $extraPdfs[1], 'tests/issue-6101.pdf')
+bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --mixed --tabs 4 --runs 2 --hold 120 --cycles 24 --output out/solok-retention-paired @mixedPdfs
+bun experiments/pdfium/make-wide-fixture.ts
+bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --runs 2 --large --window 2400x1800 --output out/solok-wide-paired out/solok-memory-fixtures/wide-gray-color.pdf
+bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --runs 2 --large --window 2400x1800 --reverse --output out/solok-wide-repeat out/solok-memory-fixtures/wide-gray-color.pdf
+```
+
+Next: measure an empty-window baseline and repeated open/close cycles, record
+system memory pressure, and separate PDFium rendering from gray scanning/copying
+and BGR packing. Investigate cancellation during postprocessing before changing
+font matching, cache eviction or tile resolution. This run applies no further
+memory optimization.
+
+### Batched cancellation and retention pass (2026-10-25)
+
+The accepted change stops work after cancellation: before bitmap allocation,
+after page load/fill, and between rows of gray scanning/copying, BGR packing
+and alpha conversion. Canceling gray conversion preserves the original pixmap
+and deletes any partial DIB. Canceled BGR/alpha buffers are discarded. Normal
+rendering, fonts, flags, resolution, colors and cache policy are unchanged.
+
+The baseline adds only optional phase diagnostics and an unused cancellation
+argument to `d7fd279f3`. Original artifacts remain in `out/solok-finish-before/`;
+`out/solok-finish-before-matched/` combines its EXE/PDB with the same frozen DLLs
+used by the accepted candidate. No preserved baseline or portable EXE was
+overwritten. Accepted builds are `out/solok-finish-after-release/SolokPDF.exe`
+and `out/solok-finish-after-debug/SolokPDF.exe`.
+
+The new focused test failed first: 219 checks, six failures. After adding
+cancellation it passed 222 checks with zero failures, including existing
+palette/BGR/BGRA tests. Cases cover cancellation during gray scanning and DIB
+copying, source preservation and GDI cleanup. Release and Debug built with zero
+warnings/errors and passed `tests/ad-hoc-pdfium.ts`. Full unit suites were not
+run; the earlier clipboard baseline failure remains unresolved.
+
+Optional `SOLOKPDF_PROFILE=1` logs now separate geometry, allocation, lock wait,
+page load, fill, drawing, close, alpha conversion, gray scan/allocation/copy and
+BGR packing. In the dense wide-tile diagnostic baseline, large tiles had median
+drawing time 130.3 ms, gray scanning 11.5 ms and BGR packing 17.7 ms. The first
+page load reached 389.3 ms and a render-lock wait reached 569.6 ms. These are
+phase wall times, including scheduling; they are not isolated CPU costs.
+
+In the cancellation-only diagnostic, 29 requests were rejected before allocation:
+1,408,043,768 bytes of requested BGRA storage in total. This counts avoided
+requests, not peak/process memory savings. No mid-gray cancellation was observed
+in that UI trace; the deterministic unit test covers it. Diagnostic logging is
+excluded from performance aggregates.
+
+For the accepted change, dense-wide medians across four launches per row;
+before → after:
+
+| Tabs | Sampled peak Private, MiB | OS peak working set, MiB | Zoom → idle, ms | Process CPU during zoom, ms | Pending close, ms |
+| ---: | ------------------------: | -----------------------: | --------------: | --------------------------: | ----------------: |
+|    1 |             311.3 → 280.1 |            310.9 → 310.8 | 1606.9 → 1770.7 |             1421.9 → 1578.1 |     491.1 → 491.6 |
+|    4 |             461.1 → 476.0 |            499.1 → 498.9 | 1799.4 → 1643.3 |             1546.9 → 1445.3 |     490.7 → 463.6 |
+
+Post-visit working sets were 170.6→170.4 and 359.7→359.2 MiB. These results
+establish no general steady-memory, peak-memory or latency improvement. The
+accepted scope is eliminating already-canceled allocations and bounding
+postprocessing after cancellation. CPU counters are quantized; Private Bytes
+polling can miss short peaks during synchronous UI calls.
+
+An additional candidate published immutable page sizes under a separate mutex,
+allowing cached layout reads without waiting for PDFium. It passed rendering
+comparisons and GUI checks, but was rejected for higher peak memory:
+
+| Workload   | Tabs | Sampled peak Private, MiB | OS peak working set, MiB | Zoom → idle, ms |
+| ---------- | ---: | ------------------------: | -----------------------: | --------------: |
+| Dense wide |    1 |             296.6 → 350.0 |            310.9 → 310.9 |  1609.8 → 668.5 |
+| Dense wide |    4 |             500.1 → 538.9 |            492.0 → 499.1 |  1709.8 → 616.7 |
+| Light wide |    1 |             314.6 → 338.3 |            305.7 → 298.0 |   568.8 → 575.4 |
+| Light wide |    4 |             490.6 → 533.2 |            481.8 → 493.0 |   565.8 → 588.0 |
+
+Dense rows use four launches per variant; light rows use two. Each has two
+rounds with opposite starting orders. `make-cancel-fixture.ts` generates the
+light fixture: large gray/near-gray tiles with little drawing work. Its pauses
+are 35 ms; dense/standard workloads use 20 ms. Faster geometry may allow more
+overlapping temporary buffers, but allocation ownership was not isolated.
+The rejected source/artifacts remain under `out/solok-finish-final-{release,debug}`,
+marked `REJECTED.txt`; their counters are kept separate. The working tree was
+restored exactly to the accepted candidate's four C/C++ source hashes.
+
+The lifetime workload starts empty, opens the original paper, BERT, the IPA
+guide and font aliases, visits every tab, holds for 600 seconds, then performs
+32 open/close cycles. A second pair of launches reverses the starting order
+and repeats 32 cycles without a hold: 528 document opens/closes in four
+processes. Each close snapshot waits 500 ms; the final empty snapshot waits
+another five seconds. Counters include GDI/USER, process handles, CPU and OS
+memory pressure. Held views matched their pre-hold pixels in all four launches.
+
+| Variant / run | Hold, s | Empty Private start → final, MiB | Closed first 8 → last 8 median, MiB | Closed GDI range | Closed handle range |
+| ------------- | ------: | -------------------------------: | ----------------------------------: | ---------------: | ------------------: |
+| Before / 0    |     600 |                      80.9 → 85.9 |                         97.8 → 90.8 |          249–251 |             696–696 |
+| After / 0     |     600 |                      81.7 → 85.6 |                       102.9 → 103.0 |          250–250 |             692–696 |
+| After / 1     |       0 |                      81.6 → 86.0 |                         94.3 → 94.2 |          251–253 |             703–715 |
+| Before / 1    |       0 |                      81.8 → 86.2 |                         94.9 → 91.4 |          251–257 |             703–715 |
+
+At 600 seconds, Private Bytes were 150.7/150.6 MiB (before/after). Final GDI
+counts were 248–249. Final handles remained 37–50 above cold startup; no
+increasing per-cycle trend appeared. OS load ranged 75–85%, so small memory
+differences are not attributable to the change. PDFium's DLL and render workers
+remain for the process lifetime by design; the rest of the warm/cold difference
+was not attributed. Minutes and 32 cycles do not prove leak freedom over hours.
+
+Final accepted-candidate comparisons use the original paper, independent BERT
+and IPA documents, the font-alias fixture and the derived raster PDF. Two rounds
+of two launches per variant/input/tab count, reversing the starting order;
+requested 900x1000, measured 120 DPI, matched DLLs, fresh settings, application
+PDBs hidden and warm file cache. No application build or other GUI test ran
+concurrently. Whole-process medians across four launches, before → after, MiB:
+
+| Input        | Tabs | Working set after visits | Sampled peak Private |
+| ------------ | ---: | -----------------------: | -------------------: |
+| Paper        |    1 |            123.3 → 123.3 |        137.0 → 136.8 |
+| Paper        |    4 |            147.5 → 147.1 |        150.2 → 150.3 |
+| BERT         |    1 |            133.8 → 138.1 |        154.3 → 150.7 |
+| BERT         |    4 |            163.5 → 162.9 |        178.1 → 184.7 |
+| IPA          |    1 |            138.5 → 138.8 |        127.1 → 128.0 |
+| IPA          |    4 |            199.4 → 187.1 |        187.3 → 186.1 |
+| Font aliases |    1 |            151.6 → 151.8 |        145.5 → 150.0 |
+| Font aliases |    4 |            161.9 → 153.0 |        154.6 → 154.0 |
+| Raster       |    1 |            117.5 → 121.5 |        117.2 → 116.7 |
+| Raster       |    4 |            139.9 → 138.1 |        129.9 → 130.2 |
+
+Savings are not uniform. One accepted-candidate raster four-tab zoom/cancel
+batch took 1536.5 ms; its four-launch median was 385.9 ms. General resident
+memory, startup and tail-latency gains are not established. The retained change
+removes known-aborted allocation/processing work; it does not meet the original
+lightweight objective against MuPDF.
+
+The accepted version completed 110 measured launches and 130 matching image
+comparisons: 80 standard-corpus, 16 gray/color/alpha/rotation edge, 20 dense-wide,
+10 diagnostic and four hold comparisons. The rejected candidate completed
+another 28 launches and 60 matching comparisons. Results are not mixed between
+candidate hashes. Input/executable/DLL/source/image hashes, phase summaries,
+CPU/pressure counters, lifecycle snapshots and test logs are recorded in
+`docs/solokpdf-phase4-batch-2026-10-25.json`; raw polling and PNGs stay in `out/`.
+
+All temporary PDB renames were restored, and generated VS files were returned
+to their original state after verifying only `--with-pdfium` generation changes.
+SDK discovery, PE reads/launches and output links required retries; no ACL or
+security settings changed. Build/test logs use `out/solok-finish-*.log`.
+Raw `out/rel64` / `out/dbg64` executables are the rejected size-cache trial;
+use the accepted paths above. Portable folders and ZIP archives were not updated.
+
+Reproduce the accepted comparisons with the frozen files:
+
+```powershell
+$beforeExe = 'out/solok-finish-before-matched/SolokPDF.exe'
+$acceptedExe = 'out/solok-finish-after-release/SolokPDF.exe'
+$batchPdfs = @('.work/corpus/attention-1706.03762v7.pdf',
+    '.work/corpus/independent/bert-1810.04805.pdf',
+    '.work/corpus/independent/ipa-2026-soshiki.pdf',
+    'out/solok-phase4-font-check/fonts.pdf',
+    '.work/corpus/phase4/attention-raster-15.pdf')
+bun experiments/pdfium/memory-ui.ts --before $beforeExe --after $acceptedExe --runs 2 --output out/solok-finish-corpus-paired @batchPdfs
+bun experiments/pdfium/memory-ui.ts --before $beforeExe --after $acceptedExe --runs 2 --reverse --output out/solok-finish-corpus-repeat @batchPdfs
+$lifetimePdfs = $batchPdfs[0..3]
+bun experiments/pdfium/lifetime-ui.ts --before $beforeExe --after $acceptedExe --hold 600 --cycles 32 --output out/solok-finish-lifetime @lifetimePdfs
+bun experiments/pdfium/lifetime-ui.ts --before $beforeExe --after $acceptedExe --hold 0 --cycles 32 --reverse --output out/solok-finish-lifetime-repeat @lifetimePdfs
+bun experiments/pdfium/memory-ui.ts --before $beforeExe --after $acceptedExe --profile --large --cycles 24 --tabs 1 --runs 1 --output out/solok-finish-profile out/solok-memory-fixtures/wide-gray-color.pdf
+```
+
+The four planned checks are complete. Further work needs allocation ownership
+and a bounded render-buffer design before revisiting layout-lock separation;
+exact warm-resource attribution and longer real-document sessions remain.
 
 ## Phase 5: portable development identity
 

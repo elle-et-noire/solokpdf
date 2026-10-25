@@ -3,6 +3,7 @@
 
 #include "base/Base.h"
 #include "base/ByteReaderWriter.h"
+#include "base/Timer.h"
 #if OS_WIN
 #include "base/Win.h"
 #endif
@@ -152,18 +153,35 @@ Pixmap* PixmapFromHBITMAP(HBITMAP hbmp, Size size, HANDLE hMap) {
 }
 
 // Use an identity gray palette only when every opaque RGB triplet is equal.
-// Allocation failure leaves the original pixmap intact; no cache hooks run here.
-Pixmap* PixmapToGrayDib(Pixmap* p) {
+// Rejection, failure or cancellation preserves the source; no cache hooks run here.
+Pixmap* PixmapToGrayDib(Pixmap* p, bool (*isCanceled)(void*), void* user, PixmapGrayTimes* times) {
     if (!p || !p->data || p->hbmp || p->hasAlpha || p->format != PixmapFormat::BGRA8) {
         return p;
     }
+    TimeStamp start = times ? TimeGet() : TimeStamp{};
     for (int y = 0; y < p->height; y++) {
+        if (isCanceled && isCanceled(user)) {
+            if (times) {
+                times->scanMs = TimeSinceInMs(start);
+            }
+            return p;
+        }
         const u8* src = p->data + (size_t)y * p->stride;
         for (int x = 0; x < p->width; x++, src += 4) {
             if (src[0] != src[1] || src[0] != src[2] || src[3] != 255) {
+                if (times) {
+                    times->scanMs = TimeSinceInMs(start);
+                }
                 return p;
             }
         }
+    }
+    if (times) {
+        times->scanMs = TimeSinceInMs(start);
+        start = TimeGet();
+    }
+    if (isCanceled && isCanceled(user)) {
+        return p;
     }
 
     constexpr int kGrayColors = 256;
@@ -183,6 +201,10 @@ Pixmap* PixmapToGrayDib(Pixmap* p) {
     }
     void* bits = nullptr;
     HBITMAP hbmp = CreateDIBSection(nullptr, (BITMAPINFO*)&bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (times) {
+        times->allocMs = TimeSinceInMs(start);
+        start = TimeGet();
+    }
     if (!hbmp || !bits) {
         DeleteObject(hbmp);
         return p;
@@ -190,6 +212,13 @@ Pixmap* PixmapToGrayDib(Pixmap* p) {
 
     Pixmap* res = PixmapFromHBITMAP(hbmp, Size(p->width, p->height));
     for (int y = 0; y < p->height; y++) {
+        if (isCanceled && isCanceled(user)) {
+            if (times) {
+                times->copyMs = TimeSinceInMs(start);
+            }
+            FreePixmap(res);
+            return p;
+        }
         const u8* src = p->data + (size_t)y * p->stride;
         u8* dst = res->data + (size_t)y * res->stride;
         for (int x = 0; x < p->width; x++, src += 4) {
@@ -198,6 +227,9 @@ Pixmap* PixmapToGrayDib(Pixmap* p) {
     }
     res->xres = p->xres;
     res->yres = p->yres;
+    if (times) {
+        times->copyMs = TimeSinceInMs(start);
+    }
     FreePixmap(p);
     return res;
 }

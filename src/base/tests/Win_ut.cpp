@@ -495,6 +495,35 @@ static void PixmapToGrayDibTest() {
     utassert(PixmapToGrayDib(nullptr) == nullptr);
 }
 
+struct GrayCancelProbe {
+    int calls = 0;
+    int cancelAt = 0;
+    static bool Check(void* user) {
+        auto* probe = (GrayCancelProbe*)user;
+        return probe->calls++ >= probe->cancelAt;
+    }
+};
+
+static void GrayDibCancelTest() {
+    constexpr int kRows = 64;
+    for (int cancelAt : {0, kRows / 2, kRows + kRows / 2}) {
+        Pixmap* src = AllocPixmap(257, kRows);
+        memset(src->data, 255, (size_t)src->stride * src->height);
+        Pixmap* expected = ClonePixmap(src);
+        GrayCancelProbe probe{0, cancelAt};
+        DWORD gdi = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
+        Pixmap* result = PixmapToGrayDib(src, GrayCancelProbe::Check, &probe);
+        utassert(result == src);
+        utassert(probe.calls == cancelAt + 1);
+        if (result == src) {
+            utassert(!result->hbmp && PixmapRowsEqual(expected, result));
+        }
+        FreePixmap(result);
+        utassert(GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS) == gdi);
+        FreePixmap(expected);
+    }
+}
+
 void WinUtilTest() {
     ScopedCom comScope;
 
@@ -507,6 +536,7 @@ void WinUtilTest() {
     PixmapToBgraTest();
     PixmapToBgrTest();
     PixmapToGrayDibTest();
+    GrayDibCancelTest();
 
     {
         Str string = StrL("abcde");

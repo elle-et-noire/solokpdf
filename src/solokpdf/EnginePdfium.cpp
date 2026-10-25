@@ -140,13 +140,16 @@ struct PdfiumProfile {
     }
 };
 
-// Drop opaque alpha bytes without changing RGB values or allocating a second pixmap.
-static void CompactOpaquePixmap(Pixmap* pixmap) {
+// Pack opaque pixels in place. Cancellation leaves a partial buffer to discard.
+static bool CompactOpaquePixmap(Pixmap* pixmap, AtomicInt* aborted) {
     const int srcBpp = PixmapBytesPerPixel(PixmapFormat::BGRA8);
     const int dstBpp = PixmapBytesPerPixel(PixmapFormat::BGR8);
     constexpr int kRowAlign = sizeof(u32);
     int stride = (pixmap->width * dstBpp + kRowAlign - 1) & ~(kRowAlign - 1);
     for (int y = 0; y < pixmap->height; y++) {
+        if (AtomicIntGet(aborted)) {
+            return false;
+        }
         const u8* src = pixmap->data + (size_t)y * pixmap->stride;
         u8* dst = pixmap->data + (size_t)y * stride;
         for (int x = 0; x < pixmap->width; x++, src += srcBpp, dst += dstBpp) {
@@ -162,6 +165,7 @@ static void CompactOpaquePixmap(Pixmap* pixmap) {
     }
     pixmap->stride = stride;
     pixmap->format = PixmapFormat::BGR8;
+    return true;
 }
 
 class PdfiumCookie : public AbortCookie {
@@ -173,7 +177,8 @@ class PdfiumCookie : public AbortCookie {
         pause.user = this;
         pause.NeedToPauseNow = NeedPause;
     }
-    static FPDF_BOOL NeedPause(IFSDK_PAUSE* pause) { return AtomicIntGet(&((PdfiumCookie*)pause->user)->aborted) != 0; }
+    static bool IsCanceled(void* user) { return AtomicIntGet(&((PdfiumCookie*)user)->aborted) != 0; }
+    static FPDF_BOOL NeedPause(IFSDK_PAUSE* pause) { return IsCanceled(pause->user); }
     void Abort() override { AtomicIntSet(&aborted, 1); }
     void* GetData() override { return &pause; }
 };
@@ -464,6 +469,16 @@ class EnginePdfium : public EngineBase {
             fabs(x) > INT_MAX / 2 || fabs(y) > INT_MAX / 2) {
             return nullptr;
         }
+        profile.Mark(StrL("geometry"));
+        if (profile.enabled) {
+            logf("PDFium tile: thread=%lu page=%d size=%dx%d bytes=%llu transparent=%d print=%d\n",
+                 GetCurrentThreadId(), args.pageNo, (int)w, (int)h, (u64)w * (u64)h * 4, (int)args.transparentBackdrop,
+                 (int)(args.target == RenderTarget::Print));
+        }
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            profile.Mark(StrL("canceled-before-alloc"));
+            return nullptr;
+        }
         auto* pixmap = AllocPixmap((int)w, (int)h);
         if (!pixmap) {
             return nullptr;
@@ -481,12 +496,27 @@ class EnginePdfium : public EngineBase {
             return nullptr;
         }
         profile.Mark(StrL("page"));
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            gPdfium.FPDF_ClosePage(page);
+            FreePixmap(pixmap);
+            profile.Mark(StrL("canceled-page"));
+            return nullptr;
+        }
         FPDF_BITMAP bmp =
             gPdfium.FPDFBitmap_CreateEx(pixmap->width, pixmap->height, FPDFBitmap_BGRA, pixmap->data, pixmap->stride);
+        profile.Mark(StrL("bitmap-create"));
         int status = FPDF_RENDER_FAILED;
         if (bmp) {
             gPdfium.FPDFBitmap_FillRect(bmp, 0, 0, pixmap->width, pixmap->height,
                                         args.transparentBackdrop ? 0 : 0xffffffff);
+            profile.Mark(StrL("fill"));
+            if (PdfiumCookie::IsCanceled(cookie)) {
+                gPdfium.FPDFBitmap_Destroy(bmp);
+                gPdfium.FPDF_ClosePage(page);
+                FreePixmap(pixmap);
+                profile.Mark(StrL("canceled-fill"));
+                return nullptr;
+            }
             int flags = hideAnnotations ? 0 : FPDF_ANNOT;
             if (disableAntiAlias) {
                 flags |= FPDF_RENDER_NO_SMOOTHTEXT | FPDF_RENDER_NO_SMOOTHIMAGE | FPDF_RENDER_NO_SMOOTHPATH;
@@ -502,12 +532,14 @@ class EnginePdfium : public EngineBase {
             while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
                 status = gPdfium.FPDF_RenderPage_Continue(page, &cookie->pause);
             }
+            profile.Mark(StrL("draw"));
             gPdfium.FPDF_RenderPage_Close(page);
             gPdfium.FPDFBitmap_Destroy(bmp);
         }
         gPdfium.FPDF_ClosePage(page);
         profile.Mark(StrL("bitmap"));
         if (status != FPDF_RENDER_DONE || AtomicIntGet(&cookie->aborted)) {
+            profile.Mark(StrL("canceled-or-failed"));
             FreePixmap(pixmap);
             return nullptr;
         }
@@ -515,6 +547,11 @@ class EnginePdfium : public EngineBase {
             pixmap->hasAlpha = true;
             pixmap->premultiplied = true;
             for (int row = 0; row < pixmap->height; row++) {
+                if (PdfiumCookie::IsCanceled(cookie)) {
+                    FreePixmap(pixmap);
+                    profile.Mark(StrL("canceled-alpha"));
+                    return nullptr;
+                }
                 u8* px = pixmap->data + (size_t)row * pixmap->stride;
                 for (int col = 0; col < pixmap->width; col++, px += 4) {
                     for (int c = 0; c < 3; c++) {
@@ -524,10 +561,29 @@ class EnginePdfium : public EngineBase {
             }
         }
         pixmap->xres = pixmap->yres = args.zoom * fileDPI;
+        profile.Mark(StrL("alpha"));
         if (!pixmap->hasAlpha && args.target == RenderTarget::View) {
-            pixmap = PixmapToGrayDib(pixmap);
+            PixmapGrayTimes times;
+            pixmap = PixmapToGrayDib(pixmap, PdfiumCookie::IsCanceled, cookie, profile.enabled ? &times : nullptr);
+            profile.Mark(StrL("gray"));
+            if (profile.enabled) {
+                logf("PDFium gray: thread=%lu page=%d scan=%.3f alloc=%.3f copy=%.3f native=%d aborted=%d\n",
+                     GetCurrentThreadId(), args.pageNo, times.scanMs, times.allocMs, times.copyMs,
+                     (int)(pixmap->hbmp != nullptr), AtomicIntGet(&cookie->aborted));
+            }
+            if (PdfiumCookie::IsCanceled(cookie)) {
+                FreePixmap(pixmap);
+                profile.Mark(StrL("canceled-gray"));
+                return nullptr;
+            }
             if (pixmap->format == PixmapFormat::BGRA8) {
-                CompactOpaquePixmap(pixmap);
+                bool packed = CompactOpaquePixmap(pixmap, &cookie->aborted);
+                profile.Mark(StrL("bgr"));
+                if (!packed) {
+                    FreePixmap(pixmap);
+                    profile.Mark(StrL("canceled-bgr"));
+                    return nullptr;
+                }
             }
         }
         return pixmap;

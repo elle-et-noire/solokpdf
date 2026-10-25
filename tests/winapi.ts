@@ -95,6 +95,7 @@ const user32 = loadDll("user32.dll", {
   InjectTouchInput: { args: [FFIType.u32, FFIType.ptr], returns: FFIType.bool },
   GetCursorPos: { args: [FFIType.ptr], returns: FFIType.bool },
   GetGUIThreadInfo: { args: [FFIType.u32, FFIType.ptr], returns: FFIType.bool },
+  GetGuiResources: { args: [FFIType.u64, FFIType.u32], returns: FFIType.u32 },
   GetCursorInfo: { args: [FFIType.ptr], returns: FFIType.bool },
   GetIconInfo: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.bool },
   DrawIconEx: {
@@ -221,6 +222,12 @@ const kernel32 = loadDll("kernel32.dll", {
   WaitForSingleObject: { args: [FFIType.u64, FFIType.u32], returns: FFIType.u32 },
   CloseHandle: { args: [FFIType.u64], returns: FFIType.bool },
   GetLastError: { args: [], returns: FFIType.u32 },
+  GlobalMemoryStatusEx: { args: [FFIType.ptr], returns: FFIType.bool },
+  GetProcessHandleCount: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.bool },
+  GetProcessTimes: {
+    args: [FFIType.u64, FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.ptr],
+    returns: FFIType.bool,
+  },
   CreateFileW: {
     args: [FFIType.ptr, FFIType.u32, FFIType.u32, FFIType.ptr, FFIType.u32, FFIType.u32, FFIType.u64],
     returns: FFIType.u64,
@@ -2444,4 +2451,65 @@ export function processMemory(pid: number): {
   } finally {
     kernel32.symbols.CloseHandle(handle);
   }
+}
+
+export function processGuiResources(pid: number): {
+  gdi: number;
+  user: number;
+  peakGdi: number;
+  peakUser: number;
+  handles: number;
+  kernelCpuMs: number;
+  userCpuMs: number;
+} {
+  const processQueryLimitedInformation = 0x1000;
+  const handle = kernel32.symbols.OpenProcess(processQueryLimitedInformation, false, pid);
+  if (!handle) throw new Error(`Cannot open process ${pid} for GUI counters`);
+  const grGdiObjects = 0,
+    grUserObjects = 1,
+    grGdiObjectsPeak = 2,
+    grUserObjectsPeak = 4;
+  try {
+    const handles = new Uint32Array(1);
+    const times = new BigUint64Array(4);
+    if (
+      !kernel32.symbols.GetProcessHandleCount(handle, ptr(handles)) ||
+      !kernel32.symbols.GetProcessTimes(
+        handle,
+        ptr(times.subarray(0)),
+        ptr(times.subarray(1)),
+        ptr(times.subarray(2)),
+        ptr(times.subarray(3)),
+      )
+    ) {
+      throw new Error(`Cannot read process resources for ${pid}`);
+    }
+    const ticksPerMs = 10000;
+    return {
+      gdi: user32.symbols.GetGuiResources(handle, grGdiObjects),
+      user: user32.symbols.GetGuiResources(handle, grUserObjects),
+      peakGdi: user32.symbols.GetGuiResources(handle, grGdiObjectsPeak),
+      peakUser: user32.symbols.GetGuiResources(handle, grUserObjectsPeak),
+      handles: handles[0]!,
+      kernelCpuMs: Number(times[2]) / ticksPerMs,
+      userCpuMs: Number(times[3]) / ticksPerMs,
+    };
+  } finally {
+    kernel32.symbols.CloseHandle(handle);
+  }
+}
+
+export function systemMemory(): { loadPercent: number; totalPhysicalBytes: number; availablePhysicalBytes: number } {
+  const memoryStatusExSize = 64;
+  const loadOffset = 4;
+  const totalPhysicalOffset = 8;
+  const availablePhysicalOffset = 16;
+  const status = Buffer.alloc(memoryStatusExSize);
+  status.writeUInt32LE(status.length);
+  if (!kernel32.symbols.GlobalMemoryStatusEx(ptr(status))) throw new Error("Cannot read system memory pressure");
+  return {
+    loadPercent: status.readUInt32LE(loadOffset),
+    totalPhysicalBytes: Number(status.readBigUInt64LE(totalPhysicalOffset)),
+    availablePhysicalBytes: Number(status.readBigUInt64LE(availablePhysicalOffset)),
+  };
 }
