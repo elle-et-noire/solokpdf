@@ -19,23 +19,21 @@ single-tab cancellation is slower; general resident-memory/startup improvements
 remain unestablished. See the ownership section and
 `solokpdf-phase4-ownership-2026-10-25.json` for the tradeoff and measurements.
 
-The subsequent tab-group pass has four qualifying pairs each for 4/8 tabs.
-Restore peaks fell only 2–3 MiB and active-ready time rose 55–77 ms. All six
-16-tab pairs exceeded the fixed background-CPU limits; their timing/memory
-comparisons remain excluded. The user cannot stop the concurrent heavy task.
-Keep adoption pending a low-load 16-tab run; see `solokpdf-tabgroup-2026-10-25.json`.
+The tab-group pass has four qualifying pairs each for 4/8/16 tabs. Restore peaks
+fell 2–3 MiB at 4/8 tabs and 13.4 MiB at 16; active-ready time rose in all
+three sets. The 16-tab rerun excludes one high-load pair. The render-buffer
+trial is rejected for general use, including its light-wide CPU regression.
+See `solokpdf-tabgroup-2026-10-25.json` and
+`solokpdf-tabgroup-16-idle-2026-10-25.json`.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 Use the Phase 4 sections and checked-in JSON for measured results. The validated
-Release candidate is `out/solok-ownership-after-release/SolokPDF.exe`; Debug is
-`out/solok-ownership-after-debug/SolokPDF.exe`. Both passed targeted GUI checks.
-The previous validated version remains `out/solok-finish-after-release/SolokPDF.exe`
-(Debug: `out/solok-finish-after-debug/SolokPDF.exe`). Portable folders and ZIP
-archives were not updated.
-
-This development checkout retains the single-buffer trial in its source;
-building it includes the experiment. Adoption remains deferred. Use the previous
-validated artifacts above when the trial is not wanted.
+The current source removes the single-buffer trial. Release and Debug development
+folders at `out/solokpdf-portable/` and `out/solokpdf-dev/` were rebuilt and passed
+the targeted PDFium GUI test. The frozen pretrial Release remains
+`out/solok-finish-after-release/SolokPDF.exe`; the trial stays at
+`out/solok-ownership-after-release/SolokPDF.exe` for comparison. The ZIP archive
+was not updated.
 
 ## Baseline (2026-10-24)
 
@@ -1055,6 +1053,36 @@ Resume that comparison when the host is quiet, with a fresh output directory:
 ```powershell
 bun experiments/pdfium/tabgroup-ui.ts --counts 16 --runs 4 --output out/solok-tabgroup-16-idle .work/corpus/attention-1706.03762v7.pdf .work/corpus/independent/bert-1810.04805.pdf .work/corpus/independent/ipa-2026-soshiki.pdf .work/corpus/phase4/attention-raster-15.pdf
 ```
+
+### Quiet-host 16-tab rerun and rollback (2026-10-25/26)
+
+The rerun used the frozen executables, DLLs and four sources above. Four of five
+pairs met the fixed CPU/memory gates; the first pair was excluded for 11.1%
+background CPU mean. Both variants' 32 paired canvas images matched. Eligible
+whole-process medians, baseline → trial:
+
+| 16-tab restore      |  Baseline |     Trial |
+| ------------------- | --------: | --------: |
+| Peak Private Bytes  | 243.5 MiB | 230.1 MiB |
+| OS peak working set | 267.7 MiB | 254.4 MiB |
+| Active-ready        | 2338.4 ms | 2376.5 ms |
+
+Peak Private Bytes fell 13.4 MiB (5.5%). One of four pairs had a 1.0 MiB higher
+peak with the trial. The largest sampling gap was 55.6 ms. The 4/8-tab gains
+remain small and the light-wide single-tab CPU regression remains. The trial
+was rejected for general use; only its render mutex and allocation counters
+were removed from `EnginePdfium.cpp`, restoring its `6a4198892` content. Full
+results are in `solokpdf-tabgroup-16-idle-2026-10-25.json`.
+
+The reverted Release and Debug built with zero warnings/errors.
+Debug needed retries for intermittent output-file `LNK1104` errors.
+`tests/ad-hoc-pdfium.ts` passed on both rebuilt executables. A four-document
+ownership probe on the Release executable measured 82.8 MiB Private Bytes in an
+empty window, 153.6 MiB after visiting all tabs and 84.6 MiB five seconds after
+closing them. Cache Info reported seven tiles while open and zero after close.
+Its 39.49 MiB tile estimate assumes four bytes/pixel, so it is not an allocation
+breakdown for compact gray/BGR tiles. The probe is in
+`out/solok-post-revert-ownership/`.
 
 ## Phase 5: portable development identity
 
