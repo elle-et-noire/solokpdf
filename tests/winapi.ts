@@ -228,6 +228,7 @@ const kernel32 = loadDll("kernel32.dll", {
     args: [FFIType.u64, FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.ptr],
     returns: FFIType.bool,
   },
+  GetSystemTimes: { args: [FFIType.ptr, FFIType.ptr, FFIType.ptr], returns: FFIType.bool },
   CreateFileW: {
     args: [FFIType.ptr, FFIType.u32, FFIType.u32, FFIType.ptr, FFIType.u32, FFIType.u32, FFIType.u64],
     returns: FFIType.u64,
@@ -2497,6 +2498,23 @@ export function processGuiResources(pid: number): {
   } finally {
     kernel32.symbols.CloseHandle(handle);
   }
+}
+
+export function systemCpuTimes(): { idleMs: number; kernelMs: number; userMs: number } {
+  const fileTimeBytes = 8;
+  // Shared-buffer FFI outputs lost the idle time on this host.
+  const idle = Buffer.alloc(fileTimeBytes),
+    kernel = Buffer.alloc(fileTimeBytes),
+    user = Buffer.alloc(fileTimeBytes);
+  if (!kernel32.symbols.GetSystemTimes(ptr(idle), ptr(kernel), ptr(user))) {
+    throw new Error("Cannot read system CPU times");
+  }
+  const ticksPerMs = 10000;
+  return {
+    idleMs: Number(idle.readBigUInt64LE(0)) / ticksPerMs,
+    kernelMs: Number(kernel.readBigUInt64LE(0)) / ticksPerMs,
+    userMs: Number(user.readBigUInt64LE(0)) / ticksPerMs,
+  };
 }
 
 export function systemMemory(): { loadPercent: number; totalPhysicalBytes: number; availablePhysicalBytes: number } {

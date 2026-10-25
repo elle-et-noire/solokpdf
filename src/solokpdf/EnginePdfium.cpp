@@ -56,6 +56,8 @@
 
 // PDFium forbids concurrent calls even for different documents.
 static Mutex gPdfiumLock;
+// Bound render buffers without holding the SDK lock during cache trimming.
+static Mutex gPdfiumRenderLock;
 static struct PdfiumApi {
     HMODULE module = nullptr;
     int users = 0;
@@ -118,6 +120,7 @@ struct PdfiumProfile {
     int pageNo;
     TimeStamp start{};
     bool enabled;
+    i64 bufferBytes = 0;
 
     PdfiumProfile(Str operation, int pageNo = 0) : operation(operation), pageNo(pageNo) {
         static bool requested = [] {
@@ -137,6 +140,22 @@ struct PdfiumProfile {
         logf("PDFium profile: %s thread=%lu page=%d %s=%.3f ms\n", operation, GetCurrentThreadId(), pageNo, phase,
              TimeSinceInMs(start));
         start = TimeGet();
+    }
+
+    void Buffer(i64 bytes) {
+        if (!enabled) {
+            return;
+        }
+        static Mutex mutex;
+        static i64 liveBytes = 0;
+        static int count = 0;
+        ScopedMutex lock(&mutex);
+        i64 delta = bytes - bufferBytes;
+        liveBytes += delta;
+        count += (bytes > 0) - (bufferBytes > 0);
+        bufferBytes = bytes;
+        logf("PDFium buffers: thread=%lu page=%d delta=%lld live=%lld count=%d\n", GetCurrentThreadId(), pageNo, delta,
+             liveBytes, count);
     }
 };
 
@@ -475,6 +494,8 @@ class EnginePdfium : public EngineBase {
                  GetCurrentThreadId(), args.pageNo, (int)w, (int)h, (u64)w * (u64)h * 4, (int)args.transparentBackdrop,
                  (int)(args.target == RenderTarget::Print));
         }
+        ScopedMutex renderLock(&gPdfiumRenderLock);
+        profile.Mark(StrL("buffer-wait"));
         if (PdfiumCookie::IsCanceled(cookie)) {
             profile.Mark(StrL("canceled-before-alloc"));
             return nullptr;
@@ -483,6 +504,10 @@ class EnginePdfium : public EngineBase {
         if (!pixmap) {
             return nullptr;
         }
+        profile.Buffer((i64)pixmap->stride * pixmap->height);
+        defer {
+            profile.Buffer(0);
+        };
         profile.Mark(StrL("setup"));
         ScopedMutex lock(&gPdfiumLock);
         profile.Mark(StrL("lock"));

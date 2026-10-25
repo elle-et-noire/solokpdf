@@ -12,15 +12,30 @@ Opaque views now use an identity gray palette when every rendered pixel is
 opaque and R=G=B; other opaque views use BGR. PDFium still renders unchanged BGRA.
 The batched Phase 4 pass keeps row-level cancellation and rejects already-canceled
 allocations. It preserves PDFium output and the existing cache policy. A separate
-size-cache candidate was rejected for higher large-tile peaks. The four planned
-checks are complete; general resident-memory/startup improvements remain
-unestablished. See the batch section and `solokpdf-phase4-batch-2026-10-25.json`.
+size-cache candidate was rejected for higher large-tile peaks. The next ownership
+pass serializes buffer allocation separately from the SDK lock. It reduces large
+tile Private Bytes peaks while preserving pixels and cache policy. Light-wide
+single-tab cancellation is slower; general resident-memory/startup improvements
+remain unestablished. See the ownership section and
+`solokpdf-phase4-ownership-2026-10-25.json` for the tradeoff and measurements.
+
+The subsequent tab-group pass has four qualifying pairs each for 4/8 tabs.
+Restore peaks fell only 2–3 MiB and active-ready time rose 55–77 ms. All six
+16-tab pairs exceeded the fixed background-CPU limits; their timing/memory
+comparisons remain excluded. The user cannot stop the concurrent heavy task.
+Keep adoption pending a low-load 16-tab run; see `solokpdf-tabgroup-2026-10-25.json`.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 Use the Phase 4 sections and checked-in JSON for measured results. The validated
-Release is `out/solok-finish-after-release/SolokPDF.exe`; validated Debug is
-`out/solok-finish-after-debug/SolokPDF.exe`. The running portable executable was
-not replaced. ZIP archives remain at the earlier checkpoint.
+Release candidate is `out/solok-ownership-after-release/SolokPDF.exe`; Debug is
+`out/solok-ownership-after-debug/SolokPDF.exe`. Both passed targeted GUI checks.
+The previous validated version remains `out/solok-finish-after-release/SolokPDF.exe`
+(Debug: `out/solok-finish-after-debug/SolokPDF.exe`). Portable folders and ZIP
+archives were not updated.
+
+This development checkout retains the single-buffer trial in its source;
+building it includes the experiment. Adoption remains deferred. Use the previous
+validated artifacts above when the trial is not wanted.
 
 ## Baseline (2026-10-24)
 
@@ -842,8 +857,9 @@ All temporary PDB renames were restored, and generated VS files were returned
 to their original state after verifying only `--with-pdfium` generation changes.
 SDK discovery, PE reads/launches and output links required retries; no ACL or
 security settings changed. Build/test logs use `out/solok-finish-*.log`.
-Raw `out/rel64` / `out/dbg64` executables are the rejected size-cache trial;
-use the accepted paths above. Portable folders and ZIP archives were not updated.
+At the end of this batch, raw `out/rel64` / `out/dbg64` held the rejected
+size-cache trial. Later builds overwrite them; use the labeled paths for each
+pass. Portable folders and ZIP archives were not updated.
 
 Reproduce the accepted comparisons with the frozen files:
 
@@ -866,6 +882,179 @@ bun experiments/pdfium/memory-ui.ts --before $beforeExe --after $acceptedExe --p
 The four planned checks are complete. Further work needs allocation ownership
 and a bounded render-buffer design before revisiting layout-lock separation;
 exact warm-resource attribution and longer real-document sessions remain.
+
+### Render-buffer ownership pass (2026-10-25)
+
+Baseline: `6a4198892`. The diagnostic baseline adds only optional buffer-scope
+counters; its pixels match the previous accepted Release. The candidate acquires
+a separate render mutex before allocating pixels and checks cancellation after
+waiting. Allocation can still trim caches without holding the SDK mutex. PDFium
+calls and postprocessing keep their existing SDK lock. Fonts, flags, geometry,
+resolution, colors and cache eviction policy are unchanged.
+
+The counters sum each active RenderPage call's initial BGRA size until return;
+compacted output may be smaller. They exclude gray-copy scratch, SDK allocations
+and output already handed to callers/caches. They are not total process memory.
+The initial diagnostic observed 2+ buffers and failed the limit-one check:
+124.9 MiB peak with one tab, 187.4 MiB with four. The candidate passed with one
+buffer and 62.5 MiB in both cases; every trace ended at zero reservations.
+
+Logging-disabled comparisons use matched DLLs, hidden app PDBs (including the
+recorded build path), fresh settings, requested 900x1000 at 120 DPI and alternating
+variant order. Dense/light rows combine two rounds with opposite starting orders,
+four launches per variant/tab count. Both workloads repeat 24 zoom/cancel cycles;
+dense pauses are 20 ms, light pauses 35 ms. Whole-process medians, before → after:
+
+| Workload   | Tabs | Sampled peak Private, MiB | OS peak working set, MiB |   Zoom → idle, ms | Process CPU during zoom, ms |
+| ---------- | ---: | ------------------------: | -----------------------: | ----------------: | --------------------------: |
+| Dense wide |    1 |             311.3 → 264.4 |            310.7 → 310.3 | 13679.6 → 14229.7 |           11515.6 → 11875.0 |
+| Dense wide |    4 |             537.6 → 445.4 |            498.3 → 483.1 | 12608.2 → 12562.7 |           10898.4 → 10945.3 |
+| Light wide |    1 |             266.3 → 251.3 |            305.5 → 305.5 |   3859.4 → 4268.2 |             3070.3 → 3742.2 |
+| Light wide |    4 |             500.9 → 405.8 |            493.1 → 448.4 |   4030.5 → 3514.0 |             3218.8 → 3226.6 |
+
+The candidate is retained as a peak-memory tradeoff, not a general speedup.
+Light-wide single-tab wall time rose 10.6% and CPU 21.9%; dense single-tab wall
+time rose 4.0%. Dense four-tab switching rose 442.4→474.9 ms and pending close
+579.6→602.2 ms; light four-tab switching/close improved. Cancellation scheduling
+can affect completed work, but the extra CPU was not attributed to a phase.
+Host memory pressure varied; polling can miss short Private Bytes peaks. These
+results do not establish tail latency or steady-memory improvements.
+
+After tab visits, dense working sets were 169.8→169.8 MiB (one tab) and
+358.6→358.8 MiB (four); light rows were 165.1→165.1 and 354.2→353.9 MiB.
+Paper/BERT/IPA comparisons use two launches per variant/tab count with reversed
+starting order. Normal-workload zoom medians were 373–401 ms, except the one-run
+raster edge baseline at 411 ms. No uniform ordinary-document memory gain emerged.
+
+The ownership probe opens the independent paper, BERT, Japanese IPA guide and
+font aliases, visits each tab, holds for 60 seconds and closes all tabs. Both
+variants retain seven registered tiles, estimated as 39.49 MiB by Cache Info.
+That UI uses width*height*4, an upper estimate for gray/BGR output. Held Private
+Bytes were 149.7→149.8 MiB; after closing/settling, both were 81.3 MiB, with zero
+registered objects, 250 GDI objects and 699 handles. The additional eight
+open/close cycles per variant completed 72 document lifetimes. This does not
+attribute SDK/allocator warm state or prove hours-long leak freedom.
+
+The first ownership-only probe hid the staged PDB but left the raw build-output
+PDB readable. The candidate could load matching symbols; its cold footprint was
+about 20 MiB larger. Those two runs are excluded and preserved in
+`out/solok-ownership-cache-{before,after}`. Corrected probes use
+`out/solok-ownership-cache-paired-{before,after}`. Performance/lifetime scripts
+already hid both PDB locations, so their results were unaffected.
+
+Release and Debug built with zero warnings/errors and passed the targeted GUI
+checks. There were 72 paired memory-workload launches (64 without diagnostics),
+118 matching image pairs and 72 document lifetimes in the open/close check.
+No full unit suite was run. The complete evidence is assembled in
+`solokpdf-phase4-ownership-2026-10-25.json`; raw counters, logs and screenshots
+stay under `out/solok-ownership-*`. Debug output links needed retries after
+LNK1104; no ACL/security settings changed. Generated VS files were restored
+after validation. The previous accepted artifacts and portable build remain
+unchanged. Adoption remains deferred.
+
+Reproduce the ownership and bound checks:
+
+```powershell
+$before = 'out/solok-finish-after-release/SolokPDF.exe'
+$after = 'out/solok-ownership-after-release/SolokPDF.exe'
+bun experiments/pdfium/memory-ui.ts --before $before --after $after --large --cycles 24 --runs 2 --output out/solok-ownership-dense out/solok-memory-fixtures/wide-gray-color.pdf
+bun experiments/pdfium/memory-ui.ts --before out/solok-ownership-before-release/SolokPDF.exe --after $after --profile --large --cycles 24 --runs 1 --output out/solok-ownership-profile out/solok-memory-fixtures/wide-gray-color.pdf
+bun experiments/pdfium/check-buffers.ts out/solok-ownership-profile
+bun experiments/pdfium/ownership-ui.ts --exe $after --hold 60 --output out/solok-ownership-cache-check .work/corpus/attention-1706.03762v7.pdf .work/corpus/independent/bert-1810.04805.pdf .work/corpus/independent/ipa-2026-soshiki.pdf out/solok-phase4-font-check/fonts.pdf
+```
+
+Further work should isolate the light-wide CPU increase before changing queue
+scheduling again. Inactive-tab cache policy remains a separate tradeoff requiring
+reactivation measurements; no automatic inactive eviction was introduced.
+
+### Tab-group restore under background-load gates (2026-10-25)
+
+`experiments/pdfium/tabgroup-ui.ts` creates fresh test settings containing a
+persisted group and invokes the real Restore Tab Group dialog asynchronously.
+`OpenTabGroup()` loads entries sequentially; rendering and thumbnail engine
+clones may overlap. The application code/binaries were not changed in this pass.
+The previously frozen Release baseline and ownership candidate use matched DLLs,
+hidden raw/staged PDBs, 900x1000 requested geometry, 120 DPI and 100% initial zoom.
+Every restored path is verified by visiting all tabs after restoration.
+
+Inputs are the independent Attention paper, BERT and Japanese IPA guide, plus
+the derived Attention raster PDF. The 8/16-tab groups repeat these four sources
+under separate paths. This is not coverage of 16 independent real-world files.
+The group is read from generated settings; the Save UI had earlier two-file
+coverage. Settings, cache files and captures stay in isolated `out/` directories.
+
+Background monitoring uses [GetSystemTimes](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getsystemtimes):
+total CPU is kernel+user, busy CPU subtracts idle, and target-process CPU is
+subtracted to estimate other activity. Kernel time includes idle; this host has
+16 logical processors. The remainder includes the harness and OS services, not
+just unrelated apps. This reduces interference but does not isolate CPU cores,
+frequency, disk activity or paging.
+
+Fixed before the primary runs:
+
+- Start after three consecutive one-second samples with total busy CPU ≤10%
+  and OS memory load ≤85%.
+- Accept a measured row only with other-CPU mean ≤10%, p95 ≤20% over 200 ms
+  windows, and memory load ≤90%.
+- Accept a pair only if both rows qualify and starting memory load differs by
+  at most three percentage points. Retry at most three times; retain failures.
+- Alternate attempted starting order. After exclusions each 4/8-tab dataset
+  has three baseline-first pairs and one candidate-first pair: residual order
+  imbalance remains.
+
+The CPU wrapper uses separate FILETIME output buffers: the shared-buffer probe
+returned zero idle time on this host. Independent P/Invoke queries bracketed
+and verified the wrapper's counters/units. A preliminary 20 ms CPU-p95 policy
+was rejected during calibration for short-interval noise; 200 ms windows were
+fixed before the primary runs. Some adjacent raw snapshots backstep slightly;
+every used 200 ms window was audited for positive total/idle deltas. Calibration
+data is excluded from the primary comparisons.
+
+Four qualifying launches per variant/count; whole-process medians, before → after:
+
+| Tabs | Restore peak Private, MiB | OS peak working set, MiB | Active-ready, ms | Restore CPU, ms | Tab switch median, ms |
+| ---: | ------------------------: | -----------------------: | ---------------: | --------------: | --------------------: |
+|    4 |             133.4 → 130.9 |            158.7 → 156.3 |    691.0 → 767.9 |   367.2 → 406.3 |           26.2 → 24.7 |
+|    8 |             164.8 → 161.5 |            189.6 → 186.4 |  1104.2 → 1158.9 |   570.3 → 640.6 |           27.5 → 28.1 |
+
+Active-ready means the final selected restored tab is fully rendered and the
+control interface responds after all entries were opened. It is not first-paint
+timing or a guarantee that background thumbnail work has ended. Restore peaks
+include another 500 ms of settling; screenshots occur after timed traversal.
+Private Bytes sampling requests 20 ms intervals; qualifying maximum gaps were
+46–54 ms, so short peaks can be missed. OS peak working set is cumulative from
+the fresh process start.
+
+After visiting all tabs, Private Bytes were 118.1→117.2 MiB (4) and
+153.2→153.2 MiB (8). Working sets were 143.5→142.1 and 177.9→177.9 MiB.
+The 2–3 MiB restore-peak differences are small; these runs establish no substantial
+ordinary tab-group benefit or general speedup. Residual background load and
+order imbalance prevent attributing every small difference to the mutex.
+
+Across the two primary output directories, 32 processes produced 16 pairs:
+eight qualify (4/8 tabs), eight are excluded. Six excluded pairs are 16-tab
+attempts: other-CPU means reached 11.9–21.3%, with p95 up to 35.6%. All failed
+the unchanged limits. The user confirmed a concurrent heavy task cannot be
+stopped, so no further performance runs were started. A qualifying 16-tab
+comparison is still required; excluded measurements are not adoption evidence.
+
+All 108 paired canvas images matched, including 96 from excluded 16-tab pairs.
+The latter validate rendering/path restoration in those attempts, not performance.
+PDBs were restored after every failed/finished run. Unrelated formatter-only
+hunks were reverted. No full suites, portable replacement or
+additional application optimization was performed.
+
+Results and audits are in `solokpdf-tabgroup-2026-10-25.json`. Raw data/captures:
+`out/solok-tabgroup-main/` and `out/solok-tabgroup-main-16/`; independent counter
+verification: `out/solok-tabgroup-cpu-reference.json`. The ownership candidate
+remains a large-tile peak-memory experiment. Defer adoption for ordinary group
+restoration until the missing low-load 16-tab comparison is available.
+
+Resume that comparison when the host is quiet, with a fresh output directory:
+
+```powershell
+bun experiments/pdfium/tabgroup-ui.ts --counts 16 --runs 4 --output out/solok-tabgroup-16-idle .work/corpus/attention-1706.03762v7.pdf .work/corpus/independent/bert-1810.04805.pdf .work/corpus/independent/ipa-2026-soshiki.pdf .work/corpus/phase4/attention-raster-15.pdf
+```
 
 ## Phase 5: portable development identity
 
