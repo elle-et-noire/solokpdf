@@ -89,6 +89,57 @@ async function expectPageLabels(): Promise<void> {
   );
 }
 
+// plain-text URL, wrapped URL (not joined, like MuPDF), DOI, and a URL covered by a link annotation
+function autoLinksFixture(): string {
+  // one text block with y steps, as in a typeset paragraph
+  const lines: [number, string][] = [
+    [250, "Visit https://example.com/solok-auto now."],
+    [-20, "https://example.com/wrapped/"],
+    [-14, "tail-part end"],
+    [-26, "DOI 10.1109/WICSA.2015.29."],
+    [-30, "https://arxiv.org/abs/1706.03762"],
+  ];
+  const moves = lines.map(([dy, s], i) => `${i ? 0 : 40} ${dy} Td (${s}) Tj`).join("\n");
+  const text = `BT /F1 12 Tf\n${moves}\nET`;
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 300] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R /Annots [6 0 R] >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+    "<< /Type /Annot /Subtype /Link /Rect [38 156 240 172] /Border [0 0 0] /A << /S /URI /URI (https://arxiv.org/abs/1706.03762) >> >>",
+  ]);
+}
+
+function linkValues(links: string): string[] {
+  return [...links.matchAll(/ value=(\S+)/g)].map((m) => m[1]!).sort();
+}
+
+const expectedAutoLinks = [
+  "https://arxiv.org/abs/1706.03762",
+  "https://doi.org/10.1109/WICSA.2015.29",
+  "https://example.com/solok-auto",
+  "https://example.com/wrapped/",
+];
+
+// with DisableAutoLinks only the annotation link remains
+async function expectAutoLinksDisabled(path: string): Promise<void> {
+  const settings = tmpPath("pdfium/noauto");
+  mkdirSync(settings, { recursive: true });
+  writeFileSync(join(settings, "SolokPDF-settings.txt"), "UiLanguage = en\nDisableAutoLinks = true\n");
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      await client.waitForRenderIdle();
+      const links = await request(client, ControlCommand.TestPageLinks, [path, 1]);
+      const got = linkValues(links).join(" ");
+      if (got !== "https://arxiv.org/abs/1706.03762") throw new Error(`DisableAutoLinks links: ${got}`);
+    },
+    ["-appdata", settings, "-log-to-file", tmpPath("pdfium/noauto.log"), path],
+    { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
+  );
+}
+
 async function request(client: ControlClient, cmd: ControlCommand, args: (string | number)[] = []): Promise<string> {
   const r = await client.request(cmd, args);
   const text = String(r[1] ?? "");
@@ -133,6 +184,8 @@ export async function testit(): Promise<void> {
   const sentinel = tmpPath("pdfium/settings/SumatraPDF-settings.txt");
   writeFileSync(sentinel, "SumatraPDF settings sentinel\n");
   writeFileSync(pdf, fixture(), "latin1");
+  const autoPdf = tmpPath("pdfium/autolinks.pdf");
+  writeFileSync(autoPdf, autoLinksFixture(), "latin1");
   const second = tmpPath("pdfium/second.pdf");
   copyFileSync(pdf, second);
   const log = tmpPath("pdfium/gui.log");
@@ -162,6 +215,8 @@ export async function testit(): Promise<void> {
       ) {
         throw new Error(`Link coordinates or URI: ${links}`);
       }
+      const autoLinks = linkValues(await request(client, ControlCommand.TestPageLinks, [autoPdf, 1]));
+      if (autoLinks.join(" ") !== expectedAutoLinks.join(" ")) throw new Error(`Auto links: ${autoLinks}`);
       const toc = await request(client, ControlCommand.TestGetToc, [pdf]);
       if (!toc.includes("Second page|page=2")) throw new Error(`TOC: ${toc}`);
       const render = await request(client, ControlCommand.TestRenderViewPrint, [pdf]);
@@ -223,6 +278,7 @@ export async function testit(): Promise<void> {
   }
   await expectOverwriteReload();
   await expectPageLabels();
+  await expectAutoLinksDisabled(autoPdf);
   const missingDir = tmpPath("pdfium/missing-dll");
   mkdirSync(missingDir, { recursive: true });
   const missingExe = join(missingDir, basename(EXE));

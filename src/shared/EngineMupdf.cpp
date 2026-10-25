@@ -1672,6 +1672,19 @@ static LinkRectList* LinkifyText(Utf8PageText pageText, Rect* coords) {
     return list;
 }
 
+// LinkifyText() for engines without an fz_stext_page
+void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects) {
+    if (len(text) == 0 || !coords) {
+        return;
+    }
+    LinkRectList* list = LinkifyText(MakeUtf8PageTextTemp(text), coords);
+    for (int i = 0; i < len(list->links); i++) {
+        urls.Append(list->links[i]);
+        VecAppend(rects, ToRectF(list->coords[i]));
+    }
+    delete list;
+}
+
 // try to produce an 8-bit palette for saving some memory
 #if OS_WIN
 static RenderedBitmap* TryRenderAsPaletteImage(fz_pixmap* pixmap) {

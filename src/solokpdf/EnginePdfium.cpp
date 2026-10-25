@@ -351,6 +351,73 @@ class EnginePdfium : public EngineBase {
         return result;
     }
 
+    // Caller holds gPdfiumLock.
+    PageText ReadPageText(FPDF_PAGE page, PdfiumPage* info) {
+        PageText result;
+        FPDF_TEXTPAGE textPage = gPdfium.FPDFText_LoadPage(page);
+        if (!textPage) {
+            return result;
+        }
+        int count = gPdfium.FPDFText_CountChars(textPage);
+        constexpr int kMaxPageChars = 2000000;
+        if (count > 0 && count <= kMaxPageChars) {
+            str::Builder text;
+            Vec<Rect> coords;
+            for (int i = 0; i < count; i++) {
+                unsigned int code = gPdfium.FPDFText_GetUnicode(textPage, i);
+                if (!code || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) {
+                    code = 0xfffd;
+                }
+                char buf[8]{};
+                int bytes = 0;
+                str::Utf8Encode(buf, bytes, (int)code);
+                text.Append(Str(buf, bytes));
+                double left = 0, right = 0, bottom = 0, top = 0;
+                Rect box;
+                if (gPdfium.FPDFText_GetCharBox(textPage, i, &left, &right, &bottom, &top)) {
+                    RectF rect = ToPageRect(page, info, left, bottom, right, top);
+                    if (isfinite(rect.x) && isfinite(rect.y) && isfinite(rect.dx) && isfinite(rect.dy) &&
+                        fabs(rect.x) < INT_MAX / 4 && fabs(rect.y) < INT_MAX / 4 && rect.dx < INT_MAX / 4 &&
+                        rect.dy < INT_MAX / 4) {
+                        box = rect.Round();
+                    }
+                }
+                VecAppend(coords, box);
+            }
+            result.text = text.TakeStr();
+            result.nCodepoints = len(coords);
+            result.coords = VecTake(coords);
+        }
+        gPdfium.FPDFText_ClosePage(textPage);
+        return result;
+    }
+
+    // Plain-text URLs, e-mails and DOIs, skipping those covered by a link annotation (like EngineMupdf).
+    // PDFium's "\r\n" line breaks keep wrapped URLs unjoined, as MuPDF's soft line joins do.
+    void AddAutoLinks(FPDF_PAGE page, int pageNo, PdfiumPage* info) {
+        PageText text = ReadPageText(page, info);
+        StrVec urls;
+        Vec<RectF> rects;
+        LinkifyPageText(text.text, text.coords, urls, rects);
+        FreePageText(&text);
+        int nAnnotLinks = len(info->links);
+        for (int i = 0; i < len(urls); i++) {
+            RectF rect = rects[i];
+            bool covered = false;
+            for (int j = 0; j < nAnnotLinks && !covered; j++) {
+                RectF isect = rect.Intersect(info->links[j]->GetRect());
+                covered = rect.dx * rect.dy > 0 && isect.dx * isect.dy >= 0.25f * rect.dx * rect.dy;
+            }
+            if (covered) {
+                continue;
+            }
+            auto* element = new PageElementDestination(new PageDestinationURL(urls[i]));
+            element->pageNo = pageNo;
+            element->rect = rect;
+            VecAppend(info->links, (IPageElement*)element);
+        }
+    }
+
     void LoadLinks(int pageNo, PdfiumPage* info) {
         if (info->linksLoaded) {
             return;
@@ -376,6 +443,9 @@ class EnginePdfium : public EngineBase {
             element->pageNo = pageNo;
             element->rect = ToPageRect(page, info, box.left, box.bottom, box.right, box.top);
             VecAppend(info->links, (IPageElement*)element);
+        }
+        if (!disableAutoLinks) {
+            AddAutoLinks(page, pageNo, info);
         }
         gPdfium.FPDF_ClosePage(page);
         info->linksLoaded = true;
@@ -540,7 +610,11 @@ class EnginePdfium : public EngineBase {
 
     EngineBase* Clone() override {
         TempStr error;
-        return CreateEnginePdfium(FilePath(), &error);
+        EngineBase* clone = CreateEnginePdfium(FilePath(), &error);
+        if (clone) {
+            clone->disableAutoLinks = disableAutoLinks;
+        }
+        return clone;
     }
 
     RectF PageMediabox(int pageNo) override {
@@ -710,43 +784,8 @@ class EnginePdfium : public EngineBase {
         if (!page) {
             return {};
         }
-        PageText result;
         profile.Mark(StrL("page"));
-        FPDF_TEXTPAGE textPage = gPdfium.FPDFText_LoadPage(page);
-        profile.Mark(StrL("text-page"));
-        if (textPage) {
-            int count = gPdfium.FPDFText_CountChars(textPage);
-            constexpr int kMaxPageChars = 2000000;
-            if (count > 0 && count <= kMaxPageChars) {
-                str::Builder text;
-                Vec<Rect> coords;
-                for (int i = 0; i < count; i++) {
-                    unsigned int code = gPdfium.FPDFText_GetUnicode(textPage, i);
-                    if (!code || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) {
-                        code = 0xfffd;
-                    }
-                    char buf[8]{};
-                    int bytes = 0;
-                    str::Utf8Encode(buf, bytes, (int)code);
-                    text.Append(Str(buf, bytes));
-                    double left = 0, right = 0, bottom = 0, top = 0;
-                    Rect box;
-                    if (gPdfium.FPDFText_GetCharBox(textPage, i, &left, &right, &bottom, &top)) {
-                        RectF rect = ToPageRect(page, info, left, bottom, right, top);
-                        if (isfinite(rect.x) && isfinite(rect.y) && isfinite(rect.dx) && isfinite(rect.dy) &&
-                            fabs(rect.x) < INT_MAX / 4 && fabs(rect.y) < INT_MAX / 4 && rect.dx < INT_MAX / 4 &&
-                            rect.dy < INT_MAX / 4) {
-                            box = rect.Round();
-                        }
-                    }
-                    VecAppend(coords, box);
-                }
-                result.text = text.TakeStr();
-                result.nCodepoints = len(coords);
-                result.coords = VecTake(coords);
-            }
-            gPdfium.FPDFText_ClosePage(textPage);
-        }
+        PageText result = ReadPageText(page, info);
         gPdfium.FPDF_ClosePage(page);
         profile.Mark(StrL("characters"));
         return result;
@@ -815,7 +854,7 @@ class EnginePdfium : public EngineBase {
         if (prop == DocProp::UnsupportedFeatures) {
             return StrL(
                 "Experimental PDFium: annotation editing, interactive forms, JavaScript, signatures, "
-                "attachments, automatic links and advanced PDF dark mode are not implemented.");
+                "attachments and advanced PDF dark mode are not implemented.");
         }
         const char* key = nullptr;
         switch (prop) {

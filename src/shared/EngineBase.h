@@ -111,6 +111,7 @@ struct PageText {
 };
 
 void FreePageText(PageText*);
+void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects);
 
 // a link destination
 struct IPageDestination : KindBase {
