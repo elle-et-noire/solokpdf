@@ -10,14 +10,11 @@ rendered output.
 
 Opaque views now use an identity gray palette when every rendered pixel is
 opaque and R=G=B; other opaque views use BGR. PDFium still renders unchanged BGRA.
-The batched Phase 4 pass keeps row-level cancellation and rejects already-canceled
-allocations. It preserves PDFium output and the existing cache policy. A separate
-size-cache candidate was rejected for higher large-tile peaks. The next ownership
-pass serializes buffer allocation separately from the SDK lock. It reduces large
-tile Private Bytes peaks while preserving pixels and cache policy. Light-wide
-single-tab cancellation is slower; general resident-memory/startup improvements
-remain unestablished. See the ownership section and
-`solokpdf-phase4-ownership-2026-10-25.json` for the tradeoff and measurements.
+The accepted Phase 4 pass keeps row-level cancellation and rejects already-canceled
+allocations. A size-cache candidate was rejected for higher large-tile peaks.
+The 2026-10-25 single-buffer trial was also rejected: its large-tile savings came
+with a light-wide CPU regression and slower group restoration. Its measurements
+remain in `solokpdf-phase4-ownership-2026-10-25.json` and the tab-group reports.
 
 The tab-group pass has four qualifying pairs each for 4/8/16 tabs. Restore peaks
 fell 2–3 MiB at 4/8 tabs and 13.4 MiB at 16; active-ready time rose in all
@@ -27,13 +24,14 @@ See `solokpdf-tabgroup-2026-10-25.json` and
 `solokpdf-tabgroup-16-idle-2026-10-25.json`.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
-Use the Phase 4 sections and checked-in JSON for measured results. The validated
-The current source removes the single-buffer trial. Release and Debug development
-folders at `out/solokpdf-portable/` and `out/solokpdf-dev/` were rebuilt and passed
-the targeted PDFium GUI test. The frozen pretrial Release remains
-`out/solok-finish-after-release/SolokPDF.exe`; the trial stays at
-`out/solok-ownership-after-release/SolokPDF.exe` for comparison. The ZIP archive
-was not updated.
+The 2026-10-26 pass adds pixel-payload accounting and independent background-load
+monitoring. Its render-gate trial is deferred: a qualifying light-wide comparison
+used 10.4% more CPU with unchanged wall time. The active source retains pretrial
+rendering. Release/Debug folders and ZIPs were refreshed and checked. Evidence:
+`solokpdf-memory-2026-10-26.json`. The frozen pretrial Release remains
+`out/solok-finish-after-release/SolokPDF.exe`; the rejected older trial stays at
+`out/solok-ownership-after-release/SolokPDF.exe`. General resident-memory and
+startup improvements remain unestablished.
 
 ## Baseline (2026-10-24)
 
@@ -1084,10 +1082,67 @@ Its 39.49 MiB tile estimate assumes four bytes/pixel, so it is not an allocation
 breakdown for compact gray/BGR tiles. The probe is in
 `out/solok-post-revert-ownership/`.
 
+### Pixel accounting and controlled CPU comparison (2026-10-26)
+
+Cache Info now reports known pixel payload (`stride * height`) separately from
+the unchanged eviction estimate. In one four-document diagnostic, seven tiles
+cost 23.10 MiB of pixels versus the 39.49 MiB policy estimate. Private Bytes were
+80.8 MiB empty, 153.1 MiB after visits and 83.7 MiB after closing/settling.
+These are not SDK allocation measurements; GDI/allocator overhead remains separate.
+
+The trial bounds renders above 16 MiB with an exclusive gate; small renders share
+the gate. Large conversions release the SDK lock after closing SDK handles so
+UI requests can cancel conversion. Fonts, pixels, resolution and cache eviction
+accounting stay unchanged. The overlap check failed on the preceding candidate
+and passed on the final trial. The trial is saved as
+`experiments/pdfium/render-gate.patch`, applicable to the current source.
+
+Exploratory memory/CPU comparisons did not monitor background CPU continuously.
+They are not sufficient to attribute CPU differences to the code. A separate
+group-restore benchmark rejected all three attempted pairs under its existing
+background-load limits. Those restore timings are not adoption evidence.
+
+`experiments/pdfium/load-ui.ts` then reran the light-wide single-tab case:
+
+- Three consecutive one-second start samples: host CPU <=10%, memory load <=85%.
+- An independent Bun process samples host/target CPU and memory every 200 ms,
+  including while the UI driver blocks. Maximum observed sample gap: 217.8 ms.
+- Accept rows only with other-CPU mean <=10%, p95 <=20% and memory load <=90%.
+  Paired starting memory load must differ by at most three percentage points.
+- Same DLLs/PDF/settings/geometry, hidden raw/staged app PDBs, warm file cache,
+  target idle before timing, alternating order; 24 zoom cycles at 35 ms intervals.
+
+All four pairs qualified on their first attempt. Other-CPU means were 2.6–4.8%,
+p95 8.1–13.5%. Whole-process medians, before -> trial:
+
+| Light-wide, one tab    | Before |  Trial |
+| ---------------------- | -----: | -----: |
+| Process CPU, ms        | 2406.3 | 2656.3 |
+| Zoom batch -> idle, ms | 3454.6 | 3441.8 |
+
+CPU rose 10.4%; three pairs rose and one fell. Four pairs do not establish
+universal behavior, but background load alone no longer explains the observation.
+The large-tile savings remain a workload tradeoff. The trial is not enabled in
+normal builds; no startup or general resident-memory improvement is claimed.
+
+The default-v1 font callback probe initially changed alias pixels because of its
+face-name terminator handling. Matching internal-style name lengths restored all
+15 paired PNGs. This correction is probe-only. Version 2 still changed alias
+pixels with normalized names, so application font matching remains untouched.
+
+The trial matched 38 paired canvas images and completed 40 document lifetimes,
+including the wide fixture. Stable Release/Debug builds passed the targeted GUI
+and new two-document disk group/session-restart checks. The cache serializer's
+focused harness passed 27 checks. Full unit suites were not run; the clipboard
+baseline failure remains. Raw logs/PNGs stay in `out/solok-*`; condensed results,
+hashes, exclusions and controlled CPU samples are in
+`solokpdf-memory-2026-10-26.json`.
+
 ## Phase 5: portable development identity
 
-The packaging results below describe `48eb0f96a`. The ZIP archives have not been
-rebuilt for the deferred-coordinate change above.
+The initial packaging results below describe `48eb0f96a`. Both current ZIPs were
+refreshed on 2026-10-26 from stable source, without the render-gate trial, and
+checked after extraction for default PDFium opening/search and normal shutdown.
 
 Both Debug and Release builds completed and passed the targeted GUI validation.
 Release produced `out/solokpdf-portable/SolokPDF.exe` (14,285,312 bytes). This host
@@ -1136,8 +1191,9 @@ display/search and normal shutdown, without relying on a PDB or a source tree.
   not established.
 - Print **bitmap generation** passed. Physical printers, print dialogs,
   spooler behavior and export workflows were not comprehensively tested.
-- Tab Groups in-process save/restore passed. Disk persistence, restart/session
-  recovery, inactive-tab cache accounting and long-run leak stress remain.
+- Two-document Tab Groups and normal-session paths persisted across restart.
+  Restored zoom/scroll state, crash recovery, inactive-tab allocation attribution
+  and hours-long leak stress remain unverified.
 - Chrome/Edge comparisons and broad malformed-PDF fuzzing
   remain. A passing close stress check is not an exhaustive proof against races.
 - The existing clipboard unit-test failure was observed on the unchanged baseline;

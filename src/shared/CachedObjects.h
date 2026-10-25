@@ -10,6 +10,7 @@ using CachedObjectFn = bool (*)(WindowTab* currTab, CachedObject* o);
 struct CachedObject {
     uintptr_t id = 0;
     u64 size = 0;
+    u64 pixelBytes = 0;
     Kind kind = nullptr;
     int pageNo = 0;
     float zoom = 0;

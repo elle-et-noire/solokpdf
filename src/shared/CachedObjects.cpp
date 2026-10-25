@@ -308,8 +308,12 @@ void SerializeCachedObjects(str::Builder& s) {
     VecSort(snap, CmpCachedSizeDesc);
 
     u64 total = 0;
+    u64 pixelBytes = 0;
+    int measured = 0;
     for (int i = 0; i < len(snap); i++) {
         total += snap[i].size;
+        pixelBytes += snap[i].pixelBytes;
+        measured += snap[i].pixelBytes > 0;
     }
 
     s.Append(fmt("Cached objects: %d  (%s)  SaveMemory %d", len(snap), FormatCachedSizeTemp(total), gSaveMemory));
@@ -320,7 +324,9 @@ void SerializeCachedObjects(str::Builder& s) {
         const double gb = 1024.0 * 1024.0 * 1024.0;
         s.Append(fmt("  Free Mem: %.2f GB of %.1f GB", (double)availPhys / gb, (double)totalPhys / gb));
     }
-    s.Append(StrL("\n\n"));
+    // Pixel payload is diagnostic; eviction retains its existing size estimate.
+    s.Append(
+        fmt("\nPixel storage: %llu bytes (%d measured, %d unknown)\n\n", pixelBytes, measured, len(snap) - measured));
     s.Append(fmt("%s %-8s %10s %5s %7s  %s\n", StrL(" "), StrL("kind"), StrL("size"), StrL("page"), StrL("zoom"),
                  StrL("file")));
 

@@ -135,6 +135,53 @@ static double NowMs() {
     return 1000.0 * counter.QuadPart / frequency.QuadPart;
 }
 
+struct FontProfile {
+    decltype(FPDF_SYSFONTINFO::EnumFonts) enumFonts = nullptr;
+    decltype(FPDF_SYSFONTINFO::GetFontData) getData = nullptr;
+    decltype(FPDF_SYSFONTINFO::GetFaceName) getName = nullptr;
+    int enumCalls = 0;
+    int dataCalls = 0;
+    unsigned long long dataBytes = 0;
+    double enumMs = 0;
+    double dataMs = 0;
+
+    static void Enum(FPDF_SYSFONTINFO* info, void* mapper) {
+        double start = NowMs();
+        fonts.enumFonts(info, mapper);
+        fonts.enumMs += NowMs() - start;
+        fonts.enumCalls++;
+    }
+
+    static unsigned long Data(FPDF_SYSFONTINFO* info, void* font, unsigned int table, unsigned char* buffer,
+                              unsigned long size) {
+        double start = NowMs();
+        unsigned long result = fonts.getData(info, font, table, buffer, size);
+        fonts.dataMs += NowMs() - start;
+        fonts.dataCalls++;
+        if (buffer && result <= size) fonts.dataBytes += result;
+        return result;
+    }
+
+    static unsigned long Name(FPDF_SYSFONTINFO* info, void* font, char* buffer, unsigned long size) {
+        unsigned long result = fonts.getName(info, font, buffer, size);
+        // PDFium's internal font names exclude the default callback's trailing NUL.
+        if (buffer && result > 0 && result <= size && buffer[result - 1] == 0) return result - 1;
+        return result;
+    }
+
+    void Install(FPDF_SYSFONTINFO* info) {
+        enumFonts = info->EnumFonts;
+        getData = info->GetFontData;
+        getName = info->GetFaceName;
+        info->EnumFonts = Enum;
+        info->GetFontData = Data;
+        info->GetFaceName = Name;
+    }
+
+    static FontProfile fonts;
+};
+FontProfile FontProfile::fonts;
+
 static void Memory(const char* phase) {
     PROCESS_MEMORY_COUNTERS_EX m{};
     m.cb = sizeof(m);
@@ -150,7 +197,8 @@ static void Memory(const char* phase) {
 int wmain(int argc, wchar_t** argv) {
     if (argc < 5) {
         fprintf(stderr,
-                "usage: pdfium-render.exe input.pdf page dpi output.png [--lcd] [--font-info-v2] [--repeat N] [--scale "
+                "usage: pdfium-render.exe input.pdf page dpi output.png [--lcd] [--font-info-v2] [--font-profile] "
+                "[--repeat N] [--scale "
                 "N] [--dll path]\n");
         return 2;
     }
@@ -162,6 +210,7 @@ int wmain(int argc, wchar_t** argv) {
     int repeat = 1;
     int flags = FPDF_ANNOT;
     bool fontInfoV2 = false;
+    bool fontProfile = false;
     wchar_t dllPath[32768]{};
     DWORD n = GetModuleFileNameW(nullptr, dllPath, _countof(dllPath));
     if (!n || n >= _countof(dllPath)) return 1;
@@ -175,6 +224,10 @@ int wmain(int argc, wchar_t** argv) {
         }
         if (wcscmp(argv[i], L"--font-info-v2") == 0) {
             fontInfoV2 = true;
+            continue;
+        }
+        if (wcscmp(argv[i], L"--font-profile") == 0) {
+            fontProfile = true;
             continue;
         }
         if (i + 1 >= argc) return 2;
@@ -207,11 +260,12 @@ int wmain(int argc, wchar_t** argv) {
     config.version = 2;
     pdf.api.FPDF_InitLibraryWithConfig(&config);
     pdf.initialized = true;
-    if (fontInfoV2) {
+    if (fontInfoV2 || fontProfile) {
         pdf.fontInfo = pdf.api.FPDF_GetDefaultSystemFontInfo();
         if (!pdf.fontInfo) return 1;
         constexpr int kPerRequestFonts = 2;
-        pdf.fontInfo->version = kPerRequestFonts;
+        if (fontInfoV2) pdf.fontInfo->version = kPerRequestFonts;
+        if (fontProfile) FontProfile::fonts.Install(pdf.fontInfo);
         pdf.api.FPDF_SetSystemFontInfo(pdf.fontInfo);
     }
     printf("\"init_ms\":%.6f,\n", NowMs() - start);
@@ -258,6 +312,13 @@ int wmain(int argc, wchar_t** argv) {
     }
     printf("],\n");
     Memory("after_render");
+    if (fontProfile) {
+        const auto& p = FontProfile::fonts;
+        printf(
+            "\"font_profile\":{\"version\":%d,\"enum_calls\":%d,\"enum_ms\":%.6f,\"data_calls\":%d,"
+            "\"data_ms\":%.6f,\"data_bytes\":%llu},\n",
+            pdf.fontInfo->version, p.enumCalls, p.enumMs, p.dataCalls, p.dataMs, p.dataBytes);
+    }
     start = NowMs();
     HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     bool saved = SUCCEEDED(com) && SavePng(argv[4], pixels, width, height);

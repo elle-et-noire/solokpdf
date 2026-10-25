@@ -140,6 +140,23 @@ struct PdfiumProfile {
     }
 };
 
+struct PdfiumBufferTrace {
+    u64 bytes = 0;
+
+    PdfiumBufferTrace(Pixmap* p, const PdfiumProfile& profile) {
+        if (profile.enabled) {
+            bytes = (u64)p->stride * p->height;
+            logf("PDFium buffer: thread=%lu delta=%lld\n", GetCurrentThreadId(), (i64)bytes);
+        }
+    }
+
+    ~PdfiumBufferTrace() {
+        if (bytes) {
+            logf("PDFium buffer: thread=%lu delta=%lld\n", GetCurrentThreadId(), -(i64)bytes);
+        }
+    }
+};
+
 // Pack opaque pixels in place. Cancellation leaves a partial buffer to discard.
 static bool CompactOpaquePixmap(Pixmap* pixmap, AtomicInt* aborted) {
     const int srcBpp = PixmapBytesPerPixel(PixmapFormat::BGRA8);
@@ -483,6 +500,7 @@ class EnginePdfium : public EngineBase {
         if (!pixmap) {
             return nullptr;
         }
+        PdfiumBufferTrace bufferTrace(pixmap, profile);
         profile.Mark(StrL("setup"));
         ScopedMutex lock(&gPdfiumLock);
         profile.Mark(StrL("lock"));
@@ -585,6 +603,12 @@ class EnginePdfium : public EngineBase {
                     return nullptr;
                 }
             }
+        }
+        if (profile.enabled) {
+            u64 pixels = (u64)pixmap->stride * pixmap->height;
+            u64 storage = pixmap->hbmp ? pixels : (u64)_msize(pixmap->data);
+            logf("PDFium output: thread=%lu pixels=%llu storage=%llu format=%d\n", GetCurrentThreadId(), pixels,
+                 storage, (int)pixmap->format);
         }
         return pixmap;
     }

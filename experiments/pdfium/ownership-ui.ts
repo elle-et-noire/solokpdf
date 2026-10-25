@@ -24,11 +24,13 @@ const { values, positionals } = parseArgs({
     exe: { type: "string" },
     output: { type: "string", default: "out/solok-ownership" },
     hold: { type: "string", default: "60" },
+    engine: { type: "string", default: "pdfium" },
   },
 });
 if (!values.exe || positionals.length !== 4) throw new Error("Pass --exe and four independent PDFs");
 const holdSeconds = Number(values.hold);
 if (!Number.isInteger(holdSeconds) || holdSeconds < 0) throw new Error("Invalid hold");
+if (!["pdfium", "mupdf"].includes(values.engine)) throw new Error("Invalid engine");
 const kCopyDataDdeW = 0x44646557;
 const out = resolve(values.output),
   exe = resolve(values.exe);
@@ -61,7 +63,8 @@ const save = () =>
         })),
         inputs,
         holdSeconds,
-        note: "Ownership diagnostic, excluded from performance aggregates. App PDBs, including the recorded build-output path, are hidden. Cache Info sizes are width*height*4 upper estimates, not actual gray/BGR storage. Counters precede temporary Cache Info window creation. No forced trimming.",
+        engine: values.engine,
+        note: "Ownership diagnostic, excluded from performance aggregates. App PDBs, including the recorded build-output path, are hidden. Cache Info policy sizes remain width*height*4 estimates. Pixel storage is stride*height, excluding allocator overhead and SDK state. Counters precede temporary Cache Info window creation. No forced trimming.",
         snapshots,
       },
       null,
@@ -109,7 +112,16 @@ try {
             await Bun.sleep(20);
           }
           if (!text.startsWith("Cached objects:")) throw new Error("No cache snapshot");
-          snapshots.push({ stage, ms: performance.now() - start, ...counters, cache: text });
+          const pixels = /Pixel storage: (\d+) bytes \((\d+) measured, (\d+) unknown\)/.exec(text);
+          snapshots.push({
+            stage,
+            ms: performance.now() - start,
+            ...counters,
+            cache: text,
+            pixelBytes: pixels ? Number(pixels[1]) : null,
+            measuredObjects: pixels ? Number(pixels[2]) : null,
+            unknownObjects: pixels ? Number(pixels[3]) : null,
+          });
           save();
           console.log(
             `${stage}: Private ${(counters.memory.privateBytes / 1048576).toFixed(1)} MiB; ${text.split(/\r?\n/)[0]}`,
@@ -142,12 +154,15 @@ try {
     },
     ["-appdata", settings, "-window-pos", "900x1000@0x0", "-log-to-file", join(out, "app.log")],
     {
-      env: { ...process.env, SOLOKPDF_ENGINE: "pdfium", SOLOKPDF_PROFILE: "1" },
+      env: { ...process.env, SOLOKPDF_ENGINE: values.engine, SOLOKPDF_PROFILE: "1" },
       connectTimeoutMs: 30000,
     },
   );
   const log = readFileSync(join(out, "app.log"), "utf8");
-  if (!log.includes("PDFium 158.0.8111.0: opened") || log.includes("Using MuPDF fallback")) {
+  if (
+    values.engine === "pdfium" &&
+    (!log.includes("PDFium 158.0.8111.0: opened") || log.includes("Using MuPDF fallback"))
+  ) {
     throw new Error("PDFium was not used");
   }
 } finally {

@@ -505,6 +505,7 @@ void RenderCache::Add(PageRenderRequest& req, Pixmap* bmp) {
     CachedObject o{};
     o.id = (uintptr_t)entry;
     o.size = (u64)PixmapByteSize(bmp);
+    o.pixelBytes = bmp ? (u64)bmp->stride * bmp->height : 0;
     o.kind = kindCachedRender;
     o.pageNo = req.pageNo;
     o.zoom = req.zoom;

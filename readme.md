@@ -29,7 +29,8 @@ open by both engines during normal PDFium viewing; the MuPDF DLL remains for
 other formats and shared functionality.
 
 Confirmed: rendering, zoom/rotation, links, navigation history, bookmarks,
-selection/search, multiple tabs, and in-process Tab Groups save/restore.
+selection/search, multiple tabs, and two-document Tab Groups/session paths
+restored after restart. Startup and general memory targets remain unmet.
 Annotation editing, interactive forms, JavaScript, signatures and several
 advanced PDF features are not implemented in PDFium yet. Password-protected
 PDFs currently fall back to MuPDF. This is not a feature-complete replacement.

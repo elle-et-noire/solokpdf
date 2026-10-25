@@ -133,6 +133,7 @@ void CachedObjects_UnitTests() {
     a.kind = kindCachedRender;
     a.pageNo = 4;
     a.zoom = 125;
+    a.pixelBytes = 512;
     b = MkObj(7, 4096, nullptr);
     b.kind = kindCachedImage;
     b.pageNo = 1;
@@ -144,6 +145,7 @@ void CachedObjects_UnitTests() {
     utassert(str::Contains(t, StrL("render")));
     utassert(str::Contains(t, StrL("image")));
     utassert(str::Contains(t, StrL("6.0 KB")));
+    utassert(str::Contains(t, StrL("Pixel storage: 512 bytes (1 measured, 1 unknown)")));
     utassert(str::IndexOf(t, StrL("image")) < str::IndexOf(t, StrL("render")));
 
     ResetCacheTest();

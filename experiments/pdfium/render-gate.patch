@@ -1,0 +1,196 @@
+diff --git a/src/solokpdf/EnginePdfium.cpp b/src/solokpdf/EnginePdfium.cpp
+index eb8918572..a92e38d40 100644
+--- a/src/solokpdf/EnginePdfium.cpp
++++ b/src/solokpdf/EnginePdfium.cpp
+@@ -56,6 +56,7 @@
+ 
+ // PDFium forbids concurrent calls even for different documents.
+ static Mutex gPdfiumLock;
++constexpr u64 kLargePdfiumTileBytes = 16 * 1024 * 1024;
+ static struct PdfiumApi {
+     HMODULE module = nullptr;
+     int users = 0;
+@@ -157,6 +158,28 @@ struct PdfiumBufferTrace {
+     }
+ };
+ 
++struct PdfiumRenderScope : NonCopyable {
++    static SRWLOCK lock;
++    bool largeTile;
++
++    explicit PdfiumRenderScope(u64 bytes) : largeTile(bytes > kLargePdfiumTileBytes) {
++        if (largeTile) {
++            AcquireSRWLockExclusive(&lock);
++        } else {
++            AcquireSRWLockShared(&lock);
++        }
++    }
++
++    ~PdfiumRenderScope() {
++        if (largeTile) {
++            ReleaseSRWLockExclusive(&lock);
++        } else {
++            ReleaseSRWLockShared(&lock);
++        }
++    }
++};
++SRWLOCK PdfiumRenderScope::lock = SRWLOCK_INIT;
++
+ // Pack opaque pixels in place. Cancellation leaves a partial buffer to discard.
+ static bool CompactOpaquePixmap(Pixmap* pixmap, AtomicInt* aborted) {
+     const int srcBpp = PixmapBytesPerPixel(PixmapFormat::BGRA8);
+@@ -379,6 +402,60 @@ class EnginePdfium : public EngineBase {
+         return head;
+     }
+ 
++    bool DrawPage(RenderPageArgs& args, Pixmap* pixmap, PdfiumCookie* cookie, RectF full, Point origin,
++                  PdfiumProfile& profile) {
++        profile.Mark(StrL("lock"));
++        if (PdfiumCookie::IsCanceled(cookie)) {
++            return false;
++        }
++        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, args.pageNo - 1);
++        if (!page) {
++            return false;
++        }
++        profile.Mark(StrL("page"));
++        if (PdfiumCookie::IsCanceled(cookie)) {
++            gPdfium.FPDF_ClosePage(page);
++            profile.Mark(StrL("canceled-page"));
++            return false;
++        }
++        FPDF_BITMAP bmp =
++            gPdfium.FPDFBitmap_CreateEx(pixmap->width, pixmap->height, FPDFBitmap_BGRA, pixmap->data, pixmap->stride);
++        profile.Mark(StrL("bitmap-create"));
++        int status = FPDF_RENDER_FAILED;
++        if (bmp) {
++            gPdfium.FPDFBitmap_FillRect(bmp, 0, 0, pixmap->width, pixmap->height,
++                                        args.transparentBackdrop ? 0 : 0xffffffff);
++            profile.Mark(StrL("fill"));
++            if (PdfiumCookie::IsCanceled(cookie)) {
++                gPdfium.FPDFBitmap_Destroy(bmp);
++                gPdfium.FPDF_ClosePage(page);
++                profile.Mark(StrL("canceled-fill"));
++                return false;
++            }
++            int flags = hideAnnotations ? 0 : FPDF_ANNOT;
++            if (disableAntiAlias) {
++                flags |= FPDF_RENDER_NO_SMOOTHTEXT | FPDF_RENDER_NO_SMOOTHIMAGE | FPDF_RENDER_NO_SMOOTHPATH;
++            } else {
++                flags |= FPDF_LCD_TEXT;
++            }
++            if (args.target == RenderTarget::Print) {
++                flags |= FPDF_PRINTING;
++            }
++            status = gPdfium.FPDF_RenderPageBitmap_Start(bmp, page, -origin.x, -origin.y, (int)ceil(full.dx),
++                                                         (int)ceil(full.dy), NormalizeRotation(args.rotation) / 90,
++                                                         flags, &cookie->pause);
++            while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
++                status = gPdfium.FPDF_RenderPage_Continue(page, &cookie->pause);
++            }
++            profile.Mark(StrL("draw"));
++            gPdfium.FPDF_RenderPage_Close(page);
++            gPdfium.FPDFBitmap_Destroy(bmp);
++        }
++        gPdfium.FPDF_ClosePage(page);
++        profile.Mark(StrL("bitmap"));
++        return status == FPDF_RENDER_DONE && !PdfiumCookie::IsCanceled(cookie);
++    }
++
+   public:
+     EnginePdfium() {
+         kind = "enginePdfium";
+@@ -487,11 +564,14 @@ class EnginePdfium : public EngineBase {
+             return nullptr;
+         }
+         profile.Mark(StrL("geometry"));
++        u64 tileBytes = (u64)w * (u64)h * PixmapBytesPerPixel(PixmapFormat::BGRA8);
+         if (profile.enabled) {
+             logf("PDFium tile: thread=%lu page=%d size=%dx%d bytes=%llu transparent=%d print=%d\n",
+-                 GetCurrentThreadId(), args.pageNo, (int)w, (int)h, (u64)w * (u64)h * 4, (int)args.transparentBackdrop,
++                 GetCurrentThreadId(), args.pageNo, (int)w, (int)h, tileBytes, (int)args.transparentBackdrop,
+                  (int)(args.target == RenderTarget::Print));
+         }
++        PdfiumRenderScope renderScope(tileBytes);
++        profile.Mark(StrL("buffer-wait"));
+         if (PdfiumCookie::IsCanceled(cookie)) {
+             profile.Mark(StrL("canceled-before-alloc"));
+             return nullptr;
+@@ -502,65 +582,23 @@ class EnginePdfium : public EngineBase {
+         }
+         PdfiumBufferTrace bufferTrace(pixmap, profile);
+         profile.Mark(StrL("setup"));
+-        ScopedMutex lock(&gPdfiumLock);
+-        profile.Mark(StrL("lock"));
+-        if (AtomicIntGet(&cookie->aborted)) {
+-            FreePixmap(pixmap);
+-            return nullptr;
+-        }
+-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, args.pageNo - 1);
+-        if (!page) {
+-            FreePixmap(pixmap);
+-            return nullptr;
+-        }
+-        profile.Mark(StrL("page"));
+-        if (PdfiumCookie::IsCanceled(cookie)) {
+-            gPdfium.FPDF_ClosePage(page);
+-            FreePixmap(pixmap);
+-            profile.Mark(StrL("canceled-page"));
+-            return nullptr;
+-        }
+-        FPDF_BITMAP bmp =
+-            gPdfium.FPDFBitmap_CreateEx(pixmap->width, pixmap->height, FPDFBitmap_BGRA, pixmap->data, pixmap->stride);
+-        profile.Mark(StrL("bitmap-create"));
+-        int status = FPDF_RENDER_FAILED;
+-        if (bmp) {
+-            gPdfium.FPDFBitmap_FillRect(bmp, 0, 0, pixmap->width, pixmap->height,
+-                                        args.transparentBackdrop ? 0 : 0xffffffff);
+-            profile.Mark(StrL("fill"));
+-            if (PdfiumCookie::IsCanceled(cookie)) {
+-                gPdfium.FPDFBitmap_Destroy(bmp);
+-                gPdfium.FPDF_ClosePage(page);
+-                FreePixmap(pixmap);
+-                profile.Mark(StrL("canceled-fill"));
+-                return nullptr;
+-            }
+-            int flags = hideAnnotations ? 0 : FPDF_ANNOT;
+-            if (disableAntiAlias) {
+-                flags |= FPDF_RENDER_NO_SMOOTHTEXT | FPDF_RENDER_NO_SMOOTHIMAGE | FPDF_RENDER_NO_SMOOTHPATH;
+-            } else {
+-                flags |= FPDF_LCD_TEXT;
++        gPdfiumLock.Lock();
++        bool sdkLocked = true;
++        defer {
++            if (sdkLocked) {
++                gPdfiumLock.Unlock();
+             }
+-            if (args.target == RenderTarget::Print) {
+-                flags |= FPDF_PRINTING;
+-            }
+-            status =
+-                gPdfium.FPDF_RenderPageBitmap_Start(bmp, page, -(int)x, -(int)y, (int)ceil(full.dx), (int)ceil(full.dy),
+-                                                    NormalizeRotation(args.rotation) / 90, flags, &cookie->pause);
+-            while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
+-                status = gPdfium.FPDF_RenderPage_Continue(page, &cookie->pause);
+-            }
+-            profile.Mark(StrL("draw"));
+-            gPdfium.FPDF_RenderPage_Close(page);
+-            gPdfium.FPDFBitmap_Destroy(bmp);
+-        }
+-        gPdfium.FPDF_ClosePage(page);
+-        profile.Mark(StrL("bitmap"));
+-        if (status != FPDF_RENDER_DONE || AtomicIntGet(&cookie->aborted)) {
++        };
++        if (!DrawPage(args, pixmap, cookie, full, Point((int)x, (int)y), profile)) {
+             profile.Mark(StrL("canceled-or-failed"));
+             FreePixmap(pixmap);
+             return nullptr;
+         }
++        // Let UI requests cancel large conversions; ordinary tiles keep their scheduling.
++        if (renderScope.largeTile) {
++            gPdfiumLock.Unlock();
++            sdkLocked = false;
++        }
+         if (args.transparentBackdrop) {
+             pixmap->hasAlpha = true;
+             pixmap->premultiplied = true;
