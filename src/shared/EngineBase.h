@@ -112,6 +112,8 @@ struct PageText {
 
 void FreePageText(PageText*);
 void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects);
+int PdfOpenActionPageMupdf(Str path, Str data, Str password);
+TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password);
 
 // a link destination
 struct IPageDestination : KindBase {

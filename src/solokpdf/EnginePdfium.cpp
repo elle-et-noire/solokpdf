@@ -1,14 +1,17 @@
 /* Copyright 2026 SolokPDF contributors. License: GPLv3 */
 
 #include "base/Base.h"
+#include "base/Crypto.h"
 #include "base/File.h"
 #include "base/Pixmap.h"
 #include "base/Timer.h"
 #include "gui/UIModels.h"
 #include "DocProperties.h"
 #include "EngineBase.h"
+#include "Settings.h"
 #include <psapi.h>
 #include <fpdfview.h>
+#include <fpdf_annot.h>
 #include <fpdf_doc.h>
 #include <fpdf_text.h>
 #include <fpdf_progressive.h>
@@ -42,11 +45,16 @@
     X(FPDFLink_GetAnnotRect)       \
     X(FPDFLink_GetDest)            \
     X(FPDFLink_GetAction)          \
+    X(FPDFLink_GetAnnot)           \
+    X(FPDFAnnot_GetStringValue)    \
+    X(FPDFPage_CloseAnnot)         \
     X(FPDFAction_GetType)          \
     X(FPDFAction_GetDest)          \
     X(FPDFAction_GetURIPath)       \
+    X(FPDFAction_GetFilePath)      \
     X(FPDFDest_GetDestPageIndex)   \
     X(FPDFDest_GetLocationInPage)  \
+    X(FPDFDest_GetView)            \
     X(FPDF_GetNamedDestByName)     \
     X(FPDFBookmark_GetFirstChild)  \
     X(FPDFBookmark_GetNextSibling) \
@@ -215,6 +223,7 @@ class EnginePdfium : public EngineBase {
     HANDLE file = INVALID_HANDLE_VALUE;
     Str fileData;
     FPDF_FILEACCESS access{};
+    Str password;
     bool runtime = false;
     Vec<PdfiumPage*> pages;
     Vec<IPageDestination*> namedDests;
@@ -287,9 +296,12 @@ class EnginePdfium : public EngineBase {
 
     struct PdfiumDest : PageDestination {
         EnginePdfium* engine = nullptr;
+        // PDF user-space corners: /FitR uses both, other views only point
         PointF point;
+        PointF point2;
         bool hasX = false;
         bool hasY = false;
+        bool isRect = false;
 
         // Normalize coordinates on demand so outlines don't parse unvisited pages.
         RectF GetRect() override {
@@ -303,20 +315,100 @@ class EnginePdfium : public EngineBase {
                 return rect;
             }
             PointF pt = engine->ToPage(page, info, point.x, point.y);
-            rect.x = hasX ? pt.x : 0;
-            rect.y = hasY ? pt.y : 0;
+            if (isRect) {
+                rect = RectF::FromXY(pt, engine->ToPage(page, info, point2.x, point2.y));
+            } else {
+                rect.x = hasX ? pt.x : kDestUseDefault;
+                rect.y = hasY ? pt.y : kDestUseDefault;
+            }
             gPdfium.FPDF_ClosePage(page);
             engine = nullptr;
             return rect;
         }
     };
 
+    // Same position and zoom as EngineMupdf's DestFromFzLinkDest. PDFium reads a null
+    // /FitH top or /FitV left as 0, so 0 counts as unspecified.
+    void SetDestView(PdfiumDest* result, FPDF_DEST dest) {
+        unsigned long nParams = 0;
+        FS_FLOAT params[4]{};
+        unsigned long view = gPdfium.FPDFDest_GetView(dest, &nParams, params);
+        float zoom = 0.f;
+        switch (view) {
+            case PDFDEST_VIEW_XYZ: {
+                FPDF_BOOL hasX = 0, hasY = 0, hasZoom = 0;
+                float x = 0, y = 0;
+                if (!gPdfium.FPDFDest_GetLocationInPage(dest, &hasX, &hasY, &hasZoom, &x, &y, &zoom)) {
+                    hasX = hasY = hasZoom = 0;
+                }
+                result->point = PointF(x, y);
+                result->hasX = hasX != 0;
+                result->hasY = hasY != 0;
+                zoom = hasZoom && zoom > 0 ? zoom : 0.f;
+                break;
+            }
+            case PDFDEST_VIEW_FIT:
+                zoom = kZoomFitPage;
+                break;
+            case PDFDEST_VIEW_FITH:
+                zoom = kZoomFitWidth;
+                result->point.y = params[0];
+                result->hasY = nParams >= 1 && params[0] != 0;
+                break;
+            case PDFDEST_VIEW_FITV:
+                zoom = kZoomFitPage;
+                result->point.x = params[0];
+                result->hasX = nParams >= 1 && params[0] != 0;
+                break;
+            case PDFDEST_VIEW_FITR:
+                result->point = PointF(params[0], params[3]);
+                result->point2 = PointF(params[2], params[1]);
+                result->isRect = nParams == 4;
+                break;
+            case PDFDEST_VIEW_FITB:
+                zoom = kZoomFitContent;
+                break;
+            case PDFDEST_VIEW_FITBH:
+                zoom = kZoomFitVisible;
+                result->point.y = params[0];
+                result->hasY = nParams >= 1 && params[0] != 0;
+                break;
+            case PDFDEST_VIEW_FITBV:
+                zoom = kZoomFitContent;
+                result->point.x = params[0];
+                result->hasX = nParams >= 1 && params[0] != 0;
+                break;
+        }
+        result->engine = result->hasX || result->hasY || result->isRect ? this : nullptr;
+        result->zoom = zoom;
+    }
+
+    // GoToR and Launch open a file (like EngineMupdf's file: links). PDFium can't name
+    // a GoToR destination without loading the target, so the file opens at its start.
+    IPageDestination* FileDestination(FPDF_ACTION action, Arena* dstArena) {
+        unsigned long bytes = gPdfium.FPDFAction_GetFilePath(action, nullptr, 0);
+        constexpr unsigned long kMaxPathBytes = 64 * 1024;
+        if (bytes < 2 || bytes > kMaxPathBytes) {
+            return nullptr;
+        }
+        char* buf = AllocArrayTemp<char>((int)bytes);
+        if (gPdfium.FPDFAction_GetFilePath(action, buf, bytes) != bytes) {
+            return nullptr;
+        }
+        TempStr path = path::ToOSTemp(Str(buf, (int)bytes - 1));
+        return dstArena ? New<PageDestinationFile>(dstArena, path, Str()) : new PageDestinationFile(path, Str());
+    }
+
     IPageDestination* Destination(FPDF_DEST dest, FPDF_ACTION action, Arena* dstArena = nullptr) {
-        if (!dest && action && gPdfium.FPDFAction_GetType(action) == PDFACTION_GOTO) {
+        int type = action ? (int)gPdfium.FPDFAction_GetType(action) : PDFACTION_UNSUPPORTED;
+        if (!dest && type == PDFACTION_GOTO) {
             dest = gPdfium.FPDFAction_GetDest(doc, action);
         }
+        if (!dest && (type == PDFACTION_REMOTEGOTO || type == PDFACTION_LAUNCH)) {
+            return FileDestination(action, dstArena);
+        }
         if (!dest) {
-            if (!action || gPdfium.FPDFAction_GetType(action) != PDFACTION_URI) {
+            if (type != PDFACTION_URI) {
                 return nullptr;
             }
             unsigned long bytes = gPdfium.FPDFAction_GetURIPath(doc, action, nullptr, 0);
@@ -336,19 +428,31 @@ class EnginePdfium : public EngineBase {
         if (!info) {
             return nullptr;
         }
-        FPDF_BOOL hasX = 0, hasY = 0, hasZoom = 0;
-        float x = 0, y = 0, zoom = 0;
-        bool hasLocation = gPdfium.FPDFDest_GetLocationInPage(dest, &hasX, &hasY, &hasZoom, &x, &y, &zoom) != 0;
         auto* result = dstArena ? New<PdfiumDest>(dstArena) : new PdfiumDest();
-        result->engine = hasLocation && (hasX || hasY) ? this : nullptr;
-        result->point = PointF(x, y);
-        result->hasX = hasX != 0;
-        result->hasY = hasY != 0;
         result->pageNo = pageNo;
-        result->rect = RectF(0, 0, kDestUseDefault, kDestUseDefault);
+        result->rect = RectF(kDestUseDefault, kDestUseDefault, kDestUseDefault, kDestUseDefault);
         result->kind = kindDestinationScrollTo;
-        result->zoom = hasZoom ? zoom : 0.f;
+        SetDestView(result, dest);
         return result;
+    }
+
+    // An in-document link has no URL to show, so show its /Contents, like EngineMupdf.
+    Str LinkContents(FPDF_PAGE page, FPDF_LINK link) {
+        FPDF_ANNOTATION annot = gPdfium.FPDFLink_GetAnnot(page, link);
+        if (!annot) {
+            return {};
+        }
+        Str res;
+        unsigned long bytes = gPdfium.FPDFAnnot_GetStringValue(annot, "Contents", nullptr, 0);
+        constexpr unsigned long kMaxContentsBytes = 1024 * 1024;
+        if (bytes > sizeof(WCHAR) && bytes <= kMaxContentsBytes && bytes % sizeof(WCHAR) == 0) {
+            WCHAR* buf = AllocArrayTemp<WCHAR>((int)(bytes / sizeof(WCHAR)));
+            if (gPdfium.FPDFAnnot_GetStringValue(annot, "Contents", (FPDF_WCHAR*)buf, bytes) == bytes) {
+                res = str::Dup(ToUtf8Temp(WStr(buf, (int)(bytes / sizeof(WCHAR)) - 1)));
+            }
+        }
+        gPdfium.FPDFPage_CloseAnnot(annot);
+        return res;
     }
 
     // Caller holds gPdfiumLock.
@@ -439,6 +543,9 @@ class EnginePdfium : public EngineBase {
             if (!dest) {
                 continue;
             }
+            if (dest->GetKind() == kindDestinationScrollTo) {
+                ((PdfiumDest*)dest)->value = LinkContents(page, link);
+            }
             auto* element = new PageElementDestination(dest);
             element->pageNo = pageNo;
             element->rect = ToPageRect(page, info, box.left, box.bottom, box.right, box.top);
@@ -513,13 +620,61 @@ class EnginePdfium : public EngineBase {
             CloseHandle(file);
         }
         str::Free(fileData);
+        str::Free(password);
         if (runtime) {
             gPdfium.Release();
         }
         profile.Mark(StrL("runtime"));
     }
 
-    bool Load(Str path, TempStr* error) {
+    // Caller holds gPdfiumLock; it's released while pwdUI asks, as a dialog may run a message loop.
+    // Like EngineMupdf, a remembered decryption key comes back as an empty password; PDFium can't
+    // use the key, so MuPDF opens such files.
+    FPDF_DOCUMENT LoadWithPassword(PasswordUI* pwdUI, TempStr* error, PdfiumFailure* failure) {
+        *failure = PdfiumFailure::Final;
+        *error = StrL("The document needs a password.");
+        if (!pwdUI) {
+            return nullptr;
+        }
+        u8 digest[16]{};
+        Str data = fileData.s ? fileData : file::ReadFile(FilePath());
+        CalcMD5Digest(data, digest);
+        if (data.s != fileData.s) {
+            str::Free(data);
+        }
+        u8 key[32]{};
+        bool saveKey = false;
+        while (true) {
+            gPdfiumLock.Unlock();
+            Str pwd = pwdUI->GetPassword(FilePath(), digest, key, &saveKey);
+            gPdfiumLock.Lock();
+            if (len(pwd) == 0) {
+                if (saveKey) {
+                    *failure = PdfiumFailure::Fallback;
+                    *error = StrL("PDFium can't use a remembered decryption key.");
+                }
+                return nullptr;
+            }
+            FPDF_DOCUMENT d = gPdfium.FPDF_LoadCustomDocument(&access, CStrTemp(pwd));
+            if (d) {
+                password = pwd;
+                isPasswordProtected = true;
+                if (saveKey) {
+                    decryptionKey = str::Dup(arena, PdfDecryptionKeyMupdfTemp(FilePath(), fileData, pwd));
+                }
+                return d;
+            }
+            str::Free(pwd);
+            unsigned long code = gPdfium.FPDF_GetLastError();
+            if (code != FPDF_ERR_PASSWORD) {
+                *failure = PdfiumFailure::Fallback;
+                *error = fmt("PDFium document load failed (error %lu).", code);
+                return nullptr;
+            }
+        }
+    }
+
+    bool Load(Str path, PasswordUI* pwdUI, TempStr* error, PdfiumFailure* failure) {
         PdfiumProfile profile(StrL("load"));
         profile.Mark(StrL("start"));
         ScopedMutex lock(&gPdfiumLock);
@@ -546,9 +701,14 @@ class EnginePdfium : public EngineBase {
         access.m_GetBlock = ReadBlock;
         access.m_Param = this;
         doc = gPdfium.FPDF_LoadCustomDocument(&access, nullptr);
+        if (!doc && gPdfium.FPDF_GetLastError() == FPDF_ERR_PASSWORD) {
+            doc = LoadWithPassword(pwdUI, error, failure);
+            if (!doc) {
+                return false;
+            }
+        }
         if (!doc) {
-            *error = fmt("PDFium document load failed (error %lu). Password UI is not implemented.",
-                         gPdfium.FPDF_GetLastError());
+            *error = fmt("PDFium document load failed (error %lu).", gPdfium.FPDF_GetLastError());
             return false;
         }
         profile.Mark(StrL("document"));
@@ -608,13 +768,33 @@ class EnginePdfium : public EngineBase {
         return pageNo > 0 ? pageNo : EngineBase::GetPageByLabel(label);
     }
 
+    // Hands a clone the password that opened this document.
+    struct PasswordCloner : PasswordUI {
+        Str password;
+        explicit PasswordCloner(Str pwd) : password(pwd) {}
+        Str GetPassword(Str, u8*, u8[32], bool* saveKey) override {
+            *saveKey = false;
+            Str pwd = password;
+            password = {};
+            return str::Dup(pwd);
+        }
+    };
+
     EngineBase* Clone() override {
         TempStr error;
-        EngineBase* clone = CreateEnginePdfium(FilePath(), &error);
+        PasswordCloner pwdUI(password);
+        EngineBase* clone = CreateEnginePdfium(FilePath(), &pwdUI, &error);
         if (clone) {
             clone->disableAutoLinks = disableAutoLinks;
         }
         return clone;
+    }
+
+    int GetOpenActionPageNo() override {
+        PdfiumProfile profile(StrL("openaction"));
+        int pageNo = PdfOpenActionPageMupdf(FilePath(), fileData, password);
+        profile.Mark(StrL("read"));
+        return pageNo;
     }
 
     RectF PageMediabox(int pageNo) override {
@@ -922,9 +1102,14 @@ bool PdfiumRequested() {
     return count == 0 || (count < dimofi(value) && wcscmp(value, L"pdfium") == 0);
 }
 
-EngineBase* CreateEnginePdfium(Str path, TempStr* errorOut) {
+EngineBase* CreateEnginePdfium(Str path, PasswordUI* pwdUI, TempStr* errorOut, PdfiumFailure* failureOut) {
     auto* engine = new EnginePdfium();
-    if (engine->Load(path, errorOut)) {
+    PdfiumFailure failure = PdfiumFailure::Fallback;
+    bool ok = engine->Load(path, pwdUI, errorOut, &failure);
+    if (failureOut) {
+        *failureOut = failure;
+    }
+    if (ok) {
         return engine;
     }
     logf("PDFium: %s File: '%s'\n", *errorOut, path);

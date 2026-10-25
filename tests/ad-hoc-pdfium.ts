@@ -140,6 +140,149 @@ async function expectAutoLinksDisabled(path: string): Promise<void> {
   );
 }
 
+const destViews = [
+  "/XYZ 60 300 1.5",
+  "/XYZ null 300 0",
+  "/Fit",
+  "/FitH 250",
+  "/FitH null",
+  "/FitV 100",
+  "/FitR 40 50 200 300",
+  "/FitB",
+  "/FitBH 200",
+  "/FitBV 60",
+];
+
+// one outline entry and one link per view to a cropped page, plus a link tooltip, GoToR and Launch
+function destsFixture(): string {
+  const n = destViews.length;
+  const outlines = destViews.map((v, i) => {
+    const prev = i > 0 ? ` /Prev ${6 + i - 1} 0 R` : "";
+    const next = i < n - 1 ? ` /Next ${6 + i + 1} 0 R` : "";
+    return `<< /Title (view ${i + 1}) /Parent 5 0 R${prev}${next} /Dest [4 0 R ${v}] >>`;
+  });
+  const link = (y: number, rest: string) =>
+    `<< /Type /Annot /Subtype /Link /Rect [10 ${y} 140 ${y + 15}] /Border [0 0 0] ${rest} >>`;
+  const links = [
+    ...destViews.map((v, i) => link(380 - 20 * i, `/Dest [4 0 R ${v}]`)),
+    link(160, "/Contents (Go to the target) /Dest [4 0 R /Fit]"),
+    link(140, "/A << /S /GoToR /F (other.pdf) /D (chapter) >>"),
+    link(120, "/A << /S /Launch /F (sub/notes.txt) >>"),
+  ];
+  const firstLink = 6 + n;
+  const annots = links.map((_, i) => `${firstLink + i} 0 R`).join(" ");
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R /Outlines 5 0 R >>",
+    "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>",
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Annots [${annots}] >>`,
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /CropBox [20 30 280 370] >>",
+    `<< /Type /Outlines /First 6 0 R /Last ${5 + n} 0 R /Count ${n} >>`,
+    ...outlines,
+    ...links,
+  ]);
+}
+
+// link and outline destinations as one engine reports them, numbers rounded and lines sorted
+async function destsReport(path: string, engine: string): Promise<string> {
+  return await withControlledSumatra(
+    EXE,
+    async (client) => {
+      const lines = (await request(client, ControlCommand.TestPageLinks, [path, 1])).trim().split("\n");
+      for (let i = 1; i <= destViews.length; i++) {
+        lines.push((await request(client, ControlCommand.TestDest, [path, i])).trim());
+      }
+      // engine-specific kind names; a file link's dest rect is unused (MuPDF copies the link's)
+      const normalize = (s: string) =>
+        s
+          .replace("kind=destinationMupdf", "kind=scrollTo")
+          .replace(/^(kind=launchFile .*) dest=\S+/, "$1")
+          .replace(/-?\d+(\.\d+)?/g, (m) => String(Math.round(Number(m) * 10) / 10));
+      return lines.map(normalize).sort().join("\n");
+    },
+    ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", tmpPath(`pdfium/dests-${engine}.log`)],
+    { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
+  );
+}
+
+// PDFium destinations, tooltips and file links match MuPDF's
+async function expectDestsMatchMupdf(): Promise<void> {
+  const path = tmpPath("pdfium/dests.pdf");
+  writeFileSync(path, destsFixture(), "latin1");
+  const pdfium = await destsReport(path, "pdfium");
+  const mupdf = await destsReport(path, "mupdf");
+  if (pdfium !== mupdf) throw new Error(`Destinations differ.\nPDFium:\n${pdfium}\nMuPDF:\n${mupdf}`);
+  if (!pdfium.includes("value=Go to the target") || !pdfium.includes("kind=launchFile page=-1")) {
+    throw new Error(`Link tooltip or file link missing:\n${pdfium}`);
+  }
+  if (!readFileSync(tmpPath("pdfium/dests-pdfium.log"), "utf8").includes("PDFium 158.0.8111.0: opened")) {
+    throw new Error("PDFium did not open the destinations fixture");
+  }
+  console.log("PDFium destinations match MuPDF");
+}
+
+// a first open honors /OpenAction, in its array and GoTo action forms
+async function expectOpenAction(): Promise<void> {
+  const page = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >>";
+  for (const [name, action] of [
+    ["array", "[4 0 R /Fit]"],
+    ["goto", "<< /S /GoTo /D [5 0 R /XYZ null null 0] >>"],
+  ]) {
+    const path = tmpPath(`pdfium/openaction-${name}.pdf`);
+    const pdf = assemblePdf([
+      `<< /Type /Catalog /Pages 2 0 R /OpenAction ${action} >>`,
+      "<< /Type /Pages /Count 3 /Kids [3 0 R 4 0 R 5 0 R] >>",
+      page,
+      page,
+      page,
+    ]);
+    writeFileSync(path, pdf, "latin1");
+    const log = tmpPath(`pdfium/openaction-${name}.log`);
+    await withControlledSumatra(
+      EXE,
+      async (client) => {
+        await client.waitForRenderIdle();
+        await expectPage(client, name === "array" ? 2 : 3);
+      },
+      ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", log, path],
+      { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
+    );
+    if (!readFileSync(log, "utf8").includes("PDFium 158.0.8111.0: opened")) throw new Error(`${name}: not PDFium`);
+  }
+  console.log("PDFium honors /OpenAction");
+}
+
+// encrypted PDFs open in PDFium with the right password; a wrong one doesn't fall back to MuPDF
+async function expectPassword(source: string): Promise<void> {
+  const password = "solok-pässword";
+  const path = tmpPath("pdfium/encrypted.pdf");
+  const clean = Bun.spawnSync({
+    cmd: ["cmd.exe", "/c", EXE, "clean", "-E", "aes-256", "-U", password, "-O", "owner", source, path],
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (clean.exitCode !== 0) throw new Error(`Cannot encrypt the fixture: ${clean.stderr}`);
+  const log = tmpPath("pdfium/password.log");
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      await client.waitForRenderIdle();
+      await expectPage(client, 1);
+      const found = await request(client, ControlCommand.TestSearch, [path, "Needle", password]);
+      if (!found.includes("FOUND needle=Needle page=1")) throw new Error(`Search with password: ${found}`);
+      const r = await client.request(ControlCommand.TestSearch, [path, "Needle", "wrong"]);
+      if (!String(r[1]).includes("ERROR engine-create-failed")) throw new Error(`Wrong password opened: ${r[1]}`);
+    },
+    ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", log, "-pwd", password, path],
+    { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
+  );
+  const output = readFileSync(log, "utf8");
+  const opened = output.split("\n").filter((l) => l.includes("PDFium 158.0.8111.0: opened") && l.includes("encrypted"));
+  if (opened.length < 2 || output.includes("Using MuPDF fallback")) {
+    throw new Error(`Encrypted PDF did not open in PDFium only. See ${log}`);
+  }
+  console.log("PDFium opens password-protected PDFs");
+}
+
 async function request(client: ControlClient, cmd: ControlCommand, args: (string | number)[] = []): Promise<string> {
   const r = await client.request(cmd, args);
   const text = String(r[1] ?? "");
@@ -279,6 +422,9 @@ export async function testit(): Promise<void> {
   await expectOverwriteReload();
   await expectPageLabels();
   await expectAutoLinksDisabled(autoPdf);
+  await expectDestsMatchMupdf();
+  await expectOpenAction();
+  await expectPassword(pdf);
   const missingDir = tmpPath("pdfium/missing-dll");
   mkdirSync(missingDir, { recursive: true });
   const missingExe = join(missingDir, basename(EXE));

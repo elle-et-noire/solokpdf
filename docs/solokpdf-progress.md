@@ -1410,9 +1410,22 @@ display/search and normal shutdown, without relying on a PDB or a source tree.
 - PDFium currently handles ordinary file-backed PDFs. Stream/data factories,
   shell preview/filter DLLs and PDFs generated inside other document engines
   retain their upstream paths. Files above 4 GiB fall back.
-- Password UI, PDF link Contents tooltips, remote-file/embedded links,
-  non-XYZ Fit destinations, initial OpenAction and some permissions metadata
-  remain incomplete.
+- Password-protected PDFs open in PDFium via the password dialog, `-pwd` and
+  `DefaultPasswords`; a canceled dialog isn't repeated by MuPDF. "Remember
+  password" saves MuPDF's decryption key, which PDFium can't use, so those
+  files reopen in MuPDF. Encrypted PDFs no longer reach the MuPDF-only PDF
+  tools (e.g. Decrypt) through the fallback. Some permissions metadata remains
+  incomplete.
+- All eight destination views, link `/Contents` tooltips and GoToR/Launch file
+  links match MuPDF on a fixture (links and outline). GoToR opens the file at
+  its start: PDFium can't name the target destination without loading the
+  target. Named-action links (Next/PrevPage) and GoToE remain unsupported;
+  MuPDF lacks GoToE too.
+- `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
+  API for it, so MuPDF reads it on a first open without history. Release
+  cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB
+  vector PDF and 18.8–20.4 ms on IPA, whose AES-256 (R6) key check MuPDF
+  repeats.
 - Page labels match MuPDF in the toolbar and label lookup (fixture plus
   Attention/BERT/IPA). Labels are read eagerly at open, one call per page.
 - Plain-text URLs, e-mails and DOIs become links through MuPDF's shared

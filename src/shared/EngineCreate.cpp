@@ -261,8 +261,9 @@ static EngineBase* CreateEngineForKind(FileType kind, FileType contentHintKind, 
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
     if (kind == FileType::PDF && PdfiumRequested()) {
         TempStr error;
-        engine = CreateEnginePdfium(path, &error);
-        if (engine) {
+        PdfiumFailure failure = PdfiumFailure::Fallback;
+        engine = CreateEnginePdfium(path, pwdUI, &error, &failure);
+        if (engine || failure == PdfiumFailure::Final) {
             return engine;
         }
         engine = CreateEngineMupdfFromFile(path, kind, dpi, pwdUI);

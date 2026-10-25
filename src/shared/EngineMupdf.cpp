@@ -5712,13 +5712,7 @@ static int PageNoFromPdfDest(fz_context* ctx, pdf_document* doc, pdf_obj* dest) 
 
 // Catalog /OpenAction → 1-based page, only for safe internal GoTo (issue #1631).
 // Rejects URI/Launch/GoToR/JavaScript and other action types that could leave the PDF.
-int EngineMupdf::GetOpenActionPageNo() {
-    if (!pdfdoc) {
-        return 0;
-    }
-    auto* ctx = Ctx();
-    ScopedRecursiveMutex scope(&docLock);
-
+static int PdfOpenActionPageNo(fz_context* ctx, pdf_document* pdfdoc, int pageCount) {
     int pageNo = 0;
     fz_var(pageNo);
     fz_try(ctx) {
@@ -5753,6 +5747,91 @@ int EngineMupdf::GetOpenActionPageNo() {
         return 0;
     }
     return pageNo;
+}
+
+int EngineMupdf::GetOpenActionPageNo() {
+    if (!pdfdoc) {
+        return 0;
+    }
+    ScopedRecursiveMutex scope(&docLock);
+    return PdfOpenActionPageNo(Ctx(), pdfdoc, pageCount);
+}
+
+//--- PDF facts read with MuPDF for engines without an API for them (EnginePdfium)
+
+// data, when set, is the whole file. nullptr when the PDF can't be opened or authenticated.
+static pdf_document* OpenPdfForQuery(fz_context* ctx, Str path, Str data, Str password) {
+    fz_stream* stm = nullptr;
+    pdf_document* doc = nullptr;
+    fz_var(stm);
+    fz_var(doc);
+    fz_try(ctx) {
+        if (data.s) {
+            stm = fz_open_memory(ctx, (const u8*)data.s, (size_t)len(data));
+        } else {
+#if OS_WIN
+            stm = fz_open_file_w(ctx, CWStrTemp(path));
+#else
+            stm = fz_open_file(ctx, CStrTemp(path));
+#endif
+        }
+        doc = pdf_open_document_with_stream(ctx, stm);
+        if (pdf_needs_password(ctx, doc) &&
+            !pdf_authenticate_password(ctx, doc, len(password) > 0 ? CStrTemp(password) : "")) {
+            fz_throw(ctx, FZ_ERROR_ARGUMENT, "wrong password");
+        }
+    }
+    fz_always(ctx) {
+        fz_drop_stream(ctx, stm);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        pdf_drop_document(ctx, doc);
+        return nullptr;
+    }
+    return doc;
+}
+
+int PdfOpenActionPageMupdf(Str path, Str data, Str password) {
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    if (!ctx) {
+        return 0;
+    }
+    int pageNo = 0;
+    pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
+    if (doc) {
+        int pageCount = 0;
+        fz_try(ctx) {
+            pageCount = pdf_count_pages(ctx, doc);
+        }
+        fz_catch(ctx) {
+            fz_report_error(ctx);
+        }
+        pageNo = PdfOpenActionPageNo(ctx, doc, pageCount);
+        pdf_drop_document(ctx, doc);
+    }
+    fz_drop_context(ctx);
+    return pageNo;
+}
+
+// Same format as EngineMupdf::decryptionKey: hex of the file's MD5 then the crypt key.
+TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password) {
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    if (!ctx) {
+        return {};
+    }
+    TempStr res;
+    pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
+    u8* key = doc && doc->crypt ? pdf_crypt_key(ctx, doc->crypt) : nullptr;
+    if (key) {
+        u8 digest[16 + 32]{};
+        FzStreamFingerprint(ctx, doc->file, digest);
+        memcpy(digest + 16, key, 32);
+        res = str::MemToHexTemp(Str((const char*)digest, dimofi(digest)));
+    }
+    pdf_drop_document(ctx, doc);
+    fz_drop_context(ctx);
+    return res;
 }
 
 // return a page but only if is fully loaded
