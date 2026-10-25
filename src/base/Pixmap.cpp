@@ -151,6 +151,57 @@ Pixmap* PixmapFromHBITMAP(HBITMAP hbmp, Size size, HANDLE hMap) {
     return p;
 }
 
+// Use an identity gray palette only when every opaque RGB triplet is equal.
+// Allocation failure leaves the original pixmap intact; no cache hooks run here.
+Pixmap* PixmapToGrayDib(Pixmap* p) {
+    if (!p || !p->data || p->hbmp || p->hasAlpha || p->format != PixmapFormat::BGRA8) {
+        return p;
+    }
+    for (int y = 0; y < p->height; y++) {
+        const u8* src = p->data + (size_t)y * p->stride;
+        for (int x = 0; x < p->width; x++, src += 4) {
+            if (src[0] != src[1] || src[0] != src[2] || src[3] != 255) {
+                return p;
+            }
+        }
+    }
+
+    constexpr int kGrayColors = 256;
+    struct {
+        BITMAPINFOHEADER header;
+        RGBQUAD colors[kGrayColors];
+    } bmi{};
+    bmi.header.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.header.biWidth = p->width;
+    bmi.header.biHeight = -p->height;
+    bmi.header.biPlanes = 1;
+    bmi.header.biBitCount = 8;
+    bmi.header.biCompression = BI_RGB;
+    bmi.header.biClrUsed = kGrayColors;
+    for (int i = 0; i < kGrayColors; i++) {
+        bmi.colors[i] = {(BYTE)i, (BYTE)i, (BYTE)i, 0};
+    }
+    void* bits = nullptr;
+    HBITMAP hbmp = CreateDIBSection(nullptr, (BITMAPINFO*)&bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!hbmp || !bits) {
+        DeleteObject(hbmp);
+        return p;
+    }
+
+    Pixmap* res = PixmapFromHBITMAP(hbmp, Size(p->width, p->height));
+    for (int y = 0; y < p->height; y++) {
+        const u8* src = p->data + (size_t)y * p->stride;
+        u8* dst = res->data + (size_t)y * res->stride;
+        for (int x = 0; x < p->width; x++, src += 4) {
+            dst[x] = src[0];
+        }
+    }
+    res->xres = p->xres;
+    res->yres = p->yres;
+    FreePixmap(p);
+    return res;
+}
+
 // alpha = 0xff on every pixel of a 32-bit pixmap
 static void SetOpaqueAlpha(Pixmap* p) {
     for (int y = 0; y < p->height; y++) {

@@ -525,7 +525,10 @@ class EnginePdfium : public EngineBase {
         }
         pixmap->xres = pixmap->yres = args.zoom * fileDPI;
         if (!pixmap->hasAlpha && args.target == RenderTarget::View) {
-            CompactOpaquePixmap(pixmap);
+            pixmap = PixmapToGrayDib(pixmap);
+            if (pixmap->format == PixmapFormat::BGRA8) {
+                CompactOpaquePixmap(pixmap);
+            }
         }
         return pixmap;
     }

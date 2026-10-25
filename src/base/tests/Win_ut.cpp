@@ -456,6 +456,45 @@ static void PixmapToBgrTest() {
     utassert(PixmapToBgr(nullptr) == nullptr);
 }
 
+static void PixmapToGrayDibTest() {
+    for (int width = 256; width < 260; width++) {
+        Pixmap* src = AllocPixmap(width, 3);
+        utassert(src);
+        src->xres = src->yres = 144;
+        for (int y = 0; y < src->height; y++) {
+            for (int x = 0; x < width; x++) {
+                u8* px = src->data + (size_t)y * src->stride + x * 4;
+                px[0] = px[1] = px[2] = (u8)(x + y);
+                px[3] = 255;
+            }
+        }
+        Pixmap* expected = ClonePixmap(src);
+        Pixmap* gray = PixmapToGrayDib(src);
+        utassert(gray && gray->hbmp && gray->format == PixmapFormat::Native);
+        utassert(gray->stride == (width + 3) / 4 * 4);
+        utassert(gray->xres == 144 && gray->yres == 144);
+        Pixmap* copy = PixmapCopyAs32bppDIB(gray);
+        utassert(copy && PixmapRowsEqual(expected, copy));
+        FreePixmap(copy);
+        FreePixmap(expected);
+        FreePixmap(gray);
+    }
+
+    Pixmap* p = AllocPixmap(3, 2);
+    memset(p->data, 255, (size_t)p->stride * p->height);
+    u8* last = p->data + p->stride * p->height - 4;
+    last[0] = 254;
+    utassert(PixmapToGrayDib(p) == p);
+    last[0] = 255;
+    last[3] = 254;
+    utassert(PixmapToGrayDib(p) == p);
+    last[3] = 255;
+    p->hasAlpha = true;
+    utassert(PixmapToGrayDib(p) == p);
+    FreePixmap(p);
+    utassert(PixmapToGrayDib(nullptr) == nullptr);
+}
+
 void WinUtilTest() {
     ScopedCom comScope;
 
@@ -467,6 +506,7 @@ void WinUtilTest() {
     BlitPaletteDibTest();
     PixmapToBgraTest();
     PixmapToBgrTest();
+    PixmapToGrayDibTest();
 
     {
         Str string = StrL("abcde");

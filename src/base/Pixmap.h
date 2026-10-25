@@ -74,6 +74,7 @@ struct RenderedBitmap;
 // or must adopt a GDI HBITMAP / Native DIB. Heap pixels blit via StretchDIBits
 // with no extra copy (BlitPixmap / BlitPixmapAlpha).
 Pixmap* AllocPixmapDIB(int w, int h);
+Pixmap* PixmapToGrayDib(Pixmap* p);
 Pixmap* PixmapFromHICON(HICON);
 bool BlitPixmap(Pixmap* p, HDC hdc, Rect target);
 bool BlitPixmapAlpha(Pixmap* p, HDC hdc, Rect target);

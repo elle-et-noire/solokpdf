@@ -8,17 +8,17 @@ render resolution and color processing. Do not switch the default to MuPDF to
 meet memory/startup targets. Font-info v2 remains probe-only because it changes
 rendered output.
 
-Opaque view bitmap storage now uses BGR after unchanged PDFium BGRA rendering.
-The paired measurements and latency cost are recorded below, using
-`bd4dd4a9c` as the baseline. Continue measuring inactive-tab caches and temporary
-document lifetimes, with identical inputs/settings and matching pixels at the
-same zoom/DPI. Include font aliases/math and record redraw/tab-switch latency.
+Opaque views now use an identity gray palette when every rendered pixel is
+opaque and R=G=B; other opaque views use BGR. PDFium still renders unchanged BGRA.
+The latest paired measurements use `e258f5944` as the baseline. Continue measuring
+inactive-tab caches and temporary document lifetimes with identical inputs,
+settings, zoom/DPI and pixels. Include font aliases/math and redraw latency.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 Use the Phase 4 sections and checked-in JSON for measured results. The validated
-Release is `out/solok-memory-final-release/SolokPDF.exe`; the previous portable
-executable was running and was not replaced. Debug includes optional profiling
-and the bitmap storage change. ZIP archives remain at the earlier checkpoint.
+Release is `out/solok-gray-after-release/SolokPDF.exe`; validated Debug is
+`out/solok-gray-after-debug/SolokPDF.exe`. The running portable executable was
+not replaced. ZIP archives remain at the earlier checkpoint.
 
 ## Baseline (2026-10-24)
 
@@ -489,6 +489,89 @@ consistent. It is absent from the final code. Its exploratory data are in
 functional check and its workload differed, so do not combine it with the
 accepted comparison. Next: independent PDFs, inactive-tab/font retention and
 larger-tile cancellation costs.
+
+### Lossless gray view bitmap storage (2026-10-25)
+
+After the same PDFium BGRA rendering, opaque view tiles whose every pixel has
+R=G=B and A=255 use an 8-bit identity-palette DIB. Each gray level maps to its
+original RGB triplet. One differing channel keeps the existing BGR path;
+print and transparent images retain BGRA. Fonts, flags, resolution, colors,
+render requests and cache policy are unchanged. Allocation failure retains the
+original bitmap. The native storage helper lives in `base/Pixmap.cpp` and runs
+without cache-trimming hooks under the PDFium mutex.
+
+Compared the Release executable from `e258f5944` with this change, using the same
+rebuilt DLLs on both sides. DLL/PDF/executable/source hashes, counters and image
+comparisons: `docs/solokpdf-memory-gray-2026-10-25.json`. Frozen inputs and workload
+match the previous storage experiment: 1/4 tabs, pages 1/4, 25/50/100/200/400%
+zoom, scrolling, transparency, tab visits, zoom cancellation and pending-render
+close. Two rounds of three launches per variant/input/tab count, alternating
+order and reversing the starting order in round two. Requested window 900x1000,
+measured DPI 120, fresh settings, warm file cache and application PDBs hidden.
+No build or other test ran during measurement.
+
+Medians of six launches per row; before → after, MiB:
+
+| Fixture           | Tabs | Private after tabs | Working set after tabs | Sampled peak Private | OS peak working set |
+| ----------------- | ---: | -----------------: | ---------------------: | -------------------: | ------------------: |
+| Paper             |    1 |       123.1 → 95.4 |          146.3 → 118.8 |        166.9 → 129.1 |       189.9 → 153.9 |
+| Paper             |    4 |      137.0 → 118.8 |          160.4 → 142.3 |        185.5 → 142.1 |       208.7 → 173.7 |
+| Vector, 300 pages |    1 |      113.7 → 110.8 |          137.1 → 134.0 |        170.4 → 142.9 |       193.6 → 166.4 |
+| Vector, 300 pages |    4 |      168.2 → 150.0 |          191.7 → 173.6 |        218.8 → 178.2 |       242.6 → 210.1 |
+| Raster, 15 pages  |    1 |       102.5 → 86.6 |          125.2 → 109.4 |        150.8 → 112.2 |       176.3 → 135.7 |
+| Raster, 15 pages  |    4 |      147.9 → 112.8 |          170.6 → 135.6 |        185.1 → 125.1 |       207.8 → 147.9 |
+| Font aliases      |    1 |      120.1 → 115.9 |          143.1 → 139.0 |        162.5 → 136.8 |       185.3 → 159.9 |
+| Font aliases      |    4 |      140.4 → 124.6 |          163.7 → 147.7 |        184.7 → 153.4 |       207.8 → 177.1 |
+
+Four-tab post-visit working sets fell 15.9–35.0 MiB (9.5–20.5%), in both rounds
+for all four inputs. One-tab vector snapshots reversed between rounds:
+137.1→126.8 and 137.0→145.2 MiB. Post-visit savings are not uniform. Small edge
+fixtures have only one launch per variant; they establish no memory benefit.
+Native DIBs change allocation type, so Private Bytes alone do not measure total
+memory savings. Working sets also exclude some kernel costs. OS peak working
+sets are cumulative peaks observed before exit; Private peaks use requested
+5 ms polling and can miss short allocations during synchronous UI calls.
+
+Four-tab switch-to-idle medians (median per launch, then across six launches)
+were paper 52.4→55.5 ms, vector 54.0→54.8, raster 54.3→54.0 and fonts 37.4→36.6.
+Zoom/cancel median changes across all rows range from -5.5 to +9.9 ms. One-tab
+paper pending-close median increased 87.7→108.3 ms. These data establish no
+general startup, close or tail-latency improvement.
+
+All 80 image pairs match dimensions, pixels and PNG hashes: 64 corpus pairs and
+16 edge pairs. The new fixture covers 256 gray levels, a one-channel difference,
+odd widths and rotation; the existing fixture covers color and alpha. Math,
+diagrams, font aliases and gray gradients were visually inspected. The corpus
+remains one paper plus derived/synthetic inputs; alias text is Latin, not
+Japanese glyph coverage.
+
+`tests/ad-hoc-pdfium.ts` passed with the matched-DLL baseline, three consecutive
+Release runs and Debug. A focused harness ran the new gray round-trip/rejection
+test plus existing palette/BGR/BGRA tests: 210 checks, zero failures. Full unit
+suites were not run. Both final builds passed with zero warnings/errors.
+Logs: `out/solok-gray-build-release-final.log`,
+`out/solok-gray-build-debug-retry3.log`, `out/solok-gray-test-*-final*.log`,
+`out/solok-gray-focused-elevated.log`. PE reads/launches and Debug links needed
+retries/output backups, without ACL/security changes. An earlier GUI check
+overlapping a build timed out in the missing-DLL fallback; standalone repeats
+passed. The access failures and timeout causes remain unresolved.
+
+Reproduce with the frozen inputs and saved executables (do not regenerate inputs
+between variants):
+
+```powershell
+$grayPdfs = @('.work/corpus/attention-1706.03762v7.pdf',
+    '.work/corpus/phase4/attention-vector-300.pdf',
+    '.work/corpus/phase4/attention-raster-15.pdf',
+    'out/solok-phase4-font-check/fonts.pdf')
+bun experiments/pdfium/memory-ui.ts --before out/solok-gray-before/SolokPDF.exe --after out/solok-gray-after-release/SolokPDF.exe --output out/solok-gray-paired @grayPdfs
+bun experiments/pdfium/memory-ui.ts --before out/solok-gray-before/SolokPDF.exe --after out/solok-gray-after-release/SolokPDF.exe --reverse --output out/solok-gray-repeat @grayPdfs
+bun experiments/pdfium/make-gray-fixture.ts
+bun experiments/pdfium/memory-ui.ts --before out/solok-gray-before/SolokPDF.exe --after out/solok-gray-after-release/SolokPDF.exe --runs 1 --output out/solok-gray-edge out/solok-memory-fixtures/gray-near-gray.pdf out/solok-memory-fixtures/odd-rgb-alpha.pdf
+```
+
+Next: independent PDFs, long-lived GDI resource counts and larger-tile
+cancellation before changing font or cache policy.
 
 ## Phase 5: portable development identity
 
