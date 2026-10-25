@@ -1,0 +1,3383 @@
+{
+  "baselineCommit": "bd4dd4a9ce91ba432f7ca7ac029ffd2101c97325",
+  "note": "Exploratory data only. The first launch overlapped the end of the Debug functional check. No builds ran during collection. Snapshots lacked the final harness's 500ms settle delay and transparency workload; do not combine with final measurements. Full polling samples and screenshots remain at rawFiles.",
+  "rawFiles": ["out/solok-memory-paired/results.json"],
+  "conditions": "Release x64; identical DLLs; app PDBs hidden; fresh settings; 900x1000 requested window; DPI-aware capture; 100% initial zoom; PDFium default fonts/AA/colors; warm file cache; alternating variant order; 5ms requested memory polling begins at control connection; idle covers visible tiles, not all predictive work; whole-process counters, not allocator attribution",
+  "variants": [
+    {
+      "name": "before",
+      "exe": "D:\\solokpdf\\out\\solok-memory-before\\SolokPDF.exe",
+      "sha256": "3a012924723d49c7bb514996350ea9429c9f024e0ce03ef63d94b82391ff12b4",
+      "dependencies": [
+        {
+          "name": "pdfium.dll",
+          "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+        },
+        {
+          "name": "libsumatrapdf.dll",
+          "sha256": "1c2a256fafa1f6db3b0d869227b631c7bb3b7b597ff2df03e5e65a0e5c6c0c91"
+        }
+      ]
+    },
+    {
+      "name": "after",
+      "exe": "D:\\solokpdf\\out\\solok-memory-after\\SolokPDF.exe",
+      "sha256": "1ec3e5c31bb61f7c7738263cb4b5b0edd786f713af24d04cd5bd73bab75bdc3c",
+      "dependencies": [
+        {
+          "name": "pdfium.dll",
+          "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+        },
+        {
+          "name": "libsumatrapdf.dll",
+          "sha256": "1c2a256fafa1f6db3b0d869227b631c7bb3b7b597ff2df03e5e65a0e5c6c0c91"
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "path": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "copies": [
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-0-tab-0.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-0-tab-1.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-0-tab-2.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-0-tab-3.pdf"
+      ]
+    },
+    {
+      "path": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+      "sha256": "cd9eee188e4235880c0f11446d2718f4018029577ac8d07aa9b3eed3e3e72310",
+      "copies": [
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-1-tab-0.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-1-tab-1.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-1-tab-2.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-1-tab-3.pdf"
+      ]
+    },
+    {
+      "path": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+      "sha256": "aead3c8ad9554b38028c5cec2339eac052ca5947501cabe7e8bab679df6bce5d",
+      "copies": [
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-2-tab-0.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-2-tab-1.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-2-tab-2.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-2-tab-3.pdf"
+      ]
+    },
+    {
+      "path": "D:\\solokpdf\\out\\solok-phase4-font-check\\fonts.pdf",
+      "sha256": "e63ebcbc373b1afae908df26428a220f5355229c8402b76dc5a66386913fca3a",
+      "copies": [
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-3-tab-0.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-3-tab-1.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-3-tab-2.pdf",
+        "D:\\solokpdf\\out\\solok-memory-paired\\input-3-tab-3.pdf"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 1,
+      "run": 0,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 3305.9168,
+      "firstMemory": {
+        "peakWorkingSetBytes": 125440000,
+        "workingSetBytes": 125235200,
+        "privateBytes": 100573184
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 183324672,
+        "workingSetBytes": 154611712,
+        "privateBytes": 130080768
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 397.96149999999943,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 199233536,
+        "workingSetBytes": 188452864,
+        "privateBytes": 164065280
+      },
+      "closeMs": 213.19650000000001,
+      "sampledPeakPrivateBytes": 169463808,
+      "polling": {
+        "count": 86,
+        "maxGapMs": 171.22629999999845
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 100802560
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 155238400
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 130080768
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 169463808
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 164065280
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 1,
+      "run": 0,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2536.4338000000007,
+      "firstMemory": {
+        "peakWorkingSetBytes": 125472768,
+        "workingSetBytes": 125272064,
+        "privateBytes": 100737024
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 188899328,
+        "workingSetBytes": 173359104,
+        "privateBytes": 148959232
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 394.0185999999994,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 200474624,
+        "workingSetBytes": 177360896,
+        "privateBytes": 152985600
+      },
+      "closeMs": 95.81820000000153,
+      "sampledPeakPrivateBytes": 176128000,
+      "polling": {
+        "count": 83,
+        "maxGapMs": 110.810300000001
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 100737024
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 154337280
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 148959232
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 176128000
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 152985600
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 4,
+      "run": 0,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2273.138500000001,
+      "firstMemory": {
+        "peakWorkingSetBytes": 165310464,
+        "workingSetBytes": 165281792,
+        "privateBytes": 140894208
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 232022016,
+        "workingSetBytes": 191598592,
+        "privateBytes": 166461440
+      },
+      "tabSwitchMs": [115.04270000000179, 29.863400000002002, 33.204900000000634, 30.49359999999797],
+      "stressToIdleMs": 398.9354999999996,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 241250304,
+        "workingSetBytes": 235991040,
+        "privateBytes": 211103744
+      },
+      "closeMs": 121.18059999999969,
+      "sampledPeakPrivateBytes": 216268800,
+      "polling": {
+        "count": 96,
+        "maxGapMs": 116.19740000000093
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 140894208
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 197197824
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 166600704
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 216268800
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 211103744
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 4,
+      "run": 0,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2271.2073999999993,
+      "firstMemory": {
+        "peakWorkingSetBytes": 160288768,
+        "workingSetBytes": 160288768,
+        "privateBytes": 135839744
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 223911936,
+        "workingSetBytes": 191758336,
+        "privateBytes": 166572032
+      },
+      "tabSwitchMs": [106.97019999999975, 32.97929999999906, 40.942299999998795, 36.20140000000174],
+      "stressToIdleMs": 377.09929999999804,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 240791552,
+        "workingSetBytes": 235810816,
+        "privateBytes": 210694144
+      },
+      "closeMs": 120.35410000000047,
+      "sampledPeakPrivateBytes": 210694144,
+      "polling": {
+        "count": 94,
+        "maxGapMs": 118.82810000000245
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 135839744
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 189005824
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 166572032
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 210694144
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 210694144
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 1,
+      "run": 0,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2237.1435999999994,
+      "firstMemory": {
+        "peakWorkingSetBytes": 144658432,
+        "workingSetBytes": 144453632,
+        "privateBytes": 117260288
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 197193728,
+        "workingSetBytes": 160829440,
+        "privateBytes": 133603328
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 383.3839000000007,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 210497536,
+        "workingSetBytes": 194326528,
+        "privateBytes": 167165952
+      },
+      "closeMs": 135.83510000000024,
+      "sampledPeakPrivateBytes": 183365632,
+      "polling": {
+        "count": 81,
+        "maxGapMs": 133.8363999999965
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 117260288
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 165052416
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 133603328
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 183365632
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 167165952
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 1,
+      "run": 0,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1880.4910000000018,
+      "firstMemory": {
+        "peakWorkingSetBytes": 145776640,
+        "workingSetBytes": 145571840,
+        "privateBytes": 118226944
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 202121216,
+        "workingSetBytes": 181227520,
+        "privateBytes": 154136576
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 380.4557999999997,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 210034688,
+        "workingSetBytes": 193925120,
+        "privateBytes": 166875136
+      },
+      "closeMs": 133.89830000000075,
+      "sampledPeakPrivateBytes": 177672192,
+      "polling": {
+        "count": 76,
+        "maxGapMs": 123.66419999999925
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 118456320
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 164933632
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 154136576
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 177672192
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 161476608
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 4,
+      "run": 0,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2886.7683000000034,
+      "firstMemory": {
+        "peakWorkingSetBytes": 209391616,
+        "workingSetBytes": 209186816,
+        "privateBytes": 181882880
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 263208960,
+        "workingSetBytes": 225554432,
+        "privateBytes": 197636096
+      },
+      "tabSwitchMs": [168.14689999999973, 41.8150999999998, 39.12260000000242, 43.64979999999923],
+      "stressToIdleMs": 386.75040000000445,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 275865600,
+        "workingSetBytes": 275853312,
+        "privateBytes": 248020992
+      },
+      "closeMs": 155.6987999999983,
+      "sampledPeakPrivateBytes": 248020992,
+      "polling": {
+        "count": 97,
+        "maxGapMs": 151.91679999999906
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 182104064
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 225746944
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 227737600
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 248020992
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 248020992
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 4,
+      "run": 0,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2243.8459999999977,
+      "firstMemory": {
+        "peakWorkingSetBytes": 201576448,
+        "workingSetBytes": 201371648,
+        "privateBytes": 174206976
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 260763648,
+        "workingSetBytes": 227209216,
+        "privateBytes": 199290880
+      },
+      "tabSwitchMs": [126.5518000000011, 35.1707000000024, 44.63440000000264, 53.587899999998626],
+      "stressToIdleMs": 728.0233000000007,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 271093760,
+        "workingSetBytes": 271093760,
+        "privateBytes": 243625984
+      },
+      "closeMs": 201.24059999999736,
+      "sampledPeakPrivateBytes": 243625984,
+      "polling": {
+        "count": 117,
+        "maxGapMs": 195.39710000000196
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 174428160
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 223219712
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 199290880
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 243625984
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 243531776
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 1,
+      "run": 0,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2033.2560999999987,
+      "firstMemory": {
+        "peakWorkingSetBytes": 122896384,
+        "workingSetBytes": 122691584,
+        "privateBytes": 98750464
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 174448640,
+        "workingSetBytes": 143704064,
+        "privateBytes": 119853056
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 388.7057999999961,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 196718592,
+        "workingSetBytes": 175206400,
+        "privateBytes": 151408640
+      },
+      "closeMs": 121.66999999999825,
+      "sampledPeakPrivateBytes": 172961792,
+      "polling": {
+        "count": 77,
+        "maxGapMs": 119.05109999999695
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 98979840
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 150716416
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 119853056
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 172961792
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 146018304
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 1,
+      "run": 0,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1441.1771000000008,
+      "firstMemory": {
+        "peakWorkingSetBytes": 121659392,
+        "workingSetBytes": 121458688,
+        "privateBytes": 97292288
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 170426368,
+        "workingSetBytes": 160120832,
+        "privateBytes": 136228864
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 389.8886999999959,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 200110080,
+        "workingSetBytes": 178544640,
+        "privateBytes": 154701824
+      },
+      "closeMs": 116.21089999999822,
+      "sampledPeakPrivateBytes": 176300032,
+      "polling": {
+        "count": 82,
+        "maxGapMs": 117.16849999999977
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 97292288
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 146644992
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 136228864
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 176300032
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 149299200
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 4,
+      "run": 0,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1809.1036999999997,
+      "firstMemory": {
+        "peakWorkingSetBytes": 159563776,
+        "workingSetBytes": 159358976,
+        "privateBytes": 135352320
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 209178624,
+        "workingSetBytes": 207327232,
+        "privateBytes": 182820864
+      },
+      "tabSwitchMs": [118.07259999999951, 33.97389999999723, 32.519899999999325, 39.58520000000135],
+      "stressToIdleMs": 396.80869999999413,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 234401792,
+        "workingSetBytes": 231456768,
+        "privateBytes": 207007744
+      },
+      "closeMs": 114.83350000000064,
+      "sampledPeakPrivateBytes": 209948672,
+      "polling": {
+        "count": 95,
+        "maxGapMs": 122.48399999999674
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 135581696
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 181497856
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 182960128
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 209948672
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 201609216
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 4,
+      "run": 0,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1744.671699999999,
+      "firstMemory": {
+        "peakWorkingSetBytes": 154198016,
+        "workingSetBytes": 154083328,
+        "privateBytes": 130232320
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 206397440,
+        "workingSetBytes": 187510784,
+        "privateBytes": 163172352
+      },
+      "tabSwitchMs": [122.99210000000312, 43.41109999999753, 35.80610000000161, 46.40520000000106],
+      "stressToIdleMs": 394.7021999999997,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 236949504,
+        "workingSetBytes": 220778496,
+        "privateBytes": 196489216
+      },
+      "closeMs": 109.47969999999623,
+      "sampledPeakPrivateBytes": 212688896,
+      "polling": {
+        "count": 96,
+        "maxGapMs": 117.90929999999935
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 130310144
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 182579200
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 163172352
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 212688896
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 185688064
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 1,
+      "run": 0,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1994.6040999999968,
+      "firstMemory": {
+        "peakWorkingSetBytes": 160059392,
+        "workingSetBytes": 159596544,
+        "privateBytes": 135094272
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 202629120,
+        "workingSetBytes": 185962496,
+        "privateBytes": 161841152
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 384.3457999999955,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 211058688,
+        "workingSetBytes": 183263232,
+        "privateBytes": 159121408
+      },
+      "closeMs": 94.90899999999965,
+      "sampledPeakPrivateBytes": 184074240,
+      "polling": {
+        "count": 76,
+        "maxGapMs": 104.52070000000094
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 139489280
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 170311680
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 161841152
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 184074240
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 167456768
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 1,
+      "run": 0,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1740.8545000000013,
+      "firstMemory": {
+        "peakWorkingSetBytes": 162037760,
+        "workingSetBytes": 160817152,
+        "privateBytes": 136306688
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 201994240,
+        "workingSetBytes": 185425920,
+        "privateBytes": 161075200
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 393.51690000000235,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 210538496,
+        "workingSetBytes": 157462528,
+        "privateBytes": 133013504
+      },
+      "closeMs": 88.56429999999818,
+      "sampledPeakPrivateBytes": 186228736,
+      "polling": {
+        "count": 79,
+        "maxGapMs": 97.16030000000319
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 141045760
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 177717248
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 186228736
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 166535168
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 4,
+      "run": 0,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2238.5715999999957,
+      "firstMemory": {
+        "peakWorkingSetBytes": 187371520,
+        "workingSetBytes": 185954304,
+        "privateBytes": 161730560
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 229023744,
+        "workingSetBytes": 186118144,
+        "privateBytes": 161226752
+      },
+      "tabSwitchMs": [117.98489999999583, 30.677599999995437, 29.445099999997183, 41.31120000001101],
+      "stressToIdleMs": 384.5720000000001,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 236138496,
+        "workingSetBytes": 211218432,
+        "privateBytes": 186425344
+      },
+      "closeMs": 126.45709999999963,
+      "sampledPeakPrivateBytes": 211386368,
+      "polling": {
+        "count": 90,
+        "maxGapMs": 133.8978000000061
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 165888000
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 204791808
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 189702144
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 211386368
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 186425344
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 4,
+      "run": 0,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2337.446200000006,
+      "firstMemory": {
+        "peakWorkingSetBytes": 186642432,
+        "workingSetBytes": 185905152,
+        "privateBytes": 161689600
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 230273024,
+        "workingSetBytes": 186834944,
+        "privateBytes": 161996800
+      },
+      "tabSwitchMs": [117.83380000000761, 29.606299999999464, 29.18869999999879, 31.640400000003865],
+      "stressToIdleMs": 386.4627000000037,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 237690880,
+        "workingSetBytes": 212770816,
+        "privateBytes": 188030976
+      },
+      "closeMs": 103.49090000000433,
+      "sampledPeakPrivateBytes": 212992000,
+      "polling": {
+        "count": 90,
+        "maxGapMs": 112.29740000001038
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 166068224
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 206147584
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 191205376
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 212992000
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 188030976
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 1,
+      "run": 1,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1697.002800000002,
+      "firstMemory": {
+        "peakWorkingSetBytes": 125628416,
+        "workingSetBytes": 125628416,
+        "privateBytes": 101081088
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 185663488,
+        "workingSetBytes": 154992640,
+        "privateBytes": 130035712
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 386.1735999999946,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 194088960,
+        "workingSetBytes": 172457984,
+        "privateBytes": 147537920
+      },
+      "closeMs": 105.52509999999893,
+      "sampledPeakPrivateBytes": 169103360,
+      "polling": {
+        "count": 83,
+        "maxGapMs": 112.87979999999516
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 101081088
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 151236608
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 130035712
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 169103360
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 147537920
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 1,
+      "run": 1,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1755.488400000002,
+      "firstMemory": {
+        "peakWorkingSetBytes": 125530112,
+        "workingSetBytes": 125530112,
+        "privateBytes": 100909056
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 182161408,
+        "workingSetBytes": 172625920,
+        "privateBytes": 147689472
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 378.02060000000347,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 202403840,
+        "workingSetBytes": 186269696,
+        "privateBytes": 161366016
+      },
+      "closeMs": 122.53800000000047,
+      "sampledPeakPrivateBytes": 172171264,
+      "polling": {
+        "count": 81,
+        "maxGapMs": 119.95900000000256
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 100909056
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 155258880
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 172171264
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 161366016
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 4,
+      "run": 1,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2254.860799999995,
+      "firstMemory": {
+        "peakWorkingSetBytes": 165265408,
+        "workingSetBytes": 165060608,
+        "privateBytes": 140660736
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 226111488,
+        "workingSetBytes": 191496192,
+        "privateBytes": 166338560
+      },
+      "tabSwitchMs": [125.87579999999434, 30.967699999993783, 46.56479999999283, 40.450599999996484],
+      "stressToIdleMs": 382.54649999999674,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 240738304,
+        "workingSetBytes": 235958272,
+        "privateBytes": 210923520
+      },
+      "closeMs": 125.13390000000072,
+      "sampledPeakPrivateBytes": 210923520,
+      "polling": {
+        "count": 91,
+        "maxGapMs": 123.54099999999744
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 140660736
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 191262720
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 166477824
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 210923520
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 210923520
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 4,
+      "run": 1,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2282.9302000000025,
+      "firstMemory": {
+        "peakWorkingSetBytes": 165404672,
+        "workingSetBytes": 165404672,
+        "privateBytes": 140955648
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 229871616,
+        "workingSetBytes": 191639552,
+        "privateBytes": 166457344
+      },
+      "tabSwitchMs": [121.74299999998766, 37.94590000000608, 42.117700000002515, 28.76140000000305],
+      "stressToIdleMs": 395.00350000000617,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 235917312,
+        "workingSetBytes": 235769856,
+        "privateBytes": 210620416
+      },
+      "closeMs": 102.75840000000608,
+      "sampledPeakPrivateBytes": 210767872,
+      "polling": {
+        "count": 94,
+        "maxGapMs": 109.81200000000536
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 140955648
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 195014656
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 166596608
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 210767872
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 205221888
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 1,
+      "run": 1,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1693.613799999992,
+      "firstMemory": {
+        "peakWorkingSetBytes": 145821696,
+        "workingSetBytes": 145616896,
+        "privateBytes": 118280192
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 198275072,
+        "workingSetBytes": 165949440,
+        "privateBytes": 138350592
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 390.0478000000003,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 210632704,
+        "workingSetBytes": 185950208,
+        "privateBytes": 158720000
+      },
+      "closeMs": 126.3747999999905,
+      "sampledPeakPrivateBytes": 178036736,
+      "polling": {
+        "count": 77,
+        "maxGapMs": 123.53130000000237
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 118509568
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 162156544
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 138350592
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 178036736
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 158720000
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 1,
+      "run": 1,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2123.089699999997,
+      "firstMemory": {
+        "peakWorkingSetBytes": 144474112,
+        "workingSetBytes": 135557120,
+        "privateBytes": 108355584
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 201986048,
+        "workingSetBytes": 181170176,
+        "privateBytes": 153657344
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 397.12699999999313,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 203759616,
+        "workingSetBytes": 192995328,
+        "privateBytes": 165515264
+      },
+      "closeMs": 118.75809999999183,
+      "sampledPeakPrivateBytes": 176291840,
+      "polling": {
+        "count": 82,
+        "maxGapMs": 118.35389999998733
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 116879360
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 164458496
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 153657344
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 176291840
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 165515264
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 4,
+      "run": 1,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2044.280700000003,
+      "firstMemory": {
+        "peakWorkingSetBytes": 204161024,
+        "workingSetBytes": 203952128,
+        "privateBytes": 176812032
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 257724416,
+        "workingSetBytes": 226082816,
+        "privateBytes": 198049792
+      },
+      "tabSwitchMs": [113.74150000000373, 37.66050000001269, 27.918600000004517, 33.15260000000126],
+      "stressToIdleMs": 390.18360000000393,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 270749696,
+        "workingSetBytes": 270749696,
+        "privateBytes": 242798592
+      },
+      "closeMs": 121.37659999998868,
+      "sampledPeakPrivateBytes": 242798592,
+      "polling": {
+        "count": 94,
+        "maxGapMs": 128.88619999999355
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 177041408
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 220229632
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 221749248
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 242798592
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 242798592
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 4,
+      "run": 1,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2476.4237999999896,
+      "firstMemory": {
+        "peakWorkingSetBytes": 203112448,
+        "workingSetBytes": 202915840,
+        "privateBytes": 175767552
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 257040384,
+        "workingSetBytes": 227127296,
+        "privateBytes": 199180288
+      },
+      "tabSwitchMs": [235.22299999999814, 50.35420000000158, 144.9319000000105, 38.39340000000084],
+      "stressToIdleMs": 382.4462000000058,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 281206784,
+        "workingSetBytes": 270512128,
+        "privateBytes": 242647040
+      },
+      "closeMs": 218.63400000000547,
+      "sampledPeakPrivateBytes": 253362176,
+      "polling": {
+        "count": 124,
+        "maxGapMs": 221.34240000000864
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 175984640
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 219516928
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 199180288
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 253362176
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 242647040
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 1,
+      "run": 1,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1778.9781000000075,
+      "firstMemory": {
+        "peakWorkingSetBytes": 121905152,
+        "workingSetBytes": 121700352,
+        "privateBytes": 97701888
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 168767488,
+        "workingSetBytes": 168689664,
+        "privateBytes": 144580608
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 375.9454999999871,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 196501504,
+        "workingSetBytes": 179044352,
+        "privateBytes": 155123712
+      },
+      "closeMs": 193.5688999999984,
+      "sampledPeakPrivateBytes": 172597248,
+      "polling": {
+        "count": 105,
+        "maxGapMs": 103.81700000001001
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 97701888
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 144580608
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 172597248
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 149721088
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 1,
+      "run": 1,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1846.2065999999904,
+      "firstMemory": {
+        "peakWorkingSetBytes": 123207680,
+        "workingSetBytes": 123002880,
+        "privateBytes": 99143680
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 171507712,
+        "workingSetBytes": 167043072,
+        "privateBytes": 142770176
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 394.2158999999956,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 204865536,
+        "workingSetBytes": 175763456,
+        "privateBytes": 151519232
+      },
+      "closeMs": 108.77909999999974,
+      "sampledPeakPrivateBytes": 175280128,
+      "polling": {
+        "count": 96,
+        "maxGapMs": 115.9542999999976
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 99373056
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 147423232
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 175280128
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 151519232
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 4,
+      "run": 1,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2190.6388000000006,
+      "firstMemory": {
+        "peakWorkingSetBytes": 152457216,
+        "workingSetBytes": 152457216,
+        "privateBytes": 128704512
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 205758464,
+        "workingSetBytes": 185638912,
+        "privateBytes": 161087488
+      },
+      "tabSwitchMs": [187.1021999999939, 26.026599999997416, 126.21790000000328, 29.5451999999932],
+      "stressToIdleMs": 399.1052000000054,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 236601344,
+        "workingSetBytes": 216051712,
+        "privateBytes": 191557632
+      },
+      "closeMs": 172.23240000000806,
+      "sampledPeakPrivateBytes": 212148224,
+      "polling": {
+        "count": 123,
+        "maxGapMs": 180.44569999999658
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 128704512
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 181747712
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 161087488
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 212148224
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 191569920
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 4,
+      "run": 1,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2130.770900000003,
+      "firstMemory": {
+        "peakWorkingSetBytes": 158072832,
+        "workingSetBytes": 157868032,
+        "privateBytes": 134107136
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 217063424,
+        "workingSetBytes": 183832576,
+        "privateBytes": 159318016
+      },
+      "tabSwitchMs": [190.43099999999686, 38.65529999999853, 125.0292000000045, 38.80409999999392],
+      "stressToIdleMs": 389.64199999999255,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 235028480,
+        "workingSetBytes": 232476672,
+        "privateBytes": 207998976
+      },
+      "closeMs": 172.98510000000533,
+      "sampledPeakPrivateBytes": 209031168,
+      "polling": {
+        "count": 112,
+        "maxGapMs": 180.62630000000354
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 134107136
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 193089536
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 159424512
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 209031168
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 202600448
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 1,
+      "run": 1,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2095.7378000000026,
+      "firstMemory": {
+        "peakWorkingSetBytes": 160522240,
+        "workingSetBytes": 156164096,
+        "privateBytes": 131604480
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 201596928,
+        "workingSetBytes": 185028608,
+        "privateBytes": 160481280
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 392.7682000000059,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 210055168,
+        "workingSetBytes": 182206464,
+        "privateBytes": 157573120
+      },
+      "closeMs": 264.17949999999837,
+      "sampledPeakPrivateBytes": 185466880,
+      "polling": {
+        "count": 93,
+        "maxGapMs": 272.4401999999973
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 135561216
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 177176576
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 185466880
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 165908480
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 1,
+      "run": 1,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2261.0795999999973,
+      "firstMemory": {
+        "peakWorkingSetBytes": 158294016,
+        "workingSetBytes": 157704192,
+        "privateBytes": 133341184
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 202584064,
+        "workingSetBytes": 156721152,
+        "privateBytes": 131997696
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 388.7508000000089,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 206884864,
+        "workingSetBytes": 181948416,
+        "privateBytes": 157351936
+      },
+      "closeMs": 91.14980000001378,
+      "sampledPeakPrivateBytes": 182214656,
+      "polling": {
+        "count": 93,
+        "maxGapMs": 116.03810000000522
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 137105408
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 178216960
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 182214656
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 165695488
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 4,
+      "run": 1,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2758.414599999989,
+      "firstMemory": {
+        "peakWorkingSetBytes": 186912768,
+        "workingSetBytes": 186036224,
+        "privateBytes": 161775616
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 228331520,
+        "workingSetBytes": 186273792,
+        "privateBytes": 161431552
+      },
+      "tabSwitchMs": [189.42149999999674, 32.514300000009825, 30.714799999987008, 32.55160000000615],
+      "stressToIdleMs": 374.9146999999939,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 236974080,
+        "workingSetBytes": 212045824,
+        "privateBytes": 187301888
+      },
+      "closeMs": 180.77460000000428,
+      "sampledPeakPrivateBytes": 212271104,
+      "polling": {
+        "count": 119,
+        "maxGapMs": 189.90849999999045
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 166342656
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 203964416
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 190320640
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 212271104
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 187301888
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 4,
+      "run": 1,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2946.334499999997,
+      "firstMemory": {
+        "peakWorkingSetBytes": 187469824,
+        "workingSetBytes": 185966592,
+        "privateBytes": 161689600
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 227536896,
+        "workingSetBytes": 185954304,
+        "privateBytes": 160956416
+      },
+      "tabSwitchMs": [214.38969999999972, 29.38180000000284, 28.785700000007637, 149.664300000004],
+      "stressToIdleMs": 385.26250000001164,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 236294144,
+        "workingSetBytes": 211226624,
+        "privateBytes": 186331136
+      },
+      "closeMs": 195.26740000001155,
+      "sampledPeakPrivateBytes": 211292160,
+      "polling": {
+        "count": 139,
+        "maxGapMs": 203.257099999988
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 165953536
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 203313152
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 189497344
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 211292160
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 194650112
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 1,
+      "run": 2,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2147.815499999997,
+      "firstMemory": {
+        "peakWorkingSetBytes": 125018112,
+        "workingSetBytes": 123961344,
+        "privateBytes": 99557376
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 182988800,
+        "workingSetBytes": 148357120,
+        "privateBytes": 123486208
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 399.398199999996,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 198225920,
+        "workingSetBytes": 187441152,
+        "privateBytes": 162635776
+      },
+      "closeMs": 96.40249999999651,
+      "sampledPeakPrivateBytes": 168005632,
+      "polling": {
+        "count": 100,
+        "maxGapMs": 107.47750000000815
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 100929536
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 153251840
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 168005632
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 157237248
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 1,
+      "run": 2,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2118.7924000000057,
+      "firstMemory": {
+        "peakWorkingSetBytes": 125943808,
+        "workingSetBytes": 123543552,
+        "privateBytes": 98942976
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 190087168,
+        "workingSetBytes": 148353024,
+        "privateBytes": 123432960
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 385.21040000001085,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 192937984,
+        "workingSetBytes": 176766976,
+        "privateBytes": 151896064
+      },
+      "closeMs": 110.32479999997304,
+      "sampledPeakPrivateBytes": 168095744,
+      "polling": {
+        "count": 100,
+        "maxGapMs": 114.28139999997802
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 101494784
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 155181056
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 168095744
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 146497536
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 4,
+      "run": 2,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2962.8164999999863,
+      "firstMemory": {
+        "peakWorkingSetBytes": 159707136,
+        "workingSetBytes": 159707136,
+        "privateBytes": 135356416
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 214372352,
+        "workingSetBytes": 191205376,
+        "privateBytes": 165826560
+      },
+      "tabSwitchMs": [279.52369999999064, 134.9731000000029, 36.70999999999185, 136.55909999998403],
+      "stressToIdleMs": 388.6553000000131,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 241594368,
+        "workingSetBytes": 225423360,
+        "privateBytes": 200089600
+      },
+      "closeMs": 321.41320000000997,
+      "sampledPeakPrivateBytes": 210821120,
+      "polling": {
+        "count": 341,
+        "maxGapMs": 569.2577999999921
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 135356416
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 183578624
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 165826560
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 210821120
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 200093696
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "tabs": 4,
+      "run": 2,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2194.013800000015,
+      "firstMemory": {
+        "peakWorkingSetBytes": 160305152,
+        "workingSetBytes": 160305152,
+        "privateBytes": 135864320
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 224010240,
+        "workingSetBytes": 191848448,
+        "privateBytes": 166723584
+      },
+      "tabSwitchMs": [107.35889999999199, 38.03870000000461, 33.11960000000545, 41.40150000000722],
+      "stressToIdleMs": 388.18069999999716,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 235888640,
+        "workingSetBytes": 235888640,
+        "privateBytes": 210808832
+      },
+      "closeMs": 125.98380000001634,
+      "sampledPeakPrivateBytes": 210808832,
+      "polling": {
+        "count": 94,
+        "maxGapMs": 121.88730000000214
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 135864320
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 189128704
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 189128704
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 210808832
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 210808832
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 1,
+      "run": 2,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1722.4861999999848,
+      "firstMemory": {
+        "peakWorkingSetBytes": 145801216,
+        "workingSetBytes": 145596416,
+        "privateBytes": 118263808
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 197087232,
+        "workingSetBytes": 165797888,
+        "privateBytes": 138203136
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 389.66340000001946,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 204562432,
+        "workingSetBytes": 193703936,
+        "privateBytes": 166096896
+      },
+      "closeMs": 102.31950000001234,
+      "sampledPeakPrivateBytes": 176893952,
+      "polling": {
+        "count": 78,
+        "maxGapMs": 108.1872999999905
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 118493184
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 164888576
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 176893952
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 166096896
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 1,
+      "run": 2,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1744.4765999999945,
+      "firstMemory": {
+        "peakWorkingSetBytes": 145776640,
+        "workingSetBytes": 145571840,
+        "privateBytes": 118247424
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 194125824,
+        "workingSetBytes": 184143872,
+        "privateBytes": 156676096
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 389.1272000000172,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 207626240,
+        "workingSetBytes": 191467520,
+        "privateBytes": 164106240
+      },
+      "closeMs": 124.98689999998896,
+      "sampledPeakPrivateBytes": 180289536,
+      "polling": {
+        "count": 81,
+        "maxGapMs": 123.94700000001467
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 118476800
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 162189312
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 180289536
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 164106240
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 4,
+      "run": 2,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2124.4435999999987,
+      "firstMemory": {
+        "peakWorkingSetBytes": 201371648,
+        "workingSetBytes": 194576384,
+        "privateBytes": 167403520
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 258170880,
+        "workingSetBytes": 226336768,
+        "privateBytes": 198328320
+      },
+      "tabSwitchMs": [118.11650000000373, 34.02180000001681, 44.873400000011316, 41.98759999999311],
+      "stressToIdleMs": 392.42800000001444,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 285876224,
+        "workingSetBytes": 285876224,
+        "privateBytes": 258375680
+      },
+      "closeMs": 142.21279999997932,
+      "sampledPeakPrivateBytes": 258625536,
+      "polling": {
+        "count": 93,
+        "maxGapMs": 135.98070000001462
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 173944832
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 220631040
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 221851648
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 258375680
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 258625536
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "tabs": 4,
+      "run": 2,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2254.3070000000007,
+      "firstMemory": {
+        "peakWorkingSetBytes": 204189696,
+        "workingSetBytes": 203988992,
+        "privateBytes": 176836608
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 268910592,
+        "workingSetBytes": 226844672,
+        "privateBytes": 198922240
+      },
+      "tabSwitchMs": [128.08049999998184, 44.36099999997532, 35.20360000000801, 34.11940000002505],
+      "stressToIdleMs": 382.55160000000615,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 276054016,
+        "workingSetBytes": 271482880,
+        "privateBytes": 243712000
+      },
+      "closeMs": 137.54899999999907,
+      "sampledPeakPrivateBytes": 248311808,
+      "polling": {
+        "count": 94,
+        "maxGapMs": 134.08240000001388
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 177057792
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 231608320
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 198922240
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 248311808
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 243712000
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 1,
+      "run": 2,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1374.6907999999821,
+      "firstMemory": {
+        "peakWorkingSetBytes": 121659392,
+        "workingSetBytes": 121659392,
+        "privateBytes": 97595392
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 171974656,
+        "workingSetBytes": 143712256,
+        "privateBytes": 119373824
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 380.8773999999976,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 195710976,
+        "workingSetBytes": 169893888,
+        "privateBytes": 145543168
+      },
+      "closeMs": 93.23159999999916,
+      "sampledPeakPrivateBytes": 167141376,
+      "polling": {
+        "count": 78,
+        "maxGapMs": 103.8466999999946
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 97595392
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 143208448
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 119373824
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 167141376
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 145543168
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 1,
+      "run": 2,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1302.4369000000006,
+      "firstMemory": {
+        "peakWorkingSetBytes": 121643008,
+        "workingSetBytes": 121462784,
+        "privateBytes": 97366016
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 169611264,
+        "workingSetBytes": 143540224,
+        "privateBytes": 119365632
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 375.8782000000065,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 192151552,
+        "workingSetBytes": 170586112,
+        "privateBytes": 146395136
+      },
+      "closeMs": 99.88589999999385,
+      "sampledPeakPrivateBytes": 167993344,
+      "polling": {
+        "count": 77,
+        "maxGapMs": 91.56620000000112
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 97366016
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 145620992
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 119365632
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 167993344
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 146407424
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 4,
+      "run": 2,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1543.1003999999957,
+      "firstMemory": {
+        "peakWorkingSetBytes": 153956352,
+        "workingSetBytes": 153751552,
+        "privateBytes": 129908736
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 205692928,
+        "workingSetBytes": 186634240,
+        "privateBytes": 162213888
+      },
+      "tabSwitchMs": [102.90179999999236, 33.26880000001984, 42.780300000013085, 35.148199999995995],
+      "stressToIdleMs": 387.03250000000116,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 231047168,
+        "workingSetBytes": 231043072,
+        "privateBytes": 206704640
+      },
+      "closeMs": 95.10919999997714,
+      "sampledPeakPrivateBytes": 206708736,
+      "polling": {
+        "count": 86,
+        "maxGapMs": 102.28790000002482
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 130138112
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 181657600
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 162213888
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 206708736
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 206704640
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "tabs": 4,
+      "run": 2,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1551.6321999999927,
+      "firstMemory": {
+        "peakWorkingSetBytes": 154398720,
+        "workingSetBytes": 154206208,
+        "privateBytes": 130301952
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 206229504,
+        "workingSetBytes": 186789888,
+        "privateBytes": 162377728
+      },
+      "tabSwitchMs": [95.18330000000424, 30.853800000011688, 45.00560000000405, 35.58049999998184],
+      "stressToIdleMs": 386.53780000002007,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 233431040,
+        "workingSetBytes": 233431040,
+        "privateBytes": 209502208
+      },
+      "closeMs": 82.21150000000489,
+      "sampledPeakPrivateBytes": 209502208,
+      "polling": {
+        "count": 89,
+        "maxGapMs": 90.85910000000149
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 130510848
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 182210560
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 162377728
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 209502208
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 209502208
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 1,
+      "run": 2,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1619.987599999993,
+      "firstMemory": {
+        "peakWorkingSetBytes": 160956416,
+        "workingSetBytes": 159842304,
+        "privateBytes": 135393280
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 203091968,
+        "workingSetBytes": 157892608,
+        "privateBytes": 133226496
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 373.7404000000097,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 208003072,
+        "workingSetBytes": 183066624,
+        "privateBytes": 158461952
+      },
+      "closeMs": 96.91220000002068,
+      "sampledPeakPrivateBytes": 183418880,
+      "polling": {
+        "count": 73,
+        "maxGapMs": 99.90559999999823
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 135622656
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 170283008
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 183418880
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 158470144
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 1,
+      "run": 2,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 1765.0879999999888,
+      "firstMemory": {
+        "peakWorkingSetBytes": 160931840,
+        "workingSetBytes": 159637504,
+        "privateBytes": 135163904
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 203739136,
+        "workingSetBytes": 158642176,
+        "privateBytes": 134131712
+      },
+      "tabSwitchMs": [],
+      "stressToIdleMs": 375.85980000000563,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 209145856,
+        "workingSetBytes": 184225792,
+        "privateBytes": 159760384
+      },
+      "closeMs": 117.30350000000908,
+      "sampledPeakPrivateBytes": 184721408,
+      "polling": {
+        "count": 75,
+        "maxGapMs": 115.8582999999926
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 135163904
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 179400704
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 134131712
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 184721408
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 159760384
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 4,
+      "run": 2,
+      "variant": "before",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2671.285099999979,
+      "firstMemory": {
+        "peakWorkingSetBytes": 186712064,
+        "workingSetBytes": 186290176,
+        "privateBytes": 162078720
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 229515264,
+        "workingSetBytes": 187645952,
+        "privateBytes": 162668544
+      },
+      "tabSwitchMs": [125.85339999999269, 39.024600000004284, 33.118900000001304, 29.349399999977322],
+      "stressToIdleMs": 402.3685000000114,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 237711360,
+        "workingSetBytes": 212643840,
+        "privateBytes": 187711488
+      },
+      "closeMs": 97.40109999998822,
+      "sampledPeakPrivateBytes": 212672512,
+      "polling": {
+        "count": 92,
+        "maxGapMs": 105.60420000000158
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 166125568
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 205156352
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 162807808
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 212672512
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 196030464
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "tabs": 4,
+      "run": 2,
+      "variant": "after",
+      "dpi": [
+        0,
+        "frame=120 current=120 home=25 tocIcon=28 tocEdit=20 tocClose=20 favClose=20 aiLabel=25 aiInput=20 aiCheckbox=20 aiClose=20 find=20 findBarDy=48\n"
+      ],
+      "firstIdleMs": 2046.525099999999,
+      "firstMemory": {
+        "peakWorkingSetBytes": 187584512,
+        "workingSetBytes": 182951936,
+        "privateBytes": 158539776
+      },
+      "allTabsMemory": {
+        "peakWorkingSetBytes": 228487168,
+        "workingSetBytes": 214769664,
+        "privateBytes": 189947904
+      },
+      "tabSwitchMs": [100.6089000000211, 34.046000000002095, 33.07880000001751, 29.43059999999241],
+      "stressToIdleMs": 392.41460000001825,
+      "afterStressMemory": {
+        "peakWorkingSetBytes": 239722496,
+        "workingSetBytes": 211410944,
+        "privateBytes": 186617856
+      },
+      "closeMs": 91.08359999998356,
+      "sampledPeakPrivateBytes": 214945792,
+      "polling": {
+        "count": 90,
+        "maxGapMs": 99.36900000000605
+      },
+      "phasePeaks": [
+        {
+          "phase": "startup",
+          "privateBytes": 167010304
+        },
+        {
+          "phase": "appearance",
+          "privateBytes": 204148736
+        },
+        {
+          "phase": "tabs",
+          "privateBytes": 190087168
+        },
+        {
+          "phase": "zoom-cancel",
+          "privateBytes": 214945792
+        },
+        {
+          "phase": "close-pending",
+          "privateBytes": 194936832
+        }
+      ]
+    }
+  ],
+  "summaries": [
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+      "tabs": 1,
+      "variant": "before",
+      "runs": 3,
+      "firstMiB": 95.9140625,
+      "tabsMiB": 124.0546875,
+      "stressMiB": 155.1015625,
+      "peakMiB": 161.61328125,
+      "zoomPeakMiB": 161.61328125,
+      "firstIdleMs": 2147.815499999997,
+      "stressToIdleMs": 397.96149999999943,
+      "tabSwitchMs": null,
+      "closeMs": 122.53800000000047
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+      "tabs": 1,
+      "variant": "after",
+      "runs": 3,
+      "firstMiB": 96.0703125,
+      "tabsMiB": 124.01171875,
+      "stressMiB": 144.859375,
+      "peakMiB": 161.26953125,
+      "zoomPeakMiB": 161.26953125,
+      "firstIdleMs": 2118.7924000000057,
+      "stressToIdleMs": 386.1735999999946,
+      "tabSwitchMs": null,
+      "closeMs": 105.52509999999893
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+      "tabs": 4,
+      "variant": "before",
+      "runs": 3,
+      "firstMiB": 134.3671875,
+      "tabsMiB": 158.74609375,
+      "stressMiB": 200.86328125,
+      "peakMiB": 201.0546875,
+      "zoomPeakMiB": 201.0546875,
+      "firstIdleMs": 2282.9302000000025,
+      "stressToIdleMs": 395.00350000000617,
+      "tabSwitchMs": 40.031800000004296,
+      "closeMs": 121.18059999999969
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+      "tabs": 4,
+      "variant": "after",
+      "runs": 3,
+      "firstMiB": 129.5703125,
+      "tabsMiB": 158.85546875,
+      "stressMiB": 201.04296875,
+      "peakMiB": 201.04296875,
+      "zoomPeakMiB": 201.04296875,
+      "firstIdleMs": 2254.860799999995,
+      "stressToIdleMs": 382.54649999999674,
+      "tabSwitchMs": 40.69644999999764,
+      "closeMs": 125.13390000000072
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+      "tabs": 1,
+      "variant": "before",
+      "runs": 3,
+      "firstMiB": 111.828125,
+      "tabsMiB": 131.80078125,
+      "stressMiB": 158.40234375,
+      "peakMiB": 168.69921875,
+      "zoomPeakMiB": 168.69921875,
+      "firstIdleMs": 2123.089699999997,
+      "stressToIdleMs": 389.66340000001946,
+      "tabSwitchMs": null,
+      "closeMs": 118.75809999999183
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+      "tabs": 1,
+      "variant": "after",
+      "runs": 3,
+      "firstMiB": 112.76953125,
+      "tabsMiB": 146.99609375,
+      "stressMiB": 156.50390625,
+      "peakMiB": 169.7890625,
+      "zoomPeakMiB": 169.7890625,
+      "firstIdleMs": 1744.4765999999945,
+      "stressToIdleMs": 389.1272000000172,
+      "tabSwitchMs": null,
+      "closeMs": 126.3747999999905
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+      "tabs": 4,
+      "variant": "before",
+      "runs": 3,
+      "firstMiB": 167.625,
+      "tabsMiB": 189.140625,
+      "stressMiB": 236.53125,
+      "peakMiB": 241.625,
+      "zoomPeakMiB": 241.625,
+      "firstIdleMs": 2476.4237999999896,
+      "stressToIdleMs": 386.75040000000445,
+      "tabSwitchMs": 44.261600000005274,
+      "closeMs": 155.6987999999983
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-vector-300.pdf",
+      "tabs": 4,
+      "variant": "after",
+      "runs": 3,
+      "firstMiB": 168.62109375,
+      "tabsMiB": 189.70703125,
+      "stressMiB": 232.33984375,
+      "peakMiB": 232.33984375,
+      "zoomPeakMiB": 232.33984375,
+      "firstIdleMs": 2243.8459999999977,
+      "stressToIdleMs": 390.18360000000393,
+      "tabSwitchMs": 41.010749999994005,
+      "closeMs": 137.54899999999907
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+      "tabs": 1,
+      "variant": "before",
+      "runs": 3,
+      "firstMiB": 94.17578125,
+      "tabsMiB": 114.30078125,
+      "stressMiB": 144.39453125,
+      "peakMiB": 164.94921875,
+      "zoomPeakMiB": 164.94921875,
+      "firstIdleMs": 1846.2065999999904,
+      "stressToIdleMs": 388.7057999999961,
+      "tabSwitchMs": null,
+      "closeMs": 108.77909999999974
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+      "tabs": 1,
+      "variant": "after",
+      "runs": 3,
+      "firstMiB": 92.85546875,
+      "tabsMiB": 129.91796875,
+      "stressMiB": 147.53515625,
+      "peakMiB": 164.6015625,
+      "zoomPeakMiB": 164.6015625,
+      "firstIdleMs": 1441.1771000000008,
+      "stressToIdleMs": 375.9454999999871,
+      "tabSwitchMs": null,
+      "closeMs": 116.21089999999822
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+      "tabs": 4,
+      "variant": "before",
+      "runs": 3,
+      "firstMiB": 127.89453125,
+      "tabsMiB": 154.69921875,
+      "stressMiB": 197.41796875,
+      "peakMiB": 199.34765625,
+      "zoomPeakMiB": 199.34765625,
+      "firstIdleMs": 1809.1036999999997,
+      "stressToIdleMs": 389.64199999999255,
+      "tabSwitchMs": 39.19464999999764,
+      "closeMs": 114.83350000000064
+    },
+    {
+      "input": "D:\\solokpdf\\.work\\corpus\\phase4\\attention-raster-15.pdf",
+      "tabs": 4,
+      "variant": "after",
+      "runs": 3,
+      "firstMiB": 124.19921875,
+      "tabsMiB": 154.85546875,
+      "stressMiB": 187.38671875,
+      "peakMiB": 202.3203125,
+      "zoomPeakMiB": 202.3203125,
+      "firstIdleMs": 1744.671699999999,
+      "stressToIdleMs": 394.7021999999997,
+      "tabSwitchMs": 44.20835000000079,
+      "closeMs": 109.47969999999623
+    },
+    {
+      "input": "D:\\solokpdf\\out\\solok-phase4-font-check\\fonts.pdf",
+      "tabs": 1,
+      "variant": "before",
+      "runs": 3,
+      "firstMiB": 128.8359375,
+      "tabsMiB": 127.0546875,
+      "stressMiB": 151.12109375,
+      "peakMiB": 174.921875,
+      "zoomPeakMiB": 174.921875,
+      "firstIdleMs": 1994.6040999999968,
+      "stressToIdleMs": 384.3457999999955,
+      "tabSwitchMs": null,
+      "closeMs": 94.90899999999965
+    },
+    {
+      "input": "D:\\solokpdf\\out\\solok-phase4-font-check\\fonts.pdf",
+      "tabs": 1,
+      "variant": "after",
+      "runs": 3,
+      "firstMiB": 128.90234375,
+      "tabsMiB": 153.046875,
+      "stressMiB": 150.2734375,
+      "peakMiB": 176.875,
+      "zoomPeakMiB": 176.875,
+      "firstIdleMs": 1765.0879999999888,
+      "stressToIdleMs": 392.7682000000059,
+      "tabSwitchMs": null,
+      "closeMs": 117.30350000000908
+    },
+    {
+      "input": "D:\\solokpdf\\out\\solok-phase4-font-check\\fonts.pdf",
+      "tabs": 4,
+      "variant": "before",
+      "runs": 3,
+      "firstMiB": 154.23828125,
+      "tabsMiB": 153.7578125,
+      "stressMiB": 177.7890625,
+      "peakMiB": 201.59375,
+      "zoomPeakMiB": 201.59375,
+      "firstIdleMs": 2671.285099999979,
+      "stressToIdleMs": 385.26250000001164,
+      "tabSwitchMs": 36.071750000002794,
+      "closeMs": 126.45709999999963
+    },
+    {
+      "input": "D:\\solokpdf\\out\\solok-phase4-font-check\\fonts.pdf",
+      "tabs": 4,
+      "variant": "after",
+      "runs": 3,
+      "firstMiB": 154.19921875,
+      "tabsMiB": 154.4921875,
+      "stressMiB": 178.625,
+      "peakMiB": 203.125,
+      "zoomPeakMiB": 203.125,
+      "firstIdleMs": 2337.446200000006,
+      "stressToIdleMs": 386.4627000000037,
+      "tabSwitchMs": 32.532950000007986,
+      "closeMs": 103.49090000000433
+    }
+  ],
+  "comparisons": [
+    {
+      "round": 0,
+      "inputNo": 0,
+      "name": "before-page1-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-before-page1-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-after-page1-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "ec8625449520072db9178d3b6be35542b03f37869199f1275ef1297d74553474",
+      "afterSha256": "ec8625449520072db9178d3b6be35542b03f37869199f1275ef1297d74553474"
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "name": "before-page1-25",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-before-page1-25.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-after-page1-25.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "7aff660c31cc16587192561c7baa22ca4b1711a64a3899cecb6de58b09464db0",
+      "afterSha256": "7aff660c31cc16587192561c7baa22ca4b1711a64a3899cecb6de58b09464db0"
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "name": "before-page4-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-before-page4-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-after-page4-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "009b43627ff106e0018d792c58eb63aa22cf164479b0098329fcf8e0e97c7e0a",
+      "afterSha256": "009b43627ff106e0018d792c58eb63aa22cf164479b0098329fcf8e0e97c7e0a"
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "name": "before-page4-50",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-before-page4-50.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-after-page4-50.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "a796982b22d8e3d8adc05451c446abd3a3bf8edb4fc96aa7617af661436eba97",
+      "afterSha256": "a796982b22d8e3d8adc05451c446abd3a3bf8edb4fc96aa7617af661436eba97"
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "name": "before-page4-200",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-before-page4-200.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-after-page4-200.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "6df7d60951001812c39d1a17d04c06a3f4e65e788672eb6e81ad91ee556f6013",
+      "afterSha256": "6df7d60951001812c39d1a17d04c06a3f4e65e788672eb6e81ad91ee556f6013"
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "name": "before-page4-400",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-before-page4-400.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-after-page4-400.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "b84ca95eba3eb78fa90fdbe8d20f805617e92e56d28d6118b5af4cf206ca8563",
+      "afterSha256": "b84ca95eba3eb78fa90fdbe8d20f805617e92e56d28d6118b5af4cf206ca8563"
+    },
+    {
+      "round": 0,
+      "inputNo": 0,
+      "name": "before-scrolled-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-before-scrolled-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-0-1tabs-run-0-after-scrolled-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "180037dccb96b0a02edd34b34d9f9a13f32d035372284ec47f9b0f8af1a21abe",
+      "afterSha256": "180037dccb96b0a02edd34b34d9f9a13f32d035372284ec47f9b0f8af1a21abe"
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "name": "before-page1-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-before-page1-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-after-page1-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "8fb21f0579290c1948351d24f91e158de4addd36937bab5863b259223c49043e",
+      "afterSha256": "8fb21f0579290c1948351d24f91e158de4addd36937bab5863b259223c49043e"
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "name": "before-page1-25",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-before-page1-25.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-after-page1-25.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "8bbb55e15b6536d1b750191ff3654d3e0fe33845557586ef801114182b385aa8",
+      "afterSha256": "8bbb55e15b6536d1b750191ff3654d3e0fe33845557586ef801114182b385aa8"
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "name": "before-page4-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-before-page4-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-after-page4-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "e42465bcb489cfb61a332c1e8b50d33b549d49f6760850843daef98e4036bf1d",
+      "afterSha256": "e42465bcb489cfb61a332c1e8b50d33b549d49f6760850843daef98e4036bf1d"
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "name": "before-page4-50",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-before-page4-50.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-after-page4-50.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "8fd803e1ce963736cb69af16507a8b7fba78ece265b4cae0024794d0ce793385",
+      "afterSha256": "8fd803e1ce963736cb69af16507a8b7fba78ece265b4cae0024794d0ce793385"
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "name": "before-page4-200",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-before-page4-200.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-after-page4-200.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "9b7cd71a25d2cf5ace93811723e34a62601a95ef6ffc502b920caa544f51f630",
+      "afterSha256": "9b7cd71a25d2cf5ace93811723e34a62601a95ef6ffc502b920caa544f51f630"
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "name": "before-page4-400",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-before-page4-400.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-after-page4-400.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "95728865a47adb4f06c7cb7873476d49d5e03b3a0cc2ce875a7c67f7e6013f6c",
+      "afterSha256": "95728865a47adb4f06c7cb7873476d49d5e03b3a0cc2ce875a7c67f7e6013f6c"
+    },
+    {
+      "round": 0,
+      "inputNo": 1,
+      "name": "before-scrolled-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-before-scrolled-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-1-1tabs-run-0-after-scrolled-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "9a27b8e840c3918d006dff39437c6d3e8d25160cf68bedf7004fda47c09c3dc8",
+      "afterSha256": "9a27b8e840c3918d006dff39437c6d3e8d25160cf68bedf7004fda47c09c3dc8"
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "name": "before-page1-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-before-page1-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-after-page1-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "2d88b2a75bb4cd8f507c9dbf2b77e9be80573e0459dac087966faecdb0848f7e",
+      "afterSha256": "2d88b2a75bb4cd8f507c9dbf2b77e9be80573e0459dac087966faecdb0848f7e"
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "name": "before-page1-25",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-before-page1-25.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-after-page1-25.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "ab5ffe56758b10d9d0ebedebe55b04496a4afe58447aa1d31f9047a0832aaafe",
+      "afterSha256": "ab5ffe56758b10d9d0ebedebe55b04496a4afe58447aa1d31f9047a0832aaafe"
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "name": "before-page4-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-before-page4-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-after-page4-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "2cd78a613fa4f6b5d37b0fef3f6c72e356c57f626cb2c5550e466241665ba7ac",
+      "afterSha256": "2cd78a613fa4f6b5d37b0fef3f6c72e356c57f626cb2c5550e466241665ba7ac"
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "name": "before-page4-50",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-before-page4-50.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-after-page4-50.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "afb6470f72f26729e7356a7f62f29a34663f4ccec93ec948e1353e3572b75001",
+      "afterSha256": "afb6470f72f26729e7356a7f62f29a34663f4ccec93ec948e1353e3572b75001"
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "name": "before-page4-200",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-before-page4-200.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-after-page4-200.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "bcf047ca608289cba6bf259e6e19dd1497460688aa147bc40e7e436361276b2a",
+      "afterSha256": "bcf047ca608289cba6bf259e6e19dd1497460688aa147bc40e7e436361276b2a"
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "name": "before-page4-400",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-before-page4-400.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-after-page4-400.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "d2e8df165174708311d9756de742f76a0416dae295396f05829dc749438d0697",
+      "afterSha256": "d2e8df165174708311d9756de742f76a0416dae295396f05829dc749438d0697"
+    },
+    {
+      "round": 0,
+      "inputNo": 2,
+      "name": "before-scrolled-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-before-scrolled-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-2-1tabs-run-0-after-scrolled-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "32189de0b9377399ee8e7cb28154b74c2ea5d1c2211e7d79dd2f94a26f1b140d",
+      "afterSha256": "32189de0b9377399ee8e7cb28154b74c2ea5d1c2211e7d79dd2f94a26f1b140d"
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "name": "before-page1-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-before-page1-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-after-page1-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "798e0baf11f8c343ee65b2e953c2aefb0e70d4f6e7c00753ed4a0da7b3628f22",
+      "afterSha256": "798e0baf11f8c343ee65b2e953c2aefb0e70d4f6e7c00753ed4a0da7b3628f22"
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "name": "before-page1-25",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-before-page1-25.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-after-page1-25.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "0ace446442debb811ea7cc66cbfb948ea25ee70c643ecc7afd88144fd14b6f9d",
+      "afterSha256": "0ace446442debb811ea7cc66cbfb948ea25ee70c643ecc7afd88144fd14b6f9d"
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "name": "before-page4-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-before-page4-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-after-page4-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "e8e1959ecfda47c6a8cfc2ecadd4e10f5e297c893d6355a363bd2611c07b5aa7",
+      "afterSha256": "e8e1959ecfda47c6a8cfc2ecadd4e10f5e297c893d6355a363bd2611c07b5aa7"
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "name": "before-page4-50",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-before-page4-50.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-after-page4-50.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "462d1d0f309ede5b36aa0d1bf40ed0995215e11a7e50141aa1da4f02a1465b11",
+      "afterSha256": "462d1d0f309ede5b36aa0d1bf40ed0995215e11a7e50141aa1da4f02a1465b11"
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "name": "before-page4-200",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-before-page4-200.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-after-page4-200.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "fd1f203860c7354e2b0af10f8d56cd8977e7e046f1b36af230be398b654c292f",
+      "afterSha256": "fd1f203860c7354e2b0af10f8d56cd8977e7e046f1b36af230be398b654c292f"
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "name": "before-page4-400",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-before-page4-400.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-after-page4-400.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "c6dfa30397dc08a8356cf6d1a9f76b2bd0cca6b69e040c551667485bf89f579b",
+      "afterSha256": "c6dfa30397dc08a8356cf6d1a9f76b2bd0cca6b69e040c551667485bf89f579b"
+    },
+    {
+      "round": 0,
+      "inputNo": 3,
+      "name": "before-scrolled-100",
+      "beforeFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-before-scrolled-100.png",
+      "afterFile": "D:\\solokpdf\\out\\solok-memory-paired\\input-3-1tabs-run-0-after-scrolled-100.png",
+      "width": 880,
+      "height": 907,
+      "dimensionsMatch": true,
+      "changedPixels": 0,
+      "beforeSha256": "a1e14a5ad39f928b84dc7614a9fe6ec37493883a21fbf29dd88660c7fc2e3e56",
+      "afterSha256": "a1e14a5ad39f928b84dc7614a9fe6ec37493883a21fbf29dd88660c7fc2e3e56"
+    }
+  ],
+  "change": "Rejected render-buffer serialization trial; no general memory reduction, not present in final source"
+}

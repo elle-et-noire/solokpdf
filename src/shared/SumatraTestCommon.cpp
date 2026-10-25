@@ -1216,13 +1216,16 @@ TempStr ToggleFormButtonResultTemp(int pageNo, int idx, int* exitCodeOut) {
     return ToStrTemp(out);
 }
 
-// A BGRA8 heap pixmap is readable. A GDI DIB is readable only after a copy.
+// Tests read BGRA; copy other formats without consuming the original.
 Pixmap* EnsureReadablePixmap(Pixmap* p) {
     if (!p) {
         return nullptr;
     }
     if (p->data && p->format == PixmapFormat::BGRA8) {
         return p;
+    }
+    if (p->data && (p->format == PixmapFormat::BGR8 || p->format == PixmapFormat::RGBA8)) {
+        return PixmapToBgra(ClonePixmap(p));
     }
 #if OS_WIN
     return PixmapCopyAs32bppDIB(p);

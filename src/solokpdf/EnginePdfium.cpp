@@ -140,6 +140,30 @@ struct PdfiumProfile {
     }
 };
 
+// Drop opaque alpha bytes without changing RGB values or allocating a second pixmap.
+static void CompactOpaquePixmap(Pixmap* pixmap) {
+    const int srcBpp = PixmapBytesPerPixel(PixmapFormat::BGRA8);
+    const int dstBpp = PixmapBytesPerPixel(PixmapFormat::BGR8);
+    constexpr int kRowAlign = sizeof(u32);
+    int stride = (pixmap->width * dstBpp + kRowAlign - 1) & ~(kRowAlign - 1);
+    for (int y = 0; y < pixmap->height; y++) {
+        const u8* src = pixmap->data + (size_t)y * pixmap->stride;
+        u8* dst = pixmap->data + (size_t)y * stride;
+        for (int x = 0; x < pixmap->width; x++, src += srcBpp, dst += dstBpp) {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+        }
+        memset(dst, 0, stride - pixmap->width * dstBpp);
+    }
+    auto* data = (u8*)realloc(pixmap->data, (size_t)stride * pixmap->height);
+    if (data) {
+        pixmap->data = data;
+    }
+    pixmap->stride = stride;
+    pixmap->format = PixmapFormat::BGR8;
+}
+
 class PdfiumCookie : public AbortCookie {
   public:
     AtomicInt aborted = 0;
@@ -500,6 +524,9 @@ class EnginePdfium : public EngineBase {
             }
         }
         pixmap->xres = pixmap->yres = args.zoom * fileDPI;
+        if (!pixmap->hasAlpha && args.target == RenderTarget::View) {
+            CompactOpaquePixmap(pixmap);
+        }
         return pixmap;
     }
 

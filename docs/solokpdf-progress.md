@@ -8,16 +8,17 @@ render resolution and color processing. Do not switch the default to MuPDF to
 meet memory/startup targets. Font-info v2 remains probe-only because it changes
 rendered output.
 
-Next work: measure inactive-tab caches, queued/cancelled render buffers and
-temporary document lifetimes. Change one thing at a time, compare identical
-inputs/settings, and require matching page pixels at the same zoom/DPI. Include
-font aliases and math in appearance checks; record any extra redraw/tab-switch
-latency. No further optimization has started or is authorized by this handoff.
+Opaque view bitmap storage now uses BGR after unchanged PDFium BGRA rendering.
+The paired measurements and latency cost are recorded below, using
+`bd4dd4a9c` as the baseline. Continue measuring inactive-tab caches and temporary
+document lifetimes, with identical inputs/settings and matching pixels at the
+same zoom/DPI. Include font aliases/math and record redraw/tab-switch latency.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
-Use the Phase 4 sections and checked-in JSON for measured results. The current
-Release folder includes the deferred-destination change; Debug additionally
-includes optional profiling. ZIP archives remain at the earlier checkpoint.
+Use the Phase 4 sections and checked-in JSON for measured results. The validated
+Release is `out/solok-memory-final-release/SolokPDF.exe`; the previous portable
+executable was running and was not replaced. Debug includes optional profiling
+and the bitmap storage change. ZIP archives remain at the earlier checkpoint.
 
 ## Baseline (2026-10-24)
 
@@ -406,6 +407,88 @@ on retries without ACL/security changes. Logs: `out/solok-phase4-profile-build.l
 `out/solok-phase4-profile{,-enabled}-test.log`, `out/solok-phase4-font-check.log`.
 Next: preserve font-name/style matching while reducing enumeration work, and
 attribute the vector-document memory gap before changing cache policy.
+
+### Opaque view bitmap storage (2026-10-25)
+
+PDFium still renders into BGRA with the same fonts, LCD/annotation flags,
+resolution and colors. After rendering, opaque view bitmaps are packed to BGR
+in place and their allocation is shrunk. RGB bytes are unchanged; rows retain
+DWORD alignment. Print and transparent-background bitmaps retain BGRA. Cache
+policy and render requests are unchanged.
+
+Shrinking bypasses cache-trimming hooks under the PDFium mutex. If shrinking
+fails, the original allocation retains valid compacted pixels. The existing
+test helper now copies BGR/RGBA heap images to BGRA for inspection.
+
+Release comparison against `bd4dd4a9c`, with identical DLL hashes, PDFs and
+fresh settings; no builds or other tests ran during these final measurements.
+Same machine as above, requested 900x1000 window, measured frame DPI 120,
+warm file cache and application PDBs temporarily hidden. Two rounds of three
+launches per variant/input/tab count; order alternates within each round and
+starts in the opposite order in round two. Raw counters, hashes, timings and
+pixel comparisons: `docs/solokpdf-memory-2026-10-25.json`.
+
+The workload visits pages 1/4, uses 25/50/100/200/400% zoom, scrolls, toggles
+transparency, visits all tabs, then repeats zoom/cancellation and closes tabs
+with a pending render. Memory snapshots wait 500 ms after visible render idle;
+this does not prove all predictive work is finished. Peaks are sampled whole-
+process Private Bytes, with polling requested every 5 ms from control connection.
+Synchronous UI calls can delay polling, so short peaks may be missed. These
+results are not comparable to the earlier, shorter benchmark workload.
+
+Medians of six launches per row, MiB:
+
+| Fixture           | Tabs | Private Bytes after tab visits, before → after | Sampled peak Private Bytes, before → after |
+| ----------------- | ---: | ---------------------------------------------: | -----------------------------------------: |
+| Paper             |    1 |                                  123.5 → 119.1 |                              177.1 → 167.1 |
+| Paper             |    4 |                                  170.0 → 151.2 |                              207.4 → 196.0 |
+| Vector, 300 pages |    1 |                                  131.2 → 132.3 |                              183.9 → 175.9 |
+| Vector, 300 pages |    4 |                                  188.4 → 173.3 |                              241.2 → 226.6 |
+| Raster, 15 pages  |    1 |                                  122.1 → 105.6 |                              164.7 → 157.9 |
+| Raster, 15 pages  |    4 |                                  155.4 → 158.5 |                              201.6 → 191.0 |
+| Font aliases      |    1 |                                  134.3 → 129.3 |                              174.6 → 171.5 |
+| Font aliases      |    4 |                                  153.7 → 146.0 |                              202.0 → 192.4 |
+
+Four-tab peak medians fell in both rounds for all four inputs; combined savings
+are 4.7–6.1%. Post-tab snapshots are not uniformly lower. Four-tab switch-to-idle
+medians (ms) were paper 57.8→74.1, vector 76.1→76.7, raster 65.2→70.3 and fonts
+42.7→46.1. Packing adds CPU work; these samples show a tab-switch latency cost.
+Zoom/cancel median changes across all rows range from -4.4 to +8.6 ms, with
+outliers on both sides. Startup/tail-latency improvements are not established.
+
+All 72 image pairs have matching dimensions, pixels and PNG hashes: 64 pairs
+from two corpus rounds and eight from the generated odd-width/color/alpha/
+rotation fixture. Math, diagrams, standard fonts and aliases are covered;
+the alias fixture uses Latin text, not Japanese glyph coverage. Representative
+math and transparent images were visually inspected. This remains one paper
+and derived/synthetic fixtures, not broad PDF compatibility evidence.
+
+Both final builds passed with zero warnings/errors. `tests/ad-hoc-pdfium.ts`
+passed in Release and Debug, including search/selection, cropped/rotated links,
+TOC, view/print bitmap generation, history, Tab Groups and pending-render close.
+Logs: `out/solok-memory-bgr-final-build-{debug,release}.log` and
+`out/solok-memory-final-test-{debug,release}.log`. Earlier PE/PDB access failures
+required retries/output backups; no ACL or security settings were changed.
+
+Reproduce with the frozen inputs and the saved before/after executables:
+
+```powershell
+$memoryPdfs = @('.work/corpus/attention-1706.03762v7.pdf',
+    '.work/corpus/phase4/attention-vector-300.pdf',
+    '.work/corpus/phase4/attention-raster-15.pdf',
+    'out/solok-phase4-font-check/fonts.pdf')
+bun experiments/pdfium/memory-ui.ts --before out/solok-memory-before/SolokPDF.exe --after out/solok-memory-final-release/SolokPDF.exe --output out/solok-memory-final-paired @memoryPdfs
+bun experiments/pdfium/memory-ui.ts --before out/solok-memory-before/SolokPDF.exe --after out/solok-memory-final-release/SolokPDF.exe --reverse --output out/solok-memory-final-repeat @memoryPdfs
+bun experiments/pdfium/make-memory-fixture.ts
+bun experiments/pdfium/memory-ui.ts --before out/solok-memory-before/SolokPDF.exe --after out/solok-memory-final-release/SolokPDF.exe --runs 1 --output out/solok-memory-final-edge out/solok-memory-fixtures/odd-rgb-alpha.pdf
+```
+
+A prior render-buffer serialization trial was rejected: memory gains were not
+consistent. It is absent from the final code. Its exploratory data are in
+`docs/solokpdf-memory-lock-trial-2026-10-25.json`; its first launch overlapped a
+functional check and its workload differed, so do not combine it with the
+accepted comparison. Next: independent PDFs, inactive-tab/font retention and
+larger-tile cancellation costs.
 
 ## Phase 5: portable development identity
 
