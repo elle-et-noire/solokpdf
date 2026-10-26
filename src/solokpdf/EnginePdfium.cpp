@@ -299,6 +299,18 @@ class PdfiumCookie : public AbortCookie {
 // same limit as EngineMupdf: smaller files are read into memory
 constexpr i64 kMaxMemoryFileSize = 32LL * 1024 * 1024;
 
+// Tile edges are whole screen pixels but come back through the transform as e.g. 5507.9995;
+// flooring that drew the tile a pixel off from where RenderCache places it.
+constexpr double kPixelSnap = 0.05;
+
+static double SnapFloor(double v) {
+    return floor(v + kPixelSnap);
+}
+
+static double SnapCeil(double v) {
+    return ceil(v - kPixelSnap);
+}
+
 class EnginePdfium : public EngineBase {
     FPDF_DOCUMENT doc = nullptr;
     HANDLE file = INVALID_HANDLE_VALUE;
@@ -968,8 +980,8 @@ class EnginePdfium : public EngineBase {
         }
         RectF full = Transform(box, args.pageNo, args.zoom, args.rotation);
         RectF area = args.pageRect ? Transform(*args.pageRect, args.pageNo, args.zoom, args.rotation) : full;
-        double x = floor(area.x), y = floor(area.y);
-        double w = ceil(area.x + area.dx) - x, h = ceil(area.y + area.dy) - y;
+        double x = SnapFloor(area.x), y = SnapFloor(area.y);
+        double w = SnapCeil(area.x + area.dx) - x, h = SnapCeil(area.y + area.dy) - y;
         constexpr double kMaxTilePixels = 64 * 1024 * 1024;
         if (!isfinite(w) || !isfinite(h) || w <= 0 || h <= 0 || w * h > kMaxTilePixels || !isfinite(full.dx) ||
             !isfinite(full.dy) || full.dx > INT_MAX / 2 || full.dy > INT_MAX / 2 || !isfinite(x) || !isfinite(y) ||

@@ -1598,7 +1598,11 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
   need PDFium implementations. Unsupported features are reported in document
   properties; MuPDF is the explicit compatibility route. Basic annotation
   appearances are rendered, but form widget appearances are not promised.
-- View tiles use integer page extents; fractional-zoom tile seams, arbitrary
+- View tiles use integer page extents. Tile edges came back from the
+  transform with float error (5507.9995 px) and were floored, drawing about a
+  third of high-zoom tiles a pixel off; they now snap within 0.05 px.
+  `tests/ad-hoc-pdfium-tiles.ts` checks 45-degree hairlines across tile edges
+  at five fractional zooms (res 1–4) for both engines. Arbitrary
   UserUnit/page-box combinations and rotated text selection need broader tests.
 - Normal rendering is opaque white. The transparency-grid path uses alpha;
   full transparent-page compositing parity and advanced dark-mode parity are
