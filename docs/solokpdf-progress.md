@@ -1386,8 +1386,12 @@ implemented. Condensed results and hashes are in
 ## Phase 5: portable development identity
 
 The initial packaging results below describe `48eb0f96a`. Both current ZIPs were
-refreshed on 2026-10-26 from stable source, without the render-gate trial, and
-checked after extraction for default PDFium opening/search and normal shutdown.
+rebuilt on 2026-10-26 from `96ac65471` (tile snapping, rotated-text quads,
+named/GoToR links, form widgets), after `ad-hoc-pdfium`, `-tiles`,
+`-view-state` and `issue-4839` passed on the Release build. Each was checked
+after extraction, without PDB or source tree: PDFium opens a PDF, finds its
+text, draws a form field, and the app quits normally. They are staged from the
+portable folders without PDBs, caches, logs or settings.
 
 Both Debug and Release builds completed and passed the targeted GUI validation.
 Release produced `out/solokpdf-portable/SolokPDF.exe` (14,285,312 bytes). This host
