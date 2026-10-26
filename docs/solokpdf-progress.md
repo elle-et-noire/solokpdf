@@ -1622,9 +1622,13 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
   attribution and hours-long leak stress remain unverified.
 - Chrome/Edge comparisons and broad malformed-PDF fuzzing
   remain. A passing close stress check is not an exhaustive proof against races.
-- The existing clipboard unit-test failure was observed on the unchanged baseline;
-  its cause is unresolved. The complete unit suite is not green. No tests were
-  removed or disabled.
+- The clipboard unit-test failure seen on the unchanged baseline came from this
+  host: right after `GetClipboardData` the clipboard was no longer open
+  (`ERROR_CLIPBOARD_NOT_OPEN`, no formats). ESET's `ebehmoni.dll` and ATOK's TIP
+  are injected into the process; which one closes it is unconfirmed. The test
+  now opens the clipboard per read and retries, and `GetClipboardImageAsPixmap`
+  retries while `CF_BITMAP` is still listed. The unit suite then passed 11 runs
+  in a row (before, most runs failed). No tests were removed or disabled.
 - Files of 32 MiB or more keep a handle that shares writes, as MuPDF's does:
   producers can overwrite them while open and the document reloads
   (`tests/ad-hoc-pdfium.ts` covers small and 33 MiB files). Save As after

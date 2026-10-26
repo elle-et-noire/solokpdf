@@ -1005,8 +1005,10 @@ Pixmap* GetClipboardImageAsPixmap() {
         // owned by the clipboard.
         HBITMAP hbmp = (HBITMAP)GetClipboardData(CF_BITMAP);
         Pixmap* pixmap = hbmp ? PixmapFromHBITMAPPixels(hbmp) : nullptr;
+        // a DLL hooking GetClipboardData (seen with ESET) can close the clipboard mid-call
+        bool listed = !hbmp && IsClipboardFormatAvailable(CF_BITMAP);
         CloseClipboard();
-        if (pixmap || !hbmp) {
+        if (pixmap || (!hbmp && !listed)) {
             return pixmap;
         }
         Sleep(kPauseMs);

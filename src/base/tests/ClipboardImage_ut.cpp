@@ -31,7 +31,7 @@ static Pixmap* MakeHalfTransparent(int w, int h) {
     return p;
 }
 
-static Str ReadClipboardFormat(UINT fmt) {
+static Str ReadOpenClipboardFormat(UINT fmt) {
     HANDLE h = GetClipboardData(fmt);
     if (!h) {
         return {};
@@ -44,6 +44,24 @@ static Str ReadClipboardFormat(UINT fmt) {
     Str res = str::Dup(Str((const char*)data, (int)n));
     GlobalUnlock(h);
     return res;
+}
+
+// Opens the clipboard per read and retries, like GetClipboardImageAsPixmap: clipboard tools
+// and injected security DLLs open it after a copy, or closed it during GetClipboardData here.
+static Str ReadClipboardFormat(UINT fmt) {
+    constexpr int kTries = 10;
+    constexpr int kPauseMs = 20;
+    for (int i = 0; i < kTries; i++) {
+        if (OpenClipboard(nullptr)) {
+            Str res = ReadOpenClipboardFormat(fmt);
+            CloseClipboard();
+            if (len(res) > 0) {
+                return res;
+            }
+        }
+        Sleep(kPauseMs);
+    }
+    return {};
 }
 
 // the IHDR colour type of a PNG: 6 is truecolour + alpha
@@ -79,13 +97,16 @@ static void TransparentImageTest() {
     // still there for Paint / Word, which don't understand the other two
     utassert(IsClipboardFormatAvailable(CF_BITMAP));
 
-    utassert(OpenClipboard(nullptr));
     Str png = ReadClipboardFormat(cfPng);
     utassert(len(png) > 26);
     utassert(PngColorType(png) == 6);
 
     Str dib = ReadClipboardFormat(CF_DIBV5);
     utassert(len(dib) > (int)sizeof(BITMAPV5HEADER));
+    if (len(dib) <= (int)sizeof(BITMAPV5HEADER)) {
+        FreePixmap(p);
+        return;
+    }
     auto* bi = (BITMAPV5HEADER*)dib.s;
     utassert(bi->bV5BitCount == 32);
     utassert(bi->bV5AlphaMask == 0xff000000);
@@ -94,7 +115,6 @@ static void TransparentImageTest() {
     const u8* bits = (const u8*)dib.s + sizeof(BITMAPV5HEADER);
     utassert(bits[3] == 255);                              // first pixel: opaque
     utassert(bits[(((size_t)p->width - 1) * 4) + 3] == 0); // last pixel of row 0: transparent
-    CloseClipboard();
 
     FreePixmap(p);
 }
