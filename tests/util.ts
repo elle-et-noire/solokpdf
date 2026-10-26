@@ -80,6 +80,17 @@ const SOURCE_EXE =
   process.env.SUMATRA_TEST_EXE ||
   join(ROOT, "out", "dbg64", "SumatraPDF.exe");
 
+// A SolokPDF build (any file name) reads SolokPDF-settings.txt, not SumatraPDF's.
+function settingsFileFor(exe: string): string {
+  if (!IS_WIN || !existsSync(exe)) return "SumatraPDF-settings.txt";
+  const ps = `(Get-Item -LiteralPath '${resolve(exe)}').VersionInfo.ProductName`;
+  const product = Bun.spawnSync(["powershell", "-NoProfile", "-Command", ps]).stdout.toString().trim();
+  return /^solokpdf$/i.test(product) ? "SolokPDF-settings.txt" : "SumatraPDF-settings.txt";
+}
+
+// name of the settings file the exe under test reads from its -appdata dir
+export const SETTINGS_FILE = settingsFileFor(SOURCE_EXE);
+
 // Keep the executable and its portable settings file in a fresh directory for
 // every test run. This prevents a manual run, or an earlier test that saves
 // settings, from changing the starting state of later tests.
@@ -405,7 +416,7 @@ export function writeAppdata(name: string, settings: string): string {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   const body = settings.endsWith("\n") ? settings : `${settings}\n`;
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), body);
+  writeFileSync(join(dir, SETTINGS_FILE), body);
   return dir;
 }
 

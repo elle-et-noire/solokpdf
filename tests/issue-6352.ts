@@ -2,7 +2,7 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { waitForHome } from "./control.ts";
-import { ROOT, makePng, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { ROOT, makePng, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
 import { repaintWindow, setCursorPos } from "./winapi.ts";
 
@@ -29,7 +29,7 @@ export async function testit(): Promise<void> {
     const hash = new Bun.CryptoHasher("md5").update(pdf).digest("hex");
     const png = join(cache, `${hash}.png`);
     writeFileSync(
-      join(appdata, "SumatraPDF-settings.txt"),
+      join(appdata, SETTINGS_FILE),
       `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nShowStartPage = true\n` +
         `RememberOpenedFiles = true\nShowTips = false\nThumbnailsType = full\nHomePageViewMode = thumbnails\n` +
         `FileStates [\n [\n FilePath = ${pdf}\n OpenCount = 1\n ]\n]\n`,
