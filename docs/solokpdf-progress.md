@@ -1582,8 +1582,10 @@ Raw maps: `out/solok-memory-map-mapped-*`.
 - Print **bitmap generation** passed. Physical printers, print dialogs,
   spooler behavior and export workflows were not comprehensively tested.
 - Two-document Tab Groups and normal-session paths persisted across restart.
-  Restored zoom/scroll state, crash recovery, inactive-tab allocation attribution
-  and hours-long leak stress remain unverified.
+  `tests/ad-hoc-pdfium-view-state.ts` restores page, zoom and scroll from the
+  session and from file history; both engines save identical values (scroll
+  within 0.2 pt of the seed). Crash recovery, inactive-tab allocation
+  attribution and hours-long leak stress remain unverified.
 - Chrome/Edge comparisons and broad malformed-PDF fuzzing
   remain. A passing close stress check is not an exhaustive proof against races.
 - The existing clipboard unit-test failure was observed on the unchanged baseline;
