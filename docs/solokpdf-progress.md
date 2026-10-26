@@ -1665,10 +1665,12 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   loaded; every annotation type but redaction (see
   `docs/solokpdf-annotations.md`). PDFium's own incremental save, used before,
   wrote every parsed object: one annotation added up to 35 MB.
-- Interactive forms/widgets, JavaScript/XFA, signatures, attachments, PDF
-  editing/merging and advanced object-level dark rendering need PDFium
-  implementations. Unsupported features are reported in document properties;
-  MuPDF is the explicit compatibility route.
+- Form filling, JavaScript, XFA, signing and signature verification, the
+  embedded-file list and PDF editing/merging need PDFium implementations.
+  Document Properties lists the ones a document uses ("Unsupported
+  Features"; empty for most papers), checked by
+  `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
+  a notification on every load. MuPDF is the explicit compatibility route.
 - Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
   annotation except widgets, so form fields used to be blank; documents with
   an AcroForm now get a form handle and `FPDF_FFLDraw` after each render

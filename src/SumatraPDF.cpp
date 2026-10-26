@@ -2191,6 +2191,13 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
     // multi-file open/session restore can finish loads out of order so another
     // tab may already be selected by the time we get here.
     TempStr unsupported = win->ctrl->GetPropertyTemp(DocProp::UnsupportedFeatures);
+#if defined(SOLOKPDF_PDFIUM)
+    // PDFium's list is shown in Document Properties only
+    DisplayModel* loadedDm = win->AsFixed();
+    if (loadedDm && loadedDm->GetEngine() && loadedDm->GetEngine()->kind == kindEnginePdfium) {
+        unsupported = {};
+    }
+#endif
     if (unsupported) {
         Str s = Tr("%s not supported");
         TempStr msg = fmt(s.s, unsupported);

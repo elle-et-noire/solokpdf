@@ -357,6 +357,7 @@ static const PropLabel propToName[] = {
     {DocProp::Keywords, TrN("Keywords:")},
     {DocProp::Encryption, TrN("Encryption:")},
     {DocProp::Signatures, TrN("Signatures:")},
+    {DocProp::UnsupportedFeatures, TrN("Unsupported Features:")},
     {DocProp::ImageSize, TrN("Image Size:")},
     {DocProp::Dpi, TrN("DPI:")},
     {DocProp::Comment, TrN("Comment:")},
@@ -518,8 +519,7 @@ void GetPropsText(DocController* ctrl, str::Builder& out) {
         DocProp::Title, DocProp::Subject, DocProp::Author, DocProp::Copyright,
         DocProp::CreationDate, DocProp::ModificationDate,
         DocProp::CreatorApp, DocProp::PdfProducer, DocProp::PdfVersion,
-        DocProp::PdfFileStructure, DocProp::Files,
-        DocProp::UnsupportedFeatures, DocProp::FontList,
+        DocProp::PdfFileStructure, DocProp::Files, DocProp::FontList,
         DocProp::None,
     };
     // clang-format on
