@@ -1619,6 +1619,11 @@ Inactive tabs of 13 dark themes took colors from outside their palettes, mostly
 purple (Solarized Dark `#5b0c6f`): upstream copied an old computed blend. They
 now use a neighboring color of the theme's own palette, as Light and Dark do.
 
+Themes change from the keyboard: the command palette (Ctrl+K) lists every
+theme as "Set theme '…'" (upstream hides them there), and the Change Theme
+dialog previews with the arrow keys, applies with Enter and cancels with Esc.
+`tests/ad-hoc-theme-keyboard.ts` drives both.
+
 `smart` is now the default (upstream: `off`); a settings file that saved `off`
 keeps it. On the default Light theme pages become the theme's light gray.
 

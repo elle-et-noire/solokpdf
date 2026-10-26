@@ -396,10 +396,8 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
 
     CustomCommand* cmd = FindCustomCommand(cmdId);
     int origCmdId = cmd ? cmd->origId : 0;
+    // the palette too: typing a theme's name switches to it without the mouse
     if (origCmdId == CmdSetTheme) {
-        if (surface == CommandSurface::Palette) {
-            return CommandVisibility::Hide;
-        }
         return CommandVisibility::Show;
     }
 
