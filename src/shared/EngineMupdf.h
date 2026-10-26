@@ -294,6 +294,7 @@ class EngineMupdf : public EngineBase {
 };
 
 EngineMupdf* AsEngineMupdf(EngineBase* engine);
+EngineMupdf* AnnotEngineMupdf(EngineBase* engine, EditorLoad load);
 
 fz_rect ToFzRect(RectF rect);
 RectF ToRectF(fz_rect rect);

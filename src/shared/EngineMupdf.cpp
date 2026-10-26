@@ -42,7 +42,6 @@ extern "C" {
 #include "EngineBase.h"
 #include "PdfDarkMode.h"
 #include "EngineAll.h"
-#include "AnnotationBackend.h"
 #include "EbookBase.h"
 #include "EbookDoc.h"
 #include "Settings.h"
@@ -128,6 +127,15 @@ EngineMupdf* AsEngineMupdf(EngineBase* engine) {
     return (EngineMupdf*)engine;
 }
 
+// The EngineMupdf that holds engine's annotations: engine itself, or the editor of an engine that
+// can't edit them (EnginePdfium)
+EngineMupdf* AnnotEngineMupdf(EngineBase* engine, EditorLoad load) {
+    if (engine && engine->HasAnnotationEditor()) {
+        return AsEngineMupdf(engine->AnnotationEditor(load));
+    }
+    return AsEngineMupdf(engine);
+}
+
 bool EngineMupdfHeadingTocPending(EngineBase* engine) {
     EngineMupdf* e = AsEngineMupdf(engine);
     return e && e->HeadingTocPending();
@@ -155,7 +163,7 @@ void EngineMupdfCancelHeadingToc(EngineBase* engine) {
 }
 
 void EngineMupdfCancelLoadAllAnnotations(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e) {
         return;
     }
@@ -7380,6 +7388,50 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
     return pixmap;
 }
 
+// Draws the page's annotations over pixels another engine (EnginePdfium) rendered. m (a b c d e f)
+// maps page space to them; pixmap is BGRA, premultiplied if it has alpha.
+bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target) {
+    EngineMupdf* e = AsEngineMupdf(engine);
+    if (!e || !e->pdfdoc || !pixmap || pixmap->format != PixmapFormat::BGRA8) {
+        return false;
+    }
+    FzPageInfo* pi = e->GetFzPageInfo(pageNo, true);
+    if (!pi || !pi->page) {
+        return false;
+    }
+    auto* ctx = e->Ctx();
+    const char* usage = target == RenderTarget::Print ? "Print" : "View";
+    fz_pixmap* pix = nullptr;
+    fz_device* dev = nullptr;
+    bool ok = false;
+    fz_var(pix);
+    fz_var(dev);
+    fz_var(ok);
+    // like RenderPage: an edit on the UI thread rewrites the objects this reads
+    ScopedMutex renderScope(&e->renderLock);
+    ScopedRecursiveMutex docScope(&e->docLock);
+    fz_try(ctx) {
+        pdf_page* page = pdf_page_from_fz_page(ctx, pi->page);
+        pix = fz_new_pixmap_with_data(ctx, fz_device_bgr(ctx), pixmap->width, pixmap->height, nullptr, 1,
+                                      pixmap->stride, pixmap->data);
+        dev = fz_new_draw_device(ctx, fz_identity, pix);
+        fz_matrix ctm = fz_make_matrix(m[0], m[1], m[2], m[3], m[4], m[5]);
+        if (page) {
+            pdf_run_page_annots_with_usage(ctx, page, dev, ctm, usage, nullptr);
+        }
+        fz_close_device(ctx, dev);
+        ok = true;
+    }
+    fz_always(ctx) {
+        fz_drop_device(ctx, dev);
+        fz_drop_pixmap(ctx, pix);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+    }
+    return ok;
+}
+
 // don't delete the result
 IPageElement* EngineMupdf::GetElementAtPos(int pageNo, PointF pt) {
     FzPageInfo* pageInfo = GetFzPageInfoCanFail(pageNo);
@@ -9256,10 +9308,7 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
     if (!engine) {
         return false;
     }
-    if (auto* backend = engine->GetAnnotationBackend()) {
-        return backend->SaveUpdated(path, showErrorFunc);
-    }
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!epdf || !epdf->pdfdoc) {
         return false;
     }
@@ -9268,7 +9317,7 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
     }
 
     auto timeStart = TimeGet();
-    Str currPath = engine->FilePath();
+    Str currPath = epdf->FilePath();
     if (len(path) == 0) {
         path = currPath;
     }
@@ -9334,10 +9383,7 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
 // unsaved annotations, without marking the document clean. Used so tools
 // that re-open the file from disk (bake) see the current session (issue #5977).
 bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
-    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
-        return len(path) > 0 && backend->SaveCopy(path);
-    }
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!epdf || !epdf->pdfdoc || len(path) == 0) {
         return false;
     }
@@ -9520,11 +9566,7 @@ static void AppendLoadedAnnotations(EngineMupdf* e, Vec<Annotation*>& annotsOut)
 // Collect Annotation* already sitting on FzPageInfo. Does not load pages.
 void EngineMupdfGetLoadedAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
     VecClear(annotsOut);
-    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
-        backend->GetAnnotations(annotsOut, true);
-        return;
-    }
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc) {
         return;
     }
@@ -9533,17 +9575,13 @@ void EngineMupdfGetLoadedAnnotations(EngineBase* engine, Vec<Annotation*>& annot
 }
 
 bool EngineMupdfAnnotsLoadDone(EngineBase* engine) {
-    // a backend reads every page when asked, so there is no load in progress
-    if (engine && engine->GetAnnotationBackend()) {
-        return true;
-    }
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     return e && e->annotLoadDone;
 }
 
 // Like EngineMupdfGetLoadedAnnotations but does not wait for pagesLock.
 bool EngineMupdfTryGetLoadedAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc) {
         VecClear(annotsOut);
         return true;
@@ -9560,11 +9598,7 @@ bool EngineMupdfTryGetLoadedAnnotations(EngineBase* engine, Vec<Annotation*>& an
 // that need the complete list now (tests, matching after reload) use this.
 void EngineMupdfGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
     VecClear(annotsOut);
-    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
-        backend->GetAnnotations(annotsOut, false);
-        return;
-    }
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!e || !e->pdfdoc) {
         return;
     }
@@ -9717,7 +9751,7 @@ void EngineMupdfLoadAnnotsForPage(EngineBase* engine, int pageNo) {
 
 #endif
 void EngineMupdfStartLoadAllAnnotations(EngineBase* engine, const Vec<int>& firstPages, const Func0& onProgress) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!e || !e->pdfdoc) {
         return;
     }
@@ -9761,7 +9795,7 @@ void EngineMupdfStartLoadAllAnnotations(EngineBase* engine, const Vec<int>& firs
 }
 
 bool EngineMupdfHasUnsavedAnnotations(EngineBase* engine) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     return epdf && epdf->pdfdoc && epdf->modifiedAnnotations;
 }
 
@@ -9983,7 +10017,7 @@ int EngineMupdfUndoPos(EngineMupdf* e, int* stepsOut) {
 // drag that writes on every mouse move) into a single step. Nested operations
 // fold into the outermost one. Must be paired with EngineMupdfEndOperation().
 void EngineMupdfBeginOperation(EngineBase* engine, const char* name) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc) {
         return;
     }
@@ -9999,7 +10033,7 @@ void EngineMupdfBeginOperation(EngineBase* engine, const char* name) {
 }
 
 void EngineMupdfEndOperation(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc || e->journalNesting <= 0) {
         return;
     }
@@ -10016,13 +10050,13 @@ void EngineMupdfEndOperation(EngineBase* engine) {
 }
 
 bool EngineMupdfCanUndo(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     int pos = EngineMupdfUndoPos(e, nullptr);
     return pos > 0;
 }
 
 bool EngineMupdfCanRedo(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     int steps = 0;
     int pos = EngineMupdfUndoPos(e, &steps);
     return pos >= 0 && pos < steps;
@@ -10046,13 +10080,13 @@ static int UndoPosNoWait(EngineMupdf* e, int* stepsOut) {
 
 bool EngineMupdfCanUndoNoWait(EngineBase* engine) {
     int steps = 0;
-    int pos = UndoPosNoWait(AsEngineMupdf(engine), &steps);
+    int pos = UndoPosNoWait(AnnotEngineMupdf(engine, EditorLoad::IfLoaded), &steps);
     return pos > 0;
 }
 
 bool EngineMupdfCanRedoNoWait(EngineBase* engine) {
     int steps = 0;
-    int pos = UndoPosNoWait(AsEngineMupdf(engine), &steps);
+    int pos = UndoPosNoWait(AnnotEngineMupdf(engine, EditorLoad::IfLoaded), &steps);
     return pos >= 0 && pos < steps;
 }
 
@@ -10263,7 +10297,7 @@ bool EngineMupdfMergePdfs(const Vec<PdfMergeSource>& srcs, const Vec<PdfMergePag
 // already; the caller must take them out of the UI and delete them.
 static bool EngineMupdfUndoRedo(EngineBase* engine, bool redo, Vec<Annotation*>& removedOut) {
     VecReset(removedOut);
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc) {
         return false;
     }
@@ -10307,7 +10341,7 @@ bool EngineMupdfRedo(EngineBase* engine, Vec<Annotation*>& removedOut) {
 // the modifiedAnnotations flag can only approximate (it stays set after the
 // change that set it is undone). Call after undo / redo.
 void EngineMupdfRefreshModifiedState(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc) {
         return;
     }
@@ -10482,7 +10516,7 @@ Str EngineMupdfLoadAttachment(EngineBase* engine, int attachmentNo) {
 }
 
 Str EngineMupdfLoadAnnotAttachment(EngineBase* engine, int objNum) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!epdf->pdfdoc) {
         return {};
     }
@@ -10522,7 +10556,7 @@ static FzPageInfo* GetPdfPageInfo(EngineMupdf* engine, int pageNo) {
 
 Annotation* EngineMupdfGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos, float padding,
                                           Annotation* preferredAnnot) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
     if (!pi) {
         return nullptr;

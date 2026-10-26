@@ -17,7 +17,6 @@
 #include "LitDoc.h"
 
 #include "EngineAll.h"
-#include "AnnotationBackend.h"
 
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 #include "solokpdf/EnginePdfium.h"
@@ -481,11 +480,16 @@ static bool IsEngineMupdf(EngineBase* engine) {
     return engine->kind == kindEngineMupdf;
 }
 
+// EngineMupdf, or an engine whose annotations an EngineMupdf edits
+static bool HasMupdfAnnotations(EngineBase* engine) {
+    return IsEngineMupdf(engine) || (engine && engine->HasAnnotationEditor());
+}
+
 bool EngineSupportsAnnotations(EngineBase* engine) {
     if (AnnotationsAreDisabled()) {
         return false;
     }
-    if (engine && engine->GetAnnotationBackend()) {
+    if (engine && engine->HasAnnotationEditor()) {
         return true;
     }
     if (!IsEngineMupdf(engine)) {
@@ -495,11 +499,7 @@ bool EngineSupportsAnnotations(EngineBase* engine) {
 }
 
 bool EngineGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
-    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
-        backend->GetAnnotations(annotsOut, false);
-        return true;
-    }
-    if (!IsEngineMupdf(engine)) {
+    if (!HasMupdfAnnotations(engine)) {
         return false;
     }
     EngineMupdfGetAnnotations(engine, annotsOut);
@@ -507,10 +507,7 @@ bool EngineGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
 }
 
 bool EngineHasUnsavedAnnotations(EngineBase* engine) {
-    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
-        return backend->HasUnsaved();
-    }
-    if (!IsEngineMupdf(engine)) {
+    if (!HasMupdfAnnotations(engine)) {
         return false;
     }
     return EngineMupdfHasUnsavedAnnotations(engine);
@@ -538,10 +535,7 @@ bool EngineHasUserRedactMarks(EngineBase* engine) {
 }
 
 Annotation* EngineGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos, float padding, Annotation* annot) {
-    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
-        return backend->GetAnnotationAtPos(pageNo, pos, padding, annot);
-    }
-    if (!IsEngineMupdf(engine)) {
+    if (!HasMupdfAnnotations(engine)) {
         return nullptr;
     }
     return EngineMupdfGetAnnotationAtPos(engine, pageNo, pos, padding, annot);

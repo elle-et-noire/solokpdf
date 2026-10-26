@@ -21,7 +21,6 @@ extern "C" {
 #include "AppSettings.h"
 #include "Commands.h"
 #include "Translations.h"
-#include "AnnotationBackend.h"
 #include "Annotation.h"
 
 // spot checks the definitions are the same
@@ -149,19 +148,11 @@ static bool IsAnnotationInEngine(EngineMupdf* e, Annotation* annot) {
 // Safe to call MuPDF with annot->pdfannot.
 // True if annot is non-null, has a live pdf_annot*, and is still listed in
 // its EngineMupdf page (markup or form widget). Use before any MuPDF call.
-static bool IsLiveMupdf(Annotation* annot) {
+bool AnnotationIsLive(Annotation* annot) {
     if (!annot || !annot->engine || !annot->pdfannot) {
         return false;
     }
     return IsAnnotationInEngine(annot->engine, annot);
-}
-
-// still owned by its engine; a backend (EnginePdfium) annotation has no pdf_annot
-bool AnnotationIsLive(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->IsLive(annot);
-    }
-    return IsLiveMupdf(annot);
 }
 
 struct AnnotAccess {
@@ -175,7 +166,7 @@ struct AnnotAccess {
 // Centralize the lock and MuPDF error boundary shared by annotation getters.
 template <typename T, typename Read>
 static T ReadAnnot(Annotation* annot, T fallback, Read read) {
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return fallback;
     }
     AnnotAccess access(annot);
@@ -190,7 +181,7 @@ static T ReadAnnot(Annotation* annot, T fallback, Read read) {
 
 template <typename Update>
 static bool UpdateAnnotIf(Annotation* annot, Update update) {
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return false;
     }
     EngineMupdf* engine = annot->engine;
@@ -239,11 +230,7 @@ int PageNo(Annotation* annot) {
 }
 
 RectF GetBounds(Annotation* annot) {
-    if (annot && annot->backend) {
-        annot->bounds = annot->backend->Bounds(annot);
-        return annot->bounds;
-    }
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return annot ? annot->bounds : RectF{};
     }
     AnnotAccess access(annot);
@@ -268,13 +255,9 @@ RectF GetRect(Annotation* annot) {
 }
 
 void SetRect(Annotation* annot, RectF r) {
-    if (annot && annot->backend) {
-        annot->backend->SetRect(annot, r);
-        return;
-    }
     // Stale reference after delete/reload must not reach mupdf
     // (e.g. annotationBeingDragged).
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return;
     }
     EngineMupdf* e = annot->engine;
@@ -401,9 +384,6 @@ static Str MupdfCStrTemp(const char* s) {
 
 // AnnotEditToolbar.cpp
 Str Author(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->Author(annot);
-    }
     return ReadAnnot(annot, Str{},
                      [](fz_context* ctx, pdf_annot* a) { return MupdfCStrTemp(pdf_annot_author(ctx, a)); });
 }
@@ -431,7 +411,7 @@ static void WriteFreeTextFontLocked(fz_context* ctx, pdf_annot* a, Str family, i
 // return true if changed
 bool SetQuadding(Annotation* annot, int newQuadding) {
     ReportIf(!IsValidQuadding(newQuadding));
-    if (!IsLiveMupdf(annot) || Quadding(annot) == newQuadding) {
+    if (!AnnotationIsLive(annot) || Quadding(annot) == newQuadding) {
         return false;
     }
     return UpdateAnnot(annot, [annot, newQuadding](fz_context* ctx, pdf_annot* a) {
@@ -449,11 +429,7 @@ bool SetQuadding(Annotation* annot, int newQuadding) {
 }
 
 void SetQuadPointsAsRect(Annotation* annot, const Vec<RectF>& rects) {
-    if (annot && annot->backend) {
-        annot->backend->SetQuadPoints(annot, rects);
-        return;
-    }
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return;
     }
     int n = len(rects);
@@ -475,11 +451,8 @@ void SetQuadPointsAsRect(Annotation* annot, const Vec<RectF>& rects) {
 }
 
 Vec<RectF> GetQuadPointsAsRect(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->QuadPoints(annot);
-    }
     Vec<RectF> res;
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return res;
     }
     AnnotAccess access(annot);
@@ -541,7 +514,7 @@ WidgetCursorKind GetWidgetCursorKind(Annotation* annot) {
 // Toggle a checkbox / radio-button form field in place. Returns true if it was
 // a (non-read-only) checkbox/radio and got toggled.
 bool ToggleFormButton(Annotation* annot) {
-    if (!IsLiveMupdf(annot) || annot->type != AnnotationType::Widget) {
+    if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Widget) {
         return false;
     }
     EngineMupdf* e = annot->engine;
@@ -650,7 +623,7 @@ int GetWidgetMaxLen(Annotation* annot) {
 
 template <typename SetValue>
 static bool SetWidgetValue(Annotation* annot, Str value, Str operation, SetValue setValue) {
-    if (!IsLiveMupdf(annot) || annot->type != AnnotationType::Widget) {
+    if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Widget) {
         return false;
     }
     EngineMupdf* e = annot->engine;
@@ -689,7 +662,7 @@ bool SetWidgetTextValue(Annotation* annot, Str value) {
 
 // options of a combobox/listbox field (display strings), appended to `out`.
 void GetWidgetChoiceOptions(Annotation* annot, StrVec& out) {
-    if (!IsLiveMupdf(annot) || annot->type != AnnotationType::Widget) {
+    if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Widget) {
         return;
     }
     AnnotAccess access(annot);
@@ -719,17 +692,11 @@ bool SetWidgetChoiceValue(Annotation* annot, Str value) {
 }
 
 Str Contents(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->Contents(annot);
-    }
     return ReadAnnot(annot, Str{},
                      [](fz_context* ctx, pdf_annot* a) { return MupdfCStrDupTemp(pdf_annot_contents(ctx, a)); });
 }
 
 bool SetContents(Annotation* annot, Str sv) {
-    if (annot && annot->backend) {
-        return annot->backend->SetContents(annot, sv);
-    }
     ReportIf(!annot);
     Str currValue = Contents(annot);
     if (str::Eq(sv, currValue)) {
@@ -747,11 +714,6 @@ void DeleteAnnotation(Annotation* annot) {
         return;
     }
     // Caller must have DetachAnnotationFromUI (or have no UI holders).
-    if (annot->backend) {
-        annot->backend->Delete(annot);
-        delete annot;
-        return;
-    }
     EngineMupdf* e = annot->engine;
     if (!e) {
         delete annot;
@@ -806,9 +768,6 @@ int PopupId(Annotation* annot) {
 }
 
 time_t ModificationDate(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->ModificationDate(annot);
-    }
     return ReadAnnot(annot, (time_t)0,
                      [](fz_context* ctx, pdf_annot* a) { return (time_t)pdf_annot_modification_date(ctx, a); });
 }
@@ -817,11 +776,7 @@ time_t ModificationDate(Annotation* annot) {
 // stamp it. Used by paste, which is a brand new annotation whatever date the
 // one it was copied from carried.
 void SetModificationDateToNow(Annotation* annot) {
-    if (annot && annot->backend) {
-        annot->backend->SetModificationDateToNow(annot);
-        return;
-    }
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return;
     }
     AnnotAccess access(annot);
@@ -835,9 +790,6 @@ void SetModificationDateToNow(Annotation* annot) {
 
 // return empty if no icon
 Str IconName(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->IconName(annot);
-    }
     return ReadAnnot(annot, Str{}, [](fz_context* ctx, pdf_annot* a) {
         if (pdf_annot_has_icon_name(ctx, a)) {
             return MupdfCStrDupTemp(pdf_annot_icon_name(ctx, a));
@@ -878,7 +830,7 @@ static pdf_obj* FilespecDict(fz_context* ctx, pdf_annot* a) {
 }
 
 bool HasEmbeddedFile(Annotation* annot) {
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return false;
     }
     AnnotAccess access(annot);
@@ -894,7 +846,7 @@ bool HasEmbeddedFile(Annotation* annot) {
 }
 
 Str EmbeddedFileNameTemp(Annotation* annot) {
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return {};
     }
     AnnotAccess access(annot);
@@ -918,7 +870,7 @@ Str EmbeddedFileNameTemp(Annotation* annot) {
 
 // caller owns the result (binary; may not be NUL-terminated)
 Str LoadEmbeddedFile(Annotation* annot) {
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return {};
     }
     AnnotAccess access(annot);
@@ -941,7 +893,7 @@ Str LoadEmbeddedFile(Annotation* annot) {
 }
 
 bool SetEmbeddedFileFromPath(Annotation* annot, Str path) {
-    if (!IsLiveMupdf(annot) || len(path) == 0 || !file::Exists(path)) {
+    if (!AnnotationIsLive(annot) || len(path) == 0 || !file::Exists(path)) {
         return false;
     }
     EngineMupdf* e = annot->engine;
@@ -1070,9 +1022,6 @@ static bool AnnotColorDiffers(const float* color, int n, const float* newColor, 
 }
 
 PdfColor GetColor(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->Color(annot, false);
-    }
     return GetAnnotColor(annot, pdf_annot_color);
 }
 
@@ -1091,9 +1040,6 @@ bool AnnotationIsTextMarkup(AnnotationType tp) {
 
 // return true if color changed
 bool SetColor(Annotation* annot, PdfColor c) {
-    if (annot && annot->backend) {
-        return annot->backend->SetColor(annot, c, false);
-    }
     return UpdateAnnotIf(annot, [annot, c](fz_context* ctx, pdf_annot* a) {
         float color[4]{};
         int n = 0;
@@ -1131,16 +1077,10 @@ bool SetColor(Annotation* annot, PdfColor c) {
 }
 
 PdfColor InteriorColor(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->Color(annot, true);
-    }
     return GetAnnotColor(annot, pdf_annot_interior_color);
 }
 
 bool SetInteriorColor(Annotation* annot, PdfColor c) {
-    if (annot && annot->backend) {
-        return annot->backend->SetColor(annot, c, true);
-    }
     return UpdateAnnotIf(annot, [c](fz_context* ctx, pdf_annot* a) {
         float color[4]{};
         int n = 0;
@@ -1399,7 +1339,7 @@ void GetLineEndingStyles(Annotation* annot, int* start, int* end) {
     if (end) {
         *end = 0;
     }
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return;
     }
     AnnotAccess access(annot);
@@ -1424,7 +1364,7 @@ void GetLineEndingStyles(Annotation* annot, int* start, int* end) {
 bool GetLinePoints(Annotation* annot, PointF& start, PointF& end) {
     start = {};
     end = {};
-    if (!IsLiveMupdf(annot) || annot->type != AnnotationType::Line) {
+    if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Line) {
         return false;
     }
     AnnotAccess access(annot);
@@ -1449,7 +1389,7 @@ bool GetLinePoints(Annotation* annot, PointF& start, PointF& end) {
 
 // The two endpoints of a Line annotation (/L). Bounds follow from that.
 void SetLinePoints(Annotation* annot, PointF start, PointF end) {
-    if (!IsLiveMupdf(annot) || annot->type != AnnotationType::Line) {
+    if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Line) {
         return;
     }
     EngineMupdf* e = annot->engine;
@@ -1476,7 +1416,7 @@ void SetLinePoints(Annotation* annot, PointF start, PointF end) {
 // /Vertices of a PolyLine or Polygon, in page coordinates.
 Vec<PointF> GetVertices(Annotation* annot) {
     Vec<PointF> res;
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return res;
     }
     if (annot->type != AnnotationType::PolyLine && annot->type != AnnotationType::Polygon) {
@@ -1500,7 +1440,7 @@ Vec<PointF> GetVertices(Annotation* annot) {
 
 // Replace /Vertices. Bounds follow from that.
 void SetVertices(Annotation* annot, const Vec<PointF>& points) {
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return;
     }
     if (annot->type != AnnotationType::PolyLine && annot->type != AnnotationType::Polygon) {
@@ -1537,11 +1477,7 @@ void SetVertices(Annotation* annot, const Vec<PointF>& points) {
 void GetInkList(Annotation* annot, Vec<int>& strokeCounts, Vec<PointF>& points) {
     VecReset(strokeCounts);
     VecReset(points);
-    if (annot && annot->backend && annot->type == AnnotationType::Ink) {
-        annot->backend->InkList(annot, strokeCounts, points);
-        return;
-    }
-    if (!IsLiveMupdf(annot) || annot->type != AnnotationType::Ink) {
+    if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Ink) {
         return;
     }
     AnnotAccess access(annot);
@@ -1636,9 +1572,6 @@ InkEraseResult EraseAnnotationInk(Annotation* annot, PointF pt, float radius) {
     if (len(strokeCounts) == 0) {
         return InkEraseResult::Empty;
     }
-    if (annot->backend) {
-        return annot->backend->SetInkList(annot, strokeCounts, points) ? InkEraseResult::Changed : InkEraseResult::None;
-    }
 
     Vec<fz_point> pts;
     VecGrow(pts, len(points));
@@ -1668,34 +1601,20 @@ InkEraseResult EraseAnnotationInk(Annotation* annot, PointF pt, float radius) {
 }
 
 int BorderWidth(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->BorderWidth(annot);
-    }
     return ReadAnnot(annot, 0, [](fz_context* ctx, pdf_annot* a) { return (int)pdf_annot_border(ctx, a); });
 }
 
 void SetBorderWidth(Annotation* annot, int newWidth) {
     ReportIf(!annot);
-    if (annot && annot->backend) {
-        annot->backend->SetBorderWidth(annot, newWidth);
-        return;
-    }
     UpdateAnnot(annot,
                 [newWidth](fz_context* ctx, pdf_annot* a) { pdf_set_annot_border_width(ctx, a, (float)newWidth); });
 }
 
 int Opacity(Annotation* annot) {
-    if (annot && annot->backend) {
-        return annot->backend->Opacity(annot);
-    }
     return ReadAnnot(annot, 0, [](fz_context* ctx, pdf_annot* a) { return (int)(pdf_annot_opacity(ctx, a) * 255.f); });
 }
 
 void SetOpacity(Annotation* annot, int newOpacity) {
-    if (annot && annot->backend) {
-        annot->backend->SetOpacity(annot, setMinMax(newOpacity, 0, 255));
-        return;
-    }
     ReportIf(newOpacity < 0);
     ReportIf(newOpacity > 255);
     float opacity = (float)setMinMax(newOpacity, 0, 255) / 255.f;
@@ -1807,16 +1726,16 @@ bool AnnotationSupportsOpacity(AnnotationType tp) {
 }
 
 Annotation* EngineMupdfCreateAnnotation(EngineBase* engine, int pageNo, PointF pos, AnnotCreateArgs* args) {
-    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
-        return backend->Create(pageNo, pos, args);
-    }
     static const float black[3] = {0, 0, 0};
 
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
+    if (!epdf) {
+        return nullptr;
+    }
     fz_context* ctx = epdf->Ctx();
     // creating an annotation is a create plus a handful of property changes;
     // Undo should take all of it back in one go
-    ScopedEngineOperation op(engine, "Add annotation");
+    ScopedEngineOperation op(epdf, "Add annotation");
 
     auto* pageInfo = epdf->GetFzPageInfo(pageNo, true);
     if (!pageInfo || !pageInfo->page) {
@@ -2245,7 +2164,7 @@ static Pixmap* PixmapFromRgbFzPixmap(fz_context* ctx, fz_pixmap* src) {
 }
 
 static Pixmap* GetStampImage(Annotation* annot) {
-    if (!IsLiveMupdf(annot) || annot->type != AnnotationType::Stamp) {
+    if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Stamp) {
         return nullptr;
     }
     EngineMupdf* e = annot->engine;
@@ -2295,7 +2214,7 @@ void FreeAnnotationClipboard() {
 // The annotation's /Rect. GetBounds() is pdf_bound_annot(), which is expanded
 // by the border width and would grow the annotation on every copy -> paste.
 static RectF GetAnnotRect(Annotation* annot) {
-    if (!IsLiveMupdf(annot)) {
+    if (!AnnotationIsLive(annot)) {
         return annot ? annot->bounds : RectF{};
     }
     AnnotAccess access(annot);
@@ -2339,15 +2258,12 @@ bool EngineOwnsAnnotation(EngineBase* engine, Annotation* annot) {
     if (!engine || !annot) {
         return false;
     }
-    if (annot->backend) {
-        return engine->GetAnnotationBackend() == annot->backend;
-    }
-    return AsEngineMupdf(engine) == annot->engine;
+    return AnnotEngineMupdf(engine, EditorLoad::IfLoaded) == annot->engine;
 }
 
 // Snapshot a live annotation so PasteCopiedAnnotation can recreate it.
 bool CopyAnnotation(Annotation* annot) {
-    if (!IsLiveMupdf(annot) || !AnnotationCanBeCopied(annot->type)) {
+    if (!AnnotationIsLive(annot) || !AnnotationCanBeCopied(annot->type)) {
         return false;
     }
     ClearAnnotationClipboard();

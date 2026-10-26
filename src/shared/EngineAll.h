@@ -101,6 +101,7 @@ bool IsEngineMupdfSupportedFileType(FileType);
 int EngineMupdfCount();
 EngineBase* CreateEngineMupdfFromFile(Str path, FileType kind, int displayDPI, PasswordUI* pwdUI = nullptr);
 EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI);
+bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target);
 Str LoadEmbeddedPDFFile(Str path);
 TempStr ParseEmbeddedStreamNumber(Str path, int* streamNoOut);
 Annotation* EngineMupdfCreateAnnotation(EngineBase*, int pageNo, PointF pos, AnnotCreateArgs* args);

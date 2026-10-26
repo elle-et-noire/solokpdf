@@ -1625,9 +1625,11 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
   spaces a footnote mark from a URL, so it links). Like MuPDF, wrapped URLs are
   not joined. Text is read on first link query, not at startup; link-query
   round trips stayed within their 20–60 ms noise.
-- Annotation editing is being ported in stages; see
-  `docs/solokpdf-annotations.md` (stages 1-2: text markup, notes, shapes,
-  ink, moving and resizing, save).
+- Annotations of PDFium documents are edited, undone and saved by a hidden
+  MuPDF document of the same file, which draws them over PDFium's pages once
+  loaded; every annotation type but redaction (see
+  `docs/solokpdf-annotations.md`). PDFium's own incremental save, used before,
+  wrote every parsed object: one annotation added up to 35 MB.
 - Interactive forms/widgets, JavaScript/XFA, signatures, attachments, PDF
   editing/merging and advanced object-level dark rendering need PDFium
   implementations. Unsupported features are reported in document properties;

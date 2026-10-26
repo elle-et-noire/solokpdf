@@ -55,7 +55,6 @@ enum class InkEraseResult {
 
 class EngineBase;
 class EngineMupdf;
-struct AnnotationBackend;
 extern "C" struct pdf_annot;
 
 SeqStrings AnnotationTextIcons();
@@ -84,8 +83,6 @@ struct Annotation {
 
     EngineMupdf* engine = nullptr;
     pdf_annot* pdfannot = nullptr; // not owned
-    // set instead of engine/pdfannot for engines other than EngineMupdf (EnginePdfium)
-    AnnotationBackend* backend = nullptr;
 
     ~Annotation() {
         if (this == gPendingCutAnnotation) {

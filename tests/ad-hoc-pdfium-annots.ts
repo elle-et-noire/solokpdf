@@ -1,7 +1,9 @@
-// Opt-in PDFium annotation check: a PDFium document lists its annotations, a text selection
-// becomes a highlight that is drawn, saved incrementally, kept across the reload, and read
-// back by MuPDF. Then a note, square, circle and ink are created, drawn, moved and resized,
-// saved, and read back the same way. Build with solok-build.ts, then use --no-build.
+// Opt-in PDFium annotation check (MuPDF edits a PDFium document's annotations and draws them over
+// its pages): a PDFium document lists its annotations, a text selection becomes a highlight that
+// is drawn, saved incrementally, kept across the reload, and read back by MuPDF. Then a note,
+// square, circle and ink are created, drawn, moved and resized; undone, redone, copied, cut and
+// pasted; a Japanese free text, line, polygon, polyline, stamp and caret are created. Each part is
+// saved and read back the same way. Build with solok-build.ts, then use --no-build.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
@@ -16,14 +18,19 @@ import {
 } from "./win-automation.ts";
 import {
   captureWindowToPng,
+  enumChildWindows,
+  getClassName,
   getClientRect,
+  getControlText,
   MK_LBUTTON,
   packCoords,
   postChar,
   postMessage,
   sendMessage,
+  sendText,
   setProcessDpiAware,
   sleep,
+  WM_CHAR,
   WM_COMMAND,
   WM_KEYDOWN,
   WM_KEYUP,
@@ -120,6 +127,8 @@ export async function testit(): Promise<void> {
   try {
     await s.client.setNotificationsEnabled(false);
     await s.client.waitForRenderIdle();
+    // MuPDF, which edits the annotations, opens the file when they're first needed
+    sendCommandSync(s.frame, cmdId("CmdToggleEditPDF"));
     await waitAnnots(s.client, 1, "existing highlight");
 
     await selectFirstLine(s.client, s.frame);
@@ -162,6 +171,8 @@ export async function testit(): Promise<void> {
   }
 
   await testShapes(dir);
+  await testUndoPaste(dir);
+  await testOtherTypes(dir);
 }
 
 // --- notes, shapes and ink; moving and resizing
@@ -359,6 +370,224 @@ async function testShapes(dir: string): Promise<void> {
       throw new Error(`MuPDF reads ${JSON.stringify(got)}, want ${JSON.stringify({ square, ink })}`);
     }
     console.log("MuPDF reads the note, square, circle and ink in place");
+    await m.client.quit();
+  } finally {
+    m.client.close();
+    await killAndWait(m.proc).catch(() => {});
+  }
+}
+
+// --- undo / redo, copy, cut and paste
+
+function undoState(raw: string): string {
+  return /undo canUndo=\d canRedo=\d modified=\d/.exec(raw)?.[0] ?? `no undo state\n${raw}`;
+}
+
+function squares(raw: string): Box[] {
+  const re = new RegExp(`type=Square page=\\d+ rect=${kNum},${kNum},${kNum},${kNum}`, "g");
+  return [...raw.matchAll(re)].map((m) => ({ x: +m[1]!, y: +m[2]!, dx: +m[3]!, dy: +m[4]! }));
+}
+
+async function testUndoPaste(dir: string): Promise<void> {
+  const pdf = join(dir, "undo.pdf");
+  writeFileSync(pdf, blankPdf(), "latin1");
+  const s = await launch(dir, pdf, "pdfium");
+  try {
+    await s.client.setNotificationsEnabled(false);
+    await s.client.waitForRenderIdle();
+    const canvas = findCanvas(s.frame);
+    const cr = getClientRect(canvas);
+    const cx = Math.floor(cr.right / 2);
+    const cy = Math.floor(cr.bottom / 2);
+    sendCommandSync(s.frame, cmdId("CmdToggleEditPDF"));
+    const command = (cmd: string, at?: Pt) =>
+      sendMessage(s.frame, WM_COMMAND, cmdId(cmd), at ? packCoords(at.x, at.y) : 0);
+
+    command("CmdCreateAnnotSquare", { x: cx - 120, y: cy - 120 });
+    let raw = await waitFor(s.client, (r) => count(r) === 1, "square not created");
+    const created = shape(raw, "Square");
+    if (undoState(raw) !== "undo canUndo=1 canRedo=0 modified=1") throw new Error(`after create: ${undoState(raw)}`);
+
+    // a drag is one step; the selecting click also writes the rect, snapped to screen pixels
+    const from = center(created.screen);
+    await drag(canvas, [from, from]);
+    const selected = shape(await dump(s.client), "Square").rect;
+    await drag(canvas, [from, { x: from.x + 20, y: from.y + 10 }, { x: from.x + 40, y: from.y + 30 }]);
+    raw = await waitFor(s.client, (r) => shape(r, "Square").rect.x > created.rect.x + 10, "square did not move");
+    const moved = shape(raw, "Square").rect;
+    await pressEscape(s.frame);
+
+    command("CmdUndo");
+    raw = await waitFor(s.client, (r) => near(shape(r, "Square").rect, selected, 0.01), "undo did not move it back");
+    for (let i = 0; i < 3 && count(raw) > 0; i++) {
+      command("CmdUndo");
+      raw = await dump(s.client);
+    }
+    if (count(raw) !== 0) throw new Error(`undo did not remove the square\n${raw}`);
+    if (undoState(raw) !== "undo canUndo=0 canRedo=1 modified=0") throw new Error(`undone: ${undoState(raw)}`);
+    await s.client.waitForRenderIdle();
+    const png = join(dir, "undone.png");
+    captureWindowToPng(canvas, png);
+    const red = countPixels(png, (r, g, b) => r > 180 && g < 90 && b < 90);
+    if (red > 0) throw new Error(`undone square still drawn: ${red} red pixels, ${png}`);
+
+    command("CmdRedo");
+    raw = await waitFor(
+      s.client,
+      (r) => count(r) === 1 && near(shape(r, "Square").rect, created.rect, 0.01),
+      "redo create",
+    );
+    for (let i = 0; i < 3 && /canRedo=1/.test(raw); i++) {
+      command("CmdRedo");
+      raw = await dump(s.client);
+    }
+    if (!near(shape(raw, "Square").rect, moved, 0.01)) throw new Error(`redo move\n${raw}`);
+    if (undoState(raw) !== "undo canUndo=1 canRedo=0 modified=1") throw new Error(`redone: ${undoState(raw)}`);
+    console.log("PDFium undo and redo of a create and a move");
+
+    // copy and paste: same size, at the point
+    const sq = shape(raw, "Square");
+    const scale = sq.screen.dx / sq.rect.dx;
+    command("CmdCopyAnnotation", center(sq.screen));
+    const pasteAt = { x: cx + 40, y: cy + 60 };
+    command("CmdPasteAnnotation", pasteAt);
+    raw = await waitFor(s.client, (r) => count(r) === 2, "paste created nothing");
+    const pasted = squares(raw).find((b) => !near(b, moved, 0.5));
+    if (!pasted || Math.abs(pasted.dx - moved.dx) > 0.5 || Math.abs(pasted.dy - moved.dy) > 0.5) {
+      throw new Error(`pasted ${JSON.stringify(pasted)}, copied ${JSON.stringify(moved)}`);
+    }
+
+    // cut and paste moves it, as one step
+    command("CmdCutAnnotation", center(sq.screen));
+    command("CmdPasteAnnotation", { x: pasteAt.x - 200, y: pasteAt.y });
+    raw = await waitFor(
+      s.client,
+      (r) => count(r) === 2 && !squares(r).some((b) => near(b, moved, 0.5)),
+      "cut annotation not moved",
+    );
+    const afterCut = squares(raw);
+    command("CmdUndo");
+    raw = await waitFor(
+      s.client,
+      (r) =>
+        count(r) === 2 && squares(r).some((b) => near(b, moved, 0.5)) && squares(r).some((b) => near(b, pasted, 0.5)),
+      "undo of cut and paste",
+    );
+    command("CmdRedo");
+    raw = await waitFor(
+      s.client,
+      (r) => count(r) === 2 && afterCut.every((a) => squares(r).some((b) => near(a, b, 0.5))),
+      "redo of cut and paste",
+    );
+    console.log(`PDFium copy, cut and paste (scale ${scale.toFixed(2)}), undone and redone`);
+
+    sendCommand(s.frame, cmdId("CmdSaveAnnotations"));
+    let saved = "";
+    for (const deadline = Date.now() + kTimeoutMs; Date.now() < deadline; await sleep(100)) {
+      saved = readFileSync(pdf, "latin1");
+      if (saved.length > blankPdf().length) break;
+    }
+    if (!saved.startsWith(blankPdf())) throw new Error("save was not an incremental update");
+    await waitFor(s.client, (r) => count(r) === 2 && /modified=0/.test(r), "annotations lost on reload");
+    await s.client.quit();
+  } finally {
+    s.client.close();
+    await killAndWait(s.proc).catch(() => {});
+  }
+
+  const m = await launch(dir, pdf, "mupdf");
+  try {
+    await m.client.waitForRenderIdle();
+    await waitFor(m.client, (r) => count(r) === 2 && squares(r).length === 2, "MuPDF reading the pasted squares");
+    console.log("MuPDF reads both squares");
+    await m.client.quit();
+  } finally {
+    m.client.close();
+    await killAndWait(m.proc).catch(() => {});
+  }
+}
+
+// --- free text, line, polygon, polyline, stamp and caret
+
+const kJapanese = "日本語の注釈";
+
+// the in-place editor of a new free text
+function freeTextBox(canvas: number): number {
+  let found = 0;
+  enumChildWindows(canvas, (hwnd) => {
+    if (getClassName(hwnd) !== "Edit" || !getControlText(hwnd).startsWith("This is a text")) return true;
+    found = hwnd;
+    return false;
+  });
+  return found;
+}
+
+async function testOtherTypes(dir: string): Promise<void> {
+  const pdf = join(dir, "types.pdf");
+  writeFileSync(pdf, blankPdf(), "latin1");
+  const types = ["/FreeText", "/Line", "/Polygon", "/PolyLine", "/Stamp", "/Caret"];
+  const s = await launch(dir, pdf, "pdfium");
+  try {
+    await s.client.setNotificationsEnabled(false);
+    await s.client.waitForRenderIdle();
+    const canvas = findCanvas(s.frame);
+    const cr = getClientRect(canvas);
+    const x = Math.floor(cr.right / 2) - 150;
+    let y = Math.floor(cr.bottom / 2) - 250;
+    sendCommandSync(s.frame, cmdId("CmdToggleEditPDF"));
+
+    sendMessage(s.frame, WM_COMMAND, cmdId("CmdCreateAnnotFreeText"), packCoords(x, y));
+    let box = 0;
+    for (const deadline = Date.now() + kTimeoutMs; !box && Date.now() < deadline; await sleep(50)) {
+      box = freeTextBox(canvas);
+    }
+    if (!box) throw new Error("no in-place editor for the free text");
+    sendText(box, kJapanese);
+    // Ctrl+Enter reaches the edit control as LF
+    sendMessage(box, WM_CHAR, 0x0a, 0);
+    await waitFor(s.client, (r) => count(r) === 1 && /freeTextEdit active=0/.test(r), "free text not committed");
+    const layout = String((await s.client.request(ControlCommand.TestAnnotEditorLayout, [0, 1]))[1] ?? "");
+    if (!layout.includes(`contents=${kJapanese}`)) throw new Error(`free text contents: ${layout}`);
+
+    const cmds = ["CmdCreateAnnotLine", "CmdCreateAnnotPolygon", "CmdCreateAnnotPolyLine", "CmdCreateAnnotStamp"];
+    for (const cmd of [...cmds, "CmdCreateAnnotCaret"]) {
+      y += 100;
+      const n = count(await dump(s.client));
+      sendMessage(s.frame, WM_COMMAND, cmdId(cmd), packCoords(x, y));
+      await waitFor(s.client, (r) => count(r) === n + 1, `${cmd} created nothing`);
+      await pressEscape(s.frame);
+    }
+
+    // the line, polygon, polyline and stamp are red
+    await s.client.waitForRenderIdle();
+    const png = join(dir, "types.png");
+    captureWindowToPng(canvas, png);
+    const red = countPixels(png, (r, g, b) => r > 180 && g < 90 && b < 90);
+    if (red < 4 * kMinRed) throw new Error(`shapes not drawn: ${red} red pixels, ${png}`);
+
+    sendCommand(s.frame, cmdId("CmdSaveAnnotations"));
+    let saved = "";
+    for (const deadline = Date.now() + kTimeoutMs; Date.now() < deadline; await sleep(100)) {
+      saved = readFileSync(pdf, "latin1");
+      if (saved.includes("/Caret")) break;
+    }
+    for (const type of types) {
+      if (!saved.includes(type)) throw new Error(`${type} not saved`);
+    }
+    if (!saved.startsWith(blankPdf())) throw new Error("save was not an incremental update");
+    await waitFor(s.client, (r) => count(r) === types.length && /modified=0/.test(r), "annotations lost on reload");
+    console.log(`PDFium Japanese free text, line, polygon, polyline, stamp and caret created (${red} red pixels)`);
+    await s.client.quit();
+  } finally {
+    s.client.close();
+    await killAndWait(s.proc).catch(() => {});
+  }
+
+  const m = await launch(dir, pdf, "mupdf");
+  try {
+    await m.client.waitForRenderIdle();
+    await waitFor(m.client, (r) => count(r) === types.length, "MuPDF reading the other types");
+    console.log("MuPDF reads them");
     await m.client.quit();
   } finally {
     m.client.close();

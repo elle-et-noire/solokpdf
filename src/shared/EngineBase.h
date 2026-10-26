@@ -9,9 +9,14 @@ struct IPageDestination;
 struct TocItem;
 struct PropValue;
 struct PageTextCache;
-struct AnnotationBackend;
 enum class DocProp : u8;
 class EngineBase;
+
+// whether EngineBase::AnnotationEditor() loads the editor when it isn't yet
+enum class EditorLoad {
+    IfLoaded,
+    Load,
+};
 
 #include "ChapterTable.h"
 
@@ -591,8 +596,9 @@ class EngineBase {
     // 1-based page from safe PDF /OpenAction GoTo, or 0 (issue #1631)
     virtual int GetOpenActionPageNo() { return 0; }
 
-    // annotations of an engine other than EngineMupdf; null when it has none
-    virtual AnnotationBackend* GetAnnotationBackend() { return nullptr; }
+    // an EngineMupdf of the same file that edits the annotations of an engine that can't (EnginePdfium)
+    virtual bool HasAnnotationEditor() { return false; }
+    virtual EngineBase* AnnotationEditor(EditorLoad) { return nullptr; }
 
     virtual bool HasToc();
 
