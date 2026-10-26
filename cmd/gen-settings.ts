@@ -1837,10 +1837,10 @@ const globalPrefs: Field[] = [
   field(
     "DocumentColorsFollowTheme",
     Str,
-    "off",
+    "smart",
     "how MuPDF-rendered documents (PDF, XPS, DjVu, EPUB, MOBI, FB2, CBZ, images, etc.) " +
-      "use UI / FixedPageUI colors for the page. Values: off (document's own colors; default); " +
-      "smart (recolor text and page background, keep photos/images as-is — best for dark reading); " +
+      "use UI / FixedPageUI colors for the page. Values: off (document's own colors); " +
+      "smart (recolor text and page background, keep photos/images as-is — best for dark reading; default); " +
       "legacy (also recolor images; pre-3.7 invert-style). Does not change menus/toolbars — use Theme " +
       "for UI chrome. Settings / Theme and the CmdSetDocumentColorsFollowTheme command set " +
       "all three values. Shift+I (Invert Colors) is separate: it swaps the page colors for " +

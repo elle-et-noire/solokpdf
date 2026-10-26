@@ -1386,12 +1386,13 @@ implemented. Condensed results and hashes are in
 ## Phase 5: portable development identity
 
 The initial packaging results below describe `48eb0f96a`. Both current ZIPs were
-rebuilt on 2026-10-26 from `96ac65471` (tile snapping, rotated-text quads,
-named/GoToR links, form widgets), after `ad-hoc-pdfium`, `-tiles`,
-`-view-state` and `issue-4839` passed on the Release build. Each was checked
-after extraction, without PDB or source tree: PDFium opens a PDF, finds its
-text, draws a form field, and the app quits normally. They are staged from the
-portable folders without PDBs, caches, logs or settings.
+rebuilt on 2026-10-27 with theme page colors (smart by default) and the new
+themes, after `ad-hoc-pdfium`, `-theme` and `-tiles` passed on the Release
+build. Each was checked after extraction, without PDB or source tree: with
+default settings and a dark theme, PDFium draws a themed page with its photo
+untouched, and the app quits normally. They are staged from the portable
+folders with the previous ZIPs' file lists, without PDBs, caches, logs or
+settings.
 
 Both Debug and Release builds completed and passed the targeted GUI validation.
 Release produced `out/solokpdf-portable/SolokPDF.exe` (14,285,312 bytes). This host
@@ -1606,13 +1607,16 @@ colors on dark and light themes; MuPDF keeps them on dark themes only.
   now shared as `PdfDarkModeShouldPreserveImagePixels`: scans, layout panels and
   figures on a flat light backdrop (#6088) recolor with the page, as do 1-bit
   images and thin strips.
-- Themed tiles skip gray storage: a gray tile's palette recolor can't spare photos.
-  `off` renders as before; `legacy` recolors everything.
+- Tiles showing a photo skip gray storage: a gray tile's palette recolor can't
+  spare it. `off` renders as before; `legacy` recolors everything.
 - `RenderCache` no longer keeps only a tile's largest skip rect; MuPDF already
   returns at most one.
 
 New themes: Catppuccin Latte/Frappe/Macchiato, Gruvbox Light, Everforest Light,
 Rose Pine Dawn, Sepia.
+
+`smart` is now the default (upstream: `off`); a settings file that saved `off`
+keeps it. On the default Light theme pages become the theme's light gray.
 
 `tests/ad-hoc-pdfium-theme.ts` checks a dark and a light theme: no white paper,
 both photos untouched, a figure's gray backdrop recolored, and `legacy` recoloring

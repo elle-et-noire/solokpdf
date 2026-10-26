@@ -1037,7 +1037,7 @@ static const FieldInfo gSettingsFields[] = {
     {offsetof(Settings, helpTheme), SettingType::String, (intptr_t)"app", false, gEnumSettingsHelpTheme, nullptr},
     {offsetof(Settings, lastLightTheme), SettingType::String, (intptr_t)"", true},
     {offsetof(Settings, lastDarkTheme), SettingType::String, (intptr_t)"", true},
-    {offsetof(Settings, documentColorsFollowTheme), SettingType::String, (intptr_t)"off", false,
+    {offsetof(Settings, documentColorsFollowTheme), SettingType::String, (intptr_t)"smart", false,
      gEnumSettingsDocumentColorsFollowTheme, nullptr},
     {offsetof(Settings, tocDy), SettingType::Int, 0, true},
     {offsetof(Settings, toolbarCustomLayout), SettingType::String, (intptr_t)""},
@@ -1257,21 +1257,21 @@ const StructInfo gSettingsInfo = {
     "(follow the app's theme), light or dark. The switch in the manual's top-right corner changes it\0the light theme "
     "the light/dark toggle and the System theme switch to\0the dark theme the light/dark toggle and the System theme "
     "switch to\0how MuPDF-rendered documents (PDF, XPS, DjVu, EPUB, MOBI, FB2, CBZ, images, etc.) use UI / FixedPageUI "
-    "colors for the page. Values: off (document's own colors; default); smart (recolor text and page background, keep "
-    "photos/images as-is — best for dark reading); legacy (also recolor images; pre-3.7 invert-style). Does not change "
-    "menus/toolbars — use Theme for UI chrome. Settings / Theme and the CmdSetDocumentColorsFollowTheme command set "
-    "all three values. Shift+I (Invert Colors) is separate: it swaps the page colors for the session whatever this is "
-    "set to\0if both the favorites and the bookmarks part of the sidebar are visible, this is the height of the "
-    "bookmarks (table of contents) part, in screen pixels\0the toolbar's built-in buttons, in the order you want them, "
-    "e.g. CmdOpenFile CmdPrint PageInfo | CmdFindFirst. Leave a button out to hide it. | is a separator and PageInfo "
-    "is the page number box. Empty (the default) means the standard layout. Buttons you added yourself (see Shortcuts) "
-    "still come last\0if true, the toolbar has a Read Aloud button (with a drop-down for voice, speed and what to "
-    "read). Read Aloud is still reachable from the Read Aloud menu when this is false\0size of the toolbar icons in "
-    "pixels at 100% display scaling (8-64); the toolbar itself is a few pixels taller\0font name for bookmarks and "
-    "favorites tree views. automatic means Windows default\0font size for bookmarks and favorites tree views, in "
-    "pixels; 0 means the Windows default. Not scaled by the display scaling\0overrides the font size used for menus, "
-    "toolbar and dialogs, in pixels; 0 means the Windows default. Not scaled by the display scaling\0if true, render "
-    "MuPDF-based documents (PDF, XPS, DjVu, EPUB etc.) without anti-aliasing, giving sharper but jagged "
+    "colors for the page. Values: off (document's own colors); smart (recolor text and page background, keep "
+    "photos/images as-is — best for dark reading; default); legacy (also recolor images; pre-3.7 invert-style). Does "
+    "not change menus/toolbars — use Theme for UI chrome. Settings / Theme and the CmdSetDocumentColorsFollowTheme "
+    "command set all three values. Shift+I (Invert Colors) is separate: it swaps the page colors for the session "
+    "whatever this is set to\0if both the favorites and the bookmarks part of the sidebar are visible, this is the "
+    "height of the bookmarks (table of contents) part, in screen pixels\0the toolbar's built-in buttons, in the order "
+    "you want them, e.g. CmdOpenFile CmdPrint PageInfo | CmdFindFirst. Leave a button out to hide it. | is a separator "
+    "and PageInfo is the page number box. Empty (the default) means the standard layout. Buttons you added yourself "
+    "(see Shortcuts) still come last\0if true, the toolbar has a Read Aloud button (with a drop-down for voice, speed "
+    "and what to read). Read Aloud is still reachable from the Read Aloud menu when this is false\0size of the toolbar "
+    "icons in pixels at 100% display scaling (8-64); the toolbar itself is a few pixels taller\0font name for "
+    "bookmarks and favorites tree views. automatic means Windows default\0font size for bookmarks and favorites tree "
+    "views, in pixels; 0 means the Windows default. Not scaled by the display scaling\0overrides the font size used "
+    "for menus, toolbar and dialogs, in pixels; 0 means the Windows default. Not scaled by the display scaling\0if "
+    "true, render MuPDF-based documents (PDF, XPS, DjVu, EPUB etc.) without anti-aliasing, giving sharper but jagged "
     "edges\0CAD/engineering PDF line rendering: off, auto (enhance if a CAD drawing is detected) or on\0if true, "
     "disables auto-linking of URLs and email addresses found in PDF text\0if true, use the Windows system colors for "
     "the document background and text. Overrides other color settings\0if true, documents are opened in tabs instead "

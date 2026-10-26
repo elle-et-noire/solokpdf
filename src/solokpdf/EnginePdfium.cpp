@@ -1231,7 +1231,8 @@ class EnginePdfium : public EngineBase {
 
     // Only this part needs the lock; pixel post-processing runs while other pages draw.
     int DrawPage(RenderPageArgs& args, Pixmap* pixmap, double x, double y, RectF full, bool drawAnnots,
-                 PdfiumCookie* cookie, PdfiumProfile& profile) {
+                 PdfiumCookie* cookie, PdfiumProfile& profile, bool* tileHasPhotos) {
+        *tileHasPhotos = false;
         ScopedMutex lock(&gPdfiumLock);
         profile.Mark(StrL("lock"));
         if (AtomicIntGet(&cookie->aborted)) {
@@ -1251,6 +1252,12 @@ class EnginePdfium : public EngineBase {
         if (info && !info->imagesLoaded && KeepsImageColors(args)) {
             CollectImages(page, info);
             profile.Mark(StrL("images"));
+        }
+        if (info && KeepsImageColors(args)) {
+            RectF tile = args.pageRect ? *args.pageRect : RectF(0, 0, info->size.dx, info->size.dy);
+            for (RectF& r : info->images) {
+                *tileHasPhotos = *tileHasPhotos || !r.Intersect(tile).IsEmpty();
+            }
         }
         // the form module keeps a view per loaded page; it must drop it before the page closes
         if (form) {
@@ -1340,7 +1347,8 @@ class EnginePdfium : public EngineBase {
         // read once: a tile must not get annotations from both engines
         EngineBase* annotEditor = AnnotationEditor(EditorLoad::IfLoaded);
         bool drawAnnots = !hideAnnotations && !annotEditor;
-        int status = DrawPage(args, pixmap, x, y, full, drawAnnots, cookie, profile);
+        bool tileHasPhotos = false;
+        int status = DrawPage(args, pixmap, x, y, full, drawAnnots, cookie, profile, &tileHasPhotos);
         if (status != FPDF_RENDER_DONE || AtomicIntGet(&cookie->aborted)) {
             profile.Mark(StrL("canceled-or-failed"));
             FreePixmap(pixmap);
@@ -1372,8 +1380,8 @@ class EnginePdfium : public EngineBase {
             profile.Mark(StrL("annotations"));
         }
         if (!pixmap->hasAlpha && args.target == RenderTarget::View) {
-            // a gray tile recolors through its palette, which can't spare the photos
-            if (!KeepsImageColors(args)) {
+            // a gray tile recolors through its palette, which can't spare photos
+            if (!tileHasPhotos) {
                 PixmapGrayTimes times;
                 pixmap = PixmapToGrayDib(pixmap, PdfiumCookie::IsCanceled, cookie, profile.enabled ? &times : nullptr);
                 profile.Mark(StrL("gray"));

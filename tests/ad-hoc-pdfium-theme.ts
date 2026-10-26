@@ -1,4 +1,4 @@
-// Opt-in PDFium check: with DocumentColorsFollowTheme = smart a page takes the theme's colors and
+// Opt-in PDFium check: with DocumentColorsFollowTheme = smart (the default) a page takes the theme's colors and
 // its photos keep theirs, on dark and light themes; a figure on a flat light backdrop recolors
 // (#6088) and legacy recolors photos too. Build with
 // solok-build.ts, then use --no-build.
@@ -95,7 +95,7 @@ CheckForUpdates = false
 ShowStartPage = false
 DefaultZoom = fit page
 Theme = ${theme}
-DocumentColorsFollowTheme = ${mode}
+${mode === "default" ? "" : `DocumentColorsFollowTheme = ${mode}`}
 `,
   );
 
@@ -129,12 +129,19 @@ DocumentColorsFollowTheme = ${mode}
 export async function testit(): Promise<void> {
   setProcessDpiAware();
   const failures: string[] = [];
-  for (const theme of ["Solarized Dark", "Catppuccin Latte"]) {
-    const smart = await capture(theme, "smart");
-    if (smart.white > kMaxWhitePixels) failures.push(`${theme} smart: page not themed (${smart.png})`);
-    if (smart.red < kMinPhotoPixels) failures.push(`${theme} smart: page photo recolored (${smart.png})`);
-    if (smart.green < kMinPhotoPixels) failures.push(`${theme} smart: form photo recolored (${smart.png})`);
-    if (smart.backdrop > kMaxWhitePixels) failures.push(`${theme} smart: figure backdrop kept (${smart.png})`);
+  // smart is the default: no setting behaves like smart
+  const smartCases = [
+    ["Solarized Dark", "smart"],
+    ["Catppuccin Latte", "smart"],
+    ["Solarized Dark", "default"],
+  ];
+  for (const [theme, mode] of smartCases) {
+    const name = `${theme} ${mode}`;
+    const smart = await capture(theme!, mode!);
+    if (smart.white > kMaxWhitePixels) failures.push(`${name}: page not themed (${smart.png})`);
+    if (smart.red < kMinPhotoPixels) failures.push(`${name}: page photo recolored (${smart.png})`);
+    if (smart.green < kMinPhotoPixels) failures.push(`${name}: form photo recolored (${smart.png})`);
+    if (smart.backdrop > kMaxWhitePixels) failures.push(`${name}: figure backdrop kept (${smart.png})`);
   }
   const legacy = await capture("Solarized Dark", "legacy");
   if (legacy.red >= kMinPhotoPixels) failures.push(`legacy: photo kept its colors (${legacy.png})`);
