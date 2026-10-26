@@ -17,6 +17,7 @@
 #include "LitDoc.h"
 
 #include "EngineAll.h"
+#include "AnnotationBackend.h"
 
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 #include "solokpdf/EnginePdfium.h"
@@ -484,6 +485,9 @@ bool EngineSupportsAnnotations(EngineBase* engine) {
     if (AnnotationsAreDisabled()) {
         return false;
     }
+    if (engine && engine->GetAnnotationBackend()) {
+        return true;
+    }
     if (!IsEngineMupdf(engine)) {
         return false;
     }
@@ -491,6 +495,10 @@ bool EngineSupportsAnnotations(EngineBase* engine) {
 }
 
 bool EngineGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
+    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
+        backend->GetAnnotations(annotsOut, false);
+        return true;
+    }
     if (!IsEngineMupdf(engine)) {
         return false;
     }
@@ -499,6 +507,9 @@ bool EngineGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
 }
 
 bool EngineHasUnsavedAnnotations(EngineBase* engine) {
+    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
+        return backend->HasUnsaved();
+    }
     if (!IsEngineMupdf(engine)) {
         return false;
     }
@@ -527,6 +538,9 @@ bool EngineHasUserRedactMarks(EngineBase* engine) {
 }
 
 Annotation* EngineGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos, float padding, Annotation* annot) {
+    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
+        return backend->GetAnnotationAtPos(pageNo, pos, padding, annot);
+    }
     if (!IsEngineMupdf(engine)) {
         return nullptr;
     }

@@ -42,6 +42,7 @@ extern "C" {
 #include "EngineBase.h"
 #include "PdfDarkMode.h"
 #include "EngineAll.h"
+#include "AnnotationBackend.h"
 #include "EbookBase.h"
 #include "EbookDoc.h"
 #include "Settings.h"
@@ -9255,6 +9256,9 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
     if (!engine) {
         return false;
     }
+    if (auto* backend = engine->GetAnnotationBackend()) {
+        return backend->SaveUpdated(path, showErrorFunc);
+    }
     EngineMupdf* epdf = AsEngineMupdf(engine);
     if (!epdf || !epdf->pdfdoc) {
         return false;
@@ -9330,6 +9334,9 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
 // unsaved annotations, without marking the document clean. Used so tools
 // that re-open the file from disk (bake) see the current session (issue #5977).
 bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
+    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
+        return len(path) > 0 && backend->SaveCopy(path);
+    }
     EngineMupdf* epdf = AsEngineMupdf(engine);
     if (!epdf || !epdf->pdfdoc || len(path) == 0) {
         return false;
@@ -9513,6 +9520,10 @@ static void AppendLoadedAnnotations(EngineMupdf* e, Vec<Annotation*>& annotsOut)
 // Collect Annotation* already sitting on FzPageInfo. Does not load pages.
 void EngineMupdfGetLoadedAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
     VecClear(annotsOut);
+    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
+        backend->GetAnnotations(annotsOut, true);
+        return;
+    }
     EngineMupdf* e = AsEngineMupdf(engine);
     if (!e || !e->pdfdoc) {
         return;
@@ -9522,6 +9533,10 @@ void EngineMupdfGetLoadedAnnotations(EngineBase* engine, Vec<Annotation*>& annot
 }
 
 bool EngineMupdfAnnotsLoadDone(EngineBase* engine) {
+    // a backend reads every page when asked, so there is no load in progress
+    if (engine && engine->GetAnnotationBackend()) {
+        return true;
+    }
     EngineMupdf* e = AsEngineMupdf(engine);
     return e && e->annotLoadDone;
 }
@@ -9545,6 +9560,10 @@ bool EngineMupdfTryGetLoadedAnnotations(EngineBase* engine, Vec<Annotation*>& an
 // that need the complete list now (tests, matching after reload) use this.
 void EngineMupdfGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
     VecClear(annotsOut);
+    if (auto* backend = engine ? engine->GetAnnotationBackend() : nullptr) {
+        backend->GetAnnotations(annotsOut, false);
+        return;
+    }
     EngineMupdf* e = AsEngineMupdf(engine);
     if (!e || !e->pdfdoc) {
         return;

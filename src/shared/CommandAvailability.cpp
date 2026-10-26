@@ -617,9 +617,13 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         if (cmdId == CmdPdfShowInfo || cmdId == CmdPdfBake || cmdId == CmdPdfCompress || cmdId == CmdPdfDecompress ||
             cmdId == CmdPdfEncrypt || cmdId == CmdPdfDecrypt || cmdId == CmdPdfDeletePages ||
             cmdId == CmdPdfExtractPages || cmdId == CmdTogglePageBoxes || cmdId == CmdConvertPdfToImages ||
-            cmdId == CmdToggleEditPDF || cmdId == CmdMergePDF || cmdId == CmdRunPDFScript) {
+            cmdId == CmdMergePDF || cmdId == CmdRunPDFScript) {
             return CommandVisibility::Hide;
         }
+    }
+    // annotation editing; EnginePdfium documents support it without being isPdf (MuPDF tools)
+    if (cmdId == CmdToggleEditPDF && !ctx.isPdf && !ctx.supportsAnnots) {
+        return CommandVisibility::Hide;
     }
     if (ctx.pageCount < 2) {
         if (cmdId == CmdPdfDeletePages || cmdId == CmdPdfExtractPages) {

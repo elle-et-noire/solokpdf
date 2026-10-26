@@ -1625,10 +1625,12 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
   spaces a footnote mark from a URL, so it links). Like MuPDF, wrapped URLs are
   not joined. Text is read on first link query, not at startup; link-query
   round trips stayed within their 20–60 ms noise.
-- Interactive forms/widgets, JavaScript/XFA, annotation editing, signatures,
-  attachments, PDF editing/merging and advanced object-level dark rendering
-  need PDFium implementations. Unsupported features are reported in document
-  properties; MuPDF is the explicit compatibility route.
+- Annotation editing is being ported in stages; see
+  `docs/solokpdf-annotations.md` (stage 1: text markup, save).
+- Interactive forms/widgets, JavaScript/XFA, signatures, attachments, PDF
+  editing/merging and advanced object-level dark rendering need PDFium
+  implementations. Unsupported features are reported in document properties;
+  MuPDF is the explicit compatibility route.
 - Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
   annotation except widgets, so form fields used to be blank; documents with
   an AcroForm now get a form handle and `FPDF_FFLDraw` after each render

@@ -239,6 +239,7 @@ export const sharedFiles = [
   "src/shared/AnnotSearch.h",
   "src/shared/Annotation.cpp",
   "src/shared/Annotation.h",
+  "src/shared/AnnotationBackend.h",
   "src/shared/AppDecisions.cpp",
   "src/shared/AppSettings.cpp",
   "src/shared/AppSettings.h",

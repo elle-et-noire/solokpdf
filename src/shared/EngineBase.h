@@ -9,6 +9,7 @@ struct IPageDestination;
 struct TocItem;
 struct PropValue;
 struct PageTextCache;
+struct AnnotationBackend;
 enum class DocProp : u8;
 class EngineBase;
 
@@ -589,6 +590,9 @@ class EngineBase {
 
     // 1-based page from safe PDF /OpenAction GoTo, or 0 (issue #1631)
     virtual int GetOpenActionPageNo() { return 0; }
+
+    // annotations of an engine other than EngineMupdf; null when it has none
+    virtual AnnotationBackend* GetAnnotationBackend() { return nullptr; }
 
     virtual bool HasToc();
 

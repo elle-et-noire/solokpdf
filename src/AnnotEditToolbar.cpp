@@ -2610,6 +2610,13 @@ void StartLoadingAnnotationsForUi(WindowTab* tab) {
     if (!dm) {
         return;
     }
+    // a backend (EnginePdfium) reads every page's annotations when asked
+    if (dm->GetEngine() && dm->GetEngine()->GetAnnotationBackend()) {
+        Vec<Annotation*> annots;
+        EngineGetAnnotations(dm->GetEngine(), annots);
+        OnAnnotsProgress(tab);
+        return;
+    }
     EngineMupdf* engine = AsEngineMupdf(dm->GetEngine());
     if (!engine) {
         return;

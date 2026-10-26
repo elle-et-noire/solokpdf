@@ -325,7 +325,8 @@ void ToolbarUpdateStateForWindow(MainWindow* win, bool setButtonsVisibility) {
         }
     }
 
-    bool showPdfAnnotationsToolbar = win->pdfAnnotationsToolbarEnabled && ctx->isPdf && ctx->supportsAnnots;
+    // supportsAnnots is true only for a PDF; EnginePdfium documents aren't isPdf (MuPDF tools)
+    bool showPdfAnnotationsToolbar = win->pdfAnnotationsToolbarEnabled && ctx->supportsAnnots;
     SetPdfAnnotationsToolbarVisible(win, showPdfAnnotationsToolbar);
     // a placement mode (ink, shape, highlighter...) owns the page until it ends
     bool annotButtonsEnabled = showPdfAnnotationsToolbar && !IsPlacingAnnotation(win);
@@ -442,7 +443,7 @@ void SetPdfAnnotationsToolbarEnabled(MainWindow* win, bool enabled) {
         return;
     }
     AppCommandCtx ctx = NewAppCommandCtx(win);
-    if (!ctx.isPdf || !ctx.supportsAnnots) {
+    if (!ctx.supportsAnnots) {
         return;
     }
     if (win->pdfAnnotationsToolbarEnabled == enabled) {
