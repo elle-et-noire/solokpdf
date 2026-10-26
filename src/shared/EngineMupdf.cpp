@@ -5792,6 +5792,68 @@ static pdf_document* OpenPdfForQuery(fz_context* ctx, Str path, Str data, Str pa
     return doc;
 }
 
+// Target of a /Named action on page pageIdx (0-based), as MuPDF's link parser resolves it; -1 if none.
+static int NamedActionTarget(fz_context* ctx, pdf_obj* action, int pageIdx, int pageCount) {
+    pdf_obj* n = pdf_dict_get(ctx, action, PDF_NAME(N));
+    if (pdf_name_eq(ctx, n, PDF_NAME(FirstPage))) {
+        return 0;
+    }
+    if (pdf_name_eq(ctx, n, PDF_NAME(LastPage))) {
+        return pageCount - 1;
+    }
+    if (pdf_name_eq(ctx, n, PDF_NAME(PrevPage))) {
+        return pageIdx > 0 ? pageIdx - 1 : pageIdx;
+    }
+    if (pdf_name_eq(ctx, n, PDF_NAME(NextPage))) {
+        return pageIdx < pageCount - 1 ? pageIdx + 1 : pageIdx;
+    }
+    return -1;
+}
+
+// Link annotations of page pageNo with First/Last/Prev/NextPage actions: their rects in page space
+// (as EngineMupdf's links) and 1-based target pages.
+void PdfNamedLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<RectF>& rects, Vec<int>& targets) {
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    if (!ctx) {
+        return;
+    }
+    pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
+    pdf_page* page = nullptr;
+    fz_var(page);
+    fz_try(ctx) {
+        int pageCount = doc ? pdf_count_pages(ctx, doc) : 0;
+        if (pageNo >= 1 && pageNo <= pageCount) {
+            page = pdf_load_page(ctx, doc, pageNo - 1);
+            fz_matrix ctm;
+            pdf_page_transform(ctx, page, nullptr, &ctm);
+            pdf_obj* annots = pdf_dict_get(ctx, page->obj, PDF_NAME(Annots));
+            for (int i = 0; i < pdf_array_len(ctx, annots); i++) {
+                pdf_obj* annot = pdf_array_get(ctx, annots, i);
+                pdf_obj* action = pdf_dict_get(ctx, annot, PDF_NAME(A));
+                if (!pdf_name_eq(ctx, pdf_dict_get(ctx, annot, PDF_NAME(Subtype)), PDF_NAME(Link)) ||
+                    !pdf_name_eq(ctx, pdf_dict_get(ctx, action, PDF_NAME(S)), PDF_NAME(Named))) {
+                    continue;
+                }
+                int target = NamedActionTarget(ctx, action, pageNo - 1, pageCount);
+                if (target < 0) {
+                    continue;
+                }
+                fz_rect r = fz_transform_rect(pdf_dict_get_rect(ctx, annot, PDF_NAME(Rect)), ctm);
+                VecAppend(rects, RectF(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0));
+                VecAppend(targets, target + 1);
+            }
+        }
+    }
+    fz_always(ctx) {
+        fz_drop_page(ctx, (fz_page*)page);
+        pdf_drop_document(ctx, doc);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+    }
+    fz_drop_context(ctx);
+}
+
 int PdfOpenActionPageMupdf(Str path, Str data, Str password) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {

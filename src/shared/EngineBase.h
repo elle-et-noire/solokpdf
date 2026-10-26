@@ -114,6 +114,7 @@ struct PageText {
 void FreePageText(PageText*);
 void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects);
 int PdfOpenActionPageMupdf(Str path, Str data, Str password);
+void PdfNamedLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<RectF>& rects, Vec<int>& targets);
 TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password);
 
 // a link destination

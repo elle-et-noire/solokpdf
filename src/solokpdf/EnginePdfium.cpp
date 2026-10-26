@@ -671,6 +671,26 @@ class EnginePdfium : public EngineBase {
         }
     }
 
+    // PDFium reports First/Last/Prev/NextPage actions only as unsupported; MuPDF reads them, like /OpenAction.
+    void AddNamedLinks(int pageNo, PdfiumPage* info) {
+        Vec<RectF> rects;
+        Vec<int> targets;
+        PdfNamedLinksMupdf(FilePath(), fileData, password, pageNo, rects, targets);
+        for (int i = 0; i < len(rects); i++) {
+            if (!Page(targets[i])) {
+                continue;
+            }
+            auto* dest = new PdfiumDest();
+            dest->pageNo = targets[i];
+            dest->rect = RectF(kDestUseDefault, kDestUseDefault, kDestUseDefault, kDestUseDefault);
+            dest->kind = kindDestinationScrollTo;
+            auto* element = new PageElementDestination(dest);
+            element->pageNo = pageNo;
+            element->rect = rects[i];
+            VecAppend(info->links, (IPageElement*)element);
+        }
+    }
+
     void LoadLinks(int pageNo, PdfiumPage* info) {
         if (info->linksLoaded) {
             return;
@@ -682,14 +702,17 @@ class EnginePdfium : public EngineBase {
         }
         int pos = 0;
         FPDF_LINK link;
+        bool hasUnsupported = false;
         constexpr int kMaxLinks = 100000;
         while (len(info->links) < kMaxLinks && gPdfium.FPDFLink_Enumerate(page, &pos, &link)) {
             FS_RECTF box{};
             if (!gPdfium.FPDFLink_GetAnnotRect(link, &box)) {
                 continue;
             }
-            auto* dest = Destination(gPdfium.FPDFLink_GetDest(doc, link), gPdfium.FPDFLink_GetAction(link));
+            FPDF_ACTION action = gPdfium.FPDFLink_GetAction(link);
+            auto* dest = Destination(gPdfium.FPDFLink_GetDest(doc, link), action);
             if (!dest) {
+                hasUnsupported |= action && gPdfium.FPDFAction_GetType(action) == PDFACTION_UNSUPPORTED;
                 continue;
             }
             if (dest->GetKind() == kindDestinationScrollTo) {
@@ -699,6 +722,9 @@ class EnginePdfium : public EngineBase {
             element->pageNo = pageNo;
             element->rect = ToPageRect(page, info, box.left, box.bottom, box.right, box.top);
             VecAppend(info->links, (IPageElement*)element);
+        }
+        if (hasUnsupported) {
+            AddNamedLinks(pageNo, info);
         }
         if (!disableAutoLinks) {
             AddAutoLinks(page, pageNo, info);

@@ -182,6 +182,9 @@ function destsFixture(): string {
     link(160, "/Contents (Go to the target) /Dest [4 0 R /Fit]"),
     link(140, "/A << /S /GoToR /F (other.pdf) /D (chapter) >>"),
     link(120, "/A << /S /Launch /F (sub/notes.txt) >>"),
+    ...["NextPage", "PrevPage", "FirstPage", "LastPage"].map((n, i) =>
+      link(100 - 20 * i, `/A << /S /Named /N /${n} >>`),
+    ),
   ];
   const firstLink = 6 + n;
   const annots = links.map((_, i) => `${firstLink + i} 0 R`).join(" ");
@@ -228,10 +231,44 @@ async function expectDestsMatchMupdf(): Promise<void> {
   if (!pdfium.includes("value=Go to the target") || !pdfium.includes("kind=launchFile page=-1")) {
     throw new Error(`Link tooltip or file link missing:\n${pdfium}`);
   }
+  if (!/page=2 src=10,285,130,15 /.test(pdfium)) throw new Error(`NextPage link missing:\n${pdfium}`);
   if (!readFileSync(tmpPath("pdfium/dests-pdfium.log"), "utf8").includes("PDFium 158.0.8111.0: opened")) {
     throw new Error("PDFium did not open the destinations fixture");
   }
   console.log("PDFium destinations match MuPDF");
+}
+
+// A NextPage link's rect comes from MuPDF; on a cropped, rotated page it must still land where
+// PDFium puts a GoTo link with the same /Rect, or clicks would miss it.
+async function expectNamedLinkRects(): Promise<void> {
+  const rect = "/Rect [50 60 150 90] /Border [0 0 0]";
+  const path = tmpPath("pdfium/named-rotated.pdf");
+  writeFileSync(
+    path,
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /CropBox [20 30 280 370] /Rotate 90 /Annots [5 0 R 6 0 R] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >>",
+      `<< /Type /Annot /Subtype /Link ${rect} /Dest [4 0 R /Fit] >>`,
+      `<< /Type /Annot /Subtype /Link ${rect} /A << /S /Named /N /NextPage >> >>`,
+    ]),
+    "latin1",
+  );
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      const lines = (await request(client, ControlCommand.TestPageLinks, [path, 1])).trim().split("\n");
+      // PDFium's own rects carry its coordinate quantization (29.9999 for 30)
+      const srcs = lines.map((l) => (/page=2 src=(\S+)/.exec(l)?.[1] ?? "").split(",").map(Number));
+      const same =
+        srcs.length === 2 && srcs[0]!.length === 4 && srcs[0]!.every((v, i) => Math.abs(v - srcs[1]![i]!) < 0.01);
+      if (!same) throw new Error(`Named link rect differs:\n${lines.join("\n")}`);
+      console.log("PDFium NextPage link rect matches its GoTo twin on a rotated page");
+    },
+    ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", tmpPath("pdfium/named.log")],
+    { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
+  );
 }
 
 // a first open honors /OpenAction, in its array and GoTo action forms
@@ -513,6 +550,7 @@ export async function testit(): Promise<void> {
   await expectPageLabels();
   await expectAutoLinksDisabled(autoPdf);
   await expectDestsMatchMupdf();
+  await expectNamedLinkRects();
   await expectOpenAction();
   await expectPassword(pdf);
   await expectFontCacheSamePixels();
