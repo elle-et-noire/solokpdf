@@ -1681,6 +1681,8 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
   producers can overwrite them while open and the document reloads
   (`tests/ad-hoc-pdfium.ts` covers small and 33 MiB files). Save As after
   rename/delete still reads the path and is not GUI-tested.
+- There is no CI. Upstream's GitHub Actions workflows were removed: they ran
+  `cmd/build.ts` with upstream's upload secrets and failed in this fork.
 
 The first development milestone (native build, PDFium pages in the original
 UI, MuPDF comparison, reproducible steps and explicit gaps) has been reached.
