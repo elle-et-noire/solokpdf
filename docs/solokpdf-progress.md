@@ -1546,6 +1546,30 @@ same pixels moved. The debug view capture was byte-identical, unit tests
 passed and zoom medians stayed within noise (200% 39 vs 61 ms for MuPDF).
 Raw maps: `out/solok-memory-map-mapped-*`.
 
+### Leak check of the 2026-10-26 additions
+
+`experiments/pdfium/leak-ui.ts` runs one Release process (`96ac65471`) for a
+set time. Each round opens four tabs: a generated 3-page form (24 fields, with
+and without appearances), a generated page set with Named/GoToR links and
+45-degree text, Attention and BERT. In each tab it steps through five zooms,
+pages forward, selects text, reads links and searches, then closes all tabs
+and samples the process after 500 ms. 224 rounds ran in 40 minutes (about
+2,700 tab opens plus 1,800 link/search engines).
+
+| Closed-state sample | Rounds 6–55, min/median/max |    Last 50 rounds |
+| ------------------- | --------------------------: | ----------------: |
+| Private Bytes, MiB  |           109.6/111.8/133.7 | 110.8/111.3/124.5 |
+| Working set, MiB    |           139.3/147.1/168.7 | 139.8/140.3/153.4 |
+| Handles             |                 651/657/664 |       652/652/652 |
+| GDI / USER objects  |                 222 / 76–77 |          222 / 74 |
+
+Fitted growth after five warm-up rounds: −8 KiB Private Bytes, −0.03 handles
+and 0 GDI objects per round. Private Bytes alternate between about 111 and
+120 MiB from round to round (allocator/cache state), so a leak below roughly
+10 KiB per round would not show. This bounds the new form handle, form page
+views, MuPDF link queries and text quads; it is not an hours-long proof.
+Raw samples: `out/solok-leak-2026-10-26/results.json`.
+
 ### Lock-free page sizes for the UI thread
 
 `PageMediabox` took the global lock even for a cached size, so the UI thread
