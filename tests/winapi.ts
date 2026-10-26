@@ -2425,8 +2425,83 @@ export function getWindowVirtualDesktopId(hwnd: number): string {
 const psapi = IS_WIN
   ? dlopen("psapi.dll", {
       GetProcessMemoryInfo: { args: [FFIType.u64, FFIType.ptr, FFIType.u32], returns: FFIType.bool },
+      QueryWorkingSet: { args: [FFIType.u64, FFIType.ptr, FFIType.u32], returns: FFIType.bool },
+      GetMappedFileNameW: { args: [FFIType.u64, FFIType.u64, FFIType.ptr, FFIType.u32], returns: FFIType.u32 },
     })
   : null;
+
+const memVirtualQuery = IS_WIN
+  ? dlopen("kernel32.dll", {
+      VirtualQueryEx: { args: [FFIType.u64, FFIType.u64, FFIType.ptr, FFIType.u64], returns: FFIType.u64 },
+    })
+  : null;
+
+export type MemoryRegionGroup = {
+  kind: "image" | "mapped" | "private";
+  file: string;
+  committed: number;
+  workingSet: number;
+};
+
+// Committed bytes and resident (working set) bytes per mapped file / image, plus all private memory,
+// like VMMap's summary: shows memory that Private Bytes doesn't count (DIB sections, mapped fonts).
+export function processMemoryMap(pid: number): MemoryRegionGroup[] {
+  if (!psapi || !memVirtualQuery || process.arch !== "x64") throw new Error("processMemoryMap requires Windows x64");
+  const handle = kernel32.symbols.OpenProcess(0x0400 | 0x0010, false, pid);
+  if (!handle) throw new Error(`Cannot open process ${pid}`);
+  try {
+    let ws = Buffer.alloc(1 << 20);
+    while (!psapi.symbols.QueryWorkingSet(handle, ptr(ws), ws.length)) {
+      if (ws.length >= 1 << 28) throw new Error("QueryWorkingSet failed");
+      ws = Buffer.alloc(ws.length * 2);
+    }
+    const count = Number(ws.readBigUInt64LE(0));
+    const pages = new Float64Array(count);
+    for (let i = 0; i < count; i++) pages[i] = Number(ws.readBigUInt64LE(8 + i * 8) & ~0xfffn);
+    pages.sort();
+    const pagesBelow = (addr: number) => {
+      let lo = 0,
+        hi = pages.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (pages[mid]! < addr) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    };
+
+    const kMemCommit = 0x1000,
+      kMemImage = 0x1000000,
+      kMemMapped = 0x40000;
+    const groups = new Map<string, MemoryRegionGroup>();
+    const mbi = Buffer.alloc(48);
+    const name = Buffer.alloc(2048);
+    for (let addr = 0; addr < 0x7fffffff0000;) {
+      if (!memVirtualQuery.symbols.VirtualQueryEx(handle, addr, ptr(mbi), mbi.length)) break;
+      const base = Number(mbi.readBigUInt64LE(0));
+      const size = Number(mbi.readBigUInt64LE(24));
+      const state = mbi.readUInt32LE(32);
+      const type = mbi.readUInt32LE(40);
+      if (state === kMemCommit) {
+        const kind = type === kMemImage ? "image" : type === kMemMapped ? "mapped" : "private";
+        let file = "";
+        if (kind !== "private") {
+          const n = psapi.symbols.GetMappedFileNameW(handle, base, ptr(name), name.length / 2);
+          file = name.toString("utf16le", 0, n * 2);
+        }
+        const key = kind + "|" + file;
+        const g = groups.get(key) ?? { kind, file, committed: 0, workingSet: 0 };
+        g.committed += size;
+        g.workingSet += (pagesBelow(base + size) - pagesBelow(base)) * 4096;
+        groups.set(key, g);
+      }
+      addr = base + size;
+    }
+    return [...groups.values()].sort((a, b) => b.workingSet - a.workingSet);
+  } finally {
+    kernel32.symbols.CloseHandle(handle);
+  }
+}
 
 export function processMemory(pid: number): {
   workingSetBytes: number;

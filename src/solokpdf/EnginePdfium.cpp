@@ -239,6 +239,48 @@ static bool CompactOpaquePixmap(Pixmap* pixmap, AtomicInt* aborted) {
     return true;
 }
 
+// Opaque pixels as a 24-bit DIB section, like MuPDF's tiles: freed whole on eviction instead of
+// staying in the heap. Falls back to packing in place if GDI can't make one. nullptr if canceled.
+static Pixmap* OpaqueToBgr(Pixmap* src, AtomicInt* aborted) {
+    BITMAPINFO bmi{};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = src->width;
+    bmi.bmiHeader.biHeight = -src->height;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 24;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    void* bits = nullptr;
+    HANDLE hMap = nullptr;
+    HBITMAP hbmp = CreateMappedDib(&bmi, &bits, &hMap);
+    if (!hbmp) {
+        if (CompactOpaquePixmap(src, aborted)) {
+            return src;
+        }
+        FreePixmap(src);
+        return nullptr;
+    }
+
+    Pixmap* dst = PixmapFromHBITMAP(hbmp, Size(src->width, src->height), hMap);
+    for (int y = 0; y < src->height; y++) {
+        if (AtomicIntGet(aborted)) {
+            FreePixmap(dst);
+            FreePixmap(src);
+            return nullptr;
+        }
+        const u8* s = src->data + (size_t)y * src->stride;
+        u8* d = dst->data + (size_t)y * dst->stride;
+        for (int x = 0; x < src->width; x++, s += 4, d += 3) {
+            d[0] = s[0];
+            d[1] = s[1];
+            d[2] = s[2];
+        }
+    }
+    dst->xres = src->xres;
+    dst->yres = src->yres;
+    FreePixmap(src);
+    return dst;
+}
+
 class PdfiumCookie : public AbortCookie {
   public:
     AtomicInt aborted = 0;
@@ -978,10 +1020,9 @@ class EnginePdfium : public EngineBase {
                 return nullptr;
             }
             if (pixmap->format == PixmapFormat::BGRA8) {
-                bool packed = CompactOpaquePixmap(pixmap, &cookie->aborted);
+                pixmap = OpaqueToBgr(pixmap, &cookie->aborted);
                 profile.Mark(StrL("bgr"));
-                if (!packed) {
-                    FreePixmap(pixmap);
+                if (!pixmap) {
                     profile.Mark(StrL("canceled-bgr"));
                     return nullptr;
                 }

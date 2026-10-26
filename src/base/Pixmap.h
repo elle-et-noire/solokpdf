@@ -79,6 +79,7 @@ struct PixmapGrayTimes {
     double allocMs = 0;
     double copyMs = 0;
 };
+HBITMAP CreateMappedDib(const BITMAPINFO* bmi, void** bits, HANDLE* hMap);
 Pixmap* PixmapToGrayDib(Pixmap* p, bool (*isCanceled)(void*) = nullptr, void* user = nullptr,
                         PixmapGrayTimes* times = nullptr);
 Pixmap* PixmapFromHICON(HICON);

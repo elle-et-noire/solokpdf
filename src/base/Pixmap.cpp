@@ -152,6 +152,29 @@ Pixmap* PixmapFromHBITMAP(HBITMAP hbmp, Size size, HANDLE hMap) {
     return p;
 }
 
+// A DIB section in a pagefile-backed mapping, as MuPDF's tiles use: memory GDI allocates for a DIB
+// counts as private bytes, a mapping's doesn't. Returns nullptr on failure.
+HBITMAP CreateMappedDib(const BITMAPINFO* bmi, void** bits, HANDLE* hMap) {
+    const BITMAPINFOHEADER& h = bmi->bmiHeader;
+    u64 stride = (((u64)h.biWidth * h.biBitCount + 31) / 32) * 4;
+    u64 size = stride * (u64)abs(h.biHeight);
+    *bits = nullptr;
+    *hMap =
+        CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, (DWORD)(size >> 32), (DWORD)size, nullptr);
+    if (!*hMap) {
+        return nullptr;
+    }
+    HBITMAP hbmp = CreateDIBSection(nullptr, bmi, DIB_RGB_COLORS, bits, *hMap, 0);
+    if (!hbmp || !*bits) {
+        DeleteObject(hbmp);
+        CloseHandle(*hMap);
+        *hMap = nullptr;
+        *bits = nullptr;
+        return nullptr;
+    }
+    return hbmp;
+}
+
 // Use an identity gray palette only when every opaque RGB triplet is equal.
 // Rejection, failure or cancellation preserves the source; no cache hooks run here.
 Pixmap* PixmapToGrayDib(Pixmap* p, bool (*isCanceled)(void*), void* user, PixmapGrayTimes* times) {
@@ -200,17 +223,17 @@ Pixmap* PixmapToGrayDib(Pixmap* p, bool (*isCanceled)(void*), void* user, Pixmap
         bmi.colors[i] = {(BYTE)i, (BYTE)i, (BYTE)i, 0};
     }
     void* bits = nullptr;
-    HBITMAP hbmp = CreateDIBSection(nullptr, (BITMAPINFO*)&bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    HANDLE hMap = nullptr;
+    HBITMAP hbmp = CreateMappedDib((BITMAPINFO*)&bmi, &bits, &hMap);
     if (times) {
         times->allocMs = TimeSinceInMs(start);
         start = TimeGet();
     }
-    if (!hbmp || !bits) {
-        DeleteObject(hbmp);
+    if (!hbmp) {
         return p;
     }
 
-    Pixmap* res = PixmapFromHBITMAP(hbmp, Size(p->width, p->height));
+    Pixmap* res = PixmapFromHBITMAP(hbmp, Size(p->width, p->height), hMap);
     for (int y = 0; y < p->height; y++) {
         if (isCanceled && isCanceled(user)) {
             if (times) {

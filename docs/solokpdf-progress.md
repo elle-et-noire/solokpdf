@@ -28,7 +28,9 @@ A system font cache now cuts the first text page's load from 116–273 ms to
 direct-launch lag behind MuPDF fell to +123/+114/+10 ms (Attention/BERT/IPA).
 A startup font warm-up then saved another 91/105 ms on the text PDFs, and
 thumbnails now reuse the open engine: +26/+64/−8 ms behind MuPDF. A narrower
-lock cut the 4-tab startup gap from +68 to +19 ms.
+lock cut the 4-tab startup gap from +68 to +19 ms. Working set already matched
+MuPDF; tiles now live in mapped DIB sections like MuPDF's, so Private Bytes
+match too.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 The 2026-10-26 pass adds pixel-payload accounting and independent background-load
@@ -1516,6 +1518,27 @@ times zoom command to render idle. PDFium medians were lower or equal despite
 drawing tiles one at a time: 200% 38 vs 63 ms, 400% 40 vs 60, 800% 26 vs 22,
 150% 33 vs 52, fit width 20 vs 20, 100% 19 vs 26. Raw rows:
 `out/solok-zoom-2026-10-26/results.json`.
+
+### Memory by region type
+
+`experiments/pdfium/memory-map.ts` sums committed and working-set bytes per
+image, mapped file and private memory (`processMemoryMap()` in
+`tests/winapi.ts`: `QueryWorkingSet` + `VirtualQueryEx`), at render idle and
+after closing all tabs. Before this change, total working set was already at
+MuPDF's level: BERT 146.1/147.5 MiB, Attention 144.3/142.9, 4 tabs
+173.4/181.6 (PDFium/MuPDF); after close +1.3–2.3 MiB, mostly the kept PDFium
+runtime and DLL pages. Private memory differed (BERT 73.4/64.5, 4 tabs
+100.8/83.5) because PDFium's color tiles were heap buffers, while MuPDF puts
+tiles in DIB sections over pagefile-backed mappings, which neither Private
+Bytes nor Task Manager's memory column counts. A DIB section without a mapping
+didn't help: GDI allocates its bits as private memory.
+
+PDFium's gray and color tiles now use `CreateMappedDib()` like MuPDF's.
+Private memory became 65.3/64.7 (BERT), 66.2/64.5 (Attention), 69.7/77.5
+(IPA) and 80.1/83.0 MiB (4 tabs); total working set didn't change, since the
+same pixels moved. The debug view capture was byte-identical, unit tests
+passed and zoom medians stayed within noise (200% 39 vs 61 ms for MuPDF).
+Raw maps: `out/solok-memory-map-mapped-*`.
 
 ## Known limitations and next work
 
