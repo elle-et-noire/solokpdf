@@ -1509,6 +1509,14 @@ PDFium minus MuPDF: +68 ms before, +50 ms with file I/O outside the lock,
 control connected at the same time in the gated runs). Results:
 `solokpdf-lock-scope-2026-10-26.json`.
 
+### Zoom latency
+
+`experiments/pdfium/zoom-ui.ts` (Attention, warm cache, 5 alternating runs)
+times zoom command to render idle. PDFium medians were lower or equal despite
+drawing tiles one at a time: 200% 38 vs 63 ms, 400% 40 vs 60, 800% 26 vs 22,
+150% 33 vs 52, fit width 20 vs 20, 100% 19 vs 26. Raw rows:
+`out/solok-zoom-2026-10-26/results.json`.
+
 ## Known limitations and next work
 
 - PDFium currently handles ordinary file-backed PDFs. Stream/data factories,
