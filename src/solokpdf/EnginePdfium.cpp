@@ -355,8 +355,10 @@ class EnginePdfium : public EngineBase {
                 !isfinite(size.height) || size.width <= 0 || size.height <= 0) {
                 return nullptr;
             }
-            p = new PdfiumPage();
-            p->size = SizeF(size.width, size.height);
+            auto* info = new PdfiumPage();
+            info->size = SizeF(size.width, size.height);
+            // published whole: PageMediabox reads it without the lock
+            InterlockedExchangePointer((void* volatile*)&p, info);
         }
         return p;
     }
@@ -886,7 +888,20 @@ class EnginePdfium : public EngineBase {
         return pageNo;
     }
 
+    // A known size needs no lock: the UI thread waited ~10 ms per call while pages drew.
     RectF PageMediabox(int pageNo) override {
+        if (pageNo >= 1 && pageNo <= pageCount) {
+            void* volatile* slot = (void* volatile*)&pages[pageNo - 1];
+            auto* p = (PdfiumPage*)InterlockedCompareExchangePointer(slot, nullptr, nullptr);
+            if (p) {
+                return RectF(0, 0, p->size.dx, p->size.dy);
+            }
+        }
+        return LockedMediabox(pageNo);
+    }
+
+    // Renders take the lock here, before allocating: a lock-free read let more tile buffers coexist.
+    RectF LockedMediabox(int pageNo) {
         ScopedMutex lock(&gPdfiumLock);
         auto* p = Page(pageNo);
         return p ? RectF(0, 0, p->size.dx, p->size.dy) : RectF{};
@@ -947,7 +962,7 @@ class EnginePdfium : public EngineBase {
             cookie = new PdfiumCookie();
             *args.cookie_out = cookie;
         }
-        RectF box = PageMediabox(args.pageNo);
+        RectF box = LockedMediabox(args.pageNo);
         if (box.IsEmpty() || !isfinite(args.zoom) || args.zoom <= 0) {
             return nullptr;
         }

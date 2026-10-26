@@ -11,7 +11,9 @@ rendered output.
 Opaque views now use an identity gray palette when every rendered pixel is
 opaque and R=G=B; other opaque views use BGR. PDFium still renders unchanged BGRA.
 The accepted Phase 4 pass keeps row-level cancellation and rejects already-canceled
-allocations. A size-cache candidate was rejected for higher large-tile peaks.
+allocations. A size-cache candidate was rejected for higher large-tile peaks;
+a later variant that skips the lock only outside renders cut dense-wide zoom
+latency ~40% with lower peaks ("Lock-free page sizes" below).
 The 2026-10-25 single-buffer trial was also rejected: its large-tile savings came
 with a light-wide CPU regression and slower group restoration. Its measurements
 remain in `solokpdf-phase4-ownership-2026-10-25.json` and the tab-group reports.
@@ -1539,6 +1541,28 @@ Private memory became 65.3/64.7 (BERT), 66.2/64.5 (Attention), 69.7/77.5
 same pixels moved. The debug view capture was byte-identical, unit tests
 passed and zoom medians stayed within noise (200% 39 vs 61 ms for MuPDF).
 Raw maps: `out/solok-memory-map-mapped-*`.
+
+### Lock-free page sizes for the UI thread
+
+`PageMediabox` took the global lock even for a cached size, so the UI thread
+waited for whichever page was drawing: about 10 ms per call at BERT startup.
+Sizes are now published atomically and read without the lock. Renders still
+read them under the lock before allocating, which keeps out the rejected
+size-cache candidate's extra concurrent tile buffers. Traced UI-thread lock
+waits at startup fell to one 3–7 ms `GetToc` wait.
+
+Same DLLs, two rounds of 1/4 tabs (`memory-ui.ts --large --cycles 24`, no
+background-load gates), before → after:
+
+| Wide fixture | Zoom → idle, ms       | Peak Private Bytes, MiB |
+| ------------ | --------------------- | ----------------------- |
+| Dense        | 3759–4271 → 2266–2289 | 403–475 → 332–336       |
+| Light        | 2284–2316 → 2276–2287 | 330–338 → 330–338       |
+
+All 20 view comparisons matched. BERT/Attention direct-launch render idle
+didn't change measurably (+31–46 ms behind MuPDF before, +46 ms after, four
+gated pairs each); the stall delayed UI work, not rendering. Raw data:
+`out/solok-uilock-{dense,light}`, `out/solok-uilock-*-run*`.
 
 ## Known limitations and next work
 
