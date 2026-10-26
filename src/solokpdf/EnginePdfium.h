@@ -6,5 +6,6 @@ enum class PdfiumFailure {
     Final
 };
 
+void SetPdfiumFontCacheDir(Str dir);
 bool PdfiumRequested();
 EngineBase* CreateEnginePdfium(Str path, PasswordUI* pwdUI, TempStr* errorOut, PdfiumFailure* failureOut = nullptr);

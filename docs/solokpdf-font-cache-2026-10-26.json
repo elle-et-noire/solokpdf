@@ -1,0 +1,340 @@
+{
+  "exe": "C:\\work\\solokpdf\\out\\rel64\\SumatraPDF.exe",
+  "exeSha256": "a35df0a6a9fb467258043072229c92d03fafeed60f6151feb8a6da0fe4378887",
+  "matches": true,
+  "results": [
+    {
+      "run": 0,
+      "name": "attention",
+      "pdf": "C:\\work\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+      "pages": "1,4",
+      "identical": true,
+      "rows": [
+        {
+          "tag": "0-off",
+          "mode": "off",
+          "firstPageMs": 122.728,
+          "enumMs": null,
+          "hashes": [
+            "f7a910673e6088f227255f38b937403db5c807ba67d60944217599a4ed737f9c",
+            "a91549066a81cf14cd490b39cb6291aedd5f2c50c98b0369248dd8a3dba846f0"
+          ]
+        },
+        {
+          "tag": "0-cold",
+          "mode": "recorded",
+          "firstPageMs": 133.104,
+          "enumMs": 128.7,
+          "hashes": [
+            "f7a910673e6088f227255f38b937403db5c807ba67d60944217599a4ed737f9c",
+            "a91549066a81cf14cd490b39cb6291aedd5f2c50c98b0369248dd8a3dba846f0"
+          ]
+        },
+        {
+          "tag": "0-warm",
+          "mode": "replayed",
+          "firstPageMs": 31.114,
+          "enumMs": 27.1,
+          "hashes": [
+            "f7a910673e6088f227255f38b937403db5c807ba67d60944217599a4ed737f9c",
+            "a91549066a81cf14cd490b39cb6291aedd5f2c50c98b0369248dd8a3dba846f0"
+          ]
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "name": "bert",
+      "pdf": "C:\\work\\solokpdf\\.work\\corpus\\independent\\bert-1810.04805.pdf",
+      "pages": "1",
+      "identical": true,
+      "rows": [
+        {
+          "tag": "0-off",
+          "mode": "off",
+          "firstPageMs": 116.072,
+          "enumMs": null,
+          "hashes": [
+            "e7f8aef2974fffe7591f615ced2e157fa58f5e74694c75269100518704255c2c"
+          ]
+        },
+        {
+          "tag": "0-cold",
+          "mode": "recorded",
+          "firstPageMs": 127.6,
+          "enumMs": 122.3,
+          "hashes": [
+            "e7f8aef2974fffe7591f615ced2e157fa58f5e74694c75269100518704255c2c"
+          ]
+        },
+        {
+          "tag": "0-warm",
+          "mode": "replayed",
+          "firstPageMs": 30.673,
+          "enumMs": 27.9,
+          "hashes": [
+            "e7f8aef2974fffe7591f615ced2e157fa58f5e74694c75269100518704255c2c"
+          ]
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "name": "ipa",
+      "pdf": "C:\\work\\solokpdf\\.work\\corpus\\independent\\ipa-2026-soshiki.pdf",
+      "pages": "1",
+      "identical": true,
+      "rows": [
+        {
+          "tag": "0-off",
+          "mode": "off",
+          "firstPageMs": 11.363,
+          "enumMs": null,
+          "hashes": [
+            "444319a65e05ed64ffb0c6ebf3a86f1c75d0d6fa3b10348176792104e2fd60d7"
+          ]
+        },
+        {
+          "tag": "0-cold",
+          "mode": "off",
+          "firstPageMs": 10.557,
+          "enumMs": null,
+          "hashes": [
+            "444319a65e05ed64ffb0c6ebf3a86f1c75d0d6fa3b10348176792104e2fd60d7"
+          ]
+        },
+        {
+          "tag": "0-warm",
+          "mode": "off",
+          "firstPageMs": 10.505,
+          "enumMs": null,
+          "hashes": [
+            "444319a65e05ed64ffb0c6ebf3a86f1c75d0d6fa3b10348176792104e2fd60d7"
+          ]
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "name": "attention",
+      "pdf": "C:\\work\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+      "pages": "1,4",
+      "identical": true,
+      "rows": [
+        {
+          "tag": "1-off",
+          "mode": "off",
+          "firstPageMs": 258.092,
+          "enumMs": null,
+          "hashes": [
+            "f7a910673e6088f227255f38b937403db5c807ba67d60944217599a4ed737f9c",
+            "a91549066a81cf14cd490b39cb6291aedd5f2c50c98b0369248dd8a3dba846f0"
+          ]
+        },
+        {
+          "tag": "1-cold",
+          "mode": "recorded",
+          "firstPageMs": 264.117,
+          "enumMs": 258.1,
+          "hashes": [
+            "f7a910673e6088f227255f38b937403db5c807ba67d60944217599a4ed737f9c",
+            "a91549066a81cf14cd490b39cb6291aedd5f2c50c98b0369248dd8a3dba846f0"
+          ]
+        },
+        {
+          "tag": "1-warm",
+          "mode": "replayed",
+          "firstPageMs": 57.907,
+          "enumMs": 53.1,
+          "hashes": [
+            "f7a910673e6088f227255f38b937403db5c807ba67d60944217599a4ed737f9c",
+            "a91549066a81cf14cd490b39cb6291aedd5f2c50c98b0369248dd8a3dba846f0"
+          ]
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "name": "bert",
+      "pdf": "C:\\work\\solokpdf\\.work\\corpus\\independent\\bert-1810.04805.pdf",
+      "pages": "1",
+      "identical": true,
+      "rows": [
+        {
+          "tag": "1-off",
+          "mode": "off",
+          "firstPageMs": 273.265,
+          "enumMs": null,
+          "hashes": [
+            "e7f8aef2974fffe7591f615ced2e157fa58f5e74694c75269100518704255c2c"
+          ]
+        },
+        {
+          "tag": "1-cold",
+          "mode": "recorded",
+          "firstPageMs": 141.358,
+          "enumMs": 135,
+          "hashes": [
+            "e7f8aef2974fffe7591f615ced2e157fa58f5e74694c75269100518704255c2c"
+          ]
+        },
+        {
+          "tag": "1-warm",
+          "mode": "replayed",
+          "firstPageMs": 39.612,
+          "enumMs": 30.2,
+          "hashes": [
+            "e7f8aef2974fffe7591f615ced2e157fa58f5e74694c75269100518704255c2c"
+          ]
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "name": "ipa",
+      "pdf": "C:\\work\\solokpdf\\.work\\corpus\\independent\\ipa-2026-soshiki.pdf",
+      "pages": "1",
+      "identical": true,
+      "rows": [
+        {
+          "tag": "1-off",
+          "mode": "off",
+          "firstPageMs": 11.767,
+          "enumMs": null,
+          "hashes": [
+            "444319a65e05ed64ffb0c6ebf3a86f1c75d0d6fa3b10348176792104e2fd60d7"
+          ]
+        },
+        {
+          "tag": "1-cold",
+          "mode": "off",
+          "firstPageMs": 7.28,
+          "enumMs": null,
+          "hashes": [
+            "444319a65e05ed64ffb0c6ebf3a86f1c75d0d6fa3b10348176792104e2fd60d7"
+          ]
+        },
+        {
+          "tag": "1-warm",
+          "mode": "off",
+          "firstPageMs": 9.402,
+          "enumMs": null,
+          "hashes": [
+            "444319a65e05ed64ffb0c6ebf3a86f1c75d0d6fa3b10348176792104e2fd60d7"
+          ]
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "name": "attention",
+      "pdf": "C:\\work\\solokpdf\\.work\\corpus\\attention-1706.03762v7.pdf",
+      "pages": "1,4",
+      "identical": true,
+      "rows": [
+        {
+          "tag": "2-off",
+          "mode": "off",
+          "firstPageMs": 119.135,
+          "enumMs": null,
+          "hashes": [
+            "f7a910673e6088f227255f38b937403db5c807ba67d60944217599a4ed737f9c",
+            "a91549066a81cf14cd490b39cb6291aedd5f2c50c98b0369248dd8a3dba846f0"
+          ]
+        },
+        {
+          "tag": "2-cold",
+          "mode": "recorded",
+          "firstPageMs": 119.066,
+          "enumMs": 113.2,
+          "hashes": [
+            "f7a910673e6088f227255f38b937403db5c807ba67d60944217599a4ed737f9c",
+            "a91549066a81cf14cd490b39cb6291aedd5f2c50c98b0369248dd8a3dba846f0"
+          ]
+        },
+        {
+          "tag": "2-warm",
+          "mode": "replayed",
+          "firstPageMs": 61.643,
+          "enumMs": 57.9,
+          "hashes": [
+            "f7a910673e6088f227255f38b937403db5c807ba67d60944217599a4ed737f9c",
+            "a91549066a81cf14cd490b39cb6291aedd5f2c50c98b0369248dd8a3dba846f0"
+          ]
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "name": "bert",
+      "pdf": "C:\\work\\solokpdf\\.work\\corpus\\independent\\bert-1810.04805.pdf",
+      "pages": "1",
+      "identical": true,
+      "rows": [
+        {
+          "tag": "2-off",
+          "mode": "off",
+          "firstPageMs": 261.745,
+          "enumMs": null,
+          "hashes": [
+            "e7f8aef2974fffe7591f615ced2e157fa58f5e74694c75269100518704255c2c"
+          ]
+        },
+        {
+          "tag": "2-cold",
+          "mode": "recorded",
+          "firstPageMs": 301.601,
+          "enumMs": 293.2,
+          "hashes": [
+            "e7f8aef2974fffe7591f615ced2e157fa58f5e74694c75269100518704255c2c"
+          ]
+        },
+        {
+          "tag": "2-warm",
+          "mode": "replayed",
+          "firstPageMs": 41.583,
+          "enumMs": 39.3,
+          "hashes": [
+            "e7f8aef2974fffe7591f615ced2e157fa58f5e74694c75269100518704255c2c"
+          ]
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "name": "ipa",
+      "pdf": "C:\\work\\solokpdf\\.work\\corpus\\independent\\ipa-2026-soshiki.pdf",
+      "pages": "1",
+      "identical": true,
+      "rows": [
+        {
+          "tag": "2-off",
+          "mode": "off",
+          "firstPageMs": 7.584,
+          "enumMs": null,
+          "hashes": [
+            "444319a65e05ed64ffb0c6ebf3a86f1c75d0d6fa3b10348176792104e2fd60d7"
+          ]
+        },
+        {
+          "tag": "2-cold",
+          "mode": "off",
+          "firstPageMs": 8.815,
+          "enumMs": null,
+          "hashes": [
+            "444319a65e05ed64ffb0c6ebf3a86f1c75d0d6fa3b10348176792104e2fd60d7"
+          ]
+        },
+        {
+          "tag": "2-warm",
+          "mode": "off",
+          "firstPageMs": 8.822,
+          "enumMs": null,
+          "hashes": [
+            "444319a65e05ed64ffb0c6ebf3a86f1c75d0d6fa3b10348176792104e2fd60d7"
+          ]
+        }
+      ]
+    }
+  ]
+}

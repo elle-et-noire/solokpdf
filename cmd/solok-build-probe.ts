@@ -46,6 +46,8 @@ await runLogged(join(compilerDir, "cl.exe"), [
   "ole32.lib",
   "windowscodecs.lib",
   "psapi.lib",
+  "gdi32.lib",
+  "user32.lib",
 ]);
 await runLogged(join(compilerDir, "cl.exe"), [
   "/nologo",

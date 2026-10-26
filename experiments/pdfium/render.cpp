@@ -139,15 +139,33 @@ struct FontProfile {
     decltype(FPDF_SYSFONTINFO::EnumFonts) enumFonts = nullptr;
     decltype(FPDF_SYSFONTINFO::GetFontData) getData = nullptr;
     decltype(FPDF_SYSFONTINFO::GetFaceName) getName = nullptr;
+    decltype(FPDF_SYSFONTINFO::MapFont) mapFont = nullptr;
+    decltype(FPDF_SYSFONTINFO::GetFont) getFont = nullptr;
+    decltype(FPDF_SYSFONTINFO::DeleteFont) deleteFont = nullptr;
     int enumCalls = 0;
     int dataCalls = 0;
     unsigned long long dataBytes = 0;
     double enumMs = 0;
     double dataMs = 0;
+    // callbacks PDFium makes from inside EnumFonts (localized family names)
+    bool inEnum = false;
+    int nestedCalls = 0;
+    int nestedOpens = 0;
+    double nestedMs = 0;
+    int mapCalls = 0;
+    double mapMs = 0;
+
+    void Nested(double ms) {
+        if (!inEnum) return;
+        nestedCalls++;
+        nestedMs += ms;
+    }
 
     static void Enum(FPDF_SYSFONTINFO* info, void* mapper) {
         double start = NowMs();
+        fonts.inEnum = true;
         fonts.enumFonts(info, mapper);
+        fonts.inEnum = false;
         fonts.enumMs += NowMs() - start;
         fonts.enumCalls++;
     }
@@ -157,9 +175,38 @@ struct FontProfile {
         double start = NowMs();
         unsigned long result = fonts.getData(info, font, table, buffer, size);
         fonts.dataMs += NowMs() - start;
+        fonts.Nested(NowMs() - start);
         fonts.dataCalls++;
         if (buffer && result <= size) fonts.dataBytes += result;
         return result;
+    }
+
+    static void* Map(FPDF_SYSFONTINFO* info, int weight, FPDF_BOOL italic, int charset, int pitch, const char* face,
+                     FPDF_BOOL* exact) {
+        double start = NowMs();
+        void* result = fonts.mapFont(info, weight, italic, charset, pitch, face, exact);
+        fonts.Nested(NowMs() - start);
+        if (fonts.inEnum) {
+            fonts.nestedOpens++;
+        } else {
+            fonts.mapCalls++;
+            fonts.mapMs += NowMs() - start;
+        }
+        return result;
+    }
+
+    static void* Get(FPDF_SYSFONTINFO* info, const char* face) {
+        double start = NowMs();
+        void* result = fonts.getFont(info, face);
+        fonts.Nested(NowMs() - start);
+        if (fonts.inEnum) fonts.nestedOpens++;
+        return result;
+    }
+
+    static void Delete(FPDF_SYSFONTINFO* info, void* font) {
+        double start = NowMs();
+        fonts.deleteFont(info, font);
+        fonts.Nested(NowMs() - start);
     }
 
     static unsigned long Name(FPDF_SYSFONTINFO* info, void* font, char* buffer, unsigned long size) {
@@ -173,14 +220,53 @@ struct FontProfile {
         enumFonts = info->EnumFonts;
         getData = info->GetFontData;
         getName = info->GetFaceName;
+        mapFont = info->MapFont;
+        getFont = info->GetFont;
+        deleteFont = info->DeleteFont;
         info->EnumFonts = Enum;
         info->GetFontData = Data;
         info->GetFaceName = Name;
+        info->MapFont = Map;
+        info->GetFont = Get;
+        info->DeleteFont = Delete;
     }
 
     static FontProfile fonts;
 };
 FontProfile FontProfile::fonts;
+
+struct GdiEnum {
+    int callbacks = 0;
+    int truetype = 0;
+    int localized = 0;
+
+    static int CALLBACK Proc(const LOGFONTA* lf, const TEXTMETRICA*, DWORD type, LPARAM param) {
+        auto* self = reinterpret_cast<GdiEnum*>(param);
+        self->callbacks++;
+        if (type & TRUETYPE_FONTTYPE) self->truetype++;
+        for (const char* c = lf->lfFaceName; *c; c++) {
+            if (*c & 0x80) {
+                self->localized++;
+                break;
+            }
+        }
+        return 1;
+    }
+};
+
+// Raw GDI enumeration as PDFium's Windows font info does it: every family and charset.
+static void TimeGdiEnum() {
+    HDC dc = CreateCompatibleDC(nullptr);
+    LOGFONTA lf{};
+    lf.lfCharSet = DEFAULT_CHARSET;
+    GdiEnum e;
+    double start = NowMs();
+    EnumFontFamiliesExA(dc, &lf, GdiEnum::Proc, reinterpret_cast<LPARAM>(&e), 0);
+    double ms = NowMs() - start;
+    DeleteDC(dc);
+    printf("\"gdi_enum\":{\"ms\":%.6f,\"callbacks\":%d,\"truetype\":%d,\"localized\":%d},\n", ms, e.callbacks,
+           e.truetype, e.localized);
+}
 
 static void Memory(const char* phase) {
     PROCESS_MEMORY_COUNTERS_EX m{};
@@ -198,6 +284,7 @@ int wmain(int argc, wchar_t** argv) {
     if (argc < 5) {
         fprintf(stderr,
                 "usage: pdfium-render.exe input.pdf page dpi output.png [--lcd] [--font-info-v2] [--font-profile] "
+                "[--gdi-enum] "
                 "[--repeat N] [--scale "
                 "N] [--dll path]\n");
         return 2;
@@ -211,6 +298,7 @@ int wmain(int argc, wchar_t** argv) {
     int flags = FPDF_ANNOT;
     bool fontInfoV2 = false;
     bool fontProfile = false;
+    bool gdiEnum = false;
     wchar_t dllPath[32768]{};
     DWORD n = GetModuleFileNameW(nullptr, dllPath, _countof(dllPath));
     if (!n || n >= _countof(dllPath)) return 1;
@@ -228,6 +316,10 @@ int wmain(int argc, wchar_t** argv) {
         }
         if (wcscmp(argv[i], L"--font-profile") == 0) {
             fontProfile = true;
+            continue;
+        }
+        if (wcscmp(argv[i], L"--gdi-enum") == 0) {
+            gdiEnum = true;
             continue;
         }
         if (i + 1 >= argc) return 2;
@@ -254,6 +346,7 @@ int wmain(int argc, wchar_t** argv) {
     if (!pdf.api.Load(dllPath)) return 1;
     printf("{\n\"engine\":\"pdfium-158.0.8111.0\",\"renderer\":\"build-default (AGG)\",\"flags\":%d,\"dpi\":%.6f,\n",
            flags, dpi);
+    if (gdiEnum) TimeGdiEnum();
     Memory("before_init");
     double start = NowMs();
     FPDF_LIBRARY_CONFIG config{};
@@ -321,8 +414,10 @@ int wmain(int argc, wchar_t** argv) {
         const auto& p = FontProfile::fonts;
         printf(
             "\"font_profile\":{\"version\":%d,\"enum_calls\":%d,\"enum_ms\":%.6f,\"data_calls\":%d,"
-            "\"data_ms\":%.6f,\"data_bytes\":%llu},\n",
-            pdf.fontInfo->version, p.enumCalls, p.enumMs, p.dataCalls, p.dataMs, p.dataBytes);
+            "\"data_ms\":%.6f,\"data_bytes\":%llu,\"nested_calls\":%d,\"nested_opens\":%d,\"nested_ms\":%.6f,"
+            "\"map_calls\":%d,\"map_ms\":%.6f},\n",
+            pdf.fontInfo->version, p.enumCalls, p.enumMs, p.dataCalls, p.dataMs, p.dataBytes, p.nestedCalls,
+            p.nestedOpens, p.nestedMs, p.mapCalls, p.mapMs);
     }
     pdf.api.FPDFBitmap_Destroy(pdf.bitmap);
     pdf.bitmap = nullptr;

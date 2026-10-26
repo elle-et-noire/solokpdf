@@ -147,6 +147,9 @@
 #include "VirtualDesktop.h"
 #include "SumatraCrashCommon.h"
 #include "OpenFileFilters.h"
+#if defined(SOLOKPDF_PDFIUM)
+#include "solokpdf/EnginePdfium.h"
+#endif
 #include "SumatraLog.h"
 
 using Gdiplus::Graphics;
@@ -16031,6 +16034,9 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
 
     LoadSettings();
     UpdateSettings(flags);
+#if defined(SOLOKPDF_PDFIUM)
+    SetPdfiumFontCacheDir(GetAppDataDirTemp());
+#endif
 
     // UpdateDocumentColors() keeps it in sync after this
     AtomicBoolSet(&gRenderCache->grayscalePageColors, gSettings->fixedPageUI.grayscale);

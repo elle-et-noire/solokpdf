@@ -23,6 +23,9 @@ trial is rejected for general use, including its light-wide CPU regression.
 See `solokpdf-tabgroup-2026-10-25.json` and
 `solokpdf-tabgroup-16-idle-2026-10-25.json`.
 
+A system font cache now cuts the first text page's load from 116–273 ms to
+31–62 ms with identical pixels; see "System font cache" below.
+
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 The 2026-10-26 pass adds pixel-payload accounting and independent background-load
 monitoring. Its render-gate trial is deferred: a qualifying light-wide comparison
@@ -1404,6 +1407,34 @@ display/search and normal shutdown, without relying on a PDB or a source tree.
   vendored license files and all PDFium `licenses/` texts plus the pin manifest.
   MuPDF and its AGPL obligations remain because the fallback/library remain.
 - No binary, downloaded PDF, build cache, PDB or archive is added to Git.
+
+## System font cache (2026-10-26)
+
+The extended probe (`pdfium-render.exe --font-profile --gdi-enum`) split the
+first text page's 218–334 ms font enumeration: GDI's own enumeration took
+3–5 ms; 198–296 ms were font reads PDFium makes from inside it. For each of
+~112 localized family names (Japanese names on this system) PDFium opens the
+font with GDI and reads its `name` table for the PostScript name
+(`CFX_FontMapper::AddInstalledFont`, `GetPSNameFromTT`). IPA uses only
+embedded fonts and enumerates nothing.
+
+`src/solokpdf/PdfiumFontCache.cpp` wraps PDFium's default system font info and
+serves those reads from `pdfium-fonts.cache` in the app data dir: per family,
+whether a font opened and its nameID 6 records byte for byte (27 KB). Only
+those records are read by `GetNameFromTT`, so PDFium derives the same names.
+The key is the PDFium version, GDI's full family list and the fonts registry
+keys' write times; a mismatch re-records. The wrapper also drops the trailing
+NUL PDFium's `FPDF_SYSFONTINFO` adapter keeps in face names, which the earlier
+probe needed for identical pixels. `SOLOKPDF_FONT_CACHE=0` disables it.
+
+`experiments/pdfium/font-cache-check.ts` renders pages in the Release app with
+the cache off, cold and warm, three rounds. All Attention p1/p4, BERT p1 and
+IPA p1 images matched. Slowest page load: off 116–273 ms, cold 119–302 ms,
+warm 31–62 ms on Attention/BERT; IPA 7–12 ms throughout. Warm enumeration
+took 27–58 ms: 7–15 ms for the key and cache, the rest PDFium's own pass over
+~5,200 GDI entries. `tests/ad-hoc-pdfium.ts` compares off/cold/warm on a
+fixture with unembedded localized fonts and Japanese glyphs; serving empty
+`name` tables made it fail. Results: `solokpdf-font-cache-2026-10-26.json`.
 
 ## Known limitations and next work
 

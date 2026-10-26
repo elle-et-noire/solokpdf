@@ -622,7 +622,7 @@ function engines_files()
   if _OPTIONS["with-pdfium"] then
     defines { "SOLOKPDF_PDFIUM" }
     includedirs { ".work/pdfium/include" }
-    files { "src/solokpdf/EnginePdfium.cpp", "src/solokpdf/EnginePdfium.h" }
+    files { "src/solokpdf/EnginePdfium.*", "src/solokpdf/PdfiumFontCache.*" }
   end
   files_in_dir("src", {
     "Annotation.*",

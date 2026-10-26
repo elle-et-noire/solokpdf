@@ -1,5 +1,6 @@
 // Opt-in backend check. Build with cmd/solok-build.ts, then run with --no-build.
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { ControlCommand, withControlledSumatra, type ControlClient } from "./control.ts";
 import { EXE, assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
@@ -283,6 +284,81 @@ async function expectPassword(source: string): Promise<void> {
   console.log("PDFium opens password-protected PDFs");
 }
 
+// unembedded fonts: localized family names (PDFium reads their PostScript names while enumerating) and others
+const fontCacheFaces = [
+  "MS-Gothic",
+  "MS-Mincho",
+  "MS-PGothic",
+  "MS-UIGothic",
+  "Meiryo",
+  "YuGothic-Regular",
+  "YuMincho-Regular",
+  "BIZ-UDGothic",
+  "Calibri",
+  "Times-Roman",
+];
+
+function fontCacheFixture(): string {
+  const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", "", ""];
+  const fonts: string[] = [];
+  const lines: string[] = [];
+  for (const [i, face] of fontCacheFaces.entries()) {
+    const latin = objects.length + 1;
+    objects.push(
+      `<< /Type /Font /Subtype /TrueType /BaseFont /${face} /Encoding /WinAnsiEncoding /FirstChar 32 /LastChar 126 /Widths [${Array(95).fill(600).join(" ")}] /FontDescriptor ${latin + 1} 0 R >>`,
+      `<< /Type /FontDescriptor /FontName /${face} /Flags 32 /FontBBox [-100 -250 1100 1000] /ItalicAngle 0 /Ascent 900 /Descent -250 /CapHeight 700 /StemV 80 >>`,
+      `<< /Type /Font /Subtype /Type0 /BaseFont /${face} /Encoding /UniJIS-UCS2-H /DescendantFonts [${latin + 3} 0 R] >>`,
+      `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /${face} /CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 6 >> /FontDescriptor ${latin + 1} 0 R /DW 1000 >>`,
+    );
+    fonts.push(`/L${i} ${latin} 0 R /J${i} ${latin + 2} 0 R`);
+    const y = 760 - i * 36;
+    lines.push(`BT /L${i} 14 Tf 20 ${y} Td (${face}: ABC abc 0123) Tj ET`);
+    lines.push(`BT /J${i} 14 Tf 300 ${y} Td <3042304430463048304A65E5672C8A9E6F225B57> Tj ET`);
+  }
+  const content = lines.join("\n");
+  objects[2] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << ${fonts.join(" ")} >> >> /Contents 4 0 R >>`;
+  objects[3] = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
+  return assemblePdf(objects);
+}
+
+// render page 1 to an image; returns its hash and what the font cache logged
+async function renderWithFontCache(path: string, name: string, appdata: string, cache: string) {
+  mkdirSync(appdata, { recursive: true });
+  const log = tmpPath(`pdfium/fontcache-${name}.log`);
+  const image = await withControlledSumatra(
+    EXE,
+    async (client) => {
+      await client.waitForRenderIdle();
+      const r = await request(client, ControlCommand.TestConvertToImages, [join(appdata, `${name}-<N>.bmp`), "1", 96]);
+      return /first=(.+)$/.exec(r.trim())![1]!;
+    },
+    ["-appdata", appdata, "-log-to-file", log, path],
+    { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium", SOLOKPDF_FONT_CACHE: cache } },
+  );
+  const hash = createHash("sha256").update(readFileSync(image)).digest("hex");
+  const cacheLog = /PdfiumFontCache: (\w+) (\d+)/.exec(readFileSync(log, "utf8"));
+  return { hash, mode: cacheLog?.[1] ?? "off", fonts: Number(cacheLog?.[2] ?? 0) };
+}
+
+// the system font cache changes no pixels: uncached, recording and replaying render alike
+async function expectFontCacheSamePixels(): Promise<void> {
+  const path = tmpPath("pdfium/fontcache.pdf");
+  writeFileSync(path, fontCacheFixture(), "latin1");
+  const appdata = tmpPath("pdfium/fontcache-appdata");
+  rmSync(appdata, { recursive: true, force: true });
+  const off = await renderWithFontCache(path, "off", tmpPath("pdfium/fontcache-off"), "0");
+  const cold = await renderWithFontCache(path, "cold", appdata, "1");
+  const warm = await renderWithFontCache(path, "warm", appdata, "1");
+  console.log(`font cache: off=${off.mode} cold=${cold.mode}/${cold.fonts} warm=${warm.mode}/${warm.fonts}`);
+  if (off.mode !== "off" || cold.mode !== "recorded" || warm.mode !== "replayed") {
+    throw new Error("Font cache did not record, then replay");
+  }
+  if (cold.hash !== off.hash || warm.hash !== off.hash) {
+    throw new Error(`Font cache changed pixels: off=${off.hash} cold=${cold.hash} warm=${warm.hash}`);
+  }
+  console.log("PDFium font cache renders the same pixels");
+}
+
 async function request(client: ControlClient, cmd: ControlCommand, args: (string | number)[] = []): Promise<string> {
   const r = await client.request(cmd, args);
   const text = String(r[1] ?? "");
@@ -425,6 +501,7 @@ export async function testit(): Promise<void> {
   await expectDestsMatchMupdf();
   await expectOpenAction();
   await expectPassword(pdf);
+  await expectFontCacheSamePixels();
   const missingDir = tmpPath("pdfium/missing-dll");
   mkdirSync(missingDir, { recursive: true });
   const missingExe = join(missingDir, basename(EXE));

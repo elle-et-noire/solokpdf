@@ -15,60 +15,76 @@
 #include <fpdf_doc.h>
 #include <fpdf_text.h>
 #include <fpdf_progressive.h>
+#include <fpdf_sysfontinfo.h>
+#include "PdfiumFontCache.h"
 #include "EnginePdfium.h"
 #include "SumatraLog.h"
 
-#define PDFIUM_API(X)              \
-    X(FPDF_InitLibraryWithConfig)  \
-    X(FPDF_DestroyLibrary)         \
-    X(FPDF_LoadCustomDocument)     \
-    X(FPDF_CloseDocument)          \
-    X(FPDF_GetLastError)           \
-    X(FPDF_GetPageCount)           \
-    X(FPDF_GetDocPermissions)      \
-    X(FPDF_GetPageSizeByIndexF)    \
-    X(FPDF_LoadPage)               \
-    X(FPDF_ClosePage)              \
-    X(FPDF_PageToDevice)           \
-    X(FPDFBitmap_CreateEx)         \
-    X(FPDFBitmap_FillRect)         \
-    X(FPDFBitmap_Destroy)          \
-    X(FPDF_RenderPageBitmap_Start) \
-    X(FPDF_RenderPage_Continue)    \
-    X(FPDF_RenderPage_Close)       \
-    X(FPDFText_LoadPage)           \
-    X(FPDFText_ClosePage)          \
-    X(FPDFText_CountChars)         \
-    X(FPDFText_GetUnicode)         \
-    X(FPDFText_GetCharBox)         \
-    X(FPDFLink_Enumerate)          \
-    X(FPDFLink_GetAnnotRect)       \
-    X(FPDFLink_GetDest)            \
-    X(FPDFLink_GetAction)          \
-    X(FPDFLink_GetAnnot)           \
-    X(FPDFAnnot_GetStringValue)    \
-    X(FPDFPage_CloseAnnot)         \
-    X(FPDFAction_GetType)          \
-    X(FPDFAction_GetDest)          \
-    X(FPDFAction_GetURIPath)       \
-    X(FPDFAction_GetFilePath)      \
-    X(FPDFDest_GetDestPageIndex)   \
-    X(FPDFDest_GetLocationInPage)  \
-    X(FPDFDest_GetView)            \
-    X(FPDF_GetNamedDestByName)     \
-    X(FPDFBookmark_GetFirstChild)  \
-    X(FPDFBookmark_GetNextSibling) \
-    X(FPDFBookmark_GetTitle)       \
-    X(FPDFBookmark_GetDest)        \
-    X(FPDFBookmark_GetAction)      \
-    X(FPDF_GetMetaText)            \
+#define PDFIUM_API(X)                 \
+    X(FPDF_InitLibraryWithConfig)     \
+    X(FPDF_DestroyLibrary)            \
+    X(FPDF_GetDefaultSystemFontInfo)  \
+    X(FPDF_SetSystemFontInfo)         \
+    X(FPDF_FreeDefaultSystemFontInfo) \
+    X(FPDF_LoadCustomDocument)        \
+    X(FPDF_CloseDocument)             \
+    X(FPDF_GetLastError)              \
+    X(FPDF_GetPageCount)              \
+    X(FPDF_GetDocPermissions)         \
+    X(FPDF_GetPageSizeByIndexF)       \
+    X(FPDF_LoadPage)                  \
+    X(FPDF_ClosePage)                 \
+    X(FPDF_PageToDevice)              \
+    X(FPDFBitmap_CreateEx)            \
+    X(FPDFBitmap_FillRect)            \
+    X(FPDFBitmap_Destroy)             \
+    X(FPDF_RenderPageBitmap_Start)    \
+    X(FPDF_RenderPage_Continue)       \
+    X(FPDF_RenderPage_Close)          \
+    X(FPDFText_LoadPage)              \
+    X(FPDFText_ClosePage)             \
+    X(FPDFText_CountChars)            \
+    X(FPDFText_GetUnicode)            \
+    X(FPDFText_GetCharBox)            \
+    X(FPDFLink_Enumerate)             \
+    X(FPDFLink_GetAnnotRect)          \
+    X(FPDFLink_GetDest)               \
+    X(FPDFLink_GetAction)             \
+    X(FPDFLink_GetAnnot)              \
+    X(FPDFAnnot_GetStringValue)       \
+    X(FPDFPage_CloseAnnot)            \
+    X(FPDFAction_GetType)             \
+    X(FPDFAction_GetDest)             \
+    X(FPDFAction_GetURIPath)          \
+    X(FPDFAction_GetFilePath)         \
+    X(FPDFDest_GetDestPageIndex)      \
+    X(FPDFDest_GetLocationInPage)     \
+    X(FPDFDest_GetView)               \
+    X(FPDF_GetNamedDestByName)        \
+    X(FPDFBookmark_GetFirstChild)     \
+    X(FPDFBookmark_GetNextSibling)    \
+    X(FPDFBookmark_GetTitle)          \
+    X(FPDFBookmark_GetDest)           \
+    X(FPDFBookmark_GetAction)         \
+    X(FPDF_GetMetaText)               \
     X(FPDF_GetPageLabel)
 
 // PDFium forbids concurrent calls even for different documents.
 static Mutex gPdfiumLock;
+static Str gFontCacheDir;
+static Str kPdfiumVersion = StrL("158.0.8111.0");
+
+static bool FontCacheEnabled() {
+    WCHAR value[2]{};
+    bool off = GetEnvironmentVariableW(L"SOLOKPDF_FONT_CACHE", value, dimofi(value)) == 1 && value[0] == L'0';
+    return !off && len(gFontCacheDir) > 0;
+}
+
 static struct PdfiumApi {
     HMODULE module = nullptr;
     int users = 0;
+    FPDF_SYSFONTINFO* defaultFontInfo = nullptr;
+    PdfiumFontCache* fontCache = nullptr;
 #define DECLARE_PDFIUM(name) decltype(&::name) name = nullptr;
     PDFIUM_API(DECLARE_PDFIUM)
 #undef DECLARE_PDFIUM
@@ -105,15 +121,36 @@ static struct PdfiumApi {
             FPDF_LIBRARY_CONFIG config{};
             config.version = 2;
             FPDF_InitLibraryWithConfig(&config);
+            InstallFontCache();
         }
         users++;
         return true;
     }
 
-    void Release() {
-        if (--users == 0) {
-            FPDF_DestroyLibrary();
+    void InstallFontCache() {
+        if (!FontCacheEnabled()) {
+            return;
         }
+        defaultFontInfo = FPDF_GetDefaultSystemFontInfo();
+        if (!defaultFontInfo) {
+            return;
+        }
+        TempStr path = path::JoinTemp(gFontCacheDir, StrL("pdfium-fonts.cache"));
+        fontCache = PdfiumFontCacheNew(defaultFontInfo, path, kPdfiumVersion);
+        FPDF_SetSystemFontInfo(PdfiumFontCacheInfo(fontCache));
+    }
+
+    void Release() {
+        if (--users > 0) {
+            return;
+        }
+        FPDF_DestroyLibrary();
+        if (defaultFontInfo) {
+            FPDF_FreeDefaultSystemFontInfo(defaultFontInfo);
+            defaultFontInfo = nullptr;
+        }
+        PdfiumFontCacheDelete(fontCache);
+        fontCache = nullptr;
     }
 } gPdfium;
 
@@ -1095,6 +1132,11 @@ class EnginePdfium : public EngineBase {
         return true;
     }
 };
+
+// Where the system font cache lives; without it PDFium enumerates fonts uncached.
+void SetPdfiumFontCacheDir(Str dir) {
+    str::ReplaceWithCopy(&gFontCacheDir, dir);
+}
 
 bool PdfiumRequested() {
     WCHAR value[32]{};
