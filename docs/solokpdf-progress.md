@@ -24,7 +24,8 @@ See `solokpdf-tabgroup-2026-10-25.json` and
 `solokpdf-tabgroup-16-idle-2026-10-25.json`.
 
 A system font cache now cuts the first text page's load from 116–273 ms to
-31–62 ms with identical pixels; see "System font cache" below.
+31–62 ms with identical pixels; see "System font cache" below. With it, PDFium's
+direct-launch lag behind MuPDF fell to +123/+114/+10 ms (Attention/BERT/IPA).
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 The 2026-10-26 pass adds pixel-payload accounting and independent background-load
@@ -1435,6 +1436,27 @@ took 27–58 ms: 7–15 ms for the key and cache, the rest PDFium's own pass ove
 ~5,200 GDI entries. `tests/ad-hoc-pdfium.ts` compares off/cold/warm on a
 fixture with unembedded localized fonts and Japanese glyphs; serving empty
 `name` tables made it fail. Results: `solokpdf-font-cache-2026-10-26.json`.
+
+### Direct launch with a warm cache
+
+`direct-startup-ui.ts --warm` launches each fresh settings dir once unmeasured,
+so the measured PDFium run replays the cache (confirmed in every text-PDF log).
+Three qualifying pairs per document; two pairs excluded for background CPU.
+Paired PDFium minus MuPDF launch-to-render-idle medians:
+
+| PDF       | Cold cache (earlier pass) | Warm cache | Warm pairs, ms |
+| --------- | ------------------------: | ---------: | -------------: |
+| Attention |                   +429 ms |    +123 ms |     123/129/72 |
+| BERT      |                   +284 ms |    +114 ms |    118/114/111 |
+| IPA       |                    +13 ms |     +10 ms |        10/2/11 |
+
+Absolute times were about half the earlier pass's for both engines (host
+state differs); only paired differences are comparable. Diagnostic
+`--profile` runs on the text PDFs: document load 21–26 ms; the two visible
+pages render one after the other under `gPdfiumLock`, page 1 waiting 49–52 ms;
+its load then took 45–53 ms, 42–51 ms of it the font replay. On BERT the
+start-page thumbnail thread opened the PDF again and waited 118–136 ms for the
+lock. Results: `solokpdf-direct-startup-warm-2026-10-26.json`.
 
 ## Known limitations and next work
 

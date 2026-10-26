@@ -1,0 +1,184 @@
+{
+  "date": "2026-10-26",
+  "scope": "Direct launch with a warm PDFium font cache; measurement only, no application change.",
+  "method": "experiments/pdfium/direct-startup-ui.ts --warm --runs 3: as the 2026-10-25/26 direct-launch pass, plus one unmeasured launch per measurement with the same settings dir, so PDFium replays pdfium-fonts.cache. Same Release exe for both engines; engine order alternated.",
+  "exe": "C:\\work\\solokpdf\\out\\solokpdf-portable\\SolokPDF.exe",
+  "exeSha256": "a35df0a6a9fb467258043072229c92d03fafeed60f6151feb8a6da0fe4378887",
+  "dependencies": [
+    {
+      "name": "pdfium.dll",
+      "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+    },
+    {
+      "name": "libsumatrapdf.dll",
+      "sha256": "1b3f34bfd1d2e8b247f7dfe5476d76685e9ba7de2a19d6a26a3a144e47be3371"
+    }
+  ],
+  "status": "complete",
+  "results": [
+    {
+      "pdf": "attention-1706.03762v7.pdf",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "qualifyingPairs": 3,
+      "medianFirstIdleMs": {
+        "pdfium": 665.4,
+        "mupdf": 583.2
+      },
+      "medianPairedDeltaMs": 122.5,
+      "pairs": [
+        {
+          "pdfium": {
+            "id": "0-0-1-pdfium",
+            "firstIdleMs": 665.4,
+            "settledPrivateMiB": 86.5,
+            "fontCache": "replayed"
+          },
+          "mupdf": {
+            "id": "0-0-1-mupdf",
+            "firstIdleMs": 542.9,
+            "settledPrivateMiB": 81.7
+          }
+        },
+        {
+          "pdfium": {
+            "id": "0-1-0-pdfium",
+            "firstIdleMs": 714.7,
+            "settledPrivateMiB": 86.7,
+            "fontCache": "replayed"
+          },
+          "mupdf": {
+            "id": "0-1-0-mupdf",
+            "firstIdleMs": 585.5,
+            "settledPrivateMiB": 81.5
+          }
+        },
+        {
+          "pdfium": {
+            "id": "0-2-0-pdfium",
+            "firstIdleMs": 655.1,
+            "settledPrivateMiB": 86.5,
+            "fontCache": "replayed"
+          },
+          "mupdf": {
+            "id": "0-2-0-mupdf",
+            "firstIdleMs": 583.2,
+            "settledPrivateMiB": 81.3
+          }
+        }
+      ]
+    },
+    {
+      "pdf": "bert-1810.04805.pdf",
+      "sha256": "5692a5514787a8c6727b4ff3b726a3385798bc68e12138d1d4af83947e2acf6e",
+      "qualifyingPairs": 3,
+      "medianFirstIdleMs": {
+        "pdfium": 718.4,
+        "mupdf": 600.3
+      },
+      "medianPairedDeltaMs": 113.5,
+      "pairs": [
+        {
+          "pdfium": {
+            "id": "1-0-0-pdfium",
+            "firstIdleMs": 718.4,
+            "settledPrivateMiB": 87.5,
+            "fontCache": "replayed"
+          },
+          "mupdf": {
+            "id": "1-0-0-mupdf",
+            "firstIdleMs": 600.3,
+            "settledPrivateMiB": 79.2
+          }
+        },
+        {
+          "pdfium": {
+            "id": "1-1-1-pdfium",
+            "firstIdleMs": 719.3,
+            "settledPrivateMiB": 87.5,
+            "fontCache": "replayed"
+          },
+          "mupdf": {
+            "id": "1-1-1-mupdf",
+            "firstIdleMs": 605.8,
+            "settledPrivateMiB": 79.7
+          }
+        },
+        {
+          "pdfium": {
+            "id": "1-2-0-pdfium",
+            "firstIdleMs": 689.7,
+            "settledPrivateMiB": 87.4,
+            "fontCache": "replayed"
+          },
+          "mupdf": {
+            "id": "1-2-0-mupdf",
+            "firstIdleMs": 578.9,
+            "settledPrivateMiB": 79.2
+          }
+        }
+      ]
+    },
+    {
+      "pdf": "ipa-2026-soshiki.pdf",
+      "sha256": "9508c58abc9c7e4c61619f9a89a66a67fdef52937e5811ca8d130d1868d6fb67",
+      "qualifyingPairs": 3,
+      "medianFirstIdleMs": {
+        "pdfium": 647.6,
+        "mupdf": 646.1
+      },
+      "medianPairedDeltaMs": 9.6,
+      "pairs": [
+        {
+          "pdfium": {
+            "id": "2-0-0-pdfium",
+            "firstIdleMs": 664.4,
+            "settledPrivateMiB": 92.5,
+            "fontCache": null
+          },
+          "mupdf": {
+            "id": "2-0-0-mupdf",
+            "firstIdleMs": 654.8,
+            "settledPrivateMiB": 94.4
+          }
+        },
+        {
+          "pdfium": {
+            "id": "2-1-0-pdfium",
+            "firstIdleMs": 647.6,
+            "settledPrivateMiB": 92.4,
+            "fontCache": null
+          },
+          "mupdf": {
+            "id": "2-1-0-mupdf",
+            "firstIdleMs": 646.1,
+            "settledPrivateMiB": 94.3
+          }
+        },
+        {
+          "pdfium": {
+            "id": "2-2-0-pdfium",
+            "firstIdleMs": 644.2,
+            "settledPrivateMiB": 92.5,
+            "fontCache": null
+          },
+          "mupdf": {
+            "id": "2-2-0-mupdf",
+            "firstIdleMs": 633.1,
+            "settledPrivateMiB": 93.9
+          }
+        }
+      ]
+    }
+  ],
+  "excludedPairs": [
+    {
+      "ids": ["0-0-0-pdfium", "0-0-0-mupdf"],
+      "reasons": ["background CPU mean", "background CPU p95", "background CPU mean", "background CPU p95"]
+    },
+    {
+      "ids": ["1-1-0-mupdf", "1-1-0-pdfium"],
+      "reasons": ["background CPU mean", "background CPU p95"]
+    }
+  ],
+  "profile": "Diagnostic --profile runs (out/solok-direct-startup-warm-profile-2026-10-26): document load 21-26 ms; the two visible pages render one after the other under gPdfiumLock; page 1 waited 49-52 ms for the lock, then its load took 45-53 ms, of which font replay 42-51 ms; drawing 5-8 ms per page. On BERT, the start-page thumbnail thread opened the PDF a second time and waited 118-136 ms for the lock."
+}

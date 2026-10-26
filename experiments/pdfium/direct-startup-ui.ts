@@ -32,6 +32,7 @@ async function main() {
       output: { type: "string", default: "out/solok-direct-startup" },
       runs: { type: "string", default: "3" },
       profile: { type: "boolean" },
+      warm: { type: "boolean" },
     },
   });
   if (!positionals.length) throw new Error("Pass ordinary PDFs to compare");
@@ -65,6 +66,7 @@ async function main() {
           pdfs,
           runs,
           profile: !!values.profile,
+          warm: !!values.warm,
           status,
           conditions:
             "Same Release exe/DLLs; PDF passed on process command line; -for-testing; fresh isolated settings; 900x1000, 100% zoom; warm OS file cache; app PDBs hidden. Launch to render idle includes control and polling. Independent Bun monitor is ready before target spawn and attaches immediately after it. First memory sample at render idle, second after 1s; cache info is read after monitoring; close sample after 1s. Background includes harness/OS and excludes target CPU. Profile runs are diagnostic only.",
@@ -81,7 +83,7 @@ async function main() {
     let stable = 0,
       prev = systemCpuTimes();
     const samples: any[] = [];
-    for (const start = performance.now(); performance.now() - start < policy.timeoutMs; ) {
+    for (const start = performance.now(); performance.now() - start < policy.timeoutMs;) {
       await Bun.sleep(1000);
       const cpu = systemCpuTimes(),
         memory = systemMemory(),
@@ -101,6 +103,23 @@ async function main() {
     throw new Error("Host did not reach start conditions");
   }
 
+  // unmeasured launch with the same settings dir, so the measured one finds a warm font cache
+  async function warmUp(settings: string, pdf: string, engine: string) {
+    const pipe = uniquePipeName(),
+      proc = Bun.spawn(
+        [exe, "-for-testing", "-dbg-control", pipe, "-appdata", settings, "-window-pos", "900x1000@0x0", pdf],
+        { stdout: "ignore", stderr: "ignore", env: { ...process.env, SOLOKPDF_ENGINE: engine } },
+      );
+    try {
+      const client = await ControlClient.connect(pipe, 30000);
+      await client.waitForRenderIdle(30000);
+      await client.quit();
+      await Promise.race([proc.exited, Bun.sleep(30000)]);
+    } finally {
+      if (proc.exitCode === null) await killAndWait(proc);
+    }
+  }
+
   async function measure(pdf: (typeof pdfs)[number], run: number, attempt: number, engine: string) {
     const id = `${pdfs.indexOf(pdf)}-${run}-${attempt}-${engine}`;
     await gate(id);
@@ -111,6 +130,10 @@ async function main() {
       join(settings, "SolokPDF-settings.txt"),
       "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nShowToc = false\nRememberStatePerDocument = false\nDefaultDisplayMode = continuous\nDefaultZoom = 100\n",
     );
+    if (values.warm) {
+      await warmUp(settings, pdf.path, engine);
+      await gate(id + "-warm");
+    }
     const monitor = Bun.spawn([process.execPath, monitorScript, "--monitor", "0"], {
       stdin: "pipe",
       stdout: "pipe",
@@ -188,7 +211,7 @@ async function main() {
       let cacheWindow = 0,
         cache = "";
       try {
-        for (const deadline = Date.now() + 5000; Date.now() < deadline; ) {
+        for (const deadline = Date.now() + 5000; Date.now() < deadline;) {
           await client.request(ControlCommand.Ping);
           enumWindows((hwnd) => {
             if (getWindowPid(hwnd) === proc!.pid && getWindowText(hwnd) === "Cache Info") cacheWindow = hwnd;
@@ -259,11 +282,12 @@ async function main() {
       (!appLog.includes("PDFium 158.0.8111.0: opened") || appLog.includes("Using MuPDF fallback"))
     )
       throw new Error("PDFium was not used");
+    row.fontCache = /PdfiumFontCache: (\w+)/.exec(appLog)?.[1] ?? null;
     if (values.profile) row.phases = appLog.split(/\r?\n/).filter((line) => line.startsWith("PDFium profile:"));
     rows.push(row);
     save();
     console.log(
-      `${id}: first idle ${row.firstIdleMs.toFixed(1)}ms, private ${(row.settled.memory.privateBytes / mib).toFixed(1)} MiB, pixels ${((row.pixelBytes ?? 0) / mib).toFixed(1)} MiB, other CPU ${row.background.meanPercent.toFixed(1)}/${row.background.p95Percent.toFixed(1)}%, ${row.reasons.join(",") || "eligible"}`,
+      `${id}: first idle ${row.firstIdleMs.toFixed(1)}ms, private ${(row.settled.memory.privateBytes / mib).toFixed(1)} MiB, pixels ${((row.pixelBytes ?? 0) / mib).toFixed(1)} MiB, other CPU ${row.background.meanPercent.toFixed(1)}/${row.background.p95Percent.toFixed(1)}%, font cache ${row.fontCache ?? "-"}, ${row.reasons.join(",") || "eligible"}`,
     );
     return row;
   }
