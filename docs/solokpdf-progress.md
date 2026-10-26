@@ -1603,7 +1603,13 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
   third of high-zoom tiles a pixel off; they now snap within 0.05 px.
   `tests/ad-hoc-pdfium-tiles.ts` checks 45-degree hairlines across tile edges
   at five fractional zooms (res 1–4) for both engines. Arbitrary
-  UserUnit/page-box combinations and rotated text selection need broader tests.
+  UserUnit/page-box combinations need broader tests.
+- Rotated text selects along glyph quads, as with MuPDF (`issue-4839`, which
+  failed with PDFium before). PDFium reports only axis-aligned boxes, so quads
+  are built from each glyph's matrix, origin, advance and the font's
+  ascent/descent; on the test's 45° Helvetica they match MuPDF's width and
+  direction and are 19% shorter (MuPDF uses the font bbox). Upright pages
+  keep no quads, as before.
 - Normal rendering is opaque white. The transparency-grid path uses alpha;
   full transparent-page compositing parity and advanced dark-mode parity are
   not established.

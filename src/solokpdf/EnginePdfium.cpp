@@ -13,6 +13,7 @@
 #include <fpdfview.h>
 #include <fpdf_annot.h>
 #include <fpdf_doc.h>
+#include <fpdf_edit.h>
 #include <fpdf_text.h>
 #include <fpdf_progressive.h>
 #include <fpdf_sysfontinfo.h>
@@ -46,6 +47,14 @@
     X(FPDFText_CountChars)            \
     X(FPDFText_GetUnicode)            \
     X(FPDFText_GetCharBox)            \
+    X(FPDFText_GetMatrix)             \
+    X(FPDFText_GetCharOrigin)         \
+    X(FPDFText_GetFontSize)           \
+    X(FPDFText_GetTextObject)         \
+    X(FPDFTextObj_GetFont)            \
+    X(FPDFFont_GetAscent)             \
+    X(FPDFFont_GetDescent)            \
+    X(FPDFFont_GetGlyphWidth)         \
     X(FPDFLink_Enumerate)             \
     X(FPDFLink_GetAnnotRect)          \
     X(FPDFLink_GetDest)               \
@@ -551,6 +560,37 @@ class EnginePdfium : public EngineBase {
     }
 
     // Caller holds gPdfiumLock.
+    // A rotated glyph's corners: one advance along its baseline vector, descent to ascent along its up
+    // vector, like MuPDF's quads. PDFium only reports axis-aligned boxes, which can't be undone at 45°.
+    bool RotatedGlyphQuad(FPDF_PAGE page, PdfiumPage* info, FPDF_TEXTPAGE textPage, int i, unsigned int code,
+                          QuadF* quad) {
+        constexpr double kUprightEps = 1e-3;
+        FS_MATRIX m{};
+        if (!gPdfium.FPDFText_GetMatrix(textPage, i, &m)) {
+            return false;
+        }
+        double scale = fabs(m.a) + fabs(m.d);
+        if (fabs(m.b) <= kUprightEps * scale && fabs(m.c) <= kUprightEps * scale) {
+            return false;
+        }
+        FPDF_PAGEOBJECT obj = gPdfium.FPDFText_GetTextObject(textPage, i);
+        FPDF_FONT font = obj ? gPdfium.FPDFTextObj_GetFont(obj) : nullptr;
+        float size = (float)gPdfium.FPDFText_GetFontSize(textPage, i);
+        float ascent = 0, descent = 0, advance = 0;
+        double ox = 0, oy = 0;
+        if (!font || !(size > 0) || !gPdfium.FPDFFont_GetAscent(font, size, &ascent) ||
+            !gPdfium.FPDFFont_GetDescent(font, size, &descent) ||
+            !gPdfium.FPDFFont_GetGlyphWidth(font, code, size, &advance) || !(advance > 0) ||
+            !gPdfium.FPDFText_GetCharOrigin(textPage, i, &ox, &oy)) {
+            return false;
+        }
+        auto corner = [&](double s, double t) {
+            return ToPage(page, info, ox + s * m.a + t * m.c, oy + s * m.b + t * m.d);
+        };
+        *quad = {corner(0, ascent), corner(advance, ascent), corner(0, descent), corner(advance, descent)};
+        return true;
+    }
+
     PageText ReadPageText(FPDF_PAGE page, PdfiumPage* info) {
         PageText result;
         FPDF_TEXTPAGE textPage = gPdfium.FPDFText_LoadPage(page);
@@ -562,6 +602,8 @@ class EnginePdfium : public EngineBase {
         if (count > 0 && count <= kMaxPageChars) {
             str::Builder text;
             Vec<Rect> coords;
+            Vec<QuadF> quads;
+            bool hasRotated = false;
             for (int i = 0; i < count; i++) {
                 unsigned int code = gPdfium.FPDFText_GetUnicode(textPage, i);
                 if (!code || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) {
@@ -582,10 +624,22 @@ class EnginePdfium : public EngineBase {
                     }
                 }
                 VecAppend(coords, box);
+
+                // rotated glyphs select along their quads (#4839), upright ones use their box
+                float x0 = (float)box.x, y0 = (float)box.y, x1 = (float)(box.x + box.dx), y1 = (float)(box.y + box.dy);
+                QuadF quad{PointF(x0, y0), PointF(x1, y0), PointF(x0, y1), PointF(x1, y1)};
+                if (RotatedGlyphQuad(page, info, textPage, i, code, &quad)) {
+                    hasRotated = true;
+                }
+                VecAppend(quads, quad);
             }
             result.text = text.TakeStr();
             result.nCodepoints = len(coords);
             result.coords = VecTake(coords);
+            // like EngineMupdf: quads only add information for rotated text
+            if (hasRotated) {
+                result.quads = VecTake(quads);
+            }
         }
         gPdfium.FPDFText_ClosePage(textPage);
         return result;
