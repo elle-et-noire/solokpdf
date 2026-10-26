@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-26",
+  "change": "EnginePdfium opens and reads the file before taking gPdfiumLock, and RenderPage holds it only for FPDF_LoadPage..FPDF_ClosePage (backdrop fill and pixel conversion run outside).",
+  "method": "experiments/pdfium/benchmark-ui.ts --release --warm: Attention copied to 4 files, 1 and 4 tabs, 3 runs, no background-load gates.",
+  "before": {
+    "output": "out/solok-benchmark-warm-2026-10-26",
+    "pdfiumSha256": "b07c098e6904649c87961e92d09b1ffddfcafbfb4bad98e1b6171e1c0cf760d3",
+    "medians": {
+      "integrated-mupdf-1tabs": {
+        "firstIdleMs": 707.8,
+        "connectedMs": 696.3,
+        "runs": [726.4, 707.8, 649.2]
+      },
+      "integrated-mupdf-4tabs": {
+        "firstIdleMs": 898.3,
+        "connectedMs": 827.8,
+        "runs": [898.3, 889.5, 901.8]
+      },
+      "integrated-pdfium-1tabs": {
+        "firstIdleMs": 724.5,
+        "connectedMs": 691.3,
+        "runs": [724.5, 713.5, 747.1]
+      },
+      "integrated-pdfium-4tabs": {
+        "firstIdleMs": 966.3,
+        "connectedMs": 886.2,
+        "runs": [967.1, 961.9, 966.3]
+      }
+    }
+  },
+  "fileOutsideLock": {
+    "output": "out/solok-benchmark-warm-io-2026-10-26",
+    "pdfiumSha256": "d56656ac3b5060c124d7d5c4bc719cc7cfbc881d508763a2c420870866b1b40b",
+    "medians": {
+      "integrated-mupdf-1tabs": {
+        "firstIdleMs": 720,
+        "connectedMs": 661.9,
+        "runs": [720, 656.7, 729.1]
+      },
+      "integrated-mupdf-4tabs": {
+        "firstIdleMs": 901.8,
+        "connectedMs": 828.7,
+        "runs": [901.8, 892, 931]
+      },
+      "integrated-pdfium-1tabs": {
+        "firstIdleMs": 735.1,
+        "connectedMs": 701.1,
+        "runs": [737, 710, 735.1]
+      },
+      "integrated-pdfium-4tabs": {
+        "firstIdleMs": 951.6,
+        "connectedMs": 883.4,
+        "runs": [951.6, 950, 960.6]
+      }
+    }
+  },
+  "afterBoth": {
+    "output": "out/solok-benchmark-warm-lock-2026-10-26",
+    "pdfiumSha256": "0e71801561388f7bfd4a8bd96867b0e8007d59dbd5d4071817e9bffef6cb4f60",
+    "medians": {
+      "integrated-mupdf-1tabs": {
+        "firstIdleMs": 665,
+        "connectedMs": 637.6,
+        "runs": [683.9, 633.4, 665]
+      },
+      "integrated-mupdf-4tabs": {
+        "firstIdleMs": 924.9,
+        "connectedMs": 831.2,
+        "runs": [930.2, 896.3, 924.9]
+      },
+      "integrated-pdfium-1tabs": {
+        "firstIdleMs": 726.5,
+        "connectedMs": 702.3,
+        "runs": [709.7, 726.5, 809.1]
+      },
+      "integrated-pdfium-4tabs": {
+        "firstIdleMs": 943.5,
+        "connectedMs": 894,
+        "runs": [919.7, 1007.9, 943.5]
+      }
+    }
+  },
+  "profile": "4-tab Release profile before narrowing: file open/read 19-38 ms per document (a separate process measured 19-29 ms to open the same files); UI-thread loads waited 21-47 ms for the lock while the previous tab rendered; renders held the lock ~15-20 ms per page including fill and gray/BGR conversion.",
+  "pixels": "font-cache-check matched the earlier build hashes; debug view capture of Attention p1 byte-identical before/after."
+}

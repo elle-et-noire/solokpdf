@@ -10,7 +10,12 @@ import { processMemory, sendMessage, captureWindowToPng } from "../../tests/wina
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
   allowPositionals: true,
-  options: { release: { type: "boolean" }, before: { type: "string" }, output: { type: "string" } },
+  options: {
+    release: { type: "boolean" },
+    before: { type: "string" },
+    output: { type: "string" },
+    warm: { type: "boolean" },
+  },
 });
 const release = values.release;
 const input = resolve(positionals[0] ?? ".work/corpus/attention-1706.03762v7.pdf");
@@ -63,6 +68,19 @@ try {
           "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nShowToc = false\nRememberStatePerDocument = false\nDefaultDisplayMode = continuous\nDefaultZoom = 100\n";
         writeFileSync(join(settings, "SumatraPDF-settings.txt"), prefs);
         writeFileSync(join(settings, "SolokPDF-settings.txt"), prefs);
+        const args = [
+          "-window-pos",
+          "900x1000@0x0",
+          "-appdata",
+          settings,
+          "-log-to-file",
+          join(out, id + ".log"),
+          ...pdfs.slice(0, tabs),
+        ];
+        const env = { ...process.env, SOLOKPDF_ENGINE: variant.engine };
+        // unmeasured launch first, so the measured one finds a warm font cache
+        if (values.warm)
+          await withControlledSumatra(variant.exe, (client) => client.waitForRenderIdle(), args, { env });
         const start = performance.now();
         await withControlledSumatra(
           variant.exe,
@@ -108,16 +126,8 @@ try {
             results.push(row);
             console.log(JSON.stringify(row));
           },
-          [
-            "-window-pos",
-            "900x1000@0x0",
-            "-appdata",
-            settings,
-            "-log-to-file",
-            join(out, id + ".log"),
-            ...pdfs.slice(0, tabs),
-          ],
-          { env: { ...process.env, SOLOKPDF_ENGINE: variant.engine } },
+          args,
+          { env },
         );
         writeFileSync(
           join(out, "results.json"),
@@ -126,7 +136,7 @@ try {
               input,
               inputSha256,
               binaries,
-              conditions: `${release ? "Release" : "Debug"} x64; application PDBs temporarily unavailable for all variants; same 900x1000 window; 100% virtual zoom; fresh isolated settings; process starts, warm OS file cache; request-to-render-idle includes control/polling/UI work; not input-to-photon latency; memory is whole-process; ${values.before ? "variant order reversed on odd runs" : "fixed variant order"}`,
+              conditions: `${release ? "Release" : "Debug"} x64; application PDBs temporarily unavailable for all variants; same 900x1000 window; 100% virtual zoom; fresh isolated settings${values.warm ? " after one unmeasured launch (warm font cache)" : ""}; process starts, warm OS file cache; request-to-render-idle includes control/polling/UI work; not input-to-photon latency; memory is whole-process; ${values.before ? "variant order reversed on odd runs" : "fixed variant order"}`,
               results,
             },
             null,

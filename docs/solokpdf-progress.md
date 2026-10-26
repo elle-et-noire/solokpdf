@@ -27,7 +27,8 @@ A system font cache now cuts the first text page's load from 116–273 ms to
 31–62 ms with identical pixels; see "System font cache" below. With it, PDFium's
 direct-launch lag behind MuPDF fell to +123/+114/+10 ms (Attention/BERT/IPA).
 A startup font warm-up then saved another 91/105 ms on the text PDFs, and
-thumbnails now reuse the open engine: +26/+64/−8 ms behind MuPDF.
+thumbnails now reuse the open engine: +26/+64/−8 ms behind MuPDF. A narrower
+lock cut the 4-tab startup gap from +68 to +19 ms.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 The 2026-10-26 pass adds pixel-payload accounting and independent background-load
@@ -1489,6 +1490,24 @@ IPA −8 ms. BERT's remaining gap matches its two visible pages rendering in
 turn under the lock. `issue-5817` and `issue-6352` fail with and without this
 change: they write `SumatraPDF-settings.txt`, which SolokPDF doesn't read.
 Raw data: `out/solok-thumb-share-2026-10-26/`.
+
+### Narrower lock scope
+
+A 4-tab Release profile showed each tab's load waiting 21–47 ms for the lock
+while the previous tab rendered. Opening a file took 19–38 ms in-app; opening
+the same files from another process took 19–29 ms, so the cost is the open
+itself, not PDFium (`FPDF_LoadCustomDocument` took 0.2–3.5 ms). Renders held
+the lock for the backdrop fill and gray/BGR conversion too. Now the file is
+opened and read before the lock, and `DrawPage()` holds it only from
+`FPDF_LoadPage` to `FPDF_ClosePage`; the backdrop is a `memset` of the same
+bytes `FPDFBitmap_FillRect` wrote. `font-cache-check` matched the earlier
+hashes and a debug view capture was byte-identical.
+
+`benchmark-ui.ts --release --warm` (3 runs, no background gates), 4 tabs,
+PDFium minus MuPDF: +68 ms before, +50 ms with file I/O outside the lock,
++19 ms with both. 1-tab medians moved within noise (+17, +15, +62 ms; the
+control connected at the same time in the gated runs). Results:
+`solokpdf-lock-scope-2026-10-26.json`.
 
 ## Known limitations and next work
 

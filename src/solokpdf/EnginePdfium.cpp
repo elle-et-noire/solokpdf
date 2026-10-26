@@ -37,7 +37,6 @@
     X(FPDF_ClosePage)                 \
     X(FPDF_PageToDevice)              \
     X(FPDFBitmap_CreateEx)            \
-    X(FPDFBitmap_FillRect)            \
     X(FPDFBitmap_Destroy)             \
     X(FPDF_RenderPageBitmap_Start)    \
     X(FPDF_RenderPage_Continue)       \
@@ -717,14 +716,9 @@ class EnginePdfium : public EngineBase {
     bool Load(Str path, PasswordUI* pwdUI, TempStr* error, PdfiumFailure* failure) {
         PdfiumProfile profile(StrL("load"));
         profile.Mark(StrL("start"));
-        ScopedMutex lock(&gPdfiumLock);
-        profile.Mark(StrL("lock"));
         SetFilePath(path);
-        if (!gPdfium.Acquire(error)) {
-            return false;
-        }
-        runtime = true;
-        profile.Mark(StrL("runtime"));
+
+        // No lock for file I/O: opening alone took 20-30 ms in tests, time other tabs can render in
         file = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         LARGE_INTEGER size{};
@@ -740,6 +734,15 @@ class EnginePdfium : public EngineBase {
         }
         access.m_GetBlock = ReadBlock;
         access.m_Param = this;
+        profile.Mark(StrL("file"));
+
+        ScopedMutex lock(&gPdfiumLock);
+        profile.Mark(StrL("lock"));
+        if (!gPdfium.Acquire(error)) {
+            return false;
+        }
+        runtime = true;
+        profile.Mark(StrL("runtime"));
         doc = gPdfium.FPDF_LoadCustomDocument(&access, nullptr);
         if (!doc && gPdfium.FPDF_GetLastError() == FPDF_ERR_PASSWORD) {
             doc = LoadWithPassword(pwdUI, error, failure);
@@ -761,7 +764,9 @@ class EnginePdfium : public EngineBase {
         unsigned long permissions = gPdfium.FPDF_GetDocPermissions(doc);
         allowsPrinting = (permissions & (1UL << 2)) != 0;
         allowsCopyingText = (permissions & (1UL << 4)) != 0;
+        profile.Mark(StrL("info"));
         LoadPageLabels();
+        profile.Mark(StrL("labels"));
         logf("PDFium 158.0.8111.0: opened '%s', %d pages; no MuPDF document\n", path, pageCount);
         return true;
     }
@@ -843,6 +848,53 @@ class EnginePdfium : public EngineBase {
         return p ? RectF(0, 0, p->size.dx, p->size.dy) : RectF{};
     }
 
+    // Only this part needs the lock; pixel post-processing runs while other pages draw.
+    int DrawPage(RenderPageArgs& args, Pixmap* pixmap, double x, double y, RectF full, PdfiumCookie* cookie,
+                 PdfiumProfile& profile) {
+        ScopedMutex lock(&gPdfiumLock);
+        profile.Mark(StrL("lock"));
+        if (AtomicIntGet(&cookie->aborted)) {
+            return FPDF_RENDER_FAILED;
+        }
+        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, args.pageNo - 1);
+        if (!page) {
+            return FPDF_RENDER_FAILED;
+        }
+        profile.Mark(StrL("page"));
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            gPdfium.FPDF_ClosePage(page);
+            profile.Mark(StrL("canceled-page"));
+            return FPDF_RENDER_FAILED;
+        }
+        FPDF_BITMAP bmp =
+            gPdfium.FPDFBitmap_CreateEx(pixmap->width, pixmap->height, FPDFBitmap_BGRA, pixmap->data, pixmap->stride);
+        profile.Mark(StrL("bitmap-create"));
+        int status = FPDF_RENDER_FAILED;
+        if (bmp) {
+            int flags = hideAnnotations ? 0 : FPDF_ANNOT;
+            if (disableAntiAlias) {
+                flags |= FPDF_RENDER_NO_SMOOTHTEXT | FPDF_RENDER_NO_SMOOTHIMAGE | FPDF_RENDER_NO_SMOOTHPATH;
+            } else {
+                flags |= FPDF_LCD_TEXT;
+            }
+            if (args.target == RenderTarget::Print) {
+                flags |= FPDF_PRINTING;
+            }
+            status =
+                gPdfium.FPDF_RenderPageBitmap_Start(bmp, page, -(int)x, -(int)y, (int)ceil(full.dx), (int)ceil(full.dy),
+                                                    NormalizeRotation(args.rotation) / 90, flags, &cookie->pause);
+            while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
+                status = gPdfium.FPDF_RenderPage_Continue(page, &cookie->pause);
+            }
+            profile.Mark(StrL("draw"));
+            gPdfium.FPDF_RenderPage_Close(page);
+            gPdfium.FPDFBitmap_Destroy(bmp);
+        }
+        gPdfium.FPDF_ClosePage(page);
+        profile.Mark(StrL("bitmap"));
+        return status;
+    }
+
     Pixmap* RenderPage(RenderPageArgs& args) override {
         PdfiumProfile profile(StrL("render"), args.pageNo);
         PdfiumCookie localCookie;
@@ -881,60 +933,12 @@ class EnginePdfium : public EngineBase {
         }
         PdfiumBufferTrace bufferTrace(pixmap, profile);
         profile.Mark(StrL("setup"));
-        ScopedMutex lock(&gPdfiumLock);
-        profile.Mark(StrL("lock"));
-        if (AtomicIntGet(&cookie->aborted)) {
-            FreePixmap(pixmap);
-            return nullptr;
-        }
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, args.pageNo - 1);
-        if (!page) {
-            FreePixmap(pixmap);
-            return nullptr;
-        }
-        profile.Mark(StrL("page"));
-        if (PdfiumCookie::IsCanceled(cookie)) {
-            gPdfium.FPDF_ClosePage(page);
-            FreePixmap(pixmap);
-            profile.Mark(StrL("canceled-page"));
-            return nullptr;
-        }
-        FPDF_BITMAP bmp =
-            gPdfium.FPDFBitmap_CreateEx(pixmap->width, pixmap->height, FPDFBitmap_BGRA, pixmap->data, pixmap->stride);
-        profile.Mark(StrL("bitmap-create"));
-        int status = FPDF_RENDER_FAILED;
-        if (bmp) {
-            gPdfium.FPDFBitmap_FillRect(bmp, 0, 0, pixmap->width, pixmap->height,
-                                        args.transparentBackdrop ? 0 : 0xffffffff);
-            profile.Mark(StrL("fill"));
-            if (PdfiumCookie::IsCanceled(cookie)) {
-                gPdfium.FPDFBitmap_Destroy(bmp);
-                gPdfium.FPDF_ClosePage(page);
-                FreePixmap(pixmap);
-                profile.Mark(StrL("canceled-fill"));
-                return nullptr;
-            }
-            int flags = hideAnnotations ? 0 : FPDF_ANNOT;
-            if (disableAntiAlias) {
-                flags |= FPDF_RENDER_NO_SMOOTHTEXT | FPDF_RENDER_NO_SMOOTHIMAGE | FPDF_RENDER_NO_SMOOTHPATH;
-            } else {
-                flags |= FPDF_LCD_TEXT;
-            }
-            if (args.target == RenderTarget::Print) {
-                flags |= FPDF_PRINTING;
-            }
-            status =
-                gPdfium.FPDF_RenderPageBitmap_Start(bmp, page, -(int)x, -(int)y, (int)ceil(full.dx), (int)ceil(full.dy),
-                                                    NormalizeRotation(args.rotation) / 90, flags, &cookie->pause);
-            while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
-                status = gPdfium.FPDF_RenderPage_Continue(page, &cookie->pause);
-            }
-            profile.Mark(StrL("draw"));
-            gPdfium.FPDF_RenderPage_Close(page);
-            gPdfium.FPDFBitmap_Destroy(bmp);
-        }
-        gPdfium.FPDF_ClosePage(page);
-        profile.Mark(StrL("bitmap"));
+
+        // white or transparent backdrop, filled without the lock
+        memset(pixmap->data, args.transparentBackdrop ? 0 : 0xff, (size_t)pixmap->stride * pixmap->height);
+        profile.Mark(StrL("fill"));
+
+        int status = DrawPage(args, pixmap, x, y, full, cookie, profile);
         if (status != FPDF_RENDER_DONE || AtomicIntGet(&cookie->aborted)) {
             profile.Mark(StrL("canceled-or-failed"));
             FreePixmap(pixmap);
