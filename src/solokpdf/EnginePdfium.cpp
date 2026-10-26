@@ -70,6 +70,8 @@
     X(FPDF_GetMetaText)               \
     X(FPDF_GetPageLabel)
 
+Kind kindEnginePdfium = "enginePdfium";
+
 // PDFium forbids concurrent calls even for different documents.
 static Mutex gPdfiumLock;
 static Str gFontCacheDir;
@@ -628,7 +630,7 @@ class EnginePdfium : public EngineBase {
 
   public:
     EnginePdfium() {
-        kind = "enginePdfium";
+        kind = kindEnginePdfium;
         defaultExt = str::Dup(StrL(".pdf"));
         fileDPI = 72;
     }

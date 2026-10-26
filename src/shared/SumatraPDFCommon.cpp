@@ -1999,6 +1999,13 @@ void CreateThumbnailForFile(MainWindow* win, FileState* ds) {
         str::Eq(engine->FilePath(), ds->filePath)) {
         clone = engine->Clone();
     }
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    // PDFium runs one call at a time, so a second copy's load would only delay the view's pages
+    if (engine && engine->kind == kindEnginePdfium && str::Eq(engine->FilePath(), ds->filePath)) {
+        engine->AddRef();
+        clone = engine;
+    }
+#endif
 
     // otherwise use file-based async thumbnail creation; it's independent
     // of the tab lifecycle so it works even if the tab is closed before

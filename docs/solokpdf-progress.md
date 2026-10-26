@@ -26,7 +26,8 @@ See `solokpdf-tabgroup-2026-10-25.json` and
 A system font cache now cuts the first text page's load from 116–273 ms to
 31–62 ms with identical pixels; see "System font cache" below. With it, PDFium's
 direct-launch lag behind MuPDF fell to +123/+114/+10 ms (Attention/BERT/IPA).
-A startup font warm-up then saved another 91/105 ms on the text PDFs.
+A startup font warm-up then saved another 91/105 ms on the text PDFs, and
+thumbnails now reuse the open engine: +26/+64/−8 ms behind MuPDF.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 The 2026-10-26 pass adds pixel-payload accounting and independent background-load
@@ -1476,6 +1477,18 @@ warm-up on minus off, five pairs each: Attention −91 ms, BERT −105 ms, IPA
 +5 ms (−15 to +93). Against MuPDF, on a noisier host than the warm-cache
 pass: +13/+79/+56 ms. Closed-document Private Bytes stayed at MuPDF's level
 (77.7 vs 77.6 MiB). Results: `solokpdf-font-warmup-2026-10-26.json`.
+
+### Shared thumbnail engine
+
+The home-page thumbnail thread reopened the PDF (BERT above), adding a load
+and render under the global lock while the view rendered. For PDFium tabs it
+now takes a reference to the tab's engine instead. Every PDFium run then
+opened the document once, and BERT's thumbnail PNG was byte-identical. Against
+MuPDF (5 pairs each, warm cache and warm-up): BERT +64 ms, Attention +26 ms,
+IPA −8 ms. BERT's remaining gap matches its two visible pages rendering in
+turn under the lock. `issue-5817` and `issue-6352` fail with and without this
+change: they write `SumatraPDF-settings.txt`, which SolokPDF doesn't read.
+Raw data: `out/solok-thumb-share-2026-10-26/`.
 
 ## Known limitations and next work
 
