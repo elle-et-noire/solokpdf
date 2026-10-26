@@ -475,6 +475,146 @@ static Str themesTxt = StrL(R"(Themes [
         NotificationHighlightTextColor = #ffcb6b
         ColorizeControls = true
     ]
+    [
+        Name = Catppuccin Latte
+        TextColor = #4c4f69
+        BackgroundColor = #eff1f5
+        ControlBackgroundColor = #e6e9ef
+        ActiveTabBackgroundColor = #e6e9ef
+        InactiveTabBackgroundColor = #dce0e8
+        LinkColor = #1e66f5
+        DisabledTextColor = #9ca0b0
+        DarkerTextColor = #5c5f77
+        HotBackgroundColor = #ccd0da
+        EdgeColor = #bcc0cc
+        HotEdgeColor = #8839ef
+        DisabledEdgeColor = #dce0e8
+        ErrorBackgroundColor = #f5ccd4
+        NotificationBackgroundColor = #e6e9ef
+        NotificationHighlightColor = #f5e0b8
+        NotificationHighlightTextColor = #7a4a00
+        ColorizeControls = true
+    ]
+    [
+        Name = Catppuccin Frappe
+        TextColor = #c6d0f5
+        BackgroundColor = #303446
+        ControlBackgroundColor = #292c3c
+        ActiveTabBackgroundColor = #292c3c
+        InactiveTabBackgroundColor = #414559
+        LinkColor = #8caaee
+        DisabledTextColor = #737994
+        DarkerTextColor = #a5adce
+        HotBackgroundColor = #414559
+        EdgeColor = #51576d
+        HotEdgeColor = #ca9ee6
+        DisabledEdgeColor = #232634
+        ErrorBackgroundColor = #5e3a44
+        NotificationBackgroundColor = #292c3c
+        NotificationHighlightColor = #4a4231
+        NotificationHighlightTextColor = #e5c890
+        ColorizeControls = true
+    ]
+    [
+        Name = Catppuccin Macchiato
+        TextColor = #cad3f5
+        BackgroundColor = #24273a
+        ControlBackgroundColor = #1e2030
+        ActiveTabBackgroundColor = #1e2030
+        InactiveTabBackgroundColor = #363a4f
+        LinkColor = #8aadf4
+        DisabledTextColor = #6e738d
+        DarkerTextColor = #a5adcb
+        HotBackgroundColor = #363a4f
+        EdgeColor = #494d64
+        HotEdgeColor = #c6a0f6
+        DisabledEdgeColor = #181926
+        ErrorBackgroundColor = #5c3644
+        NotificationBackgroundColor = #1e2030
+        NotificationHighlightColor = #463e2c
+        NotificationHighlightTextColor = #eed49f
+        ColorizeControls = true
+    ]
+    [
+        Name = Gruvbox Light
+        TextColor = #3c3836
+        BackgroundColor = #fbf1c7
+        ControlBackgroundColor = #f2e5bc
+        ActiveTabBackgroundColor = #f2e5bc
+        InactiveTabBackgroundColor = #ebdbb2
+        LinkColor = #076678
+        DisabledTextColor = #928374
+        DarkerTextColor = #7c6f64
+        HotBackgroundColor = #ebdbb2
+        EdgeColor = #d5c4a1
+        HotEdgeColor = #b57614
+        DisabledEdgeColor = #ebdbb2
+        ErrorBackgroundColor = #f2c9b8
+        NotificationBackgroundColor = #f9f5d7
+        NotificationHighlightColor = #f5d78e
+        NotificationHighlightTextColor = #9d0006
+        ColorizeControls = true
+    ]
+    [
+        Name = Everforest Light
+        TextColor = #5c6a72
+        BackgroundColor = #fdf6e3
+        ControlBackgroundColor = #f4f0d9
+        ActiveTabBackgroundColor = #f4f0d9
+        InactiveTabBackgroundColor = #e6e2cc
+        LinkColor = #3a94c5
+        DisabledTextColor = #a6b0a0
+        DarkerTextColor = #829181
+        HotBackgroundColor = #efebd4
+        EdgeColor = #bdc3af
+        HotEdgeColor = #8da101
+        DisabledEdgeColor = #e6e2cc
+        ErrorBackgroundColor = #fde3da
+        NotificationBackgroundColor = #f4f0d9
+        NotificationHighlightColor = #f3dfa4
+        NotificationHighlightTextColor = #a05c00
+        ColorizeControls = true
+    ]
+    [
+        Name = Rose Pine Dawn
+        TextColor = #575279
+        BackgroundColor = #faf4ed
+        ControlBackgroundColor = #fffaf3
+        ActiveTabBackgroundColor = #fffaf3
+        InactiveTabBackgroundColor = #f2e9e1
+        LinkColor = #286983
+        DisabledTextColor = #9893a5
+        DarkerTextColor = #797593
+        HotBackgroundColor = #f4ede8
+        EdgeColor = #dfdad9
+        HotEdgeColor = #d7827e
+        DisabledEdgeColor = #f2e9e1
+        ErrorBackgroundColor = #f6dde3
+        NotificationBackgroundColor = #fffaf3
+        NotificationHighlightColor = #f6e0bd
+        NotificationHighlightTextColor = #8e5a12
+        ColorizeControls = true
+    ]
+    [
+        Name = Sepia
+        TextColor = #433422
+        BackgroundColor = #f4ecd8
+        ControlBackgroundColor = #ece2c8
+        ActiveTabBackgroundColor = #ece2c8
+        InactiveTabBackgroundColor = #e0d3b4
+        LinkColor = #2f5d8a
+        DisabledTextColor = #9c8e74
+        DarkerTextColor = #6b5a42
+        HotBackgroundColor = #e6dbbf
+        EdgeColor = #cdbf9f
+        HotEdgeColor = #8c6a3c
+        DisabledEdgeColor = #e0d3b4
+        ErrorBackgroundColor = #f0cfc4
+        NotificationBackgroundColor = #f8f2e3
+        NotificationHighlightColor = #f0dc9a
+        NotificationHighlightTextColor = #7a2e0a
+        ColorizeControls = true
+    ]
 ]
 )");
 

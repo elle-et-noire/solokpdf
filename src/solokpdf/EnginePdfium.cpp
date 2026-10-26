@@ -11,6 +11,7 @@
 #include "EngineBase.h"
 #include "EngineAll.h"
 #include "Settings.h"
+#include "PdfDarkMode.h"
 #include <psapi.h>
 #include <fpdfview.h>
 #include <fpdf_annot.h>
@@ -40,6 +41,20 @@
     X(FPDF_LoadPage)                   \
     X(FPDF_ClosePage)                  \
     X(FPDF_PageToDevice)               \
+    X(FPDFPage_CountObjects)           \
+    X(FPDFPage_GetObject)              \
+    X(FPDFPageObj_GetType)             \
+    X(FPDFPageObj_GetMatrix)           \
+    X(FPDFFormObj_CountObjects)        \
+    X(FPDFFormObj_GetObject)           \
+    X(FPDFImageObj_GetImageMetadata)   \
+    X(FPDFImageObj_GetImagePixelSize)  \
+    X(FPDFImageObj_GetBitmap)          \
+    X(FPDFBitmap_GetFormat)            \
+    X(FPDFBitmap_GetBuffer)            \
+    X(FPDFBitmap_GetWidth)             \
+    X(FPDFBitmap_GetHeight)            \
+    X(FPDFBitmap_GetStride)            \
     X(FPDFBitmap_CreateEx)             \
     X(FPDFBitmap_Destroy)              \
     X(FPDF_RenderPageBitmap_Start)     \
@@ -178,6 +193,9 @@ struct PdfiumPage {
     SizeF size;
     bool linksLoaded = false;
     Vec<IPageElement*> links;
+    // photos a themed page keeps in their colors, in page space
+    bool imagesLoaded = false;
+    Vec<RectF> images;
 };
 
 struct PdfiumProfile {
@@ -330,6 +348,23 @@ static double SnapCeil(double v) {
 }
 
 // The form fill module only draws widgets for us; it gets no-op versions of the callbacks it requires.
+// themed page colors that spare photos (DocumentColorsFollowTheme = smart)
+static bool KeepsImageColors(const RenderPageArgs& args) {
+    return args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages;
+}
+
+// a, then b
+static FS_MATRIX ConcatMatrix(const FS_MATRIX& a, const FS_MATRIX& b) {
+    FS_MATRIX r;
+    r.a = a.a * b.a + a.b * b.c;
+    r.b = a.a * b.b + a.b * b.d;
+    r.c = a.c * b.a + a.d * b.c;
+    r.d = a.c * b.b + a.d * b.d;
+    r.e = a.e * b.a + a.f * b.c + b.e;
+    r.f = a.e * b.b + a.f * b.d + b.f;
+    return r;
+}
+
 static void FormInvalidate(FPDF_FORMFILLINFO*, FPDF_PAGE, double, double, double, double) {}
 
 static void FormSetCursor(FPDF_FORMFILLINFO*, int) {}
@@ -438,6 +473,92 @@ class EnginePdfium : public EngineBase {
 
     RectF ToPageRect(FPDF_PAGE page, PdfiumPage* info, double left, double bottom, double right, double top) {
         return RectF::FromXY(ToPage(page, info, left, bottom), ToPage(page, info, right, top));
+    }
+
+    // Caller holds gPdfiumLock. Finds the photos a themed page keeps in their colors, like
+    // EngineMupdf; thin strips and 1-bit images (drawn like text) recolor with the page.
+    void CollectImages(FPDF_PAGE page, PdfiumPage* info) {
+        info->imagesLoaded = true;
+        FS_MATRIX identity{1, 0, 0, 1, 0, 0};
+        int n = gPdfium.FPDFPage_CountObjects(page);
+        for (int i = 0; i < n; i++) {
+            AddImages(page, info, gPdfium.FPDFPage_GetObject(page, i), identity, 0);
+        }
+    }
+
+    // Images in form XObjects are in form space, so `parent` maps it to the page.
+    void AddImages(FPDF_PAGE page, PdfiumPage* info, FPDF_PAGEOBJECT obj, const FS_MATRIX& parent, int depth) {
+        constexpr int kMaxFormDepth = 16;
+        FS_MATRIX m{};
+        if (!obj || !gPdfium.FPDFPageObj_GetMatrix(obj, &m)) {
+            return;
+        }
+        m = ConcatMatrix(m, parent);
+        int type = gPdfium.FPDFPageObj_GetType(obj);
+        if (type == FPDF_PAGEOBJ_FORM && depth < kMaxFormDepth) {
+            int n = gPdfium.FPDFFormObj_CountObjects(obj);
+            for (int i = 0; i < n; i++) {
+                AddImages(page, info, gPdfium.FPDFFormObj_GetObject(obj, (unsigned long)i), m, depth + 1);
+            }
+            return;
+        }
+        if (type != FPDF_PAGEOBJ_IMAGE) {
+            return;
+        }
+        FPDF_IMAGEOBJ_METADATA meta{};
+        if (gPdfium.FPDFImageObj_GetImageMetadata(obj, page, &meta) && meta.bits_per_pixel == 1) {
+            return;
+        }
+
+        // an image fills the unit square of its matrix
+        PointF c[4];
+        double unit[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+        for (int i = 0; i < 4; i++) {
+            double ux = unit[i][0], uy = unit[i][1];
+            c[i] = ToPage(page, info, m.a * ux + m.c * uy + m.e, m.b * ux + m.d * uy + m.f);
+        }
+        RectF pageBounds(0, 0, info->size.dx, info->size.dy);
+        RectF r = RectF::FromXY(c[0], c[3]).Union(RectF::FromXY(c[1], c[2])).Intersect(pageBounds);
+        if (r.IsEmpty() || PdfDarkModeIsDecorativeStripImage(r, pageBounds)) {
+            return;
+        }
+        float coverage = (r.dx * r.dy) / (pageBounds.dx * pageBounds.dy);
+        if (LooksLikePhoto(obj, coverage)) {
+            VecAppend(info->images, r);
+        }
+    }
+
+    // Caller holds gPdfiumLock. Decodes the image for EngineMupdf's photo classifier, which
+    // recolors scans, layout panels and figures on a light backdrop with the page.
+    bool LooksLikePhoto(FPDF_PAGEOBJECT obj, float coverage) {
+        constexpr u64 kMaxDecodePixels = 64 * 1024 * 1024;
+        unsigned int w = 0, h = 0;
+        if (!gPdfium.FPDFImageObj_GetImagePixelSize(obj, &w, &h) || (u64)w * h > kMaxDecodePixels) {
+            return false;
+        }
+        FPDF_BITMAP bmp = gPdfium.FPDFImageObj_GetBitmap(obj);
+        if (!bmp) {
+            return false;
+        }
+        int bytesPerPixel = 0;
+        switch (gPdfium.FPDFBitmap_GetFormat(bmp)) {
+            case FPDFBitmap_Gray:
+                bytesPerPixel = 1;
+                break;
+            case FPDFBitmap_BGR:
+                bytesPerPixel = 3;
+                break;
+            case FPDFBitmap_BGRx:
+            case FPDFBitmap_BGRA:
+                bytesPerPixel = 4;
+                break;
+        }
+        bool photo = bytesPerPixel > 0 &&
+                     PdfDarkModeShouldPreserveImagePixels(
+                         (const u8*)gPdfium.FPDFBitmap_GetBuffer(bmp), gPdfium.FPDFBitmap_GetWidth(bmp),
+                         gPdfium.FPDFBitmap_GetHeight(bmp), gPdfium.FPDFBitmap_GetStride(bmp), bytesPerPixel, coverage);
+        gPdfium.FPDFBitmap_Destroy(bmp);
+        return photo;
     }
 
     struct PdfiumDest : PageDestination {
@@ -1126,6 +1247,11 @@ class EnginePdfium : public EngineBase {
             profile.Mark(StrL("canceled-page"));
             return FPDF_RENDER_FAILED;
         }
+        auto* info = Page(args.pageNo);
+        if (info && !info->imagesLoaded && KeepsImageColors(args)) {
+            CollectImages(page, info);
+            profile.Mark(StrL("images"));
+        }
         // the form module keeps a view per loaded page; it must drop it before the page closes
         if (form) {
             gPdfium.FORM_OnAfterLoadPage(page, form);
@@ -1241,23 +1367,26 @@ class EnginePdfium : public EngineBase {
         profile.Mark(StrL("alpha"));
         if (annotEditor && !hideAnnotations) {
             float m[6];
-            TileMatrix(args, x, y, full, m);
+            TileMatrix(args.pageNo, args.zoom, args.rotation, x, y, full, m);
             EngineMupdfDrawAnnotations(annotEditor, args.pageNo, m, pixmap, args.target);
             profile.Mark(StrL("annotations"));
         }
         if (!pixmap->hasAlpha && args.target == RenderTarget::View) {
-            PixmapGrayTimes times;
-            pixmap = PixmapToGrayDib(pixmap, PdfiumCookie::IsCanceled, cookie, profile.enabled ? &times : nullptr);
-            profile.Mark(StrL("gray"));
-            if (profile.enabled) {
-                logf("PDFium gray: thread=%lu page=%d scan=%.3f alloc=%.3f copy=%.3f native=%d aborted=%d\n",
-                     GetCurrentThreadId(), args.pageNo, times.scanMs, times.allocMs, times.copyMs,
-                     (int)(pixmap->hbmp != nullptr), AtomicIntGet(&cookie->aborted));
-            }
-            if (PdfiumCookie::IsCanceled(cookie)) {
-                FreePixmap(pixmap);
-                profile.Mark(StrL("canceled-gray"));
-                return nullptr;
+            // a gray tile recolors through its palette, which can't spare the photos
+            if (!KeepsImageColors(args)) {
+                PixmapGrayTimes times;
+                pixmap = PixmapToGrayDib(pixmap, PdfiumCookie::IsCanceled, cookie, profile.enabled ? &times : nullptr);
+                profile.Mark(StrL("gray"));
+                if (profile.enabled) {
+                    logf("PDFium gray: thread=%lu page=%d scan=%.3f alloc=%.3f copy=%.3f native=%d aborted=%d\n",
+                         GetCurrentThreadId(), args.pageNo, times.scanMs, times.allocMs, times.copyMs,
+                         (int)(pixmap->hbmp != nullptr), AtomicIntGet(&cookie->aborted));
+                }
+                if (PdfiumCookie::IsCanceled(cookie)) {
+                    FreePixmap(pixmap);
+                    profile.Mark(StrL("canceled-gray"));
+                    return nullptr;
+                }
             }
             if (pixmap->format == PixmapFormat::BGRA8) {
                 pixmap = OpaqueToBgr(pixmap, &cookie->aborted);
@@ -1279,10 +1408,10 @@ class EnginePdfium : public EngineBase {
 
     // Page space to the pixels of a tile at (x, y), as DrawPage has PDFium map it: the page fills
     // a whole-pixel box.
-    void TileMatrix(RenderPageArgs& args, double x, double y, RectF full, float m[6]) {
-        PointF o = Transform(PointF(0, 0), args.pageNo, args.zoom, args.rotation);
-        PointF ux = Transform(PointF(1, 0), args.pageNo, args.zoom, args.rotation);
-        PointF uy = Transform(PointF(0, 1), args.pageNo, args.zoom, args.rotation);
+    void TileMatrix(int pageNo, float zoom, int rotation, double x, double y, RectF full, float m[6]) {
+        PointF o = Transform(PointF(0, 0), pageNo, zoom, rotation);
+        PointF ux = Transform(PointF(1, 0), pageNo, zoom, rotation);
+        PointF uy = Transform(PointF(0, 1), pageNo, zoom, rotation);
         float sx = full.dx > 0 ? (float)(ceil(full.dx) / full.dx) : 1.f;
         float sy = full.dy > 0 ? (float)(ceil(full.dy) / full.dy) : 1.f;
         m[0] = (ux.x - o.x) * sx;
@@ -1291,6 +1420,52 @@ class EnginePdfium : public EngineBase {
         m[3] = (uy.y - o.y) * sy;
         m[4] = (float)((o.x - full.x) * sx + full.x - x);
         m[5] = (float)((o.y - full.y) * sy + full.y - y);
+    }
+
+    // The photos of a tile RenderPage drew for renderPageRect, which the theme recolor leaves alone.
+    // Rounded inward: a pixel of photo edge recolored shows less than a line of untinted paper.
+    void GetBitmapRecolorSkipRects(int pageNo, float zoom, int rotation, const RectF& renderPageRect, Size bmpSize,
+                                   Vec<Rect>& skipRects) override {
+        VecClear(skipRects);
+        RectF box = PageMediabox(pageNo);
+        if (box.IsEmpty() || renderPageRect.IsEmpty() || !isfinite(zoom) || zoom <= 0) {
+            return;
+        }
+        RectF full = Transform(box, pageNo, zoom, rotation);
+        RectF area = Transform(renderPageRect, pageNo, zoom, rotation);
+        float m[6];
+        TileMatrix(pageNo, zoom, rotation, SnapFloor(area.x), SnapFloor(area.y), full, m);
+        Rect tile(0, 0, bmpSize.dx, bmpSize.dy);
+
+        ScopedMutex lock(&gPdfiumLock);
+        auto* info = Page(pageNo);
+        if (!info) {
+            return;
+        }
+        if (!info->imagesLoaded) {
+            FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+            if (!page) {
+                return;
+            }
+            CollectImages(page, info);
+            gPdfium.FPDF_ClosePage(page);
+        }
+        for (RectF& r : info->images) {
+            PointF c[4] = {r.TL(), PointF(r.x + r.dx, r.y), PointF(r.x, r.y + r.dy), r.BR()};
+            for (PointF& p : c) {
+                p = PointF(m[0] * p.x + m[2] * p.y + m[4], m[1] * p.x + m[3] * p.y + m[5]);
+            }
+            RectF dev = RectF::FromXY(c[0], c[3]).Union(RectF::FromXY(c[1], c[2]));
+            if (dev.dx < kPreservePdfImagesMinSize || dev.dy < kPreservePdfImagesMinSize) {
+                continue;
+            }
+            int x0 = (int)ceil(dev.x), y0 = (int)ceil(dev.y);
+            Rect keep = Rect::FromXY(x0, y0, (int)floor(dev.x + dev.dx), (int)floor(dev.y + dev.dy));
+            keep = keep.Intersect(tile);
+            if (!keep.IsEmpty()) {
+                VecAppend(skipRects, keep);
+            }
+        }
     }
 
     PageText ExtractPageText(int pageNo) override {

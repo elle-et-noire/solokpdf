@@ -51,8 +51,16 @@ void BuildViewDarkModeProfile(EngineBase* engine, DarkModeProfile* profile) {
     profile->linkColor = pagesDark ? ThemeWindowLinkColor() : 0;
     profile->preservePdfImages = GetPreservePdfImagesInDarkMode();
 
+    bool recolorPages = pagesDark;
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    // PDFium pages keep photo colors on light themes (Solarized Light) too
+    if (engine && engine->kind == kindEnginePdfium) {
+        recolorPages = (textCol & 0xffffff) != kColBlack || (bgCol & 0xffffff) != kColWhite;
+    }
+#endif
+
     // Reflowable documents get theme colors through CSS; bitmap recoloring would invert their images.
-    if (pagesDark && EngineUsesDocumentColorsFollowTheme(engine) && !EngineUsesReflowThemeCss(engine)) {
+    if (recolorPages && EngineUsesDocumentColorsFollowTheme(engine) && !EngineUsesReflowThemeCss(engine)) {
         bool preserve =
             GetDocumentColorsFollowTheme() != DocumentColorsFollowTheme::Legacy && profile->preservePdfImages;
         profile->mode = preserve ? PageColorMode::PreserveImages : PageColorMode::LegacyInvert;
@@ -65,6 +73,11 @@ bool EngineUsesDocumentColorsFollowTheme(EngineBase* engine) {
     if (!engine || engine->isImageCollection) {
         return false;
     }
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (engine->kind == kindEnginePdfium) {
+        return true;
+    }
+#endif
     // Native HTML engines need the same bitmap recoloring as PDF and DjVu.
     return engine->kind == kindEngineMupdf || engine->kind == kindEngineDjVu || engine->kind == kindEngineChm ||
            engine->kind == kindEngineEpub || engine->kind == kindEngineFb2 || engine->kind == kindEngineMobi ||

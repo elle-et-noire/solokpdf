@@ -47,10 +47,45 @@ static PixelColor SampleImageRgb(fz_context* ctx, fz_pixmap* pix, int x, int y) 
     return {srcRgb[0], srcRgb[1], srcRgb[2]};
 }
 
+// An image's pixels: a MuPDF pixmap, or B,G,R[,X] / gray rows from another engine.
+struct ImageSampler {
+    int w = 0;
+    int h = 0;
+    fz_context* ctx = nullptr;
+    fz_pixmap* pix = nullptr;
+    const u8* data = nullptr;
+    int stride = 0;
+    int bytesPerPixel = 0;
+
+    PixelColor At(int x, int y) const {
+        if (pix) {
+            return SampleImageRgb(ctx, pix, x, y);
+        }
+        if (!data || x < 0 || y < 0 || x >= w || y >= h) {
+            return {};
+        }
+        const u8* px = data + ((size_t)y * stride) + ((size_t)x * bytesPerPixel);
+        if (bytesPerPixel < 3) {
+            float v = (float)px[0] / 255.f;
+            return {v, v, v};
+        }
+        return {(float)px[2] / 255.f, (float)px[1] / 255.f, (float)px[0] / 255.f};
+    }
+};
+
+static ImageSampler FzSampler(fz_context* ctx, fz_pixmap* pix) {
+    ImageSampler s;
+    s.w = pix->w;
+    s.h = pix->h;
+    s.ctx = ctx;
+    s.pix = pix;
+    return s;
+}
+
 // How light the outermost ring of pixels is, and how close it is to a single
 // color. borderUniformity is 1 for a perfectly flat border and drops to 0 as
 // the mean squared RGB distance from the border's average color reaches 0.12.
-static void SampleImageBorder(fz_context* ctx, fz_pixmap* pix, ImageStats* stats) {
+static void SampleImageBorder(const ImageSampler& pix, ImageStats* stats) {
     PixelColor samples[kBorderSamplesPerEdge * 4] = {};
     int n = 0;
     int light = 0;
@@ -60,7 +95,7 @@ static void SampleImageBorder(fz_context* ctx, fz_pixmap* pix, ImageStats* stats
             return;
         }
         PixelColor& c = samples[n];
-        c = SampleImageRgb(ctx, pix, x, y);
+        c = pix.At(x, y);
         float lum = (0.2126f * c.r) + (0.7152f * c.g) + (0.0722f * c.b);
         if (lum > 0.72f) {
             light++;
@@ -68,15 +103,15 @@ static void SampleImageBorder(fz_context* ctx, fz_pixmap* pix, ImageStats* stats
         n++;
     };
 
-    int stepX = pix->w >= kBorderSamplesPerEdge ? pix->w / kBorderSamplesPerEdge : 1;
-    for (int x = 0; x < pix->w; x += stepX) {
+    int stepX = pix.w >= kBorderSamplesPerEdge ? pix.w / kBorderSamplesPerEdge : 1;
+    for (int x = 0; x < pix.w; x += stepX) {
         sampleAt(x, 0);
-        sampleAt(x, pix->h - 1);
+        sampleAt(x, pix.h - 1);
     }
-    int stepY = pix->h >= kBorderSamplesPerEdge ? pix->h / kBorderSamplesPerEdge : 1;
-    for (int y = 0; y < pix->h; y += stepY) {
+    int stepY = pix.h >= kBorderSamplesPerEdge ? pix.h / kBorderSamplesPerEdge : 1;
+    for (int y = 0; y < pix.h; y += stepY) {
         sampleAt(0, y);
-        sampleAt(pix->w - 1, y);
+        sampleAt(pix.w - 1, y);
     }
 
     float mr = 0.f, mg = 0.f, mb = 0.f;
@@ -102,6 +137,58 @@ static void SampleImageBorder(fz_context* ctx, fz_pixmap* pix, ImageStats* stats
     stats->borderUniformity = limitValue(1.f - (var / 0.12f), 0.f, 1.f);
 }
 
+// Color spread, luminance and border of a 32x32 grid of the image's pixels.
+static ImageStats ComputeImageStats(const ImageSampler& pix) {
+    ImageStats stats;
+    int buckets[4096] = {};
+    int n = 0;
+    int saturated = 0;
+    int highLum = 0;
+    float lumSum = 0.f;
+    float lumSqSum = 0.f;
+
+    int stepX = pix.w >= 32 ? pix.w / 32 : 1;
+    int stepY = pix.h >= 32 ? pix.h / 32 : 1;
+    for (int y = 0; y < pix.h; y += stepY) {
+        for (int x = 0; x < pix.w; x += stepX) {
+            PixelColor c = pix.At(x, y);
+            int ri = (int)lroundf(c.r * 255.f);
+            int gi = (int)lroundf(c.g * 255.f);
+            int bi = (int)lroundf(c.b * 255.f);
+            int bucket = ((ri >> 4) << 8) | ((gi >> 4) << 4) | (bi >> 4);
+            buckets[bucket]++;
+
+            float maxC = std::max({c.r, c.g, c.b});
+            float minC = std::min({c.r, c.g, c.b});
+            float lum = (0.2126f * c.r) + (0.7152f * c.g) + (0.0722f * c.b);
+            lumSum += lum;
+            lumSqSum += lum * lum;
+            if (maxC - minC > 0.12f) {
+                saturated++;
+            }
+            if (lum > 0.72f) {
+                highLum++;
+            }
+            n++;
+        }
+    }
+
+    int significantBuckets = 0;
+    for (int bucket : buckets) {
+        if (bucket * 100 > n) {
+            significantBuckets++;
+        }
+    }
+
+    float lumMean = lumSum / (float)n;
+    stats.significantBuckets = significantBuckets;
+    stats.lumVar = (lumSqSum / (float)n) - (lumMean * lumMean);
+    stats.satRatio = (float)saturated / (float)n;
+    stats.highLumRatio = (float)highLum / (float)n;
+    SampleImageBorder(pix, &stats);
+    return stats;
+}
+
 // Zeroed stats reject failed images in every classifier.
 static ImageStats SampleImageStats(fz_context* ctx, fz_image* image) {
     ImageStats stats;
@@ -125,53 +212,7 @@ static ImageStats SampleImageStats(fz_context* ctx, fz_image* image) {
         if (!pix || !pix->samples || pix->w <= 0 || pix->h <= 0) {
             fz_throw(ctx, FZ_ERROR_GENERIC, "empty image pixmap");
         }
-
-        int buckets[4096] = {};
-        int n = 0;
-        int saturated = 0;
-        int highLum = 0;
-        float lumSum = 0.f;
-        float lumSqSum = 0.f;
-
-        int stepX = pix->w >= 32 ? pix->w / 32 : 1;
-        int stepY = pix->h >= 32 ? pix->h / 32 : 1;
-        for (int y = 0; y < pix->h; y += stepY) {
-            for (int x = 0; x < pix->w; x += stepX) {
-                PixelColor c = SampleImageRgb(ctx, pix, x, y);
-                int ri = (int)lroundf(c.r * 255.f);
-                int gi = (int)lroundf(c.g * 255.f);
-                int bi = (int)lroundf(c.b * 255.f);
-                int bucket = ((ri >> 4) << 8) | ((gi >> 4) << 4) | (bi >> 4);
-                buckets[bucket]++;
-
-                float maxC = std::max({c.r, c.g, c.b});
-                float minC = std::min({c.r, c.g, c.b});
-                float lum = (0.2126f * c.r) + (0.7152f * c.g) + (0.0722f * c.b);
-                lumSum += lum;
-                lumSqSum += lum * lum;
-                if (maxC - minC > 0.12f) {
-                    saturated++;
-                }
-                if (lum > 0.72f) {
-                    highLum++;
-                }
-                n++;
-            }
-        }
-
-        int significantBuckets = 0;
-        for (int bucket : buckets) {
-            if (bucket * 100 > n) {
-                significantBuckets++;
-            }
-        }
-
-        float lumMean = lumSum / (float)n;
-        stats.significantBuckets = significantBuckets;
-        stats.lumVar = (lumSqSum / (float)n) - (lumMean * lumMean);
-        stats.satRatio = (float)saturated / (float)n;
-        stats.highLumRatio = (float)highLum / (float)n;
-        SampleImageBorder(ctx, pix, &stats);
+        stats = ComputeImageStats(FzSampler(ctx, pix));
     }
     fz_always(ctx) {
         if (pix) {
@@ -276,13 +317,7 @@ bool PdfDarkModePageDominantImageRecolors(fz_context* ctx, fz_image* image, floa
 }
 
 // Gate for Legacy skip-rect preserve: combines bbox size, pixel stats, and artwork heuristics.
-bool PdfDarkModeShouldPreserveEmbeddedImageRect(fz_context* ctx, fz_image* image, float pageCoverage, int devW,
-                                                int devH) {
-    if (devW < kPreservePdfImagesMinSize || devH < kPreservePdfImagesMinSize) {
-        return false;
-    }
-
-    ImageStats stats = SampleImageStats(ctx, image);
+static bool ShouldPreserveStats(const ImageStats& stats, float pageCoverage) {
     // Recolor artwork's light backdrop along with the page (#6088).
     if (LooksLikeLayoutBackground(stats) || LooksLikeLightBackdrop(stats)) {
         return false;
@@ -294,6 +329,30 @@ bool PdfDarkModeShouldPreserveEmbeddedImageRect(fz_context* ctx, fz_image* image
            !(pageCoverage < 0.14f && LooksLikePaperTextBox(stats));
 }
 
+bool PdfDarkModeShouldPreserveEmbeddedImageRect(fz_context* ctx, fz_image* image, float pageCoverage, int devW,
+                                                int devH) {
+    if (devW < kPreservePdfImagesMinSize || devH < kPreservePdfImagesMinSize) {
+        return false;
+    }
+    return ShouldPreserveStats(SampleImageStats(ctx, image), pageCoverage);
+}
+
+// The same gate for an engine without fz_image (PDFium), on the image's decoded pixels:
+// B,G,R[,X] or gray rows. A page-sized image is kept only as artwork, not as a scan.
+bool PdfDarkModeShouldPreserveImagePixels(const u8* data, int w, int h, int stride, int bytesPerPixel,
+                                          float pageCoverage) {
+    if (!data || w <= 0 || h <= 0 || bytesPerPixel <= 0 || stride < w * bytesPerPixel) {
+        return false;
+    }
+    ImageSampler pix;
+    pix.w = w;
+    pix.h = h;
+    pix.data = data;
+    pix.stride = stride;
+    pix.bytesPerPixel = bytesPerPixel;
+    return ShouldPreserveStats(ComputeImageStats(pix), pageCoverage);
+}
+
 #if IS_DEBUG
 bool PdfDarkModeImageStats_UnitTest() {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
@@ -302,15 +361,15 @@ bool PdfDarkModeImageStats_UnitTest() {
     memset(pix->samples + 39 * pix->stride, 0, 40 * pix->n);
 
     ImageStats stats;
-    SampleImageBorder(ctx, pix, &stats);
+    SampleImageBorder(FzSampler(ctx, pix), &stats);
     bool ok = stats.borderLightRatio == 88.f / 128.f && stats.borderUniformity == 0.f;
 
     fz_clear_pixmap_with_value(ctx, pix, 255);
-    SampleImageBorder(ctx, pix, &stats);
+    SampleImageBorder(FzSampler(ctx, pix), &stats);
     ok = ok && stats.borderLightRatio == 1.f && stats.borderUniformity == 1.f;
 
     fz_clear_pixmap(ctx, pix);
-    SampleImageBorder(ctx, pix, &stats);
+    SampleImageBorder(FzSampler(ctx, pix), &stats);
     ok = ok && stats.borderLightRatio == 0.f && stats.borderUniformity == 1.f;
 
     fz_drop_pixmap(ctx, pix);

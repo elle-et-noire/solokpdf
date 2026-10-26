@@ -58,6 +58,8 @@ RectF PdfDarkModeCapUnknownImagePageRect(const RectF& imgPage, float pageHeight)
 
 bool PdfDarkModeShouldPreserveEmbeddedImageRect(fz_context* ctx, fz_image* image, float pageCoverage, int devW,
                                                 int devH);
+bool PdfDarkModeShouldPreserveImagePixels(const u8* data, int w, int h, int stride, int bytesPerPixel,
+                                          float pageCoverage);
 inline bool PdfDarkModeKeepLargestRect(Vec<Rect>& rects) {
     if (len(rects) <= 1) {
         return false;

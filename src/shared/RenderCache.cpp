@@ -1448,7 +1448,6 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
             if (preserve) {
                 Size bmpSize(bmp->width, bmp->height);
                 engine->GetBitmapRecolorSkipRects(req.pageNo, req.zoom, req.rotation, req.pageRect, bmpSize, skipRects);
-                PdfDarkModeKeepLargestRect(skipRects);
                 if (len(skipRects) > 0) {
                     skipRectsPtr = &skipRects;
                 }

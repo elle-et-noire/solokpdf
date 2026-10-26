@@ -1592,6 +1592,33 @@ didn't change measurably (+31–46 ms behind MuPDF before, +46 ms after, four
 gated pairs each); the stall delayed UI work, not rendering. Raw data:
 `out/solok-uilock-{dense,light}`, `out/solok-uilock-*-run*`.
 
+## Theme page colors (2026-10-27)
+
+With `DocumentColorsFollowTheme = smart`, PDFium pages take the theme's text and
+background colors, as MuPDF's do; `EngineUsesDocumentColorsFollowTheme` used to
+exclude PDFium, so its pages stayed white under every theme. Photos keep their
+colors on dark and light themes; MuPDF keeps them on dark themes only.
+
+- The recolor is `RenderCache`'s shared bitmap pass. `EnginePdfium`
+  `GetBitmapRecolorSkipRects` reports image rects from PDFium's page objects,
+  including images in form XObjects, collected on a page's first themed render.
+- Each image is decoded once (`FPDFImageObj_GetBitmap`) for MuPDF's classifier,
+  now shared as `PdfDarkModeShouldPreserveImagePixels`: scans, layout panels and
+  figures on a flat light backdrop (#6088) recolor with the page, as do 1-bit
+  images and thin strips.
+- Themed tiles skip gray storage: a gray tile's palette recolor can't spare photos.
+  `off` renders as before; `legacy` recolors everything.
+- `RenderCache` no longer keeps only a tile's largest skip rect; MuPDF already
+  returns at most one.
+
+New themes: Catppuccin Latte/Frappe/Macchiato, Gruvbox Light, Everforest Light,
+Rose Pine Dawn, Sepia.
+
+`tests/ad-hoc-pdfium-theme.ts` checks a dark and a light theme: no white paper,
+both photos untouched, a figure's gray backdrop recolored, and `legacy` recoloring
+photos; it fails on the previous build. `issue-6088` and `issue-5911`, run with
+SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
+
 ## Known limitations and next work
 
 - PDFium currently handles ordinary file-backed PDFs. Stream/data factories,
