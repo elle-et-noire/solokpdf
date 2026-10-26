@@ -8,8 +8,12 @@ import { waitForFrame, sendCommand } from "./win-automation.ts";
 import { captureWindowToPng, sendMessage, packCoords, setProcessDpiAware } from "./winapi.ts";
 
 function fixture(): string {
+  return assemblePdf(fixtureObjects());
+}
+
+function fixtureObjects(): string[] {
   const stream = (s: string) => `<< /Length ${s.length} >>\nstream\n${s}\nendstream`;
-  return assemblePdf([
+  return [
     "<< /Type /Catalog /Pages 2 0 R /Outlines 8 0 R /Names << /Dests << /Names [(target) [4 0 R /XYZ 80 240 1.25]] >> >> >>",
     "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /CropBox [20 30 280 370] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R /Annots [10 0 R 11 0 R] >>",
@@ -21,41 +25,50 @@ function fixture(): string {
     "<< /Title (Second page) /Parent 8 0 R /Dest [4 0 R /XYZ 80 240 1.25] >>",
     "<< /Type /Annot /Subtype /Link /Rect [40 250 160 270] /Border [0 0 1] /Dest (target) >>",
     "<< /Type /Annot /Subtype /Link /Rect [40 200 160 220] /Border [0 0 1] /A << /S /URI /URI (https://arxiv.org/abs/1706.03762) >> >>",
-  ]);
+  ];
 }
 
-function rewrittenFixture(): string {
+// a comment line that grows the PDF past the engine's in-memory limit (32 MiB)
+const kBigFileHeader = `%PDF-1.4\n%${"x".repeat(33 * 1024 * 1024)}\n`;
+
+function rewrittenFixture(header?: string): string {
   const text = "BT /F1 18 Tf 40 200 Td (Rewritten by producer) Tj ET";
-  return assemblePdf([
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
-  ]);
+  return assemblePdf(
+    [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+      `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+    ],
+    { header },
+  );
 }
 
 // A LaTeX-style producer must be able to overwrite the open PDF, which then reloads.
-async function expectOverwriteReload(): Promise<void> {
-  const path = tmpPath("pdfium/overwrite.pdf");
-  writeFileSync(path, fixture(), "latin1");
+// A big file is read on demand, so the engine keeps its handle open meanwhile.
+async function expectOverwriteReload(size: "small" | "big"): Promise<void> {
+  const header = size === "big" ? kBigFileHeader : undefined;
+  const path = tmpPath(`pdfium/overwrite-${size}.pdf`);
+  writeFileSync(path, assemblePdf(fixtureObjects(), { header }), "latin1");
   await withControlledSumatra(
     EXE,
     async (client) => {
       await client.waitForRenderIdle();
-      writeFileSync(path, rewrittenFixture(), "latin1");
+      writeFileSync(path, rewrittenFixture(header), "latin1");
       for (const deadline = Date.now() + 5000; Date.now() < deadline; await Bun.sleep(50)) {
         const r = await client.request(ControlCommand.TestPageInfo);
         if (r[0] === 0 && String(r[1]).includes("pages=1 ")) {
-          console.log("Overwritten PDF reloaded");
+          console.log(`Overwritten ${size} PDF reloaded`);
           return;
         }
       }
-      throw new Error("Overwritten PDF was not reloaded");
+      throw new Error(`Overwritten ${size} PDF was not reloaded`);
     },
-    ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", tmpPath("pdfium/overwrite.log"), path],
+    ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", tmpPath(`pdfium/overwrite-${size}.log`), path],
     { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
   );
+  rmSync(path, { force: true });
 }
 
 // pages labeled i, ii, 1, 2, 3; "-named-dest 2" falls back to the page labeled "2" (page 4)
@@ -495,7 +508,8 @@ export async function testit(): Promise<void> {
   if (readFileSync(sentinel, "utf8") !== "SumatraPDF settings sentinel\n") {
     throw new Error("SumatraPDF settings were modified");
   }
-  await expectOverwriteReload();
+  await expectOverwriteReload("small");
+  await expectOverwriteReload("big");
   await expectPageLabels();
   await expectAutoLinksDisabled(autoPdf);
   await expectDestsMatchMupdf();

@@ -1589,10 +1589,10 @@ Raw maps: `out/solok-memory-map-mapped-*`.
 - The existing clipboard unit-test failure was observed on the unchanged baseline;
   its cause is unresolved. The complete unit suite is not green. No tests were
   removed or disabled.
-- Files of 32 MiB or more keep a handle without write sharing: producers
-  cannot overwrite them while open, and Save As after rename/delete reads the
-  path. `tests/ad-hoc-pdfium.ts` covers overwrite-and-reload of a small file
-  only; Save As after rename is not GUI-tested.
+- Files of 32 MiB or more keep a handle that shares writes, as MuPDF's does:
+  producers can overwrite them while open and the document reloads
+  (`tests/ad-hoc-pdfium.ts` covers small and 33 MiB files). Save As after
+  rename/delete still reads the path and is not GUI-tested.
 
 The first development milestone (native build, PDFium pages in the original
 UI, MuPDF comparison, reproducible steps and explicit gaps) has been reached.

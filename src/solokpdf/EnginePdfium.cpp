@@ -760,9 +760,11 @@ class EnginePdfium : public EngineBase {
         profile.Mark(StrL("start"));
         SetFilePath(path);
 
-        // No lock for file I/O: opening alone took 20-30 ms in tests, time other tabs can render in
-        file = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
-                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        // No lock for file I/O: opening alone took 20-30 ms in tests, time other tabs can render in.
+        // Like MuPDF's _wfopen, share writes so producers can overwrite a big file kept open; it then reloads.
+        DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+        file = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_READ, share, nullptr, OPEN_EXISTING,
+                           FILE_ATTRIBUTE_NORMAL, nullptr);
         LARGE_INTEGER size{};
         if (file == INVALID_HANDLE_VALUE || !GetFileSizeEx(file, &size) || size.QuadPart <= 0 ||
             size.QuadPart > MAXDWORD) {
