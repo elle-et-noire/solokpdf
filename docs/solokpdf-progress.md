@@ -1600,8 +1600,14 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
 - Interactive forms/widgets, JavaScript/XFA, annotation editing, signatures,
   attachments, PDF editing/merging and advanced object-level dark rendering
   need PDFium implementations. Unsupported features are reported in document
-  properties; MuPDF is the explicit compatibility route. Basic annotation
-  appearances are rendered, but form widget appearances are not promised.
+  properties; MuPDF is the explicit compatibility route.
+- Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
+  annotation except widgets, so form fields used to be blank; documents with
+  an AcroForm now get a form handle and `FPDF_FFLDraw` after each render
+  (`ad-hoc-pdfium`: 9600 widget pixels on screen and in print, as MuPDF). For
+  fields without an appearance (`NeedAppearances`) PDFium builds its own, as in
+  Chrome: its checkmark glyph and a combo box arrow differ from MuPDF's. Fields
+  can't be filled in.
 - View tiles use integer page extents. Tile edges came back from the
   transform with float error (5507.9995 px) and were floored, drawing about a
   third of high-zoom tiles a pixel off; they now snap within 0.05 px.

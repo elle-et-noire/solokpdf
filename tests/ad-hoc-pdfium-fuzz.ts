@@ -83,7 +83,7 @@ class Rng {
 
 // Three pages exercising what EnginePdfium wraps: links of every action kind, a nested
 // outline with each destination view, named destinations, page labels, an open action,
-// page boxes and rotation, rotated text and plain-text URLs.
+// page boxes and rotation, rotated text, plain-text URLs and a form field without an appearance.
 function richSeed(): string {
   const stream = (s: string) => `<< /Length ${s.length} >>\nstream\n${s}\nendstream`;
   const text1 =
@@ -92,9 +92,9 @@ function richSeed(): string {
   const text2 = "BT /F1 12 Tf 60 200 Td (second page mail@example.com) Tj ET";
   const text3 = "BT /F2 12 Tf 60 100 Td (third page) Tj ET";
   return assemblePdf([
-    "<< /Type /Catalog /Pages 2 0 R /Outlines 9 0 R /Names << /Dests 16 0 R >> /Dests 17 0 R /PageLabels << /Nums [0 << /S /r >> 1 << /S /D /St 5 /P (A-) >>] >> /OpenAction [4 0 R /XYZ 0 300 null] >>",
+    "<< /Type /Catalog /Pages 2 0 R /Outlines 9 0 R /Names << /Dests 16 0 R >> /Dests 17 0 R /PageLabels << /Nums [0 << /S /r >> 1 << /S /D /St 5 /P (A-) >>] >> /OpenAction [4 0 R /XYZ 0 300 null] /AcroForm << /Fields [23 0 R] /NeedAppearances true /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 6 0 R >> >> >> >>",
     "<< /Type /Pages /Count 3 /Kids [3 0 R 4 0 R 5 0 R] >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> >> /Contents 7 0 R /Annots [12 0 R 13 0 R 14 0 R 15 0 R 18 0 R 19 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> >> /Contents 7 0 R /Annots [12 0 R 13 0 R 14 0 R 15 0 R 18 0 R 19 0 R 23 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 300] /CropBox [20 10 380 290] /Rotate 90 /Resources << /Font << /F1 6 0 R >> >> /Contents 8 0 R >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /UserUnit 2 /Resources << /Font << /F2 20 0 R >> >> /Contents 21 0 R >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
@@ -114,6 +114,7 @@ function richSeed(): string {
     "<< /Type /Font /Subtype /TrueType /BaseFont /Calibri >>",
     stream(text3),
     "<< /Title (Child) /Parent 10 0 R /Dest [3 0 R /Fit] >>",
+    "<< /Type /Annot /Subtype /Widget /FT /Tx /T (field) /V (form value) /DA (/Helv 12 Tf 0 g) /F 4 /Rect [300 700 500 720] /P 3 0 R /MK << /BC [0 0 0] >> >>",
   ]);
 }
 

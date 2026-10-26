@@ -271,6 +271,47 @@ async function expectNamedLinkRects(): Promise<void> {
   );
 }
 
+// Form field widgets show their appearance on screen and in print, as with MuPDF: a filled text
+// field and a checked box, each a black square, about 9600 pixels at 72 DPI.
+async function expectFormWidgets(): Promise<void> {
+  const stream = (bbox: string, s: string) =>
+    `<< /Type /XObject /Subtype /Form /BBox ${bbox} /Length ${s.length} >>\nstream\n${s}\nendstream`;
+  const path = tmpPath("pdfium/form.pdf");
+  writeFileSync(
+    path,
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R 6 0 R] >> >>",
+      "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Annots [4 0 R 6 0 R] >>",
+      "<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /V (filled) /F 4 /Rect [20 300 220 340] /P 3 0 R /AP << /N 5 0 R >> >>",
+      stream("[0 0 200 40]", "0 0 0 rg 0 0 200 40 re f"),
+      "<< /Type /Annot /Subtype /Widget /FT /Btn /T (check) /V /On /AS /On /F 4 /Rect [20 200 60 240] /P 3 0 R /AP << /N << /On 7 0 R /Off 8 0 R >> >> >>",
+      stream("[0 0 40 40]", "0 0 0 rg 0 0 40 40 re f"),
+      stream("[0 0 40 40]", ""),
+    ]),
+    "latin1",
+  );
+  const counts = async (engine: string) =>
+    await withControlledSumatra(
+      EXE,
+      async (client) => {
+        const r = await request(client, ControlCommand.TestRenderViewPrint, [path]);
+        const view = Number(/viewNonwhite=(\d+)/.exec(r)?.[1] ?? 0);
+        const print = Number(/printNonwhite=(\d+)/.exec(r)?.[1] ?? 0);
+        return { view, print };
+      },
+      ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", tmpPath(`pdfium/form-${engine}.log`)],
+      { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
+    );
+  const pdfium = await counts("pdfium");
+  const mupdf = await counts("mupdf");
+  const close = (a: number, b: number) => b > 0 && Math.abs(a - b) <= 0.1 * b;
+  if (!close(pdfium.view, mupdf.view) || !close(pdfium.print, mupdf.print)) {
+    throw new Error(`Form widgets: PDFium ${JSON.stringify(pdfium)}, MuPDF ${JSON.stringify(mupdf)}`);
+  }
+  console.log(`PDFium form widgets render like MuPDF: ${JSON.stringify(pdfium)} vs ${JSON.stringify(mupdf)}`);
+}
+
 // Following a GoToR link with a named /D opens the target file at that destination, as with MuPDF.
 async function expectRemoteNamedDest(engine: string): Promise<void> {
   const dir = tmpPath(`pdfium/remote-${engine}`);
@@ -609,6 +650,7 @@ export async function testit(): Promise<void> {
   await expectPageLabels();
   await expectAutoLinksDisabled(autoPdf);
   await expectDestsMatchMupdf();
+  await expectFormWidgets();
   await expectNamedLinkRects();
   await expectRemoteNamedDest("mupdf");
   await expectRemoteNamedDest("pdfium");

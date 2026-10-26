@@ -14,6 +14,7 @@
 #include <fpdf_annot.h>
 #include <fpdf_doc.h>
 #include <fpdf_edit.h>
+#include <fpdf_formfill.h>
 #include <fpdf_text.h>
 #include <fpdf_progressive.h>
 #include <fpdf_sysfontinfo.h>
@@ -21,62 +22,68 @@
 #include "EnginePdfium.h"
 #include "SumatraLog.h"
 
-#define PDFIUM_API(X)                 \
-    X(FPDF_InitLibraryWithConfig)     \
-    X(FPDF_DestroyLibrary)            \
-    X(FPDF_GetDefaultSystemFontInfo)  \
-    X(FPDF_SetSystemFontInfo)         \
-    X(FPDF_FreeDefaultSystemFontInfo) \
-    X(FPDF_LoadCustomDocument)        \
-    X(FPDF_LoadMemDocument)           \
-    X(FPDF_CloseDocument)             \
-    X(FPDF_GetLastError)              \
-    X(FPDF_GetPageCount)              \
-    X(FPDF_GetDocPermissions)         \
-    X(FPDF_GetPageSizeByIndexF)       \
-    X(FPDF_LoadPage)                  \
-    X(FPDF_ClosePage)                 \
-    X(FPDF_PageToDevice)              \
-    X(FPDFBitmap_CreateEx)            \
-    X(FPDFBitmap_Destroy)             \
-    X(FPDF_RenderPageBitmap_Start)    \
-    X(FPDF_RenderPage_Continue)       \
-    X(FPDF_RenderPage_Close)          \
-    X(FPDFText_LoadPage)              \
-    X(FPDFText_ClosePage)             \
-    X(FPDFText_CountChars)            \
-    X(FPDFText_GetUnicode)            \
-    X(FPDFText_GetCharBox)            \
-    X(FPDFText_GetMatrix)             \
-    X(FPDFText_GetCharOrigin)         \
-    X(FPDFText_GetFontSize)           \
-    X(FPDFText_GetTextObject)         \
-    X(FPDFTextObj_GetFont)            \
-    X(FPDFFont_GetAscent)             \
-    X(FPDFFont_GetDescent)            \
-    X(FPDFFont_GetGlyphWidth)         \
-    X(FPDFLink_Enumerate)             \
-    X(FPDFLink_GetAnnotRect)          \
-    X(FPDFLink_GetDest)               \
-    X(FPDFLink_GetAction)             \
-    X(FPDFLink_GetAnnot)              \
-    X(FPDFAnnot_GetStringValue)       \
-    X(FPDFPage_CloseAnnot)            \
-    X(FPDFAction_GetType)             \
-    X(FPDFAction_GetDest)             \
-    X(FPDFAction_GetURIPath)          \
-    X(FPDFAction_GetFilePath)         \
-    X(FPDFDest_GetDestPageIndex)      \
-    X(FPDFDest_GetLocationInPage)     \
-    X(FPDFDest_GetView)               \
-    X(FPDF_GetNamedDestByName)        \
-    X(FPDFBookmark_GetFirstChild)     \
-    X(FPDFBookmark_GetNextSibling)    \
-    X(FPDFBookmark_GetTitle)          \
-    X(FPDFBookmark_GetDest)           \
-    X(FPDFBookmark_GetAction)         \
-    X(FPDF_GetMetaText)               \
-    X(FPDF_GetPageLabel)
+#define PDFIUM_API(X)                  \
+    X(FPDF_InitLibraryWithConfig)      \
+    X(FPDF_DestroyLibrary)             \
+    X(FPDF_GetDefaultSystemFontInfo)   \
+    X(FPDF_SetSystemFontInfo)          \
+    X(FPDF_FreeDefaultSystemFontInfo)  \
+    X(FPDF_LoadCustomDocument)         \
+    X(FPDF_LoadMemDocument)            \
+    X(FPDF_CloseDocument)              \
+    X(FPDF_GetLastError)               \
+    X(FPDF_GetPageCount)               \
+    X(FPDF_GetDocPermissions)          \
+    X(FPDF_GetPageSizeByIndexF)        \
+    X(FPDF_LoadPage)                   \
+    X(FPDF_ClosePage)                  \
+    X(FPDF_PageToDevice)               \
+    X(FPDFBitmap_CreateEx)             \
+    X(FPDFBitmap_Destroy)              \
+    X(FPDF_RenderPageBitmap_Start)     \
+    X(FPDF_RenderPage_Continue)        \
+    X(FPDF_RenderPage_Close)           \
+    X(FPDFText_LoadPage)               \
+    X(FPDFText_ClosePage)              \
+    X(FPDFText_CountChars)             \
+    X(FPDFText_GetUnicode)             \
+    X(FPDFText_GetCharBox)             \
+    X(FPDFText_GetMatrix)              \
+    X(FPDFText_GetCharOrigin)          \
+    X(FPDFText_GetFontSize)            \
+    X(FPDFText_GetTextObject)          \
+    X(FPDFTextObj_GetFont)             \
+    X(FPDFFont_GetAscent)              \
+    X(FPDFFont_GetDescent)             \
+    X(FPDFFont_GetGlyphWidth)          \
+    X(FPDFLink_Enumerate)              \
+    X(FPDFLink_GetAnnotRect)           \
+    X(FPDFLink_GetDest)                \
+    X(FPDFLink_GetAction)              \
+    X(FPDFLink_GetAnnot)               \
+    X(FPDFAnnot_GetStringValue)        \
+    X(FPDFPage_CloseAnnot)             \
+    X(FPDFAction_GetType)              \
+    X(FPDFAction_GetDest)              \
+    X(FPDFAction_GetURIPath)           \
+    X(FPDFAction_GetFilePath)          \
+    X(FPDFDest_GetDestPageIndex)       \
+    X(FPDFDest_GetLocationInPage)      \
+    X(FPDFDest_GetView)                \
+    X(FPDF_GetNamedDestByName)         \
+    X(FPDFBookmark_GetFirstChild)      \
+    X(FPDFBookmark_GetNextSibling)     \
+    X(FPDFBookmark_GetTitle)           \
+    X(FPDFBookmark_GetDest)            \
+    X(FPDFBookmark_GetAction)          \
+    X(FPDF_GetMetaText)                \
+    X(FPDF_GetPageLabel)               \
+    X(FPDF_GetFormType)                \
+    X(FPDFDOC_InitFormFillEnvironment) \
+    X(FPDFDOC_ExitFormFillEnvironment) \
+    X(FORM_OnAfterLoadPage)            \
+    X(FORM_OnBeforeClosePage)          \
+    X(FPDF_FFLDraw)
 
 Kind kindEnginePdfium = "enginePdfium";
 
@@ -320,8 +327,36 @@ static double SnapCeil(double v) {
     return ceil(v - kPixelSnap);
 }
 
+// The form fill module only draws widgets for us; it gets no-op versions of the callbacks it requires.
+static void FormInvalidate(FPDF_FORMFILLINFO*, FPDF_PAGE, double, double, double, double) {}
+
+static void FormSetCursor(FPDF_FORMFILLINFO*, int) {}
+
+static int FormSetTimer(FPDF_FORMFILLINFO*, int, TimerCallback) {
+    return 0;
+}
+
+static void FormKillTimer(FPDF_FORMFILLINFO*, int) {}
+
+static FPDF_SYSTEMTIME FormGetLocalTime(FPDF_FORMFILLINFO*) {
+    return {};
+}
+
+static FPDF_PAGE FormGetPage(FPDF_FORMFILLINFO*, FPDF_DOCUMENT, int) {
+    return nullptr;
+}
+
+static int FormGetRotation(FPDF_FORMFILLINFO*, FPDF_PAGE) {
+    return 0;
+}
+
+static void FormExecuteNamedAction(FPDF_FORMFILLINFO*, FPDF_BYTESTRING) {}
+
 class EnginePdfium : public EngineBase {
     FPDF_DOCUMENT doc = nullptr;
+    // widgets (form fields) are drawn only through a form handle; null without an AcroForm
+    FPDF_FORMFILLINFO formInfo{};
+    FPDF_FORMHANDLE form = nullptr;
     HANDLE file = INVALID_HANDLE_VALUE;
     Str fileData;
     FPDF_FILEACCESS access{};
@@ -811,6 +846,9 @@ class EnginePdfium : public EngineBase {
         for (auto* dest : namedDests) {
             delete dest;
         }
+        if (form) {
+            gPdfium.FPDFDOC_ExitFormFillEnvironment(form);
+        }
         if (doc) {
             gPdfium.FPDF_CloseDocument(doc);
         }
@@ -926,6 +964,18 @@ class EnginePdfium : public EngineBase {
         unsigned long permissions = gPdfium.FPDF_GetDocPermissions(doc);
         allowsPrinting = (permissions & (1UL << 2)) != 0;
         allowsCopyingText = (permissions & (1UL << 4)) != 0;
+        if (gPdfium.FPDF_GetFormType(doc) != FORMTYPE_NONE) {
+            formInfo.version = 1;
+            formInfo.FFI_Invalidate = FormInvalidate;
+            formInfo.FFI_SetCursor = FormSetCursor;
+            formInfo.FFI_SetTimer = FormSetTimer;
+            formInfo.FFI_KillTimer = FormKillTimer;
+            formInfo.FFI_GetLocalTime = FormGetLocalTime;
+            formInfo.FFI_GetPage = FormGetPage;
+            formInfo.FFI_GetRotation = FormGetRotation;
+            formInfo.FFI_ExecuteNamedAction = FormExecuteNamedAction;
+            form = gPdfium.FPDFDOC_InitFormFillEnvironment(doc, &formInfo);
+        }
         profile.Mark(StrL("info"));
         LoadPageLabels();
         profile.Mark(StrL("labels"));
@@ -1041,6 +1091,10 @@ class EnginePdfium : public EngineBase {
             profile.Mark(StrL("canceled-page"));
             return FPDF_RENDER_FAILED;
         }
+        // the form module keeps a view per loaded page; it must drop it before the page closes
+        if (form) {
+            gPdfium.FORM_OnAfterLoadPage(page, form);
+        }
         FPDF_BITMAP bmp =
             gPdfium.FPDFBitmap_CreateEx(pixmap->width, pixmap->height, FPDFBitmap_BGRA, pixmap->data, pixmap->stride);
         profile.Mark(StrL("bitmap-create"));
@@ -1055,15 +1109,24 @@ class EnginePdfium : public EngineBase {
             if (args.target == RenderTarget::Print) {
                 flags |= FPDF_PRINTING;
             }
-            status =
-                gPdfium.FPDF_RenderPageBitmap_Start(bmp, page, -(int)x, -(int)y, (int)ceil(full.dx), (int)ceil(full.dy),
-                                                    NormalizeRotation(args.rotation) / 90, flags, &cookie->pause);
+            int rotation = NormalizeRotation(args.rotation) / 90;
+            int dx = (int)ceil(full.dx), dy = (int)ceil(full.dy);
+            status = gPdfium.FPDF_RenderPageBitmap_Start(bmp, page, -(int)x, -(int)y, dx, dy, rotation, flags,
+                                                         &cookie->pause);
             while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
                 status = gPdfium.FPDF_RenderPage_Continue(page, &cookie->pause);
             }
             profile.Mark(StrL("draw"));
+            // FPDF_ANNOT draws every annotation but form field widgets, which only this draws
+            if (form && !hideAnnotations && status == FPDF_RENDER_DONE && !AtomicIntGet(&cookie->aborted)) {
+                gPdfium.FPDF_FFLDraw(form, bmp, page, -(int)x, -(int)y, dx, dy, rotation, flags);
+                profile.Mark(StrL("widgets"));
+            }
             gPdfium.FPDF_RenderPage_Close(page);
             gPdfium.FPDFBitmap_Destroy(bmp);
+        }
+        if (form) {
+            gPdfium.FORM_OnBeforeClosePage(page, form);
         }
         gPdfium.FPDF_ClosePage(page);
         profile.Mark(StrL("bitmap"));
