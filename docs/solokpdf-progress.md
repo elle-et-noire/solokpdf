@@ -1620,8 +1620,15 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
   session and from file history; both engines save identical values (scroll
   within 0.2 pt of the seed). Crash recovery, inactive-tab allocation
   attribution and hours-long leak stress remain unverified.
-- Chrome/Edge comparisons and broad malformed-PDF fuzzing
-  remain. A passing close stress check is not an exhaustive proof against races.
+- `tests/ad-hoc-pdfium-fuzz.ts` mutates a seed covering every link action,
+  outline view, named destinations, page labels, boxes/rotation and rotated
+  text (plus corpus PDFs when present) at byte and token level (extreme numbers,
+  swapped keywords, dangling/cyclic references), then renders each input and
+  reads its links, outline and text in one Debug app, flagging a crash or a
+  20 s hang. 1,150 inputs (seeds 1 and 2) found none; most still reached
+  rendering, links and the outline. Debug only: no ASan build of PDFium or the
+  app, so silent memory errors aren't caught. Chrome/Edge comparisons remain.
+  A passing close stress check is not an exhaustive proof against races.
 - The clipboard unit-test failure seen on the unchanged baseline came from this
   host: right after `GetClipboardData` the clipboard was no longer open
   (`ERROR_CLIPBOARD_NOT_OPEN`, no formats). ESET's `ebehmoni.dll` and ATOK's TIP
