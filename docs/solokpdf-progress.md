@@ -1626,7 +1626,8 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
   not joined. Text is read on first link query, not at startup; link-query
   round trips stayed within their 20–60 ms noise.
 - Annotation editing is being ported in stages; see
-  `docs/solokpdf-annotations.md` (stage 1: text markup, save).
+  `docs/solokpdf-annotations.md` (stages 1-2: text markup, notes, shapes,
+  ink, moving and resizing, save).
 - Interactive forms/widgets, JavaScript/XFA, signatures, attachments, PDF
   editing/merging and advanced object-level dark rendering need PDFium
   implementations. Unsupported features are reported in document properties;

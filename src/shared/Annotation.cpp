@@ -835,6 +835,9 @@ void SetModificationDateToNow(Annotation* annot) {
 
 // return empty if no icon
 Str IconName(Annotation* annot) {
+    if (annot && annot->backend) {
+        return annot->backend->IconName(annot);
+    }
     return ReadAnnot(annot, Str{}, [](fz_context* ctx, pdf_annot* a) {
         if (pdf_annot_has_icon_name(ctx, a)) {
             return MupdfCStrDupTemp(pdf_annot_icon_name(ctx, a));
@@ -1534,6 +1537,10 @@ void SetVertices(Annotation* annot, const Vec<PointF>& points) {
 void GetInkList(Annotation* annot, Vec<int>& strokeCounts, Vec<PointF>& points) {
     VecReset(strokeCounts);
     VecReset(points);
+    if (annot && annot->backend && annot->type == AnnotationType::Ink) {
+        annot->backend->InkList(annot, strokeCounts, points);
+        return;
+    }
     if (!IsLiveMupdf(annot) || annot->type != AnnotationType::Ink) {
         return;
     }
@@ -1615,7 +1622,7 @@ bool EraseInkStrokes(Vec<int>& strokeCounts, Vec<PointF>& points, PointF pt, flo
 }
 
 InkEraseResult EraseAnnotationInk(Annotation* annot, PointF pt, float radius) {
-    if (!IsLiveMupdf(annot) || annot->type != AnnotationType::Ink) {
+    if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Ink) {
         return InkEraseResult::None;
     }
 
@@ -1628,6 +1635,9 @@ InkEraseResult EraseAnnotationInk(Annotation* annot, PointF pt, float radius) {
     }
     if (len(strokeCounts) == 0) {
         return InkEraseResult::Empty;
+    }
+    if (annot->backend) {
+        return annot->backend->SetInkList(annot, strokeCounts, points) ? InkEraseResult::Changed : InkEraseResult::None;
     }
 
     Vec<fz_point> pts;
@@ -1658,11 +1668,18 @@ InkEraseResult EraseAnnotationInk(Annotation* annot, PointF pt, float radius) {
 }
 
 int BorderWidth(Annotation* annot) {
+    if (annot && annot->backend) {
+        return annot->backend->BorderWidth(annot);
+    }
     return ReadAnnot(annot, 0, [](fz_context* ctx, pdf_annot* a) { return (int)pdf_annot_border(ctx, a); });
 }
 
 void SetBorderWidth(Annotation* annot, int newWidth) {
     ReportIf(!annot);
+    if (annot && annot->backend) {
+        annot->backend->SetBorderWidth(annot, newWidth);
+        return;
+    }
     UpdateAnnot(annot,
                 [newWidth](fz_context* ctx, pdf_annot* a) { pdf_set_annot_border_width(ctx, a, (float)newWidth); });
 }

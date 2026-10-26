@@ -107,7 +107,14 @@
     X(FPDFAnnot_SetColor)               \
     X(FPDFAnnot_SetFlags)               \
     X(FPDFAnnot_SetAP)                  \
-    X(FPDFAnnot_GetNumberValue)
+    X(FPDFAnnot_GetNumberValue)         \
+    X(FPDFAnnot_HasKey)                 \
+    X(FPDFAnnot_GetBorder)              \
+    X(FPDFAnnot_SetBorder)              \
+    X(FPDFAnnot_GetInkListCount)        \
+    X(FPDFAnnot_GetInkListPath)         \
+    X(FPDFAnnot_AddInkStroke)           \
+    X(FPDFAnnot_RemoveInkList)
 
 Kind kindEnginePdfium = "enginePdfium";
 
@@ -209,10 +216,17 @@ struct PdfiumAnnot {
     PdfColor color = 0; // 0: none
     PdfColor interior = 0;
     int opacity = 255;
+    int borderWidth = 1;
+    // /BS overrides /Border, the only width PDFium writes
+    bool hasBorderStyle = false;
+    Str iconName;
+    Vec<int> inkCounts;
+    Vec<PointF> inkPoints;
 
     ~PdfiumAnnot() {
         str::Free(contents);
         str::Free(author);
+        str::Free(iconName);
     }
 };
 
@@ -1655,6 +1669,70 @@ class EnginePdfium : public EngineBase, public AnnotationBackend {
         }
         float opacity = 1;
         rec->opacity = gPdfium.FPDFAnnot_GetNumberValue(a, "CA", &opacity) ? (int)(opacity * 255.f + 0.5f) : 255;
+        float rx = 0, ry = 0, width = 1;
+        rec->borderWidth = gPdfium.FPDFAnnot_GetBorder(a, &rx, &ry, &width) ? (int)(width + 0.5f) : 1;
+        rec->hasBorderStyle = gPdfium.FPDFAnnot_HasKey(a, "BS");
+        str::Free(rec->iconName);
+        rec->iconName = AnnotString(a, "Name");
+        ReadInk(page, info, a, rec);
+    }
+
+    void ReadInk(FPDF_PAGE page, PdfiumPage* info, FPDF_ANNOTATION a, PdfiumAnnot* rec) {
+        VecClear(rec->inkCounts);
+        VecClear(rec->inkPoints);
+        constexpr unsigned long kMaxPoints = 1000000;
+        unsigned long nStrokes = gPdfium.FPDFAnnot_GetInkListCount(a);
+        unsigned long total = 0;
+        for (unsigned long i = 0; i < nStrokes; i++) {
+            unsigned long n = gPdfium.FPDFAnnot_GetInkListPath(a, i, nullptr, 0);
+            if (n == 0 || total + n > kMaxPoints) {
+                continue;
+            }
+            FS_POINTF* pts = AllocArrayTemp<FS_POINTF>((int)n);
+            if (gPdfium.FPDFAnnot_GetInkListPath(a, i, pts, n) != n) {
+                continue;
+            }
+            for (unsigned long k = 0; k < n; k++) {
+                VecAppend(rec->inkPoints, ToPage(page, info, pts[k].x, pts[k].y));
+            }
+            VecAppend(rec->inkCounts, (int)n);
+            total += n;
+        }
+    }
+
+    // Replaces /InkList; /Rect is the strokes' extent plus half the line width, as MuPDF sets it.
+    bool WriteInk(FPDF_PAGE page, PdfiumPage* info, FPDF_ANNOTATION a, const Vec<int>& counts,
+                  const Vec<PointF>& points, int width) {
+        if (len(points) == 0) {
+            return false;
+        }
+        gPdfium.FPDFAnnot_SetAP(a, FPDF_ANNOT_APPEARANCEMODE_NORMAL, nullptr);
+        gPdfium.FPDFAnnot_RemoveInkList(a);
+        Vec<FS_POINTF> stroke;
+        int start = 0;
+        for (int count : counts) {
+            VecClear(stroke);
+            for (int i = start; i < start + count && i < len(points); i++) {
+                double x = 0, y = 0;
+                FromPage(page, info, points[i], &x, &y);
+                VecAppend(stroke, FS_POINTF{(float)x, (float)y});
+            }
+            start += count;
+            if (len(stroke) > 0 && gPdfium.FPDFAnnot_AddInkStroke(a, stroke.els, (size_t)len(stroke)) < 0) {
+                return false;
+            }
+        }
+        PointF lo = points[0];
+        PointF hi = points[0];
+        for (PointF p : points) {
+            lo = {std::min(lo.x, p.x), std::min(lo.y, p.y)};
+            hi = {std::max(hi.x, p.x), std::max(hi.y, p.y)};
+        }
+        RectF r = RectF::FromXY(lo, hi);
+        float half = (float)width / 2.f;
+        r.Inflate(half, half);
+        FS_RECTF pr = ToPdfRect(page, info, r);
+        return gPdfium.FPDFAnnot_SetRect(a, &pr);
     }
 
     Annotation* NewAnnotation(AnnotationType type, int pageNo, PdfiumAnnot* rec) {
@@ -1790,25 +1868,88 @@ class EnginePdfium : public EngineBase, public AnnotationBackend {
         return best;
     }
 
-    // MuPDF's defaults for new text markup
-    static PdfColor DefaultMarkupColor(AnnotationType type) {
+    static bool CanCreate(AnnotationType type) {
         switch (type) {
-            case AnnotationType::Highlight:
-                return MkPdfColor(0xff, 0xff, 0);
-            case AnnotationType::Underline:
-                return MkPdfColor(0, 0xff, 0);
-            case AnnotationType::StrikeOut:
-                return MkPdfColor(0xff, 0, 0);
+            case AnnotationType::Text:
+            case AnnotationType::Square:
+            case AnnotationType::Circle:
+            case AnnotationType::Ink:
+                return true;
             default:
-                return MkPdfColor(0xff, 0, 0xff);
+                return AnnotationIsTextMarkup(type);
         }
     }
 
-    // Text markup only, so far; the caller sets its quads (MakeAnnotationsFromSelection).
-    Annotation* Create(int pageNo, PointF, AnnotCreateArgs* args) override {
+    // the ink the user drew, or MuPDF's default zigzag at pos
+    static void NewInk(PointF pos, AnnotCreateArgs* args, Vec<int>& counts, Vec<PointF>& points) {
+        int total = 0;
+        if (args->inkStrokeCounts && args->inkPoints) {
+            for (int count : *args->inkStrokeCounts) {
+                total = count > 0 && total >= 0 ? total + count : -1;
+            }
+        }
+        if (total > 0 && total == len(*args->inkPoints)) {
+            VecAppendVec(counts, *args->inkStrokeCounts);
+            VecAppendVec(points, *args->inkPoints);
+            return;
+        }
+        const PointF zigzag[] = {{0, 30}, {15, 5}, {30, 45}, {48, 10}, {65, 40}, {85, 15}};
+        for (PointF p : zigzag) {
+            VecAppend(points, PointF{pos.x + p.x, pos.y + p.y});
+        }
+        VecAppend(counts, dimofi(zigzag));
+    }
+
+    // Geometry, border and fill of a new note, shape or ink, with MuPDF's defaults.
+    bool InitShape(FPDF_PAGE page, PdfiumPage* info, FPDF_ANNOTATION a, PointF pos, AnnotCreateArgs* args,
+                   int opacity) {
         AnnotationType type = args->annotType;
-        logf("TMP Create page=%d type=%d\n", pageNo, (int)type);
-        if (!AnnotationIsTextMarkup(type)) {
+        int width = args->borderWidth >= 0 ? args->borderWidth : 1;
+        if (type != AnnotationType::Text) {
+            gPdfium.FPDFAnnot_SetBorder(a, 0, 0, (float)width);
+        }
+        ParsedColor& fill = args->interiorCol;
+        if (fill.parsedOk && fill.pdfCol != 0 && AnnotationSupportsInteriorColor(type)) {
+            u8 r, g, b, alpha;
+            UnpackPdfColor(fill.pdfCol, r, g, b, alpha);
+            WriteColor(a, true, MkPdfColor(r, g, b, 0xff), opacity);
+        }
+        if (type == AnnotationType::Ink) {
+            Vec<int> counts;
+            Vec<PointF> points;
+            NewInk(pos, args, counts, points);
+            return WriteInk(page, info, a, counts, points, width);
+        }
+        // PDFium draws a note's icon 20 units square, and resizes /Rect to that
+        constexpr float kNoteSize = 20;
+        RectF r = args->hasRect ? args->rect : RectF{pos.x, pos.y, 100, 50};
+        if (type == AnnotationType::Text) {
+            r = {pos.x, pos.y, kNoteSize, kNoteSize};
+        }
+        FS_RECTF pr = ToPdfRect(page, info, r);
+        return gPdfium.FPDFAnnot_SetRect(a, &pr);
+    }
+
+    // MuPDF's defaults for new annotations
+    static PdfColor DefaultColor(AnnotationType type) {
+        switch (type) {
+            case AnnotationType::Highlight:
+            case AnnotationType::Text:
+                return MkPdfColor(0xff, 0xff, 0);
+            case AnnotationType::Underline:
+                return MkPdfColor(0, 0xff, 0);
+            case AnnotationType::Squiggly:
+                return MkPdfColor(0xff, 0, 0xff);
+            default:
+                return MkPdfColor(0xff, 0, 0);
+        }
+    }
+
+    // Text markup gets its quads from the caller (MakeAnnotationsFromSelection). A note's icon
+    // can't be chosen: PDFium can't write /Name.
+    Annotation* Create(int pageNo, PointF pos, AnnotCreateArgs* args) override {
+        AnnotationType type = args->annotType;
+        if (!CanCreate(type)) {
             return nullptr;
         }
         ScopedMutex lock(&gPdfiumLock);
@@ -1834,11 +1975,19 @@ class EnginePdfium : public EngineBase, public AnnotationBackend {
                 SetAnnotString(a, "Contents", args->content);
             }
             // like EngineMupdfCreateAnnotation: the color's alpha is the opacity, unless given
-            PdfColor col = args->col.parsedOk ? args->col.pdfCol : DefaultMarkupColor(type);
+            bool hasCol = args->col.parsedOk && args->col.pdfCol != 0;
+            PdfColor col = hasCol ? args->col.pdfCol : DefaultColor(type);
             u8 r, g, b, alpha;
             UnpackPdfColor(col, r, g, b, alpha);
             int opacity = args->opacity < 100 ? (args->opacity * 255) / 100 : alpha;
             WriteColor(a, false, MkPdfColor(r, g, b, 0xff), opacity);
+            if (!AnnotationIsTextMarkup(type) && !InitShape(page, info, a, pos, args, opacity)) {
+                int idx = gPdfium.FPDFPage_GetAnnotIndex(page, a);
+                gPdfium.FPDFPage_CloseAnnot(a);
+                gPdfium.FPDFPage_RemoveAnnot(page, idx);
+                gPdfium.FPDF_ClosePage(page);
+                return nullptr;
+            }
             auto* rec = new PdfiumAnnot();
             rec->index = gPdfium.FPDFPage_GetAnnotIndex(page, a);
             ReadAnnot(page, info, a, rec);
@@ -1932,8 +2081,21 @@ class EnginePdfium : public EngineBase, public AnnotationBackend {
         return rec ? AnnotBounds(rec) : (annot ? annot->bounds : RectF{});
     }
 
+    // Ink moves its strokes (it can't be resized). Line and polygon geometry is /L and
+    // /Vertices, which PDFium can't write; moving /Rect alone would leave it behind.
     void SetRect(Annotation* annot, RectF r) override {
-        EditAnnot(annot, [&](FPDF_PAGE page, PdfiumPage* info, FPDF_ANNOTATION a, PdfiumAnnot*) {
+        AnnotationType type = annot ? annot->type : AnnotationType::Unknown;
+        if (type == AnnotationType::Line || type == AnnotationType::Polygon || type == AnnotationType::PolyLine) {
+            return;
+        }
+        EditAnnot(annot, [&](FPDF_PAGE page, PdfiumPage* info, FPDF_ANNOTATION a, PdfiumAnnot* rec) {
+            if (type == AnnotationType::Ink) {
+                Vec<PointF> moved;
+                for (PointF p : rec->inkPoints) {
+                    VecAppend(moved, PointF{p.x + r.x - rec->rect.x, p.y + r.y - rec->rect.y});
+                }
+                return WriteInk(page, info, a, rec->inkCounts, moved, rec->borderWidth);
+            }
             DropAppearance(a, annot);
             FS_RECTF pr = ToPdfRect(page, info, r);
             return (bool)gPdfium.FPDFAnnot_SetRect(a, &pr);
@@ -2050,6 +2212,49 @@ class EnginePdfium : public EngineBase, public AnnotationBackend {
             }
             DropAppearance(a, annot);
             return WriteColor(a, false, rec->color, opacity);
+        });
+    }
+
+    int BorderWidth(Annotation* annot) override {
+        ScopedMutex lock(&gPdfiumLock);
+        PdfiumAnnot* rec = Record(annot);
+        return rec ? rec->borderWidth : 0;
+    }
+
+    // PDFium writes /Border only, which a /BS width overrides
+    void SetBorderWidth(Annotation* annot, int width) override {
+        EditAnnot(annot, [&](FPDF_PAGE page, PdfiumPage* info, FPDF_ANNOTATION a, PdfiumAnnot* rec) {
+            if (width < 0 || width == rec->borderWidth || rec->hasBorderStyle) {
+                return false;
+            }
+            if (!gPdfium.FPDFAnnot_SetBorder(a, 0, 0, (float)width)) {
+                return false;
+            }
+            if (annot->type == AnnotationType::Ink) {
+                WriteInk(page, info, a, rec->inkCounts, rec->inkPoints, width);
+            }
+            return true;
+        });
+    }
+
+    Str IconName(Annotation* annot) override {
+        ScopedMutex lock(&gPdfiumLock);
+        PdfiumAnnot* rec = Record(annot);
+        return rec ? str::DupTemp(rec->iconName) : Str{};
+    }
+
+    void InkList(Annotation* annot, Vec<int>& counts, Vec<PointF>& points) override {
+        ScopedMutex lock(&gPdfiumLock);
+        PdfiumAnnot* rec = Record(annot);
+        if (rec) {
+            VecAppendVec(counts, rec->inkCounts);
+            VecAppendVec(points, rec->inkPoints);
+        }
+    }
+
+    bool SetInkList(Annotation* annot, const Vec<int>& counts, const Vec<PointF>& points) override {
+        return EditAnnot(annot, [&](FPDF_PAGE page, PdfiumPage* info, FPDF_ANNOTATION a, PdfiumAnnot* rec) {
+            return WriteInk(page, info, a, counts, points, rec->borderWidth);
         });
     }
 

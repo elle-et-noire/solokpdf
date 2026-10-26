@@ -33,6 +33,11 @@ struct AnnotationBackend {
     virtual bool SetColor(Annotation*, PdfColor, bool interior) = 0;
     virtual int Opacity(Annotation*) = 0; // 0-255
     virtual void SetOpacity(Annotation*, int) = 0;
+    virtual int BorderWidth(Annotation*) = 0;
+    virtual void SetBorderWidth(Annotation*, int) = 0;
+    virtual Str IconName(Annotation*) = 0; // temp
+    virtual void InkList(Annotation*, Vec<int>& strokeCounts, Vec<PointF>& points) = 0;
+    virtual bool SetInkList(Annotation*, const Vec<int>& strokeCounts, const Vec<PointF>& points) = 0;
     // removes it from the document and the backend; the caller deletes the Annotation
     virtual void Delete(Annotation*) = 0;
 };
