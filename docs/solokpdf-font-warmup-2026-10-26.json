@@ -1,0 +1,146 @@
+{
+  "date": "2026-10-26",
+  "change": "StartPdfiumWarmUp loads a one-page in-memory PDF with unembedded Helvetica on a background thread at startup, so PDFium builds its system font list before the first document; the runtime reference is kept.",
+  "method": "experiments/pdfium/direct-startup-ui.ts --warm (font cache replayed in every PDFium run). A/B: same exe, SOLOKPDF_WARMUP=1 vs 0, order alternated, five pairs per PDF.",
+  "warmupAB": {
+    "output": "out/solok-warmup-ab-2026-10-26",
+    "exeSha256": "15d8d778c05aed160b703faafa8976ede0d4bda24db8fe001ed22854b215a2ad",
+    "variants": ["pdfium", "pdfium-nowarmup"],
+    "status": "complete",
+    "results": [
+      {
+        "pdf": "ipa-2026-soshiki.pdf",
+        "qualifyingPairs": 5,
+        "medianFirstIdleMs": {
+          "pdfium": 787.9,
+          "pdfium-nowarmup": 753.3
+        },
+        "medianPairedDeltaMs": 4.9,
+        "pairedDeltasMs": [-15.4, 92.9, 34.7, 4.9, -15]
+      },
+      {
+        "pdf": "attention-1706.03762v7.pdf",
+        "qualifyingPairs": 5,
+        "medianFirstIdleMs": {
+          "pdfium": 731.6,
+          "pdfium-nowarmup": 815.7
+        },
+        "medianPairedDeltaMs": -91.2,
+        "pairedDeltasMs": [-81.8, -122.1, -26.3, -91.2, -123.7]
+      },
+      {
+        "pdf": "bert-1810.04805.pdf",
+        "qualifyingPairs": 5,
+        "medianFirstIdleMs": {
+          "pdfium": 702.8,
+          "pdfium-nowarmup": 793.6
+        },
+        "medianPairedDeltaMs": -104.7,
+        "pairedDeltasMs": [-76.3, -117, -80.3, -139.3, -104.7]
+      }
+    ],
+    "excludedPairs": 6
+  },
+  "vsMupdf": {
+    "output": "out/solok-direct-startup-prewarm-2026-10-26",
+    "exeSha256": "7901ac99a99bc40630064a6c91ef4cc16310ac2447e359a3e996654b71b55be4",
+    "variants": ["pdfium", "mupdf"],
+    "status": "complete",
+    "results": [
+      {
+        "pdf": "attention-1706.03762v7.pdf",
+        "qualifyingPairs": 3,
+        "medianFirstIdleMs": {
+          "pdfium": 717.1,
+          "mupdf": 708.8
+        },
+        "medianPairedDeltaMs": 12.7,
+        "pairedDeltasMs": [12.7, 47.9, 7]
+      },
+      {
+        "pdf": "bert-1810.04805.pdf",
+        "qualifyingPairs": 3,
+        "medianFirstIdleMs": {
+          "pdfium": 766.8,
+          "mupdf": 698.9
+        },
+        "medianPairedDeltaMs": 78.8,
+        "pairedDeltasMs": [79.1, 14.8, 78.8]
+      },
+      {
+        "pdf": "ipa-2026-soshiki.pdf",
+        "qualifyingPairs": 3,
+        "medianFirstIdleMs": {
+          "pdfium": 798.2,
+          "mupdf": 742.4
+        },
+        "medianPairedDeltaMs": 55.8,
+        "pairedDeltasMs": [25.9, 55.8, 62.2]
+      }
+    ],
+    "excludedPairs": 5
+  },
+  "pixels": {
+    "gate": "experiments/pdfium/font-cache-check.ts --runs 2",
+    "matches": true,
+    "sameHashesAsPreviousBuild": true,
+    "exeSha256": "7901ac99a99bc40630064a6c91ef4cc16310ac2447e359a3e996654b71b55be4",
+    "firstPageLoadMs": [
+      {
+        "name": "attention",
+        "run": 0,
+        "rows": [
+          ["off", 13.5],
+          ["recorded", 9.8],
+          ["replayed", 3.5]
+        ]
+      },
+      {
+        "name": "bert",
+        "run": 0,
+        "rows": [
+          ["off", 5.9],
+          ["recorded", 8.3],
+          ["replayed", 6.1]
+        ]
+      },
+      {
+        "name": "ipa",
+        "run": 0,
+        "rows": [
+          ["off", 8.9],
+          ["recorded", 8.4],
+          ["replayed", 10]
+        ]
+      },
+      {
+        "name": "attention",
+        "run": 1,
+        "rows": [
+          ["off", 4.9],
+          ["recorded", 8.5],
+          ["replayed", 4.6]
+        ]
+      },
+      {
+        "name": "bert",
+        "run": 1,
+        "rows": [
+          ["off", 9.7],
+          ["recorded", 6.5],
+          ["replayed", 5.7]
+        ]
+      },
+      {
+        "name": "ipa",
+        "run": 1,
+        "rows": [
+          ["off", 10.2],
+          ["recorded", 10.8],
+          ["replayed", 9.4]
+        ]
+      }
+    ]
+  },
+  "profile": "out/solok-direct-startup-prewarm-profile-2026-10-26: warm-up took 43-54 ms and finished before the document load took the lock (lock wait 0.002-0.003 ms)."
+}

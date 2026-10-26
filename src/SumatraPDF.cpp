@@ -16036,6 +16036,9 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     UpdateSettings(flags);
 #if defined(SOLOKPDF_PDFIUM)
     SetPdfiumFontCacheDir(GetAppDataDirTemp());
+    if (PdfiumRequested()) {
+        StartPdfiumWarmUp();
+    }
 #endif
 
     // UpdateDocumentColors() keeps it in sync after this

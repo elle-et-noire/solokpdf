@@ -26,6 +26,7 @@ See `solokpdf-tabgroup-2026-10-25.json` and
 A system font cache now cuts the first text page's load from 116–273 ms to
 31–62 ms with identical pixels; see "System font cache" below. With it, PDFium's
 direct-launch lag behind MuPDF fell to +123/+114/+10 ms (Attention/BERT/IPA).
+A startup font warm-up then saved another 91/105 ms on the text PDFs.
 
 Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 The 2026-10-26 pass adds pixel-payload accounting and independent background-load
@@ -1457,6 +1458,24 @@ pages render one after the other under `gPdfiumLock`, page 1 waiting 49–52 ms;
 its load then took 45–53 ms, 42–51 ms of it the font replay. On BERT the
 start-page thumbnail thread opened the PDF again and waited 118–136 ms for the
 lock. Results: `solokpdf-direct-startup-warm-2026-10-26.json`.
+
+### Startup font warm-up
+
+`StartPdfiumWarmUp()` runs at startup when PDFium is the engine: a background
+thread loads a one-page in-memory PDF with unembedded Helvetica, so PDFium
+builds its font list while the window starts. It keeps its runtime reference,
+so the list also serves documents opened after others close (before, closing
+the last PDF destroyed the library and the next one enumerated again).
+`SOLOKPDF_WARMUP=0` disables it. Every document now pays the enumeration once
+in the background, including IPA-like ones that never needed it.
+
+Profiles: the warm-up took 43–54 ms and ended before the document load took
+the lock. `font-cache-check.ts` (2 rounds) matched off/cold/warm and the
+previous build's hashes; first-page loads fell to 3–14 ms. Same-exe A/B,
+warm-up on minus off, five pairs each: Attention −91 ms, BERT −105 ms, IPA
++5 ms (−15 to +93). Against MuPDF, on a noisier host than the warm-cache
+pass: +13/+79/+56 ms. Closed-document Private Bytes stayed at MuPDF's level
+(77.7 vs 77.6 MiB). Results: `solokpdf-font-warmup-2026-10-26.json`.
 
 ## Known limitations and next work
 

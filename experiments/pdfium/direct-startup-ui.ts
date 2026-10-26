@@ -33,6 +33,7 @@ async function main() {
       runs: { type: "string", default: "3" },
       profile: { type: "boolean" },
       warm: { type: "boolean" },
+      variants: { type: "string", default: "pdfium,mupdf" },
     },
   });
   if (!positionals.length) throw new Error("Pass ordinary PDFs to compare");
@@ -48,7 +49,14 @@ async function main() {
       name,
       sha256: hash(join(dirname(exe), name)),
     })),
-    variants = ["pdfium", "mupdf"];
+    variants = values.variants!.split(",");
+  if (variants.length !== 2) throw new Error("Pass two variants");
+  // "pdfium-nowarmup" is PDFium without the startup font warm-up
+  const variantEnv = (variant: string) => ({
+    ...process.env,
+    SOLOKPDF_ENGINE: variant.startsWith("pdfium") ? "pdfium" : variant,
+    SOLOKPDF_WARMUP: variant.endsWith("-nowarmup") ? "0" : "1",
+  });
   const rows: any[] = [],
     pairs: any[] = [],
     gates: any[] = [];
@@ -67,6 +75,7 @@ async function main() {
           runs,
           profile: !!values.profile,
           warm: !!values.warm,
+          variants,
           status,
           conditions:
             "Same Release exe/DLLs; PDF passed on process command line; -for-testing; fresh isolated settings; 900x1000, 100% zoom; warm OS file cache; app PDBs hidden. Launch to render idle includes control and polling. Independent Bun monitor is ready before target spawn and attaches immediately after it. First memory sample at render idle, second after 1s; cache info is read after monitoring; close sample after 1s. Background includes harness/OS and excludes target CPU. Profile runs are diagnostic only.",
@@ -108,7 +117,7 @@ async function main() {
     const pipe = uniquePipeName(),
       proc = Bun.spawn(
         [exe, "-for-testing", "-dbg-control", pipe, "-appdata", settings, "-window-pos", "900x1000@0x0", pdf],
-        { stdout: "ignore", stderr: "ignore", env: { ...process.env, SOLOKPDF_ENGINE: engine } },
+        { stdout: "ignore", stderr: "ignore", env: variantEnv(engine) },
       );
     try {
       const client = await ControlClient.connect(pipe, 30000);
@@ -183,7 +192,7 @@ async function main() {
         {
           stdout: "ignore",
           stderr: "pipe",
-          env: { ...process.env, SOLOKPDF_ENGINE: engine, SOLOKPDF_PROFILE: values.profile ? "1" : "0" },
+          env: { ...variantEnv(engine), SOLOKPDF_PROFILE: values.profile ? "1" : "0" },
         },
       );
       const stderr = new Response(proc.stderr).text();
@@ -278,7 +287,7 @@ async function main() {
     }
     const appLog = readFileSync(log, "utf8");
     if (
-      engine === "pdfium" &&
+      engine.startsWith("pdfium") &&
       (!appLog.includes("PDFium 158.0.8111.0: opened") || appLog.includes("Using MuPDF fallback"))
     )
       throw new Error("PDFium was not used");

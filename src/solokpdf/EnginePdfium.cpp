@@ -27,6 +27,7 @@
     X(FPDF_SetSystemFontInfo)         \
     X(FPDF_FreeDefaultSystemFontInfo) \
     X(FPDF_LoadCustomDocument)        \
+    X(FPDF_LoadMemDocument)           \
     X(FPDF_CloseDocument)             \
     X(FPDF_GetLastError)              \
     X(FPDF_GetPageCount)              \
@@ -1136,6 +1137,62 @@ class EnginePdfium : public EngineBase {
 // Where the system font cache lives; without it PDFium enumerates fonts uncached.
 void SetPdfiumFontCacheDir(Str dir) {
     str::ReplaceWithCopy(&gFontCacheDir, dir);
+}
+
+// One page showing "a" in unembedded Helvetica: loading it makes PDFium build its system font list.
+static const char kFontProbePdf[] =
+    "%PDF-1.4\n"
+    "1 0 obj<</Type/Catalog/Pages 2 0 R>>\n"
+    "endobj\n"
+    "2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>\n"
+    "endobj\n"
+    "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 10 10]/Resources<</Font<</F1 5 0 R>>>>/Contents 4 0 R>>\n"
+    "endobj\n"
+    "4 0 obj<</Length 22>>stream\n"
+    "BT /F1 12 Tf (a) Tj ET\n"
+    "endstream\n"
+    "endobj\n"
+    "5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>\n"
+    "endobj\n"
+    "xref\n"
+    "0 6\n"
+    "0000000000 65535 f \n"
+    "0000000009 00000 n \n"
+    "0000000053 00000 n \n"
+    "0000000103 00000 n \n"
+    "0000000212 00000 n \n"
+    "0000000280 00000 n \n"
+    "trailer<</Size 6/Root 1 0 R>>\n"
+    "startxref\n"
+    "342\n"
+    "%%EOF\n";
+
+// Builds the font list while the window starts, so the first text page doesn't wait for it.
+// The runtime reference is never released: the list then also serves documents opened later.
+static void WarmUpPdfium() {
+    PdfiumProfile profile(StrL("warmup"));
+    ScopedMutex lock(&gPdfiumLock);
+    TempStr error;
+    if (!gPdfium.Acquire(&error)) {
+        return;
+    }
+    FPDF_DOCUMENT doc = gPdfium.FPDF_LoadMemDocument(kFontProbePdf, sizeof(kFontProbePdf) - 1, nullptr);
+    FPDF_PAGE page = doc ? gPdfium.FPDF_LoadPage(doc, 0) : nullptr;
+    if (page) {
+        gPdfium.FPDF_ClosePage(page);
+    }
+    if (doc) {
+        gPdfium.FPDF_CloseDocument(doc);
+    }
+    profile.Mark(StrL("fonts"));
+}
+
+void StartPdfiumWarmUp() {
+    WCHAR value[2]{};
+    if (GetEnvironmentVariableW(L"SOLOKPDF_WARMUP", value, dimofi(value)) == 1 && value[0] == L'0') {
+        return;
+    }
+    RunAsync(MkFunc0Void(WarmUpPdfium), StrL("PdfiumWarmUp"));
 }
 
 bool PdfiumRequested() {
