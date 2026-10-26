@@ -671,22 +671,45 @@ class EnginePdfium : public EngineBase {
         }
     }
 
-    // PDFium reports First/Last/Prev/NextPage actions only as unsupported; MuPDF reads them, like /OpenAction.
-    void AddNamedLinks(int pageNo, PdfiumPage* info) {
-        Vec<RectF> rects;
-        Vec<int> targets;
-        PdfNamedLinksMupdf(FilePath(), fileData, password, pageNo, rects, targets);
-        for (int i = 0; i < len(rects); i++) {
-            if (!Page(targets[i])) {
+    // A GoToR file link from PDFium with the same rect as a MuPDF one.
+    PageDestinationFile* FileLinkAt(PdfiumPage* info, RectF rect) {
+        constexpr float kEps = 0.01f;
+        for (auto* el : info->links) {
+            IPageDestination* dest = el->AsLink();
+            RectF r = el->rect;
+            if (dest && dest->GetKind() == kindDestinationLaunchFile && fabsf(r.x - rect.x) < kEps &&
+                fabsf(r.y - rect.y) < kEps && fabsf(r.dx - rect.dx) < kEps && fabsf(r.dy - rect.dy) < kEps) {
+                return (PageDestinationFile*)dest;
+            }
+        }
+        return nullptr;
+    }
+
+    // PDFium reports First/Last/Prev/NextPage actions only as unsupported and can't name a GoToR
+    // destination without loading the target; MuPDF reads both, like /OpenAction.
+    void AddMupdfLinks(int pageNo, PdfiumPage* info) {
+        Vec<PdfLinkMupdf> links;
+        PdfLinksMupdf(FilePath(), fileData, password, pageNo, links);
+        for (auto& link : links) {
+            if (link.remoteDest.s) {
+                if (auto* file = FileLinkAt(info, link.rect)) {
+                    str::Free(file->dest);
+                    file->dest = link.remoteDest;
+                    link.remoteDest = {};
+                }
+                str::Free(link.remoteDest);
+                continue;
+            }
+            if (!Page(link.targetPage)) {
                 continue;
             }
             auto* dest = new PdfiumDest();
-            dest->pageNo = targets[i];
+            dest->pageNo = link.targetPage;
             dest->rect = RectF(kDestUseDefault, kDestUseDefault, kDestUseDefault, kDestUseDefault);
             dest->kind = kindDestinationScrollTo;
             auto* element = new PageElementDestination(dest);
             element->pageNo = pageNo;
-            element->rect = rects[i];
+            element->rect = link.rect;
             VecAppend(info->links, (IPageElement*)element);
         }
     }
@@ -702,7 +725,7 @@ class EnginePdfium : public EngineBase {
         }
         int pos = 0;
         FPDF_LINK link;
-        bool hasUnsupported = false;
+        bool needsMupdf = false;
         constexpr int kMaxLinks = 100000;
         while (len(info->links) < kMaxLinks && gPdfium.FPDFLink_Enumerate(page, &pos, &link)) {
             FS_RECTF box{};
@@ -710,9 +733,10 @@ class EnginePdfium : public EngineBase {
                 continue;
             }
             FPDF_ACTION action = gPdfium.FPDFLink_GetAction(link);
+            unsigned long type = action ? gPdfium.FPDFAction_GetType(action) : PDFACTION_UNSUPPORTED;
+            needsMupdf |= action && (type == PDFACTION_UNSUPPORTED || type == PDFACTION_REMOTEGOTO);
             auto* dest = Destination(gPdfium.FPDFLink_GetDest(doc, link), action);
             if (!dest) {
-                hasUnsupported |= action && gPdfium.FPDFAction_GetType(action) == PDFACTION_UNSUPPORTED;
                 continue;
             }
             if (dest->GetKind() == kindDestinationScrollTo) {
@@ -723,8 +747,8 @@ class EnginePdfium : public EngineBase {
             element->rect = ToPageRect(page, info, box.left, box.bottom, box.right, box.top);
             VecAppend(info->links, (IPageElement*)element);
         }
-        if (hasUnsupported) {
-            AddNamedLinks(pageNo, info);
+        if (needsMupdf) {
+            AddMupdfLinks(pageNo, info);
         }
         if (!disableAutoLinks) {
             AddAutoLinks(page, pageNo, info);

@@ -271,6 +271,65 @@ async function expectNamedLinkRects(): Promise<void> {
   );
 }
 
+// Following a GoToR link with a named /D opens the target file at that destination, as with MuPDF.
+async function expectRemoteNamedDest(engine: string): Promise<void> {
+  const dir = tmpPath(`pdfium/remote-${engine}`);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const page = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >>";
+  writeFileSync(
+    join(dir, "target.pdf"),
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R /Names << /Dests << /Names [(chapter) [5 0 R /Fit]] >> >> >>",
+      "<< /Type /Pages /Count 3 /Kids [3 0 R 4 0 R 5 0 R] >>",
+      page,
+      page,
+      page,
+    ]),
+    "latin1",
+  );
+  const source = join(dir, "source.pdf");
+  writeFileSync(
+    source,
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Annots [4 0 R] >>",
+      "<< /Type /Annot /Subtype /Link /Rect [40 300 200 330] /A << /S /GoToR /F (target.pdf) /D (chapter) >> >>",
+    ]),
+    "latin1",
+  );
+  await withControlledSumatra(
+    EXE,
+    async (client, proc) => {
+      const frame = await waitForFrame(proc.pid!);
+      await client.waitForRenderIdle();
+      let dump = "";
+      for (const deadline = Date.now() + 4000; Date.now() < deadline; await Bun.sleep(25)) {
+        sendCommand(frame, cmdId("CmdToggleKeyboardLinkFollowing"));
+        dump = String((await client.request(ControlCommand.TestKeyboardLinkFollow, []))[1] ?? "");
+        if (/active=1 .*count=1/.test(dump)) break;
+        await client.request(ControlCommand.TestKeyboardLinkFollow, ["stop"]);
+      }
+      const hint = / hint=([A-Z]+)$/m.exec(dump)?.[1];
+      if (!hint) throw new Error(`${engine}: link following did not start:\n${dump}`);
+      await client.request(ControlCommand.TestKeyboardLinkFollow, ["char", hint]);
+      let tab = "";
+      for (const deadline = Date.now() + 5000; Date.now() < deadline; await Bun.sleep(50)) {
+        tab = String((await client.request(ControlCommand.TestCurrentTab))[1] ?? "");
+        if (tab.includes("target.pdf") && tab.endsWith("page=3")) break;
+      }
+      await client.waitForRenderIdle();
+      if (!tab.includes("target.pdf") || !tab.endsWith("page=3")) {
+        throw new Error(`${engine}: GoToR to named dest landed at '${tab}', want target.pdf page=3`);
+      }
+      console.log(`${engine}: GoToR opened target.pdf at its named destination`);
+    },
+    ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", join(dir, "log.txt"), source],
+    { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
+  );
+}
+
 // a first open honors /OpenAction, in its array and GoTo action forms
 async function expectOpenAction(): Promise<void> {
   const page = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >>";
@@ -551,6 +610,8 @@ export async function testit(): Promise<void> {
   await expectAutoLinksDisabled(autoPdf);
   await expectDestsMatchMupdf();
   await expectNamedLinkRects();
+  await expectRemoteNamedDest("mupdf");
+  await expectRemoteNamedDest("pdfium");
   await expectOpenAction();
   await expectPassword(pdf);
   await expectFontCacheSamePixels();

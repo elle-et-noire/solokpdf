@@ -1576,13 +1576,14 @@ gated pairs each); the stall delayed UI work, not rendering. Raw data:
   tools (e.g. Decrypt) through the fallback. Some permissions metadata remains
   incomplete.
 - All eight destination views, link `/Contents` tooltips and GoToR/Launch file
-  links match MuPDF on a fixture (links and outline). GoToR opens the file at
-  its start: PDFium can't name the target destination without loading the
-  target. Named-action links (First/Last/Prev/NextPage) are reported by PDFium
-  only as unsupported, so a page with such a link reads them with MuPDF, like
-  `/OpenAction`; they match MuPDF's targets and rects, including on a cropped,
-  rotated page. Named actions in the outline and GoToE remain unsupported;
-  MuPDF lacks GoToE too.
+  links match MuPDF on a fixture (links and outline). PDFium reports
+  First/Last/Prev/NextPage actions only as unsupported and can't name a GoToR
+  destination without loading the target, so a page with such a link reads
+  them with MuPDF, like `/OpenAction`. Named links match MuPDF's targets and
+  rects, including on a cropped, rotated page; a GoToR with a named `/D` opens
+  the target there, as with MuPDF (an explicit page array opens at the start in
+  both). Named actions and GoToR destinations in the outline, and GoToE, remain
+  unsupported; MuPDF lacks GoToE too.
 - `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
   API for it, so MuPDF reads it on a first open without history. Release
   cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB

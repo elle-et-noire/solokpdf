@@ -5810,9 +5810,9 @@ static int NamedActionTarget(fz_context* ctx, pdf_obj* action, int pageIdx, int 
     return -1;
 }
 
-// Link annotations of page pageNo with First/Last/Prev/NextPage actions: their rects in page space
-// (as EngineMupdf's links) and 1-based target pages.
-void PdfNamedLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<RectF>& rects, Vec<int>& targets) {
+// Link annotations of page pageNo with First/Last/Prev/NextPage actions (1-based targetPage) or a GoToR
+// to a named destination (remoteDest), with rects in page space as EngineMupdf's links.
+void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupdf>& links) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
         return;
@@ -5830,17 +5830,28 @@ void PdfNamedLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<RectF>
             for (int i = 0; i < pdf_array_len(ctx, annots); i++) {
                 pdf_obj* annot = pdf_array_get(ctx, annots, i);
                 pdf_obj* action = pdf_dict_get(ctx, annot, PDF_NAME(A));
-                if (!pdf_name_eq(ctx, pdf_dict_get(ctx, annot, PDF_NAME(Subtype)), PDF_NAME(Link)) ||
-                    !pdf_name_eq(ctx, pdf_dict_get(ctx, action, PDF_NAME(S)), PDF_NAME(Named))) {
+                pdf_obj* s = pdf_dict_get(ctx, action, PDF_NAME(S));
+                if (!pdf_name_eq(ctx, pdf_dict_get(ctx, annot, PDF_NAME(Subtype)), PDF_NAME(Link))) {
                     continue;
                 }
-                int target = NamedActionTarget(ctx, action, pageNo - 1, pageCount);
-                if (target < 0) {
+                PdfLinkMupdf link;
+                if (pdf_name_eq(ctx, s, PDF_NAME(Named))) {
+                    link.targetPage = NamedActionTarget(ctx, action, pageNo - 1, pageCount) + 1;
+                } else if (pdf_name_eq(ctx, s, PDF_NAME(GoToR))) {
+                    pdf_obj* d = pdf_dict_get(ctx, action, PDF_NAME(D));
+                    const char* name = pdf_is_name(ctx, d)     ? pdf_to_name(ctx, d)
+                                       : pdf_is_string(ctx, d) ? pdf_to_text_string(ctx, d)
+                                                               : nullptr;
+                    if (name && *name) {
+                        link.remoteDest = str::Dup(Str(name));
+                    }
+                }
+                if (link.targetPage < 1 && !link.remoteDest.s) {
                     continue;
                 }
                 fz_rect r = fz_transform_rect(pdf_dict_get_rect(ctx, annot, PDF_NAME(Rect)), ctm);
-                VecAppend(rects, RectF(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0));
-                VecAppend(targets, target + 1);
+                link.rect = RectF(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+                VecAppend(links, link);
             }
         }
     }

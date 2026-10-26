@@ -114,7 +114,13 @@ struct PageText {
 void FreePageText(PageText*);
 void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects);
 int PdfOpenActionPageMupdf(Str path, Str data, Str password);
-void PdfNamedLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<RectF>& rects, Vec<int>& targets);
+// a link EnginePdfium can't fully read: a Named page jump (targetPage) or a GoToR's named /D (remoteDest)
+struct PdfLinkMupdf {
+    RectF rect;
+    int targetPage = 0;
+    Str remoteDest; // owned, free with str::Free
+};
+void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupdf>& links);
 TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password);
 
 // a link destination
