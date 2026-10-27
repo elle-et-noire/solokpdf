@@ -127,7 +127,7 @@ static void OnUninstallationFinished() {
     gButtonUninstaller = nullptr;
     gButtonExit = CreateDefaultButton(gHwndFrame, Tr("Close"), isRtl);
     gButtonExit->onClick = MkFunc0Void(OnButtonExit);
-    SetMsg(Tr("SumatraPDF has been uninstalled."), gMsgError ? kColorMsgFailed : kColorMsgOk);
+    SetMsg(fmt(Tr("%s has been uninstalled.").s, StrL(kAppName)), gMsgError ? kColorMsgFailed : kColorMsgOk);
     gMsgError = gFirstError;
     HwndRepaintNow(gHwndFrame);
 
@@ -149,7 +149,7 @@ static bool UninstallerOnWmCommand(WPARAM wp) {
 constexpr const WCHAR* kInstallerWindowClassName = L"SUMATRA_PDF_INSTALLER_FRAME";
 
 static void CreateUninstallerWindow() {
-    TempStr title = fmt(Tr("SumatraPDF %s Uninstaller").s, StrL(CURR_VERSION_STRA));
+    TempStr title = fmt(Tr("%s %s Uninstaller").s, StrL(kAppName), StrL(CURR_VERSION_STRA));
     int x = CW_USEDEFAULT;
     int y = CW_USEDEFAULT;
     int dx = GetInstallerWinDx();
@@ -164,7 +164,7 @@ static void CreateUninstallerWindow() {
     HwndResizeClientSize(gHwndFrame, dx, dy);
 
     auto isRtl = IsUIRtl();
-    gButtonUninstaller = CreateDefaultButton(gHwndFrame, Tr("Uninstall SumatraPDF"), isRtl);
+    gButtonUninstaller = CreateDefaultButton(gHwndFrame, fmt(Tr("Uninstall %s").s, StrL(kAppName)), isRtl);
     gButtonUninstaller->onClick = MkFunc0Void(OnButtonUninstall);
 }
 
@@ -325,7 +325,7 @@ int RunUninstaller() {
     if (!installerExists) {
         log(StrL("Uninstaller executable doesn't exist\n"));
         auto caption = Tr("Uninstallation failed");
-        auto msg = Tr("SumatraPDF installation not found.");
+        auto msg = fmt(Tr("%s installation not found.").s, StrL(kAppName));
         MsgBox(nullptr, msg, caption, MB_ICONEXCLAMATION | MB_OK);
         goto Exit;
     }
@@ -347,7 +347,7 @@ int RunUninstaller() {
         log(StrL("Previewer is installed\n"));
     }
 
-    gDefaultMsg = Tr("Are you sure you want to uninstall SumatraPDF?");
+    gDefaultMsg = str::Dup(fmt(Tr("Are you sure you want to uninstall %s?").s, StrL(kAppName)));
 
     // unregister search filter and previewer to reduce
     // possibility of blocking

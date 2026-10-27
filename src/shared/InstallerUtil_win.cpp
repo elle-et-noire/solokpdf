@@ -852,21 +852,27 @@ bool CopySelfToDir(Str destDir) {
     logf("  failed to copy '%s' to '%s' lastError=%u\n", exePath, dstPath, lastErr);
     if (lastErr == ERROR_ACCESS_DENIED) {
         NotifyFailed(
-            Tr("Couldn't copy SumatraPDF.exe to the installation directory (access denied). "
-               "Temporarily disable antivirus or Controlled Folder Access for this folder, "
-               "run the installer as administrator, or choose a different install folder. "
-               "See https://www.sumatrapdfreader.org/docs/Installation"));
+            fmt(Tr("Couldn't copy %s to the installation directory (access denied). "
+                   "Temporarily disable antivirus or Controlled Folder Access for this folder, "
+                   "run the installer as administrator, or choose a different install folder. "
+                   "See https://www.sumatrapdfreader.org/docs/Installation")
+                    .s,
+                StrL(kExeName)));
     } else if (lastErr == ERROR_SHARING_VIOLATION || lastErr == ERROR_LOCK_VIOLATION) {
         NotifyFailed(
-            Tr("Couldn't copy SumatraPDF.exe to the installation directory (file in use). "
-               "Close all SumatraPDF windows and Explorer PDF previews, then try again. "
-               "See https://www.sumatrapdfreader.org/docs/Installation"));
+            fmt(Tr("Couldn't copy %s to the installation directory (file in use). "
+                   "Close all %s windows and Explorer PDF previews, then try again. "
+                   "See https://www.sumatrapdfreader.org/docs/Installation")
+                    .s,
+                StrL(kExeName), StrL(kAppName)));
     } else if (IsDiskFullError(lastErr)) {
         NotifyFailed(
-            Tr("Not enough free disk space to copy SumatraPDF.exe to the installation directory.\n\n"
-               "Free up space on this drive and try again."));
+            fmt(Tr("Not enough free disk space to copy %s to the installation directory.\n\n"
+                   "Free up space on this drive and try again.")
+                    .s,
+                StrL(kExeName)));
     } else {
-        NotifyFailed(Tr("Couldn't copy SumatraPDF.exe to the installation directory"));
+        NotifyFailed(fmt(Tr("Couldn't copy %s to the installation directory").s, StrL(kExeName)));
     }
     return false;
 }

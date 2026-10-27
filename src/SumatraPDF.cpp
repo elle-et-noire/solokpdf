@@ -15522,11 +15522,11 @@ static void ShowCrashHandlerMessage() {
         return;
     }
 
-    Str msg = Tr("SumatraPDF crashed.\n\nPress 'Cancel' to see the crash report.");
+    Str msg = fmt(Tr("%s crashed.\n\nPress 'Cancel' to see the crash report.").s, StrL(kAppName));
     uint flags = MB_ICONERROR | MB_OK | MB_OKCANCEL | MbRtlReadingMaybe();
     flags |= MB_SETFOREGROUND | MB_TOPMOST;
 
-    int res = MsgBox(nullptr, msg, Tr("SumatraPDF crashed"), flags);
+    int res = MsgBox(nullptr, msg, fmt(Tr("%s crashed").s, StrL(kAppName)), flags);
     if (IDCANCEL != res) {
         log(StrL("ShowCrashHandlerMessage: res != IDCANCEL\n"));
         return;

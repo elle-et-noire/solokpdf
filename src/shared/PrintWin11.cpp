@@ -20,6 +20,7 @@
 #include "WindowTab.h"
 #include "SumatraDialogs.h"
 #include "Translations.h"
+#include "Version.h"
 #include "Print.h"
 
 #include "SumatraLog.h"
@@ -1131,7 +1132,7 @@ class Win11PrintSession {
 
         this->hwnd = hwnd;
         TempStr baseName = path::GetBaseNameTemp(engine->FilePath());
-        jobTitle = wstr::Dup(ToWStrTemp(baseName ? baseName : StrL("SumatraPDF document")));
+        jobTitle = wstr::Dup(ToWStrTemp(baseName ? baseName : StrL(kAppName " document")));
 
         hr = GetActivationFactory(RuntimeClass_Windows_Graphics_Printing_PrintManager, interop);
         if (SUCCEEDED(hr)) {

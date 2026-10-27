@@ -138,7 +138,7 @@ static bool RegisterForDefaultPrograms(HKEY hkey, Str installedExePath) {
     // L"SOFTWARE\\SumatraPDF\\Capabilities"
     TempStr appCapabilityPath = str::JoinTemp(StrL("SOFTWARE\\"), StrL(kAppName), StrL("\\Capabilities"));
 
-    Str desc = StrL("SumatraPDF is a PDF reader.");
+    Str desc = StrL(kAppName " is a PDF reader.");
     ok &= LoggedWriteRegStr(hkey, appCapabilityPath, StrL("ApplicationDescription"), desc);
     // ApplicationName must match the RegisteredApplications value name (kAppName).
     ok &= LoggedWriteRegStr(hkey, appCapabilityPath, StrL("ApplicationName"), StrL(kAppName));

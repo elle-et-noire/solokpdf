@@ -33,6 +33,7 @@
 #include "PdfDarkMode.h"
 #include "Theme.h"
 #include "DarkMode.h"
+#include "Version.h"
 #include "SumatraConfig.h"
 #include "SumatraPDF.h"
 #include "Translations.h"
@@ -1760,7 +1761,7 @@ static void CloseRestrictedUseWnd(WindowBase::CloseEvent*) {
 
 void ShowConfigureRestrictedUseDialog(MainWindow* win) {
     if (!CanWriteRestrictedUseConfig()) {
-        Str msg = Tr("SumatraPDF cannot create files in its installation folder.");
+        Str msg = fmt(Tr("%s cannot create files in its installation folder.").s, StrL(kAppName));
         if (!IsProcessRunningElevated()) {
             int res = MsgBox(win ? win->hwndFrame : nullptr, Tr("Administrator access is required. Restart elevated?"),
                              Tr("Configure Restricted Use"), MB_YESNO | MB_ICONERROR);

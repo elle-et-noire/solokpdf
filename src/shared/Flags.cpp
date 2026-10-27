@@ -15,6 +15,7 @@ void GetPrintersInfo(str::Builder& out);
 #if OS_WIN
 #include "Translations.h"
 #endif
+#include "Version.h"
 #include "Flags.h"
 #include "SumatraLog.h"
 
@@ -103,7 +104,7 @@ void ShowPrintersDialog(bool consoleOnly) {
         }
     }
     if (!consoleOnly) {
-        ShowTextInWindowDialog(Tr("SumatraPDF - Show Printers"), ToStr(out));
+        ShowTextInWindowDialog(fmt(Tr("%s - Show Printers").s, StrL(kAppName)), ToStr(out));
     }
 }
 #else

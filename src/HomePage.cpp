@@ -546,7 +546,7 @@ void AboutCtrl::UpdateLayout(Rect clientRc) {
 
 // Version, OS, WebView2, memory and similar facts for a bug report.
 static void AppendBugReportInfo(str::Builder& s) {
-    s.Append(fmt("SumatraPDF %s\n", GetAppVersionTemp()));
+    s.Append(fmt("%s %s\n", StrL(kAppName), GetAppVersionTemp()));
     s.Append(fmt("Built on: %s %s\n", StrL(__DATE__), StrL(__TIME__)));
     if (gitCommidId) {
         s.Append(fmt("Git: %s\n", gitCommidId));
@@ -780,7 +780,7 @@ void ShowAboutWindow(MainWindow* win) {
         ReportIf(!gAtomAbout);
     }
 
-    WCHAR* title = CWStrTemp(Tr("About SumatraPDF"));
+    WCHAR* title = CWStrTemp(fmt(Tr("About %s").s, StrL(kAppName)));
     DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
     int x = CW_USEDEFAULT;
     int y = CW_USEDEFAULT;
