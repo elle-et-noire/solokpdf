@@ -158,7 +158,7 @@ using Gdiplus::SolidBrush;
 
 constexpr const WCHAR* kCanvasClassName = L"SUMATRA_PDF_CANVAS";
 
-constexpr const WCHAR* kSumatraWindowTitleW = L"SumatraPDF";
+constexpr const WCHAR* kSumatraWindowTitleW = L"" kAppName;
 
 // used to show it in debug, but is not very useful,
 // so always disable
