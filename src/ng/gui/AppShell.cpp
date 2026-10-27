@@ -38,6 +38,7 @@
 #include "Menu.h"
 #include "TipMarkup.h"
 #include "Notifications.h"
+#include "Version.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
 #include "WindowTab.h"
@@ -3254,7 +3255,7 @@ MainWindow* AppShellCreateWindow(gp::App* app, int dipW, int dipH) {
     // orig sets tabsInTitlebar from UseTabs when it creates the frame
     gp::WinOpts opts;
     opts.clientTitleBar = CanHaveTabsInTitlebar() && (SettingsUseTabs() || !gSettings->showCaption);
-    gp::Window* gw = gp::WindowOpenView(app, GStrL("SumatraPDF"), dipW, dipH, ui->view.id, opts);
+    gp::Window* gw = gp::WindowOpenView(app, GStrL(kAppName), dipW, dipH, ui->view.id, opts);
     auto* win = new MainWindow(gw);
     // The first paint replaces this. Ebook layout runs before that paint and
     // needs the size the window was opened at (#3472).

@@ -170,12 +170,6 @@ void OnFrameKeyB(MainWindow* win, bool isShift);
 EngineBase* CreateEngineForThumbnail(Str path);
 void CreateThumbnailFromFileFinish(CreateThumbnailFromFileData* d);
 
-#if defined(SOLOKPDF_PDFIUM)
-constexpr const char* kSumatraWindowTitle = "SolokPDF";
-#else
-constexpr const char* kSumatraWindowTitle = "SumatraPDF";
-#endif
-
 // Cap how many extension links we put in the bar
 constexpr int kMaxDefaultAppLinks = 8;
 

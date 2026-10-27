@@ -158,8 +158,6 @@ using Gdiplus::SolidBrush;
 
 constexpr const WCHAR* kCanvasClassName = L"SUMATRA_PDF_CANVAS";
 
-constexpr const WCHAR* kSumatraWindowTitleW = L"" kAppName;
-
 // used to show it in debug, but is not very useful,
 // so always disable
 
@@ -1658,10 +1656,10 @@ static void SetFrameTitleForTab(WindowTab* tab, bool needRefresh) {
 
     TempStr s;
     if (!IsUIRtl()) {
-        s = fmt("%s %s- %s", titlePath, docTitle, Str(kSumatraWindowTitle));
+        s = fmt("%s %s- %s", titlePath, docTitle, StrL(kAppName));
     } else {
         // explicitly revert the title, so that filenames aren't garbled
-        s = fmt("%s %s- %s", Str(kSumatraWindowTitle), docTitle, titlePath);
+        s = fmt("%s %s- %s", StrL(kAppName), docTitle, titlePath);
     }
     if (needRefresh && tab->ctrl) {
         // TODO: this isn't visible when tabs are used
@@ -2684,7 +2682,7 @@ static MainWindow* CreateMainWindow() {
     }
 
     WStr clsName = WStr(kFrameClassName);
-    WStr title = WStr(kSumatraWindowTitleW);
+    WStr title = WStrL(L"" kAppName);
     DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
     int x = windowPos.x;
     int y = windowPos.y;
@@ -4773,7 +4771,7 @@ static void CloseDocumentInCurrentTab(MainWindow* win, bool keepUIEnabled, bool 
         }
         HideCanvasScrollbars(win);
         win->RedrawAllIncludingNonClient();
-        HwndSetText(win->hwndFrame, Str(kSumatraWindowTitle));
+        HwndSetText(win->hwndFrame, StrL(kAppName));
         ReportIf(win->TabCount() != 0 || win->CurrentTab());
     }
 
@@ -14652,7 +14650,7 @@ For more information see <a href="%s">Failed to load libsumatrapdf.dll</a>.)",
         flags |= TDF_RTL_LAYOUT;
     }
     dialogConfig.cbSize = sizeof(TASKDIALOGCONFIG);
-    dialogConfig.pszWindowTitle = L"SumatraPDF";
+    dialogConfig.pszWindowTitle = L"" kAppName;
     dialogConfig.pszMainInstruction = L"Failed to load libsumatrapdf.dll";
     dialogConfig.pszContent = CWStrTemp(msg);
     dialogConfig.nDefaultButton = IDOK;

@@ -701,7 +701,7 @@ static bool ShowMoveAsideBlockedDialog(Str path, Str copyPath, Str fileName) {
     }
     cfg.cbSize = sizeof(cfg);
     cfg.hwndParent = gWnd ? gWnd->hwnd : nullptr;
-    cfg.pszWindowTitle = L"SumatraPDF";
+    cfg.pszWindowTitle = L"" kAppName;
     cfg.pszMainInstruction = CWStrTemp(fmt(Tr("Cannot update %s").s, fileName));
     cfg.pszContent = CWStrTemp(content);
     cfg.dwFlags = (TASKDIALOG_FLAGS)flags;
@@ -1234,7 +1234,7 @@ static void ShowInstallationFailedUi(HWND hwndParent) {
     }
     dialogConfig.cbSize = sizeof(TASKDIALOGCONFIG);
     dialogConfig.hwndParent = hwndParent;
-    dialogConfig.pszWindowTitle = L"SumatraPDF";
+    dialogConfig.pszWindowTitle = L"" kAppName;
     dialogConfig.pszMainInstruction = L"Installation failed";
     dialogConfig.pszContent = CWStrTemp(content);
     dialogConfig.nDefaultButton = IDOK;

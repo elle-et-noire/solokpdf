@@ -808,7 +808,7 @@ static TempStr WindowTitleTemp(MainWindow* win) {
     WindowTab* tab = win->CurrentTab();
     Str titlePath = tab ? tab->GetTabTitle() : Str{};
     if (len(titlePath) == 0) {
-        return str::DupTemp(Str(kSumatraWindowTitle));
+        return str::DupTemp(StrL(kAppName));
     }
 
     TempStr docTitle = StrL("");
@@ -822,10 +822,10 @@ static TempStr WindowTitleTemp(MainWindow* win) {
     }
 
     if (!IsUIRtl()) {
-        return fmt("%s %s- %s", titlePath, docTitle, Str(kSumatraWindowTitle));
+        return fmt("%s %s- %s", titlePath, docTitle, StrL(kAppName));
     }
     // explicitly revert the title, so that filenames aren't garbled
-    return fmt("%s %s- %s", Str(kSumatraWindowTitle), docTitle, titlePath);
+    return fmt("%s %s- %s", StrL(kAppName), docTitle, titlePath);
 }
 
 void UpdateWindowTitle(MainWindow* win) {
