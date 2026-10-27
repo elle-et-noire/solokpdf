@@ -11773,6 +11773,13 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
             ScheduleSaveSettings();
             break;
 
+        case CmdNextTheme:
+        case CmdPrevTheme: {
+            Str name = CycleTheme(cmdId == CmdNextTheme ? 1 : -1);
+            ScheduleSaveSettings();
+            ShowPlainNotification(win, name);
+        } break;
+
         case CmdToggleEditPDF:
             TogglePdfAnnotationsToolbar(win);
             break;

@@ -181,6 +181,8 @@ static Accel gBuiltInAccelerators[] = {
     // on any layout (VK_OEM_PERIOD is only the US-layout virtual key)
     {{0, '.'}, CmdPresentationBlackBackground},
     {{kVirt, 'C'}, CmdToggleContinuousView},
+    {{kVirt, 'T'}, CmdNextTheme},
+    {{kShift | kVirt, 'T'}, CmdPrevTheme},
 
     // Shift + CreateAnnot*: cmd patched to "CmdCreateAnnot* openedit" before
     // the accelerator table is built, so they turn on Edit PDF mode.

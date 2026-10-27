@@ -48,6 +48,7 @@ static const int kSecAnnot[] = {
 static const int kSecIface[] = {
     CmdCommandPalette, CmdToggleBookmarks, CmdToggleToolbar, CmdToggleCaption, CmdToggleMenuBar,
     CmdToggleCursorPosition, CmdTogglePageInfo,
+    CmdNextTheme, CmdPrevTheme,
     CmdFavoriteAdd, CmdFavoriteToggle, CmdHelpOpenManual,0,
 };
 // clang-format on
@@ -91,6 +92,7 @@ static const struct {
     {CmdCreateAnnotHighlight, "A"}, {CmdCreateAnnotUnderline, "U"}, {CmdSaveAnnotations, "Ctrl + Shift + S"},
     {CmdDeleteAnnotation, "Ctrl + Delete"}, {CmdToggleBookmarks, "F12"}, {CmdToggleToolbar, "F8"},
     {CmdToggleCaption, "Shift + F8"},
+    {CmdNextTheme, "T"}, {CmdPrevTheme, "Shift + T"},
     {CmdToggleMenuBar, "F9"}, {CmdToggleCursorPosition, "M"}, {CmdTogglePageInfo, "I"}, {CmdCommandPalette, "Ctrl + K"},
     {CmdFavoriteAdd, "Ctrl + B"}, {CmdHelpOpenManual, "F1"}, {CmdToggleKeyboardHelp, "?"},
 };

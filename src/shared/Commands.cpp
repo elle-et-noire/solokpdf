@@ -348,6 +348,8 @@ const CommandInfo gCommands[] = {
     {CmdToggleCaption, "CmdToggleCaption\0", StrL("Toggle Caption")},
     {CmdAdjustBrightness, "CmdAdjustBrightness\0", StrL("Adjust Brightness...")},
     {CmdAdjustContrast, "CmdAdjustContrast\0", StrL("Adjust Contrast...")},
+    {CmdNextTheme, "CmdNextTheme\0", StrL("Switch to Next Theme")},
+    {CmdPrevTheme, "CmdPrevTheme\0", StrL("Switch to Previous Theme")},
 };
 const int gCommandsCount = dimofi(gCommands);
 

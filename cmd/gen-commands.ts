@@ -349,6 +349,8 @@ const commandsRaw = [
     "CmdToggleCaption", "Toggle Caption",
     "CmdAdjustBrightness", "Adjust Brightness...",
     "CmdAdjustContrast", "Adjust Contrast...",
+    "CmdNextTheme", "Switch to Next Theme",
+    "CmdPrevTheme", "Switch to Previous Theme",
 ];
 
 // removed slots are dropped: nothing outside the generators should see them

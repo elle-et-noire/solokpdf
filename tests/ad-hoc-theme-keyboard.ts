@@ -1,5 +1,6 @@
 // Opt-in check: themes change from the keyboard alone. The command palette finds a theme by name
-// ("solarized dark", Enter), and the Change Theme dialog previews with Down and applies with Enter.
+// ("solarized dark", Enter), the Change Theme dialog previews with Down and applies with Enter,
+// and T / CmdPrevTheme step through the list, wrapping at both ends.
 // Uses SolokPDF's settings file; build with solok-build.ts, then use --no-build.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -18,10 +19,13 @@ import { captureWindowToPng, enumWindows, getWindowText, postMessage, setProcess
 const WM_KEYDOWN = 0x0100;
 const VK_RETURN = 0x0d;
 const VK_DOWN = 0x28;
+const VK_T = 0x54;
 
-// canvas backgrounds: Solarized Dark, then Dracula, the theme listed after it
+// canvas backgrounds: Solarized Dark, Dracula and Nebula are consecutive; Sepia is the last theme
 const kSolarizedDarkBg = [0x00, 0x2b, 0x36];
 const kDraculaBg = [0x28, 0x2a, 0x36];
+const kNebulaBg = [0x10, 0x0e, 0x23];
+const kSepiaBg = [0xf4, 0xec, 0xd8];
 
 function plainPdf(): string {
   const text = "BT /F1 24 Tf 72 700 Td (Hello) Tj ET";
@@ -63,6 +67,17 @@ function findDialog(title: string): number {
   return found;
 }
 
+function writeSettings(dir: string, theme: string) {
+  writeFileSync(
+    join(dir, "SolokPDF-settings.txt"),
+    `UiLanguage = en\nCheckForUpdates = false\nShowStartPage = false\nTheme = ${theme}\nDefaultZoom = 50\n`,
+  );
+}
+
+function pressT(frame: number) {
+  postMessage(findCanvas(frame), WM_KEYDOWN, VK_T, 0);
+}
+
 export async function testit(): Promise<void> {
   setProcessDpiAware();
   const dir = tmpPath("theme-keyboard");
@@ -70,11 +85,14 @@ export async function testit(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "plain.pdf");
   writeFileSync(pdf, plainPdf(), "latin1");
-  writeFileSync(
-    join(dir, "SolokPDF-settings.txt"),
-    "UiLanguage = en\nCheckForUpdates = false\nShowStartPage = false\nTheme = Light\nDefaultZoom = 50\n",
-  );
 
+  const failures = await checkPaletteAndDialog(dir, pdf);
+  failures.push(...(await checkCycleWraps(dir, pdf)));
+  if (failures.length > 0) throw new Error(failures.join("\n"));
+}
+
+async function checkPaletteAndDialog(dir: string, pdf: string): Promise<string[]> {
+  writeSettings(dir, "Light");
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   const failures: string[] = [];
   try {
@@ -118,13 +136,47 @@ export async function testit(): Promise<void> {
     f = await expectCorner(frame, dir, "dialog-applied", kDraculaBg);
     if (f) failures.push(f);
 
+    // T steps forward, CmdPrevTheme back
+    pressT(frame);
+    f = await expectCorner(frame, dir, "key-next", kNebulaBg);
+    if (f) failures.push(f);
+    sendCommand(frame, cmdId("CmdPrevTheme"));
+    f = await expectCorner(frame, dir, "cmd-prev", kDraculaBg);
+    if (f) failures.push(f);
+
     await client.quit();
     await proc.exited;
   } catch (e) {
     await killAndWait(proc);
     throw e;
   }
-  if (failures.length > 0) throw new Error(failures.join("\n"));
+  return failures;
+}
+
+// Light is the first theme: previous wraps to the last one (Sepia), next wraps back
+async function checkCycleWraps(dir: string, pdf: string): Promise<string[]> {
+  writeSettings(dir, "Light");
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
+  const failures: string[] = [];
+  try {
+    await client.setNotificationsEnabled(false);
+    await client.waitForRenderIdle(30000);
+    const lightBg = await canvasCorner(frame, dir, "wrap-start");
+
+    sendCommand(frame, cmdId("CmdPrevTheme"));
+    let f = await expectCorner(frame, dir, "wrap-prev", kSepiaBg);
+    if (f) failures.push(f);
+    pressT(frame);
+    f = await expectCorner(frame, dir, "wrap-next", lightBg);
+    if (f) failures.push(f);
+
+    await client.quit();
+    await proc.exited;
+  } catch (e) {
+    await killAndWait(proc);
+    throw e;
+  }
+  return failures;
 }
 
 if (import.meta.main) await runStandalone(testit);

@@ -5617,6 +5617,13 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
             ScheduleSaveSettings();
             break;
 
+        case CmdNextTheme:
+        case CmdPrevTheme: {
+            Str name = CycleTheme(cmdId == CmdNextTheme ? 1 : -1);
+            ScheduleSaveSettings();
+            ShowPlainNotification(win, name);
+        } break;
+
         case CmdToggleEngineeringDrawingEnhance:
             if (dm) {
                 EngineMupdfToggleCadEnhance(dm->GetEngine());

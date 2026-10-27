@@ -8,6 +8,7 @@ int ThemeGetCount();
 Str ThemeGetNameAt(int idx);
 int ThemeGetCurrentIndex();
 void ToggleLightDarkTheme();
+Str CycleTheme(int step);
 Str ToggleLightDarkThemeTargetName();
 void SumatraUpdateTheme();
 void UpdateThemeAfterSystemColorChange();

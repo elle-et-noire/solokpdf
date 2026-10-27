@@ -911,6 +911,14 @@ void ToggleLightDarkTheme() {
     SetThemeByIndex(idx);
 }
 
+// step through the themes in menu order, wrapping around (CmdNextTheme, CmdPrevTheme);
+// returns the new theme's name
+Str CycleTheme(int step) {
+    int idx = (gCurrThemeIndex + step + gThemeCount) % gThemeCount;
+    SetThemeByIndex(idx);
+    return ThemeGetNameAt(idx);
+}
+
 // name of the theme ToggleLightDarkTheme() would switch to, for the command
 // palette: ": set to true" says nothing useful when a toggle picks a theme
 Str ToggleLightDarkThemeTargetName() {
