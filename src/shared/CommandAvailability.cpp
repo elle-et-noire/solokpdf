@@ -395,6 +395,12 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         return CommandVisibility::Hide;
     }
 #endif
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    // PdfSign.cpp signs through EngineMupdf only
+    if (cmdId == CmdSignDocument && ctx.engineKind == kindEnginePdfium) {
+        return CommandVisibility::Hide;
+    }
+#endif
 
     CustomCommand* cmd = FindCustomCommand(cmdId);
     int origCmdId = cmd ? cmd->origId : 0;

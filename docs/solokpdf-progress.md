@@ -1677,7 +1677,9 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   Document Properties lists the ones a document uses ("Unsupported
   Features"; empty for most papers), checked by
   `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
-  a notification on every load. MuPDF is the explicit compatibility route.
+  a notification on every load. Sign Document is hidden for PDFium documents
+  (and clicking a signature field doesn't open it): `PdfSign.cpp` signs only
+  through EngineMupdf. MuPDF is the explicit compatibility route.
 - Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
   annotation except widgets, so form fields used to be blank; documents with
   an AcroForm now get a form handle and `FPDF_FFLDraw` after each render

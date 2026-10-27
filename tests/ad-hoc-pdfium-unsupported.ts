@@ -1,5 +1,5 @@
 // Opt-in PDFium check: Unsupported Features lists only what a document uses and PDFium can't do
-// (empty for a plain paper). Build with solok-build.ts, then use --no-build.
+// (empty for a plain paper), and Sign Document is hidden. Build with solok-build.ts, then use --no-build.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
@@ -40,8 +40,9 @@ function featuresPdf(xfa: boolean): string {
   ]);
 }
 
-async function unsupported(name: string, pdf: string): Promise<string> {
-  const dir = tmpPath(`pdfium-unsupported/${name}`);
+// unsupported features and Sign Document's menu visibility, once the document has loaded
+async function inspect(name: string, pdf: string, engine: string): Promise<{ unsupported: string; sign: string }> {
+  const dir = tmpPath(`pdfium-unsupported/${name}-${engine}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   const path = join(dir, `${name}.pdf`);
@@ -50,32 +51,50 @@ async function unsupported(name: string, pdf: string): Promise<string> {
     EXE,
     async (client) => {
       const deadline = Date.now() + 20_000;
+      let unsupported = "";
       for (;;) {
         const res = await client.request(ControlCommand.TestDocumentProperties);
         const raw = String(res[1] ?? "");
         if (res[0] === 0) {
           const line = raw.split(/\r?\n/).find((l) => l.startsWith("unsupportedFeatures="));
-          return line ? line.slice("unsupportedFeatures=".length) : "";
+          unsupported = line ? line.slice("unsupportedFeatures=".length) : "";
+          break;
         }
         if (res[0] !== 2 || Date.now() > deadline) throw new Error(`${name}: properties: ${raw.trim()}`);
         await new Promise((r) => setTimeout(r, 150));
       }
+      const vis = await client.request(ControlCommand.TestCommandVisibility, ["CmdSignDocument", "menu"]);
+      const sign = /vis=(\w+)/.exec(String(vis[1] ?? ""))?.[1] ?? `error: ${vis[1]}`;
+      return { unsupported, sign };
     },
     ["-appdata", dir, path],
+    { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
   );
 }
 
 export async function testit(): Promise<void> {
-  const cases: [string, string, string][] = [
-    ["plain", plainPdf(), ""],
-    ["features", featuresPdf(false), "form filling, JavaScript, signature verification, embedded files"],
-    ["xfa", featuresPdf(true), "XFA, JavaScript, signature verification, embedded files"],
+  // signing only works through MuPDF's engine (PdfSign.cpp), so PDFium documents hide it
+  const cases: [string, string, string, string, string][] = [
+    ["plain", plainPdf(), "pdfium", "", "hide"],
+    ["plain", plainPdf(), "mupdf", "", "show"],
+    [
+      "features",
+      featuresPdf(false),
+      "pdfium",
+      "form filling, JavaScript, signature verification, embedded files",
+      "hide",
+    ],
+    ["xfa", featuresPdf(true), "pdfium", "XFA, JavaScript, signature verification, embedded files", "hide"],
   ];
   const failures: string[] = [];
-  for (const [name, pdf, want] of cases) {
-    const got = await unsupported(name, pdf);
-    console.log(`${name}: "${got}"`);
-    if (got !== want) failures.push(`${name}: want "${want}", got "${got}"`);
+  for (const [name, pdf, engine, wantUnsupported, wantSign] of cases) {
+    const got = await inspect(name, pdf, engine);
+    console.log(`${name} (${engine}): unsupported="${got.unsupported}" sign=${got.sign}`);
+    // MuPDF lists its own unsupported features; only PDFium's are checked
+    if (engine === "pdfium" && got.unsupported !== wantUnsupported) {
+      failures.push(`${name}: want unsupported "${wantUnsupported}", got "${got.unsupported}"`);
+    }
+    if (got.sign !== wantSign) failures.push(`${name} (${engine}): Sign Document ${got.sign}, want ${wantSign}`);
   }
   if (failures.length > 0) throw new Error(failures.join("\n"));
 }
