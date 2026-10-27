@@ -1390,9 +1390,9 @@ rebuilt on 2026-10-27 with theme page colors (smart by default) and the new
 themes, after `ad-hoc-pdfium`, `-theme` and `-tiles` passed on the Release
 build. Each was checked after extraction, without PDB or source tree: with
 default settings and a dark theme, PDFium draws a themed page with its photo
-untouched, and the app quits normally. They are staged from the portable
-folders with the previous ZIPs' file lists, without PDBs, caches, logs or
-settings.
+untouched, and the app quits normally. `cmd/solok-build.ts` writes each ZIP
+from the files it copies into the portable folder (Windows' `tar.exe`),
+without PDBs, caches, logs or settings.
 
 Both Debug and Release builds completed and passed the targeted GUI validation.
 Release produced `out/solokpdf-portable/SolokPDF.exe` (14,285,312 bytes). This host
