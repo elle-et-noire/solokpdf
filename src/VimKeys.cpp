@@ -19,6 +19,7 @@
 #include "AppSettings.h"
 #include "Accelerators.h"
 #include "CommandPalette.h"
+#include "Canvas.h"
 #include "LinkFollow.h"
 #include "SearchAndDDECommon.h"
 #include "Tabs.h"
@@ -288,7 +289,7 @@ void RunVimKeyCommand(MainWindow* win, int cmdId) {
         return;
     }
     if (gSettings->vimKeys && win->IsDocLoaded()) {
-        SendMessageW(win->hwndCanvas, WM_VSCROLL, cmdId == CmdVimScrollDownLine ? SB_LINEDOWN : SB_LINEUP, 0);
+        CanvasScrollByKey(win, cmdId == CmdVimScrollDownLine ? SB_LINEDOWN : SB_LINEUP, 1);
     }
 }
 
@@ -377,9 +378,7 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
         if (!line) {
             return false;
         }
-        for (int i = 0; i < (count ? count : 1); i++) {
-            SendMessageW(win->hwndCanvas, WM_VSCROLL, line, 0);
-        }
+        CanvasScrollByKey(win, line, count ? count : 1);
         return true;
     }
     int ch = VimKeyChar(msg, mods, layout);

@@ -1,6 +1,14 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { assemblePdf, runStandalone, SETTINGS_FILE, tmpPath, writeAppdata } from "./util.ts";
+import {
+  assemblePdf,
+  dpiRequest,
+  parseDpiFields,
+  runStandalone,
+  SETTINGS_FILE,
+  tmpPath,
+  writeAppdata,
+} from "./util.ts";
 import { findCanvas, killAndWait, launchControlled, pressKey, waitToolWindow } from "./win-automation.ts";
 import { ControlCommand } from "./control.ts";
 import { getScrollPos, sendText, sleep } from "./winapi.ts";
@@ -43,7 +51,7 @@ export async function testit(): Promise<void> {
 
   const appdata = writeAppdata(
     "vim-keys-appdata",
-    "VimKeys = true\nRestoreSession = false\nSmoothScroll = false\nUseTabs = true\nNoHomeTab = true\nCtrlTabSimple = true\n",
+    "VimKeys = true\nRestoreSession = false\nSmoothScroll = false\nKeyScrollLineAmount = 100\nScrollLineAmount = 10\nUseTabs = true\nNoHomeTab = true\nCtrlTabSimple = true\n",
   );
   const { proc, client, frame } = await launchControlled(
     ["-appdata", appdata, "-zoom", "200", "-view", "continuous", pdf, pdf2],
@@ -138,7 +146,11 @@ export async function testit(): Promise<void> {
     const afterHalf = getScrollPos(canvas);
     await key("Ctrl+E");
     const wheelLine = getScrollPos(canvas) - afterHalf;
-    if (wheelLine <= 0 || wheelLine > 40) throw new Error(`Ctrl+E used ${wheelLine}px, not a wheel line`);
+    const dpi = parseDpiFields(await dpiRequest(client, "state")).frame;
+    const expectedKeyLine = Math.round((100 * dpi) / 96);
+    if (Math.abs(wheelLine - expectedKeyLine) > 3) {
+      throw new Error(`Ctrl+E used ${wheelLine}px, want ${expectedKeyLine}px`);
+    }
     await key("Ctrl+Y");
     if (Math.abs(getScrollPos(canvas) - afterHalf) > 2) throw new Error("Ctrl+Y did not scroll one wheel line up");
     await pressKey(frame, 0x33);
