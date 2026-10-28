@@ -1,10 +1,11 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
    License: GPLv3 */
 
-// ng: orig's SettingsDialog.cpp is a WS_POPUPWINDOW with two DropDowns and five
+// ng: orig's SettingsDialog.cpp is a WS_POPUPWINDOW with two DropDowns and six
 // Checkboxes. Here it is a gpui Dialog with the same rows in the same order:
 // the "View" section (Default Layout, Default Zoom, the two checkboxes), the
-// "Advanced" section (Use tabs, check for updates, remember opened files) and,
+// "Advanced" section (Use tabs, check for updates, remember opened files,
+// restore session) and,
 // when TeX enhancements are on, the inverse search command line.
 
 #include "gui/GpuiBridge.h"
@@ -49,6 +50,7 @@ struct SettingsDlg {
     bool useTabs = false;
     bool checkUpdates = false;
     bool rememberOpened = false;
+    bool restoreSession = false;
 };
 
 static SettingsDlg gSettingsDlg;
@@ -212,6 +214,7 @@ void ShowSettingsDialog(MainWindow* win) {
     gSettingsDlg.useTabs = gSettings->useTabs;
     gSettingsDlg.checkUpdates = gSettings->checkForUpdates;
     gSettingsDlg.rememberOpened = gSettings->rememberOpenedFiles;
+    gSettingsDlg.restoreSession = gSettings->restoreSession;
     gSettingsDlg.scrollY = 0;
     gSettingsDlg.visible = true;
     DlgWindowSpec spec;
@@ -243,6 +246,7 @@ static void SettingsOk() {
     gSettings->useTabs = gSettingsDlg.useTabs;
     gSettings->checkForUpdates = gSettingsDlg.checkUpdates;
     gSettings->rememberOpenedFiles = gSettingsDlg.rememberOpened;
+    gSettings->restoreSession = gSettingsDlg.restoreSession;
     if (gSettingsDlg.showInverseSearch) {
         TempStr tmp = str::DupTemp(FromGpui(gp::InputValue(gSettingsDlg.editInverse)));
         str::ReplaceWithCopy(&gSettings->inverseSearchCmdLine, tmp);
@@ -289,6 +293,11 @@ void SettingsView::OnToggle(SettingsView*, gp::Ctx* cx, const gp::ClickEvent*, i
             break;
         case 4:
             gSettingsDlg.rememberOpened = !gSettingsDlg.rememberOpened;
+            break;
+        case 5:
+            if (gSettingsDlg.rememberOpened) {
+                gSettingsDlg.restoreSession = !gSettingsDlg.restoreSession;
+            }
             break;
     }
     gp::Notify(cx);
@@ -355,6 +364,8 @@ gp::El* SettingsDialogBuild(MainWindow* win, gp::Ctx* cx) {
                               !HasPermission(Perm::InternetAccess), 3));
     }
     advanced->Child(check(StrL("opt-opened"), Tr("Remember &opened files"), gSettingsDlg.rememberOpened, false, 4));
+    advanced->Child(check(StrL("opt-restore"), Tr("Reopen last &documents at startup"), gSettingsDlg.restoreSession,
+                          !gSettingsDlg.rememberOpened, 5));
     col->Child(advanced);
 
     if (gSettingsDlg.showInverseSearch) {

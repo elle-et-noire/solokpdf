@@ -38,6 +38,7 @@
 //   [ ] Use tabs
 //   [ ] Automatically check for updates
 //   [ ] Remember opened files
+//   [ ] Reopen last documents at startup
 //   ---------------------------------------------- hairline
 //   Set inverse search command line      (with TeX enhancements)
 //   Enter the command line to invoke ...
@@ -68,6 +69,7 @@ struct SettingsWnd : WindowBase {
     Checkbox* chkUseTabs = nullptr;
     Checkbox* chkCheckUpdates = nullptr;
     Checkbox* chkRememberOpened = nullptr;
+    Checkbox* chkRestoreSession = nullptr;
 
     VirtButton* btnCancel = nullptr;
     VirtButton* btnOk = nullptr;
@@ -181,11 +183,13 @@ float SettingsWnd::SelectedZoom() {
 }
 
 void SettingsWnd::OnRememberOpenedChanged() {
-    if (!chkRememberState) {
-        return;
-    }
     bool on = chkRememberOpened && chkRememberOpened->IsChecked();
-    chkRememberState->SetIsEnabled(on);
+    if (chkRememberState) {
+        chkRememberState->SetIsEnabled(on);
+    }
+    if (chkRestoreSession) {
+        chkRestoreSession->SetIsEnabled(on);
+    }
 }
 
 void SettingsWnd::OnCancel(VirtMouseEvent*) {
@@ -221,6 +225,9 @@ void SettingsWnd::OnOk(VirtMouseEvent*) {
     }
     if (chkRememberOpened) {
         gSettings->rememberOpenedFiles = chkRememberOpened->IsChecked();
+    }
+    if (chkRestoreSession) {
+        gSettings->restoreSession = chkRestoreSession->IsChecked();
     }
     if (showInverseSearch && dropInverse) {
         TempStr tmp = dropInverse->GetTextTemp();
@@ -361,6 +368,10 @@ bool SettingsWnd::Create(MainWindow* mainWin) {
         NewDlgCheckbox(hwnd, Tr("Remember &opened files"), fontText, sett && gSettings->rememberOpenedFiles);
     chkRememberOpened->onStateChanged = MkMethod0<SettingsWnd, &SettingsWnd::OnRememberOpenedChanged>(this);
     addCheck(advanced, chkRememberOpened);
+    chkRestoreSession =
+        NewDlgCheckbox(hwnd, Tr("Reopen last &documents at startup"), fontText, sett && gSettings->restoreSession);
+    addCheck(advanced, chkRestoreSession);
+    OnRememberOpenedChanged();
     vbox->AddChild(NewDlgSection(advanced));
 
     if (showInverseSearch) {
