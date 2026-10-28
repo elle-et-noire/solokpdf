@@ -1388,7 +1388,7 @@ implemented. Condensed results and hashes are in
 
 ## Phase 5: portable development identity
 
-The initial packaging results below describe `48eb0f96a`. Both current ZIPs were
+The initial packaging results below describe `48eb0f96a`. Both ZIPs were
 rebuilt on 2026-10-27 with theme page colors (smart by default) and the new
 themes, after `ad-hoc-pdfium`, `-theme` and `-tiles` passed on the Release
 build. Each was checked after extraction, without PDB or source tree: with
@@ -1411,6 +1411,14 @@ and downloaded PDFs. The debug executable is 26,628,096 bytes; PDFium DLL is
 7,586,816 bytes. Archives contain dependencies, documentation and notices.
 The extracted package is additionally checked for default PDFium document
 display/search and normal shutdown, without relying on a PDB or a source tree.
+
+The Release ZIP was rebuilt on 2026-10-29 from `145bfee57` and is 22,979,894
+bytes. The Release executable passed `ad-hoc-count-prefix`,
+`ad-hoc-shortcuts-dialog`, `ad-hoc-key-scroll-step`, `ad-hoc-vim-keys`,
+`ad-hoc-no-update-check`, `ad-hoc-restore-session-option`,
+`ad-hoc-keyboard-help-content`, `ad-hoc-theme-keyboard` and
+`ad-hoc-pdfium-theme`. The extracted ZIP opened and rendered a PDF, then quit
+with exit code 0.
 
 - `kAppName` and executable identity change only with `SOLOKPDF_PDFIUM`.
   The underlying upstream target name remains for a small build-system diff;
