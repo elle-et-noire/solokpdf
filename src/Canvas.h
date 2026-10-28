@@ -2,6 +2,7 @@
    License: GPLv3 */
 
 void UpdateDeltaPerLine();
+void CanvasScrollByKey(MainWindow* win, WPARAM dir, int count);
 
 LRESULT CALLBACK WndProcCanvas(HWND, UINT, WPARAM, LPARAM);
 LRESULT WndProcCanvasAbout(MainWindow*, HWND, UINT, WPARAM, LPARAM);

@@ -1,5 +1,5 @@
 import { writeFileSync } from "node:fs";
-import { assemblePdf, runStandalone, tmpPath } from "./util.ts";
+import { assemblePdf, runStandalone, tmpPath, writeAppdata } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled, pressKey } from "./win-automation.ts";
 import { getScrollPos } from "./winapi.ts";
 
@@ -23,7 +23,16 @@ function makePdf(): string {
 export async function testit(): Promise<void> {
   const pdf = tmpPath("count-prefix.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
-  const { proc, client, frame } = await launchControlled(["-zoom", "200", "-view", "continuous", pdf]);
+  const appdata = writeAppdata("count-prefix-appdata", "SmoothScroll = false\nRestoreSession = false");
+  const { proc, client, frame } = await launchControlled([
+    "-appdata",
+    appdata,
+    "-zoom",
+    "200",
+    "-view",
+    "continuous",
+    pdf,
+  ]);
   try {
     await client.waitForRenderIdle();
     const canvas = findCanvas(frame);

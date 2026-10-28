@@ -1151,7 +1151,7 @@ void DocCanvasSmoothScrollTick(MainWindow* win, int elapsedMs) {
     }
 }
 
-void CanvasOnVScroll(MainWindow* win, ScrollMsg msg, int nTrackPos) {
+void CanvasOnVScroll(MainWindow* win, ScrollMsg msg, int nTrackPos, int lineAmount) {
     DisplayModel* dm = win->AsFixed();
     if (!dm) {
         return;
@@ -1163,7 +1163,7 @@ void CanvasOnVScroll(MainWindow* win, ScrollMsg msg, int nTrackPos) {
     // through the document with it even in single page mode
     bool singlePageWithScrollbar = gSettings->scrollbarInSinglePage && dmIsSinglePage;
 
-    int lineHeight = DpiScale(ScrollLineAmount(gSettings->scrollLineAmount));
+    int lineHeight = DpiScale(lineAmount > 0 ? lineAmount : ScrollLineAmount(gSettings->scrollLineAmount));
     bool isFitPage = (kZoomFitPage == ctrl->GetZoomVirtual());
     if (!IsContinuous(ctrl->GetDisplayMode()) && isFitPage) {
         lineHeight = 1;

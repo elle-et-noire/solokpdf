@@ -71,7 +71,7 @@ void DocCanvasSmoothScrollTick(MainWindow* win, int elapsedMs);
 void StopSmoothScroll(MainWindow* win);
 
 // `nTrackPos` is the thumb position of a ScrollMsg::ThumbTrack
-void CanvasOnVScroll(MainWindow* win, ScrollMsg msg, int nTrackPos = 0);
+void CanvasOnVScroll(MainWindow* win, ScrollMsg msg, int nTrackPos = 0, int lineAmount = 0);
 void CanvasOnHScroll(MainWindow* win, ScrollMsg msg, int nTrackPos = 0);
 int CanvasScrollPosV(MainWindow* win);
 

@@ -5376,7 +5376,11 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
                 break;
             }
             if (dm && dm->NeedVScroll() && dm->GetZoomVirtual() != kZoomFitContent) {
-                CanvasOnVScroll(win, cmdId == CmdScrollUp ? ScrollMsg::LineUp : ScrollMsg::LineDown);
+                int lineAmount = gSettings->keyScrollLineAmount;
+                if (lineAmount < 1) {
+                    lineAmount = gSettings->scrollLineAmount;
+                }
+                CanvasOnVScroll(win, cmdId == CmdScrollUp ? ScrollMsg::LineUp : ScrollMsg::LineDown, 0, lineAmount);
             } else if (cmdId == CmdScrollUp) {
                 // in single page view or fit content, scrolls by page
                 ctrl->GoToPrevPage(true);

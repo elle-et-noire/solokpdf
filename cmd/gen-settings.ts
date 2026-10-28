@@ -1714,7 +1714,13 @@ const globalPrefs: Field[] = [
     "ScrollLineAmount",
     Int,
     16,
-    "distance, in screen pixels at 96 DPI, scrolled by an arrow-key press or one mouse-wheel line; values below 1 use 16",
+    "distance, in screen pixels at 96 DPI, scrolled by one mouse-wheel line or scrollbar arrow click; values below 1 use 16",
+  ).ver("3.7"),
+  field(
+    "KeyScrollLineAmount",
+    Int,
+    48,
+    "distance, in screen pixels at 96 DPI, scrolled by one keyboard line-scroll command (j/k, Up/Down; Left/Right is not affected); values below 1 use ScrollLineAmount",
   ).ver("3.7"),
   field(
     "SaveMemory",
@@ -2232,6 +2238,7 @@ const globalPrefsLayout = [
   "Annotations",
   "SidebarDx",
   "ScrollLineAmount",
+  "KeyScrollLineAmount",
   "SaveMemory",
   "CitationHoverDelay",
   "ReadAloudSpeed",

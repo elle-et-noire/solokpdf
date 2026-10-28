@@ -1042,9 +1042,13 @@ struct Settings {
     // width of the favorites / bookmarks sidebar in screen pixels, as last
     // resized (0 means the default)
     int sidebarDx;
-    // distance, in screen pixels at 96 DPI, scrolled by an arrow-key press
-    // or one mouse-wheel line; values below 1 use 16
+    // distance, in screen pixels at 96 DPI, scrolled by one mouse-wheel
+    // line or scrollbar arrow click; values below 1 use 16
     int scrollLineAmount;
+    // distance, in screen pixels at 96 DPI, scrolled by one keyboard
+    // line-scroll command (j/k, Up/Down; Left/Right is not affected);
+    // values below 1 use ScrollLineAmount
+    int keyScrollLineAmount;
     // how hard to free unused page and image caches to save RAM (0 to
     // 100). 0 keeps them until an allocation fails; 100 drops them as soon
     // as a page is off-screen

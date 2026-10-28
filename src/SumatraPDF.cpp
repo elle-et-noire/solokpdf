@@ -10694,9 +10694,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
             if (dm && dm->NeedVScroll() && dm->GetZoomVirtual() != kZoomFitContent) {
                 int n = GetCommandIntArg(cmd, kCmdArgN, 1);
                 WPARAM dir = (cmdId == CmdScrollUp) ? SB_LINEUP : SB_LINEDOWN;
-                for (int i = 0; i < n; i++) {
-                    SendMessageW(win->hwndCanvas, WM_VSCROLL, dir, 0);
-                }
+                CanvasScrollByKey(win, dir, n);
             } else {
                 // in single page view or fit content, scrolls by page
                 if (cmdId == CmdScrollUp) {

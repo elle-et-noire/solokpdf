@@ -319,7 +319,7 @@ __unused static Str scrollMsgStr(USHORT msg) {
     return fmt("%d", (int)msg);
 }
 
-static void OnVScroll(MainWindow* win, WPARAM wp) {
+static void OnVScroll(MainWindow* win, WPARAM wp, int lineAmount = 0) {
     ReportIf(!win->AsFixed());
 
     // Use overlay state whenever overlay mode is on — including SmartInvisible
@@ -347,7 +347,7 @@ static void OnVScroll(MainWindow* win, WPARAM wp) {
     // scroll through pages using scrollbar even in single page mode
     bool singlePageWithScrollbar = gSettings->scrollbarInSinglePage && dmIsSinglePage;
 
-    int lineHeight = DpiScale(ScrollLineAmount(gSettings->scrollLineAmount));
+    int lineHeight = DpiScale(lineAmount > 0 ? lineAmount : ScrollLineAmount(gSettings->scrollLineAmount));
     bool isFitPage = (kZoomFitPage == ctrl->GetZoomVirtual());
     if (!IsContinuous(ctrl->GetDisplayMode()) && isFitPage) {
         lineHeight = 1;
@@ -530,6 +530,16 @@ static void OnVScroll(MainWindow* win, WPARAM wp) {
     }
     if (scrollDown || scrollUp) {
         OnDocumentVerticalScrollIntent(win, scrollDown);
+    }
+}
+
+void CanvasScrollByKey(MainWindow* win, WPARAM dir, int count) {
+    int lineAmount = gSettings->keyScrollLineAmount;
+    if (lineAmount < 1) {
+        lineAmount = ScrollLineAmount(gSettings->scrollLineAmount);
+    }
+    for (int i = 0; i < count; i++) {
+        OnVScroll(win, dir, lineAmount);
     }
 }
 

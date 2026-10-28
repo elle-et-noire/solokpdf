@@ -1739,6 +1739,12 @@ Full feature/performance parity and release readiness have not been reached.
 
 ## Count prefix
 
+`KeyScrollLineAmount` sets the vertical keyboard line step (default 48 px at
+96 DPI); values below 1 fall back to `ScrollLineAmount`. `j`/`k`, Up/Down,
+command counts, and count prefixes use it. Wheel, touchpad, scrollbar arrows,
+and horizontal scrolling retain `ScrollLineAmount`. Ng uses the same keyboard
+step; its command count behavior remains separate.
+
 In the document view, digits prefix the next scroll or page command (`3j`,
 `10k`). The prefix multiplies a command's own count argument, stops at 9999,
 and clears on Esc, mouse input, focus loss, or another command. A shortcut
