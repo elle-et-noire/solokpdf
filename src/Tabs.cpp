@@ -21,6 +21,7 @@
 #include "base/GuessFileType.h"
 #include "EngineAll.h"
 #include "DisplayModel.h"
+#include "VimKeys.h"
 #include "SumatraPDF.h"
 #include "DocumentProperties.h"
 #include "MainWindow.h"

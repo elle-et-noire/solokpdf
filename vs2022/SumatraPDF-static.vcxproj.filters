@@ -183,6 +183,9 @@
     <ClInclude Include="..\src\Toolbar.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\VimKeys.h">
+      <Filter>src</Filter>
+    </ClInclude>
     <ClInclude Include="..\src\base\Archive.h">
       <Filter>src\base</Filter>
     </ClInclude>
@@ -969,6 +972,9 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\UpdateCheck.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\VimKeys.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\base\Archive.cpp">

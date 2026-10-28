@@ -31,6 +31,7 @@
 #include "Installer.h"
 #include "InstallerUtil.h"
 #include "SumatraTest.h"
+#include "VimKeys.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
 #include "AnnotPlacement.h"

@@ -142,6 +142,7 @@
 #include "Tests.h"
 #include "Version.h"
 #include "CachedObjects.h"
+#include "VimKeys.h"
 #include "SumatraPDF.h"
 #include "PerfLog.h"
 #include "SumatraPDFCommon.h"
@@ -9823,231 +9824,6 @@ static void ToggleSidebarViewCmd(MainWindow* win, CustomCommand* cmd, SidebarVie
 // orig disables Undo / Redo instead of saying why nothing happens
 void UndoRedoUnavailable(MainWindow*, bool) {}
 
-static Kind kNotifCountPrefix = "countPrefix";
-static constexpr int kVimCommandHeight = 30;
-static constexpr int kVimCommandInset = 8;
-
-void ClearKeyCount(MainWindow* win) {
-    if (!win || (!win->pendingKeyCount && !win->pendingKeyPrefix)) {
-        return;
-    }
-    win->pendingKeyCount = 0;
-    win->pendingKeyPrefix = 0;
-    RemoveNotificationsForGroup(win, kNotifCountPrefix);
-}
-
-static void ShowPendingKeys(MainWindow* win) {
-    NotificationCreateArgs args;
-    args.win = win;
-    args.groupId = kNotifCountPrefix;
-    if (win->pendingKeyCount && win->pendingKeyPrefix) {
-        args.msg = fmt("%d%c", win->pendingKeyCount, win->pendingKeyPrefix);
-    } else if (win->pendingKeyPrefix) {
-        args.msg = fmt("%c", win->pendingKeyPrefix);
-    } else {
-        args.msg = fmt("%d", win->pendingKeyCount);
-    }
-    args.corner = NotifCorner::BottomRight;
-    ShowNotification(args);
-}
-
-static VimMark CurrentVimMark(MainWindow* win) {
-    VimMark mark;
-    DisplayModel* dm = win->AsFixed();
-    if (dm) {
-        ScrollState state = dm->GetScrollState();
-        mark.page = state.page;
-        mark.x = state.x;
-        mark.y = state.y;
-    }
-    return mark;
-}
-
-static void LoadVimMarks(MainWindow* win) {
-    WindowTab* tab = win->CurrentTab();
-    if (!tab || tab->vimMarksLoaded) {
-        return;
-    }
-    tab->vimMarksLoaded = true;
-    FileState* fs = FileHistoryFindByPath(tab->filePath);
-    if (!fs) {
-        return;
-    }
-    Str data = fs->vimMarks;
-    if (!len(data)) {
-        return;
-    }
-    int start = 0;
-    for (int i = 0; i <= len(data); i++) {
-        if (i < len(data) && data.s[i] != ';') {
-            continue;
-        }
-        Str entry(data.s + start, i - start);
-        char letter = 0;
-        VimMark mark;
-        if (sscanf_s(CStrTemp(entry), "%c,%d,%lf,%lf", &letter, 1, &mark.page, &mark.x, &mark.y) == 4 &&
-            letter >= 'a' && letter <= 'z') {
-            tab->vimMarks[letter - 'a'] = mark;
-        }
-        start = i + 1;
-    }
-}
-
-static void SaveVimMarks(MainWindow* win) {
-    WindowTab* tab = win->CurrentTab();
-    FileState* fs = tab ? FileHistoryFindByPath(tab->filePath) : nullptr;
-    if (!fs) {
-        return;
-    }
-    str::Builder out;
-    for (int i = 0; i < kVimMarkCount; i++) {
-        VimMark mark = tab->vimMarks[i];
-        if (!mark.page) {
-            continue;
-        }
-        if (len(out)) {
-            out.Append(StrL(";"));
-        }
-        out.Append(fmt("%c,%d,%.15g,%.15g", (char)('a' + i), mark.page, mark.x, mark.y));
-    }
-    str::ReplaceWithCopy(&fs->vimMarks, ToStrTemp(out));
-    ScheduleSaveSettings();
-}
-
-static void VimGoPage(MainWindow* win, int page) {
-    if (!win->ctrl || page < 1 || page > win->ctrl->PageCount()) {
-        return;
-    }
-    WindowTab* tab = win->CurrentTab();
-    if (tab) {
-        tab->vimJumpBack = CurrentVimMark(win);
-    }
-    win->ctrl->GoToPage(page, true);
-}
-
-static void VimJumpMark(MainWindow* win, VimMark mark) {
-    DisplayModel* dm = win->AsFixed();
-    WindowTab* tab = win->CurrentTab();
-    if (!dm || !tab || !mark.page || !dm->ValidPageNo(mark.page)) {
-        return;
-    }
-    VimMark before = CurrentVimMark(win);
-    dm->AddNavPoint();
-    dm->SetScrollState(ScrollState(mark.page, mark.x, mark.y));
-    tab->vimJumpBack = before;
-}
-
-static void CloseVimCommand(MainWindow* win) {
-    HWND edit = win->vimCmdEdit;
-    win->vimCmdEdit = nullptr;
-    if (edit) {
-        DestroyWindow(edit);
-    }
-    if (IsWindow(win->hwndFrame)) {
-        HwndSetFocus(win->hwndFrame);
-    }
-}
-
-static void RunVimCommand(MainWindow* win, Str input) {
-    str::TrimWs(input);
-    str::TrimPrefix(input, StrL(":"));
-    str::TrimWs(input);
-    if (!len(input)) {
-        return;
-    }
-
-    VecAppend(win->vimCmdHistory, str::Dup(input));
-    win->vimCmdHistoryPos = len(win->vimCmdHistory);
-    bool digits = true;
-    for (int i = 0; i < len(input); i++) {
-        if (!str::IsDigit(input.s[i])) {
-            digits = false;
-            break;
-        }
-    }
-    if (digits) {
-        VimGoPage(win, ParseInt(input));
-    } else if (str::Eq(input, StrL("q"))) {
-        HwndSendCommand(win->hwndFrame, CmdClose);
-    } else if (str::Eq(input, StrL("qa"))) {
-        HwndSendCommand(win->hwndFrame, CmdExit);
-    } else if (str::Eq(input, StrL("w"))) {
-        HwndSendCommand(win->hwndFrame, CmdSaveAs);
-    } else if (str::Eq(input, StrL("tabn"))) {
-        HwndSendCommand(win->hwndFrame, CmdNextTab);
-    } else if (str::Eq(input, StrL("tabp"))) {
-        HwndSendCommand(win->hwndFrame, CmdPrevTab);
-    } else if (str::Eq(input, StrL("set vim"))) {
-        if (!gSettings->vimKeys) {
-            HwndSendCommand(win->hwndFrame, CmdToggleVimKeys);
-        }
-    } else if (str::Eq(input, StrL("set novim"))) {
-        if (gSettings->vimKeys) {
-            HwndSendCommand(win->hwndFrame, CmdToggleVimKeys);
-        }
-    } else {
-        RunCommandPalette(win, input, 0);
-    }
-}
-
-static LRESULT CALLBACK VimCommandProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR ref) {
-    auto* win = (MainWindow*)ref;
-    if (msg == WM_KEYDOWN) {
-        if (wp == VK_ESCAPE) {
-            CloseVimCommand(win);
-            return 0;
-        }
-        if (wp == VK_RETURN) {
-            int n = GetWindowTextLengthW(hwnd);
-            WCHAR* buf = AllocArrayTemp<WCHAR>(n + 1);
-            GetWindowTextW(hwnd, buf, n + 1);
-            TempStr input = ToUtf8Temp(WStr(buf, n));
-            CloseVimCommand(win);
-            RunVimCommand(win, input);
-            return 0;
-        }
-        if (wp == VK_UP || wp == VK_DOWN) {
-            int n = len(win->vimCmdHistory);
-            if (wp == VK_UP && win->vimCmdHistoryPos > 0) {
-                win->vimCmdHistoryPos--;
-            } else if (wp == VK_DOWN && win->vimCmdHistoryPos < n) {
-                win->vimCmdHistoryPos++;
-            }
-            Str text = win->vimCmdHistoryPos < n ? fmt(":%s", win->vimCmdHistory[win->vimCmdHistoryPos]) : StrL(":");
-            HwndSetText(hwnd, text);
-            SendMessageW(hwnd, EM_SETSEL, (WPARAM)-1, (LPARAM)-1);
-            return 0;
-        }
-    }
-    if (msg == WM_KILLFOCUS && win->vimCmdEdit == hwnd) {
-        win->vimCmdEdit = nullptr;
-        DestroyWindow(hwnd);
-        return 0;
-    }
-    return DefSubclassProc(hwnd, msg, wp, lp);
-}
-
-static void OpenVimCommand(MainWindow* win) {
-    if (win->vimCmdEdit) {
-        return;
-    }
-    Rect rc = HwndClientRect(win->hwndFrame);
-    int height = DpiScale(kVimCommandHeight);
-    int inset = DpiScale(kVimCommandInset);
-    HWND edit = CreateWindowExW(0, L"EDIT", L":", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, inset,
-                                rc.dy - height - inset, rc.dx - 2 * inset, height, win->hwndFrame, nullptr,
-                                GetModuleHandleW(nullptr), nullptr);
-    if (!edit) {
-        return;
-    }
-    win->vimCmdEdit = edit;
-    win->vimCmdHistoryPos = len(win->vimCmdHistory);
-    SendMessageW(edit, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
-    SetWindowSubclass(edit, VimCommandProc, 0, (DWORD_PTR)win);
-    HwndSetFocus(edit);
-    SendMessageW(edit, EM_SETSEL, (WPARAM)-1, (LPARAM)-1);
-}
-
 static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     int cmdId = LOWORD(wp);
     int invokedCmdId = cmdId;
@@ -10079,18 +9855,9 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
         cmdId = cmd->origId;
     }
 
-    int count = win->pendingKeyCount;
-    if (count) {
-        ClearKeyCount(win);
-        bool repeatable = cmdId == CmdScrollUp || cmdId == CmdScrollDown || cmdId == CmdScrollUpHalfPage ||
-                          cmdId == CmdScrollDownHalfPage || cmdId == CmdScrollUpPage || cmdId == CmdScrollDownPage ||
-                          cmdId == CmdGoToPrevPage || cmdId == CmdGoToNextPage || cmdId == CmdScrollLeft ||
-                          cmdId == CmdScrollRight || cmdId == CmdVimScrollDownLine || cmdId == CmdVimScrollUpLine;
-        if (repeatable) {
-            for (int i = 1; i < count; i++) {
-                FrameOnCommand(win, hwnd, msg, wp, lp);
-            }
-        }
+    int count = TakeVimKeyCount(win, cmdId);
+    for (int i = 1; i < count; i++) {
+        FrameOnCommand(win, hwnd, msg, wp, lp);
     }
 
     // a favorite in the Favorites menu carries its file path and page as arguments
@@ -10273,36 +10040,14 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
             break;
         }
 
-        case CmdToggleVimKeys: {
-            ToggleSettingsBool(&gSettings->vimKeys);
-            ClearKeyCount(win);
-            NotificationCreateArgs args;
-            args.win = win;
-            args.msg = gSettings->vimKeys ? StrL("Vim Key Mode: On") : StrL("Vim Key Mode: Off");
-            ShowNotification(args);
-            break;
-        }
-
+        case CmdToggleVimKeys:
         case CmdVimPrefixG:
         case CmdVimSetMark:
         case CmdVimJumpMark:
-            if (gSettings->vimKeys) {
-                win->pendingKeyPrefix = cmdId == CmdVimPrefixG ? 'g' : cmdId == CmdVimSetMark ? 'm' : '\'';
-                ShowPendingKeys(win);
-            }
-            break;
-
         case CmdVimCommandLine:
-            if (gSettings->vimKeys) {
-                OpenVimCommand(win);
-            }
-            break;
-
         case CmdVimScrollDownLine:
         case CmdVimScrollUpLine:
-            if (gSettings->vimKeys && win->IsDocLoaded()) {
-                SendMessageW(win->hwndCanvas, WM_VSCROLL, cmdId == CmdVimScrollDownLine ? SB_LINEDOWN : SB_LINEUP, 0);
-            }
+            RunVimKeyCommand(win, cmdId);
             break;
 
         case CmdShowInFolder:
@@ -13326,13 +13071,7 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
                 break;
             }
             if (win) {
-                if (win->vimCmdEdit) {
-                    Rect rc = HwndClientRect(hwnd);
-                    int height = DpiScale(kVimCommandHeight);
-                    int inset = DpiScale(kVimCommandInset);
-                    SetWindowPos(win->vimCmdEdit, HWND_TOP, inset, rc.dy - height - inset, rc.dx - 2 * inset, height,
-                                 SWP_NOACTIVATE);
-                }
+                ResizeVimCommand(win);
                 RememberDefaultWindowPosition(win);
                 // UIState.layout.rc remembers the last laid-out client size;
                 // the scheduled update relayouts only when the size actually
@@ -14292,184 +14031,6 @@ static HACCEL FindAcceleratorsForHwnd(HWND hwnd, HWND* hwndAccel, bool* forwardS
 // after Ctrl is up; F is CmdToggleFullscreen and steals find/search focus.
 static WPARAM gIgnoreRepeatKey = 0;
 
-static bool HasUserKey(int vk, bool shift, bool ctrl) {
-    KeyShortcut key(
-        (u8)(KeyShortcut::kVirtKey | (shift ? KeyShortcut::kShiftKey : 0) | (ctrl ? KeyShortcut::kCtrlKey : 0)),
-        (u16)vk);
-    for (CustomCommand* cmd = gFirstCustomCommand; cmd; cmd = cmd->next) {
-        KeyShortcut custom;
-        if (len(cmd->key) && ParseShortcutString(cmd->key, custom) && custom.SameKey(key)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-constexpr int kVimShift = 1;
-constexpr int kVimCtrl = 2;
-
-static bool HandleVimKey(MainWindow* win, MSG& msg, int mods) {
-    if (!gSettings->vimKeys || !win || !win->IsDocLoaded() || msg.message != WM_KEYDOWN ||
-        (msg.hwnd != win->hwndFrame && msg.hwnd != win->hwndCanvas) ||
-        (GetFocus() != win->hwndFrame && GetFocus() != win->hwndCanvas)) {
-        return false;
-    }
-
-    int vk = (int)msg.wParam;
-    bool ctrl = (mods & kVimCtrl) != 0;
-    bool shift = (mods & kVimShift) != 0;
-    if (ctrl) {
-        if (HasUserKey(vk, shift, true)) {
-            ClearKeyCount(win);
-            return false;
-        }
-        if (vk == 'D' || vk == 'U' || vk == 'F' || vk == 'B') {
-            return false;
-        }
-        if (vk == VK_TAB && ((msg.lParam >> 16) & 0xff) == MapVirtualKeyW('I', MAPVK_VK_TO_VSC)) {
-            ClearKeyCount(win);
-            HwndSendCommand(win->hwndFrame, CmdNavigateForward);
-            return true;
-        }
-        int line = vk == 'E' ? SB_LINEDOWN : vk == 'Y' ? SB_LINEUP : 0;
-        int count = win->pendingKeyCount;
-        ClearKeyCount(win);
-        if (!line) {
-            return false;
-        }
-        for (int i = 0; i < (count ? count : 1); i++) {
-            SendMessageW(win->hwndCanvas, WM_VSCROLL, line, 0);
-        }
-        return true;
-    }
-    if (HasUserKey(vk, shift, false)) {
-        ClearKeyCount(win);
-        return false;
-    }
-
-    int count = win->pendingKeyCount;
-    char prefix = win->pendingKeyPrefix;
-    if (prefix) {
-        ClearKeyCount(win);
-        if (prefix == 'g' && !shift && vk == 'G') {
-            VimGoPage(win, count ? count : 1);
-            return true;
-        }
-        if (prefix == 'g' && vk == 'T') {
-            if (count && !shift && count <= win->TabCount()) {
-                TabsSelect(win, count - 1);
-            } else {
-                HwndSendCommand(win->hwndFrame, shift ? CmdPrevTab : CmdNextTab);
-            }
-            return true;
-        }
-        if (prefix == 'm' && !shift && vk >= 'A' && vk <= 'Z') {
-            LoadVimMarks(win);
-            win->CurrentTab()->vimMarks[vk - 'A'] = CurrentVimMark(win);
-            SaveVimMarks(win);
-            return true;
-        }
-        if ((prefix == '\'' || prefix == '`') && !shift) {
-            if (vk == VK_OEM_7 && prefix == '\'') {
-                VimJumpMark(win, win->CurrentTab()->vimJumpBack);
-                return true;
-            }
-            if (vk >= 'A' && vk <= 'Z') {
-                LoadVimMarks(win);
-                VimJumpMark(win, win->CurrentTab()->vimMarks[vk - 'A']);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    if (shift && vk == 'G') {
-        ClearKeyCount(win);
-        VimGoPage(win, count ? count : win->ctrl->PageCount());
-        return true;
-    }
-    if (vk == 'G' || (!shift && vk == 'M') || (!shift && vk == VK_OEM_7) || (!shift && vk == VK_OEM_3)) {
-        win->pendingKeyPrefix = vk == 'G' ? 'g' : vk == 'M' ? 'm' : vk == VK_OEM_7 ? '\'' : '`';
-        ShowPendingKeys(win);
-        return true;
-    }
-    if (vk == 'N') {
-        if (!HasFindText(win)) {
-            MaybeDelayedWarningNotification(StrL("No previous search"));
-            return true;
-        }
-        win->CurrentTab()->vimJumpBack = CurrentVimMark(win);
-        HwndSendCommand(win->hwndFrame, shift ? CmdFindPrev : CmdFindNext);
-        return true;
-    }
-    if (vk == 'F' && !shift) {
-        win->vimLinkHints = !win->linkFollowActive;
-        ToggleKeyboardLinkFollowing(win);
-        return true;
-    }
-    if (vk == VK_OEM_1 && shift) {
-        ClearKeyCount(win);
-        OpenVimCommand(win);
-        return true;
-    }
-    return false;
-}
-
-TempStr VimKeysTestResultTemp(Str action, Str key, int* exitCode) {
-    if (len(gWindows) == 0 || !gWindows[0]) {
-        *exitCode = 2;
-        return StrL("NOTREADY no-window");
-    }
-    MainWindow* win = gWindows[0];
-    if (str::Eq(action, StrL("key"))) {
-        int mods = 0;
-        if (str::TrimPrefix(key, StrL("Ctrl+"))) {
-            mods |= kVimCtrl;
-        }
-        if (str::TrimPrefix(key, StrL("Shift+"))) {
-            mods |= kVimShift;
-        }
-        int vk = 0;
-        if (len(key) == 1 && key.s[0] >= 'A' && key.s[0] <= 'Z') {
-            vk = key.s[0];
-        } else if (str::Eq(key, StrL(":"))) {
-            vk = VK_OEM_1;
-            mods |= kVimShift;
-        }
-        if (!vk) {
-            *exitCode = 1;
-            return StrL("ERROR unknown-key");
-        }
-        HwndSetFocus(win->hwndFrame);
-        MSG msg{};
-        msg.hwnd = win->hwndFrame;
-        msg.message = WM_KEYDOWN;
-        msg.wParam = vk;
-        if (!HandleVimKey(win, msg, mods)) {
-            int n = 0;
-            const Accel* accels = GetAcceleratorTable(n);
-            u8 flags = KeyShortcut::kVirtKey | ((mods & kVimShift) ? KeyShortcut::kShiftKey : 0) |
-                       ((mods & kVimCtrl) ? KeyShortcut::kCtrlKey : 0);
-            KeyShortcut shortcut(flags, (u16)vk);
-            for (int i = 0; i < n; i++) {
-                if (accels[i].sc.SameKey(shortcut)) {
-                    HwndSendCommand(win->hwndFrame, accels[i].cmd);
-                    break;
-                }
-            }
-        }
-    } else if (!str::Eq(action, StrL("state"))) {
-        *exitCode = 1;
-        return StrL("ERROR unknown-action");
-    }
-    *exitCode = 0;
-    int page = win->ctrl ? win->ctrl->CurrentPageNo() : 0;
-    return fmt("mode=%d page=%d focus=%d count=%d prefix=%c hints=%d edit=%lld", gSettings->vimKeys ? 1 : 0, page,
-               (GetFocus() == win->hwndFrame || GetFocus() == win->hwndCanvas) ? 1 : 0, win->pendingKeyCount,
-               win->pendingKeyPrefix ? win->pendingKeyPrefix : '-', win->linkFollowActive ? 1 : 0,
-               (i64)win->vimCmdEdit);
-}
-
 static bool MaybeTranslateAccelerator(MSG& msg) {
     // TODO: why mouse events?
     bool doAccels = ((msg.message >= WM_KEYFIRST && msg.message <= WM_KEYLAST) ||
@@ -14479,43 +14040,7 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
     }
 
     MainWindow* countWin = FindMainWindowByHwnd(msg.hwnd);
-    if (countWin && (countWin->pendingKeyCount || countWin->pendingKeyPrefix) &&
-        (msg.message == WM_LBUTTONDOWN || msg.message == WM_RBUTTONDOWN || msg.message == WM_MBUTTONDOWN ||
-         (msg.message == WM_KEYDOWN && msg.wParam == VK_ESCAPE) ||
-         (msg.message == WM_KEYDOWN && msg.hwnd != countWin->hwndFrame && msg.hwnd != countWin->hwndCanvas))) {
-        ClearKeyCount(countWin);
-    }
-    if (countWin && countWin->vimLinkHints && msg.message == WM_KEYDOWN && !IsCtrlPressed() && !IsAltPressed() &&
-        !IsShiftPressed() && msg.wParam != VK_ESCAPE && !KeyboardLinkFollowingCapturesKey(countWin, (int)msg.wParam)) {
-        StopKeyboardLinkFollowing(countWin);
-        return true;
-    }
-    if (countWin && !countWin->pendingKeyPrefix && msg.message == WM_KEYDOWN && msg.wParam >= '0' &&
-        msg.wParam <= '9' && !IsCtrlPressed() && !IsAltPressed() && !IsShiftPressed() &&
-        (msg.hwnd == countWin->hwndFrame || msg.hwnd == countWin->hwndCanvas) &&
-        (GetFocus() == countWin->hwndFrame || GetFocus() == countWin->hwndCanvas) && countWin->IsDocLoaded()) {
-        int n = 0;
-        const Accel* accels = GetAcceleratorTable(n);
-        KeyShortcut digit(KeyShortcut::kVirtKey, (u16)msg.wParam);
-        bool bound = false;
-        for (int i = 0; i < n; i++) {
-            if (accels[i].sc.SameKey(digit) ||
-                (!accels[i].sc.isVirt && accels[i].sc.vk == msg.wParam && accels[i].sc.Mods() == 0)) {
-                bound = true;
-                break;
-            }
-        }
-        if (!bound && (msg.wParam != '0' || countWin->pendingKeyCount)) {
-            constexpr int kMaxKeyCount = 9999;
-            countWin->pendingKeyCount =
-                std::min(kMaxKeyCount, countWin->pendingKeyCount * 10 + (int)(msg.wParam - '0'));
-            ShowPendingKeys(countWin);
-            return true;
-        }
-    }
-
-    if (!IsAltPressed() &&
-        HandleVimKey(countWin, msg, (IsShiftPressed() ? kVimShift : 0) | (IsCtrlPressed() ? kVimCtrl : 0))) {
+    if (VimKeysPreTranslate(countWin, msg)) {
         return true;
     }
 
@@ -14586,13 +14111,8 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
         }
     }
 
-    // Vimium-style link hints: letter keys type the hint, so skip letter
-    // accelerators ('a' = highlight, 'n' = next page, …). Ctrl/Alt/Shift
-    // shortcuts still work (Shift+F toggles the mode off). Issue #6019.
-    if (msg.message == WM_KEYDOWN && !IsCtrlPressed() && !IsAltPressed() && !IsShiftPressed()) {
-        if (KeyboardLinkFollowingCapturesKey(FindMainWindowByHwnd(msg.hwnd), (int)msg.wParam)) {
-            return false;
-        }
+    if (VimLinkHintsCapture(msg)) {
+        return false;
     }
 
     // Up / Down in the focused thumbnails panel go through its pages

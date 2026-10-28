@@ -1417,6 +1417,7 @@
     <ClInclude Include="..\src\SumatraDialogs.h" />
     <ClInclude Include="..\src\SumatraPDF.h" />
     <ClInclude Include="..\src\Toolbar.h" />
+    <ClInclude Include="..\src\VimKeys.h" />
     <ClInclude Include="..\src\base\Archive.h" />
     <ClInclude Include="..\src\base\CrashHandler.h" />
     <ClInclude Include="..\src\base\tests\UtAssert.h" />
@@ -1735,6 +1736,7 @@
     <ClCompile Include="..\src\Toolbar.cpp" />
     <ClCompile Include="..\src\Uninstaller.cpp" />
     <ClCompile Include="..\src\UpdateCheck.cpp" />
+    <ClCompile Include="..\src\VimKeys.cpp" />
     <ClCompile Include="..\src\base\Archive.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>

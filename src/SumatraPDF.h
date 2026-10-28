@@ -48,8 +48,6 @@ constexpr u64 kAutoReloadMaxWaitMs = 5000;
 struct Favorites;
 struct FileHistory;
 struct MainWindow;
-void ClearKeyCount(MainWindow* win);
-TempStr VimKeysTestResultTemp(Str action, Str key, int* exitCode);
 extern Func1<MainWindow*> gAfterLayout;
 extern Func0 gOnSessionRestored;
 void NotifySessionRestoreFinished();

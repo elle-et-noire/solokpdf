@@ -442,6 +442,7 @@ function sumatrapdf_files()
     "SumatraControlCommon.*",
     "SumatraDialogs.*",
     "SumatraPDF.cpp",
+    "VimKeys.*",
     "OpenFileFilters_win.*",
     "SumatraCrashCommon.*",
     "SumatraPDFCommon.*",
