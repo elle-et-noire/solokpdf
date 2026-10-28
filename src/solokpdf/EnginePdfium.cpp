@@ -40,6 +40,7 @@
     X(FPDF_GetLastError)                \
     X(FPDF_GetPageCount)                \
     X(FPDF_GetDocPermissions)           \
+    X(FPDF_GetSecurityHandlerRevision)  \
     X(FPDF_GetPageSizeByIndexF)         \
     X(FPDF_LoadPage)                    \
     X(FPDF_ClosePage)                   \
@@ -1117,6 +1118,7 @@ class EnginePdfium : public EngineBase {
             return false;
         }
         VecResize(pages, pageCount);
+        isPasswordProtected = gPdfium.FPDF_GetSecurityHandlerRevision(doc) >= 0;
         unsigned long permissions = gPdfium.FPDF_GetDocPermissions(doc);
         allowsPrinting = (permissions & (1UL << 2)) != 0;
         allowsCopyingText = (permissions & (1UL << 4)) != 0;

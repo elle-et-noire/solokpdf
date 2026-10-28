@@ -488,13 +488,25 @@ bool CanViewWithKnownExternalViewer(WindowTab* tab, int cmdId) {
 
 bool CouldBePDFDoc(WindowTab* tab) {
     // consider any error state a potential PDF document
-    return !tab || !tab->ctrl || tab->GetEngineType() == kindEngineMupdf;
+    if (!tab || !tab->ctrl || tab->GetEngineType() == kindEngineMupdf) {
+        return true;
+    }
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    return tab->GetEngineType() == kindEnginePdfium;
+#else
+    return false;
+#endif
 }
 
 bool IsPdfDoc(WindowTab* tab) {
     if (!tab || !tab->ctrl) {
         return true;
     }
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (tab->GetEngineType() == kindEnginePdfium) {
+        return true;
+    }
+#endif
     if (tab->GetEngineType() != kindEngineMupdf) {
         return false;
     }

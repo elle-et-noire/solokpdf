@@ -642,7 +642,7 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
             return CommandVisibility::Hide;
         }
     }
-    // annotation editing; EnginePdfium documents support it without being isPdf (MuPDF tools)
+    // annotation editing also supports engines with a MuPDF annotation editor
     if (cmdId == CmdToggleEditPDF && !ctx.isPdf && !ctx.supportsAnnots) {
         return CommandVisibility::Hide;
     }
@@ -680,6 +680,9 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
 
     if (cmdId == CmdDocumentExtractText) {
         bool canExtract = ctx.engineKind == kindEngineMupdf || ctx.engineKind == kindEngineDjVu;
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+        canExtract |= ctx.engineKind == kindEnginePdfium;
+#endif
         if (!canExtract || ctx.isImageCollection) {
             return CommandVisibility::Hide;
         }

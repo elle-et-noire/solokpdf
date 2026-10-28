@@ -776,7 +776,7 @@ AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
 #endif
         ctx.isPdf = IsPdfDoc(ctx.tab);
         if (ctx.isPdf && engine) {
-            ctx.isPdfEncrypted = EngineMupdfIsEncrypted(engine);
+            ctx.isPdfEncrypted = engine->isPasswordProtected || EngineMupdfIsEncrypted(engine);
         }
         ctx.canContinueReadAloud = CanContinueReadAloud(ctx.tab);
         ctx.hideAnnotations = ctx.tab->hideAnnotations;

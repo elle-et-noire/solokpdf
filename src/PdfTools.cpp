@@ -1026,7 +1026,7 @@ void ShowPdfEncryptDialog(MainWindow* win) {
         return;
     }
     EngineBase* engine = tab->GetEngine();
-    if (EngineMupdfIsEncrypted(engine)) {
+    if (engine && (engine->isPasswordProtected || EngineMupdfIsEncrypted(engine))) {
         logf("ShowPdfEncryptDialog: '%s' is already encrypted, skipping\n", tab->filePath);
         return;
     }
@@ -1106,12 +1106,13 @@ void ShowPdfDecryptDialog(MainWindow* win) {
         return;
     }
     EngineBase* engine = tab->GetEngine();
-    if (!EngineMupdfIsEncrypted(engine)) {
+    if (!engine || (!engine->isPasswordProtected && !EngineMupdfIsEncrypted(engine))) {
         logf("ShowPdfDecryptDialog: '%s' is not encrypted, skipping\n", tab->filePath);
         return;
     }
-    Str pwd = EngineMupdfGetPassword(engine);
-    if (len(pwd) == 0) {
+    EngineBase* pdf = engine->HasAnnotationEditor() ? engine->AnnotationEditor(EditorLoad::Load) : engine;
+    Str pwd = EngineMupdfGetPassword(pdf);
+    if (len(pwd) == 0 && !engine->HasAnnotationEditor()) {
         logf("ShowPdfDecryptDialog: '%s' is encrypted but no password available\n", tab->filePath);
         return;
     }

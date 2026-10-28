@@ -27,6 +27,7 @@
 #include "EngineAll.h"
 #include "MainWindow.h"
 #include "WindowTab.h"
+#include "ExternalViewers.h"
 #include "SumatraPDF.h"
 #include "SumatraConfig.h"
 #include "Translations.h"
@@ -1281,7 +1282,10 @@ static void OnMergeWndDestroy(WindowBase::DestroyEvent* ev) {
 MergeSource* MergePdfWnd::AddSource(Str path, EngineBase* engine) {
     auto* src = new MergeSource();
     src->path = str::Dup(path);
-    src->password = str::Dup(EngineMupdfGetPassword(engine));
+    EngineBase* pdf = engine->isPasswordProtected && engine->HasAnnotationEditor()
+                          ? engine->AnnotationEditor(EditorLoad::Load)
+                          : engine;
+    src->password = str::Dup(EngineMupdfGetPassword(pdf));
     src->engine = engine;
     src->pageCount = engine->PageCount();
     src->color = kSourceColors[len(sources->all) % dimof(kSourceColors)];
@@ -1840,7 +1844,7 @@ bool MergePdfWnd::Create(MainWindow* w, WindowTab* tab) {
 
 void ShowMergePdfDialog(MainWindow* win) {
     WindowTab* tab = win ? win->CurrentTab() : nullptr;
-    if (!tab || !tab->IsDocLoaded() || len(tab->filePath) == 0 || !EngineMupdfIsPdf(tab->GetEngine())) {
+    if (!tab || !tab->IsDocLoaded() || len(tab->filePath) == 0 || !IsPdfDoc(tab)) {
         return;
     }
     if (gMergeWnd) {

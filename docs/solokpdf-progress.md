@@ -1684,8 +1684,17 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   loaded; every annotation type but redaction (see
   `docs/solokpdf-annotations.md`). PDFium's own incremental save, used before,
   wrote every parsed object: one annotation added up to 35 MB.
-- Document-level JavaScript, XFA, signing, and PDF editing/merging need
-  implementations for PDFium documents.
+- PDF tools accept a PDFium tab. The viewer stays in PDFium while MuPDF's
+  existing file tools perform bake, compression, page extraction/deletion,
+  encryption/decryption, merge, text extraction and scripts on demand. Merge
+  uses the lazy MuPDF editor only for an encrypted tab's password or unsaved
+  annotations; bake and extract likewise copy unsaved annotations. File tools
+  open or reload their output through the normal PDFium path. View rotation
+  already works in both engines; it does not rewrite page rotation in the file.
+  `tests/ad-hoc-pdfium-tools.ts`, `merge-struct-parents.ts`, `tool-merge.ts`
+  and `pdf-script.ts` cover these paths.
+- Document-level JavaScript, XFA and signing need implementations
+  for PDFium documents.
   Document Properties lists the ones a document uses ("Unsupported
   Features"; empty for most papers), checked by
   `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
