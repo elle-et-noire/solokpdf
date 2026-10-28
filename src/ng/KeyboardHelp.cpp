@@ -209,7 +209,7 @@ static int CollectKbSections(KeyboardHelpDataSource* ds, KbSection* sections) {
         }
         TempStr k = ShortcutsForCmdTemp(sc->cmdId, 2);
         if (len(k) == 0) {
-            k = str::DupTemp(sc->key);
+            k = RegisteredHotkeyTemp(sc->cmdId);
         }
         TempStr d;
         if (len(sc->name) > 0) {

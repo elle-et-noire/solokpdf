@@ -69,6 +69,7 @@ static const KbSectionDef kSections[] = {
     {"Annotations", kSecAnnot, 1},
 };
 bool IsHelpListedCmd(int cmdId);
+TempStr RegisteredHotkeyTemp(int cmdId);
 // fallback shortcuts for platforms without an accelerator table (the Windows
 // data source looks up the real bindings instead). {id, ""} means "no default".
 // clang-format off

@@ -12,6 +12,7 @@
 #include "Translations.h"
 #include "Commands.h"
 #include "KeyboardHelp.h"
+#include "GlobalHotkeysCommon.h"
 #include "KeyboardHelpCommon.h"
 
 bool IsHelpListedCmd(int cmdId) {
@@ -23,6 +24,17 @@ bool IsHelpListedCmd(int cmdId) {
         }
     }
     return false;
+}
+
+TempStr RegisteredHotkeyTemp(int cmdId) {
+#if OS_WIN
+    for (const GlobalHotkeyInfo& hotkey : gGlobalHotkeys) {
+        if (hotkey.cmdId == cmdId) {
+            return str::DupTemp(hotkey.key);
+        }
+    }
+#endif
+    return {};
 }
 
 struct DefaultKeyboardHelpDataSource : KeyboardHelpDataSource {

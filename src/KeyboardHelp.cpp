@@ -262,7 +262,7 @@ static ILayout* BuildKeyboardHelpLayout(KeyboardHelpDataSource* ds, Str title, S
             }
             TempStr k = ShortcutsForCmdTemp(sc->cmdId, 2);
             if (len(k) == 0) {
-                k = str::DupTemp(sc->key);
+                k = RegisteredHotkeyTemp(sc->cmdId);
             }
             TempStr d;
             if (len(sc->name) > 0) {
@@ -335,6 +335,8 @@ static ILayout* BuildKeyboardHelpLayout(KeyboardHelpDataSource* ds, Str title, S
     root->AddChild(new Spacer(0, DpiScale(10)));
     // flex so the columns shrink to the window and ScrollBox scrolls them
     root->AddChild(scroll, 1);
+    root->AddChild(new Spacer(0, DpiScale(10)));
+    root->AddChild(new VirtText(ds->Translate(StrL("Type a count before a scroll or page key (e.g. 3j).")), fontRow));
 
     int pad = DpiScale(20);
     return new Padding(root, Insets{pad, pad, pad, pad});
