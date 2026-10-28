@@ -144,6 +144,7 @@ static void VimJumpMark(MainWindow* win, VimMark mark) {
 static void CloseVimCommand(MainWindow* win) {
     HWND edit = win->vimCmdEdit;
     win->vimCmdEdit = nullptr;
+    win->vimCmdComposing = false;
     if (edit) {
         DestroyWindow(edit);
     }
@@ -196,12 +197,17 @@ static void RunVimCommand(MainWindow* win, Str input) {
 
 static LRESULT CALLBACK VimCommandProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR ref) {
     auto* win = (MainWindow*)ref;
+    if (msg == WM_IME_STARTCOMPOSITION) {
+        win->vimCmdComposing = true;
+    } else if (msg == WM_IME_ENDCOMPOSITION) {
+        win->vimCmdComposing = false;
+    }
     if (msg == WM_KEYDOWN) {
-        if (wp == VK_ESCAPE) {
+        if (wp == VK_ESCAPE && !win->vimCmdComposing) {
             CloseVimCommand(win);
             return 0;
         }
-        if (wp == VK_RETURN) {
+        if (wp == VK_RETURN && !win->vimCmdComposing) {
             int n = GetWindowTextLengthW(hwnd);
             WCHAR* buf = AllocArrayTemp<WCHAR>(n + 1);
             GetWindowTextW(hwnd, buf, n + 1);
@@ -225,6 +231,7 @@ static LRESULT CALLBACK VimCommandProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
     }
     if (msg == WM_KILLFOCUS && win->vimCmdEdit == hwnd) {
         win->vimCmdEdit = nullptr;
+        win->vimCmdComposing = false;
         DestroyWindow(hwnd);
         return 0;
     }
@@ -245,6 +252,7 @@ static void OpenVimCommand(MainWindow* win) {
         return;
     }
     win->vimCmdEdit = edit;
+    win->vimCmdComposing = false;
     win->vimCmdHistoryPos = len(win->vimCmdHistory);
     SendMessageW(edit, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
     SetWindowSubclass(edit, VimCommandProc, 0, (DWORD_PTR)win);

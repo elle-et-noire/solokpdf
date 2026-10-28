@@ -259,6 +259,7 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     char pendingKeyPrefix = 0;
     bool vimLinkHints = false;
     HWND vimCmdEdit = nullptr;
+    bool vimCmdComposing = false;
     Vec<Str> vimCmdHistory;
     int vimCmdHistoryPos = 0;
     // ShowScrollBar sends WM_SIZE; ignore it until UpdateScrollbars finishes (issue #5969)

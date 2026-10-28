@@ -11,7 +11,10 @@ import {
 } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled, pressKey, waitToolWindow } from "./win-automation.ts";
 import { ControlCommand } from "./control.ts";
-import { getScrollPos, sendText, sleep } from "./winapi.ts";
+import { getScrollPos, sendMessage, sendText, sleep } from "./winapi.ts";
+
+const WM_IME_STARTCOMPOSITION = 0x010d;
+const WM_IME_ENDCOMPOSITION = 0x010e;
 
 function makePdf(links: "links" | "no-links" = "links"): string {
   const pages = Array.from({ length: 8 }, (_, i) => `${3 + i} 0 R`);
@@ -166,6 +169,16 @@ export async function testit(): Promise<void> {
     sendText(edit, ":3");
     await pressKey(edit, 0x0d);
     if ((await page()) !== 3) throw new Error(":3 did not go to page 3");
+
+    await key(":");
+    const imeEdit = Number(/edit=(\d+)/.exec(await state())?.[1] ?? 0);
+    sendMessage(imeEdit, WM_IME_STARTCOMPOSITION, 0, 0);
+    await pressKey(imeEdit, 0x1b);
+    if (!/edit=[1-9]/.test(await state())) throw new Error("IME Escape closed the Vim command line");
+    await pressKey(imeEdit, 0x0d);
+    if (!/edit=[1-9]/.test(await state())) throw new Error("IME Enter submitted the Vim command line");
+    sendMessage(imeEdit, WM_IME_ENDCOMPOSITION, 0, 0);
+    await pressKey(imeEdit, 0x1b);
 
     for (const ch of [":", "'", "`"]) {
       const result = await state("jis", ch);
