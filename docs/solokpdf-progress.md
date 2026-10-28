@@ -1412,13 +1412,11 @@ and downloaded PDFs. The debug executable is 26,628,096 bytes; PDFium DLL is
 The extracted package is additionally checked for default PDFium document
 display/search and normal shutdown, without relying on a PDB or a source tree.
 
-The Release ZIP was rebuilt on 2026-10-29 from `145bfee57` and is 22,979,894
-bytes. The Release executable passed `ad-hoc-count-prefix`,
-`ad-hoc-shortcuts-dialog`, `ad-hoc-key-scroll-step`, `ad-hoc-vim-keys`,
-`ad-hoc-no-update-check`, `ad-hoc-restore-session-option`,
-`ad-hoc-keyboard-help-content`, `ad-hoc-theme-keyboard` and
-`ad-hoc-pdfium-theme`. The extracted ZIP opened and rendered a PDF, then quit
-with exit code 0.
+The Release ZIP was rebuilt on 2026-10-29 from `5357ef1a7` plus the staged
+signing changes and is 22,983,691 bytes. The Release executable passed all 15
+`tests/ad-hoc-pdfium*.ts` checks, plus `ad-hoc-vim-keys`,
+`ad-hoc-count-prefix` and `ad-hoc-shortcuts-dialog`. The extracted ZIP opened
+and rendered a PDF, then quit with exit code 0.
 
 - `kAppName` and executable identity change only with `SOLOKPDF_PDFIUM`.
   The underlying upstream target name remains for a small build-system diff;
