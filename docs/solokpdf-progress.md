@@ -1759,3 +1759,38 @@ reassigning a key, and removes or resets user bindings. OK saves Shortcuts and
 reloads accelerators immediately; Cancel discards edits. Built-in keys cannot
 be removed because the settings format has no way to suppress them without
 assigning the key to another command. Ng needs a GPUI version of this dialog.
+
+## Vim key mode
+
+`VimKeys = true` enables the mode; it is off by default. Settings > Vim Key
+Mode and the command palette toggle it. User `Shortcuts` take precedence.
+Keys work in the document canvas or frame, not in edit fields.
+
+| Keys                             | Action                                                     |
+| -------------------------------- | ---------------------------------------------------------- |
+| `gg`, `G`, `{n}gg`, `{n}G`       | First, last, or numbered page                              |
+| `/`, `n`, `N`                    | Find box, next match, previous match                       |
+| `Ctrl+O`, `Ctrl+I`               | Navigation back, forward                                   |
+| `f`                              | Label visible links; type a label to follow, Esc to cancel |
+| `m{a-z}`, `'{a-z}`, `` `{a-z} `` | Set or jump to a document mark                             |
+| `''`                             | Return to the position before the last jump                |
+| `Ctrl+D/U`, `Ctrl+F/B`           | Half-page or full-page down/up; counts apply               |
+| `Ctrl+E/Y`                       | One wheel line down/up (`ScrollLineAmount`); counts apply  |
+| `gt`, `gT`, `{n}gt`              | Next, previous, or numbered tab                            |
+| `:`                              | Bottom command line                                        |
+
+The command line accepts a page number, `q` (close tab), `qa` (exit), `w`
+(Save As), `tabn`, `tabp`, `set vim`, and `set novim`. Up/Down recall commands
+for the session; other text opens a filtered command palette. Marks use page
+coordinates and persist in `FileState.VimMarks` when file history is enabled.
+
+Displaced defaults: `g` Go To Page dialog, `n` next page, `f` fullscreen,
+`m` cursor position, `Ctrl+O` Open, `Ctrl+D` Properties, `Ctrl+F` Find,
+`Ctrl+B` Add Favorite, and `Ctrl+Y` Custom Zoom. `Ctrl+E` and `Ctrl+U`
+were unbound. The menus retain the displaced commands. `p`, Space and
+PageDown retain previous-page and page-down navigation.
+
+Link hints use the existing page-link path and work on fixed-page documents.
+The Windows keyboard layout supplies `/`, `'`, `` ` ``, and `:` through OEM
+keys; other layouts need verification. Ng has the setting and command ids but
+still needs GPUI input, hints, marks, and command-line UI.
