@@ -96,6 +96,26 @@ static Str themesTxt = StrL(R"(Themes [
         ColorizeControls = true
     ]
     [
+        Name = Light Gray
+        TextColor = #000000
+        BackgroundColor = #eaeaea
+        ControlBackgroundColor = #eaeaea
+        ActiveTabBackgroundColor = #eaeaea
+        InactiveTabBackgroundColor = #d8d8d8
+        LinkColor = #0020a0
+        DisabledTextColor = #808080
+        DarkerTextColor = #404040
+        HotBackgroundColor = #dcdcdc
+        EdgeColor = #c0c0c0
+        HotEdgeColor = #808080
+        DisabledEdgeColor = #d0d0d0
+        ErrorBackgroundColor = #ffe0e0
+        NotificationBackgroundColor = #f2f2f2
+        NotificationHighlightColor = #ffee70
+        NotificationHighlightTextColor = #8d0801
+        ColorizeControls = true
+    ]
+    [
         Name = Dark from 3.5
         TextColor = #bac9d0
         BackgroundColor = #263238
@@ -1068,6 +1088,11 @@ static Color ThemePageRenderColorsNoInvert(Color& bg) {
         // High contrast mode is about the app's own UI. Recoloring the document
         // is not part of it - that's what made images come out inverted for no
         // reason (#2124) - so the page keeps its black-on-white default.
+        return text;
+    }
+
+    // Light keeps white paper; Light Gray is the gray-page variant
+    if (IsCurrentThemeDefault()) {
         return text;
     }
 

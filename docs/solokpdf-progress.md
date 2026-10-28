@@ -1627,7 +1627,8 @@ in menu order, wrapping, and show the new theme's name.
 `tests/ad-hoc-theme-keyboard.ts` drives all three.
 
 `smart` is now the default (upstream: `off`); a settings file that saved `off`
-keeps it. On the default Light theme pages become the theme's light gray.
+keeps it. Light keeps white pages; Light Gray (new) is the gray-page variant,
+with gray sidebar, tabs, toolbar and title bar too.
 
 `tests/ad-hoc-pdfium-theme.ts` checks a dark and a light theme: no white paper,
 both photos untouched, a figure's gray backdrop recolored, and `legacy` recoloring
