@@ -1696,19 +1696,19 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   already works in both engines; it does not rewrite page rotation in the file.
   `tests/ad-hoc-pdfium-tools.ts`, `merge-struct-parents.ts`, `tool-merge.ts`
   and `pdf-script.ts` cover these paths.
-- Document-level JavaScript and signing need implementations for PDFium
-  documents. Neither engine supports editing XFA forms; PDFium shows them
-  read-only and reports XFA in Unsupported Features, matching MuPDF's
-  read-only fallback.
+- Document-level JavaScript remains unsupported for PDFium documents. Neither
+  engine supports editing XFA forms; PDFium shows them read-only and reports
+  XFA in Unsupported Features, matching MuPDF's read-only fallback.
   Document Properties lists the ones a document uses ("Unsupported
   Features"; empty for most papers), checked by
   `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
   a notification on every load. Signed PDFium documents use the hidden MuPDF
   editor for verification text and certificate details in Document Properties.
   PDFium's signature count gates that load; ordinary PDFs stay on PDFium alone.
-  Sign Document is hidden for PDFium documents
-  (and clicking a signature field doesn't open it): `PdfSign.cpp` signs only
-  through EngineMupdf. MuPDF is the explicit compatibility route.
+  Sign Document and signature-field clicks use the lazy MuPDF editor to sign,
+  certify and save incrementally, then reopen the result in PDFium while
+  retaining the view state. Unsaved annotation and form edits share that save.
+  See `docs/solokpdf-forms.md`.
 - PDFium's attachment count gates loading the hidden MuPDF editor when the TOC
   is first requested. Its attachment entries are copied after PDFium's bookmarks;
   the same editor supplies bytes to Open/Save Attachment. This keeps ordinary
@@ -1730,8 +1730,8 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   show stale appearances. Text, choice, checkbox and radio edits use MuPDF's
   existing incremental save and undo paths. `tests/issue-6240.ts` checks
   buttons and saving; `tests/ad-hoc-pdfium-forms.ts` checks text and choice
-  values, view/print rendering and saved copies in both engines. XFA and
-  signing remain unsupported for PDFium documents.
+  values, view/print rendering and saved copies in both engines. XFA remains
+  unsupported; signing uses the same lazy MuPDF editor for PDFium documents.
   PDFium draws untouched widgets. The first form query loads the hidden MuPDF
   editor, whose widgets replace PDFium's widget pass after an edit; documents
   without forms keep the PDFium-only open and render path. Its existing edit,

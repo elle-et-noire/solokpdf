@@ -45,12 +45,6 @@ bool StartSignatureFieldSigning(MainWindow* win, Annotation* widget) {
     if (!dm || !EngineSupportsAnnotations(dm->GetEngine()) || win->isFullScreen) {
         return false;
     }
-#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-    // PdfSign.cpp signs through EngineMupdf only
-    if (dm->GetEngine()->kind == kindEnginePdfium) {
-        return false;
-    }
-#endif
     TempStr fieldName;
     if (!IsUnsignedSignatureWidget(widget, &fieldName)) {
         return false;

@@ -1,5 +1,5 @@
 // Opt-in PDFium check: Unsupported Features lists only what a document uses and PDFium can't do
-// (empty for a plain paper), and Sign Document is hidden. Build with solok-build.ts, then use --no-build.
+// (empty for a plain paper), and Sign Document is available. Build with solok-build.ts, then use --no-build.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
@@ -79,13 +79,12 @@ async function inspect(
 }
 
 export async function testit(): Promise<void> {
-  // signing only works through MuPDF's engine (PdfSign.cpp), so PDFium documents hide it
   const cases: [string, string, string, string, string, string][] = [
-    ["plain", plainPdf(), "pdfium", "", "hide", ""],
+    ["plain", plainPdf(), "pdfium", "", "show", ""],
     ["plain", plainPdf(), "mupdf", "", "show", ""],
-    ["features", featuresPdf(false), "pdfium", "Document JavaScript", "hide", "a.txt|page=1"],
+    ["features", featuresPdf(false), "pdfium", "Document JavaScript", "show", "a.txt|page=1"],
     ["features", featuresPdf(false), "mupdf", "", "show", "a.txt|page=1"],
-    ["xfa", featuresPdf(true), "pdfium", "XFA, Document JavaScript", "hide", "a.txt|page=1"],
+    ["xfa", featuresPdf(true), "pdfium", "XFA, Document JavaScript", "show", "a.txt|page=1"],
   ];
   const failures: string[] = [];
   for (const [name, pdf, engine, wantUnsupported, wantSign, wantToc] of cases) {

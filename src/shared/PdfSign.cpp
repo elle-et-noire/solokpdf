@@ -77,7 +77,7 @@ bool IsUnsignedSignatureWidget(Annotation* widget, TempStr* fieldNameOut) {
 // 1-based page each sits on. A PDF prepared for signing has such a field, and
 // signing it (rather than adding another) is what the author intended.
 void EngineMupdfGetUnsignedSignatureFields(EngineBase* engine, StrVec& names, Vec<int>& pageNos) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!epdf || !epdf->pdfdoc) {
         return;
     }
@@ -131,7 +131,7 @@ void EngineMupdfGetUnsignedSignatureFields(EngineBase* engine, StrVec& names, Ve
 
 // signatures already applied; a certifying signature has to be the first one
 int EngineMupdfCountSignedSignatures(EngineBase* engine) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!epdf || !epdf->pdfdoc) {
         return 0;
     }
@@ -238,7 +238,7 @@ static void DropCachedPageRendering(EngineMupdf* e, int pageNo) {
 // must follow this with EngineMupdfSaveUpdated() (incremental, so earlier
 // signatures stay valid).
 bool EngineMupdfSignDocument(EngineBase* engine, const PdfSignArgs& args, Str* errOut) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!epdf || !epdf->pdfdoc) {
         return false;
     }
