@@ -646,10 +646,6 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
     if (cmdId == CmdToggleEditPDF && !ctx.isPdf && !ctx.supportsAnnots) {
         return CommandVisibility::Hide;
     }
-    // applying a redaction rewrites page content, which PDFium draws from the file
-    if (!ctx.isPdf && (cmdId == CmdCreateAnnotRedact || cmdId == CmdApplyRedactions)) {
-        return CommandVisibility::Hide;
-    }
     if (ctx.pageCount < 2) {
         if (cmdId == CmdPdfDeletePages || cmdId == CmdPdfExtractPages) {
             return CommandVisibility::Hide;

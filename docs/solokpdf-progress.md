@@ -1681,9 +1681,12 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   round trips stayed within their 20–60 ms noise.
 - Annotations of PDFium documents are edited, undone and saved by a hidden
   MuPDF document of the same file, which draws them over PDFium's pages once
-  loaded; every annotation type but redaction (see
-  `docs/solokpdf-annotations.md`). PDFium's own incremental save, used before,
+  loaded, including redaction marks. PDFium's own incremental save, used before,
   wrote every parsed object: one annotation added up to 35 MB.
+- Applying redactions on a PDFium tab uses that already loaded MuPDF editor,
+  saves its rewritten content and reloads the tab in PDFium. The editor remains
+  lazy until annotation work starts; ordinary PDF open and render are unchanged.
+  `tests/ad-hoc-pdfium-redactions.ts` runs `redact-annotations.ts` in both engines.
 - PDF tools accept a PDFium tab. The viewer stays in PDFium while MuPDF's
   existing file tools perform bake, compression, page extraction/deletion,
   encryption/decryption, merge, text extraction and scripts on demand. Merge

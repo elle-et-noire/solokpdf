@@ -9804,7 +9804,7 @@ bool EngineMupdfHasUnsavedAnnotations(EngineBase* engine) {
 // file don't count: they surface only as their page gets loaded, so the button
 // would appear out of nowhere when an annotation is selected
 bool EngineMupdfHasUserRedactMarks(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     return e && e->createdRedactMark && EngineMupdfHasRedactMarks(engine);
 }
 
@@ -9827,7 +9827,7 @@ bool EngineMupdfHasRedactMarks(EngineBase* engine) {
 // holds pagesLock for as long as the page takes, and waiting for it froze
 // navigation (#6362). While it is held, answers what it last saw.
 bool EngineMupdfHasRedactMarksNoWait(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e) {
         return false;
     }
@@ -9875,7 +9875,7 @@ static void InvalidateFzPageAfterContentChange(EngineMupdf* e, FzPageInfo* pi) {
 // already forces a full rewrite in EngineMupdfSaveUpdated.
 bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut) {
     VecReset(deletedOut);
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc) {
         return false;
     }

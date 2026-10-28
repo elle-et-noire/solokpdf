@@ -514,21 +514,21 @@ bool EngineHasUnsavedAnnotations(EngineBase* engine) {
 }
 
 bool EngineHasRedactMarks(EngineBase* engine) {
-    if (!IsEngineMupdf(engine)) {
+    if (!HasMupdfAnnotations(engine)) {
         return false;
     }
     return EngineMupdfHasRedactMarks(engine);
 }
 
 bool EngineHasRedactMarksNoWait(EngineBase* engine) {
-    if (!IsEngineMupdf(engine)) {
+    if (!HasMupdfAnnotations(engine)) {
         return false;
     }
     return EngineMupdfHasRedactMarksNoWait(engine);
 }
 
 bool EngineHasUserRedactMarks(EngineBase* engine) {
-    if (!IsEngineMupdf(engine)) {
+    if (!HasMupdfAnnotations(engine)) {
         return false;
     }
     return EngineMupdfHasUserRedactMarks(engine);

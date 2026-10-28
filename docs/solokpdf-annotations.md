@@ -60,8 +60,10 @@ MuPDF draws the annotations into the same pixels
 
 ## Limits
 
-- Redaction is MuPDF-only: applying it rewrites page content, which PDFium
-  draws from the file. Its commands are hidden for PDFium documents.
+- Redaction marks use the same lazy MuPDF editor as other annotations.
+  Applying them saves the rewritten file and reloads PDFium so the removed
+  content is no longer rendered. A save failure leaves the edited document
+  open and reports the error.
 - Page space is assumed equal in both engines; pages with `/UserUnit` aren't
   checked.
 - A clone (printing, thumbnails) reloads the file, so it shows the saved
@@ -112,4 +114,4 @@ injected mouse input is dropped: `annot-undo-redo`, `annot-copy-paste`,
 `annot-color-dropdown`, `annot-contents-click-away`, `annot-nudge`,
 `annot-moveable-types`, `ink-thickness`, `stamp-edit-toolbar-name`, and the
 shape, ink, line, polyline, text, free text, stamp and caret placement tests.
-`redact-annotations` passes with MuPDF only.
+`tests/ad-hoc-pdfium-redactions.ts` runs `redact-annotations` with both engines.
