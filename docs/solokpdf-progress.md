@@ -1664,8 +1664,10 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   them with MuPDF, like `/OpenAction`. Named links match MuPDF's targets and
   rects, including on a cropped, rotated page; a GoToR with a named `/D` opens
   the target there, as with MuPDF (an explicit page array opens at the start in
-  both). Named actions and GoToR destinations in the outline, and GoToE, remain
-  unsupported; MuPDF lacks GoToE too.
+  both). Outlines containing named actions or GoToR destinations use the lazy
+  MuPDF editor's TOC, including its attachment entries. PDFium reads ordinary
+  outlines itself. `tests/ad-hoc-pdfium-outline.ts` compares both engines.
+  GoToE remains unsupported by both engines.
 - `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
   API for it, so MuPDF reads it on a first open without history. Release
   cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB
@@ -1696,8 +1698,10 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   already works in both engines; it does not rewrite page rotation in the file.
   `tests/ad-hoc-pdfium-tools.ts`, `merge-struct-parents.ts`, `tool-merge.ts`
   and `pdf-script.ts` cover these paths.
-- Document-level JavaScript, XFA and signing need implementations
-  for PDFium documents.
+- Document-level JavaScript and signing need implementations for PDFium
+  documents. Neither engine supports editing XFA forms; PDFium shows them
+  read-only and reports XFA in Unsupported Features, matching MuPDF's
+  read-only fallback.
   Document Properties lists the ones a document uses ("Unsupported
   Features"; empty for most papers), checked by
   `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as

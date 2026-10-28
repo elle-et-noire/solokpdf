@@ -417,6 +417,7 @@ class EnginePdfium : public EngineBase {
     StrVec pageLabels;
     TocTree* toc = nullptr;
     bool tocLoaded = false;
+    bool tocFromEditor = false;
     // PDFium can't write most annotation properties, so an EngineMupdf of the file edits them and,
     // once loaded, draws them over PDFium's pages. Saving writes MuPDF's incremental update.
     EngineBase* editor = nullptr;
@@ -976,6 +977,24 @@ class EnginePdfium : public EngineBase {
         return head;
     }
 
+    bool NeedsMupdfToc(FPDF_BOOKMARK first, int depth, int& budget) {
+        if (depth > 64) {
+            return false;
+        }
+        for (auto mark = first; mark && budget > 0; mark = gPdfium.FPDFBookmark_GetNextSibling(doc, mark)) {
+            budget--;
+            FPDF_ACTION action = gPdfium.FPDFBookmark_GetAction(mark);
+            unsigned long type = action ? gPdfium.FPDFAction_GetType(action) : PDFACTION_GOTO;
+            if (type == PDFACTION_UNSUPPORTED || type == PDFACTION_REMOTEGOTO) {
+                return true;
+            }
+            if (NeedsMupdfToc(gPdfium.FPDFBookmark_GetFirstChild(doc, mark), depth + 1, budget)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
   public:
     EnginePdfium() {
         kind = kindEnginePdfium;
@@ -987,7 +1006,9 @@ class EnginePdfium : public EngineBase {
         PdfiumProfile profile(StrL("close"));
         profile.Mark(StrL("start"));
         ScopedMutex lock(&gPdfiumLock);
-        DestroyTocTree(toc);
+        if (!tocFromEditor) {
+            DestroyTocTree(toc);
+        }
         for (auto* p : pages) {
             if (!p) {
                 continue;
@@ -1591,12 +1612,29 @@ class EnginePdfium : public EngineBase {
 
     TocTree* GetToc() override {
         bool hasAttachments = false;
+        bool needsMupdf = false;
         {
             ScopedMutex lock(&gPdfiumLock);
             if (tocLoaded) {
                 return toc;
             }
             hasAttachments = gPdfium.FPDFDoc_GetAttachmentCount(doc) > 0;
+            int budget = 4096;
+            needsMupdf = NeedsMupdfToc(gPdfium.FPDFBookmark_GetFirstChild(doc, nullptr), 0, budget);
+        }
+
+        if (needsMupdf) {
+            EngineBase* source = AnnotationEditor(EditorLoad::Load);
+            TocTree* sourceToc = source ? source->GetToc() : nullptr;
+            if (sourceToc) {
+                ScopedMutex lock(&gPdfiumLock);
+                if (!tocLoaded) {
+                    toc = sourceToc;
+                    tocFromEditor = true;
+                    tocLoaded = true;
+                }
+                return toc;
+            }
         }
 
         // Read attachment names only for PDFs that have them; plain PDFs keep the PDFium-only path.
