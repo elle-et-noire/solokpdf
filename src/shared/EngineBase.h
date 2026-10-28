@@ -599,6 +599,7 @@ class EngineBase {
     // an EngineMupdf of the same file that edits the annotations of an engine that can't (EnginePdfium)
     virtual bool HasAnnotationEditor() { return false; }
     virtual EngineBase* AnnotationEditor(EditorLoad) { return nullptr; }
+    virtual bool HasAcroForm() { return false; }
 
     virtual bool HasToc();
 

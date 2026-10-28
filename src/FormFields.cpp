@@ -59,7 +59,7 @@ void PaintFormFieldHighlights(MainWindow* win, Gfx* gfx) {
         return;
     }
     EngineBase* engine = dm->GetEngine();
-    if (!EngineMupdfIsPdf(engine)) {
+    if (!EngineMupdfIsPdf(engine) && !engine->HasAcroForm()) {
         return;
     }
     Vec<Rect> screenRects;

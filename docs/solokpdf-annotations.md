@@ -74,7 +74,12 @@ MuPDF draws the annotations into the same pixels
 3. Done: undo/redo, copy, cut and paste.
 4. Done: FreeText (Japanese included), Line, Polygon/PolyLine, Stamp, Caret,
    FileAttachment.
-5. Filling in form fields.
+5. Done: filling text, choice, checkbox and radio fields. A PDFium document
+   loads the MuPDF editor on its first form query; a PDF without an AcroForm
+   skips that query. The existing widget editing and incremental save paths
+   then serve both engines. Once the editor is loaded, PDFium omits its widget
+   pass and MuPDF draws widgets with annotations, so edits appear without a
+   duplicate or stale field. XFA and signing remain separate gaps.
 
 ## Tests
 
@@ -89,6 +94,10 @@ MuPDF:
   pasted, and the cut-and-paste undone and redone as one step;
 - a Japanese free text, line, polygon, polyline, stamp and caret are created
   and drawn.
+
+`tests/issue-6240.ts` toggles radio buttons and checkboxes and reopens the
+saved copy. `tests/ad-hoc-pdfium-forms.ts` edits text and choice values, checks
+view/print pixels, and reopens the saved copy in both engines.
 
 Mouse input is window messages. Upstream tests passing with PDFium:
 `palette-delete-annotation`, `command-palette-annotations`,

@@ -83,7 +83,7 @@ export async function testit(): Promise<void> {
   const cases: [string, string, string, string, string, string][] = [
     ["plain", plainPdf(), "pdfium", "", "hide", ""],
     ["plain", plainPdf(), "mupdf", "", "show", ""],
-    ["features", featuresPdf(false), "pdfium", "form filling, JavaScript", "hide", "a.txt|page=1"],
+    ["features", featuresPdf(false), "pdfium", "JavaScript", "hide", "a.txt|page=1"],
     ["features", featuresPdf(false), "mupdf", "", "show", "a.txt|page=1"],
     ["xfa", featuresPdf(true), "pdfium", "XFA, JavaScript", "hide", "a.txt|page=1"],
   ];

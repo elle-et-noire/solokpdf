@@ -405,6 +405,7 @@ class EnginePdfium : public EngineBase {
     // widgets (form fields) are drawn only through a form handle; null without an AcroForm
     FPDF_FORMFILLINFO formInfo{};
     FPDF_FORMHANDLE form = nullptr;
+    bool acroForm = false;
     HANDLE file = INVALID_HANDLE_VALUE;
     Str fileData;
     FPDF_FILEACCESS access{};
@@ -1119,7 +1120,9 @@ class EnginePdfium : public EngineBase {
         unsigned long permissions = gPdfium.FPDF_GetDocPermissions(doc);
         allowsPrinting = (permissions & (1UL << 2)) != 0;
         allowsCopyingText = (permissions & (1UL << 4)) != 0;
-        if (gPdfium.FPDF_GetFormType(doc) != FORMTYPE_NONE) {
+        int formType = gPdfium.FPDF_GetFormType(doc);
+        acroForm = formType == FORMTYPE_ACRO_FORM;
+        if (formType != FORMTYPE_NONE) {
             formInfo.version = 1;
             formInfo.FFI_Invalidate = FormInvalidate;
             formInfo.FFI_SetCursor = FormSetCursor;
@@ -1193,6 +1196,7 @@ class EnginePdfium : public EngineBase {
     };
 
     bool HasAnnotationEditor() override { return true; }
+    bool HasAcroForm() override { return acroForm; }
 
     // Loads on the first annotation query (a hover, a list, a create): MuPDF opens the file again.
     EngineBase* AnnotationEditor(EditorLoad load) override {
@@ -1310,7 +1314,8 @@ class EnginePdfium : public EngineBase {
             }
             profile.Mark(StrL("draw"));
             // FPDF_ANNOT draws every annotation but form field widgets, which only this draws
-            if (form && !hideAnnotations && status == FPDF_RENDER_DONE && !AtomicIntGet(&cookie->aborted)) {
+            if (form && drawAnnots && !hideAnnotations && status == FPDF_RENDER_DONE &&
+                !AtomicIntGet(&cookie->aborted)) {
                 gPdfium.FPDF_FFLDraw(form, bmp, page, -(int)x, -(int)y, dx, dy, rotation, flags);
                 profile.Mark(StrL("widgets"));
             }
@@ -1639,8 +1644,6 @@ class EnginePdfium : public EngineBase {
         int formType = gPdfium.FPDF_GetFormType(doc);
         if (formType == FORMTYPE_XFA_FULL || formType == FORMTYPE_XFA_FOREGROUND) {
             features.Append(StrL("XFA"));
-        } else if (formType == FORMTYPE_ACRO_FORM) {
-            features.Append(StrL("form filling"));
         }
         if (gPdfium.FPDFDoc_GetJavaScriptActionCount(doc) > 0) {
             features.Append(StrL("JavaScript"));

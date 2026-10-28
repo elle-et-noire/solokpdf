@@ -660,6 +660,7 @@ enum class ControlCmd : u16 {
     TestPageAdjust = 138,
     TestShortcutsDialog = 139,
     TestVimKeys = 140,
+    TestSetFormField = 141,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -2057,6 +2058,20 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             int exitCode = 0;
             Str res = ToggleFormButtonResultTemp(pageNo, idx, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestSetFormField: {
+            i32 pageNo = 1;
+            i32 idx = 0;
+            Str value = StringArg(req, 2);
+            if (!IntArg(req, 0, pageNo) || !IntArg(req, 1, idx) || len(value) == 0) {
+                AppendError(req, StrL("TestSetFormField expects int pageNo, int idx, string value"));
+                break;
+            }
+            int exitCode = 0;
+            Str res = SetFormFieldResultTemp(pageNo, idx, value, &exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }

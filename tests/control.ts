@@ -111,6 +111,7 @@ export enum ControlCommand {
   TestPageInfo = 112,
   TestShortcutsDialog = 139,
   TestVimKeys = 140,
+  TestSetFormField = 141,
   TestSidebarThumbnails = 113,
   TestFrameNcStrips = 114,
   TestMergePdf = 115,

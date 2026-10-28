@@ -542,7 +542,7 @@ Annotation* EngineGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos,
 }
 
 Annotation* EngineGetWidgetAtPos(EngineBase* engine, int pageNo, PointF pos) {
-    if (!IsEngineMupdf(engine)) {
+    if (!IsEngineMupdf(engine) && !(engine && engine->HasAcroForm())) {
         return nullptr;
     }
     return EngineMupdfGetWidgetAtPos(engine, pageNo, pos);

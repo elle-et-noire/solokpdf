@@ -7418,6 +7418,7 @@ bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6]
         fz_matrix ctm = fz_make_matrix(m[0], m[1], m[2], m[3], m[4], m[5]);
         if (page) {
             pdf_run_page_annots_with_usage(ctx, page, dev, ctm, usage, nullptr);
+            pdf_run_page_widgets_with_usage(ctx, page, dev, ctm, usage, nullptr);
         }
         fz_close_device(ctx, dev);
         ok = true;
@@ -10601,7 +10602,10 @@ Annotation* EngineMupdfGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF
 // Like EngineMupdfGetAnnotationAtPos but for form fields (widgets), which live
 // in their own list. Returns the smallest widget containing pos, or null.
 Annotation* EngineMupdfGetWidgetAtPos(EngineBase* engine, int pageNo, PointF pos) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
+    if (!epdf) {
+        return nullptr;
+    }
     FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
     if (!pi) {
         return nullptr;
@@ -10615,7 +10619,10 @@ Annotation* EngineMupdfGetWidgetAtPos(EngineBase* engine, int pageNo, PointF pos
 // if there's no other editable field. Does not hold docLock (calls helpers that
 // take it), so it must not be called while docLock is held.
 Annotation* EngineMupdfGetAdjacentWidget(EngineBase* engine, Annotation* cur, bool forward) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
+    if (!epdf) {
+        return nullptr;
+    }
     if (!cur) {
         return nullptr;
     }
@@ -10670,7 +10677,13 @@ static bool FormFieldValueIsEmpty(int wt, const char* val) {
 // Form-field widgets of pageNo, in page order. Loads the page if needed.
 void EngineMupdfGetPageWidgets(EngineBase* engine, int pageNo, Vec<Annotation*>& out) {
     VecClear(out);
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    if (engine && engine->HasAnnotationEditor() && !engine->HasAcroForm()) {
+        return;
+    }
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
+    if (!epdf) {
+        return;
+    }
     FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
     if (!pi) {
         return;
@@ -10684,7 +10697,10 @@ void EngineMupdfGetPageWidgets(EngineBase* engine, int pageNo, Vec<Annotation*>&
 // Page-space rects of empty fillable fields on pageNo (issue #5966). skip is
 // the field currently being edited, if any, so its overlay isn't double-tinted.
 void EngineMupdfGetFormFieldHighlightRects(EngineBase* engine, int pageNo, Annotation* skip, Vec<RectF>& out) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
+    if (!epdf) {
+        return;
+    }
     FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
     if (!pi) {
         return;

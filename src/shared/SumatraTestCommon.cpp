@@ -1216,6 +1216,64 @@ TempStr ToggleFormButtonResultTemp(int pageNo, int idx, int* exitCodeOut) {
     return ToStrTemp(out);
 }
 
+static int FormPixels(EngineBase* engine, int pageNo, RenderTarget target) {
+    RenderPageArgs args(pageNo, 1.f, 0, nullptr, target);
+    Pixmap* raw = engine->RenderPage(args);
+    if (!raw) {
+        return -1;
+    }
+    Pixmap* readable = EnsureReadablePixmap(raw);
+    int count = CountNonWhitePixels(readable);
+    if (readable != raw) {
+        FreePixmap(readable);
+    }
+    FreePixmap(raw);
+    return count;
+}
+
+TempStr SetFormFieldResultTemp(int pageNo, int idx, Str value, int* exitCodeOut) {
+    if (len(gWindows) == 0 || !gWindows[0] || !gWindows[0]->AsFixed()) {
+        if (exitCodeOut) {
+            *exitCodeOut = 2;
+        }
+        return StrL("NOTREADY no-doc");
+    }
+    DisplayModel* dm = gWindows[0]->AsFixed();
+    if (!dm->ValidPageNo(pageNo)) {
+        if (exitCodeOut) {
+            *exitCodeOut = 1;
+        }
+        return StrL("ERROR invalid-page");
+    }
+    Vec<Annotation*> widgets;
+    EngineMupdfGetPageWidgets(dm->GetEngine(), pageNo, widgets);
+    if (idx < 0 || idx >= len(widgets)) {
+        if (exitCodeOut) {
+            *exitCodeOut = 1;
+        }
+        return StrL("ERROR no-widget");
+    }
+    Annotation* widget = widgets[idx];
+    int type = GetWidgetType(widget);
+    TempStr before = str::DupTemp(GetWidgetValue(widget));
+    int viewBefore = FormPixels(dm->GetEngine(), pageNo, RenderTarget::View);
+    int printBefore = FormPixels(dm->GetEngine(), pageNo, RenderTarget::Print);
+    bool changed = false;
+    if (type == PDF_WIDGET_TYPE_TEXT) {
+        changed = SetWidgetTextValue(widget, value);
+    } else if (type == PDF_WIDGET_TYPE_COMBOBOX || type == PDF_WIDGET_TYPE_LISTBOX) {
+        changed = SetWidgetChoiceValue(widget, value);
+    }
+    TempStr after = str::DupTemp(GetWidgetValue(widget));
+    int viewAfter = FormPixels(dm->GetEngine(), pageNo, RenderTarget::View);
+    int printAfter = FormPixels(dm->GetEngine(), pageNo, RenderTarget::Print);
+    if (exitCodeOut) {
+        *exitCodeOut = changed ? 0 : 1;
+    }
+    return fmt("%s before='%s' after='%s' viewBefore=%d viewAfter=%d printBefore=%d printAfter=%d",
+               changed ? StrL("OK") : StrL("ERROR"), before, after, viewBefore, viewAfter, printBefore, printAfter);
+}
+
 // Tests read BGRA; copy other formats without consuming the original.
 Pixmap* EnsureReadablePixmap(Pixmap* p) {
     if (!p) {
