@@ -33,6 +33,9 @@ static const i32 gNoDocWhitelist[] = {
     CmdOpenFileWithSumatraFilePicker,
     CmdToggleFilePicker,
     CmdToggleBoolSetting,
+#if !defined(SUMATRA_NG)
+    CmdToggleVimKeys,
+#endif
     CmdNavigateFilesInFolder,
     CmdExit,
     CmdNewWindow,
@@ -376,6 +379,15 @@ bool CmdWorksWithoutDocument(int cmdId) {
 }
 
 CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, CommandSurface surface) {
+#if defined(SUMATRA_NG)
+    if (cmdId >= CmdVimPrefixG && cmdId <= CmdToggleVimKeys) {
+        return CommandVisibility::Hide;
+    }
+#else
+    if (cmdId >= CmdVimPrefixG && cmdId < CmdToggleVimKeys && (!gSettings || !gSettings->vimKeys)) {
+        return CommandVisibility::Hide;
+    }
+#endif
 #if !OS_WIN
     if (cmdId == CmdToggleCaption) {
         return CommandVisibility::Hide;

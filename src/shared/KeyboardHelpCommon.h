@@ -12,6 +12,8 @@ static const int kSecNav[] = {
     CmdScrollUpPage, CmdScrollDownPage,
     CmdGoToNextPage, CmdGoToPrevPage,
     CmdGoToFirstPage, CmdGoToLastPage, CmdGoToPage,
+    CmdVimPrefixG, CmdVimSetMark, CmdVimJumpMark,
+    CmdVimScrollDownLine, CmdVimScrollUpLine,
     CmdNavigateBack, CmdNavigateForward, 0,
 };
 
@@ -47,6 +49,7 @@ static const int kSecAnnot[] = {
 
 static const int kSecIface[] = {
     CmdCommandPalette, CmdToggleBookmarks, CmdToggleToolbar, CmdToggleCaption, CmdToggleMenuBar,
+    CmdVimCommandLine, CmdToggleVimKeys,
     CmdToggleCursorPosition, CmdTogglePageInfo,
     CmdNextTheme, CmdPrevTheme,
     CmdFavoriteAdd, CmdFavoriteToggle, CmdHelpOpenManual,0,

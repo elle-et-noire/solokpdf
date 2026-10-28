@@ -289,6 +289,8 @@ struct FileState {
     // zoom (in %) or one of those values: fit page, fit width, fit height,
     // fit content, fit visible
     Str zoom;
+    // Vim letter marks as page and zoom-independent scroll coordinates
+    Str vimMarks;
     // if given, overrides the background color for this document
     ParsedColor bgCol;
     // if given, overrides the tab color for this document
@@ -1132,6 +1134,8 @@ struct Settings {
     // if true, Esc key closes SumatraPDF. In presentation or fullscreen
     // mode, Esc leaves that mode first
     bool escToExit;
+    // if true, use Vim-style document keyboard shortcuts
+    bool vimKeys;
     // if true, show the full path to the document in the title bar
     bool fullPathInTitle;
     // if true, restoring a session delays loading each document until its
@@ -1341,7 +1345,7 @@ struct FieldInfo;
 struct StructInfo;
 extern const StructInfo gFavoriteInfo;
 extern const StructInfo gFileEBookUIInfo;
-extern const FieldInfo gFileStateFields[28];
+extern const FieldInfo gFileStateFields[29];
 extern StructInfo gFileStateInfo;
 extern const StructInfo gTabStateInfo;
 extern const StructInfo gSessionDataInfo;

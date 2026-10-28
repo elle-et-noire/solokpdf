@@ -50,6 +50,15 @@ struct ReadingBarTab {
     float yFrac = 0.40f;
 };
 
+#if !defined(SUMATRA_NG)
+constexpr int kVimMarkCount = 26;
+struct VimMark {
+    int page = 0;
+    double x = 0;
+    double y = 0;
+};
+#endif
+
 // per-tab state of one AI chat provider (see AIChatPanel.cpp)
 struct AIChatTabState {
     Str sessionId;
@@ -110,6 +119,11 @@ struct WindowTab {
     // couldn't tell). See FileLoadErrorReasonTemp()
     Str loadErrorReason;
     Str pendingFindText;
+#if !defined(SUMATRA_NG)
+    VimMark vimMarks[kVimMarkCount]{};
+    VimMark vimJumpBack{};
+    bool vimMarksLoaded = false;
+#endif
     // text of win->hwndFrame when the tab is selected
     Str frameTitle;
     // an array of ids for ToC items that have been expanded/collapsed by user

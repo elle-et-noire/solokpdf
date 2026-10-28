@@ -1569,6 +1569,10 @@ void ToggleSettingsBool(bool* p) {
         return;
     }
     *p = !*p;
+    if (p == &gSettings->vimKeys) {
+        FreeAcceleratorTables();
+        CreateSumatraAcceleratorTable();
+    }
     ScheduleSaveSettings();
     ApplySettingsToOpenWindows();
 }

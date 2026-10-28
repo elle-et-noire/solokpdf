@@ -352,6 +352,13 @@ const commandsRaw = [
     "CmdNextTheme", "Switch to Next Theme",
     "CmdPrevTheme", "Switch to Previous Theme",
     "CmdCustomizeShortcuts", "Customize Keyboard Shortcuts...",
+    "CmdVimPrefixG", "Vim: gg / gt / gT",
+    "CmdVimSetMark", "Vim: Set Mark",
+    "CmdVimJumpMark", "Vim: Jump to Mark",
+    "CmdVimCommandLine", "Vim: Command Line",
+    "CmdVimScrollDownLine", "Vim: Scroll Wheel Line Down",
+    "CmdVimScrollUpLine", "Vim: Scroll Wheel Line Up",
+    "CmdToggleVimKeys", "Vim Key Mode",
 ];
 
 // removed slots are dropped: nothing outside the generators should see them

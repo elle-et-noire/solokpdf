@@ -345,8 +345,15 @@ enum {
     CmdNextTheme = 539,
     CmdPrevTheme = 540,
     CmdCustomizeShortcuts = 541,
+    CmdVimPrefixG = 542,
+    CmdVimSetMark = 543,
+    CmdVimJumpMark = 544,
+    CmdVimCommandLine = 545,
+    CmdVimScrollDownLine = 546,
+    CmdVimScrollUpLine = 547,
+    CmdToggleVimKeys = 548,
 
-    CmdLast = 541,
+    CmdLast = 548,
     CmdFirstCustom = CmdLast + 100,
 
     // aliases, at the end to not mess ordering

@@ -1178,6 +1178,7 @@ const fileState: Field[] = [
     "fit page",
     "zoom (in %) or one of those values: fit page, fit width, fit height, fit content, fit visible",
   ),
+  field("VimMarks", Str, null, "Vim letter marks as page and zoom-independent scroll coordinates").ver("3.7"),
   field("Rotation", Int, 0, "how far pages have been rotated as a multiple of 90 degrees"),
   field(
     "WindowState",
@@ -1261,6 +1262,7 @@ const fileStateLayout = [
   "SidebarView",
   "DisplayMode",
   "Zoom",
+  "VimMarks",
   "BgCol",
   "TabCol",
   "OpenCount",
@@ -1382,6 +1384,7 @@ const globalPrefs: Field[] = [
     false,
     "if true, Esc key closes SumatraPDF. In presentation or fullscreen mode, Esc leaves that mode first",
   ),
+  field("VimKeys", Bool, false, "if true, use Vim-style document keyboard shortcuts").ver("3.7"),
   field("FullPathInTitle", Bool, false, "if true, show the full path to the document in the title bar").ver("3.0"),
   field("InverseSearchCmdLine", Str, null, "pattern used to launch the LaTeX editor when doing inverse search"),
   field(
@@ -2266,6 +2269,7 @@ const globalPrefsLayout = [
   "AllowExternalImages",
   "EnableTeXEnhancements",
   "EscToExit",
+  "VimKeys",
   "FullPathInTitle",
   "LazyLoading",
   "NoHomeTab",

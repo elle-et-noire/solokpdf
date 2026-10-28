@@ -45,6 +45,11 @@ void WindowTab::SetFilePath(Str path) {
     }
     if (changed) {
         str::FreePtr(&pendingFindText);
+#if !defined(SUMATRA_NG)
+        memset(vimMarks, 0, sizeof(vimMarks));
+        vimJumpBack = {};
+        vimMarksLoaded = false;
+#endif
     }
     str::ReplaceWithCopy(&filePath, path);
 }

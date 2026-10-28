@@ -523,6 +523,10 @@ MenuDef menuDefSettings[] = {
         CmdCustomizeShortcuts,
     },
     {
+        TrN("Vim Key Mode"),
+        CmdToggleVimKeys,
+    },
+    {
         TrN("&Open Advanced Settings File..."),
         CmdOpenSettingsFile,
     },

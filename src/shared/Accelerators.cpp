@@ -6,6 +6,7 @@
 #include "VirtKeys.h"
 #endif
 #include "Settings.h"
+#include "AppSettings.h"
 #include "Commands.h"
 #include "ShortcutParse.h"
 #include "Translations.h"
@@ -190,6 +191,27 @@ static Accel gBuiltInAccelerators[] = {
     {{kVirt | kShift, 'U'}, CmdCreateAnnotUnderline},
 };
 
+static Accel gVimAccelerators[] = {
+    {{kVirt, 'G'}, CmdVimPrefixG},
+    {{kShift | kVirt, 'G'}, CmdGoToLastPage},
+    {{kVirt, 'M'}, CmdVimSetMark},
+    {{kVirt, VK_OEM_7}, CmdVimJumpMark},
+    {{kVirt, VK_OEM_3}, CmdVimJumpMark},
+    {{kShift | kVirt, VK_OEM_1}, CmdVimCommandLine},
+    {{kVirt, VK_OEM_2}, CmdFindFirst},
+    {{kVirt, 'N'}, CmdFindNext},
+    {{kShift | kVirt, 'N'}, CmdFindPrev},
+    {{kCtrl | kVirt, 'O'}, CmdNavigateBack},
+    {{kCtrl | kVirt, 'I'}, CmdNavigateForward},
+    {{kVirt, 'F'}, CmdToggleKeyboardLinkFollowing},
+    {{kCtrl | kVirt, 'D'}, CmdScrollDownHalfPage},
+    {{kCtrl | kVirt, 'U'}, CmdScrollUpHalfPage},
+    {{kCtrl | kVirt, 'F'}, CmdScrollDownPage},
+    {{kCtrl | kVirt, 'B'}, CmdScrollUpPage},
+    {{kCtrl | kVirt, 'E'}, CmdVimScrollDownLine},
+    {{kCtrl | kVirt, 'Y'}, CmdVimScrollUpLine},
+};
+
 // Per-platform layer over the table above:
 //
 //   gPlatformAccelerators   added first, so they win a key over a built-in
@@ -272,6 +294,8 @@ static KeyShortcut ToPlatformShortcut(KeyShortcut sc) {
 
 static Accel* gAccels = nullptr;
 static int gAccelsCount = 0;
+static int gVimStart = 0;
+static int gVimEnd = 0;
 static AccelStroke* gAccelStrokes = nullptr;
 static int gAccelStrokesCount = 0;
 #if OS_WIN
@@ -463,6 +487,9 @@ int SafeAcceleratorCmd(u16 vk, bool ctrl, bool shift, bool alt, bool cmd) {
     }
     for (int i = 0; i < gAccelsCount; i++) {
         const Accel& a = gAccels[i];
+        if (i >= gVimStart && i < gVimEnd) {
+            continue;
+        }
         if (a.sc.vk == vk && a.sc.Mods() == mods && isSafeOutsideEditAccel(a)) {
             return a.cmd;
         }
@@ -628,10 +655,10 @@ static void BuildWinAcceleratorTables() {
     for (int i = 0; i < gAccelsCount; i++) {
         const Accel& a = gAccels[i];
         all[i] = ToWinAccel(a);
-        if (IsSafeAccel(a)) {
+        if ((i < gVimStart || i >= gVimEnd) && IsSafeAccel(a)) {
             edit[nEdit++] = all[i];
         }
-        if (IsSafeTreeAccel(a)) {
+        if ((i < gVimStart || i >= gVimEnd) && IsSafeTreeAccel(a)) {
             tree[nTree++] = all[i];
         }
     }
@@ -651,13 +678,23 @@ void CreateSumatraAcceleratorTable() {
 
     // an upper bound: Add() appends at most one entry per call, and it's called
     // once per built-in and once per custom shortcut
-    int nMax = dimofi(gBuiltInAccelerators) + dimofi(gPlatformAccelerators) + CountCustomShortcuts();
+    int nMax = dimofi(gBuiltInAccelerators) + dimofi(gPlatformAccelerators) + dimofi(gVimAccelerators) +
+               CountCustomShortcuts();
 
     AccelTablesBuilder b;
     // accels outlives us in gAccels, so it has to be a real allocation
     b.accels = AllocArray<Accel>(nMax);
 
     AddCustomShortcuts(b);
+    gVimStart = b.nAccels;
+#if !defined(SUMATRA_NG)
+    if (gSettings && gSettings->vimKeys) {
+        for (Accel accel : gVimAccelerators) {
+            b.Add(accel);
+        }
+    }
+#endif
+    gVimEnd = b.nAccels;
     // add built-in but only if the shortcut doesn't conflict with custom shortcut
     for (Accel accel : gPlatformAccelerators) {
         if (accel.cmd != 0) {
@@ -677,9 +714,25 @@ void CreateSumatraAcceleratorTable() {
 }
 
 void GetDefaultAccelerators(Vec<Accel>& out) {
+#if !defined(SUMATRA_NG)
+    if (gSettings && gSettings->vimKeys) {
+        for (Accel accel : gVimAccelerators) {
+            VecAppend(out, accel);
+        }
+    }
+#endif
     for (Accel accel : gPlatformAccelerators) {
         if (accel.cmd != 0) {
-            VecAppend(out, accel);
+            bool duplicate = false;
+            for (const Accel& existing : out) {
+                if (sameAccelKey(existing, accel)) {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (!duplicate) {
+                VecAppend(out, accel);
+            }
         }
     }
     for (Accel accel : gBuiltInAccelerators) {
@@ -716,6 +769,8 @@ void FreeAcceleratorTables() {
     free(gAccels);
     gAccels = nullptr;
     gAccelsCount = 0;
+    gVimStart = 0;
+    gVimEnd = 0;
 }
 
 const Accel* GetAcceleratorTable(int& nOut) {

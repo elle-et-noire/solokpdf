@@ -351,6 +351,13 @@ const CommandInfo gCommands[] = {
     {CmdNextTheme, "CmdNextTheme\0", StrL("Switch to Next Theme")},
     {CmdPrevTheme, "CmdPrevTheme\0", StrL("Switch to Previous Theme")},
     {CmdCustomizeShortcuts, "CmdCustomizeShortcuts\0", StrL("Customize Keyboard Shortcuts...")},
+    {CmdVimPrefixG, "CmdVimPrefixG\0", StrL("Vim: gg / gt / gT")},
+    {CmdVimSetMark, "CmdVimSetMark\0", StrL("Vim: Set Mark")},
+    {CmdVimJumpMark, "CmdVimJumpMark\0", StrL("Vim: Jump to Mark")},
+    {CmdVimCommandLine, "CmdVimCommandLine\0", StrL("Vim: Command Line")},
+    {CmdVimScrollDownLine, "CmdVimScrollDownLine\0", StrL("Vim: Scroll Wheel Line Down")},
+    {CmdVimScrollUpLine, "CmdVimScrollUpLine\0", StrL("Vim: Scroll Wheel Line Up")},
+    {CmdToggleVimKeys, "CmdToggleVimKeys\0", StrL("Vim Key Mode")},
 };
 const int gCommandsCount = dimofi(gCommands);
 

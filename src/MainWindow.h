@@ -256,6 +256,11 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     HWND hwndFrame = nullptr;
     HWND hwndCanvas = nullptr;
     int pendingKeyCount = 0;
+    char pendingKeyPrefix = 0;
+    bool vimLinkHints = false;
+    HWND vimCmdEdit = nullptr;
+    Vec<Str> vimCmdHistory;
+    int vimCmdHistoryPos = 0;
     // ShowScrollBar sends WM_SIZE; ignore it until UpdateScrollbars finishes (issue #5969)
     bool suppressCanvasSizeUpdate = false;
     // popups in screen coords (find bar, overlay scrollbars, selection toolbar, ...)

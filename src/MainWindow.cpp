@@ -112,6 +112,9 @@ void CreateMovePatternLazy(MainWindow* win) {
 }
 
 MainWindow::~MainWindow() {
+    for (Str entry : vimCmdHistory) {
+        str::Free(entry);
+    }
     CancelAnnotationResizeRerender(this);
     KillTimer(hwndCanvas, kSmoothScrollTimerID);
     KillTimer(hwndCanvas, kReadingAutoScrollTimerID);

@@ -1343,6 +1343,10 @@ static TempStr UpdateCommandNameTemp(MainWindow* win, int cmdId, Str s) {
     bool isToggle = false;
     bool newIsOn = false;
     switch (cmdId) {
+        case CmdToggleVimKeys: {
+            isToggle = true;
+            newIsOn = !gSettings->vimKeys;
+        } break;
         case CmdToggleInverseSearch: {
             extern bool gDisableInteractiveInverseSearch;
             isToggle = true;

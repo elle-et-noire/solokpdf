@@ -286,6 +286,7 @@ void TabsSelect(MainWindow* win, int tabIndex) {
     if (tabIndex == currIdx) {
         return;
     }
+    ClearKeyCount(win);
 
     // same work as in onSelectionChanging and onSelectionChanged
     SaveCurrentWindowTab(win);
