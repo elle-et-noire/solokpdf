@@ -335,6 +335,13 @@ static int VimKeyChar(MSG& msg, int mods, HKL layout) {
     return n == 1 ? chars[0] : 0;
 }
 
+static bool VimHintCapturesKey(MainWindow* win, MSG& msg, HKL layout) {
+    if (KeyboardLinkFollowingCapturesKey(win, (int)msg.wParam)) {
+        return true;
+    }
+    return win && win->vimLinkHints && KeyboardLinkFollowingActive(win) && VimKeyChar(msg, 0, layout) == ';';
+}
+
 static bool HasUserChar(int ch) {
     if (!ch) {
         return false;
@@ -471,6 +478,21 @@ TempStr VimKeysTestResultTemp(Str action, Str key, int* exitCode) {
         return StrL("NOTREADY no-window");
     }
     MainWindow* win = gWindows[0];
+    if (str::Eq(action, StrL("jis-hint"))) {
+        HKL layout = LoadKeyboardLayoutW(L"00000411", KLF_NOTELLSHELL);
+        if (!layout || !str::Eq(key, StrL(";"))) {
+            *exitCode = 1;
+            return StrL("ERROR no-jis-semicolon");
+        }
+        SHORT mapped = VkKeyScanExW(L';', layout);
+        MSG msg{};
+        msg.hwnd = win->hwndFrame;
+        msg.message = WM_KEYDOWN;
+        msg.wParam = mapped & 0xff;
+        msg.lParam = (LPARAM)MapVirtualKeyExW((uint)msg.wParam, MAPVK_VK_TO_VSC, layout) << 16;
+        *exitCode = 0;
+        return fmt("capture=%d", VimHintCapturesKey(win, msg, layout) ? 1 : 0);
+    }
     if (str::Eq(action, StrL("key")) || str::Eq(action, StrL("jis"))) {
         HKL layout = GetKeyboardLayout(0);
         if (str::Eq(action, StrL("jis"))) {
@@ -541,7 +563,7 @@ bool VimKeysPreTranslate(MainWindow* countWin, MSG& msg) {
         ClearKeyCount(countWin);
     }
     if (countWin && countWin->vimLinkHints && msg.message == WM_KEYDOWN && !IsCtrlPressed() && !IsAltPressed() &&
-        !IsShiftPressed() && msg.wParam != VK_ESCAPE && !KeyboardLinkFollowingCapturesKey(countWin, (int)msg.wParam)) {
+        !IsShiftPressed() && msg.wParam != VK_ESCAPE && !VimHintCapturesKey(countWin, msg, GetKeyboardLayout(0))) {
         StopKeyboardLinkFollowing(countWin);
         return true;
     }
@@ -583,7 +605,7 @@ bool VimLinkHintsCapture(MSG& msg) {
     // accelerators ('a' = highlight, 'n' = next page, …). Ctrl/Alt/Shift
     // shortcuts still work (Shift+F toggles the mode off). Issue #6019.
     if (msg.message == WM_KEYDOWN && !IsCtrlPressed() && !IsAltPressed() && !IsShiftPressed()) {
-        if (KeyboardLinkFollowingCapturesKey(FindMainWindowByHwnd(msg.hwnd), (int)msg.wParam)) {
+        if (VimHintCapturesKey(FindMainWindowByHwnd(msg.hwnd), msg, GetKeyboardLayout(0))) {
             return true;
         }
     }

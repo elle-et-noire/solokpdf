@@ -156,11 +156,6 @@ bool KeyboardLinkFollowingCapturesKey(MainWindow* win, int vk) {
     if (vk == VK_BACK) {
         return true;
     }
-#if !defined(SUMATRA_NG)
-    if (win->vimLinkHints && vk == VK_OEM_1) {
-        return true;
-    }
-#endif
     if (vk >= 'A' && vk <= 'Z') {
         return true;
     }

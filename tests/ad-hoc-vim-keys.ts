@@ -124,6 +124,7 @@ export async function testit(): Promise<void> {
     const hints = String((await client.request(ControlCommand.TestKeyboardLinkFollow, []))[1]);
     const hint = /hint=([A-Z;]+)/.exec(hints)?.[1];
     if (!hint || !/active=1/.test(hints)) throw new Error(`f did not show link hints: ${hints}`);
+    if ((await state("jis-hint", ";")) !== "capture=1") throw new Error("JIS ; did not stay in link hints");
     for (const ch of hint) await pressKey(frame, ch.charCodeAt(0), 50);
     if ((await page()) !== 3) throw new Error("f link hint did not follow the internal link");
 
