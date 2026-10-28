@@ -9822,6 +9822,16 @@ static void ToggleSidebarViewCmd(MainWindow* win, CustomCommand* cmd, SidebarVie
 // orig disables Undo / Redo instead of saying why nothing happens
 void UndoRedoUnavailable(MainWindow*, bool) {}
 
+static Kind kNotifCountPrefix = "countPrefix";
+
+static void ClearKeyCount(MainWindow* win) {
+    if (!win || !win->pendingKeyCount) {
+        return;
+    }
+    win->pendingKeyCount = 0;
+    RemoveNotificationsForGroup(win, kNotifCountPrefix);
+}
+
 static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     int cmdId = LOWORD(wp);
     int invokedCmdId = cmdId;
@@ -9851,6 +9861,20 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
     CustomCommand* cmd = FindCustomCommand(cmdId);
     if (cmd != nullptr) {
         cmdId = cmd->origId;
+    }
+
+    int count = win->pendingKeyCount;
+    if (count) {
+        ClearKeyCount(win);
+        bool repeatable = cmdId == CmdScrollUp || cmdId == CmdScrollDown || cmdId == CmdScrollUpHalfPage ||
+                          cmdId == CmdScrollDownHalfPage || cmdId == CmdScrollUpPage || cmdId == CmdScrollDownPage ||
+                          cmdId == CmdGoToPrevPage || cmdId == CmdGoToNextPage || cmdId == CmdScrollLeft ||
+                          cmdId == CmdScrollRight;
+        if (repeatable) {
+            for (int i = 1; i < count; i++) {
+                FrameOnCommand(win, hwnd, msg, wp, lp);
+            }
+        }
     }
 
     // a favorite in the Favorites menu carries its file path and page as arguments
@@ -13122,6 +13146,9 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
             // document keyboard focus is on the frame; repaint canvas focus ring (#4644)
             if (win) {
                 InvalidateCanvasKeyboardFocus(win);
+                if (msg == WM_KILLFOCUS) {
+                    ClearKeyCount(win);
+                }
             }
             break;
 
@@ -13134,6 +13161,7 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
                     HomePageOnWindowActivate(win, true);
                 }
             } else if (win) {
+                ClearKeyCount(win);
                 // hide the topmost citation-hover popup when switching to
                 // another application (no WM_MOUSELEAVE is generated then)
                 RefHoverHide(win->refHover, win->hwndCanvas);
@@ -14001,6 +14029,41 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
                      (msg.message >= WM_MOUSEFIRST && msg.message <= WM_MOUSELAST));
     if (!doAccels) {
         return false;
+    }
+
+    MainWindow* countWin = FindMainWindowByHwnd(msg.hwnd);
+    if (countWin && countWin->pendingKeyCount &&
+        (msg.message == WM_LBUTTONDOWN || msg.message == WM_RBUTTONDOWN || msg.message == WM_MBUTTONDOWN ||
+         (msg.message == WM_KEYDOWN && msg.wParam == VK_ESCAPE) ||
+         (msg.message == WM_KEYDOWN && msg.hwnd != countWin->hwndFrame && msg.hwnd != countWin->hwndCanvas))) {
+        ClearKeyCount(countWin);
+    }
+    if (countWin && msg.message == WM_KEYDOWN && msg.wParam >= '0' && msg.wParam <= '9' && !IsCtrlPressed() &&
+        !IsAltPressed() && !IsShiftPressed() && (msg.hwnd == countWin->hwndFrame || msg.hwnd == countWin->hwndCanvas) &&
+        (GetFocus() == countWin->hwndFrame || GetFocus() == countWin->hwndCanvas) && countWin->IsDocLoaded()) {
+        int n = 0;
+        const Accel* accels = GetAcceleratorTable(n);
+        KeyShortcut digit(KeyShortcut::kVirtKey, (u16)msg.wParam);
+        bool bound = false;
+        for (int i = 0; i < n; i++) {
+            if (accels[i].sc.SameKey(digit) ||
+                (!accels[i].sc.isVirt && accels[i].sc.vk == msg.wParam && accels[i].sc.Mods() == 0)) {
+                bound = true;
+                break;
+            }
+        }
+        if (!bound && (msg.wParam != '0' || countWin->pendingKeyCount)) {
+            constexpr int kMaxKeyCount = 9999;
+            countWin->pendingKeyCount =
+                std::min(kMaxKeyCount, countWin->pendingKeyCount * 10 + (int)(msg.wParam - '0'));
+            NotificationCreateArgs args;
+            args.win = countWin;
+            args.groupId = kNotifCountPrefix;
+            args.msg = fmt("%d", countWin->pendingKeyCount);
+            args.corner = NotifCorner::BottomRight;
+            ShowNotification(args);
+            return true;
+        }
     }
 
     if (msg.message == WM_KEYUP || msg.message == WM_SYSKEYUP) {

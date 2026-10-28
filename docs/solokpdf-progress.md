@@ -1736,3 +1736,11 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
 The first development milestone (native build, PDFium pages in the original
 UI, MuPDF comparison, reproducible steps and explicit gaps) has been reached.
 Full feature/performance parity and release readiness have not been reached.
+
+## Count prefix
+
+In the document view, digits prefix the next scroll or page command (`3j`,
+`10k`). The prefix multiplies a command's own count argument, stops at 9999,
+and clears on Esc, mouse input, focus loss, or another command. A shortcut
+assigned to a digit takes precedence. The pending count appears at the bottom
+right. This Windows UI behavior has no ng counterpart yet.
