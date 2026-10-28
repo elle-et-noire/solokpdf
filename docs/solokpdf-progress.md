@@ -1684,8 +1684,8 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   loaded; every annotation type but redaction (see
   `docs/solokpdf-annotations.md`). PDFium's own incremental save, used before,
   wrote every parsed object: one annotation added up to 35 MB.
-- XFA, signing, and PDF editing/merging need implementations for
-  PDFium documents.
+- Document-level JavaScript, XFA, signing, and PDF editing/merging need
+  implementations for PDFium documents.
   Document Properties lists the ones a document uses ("Unsupported
   Features"; empty for most papers), checked by
   `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
@@ -1725,7 +1725,9 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   `EngineMupdf::FinishLoading()` enables form JavaScript in that editor under
   the same `DisableJavaScript` setting as a MuPDF document, with no separate
   PDFium script runner. A calculated value survives save and reopen in both
-  engines (`tests/ad-hoc-pdfium-form-js.ts`).
+  engines (`tests/ad-hoc-pdfium-form-js.ts`). MuPDF runs document-level scripts
+  on open, but PDFium does not load the editor until a form query, so Document
+  Properties still reports those scripts as unsupported.
 - View tiles use integer page extents. Tile edges came back from the
   transform with float error (5507.9995 px) and were floored, drawing about a
   third of high-zoom tiles a pixel off; they now snap within 0.05 px.
