@@ -676,6 +676,30 @@ void CreateSumatraAcceleratorTable() {
     gAccelsCount = b.nAccels;
 }
 
+void GetDefaultAccelerators(Vec<Accel>& out) {
+    for (Accel accel : gPlatformAccelerators) {
+        if (accel.cmd != 0) {
+            VecAppend(out, accel);
+        }
+    }
+    for (Accel accel : gBuiltInAccelerators) {
+        if (IsDroppedOnPlatform(accel.sc)) {
+            continue;
+        }
+        accel.sc = ToPlatformShortcut(accel.sc);
+        bool duplicate = false;
+        for (const Accel& existing : out) {
+            if (sameAccelKey(existing, accel)) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate) {
+            VecAppend(out, accel);
+        }
+    }
+}
+
 void FreeAcceleratorTables() {
 #if OS_WIN
     for (HACCEL& table : gAccelTables) {

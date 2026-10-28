@@ -351,6 +351,7 @@ const commandsRaw = [
     "CmdAdjustContrast", "Adjust Contrast...",
     "CmdNextTheme", "Switch to Next Theme",
     "CmdPrevTheme", "Switch to Previous Theme",
+    "CmdCustomizeShortcuts", "Customize Keyboard Shortcuts...",
 ];
 
 // removed slots are dropped: nothing outside the generators should see them

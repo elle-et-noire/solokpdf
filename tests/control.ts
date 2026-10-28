@@ -109,6 +109,7 @@ export enum ControlCommand {
   ResolveUnsavedChanges = 110,
   TestRefHover = 111,
   TestPageInfo = 112,
+  TestShortcutsDialog = 139,
   TestSidebarThumbnails = 113,
   TestFrameNcStrips = 114,
   TestMergePdf = 115,

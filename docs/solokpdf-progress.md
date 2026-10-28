@@ -1744,3 +1744,12 @@ In the document view, digits prefix the next scroll or page command (`3j`,
 and clears on Esc, mouse input, focus loss, or another command. A shortcut
 assigned to a digit takes precedence. The pending count appears at the bottom
 right. This Windows UI behavior has no ng counterpart yet.
+
+## Keyboard shortcuts dialog
+
+Settings > Customize Keyboard Shortcuts opens a filterable command and binding
+list. It captures key combinations, accepts command arguments, warns before
+reassigning a key, and removes or resets user bindings. OK saves Shortcuts and
+reloads accelerators immediately; Cancel discards edits. Built-in keys cannot
+be removed because the settings format has no way to suppress them without
+assigning the key to another command. Ng needs a GPUI version of this dialog.

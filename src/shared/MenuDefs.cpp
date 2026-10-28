@@ -519,6 +519,10 @@ MenuDef menuDefSettings[] = {
         CmdAdvancedSettings,
     },
     {
+        TrN("Customize &Keyboard Shortcuts..."),
+        CmdCustomizeShortcuts,
+    },
+    {
         TrN("&Open Advanced Settings File..."),
         CmdOpenSettingsFile,
     },

@@ -356,6 +356,7 @@ export const VK_RIGHT = 0x27;
 export const VK_DOWN = 0x28;
 export const VK_DELETE = 0x2e;
 export const VK_F4 = 0x73;
+export const VK_F20 = 0x83;
 // PrintWindow flags
 export const PW_CLIENTONLY = 0x00000001;
 export const PW_RENDERFULLCONTENT = 0x00000002;

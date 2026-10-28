@@ -10961,6 +10961,10 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
             ShowAdvancedSettingsDialog(win);
             break;
 
+        case CmdCustomizeShortcuts:
+            ShowShortcutsDialog(win);
+            break;
+
         case CmdRunPDFScript:
             ShowPDFScriptDialog(win);
             break;

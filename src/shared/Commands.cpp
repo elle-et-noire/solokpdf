@@ -350,6 +350,7 @@ const CommandInfo gCommands[] = {
     {CmdAdjustContrast, "CmdAdjustContrast\0", StrL("Adjust Contrast...")},
     {CmdNextTheme, "CmdNextTheme\0", StrL("Switch to Next Theme")},
     {CmdPrevTheme, "CmdPrevTheme\0", StrL("Switch to Previous Theme")},
+    {CmdCustomizeShortcuts, "CmdCustomizeShortcuts\0", StrL("Customize Keyboard Shortcuts...")},
 };
 const int gCommandsCount = dimofi(gCommands);
 

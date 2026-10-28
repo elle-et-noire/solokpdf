@@ -16,6 +16,7 @@ struct AccelStroke {
 void FreeAcceleratorTables();
 void CreateSumatraAcceleratorTable();
 const Accel* GetAcceleratorTable(int& nOut);
+void GetDefaultAccelerators(Vec<Accel>& out);
 const AccelStroke* GetAcceleratorStrokes(int& nOut);
 TempStr AppendAccelKeyToMenuStringTemp(TempStr str, int cmdId);
 TempStr ShortcutsForCmdTemp(int cmdId, int maxCount);

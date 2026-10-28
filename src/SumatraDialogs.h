@@ -13,6 +13,8 @@ enum class VirtButtonStyle;
 
 void ShowAddFavoriteDialog(MainWindow* win, Str filePath, int pageNo, Str pageLabel, Str name);
 void ShowAdvancedSettingsDialog(MainWindow* win);
+void ShowShortcutsDialog(MainWindow* win);
+TempStr ShortcutsDialogTestTemp(Str action, Str command, Str key, Str argument, int* exitCodeOut);
 void ShowConfigureRestrictedUseDialog(MainWindow* win);
 void OpenSettingsFileInEditor();
 TempStr AdvSettingsRowsResultTemp(Str action, int arg, int* exitCodeOut);

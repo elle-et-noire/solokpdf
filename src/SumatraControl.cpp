@@ -657,6 +657,7 @@ enum class ControlCmd : u16 {
     // [brightness, contrast] applied to the current file as the Brightness /
     // Contrast dialog's OK does; returns the current values
     TestPageAdjust = 138,
+    TestShortcutsDialog = 139,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1911,6 +1912,17 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             int exitCode = 0;
             Str res = AdvSettingsRowsResultTemp(action, arg, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestShortcutsDialog: {
+            Str action = StringArg(req, 0);
+            Str command = StringArg(req, 1);
+            Str key = StringArg(req, 2);
+            Str arg = StringArg(req, 3);
+            int exitCode = 0;
+            Str res = ShortcutsDialogTestTemp(action, command, key, arg, &exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }
