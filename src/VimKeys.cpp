@@ -317,8 +317,38 @@ static bool HasUserKey(int vk, bool shift, bool ctrl) {
 
 constexpr int kVimShift = 1;
 constexpr int kVimCtrl = 2;
+constexpr uint kNoDeadKeyChange = 4;
 
-static bool HandleVimKey(MainWindow* win, MSG& msg, int mods) {
+static int VimKeyChar(MSG& msg, int mods, HKL layout) {
+    BYTE state[256]{};
+    GetKeyboardState(state);
+    state[VK_SHIFT] = (mods & kVimShift) ? 0x80 : 0;
+    state[VK_CONTROL] = 0;
+    WCHAR chars[4]{};
+    int vk = (int)msg.wParam;
+    uint scan = (uint)((msg.lParam >> 16) & 0xff);
+    if (!scan) {
+        scan = MapVirtualKeyExW(vk, MAPVK_VK_TO_VSC, layout);
+    }
+    int n = ToUnicodeEx(vk, scan, state, chars, dimof(chars), kNoDeadKeyChange, layout);
+    return n == 1 ? chars[0] : 0;
+}
+
+static bool HasUserChar(int ch) {
+    if (!ch) {
+        return false;
+    }
+    KeyShortcut key(0, (u16)ch);
+    for (CustomCommand* cmd = gFirstCustomCommand; cmd; cmd = cmd->next) {
+        KeyShortcut custom;
+        if (len(cmd->key) && ParseShortcutString(cmd->key, custom) && custom.SameKey(key)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
     if (!gSettings->vimKeys || !win || !win->IsDocLoaded() || msg.message != WM_KEYDOWN ||
         (msg.hwnd != win->hwndFrame && msg.hwnd != win->hwndCanvas) ||
         (GetFocus() != win->hwndFrame && GetFocus() != win->hwndCanvas)) {
@@ -352,7 +382,8 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods) {
         }
         return true;
     }
-    if (HasUserKey(vk, shift, false)) {
+    int ch = VimKeyChar(msg, mods, layout);
+    if (HasUserKey(vk, shift, false) || HasUserChar(ch)) {
         ClearKeyCount(win);
         return false;
     }
@@ -379,12 +410,12 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods) {
             SaveVimMarks(win);
             return true;
         }
-        if ((prefix == '\'' || prefix == '`') && !shift) {
-            if (vk == VK_OEM_7 && prefix == '\'') {
+        if (prefix == '\'' || prefix == '`') {
+            if (ch == prefix) {
                 VimJumpMark(win, win->CurrentTab()->vimJumpBack);
                 return true;
             }
-            if (vk >= 'A' && vk <= 'Z') {
+            if (!shift && vk >= 'A' && vk <= 'Z') {
                 LoadVimMarks(win);
                 VimJumpMark(win, win->CurrentTab()->vimMarks[vk - 'A']);
                 return true;
@@ -398,8 +429,8 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods) {
         VimGoPage(win, count ? count : win->ctrl->PageCount());
         return true;
     }
-    if (vk == 'G' || (!shift && vk == 'M') || (!shift && vk == VK_OEM_7) || (!shift && vk == VK_OEM_3)) {
-        win->pendingKeyPrefix = vk == 'G' ? 'g' : vk == 'M' ? 'm' : vk == VK_OEM_7 ? '\'' : '`';
+    if (vk == 'G' || (!shift && vk == 'M') || ch == '\'' || ch == '`') {
+        win->pendingKeyPrefix = vk == 'G' ? 'g' : vk == 'M' ? 'm' : (char)ch;
         ShowPendingKeys(win);
         return true;
     }
@@ -417,9 +448,19 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods) {
         ToggleKeyboardLinkFollowing(win);
         return true;
     }
-    if (vk == VK_OEM_1 && shift) {
+    if (ch == ':') {
         ClearKeyCount(win);
         OpenVimCommand(win);
+        return true;
+    }
+    if (ch == '/') {
+        ClearKeyCount(win);
+        HwndSendCommand(win->hwndFrame, CmdFindFirst);
+        return true;
+    }
+    if (ch == '?') {
+        ClearKeyCount(win);
+        HwndSendCommand(win->hwndFrame, CmdToggleKeyboardHelp);
         return true;
     }
     return false;
@@ -431,7 +472,15 @@ TempStr VimKeysTestResultTemp(Str action, Str key, int* exitCode) {
         return StrL("NOTREADY no-window");
     }
     MainWindow* win = gWindows[0];
-    if (str::Eq(action, StrL("key"))) {
+    if (str::Eq(action, StrL("key")) || str::Eq(action, StrL("jis"))) {
+        HKL layout = GetKeyboardLayout(0);
+        if (str::Eq(action, StrL("jis"))) {
+            layout = LoadKeyboardLayoutW(L"00000411", KLF_NOTELLSHELL);
+            if (!layout) {
+                *exitCode = 1;
+                return StrL("ERROR no-jis-layout");
+            }
+        }
         int mods = 0;
         if (str::TrimPrefix(key, StrL("Ctrl+"))) {
             mods |= kVimCtrl;
@@ -442,9 +491,13 @@ TempStr VimKeysTestResultTemp(Str action, Str key, int* exitCode) {
         int vk = 0;
         if (len(key) == 1 && key.s[0] >= 'A' && key.s[0] <= 'Z') {
             vk = key.s[0];
-        } else if (str::Eq(key, StrL(":"))) {
-            vk = VK_OEM_1;
-            mods |= kVimShift;
+        } else if (len(key) == 1) {
+            SHORT mapped = VkKeyScanExW((WCHAR)key.s[0], layout);
+            if (mapped != -1) {
+                vk = mapped & 0xff;
+                mods |= (mapped & 0x100) ? kVimShift : 0;
+                mods |= (mapped & 0x200) ? kVimCtrl : 0;
+            }
         }
         if (!vk) {
             *exitCode = 1;
@@ -455,7 +508,8 @@ TempStr VimKeysTestResultTemp(Str action, Str key, int* exitCode) {
         msg.hwnd = win->hwndFrame;
         msg.message = WM_KEYDOWN;
         msg.wParam = vk;
-        if (!HandleVimKey(win, msg, mods)) {
+        msg.lParam = (LPARAM)MapVirtualKeyExW(vk, MAPVK_VK_TO_VSC, layout) << 16;
+        if (!HandleVimKey(win, msg, mods, layout)) {
             int n = 0;
             const Accel* accels = GetAcceleratorTable(n);
             u8 flags = KeyShortcut::kVirtKey | ((mods & kVimShift) ? KeyShortcut::kShiftKey : 0) |
@@ -517,7 +571,8 @@ bool VimKeysPreTranslate(MainWindow* countWin, MSG& msg) {
     }
 
     if (!IsAltPressed() &&
-        HandleVimKey(countWin, msg, (IsShiftPressed() ? kVimShift : 0) | (IsCtrlPressed() ? kVimCtrl : 0))) {
+        HandleVimKey(countWin, msg, (IsShiftPressed() ? kVimShift : 0) | (IsCtrlPressed() ? kVimCtrl : 0),
+                     GetKeyboardLayout(0))) {
         return true;
     }
 

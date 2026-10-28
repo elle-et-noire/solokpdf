@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assemblePdf, runStandalone, SETTINGS_FILE, tmpPath, writeAppdata } from "./util.ts";
-import { findCanvas, killAndWait, launchControlled, pressKey } from "./win-automation.ts";
+import { findCanvas, killAndWait, launchControlled, pressKey, waitToolWindow } from "./win-automation.ts";
 import { ControlCommand } from "./control.ts";
 import { getScrollPos, sendText, sleep } from "./winapi.ts";
 
@@ -124,11 +124,11 @@ export async function testit(): Promise<void> {
     await pressKey(frame, 0x41);
     await pressKey(frame, 0x47);
     await pressKey(frame, 0x47);
-    await pressKey(frame, 0xde);
+    await key("'");
     await pressKey(frame, 0x41);
     if ((await page()) !== 3) throw new Error("'a did not restore the mark");
-    await pressKey(frame, 0xde);
-    await pressKey(frame, 0xde);
+    await key("'");
+    await key("'");
     if ((await page()) !== 1) throw new Error("'' did not jump back");
 
     const canvas = findCanvas(frame);
@@ -154,6 +154,18 @@ export async function testit(): Promise<void> {
     await pressKey(edit, 0x0d);
     if ((await page()) !== 3) throw new Error(":3 did not go to page 3");
 
+    for (const ch of [":", "'", "`"]) {
+      const result = await state("jis", ch);
+      if (ch === ":") {
+        if (!/edit=[1-9]/.test(result)) throw new Error("JIS : did not open the command line");
+        const jisEdit = Number(/edit=(\d+)/.exec(result)?.[1] ?? 0);
+        await pressKey(jisEdit, 0x1b);
+      } else {
+        if (!result.includes(`prefix=${ch}`)) throw new Error(`JIS ${ch} did not start a mark command`);
+        await pressKey(frame, 0x1b);
+      }
+    }
+
     const tabBefore = await path();
     await pressKey(frame, 0x47);
     await pressKey(frame, 0x54);
@@ -173,6 +185,11 @@ export async function testit(): Promise<void> {
     if (offN[1] !== "CmdGoToNextPage") throw new Error(`Vim toggle kept n mapped to ${offN[1]}`);
     await client.request(ControlCommand.TestInvokeCommand, ["CmdToggleVimKeys"]);
     for (let i = 0; i < 20 && !/mode=1/.test(await state()); i++) await sleep(25);
+
+    if (/focus=1/.test(await state("jis", "/"))) throw new Error("JIS / did not focus the find box");
+    await state("jis", "?");
+    const help = await waitToolWindow(client, proc.pid!, "keyboard-help", { title: "Keyboard Shortcuts" });
+    if (!help) throw new Error("JIS ? did not open keyboard help");
   } finally {
     await client.quit().catch(() => {});
     await killAndWait(proc);
@@ -184,7 +201,7 @@ export async function testit(): Promise<void> {
   try {
     await reopened.client.waitForRenderIdle();
     await pressKey(reopened.frame, 0x23);
-    await pressKey(reopened.frame, 0xde);
+    await reopened.client.request(ControlCommand.TestVimKeys, ["key", "'"]);
     await pressKey(reopened.frame, 0x41);
     const res = await reopened.client.request(ControlCommand.TestCurrentTab, []);
     if (!/page=3/.test(String(res[1]))) throw new Error("saved Vim mark was not restored");
