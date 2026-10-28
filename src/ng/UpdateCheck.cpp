@@ -334,7 +334,7 @@ static void ShowUpdateAvailableNotification(MainWindow* win, UpdateInfo* updateI
 
 // download + install the update surfaced by the pre-release update notification
 void DownloadAndInstallPendingUpdate(MainWindow* win) {
-    if (!win || !gPendingUpdate) {
+    if (!kUpdateCheckEnabled || !win || !gPendingUpdate) {
         return;
     }
     UpdateInfo* updateInfo = gPendingUpdate;

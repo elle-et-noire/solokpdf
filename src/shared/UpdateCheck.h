@@ -3,6 +3,12 @@
 
 struct MainWindow;
 
+#if defined(SOLOKPDF_PDFIUM)
+constexpr bool kUpdateCheckEnabled = false;
+#else
+constexpr bool kUpdateCheckEnabled = true;
+#endif
+
 enum class UpdateCheck {
     UserInitiated, // user used menu "Check update"
     Automatic,     // an automatic, periodic check done at startup

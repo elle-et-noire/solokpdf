@@ -28,6 +28,7 @@
 #include "gui/DialogWidgets.h"
 #include "SumatraDialogs.h"
 #include "shared/PdfToolsCommon.h"
+#include "UpdateCheck.h"
 
 #include "SumatraLog.h"
 
@@ -349,8 +350,10 @@ gp::El* SettingsDialogBuild(MainWindow* win, gp::Ctx* cx) {
     gp::El* advanced = DlgSection(cx);
     advanced->Child(DlgSectionHeader(cx, Tr("Advanced")));
     advanced->Child(check(StrL("opt-tabs"), Tr("Use &tabs"), gSettingsDlg.useTabs, false, 2));
-    advanced->Child(check(StrL("opt-updates"), Tr("Automatically check for &updates"), gSettingsDlg.checkUpdates,
-                          !HasPermission(Perm::InternetAccess), 3));
+    if (kUpdateCheckEnabled) {
+        advanced->Child(check(StrL("opt-updates"), Tr("Automatically check for &updates"), gSettingsDlg.checkUpdates,
+                              !HasPermission(Perm::InternetAccess), 3));
+    }
     advanced->Child(check(StrL("opt-opened"), Tr("Remember &opened files"), gSettingsDlg.rememberOpened, false, 4));
     col->Child(advanced);
 

@@ -26,6 +26,7 @@
 #include "DarkMode.h"
 #include "SumatraDialogs.h"
 #include "shared/PdfToolsCommon.h"
+#include "UpdateCheck.h"
 
 //   View
 //   Default Layout:  [Automatic        v]
@@ -348,12 +349,14 @@ bool SettingsWnd::Create(MainWindow* mainWin) {
     advanced->AddChild(labelAdvanced);
     chkUseTabs = NewDlgCheckbox(hwnd, Tr("Use &tabs"), fontText, sett && gSettings->useTabs);
     addCheck(advanced, chkUseTabs);
-    chkCheckUpdates =
-        NewDlgCheckbox(hwnd, Tr("Automatically check for &updates"), fontText, sett && gSettings->checkForUpdates);
-    if (!HasPermission(Perm::InternetAccess)) {
-        chkCheckUpdates->SetIsEnabled(false);
+    if (kUpdateCheckEnabled) {
+        chkCheckUpdates =
+            NewDlgCheckbox(hwnd, Tr("Automatically check for &updates"), fontText, sett && gSettings->checkForUpdates);
+        if (!HasPermission(Perm::InternetAccess)) {
+            chkCheckUpdates->SetIsEnabled(false);
+        }
+        addCheck(advanced, chkCheckUpdates);
     }
-    addCheck(advanced, chkCheckUpdates);
     chkRememberOpened =
         NewDlgCheckbox(hwnd, Tr("Remember &opened files"), fontText, sett && gSettings->rememberOpenedFiles);
     chkRememberOpened->onStateChanged = MkMethod0<SettingsWnd, &SettingsWnd::OnRememberOpenedChanged>(this);

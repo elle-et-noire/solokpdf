@@ -379,6 +379,9 @@ bool CmdWorksWithoutDocument(int cmdId) {
 }
 
 CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, CommandSurface surface) {
+    if ((cmdId == CmdCheckUpdate || cmdId == CmdInstallPrereleaseUpdate) && !kUpdateCheckEnabled) {
+        return CommandVisibility::Hide;
+    }
 #if defined(SUMATRA_NG)
     if (cmdId >= CmdVimPrefixG && cmdId <= CmdToggleVimKeys) {
         return CommandVisibility::Hide;
@@ -799,7 +802,7 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         return CommandVisibility::Disable;
     }
 
-    if ((cmdId == CmdCheckUpdate) && gIsStoreBuild) {
+    if (cmdId == CmdCheckUpdate && gIsStoreBuild) {
         return CommandVisibility::Hide;
     }
 

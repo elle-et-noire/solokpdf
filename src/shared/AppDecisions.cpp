@@ -90,6 +90,9 @@ TempStr ForwardSearchFailTextTemp(int ret, Str fileName, int line, int page) {
 // Automatic checks wait out the first start, then a day. Pre-release builds
 // check on every startup. forcePreReleaseOnly is orig's FORCE_AUTO_UPDATE.
 UpdateCheckChoice DecideUpdateCheck(const UpdateCheckFacts& f) {
+    if (!kUpdateCheckEnabled) {
+        return UpdateCheckChoice::Skip;
+    }
     if (f.inProgress) {
         logf("CheckForUpdate: skipping because gUpdateCheckInProgress\n");
         return UpdateCheckChoice::Skip;

@@ -1,5 +1,8 @@
 # SolokPDF development log
 
+SolokPDF disables upstream update checks, commands and settings UI. Existing
+`CheckForUpdates` settings remain parseable but have no effect.
+
 ## Current priority and handoff
 
 The move to PDFium is for its current text appearance: the user wants to avoid

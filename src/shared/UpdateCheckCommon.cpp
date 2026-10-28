@@ -29,7 +29,7 @@
 UpdateInfo* gPendingUpdate = nullptr;
 
 bool HasPendingPreReleaseUpdate() {
-    return gPendingUpdate != nullptr;
+    return kUpdateCheckEnabled && gPendingUpdate != nullptr;
 }
 
 #if OS_WIN

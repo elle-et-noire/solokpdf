@@ -122,6 +122,20 @@ void OpenDdeCmdTest() {
 }
 
 void UpdateCheckDecisionTest() {
+    constexpr int kSecondsInDay = 60 * 60 * 24;
+    UpdateCheckChoice enabledChoice = kUpdateCheckEnabled ? UpdateCheckChoice::Check : UpdateCheckChoice::Skip;
+#if defined(SOLOKPDF_PDFIUM)
+    UpdateCheckFacts disabled;
+    disabled.userInitiated = true;
+    disabled.hasInternet = true;
+    utassert(DecideUpdateCheck(disabled) == UpdateCheckChoice::Skip);
+    disabled.userInitiated = false;
+    disabled.canSavePrefs = true;
+    disabled.checkForUpdates = true;
+    disabled.secsSinceLast = 2 * kSecondsInDay;
+    utassert(DecideUpdateCheck(disabled) == UpdateCheckChoice::Skip);
+#endif
+
     UpdateCheckFacts busy;
     busy.inProgress = true;
     busy.userInitiated = true;
@@ -135,7 +149,7 @@ void UpdateCheckDecisionTest() {
     UpdateCheckFacts asked;
     asked.userInitiated = true;
     asked.hasInternet = true;
-    utassert(DecideUpdateCheck(asked) == UpdateCheckChoice::Check);
+    utassert(DecideUpdateCheck(asked) == enabledChoice);
 
     UpdateCheckFacts noPrefs;
     noPrefs.hasInternet = true;
@@ -159,9 +173,8 @@ void UpdateCheckDecisionTest() {
     pre.canSavePrefs = true;
     pre.checkForUpdates = true;
     pre.isPreRelease = true;
-    utassert(DecideUpdateCheck(pre) == UpdateCheckChoice::Check);
+    utassert(DecideUpdateCheck(pre) == enabledChoice);
 
-    constexpr int kSecondsInDay = 60 * 60 * 24;
     UpdateCheckFacts daily;
     daily.hasInternet = true;
     daily.canSavePrefs = true;
@@ -169,13 +182,13 @@ void UpdateCheckDecisionTest() {
     daily.secsSinceLast = kSecondsInDay;
     utassert(DecideUpdateCheck(daily) == UpdateCheckChoice::Skip);
     daily.secsSinceLast = kSecondsInDay + 1;
-    utassert(DecideUpdateCheck(daily) == UpdateCheckChoice::Check);
+    utassert(DecideUpdateCheck(daily) == enabledChoice);
 
     UpdateCheckFacts forced = daily;
     forced.forcePreReleaseOnly = true;
     utassert(DecideUpdateCheck(forced) == UpdateCheckChoice::Skip);
     forced.userInitiated = true;
-    utassert(DecideUpdateCheck(forced) == UpdateCheckChoice::Check);
+    utassert(DecideUpdateCheck(forced) == enabledChoice);
 
     utassert(!ShouldOfferProgramUpdate(StrL("3.8"), StrL("3.7"), true));
     utassert(ShouldOfferProgramUpdate(StrL("3.8"), StrL("3.7"), false));
