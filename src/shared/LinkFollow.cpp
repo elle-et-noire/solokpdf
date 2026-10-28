@@ -40,6 +40,7 @@
 #include "Selection.h"
 #include "Notifications.h"
 #include "Translations.h"
+#include "Theme.h"
 #include "LinkFollow.h"
 
 #if defined(SUMATRA_NG)
@@ -56,6 +57,15 @@ Kind kNotifLinkFollow = "notifLinkFollow";
 // also matters: when more hints are needed, earlier characters become prefixes
 // of multi-letter hints first.
 static constexpr char kLinkHintChars[] = "SADFJKLEWCMPGH";
+static constexpr char kVimHintChars[] = "ASDFGHJKL;";
+
+static bool VimHints(MainWindow* win) {
+#if defined(SUMATRA_NG)
+    return false;
+#else
+    return win->vimLinkHints;
+#endif
+}
 
 #if defined(SUMATRA_NG)
 constexpr int kLinkFollowRecomputeDelayInMs = 300;
@@ -73,7 +83,7 @@ static int CmpLinkHints(const LinkHint* a, const LinkHint* b) {
 // Build a prefix-free breadth-first hint tree, matching Vimium's AlphabetHints
 // algorithm. Expanding a leaf replaces its one-letter hint with a group of
 // longer hints, so no complete hint can also prefix another hint.
-static void AssignLinkHints(Vec<KeyboardLinkTarget>& targets) {
+static void AssignLinkHints(Vec<KeyboardLinkTarget>& targets, const char* chars, int nChars) {
     int nTargets = len(targets);
     if (nTargets == 0) {
         return;
@@ -88,9 +98,9 @@ static void AssignLinkHints(Vec<KeyboardLinkTarget>& targets) {
             ReportIf(true);
             return;
         }
-        for (int i = 0; i < LenL(kLinkHintChars); i++) {
+        for (int i = 0; i < nChars; i++) {
             LinkHint next;
-            next.s[0] = kLinkHintChars[i];
+            next.s[0] = chars[i];
             memcpy(next.s + 1, hint.s, hint.len);
             next.len = hint.len + 1;
             VecAppend(hints, next);
@@ -146,6 +156,11 @@ bool KeyboardLinkFollowingCapturesKey(MainWindow* win, int vk) {
     if (vk == VK_BACK) {
         return true;
     }
+#if !defined(SUMATRA_NG)
+    if (win->vimLinkHints && vk == VK_OEM_1) {
+        return true;
+    }
+#endif
     if (vk >= 'A' && vk <= 'Z') {
         return true;
     }
@@ -217,7 +232,11 @@ void KeyboardLinkFollowingRecompute(MainWindow* win) {
     for (int i = 0; i < len(found); i++) {
         VecAppend(win->linkFollowTargets, found[i].target);
     }
-    AssignLinkHints(win->linkFollowTargets);
+    if (VimHints(win)) {
+        AssignLinkHints(win->linkFollowTargets, kVimHintChars, LenL(kVimHintChars));
+    } else {
+        AssignLinkHints(win->linkFollowTargets, kLinkHintChars, LenL(kLinkHintChars));
+    }
 }
 
 // returns true if the mode was on (and is now off), so callers can tell whether
@@ -227,6 +246,9 @@ bool StopKeyboardLinkFollowing(MainWindow* win) {
         return false;
     }
     win->linkFollowActive = false;
+#if !defined(SUMATRA_NG)
+    win->vimLinkHints = false;
+#endif
     VecReset(win->linkFollowTargets);
     win->linkFollowInputLen = 0;
 #if !defined(SUMATRA_NG)
@@ -291,6 +313,10 @@ void KeyboardLinkFollowingViewportChanged(MainWindow* win) {
     if (!KeyboardLinkFollowingActive(win) || !win->hwndCanvas) {
         return;
     }
+    if (win->vimLinkHints) {
+        StopKeyboardLinkFollowing(win);
+        return;
+    }
     SetTimer(win->hwndCanvas, kLinkFollowTimerID, kLinkFollowRecomputeDelayInMs, nullptr);
 }
 #endif
@@ -346,7 +372,7 @@ bool KeyboardLinkFollowingOnChar(MainWindow* win, int key) {
     if (key >= 'a' && key <= 'z') {
         key -= 'a' - 'A';
     }
-    if (key < 'A' || key > 'Z') {
+    if ((key < 'A' || key > 'Z') && !(VimHints(win) && key == ';')) {
         return false;
     }
 
@@ -507,12 +533,12 @@ void PaintKeyboardLinkTargets(MainWindow* win, gp::PaintCtx* ctx) {
     }
 }
 #else
-static void PaintLinkBadge(Gfx* gfx, PlatformFont* font, const Rect& linkRect, Str label) {
+static void PaintLinkBadge(Gfx* gfx, PlatformFont* font, const Rect& linkRect, Str label, Color bg, Color fg) {
     Size textSize = gfx->MeasureText(label, font);
     int padX;
     Rect badge = LinkBadgeRect(linkRect, textSize, padX);
-    gfx->FillRects(&badge, 1, kLinkFollowBadgeBgCol, 235);
-    gfx->DrawTextAt(label, {badge.x + padX, badge.y}, gfxTextSingleLine | gfxTextNoClip, font, kLinkFollowBadgeTextCol);
+    gfx->FillRects(&badge, 1, bg, 235);
+    gfx->DrawTextAt(label, {badge.x + padX, badge.y}, gfxTextSingleLine | gfxTextNoClip, font, fg);
 }
 
 void PaintKeyboardLinkTargets(MainWindow* win, Gfx* gfx) {
@@ -522,11 +548,14 @@ void PaintKeyboardLinkTargets(MainWindow* win, Gfx* gfx) {
         return;
     }
 
-    PaintTransparentRectangles(gfx, win->canvasRc, rects, kLinkFollowHighlightCol, 90, 2, false);
+    Color highlight = win->vimLinkHints ? ThemeAccentColor() : kLinkFollowHighlightCol;
+    Color bg = win->vimLinkHints ? ThemeNotificationsBackgroundColor() : kLinkFollowBadgeBgCol;
+    Color fg = win->vimLinkHints ? ThemeNotificationsTextColor() : kLinkFollowBadgeTextCol;
+    PaintTransparentRectangles(gfx, win->canvasRc, rects, highlight, 90, 2, false);
 
     PlatformFont* font = GetBoldPlatformFont(GetUserGuiFont(StrL("Segoe UI"), DpiScale(11)));
     for (int i = 0; i < len(rects); i++) {
-        PaintLinkBadge(gfx, font, rects[i], labels[i]);
+        PaintLinkBadge(gfx, font, rects[i], labels[i], bg, fg);
     }
 }
 #endif
