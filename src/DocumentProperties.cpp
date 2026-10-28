@@ -585,11 +585,15 @@ void ShowProperties(HWND parent, DocController* ctrl) {
     VecAppend(gPropertiesWindows, wnd);
     DisplayModel* dm = ctrl->AsFixed();
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
-    if (EngineMupdfIsPdf(engine)) {
+    if (EngineMupdfIsPdf(engine) || (engine && engine->HasAnnotationEditor())) {
         EutlRegisterLookup();
-        wnd->certs = EngineMupdfGetSignatureCerts(engine);
     }
     GetPropsText(ctrl, wnd->propsText);
+    EngineBase* sigEngine =
+        engine && engine->HasAnnotationEditor() ? engine->AnnotationEditor(EditorLoad::IfLoaded) : engine;
+    if (EngineMupdfIsPdf(sigEngine)) {
+        wnd->certs = EngineMupdfGetSignatureCerts(sigEngine);
+    }
     AppendCertsText(wnd->propsText, wnd->certs);
     AlignPropertiesText(wnd->propsText);
     EndWithSingleNewline(wnd->propsText);

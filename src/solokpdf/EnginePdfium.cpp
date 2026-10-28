@@ -1645,9 +1645,6 @@ class EnginePdfium : public EngineBase {
         if (gPdfium.FPDFDoc_GetJavaScriptActionCount(doc) > 0) {
             features.Append(StrL("JavaScript"));
         }
-        if (gPdfium.FPDF_GetSignatureCount(doc) > 0) {
-            features.Append(StrL("signature verification"));
-        }
         if (len(features) == 0) {
             return {};
         }
@@ -1697,6 +1694,31 @@ class EnginePdfium : public EngineBase {
             return {};
         }
         return ToUtf8Temp(WStr(buf, (int)(bytes / sizeof(WCHAR)) - 1));
+    }
+
+    void GetProperties(Props& propsOut) override {
+        EngineBase::GetProperties(propsOut);
+
+        int signatures = 0;
+        {
+            ScopedMutex lock(&gPdfiumLock);
+            signatures = gPdfium.FPDF_GetSignatureCount(doc);
+        }
+        if (signatures <= 0) {
+            return;
+        }
+
+        // Verify signed PDFs with the same MuPDF path as the original engine.
+        EngineBase* sigEngine = AnnotationEditor(EditorLoad::Load);
+        if (!sigEngine) {
+            return;
+        }
+        Props sigProps;
+        sigEngine->GetProperties(sigProps);
+        Str sigs = GetPropValueTemp(sigProps, DocProp::Signatures);
+        if (len(sigs) > 0) {
+            AddProp(propsOut, DocProp::Signatures, sigs);
+        }
     }
 
     Str GetFileData() override { return fileData.s ? str::Dup(fileData) : file::ReadFile(FilePath()); }

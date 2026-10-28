@@ -1684,12 +1684,15 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   loaded; every annotation type but redaction (see
   `docs/solokpdf-annotations.md`). PDFium's own incremental save, used before,
   wrote every parsed object: one annotation added up to 35 MB.
-- Form filling, JavaScript, XFA, signing and signature verification, and PDF
-  editing/merging need PDFium implementations.
+- Form filling, JavaScript, XFA, signing, and PDF editing/merging need PDFium
+  implementations.
   Document Properties lists the ones a document uses ("Unsupported
   Features"; empty for most papers), checked by
   `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
-  a notification on every load. Sign Document is hidden for PDFium documents
+  a notification on every load. Signed PDFium documents use the hidden MuPDF
+  editor for verification text and certificate details in Document Properties.
+  PDFium's signature count gates that load; ordinary PDFs stay on PDFium alone.
+  Sign Document is hidden for PDFium documents
   (and clicking a signature field doesn't open it): `PdfSign.cpp` signs only
   through EngineMupdf. MuPDF is the explicit compatibility route.
 - PDFium's attachment count gates loading the hidden MuPDF editor when the TOC
