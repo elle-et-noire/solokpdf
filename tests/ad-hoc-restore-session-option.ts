@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, makeTopBottomPdf, runStandalone, tmpPath } from "./util.ts";
+import { ControlCommand } from "./control.ts";
 import { killAndWait, launchControlled, pressEnter, sendCommand, waitToolWindow } from "./win-automation.ts";
 import { enumChildWindows, getWindowText, isWindowEnabled, sendMessage, sleep } from "./winapi.ts";
 
@@ -58,6 +59,29 @@ export async function testit(): Promise<void> {
   } finally {
     await client.quit().catch(() => {});
     await killAndWait(proc);
+  }
+
+  const pdf = tmpPath("restore-session-option.pdf");
+  writeFileSync(pdf, makeTopBottomPdf(2));
+  const opened = await launchControlled(["-appdata", dir, pdf], { saveSettings: true });
+  try {
+    await opened.client.waitForRenderIdle();
+  } finally {
+    await opened.client.quit().catch(() => {});
+    await killAndWait(opened.proc);
+  }
+
+  const withSession = readFileSync(path, "utf8");
+  if (!withSession.includes("SessionData")) throw new Error("Session data was not saved");
+  writeFileSync(path, withSession.replace(/RememberOpenedFiles\s*=\s*true/, "RememberOpenedFiles = false"));
+  const noHistory = await launchControlled(["-appdata", dir], { saveSettings: true });
+  try {
+    await noHistory.client.waitForSessionRestored();
+    const tab = await noHistory.client.request(ControlCommand.TestCurrentTab, []);
+    if (String(tab[1]).includes(pdf)) throw new Error("Session restored while file history was disabled");
+  } finally {
+    await noHistory.client.quit().catch(() => {});
+    await killAndWait(noHistory.proc);
   }
 }
 

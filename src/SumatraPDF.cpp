@@ -174,7 +174,7 @@ bool SettingsUseTabs() {
 }
 
 static bool SettingsRestoreSession() {
-    return gSettings->restoreSession && !gMyWindowWasEmbedded && !gForTesting;
+    return gSettings->restoreSession && gSettings->rememberOpenedFiles && !gMyWindowWasEmbedded && !gForTesting;
 }
 
 // Page Up/Down decide "did it move" from the content axis when the stack follows rotation.

@@ -430,7 +430,7 @@ void TakeInitialSessionData() {
 }
 
 bool SettingsRestoreSession() {
-    return gSettings->restoreSession && !gForTesting;
+    return gSettings->restoreSession && gSettings->rememberOpenedFiles && !gForTesting;
 }
 
 // orig's RestoreSession: one window per SessionData. The first entry goes into
