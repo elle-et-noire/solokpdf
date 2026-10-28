@@ -82,6 +82,9 @@
     X(FPDFLink_GetAction)               \
     X(FPDFLink_GetAnnot)                \
     X(FPDFAnnot_GetStringValue)         \
+    X(FPDFPage_GetAnnotCount)           \
+    X(FPDFPage_GetAnnot)                \
+    X(FPDFAnnot_GetSubtype)             \
     X(FPDFPage_CloseAnnot)              \
     X(FPDFAction_GetType)               \
     X(FPDFAction_GetDest)               \
@@ -198,6 +201,8 @@ static struct PdfiumApi {
 struct PdfiumPage {
     SizeF size;
     bool linksLoaded = false;
+    bool hasFileAttachments = false;
+    bool attachmentLinksLoaded = false;
     Vec<IPageElement*> links;
     // photos a themed page keeps in their colors, in page space
     bool imagesLoaded = false;
@@ -922,6 +927,19 @@ class EnginePdfium : public EngineBase {
         if (!disableAutoLinks) {
             AddAutoLinks(page, pageNo, info);
         }
+        int annotCount = gPdfium.FPDFPage_GetAnnotCount(page);
+        for (int i = 0; i < annotCount; i++) {
+            FPDF_ANNOTATION annot = gPdfium.FPDFPage_GetAnnot(page, i);
+            if (!annot) {
+                continue;
+            }
+            bool isAttachment = gPdfium.FPDFAnnot_GetSubtype(annot) == FPDF_ANNOT_FILEATTACHMENT;
+            gPdfium.FPDFPage_CloseAnnot(annot);
+            if (isAttachment) {
+                info->hasFileAttachments = true;
+                break;
+            }
+        }
         gPdfium.FPDF_ClosePage(page);
         info->linksLoaded = true;
         profile.Mark(StrL("load-and-scan"));
@@ -1502,12 +1520,32 @@ class EnginePdfium : public EngineBase {
     }
 
     Vec<IPageElement*> GetElements(int pageNo) override {
+        {
+            ScopedMutex lock(&gPdfiumLock);
+            auto* info = Page(pageNo);
+            if (!info) {
+                return Vec<IPageElement*>();
+            }
+            LoadLinks(pageNo, info);
+            if (!info->hasFileAttachments || info->attachmentLinksLoaded) {
+                return info->links;
+            }
+        }
+
+        Vec<IPageElement*> attachments;
+        EngineMupdfAttachmentLinks(this, pageNo, attachments);
         ScopedMutex lock(&gPdfiumLock);
         auto* info = Page(pageNo);
-        if (!info) {
-            return Vec<IPageElement*>();
+        if (!info->attachmentLinksLoaded) {
+            for (IPageElement* link : attachments) {
+                VecAppend(info->links, link);
+            }
+            info->attachmentLinksLoaded = true;
+        } else {
+            for (IPageElement* link : attachments) {
+                delete link;
+            }
         }
-        LoadLinks(pageNo, info);
         return info->links;
     }
 
@@ -1545,18 +1583,52 @@ class EnginePdfium : public EngineBase {
     }
 
     TocTree* GetToc() override {
-        ScopedMutex lock(&gPdfiumLock);
-        if (!tocLoaded) {
-            PdfiumProfile profile(StrL("outline"));
-            int budget = 4096, id = 0;
-            auto* root = AllocTocItem(arena, {}, 0);
-            root->child = ReadBookmarks(gPdfium.FPDFBookmark_GetFirstChild(doc, nullptr), root, 0, budget, id);
-            if (root->child) {
-                toc = AllocTocTree(arena, root);
+        bool hasAttachments = false;
+        {
+            ScopedMutex lock(&gPdfiumLock);
+            if (tocLoaded) {
+                return toc;
             }
-            tocLoaded = true;
-            profile.Mark(StrL("read"));
+            hasAttachments = gPdfium.FPDFDoc_GetAttachmentCount(doc) > 0;
         }
+
+        // Read attachment names only for PDFs that have them; plain PDFs keep the PDFium-only path.
+        TocTree* editorToc = hasAttachments ? EngineMupdfAttachmentToc(this) : nullptr;
+
+        ScopedMutex lock(&gPdfiumLock);
+        if (tocLoaded) {
+            return toc;
+        }
+        PdfiumProfile profile(StrL("outline"));
+        int budget = 4096, id = 0;
+        auto* root = AllocTocItem(arena, {}, 0);
+        root->child = ReadBookmarks(gPdfium.FPDFBookmark_GetFirstChild(doc, nullptr), root, 0, budget, id);
+        TocItem** tail = &root->child;
+        while (*tail) {
+            tail = &(*tail)->next;
+        }
+        for (TocItem* source = editorToc ? editorToc->root->child : nullptr; source; source = source->next) {
+            IPageDestination* sourceDest = source->dest;
+            if (!sourceDest || sourceDest->GetKind() != kindDestinationAttachment) {
+                continue;
+            }
+            auto* dest = New<PageDestination>(arena);
+            dest->kind = kindDestinationAttachment;
+            dest->name = str::Dup(sourceDest->GetName());
+            dest->value = str::Dup(sourceDest->GetValue());
+            dest->pageNo = sourceDest->pageNo;
+            auto* item = AllocTocItem(arena, source->title, dest->pageNo);
+            item->id = ++id;
+            item->parent = root;
+            item->dest = dest;
+            *tail = item;
+            tail = &item->next;
+        }
+        if (root->child) {
+            toc = AllocTocTree(arena, root);
+        }
+        tocLoaded = true;
+        profile.Mark(StrL("read"));
         return toc;
     }
 
@@ -1575,9 +1647,6 @@ class EnginePdfium : public EngineBase {
         }
         if (gPdfium.FPDF_GetSignatureCount(doc) > 0) {
             features.Append(StrL("signature verification"));
-        }
-        if (gPdfium.FPDFDoc_GetAttachmentCount(doc) > 0) {
-            features.Append(StrL("embedded files"));
         }
         if (len(features) == 0) {
             return {};

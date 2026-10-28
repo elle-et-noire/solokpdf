@@ -41,7 +41,11 @@ function featuresPdf(xfa: boolean): string {
 }
 
 // unsupported features and Sign Document's menu visibility, once the document has loaded
-async function inspect(name: string, pdf: string, engine: string): Promise<{ unsupported: string; sign: string }> {
+async function inspect(
+  name: string,
+  pdf: string,
+  engine: string,
+): Promise<{ unsupported: string; sign: string; toc: string }> {
   const dir = tmpPath(`pdfium-unsupported/${name}-${engine}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -65,7 +69,9 @@ async function inspect(name: string, pdf: string, engine: string): Promise<{ uns
       }
       const vis = await client.request(ControlCommand.TestCommandVisibility, ["CmdSignDocument", "menu"]);
       const sign = /vis=(\w+)/.exec(String(vis[1] ?? ""))?.[1] ?? `error: ${vis[1]}`;
-      return { unsupported, sign };
+      const tocResult = await client.request(ControlCommand.TestGetToc, [path]);
+      const toc = tocResult[0] === 0 ? String(tocResult[1] ?? "").trim() : "";
+      return { unsupported, sign, toc };
     },
     ["-appdata", dir, path],
     { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
@@ -74,27 +80,30 @@ async function inspect(name: string, pdf: string, engine: string): Promise<{ uns
 
 export async function testit(): Promise<void> {
   // signing only works through MuPDF's engine (PdfSign.cpp), so PDFium documents hide it
-  const cases: [string, string, string, string, string][] = [
-    ["plain", plainPdf(), "pdfium", "", "hide"],
-    ["plain", plainPdf(), "mupdf", "", "show"],
+  const cases: [string, string, string, string, string, string][] = [
+    ["plain", plainPdf(), "pdfium", "", "hide", ""],
+    ["plain", plainPdf(), "mupdf", "", "show", ""],
     [
       "features",
       featuresPdf(false),
       "pdfium",
-      "form filling, JavaScript, signature verification, embedded files",
+      "form filling, JavaScript, signature verification",
       "hide",
+      "a.txt|page=1",
     ],
-    ["xfa", featuresPdf(true), "pdfium", "XFA, JavaScript, signature verification, embedded files", "hide"],
+    ["features", featuresPdf(false), "mupdf", "", "show", "a.txt|page=1"],
+    ["xfa", featuresPdf(true), "pdfium", "XFA, JavaScript, signature verification", "hide", "a.txt|page=1"],
   ];
   const failures: string[] = [];
-  for (const [name, pdf, engine, wantUnsupported, wantSign] of cases) {
+  for (const [name, pdf, engine, wantUnsupported, wantSign, wantToc] of cases) {
     const got = await inspect(name, pdf, engine);
-    console.log(`${name} (${engine}): unsupported="${got.unsupported}" sign=${got.sign}`);
+    console.log(`${name} (${engine}): unsupported="${got.unsupported}" sign=${got.sign} toc="${got.toc}"`);
     // MuPDF lists its own unsupported features; only PDFium's are checked
     if (engine === "pdfium" && got.unsupported !== wantUnsupported) {
       failures.push(`${name}: want unsupported "${wantUnsupported}", got "${got.unsupported}"`);
     }
     if (got.sign !== wantSign) failures.push(`${name} (${engine}): Sign Document ${got.sign}, want ${wantSign}`);
+    if (got.toc !== wantToc) failures.push(`${name} (${engine}): toc "${got.toc}", want "${wantToc}"`);
   }
   if (failures.length > 0) throw new Error(failures.join("\n"));
 }

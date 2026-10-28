@@ -54,6 +54,9 @@ MuPDF draws the annotations into the same pixels
   and adds a journal step, so it can't run per edit.
 - Form fields stay PDFium's (`FPDF_FFLDraw`); their widgets in the editor are
   never used.
+- FileAttachment icons use the editor's link only when PDFium finds that
+  subtype on the queried page. The editor loads that page without extracting
+  text, so ordinary pages keep PDFium's link path.
 
 ## Limits
 

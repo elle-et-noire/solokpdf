@@ -1684,14 +1684,23 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   loaded; every annotation type but redaction (see
   `docs/solokpdf-annotations.md`). PDFium's own incremental save, used before,
   wrote every parsed object: one annotation added up to 35 MB.
-- Form filling, JavaScript, XFA, signing and signature verification, the
-  embedded-file list and PDF editing/merging need PDFium implementations.
+- Form filling, JavaScript, XFA, signing and signature verification, and PDF
+  editing/merging need PDFium implementations.
   Document Properties lists the ones a document uses ("Unsupported
   Features"; empty for most papers), checked by
   `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
   a notification on every load. Sign Document is hidden for PDFium documents
   (and clicking a signature field doesn't open it): `PdfSign.cpp` signs only
   through EngineMupdf. MuPDF is the explicit compatibility route.
+- PDFium's attachment count gates loading the hidden MuPDF editor when the TOC
+  is first requested. Its attachment entries are copied after PDFium's bookmarks;
+  the same editor supplies bytes to Open/Save Attachment. This keeps ordinary
+  PDF opens and renders on PDFium alone and avoids PDFium's whole-document save.
+  A page-link query checks PDFium annotation subtypes and reads FileAttachment
+  links from that editor only when the page has one. The editor's quick page
+  load avoids text extraction. `tests/ad-hoc-pdfium-unsupported.ts` checks the
+  list against MuPDF; `tests/embedded-image-attachment.ts` opens a page
+  attachment in both engines.
 - Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
   annotation except widgets, so form fields used to be blank; documents with
   an AcroForm now get a form handle and `FPDF_FFLDraw` after each render

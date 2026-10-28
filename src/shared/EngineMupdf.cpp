@@ -10507,12 +10507,44 @@ void EngineMupdfToggleCadEnhance(EngineBase* engine) {
 
 // caller must free
 Str EngineMupdfLoadAttachment(EngineBase* engine, int attachmentNo) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
-    if (!epdf->pdfdoc) {
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
+    if (!epdf || !epdf->pdfdoc) {
         return {};
     }
 
+    ScopedRecursiveMutex scope(&epdf->docLock);
     return PdfLoadAttachment(epdf->Ctx(), epdf->pdfdoc, attachmentNo);
+}
+
+TocTree* EngineMupdfAttachmentToc(EngineBase* engine) {
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
+    return epdf ? epdf->BuildToc() : nullptr;
+}
+
+void EngineMupdfAttachmentLinks(EngineBase* engine, int pageNo, Vec<IPageElement*>& out) {
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
+    if (!epdf) {
+        return;
+    }
+    FzPageInfo* pageInfo = epdf->GetFzPageInfo(pageNo, true, nullptr);
+    if (!pageInfo) {
+        return;
+    }
+    ScopedRecursiveMutex scope(&epdf->pagesLock);
+    for (IPageElement* source : pageInfo->comments) {
+        IPageDestination* sourceDest = source ? source->AsLink() : nullptr;
+        if (!sourceDest || sourceDest->GetKind() != kindDestinationLaunchEmbedded) {
+            continue;
+        }
+        auto* dest = new PageDestination();
+        dest->kind = kindDestinationLaunchEmbedded;
+        dest->value = str::Dup(sourceDest->GetValue());
+        dest->embedObjNum = ((PageDestination*)sourceDest)->embedObjNum;
+        auto* link = new PageElementDestination(dest);
+        link->pageNo = pageNo;
+        link->rect = source->rect;
+        VecAppend(out, (IPageElement*)link);
+    }
 }
 
 Str EngineMupdfLoadAnnotAttachment(EngineBase* engine, int objNum) {
