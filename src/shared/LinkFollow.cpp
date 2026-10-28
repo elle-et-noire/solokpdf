@@ -269,7 +269,7 @@ void ToggleKeyboardLinkFollowing(MainWindow* win) {
     KeyboardLinkFollowingRecompute(win);
     if (len(win->linkFollowTargets) == 0) {
         // nothing to follow: don't leave the user in a mode with no feedback
-        win->linkFollowActive = false;
+        StopKeyboardLinkFollowing(win);
         NotificationCreateArgs args;
         SetNotifWindow(args, win);
         args.msg = Tr("No links on this page");

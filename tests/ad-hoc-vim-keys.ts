@@ -5,10 +5,10 @@ import { findCanvas, killAndWait, launchControlled, pressKey, waitToolWindow } f
 import { ControlCommand } from "./control.ts";
 import { getScrollPos, sendText, sleep } from "./winapi.ts";
 
-function makePdf(): string {
+function makePdf(links: "links" | "no-links" = "links"): string {
   const pages = Array.from({ length: 8 }, (_, i) => `${3 + i} 0 R`);
   const page = (i: number) =>
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]${i === 0 ? " /Annots [11 0 R]" : ""}${i === 5 ? " /Contents 12 0 R /Resources << /Font << /F1 13 0 R >> >>" : ""} >>`;
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]${i === 0 && links === "links" ? " /Annots [11 0 R]" : ""}${i === 5 ? " /Contents 12 0 R /Resources << /Font << /F1 13 0 R >> >>" : ""} >>`;
   const content = "BT /F1 20 Tf 72 700 Td (stale-term) Tj ET";
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
@@ -208,6 +208,22 @@ export async function testit(): Promise<void> {
   } finally {
     await reopened.client.quit().catch(() => {});
     await killAndWait(reopened.proc);
+  }
+
+  const noLinks = tmpPath("vim-keys-no-links.pdf");
+  writeFileSync(noLinks, makePdf("no-links"), "latin1");
+  const empty = await launchControlled(["-appdata", appdata, noLinks]);
+  try {
+    await empty.client.waitForRenderIdle();
+    await pressKey(empty.frame, 0x23);
+    await pressKey(empty.frame, 0x46);
+    await pressKey(empty.frame, 0x47);
+    await pressKey(empty.frame, 0x47);
+    const res = await empty.client.request(ControlCommand.TestCurrentTab, []);
+    if (!/page=1/.test(String(res[1]))) throw new Error("No-link hint mode swallowed later keys");
+  } finally {
+    await empty.client.quit().catch(() => {});
+    await killAndWait(empty.proc);
   }
 }
 
