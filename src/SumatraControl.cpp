@@ -658,6 +658,7 @@ enum class ControlCmd : u16 {
     // Contrast dialog's OK does; returns the current values
     TestPageAdjust = 138,
     TestShortcutsDialog = 139,
+    TestVimKeys = 140,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1923,6 +1924,15 @@ static void ExecuteControlRequest(ControlRequest* req) {
             Str arg = StringArg(req, 3);
             int exitCode = 0;
             Str res = ShortcutsDialogTestTemp(action, command, key, arg, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestVimKeys: {
+            Str action = StringArg(req, 0);
+            Str key = StringArg(req, 1);
+            int exitCode = 0;
+            Str res = VimKeysTestResultTemp(action, key, &exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }
