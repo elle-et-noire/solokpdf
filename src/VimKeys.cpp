@@ -22,6 +22,7 @@
 #include "Canvas.h"
 #include "LinkFollow.h"
 #include "SearchAndDDECommon.h"
+#include "SumatraConfig.h"
 #include "Tabs.h"
 #include "SumatraPDF.h"
 #include "VimKeys.h"
@@ -139,6 +140,58 @@ static void VimJumpMark(MainWindow* win, VimMark mark) {
     dm->AddNavPoint();
     dm->SetScrollState(ScrollState(mark.page, mark.x, mark.y));
     tab->vimJumpBack = before;
+}
+
+static void VimAlignPage(MainWindow* win, char align) {
+    DisplayModel* dm = win->AsFixed();
+    if (!dm || !IsContinuous(dm->GetDisplayMode())) {
+        return;
+    }
+
+    Rect view = dm->GetViewPort();
+    int page = win->ctrl->CurrentPageNo();
+    if (align == 'z') {
+        int centered = dm->GetPageNoByPoint(Point(view.dx / 2, view.dy / 2));
+        if (dm->ValidPageNo(centered)) {
+            page = centered;
+        }
+    }
+    PageInfo* info = dm->GetPageInfo(page);
+    if (!info) {
+        return;
+    }
+
+    int y = info->pos.y;
+    if (align == 'z') {
+        y += (info->pos.dy - view.dy) / 2;
+    } else if (align == 'b') {
+        y += info->pos.dy - view.dy;
+    }
+    dm->ScrollYTo(y);
+}
+
+static void VimCopyPageText(MainWindow* win, int count) {
+    DisplayModel* dm = win->AsFixed();
+    if (!dm || !HasPermission(Perm::CopySelection) ||
+        (!gDisableDocumentRestrictions && !dm->GetEngine()->allowsCopyingText)) {
+        return;
+    }
+
+    int page = win->ctrl->CurrentPageNo();
+    int last = std::min(dm->PageCount(), page + (count ? count : 1) - 1);
+    str::Builder text;
+    for (int i = page; i <= last; i++) {
+        if (i > page) {
+            text.Append(StrL("\r\n"));
+        }
+        text.Append(dm->GetEngine()->GetTextForPage(i));
+    }
+    if (!len(text) || !CopyTextToClipboard(ToStrTemp(text))) {
+        return;
+    }
+
+    ShowTemporaryNotification(
+        win, page == last ? fmt("Copied page %d text", page) : fmt("Copied pages %d-%d text", page, last));
 }
 
 static void CloseVimCommand(MainWindow* win) {
@@ -406,6 +459,14 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
     char prefix = win->pendingKeyPrefix;
     if (prefix) {
         ClearKeyCount(win);
+        if (prefix == 'z' && (ch == 'z' || ch == 't' || ch == 'b')) {
+            VimAlignPage(win, (char)ch);
+            return true;
+        }
+        if (prefix == 'y' && ch == 'y') {
+            VimCopyPageText(win, count);
+            return true;
+        }
         if (prefix == 'g' && !shift && vk == 'G') {
             VimGoPage(win, count ? count : 1);
             return true;
@@ -443,7 +504,7 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
         VimGoPage(win, count ? count : win->ctrl->PageCount());
         return true;
     }
-    if (vk == 'G' || (!shift && vk == 'M') || ch == '\'' || ch == '`') {
+    if (vk == 'G' || (!shift && vk == 'M') || ch == '\'' || ch == '`' || ch == 'z' || ch == 'y') {
         win->pendingKeyPrefix = vk == 'G' ? 'g' : vk == 'M' ? 'm' : (char)ch;
         ShowPendingKeys(win);
         return true;

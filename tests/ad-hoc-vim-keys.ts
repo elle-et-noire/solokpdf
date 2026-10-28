@@ -11,7 +11,7 @@ import {
 } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled, pressKey, waitToolWindow } from "./win-automation.ts";
 import { ControlCommand } from "./control.ts";
-import { getScrollPos, sendMessage, sendText, sleep } from "./winapi.ts";
+import { emptyClipboard, getClipboardText, getScrollPos, sendMessage, sendText, sleep } from "./winapi.ts";
 
 const WM_IME_STARTCOMPOSITION = 0x010d;
 const WM_IME_ENDCOMPOSITION = 0x010e;
@@ -19,14 +19,14 @@ const WM_IME_ENDCOMPOSITION = 0x010e;
 function makePdf(links: "links" | "no-links" = "links"): string {
   const pages = Array.from({ length: 8 }, (_, i) => `${3 + i} 0 R`);
   const page = (i: number) =>
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]${i === 0 && links === "links" ? " /Annots [11 0 R]" : ""}${i === 5 ? " /Contents 12 0 R /Resources << /Font << /F1 13 0 R >> >>" : ""} >>`;
-  const content = "BT /F1 20 Tf 72 700 Td (stale-term) Tj ET";
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]${i === 0 && links === "links" ? " /Annots [11 0 R]" : ""} /Contents ${12 + i} 0 R /Resources << /Font << /F1 20 0 R >> >> >>`;
+  const content = (i: number) => `BT /F1 20 Tf 72 700 Td (vim-page-${i + 1}${i === 5 ? " stale-term" : ""}) Tj ET`;
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
     `<< /Type /Pages /Kids [${pages.join(" ")}] /Count ${pages.length} >>`,
     ...pages.map((_, i) => page(i)),
     "<< /Type /Annot /Subtype /Link /Rect [72 650 260 680] /Border [0 0 0] /Dest [5 0 R /Fit] >>",
-    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    ...pages.map((_, i) => `<< /Length ${content(i).length} >>\nstream\n${content(i)}\nendstream`),
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
   ]);
 }
@@ -107,6 +107,35 @@ export async function testit(): Promise<void> {
     await pressKey(frame, 0x35);
     await key("Shift+G");
     if ((await page()) !== 5) throw new Error("5G did not go to page 5");
+    await client.request(ControlCommand.TestInvokeCommand, ["CmdZoom200"]);
+    await client.waitForRenderIdle();
+
+    const canvas = findCanvas(frame);
+    const pageTop = getScrollPos(canvas);
+    const zPrefix = await key("z");
+    const zResult = await key("z");
+    const centered = getScrollPos(canvas);
+    if (centered <= pageTop)
+      throw new Error(`zz did not center the page: ${pageTop} -> ${centered}; ${zPrefix}; ${zResult}`);
+    await key("z");
+    await key("t");
+    if (getScrollPos(canvas) >= centered) throw new Error("zt did not move the page to the top");
+    await key("z");
+    await key("b");
+    if (getScrollPos(canvas) <= centered) throw new Error("zb did not move the page to the bottom");
+
+    emptyClipboard();
+    await key("y");
+    await key("y");
+    if (!(await getClipboardText()).includes("vim-page-5")) throw new Error("yy did not copy page 5 text");
+    emptyClipboard();
+    await pressKey(frame, 0x33);
+    await key("y");
+    await key("y");
+    const copied = await getClipboardText();
+    if (!["vim-page-5", "vim-page-6", "vim-page-7"].every((s) => copied.includes(s)) || copied.includes("vim-page-8")) {
+      throw new Error(`3yy copied unexpected pages: ${copied}`);
+    }
 
     await pressKey(frame, 0xbf);
     if (/focus=1/.test(await state())) throw new Error("/ did not focus the find box");
@@ -143,7 +172,6 @@ export async function testit(): Promise<void> {
     await key("'");
     if ((await page()) !== 1) throw new Error("'' did not jump back");
 
-    const canvas = findCanvas(frame);
     const before = getScrollPos(canvas);
     await key("Ctrl+D");
     if (getScrollPos(canvas) <= before) throw new Error("Ctrl+D did not scroll half a page");

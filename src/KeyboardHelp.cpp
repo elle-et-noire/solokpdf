@@ -219,6 +219,12 @@ static ILayout* BuildKeyboardHelpLayout(KeyboardHelpDataSource* ds, Str title, S
             keys.Append(k);
             descriptions.Append(d);
         }
+        if (definition.commands == kSecNav && gSettings && gSettings->vimKeys) {
+            keys.Append(StrL("zz / zt / zb"));
+            descriptions.Append(ds->Translate(StrL("Center page / align top / align bottom")));
+            keys.Append(StrL("yy / {n}yy"));
+            descriptions.Append(ds->Translate(StrL("Copy page text / copy n pages")));
+        }
         int nRows = len(keys);
         if (nRows == 0) {
             continue;

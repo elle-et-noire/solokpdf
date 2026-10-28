@@ -1787,6 +1787,8 @@ Keys work in the document canvas or frame, not in edit fields.
 | `''`                             | Return to the position before the last jump                |
 | `Ctrl+D/U`, `Ctrl+F/B`           | Half-page or full-page down/up; counts apply               |
 | `Ctrl+E/Y`                       | One wheel line down/up (`ScrollLineAmount`); counts apply  |
+| `zz`, `zt`, `zb`                 | Center current page, align its top or bottom                |
+| `yy`, `{n}yy`                   | Copy current page text, or text from `n` pages              |
 | `gt`, `gT`, `{n}gt`              | Next, previous, or numbered tab                            |
 | `:`                              | Bottom command line                                        |
 
