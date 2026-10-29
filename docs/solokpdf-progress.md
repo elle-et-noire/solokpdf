@@ -1710,6 +1710,11 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   repeats.
 - Page labels match MuPDF in the toolbar and label lookup (fixture plus
   Attention/BERT/IPA). Labels are read eagerly at open, one call per page.
+- PDFium tabs create a SyncTeX synchronizer when a sidecar exists. Command-line
+  and DDE forward search and inverse lookup use the same page coordinates as
+  MuPDF. The synchronizer needs only page count for `.synctex` and page media
+  boxes for legacy `.pdfsync`. Neither path loads the hidden editor.
+  `tests/ad-hoc-pdfium-synctex.ts` compares two pages and their rectangles.
 - Plain-text URLs, e-mails and DOIs become links through MuPDF's shared
   linkifier, honoring `DisableAutoLinks`. URL links matched MuPDF on 91 of 95
   Attention/BERT/IPA pages; the rest differ in text extraction (e.g. PDFium

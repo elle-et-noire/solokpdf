@@ -1316,11 +1316,12 @@ Str HandleSyncCmd(Str cmd, bool* ack) {
         }
     }
 
-    if (!win || !win->CurrentTab() || win->CurrentTab()->GetEngineType() != kindEngineMupdf) {
+    WindowTab* tab = win ? win->CurrentTab() : nullptr;
+    if (!tab || !tab->AsFixed() || !str::EndsWithI(tab->filePath, StrL(".pdf"))) {
         return next;
     }
 
-    DisplayModel* dm = win->AsFixed();
+    DisplayModel* dm = tab->AsFixed();
     if (!dm->pdfSync) {
         return next;
     }
@@ -2185,7 +2186,7 @@ bool OnInverseSearch(MainWindow* win, int x, int y) {
         return false;
     }
     WindowTab* tab = win->CurrentTab();
-    if (!tab || tab->GetEngineType() != kindEngineMupdf) {
+    if (!tab || !tab->AsFixed() || !str::EndsWithI(tab->filePath, StrL(".pdf"))) {
         return false;
     }
     DisplayModel* dm = tab->AsFixed();
