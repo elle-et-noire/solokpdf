@@ -12,10 +12,10 @@ limitations in `solokpdf-progress.md`, and the upstream full suite
 
 ## A. In progress
 
-| ID  | Item                                                                 | Status |
-| --- | -------------------------------------------------------------------- | ------ |
-| A1  | PDFium vs MuPDF startup measurements on GitHub Actions               | doing  |
-| A2  | Page geometry detection inside object streams and files above 32 MiB | doing  |
+| ID  | Item                                                                 | Status                                                                                        |
+| --- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| A1  | PDFium vs MuPDF startup measurements on GitHub Actions               | done (normal open: PDFium +7.4 / +0.9 ms vs MuPDF on Attention / BERT; direct launch pending) |
+| A2  | Page geometry detection inside object streams and files above 32 MiB | doing                                                                                         |
 
 ## B. PDFium feature gaps
 
@@ -54,12 +54,12 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
 ## E. Quality
 
-| ID  | Item                                                | Status                                |
-| --- | --------------------------------------------------- | ------------------------------------- |
-| E1  | Close the remaining startup gap shown by A1         | todo (after A1)                       |
-| E2  | Hours-long open/close/render leak stress            | todo                                  |
-| E3  | ASan build of the app with PDFium for the fuzz test | deferred (prebuilt PDFium isn't ASan) |
-| E4  | Transparent-page compositing parity                 | deferred (rare documents)             |
+| ID  | Item                                                | Status                                                                               |
+| --- | --------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| E1  | Close the remaining startup gap shown by A1         | likely unnecessary: normal-open gap is under 10 ms on CI; recheck with direct launch |
+| E2  | Hours-long open/close/render leak stress            | todo                                                                                 |
+| E3  | ASan build of the app with PDFium for the fuzz test | deferred (prebuilt PDFium isn't ASan)                                                |
+| E4  | Transparent-page compositing parity                 | deferred (rare documents)                                                            |
 
 ## F. Needs the owner
 
