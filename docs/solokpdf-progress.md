@@ -1740,6 +1740,8 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   preserving form appearances, word spacing, Unicode and selection bounds.
   Ordinary PDF open and rendering stay on PDFium; the editor loads on the
   first text request. PDFium's linkifier still reads PDFium text on demand.
+- PDFium search uses that extracted page text. Dehyphenated terms now match
+  across line breaks, as in `issue-1189` and the generated B15 search test.
 - Annotations of PDFium documents are edited, undone and saved by a hidden
   MuPDF document of the same file, which draws them over PDFium's pages once
   loaded, including redaction marks. PDFium's own incremental save, used before,
