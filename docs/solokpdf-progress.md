@@ -1742,6 +1742,11 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   first text request. PDFium's linkifier still reads PDFium text on demand.
 - PDFium search uses that extracted page text. Dehyphenated terms now match
   across line breaks, as in `issue-1189` and the generated B15 search test.
+- PDFium enumerates image bounds for cursor hit testing and the Selected Image
+  menu. Copy and Save resolve the matching image through the lazy MuPDF editor,
+  preserving orientation and CMYK JPEG/TIFF data without changing PDFium
+  rendering. `tests/ad-hoc-pdfium-images.ts` checks extraction and orientation;
+  `tests/issue-6360.ts` checks the context menu and clipboard.
 - Annotations of PDFium documents are edited, undone and saved by a hidden
   MuPDF document of the same file, which draws them over PDFium's pages once
   loaded, including redaction marks. PDFium's own incremental save, used before,
