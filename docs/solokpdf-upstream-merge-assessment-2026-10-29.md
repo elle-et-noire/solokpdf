@@ -52,3 +52,22 @@ tests for those areas. Keep the existing MuPDF patch ledger intact.
 
 Rough effort: **2–4 engineer-days** for conflict resolution, regeneration,
 builds, and focused tests. Further runtime issues may extend that estimate.
+
+## Merge result
+
+Merged `upstream/master` at `27797acfd` (75 commits from the base) on
+`merge-upstream`. Upstream's sidebar command precedes SolokPDF's theme/Vim
+commands; command IDs shift, but shortcuts and settings use names. Regenerated
+both command and settings tables, kept SolokPDF's settings defaults, and moved
+its debug-control IDs after upstream's 139. PDFium remains the default;
+branding, app-data paths, and disabled update checks are retained. Vendored
+MuPDF edits and patches `0065`–`0072` remain paired.
+
+SolokPDF and ng Windows debug builds passed. Unit tests, all 15 PDFium ad-hoc
+tests (including 300 fuzz inputs), the five requested keyboard/theme/update
+checks, and targeted sidebar/Merge PDF tests passed. The Vim test failed once
+on injected keys, then passed three reruns. Two upstream sidebar tests needed
+SolokPDF's settings filename and DPI-aware click coordinates; both now pass.
+
+Open: no known merge regression. The full suites and ng GUI runtime were not
+run. The website checkout is absent, so generated settings docs were skipped.
