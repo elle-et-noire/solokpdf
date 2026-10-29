@@ -144,6 +144,7 @@ bool EngineMupdfSupportsAnnotations(EngineBase*);
 bool EngineMupdfIsPdf(EngineBase* engine);
 bool EngineMupdfIsEncrypted(EngineBase* engine);
 bool EngineMupdfHeadingTocPending(EngineBase* engine);
+TocTree* EngineMupdfGetHeadingToc(EngineBase* engine);
 // IfEnabled: only when the AutoGenerateTOC setting is on; Always: on demand
 enum class HeadingTocStart {
     IfEnabled,

@@ -199,6 +199,7 @@ class EngineMupdf : public EngineBase {
     AtomicInt headingTocCancel = 0;
     bool headingTocStarted = false;
     bool headingTocDone = false;
+    bool headingTocGenerated = false;
     AtomicInt annotLoadCancel = 0;
     bool annotLoadStarted = false;
     bool annotLoadDone = false;

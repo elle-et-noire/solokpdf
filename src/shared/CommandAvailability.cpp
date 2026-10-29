@@ -656,7 +656,11 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         return CommandVisibility::Hide;
     }
 
-    if (cmdId == CmdAutoGenerateTOC && ctx.engineKind != kindEngineMupdf) {
+    if (cmdId == CmdAutoGenerateTOC && ctx.engineKind != kindEngineMupdf
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+        && ctx.engineKind != kindEnginePdfium
+#endif
+    ) {
         return CommandVisibility::Hide;
     }
 

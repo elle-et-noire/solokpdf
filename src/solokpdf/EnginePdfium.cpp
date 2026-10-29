@@ -1253,6 +1253,19 @@ class EnginePdfium : public EngineBase {
         return res;
     }
 
+    EngineBase* HeadingTocEngine(EditorLoad load) override {
+        if (load == EditorLoad::IfLoaded && !AnnotationEditor(load)) {
+            return nullptr;
+        }
+        {
+            ScopedMutex lock(&gPdfiumLock);
+            if (gPdfium.FPDFBookmark_GetFirstChild(doc, nullptr)) {
+                return nullptr;
+            }
+        }
+        return AnnotationEditor(load);
+    }
+
     EngineBase* Clone() override {
         TempStr error;
         PasswordCloner pwdUI(password);
@@ -1620,6 +1633,10 @@ class EnginePdfium : public EngineBase {
     }
 
     TocTree* GetToc() override {
+        TocTree* headings = EngineMupdfGetHeadingToc(this);
+        if (headings) {
+            return headings;
+        }
         bool hasAttachments = false;
         bool needsMupdf = false;
         {

@@ -4,8 +4,8 @@
 // Run: bun tests/issue-5724.ts [--no-build]
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { ControlCommand, runControlCommand } from "./control.ts";
+import { basename, join } from "node:path";
+import { ControlCommand, withControlledSumatra } from "./control.ts";
 import { EXE, runStandalone, tmpPath } from "./util.ts";
 
 export function makePdf(opts: { outlines?: boolean }): Buffer {
@@ -59,8 +59,13 @@ export function makePdf(opts: { outlines?: boolean }): Buffer {
 }
 
 // appdata: the heading scan is opt-in (AutoGenerateTOC, #6227)
-async function getToc(path: string, appdata: string): Promise<string> {
-  const [exitCode, raw] = await runControlCommand(EXE, ControlCommand.TestGetToc, [path], ["-appdata", appdata]);
+async function getToc(path: string, appdata: string, engine: string): Promise<string> {
+  const [exitCode, raw] = await withControlledSumatra(
+    EXE,
+    (client) => client.request(ControlCommand.TestGetToc, [path]),
+    ["-appdata", appdata],
+    { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
+  );
   if (exitCode !== 0 && String(raw ?? "").includes("no-toc")) {
     return "";
   }
@@ -78,33 +83,35 @@ export async function testit(): Promise<void> {
   const noOutline = join(dir, "no-outline.pdf");
   writeFileSync(noOutline, makePdf({ outlines: false }));
 
-  const off = join(dir, "off");
-  mkdirSync(off, { recursive: true });
-  const gotOff = await getToc(noOutline, off);
-  if (gotOff.trim() !== "") {
-    throw new Error(`issue-5724: headings must not be scanned by default (AutoGenerateTOC = false), got:\n${gotOff}`);
-  }
-
-  const on = join(dir, "on");
-  mkdirSync(on, { recursive: true });
-  writeFileSync(join(on, "SumatraPDF-settings.txt"), "AutoGenerateTOC = true\n");
-  const got = await getToc(noOutline, on);
   const expected = "I. Introduction|page=1\n" + "II. Methods|page=2\n" + "  II.A. Nested section|page=2\n";
-  if (got !== expected) {
-    throw new Error(`issue-5724: generated TOC mismatch.\nexpected:\n${expected}got:\n${got}`);
-  }
-  console.log("issue-5724: generated TOC from headings OK");
-
   const withOutline = join(dir, "with-outline.pdf");
   writeFileSync(withOutline, makePdf({ outlines: true }));
-  const gotOutline = await getToc(withOutline, on);
-  if (!gotOutline.includes("From File|page=1")) {
-    throw new Error(`issue-5724: real outline should win, got:\n${gotOutline}`);
+  for (const engine of ["mupdf", "pdfium"]) {
+    const off = join(dir, `${engine}-off`);
+    mkdirSync(off, { recursive: true });
+    const gotOff = await getToc(noOutline, off, engine);
+    if (gotOff.trim() !== "") {
+      throw new Error(`issue-5724 (${engine}): headings scanned by default: ${gotOff}`);
+    }
+
+    const on = join(dir, `${engine}-on`);
+    mkdirSync(on, { recursive: true });
+    const settingsName = `${basename(EXE, ".exe")}-settings.txt`;
+    writeFileSync(join(on, settingsName), "AutoGenerateTOC = true\n");
+    const got = await getToc(noOutline, on, engine);
+    if (got !== expected) {
+      throw new Error(`issue-5724 (${engine}): generated TOC mismatch.\nexpected:\n${expected}got:\n${got}`);
+    }
+
+    const gotOutline = await getToc(withOutline, on, engine);
+    if (!gotOutline.includes("From File|page=1")) {
+      throw new Error(`issue-5724 (${engine}): real outline should win, got:\n${gotOutline}`);
+    }
+    if (gotOutline.includes("I. Introduction")) {
+      throw new Error(`issue-5724 (${engine}): generated headings despite outline:\n${gotOutline}`);
+    }
+    console.log(`issue-5724 (${engine}): headings and existing outline OK`);
   }
-  if (gotOutline.includes("I. Introduction")) {
-    throw new Error(`issue-5724: should not generate headings when the file has an outline:\n${gotOutline}`);
-  }
-  console.log("issue-5724: existing outline still used");
 
   console.log("PASS: generate table of contents if missing (issue #5724)");
 }

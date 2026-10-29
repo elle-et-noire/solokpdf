@@ -23,29 +23,41 @@ export async function testit(): Promise<void> {
   const pdf = join(dir, "no-outline.pdf");
   writeFileSync(pdf, makePdf({ outlines: false }));
 
-  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
-  try {
-    await client.waitForRenderIdle();
-    // default settings: no heading scan, so there is no TOC to navigate
-    const before = await firstTocEntry(client);
-    if (before.code === 0) {
-      throw new Error(`issue-6227: TOC was generated without AutoGenerateTOC: ${before.text}`);
-    }
+  for (const engine of ["mupdf", "pdfium"]) {
+    const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf], {
+      env: { SOLOKPDF_ENGINE: engine },
+    });
+    try {
+      await client.waitForRenderIdle();
+      const before = await firstTocEntry(client);
+      if (before.code === 0) {
+        throw new Error(`issue-6227 (${engine}): TOC was generated without AutoGenerateTOC: ${before.text}`);
+      }
 
-    sendCommand(frame, cmdId("CmdAutoGenerateTOC"));
-    const deadline = Date.now() + 10_000;
-    let after = await firstTocEntry(client);
-    while (after.code !== 0 && Date.now() < deadline) {
-      await sleep(100);
-      after = await firstTocEntry(client);
+      const vis = await client.request(ControlCommand.TestCommandVisibility, ["CmdAutoGenerateTOC", "palette"]);
+      if (!String(vis[1] ?? "").includes("vis=show")) {
+        throw new Error(`issue-6227 (${engine}): command hidden: ${vis[1]}`);
+      }
+      sendCommand(frame, cmdId("CmdAutoGenerateTOC"));
+      const deadline = Date.now() + 10_000;
+      let after = await firstTocEntry(client);
+      while (after.code !== 0 && Date.now() < deadline) {
+        await sleep(100);
+        after = await firstTocEntry(client);
+      }
+      if (after.code !== 0) {
+        throw new Error(`issue-6227 (${engine}): CmdAutoGenerateTOC did not build a TOC: ${after.text}`);
+      }
+      console.log(`issue-6227 (${engine}): ${after.text}`);
+    } finally {
+      try {
+        await client.quit();
+      } catch {
+        await killAndWait(proc);
+      }
+      client.close();
+      await proc.exited;
     }
-    if (after.code !== 0) {
-      throw new Error(`issue-6227: CmdAutoGenerateTOC did not build a TOC: ${after.text}`);
-    }
-    console.log(`issue-6227: ${after.text}`);
-  } finally {
-    client.close();
-    await killAndWait(proc);
   }
 }
 

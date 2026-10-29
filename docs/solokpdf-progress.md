@@ -1666,6 +1666,14 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   MuPDF editor's TOC, including its attachment entries. PDFium reads ordinary
   outlines itself. `tests/ad-hoc-pdfium-outline.ts` compares both engines.
   GoToE remains unsupported by both engines.
+- Auto Generate TOC uses MuPDF's numbered-heading scanner for PDFium documents.
+  Its text-line and hierarchy rules therefore yield the same entries and pages
+  as MuPDF. PDFium opens the hidden editor only when the setting is enabled or
+  the command is invoked, and skips it when the PDF has an outline. The scan
+  stays on MuPDF's background thread; PDFium displays its generated tree when
+  ready. This avoids a second heuristic and leaves ordinary PDF opens and
+  renders unchanged. `tests/issue-5724.ts` checks exact entries and pages in
+  both engines; `tests/issue-6227.ts` checks the command on demand.
 - `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
   API for it, so MuPDF reads it on a first open without history. Release
   cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB

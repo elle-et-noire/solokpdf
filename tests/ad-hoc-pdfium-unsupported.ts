@@ -45,7 +45,7 @@ async function inspect(
   name: string,
   pdf: string,
   engine: string,
-): Promise<{ unsupported: string; sign: string; toc: string }> {
+): Promise<{ unsupported: string; sign: string; toc: string; autoToc: string }> {
   const dir = tmpPath(`pdfium-unsupported/${name}-${engine}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -69,9 +69,11 @@ async function inspect(
       }
       const vis = await client.request(ControlCommand.TestCommandVisibility, ["CmdSignDocument", "menu"]);
       const sign = /vis=(\w+)/.exec(String(vis[1] ?? ""))?.[1] ?? `error: ${vis[1]}`;
+      const tocVis = await client.request(ControlCommand.TestCommandVisibility, ["CmdAutoGenerateTOC", "palette"]);
+      const autoToc = /vis=(\w+)/.exec(String(tocVis[1] ?? ""))?.[1] ?? `error: ${tocVis[1]}`;
       const tocResult = await client.request(ControlCommand.TestGetToc, [path]);
       const toc = tocResult[0] === 0 ? String(tocResult[1] ?? "").trim() : "";
-      return { unsupported, sign, toc };
+      return { unsupported, sign, toc, autoToc };
     },
     ["-appdata", dir, path],
     { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
@@ -95,6 +97,7 @@ export async function testit(): Promise<void> {
       failures.push(`${name}: want unsupported "${wantUnsupported}", got "${got.unsupported}"`);
     }
     if (got.sign !== wantSign) failures.push(`${name} (${engine}): Sign Document ${got.sign}, want ${wantSign}`);
+    if (got.autoToc !== "show") failures.push(`${name} (${engine}): Auto Generate TOC ${got.autoToc}, want show`);
     if (got.toc !== wantToc) failures.push(`${name} (${engine}): toc "${got.toc}", want "${wantToc}"`);
   }
   if (failures.length > 0) throw new Error(failures.join("\n"));

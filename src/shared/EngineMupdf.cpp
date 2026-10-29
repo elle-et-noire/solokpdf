@@ -141,16 +141,28 @@ EngineMupdf* AnnotEngineMupdf(EngineBase* engine, EditorLoad load) {
 }
 
 bool EngineMupdfHeadingTocPending(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AsEngineMupdf(engine ? engine->HeadingTocEngine(EditorLoad::IfLoaded) : nullptr);
     return e && e->HeadingTocPending();
 }
 
+TocTree* EngineMupdfGetHeadingToc(EngineBase* engine) {
+    if (!engine) {
+        return nullptr;
+    }
+    EditorLoad load = gAutoHeadingToc ? EditorLoad::Load : EditorLoad::IfLoaded;
+    EngineMupdf* e = AsEngineMupdf(engine->HeadingTocEngine(load));
+    if (e && gAutoHeadingToc && !e->headingTocStarted) {
+        e->GetToc();
+    }
+    return e && e->headingTocGenerated ? e->GetToc() : nullptr;
+}
+
 void EngineMupdfStartHeadingToc(EngineBase* engine, const Func0& onDone, HeadingTocStart start) {
-    EngineMupdf* e = AsEngineMupdf(engine);
-    if (!e) {
+    if (start == HeadingTocStart::IfEnabled && !gAutoHeadingToc) {
         return;
     }
-    if (start == HeadingTocStart::IfEnabled && !gAutoHeadingToc) {
+    EngineMupdf* e = AsEngineMupdf(engine ? engine->HeadingTocEngine(EditorLoad::Load) : nullptr);
+    if (!e) {
         return;
     }
     e->headingTocDoneCb = onDone;
@@ -158,7 +170,7 @@ void EngineMupdfStartHeadingToc(EngineBase* engine, const Func0& onDone, Heading
 }
 
 void EngineMupdfCancelHeadingToc(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AsEngineMupdf(engine ? engine->HeadingTocEngine(EditorLoad::IfLoaded) : nullptr);
     if (!e) {
         return;
     }
@@ -5571,6 +5583,7 @@ static TocTree* ReplaceTocWithHeadings(EngineMupdf* e, TocItem* headings, int id
     TocItem* realRoot = AllocTocItem(e->arena, {}, 0);
     realRoot->child = root;
     e->tocTree = AllocTocTree(e->arena, realRoot);
+    e->headingTocGenerated = true;
     return old;
 }
 
