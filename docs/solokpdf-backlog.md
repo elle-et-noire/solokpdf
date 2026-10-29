@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Ordered work list. Order: A → B1 → B2–B6 → D1–D3 → B7 (with B8–B12) → C1 → E1 →
+Ordered work list. Order: A → B13 → B1 → B2–B6 → D1–D3 → B7 (with B8–B12) → C1 → E1 →
 E2 → D4/D5. Status: `todo`, `doing`, `done`, `blocked` (reason). Update
 the status and add the commit when an item lands. Details and measurements go
 in `solokpdf-progress.md`, not here.
@@ -21,20 +21,21 @@ limitations in `solokpdf-progress.md`, and the upstream full suite
 
 Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
-| ID  | Item                                                                                                | Where                                                                                            | Status                |
-| --- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------- |
-| B1  | SyncTeX forward and inverse search                                                                  | `SumatraPDF.cpp` (pdfSync setup), `SearchAndDDECommon.cpp` `OnInverseSearch`, forward-search DDE | todo                  |
-| B2  | PDF `/ViewerPreferences` print defaults (#534)                                                      | `Print.cpp` `GetPdfViewerPrintPrefs`                                                             | todo                  |
-| B3  | Document Properties creation/modification date formatting                                           | `DocumentPropertiesCommon.cpp` `isPdfDate`                                                       | todo                  |
-| B4  | `FixedPageUI.WindowBgCol` page-surround color                                                       | `Canvas.cpp` `isPdf`                                                                             | todo                  |
-| B5  | Engineering-drawing enhance (`CmdToggleEngineeringDrawingEnhance`): implement for PDFium or hide it | `EngineMupdfToggleCadEnhance`                                                                    | todo                  |
-| B6  | Theme change drops cached dark-mode analysis for PDFium tabs                                        | `EngineMupdfInvalidateDarkMode`                                                                  | todo (verify first)   |
-| B8  | "Fit content" zoom (`PageContentBox` not implemented)                                               | `EnginePdfium`                                                                                   | todo (verify first)   |
-| B9  | Copy/Save image under the cursor (`GetImageForPageElement`, `GetImageDataForPageElement`)           | `EnginePdfium`                                                                                   | todo (verify first)   |
-| B10 | Page boxes query (`GetPdfPageBoxes`)                                                                | `EnginePdfium`                                                                                   | todo (verify first)   |
-| B11 | Non-blocking `TryGetElements` / `TryExtractPageText` (UI thread waits otherwise)                    | `EnginePdfium`                                                                                   | todo (verify first)   |
-| B12 | Test comparing every command's visibility/enabled state between engines on the same PDF             | `TestCommandVisibility`                                                                          | todo                  |
-| B7  | Upstream full-suite failures on PDFium, triaged and fixed                                           | full-suite run                                                                                   | blocked (run pending) |
+| ID  | Item                                                                                                                                                                         | Where                                                                                            | Status                |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------- |
+| B13 | Hovering a page loads the hidden MuPDF editor for every PDF (Canvas `OnMouseMove` -> `GetAnnotationAtPos`), costing open time and memory and locking files of 32 MiB or more | `Canvas.cpp`, `EngineMupdfGetAnnotationAtPos`                                                    | todo (next, with B1)  |
+| B1  | SyncTeX forward and inverse search                                                                                                                                           | `SumatraPDF.cpp` (pdfSync setup), `SearchAndDDECommon.cpp` `OnInverseSearch`, forward-search DDE | todo                  |
+| B2  | PDF `/ViewerPreferences` print defaults (#534)                                                                                                                               | `Print.cpp` `GetPdfViewerPrintPrefs`                                                             | todo                  |
+| B3  | Document Properties creation/modification date formatting                                                                                                                    | `DocumentPropertiesCommon.cpp` `isPdfDate`                                                       | todo                  |
+| B4  | `FixedPageUI.WindowBgCol` page-surround color                                                                                                                                | `Canvas.cpp` `isPdf`                                                                             | todo                  |
+| B5  | Engineering-drawing enhance (`CmdToggleEngineeringDrawingEnhance`): implement for PDFium or hide it                                                                          | `EngineMupdfToggleCadEnhance`                                                                    | todo                  |
+| B6  | Theme change drops cached dark-mode analysis for PDFium tabs                                                                                                                 | `EngineMupdfInvalidateDarkMode`                                                                  | todo (verify first)   |
+| B8  | "Fit content" zoom (`PageContentBox` not implemented)                                                                                                                        | `EnginePdfium`                                                                                   | todo (verify first)   |
+| B9  | Copy/Save image under the cursor (`GetImageForPageElement`, `GetImageDataForPageElement`)                                                                                    | `EnginePdfium`                                                                                   | todo (verify first)   |
+| B10 | Page boxes query (`GetPdfPageBoxes`)                                                                                                                                         | `EnginePdfium`                                                                                   | todo (verify first)   |
+| B11 | Non-blocking `TryGetElements` / `TryExtractPageText` (UI thread waits otherwise)                                                                                             | `EnginePdfium`                                                                                   | todo (verify first)   |
+| B12 | Test comparing every command's visibility/enabled state between engines on the same PDF                                                                                      | `TestCommandVisibility`                                                                          | todo                  |
+| B7  | Upstream full-suite failures on PDFium, triaged and fixed                                                                                                                    | full-suite run                                                                                   | blocked (run pending) |
 
 ## C. Coexistence with SumatraPDF
 
