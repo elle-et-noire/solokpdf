@@ -2133,7 +2133,7 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
     SetFrameTitleForTab(tab, false);
     UpdateUiForCurrentTab(win);
 
-    if (CanAccessDisk() && (tab->GetEngineType() == kindEngineMupdf || tab->GetEngineType() == kindEnginePdfium)) {
+    if (CanAccessDisk() && IsSyncTexEngine(tab->GetEngineType())) {
         ReportIf(!win->AsFixed() || win->AsFixed()->pdfSync);
         path = args->FilePath();
         // note: we used to set gSettings->enableTeXEnhancements to true on

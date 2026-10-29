@@ -1276,6 +1276,16 @@ void ShowMatchCount(MainWindow* win) {
     logf("ShowMatchCount: %s (page %d)\n", s, dm && dm->textSearch ? dm->textSearch->startPage : 0);
 }
 
+// Engines whose PDF page coordinates SyncTeX maps to
+bool IsSyncTexEngine(Kind kind) {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (kind == kindEnginePdfium) {
+        return true;
+    }
+#endif
+    return kind == kindEngineMupdf;
+}
+
 Str HandleSyncCmd(Str cmd, bool* ack) {
     TempStr pdfFile, srcFile;
     BOOL line = 0, col = 0, newWindow = 0, setFocus = 0;
@@ -1317,7 +1327,7 @@ Str HandleSyncCmd(Str cmd, bool* ack) {
     }
 
     WindowTab* tab = win ? win->CurrentTab() : nullptr;
-    if (!tab || !tab->AsFixed() || !str::EndsWithI(tab->filePath, StrL(".pdf"))) {
+    if (!tab || !IsSyncTexEngine(tab->GetEngineType())) {
         return next;
     }
 
@@ -2186,7 +2196,7 @@ bool OnInverseSearch(MainWindow* win, int x, int y) {
         return false;
     }
     WindowTab* tab = win->CurrentTab();
-    if (!tab || !tab->AsFixed() || !str::EndsWithI(tab->filePath, StrL(".pdf"))) {
+    if (!tab || !IsSyncTexEngine(tab->GetEngineType())) {
         return false;
     }
     DisplayModel* dm = tab->AsFixed();
