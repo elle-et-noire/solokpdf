@@ -497,6 +497,7 @@ class EnginePdfium : public EngineBase {
     EngineBase* editor = nullptr;
     bool editorFailed = false;
     Mutex editorLock;
+    Mutex fileLock;
 
     static int ReadBlock(void* user, unsigned long offset, unsigned char* data, unsigned long count) {
         auto* e = (EnginePdfium*)user;
@@ -510,6 +511,7 @@ class EnginePdfium : public EngineBase {
         LARGE_INTEGER pos{};
         pos.QuadPart = offset;
         DWORD read = 0;
+        ScopedMutex lock(&e->fileLock);
         return SetFilePointerEx(e->file, pos, nullptr, FILE_BEGIN) && ReadFile(e->file, data, count, &read, nullptr) &&
                read == count;
     }
@@ -1905,9 +1907,55 @@ class EnginePdfium : public EngineBase {
         }
     }
 
-    Str GetFileData() override { return fileData.s ? str::Dup(fileData) : file::ReadFile(FilePath()); }
+    Str GetFileData() override {
+        if (fileData.s) {
+            return str::Dup(fileData);
+        }
+        if (access.m_FileLen > INT_MAX - 1) {
+            return {};
+        }
+        int n = (int)access.m_FileLen;
+        char* data = AllocArray<char>(n + 1);
+        if (!data || !ReadBlock(this, 0, (unsigned char*)data, (unsigned long)n)) {
+            free(data);
+            return {};
+        }
+        data[n] = 0;
+        return Str(data, n);
+    }
+
     bool SaveFileAs(Str path) override {
-        return fileData.s ? file::WriteFile(path, fileData) : file::Copy(path, FilePath(), false);
+        if (fileData.s) {
+            return file::WriteFile(path, fileData);
+        }
+
+        HANDLE dst = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS,
+                                 FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (dst == INVALID_HANDLE_VALUE) {
+            return false;
+        }
+
+        constexpr unsigned long kCopyChunkSize = 64 * 1024;
+        unsigned char data[kCopyChunkSize];
+        bool ok = true;
+        for (unsigned long offset = 0; offset < access.m_FileLen;) {
+            DWORD count = access.m_FileLen - offset;
+            if (count > kCopyChunkSize) {
+                count = kCopyChunkSize;
+            }
+            DWORD written = 0;
+            if (!ReadBlock(this, offset, data, count) || !WriteFile(dst, data, count, &written, nullptr) ||
+                written != count) {
+                ok = false;
+                break;
+            }
+            offset += count;
+        }
+        CloseHandle(dst);
+        if (!ok) {
+            file::Delete(path);
+        }
+        return ok;
     }
     bool HasClipOptimizations(int) override { return true; }
     bool BenchLoadPage(int pageNo) override {

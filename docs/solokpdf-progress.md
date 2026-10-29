@@ -1820,8 +1820,9 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   in a row (before, most runs failed). No tests were removed or disabled.
 - Files of 32 MiB or more keep a handle that shares writes, as MuPDF's does:
   producers can overwrite them while open and the document reloads
-  (`tests/ad-hoc-pdfium.ts` covers small and 33 MiB files). Save As after
-  rename/delete still reads the path and is not GUI-tested.
+  (`tests/ad-hoc-pdfium.ts` covers small and 33 MiB files). PDFium Save As
+  after rename/delete reads that handle (`tests/ad-hoc-pdfium-saveas.ts`).
+  MuPDF's large-file handle blocks rename/delete on Windows.
 - GitHub Actions CI builds SolokPDF debug on pushes and PRs to `solokpdf-dev`.
   It runs unit tests and selected PDFium, Vim, count-prefix, and update-check
   tests. Pushes and manual runs also build the release ZIP after debug passes;
