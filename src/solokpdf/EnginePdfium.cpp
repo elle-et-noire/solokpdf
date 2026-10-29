@@ -25,6 +25,7 @@
 #include <fpdf_text.h>
 #include <fpdf_progressive.h>
 #include <fpdf_sysfontinfo.h>
+#include <zlib.h>
 #include "PdfiumFontCache.h"
 #include "EnginePdfium.h"
 #include "SumatraLog.h"
@@ -384,17 +385,28 @@ class PdfiumCookie : public AbortCookie {
 // same limit as EngineMupdf: smaller files are read into memory
 constexpr i64 kMaxMemoryFileSize = 32LL * 1024 * 1024;
 
-static bool HasUnusualGeometry(Str data) {
+static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker);
+
+static bool HasUnusualGeometry(Str data, FPDF_FILEACCESS* access = nullptr, unsigned long offset = 0) {
     constexpr char kUserUnit[] = "/UserUnit";
     constexpr char kRotate[] = "/Rotate";
-    for (int i = 0; i < len(data); i++) {
-        if (data.s[i] != '/') {
-            continue;
+    constexpr char kObjStm[] = "/ObjStm";
+    int i = 0;
+    while (i < len(data)) {
+        char* slash = (char*)memchr(data.s + i, '/', len(data) - i);
+        if (!slash) {
+            return false;
+        }
+        i = (int)(slash - data.s);
+        if (access && i + sizeof(kObjStm) - 1 <= len(data) && memcmp(data.s + i, kObjStm, sizeof(kObjStm) - 1) == 0 &&
+            ScanObjStream(*access, offset + i)) {
+            return true;
         }
         if (i + sizeof(kUserUnit) - 1 <= len(data) && memcmp(data.s + i, kUserUnit, sizeof(kUserUnit) - 1) == 0) {
             return true;
         }
         if (i + sizeof(kRotate) - 1 > len(data) || memcmp(data.s + i, kRotate, sizeof(kRotate) - 1) != 0) {
+            i++;
             continue;
         }
         int at = i + sizeof(kRotate) - 1;
@@ -414,8 +426,139 @@ static bool HasUnusualGeometry(Str data) {
         if (!hasDigit || (sign * rotation) % 90 != 0) {
             return true;
         }
+        i = at;
     }
     return false;
+}
+
+// Inspect compressed objects as well as the raw PDF; unsupported stream filters use MuPDF.
+static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker) {
+    constexpr unsigned long kPrefix = 512;
+    constexpr unsigned long kHeader = 8192;
+    constexpr unsigned long kBlock = 64 * 1024;
+    unsigned long start = marker > kPrefix ? marker - kPrefix : 0;
+    unsigned long size = access.m_FileLen - start < kHeader ? access.m_FileLen - start : kHeader;
+    char header[kHeader + 1]{};
+    if (!access.m_GetBlock(access.m_Param, start, (unsigned char*)header, size)) {
+        return true;
+    }
+    char* obj = header + marker - start;
+    char* dict = obj;
+    while (dict > header && (dict[0] != '<' || dict[1] != '<')) {
+        dict--;
+    }
+    if (dict == header) {
+        return true;
+    }
+    char* stream = strstr(obj, "stream");
+    char* length = strstr(dict, "/Length");
+    if (!stream || !length || length > stream) {
+        return true;
+    }
+    char* end = nullptr;
+    unsigned long bytes = strtoul(length + 7, &end, 10);
+    if (end == length + 7 || bytes > access.m_FileLen) {
+        return true;
+    }
+    unsigned long offset = start + (unsigned long)(stream - header) + 6;
+    if (header[offset - start] == '\r') {
+        offset++;
+    }
+    if (header[offset - start] != '\n') {
+        return true;
+    }
+    offset++;
+    if (bytes > access.m_FileLen - offset) {
+        return true;
+    }
+    char* filter = strstr(dict, "/Filter");
+    char* params = strstr(dict, "/DecodeParms");
+    if (!filter || filter > stream || (params && params < stream)) {
+        return true;
+    }
+    char* codec = filter + 7;
+    while (codec < stream && (*codec == ' ' || *codec == '\r' || *codec == '\n')) {
+        codec++;
+    }
+    constexpr char kFlate[] = "/FlateDecode";
+    if (stream - codec <= (int)sizeof(kFlate) || memcmp(codec, kFlate, sizeof(kFlate) - 1) != 0 ||
+        (codec[sizeof(kFlate) - 1] != ' ' && codec[sizeof(kFlate) - 1] != '/' && codec[sizeof(kFlate) - 1] != '\r' &&
+         codec[sizeof(kFlate) - 1] != '\n' && codec[sizeof(kFlate) - 1] != '>')) {
+        return true;
+    }
+    z_stream z{};
+    if (inflateInit(&z) != Z_OK) {
+        return true;
+    }
+    unsigned char input[kBlock];
+    unsigned char output[kBlock + 32];
+    int overlap = 0;
+    bool unusual = false;
+    bool done = false;
+    while (bytes > 0 && !done) {
+        unsigned long n = bytes < kBlock ? bytes : kBlock;
+        if (!access.m_GetBlock(access.m_Param, offset, input, n)) {
+            unusual = true;
+            break;
+        }
+        offset += n;
+        bytes -= n;
+        z.next_in = input;
+        z.avail_in = n;
+        while (z.avail_in > 0 && !done) {
+            z.next_out = output + overlap;
+            z.avail_out = kBlock;
+            int status = inflate(&z, Z_NO_FLUSH);
+            if (status != Z_OK && status != Z_STREAM_END) {
+                unusual = true;
+                done = true;
+                break;
+            }
+            int produced = kBlock - (int)z.avail_out;
+            int total = overlap + produced;
+            if (HasUnusualGeometry(Str((char*)output, total))) {
+                unusual = true;
+                done = true;
+                break;
+            }
+            overlap = total < 32 ? total : 32;
+            memmove(output, output + total - overlap, overlap);
+            done = status == Z_STREAM_END;
+        }
+    }
+    if (!done) {
+        unusual = true;
+    }
+    inflateEnd(&z);
+    return unusual;
+}
+
+static bool HasUnusualGeometry(FPDF_FILEACCESS& access) {
+    constexpr unsigned long kBlock = 1024 * 1024;
+    char* data = (char*)malloc(kBlock + 32);
+    if (!data) {
+        return true;
+    }
+    int overlap = 0;
+    bool unusual = false;
+    for (unsigned long offset = 0; offset < access.m_FileLen;) {
+        unsigned long remaining = access.m_FileLen - offset;
+        unsigned long n = remaining < kBlock ? remaining : kBlock;
+        if (!access.m_GetBlock(access.m_Param, offset, (unsigned char*)data + overlap, n)) {
+            unusual = true;
+            break;
+        }
+        int size = overlap + (int)n;
+        if (HasUnusualGeometry(Str(data, size), &access, offset - overlap)) {
+            unusual = true;
+            break;
+        }
+        offset += n;
+        overlap = size < 32 ? size : 32;
+        memmove(data, data + size - overlap, overlap);
+    }
+    free(data);
+    return unusual;
 }
 
 // Tile edges are whole screen pixels but come back through the transform as e.g. 5507.9995;
@@ -1239,7 +1382,7 @@ class EnginePdfium : public EngineBase {
             return false;
         }
         VecResize(pages, pageCount);
-        if (HasUnusualGeometry(fileData)) {
+        if (HasUnusualGeometry(access)) {
             if (!PdfPageGeometryMupdf(path, fileData, password, pageCount, geometry)) {
                 VecClear(geometry);
             }

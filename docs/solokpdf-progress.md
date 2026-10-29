@@ -1792,8 +1792,8 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   at five fractional zooms (res 1–4) for both engines. Page size, link/search
   positions and rendered geometry now match MuPDF for offset/intersected page
   boxes, snapped rotation and `/UserUnit` 0.5, 2 and 3.7
-  (`tests/ad-hoc-pdfium-pagebox.ts`). Geometry stored only in compressed object
-  streams or files above 32 MiB still needs testing and normalization.
+  (`tests/ad-hoc-pdfium-pagebox.ts`). That test also covers compressed page
+  dictionaries in object streams and a 33 MiB file; both now normalize.
 - Rotated text selects along glyph quads, as with MuPDF (`issue-4839`, which
   failed with PDFium before). PDFium reports only axis-aligned boxes, so quads
   are built from each glyph's matrix, origin, advance and the font's
