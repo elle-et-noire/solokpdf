@@ -1675,6 +1675,11 @@ PDFium reuses its loaded bookmark tree without taking the global render lock.
 stalling; MuPDF and PDFium both pass. Non-blocking PDFium text and element
 queries (B11) remain separate work.
 
+The `lazy-tab-state-after-save` seed does not restore a document in either
+engine: it writes `SumatraPDF-settings.txt` and sets `RememberOpenedFiles = false`,
+which disables session restore by design. B25 needs a test that reaches a lazy
+tab without changing that setting's behavior.
+
 PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a render-device
 pass to vector strokes, text and narrow fills, adjusts minimum line width, and
 darkens raster drawings; PDFium has no equivalent per-render control. The toggle
