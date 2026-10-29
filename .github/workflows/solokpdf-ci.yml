@@ -1,0 +1,96 @@
+name: SolokPDF CI
+
+on:
+  push:
+    branches: [solokpdf-dev]
+  pull_request:
+    branches: [solokpdf-dev]
+  workflow_dispatch:
+
+concurrency:
+  group: solokpdf-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MSBUILDDISABLENODEREUSE: "1"
+
+jobs:
+  debug:
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - uses: actions/cache@v4
+        with:
+          path: .work/pdfium
+          key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
+      - name: Set toolset
+        shell: pwsh
+        run: |
+          . ./tools/solokpdf/env.ps1 -Toolset v145
+          "ForceImportBeforeCppProps=$env:ForceImportBeforeCppProps" >> $env:GITHUB_ENV
+      - name: Build debug
+        run: bun cmd/solok-build.ts -dbg
+      - name: Run unit tests
+        shell: pwsh
+        run: |
+          & ./out/solokpdf-dev/SolokPDF.exe -unit-tests -for-ai 2>&1 |
+            Tee-Object -FilePath out/dbg64/unit-tests-solok-ci.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Select-String -Quiet -Path out/dbg64/unit-tests-solok-ci.txt -Pattern 'Passed all ')) {
+            throw 'Unit tests did not report success'
+          }
+      - name: Run feature tests
+        env:
+          SUMATRA_TEST_EXE: ${{ github.workspace }}\out\solokpdf-dev\SolokPDF.exe
+        run: bun tests/run-solokpdf-ci.ts
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solokpdf-test-output
+          path: |
+            tests/tmp/
+            .work/tests-tmp/tmp/
+            out/dbg64/unit-tests-solok-ci.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  release:
+    needs: debug
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/solokpdf-dev')
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - uses: actions/cache@v4
+        with:
+          path: .work/pdfium
+          key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
+      - name: Set toolset
+        shell: pwsh
+        run: |
+          . ./tools/solokpdf/env.ps1 -Toolset v145
+          "ForceImportBeforeCppProps=$env:ForceImportBeforeCppProps" >> $env:GITHUB_ENV
+      - name: Build release
+        run: bun cmd/solok-build.ts -rel
+      - name: Upload portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: SolokPDF-experimental-x64
+          path: out/SolokPDF-experimental-x64.zip
+          if-no-files-found: error
+          retention-days: 14

@@ -1817,8 +1817,10 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   producers can overwrite them while open and the document reloads
   (`tests/ad-hoc-pdfium.ts` covers small and 33 MiB files). Save As after
   rename/delete still reads the path and is not GUI-tested.
-- There is no CI. Upstream's GitHub Actions workflows were removed: they ran
-  `cmd/build.ts` with upstream's upload secrets and failed in this fork.
+- GitHub Actions CI builds SolokPDF debug on pushes and PRs to `solokpdf-dev`.
+  It runs unit tests and selected PDFium, Vim, count-prefix, and update-check
+  tests. Pushes and manual runs also build the release ZIP after debug passes;
+  the ZIP is kept as an Actions artifact for 14 days. No upload secrets are used.
 
 The first development milestone (native build, PDFium pages in the original
 UI, MuPDF comparison, reproducible steps and explicit gaps) has been reached.
