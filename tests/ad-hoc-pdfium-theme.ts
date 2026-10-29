@@ -6,7 +6,18 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assemblePdf, loadPng, runStandalone, tmpPath, type PngImage } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
-import { captureWindowToPng, setProcessDpiAware } from "./winapi.ts";
+import { ControlCommand } from "./control.ts";
+import {
+  captureWindowToPng,
+  enumWindows,
+  findChildWindow,
+  getWindowPid,
+  getWindowText,
+  postMessage,
+  sendMessage,
+  setProcessDpiAware,
+  sleep,
+} from "./winapi.ts";
 
 // how far a pixel may be from a photo's color and still count as untouched
 const kTolerance = 8;
@@ -146,6 +157,91 @@ export async function testit(): Promise<void> {
   const legacy = await capture("Solarized Dark", "legacy");
   if (legacy.red >= kMinPhotoPixels) failures.push(`legacy: photo kept its colors (${legacy.png})`);
   if (failures.length > 0) throw new Error(failures.join("\n"));
+  await testThemeSwitch();
+}
+
+export async function testThemeSwitch(): Promise<void> {
+  setProcessDpiAware();
+  const dir = tmpPath("pdfium-theme-switch");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const pdf = join(dir, "theme.pdf");
+  writeFileSync(pdf, themePdf(), "latin1");
+  writeFileSync(
+    join(dir, "SolokPDF-settings.txt"),
+    "UiLanguage = en\nCheckForUpdates = false\nShowStartPage = false\nDefaultZoom = fit page\nTheme = Solarized Dark\nDocumentColorsFollowTheme = smart\n",
+  );
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
+  const captureCurrent = async (tag: string) => {
+    await client.waitForRenderIdle(30000);
+    const png = join(dir, `${tag}.png`);
+    if (!captureWindowToPng(findCanvas(frame), png)) throw new Error(`${tag}: capture failed`);
+    const img = loadPng(png);
+    const counts = { red: countNear(img, kRed), white: countNear(img, [255, 255, 255]) };
+    console.log(`${tag}: red=${counts.red} white=${counts.white}`);
+    return counts;
+  };
+  const invoke = async (name: string) => {
+    const result = await client.request(ControlCommand.TestInvokeCommand, [name]);
+    if (result[0] !== 0) throw new Error(`${name}: ${result[1]}`);
+    await sleep(150);
+  };
+  const mode = async (key: number) => {
+    await invoke("CmdSetDocumentColorsFollowTheme");
+    let dialog = 0;
+    for (let i = 0; i < 30 && !dialog; i++) {
+      enumWindows((hwnd) => {
+        if (getWindowPid(hwnd) === proc.pid && getWindowText(hwnd) === "Make Document Colors Follow Theme")
+          dialog = hwnd;
+        return !dialog;
+      });
+      if (!dialog) await sleep(50);
+    }
+    if (!dialog) throw new Error("color mode dialog missing");
+    const combo = findChildWindow(dialog, "ComboBox");
+    if (!combo) throw new Error("color mode combo missing");
+    sendMessage(combo, 0x0100, key, 0);
+    sendMessage(combo, 0x0101, key, 0);
+    postMessage(dialog, 0x0100, 0x0d, 0);
+    await sleep(150);
+  };
+  try {
+    await client.setNotificationsEnabled(false);
+    const first = await captureCurrent("dark-smart-first");
+    await invoke("CmdSetTheme Light");
+    const light = await captureCurrent("light-smart");
+    await invoke("CmdSetTheme Solarized Dark");
+    const second = await captureCurrent("dark-smart-second");
+    await mode(0x28); // smart -> legacy
+    const legacy = await captureCurrent("dark-legacy");
+    await mode(0x24); // legacy -> off
+    const off = await captureCurrent("dark-off");
+    await mode(0x28); // off -> smart
+    const restored = await captureCurrent("dark-smart-restored");
+    if (
+      first.red < kMinPhotoPixels ||
+      second.red < kMinPhotoPixels ||
+      light.red < kMinPhotoPixels ||
+      restored.red < kMinPhotoPixels
+    )
+      throw new Error("smart mode lost preserved photos");
+    if (legacy.red >= kMinPhotoPixels) throw new Error("legacy kept photo colors");
+    if (off.white < kMinPhotoPixels) throw new Error("off recolored white paper");
+    if (second.white > kMaxWhitePixels || restored.white > kMaxWhitePixels)
+      throw new Error("dark theme left white paper");
+    if (
+      first.red !== second.red ||
+      first.white !== second.white ||
+      first.red !== restored.red ||
+      first.white !== restored.white
+    )
+      throw new Error("dark smart render changed after theme or color mode switch");
+    await client.quit();
+    await proc.exited;
+  } catch (e) {
+    await killAndWait(proc);
+    throw e;
+  }
 }
 
 if (import.meta.main) await runStandalone(testit);

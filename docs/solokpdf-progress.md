@@ -1658,6 +1658,12 @@ both photos untouched, a figure's gray backdrop recolored, and `legacy` recolori
 photos; it fails on the previous build. `issue-6088` and `issue-5911`, run with
 SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
 
+`ad-hoc-pdfium-theme-switch` keeps one PDFium tab open through dark → light →
+dark, then smart → legacy → off → smart. Photo and paper counts return to their
+original values. PDFium's cached image rectangles describe page objects and do
+not depend on theme or mode; `UpdateDocumentColors` advances the render cache's
+dark-mode epoch. B6 needs no engine invalidation.
+
 ## Known limitations and next work
 
 PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a render-device
