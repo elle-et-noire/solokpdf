@@ -10,9 +10,14 @@ on:
         description: "only these tests (comma-separated, e.g. issue-1195); empty = all"
         required: false
         default: ""
+      engine:
+        description: "PDF engine for the app under test: pdfium (SolokPDF default) or mupdf, to tell PDFium failures from SolokPDF/runner ones"
+        type: choice
+        options: [pdfium, mupdf]
+        default: pdfium
 
 concurrency:
-  group: solokpdf-full-tests-${{ github.ref }}
+  group: solokpdf-full-tests-${{ github.ref }}-${{ inputs.engine }}
   cancel-in-progress: true
 
 permissions:
@@ -45,12 +50,13 @@ jobs:
         env:
           SUMATRA_TEST_EXE: ${{ github.workspace }}\out\solokpdf-dev\SolokPDF.exe
           TESTS: ${{ inputs.tests }}
+          SOLOKPDF_ENGINE: ${{ inputs.engine }}
         run: bun tests/run-github-ci.ts $env:TESTS
       - name: Upload test output
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: solokpdf-full-test-output
+          name: solokpdf-full-test-output-${{ inputs.engine }}
           path: |
             tests/tmp/
             .work/tests-tmp/tmp/
