@@ -2517,7 +2517,7 @@ export function processMemoryMap(pid: number): MemoryRegionGroup[] {
     const groups = new Map<string, MemoryRegionGroup>();
     const mbi = Buffer.alloc(48);
     const name = Buffer.alloc(2048);
-    for (let addr = 0; addr < 0x7fffffff0000;) {
+    for (let addr = 0; addr < 0x7fffffff0000; ) {
       if (!memVirtualQuery.symbols.VirtualQueryEx(handle, addr, ptr(mbi), mbi.length)) break;
       const base = Number(mbi.readBigUInt64LE(0));
       const size = Number(mbi.readBigUInt64LE(24));
@@ -2646,4 +2646,52 @@ export function systemMemory(): { loadPercent: number; totalPhysicalBytes: numbe
     totalPhysicalBytes: Number(status.readBigUInt64LE(totalPhysicalOffset)),
     availablePhysicalBytes: Number(status.readBigUInt64LE(availablePhysicalOffset)),
   };
+}
+
+// Names and pids of processes holding path open, from the Restart Manager.
+// Diagnoses EBUSY on a file a test wants to rename or delete.
+export function processesUsingFile(path: string): string[] {
+  if (!IS_WIN) return [];
+  const rm = dlopen("rstrtmgr.dll", {
+    RmStartSession: { args: [FFIType.ptr, FFIType.u32, FFIType.ptr], returns: FFIType.u32 },
+    RmRegisterResources: {
+      args: [FFIType.u32, FFIType.u32, FFIType.ptr, FFIType.u32, FFIType.ptr, FFIType.u32, FFIType.ptr],
+      returns: FFIType.u32,
+    },
+    RmGetList: { args: [FFIType.u32, FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.ptr], returns: FFIType.u32 },
+    RmEndSession: { args: [FFIType.u32], returns: FFIType.u32 },
+  });
+  // RM_PROCESS_INFO: RM_UNIQUE_PROCESS (12) + WCHAR[256] + WCHAR[64] + 4 DWORDs
+  const kInfoSize = 12 + 512 + 128 + 16;
+  const kMaxProcs = 32;
+  const session = new Uint32Array(1);
+  const key = new Uint16Array(33);
+  if (rm.symbols.RmStartSession(ptr(session), 0, ptr(key)) !== 0) return ["(RmStartSession failed)"];
+  try {
+    const wpath = Buffer.from(path + "\0", "utf16le");
+    const files = new BigUint64Array([BigInt(ptr(wpath))]);
+    if (rm.symbols.RmRegisterResources(session[0], 1, ptr(files), 0, null, 0, null) !== 0) {
+      return ["(RmRegisterResources failed)"];
+    }
+    const needed = new Uint32Array(1);
+    const count = new Uint32Array([kMaxProcs]);
+    const reasons = new Uint32Array(1);
+    const infos = new Uint8Array(kInfoSize * kMaxProcs);
+    const err = rm.symbols.RmGetList(session[0], ptr(needed), ptr(count), ptr(infos), ptr(reasons));
+    if (err !== 0) return [`(RmGetList failed: ${err}, needed ${needed[0]})`];
+    const out: string[] = [];
+    const view = new DataView(infos.buffer);
+    for (let i = 0; i < count[0]; i++) {
+      const base = i * kInfoSize;
+      const pid = view.getUint32(base, true);
+      const name = Buffer.from(infos.subarray(base + 12, base + 12 + 512))
+        .toString("utf16le")
+        .replace(/\0.*$/s, "");
+      out.push(`${name} (pid ${pid})`);
+    }
+    return out;
+  } finally {
+    rm.symbols.RmEndSession(session[0]);
+    rm.close();
+  }
 }

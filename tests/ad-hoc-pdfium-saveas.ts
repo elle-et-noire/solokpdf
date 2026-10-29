@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, unlinkSync, wr
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
 import { assemblePdf, EXE, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
-import { postMessage, waitForTopWindow, WM_CLOSE } from "./winapi.ts";
+import { postMessage, processesUsingFile, waitForTopWindow, WM_CLOSE } from "./winapi.ts";
 
 const bigHeader = `%PDF-1.4\n%${"x".repeat(33 * 1024 * 1024)}\n`;
 
@@ -28,7 +28,10 @@ async function changeSource(engine: string, action: "rename" | "delete", source:
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
       // MuPDF keeps its big file open; retrying cannot release that handle.
-      if (engine !== "pdfium" || (code !== "EBUSY" && code !== "EPERM") || Date.now() >= deadline) throw e;
+      if (engine !== "pdfium" || (code !== "EBUSY" && code !== "EPERM")) throw e;
+      if (Date.now() >= deadline) {
+        throw new Error(`${(e as Error).message}; held by: ${processesUsingFile(source).join(", ") || "unknown"}`);
+      }
       await Bun.sleep(100);
     }
   }
