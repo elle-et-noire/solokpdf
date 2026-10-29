@@ -1629,7 +1629,8 @@ bool OpenDocumentFromMemory(MainWindow* win, Str data, Str nameHint) {
     if (!win || len(data) == 0) {
         return false;
     }
-    EngineBase* engine = CreateEngineFromData(data, nameHint, nullptr);
+    HwndPasswordUI pwdUI(win->hwndFrame);
+    EngineBase* engine = CreateEngineFromData(data, nameHint, &pwdUI);
     if (!engine) {
         return false;
     }
@@ -4871,6 +4872,11 @@ bool SaveAnnotationsToExistingFile(WindowTab* tab) {
             return false;
         }
     }
+#if defined(SOLOKPDF_PDFIUM)
+    if (EnginePdfiumIsDataBacked(engine)) {
+        return false;
+    }
+#endif
     Str path = engine->FilePath();
     tab->ignoreNextAutoReload = true;
     ShowErrorData data{tab, path};
@@ -4934,8 +4940,19 @@ bool SaveAnnotationsToMaybeNewPdfFile(WindowTab* tab) {
     TempStr srcFileName = str::DupTemp(engine->FilePath());
     // Seed the dialog with "foo Copy.pdf" so Save doesn't overwrite the source
     // unless the user deliberately picks the original name.
-    TempStr noExt = path::GetPathNoExtTemp(srcFileName);
-    TempStr ext = path::GetExtTemp(srcFileName);
+    TempStr suggestedSource = srcFileName;
+#if defined(SOLOKPDF_PDFIUM)
+    if (EnginePdfiumIsDataBacked(engine)) {
+        suggestedSource = tab->displayName ? Str(tab->displayName) : StrL("attachment.pdf");
+    }
+#endif
+    TempStr noExt = path::GetPathNoExtTemp(suggestedSource);
+    TempStr ext = path::GetExtTemp(suggestedSource);
+#if defined(SOLOKPDF_PDFIUM)
+    if (EnginePdfiumIsDataBacked(engine)) {
+        ext = StrL(".pdf");
+    }
+#endif
     TempStr suggested = fmt("%s Copy%s", noExt, ext);
     TempWStr suggestedW = ToWStrTemp(suggested);
     wstr::BufSet(WStr(dstFileName, dimof(dstFileName)), suggestedW);
@@ -4965,6 +4982,11 @@ bool SaveAnnotationsToMaybeNewPdfFile(WindowTab* tab) {
     }
     TempStr dstFilePath = ToUtf8Temp(dstFileName);
     bool savingToExisting = str::Eq(dstFilePath, srcFileName);
+#if defined(SOLOKPDF_PDFIUM)
+    if (savingToExisting && EnginePdfiumIsDataBacked(engine)) {
+        return false;
+    }
+#endif
     if (savingToExisting) {
         return SaveAnnotationsToExistingFile(tab);
     }
@@ -5007,7 +5029,12 @@ enum class SaveChoice {
     Cancel,
 };
 
-static SaveChoice ShouldSaveAnnotationsDialog(HWND hwndParent, Str filePath) {
+enum class SaveSource {
+    File,
+    Data
+};
+
+static SaveChoice ShouldSaveAnnotationsDialog(HWND hwndParent, Str filePath, SaveSource source) {
     TempStr fileName = path::GetBaseNameTemp(filePath);
     TempStr mainInstrA = fmt(Tr("Unsaved changes in '%s'").s, fileName);
     WCHAR* mainInstr = CWStrTemp(mainInstrA);
@@ -5020,18 +5047,17 @@ static SaveChoice ShouldSaveAnnotationsDialog(HWND hwndParent, Str filePath) {
     TASKDIALOGCONFIG dialogConfig{};
     TASKDIALOG_BUTTON buttons[4];
 
-    buttons[0].nButtonID = kBtnIdSaveToExisting;
-    auto s = Tr("&Save to existing PDF");
-    buttons[0].pszButtonText = CWStrTemp(s);
-    buttons[1].nButtonID = kBtnIdSaveToNew;
-    s = Tr("Save to &new PDF");
-    buttons[1].pszButtonText = CWStrTemp(s);
-    buttons[2].nButtonID = kBtnIdDiscard;
-    s = Tr("&Discard changes");
-    buttons[2].pszButtonText = CWStrTemp(s);
-    buttons[3].nButtonID = IDCANCEL;
-    s = Tr("&Cancel");
-    buttons[3].pszButtonText = CWStrTemp(s);
+    int nButtons = 0;
+    if (source == SaveSource::File) {
+        buttons[nButtons].nButtonID = kBtnIdSaveToExisting;
+        buttons[nButtons++].pszButtonText = CWStrTemp(Tr("&Save to existing PDF"));
+    }
+    buttons[nButtons].nButtonID = kBtnIdSaveToNew;
+    buttons[nButtons++].pszButtonText = CWStrTemp(Tr("Save to &new PDF"));
+    buttons[nButtons].nButtonID = kBtnIdDiscard;
+    buttons[nButtons++].pszButtonText = CWStrTemp(Tr("&Discard changes"));
+    buttons[nButtons].nButtonID = IDCANCEL;
+    buttons[nButtons++].pszButtonText = CWStrTemp(Tr("&Cancel"));
 
     DWORD flags =
         TDF_ALLOW_DIALOG_CANCELLATION | TDF_SIZE_TO_CONTENT | TDF_ENABLE_HYPERLINKS | TDF_POSITION_RELATIVE_TO_WINDOW;
@@ -5039,7 +5065,7 @@ static SaveChoice ShouldSaveAnnotationsDialog(HWND hwndParent, Str filePath) {
         flags |= TDF_RTL_LAYOUT;
     }
     dialogConfig.cbSize = sizeof(TASKDIALOGCONFIG);
-    s = Tr("Unsaved changes");
+    auto s = Tr("Unsaved changes");
     dialogConfig.pszWindowTitle = CWStrTemp(s);
     dialogConfig.pszMainInstruction = mainInstr;
     dialogConfig.pszContent = CWStrTemp(content);
@@ -5048,7 +5074,7 @@ static SaveChoice ShouldSaveAnnotationsDialog(HWND hwndParent, Str filePath) {
     dialogConfig.cxWidth = 0;
     dialogConfig.pfCallback = nullptr;
     dialogConfig.dwCommonButtons = 0;
-    dialogConfig.cButtons = dimof(buttons);
+    dialogConfig.cButtons = nButtons;
     dialogConfig.pButtons = &buttons[0];
     dialogConfig.pszMainIcon = TD_INFORMATION_ICON;
     dialogConfig.hwndParent = hwndParent;
@@ -5104,7 +5130,11 @@ bool MaybeSaveAnnotations(WindowTab* tab) {
     // don't try to access it - engine uses memory-mapped I/O and accessing
     // pages of a gone file causes EXCEPTION_IN_PAGE_ERROR
     auto filePath = dm->GetFilePath();
-    if (!file::Exists(filePath)) {
+    bool dataBacked = false;
+#if defined(SOLOKPDF_PDFIUM)
+    dataBacked = EnginePdfiumIsDataBacked(engine);
+#endif
+    if (!dataBacked && !file::Exists(filePath)) {
         logf("MaybeSaveAnnotations: file '%s' no longer exists, skipping\n", filePath);
         return true;
     }
@@ -5117,7 +5147,9 @@ bool MaybeSaveAnnotations(WindowTab* tab) {
     EngineBase* engineBeforeDialog = engine;
     engineBeforeDialog->AddRef();
     AutoCall releaseEngine(SafeEngineRelease<EngineBase>, &engineBeforeDialog);
-    auto choice = ShouldSaveAnnotationsDialog(win->hwndFrame, dm->GetFilePath());
+    Str displayPath = dataBacked && tab->displayName ? Str(tab->displayName) : dm->GetFilePath();
+    auto choice =
+        ShouldSaveAnnotationsDialog(win->hwndFrame, displayPath, dataBacked ? SaveSource::Data : SaveSource::File);
     // The dialog pumps messages; validate tab itself, not just its former window.
     // A tab can be closed or its engine replaced while the window stays alive.
     win = FindMainWindowByTab(tab);
@@ -5493,13 +5525,18 @@ static void SaveCurrentFileAs(MainWindow* win) {
         }
     }
 
+    DisplayModel* dm = win->AsFixed();
+    EngineBase* engine = dm ? dm->GetEngine() : nullptr;
+#if defined(SOLOKPDF_PDFIUM)
+    if (len(srcFileName) == 0 && EnginePdfiumIsDataBacked(engine)) {
+        WindowTab* tab = win->CurrentTab();
+        srcFileName = tab && tab->displayName ? Str(tab->displayName) : StrL("attachment.pdf");
+    }
+#endif
     if (len(srcFileName) == 0) {
         ShowTemporaryNotification(win, Tr("File path not available"), kNotif5SecsTimeOut);
         return;
     }
-
-    DisplayModel* dm = win->AsFixed();
-    EngineBase* engine = dm ? dm->GetEngine() : nullptr;
     if (EngineHasUnsavedAnnotations(engine)) {
         SaveAnnotationsToMaybeNewPdfFile(win->CurrentTab());
         return;
@@ -5521,6 +5558,11 @@ static void SaveCurrentFileAs(MainWindow* win) {
 
     WCHAR dstFileName[MAX_PATH];
     TempStr baseName = path::GetBaseNameTemp(srcFileName);
+#if defined(SOLOKPDF_PDFIUM)
+    if (EnginePdfiumIsDataBacked(engine)) {
+        baseName = fmt("%s.pdf", path::GetPathNoExtTemp(baseName));
+    }
+#endif
     str::BufSet(dstFileName, dimof(dstFileName), baseName);
     if (wstr::ContainsChar(WStr(dstFileName), L':')) {
         // handle embed-marks (for embedded PDF documents):
@@ -5589,6 +5631,16 @@ static void SaveCurrentFileAs(MainWindow* win) {
 static bool SaveDocAs(MainWindow* win, Str dstPath) {
     auto* ctrl = win->ctrl;
     TempStr srcFileName = ctrl->GetFilePath();
+    DisplayModel* dm = win->AsFixed();
+    EngineBase* engine = dm ? dm->GetEngine() : nullptr;
+    bool dataBacked = false;
+#if defined(SOLOKPDF_PDFIUM)
+    dataBacked = EnginePdfiumIsDataBacked(engine);
+    if (len(srcFileName) == 0 && dataBacked) {
+        WindowTab* tab = win->CurrentTab();
+        srcFileName = tab && tab->displayName ? Str(tab->displayName) : StrL("attachment.pdf");
+    }
+#endif
     if (gPluginMode) {
         srcFileName = StrL("filename");
         TempStr urlName = url::GetFileNameTemp(gPluginURL);
@@ -5600,9 +5652,6 @@ static bool SaveDocAs(MainWindow* win, Str dstPath) {
         ShowTemporaryNotification(win, Tr("File path not available"), kNotif5SecsTimeOut);
         return false;
     }
-    DisplayModel* dm = win->AsFixed();
-    EngineBase* engine = dm ? dm->GetEngine() : nullptr;
-
     TempStr realDstFileName = str::DupTemp(dstPath);
     bool convertedAsPdf = engine && str::EndsWithI(realDstFileName, StrL(".pdf")) &&
                           (engine->kind == kindEnginePostScript || engine->kind == kindEngineDvi);
@@ -5619,7 +5668,7 @@ static bool SaveDocAs(MainWindow* win, Str dstPath) {
     // Replace with EngineGetDocumentData() and save that if not empty
     bool ok = true;
     TempStr errorMsg;
-    if (convertedAsPdf || (!file::Exists(srcFileName) && engine)) {
+    if (convertedAsPdf || dataBacked || (!file::Exists(srcFileName) && engine)) {
         // Recreate nonexistent files from memory...
         logf("calling engine->SaveFileAs(%s)\n", realDstFileName);
         ok = engine->SaveFileAs(realDstFileName);

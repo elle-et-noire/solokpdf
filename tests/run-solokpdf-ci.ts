@@ -4,6 +4,7 @@ import { setTestWindowLayout } from "./winapi.ts";
 import { testit as documentJs } from "./ad-hoc-pdfium-document-js.ts";
 import { testit as formJs } from "./ad-hoc-pdfium-form-js.ts";
 import { testit as forms } from "./ad-hoc-pdfium-forms.ts";
+import { testit as memory } from "./ad-hoc-pdfium-memory.ts";
 import { testit as outline } from "./ad-hoc-pdfium-outline.ts";
 import { testit as permissions } from "./ad-hoc-pdfium-permissions.ts";
 import { testit as tools } from "./ad-hoc-pdfium-tools.ts";
@@ -13,6 +14,7 @@ import { testit as countPrefix } from "./ad-hoc-count-prefix.ts";
 import { testit as noUpdateCheck } from "./ad-hoc-no-update-check.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-pdfium-memory", memory],
   ["ad-hoc-pdfium-forms", forms],
   ["ad-hoc-pdfium-tools", tools],
   ["ad-hoc-pdfium-outline", outline],

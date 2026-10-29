@@ -38,6 +38,8 @@
 #include "Canvas.h"
 #include "WindowTab.h"
 #include "TextSelection.h"
+#include "ProgressUpdateUI.h"
+#include "TextSearch.h"
 #include "Selection.h"
 #include "SelectionHandlers.h"
 #include "FileHistory.h"
@@ -664,6 +666,7 @@ enum class ControlCmd : u16 {
     TestVimKeys = 141,
     TestSetFormField = 142,
     TestDocumentJsOpen = 143,
+    TestCurrentPdf = 144,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1602,6 +1605,41 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             int page = tab->ctrl ? tab->ctrl->CurrentPageNo() : 0;
             AppendTestResult(req, 0, fmt("path=%s page=%d", tab->filePath, page));
+            break;
+        }
+
+        case ControlCmd::TestCurrentPdf: {
+            WindowTab* tab = len(gWindows) > 0 && gWindows[0] ? gWindows[0]->CurrentTab() : nullptr;
+            DisplayModel* dm = tab ? tab->AsFixed() : nullptr;
+            EngineBase* engine = dm ? dm->GetEngine() : nullptr;
+            if (!engine) {
+                AppendTestResult(req, 2, StrL("NOTREADY no-engine"));
+                break;
+            }
+            int textLen = 0;
+            Str pageText = engine->GetTextForPage(1, &textLen);
+            bool found = false;
+            Str needle = StringArg(req, 0);
+            if (needle) {
+                TextSearch search(engine);
+                search.SetDirection(TextSearch::Direction::Forward);
+                Vec<TextSel>* matches = search.FindFirst(1, needle);
+                found = matches && len(*matches) > 0;
+            }
+            TocTree* toc = engine->GetToc();
+            TocItem* first = toc && toc->root ? toc->root->child : nullptr;
+            Str title = first && first->title ? first->title : Str{};
+            int tocPage = first ? first->pageNo : 0;
+            Str linkValue;
+            for (IPageElement* el : engine->GetElements(1)) {
+                if (el && el->Is(kindPageElementDest) && el->AsLink()) {
+                    linkValue = el->AsLink()->GetValue();
+                    break;
+                }
+            }
+            AppendTestResult(req, 0,
+                             fmt("engine=%s pages=%d found=%d text=%s toc=%s tocPage=%d link=%s", Str(engine->kind),
+                                 engine->PageCount(), found ? 1 : 0, pageText, title, tocPage, linkValue));
             break;
         }
 

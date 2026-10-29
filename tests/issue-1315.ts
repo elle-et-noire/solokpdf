@@ -7,7 +7,7 @@
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
 import { waitForFrame } from "./win-automation.ts";
-import { EXE, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { EXE, runStandalone, SETTINGS_FILE, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
 
 function buildPdf(): Buffer {
   const objs = [
@@ -104,11 +104,19 @@ export async function testit(): Promise<void> {
       await client.waitForRenderIdle();
 
       const raw = await queryBoxes(client, 1);
-      if (!/\bmedia=/.test(raw)) {
-        throw new Error(`issue-1315: expected PDF page boxes, got: ${raw}`);
-      }
-      if (!/\bcrop=/.test(raw)) {
-        throw new Error(`issue-1315: expected CropBox from the wrapped PDF, got: ${raw}`);
+      const pdfium = SETTINGS_FILE === "SolokPDF-settings.txt" && process.env.SOLOKPDF_ENGINE !== "mupdf";
+      if (pdfium) {
+        const current = await client.request(ControlCommand.TestCurrentPdf);
+        if (current[0] !== 0 || !String(current[1]).includes("engine=enginePdfium")) {
+          throw new Error(`issue-1315: Print Replica engine: ${current[1]}`);
+        }
+        if (!raw.includes("engineMedia=0.00,0.00,540.00,720.00")) {
+          throw new Error(`issue-1315: expected cropped PDF page, got: ${raw}`);
+        }
+      } else {
+        if (!/\bmedia=/.test(raw) || !/\bcrop=/.test(raw)) {
+          throw new Error(`issue-1315: expected PDF page boxes, got: ${raw}`);
+        }
       }
       console.log(`issue-1315: ${raw}`);
     },

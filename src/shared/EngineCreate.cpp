@@ -251,6 +251,25 @@ bool IsSupportedFileType(FileType kind, bool enableEngineEbooks) {
            kind == FileType::PalmDoc || kind == FileType::HTML || kind == FileType::Txt;
 }
 
+static EngineBase* CreatePdfFromData(Str data, Str nameHint, PasswordUI* pwdUI) {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (PdfiumRequested()) {
+        TempStr error;
+        PdfiumFailure failure = PdfiumFailure::Fallback;
+        EngineBase* engine = CreateEnginePdfiumFromData(data, pwdUI, &error, &failure);
+        if (engine || failure == PdfiumFailure::Final) {
+            return engine;
+        }
+        engine = CreateEngineMupdfFromData(data, nameHint, pwdUI);
+        if (engine) {
+            engine->AppendError(fmt("%s Using MuPDF fallback.", error));
+        }
+        return engine;
+    }
+#endif
+    return CreateEngineMupdfFromData(data, nameHint, pwdUI);
+}
+
 static EngineBase* CreateEngineForKind(FileType kind, FileType contentHintKind, Str path, PasswordUI* pwdUI,
                                        bool enableChmEngine) {
     if (kind == FileType::Unknown) {
@@ -334,7 +353,7 @@ static EngineBase* CreateEngineForKind(FileType kind, FileType contentHintKind, 
         // AZW4 / Kindle Print Replica is a PDF inside a MOBI wrapper.
         Str pdf = ExtractPdfFromPrintReplicaFile(path);
         if (len(pdf) > 0) {
-            engine = CreateEngineMupdfFromData(pdf, StrL("file.pdf"), pwdUI);
+            engine = CreatePdfFromData(pdf, StrL("file.pdf"), pwdUI);
             str::Free(pdf);
             if (engine) {
                 engine->SetFilePath(path);
@@ -370,7 +389,7 @@ EngineBase* CreateEngineFromFile(Str path, PasswordUI* pwdUI, bool enableChmEngi
         if (len(extracted) > 0) {
             FileType kind = GuessFileTypeFromData(extracted);
             if (kind == FileType::PDF) {
-                EngineBase* engine = CreateEngineMupdfFromData(extracted, StrL("file.pdf"), pwdUI);
+                EngineBase* engine = CreatePdfFromData(extracted, StrL("file.pdf"), pwdUI);
                 str::Free(extracted);
                 if (engine) {
                     engine->SetFilePath(path);
@@ -420,6 +439,9 @@ static EngineBase* CreateEngineForKindFromData(FileType kind, Str data, Str name
         return nullptr;
     }
     if (kind == FileType::PDF || kind == FileType::Xps || kind == FileType::Markdown || IsOfficeFileType(kind)) {
+        if (kind == FileType::PDF) {
+            return CreatePdfFromData(data, nameHint, pwdUI);
+        }
         return CreateEngineMupdfFromData(data, nameHint, pwdUI);
     }
     if (IsEngineDjVuSupportedFileType(kind)) {
@@ -446,7 +468,7 @@ static EngineBase* CreateEngineForKindFromData(FileType kind, Str data, Str name
     if (kind == FileType::Mobi) {
         Str pdf = ExtractPdfFromPrintReplicaData(data);
         if (len(pdf) > 0) {
-            EngineBase* engine = CreateEngineMupdfFromData(pdf, StrL("file.pdf"), pwdUI);
+            EngineBase* engine = CreatePdfFromData(pdf, StrL("file.pdf"), pwdUI);
             str::Free(pdf);
             if (engine) {
                 return engine;

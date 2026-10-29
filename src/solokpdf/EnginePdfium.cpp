@@ -481,6 +481,7 @@ class EnginePdfium : public EngineBase {
     bool documentJs = false;
     HANDLE file = INVALID_HANDLE_VALUE;
     Str fileData;
+    bool dataBacked = false;
     FPDF_FILEACCESS access{};
     Str password;
     bool runtime = false;
@@ -1083,6 +1084,8 @@ class EnginePdfium : public EngineBase {
     }
 
   public:
+    bool IsDataBacked() const { return dataBacked; }
+
     EnginePdfium() {
         kind = kindEnginePdfium;
         defaultExt = str::Dup(StrL(".pdf"));
@@ -1159,7 +1162,7 @@ class EnginePdfium : public EngineBase {
             if (d) {
                 password = pwd;
                 isPasswordProtected = true;
-                if (saveKey) {
+                if (saveKey && !dataBacked) {
                     decryptionKey = str::Dup(arena, PdfDecryptionKeyMupdfTemp(FilePath(), fileData, pwd));
                     protectedPassword = str::Dup(arena, ProtectPdfPasswordTemp(pwd, digest));
                 }
@@ -1175,26 +1178,35 @@ class EnginePdfium : public EngineBase {
         }
     }
 
-    bool Load(Str path, PasswordUI* pwdUI, TempStr* error, PdfiumFailure* failure) {
+    bool Load(Str path, Str data, PasswordUI* pwdUI, TempStr* error, PdfiumFailure* failure) {
         PdfiumProfile profile(StrL("load"));
         profile.Mark(StrL("start"));
         SetFilePath(path);
 
-        // No lock for file I/O: opening alone took 20-30 ms in tests, time other tabs can render in.
-        // Like MuPDF's _wfopen, share writes so producers can overwrite a big file kept open; it then reloads.
-        DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
-        file = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_READ, share, nullptr, OPEN_EXISTING,
-                           FILE_ATTRIBUTE_NORMAL, nullptr);
-        LARGE_INTEGER size{};
-        if (file == INVALID_HANDLE_VALUE || !GetFileSizeEx(file, &size) || size.QuadPart <= 0 ||
-            size.QuadPart > MAXDWORD) {
-            *error = StrL("PDFium file open failed (this backend currently supports files smaller than 4 GiB).");
-            return false;
-        }
-        access.m_FileLen = (unsigned long)size.QuadPart;
-        if (size.QuadPart < kMaxMemoryFileSize && !ReadIntoMemory()) {
-            *error = StrL("PDFium file read failed.");
-            return false;
+        dataBacked = len(data) > 0;
+        if (dataBacked) {
+            fileData = str::Dup(data);
+            if (!fileData.s) {
+                *error = StrL("PDFium memory allocation failed.");
+                return false;
+            }
+            access.m_FileLen = (unsigned long)len(fileData);
+        } else {
+            // Share writes so producers can overwrite a file kept open; it then reloads.
+            DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+            file = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_READ, share, nullptr, OPEN_EXISTING,
+                               FILE_ATTRIBUTE_NORMAL, nullptr);
+            LARGE_INTEGER size{};
+            if (file == INVALID_HANDLE_VALUE || !GetFileSizeEx(file, &size) || size.QuadPart <= 0 ||
+                size.QuadPart > MAXDWORD) {
+                *error = StrL("PDFium file open failed (this backend currently supports files smaller than 4 GiB).");
+                return false;
+            }
+            access.m_FileLen = (unsigned long)size.QuadPart;
+            if (size.QuadPart < kMaxMemoryFileSize && !ReadIntoMemory()) {
+                *error = StrL("PDFium file read failed.");
+                return false;
+            }
         }
         access.m_GetBlock = ReadBlock;
         access.m_Param = this;
@@ -1343,7 +1355,8 @@ class EnginePdfium : public EngineBase {
         }
         PdfiumProfile profile(StrL("editor"));
         PasswordCloner pwdUI(password);
-        res = CreateEngineMupdfFromFile(FilePath(), FileType::PDF, 96, &pwdUI);
+        res = dataBacked ? CreateEngineMupdfFromData(fileData, StrL("file.pdf"), &pwdUI)
+                         : CreateEngineMupdfFromFile(FilePath(), FileType::PDF, 96, &pwdUI);
         profile.Mark(StrL("loaded"));
         if (!res) {
             logf("EnginePdfium: MuPDF can't open '%s' to edit annotations\n", FilePath());
@@ -1370,8 +1383,12 @@ class EnginePdfium : public EngineBase {
     EngineBase* Clone() override {
         TempStr error;
         PasswordCloner pwdUI(password);
-        EngineBase* clone = CreateEnginePdfium(FilePath(), &pwdUI, &error);
+        EngineBase* clone = dataBacked ? CreateEnginePdfiumFromData(fileData, &pwdUI, &error)
+                                       : CreateEnginePdfium(FilePath(), &pwdUI, &error);
         if (clone) {
+            if (dataBacked && FilePath()) {
+                clone->SetFilePath(FilePath());
+            }
             clone->disableAutoLinks = disableAutoLinks;
         }
         return clone;
@@ -1977,7 +1994,7 @@ bool PdfiumRequested() {
 EngineBase* CreateEnginePdfium(Str path, PasswordUI* pwdUI, TempStr* errorOut, PdfiumFailure* failureOut) {
     auto* engine = new EnginePdfium();
     PdfiumFailure failure = PdfiumFailure::Fallback;
-    bool ok = engine->Load(path, pwdUI, errorOut, &failure);
+    bool ok = engine->Load(path, {}, pwdUI, errorOut, &failure);
     if (failureOut) {
         *failureOut = failure;
     }
@@ -1988,4 +2005,25 @@ EngineBase* CreateEnginePdfium(Str path, PasswordUI* pwdUI, TempStr* errorOut, P
     logf("PDFium: %s File: '%s'\n", *errorOut, path);
     engine->Release();
     return nullptr;
+}
+
+EngineBase* CreateEnginePdfiumFromData(Str data, PasswordUI* pwdUI, TempStr* errorOut, PdfiumFailure* failureOut) {
+    auto* engine = new EnginePdfium();
+    PdfiumFailure failure = PdfiumFailure::Fallback;
+    bool ok = engine->Load({}, data, pwdUI, errorOut, &failure);
+    if (failureOut) {
+        *failureOut = failure;
+    }
+    if (ok) {
+        engine->LoadDocumentJs();
+        return engine;
+    }
+    logf("PDFium: %s (memory document)\n", *errorOut);
+    engine->Release();
+    return nullptr;
+}
+
+bool EnginePdfiumIsDataBacked(EngineBase* engine) {
+    auto* pdfium = engine && engine->kind == kindEnginePdfium ? (EnginePdfium*)engine : nullptr;
+    return pdfium && pdfium->IsDataBacked();
 }

@@ -1652,9 +1652,9 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
 
 ## Known limitations and next work
 
-- PDFium currently handles ordinary file-backed PDFs. Stream/data factories,
-  shell preview/filter DLLs and PDFs generated inside other document engines
-  retain their upstream paths. Files above 4 GiB fall back.
+- PDFium handles file-backed PDFs, in-memory attachments, `.p7m` PDFs and Kindle
+  Print Replica. The shell preview/filter DLLs and PDFs generated inside other
+  document engines retain their upstream paths. Files above 4 GiB fall back.
 - Password-protected PDFs open in PDFium via the password dialog, `-pwd` and
   `DefaultPasswords`; a canceled dialog isn't repeated by MuPDF. PDFium's open
   API accepts a password, not MuPDF's decryption key. When "Remember password"
