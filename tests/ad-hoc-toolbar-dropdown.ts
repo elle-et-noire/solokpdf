@@ -16,13 +16,12 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control";
 import { cmdId, EXE, ROOT, runStandalone, tmpPath } from "./util";
-import { findChildByClass } from "./win-automation";
+import { findChildByClass, FRAME_CLASS } from "./win-automation";
 import { enumWindows, getClassName, postMessage, WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP } from "./winapi";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const VK_ESCAPE = 0x1b;
 const MENU_CLASS = "#32768";
-const FRAME_CLASS = "SUMATRA_PDF_FRAME";
 const TOOLBAR_CLASS = "SUMATRA_VIRT_TOOLBAR";
 
 const SETTINGS = `UiLanguage = en

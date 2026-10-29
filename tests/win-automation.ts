@@ -14,7 +14,7 @@
 
 import { IS_MAC } from "./host.ts";
 import { macClick } from "./mac-control.ts";
-import { cmdId, drainProcStderr, EXE, SLOW_BUILD_FACTOR, setFailureContext, USE_NG } from "./util.ts";
+import { cmdId, drainProcStderr, EXE, SETTINGS_FILE, SLOW_BUILD_FACTOR, setFailureContext, USE_NG } from "./util.ts";
 import {
   testWindowPos,
   injectTouch,
@@ -149,7 +149,11 @@ export async function killAndWait(proc: Bun.Subprocess): Promise<void> {
 
 // ng's frame is gpui's window. Tests import this binding, so the assignment
 // is visible to them.
-export let FRAME_CLASS = USE_NG ? "GpuiSystemMonitor" : "SUMATRA_PDF_FRAME";
+export let FRAME_CLASS = USE_NG
+  ? "GpuiSystemMonitor"
+  : SETTINGS_FILE === "SolokPDF-settings.txt"
+    ? "SOLOK_PDF_FRAME"
+    : "SUMATRA_PDF_FRAME";
 export const CANVAS_CLASS = "SUMATRA_PDF_CANVAS";
 
 // -window-pos for the right half of the screen (see testWindowPos)

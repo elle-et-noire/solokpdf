@@ -92,7 +92,11 @@ static void UninstallerThread() {
     RemoveInstallDirFromPath(gCli->allUsers, gCli->installDir);
     RemoveInstalledFiles();
     LoggedDeleteRegValue(HKEY_CURRENT_USER, StrL("Software\\Microsoft\\Windows\\CurrentVersion\\Run"),
+#if defined(SOLOKPDF_PDFIUM)
+                         StrL("SolokPDF-QuickLook"));
+#else
                          StrL("SumatraPDF-QuickLook"));
+#endif
 
     // always succeed, even for partial uninstallations
     success = true;

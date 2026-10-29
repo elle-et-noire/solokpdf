@@ -6,6 +6,8 @@
 #include "base/File.h"
 #include "base/Crypto.h"
 
+#include "SumatraConfig.h"
+#include "Version.h"
 #include "RegistryPreview.h"
 #include "SumatraLog.h"
 
@@ -166,33 +168,33 @@ bool IsPreviewInstalled() {
 
 // --- opt-in PdfPreview.dll file logging ---------------------------------------
 
-#define kRegKeySumatra "Software\\SumatraPDF"
+#if defined(SOLOKPDF_PDFIUM)
+#define kRegKeyPreviewLogging "Software\\SolokPDF"
+#else
+#define kRegKeyPreviewLogging "Software\\SumatraPDF"
+#endif
 #define kRegValLogPdfPreview "LogPdfPreview"
 
 bool IsPdfPreviewLoggingEnabled() {
     DWORD val = 0;
-    if (!ReadRegDWORD(HKEY_CURRENT_USER, StrL(kRegKeySumatra), StrL(kRegValLogPdfPreview), val)) {
+    if (!ReadRegDWORD(HKEY_CURRENT_USER, StrL(kRegKeyPreviewLogging), StrL(kRegValLogPdfPreview), val)) {
         return false;
     }
     return val != 0;
 }
 
 void SetPdfPreviewLoggingEnabled(bool enable) {
-    WriteRegDWORD(HKEY_CURRENT_USER, StrL(kRegKeySumatra), StrL(kRegValLogPdfPreview), enable ? 1 : 0);
+    WriteRegDWORD(HKEY_CURRENT_USER, StrL(kRegKeyPreviewLogging), StrL(kRegValLogPdfPreview), enable ? 1 : 0);
     logf("SetPdfPreviewLoggingEnabled: %d\n", (int)enable);
 }
 
-// Per-build data dir, keyed on the sha1 of the SumatraPDF.exe sitting next to
-// this module: in SumatraPDF.exe that's the running exe, in PdfPreview.dll it's
-// the sibling exe -- either way it resolves to the same directory SumatraPDF.exe
-// uses (see GetSumatraBuildSpecificDirTemp), so logs land next to its crashinfo/logs.
-// per-build data dir, same one SumatraPDF.exe uses (...\SumatraPDF-data\<sha1>)
+// The preview host reads the sibling app exe to find its per-build log dir.
 TempStr GetPdfPreviewLogDirTemp() {
     TempStr exeDir = GetSelfExeDirTemp();
     if (len(exeDir) == 0) {
         return {};
     }
-    TempStr exePath = path::JoinTemp(exeDir, StrL("SumatraPDF.exe"));
+    TempStr exePath = path::JoinTemp(exeDir, Str(kExeName));
     Str d = file::ReadFile(exePath);
     if (len(d) == 0) {
         return {};
@@ -208,7 +210,7 @@ TempStr GetPdfPreviewLogDirTemp() {
     if (len(local) == 0) {
         return {};
     }
-    TempStr dir = path::JoinTemp(local, StrL("SumatraPDF-data"));
+    TempStr dir = path::JoinTemp(local, str::JoinTemp(StrL(kAppName), StrL("-data")));
     return path::JoinTemp(dir, Str(id));
 }
 

@@ -39,9 +39,9 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
 ## C. Coexistence with SumatraPDF
 
-| ID  | Item                                                                                                                                                                                             | Status |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| C1  | Own window class and other names that clash with an installed SumatraPDF (its installer closes `SUMATRA_PDF_FRAME` windows; `-reuse-instance`/`-dde` forward search finds the first such window) | todo   |
+| ID  | Item                                                                                                                                                                                             | Status                                |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| C1  | Own window class and other names that clash with an installed SumatraPDF (its installer closes `SUMATRA_PDF_FRAME` windows; `-reuse-instance`/`-dde` forward search finds the first such window) | done — Isolate SolokPDF process names |
 
 ## D. CI
 

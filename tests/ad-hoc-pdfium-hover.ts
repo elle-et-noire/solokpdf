@@ -1,7 +1,7 @@
 import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { findCanvas } from "./win-automation.ts";
+import { findCanvas, FRAME_CLASS } from "./win-automation.ts";
 import { assemblePdf, EXE, runStandalone, tmpPath } from "./util.ts";
 import { getClientRect, packCoords, postMessage, waitForTopWindow, WM_MOUSEMOVE } from "./winapi.ts";
 
@@ -30,7 +30,7 @@ async function check(annotation: boolean): Promise<void> {
     EXE,
     async (client, proc) => {
       await client.waitForRenderIdle();
-      const frame = await waitForTopWindow(proc.pid!, "SUMATRA_PDF_FRAME", 5000);
+      const frame = await waitForTopWindow(proc.pid!, FRAME_CLASS, 5000);
       const canvas = findCanvas(frame);
       if (!canvas) throw new Error("no canvas");
       const rect = getClientRect(canvas);

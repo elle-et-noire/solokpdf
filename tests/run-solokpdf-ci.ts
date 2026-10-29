@@ -3,6 +3,7 @@ import { EXE, formatDuration, prepareTestEnvironment, runTest, type NamedTest } 
 import { setTestWindowLayout } from "./winapi.ts";
 import { testit as documentJs } from "./ad-hoc-pdfium-document-js.ts";
 import { testit as dates } from "./ad-hoc-pdfium-dates.ts";
+import { testit as coexist } from "./ad-hoc-solok-coexist.ts";
 import { testit as themeSwitch } from "./ad-hoc-pdfium-theme-switch.ts";
 import { testit as cad } from "./ad-hoc-pdfium-cad.ts";
 import { testit as formJs } from "./ad-hoc-pdfium-form-js.ts";
@@ -33,6 +34,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-permissions", permissions],
   ["ad-hoc-pdfium-print-prefs", printPrefs],
   ["ad-hoc-pdfium-dates", dates],
+  ["ad-hoc-solok-coexist", coexist],
   ["ad-hoc-pdfium-theme-switch", themeSwitch],
   ["ad-hoc-pdfium-cad", cad],
   ["ad-hoc-pdfium-window-bg", windowBg],

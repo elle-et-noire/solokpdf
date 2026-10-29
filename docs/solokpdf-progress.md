@@ -1437,6 +1437,10 @@ exit code 0.
   the staging wrapper names the runnable application `SolokPDF.exe`.
 - `SolokPDF-settings.txt`, local `SolokPDF` / `SolokPDF-data`, instance-map and
   DDE service names are separate. Existing settings are not migrated or overwritten.
+- The frame, QuickLook agent class and mutex, QuickLook startup value, and
+  preview logging key and directory also have SolokPDF names.
+  `ad-hoc-solok-coexist` puts a fake SumatraPDF frame first and checks that
+  reuse and DDE reach SolokPDF.
 - Upstream binary update checks are disabled for this fork. Installer and file
   associations are not configured or validated; use the portable application.
 - Copyright/license files remain unchanged. The package includes root notices,

@@ -18,6 +18,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXE, ROOT, tmpPath } from "./util";
+import { FRAME_CLASS } from "./win-automation";
 import {
   moveWindow,
   showWindow,
@@ -151,7 +152,7 @@ export async function testit(): Promise<void> {
   const args = [EXE, "-for-testing", "-appdata", appdata, "-log-to-file", logPath, pdf];
   const proc = Bun.spawn(args, { stdout: "ignore", stderr: "ignore" });
   try {
-    const frame = await waitForTopWindow(proc.pid, "SUMATRA_PDF_FRAME");
+    const frame = await waitForTopWindow(proc.pid, FRAME_CLASS);
     if (!frame) {
       throw new Error("SumatraPDF main window did not appear");
     }

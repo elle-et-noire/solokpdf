@@ -7,7 +7,11 @@ enum class FileType : u8;
 
 #include "OverlayScrollbar.h"
 
+#if defined(SOLOKPDF_PDFIUM)
+constexpr const WCHAR* kFrameClassName = L"SOLOK_PDF_FRAME";
+#else
 constexpr const WCHAR* kFrameClassName = L"SUMATRA_PDF_FRAME";
+#endif
 
 constexpr int kFrameResizeHitTest = 5;
 

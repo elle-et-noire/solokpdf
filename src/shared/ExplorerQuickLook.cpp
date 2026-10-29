@@ -76,9 +76,15 @@ bool ExplorerQuickLookOnKeyDown(MainWindow* win, int key, bool hasModifiers) {
 #include "EngineBase.h"
 #include "EngineAll.h"
 
+#if defined(SOLOKPDF_PDFIUM)
+constexpr const WCHAR* kQuickLookAgentClass = L"SOLOK_PDF_QUICKLOOK_AGENT";
+constexpr const WCHAR* kQuickLookAgentMutexName = L"SolokPDF-QuickLookAgent";
+#define kQuickLookRunValue StrL("SolokPDF-QuickLook")
+#else
 constexpr const WCHAR* kQuickLookAgentClass = L"SUMATRA_PDF_QUICKLOOK_AGENT";
 constexpr const WCHAR* kQuickLookAgentMutexName = L"SumatraPDF-QuickLookAgent";
 #define kQuickLookRunValue StrL("SumatraPDF-QuickLook")
+#endif
 #define kQuickLookRunKey StrL("Software\\Microsoft\\Windows\\CurrentVersion\\Run")
 constexpr UINT kMsgQuickLookSpace = WM_APP + 40;
 

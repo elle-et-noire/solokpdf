@@ -51,6 +51,30 @@ const user32 = loadDll("user32.dll", {
   EnumWindows: { args: [FFIType.function, FFIType.i64], returns: FFIType.bool },
   EnumChildWindows: { args: [FFIType.ptr, FFIType.function, FFIType.i64], returns: FFIType.bool },
   GetClassNameW: { args: [FFIType.ptr, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+  RegisterClassExW: { args: [FFIType.ptr], returns: FFIType.u16 },
+  UnregisterClassW: { args: [FFIType.ptr, FFIType.u64], returns: FFIType.bool },
+  CreateWindowExW: {
+    args: [
+      FFIType.u32,
+      FFIType.ptr,
+      FFIType.ptr,
+      FFIType.u32,
+      FFIType.i32,
+      FFIType.i32,
+      FFIType.i32,
+      FFIType.i32,
+      FFIType.u64,
+      FFIType.u64,
+      FFIType.u64,
+      FFIType.ptr,
+    ],
+    returns: FFIType.u64,
+  },
+  DestroyWindow: { args: [FFIType.u64], returns: FFIType.bool },
+  DefWindowProcW: { args: [FFIType.u64, FFIType.u32, FFIType.u64, FFIType.i64], returns: FFIType.i64 },
+  PeekMessageW: { args: [FFIType.ptr, FFIType.u64, FFIType.u32, FFIType.u32, FFIType.u32], returns: FFIType.bool },
+  TranslateMessage: { args: [FFIType.ptr], returns: FFIType.bool },
+  DispatchMessageW: { args: [FFIType.ptr], returns: FFIType.i64 },
   GetWindowThreadProcessId: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.u32 },
   GetWindow: { args: [FFIType.ptr, FFIType.u32], returns: FFIType.u64 },
   PostMessageW: { args: [FFIType.ptr, FFIType.u32, FFIType.i64, FFIType.i64], returns: FFIType.bool },
@@ -126,6 +150,71 @@ const user32 = loadDll("user32.dll", {
   GetClipboardSequenceNumber: { args: [], returns: FFIType.u32 },
   SetClipboardData: { args: [FFIType.u32, FFIType.u64], returns: FFIType.u64 },
 });
+
+const fakeWindowKernel = loadDll("kernel32.dll", {
+  GetModuleHandleW: { args: [FFIType.ptr], returns: FFIType.u64 },
+});
+
+export function createFakeFrame(className: string): {
+  hwnd: number;
+  copyDataCount: () => number;
+  pump: () => void;
+  close: () => void;
+} {
+  const name = new Uint16Array([...className].map((c) => c.charCodeAt(0)).concat(0));
+  const instance = fakeWindowKernel.symbols.GetModuleHandleW(null);
+  let count = 0;
+  const callback = new JSCallback(
+    (hwnd: number, msg: number, wp: number, lp: number) => {
+      if (msg === WM_COPYDATA) {
+        count++;
+        return 1;
+      }
+      return user32.symbols.DefWindowProcW(hwnd, msg, wp, lp);
+    },
+    { args: [FFIType.u64, FFIType.u32, FFIType.u64, FFIType.i64], returns: FFIType.i64 },
+  );
+  const wc = new ArrayBuffer(80);
+  const view = new DataView(wc);
+  view.setUint32(0, 80, true);
+  view.setBigUint64(8, BigInt(callback.ptr), true);
+  view.setBigUint64(24, BigInt(instance), true);
+  view.setBigUint64(64, BigInt(ptr(name)), true);
+  if (!user32.symbols.RegisterClassExW(ptr(wc))) {
+    callback.close();
+    throw new Error(`cannot register ${className}`);
+  }
+  const hwnd = Number(user32.symbols.CreateWindowExW(0, ptr(name), ptr(name), 0, 0, 0, 1, 1, 0, 0, instance, null));
+  if (!hwnd) {
+    user32.symbols.UnregisterClassW(ptr(name), instance);
+    callback.close();
+    throw new Error(`cannot create ${className}`);
+  }
+  const hwndTopmost = -1;
+  const showWithoutMoving = 0x0001 | 0x0002 | SWP_NOACTIVATE | 0x0040;
+  if (!user32.symbols.SetWindowPos(hwnd, hwndTopmost, 0, 0, 0, 0, showWithoutMoving)) {
+    user32.symbols.DestroyWindow(hwnd);
+    user32.symbols.UnregisterClassW(ptr(name), instance);
+    callback.close();
+    throw new Error(`cannot show ${className}`);
+  }
+  return {
+    hwnd,
+    copyDataCount: () => count,
+    pump: () => {
+      const msg = new ArrayBuffer(48);
+      while (user32.symbols.PeekMessageW(ptr(msg), 0, 0, 0, 1)) {
+        user32.symbols.TranslateMessage(ptr(msg));
+        user32.symbols.DispatchMessageW(ptr(msg));
+      }
+    },
+    close: () => {
+      user32.symbols.DestroyWindow(hwnd);
+      user32.symbols.UnregisterClassW(ptr(name), instance);
+      callback.close();
+    },
+  };
+}
 
 // GDI + GDI+ for capturing a window to a PNG (see captureWindowToPng). Capturing
 // via PrintWindow works even when the window is occluded or not foreground,
