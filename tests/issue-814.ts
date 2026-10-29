@@ -82,6 +82,11 @@ export async function testit(): Promise<void> {
         throw new Error(`issue-814: overlay should start off, show=${p1.show}`);
       }
 
+      if (process.env.SOLOKPDF_ENGINE !== "mupdf") {
+        const editor = await client.request(ControlCommand.TestCurrentPdf, ["editor"]);
+        if (editor[1] !== "editor=none") throw new Error(`issue-814: direct boxes loaded editor: ${editor[1]}`);
+      }
+
       const p2 = await queryBoxes(client, 2);
       expectNames(p2.names, ["media"], "page 2 (MediaBox only)");
 

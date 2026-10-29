@@ -1746,6 +1746,9 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
 - Fit Content and Fit Visible use PDFium page-object bounds, clipped to the
   visible page. Blank pages use the page box. Zoom never loads the editor;
   `issue-6241` checks the content ratio and editor state.
+- Page box overlays read explicit boxes through PDFium. An inherited box uses
+  the editor only when PDFium omits a named box that the file contains.
+  `issue-814` and the B20 test check direct and inherited boxes.
 - PDFium enumerates image bounds for cursor hit testing and the Selected Image
   menu. Copy and Save resolve the matching image through the lazy MuPDF editor,
   preserving orientation and CMYK JPEG/TIFF data without changing PDFium

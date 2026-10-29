@@ -21,6 +21,7 @@ import { testit as dehyphen } from "./ad-hoc-pdfium-dehyphen.ts";
 import { testit as links } from "./ad-hoc-pdfium-links.ts";
 import { testit as images } from "./ad-hoc-pdfium-images.ts";
 import { testit as fitContent } from "./ad-hoc-pdfium-fit-content.ts";
+import { testit as pageBoxes } from "./ad-hoc-pdfium-page-boxes.ts";
 import { testit as unsupported } from "./ad-hoc-pdfium-unsupported.ts";
 import { testit as windowBg } from "./ad-hoc-pdfium-window-bg.ts";
 import { testit as vimKeys } from "./ad-hoc-vim-keys.ts";
@@ -39,6 +40,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-links", links],
   ["ad-hoc-pdfium-images", images],
   ["ad-hoc-pdfium-fit-content", fitContent],
+  ["ad-hoc-pdfium-page-boxes", pageBoxes],
   ["ad-hoc-pdfium-outline", outline],
   ["ad-hoc-pdfium-unsupported", unsupported],
   ["ad-hoc-pdfium-permissions", permissions],

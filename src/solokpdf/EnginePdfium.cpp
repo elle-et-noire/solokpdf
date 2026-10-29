@@ -23,6 +23,7 @@
 #include <fpdf_javascript.h>
 #include <fpdf_signature.h>
 #include <fpdf_text.h>
+#include <fpdf_transformpage.h>
 #include <fpdf_progressive.h>
 #include <fpdf_sysfontinfo.h>
 #include <zlib.h>
@@ -88,6 +89,11 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDFPageObj_GetType)              \
     X(FPDFPageObj_GetMatrix)            \
     X(FPDFPageObj_GetBounds)            \
+    X(FPDFPage_GetMediaBox)             \
+    X(FPDFPage_GetCropBox)              \
+    X(FPDFPage_GetBleedBox)             \
+    X(FPDFPage_GetTrimBox)              \
+    X(FPDFPage_GetArtBox)               \
     X(FPDFFormObj_CountObjects)         \
     X(FPDFFormObj_GetObject)            \
     X(FPDFImageObj_GetImageMetadata)    \
@@ -1760,6 +1766,55 @@ class EnginePdfium : public EngineBase {
         }
         gPdfium.FPDF_ClosePage(page);
         return found ? content : media;
+    }
+
+    void GetPdfPageBoxes(int pageNo, Vec<PdfPageBox>& out) override {
+        VecReset(out);
+        bool hasMedia = false;
+        bool missingNamedBox = false;
+        {
+            ScopedMutex lock(&gPdfiumLock);
+            auto* info = Page(pageNo);
+            if (!info) {
+                return;
+            }
+            FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+            if (!page) {
+                return;
+            }
+            struct BoxSpec {
+                PdfPageBoxKind kind;
+                Str name;
+                decltype(gPdfium.FPDFPage_GetMediaBox) get;
+            };
+            const BoxSpec specs[] = {
+                {PdfPageBoxKind::Media, StrL("/MediaBox"), gPdfium.FPDFPage_GetMediaBox},
+                {PdfPageBoxKind::Crop, StrL("/CropBox"), gPdfium.FPDFPage_GetCropBox},
+                {PdfPageBoxKind::Bleed, StrL("/BleedBox"), gPdfium.FPDFPage_GetBleedBox},
+                {PdfPageBoxKind::Trim, StrL("/TrimBox"), gPdfium.FPDFPage_GetTrimBox},
+                {PdfPageBoxKind::Art, StrL("/ArtBox"), gPdfium.FPDFPage_GetArtBox},
+            };
+            for (const BoxSpec& spec : specs) {
+                float left = 0, bottom = 0, right = 0, top = 0;
+                if (!spec.get(page, &left, &bottom, &right, &top)) {
+                    missingNamedBox = missingNamedBox || (fileData.s && str::Contains(fileData, spec.name));
+                    continue;
+                }
+                hasMedia = hasMedia || spec.kind == PdfPageBoxKind::Media;
+                RectF rect = ToPageRect(page, info, left, bottom, right, top);
+                if (!rect.IsEmpty()) {
+                    VecAppend(out, PdfPageBox{spec.kind, rect});
+                }
+            }
+            gPdfium.FPDF_ClosePage(page);
+        }
+        if (!hasMedia || missingNamedBox) {
+            // PDFium only reads box entries on the page; MuPDF resolves inherited boxes.
+            EngineBase* source = AnnotationEditor(EditorLoad::Load);
+            if (source) {
+                source->GetPdfPageBoxes(pageNo, out);
+            }
+        }
     }
 
     // Only this part needs the lock; pixel post-processing runs while other pages draw.
