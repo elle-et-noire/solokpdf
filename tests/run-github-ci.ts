@@ -54,6 +54,26 @@ export function ciTests(): NamedTest[] {
 
 type Failure = { name: string; msg: string };
 
+// One hung test (issue-5979 once sat for 2.5 h) must not eat the whole run:
+// fail it, kill the apps it left running and go on with the next test.
+const kTestTimeoutMs = 5 * 60 * 1000;
+const kAppImages = ["SumatraPDF.exe", "SumatraPDF-static.exe", "SolokPDF.exe"];
+
+async function withTestTimeout(name: string, run: Promise<void>): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      for (const image of kAppImages) Bun.spawnSync(["taskkill", "/F", "/T", "/IM", image]);
+      reject(new Error(`${name} timed out after ${kTestTimeoutMs / 60000} min`));
+    }, kTestTimeoutMs);
+  });
+  try {
+    await Promise.race([run, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // tests defaults to every test that can run here; pass a list to run a subset
 // (a smoke check of this runner, or reproducing one CI failure locally)
 export async function testit(tests: NamedTest[] = ciTests()): Promise<void> {
@@ -77,7 +97,7 @@ export async function testit(tests: NamedTest[] = ciTests()): Promise<void> {
   for (const [name, fn] of tests) {
     console.log(`\n========== ${name} ==========`);
     try {
-      await runTest(name, fn);
+      await withTestTimeout(name, runTest(name, fn));
     } catch (e) {
       // runTest already timed and recorded it; keep going so one broken test
       // doesn't hide the state of everything after it
