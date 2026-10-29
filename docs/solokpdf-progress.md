@@ -1736,6 +1736,10 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   spaces a footnote mark from a URL, so it links). Like MuPDF, wrapped URLs are
   not joined. Text is read on first link query, not at startup; link-query
   round trips stayed within their 20–60 ms noise.
+- Requested PDFium text extraction uses the lazy MuPDF editor's page text,
+  preserving form appearances, word spacing, Unicode and selection bounds.
+  Ordinary PDF open and rendering stay on PDFium; the editor loads on the
+  first text request. PDFium's linkifier still reads PDFium text on demand.
 - Annotations of PDFium documents are edited, undone and saved by a hidden
   MuPDF document of the same file, which draws them over PDFium's pages once
   loaded, including redaction marks. PDFium's own incremental save, used before,

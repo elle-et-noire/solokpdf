@@ -1825,6 +1825,12 @@ class EnginePdfium : public EngineBase {
     }
 
     PageText ExtractPageText(int pageNo) override {
+        // MuPDF preserves synthesized form text, word spacing, Unicode and selection bounds.
+        EngineBase* textEngine = AnnotationEditor(EditorLoad::Load);
+        if (textEngine) {
+            return textEngine->ExtractPageText(pageNo);
+        }
+
         PdfiumProfile profile(StrL("text"), pageNo);
         ScopedMutex lock(&gPdfiumLock);
         profile.Mark(StrL("lock"));
