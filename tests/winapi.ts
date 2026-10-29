@@ -79,6 +79,11 @@ const user32 = loadDll("user32.dll", {
   GetWindow: { args: [FFIType.ptr, FFIType.u32], returns: FFIType.u64 },
   PostMessageW: { args: [FFIType.ptr, FFIType.u32, FFIType.i64, FFIType.i64], returns: FFIType.bool },
   SendMessageW: { args: [FFIType.ptr, FFIType.u32, FFIType.i64, FFIType.i64], returns: FFIType.i64 },
+  IsWindow: { args: [FFIType.ptr], returns: FFIType.bool },
+  SendMessageTimeoutW: {
+    args: [FFIType.ptr, FFIType.u32, FFIType.i64, FFIType.i64, FFIType.u32, FFIType.u32, FFIType.ptr],
+    returns: FFIType.i64,
+  },
   MoveWindow: {
     args: [FFIType.ptr, FFIType.i32, FFIType.i32, FFIType.i32, FFIType.i32, FFIType.bool],
     returns: FFIType.bool,
@@ -932,8 +937,26 @@ export function sendMessage(hwnd: number, msg: number, wParam: number | bigint, 
   if (IS_MAC) {
     return macSendMessage(msg, wParam, lParam);
   }
-  return user32.symbols.SendMessageW(hwnd, msg, BigInt(wParam), BigInt(lParam)) as bigint;
+  // A hung app would block a plain SendMessage forever, and with it the whole
+  // test process, including the per-test timeout timer (issue-5979 did).
+  const result = new BigInt64Array(1);
+  const ok = user32.symbols.SendMessageTimeoutW(
+    hwnd,
+    msg,
+    BigInt(wParam),
+    BigInt(lParam),
+    kSmtoNormal,
+    kSendMessageTimeoutMs,
+    ptr(result),
+  );
+  if (!ok && user32.symbols.IsWindow(hwnd)) {
+    throw new Error(`SendMessage(0x${msg.toString(16)}) got no reply in ${kSendMessageTimeoutMs / 1000} s: app hung`);
+  }
+  return result[0];
 }
+
+const kSmtoNormal = 0;
+const kSendMessageTimeoutMs = 120_000;
 
 // Send a null-terminated UTF-16 WM_COPYDATA payload. COPYDATASTRUCT is 24
 // bytes on x64: ULONG_PTR dwData, DWORD cbData + padding, PVOID lpData.
