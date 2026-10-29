@@ -1,0 +1,59 @@
+name: SolokPDF full tests
+
+# Upstream's whole suite against the SolokPDF debug build. Manual only: it
+# takes far longer than the per-push CI and is for triaging PDFium/SolokPDF
+# differences, not for gating pushes.
+on:
+  workflow_dispatch:
+    inputs:
+      tests:
+        description: "only these tests (comma-separated, e.g. issue-1195); empty = all"
+        required: false
+        default: ""
+
+concurrency:
+  group: solokpdf-full-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MSBUILDDISABLENODEREUSE: "1"
+
+jobs:
+  full:
+    runs-on: windows-2025-vs2026
+    # the suite drives a real GUI; a hung test should fail the run
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - uses: actions/cache@v5
+        with:
+          path: .work/pdfium
+          key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
+      - name: Build debug
+        run: bun cmd/solok-build.ts -dbg
+      # runs every test that can run on a hosted runner, doesn't stop at the
+      # first failure, lists the failures and exits non-zero
+      - name: Run tests
+        env:
+          SUMATRA_TEST_EXE: ${{ github.workspace }}\out\solokpdf-dev\SolokPDF.exe
+          TESTS: ${{ inputs.tests }}
+        run: bun tests/run-github-ci.ts $env:TESTS
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: solokpdf-full-test-output
+          path: |
+            tests/tmp/
+            .work/tests-tmp/tmp/
+            .work/test-times.txt
+          if-no-files-found: ignore
+          retention-days: 7
