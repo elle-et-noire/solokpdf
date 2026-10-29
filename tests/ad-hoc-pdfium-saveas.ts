@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { assemblePdf, EXE, runStandalone, tmpPath } from "./util.ts";
+import { assemblePdf, EXE, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
 import { postMessage, waitForTopWindow, WM_CLOSE } from "./winapi.ts";
 
 const bigHeader = `%PDF-1.4\n%${"x".repeat(33 * 1024 * 1024)}\n`;
@@ -18,6 +18,22 @@ function fixture(size: "small" | "big"): Buffer {
   return Buffer.from(pdf, "latin1");
 }
 
+async function changeSource(engine: string, action: "rename" | "delete", source: string, moved: string) {
+  const deadline = Date.now() + 10000 * SLOW_BUILD_FACTOR;
+  while (true) {
+    try {
+      if (action === "rename") renameSync(source, moved);
+      else unlinkSync(source);
+      return;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      // MuPDF keeps its big file open; retrying cannot release that handle.
+      if (engine !== "pdfium" || (code !== "EBUSY" && code !== "EPERM") || Date.now() >= deadline) throw e;
+      await Bun.sleep(100);
+    }
+  }
+}
+
 async function check(engine: string, size: "small" | "big", action: "rename" | "delete", pdf: Buffer) {
   const dir = tmpPath(`pdfium-saveas/${engine}-${size}-${action}`);
   rmSync(dir, { recursive: true, force: true });
@@ -31,8 +47,7 @@ async function check(engine: string, size: "small" | "big", action: "rename" | "
     EXE,
     async (client, proc) => {
       await client.waitForRenderIdle();
-      if (action === "rename") renameSync(source, moved);
-      else unlinkSync(source);
+      await changeSource(engine, action, source, moved);
       if (existsSync(source)) throw new Error("source path still exists");
 
       const save = client.request(ControlCommand.TestSaveFileAs, [saved]);
