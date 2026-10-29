@@ -8,7 +8,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
 import { IS_MAC } from "./host";
-import { assemblePdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util";
+import { assemblePdf, runStandalone, SETTINGS_FILE, SLOW_BUILD_FACTOR, tmpPath } from "./util";
 import {
   captureWindowToPng,
   clientToScreen,
@@ -165,7 +165,7 @@ export async function testit(): Promise<void> {
   mkdirSync(appdata, { recursive: true });
   writeFileSync(pdf, makePdf(), "latin1");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "RestoreSession = false\nShowStartPage = false\nShowAnnotationNotification = true\n",
   );
 

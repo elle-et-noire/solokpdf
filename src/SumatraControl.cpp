@@ -358,6 +358,10 @@ static TempStr MarkupAnnotsResultTemp(Str action, int x, int y, int* exitCodeOut
     if (!engine) {
         return finish(StrL("NOTREADY no-engine\n"), 2);
     }
+    if (engine->HasAnnotationEditor() &&
+        (engine->AnnotationEditor(EditorLoad::IfLoaded) || engine->HasPageAnnotations(dm->CurrentPageNo()))) {
+        StartLoadingAnnotationsForUi(tab);
+    }
     if (str::Eq(action, StrL("erase-ink"))) {
         AnnotationPlacementEraseAt(gWindows[0], Point(x, y));
     }
@@ -392,7 +396,11 @@ static TempStr MarkupAnnotsResultTemp(Str action, int x, int y, int* exitCodeOut
         return finish(StrL("OK\n"), 0);
     }
     Vec<Annotation*> annots;
-    EngineMupdfGetLoadedAnnotations(engine, annots);
+    if (engine->HasAnnotationEditor() && engine->AnnotationEditor(EditorLoad::IfLoaded)) {
+        EngineMupdfGetAnnotations(engine, annots);
+    } else {
+        EngineMupdfGetLoadedAnnotations(engine, annots);
+    }
     int n = 0;
     for (Annotation* a : annots) {
         AnnotationType tp = Type(a);

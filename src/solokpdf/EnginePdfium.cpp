@@ -1299,7 +1299,7 @@ class EnginePdfium : public EngineBase {
             }
             auto subtype = gPdfium.FPDFAnnot_GetSubtype(annot);
             bool isAttachment = subtype == FPDF_ANNOT_FILEATTACHMENT;
-            if (subtype == FPDF_ANNOT_WIDGET) {
+            if (subtype != FPDF_ANNOT_LINK) {
                 info->useMupdfElements = true;
             }
             gPdfium.FPDFPage_CloseAnnot(annot);

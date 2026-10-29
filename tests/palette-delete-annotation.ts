@@ -5,7 +5,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { assemblePdf, runStandalone, tmpPath } from "./util.ts";
+import { assemblePdf, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 import { getClientRect, sleep } from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
 
@@ -57,7 +57,7 @@ export async function testit(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "annot.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
 
   const { proc, client, frame } = await launchControlled([
     "-appdata",

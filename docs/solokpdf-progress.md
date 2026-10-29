@@ -1758,6 +1758,11 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   MuPDF document of the same file, which draws them over PDFium's pages once
   loaded, including redaction marks. PDFium's own incremental save, used before,
   wrote every parsed object: one annotation added up to 35 MB.
+- PDFium loads the editor when an annotated page needs comment elements and
+  before the first annotation journal operation. Plain-page render and hover
+  leave it unloaded. The markup diagnostic now reads annotations from all pages.
+  Redaction apply still saves and reloads the PDFium tab, losing undo history.
+  Cursor-driven annotation checks also need an unlocked Windows session.
 - Applying redactions on a PDFium tab uses that already loaded MuPDF editor,
   saves its rewritten content and reloads the tab in PDFium. The editor remains
   lazy until annotation work starts; ordinary PDF open and render are unchanged.

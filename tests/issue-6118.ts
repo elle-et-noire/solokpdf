@@ -11,7 +11,7 @@ import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
 import { IS_MAC } from "./host";
-import { ROOT, cmdId, pollUntil, runStandalone, tmpPath } from "./util";
+import { ROOT, cmdId, pollUntil, runStandalone, SETTINGS_FILE, tmpPath } from "./util";
 import { getFocusedHwnd, isWindowVisible, postMessage, WM_KEYDOWN } from "./winapi";
 import { clickAt, findChildByClass, killAndWait, launchControlled, sendCommandSync } from "./win-automation";
 
@@ -41,7 +41,7 @@ export async function testit(): Promise<void> {
   const pdf = join(appData, "doc.pdf");
   copyFileSync(SRC_PDF, pdf);
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     ["UiLanguage = en", "CheckForUpdates = false", "RestoreSession = false", "EscToExit = true", ""].join("\n"),
   );
 

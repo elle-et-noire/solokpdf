@@ -10110,7 +10110,7 @@ int EngineMupdfUndoPos(EngineMupdf* e, int* stepsOut) {
 // drag that writes on every mouse move) into a single step. Nested operations
 // fold into the outermost one. Must be paired with EngineMupdfEndOperation().
 void EngineMupdfBeginOperation(EngineBase* engine, const char* name) {
-    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!e || !e->pdfdoc) {
         return;
     }
