@@ -482,6 +482,8 @@ class EngineBase {
     bool isReflowable = false;
     bool allowsPrinting = true;
     bool allowsCopyingText = true;
+    bool allowsAnnotations = true;
+    bool allowsFormFilling = true;
     bool isPasswordProtected = false;
     // hex-encoded password fingerprint + crypt key; arena-allocated
     Str decryptionKey;

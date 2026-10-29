@@ -116,6 +116,12 @@ TempStr FormatPermissionsTemp(DocController* ctrl) {
     if (!engine->allowsCopyingText) {
         denials.Append(Tr("copying text"));
     }
+    if (!engine->allowsAnnotations) {
+        denials.Append(Tr("adding annotations"));
+    }
+    if (!engine->allowsFormFilling) {
+        denials.Append(Tr("filling forms"));
+    }
 
     return JoinTemp(&denials, StrL(", "));
 }

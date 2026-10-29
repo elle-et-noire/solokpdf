@@ -1310,6 +1310,8 @@ void EnginePdfProxy::CopyStateFromPdfEngine() {
     fileDPI = pdfEngine->fileDPI;
     allowsPrinting = pdfEngine->AllowsPrinting();
     allowsCopyingText = pdfEngine->allowsCopyingText;
+    allowsAnnotations = pdfEngine->allowsAnnotations;
+    allowsFormFilling = pdfEngine->allowsFormFilling;
     decryptionKey = str::Dup(arena, pdfEngine->decryptionKey);
     pageCount = pdfEngine->PageCount();
     hasPageLabels = pdfEngine->hasPageLabels;

@@ -74,6 +74,7 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDF_GetLastError)                \
     X(FPDF_GetPageCount)                \
     X(FPDF_GetDocPermissions)           \
+    X(FPDF_GetDocUserPermissions)       \
     X(FPDF_GetSecurityHandlerRevision)  \
     X(FPDF_GetPageSizeByIndexF)         \
     X(FPDF_LoadPage)                    \
@@ -1173,10 +1174,21 @@ class EnginePdfium : public EngineBase {
             return false;
         }
         VecResize(pages, pageCount);
-        isPasswordProtected = gPdfium.FPDF_GetSecurityHandlerRevision(doc) >= 0;
+        int revision = gPdfium.FPDF_GetSecurityHandlerRevision(doc);
+        isPasswordProtected = revision >= 0;
         unsigned long permissions = gPdfium.FPDF_GetDocPermissions(doc);
-        allowsPrinting = (permissions & (1UL << 2)) != 0;
-        allowsCopyingText = (permissions & (1UL << 4)) != 0;
+        unsigned long userPermissions = gPdfium.FPDF_GetDocUserPermissions(doc);
+        constexpr unsigned long kPrint = 1UL << 2;
+        constexpr unsigned long kCopy = 1UL << 4;
+        constexpr unsigned long kAnnotate = 1UL << 5;
+        constexpr unsigned long kForm = 1UL << 8;
+        allowsPrinting = (permissions & kPrint) != 0;
+        allowsCopyingText = (permissions & kCopy) != 0;
+        allowsAnnotations = (permissions & kAnnotate) != 0;
+        allowsFormFilling = (permissions & kForm) != 0;
+        if (isPasswordProtected) {
+            logf("PDFium security R%d: effective=0x%lx user=0x%lx\n", revision, permissions, userPermissions);
+        }
         int formType = gPdfium.FPDF_GetFormType(doc);
         acroForm = formType == FORMTYPE_ACRO_FORM;
         documentJs = gPdfium.FPDFDoc_GetJavaScriptActionCount(doc) > 0;

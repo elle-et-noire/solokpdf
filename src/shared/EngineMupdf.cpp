@@ -4908,6 +4908,8 @@ bool EngineMupdf::FinishLoading() {
     }
     allowsPrinting = fz_has_permission(ctx, _doc, FZ_PERMISSION_PRINT);
     allowsCopyingText = fz_has_permission(ctx, _doc, FZ_PERMISSION_COPY);
+    allowsAnnotations = fz_has_permission(ctx, _doc, FZ_PERMISSION_ANNOTATE);
+    allowsFormFilling = fz_has_permission(ctx, _doc, FZ_PERMISSION_FORM);
 
     if (lazyChapters) {
         InitChapterPagesLazy(this, nCh, 1);

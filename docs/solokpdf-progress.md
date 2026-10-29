@@ -1659,7 +1659,17 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   keys still reopen in MuPDF. DPAPI is user-scoped and local to Windows, so
   copying settings to another account or machine does not carry the PDFium
   password. Encrypted PDFs no longer reach the MuPDF-only PDF tools (e.g.
-  Decrypt) through the fallback. Some permissions metadata remains incomplete.
+  Decrypt) through the fallback. PDFium reads the effective print, copy,
+  annotation and form permissions from `FPDF_GetDocPermissions` and reads the
+  underlying user mask with `FPDF_GetDocUserPermissions`; security revision
+  `-1` means unencrypted. The effective mask gives an owner-password opener
+  full rights, matching MuPDF's `fz_has_permission`. Document Properties lists
+  all four denied operations on either engine. The standard Windows build
+  defines `DISABLE_DOCUMENT_RESTRICTIONS`, so both engines report denials but
+  allow the operations; changing that policy would change existing MuPDF
+  behavior. No MuPDF editor is loaded to read PDFium's permission flags.
+  `tests/ad-hoc-pdfium-permissions.ts` compares both engines with restricted
+  user and owner passwords and checks the standard build's print/form policy.
 - All eight destination views, link `/Contents` tooltips and GoToR/Launch file
   links match MuPDF on a fixture (links and outline). PDFium reports
   First/Last/Prev/NextPage actions only as unsupported and can't name a GoToR

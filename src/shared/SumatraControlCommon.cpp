@@ -54,6 +54,7 @@
 #include "ReadingBar.h"
 #include "NavFilesInFolder.h"
 #include "PerfLog.h"
+#include "DocumentPropertiesCommon.h"
 #include "SumatraControl.h"
 #include "SumatraControlCommon.h"
 
@@ -242,6 +243,7 @@ TempStr DocumentPropertiesResultTemp(int* exitCodeOut) {
     out.Append(fmt("\ndefaultExt=%s", engine->defaultExt));
     FileType ft = GuessFileTypeFromFile(engine->FilePath());
     out.Append(fmt("\nfileTypeExt=%s", GetExtForFileTypeTemp(ft)));
+    out.Append(fmt("\ndeniedPermissions=%s", FormatPermissionsTemp(win->ctrl)));
     return finish(ToStrTemp(out), 0);
 }
 
