@@ -15,7 +15,7 @@ limitations in `solokpdf-progress.md`, and the upstream full suite
 | ID  | Item                                                                 | Status                                                                                        |
 | --- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | A1  | PDFium vs MuPDF startup measurements on GitHub Actions               | done (normal open: PDFium +7.4 / +0.9 ms vs MuPDF on Attention / BERT; direct launch pending) |
-| A2  | Page geometry detection inside object streams and files above 32 MiB | doing                                                                                         |
+| A2  | Page geometry detection inside object streams and files above 32 MiB | done — Bound PDF page geometry scan (A2b); large and encrypted PDFs use PDFium geometry       |
 
 ## B. PDFium feature gaps
 

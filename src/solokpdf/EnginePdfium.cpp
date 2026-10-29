@@ -433,7 +433,7 @@ static bool HasUnusualGeometry(Str data, FPDF_FILEACCESS* access = nullptr, unsi
     return false;
 }
 
-// Inspect compressed objects as well as the raw PDF; unsupported stream filters use MuPDF.
+// Inspect plain and Flate objects; unsupported stream filters use MuPDF.
 static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker) {
     constexpr unsigned long kPrefix = 512;
     constexpr unsigned long kHeader = 8192;
@@ -532,34 +532,6 @@ static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker) {
         unusual = true;
     }
     inflateEnd(&z);
-    return unusual;
-}
-
-static bool HasUnusualGeometry(FPDF_FILEACCESS& access) {
-    constexpr unsigned long kBlock = 1024 * 1024;
-    char* data = (char*)malloc(kBlock + 32);
-    if (!data) {
-        return true;
-    }
-    int overlap = 0;
-    bool unusual = false;
-    for (unsigned long offset = 0; offset < access.m_FileLen;) {
-        unsigned long remaining = access.m_FileLen - offset;
-        unsigned long n = remaining < kBlock ? remaining : kBlock;
-        if (!access.m_GetBlock(access.m_Param, offset, (unsigned char*)data + overlap, n)) {
-            unusual = true;
-            break;
-        }
-        int size = overlap + (int)n;
-        if (HasUnusualGeometry(Str(data, size), &access, offset - overlap)) {
-            unusual = true;
-            break;
-        }
-        offset += n;
-        overlap = size < 32 ? size : 32;
-        memmove(data, data + size - overlap, overlap);
-    }
-    free(data);
     return unusual;
 }
 
@@ -1384,7 +1356,8 @@ class EnginePdfium : public EngineBase {
             return false;
         }
         VecResize(pages, pageCount);
-        if (HasUnusualGeometry(access)) {
+        if (!isPasswordProtected && fileData.s && len(fileData) < kMaxMemoryFileSize &&
+            HasUnusualGeometry(fileData, &access)) {
             if (!PdfPageGeometryMupdf(path, fileData, password, pageCount, geometry)) {
                 VecClear(geometry);
             }
