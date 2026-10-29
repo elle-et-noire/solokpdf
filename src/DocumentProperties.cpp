@@ -44,6 +44,12 @@
 // one filled Copy To Clipboard on the right
 constexpr int kPropsPadDy = 14;
 
+TempStr DocumentPropertiesTextTemp(DocController* ctrl) {
+    str::Builder out;
+    GetPropsText(ctrl, out);
+    return ToStrTemp(out);
+}
+
 struct PropertiesWnd : WindowBase {
     HWND hwndParent = nullptr;
     Edit* editProps = nullptr;

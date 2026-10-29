@@ -1329,8 +1329,20 @@ static void ExecuteControlRequest(ControlRequest* req) {
         case ControlCmd::TestDocumentProperties: {
             int exitCode = 0;
             Str action = StringArg(req, 0);
-            Str res = str::Eq(action, StrL("buttons")) ? PropertiesDialogButtonsTemp(&exitCode)
-                                                       : DocumentPropertiesResultTemp(&exitCode);
+            Str res;
+            if (str::Eq(action, StrL("buttons"))) {
+                res = PropertiesDialogButtonsTemp(&exitCode);
+            } else if (str::Eq(action, StrL("display"))) {
+                MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+                if (win && win->ctrl) {
+                    res = DocumentPropertiesTextTemp(win->ctrl);
+                } else {
+                    exitCode = 2;
+                    res = StrL("NOTREADY no-document");
+                }
+            } else {
+                res = DocumentPropertiesResultTemp(&exitCode);
+            }
             AppendTestResult(req, exitCode, res);
             break;
         }

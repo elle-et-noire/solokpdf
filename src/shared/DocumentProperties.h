@@ -19,4 +19,5 @@ bool IsHwndInPropertiesWindow(HWND hwnd);
 bool IsPropertiesDialogVisible();
 gpui::El* PropertiesDialogBuild(MainWindow* win, gpui::Ctx* cx);
 TempStr PropertiesDialogButtonsTemp(int* exitCodeOut);
+TempStr DocumentPropertiesTextTemp(DocController* ctrl);
 TempStr PropertiesDialogTextTemp(int* exitCodeOut);

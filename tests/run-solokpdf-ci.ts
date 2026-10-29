@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { EXE, formatDuration, prepareTestEnvironment, runTest, type NamedTest } from "./util.ts";
 import { setTestWindowLayout } from "./winapi.ts";
 import { testit as documentJs } from "./ad-hoc-pdfium-document-js.ts";
+import { testit as dates } from "./ad-hoc-pdfium-dates.ts";
 import { testit as formJs } from "./ad-hoc-pdfium-form-js.ts";
 import { testit as forms } from "./ad-hoc-pdfium-forms.ts";
 import { testit as hover } from "./ad-hoc-pdfium-hover.ts";
@@ -28,6 +29,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-unsupported", unsupported],
   ["ad-hoc-pdfium-permissions", permissions],
   ["ad-hoc-pdfium-print-prefs", printPrefs],
+  ["ad-hoc-pdfium-dates", dates],
   ["ad-hoc-pdfium-form-js", formJs],
   ["ad-hoc-pdfium-document-js", documentJs],
   ["ad-hoc-vim-keys", vimKeys],

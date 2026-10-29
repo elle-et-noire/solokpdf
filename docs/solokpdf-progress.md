@@ -1761,6 +1761,8 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   load avoids text extraction. `tests/ad-hoc-pdfium-unsupported.ts` checks the
   list against MuPDF; `tests/embedded-image-attachment.ts` opens a page
   attachment in both engines.
+- Document Properties parses PDFium's `CreationDate` and `ModDate` as PDF dates,
+  including their time zones, matching MuPDF (`tests/ad-hoc-pdfium-dates.ts`).
 - Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
   annotation except widgets, so form fields used to be blank; documents with
   an AcroForm now get a form handle and `FPDF_FFLDraw` after each render
