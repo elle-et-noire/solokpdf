@@ -1732,9 +1732,9 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   `tests/ad-hoc-pdfium-synctex.ts` compares two pages and their rectangles.
 - Plain-text URLs, e-mails and DOIs become links through MuPDF's shared
   linkifier, honoring `DisableAutoLinks`. PDFium uses the lazy MuPDF page
-  elements for unsupported actions, widgets and wrapped URLs. This restores
-  JavaScript menus, button navigation and joined URLs while ordinary links
-  stay on PDFium. `tests/ad-hoc-pdfium-links.ts` checks both engines.
+  elements for unsupported actions and widgets. Wrapped URLs join from
+  PDFium's page text without loading the editor. JavaScript menus and button
+  navigation still use MuPDF. `tests/ad-hoc-pdfium-links.ts` checks both engines.
   PDFium text still differs on some plain URLs (4 of 95 sampled pages).
 - PDFium extracts routine page text through its own text API. Character gaps,
   loose glyph boxes, line breaks and a CP-1251 font mapping preserve spacing,

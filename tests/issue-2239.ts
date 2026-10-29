@@ -73,30 +73,44 @@ export async function testit(): Promise<void> {
     "]";
   writeFileSync(annotPdf, makePdf(twoCol, annots));
 
-  await withControlledSumatra(EXE, async (client) => {
-    const twoColVals = await pageLinks(client, twoColPdf);
-    const glued = twoColVals.filter((v) => v.includes("Languagehat") && v.includes("archive.org"));
-    if (glued.length > 0) {
-      throw new Error(`issue-2239: two-column auto-link glued the next row: ${glued.join(", ")}`);
-    }
-    if (!twoColVals.includes("https://www.archive.org/")) {
-      throw new Error(`issue-2239: missing archive.org auto-link, got:\n${twoColVals.join("\n")}`);
-    }
-    if (!twoColVals.includes("https://languagehat.com/")) {
-      throw new Error(`issue-2239: missing languagehat.com auto-link, got:\n${twoColVals.join("\n")}`);
-    }
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      const twoColVals = await pageLinks(client, twoColPdf);
+      const glued = twoColVals.filter((v) => v.includes("Languagehat") && v.includes("archive.org"));
+      if (glued.length > 0) {
+        throw new Error(`issue-2239: two-column auto-link glued the next row: ${glued.join(", ")}`);
+      }
+      if (!twoColVals.includes("https://www.archive.org/")) {
+        throw new Error(`issue-2239: missing archive.org auto-link, got:\n${twoColVals.join("\n")}`);
+      }
+      if (!twoColVals.includes("https://languagehat.com/")) {
+        throw new Error(`issue-2239: missing languagehat.com auto-link, got:\n${twoColVals.join("\n")}`);
+      }
 
-    const wrapVals = await pageLinks(client, wrapPdf);
-    if (!wrapVals.includes("https://example.com/foo/bar")) {
-      throw new Error(`issue-2239: wrapped URL was not joined, got:\n${wrapVals.join("\n")}`);
-    }
+      const wrapVals = await pageLinks(client, wrapPdf);
+      if (!wrapVals.includes("https://example.com/foo/bar")) {
+        throw new Error(`issue-2239: wrapped URL was not joined, got:\n${wrapVals.join("\n")}`);
+      }
 
-    const annotVals = await pageLinks(client, annotPdf);
-    const gluedAnnot = annotVals.filter((v) => v.includes("Languagehat") && v.includes("archive.org"));
-    if (gluedAnnot.length > 0) {
-      throw new Error(`issue-2239: auto-link overlapped a real annot: ${gluedAnnot.join(", ")}`);
-    }
-  });
+      const current = await client.request(ControlCommand.TestCurrentPdf, [""]);
+      if (!String(current[1]).includes("link=https://example.com/foo/bar")) {
+        throw new Error(`issue-2239: current page lost wrapped link: ${current[1]}`);
+      }
+      const editor = await client.request(ControlCommand.TestCurrentPdf, ["editor"]);
+      if (editor[1] !== "editor=none") {
+        throw new Error(`issue-2239: wrapped URL loaded editor: ${editor[1]}`);
+      }
+
+      const annotVals = await pageLinks(client, annotPdf);
+      const gluedAnnot = annotVals.filter((v) => v.includes("Languagehat") && v.includes("archive.org"));
+      if (gluedAnnot.length > 0) {
+        throw new Error(`issue-2239: auto-link overlapped a real annot: ${gluedAnnot.join(", ")}`);
+      }
+    },
+    [wrapPdf],
+    { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
+  );
 }
 
 if (import.meta.main) {

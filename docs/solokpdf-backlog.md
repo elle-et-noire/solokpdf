@@ -44,7 +44,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | --- | ---------------------------- | ---------------------------- | ------------------------------------------------------------- |
 | B14 | PDFium text extraction       | B7 text group                | done — Extract PDFium text without routine editor loads (B14) |
 | B15 | PDFium search                | B7 search group              | done — Join PDFium hyphenated search text (fixes #1189)       |
-| B16 | PDFium links                 | B7 links group               | done — Fix PDFium links (fixes #1198)                         |
+| B16 | PDFium links                 | B7 links group               | done — Link wrapped URLs in PDFium (fixes #2239)              |
 | B17 | PDFium annotations           | B7 annotations group         | todo                                                          |
 | B18 | PDFium images                | B7 images group              | done — Enable PDFium image actions (fixes #6214)              |
 | B19 | PDFium fit content           | B7 layout group              | todo                                                          |

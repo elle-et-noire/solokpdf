@@ -1174,12 +1174,8 @@ class EnginePdfium : public EngineBase {
     }
 
     // Plain-text URLs, e-mails and DOIs, skipping those covered by a link annotation (like EngineMupdf).
-    // PDFium's "\r\n" line breaks keep wrapped URLs unjoined, as MuPDF's soft line joins do.
     void AddAutoLinks(FPDF_PAGE page, int pageNo, PdfiumPage* info) {
         PageText text = ReadPageText(page, info);
-        if (str::Contains(text.text, StrL("/\r\n")) || str::Contains(text.text, StrL("/\n"))) {
-            info->useMupdfElements = true;
-        }
         StrVec urls;
         Vec<RectF> rects;
         LinkifyPageText(text.text, text.coords, urls, rects);
