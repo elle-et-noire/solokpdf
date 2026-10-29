@@ -225,8 +225,10 @@ $env:SOLOKPDF_ENGINE = 'mupdf'
 Remove-Item Env:SOLOKPDF_ENGINE
 ```
 
-The wrapper regenerates official projects with `--with-pdfium`. Ordinary
-`bin/premake5.exe vs2022` regenerates the upstream configuration. Generated
+The wrapper generates `vs2026/` (ignored, toolset v145) with `--with-pdfium`
+and builds its `.slnx` through `SUMATRA_SLN`, so the committed `vs2022/`
+projects stay upstream's. `bin/premake5.exe vs2022` regenerates those; they
+still need `env.ps1 -Toolset v145` where v143 is missing. Generated
 projects should not be hand-edited or relied on as the source of the option.
 `cmd/run-unit-tests.ts` also regenerates **without** this option: it is the
 upstream unit baseline, not the PDFium build/test entry point. Use the targeted

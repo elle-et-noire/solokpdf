@@ -126,6 +126,11 @@ function winver7_defines()
   filter "platforms:arm64"
   toolset "v145"
   filter {}
+
+  -- SolokPDF's VS 2026 projects (cmd/solok-build.ts) use the installed toolset
+  filter "action:vs2026"
+  toolset "v145"
+  filter {}
 end
 
 function winver_latest_defines()
@@ -461,6 +466,10 @@ workspace "SumatraPDF"
 
   filter "action:vs2022"
     location "vs2022"
+  filter {}
+
+  filter "action:vs2026"
+    location "vs2026"
   filter {}
 
   filter "action:ninja"

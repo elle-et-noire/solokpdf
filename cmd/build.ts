@@ -6,6 +6,9 @@ import { clearDirPreserveSettings } from "./clean";
 import { ensureNinja, ninjaDir, ninjaToRoot } from "./ninja";
 import { detectVisualStudio2026, runLogged } from "./util";
 
+// cmd/solok-build.ts points this at its own VS 2026 solution
+const slnPath = process.env.SUMATRA_SLN ?? String.raw`vs2022\SumatraPDF.sln`;
+
 type BuildMode = "windows" | "all" | "smoke" | "ci" | "daily" | "codeql" | "build-no";
 type Config = "debug" | "release" | "profile";
 
@@ -165,12 +168,7 @@ function formatElapsed(ms: number): string {
 async function buildApp(msbuildPath: string, configName: string, platform: string, target: string): Promise<void> {
   const targets = ["PdfFilter", "PdfPreview", "sumatrapdf-tool", target];
   for (const name of targets) {
-    await runLogged(msbuildPath, [
-      String.raw`vs2022\SumatraPDF.sln`,
-      `/t:${name}`,
-      `/p:Configuration=${configName};Platform=${platform}`,
-      "/m",
-    ]);
+    await runLogged(msbuildPath, [slnPath, `/t:${name}`, `/p:Configuration=${configName};Platform=${platform}`, "/m"]);
   }
 }
 
@@ -274,7 +272,7 @@ async function buildWindowsAsan(config: Config, clean: boolean, ninja: boolean):
     await buildNinja([join(ninjaToRoot, outDir, "SumatraPDF-static.exe")]);
   } else {
     await runLogged(msbuildPath, [
-      String.raw`vs2022\SumatraPDF.sln`,
+      slnPath,
       "/t:SumatraPDF-static",
       `/p:Configuration=${configName};Platform=x64_asan`,
       "/m",
@@ -294,12 +292,7 @@ async function buildAll(clean: boolean, ninja: boolean): Promise<void> {
   } else {
     const { msbuildPath } = detectVisualStudio2026();
     await buildApp(msbuildPath, "Release", "x64", "SumatraPDF");
-    await runLogged(msbuildPath, [
-      String.raw`vs2022\SumatraPDF.sln`,
-      "/t:SumatraPDF-static",
-      "/p:Configuration=Release;Platform=x64",
-      "/m",
-    ]);
+    await runLogged(msbuildPath, [slnPath, "/t:SumatraPDF-static", "/p:Configuration=Release;Platform=x64", "/m"]);
   }
   printBinaries(outDir, new Set(["SumatraPDF.exe", "SumatraPDF-static.exe"]));
 }

@@ -32,11 +32,6 @@ jobs:
         with:
           path: .work/pdfium
           key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
-      - name: Set toolset
-        shell: pwsh
-        run: |
-          . ./tools/solokpdf/env.ps1 -Toolset v145
-          "ForceImportBeforeCppProps=$env:ForceImportBeforeCppProps" >> $env:GITHUB_ENV
       - name: Build debug
         run: bun cmd/solok-build.ts -dbg
       - name: Run unit tests
@@ -80,11 +75,6 @@ jobs:
         with:
           path: .work/pdfium
           key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
-      - name: Set toolset
-        shell: pwsh
-        run: |
-          . ./tools/solokpdf/env.ps1 -Toolset v145
-          "ForceImportBeforeCppProps=$env:ForceImportBeforeCppProps" >> $env:GITHUB_ENV
       - name: Build release
         run: bun cmd/solok-build.ts -rel
       - name: Upload portable ZIP

@@ -10,8 +10,14 @@ if (args.length > 1 || (args.length === 1 && !["-dbg", "-rel"].includes(args[0])
 const config = args[0] ?? "-dbg";
 const pdfium = await fetchPdfium();
 if (!existsSync(join(pdfium, "include/fpdfview.h"))) throw new Error("PDFium headers are missing");
-await runLogged(join("bin", "premake5.exe"), ["--with-pdfium", "vs2022"]);
-await runLogged(process.execPath, ["cmd/build.ts", config]);
+// vs2022/ stays upstream's; the PDFium projects go to the ignored vs2026/
+await runLogged(join("bin", "premake5.exe"), ["--with-pdfium", "vs2026"]);
+console.log(`> bun cmd/build.ts ${config}`);
+const build = Bun.spawn([process.execPath, "cmd/build.ts", config], {
+  env: { ...process.env, SUMATRA_SLN: join("vs2026", "SumatraPDF.slnx") },
+  stdio: ["inherit", "inherit", "inherit"],
+});
+if ((await build.exited) !== 0) throw new Error("cmd/build.ts failed");
 const out = join("out", config === "-rel" ? "rel64" : "dbg64");
 copyFileSync(join(pdfium, "bin/pdfium.dll"), join(out, "pdfium.dll"));
 const portable = join("out", config === "-rel" ? "solokpdf-portable" : "solokpdf-dev");

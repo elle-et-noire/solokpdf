@@ -9,16 +9,17 @@ Build the portable development version:
 ```powershell
 # Install Bun first. These build-only packages stay outside the source tree.
 New-Item -ItemType Directory -Force .work/build-deps | Out-Null
-. ./tools/solokpdf/env.ps1 -Toolset v145 # v143 can be selected if installed; untested here
+. ./tools/solokpdf/env.ps1
 bun add --cwd .work/build-deps minio@8.0.6 prettier@3.6.2
 bun cmd/solok-build.ts -dbg            # or -rel
 ./out/solokpdf-dev/SolokPDF.exe -for-testing paper.pdf
 ```
 
 The wrapper verifies a pinned Windows x64 PDFium archive, regenerates projects
-with official Premake, invokes the original build script and stages a portable
-folder with license notices. Debug output is `out/solokpdf-dev/`; release output
-is `out/solokpdf-portable/`. PDBs are for development, not required to run.
+with official Premake into the ignored `vs2026/` (toolset v145), invokes the
+original build script and stages a portable folder with license notices. Debug
+output is `out/solokpdf-dev/`; release output is `out/solokpdf-portable/`. PDBs
+are for development, not required to run.
 Debug and Release GUI integration tests passed. The verified portable Release
 archive is `out/SolokPDF-experimental-x64.zip`.
 
