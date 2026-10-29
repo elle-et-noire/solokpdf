@@ -49,7 +49,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B18 | PDFium images                | B7 images group              | done — Enable PDFium image actions (fixes #6214)              |
 | B19 | PDFium fit content           | B7 layout group              | done — Fit PDFium content bounds (fixes #6241)                |
 | B20 | PDFium page boxes            | B7 page boxes group          | done — Report PDFium page boxes (fixes #814)                  |
-| B21 | PDFium CAD enhance           | B7 CAD group                 | todo                                                          |
+| B21 | PDFium CAD enhance           | B7 CAD group                 | blocked — PDFium lacks CAD render controls; color changes barred                                                          |
 | B22 | PDFium bookmark colors       | B7 rendering group           | done — Honor PDFium bookmark styles (fixes #3560)                                                          |
 | B23 | PDFium scroll responsiveness | B7 responsiveness group      | done — Avoid PDFium TOC lock on scroll (fixes #6362)                                                          |
 | B24 | PDFium XMP properties        | B7 XMP group                 | done — Fill PDFium XMP properties from lazy editor                                                          |

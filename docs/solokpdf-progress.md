@@ -1679,6 +1679,8 @@ PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a render-device
 pass to vector strokes, text and narrow fills, adjusts minimum line width, and
 darkens raster drawings; PDFium has no equivalent per-render control. The toggle
 continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
+`issue-6361` detects raster CAD on MuPDF and fails on PDFium. Detection without
+the prohibited PDFium color processing would leave the drawing unchanged (B21).
 
 - PDFium handles file-backed PDFs, in-memory attachments, `.p7m` PDFs and Kindle
   Print Replica. The shell preview/filter DLLs and PDFs generated inside other
