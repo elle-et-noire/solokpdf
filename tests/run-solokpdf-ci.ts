@@ -18,6 +18,7 @@ import { testit as synctex } from "./ad-hoc-pdfium-synctex.ts";
 import { testit as tools } from "./ad-hoc-pdfium-tools.ts";
 import { testit as textExtraction } from "./ad-hoc-pdfium-text.ts";
 import { testit as dehyphen } from "./ad-hoc-pdfium-dehyphen.ts";
+import { testit as links } from "./ad-hoc-pdfium-links.ts";
 import { testit as unsupported } from "./ad-hoc-pdfium-unsupported.ts";
 import { testit as windowBg } from "./ad-hoc-pdfium-window-bg.ts";
 import { testit as vimKeys } from "./ad-hoc-vim-keys.ts";
@@ -33,6 +34,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-tools", tools],
   ["ad-hoc-pdfium-text", textExtraction],
   ["ad-hoc-pdfium-dehyphen", dehyphen],
+  ["ad-hoc-pdfium-links", links],
   ["ad-hoc-pdfium-outline", outline],
   ["ad-hoc-pdfium-unsupported", unsupported],
   ["ad-hoc-pdfium-permissions", permissions],

@@ -1731,11 +1731,11 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   boxes for legacy `.pdfsync`. Neither path loads the hidden editor.
   `tests/ad-hoc-pdfium-synctex.ts` compares two pages and their rectangles.
 - Plain-text URLs, e-mails and DOIs become links through MuPDF's shared
-  linkifier, honoring `DisableAutoLinks`. URL links matched MuPDF on 91 of 95
-  Attention/BERT/IPA pages; the rest differ in text extraction (e.g. PDFium
-  spaces a footnote mark from a URL, so it links). Like MuPDF, wrapped URLs are
-  not joined. Text is read on first link query, not at startup; link-query
-  round trips stayed within their 20–60 ms noise.
+  linkifier, honoring `DisableAutoLinks`. PDFium uses the lazy MuPDF page
+  elements for unsupported actions, widgets and wrapped URLs. This restores
+  JavaScript menus, button navigation and joined URLs while ordinary links
+  stay on PDFium. `tests/ad-hoc-pdfium-links.ts` checks both engines.
+  PDFium text still differs on some plain URLs (4 of 95 sampled pages).
 - Requested PDFium text extraction uses the lazy MuPDF editor's page text,
   preserving form appearances, word spacing, Unicode and selection bounds.
   Ordinary PDF open and rendering stay on PDFium; the editor loads on the

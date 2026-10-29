@@ -13,7 +13,7 @@ import { sleep, waitForTopWindow } from "./winapi";
 
 // 2 pages. Page 1 carries a pushbutton widget (/FT /Btn with the pushbutton
 // flag) whose action jumps to page 2; there is no /Link annotation anywhere.
-function makePushButtonPdf(): Buffer {
+export function makePushButtonPdf(): Buffer {
   const enc = (s: string) => Buffer.from(s, "latin1");
   const body: Record<number, Buffer> = {};
   body[1] = enc("<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [7 0 R] >> >>");

@@ -244,6 +244,7 @@ struct PdfiumPage {
     bool linksLoaded = false;
     bool hasFileAttachments = false;
     bool attachmentLinksLoaded = false;
+    bool useMupdfElements = false;
     Vec<IPageElement*> links;
     // photos a themed page keeps in their colors, in page space
     bool imagesLoaded = false;
@@ -1033,6 +1034,9 @@ class EnginePdfium : public EngineBase {
     // PDFium's "\r\n" line breaks keep wrapped URLs unjoined, as MuPDF's soft line joins do.
     void AddAutoLinks(FPDF_PAGE page, int pageNo, PdfiumPage* info) {
         PageText text = ReadPageText(page, info);
+        if (str::Contains(text.text, StrL("/\r\n")) || str::Contains(text.text, StrL("/\n"))) {
+            info->useMupdfElements = true;
+        }
         StrVec urls;
         Vec<RectF> rects;
         LinkifyPageText(text.text, text.coords, urls, rects);
@@ -1133,6 +1137,7 @@ class EnginePdfium : public EngineBase {
         }
         if (needsMupdf) {
             AddMupdfLinks(pageNo, info);
+            info->useMupdfElements = true;
         }
         if (!disableAutoLinks) {
             AddAutoLinks(page, pageNo, info);
@@ -1144,6 +1149,9 @@ class EnginePdfium : public EngineBase {
                 continue;
             }
             bool isAttachment = gPdfium.FPDFAnnot_GetSubtype(annot) == FPDF_ANNOT_FILEATTACHMENT;
+            if (gPdfium.FPDFAnnot_GetSubtype(annot) == FPDF_ANNOT_WIDGET) {
+                info->useMupdfElements = true;
+            }
             gPdfium.FPDFPage_CloseAnnot(annot);
             if (isAttachment) {
                 info->hasFileAttachments = true;
@@ -1850,6 +1858,7 @@ class EnginePdfium : public EngineBase {
     }
 
     Vec<IPageElement*> GetElements(int pageNo) override {
+        bool useMupdf = false;
         {
             ScopedMutex lock(&gPdfiumLock);
             auto* info = Page(pageNo);
@@ -1857,8 +1866,16 @@ class EnginePdfium : public EngineBase {
                 return Vec<IPageElement*>();
             }
             LoadLinks(pageNo, info);
-            if (!info->hasFileAttachments || info->attachmentLinksLoaded) {
+            useMupdf = info->useMupdfElements;
+            if (!useMupdf && (!info->hasFileAttachments || info->attachmentLinksLoaded)) {
                 return info->links;
+            }
+        }
+
+        if (useMupdf) {
+            EngineBase* source = AnnotationEditor(EditorLoad::Load);
+            if (source && source->BenchLoadPage(pageNo)) {
+                return source->GetElements(pageNo);
             }
         }
 
@@ -1907,6 +1924,10 @@ class EnginePdfium : public EngineBase {
     bool HandleLink(IPageDestination* dest, ILinkHandler* handler) override {
         if (!dest || !handler) {
             return false;
+        }
+        if (dest->GetKind() == kindDestinationMupdf) {
+            EngineBase* source = AnnotationEditor(EditorLoad::IfLoaded);
+            return source && source->HandleLink(dest, handler);
         }
         handler->GotoLink(dest);
         return true;

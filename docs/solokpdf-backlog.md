@@ -44,7 +44,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | --- | ---------------------------- | ---------------------------- | ------------------------------------------------------------------------ |
 | B14 | PDFium text extraction       | B7 text group                | done — Match MuPDF text extraction on PDFium tabs (B14)                  |
 | B15 | PDFium search                | B7 search group              | done — Cover dehyphenated PDFium search (B15); resolved by B14 text path |
-| B16 | PDFium links                 | B7 links group               | todo                                                                     |
+| B16 | PDFium links                 | B7 links group               | done — Fix PDFium links (fixes #1198)                                    |
 | B17 | PDFium annotations           | B7 annotations group         | todo                                                                     |
 | B18 | PDFium images                | B7 images group              | todo                                                                     |
 | B19 | PDFium fit content           | B7 layout group              | todo                                                                     |

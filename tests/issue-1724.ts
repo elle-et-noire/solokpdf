@@ -53,7 +53,7 @@ export async function testit(): Promise<void> {
       throw new Error(`expected 4 links, got ${values.length}:\n${out}`);
     }
 
-    const inDoc = values.filter((v) => v.kind === "destinationMupdf");
+    const inDoc = values.filter((v) => v.kind === "destinationMupdf" || v.kind === "scrollTo");
     const external = values.filter((v) => v.kind === "launchURL");
     if (inDoc.length !== 2 || external.length !== 2) {
       throw new Error(`expected 2 links inside the document and 2 external ones:\n${out}`);
