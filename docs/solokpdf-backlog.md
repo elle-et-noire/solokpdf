@@ -54,7 +54,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B23 | PDFium scroll responsiveness | B7 responsiveness group      | done — Avoid PDFium TOC lock on scroll (fixes #6362)                                                          |
 | B24 | PDFium XMP properties        | B7 XMP group                 | done — Fill PDFium XMP properties from lazy editor                                                          |
 | B25 | Restore lazy session tab     | B7 R: lazy tab no-doc        | blocked — test seeds wrong file and disables opened-file memory                                                          |
-| B26 | PDFium comment authors       | B7 R: issue-5329             | todo                                                          |
+| B26 | PDFium comment authors       | B7 R: issue-5329             | done — Verify PDFium comment authors                                                          |
 | B27 | PDFium external images       | B7 R: issue-3731             | todo                                                          |
 | B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | todo                                                          |
 | B29 | PDFium trim margins          | B7 P: issue-trim-margins     | todo                                                          |

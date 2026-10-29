@@ -1775,6 +1775,8 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
 - PDFium loads the editor when an annotated page needs comment elements and
   before the first annotation journal operation. Plain-page render and hover
   leave it unloaded. The markup diagnostic now reads annotations from all pages.
+  `issue-5329` passes on both engines after seeding the active settings file;
+  annotation tooltips include authors when enabled (B26).
   Redaction apply still saves and reloads the PDFium tab, losing undo history.
   Cursor-driven annotation checks also need an unlocked Windows session.
 - Applying redactions on a PDFium tab uses that already loaded MuPDF editor,

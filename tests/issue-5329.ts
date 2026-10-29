@@ -4,7 +4,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath, assemblePdf } from "./util.ts";
+import { EXE, runStandalone, tmpPath, assemblePdf, SETTINGS_FILE } from "./util.ts";
 
 function makePdf(): string {
   const annots = [
@@ -41,7 +41,7 @@ async function readComments(pdf: string, mode: AuthorMode): Promise<string[]> {
   const appdata = tmpPath(`issue-5329-${showAuthor ? "author" : "default"}`);
   mkdirSync(appdata, { recursive: true });
   const settings = showAuthor ? "ShowAnnotationAuthorInTooltip = true\n" : "";
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), settings);
+  writeFileSync(join(appdata, SETTINGS_FILE), settings);
 
   const raw = await withControlledSumatra(
     EXE,
