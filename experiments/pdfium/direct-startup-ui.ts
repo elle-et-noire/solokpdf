@@ -323,7 +323,7 @@ async function main() {
     rows.push(row);
     save();
     console.log(
-      `${id}: first idle ${row.firstIdleMs.toFixed(1)}ms, private ${(row.settled.memory.privateBytes / mib).toFixed(1)} MiB, pixels ${((row.pixelBytes ?? 0) / mib).toFixed(1)} MiB, other CPU ${row.background.meanPercent.toFixed(1)}/${row.background.p95Percent.toFixed(1)}%, font cache ${row.fontCache ?? "-"}, ${row.reasons.join(",") || "eligible"}`,
+      `${id}: first idle ${row.firstIdleMs.toFixed(1)}ms, private ${(row.settled.memory.privateBytes / mib).toFixed(1)} MiB, pixels ${((row.pixelBytes ?? 0) / mib).toFixed(1)} MiB, other CPU ${row.background?.meanPercent.toFixed(1) ?? "-"}/${row.background?.p95Percent.toFixed(1) ?? "-"}%, font cache ${row.fontCache ?? "-"}, ${row.reasons.join(",") || "eligible"}`,
     );
     return row;
   }
