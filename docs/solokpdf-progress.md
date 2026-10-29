@@ -1670,6 +1670,11 @@ dark-mode epoch. B6 needs no engine invalidation.
 
 ## Known limitations and next work
 
+PDFium reuses its loaded bookmark tree without taking the global render lock.
+`issue-6362` now scrolls and changes pages while a slow page draws without
+stalling; MuPDF and PDFium both pass. Non-blocking PDFium text and element
+queries (B11) remain separate work.
+
 PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a render-device
 pass to vector strokes, text and narrow fills, adjusts minimum line width, and
 darkens raster drawings; PDFium has no equivalent per-render control. The toggle

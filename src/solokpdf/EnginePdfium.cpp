@@ -621,7 +621,7 @@ class EnginePdfium : public EngineBase {
     Vec<IPageDestination*> namedDests;
     StrVec pageLabels;
     TocTree* toc = nullptr;
-    bool tocLoaded = false;
+    AtomicInt tocLoaded = 0;
     bool tocFromEditor = false;
     // PDFium can't write most annotation properties, so an EngineMupdf of the file edits them and,
     // once loaded, draws them over PDFium's pages. Saving writes MuPDF's incremental update.
@@ -2236,11 +2236,14 @@ class EnginePdfium : public EngineBase {
         if (headings) {
             return headings;
         }
+        if (AtomicIntGet(&tocLoaded)) {
+            return toc;
+        }
         bool hasAttachments = false;
         bool needsMupdf = false;
         {
             ScopedMutex lock(&gPdfiumLock);
-            if (tocLoaded) {
+            if (AtomicIntGet(&tocLoaded)) {
                 return toc;
             }
             hasAttachments = gPdfium.FPDFDoc_GetAttachmentCount(doc) > 0;
@@ -2253,10 +2256,10 @@ class EnginePdfium : public EngineBase {
             TocTree* sourceToc = source ? source->GetToc() : nullptr;
             if (sourceToc) {
                 ScopedMutex lock(&gPdfiumLock);
-                if (!tocLoaded) {
+                if (!AtomicIntGet(&tocLoaded)) {
                     toc = sourceToc;
                     tocFromEditor = true;
-                    tocLoaded = true;
+                    AtomicIntSet(&tocLoaded, 1);
                 }
                 return toc;
             }
@@ -2266,7 +2269,7 @@ class EnginePdfium : public EngineBase {
         TocTree* editorToc = hasAttachments ? EngineMupdfAttachmentToc(this) : nullptr;
 
         ScopedMutex lock(&gPdfiumLock);
-        if (tocLoaded) {
+        if (AtomicIntGet(&tocLoaded)) {
             return toc;
         }
         PdfiumProfile profile(StrL("outline"));
@@ -2297,7 +2300,7 @@ class EnginePdfium : public EngineBase {
         if (root->child) {
             toc = AllocTocTree(arena, root);
         }
-        tocLoaded = true;
+        AtomicIntSet(&tocLoaded, 1);
         profile.Mark(StrL("read"));
         return toc;
     }
