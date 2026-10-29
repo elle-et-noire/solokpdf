@@ -9,7 +9,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cmdId, runStandalone, tmpPath, crc32 } from "./util.ts";
+import { SETTINGS_FILE, cmdId, runStandalone, tmpPath, crc32 } from "./util.ts";
 import { ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
 import { findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
@@ -123,7 +123,7 @@ function writeAppData(dir: string, spacing: string): string {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     [
       "RestoreSession = false",
       "CheckForUpdates = false",

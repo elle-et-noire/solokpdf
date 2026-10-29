@@ -9,7 +9,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
-import { assemblePdf, runStandalone, tmpPath, USE_NG } from "./util";
+import { SETTINGS_FILE, assemblePdf, runStandalone, tmpPath, USE_NG } from "./util";
 import { captureWindowPixels, getClientRect, sleep } from "./winapi";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation";
 
@@ -65,7 +65,7 @@ async function checkTheme(theme: string, wantFrame: string, wantEdge: string): P
   const pdf = join(dir, "doc.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     [
       "UiLanguage = en",
       "CheckForUpdates = false",

@@ -7,7 +7,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient } from "./control.ts";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, cmdId, runStandalone, tmpPath } from "./util.ts";
 import {
   killAndWait,
   launchControlled,
@@ -63,7 +63,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath(kTag);
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  const settingsPath = join(appdata, "SumatraPDF-settings.txt");
+  const settingsPath = join(appdata, SETTINGS_FILE);
   const logPath = join(appdata, "log.txt");
   writeFileSync(settingsPath, settingsText("true"));
 

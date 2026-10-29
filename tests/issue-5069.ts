@@ -18,7 +18,7 @@
 // Run:  bun tests/issue-5069.ts [--no-build]
 
 import { writeFileSync, mkdirSync, rmSync } from "node:fs";
-import { runStandalone, tmpPath, makeTopBottomPdf } from "./util.ts";
+import { SETTINGS_FILE, runStandalone, tmpPath, makeTopBottomPdf } from "./util.ts";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { launchControlled, findCanvas, killAndWait, ensureModifierKeysUp } from "./win-automation.ts";
 import { sendMessage, getScrollPos, sleep, SB_VERT } from "./winapi.ts";
@@ -65,7 +65,7 @@ async function openZoomed(name: string, settings: string[]): Promise<Session> {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    `${appdata}/SumatraPDF-settings.txt`,
+    `${appdata}/${SETTINGS_FILE}`,
     ["RestoreSession = false", "SmoothScroll = false", ...settings, ""].join("\n"),
   );
 

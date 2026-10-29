@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
 import { clickAt, findCanvas, waitForFrame } from "./win-automation.ts";
 import { getClientRect } from "./winapi.ts";
-import { EXE, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, EXE, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
 
 // This test is about geometry -- which fifth of the canvas a click lands in,
 // and which page the viewport then reports -- so it pins the window instead of
@@ -138,7 +138,7 @@ export async function testit(): Promise<void> {
   const onDir = tmpPath("issue-1203-on");
   rmSync(onDir, { recursive: true, force: true });
   mkdirSync(onDir, { recursive: true });
-  writeFileSync(join(onDir, "SumatraPDF-settings.txt"), `${SETTINGS_HEAD}ClickEdgeToTurnPage = true\n`);
+  writeFileSync(join(onDir, SETTINGS_FILE), `${SETTINGS_HEAD}ClickEdgeToTurnPage = true\n`);
 
   await withControlledSumatra(
     EXE,
@@ -164,7 +164,7 @@ export async function testit(): Promise<void> {
   const offDir = tmpPath("issue-1203-off");
   rmSync(offDir, { recursive: true, force: true });
   mkdirSync(offDir, { recursive: true });
-  writeFileSync(join(offDir, "SumatraPDF-settings.txt"), `${SETTINGS_HEAD}ClickEdgeToTurnPage = false\n`);
+  writeFileSync(join(offDir, SETTINGS_FILE), `${SETTINGS_HEAD}ClickEdgeToTurnPage = false\n`);
 
   await withControlledSumatra(
     EXE,

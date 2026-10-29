@@ -10,7 +10,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, ROOT, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, EXE, ROOT, runStandalone, tmpPath } from "./util.ts";
 
 const CBZ = join(ROOT, "tests", "issue-1201.cbz");
 
@@ -70,7 +70,7 @@ async function openZoom(file: string, extra: string, label: string): Promise<str
   const dir = tmpPath(`issue-5946-${label}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), `${SETTINGS_HEAD}${extra}\n`);
+  writeFileSync(join(dir, SETTINGS_FILE), `${SETTINGS_HEAD}${extra}\n`);
   return withControlledSumatra(EXE, (client) => queryZoom(client), ["-appdata", dir, file]);
 }
 

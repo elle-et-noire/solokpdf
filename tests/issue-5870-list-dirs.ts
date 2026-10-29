@@ -10,7 +10,7 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
-import { ROOT, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util";
+import { SETTINGS_FILE, ROOT, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util";
 import { getWindowRect, postMessage, readWindowDCColumn, sleep, waitForWindowIdle, withWindowDC } from "./winapi";
 import { findCanvas, launchControlled, launchSumatra, waitForFrame, killAndWait } from "./win-automation";
 
@@ -138,7 +138,7 @@ export async function testit(): Promise<void> {
     states.push(`\t[\n\t\tFilePath = ${p}\n\t\tOpenCount = ${nFiles - i}\n\t]`);
   }
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = true\n` +
       `HomePageViewMode = list\nFileStates [\n${states.join("\n")}\n]\n`,
   );

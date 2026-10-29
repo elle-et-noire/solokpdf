@@ -1937,10 +1937,10 @@ still needs GPUI input, hints, marks, and command-line UI.
 
 ## Full-suite triage (2026-10-29)
 
-The two supplied Actions runs stopped in `issue-5979` after 379 of 462 eligible
-tests; they used different commits. Of 97 distinct failures observed, 27 occurred
-only on PDFium, 59 reflect SolokPDF settings/product names, five are runner or
-test-harness failures, three expose further bugs, and two occurred only on
-MuPDF. One lacks a paired result. The full table and PDFium groups are in
-[solokpdf-full-suite-triage.md](solokpdf-full-suite-triage.md). The 83 tests
-after `issue-5979` were not observed in either supplied log.
+The complete paired Actions logs at `e7de6e7ac` reached all 462 eligible
+tests on each engine. PDFium passed 342 and MuPDF passed 370; 122 distinct
+tests failed (P30 S80 R5 E5 M2). The 83 tests missed by earlier partial logs
+include PDFium selection, TOC and margin gaps, two shared UI hangs, and more
+tests using the upstream settings/product name. Their classification and the
+test-only path fixes are in
+[solokpdf-full-suite-triage.md](solokpdf-full-suite-triage.md).

@@ -10,7 +10,7 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { IS_WIN } from "./host.ts";
-import { EXE, USE_NG, runStandalone, tmpPath } from "./util.ts";
+import { APP_NAME, EXE, USE_NG, runStandalone, tmpPath } from "./util.ts";
 
 const PAYLOAD = ["libsumatrapdf.dll", "PdfFilter.dll", "PdfPreview.dll", "sumatrapdf-tool.exe"];
 
@@ -56,7 +56,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("issue-6003");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  const copied = join(dir, "SumatraPDF.exe");
+  const copied = join(dir, `${APP_NAME}.exe`);
   copyFileSync(EXE, copied);
   const outDir = join(dir, "out");
   mkdirSync(outDir);
@@ -69,14 +69,14 @@ export async function testit(): Promise<void> {
   if (toOut.exitCode !== 0) {
     throw new Error(`issue-6003: -x -d out exited ${toOut.exitCode}:\n${toOut.out}`);
   }
-  mustExist(outDir, ["SumatraPDF.exe", ...PAYLOAD]);
+  mustExist(outDir, [`${APP_NAME}.exe`, ...PAYLOAD]);
 
   // no -d: a sumatra-files directory under the current one
   const bare = runExtract(copied, dir, ["-x"]);
   if (bare.exitCode !== 0) {
     throw new Error(`issue-6003: -x exited ${bare.exitCode}:\n${bare.out}`);
   }
-  mustExist(join(dir, "sumatra-files"), ["SumatraPDF.exe", ...PAYLOAD]);
+  mustExist(join(dir, "sumatra-files"), [`${APP_NAME}.exe`, ...PAYLOAD]);
   for (const name of PAYLOAD) {
     if (existsSync(join(dir, name))) {
       throw new Error(`issue-6003: -x without -d unpacked '${name}' into the current directory`);

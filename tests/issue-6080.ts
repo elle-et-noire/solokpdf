@@ -5,7 +5,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { getWorkArea, sendCopyDataW, sleep } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
@@ -59,7 +59,7 @@ export async function testit(): Promise<void> {
   writeFileSync(pdfA, makePdf(), "latin1");
   writeFileSync(pdfB, makePdf(), "latin1");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "CheckForUpdates = false\nRestoreSession = false\nShowStartPage = false\nShowToc = false\nShowFavorites = false\nUseTabs = true\nSidebarWindowSize = grow\n",
   );
 

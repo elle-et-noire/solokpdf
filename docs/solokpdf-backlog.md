@@ -22,40 +22,43 @@ limitations in `solokpdf-progress.md`, and the upstream full suite
 
 Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
-| ID  | Item                                                                                                                                                                         | Where                                                                                            | Status                                                                                                  |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| B13 | Hovering a page loads the hidden MuPDF editor for every PDF (Canvas `OnMouseMove` -> `GetAnnotationAtPos`), costing open time and memory and locking files of 32 MiB or more | `Canvas.cpp`, `EngineMupdfGetAnnotationAtPos`                                                    | done — Avoid MuPDF editor on plain PDF hover                                                            |
-| B1  | SyncTeX forward and inverse search                                                                                                                                           | `SumatraPDF.cpp` (pdfSync setup), `SearchAndDDECommon.cpp` `OnInverseSearch`, forward-search DDE | done — Enable SyncTeX on PDFium tabs                                                                    |
-| B2  | PDF `/ViewerPreferences` print defaults (#534)                                                                                                                               | `Print.cpp` `GetPdfViewerPrintPrefs`                                                             | done — Honor PDF print defaults in PDFium (fixes #534)                                                  |
-| B3  | Document Properties creation/modification date formatting                                                                                                                    | `DocumentPropertiesCommon.cpp` `isPdfDate`                                                       | done — Format PDFium document dates                                                                     |
-| B4  | `FixedPageUI.WindowBgCol` page-surround color                                                                                                                                | `Canvas.cpp` `isPdf`                                                                             | done — Apply fixed-page background to PDFium tabs                                                       |
-| B5  | Engineering-drawing enhance (`CmdToggleEngineeringDrawingEnhance`): implement for PDFium or hide it                                                                          | `EngineMupdfToggleCadEnhance`                                                                    | done — Hide CAD enhance on PDFium tabs; B21 matches                                                     |
-| B6  | Theme change drops cached dark-mode analysis for PDFium tabs                                                                                                                 | `EngineMupdfInvalidateDarkMode`                                                                  | done — Verify PDFium theme transitions (no change needed)                                               |
-| B8  | "Fit content" zoom (`PageContentBox` not implemented)                                                                                                                        | `EnginePdfium`                                                                                   | todo — B19 matches                                                                                      |
-| B9  | Copy/Save image under the cursor (`GetImageForPageElement`, `GetImageDataForPageElement`)                                                                                    | `EnginePdfium`                                                                                   | todo — B18 matches                                                                                      |
-| B10 | Page boxes query (`GetPdfPageBoxes`)                                                                                                                                         | `EnginePdfium`                                                                                   | todo — B20 matches                                                                                      |
-| B11 | Non-blocking `TryGetElements` / `TryExtractPageText` (UI thread waits otherwise)                                                                                             | `EnginePdfium`                                                                                   | todo — B23 matches                                                                                      |
-| B12 | Test comparing every command's visibility/enabled state between engines on the same PDF                                                                                      | `TestCommandVisibility`                                                                          | todo                                                                                                    |
-| B7  | Triage upstream full-suite failures                                                                                                                                          | full-suite run                                                                                   | triaged — 97 observed: P27 S59 E5 R3 M2 ?1; 83 not reached per run; Triage SolokPDF full-suite failures |
+| ID  | Item                                                                                                                                                                         | Where                                                                                            | Status                                                                                            |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| B13 | Hovering a page loads the hidden MuPDF editor for every PDF (Canvas `OnMouseMove` -> `GetAnnotationAtPos`), costing open time and memory and locking files of 32 MiB or more | `Canvas.cpp`, `EngineMupdfGetAnnotationAtPos`                                                    | done — Avoid MuPDF editor on plain PDF hover                                                      |
+| B1  | SyncTeX forward and inverse search                                                                                                                                           | `SumatraPDF.cpp` (pdfSync setup), `SearchAndDDECommon.cpp` `OnInverseSearch`, forward-search DDE | done — Enable SyncTeX on PDFium tabs                                                              |
+| B2  | PDF `/ViewerPreferences` print defaults (#534)                                                                                                                               | `Print.cpp` `GetPdfViewerPrintPrefs`                                                             | done — Honor PDF print defaults in PDFium (fixes #534)                                            |
+| B3  | Document Properties creation/modification date formatting                                                                                                                    | `DocumentPropertiesCommon.cpp` `isPdfDate`                                                       | done — Format PDFium document dates                                                               |
+| B4  | `FixedPageUI.WindowBgCol` page-surround color                                                                                                                                | `Canvas.cpp` `isPdf`                                                                             | done — Apply fixed-page background to PDFium tabs                                                 |
+| B5  | Engineering-drawing enhance (`CmdToggleEngineeringDrawingEnhance`): implement for PDFium or hide it                                                                          | `EngineMupdfToggleCadEnhance`                                                                    | done — Hide CAD enhance on PDFium tabs; B21 matches                                               |
+| B6  | Theme change drops cached dark-mode analysis for PDFium tabs                                                                                                                 | `EngineMupdfInvalidateDarkMode`                                                                  | done — Verify PDFium theme transitions (no change needed)                                         |
+| B8  | "Fit content" zoom (`PageContentBox` not implemented)                                                                                                                        | `EnginePdfium`                                                                                   | todo — B19 matches                                                                                |
+| B9  | Copy/Save image under the cursor (`GetImageForPageElement`, `GetImageDataForPageElement`)                                                                                    | `EnginePdfium`                                                                                   | todo — B18 matches                                                                                |
+| B10 | Page boxes query (`GetPdfPageBoxes`)                                                                                                                                         | `EnginePdfium`                                                                                   | todo — B20 matches                                                                                |
+| B11 | Non-blocking `TryGetElements` / `TryExtractPageText` (UI thread waits otherwise)                                                                                             | `EnginePdfium`                                                                                   | todo — B23 matches                                                                                |
+| B12 | Test comparing every command's visibility/enabled state between engines on the same PDF                                                                                      | `TestCommandVisibility`                                                                          | todo                                                                                              |
+| B7  | Triage upstream full-suite failures                                                                                                                                          | full-suite run                                                                                   | done — Triage complete paired full-suite logs (B7); 462 reached per engine, 122 distinct failures |
 
 ### B7 follow-ups
 
-| ID  | Item                         | Evidence                | Status |
-| --- | ---------------------------- | ----------------------- | ------ |
-| B14 | PDFium text extraction       | B7 text group           | todo   |
-| B15 | PDFium search                | B7 search group         | todo   |
-| B16 | PDFium links                 | B7 links group          | todo   |
-| B17 | PDFium annotations           | B7 annotations group    | todo   |
-| B18 | PDFium images                | B7 images group         | todo   |
-| B19 | PDFium fit content           | B7 layout group         | todo   |
-| B20 | PDFium page boxes            | B7 page boxes group     | todo   |
-| B21 | PDFium CAD enhance           | B7 CAD group            | todo   |
-| B22 | PDFium bookmark colors       | B7 rendering group      | todo   |
-| B23 | PDFium scroll responsiveness | B7 responsiveness group | todo   |
-| B24 | PDFium XMP properties        | B7 XMP group            | todo   |
-| B25 | Restore lazy session tab     | B7 R: lazy tab no-doc   | todo   |
-| B26 | PDFium comment authors       | B7 R: issue-5329        | todo   |
-| B27 | PDFium external images       | B7 R: issue-3731        | todo   |
+| ID  | Item                         | Evidence                     | Status |
+| --- | ---------------------------- | ---------------------------- | ------ |
+| B14 | PDFium text extraction       | B7 text group                | todo   |
+| B15 | PDFium search                | B7 search group              | todo   |
+| B16 | PDFium links                 | B7 links group               | todo   |
+| B17 | PDFium annotations           | B7 annotations group         | todo   |
+| B18 | PDFium images                | B7 images group              | todo   |
+| B19 | PDFium fit content           | B7 layout group              | todo   |
+| B20 | PDFium page boxes            | B7 page boxes group          | todo   |
+| B21 | PDFium CAD enhance           | B7 CAD group                 | todo   |
+| B22 | PDFium bookmark colors       | B7 rendering group           | todo   |
+| B23 | PDFium scroll responsiveness | B7 responsiveness group      | todo   |
+| B24 | PDFium XMP properties        | B7 XMP group                 | todo   |
+| B25 | Restore lazy session tab     | B7 R: lazy tab no-doc        | todo   |
+| B26 | PDFium comment authors       | B7 R: issue-5329             | todo   |
+| B27 | PDFium external images       | B7 R: issue-3731             | todo   |
+| B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | todo   |
+| B29 | PDFium trim margins          | B7 P: issue-trim-margins     | todo   |
+| B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | todo   |
 
 ## C. Coexistence with SumatraPDF
 

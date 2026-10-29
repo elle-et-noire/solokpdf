@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { withControlledSumatra } from "./control.ts";
 import { IS_WIN } from "./host.ts";
 import { makeFixtures } from "./ad-hoc-issue-4600.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, EXE, runStandalone, tmpPath } from "./util.ts";
 
 const SRC_FONT = "C:\\Windows\\Fonts\\arial.ttf";
 // same length as "Arial" so the name table is patched in place
@@ -44,7 +44,7 @@ async function fontMissing(epub: string, fontName: string): Promise<boolean> {
   rmSync(appData, { recursive: true, force: true });
   mkdirSync(appData, { recursive: true });
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     `UiLanguage = en
 CheckForUpdates = false
 RestoreSession = false

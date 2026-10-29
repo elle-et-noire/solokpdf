@@ -1,5 +1,76 @@
 # SolokPDF full-suite triage
 
+## Complete paired runs
+
+The PDFium and MuPDF logs in `.work/full-suite/*-full.log` each reached all 462
+eligible tests at `e7de6e7ac`, before the test-only fixes in `9653c39a3`.
+PDFium passed 342 and failed 120; MuPDF passed 370 and failed 92. There were
+122 distinct failures: **S 80**, **P 30**, **R 5**, **E 5**, **M 2**. Here S means
+SolokPDF test paths/names, P means PDFium-only, R needs an app follow-up, E
+is environment/test harness, and M is MuPDF-only. The 83 tests not reached by
+the earlier logs passed on both engines (57) or had these results (26):
+
+| Test                              | PDFium / MuPDF | Class | Cause                                          |
+| --------------------------------- | -------------- | :---: | ---------------------------------------------- |
+| `issue-5995`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-6411`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-6328`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-6018`                      | fail / fail    |   S   | Settings filename                              |
+| `selection-font-bbox`             | fail / pass    |   P   | Glyph selection bounds                         |
+| `issue-6023`                      | fail / pass    |   P   | Underline selection bounds                     |
+| `issue-6017`                      | hang / hang    |   R   | AI panel command blocks the UI                 |
+| `issue-5946`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-6080`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-6203`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-6205`                      | fail / fail    |   S   | Settings filename                              |
+| `adv-settings-external-reload`    | fail / fail    |   S   | Settings filename                              |
+| `reload-settings-memory-trim`     | fail / fail    |   S   | Settings filename                              |
+| `command-palette-external-reload` | fail / fail    |   S   | Settings filename                              |
+| `toc-selection-visible`           | fail / pass    |   P   | TOC does not follow PDFium selection           |
+| `issue-trim-margins`              | fail / pass    |   P   | PDFium trim margins has no effect              |
+| `trim-empty-margins-restore`      | fail / fail    |   S   | Settings filename                              |
+| `issue-6220`                      | fail / fail    |   S   | Settings and process names                     |
+| `issue-5870-list-dirs`            | fail / fail    |   S   | Settings filename                              |
+| `issue-1324`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-5069`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-2022`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-1203`                      | fail / fail    |   S   | Settings filename                              |
+| `issue-6003`                      | fail / fail    |   S   | Extracted executable name                      |
+| `reload-debounce`                 | pass / fail    |   M   | MuPDF reload counter; no paired PDFium failure |
+| `issue-1195`                      | fail / fail    |   S   | Settings filename                              |
+
+The 57 newly reached tests that passed on both engines were:
+`find-bar-dpi`, `issue-6032`, `issue-5988`, `issue-5997`, `issue-6001`,
+`issue-4157`, `issue-5512`, `issue-6005`, `issue-4655`, `issue-4315`,
+`issue-6399`, `issue-6400`, `issue-6405`, `issue-6406`, `issue-6409`,
+`issue-6412`, `issue-6420`, `issue-6424`, `issue-6421`, `issue-4662`,
+`selection-toolbar-stays`, `keyboard-select-yank-empty`, `issue-4839`,
+`issue-6012`, `adv-settings-fresh-defaults`, `issue-6137-adv-settings`,
+`adv-settings-home-reload`, `toc-title-fallback`, `toc-show-on-open`,
+`issue-6132`, `toolbar-tab-switch-pos`, `facing-fit-tiny-viewport`,
+`tool-poster`, `tool-merge`, `tool-grep`, `insert-image-reload`,
+`appdata-invalid-dir`, `merge-struct-parents`, `reuse-instance-fullscreen`,
+`attachment-open-external`, `cbr-network-unrar`, `file-link-no-dest`,
+`control-pipe-busy`, `annot-filter-toolbar`, `issue-5972`, `layout-callback`,
+`issue-5934`, `issue-5917`, `issue-5792`, `issue-5842`, `issue-6316`,
+`issue-2693`, `issue-5865`, `security-ghsa-crhm-w5qr-wjj4`, `issue-6314`,
+`dvi-open`, `font-cache-shutdown`.
+
+On the previously reached tests, `issue-5979` now fails on both engines with
+the same 120-second UI block (R). `issue-6028` fails on both with `no-doc` (S;
+its corrected local test passed). `issue-6240` and `issue-6118` pass on both
+at the common commit, so their earlier unpaired failure labels do not carry
+over. The new P groups are selection bounds (B14), TOC selection (B28), and
+trim margins (B29). The shared AI/DPI hangs are B30.
+
+The test-only fixes now also use `SETTINGS_FILE` in the 19 newly reached
+settings-dependent tests and `APP_NAME` for `issue-6220`'s process name and
+`issue-6003`'s extracted executable. `issue-5946`, `issue-5995`, and
+`issue-6003` passed locally after the fix. `issue-6411` could not create its
+test font in the restricted Windows font directory.
+
+## Earlier partial runs
+
 The supplied 2026-10-29 GitHub Actions logs are canceled runs: PDFium [40881164597](https://github.com/elle-et-noire/solokpdf/actions/runs/40881164597) checked out `3b1e248e0`; MuPDF [40886693909](https://github.com/elle-et-noire/solokpdf/actions/runs/40886693909) checked out `a582567e7`. Both started 379 of 462 eligible tests, stopped in `issue-5979`, and never printed a suite summary. Both commits have the five-minute test timeout, but the blocked synchronous call prevented its timer from firing. Commit `aff96853b` later bounded that call; its paired runs [40892371801](https://github.com/elle-et-noire/solokpdf/actions/runs/40892371801) and [40892376646](https://github.com/elle-et-noire/solokpdf/actions/runs/40892376646) finished, but their logs were unavailable during this triage. Engine-only labels therefore describe these observations, not a same-commit full-suite comparison.
 
 | Run    | Passed | Failed | Unfinished | Not reached |

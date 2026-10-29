@@ -9,7 +9,7 @@
 import { copyFileSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync, closeSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host.ts";
-import { EXE, ROOT, runStandalone, tmpPath, USE_NG } from "./util";
+import { SETTINGS_FILE, EXE, ROOT, runStandalone, tmpPath, USE_NG } from "./util";
 import { windowPosArgs } from "./win-automation";
 import { sleep, killAndWait } from "./winapi";
 
@@ -35,7 +35,7 @@ export async function testit(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const doc = join(dir, "paper.pdf");
   copyFileSync(src, doc);
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
 
   const logPath = join(dir, "reload.log");
   const proc = Bun.spawn(

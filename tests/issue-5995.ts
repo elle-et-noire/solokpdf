@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control";
 import { IS_MAC } from "./host";
-import { cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util";
+import { SETTINGS_FILE, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util";
 import {
   enumWindows,
   getWindowPid,
@@ -105,7 +105,7 @@ export async function testit(): Promise<void> {
   const appDataDir = tmpPath("issue-5995-appdata");
   rmSync(appDataDir, { recursive: true, force: true });
   mkdirSync(appDataDir, { recursive: true });
-  const settingsPath = join(appDataDir, "SumatraPDF-settings.txt");
+  const settingsPath = join(appDataDir, SETTINGS_FILE);
   writeFileSync(settingsPath, "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nTheme = Light\n");
 
   // Follow Windows is immediately above Light in the list.

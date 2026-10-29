@@ -14,7 +14,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cmdId, runStandalone, tmpPath, makePng, makeStoredZip } from "./util.ts";
+import { SETTINGS_FILE, cmdId, runStandalone, tmpPath, makePng, makeStoredZip } from "./util.ts";
 import { launchControlled, sendCommandSync, killAndWait } from "./win-automation.ts";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { sleep } from "./winapi.ts";
@@ -96,7 +96,7 @@ async function runSession(opts: {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [
       "ReuseInstance = false",
       "RestoreSession = false",

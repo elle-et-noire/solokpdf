@@ -13,7 +13,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host.ts";
-import { cmdId, tmpPath, assemblePdf } from "./util";
+import { SETTINGS_FILE, cmdId, tmpPath, assemblePdf } from "./util";
 import { captureWindowPixels, sendMessage, WM_COMMAND } from "./winapi";
 import { findCanvas, launchControlled, sendCommand, waitForExit, killAndWait } from "./win-automation";
 
@@ -68,7 +68,7 @@ async function openAtZoom(
   const appdata = tmpPath("issue-1195-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  const settingsPath = join(appdata, "SumatraPDF-settings.txt");
+  const settingsPath = join(appdata, SETTINGS_FILE);
   const settings = ["RestoreSession = false", "ReuseInstance = false", "CheckForUpdates = false", zoomLevels, ""];
   writeFileSync(settingsPath, settings.join("\n"));
 

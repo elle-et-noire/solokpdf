@@ -11,7 +11,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, runStandalone, tmpPath } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
 import { getScrollInfo } from "./winapi.ts";
 
@@ -53,7 +53,7 @@ function buildPdf(): Buffer {
 function writeSettings(appdata: string, pdf: string, trim: boolean): void {
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [
       "UiLanguage = en",
       "CheckForUpdates = false",

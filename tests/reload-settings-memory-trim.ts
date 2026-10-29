@@ -6,7 +6,7 @@
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
-import { ROOT, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, ROOT, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
 
 const kTag = "reload-settings-memory-trim";
@@ -43,7 +43,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath(kTag);
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  const settingsPath = join(appdata, "SumatraPDF-settings.txt");
+  const settingsPath = join(appdata, SETTINGS_FILE);
   const logPath = join(appdata, "log.txt");
   const cbz = join(appdata, "comic.cbz");
   copyFileSync(join(ROOT, "tests", "issue-1201.cbz"), cbz);
