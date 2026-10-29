@@ -87,6 +87,7 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDFPage_GetObject)               \
     X(FPDFPageObj_GetType)              \
     X(FPDFPageObj_GetMatrix)            \
+    X(FPDFPageObj_GetBounds)            \
     X(FPDFFormObj_CountObjects)         \
     X(FPDFFormObj_GetObject)            \
     X(FPDFImageObj_GetImageMetadata)    \
@@ -1728,6 +1729,37 @@ class EnginePdfium : public EngineBase {
         ScopedMutex lock(&gPdfiumLock);
         auto* p = Page(pageNo);
         return p ? RectF(0, 0, p->size.dx, p->size.dy) : RectF{};
+    }
+
+    RectF PageContentBox(int pageNo, RenderTarget) override {
+        ScopedMutex lock(&gPdfiumLock);
+        auto* info = Page(pageNo);
+        if (!info) {
+            return {};
+        }
+        RectF media(0, 0, info->size.dx, info->size.dy);
+        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        if (!page) {
+            return media;
+        }
+        RectF content;
+        bool found = false;
+        int count = gPdfium.FPDFPage_CountObjects(page);
+        for (int i = 0; i < count; i++) {
+            FPDF_PAGEOBJECT obj = gPdfium.FPDFPage_GetObject(page, i);
+            float left = 0, bottom = 0, right = 0, top = 0;
+            if (!obj || !gPdfium.FPDFPageObj_GetBounds(obj, &left, &bottom, &right, &top)) {
+                continue;
+            }
+            RectF box = ToPageRect(page, info, left, bottom, right, top).Intersect(media);
+            if (box.IsEmpty() || !isfinite(box.x) || !isfinite(box.y) || !isfinite(box.dx) || !isfinite(box.dy)) {
+                continue;
+            }
+            content = found ? content.Union(box) : box;
+            found = true;
+        }
+        gPdfium.FPDF_ClosePage(page);
+        return found ? content : media;
     }
 
     // Only this part needs the lock; pixel post-processing runs while other pages draw.

@@ -68,6 +68,10 @@ export async function testit(): Promise<void> {
       if (s.zoom !== "fit visible") {
         throw new Error(`issue-6241: Toggle Zoom after Fit Content gave '${s.zoom}'`);
       }
+      if (process.env.SOLOKPDF_ENGINE !== "mupdf") {
+        const editor = await client.request(ControlCommand.TestCurrentPdf, ["editor"]);
+        if (editor[1] !== "editor=none") throw new Error(`issue-6241: fit content loaded editor: ${editor[1]}`);
+      }
       console.log(`issue-6241: fit visible is ${got.toFixed(2)}x fit width ✓`);
     },
     ["-zoom", "fit visible", pdf],

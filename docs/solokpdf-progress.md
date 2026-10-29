@@ -1743,6 +1743,9 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
 - PDFium drops its discretionary hyphen marker from extracted text, so search
   joins split words as MuPDF does. `issue-1189` and the generated B15 search
   test cover this path without loading the editor.
+- Fit Content and Fit Visible use PDFium page-object bounds, clipped to the
+  visible page. Blank pages use the page box. Zoom never loads the editor;
+  `issue-6241` checks the content ratio and editor state.
 - PDFium enumerates image bounds for cursor hit testing and the Selected Image
   menu. Copy and Save resolve the matching image through the lazy MuPDF editor,
   preserving orientation and CMYK JPEG/TIFF data without changing PDFium
