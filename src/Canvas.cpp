@@ -1168,7 +1168,7 @@ static void OnMouseMove(MainWindow* win, int x, int y, WPARAM key) {
             }
             // the highlighter only selects text: annotations get no hover
             bool highlighter = IsPlacingHighlighterAnnotation(win);
-            Annotation* annot = highlighter ? nullptr : dm->GetAnnotationAtPos(pos, nullptr);
+            Annotation* annot = highlighter ? nullptr : dm->GetAnnotationAtPosHover(pos, nullptr);
             bool editPdf = win->pdfAnnotationsToolbarEnabled && !highlighter;
             int srcPageNo = -1;
             IPageElement* el = dm->GetElementAtPos(pos, &srcPageNo);
@@ -3198,7 +3198,7 @@ static LRESULT OnSetCursorMouseNone(MainWindow* win, HWND hwnd) {
         }
     }
 
-    Annotation* annot = IsPlacingHighlighterAnnotation(win) ? nullptr : dm->GetAnnotationAtPos(pt, selected);
+    Annotation* annot = IsPlacingHighlighterAnnotation(win) ? nullptr : dm->GetAnnotationAtPosHover(pt, selected);
     bool annotEditHover = annot && (win->pdfAnnotationsToolbarEnabled || selected);
 
     int pageNo = 0;

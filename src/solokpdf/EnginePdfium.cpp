@@ -239,6 +239,8 @@ static struct PdfiumApi {
 
 struct PdfiumPage {
     SizeF size;
+    bool annotationsChecked = false;
+    bool hasAnnotations = false;
     bool linksLoaded = false;
     bool hasFileAttachments = false;
     bool attachmentLinksLoaded = false;
@@ -1480,6 +1482,38 @@ class EnginePdfium : public EngineBase {
 
     bool HasAnnotationEditor() override { return true; }
     bool HasAcroForm() override { return acroForm; }
+
+    bool HasPageAnnotations(int pageNo) override {
+        ScopedMutex lock(&gPdfiumLock);
+        PdfiumPage* info = Page(pageNo);
+        if (!info) {
+            return true;
+        }
+        if (info->annotationsChecked) {
+            return info->hasAnnotations;
+        }
+        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        if (!page) {
+            return true;
+        }
+        int count = gPdfium.FPDFPage_GetAnnotCount(page);
+        for (int i = 0; i < count; i++) {
+            FPDF_ANNOTATION annot = gPdfium.FPDFPage_GetAnnot(page, i);
+            if (!annot) {
+                info->hasAnnotations = true;
+                break;
+            }
+            FPDF_ANNOTATION_SUBTYPE subtype = gPdfium.FPDFAnnot_GetSubtype(annot);
+            gPdfium.FPDFPage_CloseAnnot(annot);
+            if (subtype != FPDF_ANNOT_LINK && subtype != FPDF_ANNOT_WIDGET) {
+                info->hasAnnotations = true;
+                break;
+            }
+        }
+        gPdfium.FPDF_ClosePage(page);
+        info->annotationsChecked = true;
+        return info->hasAnnotations;
+    }
 
     // Run document scripts before rendering so their widget values appear on the first page.
     void LoadDocumentJs() {

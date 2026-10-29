@@ -230,6 +230,7 @@ struct DisplayModel : DocController {
     // annotation marks are drawn this many pixels outside the bounds
     static constexpr int kAnnotMarkPadding = 4;
     Annotation* GetAnnotationAtPos(Point pt, Annotation*);
+    Annotation* GetAnnotationAtPosHover(Point pt, Annotation*);
     Annotation* GetWidgetAtPos(Point pt);
 
     int GetPageNoByPoint(Point pt);

@@ -4,6 +4,7 @@ import { setTestWindowLayout } from "./winapi.ts";
 import { testit as documentJs } from "./ad-hoc-pdfium-document-js.ts";
 import { testit as formJs } from "./ad-hoc-pdfium-form-js.ts";
 import { testit as forms } from "./ad-hoc-pdfium-forms.ts";
+import { testit as hover } from "./ad-hoc-pdfium-hover.ts";
 import { testit as memory } from "./ad-hoc-pdfium-memory.ts";
 import { testit as outline } from "./ad-hoc-pdfium-outline.ts";
 import { testit as permissions } from "./ad-hoc-pdfium-permissions.ts";
@@ -18,6 +19,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-memory", memory],
   ["ad-hoc-pdfium-saveas", saveas],
   ["ad-hoc-pdfium-forms", forms],
+  ["ad-hoc-pdfium-hover", hover],
   ["ad-hoc-pdfium-tools", tools],
   ["ad-hoc-pdfium-outline", outline],
   ["ad-hoc-pdfium-unsupported", unsupported],

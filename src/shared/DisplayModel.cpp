@@ -2375,6 +2375,15 @@ Annotation* DisplayModel::GetAnnotationAtPos(Point pt, Annotation* annot) {
     return EngineGetAnnotationAtPos(engine, pageNo, pos, padding, annot);
 }
 
+Annotation* DisplayModel::GetAnnotationAtPosHover(Point pt, Annotation* annot) {
+    int pageNo = VisiblePageAt(this, pt);
+    if (ValidPageNo(pageNo) && engine->HasAnnotationEditor() && !engine->HasPageAnnotations(pageNo) &&
+        !engine->AnnotationEditor(EditorLoad::IfLoaded)) {
+        return nullptr;
+    }
+    return GetAnnotationAtPos(pt, annot);
+}
+
 // form fields (widgets) are hit-tested separately from annotations
 Annotation* DisplayModel::GetWidgetAtPos(Point pt) {
     if (AnnotationsAreDisabled()) {

@@ -1616,6 +1616,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 2, StrL("NOTREADY no-engine"));
                 break;
             }
+            if (str::Eq(StringArg(req, 0), StrL("editor"))) {
+                bool loaded = engine->AnnotationEditor(EditorLoad::IfLoaded) != nullptr;
+                AppendTestResult(req, 0, loaded ? StrL("editor=loaded") : StrL("editor=none"));
+                break;
+            }
             int textLen = 0;
             Str pageText = engine->GetTextForPage(1, &textLen);
             bool found = false;

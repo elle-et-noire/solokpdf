@@ -1830,7 +1830,10 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   producers can overwrite them while open and the document reloads
   (`tests/ad-hoc-pdfium.ts` covers small and 33 MiB files). PDFium Save As
   after rename/delete reads that handle (`tests/ad-hoc-pdfium-saveas.ts`).
-  MuPDF's large-file handle blocks rename/delete on Windows.
+  Hover scans PDFium's page annotation subtypes before loading the hidden
+  MuPDF editor; plain pages keep their files renameable, while annotated pages
+  retain annotation hover (`tests/ad-hoc-pdfium-hover.ts`). MuPDF's large-file
+  handle blocks rename/delete on Windows once its editor is loaded.
 - GitHub Actions CI builds SolokPDF debug on pushes and PRs to `solokpdf-dev`.
   It runs unit tests and selected PDFium, Vim, count-prefix, and update-check
   tests. Pushes and manual runs also build the release ZIP after debug passes;
