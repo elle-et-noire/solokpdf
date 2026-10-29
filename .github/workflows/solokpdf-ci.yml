@@ -1,10 +1,13 @@
 name: SolokPDF CI
 
+# docs-only changes don't build or test anything
 on:
   push:
     branches: [solokpdf-dev]
+    paths-ignore: ["docs/**", "**/*.md", "experiments/**", ".github/solokpdf-perf-corpus.json"]
   pull_request:
     branches: [solokpdf-dev]
+    paths-ignore: ["docs/**", "**/*.md", "experiments/**", ".github/solokpdf-perf-corpus.json"]
   workflow_dispatch:
 
 concurrency:
