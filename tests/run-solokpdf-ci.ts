@@ -14,6 +14,7 @@ import { testit as saveas } from "./ad-hoc-pdfium-saveas.ts";
 import { testit as synctex } from "./ad-hoc-pdfium-synctex.ts";
 import { testit as tools } from "./ad-hoc-pdfium-tools.ts";
 import { testit as unsupported } from "./ad-hoc-pdfium-unsupported.ts";
+import { testit as windowBg } from "./ad-hoc-pdfium-window-bg.ts";
 import { testit as vimKeys } from "./ad-hoc-vim-keys.ts";
 import { testit as countPrefix } from "./ad-hoc-count-prefix.ts";
 import { testit as noUpdateCheck } from "./ad-hoc-no-update-check.ts";
@@ -30,6 +31,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-permissions", permissions],
   ["ad-hoc-pdfium-print-prefs", printPrefs],
   ["ad-hoc-pdfium-dates", dates],
+  ["ad-hoc-pdfium-window-bg", windowBg],
   ["ad-hoc-pdfium-form-js", formJs],
   ["ad-hoc-pdfium-document-js", documentJs],
   ["ad-hoc-vim-keys", vimKeys],

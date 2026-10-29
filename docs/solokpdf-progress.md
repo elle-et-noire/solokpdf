@@ -1814,6 +1814,9 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
 - Normal rendering is opaque white. The transparency-grid path uses alpha;
   full transparent-page compositing parity and advanced dark-mode parity are
   not established.
+- `FixedPageUI.WindowBgCol` colors the page surround on PDFium tabs as on
+  MuPDF tabs (`tests/ad-hoc-pdfium-window-bg.ts`). The Change Color dialog
+  already uses the fixed-page color for PDFium.
 - Print **bitmap generation** passed. PDFium tabs read `/ViewerPreferences`
   print defaults through an on-demand MuPDF query, without loading the editor
   (`tests/ad-hoc-pdfium-print-prefs.ts` checks all four values on both engines).

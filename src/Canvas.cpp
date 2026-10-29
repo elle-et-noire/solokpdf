@@ -2786,7 +2786,8 @@ static bool DrawDocument(MainWindow* win, HDC hdc, Rect rcArea) {
     // (without frame and shadow)
     bool paintOnBlackWithoutShadow = win->presentation || isImage;
     bool isEbook = engine->kind == kindEngineMupdf && !str::EqI(engine->defaultExt, StrL(".pdf"));
-    bool isPdf = engine->kind == kindEngineMupdf && str::EqI(engine->defaultExt, StrL(".pdf"));
+    bool isPdf = (engine->kind == kindEngineMupdf || engine->kind == kindEnginePdfium) &&
+                 str::EqI(engine->defaultExt, StrL(".pdf"));
     Color colDocBg;
     Color colDocTxt = ThemeDocumentColors(colDocBg);
     if (isImage) {
