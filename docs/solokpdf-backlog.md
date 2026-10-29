@@ -32,11 +32,10 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
 ## C. Integration and distribution
 
-| ID  | Item                                                                                                                        | Status                                               |
-| --- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| C1  | File associations under a SolokPDF ProgID (no clash with SumatraPDF); "default app" and "Open with" from the portable build | todo                                                 |
-| C2  | Explorer thumbnails and preview pane through PDFium, shipped in the ZIP                                                     | todo (after C1)                                      |
-| C3  | GitHub Releases with versioned ZIPs and an update check against them                                                        | blocked (owner: publishing, version scheme, trigger) |
+| ID  | Item                                                                                                                        | Status          |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| C1  | File associations under a SolokPDF ProgID (no clash with SumatraPDF); "default app" and "Open with" from the portable build | todo            |
+| C2  | Explorer thumbnails and preview pane through PDFium, shipped in the ZIP                                                     | todo (after C1) |
 
 ## D. CI
 
@@ -61,8 +60,9 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | ID  | Item                                             |
 | --- | ------------------------------------------------ |
 | F1  | Physical printer, print dialog and spooler check |
-| F2  | Release criteria for dropping "experimental"     |
 
 ## Not planned
 
-XFA editing and GoToE (unsupported in both engines); `src/ng/`.
+XFA editing and GoToE (unsupported in both engines); `src/ng/`; distribution
+(GitHub Releases, update checks, release criteria): the owner has no plans to
+distribute.
