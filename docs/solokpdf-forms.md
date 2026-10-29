@@ -1,5 +1,17 @@
 # PDFium forms and signing
 
+## Document JavaScript
+
+PDFium reports document JavaScript but does not run MuPDF's scripts itself.
+When `DisableJavaScript` is off and PDFium finds a document-level action, the
+engine opens its existing MuPDF annotation editor before the first render.
+MuPDF runs the scripts there, and its widget drawing shows initialized values
+over PDFium's page. The check is a PDFium action count; files without actions
+and runs with JavaScript disabled do not load the editor on open. This keeps
+ordinary files on the PDFium-only path. Deferring the editor until after the
+first render would need a second render and could show stale field values.
+`tests/ad-hoc-pdfium-document-js.ts` checks the behavior in both engines.
+
 ## Digital signing
 
 Sign Document uses the PDFium document's lazy MuPDF annotation editor. Opening

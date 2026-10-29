@@ -407,6 +407,7 @@ class EnginePdfium : public EngineBase {
     FPDF_FORMFILLINFO formInfo{};
     FPDF_FORMHANDLE form = nullptr;
     bool acroForm = false;
+    bool documentJs = false;
     HANDLE file = INVALID_HANDLE_VALUE;
     Str fileData;
     FPDF_FILEACCESS access{};
@@ -1145,6 +1146,7 @@ class EnginePdfium : public EngineBase {
         allowsCopyingText = (permissions & (1UL << 4)) != 0;
         int formType = gPdfium.FPDF_GetFormType(doc);
         acroForm = formType == FORMTYPE_ACRO_FORM;
+        documentJs = gPdfium.FPDFDoc_GetJavaScriptActionCount(doc) > 0;
         if (formType != FORMTYPE_NONE) {
             formInfo.version = 1;
             formInfo.FFI_Invalidate = FormInvalidate;
@@ -1221,7 +1223,14 @@ class EnginePdfium : public EngineBase {
     bool HasAnnotationEditor() override { return true; }
     bool HasAcroForm() override { return acroForm; }
 
-    // Loads on the first annotation query (a hover, a list, a create): MuPDF opens the file again.
+    // Run document scripts before rendering so their widget values appear on the first page.
+    void LoadDocumentJs() {
+        if (documentJs && MupdfJavaScriptEnabled()) {
+            AnnotationEditor(EditorLoad::Load);
+        }
+    }
+
+    // Loads for document scripts or the first annotation query: MuPDF opens the file again.
     EngineBase* AnnotationEditor(EditorLoad load) override {
         EngineBase* res = (EngineBase*)InterlockedCompareExchangePointer((void* volatile*)&editor, nullptr, nullptr);
         if (res || load == EditorLoad::IfLoaded) {
@@ -1685,9 +1694,6 @@ class EnginePdfium : public EngineBase {
         if (formType == FORMTYPE_XFA_FULL || formType == FORMTYPE_XFA_FOREGROUND) {
             features.Append(StrL("XFA"));
         }
-        if (gPdfium.FPDFDoc_GetJavaScriptActionCount(doc) > 0) {
-            features.Append(StrL("Document JavaScript"));
-        }
         if (len(features) == 0) {
             return {};
         }
@@ -1858,6 +1864,7 @@ EngineBase* CreateEnginePdfium(Str path, PasswordUI* pwdUI, TempStr* errorOut, P
         *failureOut = failure;
     }
     if (ok) {
+        engine->LoadDocumentJs();
         return engine;
     }
     logf("PDFium: %s File: '%s'\n", *errorOut, path);

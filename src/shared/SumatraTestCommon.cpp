@@ -1257,6 +1257,38 @@ static int FormPixels(EngineBase* engine, int pageNo, RenderTarget target) {
     return count;
 }
 
+TempStr DocumentJsOpenResultTemp(Str path, int pageNo, int idx, int* exitCodeOut) {
+    // Control commands disable JavaScript; restore the app setting for this open probe.
+    EngineMupdfSetDisableJavaScript(gSettings->disableJavaScript);
+    EngineBase* engine = CreateEngineFromFile(path, nullptr, false);
+    EngineMupdfSetDisableJavaScript(true);
+    if (!engine) {
+        if (exitCodeOut) {
+            *exitCodeOut = 1;
+        }
+        return StrL("ERROR engine-create-failed");
+    }
+    EngineBase* source = engine->HasAnnotationEditor() ? engine->AnnotationEditor(EditorLoad::IfLoaded) : engine;
+    if (!source) {
+        SafeEngineRelease(&engine);
+        return StrL("NOTLOADED");
+    }
+    Vec<Annotation*> widgets;
+    EngineMupdfGetPageWidgets(source, pageNo, widgets);
+    if (idx < 0 || idx >= len(widgets)) {
+        if (exitCodeOut) {
+            *exitCodeOut = 1;
+        }
+        SafeEngineRelease(&engine);
+        return StrL("ERROR no-widget");
+    }
+    TempStr value = str::DupTemp(GetWidgetValue(widgets[idx]));
+    TempStr result = fmt("OK value='%s' view=%d print=%d", value, FormPixels(engine, pageNo, RenderTarget::View),
+                         FormPixels(engine, pageNo, RenderTarget::Print));
+    SafeEngineRelease(&engine);
+    return result;
+}
+
 TempStr SetFormFieldResultTemp(int pageNo, int idx, Str value, int* exitCodeOut) {
     if (len(gWindows) == 0 || !gWindows[0] || !gWindows[0]->AsFixed()) {
         if (exitCodeOut) {

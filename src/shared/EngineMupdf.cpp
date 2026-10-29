@@ -99,6 +99,10 @@ void EngineMupdfSetDisableJavaScript(bool disable) {
     gDisableFormJavaScript = disable;
 }
 
+bool MupdfJavaScriptEnabled() {
+    return !gDisableFormJavaScript;
+}
+
 // Whether a PDF may load an image from an external sibling file (issue #3731).
 // Set by the app from the AllowExternalImages pref; off by default (and in the
 // PdfPreview/PdfFilter DLLs, which don't link Settings).

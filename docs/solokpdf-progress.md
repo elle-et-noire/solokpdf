@@ -1696,9 +1696,10 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   already works in both engines; it does not rewrite page rotation in the file.
   `tests/ad-hoc-pdfium-tools.ts`, `merge-struct-parents.ts`, `tool-merge.ts`
   and `pdf-script.ts` cover these paths.
-- Document-level JavaScript remains unsupported for PDFium documents. Neither
-  engine supports editing XFA forms; PDFium shows them read-only and reports
-  XFA in Unsupported Features, matching MuPDF's read-only fallback.
+- Document-level JavaScript runs in PDFium documents through the hidden MuPDF
+  editor when enabled. Neither engine supports editing XFA forms; PDFium shows
+  them read-only and reports XFA in Unsupported Features, matching MuPDF's
+  read-only fallback.
   Document Properties lists the ones a document uses ("Unsupported
   Features"; empty for most papers), checked by
   `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
@@ -1739,9 +1740,14 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   `EngineMupdf::FinishLoading()` enables form JavaScript in that editor under
   the same `DisableJavaScript` setting as a MuPDF document, with no separate
   PDFium script runner. A calculated value survives save and reopen in both
-  engines (`tests/ad-hoc-pdfium-form-js.ts`). MuPDF runs document-level scripts
-  on open, but PDFium does not load the editor until a form query, so Document
-  Properties still reports those scripts as unsupported.
+  engines (`tests/ad-hoc-pdfium-form-js.ts`). PDFium checks the document's
+  JavaScript action count on open and loads the editor only when it is nonzero
+  and JavaScript is enabled. This runs document scripts before the first page
+  render; its widgets then show any initialized values. Loading on open avoids
+  a second render and lets scripts affect the initial view. PDFs without
+  document scripts and runs with `DisableJavaScript` keep the PDFium-only open
+  path. `tests/ad-hoc-pdfium-document-js.ts` checks both engines, the setting,
+  initialized widget rendering and the no-script path.
 - View tiles use integer page extents. Tile edges came back from the
   transform with float error (5507.9995 px) and were floored, drawing about a
   third of high-zoom tiles a pixel off; they now snap within 0.05 px.

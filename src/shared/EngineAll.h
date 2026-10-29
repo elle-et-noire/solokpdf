@@ -215,6 +215,7 @@ void EngineMupdfGetPageWidgets(EngineBase*, int pageNo, Vec<Annotation*>& out);
 Annotation* EngineMupdfGetAdjacentWidget(EngineBase*, Annotation* cur, bool forward);
 void EngineMupdfGetFormFieldHighlightRects(EngineBase*, int pageNo, Annotation* skip, Vec<RectF>& out);
 void EngineMupdfSetDisableJavaScript(bool disable);
+bool MupdfJavaScriptEnabled();
 float EngineMupdfSetEbookLayoutAspect(float dyOverDx);
 void EngineMupdfSetAllowExternalImages(bool allow);
 void EngineMupdfSetAutoHeadingToc(bool enable);

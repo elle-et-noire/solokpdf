@@ -663,6 +663,7 @@ enum class ControlCmd : u16 {
     TestShortcutsDialog = 140,
     TestVimKeys = 141,
     TestSetFormField = 142,
+    TestDocumentJsOpen = 143,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -2081,6 +2082,20 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             int exitCode = 0;
             Str res = SetFormFieldResultTemp(pageNo, idx, value, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestDocumentJsOpen: {
+            Str path = StringArg(req, 0);
+            i32 pageNo = 1;
+            i32 idx = 0;
+            if (len(path) == 0 || !IntArg(req, 1, pageNo) || !IntArg(req, 2, idx)) {
+                AppendError(req, StrL("TestDocumentJsOpen expects string path, int pageNo, int idx"));
+                break;
+            }
+            int exitCode = 0;
+            Str res = DocumentJsOpenResultTemp(path, pageNo, idx, &exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }

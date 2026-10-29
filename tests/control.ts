@@ -112,6 +112,7 @@ export enum ControlCommand {
   TestShortcutsDialog = 140,
   TestVimKeys = 141,
   TestSetFormField = 142,
+  TestDocumentJsOpen = 143,
   TestSidebarThumbnails = 113,
   TestFrameNcStrips = 114,
   TestMergePdf = 115,
