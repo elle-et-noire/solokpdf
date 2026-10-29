@@ -636,6 +636,11 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
             return CommandVisibility::Hide;
         }
     }
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (cmdId == CmdToggleEngineeringDrawingEnhance && ctx.engineKind == kindEnginePdfium) {
+        return CommandVisibility::Hide;
+    }
+#endif
     // annotation editing also supports engines with a MuPDF annotation editor
     if (cmdId == CmdToggleEditPDF && !ctx.isPdf && !ctx.supportsAnnots) {
         return CommandVisibility::Hide;

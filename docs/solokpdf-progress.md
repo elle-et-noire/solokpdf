@@ -1660,6 +1660,11 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
 
 ## Known limitations and next work
 
+PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a render-device
+pass to vector strokes, text and narrow fills, adjusts minimum line width, and
+darkens raster drawings; PDFium has no equivalent per-render control. The toggle
+continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
+
 - PDFium handles file-backed PDFs, in-memory attachments, `.p7m` PDFs and Kindle
   Print Replica. The shell preview/filter DLLs and PDFs generated inside other
   document engines retain their upstream paths. Files above 4 GiB fall back.
