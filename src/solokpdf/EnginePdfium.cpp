@@ -107,6 +107,7 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDFText_CountChars)              \
     X(FPDFText_GetUnicode)              \
     X(FPDFText_IsGenerated)             \
+    X(FPDFText_IsHyphen)                \
     X(FPDFText_GetCharBox)              \
     X(FPDFText_GetLooseCharBox)         \
     X(FPDFText_GetMatrix)               \
@@ -1066,6 +1067,9 @@ class EnginePdfium : public EngineBase {
             double prevRight = 0, prevBottom = 0, prevTop = 0;
             for (int i = 0; i < count; i++) {
                 unsigned int code = gPdfium.FPDFText_GetUnicode(textPage, i);
+                if (code == 2 && gPdfium.FPDFText_IsHyphen(textPage, i) == 1) {
+                    continue;
+                }
                 if (!code && missingUnicode && gPdfium.FPDFText_IsGenerated(textPage, i) == 0) {
                     *missingUnicode = true;
                 }

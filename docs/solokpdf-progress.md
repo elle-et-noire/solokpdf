@@ -1740,8 +1740,9 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   loose glyph boxes, line breaks and a CP-1251 font mapping preserve spacing,
   Unicode and selection bounds. A page with form widgets or unmapped glyphs
   uses MuPDF text only when requested. Plain pages leave the editor unloaded.
-- PDFium search uses that extracted page text. Dehyphenated terms now match
-  across line breaks, as in `issue-1189` and the generated B15 search test.
+- PDFium drops its discretionary hyphen marker from extracted text, so search
+  joins split words as MuPDF does. `issue-1189` and the generated B15 search
+  test cover this path without loading the editor.
 - PDFium enumerates image bounds for cursor hit testing and the Selected Image
   menu. Copy and Save resolve the matching image through the lazy MuPDF editor,
   preserving orientation and CMYK JPEG/TIFF data without changing PDFium

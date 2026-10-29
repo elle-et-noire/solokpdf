@@ -40,25 +40,25 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
 ### B7 follow-ups
 
-| ID  | Item                         | Evidence                     | Status                                                                   |
-| --- | ---------------------------- | ---------------------------- | ------------------------------------------------------------------------ |
-| B14 | PDFium text extraction       | B7 text group                | done — Extract PDFium text without routine editor loads (B14)            |
-| B15 | PDFium search                | B7 search group              | done — Cover dehyphenated PDFium search (B15); resolved by B14 text path |
-| B16 | PDFium links                 | B7 links group               | done — Fix PDFium links (fixes #1198)                                    |
-| B17 | PDFium annotations           | B7 annotations group         | todo                                                                     |
-| B18 | PDFium images                | B7 images group              | done — Enable PDFium image actions (fixes #6214)                         |
-| B19 | PDFium fit content           | B7 layout group              | todo                                                                     |
-| B20 | PDFium page boxes            | B7 page boxes group          | todo                                                                     |
-| B21 | PDFium CAD enhance           | B7 CAD group                 | todo                                                                     |
-| B22 | PDFium bookmark colors       | B7 rendering group           | todo                                                                     |
-| B23 | PDFium scroll responsiveness | B7 responsiveness group      | todo                                                                     |
-| B24 | PDFium XMP properties        | B7 XMP group                 | todo                                                                     |
-| B25 | Restore lazy session tab     | B7 R: lazy tab no-doc        | todo                                                                     |
-| B26 | PDFium comment authors       | B7 R: issue-5329             | todo                                                                     |
-| B27 | PDFium external images       | B7 R: issue-3731             | todo                                                                     |
-| B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | todo                                                                     |
-| B29 | PDFium trim margins          | B7 P: issue-trim-margins     | todo                                                                     |
-| B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | todo                                                                     |
+| ID  | Item                         | Evidence                     | Status                                                        |
+| --- | ---------------------------- | ---------------------------- | ------------------------------------------------------------- |
+| B14 | PDFium text extraction       | B7 text group                | done — Extract PDFium text without routine editor loads (B14) |
+| B15 | PDFium search                | B7 search group              | done — Join PDFium hyphenated search text (fixes #1189)       |
+| B16 | PDFium links                 | B7 links group               | done — Fix PDFium links (fixes #1198)                         |
+| B17 | PDFium annotations           | B7 annotations group         | todo                                                          |
+| B18 | PDFium images                | B7 images group              | done — Enable PDFium image actions (fixes #6214)              |
+| B19 | PDFium fit content           | B7 layout group              | todo                                                          |
+| B20 | PDFium page boxes            | B7 page boxes group          | todo                                                          |
+| B21 | PDFium CAD enhance           | B7 CAD group                 | todo                                                          |
+| B22 | PDFium bookmark colors       | B7 rendering group           | todo                                                          |
+| B23 | PDFium scroll responsiveness | B7 responsiveness group      | todo                                                          |
+| B24 | PDFium XMP properties        | B7 XMP group                 | todo                                                          |
+| B25 | Restore lazy session tab     | B7 R: lazy tab no-doc        | todo                                                          |
+| B26 | PDFium comment authors       | B7 R: issue-5329             | todo                                                          |
+| B27 | PDFium external images       | B7 R: issue-3731             | todo                                                          |
+| B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | todo                                                          |
+| B29 | PDFium trim margins          | B7 P: issue-trim-margins     | todo                                                          |
+| B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | todo                                                          |
 
 ## C. Coexistence with SumatraPDF
 
