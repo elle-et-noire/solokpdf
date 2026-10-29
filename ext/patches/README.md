@@ -65,6 +65,14 @@ relative to `ext/mupdf`, so `-p1` from inside that directory.
 | `0062-svg-rgba-font-face` | SVG `rgba()` colors and `@font-face` data URI fonts (WOFF/TTF) in `<style>`; such text drew black in Times (#6339) |
 | `0063-epub-fixed-layout-page` | an EPUB chapter whose viewport gives width and height is one page of exactly that size, without the `@page` margin; such books had blank pages between chapters (#1293) |
 | `0064-html-css-transform` | CSS `transform` / `transform-origin` on blocks and `position:absolute` on inline boxes; InDesign fixed-layout text (`scale(0.05)` around per-word positioned spans) ran off the page (#1293) |
+| `0065-grep-catch-bad-options` | `grep -S` / `-O` report an unknown option instead of aborting with no `fz_try` |
+| `0066-murun-name-tree-null` | `run` scripts: embedded-file and name-tree helpers work on PDFs without `/Names` and on trees with `/Kids` |
+| `0067-murun-get-array-index` | `run` scripts: multi-key `PDFObject.get()` indexes an array with its own key, not the first one |
+| `0068-rich-text-content-box-right-edge` | rich (`/DS`, `/RC`) free text pads the right side like the left; centered styled text sat left of center (#6385) |
+| `0069-type1-shading-sample-grid` | function-based (type 1) shadings: 64-cell sample grid, draw no finer than ~2 device px; Edge-printed PDFs rendered 16x slower (#6402) |
+| `0070-css-content-strings-only` | pseudo-element `content` renders only a string; `counters(...)` rendered its function name (#6409) |
+| `0071-fallback-font-cache-bold` | bold system fallback fonts cached apart from regular; a bold heading made later regular CJK text bold (#6420) |
+| `0072-html-media-link` | `<video>` / `<audio>` drawn as its poster or a `[video: name]` label linking to the media file, which the app opens in the system player (#6421) |
 
 That is the whole list: `ext/mupdf` is byte-for-byte `1.28.5` plus these
 patches, and nothing else.

@@ -186,6 +186,12 @@ struct Theme {
     // text color of a highlighted notification tip; if empty, derived from
     // the colors above
     ParsedColor notificationHighlightTextColor;
+    // background of the citation hover preview's frame; if empty, pale
+    // yellow in light themes, HotBackgroundColor in dark ones
+    ParsedColor hoverPreviewBackgroundColor;
+    // border color of the citation hover preview; if empty, uses
+    // HotEdgeColor
+    ParsedColor hoverPreviewEdgeColor;
     // if true, apply the theme colors to Windows controls and window areas
     // too
     bool colorizeControls;
@@ -812,6 +818,10 @@ struct Annotations {
     // Image stamps on the page. If not set, or the file is missing, Sign
     // With Image asks for an image
     Str signatureImage;
+    // font size of the card that shows an annotation's text when it is
+    // clicked, in pixels; 0 uses UIFontSize. Not scaled by the display
+    // scaling
+    int popupFontSize;
 };
 
 // reading bar (View menu): a horizontal band on the page to keep your
@@ -1077,6 +1087,9 @@ struct Settings {
     // visible, this is the height of the bookmarks (table of contents)
     // part, in screen pixels
     int tocDy;
+    // if the sidebar's middle panel is visible, this is its height, in
+    // screen pixels
+    int sidebarMiddleDy;
     // size of the toolbar icons in pixels at 100% display scaling (8-64);
     // the toolbar itself is a few pixels taller
     int toolbarSize;
@@ -1182,6 +1195,9 @@ struct Settings {
     // if true, show the sidebar's bottom panel: Favorites, unless
     // SidebarBottomView says otherwise
     bool showFavorites;
+    // if true, and the sidebar's top and bottom panels are visible, show a
+    // middle panel between them with the view neither of them shows
+    bool showSidebarMiddle;
     // if true, favorites within each file are sorted alphabetically by
     // name (or page label); if false (the default), they are sorted by
     // page number
@@ -1196,6 +1212,10 @@ struct Settings {
     // window (left is the default; right-to-left UI languages already put
     // it on the right)
     bool sidebarOnRight;
+    // if true, the bookmarks / favorites sidebar takes no space: it slides
+    // over the document when the mouse reaches the window's edge and hides
+    // when the mouse leaves it
+    bool sidebarAutoHide;
     // what showing / hiding the bookmarks / favorites sidebar does to the
     // window: empty or keep (the window keeps its size and position, the
     // document area shrinks), or grow (the window grows by the sidebar

@@ -715,6 +715,27 @@ TempStr MarkdownFollowLinkResultTemp(Str href, bool follow, int* exitCodeOut) {
     return ToStrTemp(out);
 }
 
+// Urls the current markdown document's browser view was served, one per line,
+// so a test can see what the page loaded. Used by tests/issue-6380.ts.
+TempStr MarkdownServedResultTemp(int* exitCodeOut) {
+    MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+    MarkdownModel* mm = win && win->ctrl ? win->ctrl->AsMarkdown() : nullptr;
+    if (exitCodeOut) {
+        *exitCodeOut = mm ? 0 : 2;
+    }
+    if (!mm) {
+        return str::DupTemp(StrL("NOTREADY no-markdown\n"));
+    }
+    StrVec urls;
+    mm->GetCachedUrls(urls);
+    str::Builder out;
+    out.Append(StrL("OK\n"));
+    for (Str url : urls) {
+        out.Append(fmt("%s\n", url));
+    }
+    return ToStrTemp(out);
+}
+
 static void AppendTocItems(str::Builder& out, TocItem* item, int depth = 0) {
     for (; item; item = item->next) {
         if (item->title) {
@@ -792,6 +813,11 @@ TempStr PageLinksResultTemp(Str path, int pageNo, int* exitCodeOut) {
         Str value = dest->GetValue();
         TempStr valueShown = str::ReplaceTemp(value, StrL("\r\n"), StrL("|"));
         valueShown = str::ReplaceTemp(valueShown, StrL("\n"), StrL("|"));
+        if (dest->GetKind() == kindDestinationLaunchEmbedded) {
+            Str data = EngineMupdfLoadEmbedded(engine, (PageDestination*)dest);
+            valueShown = fmt("%s size=%d", valueShown, len(data));
+            str::Free(data);
+        }
         RectF src = el->GetRect();
         RectF destRc = dest->GetRect();
         out.Append(fmt("kind=%s page=%d src=%g,%g,%g,%g dest=%g,%g,%g,%g value=%s\n", Str(dest->GetKind()),
@@ -1610,6 +1636,8 @@ TempStr PageRenderViewPrintResultTemp(Str path, int* exitCodeOut) {
         return fail(StrL("ERROR page-load-failed\n"));
     }
 
+    // print renders without AA; match it so only the OCGs differ
+    engine->disableAntiAlias = true;
     RenderPageArgs viewArgs(1, 1.f, 0, nullptr, RenderTarget::View);
     RenderPageArgs printArgs(1, 1.f, 0, nullptr, RenderTarget::Print);
     Pixmap* viewRaw = engine->RenderPage(viewArgs);

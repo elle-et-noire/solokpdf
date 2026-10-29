@@ -109,9 +109,9 @@ export enum ControlCommand {
   ResolveUnsavedChanges = 110,
   TestRefHover = 111,
   TestPageInfo = 112,
-  TestShortcutsDialog = 139,
-  TestVimKeys = 140,
-  TestSetFormField = 141,
+  TestShortcutsDialog = 140,
+  TestVimKeys = 141,
+  TestSetFormField = 142,
   TestSidebarThumbnails = 113,
   TestFrameNcStrips = 114,
   TestMergePdf = 115,
@@ -145,6 +145,8 @@ export enum ControlCommand {
   // orig: [brightness, contrast] applies them to the current file as the
   // Brightness / Contrast dialog's OK does; returns the current values
   TestPageAdjust = 138,
+  // orig: urls the current markdown document's browser view was served
+  TestMarkdownServed = 139,
 }
 
 export type ControlArg = number | string | Uint8Array | ControlArg[];
@@ -166,6 +168,14 @@ export type HomeSelection = {
   // "<isPromo>,<index>" of the tip shown, and its band
   tip: string;
   tipRect: number[];
+  // a vertical scrollbar is shown for the entries
+  vbar: boolean;
+  // header row: brand (empty when hidden), Open icon + text, view-mode icons;
+  // and the tip's wrap rect
+  logo: number[];
+  open: number[];
+  views: number[];
+  tipText: number[];
   raw: string;
 };
 
@@ -616,11 +626,16 @@ export class ControlClient {
         lastCaption: [0, 0, 0, 0],
         tip: "",
         tipRect: [0, 0, 0, 0],
+        vbar: false,
+        logo: [0, 0, 0, 0],
+        open: [0, 0, 0, 0],
+        views: [0, 0, 0, 0],
+        tipText: [0, 0, 0, 0],
         raw,
       };
     }
     const m =
-      /OK sel=(-?\d+) entries=(\d+) searchFocus=(\d) searchBox=(\d) search=(-?\d+),(-?\d+),(-?\d+),(-?\d+) outline=(-?\d+),(-?\d+),(-?\d+),(-?\d+) outlineFull=(-?\d+),(-?\d+),(-?\d+),(-?\d+) path=(.*) listView=(\d) listIcon=(-?\d+),(-?\d+),(-?\d+),(-?\d+) thumbsArea=(-?\d+),(-?\d+),(-?\d+),(-?\d+) lastCaption=(-?\d+),(-?\d+),(-?\d+),(-?\d+) tip=(\d,-?\d+) tipRect=(-?\d+),(-?\d+),(-?\d+),(-?\d+)$/.exec(
+      /OK sel=(-?\d+) entries=(\d+) searchFocus=(\d) searchBox=(\d) search=(-?\d+),(-?\d+),(-?\d+),(-?\d+) outline=(-?\d+),(-?\d+),(-?\d+),(-?\d+) outlineFull=(-?\d+),(-?\d+),(-?\d+),(-?\d+) path=(.*) listView=(\d) listIcon=(-?\d+),(-?\d+),(-?\d+),(-?\d+) thumbsArea=(-?\d+),(-?\d+),(-?\d+),(-?\d+) lastCaption=(-?\d+),(-?\d+),(-?\d+),(-?\d+) tip=(\d,-?\d+) tipRect=(-?\d+),(-?\d+),(-?\d+),(-?\d+) vbar=(\d) logo=(-?\d+),(-?\d+),(-?\d+),(-?\d+) open=(-?\d+),(-?\d+),(-?\d+),(-?\d+) views=(-?\d+),(-?\d+),(-?\d+),(-?\d+) tipText=(-?\d+),(-?\d+),(-?\d+),(-?\d+)$/.exec(
         raw,
       );
     if (!m) {
@@ -642,6 +657,11 @@ export class ControlClient {
       lastCaption: [parseInt(m[27], 10), parseInt(m[28], 10), parseInt(m[29], 10), parseInt(m[30], 10)],
       tip: m[31],
       tipRect: [parseInt(m[32], 10), parseInt(m[33], 10), parseInt(m[34], 10), parseInt(m[35], 10)],
+      vbar: m[36] === "1",
+      logo: m.slice(37, 41).map((v) => parseInt(v, 10)),
+      open: m.slice(41, 45).map((v) => parseInt(v, 10)),
+      views: m.slice(45, 49).map((v) => parseInt(v, 10)),
+      tipText: m.slice(49, 53).map((v) => parseInt(v, 10)),
       raw,
     };
   }

@@ -836,6 +836,7 @@ struct VirtSlider : VirtCtrl {
     void SetValue(int v, bool notify);
     bool IsAdjusting() const;
     int ValueFromLocalX(int xLocal);
+    Rect ThumbHaloRectLocal() const;
     Size GetIdealSize() override;
     void Paint(VirtPaintCtx&) override;
     void OnKeyDown(VirtKeyEvent*);
@@ -851,7 +852,9 @@ struct VirtSlider : VirtCtrl {
     bool adjusting = false;
     int committed = 0;
     int ThumbRadius() const;
+    int HaloWidth() const;
     Rect TrackRectLocal() const;
+    Point ThumbCenterLocal() const;
     void ApplyFromEvent(const VirtMouseEvent&, bool commit);
 };
 
@@ -957,6 +960,7 @@ struct VirtRichText : VirtCtrl {
     void AddPlainText(Str);
     void AddPlainLink(Str text, Str cmd);
     void LayoutText(int areaWidth);
+    void WrapToBounds();
     bool HasRichContent();
     TempStr PlainTextTemp();
     TipLink* LinkAt(Point ptLocal);
@@ -990,6 +994,7 @@ struct VirtFixedLinesText : VirtRichText {
 };
 
 VirtRichText* ParseTip(Str s);
+void TipLinkUnderlines(TipLink* link, Vec<Rect>& out);
 // "Enter run": the key as a key cap before the words, padded 8 on each side
 void InitKeyHint(VirtRichText* t, PlatformFont* font, Str key, Str desc, Color colTxt, Color colBg);
 VirtRichText* NewKeyHint(PlatformFont* font, Str key, Str desc, Color colTxt, Color colBg);

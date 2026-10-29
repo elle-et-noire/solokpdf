@@ -133,6 +133,7 @@ import { testit as issue6246 } from "./issue-6246.ts";
 import { testit as issue6247 } from "./issue-6247.ts";
 import { testit as issue6250 } from "./issue-6250.ts";
 import { testit as issue6252 } from "./issue-6252.ts";
+import { testit as issue6429 } from "./issue-6429.ts";
 import { testit as installerDesktopShortcut } from "./installer-desktop-shortcut.ts";
 import { testit as issue4291 } from "./issue-4291.ts";
 import { testit as issue6271 } from "./issue-6271.ts";
@@ -149,6 +150,10 @@ import { testit as ghsaP2ph2rvmQ37m } from "./security-ghsa-p2ph-2rvm-q37m.ts";
 import { testit as ghsa5wm7225j9qcj } from "./security-ghsa-5wm7-225j-9qcj.ts";
 import { testit as issue6364 } from "./issue-6364.ts";
 import { testit as issue6365 } from "./issue-6365.ts";
+import { testit as issue6378 } from "./issue-6378.ts";
+import { testit as issue6380 } from "./issue-6380.ts";
+import { testit as issue6379 } from "./issue-6379.ts";
+import { testit as markdownPathTraversal } from "./markdown-path-traversal.ts";
 import { testit as issue4753 } from "./issue-4753.ts";
 import { testit as issue4055 } from "./issue-4055.ts";
 import { testit as issue2165 } from "./issue-2165.ts";
@@ -185,6 +190,8 @@ import { testit as issue6088 } from "./issue-6088.ts";
 import { testit as annotContentsClickAway } from "./annot-contents-click-away.ts";
 import { testit as annotColorDropdown } from "./annot-color-dropdown.ts";
 import { testit as inkThickness } from "./ink-thickness.ts";
+import { testit as issue6388 } from "./issue-6388.ts";
+import { testit as issue6385 } from "./issue-6385.ts";
 import { testit as issue6137Contents } from "./issue-6137-contents.ts";
 import { testit as issue6093 } from "./issue-6093.ts";
 import { testit as toolbarHoverDropdown } from "./toolbar-hover-dropdown.ts";
@@ -196,6 +203,8 @@ import { testit as issue6305 } from "./issue-6305.ts";
 import { testit as epubThemeRestyle } from "./epub-theme-restyle.ts";
 import { testit as showChaptersInEbooks } from "./show-chapters-in-ebooks.ts";
 import { testit as embeddedImageAttachment } from "./embedded-image-attachment.ts";
+import { testit as murunEmbeddedFiles } from "./murun-embedded-files.ts";
+import { testit as murunGetArrayIndex } from "./murun-get-array-index.ts";
 import { testit as dragOutAttachmentTab } from "./drag-out-attachment-tab.ts";
 import { testit as ttsEngineCrashRecovery } from "./tts-engine-crash-recovery.ts";
 import { testit as readAloudCloseDuringSpeak } from "./read-aloud-close-during-speak.ts";
@@ -243,6 +252,7 @@ import { testit as issue6232Refresh } from "./issue-6232-refresh.ts";
 import { testit as issue6232PathEdit } from "./issue-6232-path-edit.ts";
 import { testit as issue6234 } from "./issue-6234.ts";
 import { testit as issue6236 } from "./issue-6236.ts";
+import { testit as issue6414 } from "./issue-6414.ts";
 import { testit as issue5817 } from "./issue-5817.ts";
 import { testit as issue6238 } from "./issue-6238.ts";
 import { testit as issue1841 } from "./issue-1841.ts";
@@ -296,6 +306,7 @@ import { testit as issue6111 } from "./issue-6111.ts";
 import { testit as annotListPlacement } from "./annot-list-placement.ts";
 import { testit as exitEditPdfDeselects } from "./exit-edit-pdf-deselects.ts";
 import { testit as freeTextInPlaceEdit } from "./free-text-in-place-edit.ts";
+import { testit as issue6387 } from "./issue-6387.ts";
 import { testit as freeTextEditMatchesRender } from "./free-text-edit-matches-render.ts";
 import { testit as annotMoveableTypes } from "./annot-moveable-types.ts";
 import { testit as stampCaretAnnotationPlacement } from "./stamp-caret-annotation-placement.ts";
@@ -318,6 +329,9 @@ import { testit as sidebarThumbnails } from "./sidebar-thumbnails.ts";
 import { testit as sidebarThumbnailsWheel } from "./sidebar-thumbnails-wheel.ts";
 import { testit as sidebarThumbnailsClose } from "./sidebar-thumbnails-close.ts";
 import { testit as issue6070 } from "./issue-6070.ts";
+import { testit as issue6371 } from "./issue-6371.ts";
+import { testit as issue6372 } from "./issue-6372.ts";
+import { testit as issue5890 } from "./issue-5890.ts";
 import { testit as wheelWhileClosing } from "./wheel-while-closing.ts";
 import { testit as printDialogMultiFile } from "./print-dialog-multi-file.ts";
 import { testit as issue6259 } from "./issue-6259.ts";
@@ -336,6 +350,8 @@ import { testit as issue6287 } from "./issue-6287.ts";
 import { testit as issue6340 } from "./issue-6340.ts";
 import { testit as issue6341 } from "./issue-6341.ts";
 import { testit as issue6337 } from "./issue-6337.ts";
+import { testit as issue6367 } from "./issue-6367.ts";
+import { testit as issue6373 } from "./issue-6373.ts";
 import { testit as findFloatSwitchResults } from "./find-float-switch-results.ts";
 import { testit as signCertify } from "./sign-certify.ts";
 import { testit as commandPaletteTheme } from "./command-palette-theme.ts";
@@ -360,6 +376,7 @@ import { testit as issue5965 } from "./issue-5965.ts";
 import { testit as issue1315 } from "./issue-1315.ts";
 import { testit as issue5581 } from "./issue-5581.ts";
 import { testit as issue5991 } from "./issue-5991.ts";
+import { testit as issue6422 } from "./issue-6422.ts";
 import { testit as issue6127 } from "./issue-6127.ts";
 import { testit as issue6163 } from "./issue-6163.ts";
 import { testit as issue6166 } from "./issue-6166.ts";
@@ -383,6 +400,18 @@ import { testit as issue5512 } from "./issue-5512.ts";
 import { testit as issue6005 } from "./issue-6005.ts";
 import { testit as issue4655 } from "./issue-4655.ts";
 import { testit as issue4315 } from "./issue-4315.ts";
+import { testit as issue6399 } from "./issue-6399.ts";
+import { testit as issue6400 } from "./issue-6400.ts";
+import { testit as issue6405 } from "./issue-6405.ts";
+import { testit as issue6406 } from "./issue-6406.ts";
+import { testit as issue6409 } from "./issue-6409.ts";
+import { testit as issue6411 } from "./issue-6411.ts";
+import { testit as issue6412 } from "./issue-6412.ts";
+import { testit as issue6420 } from "./issue-6420.ts";
+import { testit as issue6424 } from "./issue-6424.ts";
+import { testit as issue6421 } from "./issue-6421.ts";
+import { testit as issue6328 } from "./issue-6328.ts";
+import { testit as issue5819 } from "./issue-5819.ts";
 import { testit as issue4662 } from "./issue-4662.ts";
 import { testit as issue6013 } from "./issue-6013.ts";
 import { testit as issue6018 } from "./issue-6018.ts";
@@ -415,12 +444,15 @@ import { testit as issue6135 } from "./issue-6135.ts";
 import { testit as issue6137 } from "./issue-6137.ts";
 import { testit as issue6140 } from "./issue-6140.ts";
 import { testit as issue6142 } from "./issue-6142.ts";
+import { testit as issue6419 } from "./issue-6419.ts";
 import { testit as issue6143 } from "./issue-6143.ts";
 import { testit as issue6144 } from "./issue-6144.ts";
 import { testit as toolbarTabSwitchPos } from "./toolbar-tab-switch-pos.ts";
 import { testit as facingFitTinyViewport } from "./facing-fit-tiny-viewport.ts";
 import { testit as mdMissingFile } from "./ad-hoc-md-missing-file.ts";
 import { testit as issue6148 } from "./issue-6148.ts";
+import { testit as issue6393 } from "./issue-6393.ts";
+import { testit as issue6397 } from "./issue-6397.ts";
 import { testit as issue6184 } from "./issue-6184.ts";
 import { testit as issue6220 } from "./issue-6220.ts";
 import { testit as sessionRestoreTabState } from "./session-restore-tab-state.ts";
@@ -428,6 +460,9 @@ import { testit as issue6239 } from "./issue-6239.ts";
 import { testit as issue6312 } from "./issue-6312.ts";
 import { testit as toolPoster } from "./tool-poster.ts";
 import { testit as toolMerge } from "./tool-merge.ts";
+import { testit as toolGrep } from "./tool-grep.ts";
+import { testit as insertImageReload } from "./insert-image-reload.ts";
+import { testit as appdataInvalidDir } from "./appdata-invalid-dir.ts";
 import { testit as mergeStructParents } from "./merge-struct-parents.ts";
 import { testit as reuseInstanceFullscreen } from "./reuse-instance-fullscreen.ts";
 import { testit as attachmentOpenExternal } from "./attachment-open-external.ts";
@@ -452,6 +487,11 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["issue-6388", issue6388],
+  ["issue-6360", issue6360],
+  ["issue-6385", issue6385],
+  ["pdf-script", pdfScript],
+  ["annotation clipboard tests", annotationClipboardTests],
   ["issue-6352", issue6352],
   ["issue-6354", issue6354],
   ["issue-6355", issue6355],
@@ -465,11 +505,13 @@ export const tests: NamedTest[] = [
   ["selection-toolbar-move", selectionToolbarMove],
   ["issue-6232-path-edit", issue6232PathEdit],
   ["issue-6070", issue6070],
-  ["annotation clipboard tests", annotationClipboardTests],
+  ["issue-6371", issue6371],
+  ["issue-6372", issue6372],
+  ["issue-5890", issue5890],
   ["issue-6252", issue6252],
+  ["issue-6429", issue6429],
   ["issue-6239", issue6239],
   ["issue-3755", issue3755],
-  ["pdf-script", pdfScript],
   ["pdf-save-dedup-stream", pdfSaveDedupStream],
   ["issue-5446", issue5446],
   ["annot-color-dropdown", annotColorDropdown],
@@ -539,13 +581,18 @@ export const tests: NamedTest[] = [
   ["issue-6140", issue6140],
   ["ad-hoc-md-missing-file", mdMissingFile],
   ["issue-6142", issue6142],
+  ["issue-6419", issue6419],
   ["issue-6148", issue6148],
+  ["issue-6393", issue6393],
+  ["issue-6397", issue6397],
   ["issue-6143", issue6143],
   ["issue-5993", issue5993],
   ["issue-2629", issue2629],
   ["issue-6135", issue6135],
   ["issue-4276", issue4276],
   ["embedded-image-attachment", embeddedImageAttachment],
+  ["murun-embedded-files", murunEmbeddedFiles],
+  ["murun-get-array-index", murunGetArrayIndex],
   ["drag-out-attachment-tab", dragOutAttachmentTab],
   ["tts-engine-crash-recovery", ttsEngineCrashRecovery],
   ["read-aloud-close-during-speak", readAloudCloseDuringSpeak],
@@ -564,6 +611,7 @@ export const tests: NamedTest[] = [
   ["issue-6137", issue6137],
   ["free-text-edit-matches-render", freeTextEditMatchesRender],
   ["free-text-in-place-edit", freeTextInPlaceEdit],
+  ["issue-6387", issue6387],
   ["issue-6103", issue6103],
   ["issue-6062", issue6062],
   ["issue-6101", issue6101],
@@ -620,6 +668,7 @@ export const tests: NamedTest[] = [
   ["issue-1315", issue1315],
   ["issue-5581", issue5581],
   ["issue-5991", issue5991],
+  ["issue-6422", issue6422],
   ["issue-6127", issue6127],
   ["issue-6163", issue6163],
   ["issue-4973", issue4973],
@@ -695,6 +744,10 @@ export const tests: NamedTest[] = [
   ["security-ghsa-5wm7-225j-9qcj", ghsa5wm7225j9qcj],
   ["issue-6364", issue6364],
   ["issue-6365", issue6365],
+  ["issue-6378", issue6378],
+  ["issue-6379", issue6379],
+  ["issue-6380", issue6380],
+  ["markdown-path-traversal", markdownPathTraversal],
   ["issue-5780", issue5780],
   ["issue-5845", issue5845],
   ["issue-5963", issue5963],
@@ -724,7 +777,6 @@ export const tests: NamedTest[] = [
   ["issue-1293", issue1293],
   ["issue-4788", issue4788],
   ["issue-6359", issue6359],
-  ["issue-6360", issue6360],
   ["issue-6361", issue6361],
   ["issue-6362", issue6362],
   ["issue-6280", issue6280],
@@ -771,6 +823,7 @@ export const tests: NamedTest[] = [
   ["issue-6232-refresh", issue6232Refresh],
   ["issue-6234", issue6234],
   ["issue-6236", issue6236],
+  ["issue-6414", issue6414],
   ["issue-5817", issue5817],
   ["issue-6238", issue6238],
   ["issue-1841", issue1841],
@@ -806,6 +859,8 @@ export const tests: NamedTest[] = [
   ["issue-6340", issue6340],
   ["issue-6341", issue6341],
   ["issue-6337", issue6337],
+  ["issue-6367", issue6367],
+  ["issue-6373", issue6373],
   ["find-float-switch-results", findFloatSwitchResults],
   ["command-palette-theme", commandPaletteTheme],
   ["command-palette-delete-tab", commandPaletteDeleteTab],
@@ -829,6 +884,18 @@ export const tests: NamedTest[] = [
   ["issue-6005", issue6005],
   ["issue-4655", issue4655],
   ["issue-4315", issue4315],
+  ["issue-6399", issue6399],
+  ["issue-6400", issue6400],
+  ["issue-6405", issue6405],
+  ["issue-6406", issue6406],
+  ["issue-6409", issue6409],
+  ["issue-6411", issue6411],
+  ["issue-6412", issue6412],
+  ["issue-6420", issue6420],
+  ["issue-6424", issue6424],
+  ["issue-6421", issue6421],
+  ["issue-6328", issue6328],
+  ["issue-5819", issue5819],
   ["issue-4662", issue4662],
   ["issue-6018", issue6018],
   ["selection-toolbar-stays", selectionToolbarStays],
@@ -860,6 +927,9 @@ export const tests: NamedTest[] = [
   ["issue-6220", issue6220],
   ["tool-poster", toolPoster],
   ["tool-merge", toolMerge],
+  ["tool-grep", toolGrep],
+  ["insert-image-reload", insertImageReload],
+  ["appdata-invalid-dir", appdataInvalidDir],
   ["merge-struct-parents", mergeStructParents],
   ["reuse-instance-fullscreen", reuseInstanceFullscreen],
   ["attachment-open-external", attachmentOpenExternal],

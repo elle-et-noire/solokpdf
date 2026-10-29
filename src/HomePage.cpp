@@ -1642,44 +1642,48 @@ static void LayoutHomePage(HomePageLayout& l) {
     int centerY = hdrY + (rowDy / 2);
     int viewIconsDx = (2 * rcIconView.dx) + iconGap;
 
-    int logoX = thumbsStartX + frame.dx - logoRowSize.dx;
-    if (logoX < thumbsStartX) {
-        logoX = thumbsStartX;
-    }
-    l.rcLogo = {logoX, centerY - (logoRowSize.dy / 2), logoRowSize.dx, logoRowSize.dy};
-
-    /* view-mode icons at the right edge */
-    l.rcIconThumbnailView = {thumbsStartX + thumbsContentWidth - viewIconsDx, centerY - (rcIconView.dy / 2),
-                             rcIconView.dx, rcIconView.dy};
-    l.rcIconListView = {l.rcIconThumbnailView.x + rcIconView.dx + iconGap, l.rcIconThumbnailView.y, rcIconView.dx,
-                        rcIconView.dy};
-
-    /* "Open..." link before the icons */
-    Rect rcIconOpen(0, 0, 0, 0);
-    rcIconOpen.dx = rcIconOpen.dy = HomePageIconSize();
-
     VirtText* openDoc = chrome->openDoc->text;
     openDoc->SetText(Tr("Open..."));
     openDoc->font = fontText;
     openDoc->isRtl = isRtl;
     openDoc->withUnderline = false;
     Size txtSize = openDoc->GetIdealSize(true);
-    int openTextGap = DpiScale(6);
-    int openGroupDx = rcIconOpen.dx + openTextGap + txtSize.dx;
-    int rowGapX = DpiScale(16);
+    int iconDx = HomePageIconSize();
 
-    rcIconOpen.x = l.rcIconThumbnailView.x - rowGapX - openGroupDx;
-    rcIconOpen.y = centerY - (rcIconOpen.dy / 2);
-    Rect rcOpenDoc(rcIconOpen.x + rcIconOpen.dx + openTextGap, centerY - (txtSize.dy / 2), txtSize.dx, txtSize.dy);
+    HomeHeaderIn hin;
+    hin.gridX = thumbsStartX;
+    hin.gridDx = thumbsContentWidth;
+    hin.pageX = DpiScale(kInnerPadding);
+    hin.pageDx = rc.dx - (2 * hin.pageX);
+    hin.firstColDx = frame.dx;
+    hin.brandDx = logoRowSize.dx;
+    hin.openIconDx = iconDx;
+    hin.openTextGap = DpiScale(6);
+    hin.openTextDx = txtSize.dx;
+    hin.viewIconsDx = viewIconsDx;
+    hin.gapX = DpiScale(16);
+    hin.searchMinDx = DpiScale(200);
+    hin.searchMaxDx = DpiScale(kHomeSearchMaxDx);
+    HomeHeaderOut hdrRow;
+    LayoutHomeHeader(hin, hdrRow);
 
-    // the search box is centered; the brand and the Open group bound its width
-    int leftDx = std::max(logoRowSize.dx, frame.dx) + rowGapX;
-    int rightDx = thumbsStartX + thumbsContentWidth - rcIconOpen.x + rowGapX;
-    int flankDx = std::max(leftDx, rightDx);
-    int borderDx = std::min(thumbsContentWidth - (2 * flankDx), DpiScale(kHomeSearchMaxDx));
-    borderDx = std::max(borderDx, DpiScale(200));
-    int borderX = thumbsStartX + ((thumbsContentWidth - borderDx) / 2);
-    l.rcSearchBorder = {borderX, centerY - (borderDy / 2), borderDx, borderDy};
+    l.rcLogo = {};
+    if (hdrRow.showBrand) {
+        l.rcLogo = {hdrRow.brandX, centerY - (logoRowSize.dy / 2), logoRowSize.dx, logoRowSize.dy};
+    }
+
+    /* view-mode icons at the right edge */
+    l.rcIconThumbnailView = {hdrRow.viewIconsX, centerY - (rcIconView.dy / 2), rcIconView.dx, rcIconView.dy};
+    l.rcIconListView = {l.rcIconThumbnailView.x + rcIconView.dx + iconGap, l.rcIconThumbnailView.y, rcIconView.dx,
+                        rcIconView.dy};
+
+    /* "Open..." link before the icons */
+    Rect rcIconOpen(hdrRow.openX, centerY - (iconDx / 2), iconDx, iconDx);
+    Rect rcOpenDoc;
+    if (hdrRow.showOpenText) {
+        rcOpenDoc = {rcIconOpen.x + iconDx + hin.openTextGap, centerY - (txtSize.dy / 2), txtSize.dx, txtSize.dy};
+    }
+    l.rcSearchBorder = {hdrRow.searchX, centerY - (borderDy / 2), hdrRow.searchDx, borderDy};
 
     if (isRtl) {
         auto mirrorX = [&rc](Rect& r) { r.x = rc.dx - r.x - r.dx; };
@@ -1704,7 +1708,7 @@ static void LayoutHomePage(HomePageLayout& l) {
     VirtRichText* tip = tipCtrl->rich;
     if (tip) {
         int tipPadding = DpiScale(8);
-        tipHeight = tip->MinIntrinsicHeight(thumbsContentWidth) + (2 * tipPadding);
+        tipHeight = tip->MinIntrinsicHeight(hdrRow.rowDx) + (2 * tipPadding);
     }
 
     // --- Step 3: middle area for thumbnails/list ---
@@ -1856,10 +1860,13 @@ static void LayoutHomePage(HomePageLayout& l) {
         l.rcTip = {0, tipY, rcClient.dx, tipHeight};
         l.hasTip = true;
 
-        // text area aligned with thumbnails
-        int tipStartX = thumbsStartX;
+        // text area aligned with the header row
+        int tipStartX = hdrRow.rowX;
+        if (isRtl) {
+            tipStartX = rc.dx - hdrRow.rowX - hdrRow.rowDx;
+        }
         int tipStartY = tipY + tipPadding;
-        l.rcTipText = {tipStartX, tipStartY, thumbsContentWidth, tip->MinIntrinsicHeight(thumbsContentWidth)};
+        l.rcTipText = {tipStartX, tipStartY, hdrRow.rowDx, tip->MinIntrinsicHeight(hdrRow.rowDx)};
     }
 }
 
@@ -2104,6 +2111,14 @@ static TempStr RectCsvTemp(const Rect& r) {
     return fmt("%d,%d,%d,%d", r.x, r.y, r.dx, r.dy);
 }
 
+static bool HomeVScrollShown(MainWindow* win) {
+    auto& c = HomeLayout(win);
+    if (ScrollbarsUseOverlay()) {
+        return win->overlayScrollV && c.valid && c.totalContentDy > c.thumbsVisibleDy;
+    }
+    return (GetWindowLongW(win->hwndCanvas, GWL_STYLE) & WS_VSCROLL) != 0;
+}
+
 // The home page's keyboard state: which entry the arrows have selected, how
 // many entries are currently shown (the search box filters them) and whether
 // the search box has the focus. A test driving the home page with keys waits on
@@ -2151,12 +2166,18 @@ TempStr HomeSelectionResultTemp(int* exitCodeOut) {
     }
     // the tip shown (promo or tip, index) and its band, for picking another one
     Rect tipRect = c.hasTip ? c.rcTip : Rect{};
+    // the header row's items, which must not overlap (issue #6367)
+    Rect open = c.rcIconOpen.Union(c.rcOpenDoc);
+    Rect views = c.rcIconThumbnailView.Union(c.rcIconListView);
+    Rect tipText = c.hasTip ? c.rcTipText : Rect{};
+    TempStr header = fmt("vbar=%d logo=%s open=%s views=%s tipText=%s", HomeVScrollShown(win) ? 1 : 0,
+                         RectCsvTemp(c.rcLogo), RectCsvTemp(open), RectCsvTemp(views), RectCsvTemp(tipText));
     return finish(0, fmt("OK sel=%d entries=%d searchFocus=%d searchBox=%d search=%s outline=%s outlineFull=%s path=%s "
-                         "listView=%d listIcon=%s thumbsArea=%s lastCaption=%s tip=%d,%d tipRect=%s",
+                         "listView=%d listIcon=%s thumbsArea=%s lastCaption=%s tip=%d,%d tipRect=%s %s",
                          sel, len(c.thumbs), searchFocus, searchBox, RectCsvTemp(search), RectCsvTemp(outline),
                          RectCsvTemp(outlineFull), path, HomePageIsListView() ? 1 : 0, RectCsvTemp(c.rcIconListView),
                          RectCsvTemp(c.rcThumbsArea), RectCsvTemp(lastCaption), gSelectedIsPromo ? 1 : 0,
-                         gSelectedTipIdx, RectCsvTemp(tipRect)));
+                         gSelectedTipIdx, RectCsvTemp(tipRect), header));
 }
 
 // What the home page list drew for each row: the path, the size text as drawn,
@@ -3021,6 +3042,28 @@ static void UpdateHomeOverlayScrollbar(MainWindow* win) {
     OverlayScrollbarShow(win->overlayScrollV, show);
 }
 
+// the canvas' own scrollbar in windows mode (issue #6367). Can't flip-flop:
+// showing it only narrows the page (more rows), hiding it only widens it
+static void UpdateHomeWinScrollbar(MainWindow* win) {
+    if (ScrollbarsAreHidden() || ScrollbarsUseOverlay()) {
+        return;
+    }
+    auto& c = HomeLayout(win);
+    bool show = c.valid && c.totalContentDy > c.thumbsVisibleDy;
+    if (show) {
+        SCROLLINFO si{};
+        si.cbSize = sizeof(si);
+        si.fMask = SIF_ALL;
+        si.nMin = 0;
+        si.nMax = c.totalContentDy - 1;
+        si.nPage = c.thumbsVisibleDy;
+        si.nPos = win->homePageScrollY;
+        SetScrollInfo(win->hwndCanvas, SB_VERT, &si, TRUE);
+    }
+    // may resize the canvas, which re-lays out the page
+    ShowScrollBar(win->hwndCanvas, SB_VERT, show);
+}
+
 void HomePageCreate(MainWindow* win) {
     if (!win || !win->hwndCanvas) {
         return;
@@ -3070,6 +3113,7 @@ void HomePageRelayout(MainWindow* win) {
     }
     UpdateHomeSearchCueBanner(win);
     UpdateHomeOverlayScrollbar(win);
+    UpdateHomeWinScrollbar(win);
 }
 
 void DrawHomePage(MainWindow* win, Gfx* gfx) {
@@ -3460,8 +3504,16 @@ void HomePageOnVScroll(MainWindow* win, WPARAM wp) {
         case SB_THUMBPOSITION: {
             int pos = (int)(short)HIWORD(wp);
             // overlay scrollbar sends full position in HIWORD for THUMBTRACK
-            if (win->overlayScrollV) {
+            if (win->overlayScrollV && ScrollbarsUseOverlay()) {
                 pos = win->overlayScrollV->nTrackPos;
+            } else {
+                // HIWORD is only 16 bits
+                SCROLLINFO si{};
+                si.cbSize = sizeof(si);
+                si.fMask = SIF_TRACKPOS;
+                if (GetScrollInfo(win->hwndCanvas, SB_VERT, &si)) {
+                    pos = si.nTrackPos;
+                }
             }
             newScrollY = pos;
             break;

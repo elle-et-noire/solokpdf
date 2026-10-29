@@ -30,6 +30,12 @@ struct DocCanvasUI;
 struct HomePageUI;
 struct WatchedFile;
 enum class SidebarContent;
+// orig's sidebarTop / sidebarMiddle / sidebarBottom panels
+enum class SidebarSlot {
+    Top,
+    Middle,
+    Bottom,
+};
 
 // one match of the current find, in (page, glyph) coordinates
 struct FindMatch {
@@ -418,10 +424,14 @@ struct MainWindow {
     // what the sidebar shows; orig keeps the same three flags in win->uiState
     struct {
         bool tocVisible = false;
+        // orig's sidebarMiddleVisible: only with the other two
+        bool middleVisible = false;
         bool favVisible = false;
         bool aiChatVisible = false;
     } uiState;
     SidebarContent sidebarBottomContent;
+    // the content neither the top nor the bottom panel shows
+    SidebarContent sidebarMiddleContent;
     // --- AI chat panel (step 14d) --------------------------------------------
     // provider (AIChatBackend value) the panel content is configured for;
     // -1 = none
@@ -430,6 +440,11 @@ struct MainWindow {
     int aiChatDx = 0;
     // width of the sidebar in dips; orig's win->sidebarDx
     int sidebarDx = 0;
+    // SidebarAutoHide: the floating sidebar is shown (by the mouse or the
+    // keyboard) and whether the mouse is over it
+    bool sidebarOverlayShown = false;
+    bool sidebarOverlayByMouse = false;
+    bool sidebarOverlayHovered = false;
     // frame pixels SidebarWindowSize = grow added for the sidebar (0: none)
     int sidebarGrewFrameDx = 0;
     // Windows: the frame's last non-maximized rectangle in screen pixels, for

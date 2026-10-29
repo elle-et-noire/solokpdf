@@ -135,6 +135,8 @@ struct PdfMergeSource {
 struct PdfMergePage {
     int src = 0;
     int pageNo = 0;
+    // degrees clockwise, on top of the page's own /Rotate
+    int rotation = 0;
 };
 bool EngineMupdfMergePdfs(const Vec<PdfMergeSource>& srcs, const Vec<PdfMergePage>& pages, Str destPath);
 
@@ -228,6 +230,7 @@ Str EngineMupdfLoadAttachment(EngineBase*, int attachmentNo);
 TocTree* EngineMupdfAttachmentToc(EngineBase*);
 void EngineMupdfAttachmentLinks(EngineBase*, int pageNo, Vec<IPageElement*>& out);
 Str EngineMupdfLoadAnnotAttachment(EngineBase*, int objNum);
+Str EngineMupdfLoadEmbedded(EngineBase*, PageDestination*);
 TempStr EngineMupdfGetPdfInfo(Str path);
 TempStr EngineMupdfGetPdfOutline(Str path);
 #if !OS_WIN

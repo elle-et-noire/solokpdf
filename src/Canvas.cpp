@@ -1960,7 +1960,11 @@ static void OnMouseLeftButtonDblClk(MainWindow* win, int x, int y, WPARAM key) {
         return;
     }
     if (gPressOnlyDeselected) {
+        // the first click deselected another annotation; free text still edits (#6387)
         gPressOnlyDeselected = false;
+        if (!IsPlacingHighlighterAnnotation(win)) {
+            StartFreeTextInPlaceEditAt(win, Point{x, y});
+        }
         return;
     }
     // while an annotation is selected, double-clicking it (to edit free text in
@@ -3535,7 +3539,7 @@ static bool RefHoverTakesWheel(MainWindow* win, UINT msg, WPARAM wp, LPARAM lp) 
     if (!s->displayed.srcRect.Contains(pagePt)) {
         return false;
     }
-    RefHoverOnWheel(s, dm->GetEngine(), msg, wp);
+    RefHoverOnWheel(s, dm->GetEngine(), msg, wp, lp, RefHoverWheelAt::Link);
     return true;
 }
 
@@ -4693,6 +4697,10 @@ static void OnTimer(MainWindow* win, HWND hwnd, WPARAM timerId) {
 
         case kAnnotationNudgeTimerID:
             FinishAnnotationNudge(win);
+            break;
+
+        case kSidebarOverlayTimerID:
+            UpdateSidebarOverlay(win, SidebarOverlayUpdate::Mouse);
             break;
 
         case kTouchLongPressTimerID: {

@@ -1446,6 +1446,35 @@ bool ForwardBrowserMsg(MainWindow* win, UINT msg, WPARAM wp, LPARAM lp) {
     return true;
 }
 
+// orig's MaybeTranslateAccelerator: in a CHM / markdown / HTML tab the arrows,
+// Home/End and PageUp/PageDown scroll the page instead of running their
+// page-flip accelerators (#6419). Windows gets there via ForwardBrowserMsg.
+bool ScrollBrowserDocKey(MainWindow* win, int vk) {
+    switch (vk) {
+        case VK_LEFT:
+        case VK_RIGHT:
+        case VK_UP:
+        case VK_DOWN:
+        case VK_HOME:
+        case VK_END:
+        case VK_PRIOR:
+        case VK_NEXT:
+            break;
+        default:
+            return false;
+    }
+    BrowserDocController* doc = win ? win->AsChm() : nullptr;
+    if (!doc && win) {
+        doc = win->AsMarkdown();
+    }
+    // no browser view (none on this system): the keys keep their commands
+    if (!doc || !doc->docView) {
+        return false;
+    }
+    BrowserViewScrollKey(doc->docView, vk);
+    return true;
+}
+
 // A failed open still gets a tab: the canvas shows the error, and the file
 // stays available to "show in folder" (issue #3595). Page number stays 0.
 static void ShowLoadErrorTab(MainWindow* win, Str fullPath, LoadReuse reuse) {
@@ -1718,7 +1747,14 @@ static MainWindow* LoadDocumentFinish(MainWindow* win, Str fullPath, DocControll
             if (page < 1 || page > ctrl->PageCount()) {
                 page = 1;
             }
-            ctrl->GoToPage(page, false);
+            // same file (reload, session restore): keep its scroll position
+            bool hasScroll = fs && (fs->scrollPos.x > 0 || fs->scrollPos.y > 0);
+            if (hasScroll && path::IsSame(fs->filePath, ctrl->GetFilePath())) {
+                RectF r(fs->scrollPos.x, fs->scrollPos.y, 0, 0);
+                ctrl->AsMarkdown()->ScrollTo(page, r, kInvalidZoom);
+            } else {
+                ctrl->GoToPage(page, false);
+            }
         } else if (chm && fs) {
             RectF r(fs->scrollPos.x, fs->scrollPos.y, 0, 0);
             chm->ScrollTo(limitValue(ss.page, 1, ctrl->PageCount()), r, kInvalidZoom);
@@ -3643,6 +3679,10 @@ static void SyncCanvasAfterSidebar(MainWindow* win) {
 // none). Skip if already grown (tab switch). Hide undoes the grow.
 // The sidebar and the canvas margin are in dips, the frame in pixels.
 static void AdjustFrameForSidebarNow(MainWindow* win, bool show) {
+    // a floating sidebar takes no space
+    if (show && gSettings->sidebarAutoHide) {
+        return;
+    }
 #if OS_WIN
     if (!FrameCanResizeForSidebar(win)) {
         if (!show) {
@@ -3813,6 +3853,7 @@ void SetSidebarVisibility(MainWindow* win, bool tocVisible, bool showFavorites, 
     WindowTab* tab = win->CurrentTab();
     SidebarResolveContents(win);
     SidebarContent topContent = tab ? tab->sidebarContent : SidebarContent::Bookmarks;
+    SidebarContent middleContent = win->sidebarMiddleContent;
     SidebarContent bottomContent = win->sidebarBottomContent;
     EngineBase* engine = win->CurrentTab() ? win->CurrentTab()->GetEngine() : nullptr;
     bool headingPending = EngineMupdfHeadingTocPending(engine);
@@ -3823,25 +3864,35 @@ void SetSidebarVisibility(MainWindow* win, bool tocVisible, bool showFavorites, 
     bool bottomAvailable =
         (bottomContent == SidebarContent::Favorites && CanAccessDisk()) ||
         (bottomContent == SidebarContent::Thumbnails ? win->AsFixed() != nullptr : win->ctrl && win->ctrl->HasToc());
+    bool middleAvailable =
+        (middleContent == SidebarContent::Favorites && CanAccessDisk()) ||
+        (middleContent == SidebarContent::Thumbnails ? win->AsFixed() != nullptr : win->ctrl && win->ctrl->HasToc());
     tocVisible = tocVisible && topAvailable;
     showFavorites = showFavorites && bottomAvailable;
+    // the middle panel shows only with the other two
+    bool middleVisible = gSettings->showSidebarMiddle && tocVisible && showFavorites && middleAvailable;
 
     if (PM_BLACK_SCREEN == win->presentation || PM_WHITE_SCREEN == win->presentation) {
         tocVisible = false;
+        middleVisible = false;
         showFavorites = false;
     }
 
     bool bookmarks = (tocVisible && topContent == SidebarContent::Bookmarks) ||
+                     (middleVisible && middleContent == SidebarContent::Bookmarks) ||
                      (showFavorites && bottomContent == SidebarContent::Bookmarks);
     if (bookmarks) {
         LoadTocTree(win);
         if (!win->tocLoaded) {
             tocVisible = tocVisible && topContent != SidebarContent::Bookmarks;
+            middleVisible = middleVisible && middleContent != SidebarContent::Bookmarks;
             showFavorites = showFavorites && bottomContent != SidebarContent::Bookmarks;
         }
     }
+    middleVisible = middleVisible && tocVisible && showFavorites;
 
     bool favorites = (tocVisible && topContent == SidebarContent::Favorites) ||
+                     (middleVisible && middleContent == SidebarContent::Favorites) ||
                      (showFavorites && bottomContent == SidebarContent::Favorites);
     if (favorites) {
         PopulateFavTreeIfNeeded(win);
@@ -3865,6 +3916,7 @@ void SetSidebarVisibility(MainWindow* win, bool tocVisible, bool showFavorites, 
 
     bool wasSidebar = win->uiState.tocVisible || win->uiState.favVisible;
     win->uiState.tocVisible = tocVisible;
+    win->uiState.middleVisible = middleVisible;
     win->uiState.favVisible = showFavorites;
     bool nowSidebar = tocVisible || showFavorites;
     if (resizeFrame == SidebarResizeFrame::Adjust && wasSidebar != nowSidebar) {
@@ -4496,9 +4548,10 @@ void AdvanceFocus(MainWindow* win, bool isShift) {
         Chapter,
         Page,
         SidebarTop,
+        SidebarMiddle,
         SidebarBottom
     };
-    constexpr int kMaxWindows = 6;
+    constexpr int kMaxWindows = 7;
     Stop tabOrder[kMaxWindows] = {Stop::Frame};
     int nWindows = 1;
     if (hasToolbar && ShowChapterUi(win->ctrl) && ToolbarHasChapterBox(win)) {
@@ -4509,11 +4562,14 @@ void AdvanceFocus(MainWindow* win, bool isShift) {
     }
     // note: the find edit is no longer in the toolbar tab order; it lives in the
     // floating findBar and is reached via Ctrl+F / the search toolbar icon
-    // the sidebar panels, top then bottom
-    if (SidebarPanelVisible(win, true)) {
+    // the sidebar panels, top to bottom
+    if (SidebarPanelVisible(win, SidebarSlot::Top)) {
         tabOrder[nWindows++] = Stop::SidebarTop;
     }
-    if (SidebarPanelVisible(win, false)) {
+    if (SidebarPanelVisible(win, SidebarSlot::Middle)) {
+        tabOrder[nWindows++] = Stop::SidebarMiddle;
+    }
+    if (SidebarPanelVisible(win, SidebarSlot::Bottom)) {
         tabOrder[nWindows++] = Stop::SidebarBottom;
     }
     ReportIf(nWindows > kMaxWindows);
@@ -4527,9 +4583,11 @@ void AdvanceFocus(MainWindow* win, bool isShift) {
             case Stop::Page:
                 return IsToolbarLocationBoxFocused(win, false);
             case Stop::SidebarTop:
-                return SidebarPanelHasFocus(win, true);
+                return SidebarPanelHasFocus(win, SidebarSlot::Top);
+            case Stop::SidebarMiddle:
+                return SidebarPanelHasFocus(win, SidebarSlot::Middle);
             case Stop::SidebarBottom:
-                return SidebarPanelHasFocus(win, false);
+                return SidebarPanelHasFocus(win, SidebarSlot::Bottom);
         }
         return false;
     };
@@ -4559,10 +4617,13 @@ void AdvanceFocus(MainWindow* win, bool isShift) {
             ToolbarFocusLocationBox(win, false);
             break;
         case Stop::SidebarTop:
-            SidebarFocusPanel(win, true);
+            SidebarFocusPanel(win, SidebarSlot::Top);
+            break;
+        case Stop::SidebarMiddle:
+            SidebarFocusPanel(win, SidebarSlot::Middle);
             break;
         case Stop::SidebarBottom:
-            SidebarFocusPanel(win, false);
+            SidebarFocusPanel(win, SidebarSlot::Bottom);
             break;
     }
 }
@@ -5288,6 +5349,10 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
 
         case CmdToggleCaption:
             ToggleCaption(cmd);
+            break;
+
+        case CmdToggleSidebarAutoHide:
+            ToggleSidebarAutoHide(cmd);
             break;
 
         case CmdToggleToolbar:

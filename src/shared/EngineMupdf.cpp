@@ -469,6 +469,20 @@ static bool IsMupdfLocalFileLink(Str uri, TempStr* pathOut, Str* fragmentOut) {
     return true;
 }
 
+// a link from an EPUB page to a file in the EPUB that isn't a chapter, e.g. the
+// media of a <video> (#6421). The app extracts the file and opens it
+static bool IsEpubEmbeddedFileLink(EngineMupdf* e, Str uri) {
+    if (len(uri) == 0 || str::Contains(uri, StrL("#")) || IsExternalLink(uri)) {
+        return false;
+    }
+    if (GuessFileTypeFromName(e->FilePath()) != FileType::Epub) {
+        return false;
+    }
+    // a chapter link that didn't resolve isn't a file to open
+    Str ext = path::GetExtTemp(uri);
+    return !str::EqI(ext, StrL(".html")) && !str::EqI(ext, StrL(".xhtml")) && !str::EqI(ext, StrL(".htm"));
+}
+
 template <typename T, typename... Args>
 static T* AllocDest(Arena* a, Args&&... args) {
     if (a) {
@@ -566,6 +580,13 @@ static IPageDestination* NewPageDestinationMupdf(EngineMupdf* e, fz_link* link, 
         Str localFragment;
         if (IsMupdfLocalFileLink(uri, &localPath, &localFragment)) {
             auto* res = AllocDest<PageDestinationFile>(destArena, localPath, localFragment);
+            res->rect = FzGetRectF(link);
+            return res;
+        }
+        if (IsEpubEmbeddedFileLink(e, uri)) {
+            auto* res = AllocDest<PageDestination>(destArena);
+            res->kind = kindDestinationLaunchEmbedded;
+            res->value = str::Dup(uri);
             res->rect = FzGetRectF(link);
             return res;
         }
@@ -4357,6 +4378,7 @@ bool EngineMupdf::LoadFromStream(fz_stream* stm, Str nameHint, PasswordUI* pwdUI
     if (requestedFontName && isReflowable) {
         if (!EbookFontIsAvailable(ctx, requestedFontName)) {
             ebookFontUnavailable = str::Dup(arena, requestedFontName);
+            logf("EngineMupdf: ebook font '%s' not found\n", requestedFontName);
         }
     }
 
@@ -7208,7 +7230,9 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
     }
 
     // AA level is per-thread-context state since Ctx() clones; no lock needed.
-    if (disableAntiAlias) {
+    // Print renders at printer DPI where AA edge grays only get halftoned into
+    // jagged edges (#6384).
+    if (disableAntiAlias || args.target == RenderTarget::Print) {
         fz_set_aa_level(ctx, 0);
     } else {
         // 8 seems to be the default
@@ -10213,6 +10237,14 @@ static pdf_document* OpenPdfForMerge(fz_context* ctx, const PdfMergeSource& src)
     return doc;
 }
 
+// adds degrees to page pageIdx's /Rotate, which may be inherited from its parent
+static void RotatePdfPage(fz_context* ctx, pdf_document* doc, int pageIdx, int degrees) {
+    pdf_obj* page = pdf_lookup_page_obj(ctx, doc, pageIdx);
+    int rotate = pdf_to_int(ctx, pdf_dict_get_inheritable(ctx, page, PDF_NAME(Rotate)));
+    rotate = (((rotate + degrees) % 360) + 360) % 360;
+    pdf_dict_put_int(ctx, page, PDF_NAME(Rotate), rotate);
+}
+
 // Write the pages, in order, to destPath, which must not be one of the sources.
 // srcs[0] is the base: its pages keep annotations, links and bookmarks. Pages of
 // the others are grafted, with annotations and form fields flattened (grafting
@@ -10229,6 +10261,11 @@ bool EngineMupdfMergePdfs(const Vec<PdfMergeSource>& srcs, const Vec<PdfMergePag
     // index in the base document of each page of the result
     Vec<int> order;
     VecAppendBlanks(order, nPages);
+    // a base page that is in the result again: grafted like another source's,
+    // so each is a page object of its own (rotated on its own)
+    Vec<u8> grafted;
+    VecAppendBlanks(grafted, nPages);
+    bool hasRepeated = false;
     pdf_document* doc = nullptr;
     pdf_document* src = nullptr;
     pdf_graft_map* map = nullptr;
@@ -10240,23 +10277,32 @@ bool EngineMupdfMergePdfs(const Vec<PdfMergeSource>& srcs, const Vec<PdfMergePag
     fz_try(ctx) {
         doc = OpenPdfForMerge(ctx, srcs[0]);
         int nBase = pdf_count_pages(ctx, doc);
+        Vec<u8> used;
+        VecAppendBlanks(used, nBase);
         for (int i = 0; i < nPages; i++) {
             if (pages[i].src == 0) {
                 if (pages[i].pageNo < 1 || pages[i].pageNo > nBase) {
                     fz_throw(ctx, FZ_ERROR_ARGUMENT, "no page %d", pages[i].pageNo);
                 }
                 order[i] = pages[i].pageNo - 1;
+                if (used[order[i]]) {
+                    grafted[i] = 1;
+                    hasRepeated = true;
+                }
+                used[order[i]] = 1;
+            } else {
+                grafted[i] = 1;
             }
         }
-        // the pages of the other sources go to the end, then into place below
-        for (int s = 1; s < len(srcs); s++) {
+        // the grafted pages go to the end, then into place below
+        for (int s = hasRepeated ? 0 : 1; s < len(srcs); s++) {
             src = OpenPdfForMerge(ctx, srcs[s]);
             // in memory only: the file isn't changed
             pdf_bake_document(ctx, src, 1, 1);
             int nSrc = pdf_count_pages(ctx, src);
             map = pdf_new_graft_map(ctx, doc);
             for (int i = 0; i < nPages; i++) {
-                if (pages[i].src != s) {
+                if (pages[i].src != s || !grafted[i]) {
                     continue;
                 }
                 if (pages[i].pageNo < 1 || pages[i].pageNo > nSrc) {
@@ -10272,6 +10318,11 @@ bool EngineMupdfMergePdfs(const Vec<PdfMergeSource>& srcs, const Vec<PdfMergePag
         }
         // drops the pages not in order and fixes bookmarks and links to them
         pdf_rearrange_pages(ctx, doc, nPages, order.els, PDF_CLEAN_STRUCTURE_KEEP);
+        for (int i = 0; i < nPages; i++) {
+            if (pages[i].rotation % 360 != 0) {
+                RotatePdfPage(ctx, doc, i, pages[i].rotation);
+            }
+        }
 
         pdf_write_options opts = gPdfDefaultWriteOptions;
         opts.do_compress = 1;
@@ -10555,6 +10606,65 @@ Str EngineMupdfLoadAnnotAttachment(EngineBase* engine, int objNum) {
     }
     ScopedRecursiveMutex scope(&epdf->docLock);
     return PdfLoadAnnotationAttachment(epdf->Ctx(), epdf->pdfdoc, objNum);
+}
+
+// caller must free. A file stored in the document's archive, e.g. an EPUB video (#6421)
+static Str LoadArchiveEntry(EngineMupdf* e, Str name) {
+    auto* ctx = e->Ctx();
+    fz_buffer* fileBytes = nullptr;
+    fz_stream* stm = nullptr;
+    fz_archive* arch = nullptr;
+    fz_buffer* buf = nullptr;
+    Str res;
+    fz_var(fileBytes);
+    fz_var(stm);
+    fz_var(arch);
+    fz_var(buf);
+    fz_var(res);
+
+    {
+        ScopedRecursiveMutex scope(&e->docLock);
+        fileBytes = fz_keep_buffer(ctx, e->fileBytes);
+    }
+    fz_try(ctx) {
+        if (fileBytes) {
+            stm = fz_open_buffer(ctx, fileBytes);
+        } else {
+            stm = FzOpenOrReadFile(ctx, e->FilePath(), &fileBytes);
+        }
+        if (stm) {
+            arch = fz_open_archive_with_stream(ctx, stm);
+            buf = fz_read_archive_entry(ctx, arch, CStrTemp(name));
+            u8* data = nullptr;
+            size_t n = fz_buffer_storage(ctx, buf, &data);
+            if (data && n > 0 && n <= (size_t)INT_MAX) {
+                res = str::Dup(Str((char*)data, (int)n));
+            }
+        }
+    }
+    fz_always(ctx) {
+        fz_drop_buffer(ctx, buf);
+        fz_drop_archive(ctx, arch);
+        fz_drop_stream(ctx, stm);
+        fz_drop_buffer(ctx, fileBytes);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        logf("LoadArchiveEntry: failed to read '%s'\n", name);
+    }
+    return res;
+}
+
+// caller must free. The file a kindDestinationLaunchEmbedded opens
+Str EngineMupdfLoadEmbedded(EngineBase* engine, PageDestination* pd) {
+    if (pd->embedObjNum > 0) {
+        return EngineMupdfLoadAnnotAttachment(engine, pd->embedObjNum);
+    }
+    EngineMupdf* e = AsEngineMupdf(engine);
+    if (!e || len(pd->GetValue()) == 0) {
+        return {};
+    }
+    return LoadArchiveEntry(e, pd->GetValue());
 }
 
 static Annotation* FindAnnotAtPos(const Vec<Annotation*>& annots, PointF pos, float padding,

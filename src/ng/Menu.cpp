@@ -164,6 +164,10 @@ static MenuDef menuDefContext[] = {
         CmdToggleCaption,
     },
     {
+        TrN("Auto-hide Sidebar"),
+        CmdToggleSidebarAutoHide,
+    },
+    {
         StrL(kMenuSeparator),
         kMenuSeparatorID,
     },
@@ -688,6 +692,10 @@ static void SetMenuChecks(MenuModel* menu, MainWindow* win) {
             it.checked = gSettings->showCaption;
             continue;
         }
+        if (it.cmdId == CmdToggleSidebarAutoHide) {
+            it.checked = gSettings->sidebarAutoHide;
+            continue;
+        }
         if (it.cmdId == CmdToggleBookmarks || it.cmdId == CmdToggleTableOfContents) {
             it.checked = SidebarContentVisible(win, SidebarContent::Bookmarks);
             continue;
@@ -1156,11 +1164,11 @@ void WindowContextMenuCommand(MainWindow* win, int cmdId) {
             }
             IPageDestination* elDest = pageEl->AsLink();
             auto* pd = (PageDestination*)elDest;
-            if (!pd || pd->embedObjNum <= 0) {
+            if (!pd) {
                 return;
             }
             // attachments are arbitrary binary
-            Str data = EngineMupdfLoadAnnotAttachment(engine, pd->embedObjNum);
+            Str data = EngineMupdfLoadEmbedded(engine, pd);
             if (len(data) == 0) {
                 return;
             }

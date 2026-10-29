@@ -135,9 +135,10 @@ MainWindow::~MainWindow() {
 
     // the panels hand the views' layouts back before those are deleted
     DeleteSidebarPanel(sidebarTop);
+    DeleteSidebarPanel(sidebarMiddle);
     DeleteSidebarPanel(sidebarBottom);
     DeleteSidebarPanel(favoritesTabPanel);
-    sidebarTop = sidebarBottom = favoritesTabPanel = nullptr;
+    sidebarTop = sidebarMiddle = sidebarBottom = favoritesTabPanel = nullptr;
     HomePageDestroySearch(this);
     HomePageDestroyChrome(this);
 
@@ -478,11 +479,8 @@ bool MainWindow::CreateUIAProvider() {
 }
 
 static void LaunchEmbeddedDestination(MainWindow* win, PageDestination* pd) {
-    if (pd->embedObjNum <= 0) {
-        return;
-    }
     EngineBase* engine = win->CurrentTab()->AsFixed()->GetEngine();
-    Str data = EngineMupdfLoadAnnotAttachment(engine, pd->embedObjNum);
+    Str data = EngineMupdfLoadEmbedded(engine, pd);
     if (len(data) == 0) {
         return;
     }
@@ -770,7 +768,6 @@ AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
         ctx.isReflowable = engine && engine->isReflowable;
         ctx.engineKind = ctx.tab->GetEngineType();
         ctx.engineHasErrors = engine && engine->HasErrors();
-        ctx.canSendEmail = CanSendAsEmailAttachment(ctx.tab);
 #ifndef DISABLE_DOCUMENT_RESTRICTIONS
         ctx.allowsPrinting = !win->AsFixed() || (engine && engine->AllowsPrinting());
 #endif

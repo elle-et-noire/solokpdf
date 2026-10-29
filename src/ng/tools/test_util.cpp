@@ -17,6 +17,7 @@ extern void CryptoUtilTest();
 extern void CssParser_UnitTests();
 extern void DictTest();
 extern void DirRemoveAllTest();
+extern void UncExistsTest();
 extern void FileUtilTest();
 extern void GuessFileTypeTest();
 extern void JsonTest();
@@ -58,6 +59,7 @@ extern bool PdfDarkModeImageStats_UnitTest();
 extern bool EbookDoc_UnitTestLoading();
 bool GumboHtmlParser_UnitTest();
 bool DisplayMode_UnitTestZoom();
+bool Translations_UnitTestUnescape();
 extern bool Accelerators_UnitTestFolderNavIsSafe();
 extern bool NavFiles_UnitTestHidden();
 #if !OS_WIN
@@ -150,6 +152,7 @@ int main(int argc, char** argv) {
     CssParser_UnitTests();
     DictTest();
     DirRemoveAllTest();
+    UncExistsTest();
     FileUtilTest();
     GuessFileTypeTest();
     JsonTest();
@@ -191,6 +194,7 @@ int main(int argc, char** argv) {
     utassert(EbookDoc_UnitTestLoading());
     utassert(GumboHtmlParser_UnitTest());
     utassert(DisplayMode_UnitTestZoom());
+    utassert(Translations_UnitTestUnescape());
     utassert(NavFiles_UnitTestHidden());
 #if !OS_WIN
     utassert(MeasurementSystem_UnitTests());

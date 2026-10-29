@@ -62,7 +62,7 @@
 
 // --- the image formats the two image dialogs offer --------------------------
 
-// PNG / JPEG / BMP, same core formats as the Save Image dialog
+// PNG / JPEG / BMP / GIF, same core formats as the Save Image dialog
 // ng: orig also carries the GDI+ mime type and the OPENFILENAME default
 // extension; the encoders here are the portable ones of the image editor
 struct ConvertImageFormat {
@@ -74,6 +74,7 @@ static const ConvertImageFormat kConvertImageFormats[] = {
     {StrL("PNG"), StrL(".png")},
     {StrL("JPEG"), StrL(".jpg")},
     {StrL("BMP"), StrL(".bmp")},
+    {StrL("GIF"), StrL(".gif")},
 };
 
 static int ConvertImageFormatCount() {
@@ -209,6 +210,9 @@ static const Color kSourceColors[] = {
     MkRgb(0xe3, 0x77, 0xc2), MkRgb(0xbc, 0xbd, 0x22), MkRgb(0x17, 0xbe, 0xcf),
 };
 
+// 0, 90, 180, 270: each has its own thumbnail
+constexpr int kMergeRotations = 4;
+
 struct MergeThumb {
     Pixmap* bitmap = nullptr;
     gp::RenderImage* image = nullptr;
@@ -235,6 +239,8 @@ struct MergeSourceDlg {
 struct MergePageDlg {
     int sourceNo = 0;
     int pageNo = 0;
+    // degrees clockwise: 0, 90, 180 or 270
+    int rotation = 0;
     bool removed = false;
     bool selected = false;
 };
@@ -289,6 +295,9 @@ struct PdfToolDlg {
     // the grid's bounds in the window, as of the last frame, and what the
     // layout of that frame was computed for
     gp::Bounds mergeView{};
+    // the files' legend and its entries, as of the last frame
+    gp::Bounds mergeLegendView{};
+    Vec<gp::Bounds> mergeLegendItems;
     float mergeLayoutDx = 0;
     float mergeLayoutDy = 0;
     // width the columns were laid out for; bounds are filled in only while painting
@@ -322,6 +331,10 @@ struct PdfToolDlg {
     MergeInsertAt mergeAskAt = MergeInsertAt::End;
     gp::InputState* mergeAskEdit = nullptr;
     bool mergeAskFocus = false;
+    // the pages last copied or cut; pasted while the system clipboard still
+    // has the text copying them put there (orig: its sequence number)
+    Vec<MergePageDlg> mergeClip;
+    Str mergeClipText; // owned
 };
 
 // Merge PDF (orig has one such window), and the single-purpose tool that is
@@ -616,6 +629,8 @@ static void FreeToolState(gp::Window* toolWin) {
     }
     VecReset(gTool.mergeSources);
     VecReset(gTool.mergePages);
+    VecReset(gTool.mergeClip);
+    str::FreePtr(&gTool.mergeClipText);
     str::Free(gTool.srcPath);
     gTool.srcPath = {};
     str::Free(gTool.password);
@@ -823,6 +838,9 @@ static void PdfDeletePageDoIt() {
         }
         inputPath = tmpPath;
     }
+
+    // the destination folder may not exist yet (issue #6424)
+    dir::CreateForFile(destPath);
 
     // equivalent of: clean -gggg -e 100 -f -i -t -Z input.pdf output.pdf <page-range>
     // use the same compression flags as Compress PDF so the result is re-written
@@ -1034,6 +1052,7 @@ static void SaveSelectionAsImageDoIt() {
 struct MergeThumbWorkItem {
     int sourceNo = 0;
     int pageNo = 0;
+    int rotation = 0;
     int thumbIdx = 0;
 };
 
@@ -1049,13 +1068,19 @@ struct MergeThumbResult {
     Pixmap* bitmap = nullptr;
 };
 
-static Pixmap* RenderMergeThumb(EngineBase* engine, int pageNo) {
+static int MergeThumbIdx(const MergePageDlg& page) {
+    const MergeSourceDlg& source = gTool.mergeSources[page.sourceNo];
+    return source.thumbStart + ((page.pageNo - 1) * kMergeRotations) + (page.rotation / 90);
+}
+
+static Pixmap* RenderMergeThumb(EngineBase* engine, int pageNo, int rotation) {
     RectF pageRect = engine->PageMediabox(pageNo);
     if (pageRect.IsEmpty()) {
         return nullptr;
     }
+    pageRect = engine->Transform(pageRect, pageNo, 1.0f, rotation);
     float zoom = std::min((float)kMergeThumbDx / pageRect.dx, (float)kMergeThumbDy / pageRect.dy);
-    RenderPageArgs args(pageNo, zoom, 0, nullptr, RenderTarget::View);
+    RenderPageArgs args(pageNo, zoom, rotation, nullptr, RenderTarget::View);
     // kept as opaque 24bpp, like the other thumbnails
     return PixmapToBgr(engine->RenderPage(args));
 }
@@ -1073,6 +1098,8 @@ static void FinishMergeThumb(MergeThumbResult* result) {
     delete result;
 }
 
+static void StartMergeThumbs();
+
 static void FinishMergeThumbWorker(MergeThumbCache* cache) {
     cache->workerRunning = false;
     if (cache->deleteWhenWorkerFinishes) {
@@ -1080,6 +1107,8 @@ static void FinishMergeThumbWorker(MergeThumbCache* cache) {
         return;
     }
     AppShellInvalidate(cache->win);
+    // pages rotated meanwhile
+    StartMergeThumbs();
 }
 
 static void RenderMergeThumbs(MergeThumbWorker* worker) {
@@ -1096,7 +1125,7 @@ static void RenderMergeThumbs(MergeThumbWorker* worker) {
         result->cache = worker->cache;
         result->thumbIdx = item.thumbIdx;
         EngineBase* engine = engines[item.sourceNo];
-        result->bitmap = engine ? RenderMergeThumb(engine, item.pageNo) : nullptr;
+        result->bitmap = engine ? RenderMergeThumb(engine, item.pageNo, item.rotation) : nullptr;
         uitask::Post(MkFunc0<MergeThumbResult>(FinishMergeThumb, result));
     }
     for (EngineBase* engine : engines) {
@@ -1117,14 +1146,12 @@ static void StartMergeThumbs() {
         source.engine->AddRef();
         VecAppend(worker->engines, source.engine);
     }
-    for (int sourceNo = 0; sourceNo < len(gTool.mergeSources); sourceNo++) {
-        const MergeSourceDlg& source = gTool.mergeSources[sourceNo];
-        for (int pageNo = 1; pageNo <= source.pageCount; pageNo++) {
-            int idx = source.thumbStart + pageNo - 1;
-            const MergeThumb& thumb = cache->thumbs[idx];
-            if (!thumb.bitmap && !thumb.failed) {
-                VecAppend(worker->items, MergeThumbWorkItem{sourceNo, pageNo, idx});
-            }
+    // only the rotations the pages have; each page is in the grid once
+    for (const MergePageDlg& page : gTool.mergePages) {
+        int idx = MergeThumbIdx(page);
+        const MergeThumb& thumb = cache->thumbs[idx];
+        if (!thumb.bitmap && !thumb.failed) {
+            VecAppend(worker->items, MergeThumbWorkItem{page.sourceNo, page.pageNo, page.rotation, idx});
         }
     }
     if (len(worker->items) == 0) {
@@ -1410,6 +1437,16 @@ static void MergeSetRemoved(bool removed) {
     }
 }
 
+// degrees: 90 turns the selected pages clockwise, -90 counterclockwise
+static void MergeRotate(int degrees) {
+    for (MergePageDlg& it : gTool.mergePages) {
+        if (it.selected) {
+            it.rotation = (((it.rotation + degrees) % 360) + 360) % 360;
+        }
+    }
+    StartMergeThumbs();
+}
+
 // every page of the source, selected, in front of item `at`
 static void MergeInsertPages(int sourceNo, int at) {
     Vec<MergePageDlg>& items = gTool.mergePages;
@@ -1427,6 +1464,110 @@ static void MergeInsertPages(int sourceNo, int at) {
     }
     gTool.mergeFocusIdx = at;
     gTool.mergeAnchorIdx = at;
+}
+
+// orig's MergeGrid::CopySelected: the selected pages to our clipboard, their
+// names to the system one
+static void MergeCopySelected() {
+    VecReset(gTool.mergeClip);
+    str::Builder text;
+    for (const MergePageDlg& it : gTool.mergePages) {
+        if (!it.selected) {
+            continue;
+        }
+        VecAppend(gTool.mergeClip, it);
+        Str path = gTool.mergeSources[it.sourceNo].path;
+        text.Append(fmt(Tr("%s, page %d").s, path::GetBaseNameTemp(path), it.pageNo));
+        text.AppendChar('\n');
+    }
+    if (len(gTool.mergeClip) == 0 || !gTool.win) {
+        return;
+    }
+    str::FreePtr(&gTool.mergeClipText);
+    gTool.mergeClipText = str::Dup(ToStrTemp(text));
+    gp::ClipboardSetText(gTool.win->gpuiWin, ToGpui(gTool.mergeClipText));
+}
+
+// copies the selected pages and takes them out; nothing is selected after
+static void MergeCutSelected() {
+    MergeCopySelected();
+    if (len(gTool.mergeClip) == 0) {
+        return;
+    }
+    Vec<MergePageDlg>& items = gTool.mergePages;
+    Vec<MergePageDlg> rest;
+    int first = -1;
+    for (int i = 0; i < len(items); i++) {
+        if (!items[i].selected) {
+            VecAppend(rest, items[i]);
+        } else if (first < 0) {
+            first = i;
+        }
+    }
+    VecReset(items);
+    for (const MergePageDlg& it : rest) {
+        VecAppend(items, it);
+    }
+    gTool.mergeFocusIdx = limitValue(first, 0, std::max(0, len(items) - 1));
+    gTool.mergeAnchorIdx = gTool.mergeFocusIdx;
+}
+
+// copies of the pages last copied or cut, selected, in front of item `at`
+static void MergePastePages(int at) {
+    Vec<MergePageDlg>& items = gTool.mergePages;
+    for (MergePageDlg& it : items) {
+        it.selected = false;
+    }
+    at = limitValue(at, 0, len(items));
+    for (int i = 0; i < len(gTool.mergeClip); i++) {
+        MergePageDlg it = gTool.mergeClip[i];
+        it.selected = true;
+        VecInsertAt(items, at + i, it);
+    }
+    gTool.mergeFocusIdx = at;
+    gTool.mergeAnchorIdx = at;
+    MergeEnsureVisible(at / std::max(1, gTool.mergeCols));
+    StartMergeThumbs();
+}
+
+// the platform's line ends may differ from what we put there
+static bool IsMergeClipText(Str text) {
+    if (len(gTool.mergeClip) == 0 || len(text) == 0) {
+        return false;
+    }
+    return str::Eq(str::ReplaceTemp(text, StrL("\r\n"), StrL("\n")), gTool.mergeClipText);
+}
+
+// PDF files copied in a file manager; ng: also a text of such paths, one a
+// line, where gpui has no file list (Linux, macOS)
+static void MergePdfPathsFromClipboard(const gp::ClipboardItem& item, StrVec& out) {
+    Str all = FromGpui(item.HasExternalPaths() ? item.externalPaths : item.text);
+    StrVec lines;
+    Split(&lines, str::ReplaceTemp(all, StrL("\r"), StrL("")), StrL("\n"), true);
+    for (Str line : lines) {
+        if (str::EndsWithI(line, StrL(".pdf")) && file::Exists(line)) {
+            out.Append(line);
+        }
+    }
+}
+
+static void AddMergeSourcesAt(const StrVec& paths, int at);
+
+// orig's MergePdfWnd::Paste: the pages last copied or cut, else PDF files
+// copied in a file manager; after the last selected page
+static void MergePaste() {
+    if (!gTool.win) {
+        return;
+    }
+    int at = MergeInsertPosition();
+    gp::ClipboardItem item = gp::ClipboardGetItem(gp::GetTempArena(), gTool.win->gpuiWin);
+    if (IsMergeClipText(FromGpui(item.text))) {
+        MergePastePages(at);
+        return;
+    }
+    StrVec paths;
+    MergePdfPathsFromClipboard(item, paths);
+    AddMergeSourcesAt(paths, at);
 }
 
 // arrows move through the pages; with Shift they extend the selection
@@ -1468,7 +1609,7 @@ static bool AddMergeSource(Str filePath, int at) {
     source.thumbStart = len(gTool.mergeThumbs->thumbs);
     source.color = kSourceColors[len(gTool.mergeSources) % dimofi(kSourceColors)];
     source.engine = engine;
-    for (int i = 0; i < source.pageCount; i++) {
+    for (int i = 0; i < source.pageCount * kMergeRotations; i++) {
         VecAppend(gTool.mergeThumbs->thumbs, MergeThumb{});
     }
     VecAppend(gTool.mergeSources, source);
@@ -1604,7 +1745,7 @@ static bool MergeSaveTo(Str destPath) {
     Vec<PdfMergePage> pages;
     for (const MergePageDlg& page : gTool.mergePages) {
         if (!page.removed) {
-            VecAppend(pages, PdfMergePage{page.sourceNo, page.pageNo});
+            VecAppend(pages, PdfMergePage{page.sourceNo, page.pageNo, page.rotation});
         }
     }
     if (len(destPath) == 0 || len(pages) == 0) {
@@ -1691,9 +1832,10 @@ static void OnMergeSaveAsPicked(SavePathArgs* args) {
 // (arg: a PDF path; asks where to add it, like Add PDF...), "addprompt" (ng:
 // the Add PDF... button), "answer" (ng: n: 1 OK, 0 Cancel of that
 // question), "asktext" (the After page field), "move" (arg: 0-based
-// items like "0,2", n: in front of that item), "remove" / "restore" (arg: items), "select"
-// (ng: arg: items), "save" / "saveas" (arg: the path), "close" or "" (report
-// only). Reports the items as src:page (r: removed, s: selected).
+// items like "0,2", n: in front of that item), "remove" / "restore" (arg: items),
+// "rotate" (arg: items, n: degrees), "select" (ng: arg: items), "save" /
+// "saveas" (arg: the path), "close" or "" (report only). Reports the items as
+// src:page[@rotation] (r: removed, s: selected).
 // ng: for the platforms whose picker answers later (AppShellPickFileAsync)
 static void OnMergePicked(MainWindow* win, Str path) {
     if (!gTool.visible || gTool.win != win || !IsMainWindowValidAndNotClosing(win)) {
@@ -1722,6 +1864,22 @@ static void MergeAddPromptNow(MainWindow* win) {
 
 static void MergeAddPrompt() {
     uitask::Post(MkFunc0(MergeAddPromptNow, gTool.win), "MergeAddPdf");
+}
+
+static TempStr MergeInfoTemp();
+
+// the legend's entries that fit in it, as of the last frame; reported to tests
+static int MergeLegendShownCount() {
+    if (len(gTool.mergeSources) < 2) {
+        return 0;
+    }
+    const gp::Bounds& box = gTool.mergeLegendView;
+    int n = 0;
+    for (const gp::Bounds& b : gTool.mergeLegendItems) {
+        bool fits = b.w > 0 && b.x >= box.x && b.Right() <= box.Right() + 0.5f && b.Bottom() <= box.Bottom() + 0.5f;
+        n += fits ? 1 : 0;
+    }
+    return n;
 }
 
 TempStr MergePdfResultTemp(Str action, Str arg, int n, int* exitCodeOut) {
@@ -1777,6 +1935,18 @@ TempStr MergePdfResultTemp(Str action, Str arg, int n, int* exitCodeOut) {
     } else if (str::Eq(action, StrL("remove")) || str::Eq(action, StrL("restore"))) {
         selectItems();
         MergeSetRemoved(str::Eq(action, StrL("remove")));
+    } else if (str::Eq(action, StrL("rotate"))) {
+        selectItems();
+        MergeRotate(n);
+    } else if (str::Eq(action, StrL("copy"))) {
+        selectItems();
+        MergeCopySelected();
+    } else if (str::Eq(action, StrL("cut"))) {
+        selectItems();
+        MergeCutSelected();
+    } else if (str::Eq(action, StrL("paste"))) {
+        selectItems();
+        MergePaste();
     } else if (str::Eq(action, StrL("save")) || str::Eq(action, StrL("saveas"))) {
         TempStr path = str::DupTemp(str::Eq(action, StrL("save")) ? gTool.srcPath : arg);
         bool ok = MergeSaveTo(path);
@@ -1820,6 +1990,9 @@ TempStr MergePdfResultTemp(Str action, Str arg, int n, int* exitCodeOut) {
     for (int i = 0; i < len(items); i++) {
         const MergePageDlg& it = items[i];
         out.Append(fmt(i == 0 ? "%d:%d" : ",%d:%d", it.sourceNo, it.pageNo));
+        if (it.rotation != 0) {
+            out.Append(fmt("@%d", it.rotation));
+        }
         if (it.removed) {
             out.AppendChar('r');
         }
@@ -1847,6 +2020,9 @@ TempStr MergePdfResultTemp(Str action, Str arg, int n, int* exitCodeOut) {
         ask = InputTextTemp(gTool.mergeAskEdit);
     }
     out.Append(fmt(" asking=%d ask=%s", (int)(len(gTool.mergeAskPaths) > 0), ask));
+    out.Append(fmt(" info=\"%s\"", MergeInfoTemp()));
+    out.Append(
+        fmt(" legend=%d/%d", MergeLegendShownCount(), len(gTool.mergeSources) > 1 ? len(gTool.mergeSources) : 0));
     return finish(0, fmt("OK %s", ToStrTemp(out)));
 }
 
@@ -2193,7 +2369,12 @@ void PdfToolView::OnMergeSetRemoved(PdfToolView*, gp::Ctx* cx, const gp::ClickEv
 enum {
     kMenuRemove = 1,
     kMenuRestore,
+    kMenuRotateLeft,
+    kMenuRotateRight,
     kMenuSelectAll,
+    kMenuCut,
+    kMenuCopy,
+    kMenuPaste,
 };
 
 static uint32_t ActMergeMenu() {
@@ -2205,8 +2386,16 @@ void PdfToolView::OnMergeMenu(PdfToolView*, gp::Ctx* cx, const gp::ActionEvent* 
     int cmd = (int)ev->arg;
     if (cmd == kMenuRemove || cmd == kMenuRestore) {
         MergeSetRemoved(cmd == kMenuRemove);
+    } else if (cmd == kMenuRotateLeft || cmd == kMenuRotateRight) {
+        MergeRotate(cmd == kMenuRotateRight ? 90 : -90);
     } else if (cmd == kMenuSelectAll) {
         MergeSelectAll();
+    } else if (cmd == kMenuCut) {
+        MergeCutSelected();
+    } else if (cmd == kMenuCopy) {
+        MergeCopySelected();
+    } else if (cmd == kMenuPaste) {
+        MergePaste();
     }
     gp::Notify(cx);
     AppShellInvalidate(gTool.win);
@@ -2310,6 +2499,12 @@ static bool MergeOnKeyDown(MainWindow* win, int vk, bool ctrl, bool shift) {
         }
         return false;
     }
+    // pasting works without pages too
+    if (ctrl && vk == 'V') {
+        MergePaste();
+        AppShellInvalidate(win);
+        return true;
+    }
     int n = len(gTool.mergePages);
     if (n == 0) {
         return false;
@@ -2345,11 +2540,30 @@ static bool MergeOnKeyDown(MainWindow* win, int vk, bool ctrl, bool shift) {
             // all removed already: restore them
             MergeSetRemoved(MergeSelectedRemovedCount() < MergeSelectedCount());
             break;
+        // [ and ], as in the document window
+        case VK_OEM_4:
+            MergeRotate(-90);
+            break;
+        case VK_OEM_6:
+            MergeRotate(90);
+            break;
         case 'A':
             if (!ctrl) {
                 return false;
             }
             MergeSelectAll();
+            break;
+        case 'C':
+            if (!ctrl) {
+                return false;
+            }
+            MergeCopySelected();
+            break;
+        case 'X':
+            if (!ctrl) {
+                return false;
+            }
+            MergeCutSelected();
             break;
         default:
             return false;
@@ -2405,7 +2619,7 @@ void PdfToolView::OnBrowse(PdfToolView*, gp::Ctx* cx, const gp::ClickEvent*) {
     args->initialPath = str::Dup(DestPathTemp());
     args->defExt = str::Dup(ext);
     if (HasFormatDropDown()) {
-        args->filter = str::Dup(StrL("PNG\1*.png\1JPEG\1*.jpg;*.jpeg\1BMP\1*.bmp\1All Files\1*.*\1"));
+        args->filter = str::Dup(StrL("PNG\1*.png\1JPEG\1*.jpg;*.jpeg\1BMP\1*.bmp\1GIF\1*.gif\1All Files\1*.*\1"));
         args->filterIndex = SelectedFormatIdx() + 1;
         // < and > are illegal in Windows filenames; show {N} in the save dialog
         TempStr shown = str::ReplaceTemp(DestPathTemp(), StrL("<N>"), StrL("{N}"));
@@ -2712,7 +2926,7 @@ void ShowMergePdfDialog(MainWindow* win) {
     source.pageCount = engine->PageCount();
     source.engine = engine;
     engine->AddRef();
-    for (int i = 0; i < source.pageCount; i++) {
+    for (int i = 0; i < source.pageCount * kMergeRotations; i++) {
         VecAppend(gTool.mergeThumbs->thumbs, MergeThumb{});
     }
     VecAppend(gTool.mergeSources, source);
@@ -2941,9 +3155,17 @@ static gp::El* MergeGridEl(gp::Ctx* cx, float viewDx, float viewDy) {
     for (int i = first; i <= last; i++) {
         const MergePageDlg& page = items[i];
         const MergeSourceDlg& source = gTool.mergeSources[page.sourceNo];
-        MergeThumb& thumb = gTool.mergeThumbs->thumbs[source.thumbStart + page.pageNo - 1];
+        MergeThumb& thumb = gTool.mergeThumbs->thumbs[MergeThumbIdx(page)];
         RectF r = MergeCellRect(i);
         r.y += scrollY;
+        // the page is the thumbnail's size once rendered: rotated, it's landscape
+        RectF pr = r;
+        if (thumb.bitmap) {
+            pr.dx = std::min((float)thumb.bitmap->width, r.dx);
+            pr.dy = std::min((float)thumb.bitmap->height, r.dy);
+            pr.x = r.x + ((r.dx - pr.dx) / 2);
+            pr.y = r.y + ((r.dy - pr.dy) / 2);
+        }
 
         // the selection and hover: a rounded frame around page and number;
         // the keyboard's page a ring when it isn't selected
@@ -2971,10 +3193,10 @@ static gp::El* MergeGridEl(gp::Ctx* cx, float viewDx, float viewDy) {
         // white pages on a white grid need an edge
         gp::El* cell = gp::Div(cx->a)
                            ->Absolute()
-                           ->Left(r.x)
-                           ->Top(r.y)
-                           ->W(r.dx)
-                           ->H(r.dy)
+                           ->Left(pr.x)
+                           ->Top(pr.y)
+                           ->W(pr.dx)
+                           ->H(pr.dy)
                            ->ItemsCenter()
                            ->JustifyCenter()
                            ->Bg(gp::Rgba{0xff, 0xff, 0xff, 0xff})
@@ -2985,7 +3207,7 @@ static gp::El* MergeGridEl(gp::Ctx* cx, float viewDx, float viewDy) {
         }
         if (page.removed) {
             Color veil = colFrame != kColorUnset ? colFrame : colBg;
-            cell->Child(gp::Div(cx->a)->Absolute()->Left(0)->Top(0)->W(r.dx)->H(r.dy)->Bg(
+            cell->Child(gp::Div(cx->a)->Absolute()->Left(0)->Top(0)->W(pr.dx)->H(pr.dy)->Bg(
                 withAlpha(veil, kMergeRemovedVeilAlpha)));
         }
 
@@ -3204,6 +3426,28 @@ static gp::El* MergePagesEl(gp::Ctx* cx, float viewDx, float viewDy) {
                          (intptr_t)kMenuRestore);
     menu->Disabled(nSelRemoved == 0);
     menu->Separator();
+    menu->MenuWithAction(GpuiDup(cx->a, ParseMenuAccelTextTemp(Tr("Rotate &Left")).display), ActMergeMenu(),
+                         (intptr_t)kMenuRotateLeft);
+    menu->Disabled(nSel == 0);
+    menu->Kbd(GStrL("["));
+    menu->MenuWithAction(GpuiDup(cx->a, ParseMenuAccelTextTemp(Tr("Rotate &Right")).display), ActMergeMenu(),
+                         (intptr_t)kMenuRotateRight);
+    menu->Disabled(nSel == 0);
+    menu->Kbd(GStrL("]"));
+    menu->Separator();
+    menu->MenuWithAction(GpuiDup(cx->a, ParseMenuAccelTextTemp(Tr("Cu&t")).display), ActMergeMenu(),
+                         (intptr_t)kMenuCut);
+    menu->Disabled(nSel == 0);
+    menu->Kbd(GStrL("Ctrl+X"));
+    menu->MenuWithAction(GpuiDup(cx->a, ParseMenuAccelTextTemp(Tr("&Copy")).display), ActMergeMenu(),
+                         (intptr_t)kMenuCopy);
+    menu->Disabled(nSel == 0);
+    menu->Kbd(GStrL("Ctrl+C"));
+    // ng: always enabled; reading the clipboard every frame is a round trip on X11
+    menu->MenuWithAction(GpuiDup(cx->a, ParseMenuAccelTextTemp(Tr("&Paste")).display), ActMergeMenu(),
+                         (intptr_t)kMenuPaste);
+    menu->Kbd(GStrL("Ctrl+V"));
+    menu->Separator();
     menu->MenuWithAction(GpuiDup(cx->a, ParseMenuAccelTextTemp(Tr("Select &All")).display), ActMergeMenu(),
                          (intptr_t)kMenuSelectAll);
     menu->Kbd(GStrL("Ctrl+A"));
@@ -3225,8 +3469,13 @@ static TempStr MergeInfoTemp() {
     for (const MergePageDlg& page : gTool.mergePages) {
         nRemoved += page.removed ? 1 : 0;
     }
-    return nRemoved > 0 ? fmt(Tr("%d pages, %d removed").s, len(gTool.mergePages) - nRemoved, nRemoved)
-                        : fmt(Tr("%d pages").s, len(gTool.mergePages));
+    TempStr s = nRemoved > 0 ? fmt(Tr("%d pages, %d removed").s, len(gTool.mergePages) - nRemoved, nRemoved)
+                             : fmt(Tr("%d pages").s, len(gTool.mergePages));
+    int nSel = MergeSelectedCount();
+    if (nSel > 0) {
+        s = fmt("%s, %s", s, fmt(Tr("%d selected").s, nSel));
+    }
+    return s;
 }
 
 constexpr int kMergeWinMinDx = 480;
@@ -3235,7 +3484,7 @@ constexpr int kMergeWinMinDy = 320;
 // the footer
 constexpr float kMergeCardChromeDy = 200;
 constexpr float kMergeCardMinViewDy = 240;
-// between the page count and each file of the legend
+// between the files of the legend
 constexpr float kMergeInfoGap = 24;
 
 static Str MergeToolTitle() {
@@ -3246,20 +3495,82 @@ static gp::El* MergeText(gp::Ctx* cx, Str s, Color col) {
     return gp::TextEl(cx->a, GpuiDup(cx->a, s))->Font(kToolDlgMetaFontPx)->Fg(ToGpui(col))->Shrink0();
 }
 
-// orig's MergePdfWnd::PaintInfo: the page count, then each file's dot and
-// name when there is more than one file
+// orig's MergePdfWnd::PaintInfo: the page count
 static gp::El* MergeInfoEl(gp::Ctx* cx) {
     Color colMuted = ThemeWindowTextDisabledColor();
-    gp::El* info = gp::Div(cx->a)->FlexRow()->Flex1()->MinW(0)->ItemsCenter()->Gap(kMergeInfoGap)->ClipX();
+    gp::El* info = gp::Div(cx->a)->FlexRow()->Flex1()->MinW(0)->ItemsCenter()->ClipX();
     info->Child(MergeText(cx, MergeInfoTemp(), colMuted));
-    for (int i = 0; len(gTool.mergeSources) > 1 && i < len(gTool.mergeSources); i++) {
+    return info;
+}
+
+// orig's MergePdfWnd::LegendRects: each file's dot and name, in rows that wrap
+// at dx, so every file is named (issue #6397). Relative to the legend
+static void MergeLegendRects(gp::Ctx* cx, float dx, Vec<RectF>& out) {
+    VecReset(out);
+    if (len(gTool.mergeSources) < 2) {
+        return;
+    }
+    gp::PaintCtx* paint = cx->win ? &cx->win->paint : nullptr;
+    float lineDy = ceilf(gp::MeasureText(paint, GStrL("M"), kToolDlgMetaFontPx, 0).h);
+    float x = 0;
+    float y = kToolDlgFootPadDy;
+    for (const MergeSourceDlg& source : gTool.mergeSources) {
+        Str name = path::GetBaseNameTemp(source.path);
+        float nameDx = ceilf(gp::MeasureText(paint, ToGpui(name), kToolDlgMetaFontPx, 0).w);
+        RectF r{0, 0, (2 * kMergeDotDx) + nameDx, lineDy};
+        if (x > 0 && x + r.dx > dx) {
+            x = 0;
+            y += lineDy + (lineDy / 2);
+        }
+        r.x = x;
+        r.y = y;
+        x += r.dx + kMergeInfoGap;
+        VecAppend(out, r);
+    }
+}
+
+// the legend's width: the column's, inside its padding. The card's column is
+// as wide as the grid was the last frame
+static float MergeLegendDx(float viewDx) {
+    float colDx = viewDx > 0 ? viewDx : gTool.mergeView.w;
+    if (colDx <= 1.f) {
+        colDx = (float)kMergeDialogDx;
+    }
+    return std::max(0.f, colDx - (2 * kToolDlgPadDx));
+}
+
+static float MergeLegendDy(gp::Ctx* cx, float dx) {
+    Vec<RectF> rects;
+    MergeLegendRects(cx, dx, rects);
+    return len(rects) > 0 ? VecLast(rects).Bottom() : 0;
+}
+
+// orig's MergeLegend: above the footer, as tall as its rows of files
+static gp::El* MergeLegendEl(gp::Ctx* cx, float dx) {
+    Color colMuted = ThemeWindowTextDisabledColor();
+    Vec<RectF> rects;
+    MergeLegendRects(cx, dx, rects);
+    VecResize(gTool.mergeLegendItems, len(rects));
+    float dy = len(rects) > 0 ? VecLast(rects).Bottom() : 0;
+    gp::El* box = gp::Div(cx->a)->W(gp::kFill)->H(dy)->BoundsOut(&gTool.mergeLegendView);
+    for (int i = 0; i < len(rects); i++) {
         const MergeSourceDlg& source = gTool.mergeSources[i];
-        gp::El* file = gp::Div(cx->a)->FlexRow()->ItemsCenter()->Gap(kMergeDotDx)->Shrink0();
+        RectF r = rects[i];
+        gp::El* file = gp::Div(cx->a)
+                           ->Absolute()
+                           ->Left(r.x)
+                           ->Top(r.y)
+                           ->W(r.dx)
+                           ->H(r.dy)
+                           ->FlexRow()
+                           ->ItemsCenter()
+                           ->Gap(kMergeDotDx)
+                           ->BoundsOut(&gTool.mergeLegendItems[i]);
         file->Child(gp::Div(cx->a)->W(kMergeDotDx)->H(kMergeDotDx)->Radius(kMergeDotDx / 2)->Bg(ToGpui(source.color)));
         file->Child(MergeText(cx, path::GetBaseNameTemp(source.path), colMuted));
-        info->Child(file);
+        box->Child(file);
     }
-    return info;
+    return gp::Div(cx->a)->W(gp::kFill)->Shrink0()->PadX(kToolDlgPadDx)->Child(box);
 }
 
 // orig's footer: the quiet page actions and the status on the left, Cancel,
@@ -3301,7 +3612,7 @@ static gp::El* MergeFooterEl(gp::Ctx* cx) {
     return row;
 }
 
-// the pages edge to edge, then the footer
+// the pages edge to edge, then the legend and the footer
 static gp::El* MergeColumn(gp::Ctx* cx, float viewDx, float viewDy) {
     StartMergeThumbs();
     return gp::Div(cx->a)
@@ -3309,6 +3620,7 @@ static gp::El* MergeColumn(gp::Ctx* cx, float viewDx, float viewDy) {
         ->W(gp::kFill)
         ->Bg(ToGpui(ThemeWindowControlBackgroundColor()))
         ->Child(MergePagesEl(cx, viewDx, viewDy))
+        ->Child(MergeLegendEl(cx, MergeLegendDx(viewDx)))
         ->Child(MergeFooterEl(cx));
 }
 
@@ -3324,7 +3636,7 @@ static gp::El* MergeToolBuild(MainWindow* win, gp::Ctx* cx) {
         gToolView = gp::EntityNewState<PdfToolView>(cx->app);
     }
     gp::WinSize ws = gp::WindowSize(cx->win);
-    float viewDy = std::max(100.f, ws.dipH - MergeFooterDy());
+    float viewDy = std::max(100.f, ws.dipH - MergeFooterDy() - MergeLegendDy(cx, MergeLegendDx(ws.dipW)));
     gp::El* col = gp::Div(cx->a)->FlexCol()->W(gp::kFill)->Flex1()->MinH(0)->Child(MergeColumn(cx, ws.dipW, viewDy));
     if (len(gTool.mergeAskPaths) == 0) {
         return col;
@@ -3365,7 +3677,8 @@ static bool MergeToolOnKey(MainWindow* win, gp::Ctx* cx, const gp::KeyEvent* ev)
     if (ev->vk == VK_APPS) {
         return MergeContextMenuFromKey(win, cx);
     }
-    return MergeOnKeyDown(win, ev->vk, ev->ctrl, ev->shift);
+    // Cmd on macOS
+    return MergeOnKeyDown(win, ev->vk, ev->ctrl || ev->platform, ev->shift);
 }
 
 // the caption's close box, or the frame went away
@@ -3660,7 +3973,8 @@ static gp::El* PdfToolBuildCurrent(MainWindow* win, gp::Ctx* cx) {
     gp::El* footer = nullptr;
     float dialogDx = 600;
     if (gTool.kind == PdfToolKind::Merge) {
-        float viewDy = std::max(kMergeCardMinViewDy, gp::WindowSize(cx->win).dipH - kMergeCardChromeDy);
+        float chromeDy = kMergeCardChromeDy + MergeLegendDy(cx, MergeLegendDx(0));
+        float viewDy = std::max(kMergeCardMinViewDy, gp::WindowSize(cx->win).dipH - chromeDy);
         body = MergeColumn(cx, 0, viewDy);
         footer = gp::Div(cx->a)->H(0);
         // orig's kDialogDx, as far as the window allows

@@ -1064,6 +1064,10 @@ static TempStr UpdateCommandNameTemp(MainWindow* win, int cmdId, Str s) {
             isToggle = true;
             newIsOn = !gSettings->showCaption;
         } break;
+        case CmdToggleSidebarAutoHide: {
+            isToggle = true;
+            newIsOn = !gSettings->sidebarAutoHide;
+        } break;
         case CmdToggleBookmarks:
         case CmdToggleTableOfContents: {
             isToggle = true;
@@ -1148,7 +1152,7 @@ static TempStr UpdateCommandNameTemp(MainWindow* win, int cmdId, Str s) {
         } break;
         case CmdFavoriteToggle: {
             isToggle = true;
-            newIsOn = !gSettings->showFavorites;
+            newIsOn = !SidebarContentVisible(win, SidebarContent::Favorites);
         } break;
         case CmdTogglePageInfo: {
             isToggle = true;
@@ -1919,9 +1923,8 @@ static gp::El* BuildSwitchRow(CommandPaletteWnd* wnd, gp::Ctx* cx) {
                          ->Cursor(gp::CursorKind::Pointer)
                          ->PathClick(GpuiDup(cx->a, fmt("palette-switch-%d", prefixIdx)))
                          ->OnClick(gp::ListenTo(gPaletteView, &PaletteView::OnSwitchClick, (intptr_t)prefixIdx));
-        // the leading character is the prefix: draw it as a key cap, as orig does
-        el->Child(DlgKeyCap(cx, Str(sw.label.s, 1), active));
-        el->Child(gp::TextEl(cx->a, GpuiDup(cx->a, Str(sw.label.s + 2, len(sw.label) - 2)))
+        el->Child(DlgKeyCap(cx, sw.prefix, active));
+        el->Child(gp::TextEl(cx->a, GpuiDup(cx->a, PaletteSwitchLabel(sw.label, sw.prefix)))
                       ->Font(kPaletteMetaFontPx)
                       ->Fg(ToGpui(active ? colText : colMuted)));
         row->Child(el);

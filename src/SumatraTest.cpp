@@ -1291,8 +1291,8 @@ TempStr RefHoverResultTemp(Str action, int x, int y, int* exitCodeOut) {
         return fmt("OK visible=0");
     }
     auto& d = s->displayed;
-    return fmt("OK visible=1 hwnd=%d page=%d y=%d zoom=%d", (int)(INT_PTR)s->hwndPopup, d.destPage, (int)d.region.y,
-               (int)(d.userZoom * 100));
+    return fmt("OK visible=1 hwnd=%d page=%d y=%d zoom=%d x=%d", (int)(INT_PTR)s->hwndPopup, d.destPage,
+               (int)d.region.y, (int)(d.userZoom * 100), (int)d.region.x);
 }
 
 // The current tab's pages: each page's width, which a test gives a unique value
@@ -1353,10 +1353,11 @@ TempStr SidebarThumbnailsResultTemp(int* exitCodeOut) {
     sb.Append(fmt(" ring=%d", (int)thumbs->HasFlag(vwfFocused)));
     // e.g. top=1234,1,thumbnails,110,010:2,2,22,22;26,2,22,22;50,2,22,22
     // (enabled icons, selected icon, icon rects in order B, T, F)
-    SidebarPanel* panels[] = {win->sidebarTop, win->sidebarBottom};
-    bool visible[] = {win->uiState.sidebarTopVisible, win->uiState.sidebarBottomVisible};
-    Str names[] = {StrL("top"), StrL("bottom")};
-    for (int i = 0; i < 2; i++) {
+    SidebarPanel* panels[] = {win->sidebarTop, win->sidebarMiddle, win->sidebarBottom};
+    const MainWindow::UIState& ui = win->uiState;
+    bool visible[] = {ui.sidebarTopVisible, ui.sidebarMiddleVisible, ui.sidebarBottomVisible};
+    Str names[] = {StrL("top"), StrL("middle"), StrL("bottom")};
+    for (int i = 0; i < 3; i++) {
         SidebarPanel* p = panels[i];
         sb.Append(fmt(" %s=%d,%d,%s,", names[i], (int)(intptr_t)p->hwnd, (int)visible[i], SidebarViewToStr(p->view)));
         for (VirtIconButton* b : p->viewBtns) {

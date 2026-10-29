@@ -349,6 +349,7 @@ const commandsRaw = [
     "CmdToggleCaption", "Toggle Caption",
     "CmdAdjustBrightness", "Adjust Brightness...",
     "CmdAdjustContrast", "Adjust Contrast...",
+    "CmdToggleSidebarAutoHide", "Toggle Sidebar Auto-hide",
     "CmdNextTheme", "Switch to Next Theme",
     "CmdPrevTheme", "Switch to Previous Theme",
     "CmdCustomizeShortcuts", "Customize Keyboard Shortcuts...",

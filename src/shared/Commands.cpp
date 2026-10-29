@@ -348,6 +348,7 @@ const CommandInfo gCommands[] = {
     {CmdToggleCaption, "CmdToggleCaption\0", StrL("Toggle Caption")},
     {CmdAdjustBrightness, "CmdAdjustBrightness\0", StrL("Adjust Brightness...")},
     {CmdAdjustContrast, "CmdAdjustContrast\0", StrL("Adjust Contrast...")},
+    {CmdToggleSidebarAutoHide, "CmdToggleSidebarAutoHide\0", StrL("Toggle Sidebar Auto-hide")},
     {CmdNextTheme, "CmdNextTheme\0", StrL("Switch to Next Theme")},
     {CmdPrevTheme, "CmdPrevTheme\0", StrL("Switch to Previous Theme")},
     {CmdCustomizeShortcuts, "CmdCustomizeShortcuts\0", StrL("Customize Keyboard Shortcuts...")},

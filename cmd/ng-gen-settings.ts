@@ -329,6 +329,18 @@ const theme: Field[] = [
     "",
     "text color of a highlighted notification tip; if empty, derived from the colors above",
   ).ver("3.7"),
+  field(
+    "HoverPreviewBackgroundColor",
+    Color,
+    "",
+    "background of the citation hover preview's frame; if empty, pale yellow in light themes, HotBackgroundColor in dark ones",
+  ).ver("3.7"),
+  field(
+    "HoverPreviewEdgeColor",
+    Color,
+    "",
+    "border color of the citation hover preview; if empty, uses HotEdgeColor",
+  ).ver("3.7"),
   field("ColorizeControls", Bool, false, "if true, apply the theme colors to Windows controls and window areas too"),
 ];
 
@@ -1028,6 +1040,13 @@ const annotations: Field[] = [
     "image (e.g. a transparent .png of your signature) that Sign With Image stamps on the page. " +
       "If not set, or the file is missing, Sign With Image asks for an image",
   ).ver("3.7"),
+  field(
+    "PopupFontSize",
+    Int,
+    0,
+    "font size of the card that shows an annotation's text when it is clicked, in pixels; " +
+      "0 uses UIFontSize. Not scaled by the display scaling",
+  ).ver("3.7"),
 ];
 
 const favorite: Field[] = [
@@ -1534,6 +1553,13 @@ const globalPrefs: Field[] = [
     .emptyMeans("favorites")
     .ver("3.7"),
   field(
+    "ShowSidebarMiddle",
+    Bool,
+    false,
+    "if true, and the sidebar's top and bottom panels are visible, show a middle panel between them " +
+      "with the view neither of them shows",
+  ).ver("3.7"),
+  field(
     "SortFavoritesByName",
     Bool,
     false,
@@ -1554,6 +1580,13 @@ const globalPrefs: Field[] = [
     false,
     "if true, put the bookmarks / favorites sidebar on the right of the window " +
       "(left is the default; right-to-left UI languages already put it on the right)",
+  ).ver("3.7"),
+  field(
+    "SidebarAutoHide",
+    Bool,
+    false,
+    "if true, the bookmarks / favorites sidebar takes no space: it slides over the document " +
+      "when the mouse reaches the window's edge and hides when the mouse leaves it",
   ).ver("3.7"),
   field(
     "SidebarWindowSize",
@@ -1830,6 +1863,12 @@ const globalPrefs: Field[] = [
     0,
     "if both the favorites and the bookmarks part of the sidebar are visible, this is " +
       "the height of the bookmarks (table of contents) part, in screen pixels",
+  ).internal(),
+  field(
+    "SidebarMiddleDy",
+    Int,
+    0,
+    "if the sidebar's middle panel is visible, this is its height, in screen pixels",
   ).internal(),
   field(
     "ToolbarCustomLayout",
@@ -2208,6 +2247,7 @@ const globalPrefsLayout = [
   "ReadingBar",
   "TabWidth",
   "TocDy",
+  "SidebarMiddleDy",
   "ToolbarSize",
   "TreeFontSize",
   "UIFontSize",
@@ -2245,10 +2285,12 @@ const globalPrefsLayout = [
   "ShowToolbar",
   "SearchUIFloating",
   "ShowFavorites",
+  "ShowSidebarMiddle",
   "SortFavoritesByName",
   "ShowToc",
   "AlwaysShowSidebar",
   "SidebarOnRight",
+  "SidebarAutoHide",
   "SidebarWindowSize",
   "ShowLinks",
   "HighlightFormFields",

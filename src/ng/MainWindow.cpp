@@ -168,11 +168,8 @@ DocControllerCallback* CreateControllerCallbackHandler(MainWindow* win) {
 // menu destination (orig's TrackPopupMenu at the cursor; the port has no popup
 // it can open from code and wait on). It is marked below.
 static void LaunchEmbeddedDestination(MainWindow* win, PageDestination* pd) {
-    if (pd->embedObjNum <= 0) {
-        return;
-    }
     EngineBase* engine = win->CurrentTab()->AsFixed()->GetEngine();
-    Str data = EngineMupdfLoadAnnotAttachment(engine, pd->embedObjNum);
+    Str data = EngineMupdfLoadEmbedded(engine, pd);
     if (len(data) == 0) {
         return;
     }
@@ -308,6 +305,7 @@ MainWindow::MainWindow(gpui::Window* w) {
     gpuiWin = w;
     sidebarBottomContent =
         SidebarContentFromStr(gSettings ? gSettings->sidebarBottomView : Str{}, SidebarContent::Favorites);
+    sidebarMiddleContent = SidebarContent::Thumbnails;
     sidebarDx = gSettings ? gSettings->sidebarDx : 0;
     if (sidebarDx < kSidebarMinDx) {
         sidebarDx = kSidebarMinDx;
@@ -505,7 +503,6 @@ AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
         ctx.isReflowable = engine && engine->isReflowable;
         ctx.engineKind = ctx.tab->GetEngineType();
         ctx.engineHasErrors = engine && engine->HasErrors();
-        ctx.canSendEmail = CanSendAsEmailAttachment(ctx.tab);
 #ifndef DISABLE_DOCUMENT_RESTRICTIONS
         ctx.allowsPrinting = !win->AsFixed() || (engine && engine->AllowsPrinting());
 #endif

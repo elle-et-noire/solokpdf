@@ -1516,7 +1516,7 @@ static bool RefHoverTakesWheel(MainWindow* win, int delta, bool isCtrl, bool isS
         return false;
     }
     if (isCtrl) {
-        RefHoverWheelZoom(s, dm->GetEngine(), delta);
+        RefHoverWheelZoom(s, dm->GetEngine(), delta, kRefHoverNoAnchor);
     } else {
         RefHoverWheelScroll(s, dm->GetEngine(), delta);
     }
@@ -2860,6 +2860,10 @@ static bool OnMouseLeftButtonDblClk(MainWindow* win, int x, int y) {
     }
     if (win->pressOnlyDeselected) {
         win->pressOnlyDeselected = false;
+        // the first click deselected another annotation; free text still edits (#6387)
+        if (!IsPlacingHighlighterAnnotation(win) && StartFreeTextInPlaceEditAt(win, Point{x, y})) {
+            return true;
+        }
         // gpui counts the next click here as a double-click. Orig still gets a
         // WM_LBUTTONDOWN, which selects or deselects on its own.
         return false;
@@ -3857,6 +3861,7 @@ void DocCanvasView::OnMove(DocCanvasView* self, gp::Ctx* cx, const gp::MouseMove
     // orig's canvas does the same: the overlay toolbar shows while the cursor
     // is in the band at the top (or bottom) of the canvas
     UpdateOverlayToolbarForMouse(win, Point{(int)ev->x, (int)ev->y});
+    AppShellSidebarCanvasMove(win, ev);
     OverlayScrollbarsOnMouse(win, pt.x, pt.y, onCanvas);
     if (!onCanvas && win->mouseAction == MouseAction::None) {
         // the laser dot and the presentation auto-hide only own the canvas

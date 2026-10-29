@@ -47,6 +47,8 @@ Color ThemeNotificationsBackgroundColor();
 Color ThemeNotificationsTextColor();
 Color ThemeNotificationsHighlightColor();
 Color ThemeNotificationsHighlightTextColor();
+Color ThemeHoverPreviewBackgroundColor();
+Color ThemeHoverPreviewEdgeColor();
 Color ThemeNotificationsHighlightLinkColor();
 Color ThemeNotificationsProgressColor();
 bool ThemeColorizeControls();

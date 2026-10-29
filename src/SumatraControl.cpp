@@ -303,9 +303,9 @@ static TempStr LayoutInfoResultTemp(Str action, int* exitCodeOut) {
     AppendHwndLayoutRect(out, win, StrL("toolbar"), win->hwndToolbar);
     AppendHwndLayoutRect(out, win, StrL("tabs"), win->tabsCtrl ? win->tabsCtrl->hwnd : nullptr);
     AppendHwndLayoutRect(out, win, StrL("menu"), win->hwndMenuReBar);
-    SidebarPanel* panels[] = {win->sidebarTop, win->sidebarBottom, win->favoritesTabPanel};
-    Str panelNames[] = {StrL("sidebarTop"), StrL("sidebarBottom"), StrL("favoritesTab")};
-    for (int i = 0; i < 3; i++) {
+    SidebarPanel* panels[] = {win->sidebarTop, win->sidebarMiddle, win->sidebarBottom, win->favoritesTabPanel};
+    Str panelNames[] = {StrL("sidebarTop"), StrL("sidebarMiddle"), StrL("sidebarBottom"), StrL("favoritesTab")};
+    for (int i = 0; i < 4; i++) {
         AppendHwndLayoutRect(out, win, panelNames[i], panels[i] ? panels[i]->hwnd : nullptr);
     }
     AppendHwndLayoutRect(out, win, StrL("aiChat"), win->hwndAiChatBox);
@@ -313,7 +313,7 @@ static TempStr LayoutInfoResultTemp(Str action, int* exitCodeOut) {
     AppendLayoutTree(out, StrL("chrome"), win->chromeLayout);
     AppendLayoutTree(out, StrL("frameLayout"), win->frameLayout);
     AppendLayoutTree(out, StrL("caption"), win->captionLayout);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         AppendLayoutTree(out, panelNames[i], panels[i] ? panels[i]->layout : nullptr);
     }
     AppendLayoutTree(out, StrL("aiChat"), win->aiChatLayout);
@@ -658,9 +658,11 @@ enum class ControlCmd : u16 {
     // [brightness, contrast] applied to the current file as the Brightness /
     // Contrast dialog's OK does; returns the current values
     TestPageAdjust = 138,
-    TestShortcutsDialog = 139,
-    TestVimKeys = 140,
-    TestSetFormField = 141,
+    // urls the current markdown document's browser view was served
+    TestMarkdownServed = 139,
+    TestShortcutsDialog = 140,
+    TestVimKeys = 141,
+    TestSetFormField = 142,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1487,6 +1489,13 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             int exitCode = 0;
             Str res = MarkdownFollowLinkResultTemp(href, follow != 0, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestMarkdownServed: {
+            int exitCode = 0;
+            Str res = MarkdownServedResultTemp(&exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }

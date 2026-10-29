@@ -235,6 +235,10 @@ static MenuDef menuDefContext[] = {
         CmdToggleCaption,
     },
     {
+        TrN("Auto-hide Sidebar"),
+        CmdToggleSidebarAutoHide,
+    },
+    {
         StrL(kMenuSeparator),
         kMenuSeparatorID,
     },
@@ -903,6 +907,7 @@ static void MenuUpdateStateForWindow(MainWindow* win) {
     }
     MenuSetChecked(win->menu, CmdToggleMenuBar, gSettings->showMenubar);
     MenuSetChecked(win->menu, CmdToggleCaption, gSettings->showCaption);
+    MenuSetChecked(win->menu, CmdToggleSidebarAutoHide, gSettings->sidebarAutoHide);
     // CmdChangeScrollbar doesn't need a check mark - it opens a dialog
     MenuUpdateDisplayMode(win);
     MenuUpdateZoom(win);
@@ -1378,11 +1383,11 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
             }
             IPageDestination* elDest = pageEl->AsLink();
             PageDestination* pd = (PageDestination*)elDest;
-            if (!pd || pd->embedObjNum <= 0) {
+            if (!pd) {
                 return;
             }
             // attachments are arbitrary binary
-            Str data = EngineMupdfLoadAnnotAttachment(engine, pd->embedObjNum);
+            Str data = EngineMupdfLoadEmbedded(engine, pd);
             if (len(data) == 0) {
                 return;
             }
