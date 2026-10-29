@@ -42,7 +42,7 @@ async function check(engine: string, disableJs: boolean, includeJs = true): Prom
       } else if (initial[0] !== 0 || before !== "NOTLOADED") {
         throw new Error(`${engine} disableJs=${disableJs} includeJs=${includeJs}: initial ${before}`);
       }
-      const res = await client.request(ControlCommand.TestSetFormField, [1, 0, "probe"]);
+      const res = await client.setFormField(1, 0, "probe");
       const result = String(res[1]);
       if (res[0] !== 0 || !result.includes(`before='${want}'`)) {
         throw new Error(`${engine} disableJs=${disableJs}: ${result}`);

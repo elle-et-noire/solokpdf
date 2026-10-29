@@ -30,7 +30,7 @@ async function properties(
         const res = await client.request(ControlCommand.TestDocumentProperties);
         if (res[0] === 0) {
           const print = await client.request(ControlCommand.TestCommandVisibility, ["CmdPrint", "menu"]);
-          const form = await client.request(ControlCommand.TestSetFormField, [1, 0, "filled"]);
+          const form = await client.setFormField(1, 0, "filled");
           return {
             text: String(res[1] ?? ""),
             print: String(print[1] ?? ""),

@@ -10842,23 +10842,24 @@ static bool FormFieldValueIsEmpty(int wt, const char* val) {
 }
 
 // Form-field widgets of pageNo, in page order. Loads the page if needed.
-void EngineMupdfGetPageWidgets(EngineBase* engine, int pageNo, Vec<Annotation*>& out) {
+bool EngineMupdfGetPageWidgets(EngineBase* engine, int pageNo, Vec<Annotation*>& out) {
     VecClear(out);
     if (engine && engine->HasAnnotationEditor() && !engine->HasAcroForm()) {
-        return;
+        return true;
     }
     EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!epdf) {
-        return;
+        return true;
     }
     FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
     if (!pi) {
-        return;
+        return false;
     }
     AutoUnlockRecursiveMutex cs(&epdf->docLock);
     for (Annotation* w : pi->widgets) {
         VecAppend(out, w);
     }
+    return true;
 }
 
 // Page-space rects of empty fillable fields on pageNo (issue #5966). skip is

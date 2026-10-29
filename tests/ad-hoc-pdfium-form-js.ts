@@ -1,7 +1,7 @@
 // A calculated AcroForm value survives an edit and incremental save in both engines.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ControlCommand, withControlledSumatra } from "./control.ts";
+import { withControlledSumatra } from "./control.ts";
 import { assemblePdf, EXE, runStandalone, tmpPath } from "./util.ts";
 
 function formPdf(): string {
@@ -27,7 +27,7 @@ async function check(engine: string): Promise<void> {
     EXE,
     async (client) => {
       await client.waitForRenderIdle();
-      const res = await client.request(ControlCommand.TestSetFormField, [1, 0, "7"]);
+      const res = await client.setFormField(1, 0, "7");
       if (res[0] !== 0) throw new Error(`${engine}: edit: ${String(res[1])}`);
       await client.resolveUnsavedChanges("save-as", saved);
     },
@@ -39,7 +39,7 @@ async function check(engine: string): Promise<void> {
     EXE,
     async (client) => {
       await client.waitForRenderIdle();
-      const res = await client.request(ControlCommand.TestSetFormField, [1, 1, "probe"]);
+      const res = await client.setFormField(1, 1, "probe");
       const result = String(res[1]);
       if (res[0] !== 0 || !result.includes("before='14'")) {
         throw new Error(`${engine}: calculated value after reopen: ${result}`);

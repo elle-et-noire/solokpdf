@@ -538,6 +538,17 @@ export class ControlClient {
     }
   }
 
+  async setFormField(pageNo: number, idx: number, value: string): Promise<ControlArg[]> {
+    const deadline = Date.now() + 5000 * SLOW_BUILD_FACTOR;
+    for (;;) {
+      const res = await this.request(ControlCommand.TestSetFormField, [pageNo, idx, value]);
+      if (res[0] !== 2 || !String(res[1] ?? "").startsWith("NOTREADY ") || Date.now() >= deadline) {
+        return res;
+      }
+      await Bun.sleep(100);
+    }
+  }
+
   // Discards unsaved changes in every tab first, so quitting never waits on
   // the "Unsaved changes" prompt. Call resolveUnsavedChanges("save") before
   // to keep them.

@@ -13,11 +13,11 @@ import { testit as countPrefix } from "./ad-hoc-count-prefix.ts";
 import { testit as noUpdateCheck } from "./ad-hoc-no-update-check.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-pdfium-forms", forms],
   ["ad-hoc-pdfium-tools", tools],
   ["ad-hoc-pdfium-outline", outline],
   ["ad-hoc-pdfium-unsupported", unsupported],
   ["ad-hoc-pdfium-permissions", permissions],
-  ["ad-hoc-pdfium-forms", forms],
   ["ad-hoc-pdfium-form-js", formJs],
   ["ad-hoc-pdfium-document-js", documentJs],
   ["ad-hoc-vim-keys", vimKeys],

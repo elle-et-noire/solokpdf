@@ -1310,7 +1310,13 @@ TempStr SetFormFieldResultTemp(int pageNo, int idx, Str value, int* exitCodeOut)
         return StrL("ERROR invalid-page");
     }
     Vec<Annotation*> widgets;
-    EngineMupdfGetPageWidgets(dm->GetEngine(), pageNo, widgets);
+    bool pageReady = EngineMupdfGetPageWidgets(dm->GetEngine(), pageNo, widgets);
+    if (!pageReady) {
+        if (exitCodeOut) {
+            *exitCodeOut = 2;
+        }
+        return StrL("NOTREADY page-busy");
+    }
     if (idx < 0 || idx >= len(widgets)) {
         if (exitCodeOut) {
             *exitCodeOut = 1;

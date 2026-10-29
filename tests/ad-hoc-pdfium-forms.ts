@@ -1,7 +1,7 @@
 // PDFium form edits use the lazy MuPDF editor and save through it.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ControlCommand, withControlledSumatra } from "./control.ts";
+import { withControlledSumatra } from "./control.ts";
 import { assemblePdf, EXE, runStandalone, tmpPath } from "./util.ts";
 
 function formPdf(type: "text" | "choice"): string {
@@ -32,7 +32,7 @@ async function check(type: "text" | "choice", engine: string): Promise<void> {
       EXE,
       async (client) => {
         await client.waitForRenderIdle();
-        const res = await client.request(ControlCommand.TestSetFormField, [1, 0, value]);
+        const res = await client.setFormField(1, 0, value);
         if (res[0] !== 0) throw new Error(`${type} (${engine}): ${String(res[1])}`);
         if (copy) await client.resolveUnsavedChanges("save-as", copy);
         else await client.resolveUnsavedChanges("discard");
