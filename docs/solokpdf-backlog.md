@@ -52,7 +52,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B21 | PDFium CAD enhance           | B7 CAD group                 | todo                                                          |
 | B22 | PDFium bookmark colors       | B7 rendering group           | done — Honor PDFium bookmark styles (fixes #3560)                                                          |
 | B23 | PDFium scroll responsiveness | B7 responsiveness group      | done — Avoid PDFium TOC lock on scroll (fixes #6362)                                                          |
-| B24 | PDFium XMP properties        | B7 XMP group                 | todo                                                          |
+| B24 | PDFium XMP properties        | B7 XMP group                 | done — Fill PDFium XMP properties from lazy editor                                                          |
 | B25 | Restore lazy session tab     | B7 R: lazy tab no-doc        | todo                                                          |
 | B26 | PDFium comment authors       | B7 R: issue-5329             | todo                                                          |
 | B27 | PDFium external images       | B7 R: issue-3731             | todo                                                          |

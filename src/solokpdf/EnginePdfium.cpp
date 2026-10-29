@@ -625,6 +625,13 @@ class EnginePdfium : public EngineBase {
     TocTree* toc = nullptr;
     AtomicInt tocLoaded = 0;
     bool tocFromEditor = false;
+    enum class XmpState {
+        Unknown,
+        Absent,
+        Present
+    };
+    Mutex xmpLock;
+    XmpState xmpState = XmpState::Unknown;
     // PDFium can't write most annotation properties, so an EngineMupdf of the file edits them and,
     // once loaded, draws them over PDFium's pages. Saving writes MuPDF's incremental update.
     EngineBase* editor = nullptr;
@@ -647,6 +654,39 @@ class EnginePdfium : public EngineBase {
         ScopedMutex lock(&e->fileLock);
         return SetFilePointerEx(e->file, pos, nullptr, FILE_BEGIN) && ReadFile(e->file, data, count, &read, nullptr) &&
                read == count;
+    }
+
+    // PDFium exposes Info but not Catalog XMP; scan only when a property is missing.
+    bool HasXmp() {
+        ScopedMutex lock(&xmpLock);
+        if (xmpState != XmpState::Unknown) {
+            return xmpState == XmpState::Present;
+        }
+        constexpr Str marker = StrL("/Metadata");
+        if (fileData.s) {
+            xmpState = str::Contains(fileData, marker) ? XmpState::Present : XmpState::Absent;
+            return xmpState == XmpState::Present;
+        }
+
+        constexpr unsigned long kScanSize = 64 * 1024;
+        u8 data[kScanSize];
+        unsigned long overlap = len(marker) - 1;
+        for (unsigned long offset = 0; offset < access.m_FileLen;) {
+            unsigned long count = std::min(kScanSize, access.m_FileLen - offset);
+            if (!ReadBlock(this, offset, data, count)) {
+                break;
+            }
+            if (str::Contains(Str((char*)data, (int)count), marker)) {
+                xmpState = XmpState::Present;
+                return true;
+            }
+            if (count == access.m_FileLen - offset) {
+                break;
+            }
+            offset += count - overlap;
+        }
+        xmpState = XmpState::Absent;
+        return false;
     }
 
     // Release the handle of a small file so producers (e.g. LaTeX) can overwrite it while it's shown.
@@ -2341,6 +2381,9 @@ class EnginePdfium : public EngineBase {
             case DocProp::Author:
                 key = "Author";
                 break;
+            case DocProp::Copyright:
+                key = "Copyright";
+                break;
             case DocProp::Subject:
                 key = "Subject";
                 break;
@@ -2362,20 +2405,38 @@ class EnginePdfium : public EngineBase {
             default:
                 return {};
         }
-        ScopedMutex lock(&gPdfiumLock);
-        unsigned long bytes = gPdfium.FPDF_GetMetaText(doc, key, nullptr, 0);
-        if (bytes < sizeof(WCHAR) || bytes > 2 * 1024 * 1024 || bytes % sizeof(WCHAR) != 0) {
-            return {};
+        TempStr value;
+        {
+            ScopedMutex lock(&gPdfiumLock);
+            unsigned long bytes = gPdfium.FPDF_GetMetaText(doc, key, nullptr, 0);
+            if (bytes >= sizeof(WCHAR) && bytes <= 2 * 1024 * 1024 && bytes % sizeof(WCHAR) == 0) {
+                WCHAR* buf = AllocArrayTemp<WCHAR>((int)(bytes / sizeof(WCHAR)));
+                if (gPdfium.FPDF_GetMetaText(doc, key, buf, bytes) == bytes) {
+                    value = ToUtf8Temp(WStr(buf, (int)(bytes / sizeof(WCHAR)) - 1));
+                }
+            }
         }
-        WCHAR* buf = AllocArrayTemp<WCHAR>((int)(bytes / sizeof(WCHAR)));
-        if (gPdfium.FPDF_GetMetaText(doc, key, buf, bytes) != bytes) {
-            return {};
+        if (len(value) > 0 || prop == DocProp::Keywords || !HasXmp()) {
+            return value;
         }
-        return ToUtf8Temp(WStr(buf, (int)(bytes / sizeof(WCHAR)) - 1));
+        EngineBase* source = AnnotationEditor(EditorLoad::Load);
+        return source ? source->GetPropertyTemp(prop) : TempStr{};
     }
 
     void GetProperties(Props& propsOut) override {
         EngineBase::GetProperties(propsOut);
+        TempStr keywords = GetPropertyTemp(DocProp::Keywords);
+        if (len(keywords) == 0 && HasXmp()) {
+            EngineBase* source = AnnotationEditor(EditorLoad::Load);
+            if (source) {
+                Props xmpProps;
+                source->GetProperties(xmpProps);
+                keywords = str::DupTemp(GetPropValueTemp(xmpProps, DocProp::Keywords));
+            }
+        }
+        if (len(keywords) > 0) {
+            AddProp(propsOut, DocProp::Keywords, keywords);
+        }
 
         int signatures = 0;
         {

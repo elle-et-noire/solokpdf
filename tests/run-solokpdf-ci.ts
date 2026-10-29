@@ -24,6 +24,7 @@ import { testit as fitContent } from "./ad-hoc-pdfium-fit-content.ts";
 import { testit as pageBoxes } from "./ad-hoc-pdfium-page-boxes.ts";
 import { testit as scroll } from "./ad-hoc-pdfium-scroll.ts";
 import { testit as bookmarks } from "./ad-hoc-pdfium-bookmarks.ts";
+import { testit as xmp } from "./ad-hoc-pdfium-xmp.ts";
 import { testit as annotations } from "./ad-hoc-pdfium-annotations.ts";
 import { testit as unsupported } from "./ad-hoc-pdfium-unsupported.ts";
 import { testit as windowBg } from "./ad-hoc-pdfium-window-bg.ts";
@@ -46,6 +47,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-page-boxes", pageBoxes],
   ["ad-hoc-pdfium-scroll", scroll],
   ["ad-hoc-pdfium-bookmarks", bookmarks],
+  ["ad-hoc-pdfium-xmp", xmp],
   ["ad-hoc-pdfium-annotations", annotations],
   ["ad-hoc-pdfium-outline", outline],
   ["ad-hoc-pdfium-unsupported", unsupported],

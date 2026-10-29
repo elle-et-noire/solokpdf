@@ -22,7 +22,7 @@ function parseProps(raw: string): Record<string, string> {
   return out;
 }
 
-async function propertiesOf(pdf: string): Promise<Record<string, string>> {
+export async function propertiesOf(pdf: string): Promise<Record<string, string>> {
   return withControlledSumatra(
     EXE,
     async (client) => {

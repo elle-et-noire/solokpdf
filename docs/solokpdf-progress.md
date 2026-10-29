@@ -1808,6 +1808,9 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   attachment in both engines.
 - Document Properties parses PDFium's `CreationDate` and `ModDate` as PDF dates,
   including their time zones, matching MuPDF (`tests/ad-hoc-pdfium-dates.ts`).
+  Missing Info properties fall back to the lazy MuPDF editor when the file has
+  Catalog XMP metadata. Info values win. `xmp-properties` checks both engines;
+  a generated XMP document is in the quick SolokPDF CI checks.
 - Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
   annotation except widgets, so form fields used to be blank; documents with
   an AcroForm now get a form handle and `FPDF_FFLDraw` after each render
