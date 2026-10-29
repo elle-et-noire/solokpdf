@@ -539,6 +539,7 @@ class HwndPasswordUI : public PasswordUI {
     HWND hwnd;
     int pwdIdx;
     bool triedCliPwd = false;
+    bool triedStoredPwd = false;
 
   public:
     explicit HwndPasswordUI(HWND hwnd) : hwnd(hwnd), pwdIdx(0) {}
@@ -551,6 +552,16 @@ class HwndPasswordUI : public PasswordUI {
    Caller needs to free() the result. */
 Str HwndPasswordUI::GetPassword(Str path, u8* fileDigest, u8 decryptionKeyOut[32], bool* saveKey) {
     FileState* fileFromHistory = FileHistoryFindByPath(path);
+#if defined(SOLOKPDF_PDFIUM)
+    if (PdfiumRequested() && !triedStoredPwd && fileFromHistory && fileFromHistory->protectedPassword && fileDigest) {
+        triedStoredPwd = true;
+        Str password = UnprotectPdfPassword(fileFromHistory->protectedPassword, fileDigest);
+        if (password) {
+            *saveKey = false;
+            return password;
+        }
+    }
+#endif
     if (fileFromHistory && fileFromHistory->decryptionKey && fileDigest && decryptionKeyOut) {
         TempStr fingerprint = str::MemToHexTemp(Str((const char*)fileDigest, 16));
         Str decryptionKey = fileFromHistory->decryptionKey;
@@ -2423,6 +2434,15 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
                 str::ReplaceWithCopy(&fs2->decryptionKey, decryptionKey);
             }
         }
+#if defined(SOLOKPDF_PDFIUM)
+        Str protectedPassword = tab->AsFixed()->GetEngine()->protectedPassword;
+        if (protectedPassword) {
+            FileState* fs2 = FileHistoryFindByPath(fs->filePath);
+            if (fs2 && !str::Eq(fs2->protectedPassword, protectedPassword)) {
+                str::ReplaceWithCopy(&fs2->protectedPassword, protectedPassword);
+            }
+        }
+#endif
     }
 
     // reopening reads the file again: slow on a network / cloud drive

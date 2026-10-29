@@ -284,6 +284,9 @@ struct FileState {
     // hex encoded MD5 fingerprint of the file content (32 chars) followed
     // by the crypt key (64 chars); only applies to PDF documents
     Str decryptionKey;
+    // PDF password protected for the current Windows user with DPAPI; only
+    // applies to SolokPDF PDFium documents
+    Str protectedPassword;
     // what the sidebar's top panel shows: bookmarks (the default) or
     // thumbnails
     Str sidebarView;
@@ -1357,7 +1360,7 @@ struct FieldInfo;
 struct StructInfo;
 extern const StructInfo gFavoriteInfo;
 extern const StructInfo gFileEBookUIInfo;
-extern const FieldInfo gFileStateFields[29];
+extern const FieldInfo gFileStateFields[30];
 extern StructInfo gFileStateInfo;
 extern const StructInfo gTabStateInfo;
 extern const StructInfo gSessionDataInfo;

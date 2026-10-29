@@ -1151,6 +1151,12 @@ const fileState: Field[] = [
     "hex encoded MD5 fingerprint of the file content (32 chars) followed by the " +
       "crypt key (64 chars); only applies to PDF documents",
   ).doc("data required to open a password protected document without having to " + "ask for the password again"),
+  field(
+    "ProtectedPassword",
+    Str,
+    null,
+    "PDF password protected for the current Windows user with DPAPI; only applies to SolokPDF PDFium documents",
+  ).doc("data required to reopen a password protected PDF in PDFium"),
   structPtr(
     "EBookUI",
     "FileEBookUI",
@@ -1268,6 +1274,7 @@ const fileStateLayout = [
   "Himl",
   "FilePath",
   "DecryptionKey",
+  "ProtectedPassword",
   "SidebarView",
   "DisplayMode",
   "Zoom",

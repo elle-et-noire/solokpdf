@@ -13,6 +13,7 @@
 #include "Settings.h"
 #include "PdfDarkMode.h"
 #include <psapi.h>
+#include <dpapi.h>
 #include <fpdfview.h>
 #include <fpdf_annot.h>
 #include <fpdf_attachment.h>
@@ -27,6 +28,39 @@
 #include "PdfiumFontCache.h"
 #include "EnginePdfium.h"
 #include "SumatraLog.h"
+
+TempStr ProtectPdfPasswordTemp(Str password, const u8 digest[16]) {
+    DATA_BLOB input{(DWORD)len(password), (BYTE*)password.s};
+    DATA_BLOB entropy{16, (BYTE*)digest};
+    DATA_BLOB output{};
+    if (!CryptProtectData(&input, nullptr, &entropy, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &output)) {
+        return {};
+    }
+    TempStr sealed = str::MemToHexTemp(Str((const char*)output.pbData, (int)output.cbData));
+    LocalFree(output.pbData);
+    return sealed;
+}
+
+Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
+    if (len(sealed) == 0 || len(sealed) % 2 != 0) {
+        return {};
+    }
+    int n = len(sealed) / 2;
+    BYTE* bytes = AllocArrayTemp<BYTE>(n);
+    if (!str::HexToMem(sealed, Str((char*)bytes, n))) {
+        return {};
+    }
+    DATA_BLOB input{(DWORD)n, bytes};
+    DATA_BLOB entropy{16, (BYTE*)digest};
+    DATA_BLOB output{};
+    if (!CryptUnprotectData(&input, nullptr, &entropy, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &output)) {
+        return {};
+    }
+    Str password = str::Dup(Str((char*)output.pbData, (int)output.cbData));
+    SecureZeroMemory(output.pbData, output.cbData);
+    LocalFree(output.pbData);
+    return password;
+}
 
 #define PDFIUM_API(X)                   \
     X(FPDF_InitLibraryWithConfig)       \
@@ -1044,8 +1078,6 @@ class EnginePdfium : public EngineBase {
     }
 
     // Caller holds gPdfiumLock; it's released while pwdUI asks, as a dialog may run a message loop.
-    // Like EngineMupdf, a remembered decryption key comes back as an empty password; PDFium can't
-    // use the key, so MuPDF opens such files.
     FPDF_DOCUMENT LoadWithPassword(PasswordUI* pwdUI, TempStr* error, PdfiumFailure* failure) {
         *failure = PdfiumFailure::Final;
         *error = StrL("The document needs a password.");
@@ -1077,6 +1109,7 @@ class EnginePdfium : public EngineBase {
                 isPasswordProtected = true;
                 if (saveKey) {
                     decryptionKey = str::Dup(arena, PdfDecryptionKeyMupdfTemp(FilePath(), fileData, pwd));
+                    protectedPassword = str::Dup(arena, ProtectPdfPasswordTemp(pwd, digest));
                 }
                 return d;
             }

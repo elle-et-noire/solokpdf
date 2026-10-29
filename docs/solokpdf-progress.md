@@ -1650,11 +1650,16 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   shell preview/filter DLLs and PDFs generated inside other document engines
   retain their upstream paths. Files above 4 GiB fall back.
 - Password-protected PDFs open in PDFium via the password dialog, `-pwd` and
-  `DefaultPasswords`; a canceled dialog isn't repeated by MuPDF. "Remember
-  password" saves MuPDF's decryption key, which PDFium can't use, so those
-  files reopen in MuPDF. Encrypted PDFs no longer reach the MuPDF-only PDF
-  tools (e.g. Decrypt) through the fallback. Some permissions metadata remains
-  incomplete.
+  `DefaultPasswords`; a canceled dialog isn't repeated by MuPDF. PDFium's open
+  API accepts a password, not MuPDF's decryption key. When "Remember password"
+  is checked, file history keeps the existing MuPDF key and a separate PDFium
+  password encrypted with current-user DPAPI. The file's MD5 digest is DPAPI
+  entropy, so a changed file cannot reuse it. The password is never stored as
+  plain text; deleting the history entry deletes both values. Existing MuPDF
+  keys still reopen in MuPDF. DPAPI is user-scoped and local to Windows, so
+  copying settings to another account or machine does not carry the PDFium
+  password. Encrypted PDFs no longer reach the MuPDF-only PDF tools (e.g.
+  Decrypt) through the fallback. Some permissions metadata remains incomplete.
 - All eight destination views, link `/Contents` tooltips and GoToR/Launch file
   links match MuPDF on a fixture (links and outline). PDFium reports
   First/Last/Prev/NextPage actions only as unsupported and can't name a GoToR

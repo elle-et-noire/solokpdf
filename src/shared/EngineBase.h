@@ -485,6 +485,7 @@ class EngineBase {
     bool isPasswordProtected = false;
     // hex-encoded password fingerprint + crypt key; arena-allocated
     Str decryptionKey;
+    Str protectedPassword;
     bool hasPageLabels = false;
     int logicalPageCount = 0;
     bool hideAnnotations = false;

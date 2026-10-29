@@ -1775,7 +1775,7 @@ static bool FileStateWorthKeepingWithoutHistory(FileState* fs) {
 // FileState identity kept when RememberStatePerDocument is false. Display
 // fields (page, zoom, scroll, window) are omitted (#5907).
 static SeqStrings kFileStateKeepNoPerDoc =
-    "Favorites\0EBookUI\0FilePath\0DecryptionKey\0OpenCount\0IsPinned\0IsMissing\0UseDefaultState\0";
+    "Favorites\0EBookUI\0FilePath\0DecryptionKey\0ProtectedPassword\0OpenCount\0IsPinned\0IsMissing\0UseDefaultState\0";
 
 // prevData is used to preserve fields that exists in prevField but not in Settings
 // caller has to free()

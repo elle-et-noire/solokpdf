@@ -9,4 +9,6 @@ enum class PdfiumFailure {
 void SetPdfiumFontCacheDir(Str dir);
 void StartPdfiumWarmUp();
 bool PdfiumRequested();
+TempStr ProtectPdfPasswordTemp(Str password, const u8 digest[16]);
+Str UnprotectPdfPassword(Str sealed, const u8 digest[16]);
 EngineBase* CreateEnginePdfium(Str path, PasswordUI* pwdUI, TempStr* errorOut, PdfiumFailure* failureOut = nullptr);

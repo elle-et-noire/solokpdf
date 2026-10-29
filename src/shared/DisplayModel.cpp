@@ -663,6 +663,9 @@ void DisplayModel::GetDisplayState(FileState* fs) {
 
     str::Free(fs->decryptionKey);
     fs->decryptionKey = engine->decryptionKey ? str::Dup(engine->decryptionKey) : Str();
+    if (engine->protectedPassword) {
+        str::ReplaceWithCopy(&fs->protectedPassword, engine->protectedPassword);
+    }
 }
 
 // Display rotation of an already-known rectangle. Engine::Transform also
