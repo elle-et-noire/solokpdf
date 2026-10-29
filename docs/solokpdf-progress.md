@@ -1188,6 +1188,12 @@ The existing background-load gates apply: three quiet one-second start samples;
 other-CPU mean <=10%, p95 <=20%, OS memory load <=90%, and paired starting
 memory load within three points. Attempts alternate engine order.
 
+Dispatch **SolokPDF startup performance** from GitHub Actions to repeat both
+comparisons on a hosted Windows runner. `--ci` takes seven alternating pairs
+per PDF, records three start-load samples per attempt and keeps pairs that miss
+the load gates marked non-qualifying. Use paired PDFium-minus-MuPDF gaps and
+their trends; hosted-runner absolute times are not comparable to local times.
+
 ```powershell
 .work/tools/bun-windows-x64/bun.exe experiments/pdfium/normal-startup-ui.ts --runs 3 --output out/solok-normal-startup-2026-10-26 .work/corpus/attention-1706.03762v7.pdf .work/corpus/independent/bert-1810.04805.pdf .work/corpus/independent/ipa-2026-soshiki.pdf
 ```
@@ -1245,6 +1251,8 @@ idle, samples memory again after one second, then reads Cache Info's measured
 pixel payload and closes the PDF. It uses the same settings, window, DLLs, PDB
 exclusion and background gates as the empty-window open comparison. Profiling
 is disabled in performance rows; separate profile runs are diagnostic only.
+The CI workflow uses the two public arXiv PDFs only; IPA has no known public
+source URL. It uploads raw samples and a summary for 30 days.
 
 ```powershell
 .work/tools/bun-windows-x64/bun.exe experiments/pdfium/direct-startup-ui.ts --runs 3 --output out/solok-direct-startup-2026-10-26 .work/corpus/attention-1706.03762v7.pdf .work/corpus/independent/bert-1810.04805.pdf

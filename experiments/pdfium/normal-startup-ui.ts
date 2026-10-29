@@ -111,11 +111,19 @@ async function main() {
     options: {
       exe: { type: "string", default: "out/solokpdf-portable/SolokPDF.exe" },
       output: { type: "string", default: "out/solok-normal-startup" },
-      runs: { type: "string", default: "3" },
+      runs: { type: "string" },
+      ci: { type: "boolean" },
+      help: { type: "boolean" },
     },
   });
+  if (values.help) {
+    console.log(
+      "Usage: bun experiments/pdfium/normal-startup-ui.ts [--ci] [--runs N] [--exe EXE] [--output DIR] PDF...",
+    );
+    return;
+  }
   if (!positionals.length) throw new Error("Pass ordinary PDFs to compare");
-  const runs = Number(values.runs);
+  const runs = Number(values.runs ?? (values.ci ? "7" : "3"));
   if (!Number.isInteger(runs) || runs < 1) throw new Error("Invalid runs");
   const out = resolve(values.output),
     exe = resolve(values.exe),
@@ -144,6 +152,7 @@ async function main() {
           dependencies,
           pdfs,
           runs,
+          ci: !!values.ci,
           status,
           conditions:
             "Same Release executable and DLLs; fresh isolated settings; one PDF opened from an empty window; 900x1000, 100% zoom; warm OS file cache; application PDBs hidden. Open time ends at render idle, then 1000ms settle and close. Independent Bun process monitors host and target CPU/memory at 200ms. Background includes harness and OS. These are warm document-open timings, not process startup or first paint.",
@@ -160,7 +169,11 @@ async function main() {
     let stable = 0,
       prev = systemCpuTimes();
     const samples: any[] = [];
-    for (const start = performance.now(); performance.now() - start < policy.timeoutMs; ) {
+    for (
+      let i = 0, start = performance.now();
+      values.ci ? i < policy.stableSamples : performance.now() - start < policy.timeoutMs;
+      i++
+    ) {
       await Bun.sleep(1000);
       const cpu = systemCpuTimes(),
         memory = systemMemory(),
@@ -177,12 +190,14 @@ async function main() {
     }
     gates.push({ id, accepted: false, samples });
     save();
+    if (values.ci) return;
     throw new Error("Host did not reach start conditions");
   }
 
   async function measure(pdf: (typeof pdfs)[number], run: number, attempt: number, engine: string) {
     const id = `${pdfs.indexOf(pdf)}-${run}-${attempt}-${engine}`;
     await gate(id);
+    const startAccepted = gates.at(-1).accepted;
     const settings = join(out, id);
     mkdirSync(settings, { recursive: true });
     writeFileSync(
@@ -242,6 +257,7 @@ async function main() {
             bg = background(samples),
             reasons: string[] = [];
           if (bg.meanPercent > policy.backgroundMean) reasons.push("background CPU mean");
+          if (!startAccepted) reasons.push("start load");
           if (bg.p95Percent > policy.backgroundP95) reasons.push("background CPU p95");
           if (Math.max(...samples.map((s: any) => s.system.loadPercent)) > policy.memory)
             reasons.push("memory pressure");
@@ -297,7 +313,7 @@ async function main() {
     for (const pdf of pdfs)
       for (let run = 0; run < runs; run++) {
         let accepted = false;
-        for (let attempt = 0; attempt < policy.attempts && !accepted; attempt++) {
+        for (let attempt = 0; attempt < (values.ci ? 1 : policy.attempts) && !accepted; attempt++) {
           const ordered = (run + attempt) % 2 ? [...variants].reverse() : variants,
             measured = [];
           for (const engine of ordered) measured.push(await measure(pdf, run, attempt, engine));
@@ -311,7 +327,7 @@ async function main() {
           pairs.push({ pdf: pdf.path, run, attempt, ids: measured.map((row) => row.id), accepted, reasons });
           save();
         }
-        if (!accepted) {
+        if (!accepted && !values.ci) {
           status = "insufficient qualifying pairs";
           save();
           return;
