@@ -55,7 +55,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B24 | PDFium XMP properties        | B7 XMP group                 | done — Fill PDFium XMP properties from lazy editor                                                          |
 | B25 | Restore lazy session tab     | B7 R: lazy tab no-doc        | blocked — test seeds wrong file and disables opened-file memory                                                          |
 | B26 | PDFium comment authors       | B7 R: issue-5329             | done — Verify PDFium comment authors                                                          |
-| B27 | PDFium external images       | B7 R: issue-3731             | todo                                                          |
+| B27 | PDFium external images       | B7 R: issue-3731             | blocked — PDFium lacks external stream loader; editor render barred                                                          |
 | B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | todo                                                          |
 | B29 | PDFium trim margins          | B7 P: issue-trim-margins     | todo                                                          |
 | B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | todo                                                          |

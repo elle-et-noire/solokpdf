@@ -1768,6 +1768,10 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   preserving orientation and CMYK JPEG/TIFF data without changing PDFium
   rendering. `tests/ad-hoc-pdfium-images.ts` checks extraction and orientation;
   `tests/issue-6360.ts` checks the context menu and clipboard.
+- With the active settings file, `issue-3731` passes on MuPDF and fails on
+  PDFium: an opt-in external image stream renders blank. PDFium exposes no
+  external stream loader. Rendering the page through the MuPDF editor passes,
+  but violates the PDFium render path and large-file memory/locking rules (B27).
 - Annotations of PDFium documents are edited, undone and saved by a hidden
   MuPDF document of the same file, which draws them over PDFium's pages once
   loaded, including redaction marks. PDFium's own incremental save, used before,

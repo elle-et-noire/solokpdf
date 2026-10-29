@@ -15,7 +15,7 @@ import { mkdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { EXE, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 
 // build a PDF whose only image is an external-file stream (/F + /FFilter), with
 // an empty embedded stream. imgName sits next to the PDF; w/h are the image dims
@@ -124,7 +124,7 @@ export async function testit(): Promise<void> {
     const ad = join(dir, name);
     mkdirSync(ad, { recursive: true });
     writeFileSync(
-      join(ad, "SumatraPDF-settings.txt"),
+      join(ad, SETTINGS_FILE),
       `AllowExternalImages = ${allow ? "true" : "false"}\nReuseInstance = false\n` +
         "RestoreSession = false\nShowStartPage = false\nCheckForUpdates = false\n",
     );
