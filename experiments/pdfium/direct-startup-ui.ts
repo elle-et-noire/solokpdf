@@ -46,6 +46,15 @@ async function main() {
   }
   if (!positionals.length) throw new Error("Pass ordinary PDFs to compare");
   const runs = Number(values.runs ?? (values.ci ? "7" : "3"));
+  // a hosted runner's launch can end within too few CPU samples: record it rather than abort
+  const ciBackground = (samples: any[]) => {
+    try {
+      return background(samples);
+    } catch (e) {
+      if (!values.ci) throw e;
+      return null;
+    }
+  };
   if (!Number.isInteger(runs) || runs < 1) throw new Error("Invalid runs");
   const out = resolve(values.output),
     exe = resolve(values.exe),
@@ -222,12 +231,13 @@ async function main() {
       await Bun.sleep(1000);
       const settled = { memory: processMemory(proc.pid), resources: processGuiResources(proc.pid) },
         samples = (await command("stop")).samples,
-        bg = background(samples),
+        bg = ciBackground(samples),
         monitorLagMs = samples[0].epochMs - launchEpochMs,
         reasons: string[] = [];
-      if (bg.meanPercent > policy.backgroundMean) reasons.push("background CPU mean");
+      if (!bg) reasons.push("insufficient CPU windows");
+      else if (bg.meanPercent > policy.backgroundMean) reasons.push("background CPU mean");
       if (!startAccepted) reasons.push("start load");
-      if (bg.p95Percent > policy.backgroundP95) reasons.push("background CPU p95");
+      if (bg && bg.p95Percent > policy.backgroundP95) reasons.push("background CPU p95");
       if (Math.max(...samples.map((s: any) => s.system.loadPercent)) > policy.memory) reasons.push("memory pressure");
       if (monitorLagMs > sampleMs / 2) reasons.push("monitor attached late");
 
