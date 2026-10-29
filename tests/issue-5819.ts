@@ -6,7 +6,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ControlClient, LayoutInfo, LayoutRect } from "./control.ts";
-import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { assemblePdf, cmdId, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
 import { clientToScreen, getCursorPos, postMessage, setCursorPos, sleep } from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled, ngInput, parkCursorAway, sendCommand } from "./win-automation.ts";
 
@@ -69,7 +69,7 @@ export async function testit(): Promise<void> {
   const pdf = join(dir, "a.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "CheckForUpdates = false\nRestoreSession = false\nShowStartPage = false\n" +
       `ShowToc = true\nShowFavorites = false\nSidebarAutoHide = true\nSidebarDx = ${sidebarDx}\n`,
   );

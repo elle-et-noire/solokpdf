@@ -18,6 +18,7 @@ import {
   packCoords,
   postMessage,
   sendMessage,
+  setProcessDpiAware,
   setCursorPos,
   readWindowDCRow,
   sleep,
@@ -215,6 +216,7 @@ async function clickIcon(panel: () => Promise<Panel>, view: View) {
 }
 
 export async function testit(): Promise<void> {
+  setProcessDpiAware();
   const dir = tmpPath("sidebar-thumbnails");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -368,7 +370,7 @@ export async function testit(): Promise<void> {
     // dragging a page doesn't move it, even in Edit PDF mode
     sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
     s = await sidebar(client);
-    const from = pointIn(s, 1, 0.5, 0.5);
+    const from = pointIn(s, 2, 0.5, 0.5);
     const to = pointIn(s, 3, 0.9, 0.9);
     mouse(s.hwnd, WM_LBUTTONDOWN, MK_LBUTTON, from);
     mouse(s.hwnd, WM_MOUSEMOVE, MK_LBUTTON, to);

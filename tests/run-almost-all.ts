@@ -487,6 +487,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["issue-5819", issue5819],
+  ["sidebar-thumbnails", sidebarThumbnails],
   ["issue-6388", issue6388],
   ["issue-6360", issue6360],
   ["issue-6385", issue6385],
@@ -518,7 +520,6 @@ export const tests: NamedTest[] = [
   ["free-text-edit-toolbar", freeTextEditToolbar],
   ["free-text-edit-zoom", freeTextEditZoom],
   ["pdf-edit-toolbar-interaction", pdfEditToolbarInteraction],
-  ["sidebar-thumbnails", sidebarThumbnails],
   ["issue-6144", issue6144],
   ["sidebar-thumbnails-wheel", sidebarThumbnailsWheel],
   ["issue-6305", issue6305],
@@ -895,7 +896,6 @@ export const tests: NamedTest[] = [
   ["issue-6424", issue6424],
   ["issue-6421", issue6421],
   ["issue-6328", issue6328],
-  ["issue-5819", issue5819],
   ["issue-4662", issue4662],
   ["issue-6018", issue6018],
   ["selection-toolbar-stays", selectionToolbarStays],
