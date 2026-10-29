@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
 
 const PDF = join(ROOT, "tests", "issue-4398.pdf");
@@ -25,7 +25,7 @@ export async function testit(): Promise<void> {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [
       "RestoreSession = false",
       "CheckForUpdates = false",

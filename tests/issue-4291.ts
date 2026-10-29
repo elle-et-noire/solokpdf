@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { IS_MAC } from "./host.ts";
 import { ControlClient } from "./control.ts";
-import { cmdId, EXE, ROOT, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { SETTINGS_FILE, cmdId, EXE, ROOT, runStandalone, tmpPath, USE_NG } from "./util.ts";
 import { FRAME_CLASS, killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 import {
   enumChildWindows,
@@ -169,7 +169,7 @@ function sessionTabs(settingsPath: string): { file: string; pageNo: number }[] {
 // way the installer does it; its saved session must list both documents at
 // the pages they were on (a page change is only saved on a clean exit)
 async function quitKeepsSession(appData: string): Promise<void> {
-  const settingsPath = join(appData, "SumatraPDF-settings.txt");
+  const settingsPath = join(appData, SETTINGS_FILE);
   // both have more than one page, the next-page step must land somewhere
   const pdfs = [join(ROOT, "tests", "xmp-visagesoft.pdf"), join(ROOT, "ext", "a-zlib", "zlib.3.pdf")];
   // no -for-testing: the session must be saved. Single page view: in a

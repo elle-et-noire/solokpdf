@@ -10,7 +10,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
-import { ROOT, SLOW_BUILD_FACTOR, USE_NG, cmdId, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, SLOW_BUILD_FACTOR, USE_NG, cmdId, runStandalone, tmpPath } from "./util";
 import { postMessage, sendText, sleep, WM_CLOSE } from "./winapi";
 import {
   launchControlled,
@@ -32,7 +32,7 @@ function makeAppDir(name: string): string {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n` +
       `RememberOpenedFiles = false\nRememberStatePerDocument = false\n`,
   );
@@ -41,7 +41,7 @@ function makeAppDir(name: string): string {
 
 // the FileStates [ ... ] block of the saved settings
 function readFileStates(dir: string): string {
-  const s = readFileSync(join(dir, "SumatraPDF-settings.txt"), "utf8");
+  const s = readFileSync(join(dir, SETTINGS_FILE), "utf8");
   const start = s.indexOf("\nFileStates [");
   if (start < 0) {
     throw new Error("issue-5899: no FileStates section in saved settings");

@@ -12,7 +12,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { cmdId, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, cmdId, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
 import { killAndWait, killProcessesNamed, launchControlled, sendCommand, takeStderr } from "./win-automation.ts";
 
 const FIRST_PDF = resolve("tests/issue-1189.pdf");
@@ -52,7 +52,7 @@ ${tabState(SECOND_PDF)}
   ]
 ]
 `;
-  writeFileSync(join(APPDATA, "SumatraPDF-settings.txt"), seed, "utf8");
+  writeFileSync(join(APPDATA, SETTINGS_FILE), seed, "utf8");
 }
 
 async function currentPath(client: ControlClient): Promise<string> {

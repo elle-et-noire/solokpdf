@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, EXE, runStandalone, tmpPath } from "./util.ts";
 
 const CHM = join(import.meta.dir, "issue-2737.chm");
 
@@ -26,7 +26,7 @@ export async function testit(): Promise<void> {
   rmSync(appData, { recursive: true, force: true });
   mkdirSync(appData, { recursive: true });
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     `UiLanguage = en
 CheckForUpdates = false
 RestoreSession = false

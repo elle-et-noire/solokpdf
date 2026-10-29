@@ -9,7 +9,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
-import { assemblePdf, runStandalone, tmpPath, USE_NG } from "./util";
+import { SETTINGS_FILE, assemblePdf, runStandalone, tmpPath, USE_NG } from "./util";
 import { clientToScreen, getClientRect, postMessage, sleep } from "./winapi";
 import { findCanvas, killAndWait, launchControlled, ngInput } from "./win-automation";
 
@@ -124,7 +124,7 @@ export async function testit(): Promise<void> {
   const pdf = join(dir, "doc.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     ["UiLanguage = en", "CheckForUpdates = false", "RestoreSession = false", "CitationHoverDelay = 100", ""].join("\n"),
   );
 

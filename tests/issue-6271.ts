@@ -8,7 +8,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_WIN } from "./host.ts";
-import { assemblePdf, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, assemblePdf, runStandalone, tmpPath } from "./util.ts";
 import { killAndWait, killProcessesNamed, launchControlled } from "./win-automation.ts";
 import { getWindowVirtualDesktopId } from "./winapi.ts";
 
@@ -22,7 +22,7 @@ function makePdf(): string {
 
 function seedSettings(dir: string, pdf: string): void {
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en
 CheckForUpdates = false
 RestoreSession = true
@@ -95,7 +95,7 @@ export async function testit(): Promise<void> {
     rmSync(dir, { recursive: true, force: true });
     return;
   }
-  const settings = readFileSync(join(dir, "SumatraPDF-settings.txt"), "utf8");
+  const settings = readFileSync(join(dir, SETTINGS_FILE), "utf8");
   const m = /^\s*VirtualDesktopId = (\S+)/m.exec(settings);
   const got = m ? m[1]! : "";
   if (got.toUpperCase() !== want.toUpperCase()) {

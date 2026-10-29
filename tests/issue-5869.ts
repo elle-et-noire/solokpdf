@@ -13,7 +13,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control";
-import { EXE, ROOT, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, EXE, ROOT, runStandalone, tmpPath } from "./util";
 
 const SHORTCUT_NAMES = ["SVG test dummy A", "SVG test dummy B", "SVG test dummy C"];
 const VIEWER_NAMES = ["Viewer One", "Viewer Two"];
@@ -90,7 +90,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("issue-5869");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
 
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
   const res = await withControlledSumatra(EXE, (client) => client.request(ControlCommand.TestToolbarButtons, []), [

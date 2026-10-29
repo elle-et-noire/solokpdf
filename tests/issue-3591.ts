@@ -16,7 +16,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cmdId, tmpPath, makeBlankPdf } from "./util";
+import { SETTINGS_FILE, cmdId, tmpPath, makeBlankPdf } from "./util";
 import { findCanvas, launchControlled, sendCommandSync, killAndWait } from "./win-automation";
 import {
   getScrollInfo,
@@ -49,7 +49,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("issue-3591-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   // kill stale dev-build instances so reuse-instance can't forward our launch
   // to an old window (which would leave our process window-less)

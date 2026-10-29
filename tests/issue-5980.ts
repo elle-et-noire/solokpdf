@@ -6,7 +6,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { cmdId, EXE, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, cmdId, EXE, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
 import { captureWindowPixels, sleep } from "./winapi.ts";
 import { findCanvas, launchControlled, killAndWait, sendCommand } from "./win-automation.ts";
 
@@ -95,7 +95,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("issue-5980");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
   const pdf = join(dir, "link-and-underline.pdf");
   writeFileSync(pdf, makePdf());
 

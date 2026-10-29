@@ -16,7 +16,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { ROOT, cmdId, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, ROOT, cmdId, tmpPath } from "./util.ts";
 import {
   launchControlled,
   launchSumatra,
@@ -119,7 +119,7 @@ export async function testit(): Promise<void> {
   const appDataDir = tmpPath("issue-1106-appdata");
   rmSync(appDataDir, { recursive: true, force: true });
   mkdirSync(appDataDir, { recursive: true });
-  writeFileSync(join(appDataDir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appDataDir, SETTINGS_FILE), SETTINGS);
   if (IS_MAC) {
     await testMac(appDataDir);
     return;

@@ -17,7 +17,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, EXE, runStandalone, tmpPath } from "./util.ts";
 
 const SETTINGS_HEAD = `UiLanguage = en
 CheckForUpdates = false
@@ -91,7 +91,7 @@ async function runWithSettings(pdf: string, extraSettings: string, body: (client
   const dir = tmpPath(`issue-4753-${extraSettings.includes("facing") ? "facing" : "default"}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), `${SETTINGS_HEAD}${extraSettings}\n`);
+  writeFileSync(join(dir, SETTINGS_FILE), `${SETTINGS_HEAD}${extraSettings}\n`);
   await withControlledSumatra(EXE, body, ["-appdata", dir, pdf]);
 }
 

@@ -6,7 +6,7 @@
 // Run: bun tests/session-restore-tab-state.ts [--no-build]
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { assemblePdf, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, assemblePdf, runStandalone, tmpPath } from "./util.ts";
 import { killAndWait, killProcessesNamed, launchControlled } from "./win-automation.ts";
 
 const N_PAGES = 12;
@@ -28,7 +28,7 @@ function makePdf(): string {
 // the TabState is the only record of how the tab was viewed: no FileState
 function seedSettings(dir: string, pdf: string): void {
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en
 CheckForUpdates = false
 RestoreSession = true
@@ -83,7 +83,7 @@ export async function testit(): Promise<void> {
     throw new Error(`session-restore-tab-state: exit code ${exitCode}, want 0`);
   }
 
-  const text = readFileSync(join(dir, "SumatraPDF-settings.txt"), "utf8");
+  const text = readFileSync(join(dir, SETTINGS_FILE), "utf8");
   const m =
     /TabStates \[\s*\[[^\]]*?DisplayMode = ([^\r\n]+)\r?\n[^\]]*?PageNo = (\S+)\r?\n[^\]]*?Zoom = ([^\r\n]+)\r?\n/.exec(
       text,

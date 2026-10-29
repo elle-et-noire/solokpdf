@@ -11,7 +11,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host";
-import { ROOT, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, runStandalone, tmpPath } from "./util";
 import { findCanvas, killAndWait, launchControlled, pressKey } from "./win-automation";
 import { sleep, VK_F4 } from "./winapi";
 
@@ -65,7 +65,7 @@ export async function testit(): Promise<void> {
   const marker = join(dir, "launched.txt");
   const viewer = join(dir, "viewer.cmd");
   writeFileSync(viewer, `@echo off\r\necho launched> "${marker}"\r\n`);
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), settings());
+  writeFileSync(join(dir, SETTINGS_FILE), settings());
 
   if (!reg(["add", `HKCU\\${APP_PATHS}`, "/ve", "/t", "REG_SZ", "/d", viewer, "/f"]).ok) {
     throw new Error("failed to register the stand-in viewer in HKCU");

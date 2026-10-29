@@ -7,7 +7,7 @@
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { getWindowRect, isZoomed, postMessage, sleep, WM_CLOSE, type Rect } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommand, waitForExit } from "./win-automation.ts";
 
@@ -40,7 +40,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("fullscreen-session-restore");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  const settingsPath = join(dir, "SumatraPDF-settings.txt");
+  const settingsPath = join(dir, SETTINGS_FILE);
   writeFileSync(
     settingsPath,
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = true\nReuseInstance = false\n" +

@@ -11,7 +11,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host.ts";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { captureWindowPixels, captureWindowToPng, sleep } from "./winapi.ts";
 import {
   killAndWait,
@@ -67,7 +67,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("issue-6104");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);

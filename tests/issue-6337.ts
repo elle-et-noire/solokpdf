@@ -5,7 +5,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 function makePdf(): string {
@@ -46,7 +46,7 @@ function page(pages: Page[], n: number): Page {
 
 async function openRotated(dir: string, pdf: string, follow: boolean) {
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     [
       "ReuseInstance = false",
       "RestoreSession = false",

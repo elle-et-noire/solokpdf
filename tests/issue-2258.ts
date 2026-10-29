@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, EXE, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { sendCommand, waitForFrame } from "./win-automation.ts";
 
 function makePdf(): Buffer {
@@ -58,7 +58,7 @@ export async function testit(): Promise<void> {
   mkdirSync(appData, { recursive: true });
   writeFileSync(pdf, makePdf());
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     `UiLanguage = en
 CheckForUpdates = false
 RestoreSession = false

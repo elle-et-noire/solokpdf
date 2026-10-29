@@ -7,7 +7,17 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ControlClient, HomeSelection } from "./control.ts";
-import { cmdId, makeTextPdf, pollUntil, ROOT, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import {
+  APP_NAME,
+  SETTINGS_FILE,
+  cmdId,
+  makeTextPdf,
+  pollUntil,
+  ROOT,
+  runStandalone,
+  tmpPath,
+  USE_NG,
+} from "./util.ts";
 import { getWindowText, moveWindow } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 
@@ -23,7 +33,7 @@ async function testHomeTitle(): Promise<void> {
       { error: (t) => `issue-6367: document title missing: '${t}'` },
     );
     sendCommand(frame, cmdId("CmdGoToHomePage"));
-    const want = "Home - SumatraPDF";
+    const want = `Home - ${APP_NAME}`;
     await pollUntil(
       () => getWindowText(frame),
       (t) => t === want,
@@ -48,7 +58,7 @@ function makeAppDir(name: string, nFiles: number, extra = ""): string {
     states.push(`\t[\n\t\tFilePath = ${p}\n\t\tOpenCount = ${nFiles - i}\n\t]`);
   }
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = true\n` +
       `HomePageViewMode = thumbnails\n${extra}FileStates [\n${states.join("\n")}\n]\n`,
   );

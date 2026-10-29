@@ -8,7 +8,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { postMessage, sendText, sleep, WM_KEYDOWN } from "./winapi.ts";
 import {
   killAndWait,
@@ -106,7 +106,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("text-snippets");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
   const pdf = join(dir, "blank.pdf");
   writeFileSync(
     pdf,

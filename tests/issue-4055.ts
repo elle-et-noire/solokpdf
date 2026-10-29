@@ -14,7 +14,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { cmdId, EXE, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, cmdId, EXE, runStandalone, tmpPath } from "./util.ts";
 import { sendCommandSync, waitForFrame } from "./win-automation.ts";
 
 const SETTINGS_HEAD = `UiLanguage = en
@@ -82,7 +82,7 @@ async function run(pdf: string, extra: string, label: string): Promise<ModeState
   const dir = tmpPath(`issue-4055-${label}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), `${SETTINGS_HEAD}${extra}\n`);
+  writeFileSync(join(dir, SETTINGS_FILE), `${SETTINGS_HEAD}${extra}\n`);
   return withControlledSumatra(EXE, (client) => queryMode(client), ["-appdata", dir, pdf]);
 }
 
@@ -95,7 +95,7 @@ export async function testit(): Promise<void> {
   const aspectDir = tmpPath("issue-4055-page-aspect");
   rmSync(aspectDir, { recursive: true, force: true });
   mkdirSync(aspectDir, { recursive: true });
-  writeFileSync(join(aspectDir, "SumatraPDF-settings.txt"), `${SETTINGS_HEAD}DefaultDisplayMode = page aspect\n`);
+  writeFileSync(join(aspectDir, SETTINGS_FILE), `${SETTINGS_HEAD}DefaultDisplayMode = page aspect\n`);
   await withControlledSumatra(
     EXE,
     async (client, proc) => {

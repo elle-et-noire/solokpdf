@@ -7,7 +7,7 @@
 import { dlopen, FFIType } from "bun:ffi";
 import type { ControlClient, LayoutRect } from "./control.ts";
 import { IS_WIN } from "./host.ts";
-import { runStandalone, USE_NG } from "./util.ts";
+import { APP_NAME, runStandalone, USE_NG } from "./util.ts";
 import {
   clientToScreen,
   ensureModifierKeysUp,
@@ -186,7 +186,7 @@ async function clickCopy(client: ControlClient, hover: number, from: { x: number
   sendMessage(hover, WM_LBUTTONUP, 0, lp);
   await sleep(100);
   const text = clipboardText();
-  if (!text.startsWith("SumatraPDF")) {
+  if (!text.startsWith(APP_NAME)) {
     throw new Error(`issue-6269: Copy did not put the report on the clipboard: ${JSON.stringify(text.slice(0, 80))}`);
   }
 }

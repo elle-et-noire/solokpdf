@@ -11,7 +11,7 @@ import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
 import { IS_MAC } from "./host.ts";
-import { ROOT, USE_NG, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, USE_NG, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util";
 import {
   enumWindows,
   getClassName,
@@ -163,7 +163,7 @@ export async function testit(): Promise<void> {
   const pdf = join(appData, "doc.pdf");
   copyFileSync(SRC_PDF, pdf);
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     ["UiLanguage = en", "CheckForUpdates = false", "RestoreSession = false", "SearchUIFloating = true", ""].join("\n"),
   );
 

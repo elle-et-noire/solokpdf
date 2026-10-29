@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host.ts";
 import { ControlClient, ControlCommand, type LayoutInfo } from "./control.ts";
-import { makeBlankPdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
+import { SETTINGS_FILE, makeBlankPdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
 import { killAndWait, launchControlled, waitForExit } from "./win-automation.ts";
 import {
   clientToScreen,
@@ -50,7 +50,7 @@ export async function testit(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const docs = [join(dir, "first.pdf"), join(dir, "second.pdf")];
   for (const doc of docs) writeFileSync(doc, makeBlankPdf(), "latin1");
-  const settingsPath = join(dir, "SumatraPDF-settings.txt");
+  const settingsPath = join(dir, SETTINGS_FILE);
   writeFileSync(
     settingsPath,
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = true\nReuseInstance = false\n" +
@@ -199,7 +199,7 @@ export async function testit(): Promise<void> {
 async function toggleCaptionTwice(dir: string, docs: string[]): Promise<void> {
   if (USE_NG) return;
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     "UseTabs = true\nShowCaption = true\nRestoreSession = false\nNoHomeTab = true\n",
   );
   setCursorPos(0, 0);

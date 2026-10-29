@@ -10,7 +10,7 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type ControlClient, waitForHome } from "./control.ts";
-import { ROOT, USE_NG, cmdId, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, USE_NG, cmdId, runStandalone, tmpPath } from "./util";
 import { sendMessage, setCursorPos } from "./winapi";
 import {
   findCanvas,
@@ -42,7 +42,7 @@ function makeAppDir(name: string): string {
     states.push(`\t[\n\t\tFilePath = ${p}\n\t\tOpenCount = ${nFiles - i}\n\t]`);
   }
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = true\n` +
       `HomePageViewMode = thumbnails\nFileStates [\n${states.join("\n")}\n]\n`,
   );

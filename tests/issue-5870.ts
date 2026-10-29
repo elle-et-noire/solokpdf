@@ -15,7 +15,7 @@
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control";
-import { EXE, ROOT, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, EXE, ROOT, runStandalone, tmpPath } from "./util";
 
 const SETTINGS = `UiLanguage = en
 CheckForUpdates = false
@@ -70,7 +70,7 @@ async function checkFile(docPath: string): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `${SETTINGS}FileStates [\n\t[\n\t\tFilePath = ${docPath}\n\t\tOpenCount = 3\n\t]\n]\n`,
   );
 

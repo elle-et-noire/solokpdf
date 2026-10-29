@@ -12,7 +12,7 @@ import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { ROOT, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { ROOT, SETTINGS_FILE, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
 import {
   findCanvas,
   killAndWait,
@@ -125,7 +125,7 @@ export async function testit(): Promise<void> {
   copyFileSync(SRC_PDF, pdfA);
   copyFileSync(SRC_PDF, pdfB);
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     [
       "UiLanguage = en",
       "CheckForUpdates = false",

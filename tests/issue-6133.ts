@@ -2,7 +2,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util";
 import { FRAME_CLASS, killAndWait, launchControlled, sendCommandSync } from "./win-automation";
 import { enumWindows, getClassName, getWindowPid, isWindowVisible, sendMessage, sleep } from "./winapi";
 
@@ -46,7 +46,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("issue-6133");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), settings());
+  writeFileSync(join(dir, SETTINGS_FILE), settings());
 
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   try {

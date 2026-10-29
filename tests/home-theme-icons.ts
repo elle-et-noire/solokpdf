@@ -8,7 +8,7 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util";
 import { postMessage, WM_CLOSE } from "./winapi";
 import { killAndWait, launchControlled, sendCommandSync, waitForExit } from "./win-automation";
 
@@ -49,7 +49,7 @@ export async function testit(): Promise<void> {
   const doc = join(dir, "a.pdf");
   copyFileSync(join(ROOT, "ext", "a-zlib", "zlib.3.pdf"), doc);
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `${SETTINGS}FileStates [\n\t[\n\t\tFilePath = ${doc}\n\t\tOpenCount = 1\n\t]\n]\n`,
   );
 

@@ -8,7 +8,7 @@
 // Run:  bun tests/issue-6201.ts [--no-build]
 
 import { writeFileSync, mkdirSync, rmSync } from "node:fs";
-import { runStandalone, tmpPath, makeTopBottomPdf } from "./util.ts";
+import { SETTINGS_FILE, runStandalone, tmpPath, makeTopBottomPdf } from "./util.ts";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { launchControlled, findCanvas, killAndWait, ensureModifierKeysUp } from "./win-automation.ts";
 import { sendMessage, getScrollPos, sleep, SB_VERT } from "./winapi.ts";
@@ -46,7 +46,7 @@ export async function testit(): Promise<void> {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    `${appdata}/SumatraPDF-settings.txt`,
+    `${appdata}/${SETTINGS_FILE}`,
     ["RestoreSession = false", "SmoothScroll = false", "ScrollEdgeTurnsPage = false", ""].join("\n"),
   );
 

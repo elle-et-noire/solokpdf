@@ -16,7 +16,7 @@
 // one session 1 saved.
 
 import { writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from "node:fs";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { launchControlled, sendCommandSync, waitForExit, killAndWait } from "./win-automation.ts";
 
 const PAGE_COUNT = 12;
@@ -83,7 +83,7 @@ export async function testit(): Promise<void> {
   const appDataDir = tmpPath("issue-1438-appdata");
   rmSync(appDataDir, { recursive: true, force: true });
   mkdirSync(appDataDir, { recursive: true });
-  const settingsPath = `${appDataDir}/SumatraPDF-settings.txt`;
+  const settingsPath = `${appDataDir}/${SETTINGS_FILE}`;
 
   // no -for-testing: this test reads the position the app writes into settings
   async function session(act: (frame: number) => void): Promise<void> {

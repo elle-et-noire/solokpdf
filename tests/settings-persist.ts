@@ -4,12 +4,12 @@
 // flushes it, and a watcher echo of our own bytes must not reload.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util";
 import { postMessage, sleep, SC_CLOSE, WM_CLOSE, WM_SYSCOMMAND } from "./winapi";
 import { clickAt, findCanvas, killAndWait, launchControlled, sendCommand, waitForExit } from "./win-automation";
 
 function readSettings(dir: string): string {
-  return readFileSync(join(dir, "SumatraPDF-settings.txt"), "utf8");
+  return readFileSync(join(dir, SETTINGS_FILE), "utf8");
 }
 
 function viewMode(settings: string): string {
@@ -36,7 +36,7 @@ export async function testit(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nReuseInstance = false\nRememberOpenedFiles = true\nHomePageViewMode = thumbnails\n",
   );
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
@@ -65,7 +65,7 @@ export async function testit(): Promise<void> {
   rmSync(dir2, { recursive: true, force: true });
   mkdirSync(dir2, { recursive: true });
   writeFileSync(
-    join(dir2, "SumatraPDF-settings.txt"),
+    join(dir2, SETTINGS_FILE),
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nReuseInstance = false\nRememberOpenedFiles = true\nHomePageViewMode = thumbnails\n" +
       `FileStates [\n[\nFilePath = ${pdf}\n]\n]\n`,
   );

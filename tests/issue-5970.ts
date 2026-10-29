@@ -4,7 +4,7 @@
 import { copyFileSync, mkdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util";
 import { postMessage, WM_CLOSE } from "./winapi";
 import { killAndWait, launchControlled, sendCommandSync, waitForExit } from "./win-automation";
 
@@ -64,7 +64,7 @@ export async function testit(): Promise<void> {
   copyFileSync(src, keep);
 
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `${SETTINGS}FileStates [\n` +
       `\t[\n\t\tFilePath = ${a}\n\t\tOpenCount = 3\n\t]\n` +
       `\t[\n\t\tFilePath = ${b}\n\t\tOpenCount = 2\n\t]\n` +

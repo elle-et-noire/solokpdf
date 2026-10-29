@@ -2,7 +2,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
 import { sleep } from "./winapi.ts";
 
@@ -36,7 +36,7 @@ async function targetY(mode: "default" | "false" | "true"): Promise<number> {
   writeFileSync(md, MARKDOWN);
   const value = mode === "default" ? "" : `PreserveLineBreaks = ${mode}\n`;
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nShowStartPage = false\n` +
       `MarkdownUI [\nUseFixedPageUI = false\n${value}]\n`,
   );

@@ -22,7 +22,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { SETTINGS_FILE, EXE, runStandalone, tmpPath } from "./util.ts";
 
 // zoom is reported as SumatraPDF's "virtual" zoom: a percentage when it is a
 // number, or one of the negative sentinels for the fit modes (Settings.h)
@@ -102,7 +102,7 @@ async function run(pdf: string, ignoreDestinationZoom: boolean): Promise<Nav[]> 
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `${SETTINGS}IgnoreDestinationZoom = ${ignoreDestinationZoom ? "true" : "false"}\n`,
   );
   return withControlledSumatra(

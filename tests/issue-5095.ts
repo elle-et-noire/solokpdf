@@ -15,7 +15,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { cmdId, EXE, runStandalone, tmpPath, assemblePdf } from "./util.ts";
+import { SETTINGS_FILE, cmdId, EXE, runStandalone, tmpPath, assemblePdf } from "./util.ts";
 
 type Button = { visible: boolean; idx: number };
 
@@ -93,7 +93,7 @@ function writeSettings(dir: string, layout: string) {
     layout ? `ToolbarCustomLayout = ${layout}` : ``,
     ``,
   ];
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), lines.join("\n"));
+  writeFileSync(join(dir, SETTINGS_FILE), lines.join("\n"));
 }
 
 export async function testit(): Promise<void> {

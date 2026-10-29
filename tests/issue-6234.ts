@@ -2,7 +2,7 @@
 // the captions of the last row must not be cut off by the band's bottom edge.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util";
 import { setCursorPos, sleep } from "./winapi";
 import { launchControlled, killAndWait, sendCommand } from "./win-automation";
 import { waitForHome } from "./control.ts";
@@ -21,7 +21,7 @@ function makeAppDir(): string {
     states.push(`\t[\n\t\tFilePath = ${p}\n\t\tOpenCount = ${nFiles - i}\n\t]`);
   }
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = true\n` +
       `HomePageViewMode = thumbnails\nShowTips = true\nFileStates [\n${states.join("\n")}\n]\n`,
   );

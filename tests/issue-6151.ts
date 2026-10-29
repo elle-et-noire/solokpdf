@@ -6,7 +6,7 @@ import { ControlCommand, withControlledSumatra } from "./control.ts";
 import { IS_MAC } from "./host.ts";
 import { findCanvas, sendCommandSync, waitForFrame } from "./win-automation.ts";
 import { captureWindowPixels } from "./winapi.ts";
-import { assemblePdf, cmdId, EXE, runStandalone, tmpPath } from "./util.ts";
+import { assemblePdf, cmdId, EXE, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 
 const PAGE_COUNT = 4;
 const WIDE_PAGE = 3;
@@ -123,7 +123,7 @@ async function testSharpTiles(): Promise<void> {
   const appdata = tmpPath("issue-6151-settings");
   mkdirSync(appdata, { recursive: true });
   // Without rasterizer AA, intermediate grays can only come from bitmap scaling.
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), "DisableAntiAlias = true\nCustomScreenDPI = 96\n");
+  writeFileSync(join(appdata, SETTINGS_FILE), "DisableAntiAlias = true\nCustomScreenDPI = 96\n");
 
   await withControlledSumatra(
     EXE,

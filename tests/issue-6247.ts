@@ -2,7 +2,7 @@
 // not removed from history) left the entry on screen until the next relayout.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, runStandalone, tmpPath } from "./util";
+import { SETTINGS_FILE, ROOT, runStandalone, tmpPath } from "./util";
 import { sendMessage, setCursorPos, sleep } from "./winapi";
 import { findCanvas, launchControlled, killAndWait } from "./win-automation";
 import type { ControlClient, HomeSelection } from "./control.ts";
@@ -25,7 +25,7 @@ function makeAppDir(): string {
     states.push(`\t[\n\t\tFilePath = ${p}\n\t\tOpenCount = ${nFiles - i}\n${favorites}\n\t]`);
   }
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = true\n` +
       `HomePageViewMode = thumbnails\nFileStates [\n${states.join("\n")}\n]\n`,
   );

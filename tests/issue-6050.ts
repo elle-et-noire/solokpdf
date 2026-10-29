@@ -14,7 +14,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { withControlledSumatra } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { cmdId, EXE, runStandalone, tmpPath, pngChunk, makeZip } from "./util.ts";
+import { SETTINGS_FILE, cmdId, EXE, runStandalone, tmpPath, pngChunk, makeZip } from "./util.ts";
 import { captureWindowPixels } from "./winapi.ts";
 import { findCanvas, sendCommand, waitForFrame } from "./win-automation.ts";
 
@@ -137,7 +137,7 @@ export async function testit(): Promise<void> {
   const appData = join(dir, "appdata");
   mkdirSync(appData);
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     [
       "UiLanguage = en",
       "CheckForUpdates = false",
