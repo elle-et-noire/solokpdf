@@ -29,12 +29,11 @@ PDFium failure reports its cause and falls back to MuPDF. One PDF is not kept
 open by both engines during normal PDFium viewing; the MuPDF DLL remains for
 other formats and shared functionality.
 
-Confirmed: rendering, zoom/rotation, links, navigation history, bookmarks,
-selection/search, multiple tabs, and two-document Tab Groups/session paths
-restored after restart. Startup and general memory targets remain unmet.
-Annotation editing, interactive forms, JavaScript, signatures and several
-advanced PDF features are not implemented in PDFium yet. Password-protected
-PDFs currently fall back to MuPDF. This is not a feature-complete replacement.
+PDFium also opens password-protected PDFs, attached PDFs, `.p7m` and Kindle
+Print Replica. Annotations, forms, document JavaScript, signatures, redaction,
+attachments and the PDF tools work on PDFium tabs through a MuPDF editor of the
+same file, loaded only when needed. XFA and GoToE are unsupported in both
+engines. See "Known limitations" in the development log for remaining gaps.
 
 Settings use `SolokPDF-settings.txt`; local data uses `SolokPDF` / `SolokPDF-data`.
 Upstream binary updates are disabled. Installer and association workflows have
@@ -42,7 +41,6 @@ not been validated; use the portable build. Existing copyright and license
 terms remain, including MuPDF's AGPL obligations; see `AUTHORS` and `COPYING`.
 
 See [build, tests, measurements and limitations](docs/solokpdf-progress.md).
-No commits or pushes are made automatically.
 
 ## Original SumatraPDF project
 
