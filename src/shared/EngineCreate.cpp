@@ -495,6 +495,16 @@ EngineBase* CreateEngineFromData(Str data, Str nameHint, PasswordUI* pwdUI) {
     return engine;
 }
 
+// MuPDF or, in SolokPDF builds, PDFium: an engine showing a PDF's own pages
+bool IsPdfPageEngine(Kind kind) {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (kind == kindEnginePdfium) {
+        return true;
+    }
+#endif
+    return kind == kindEngineMupdf;
+}
+
 static bool IsEngineMupdf(EngineBase* engine) {
     if (!engine) {
         return false;

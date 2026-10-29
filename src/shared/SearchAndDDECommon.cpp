@@ -16,6 +16,7 @@
 #include "DisplayMode.h"
 #include "DocController.h"
 #include "EngineBase.h"
+#include "EngineAll.h"
 #include "AppSettings.h"
 #include "ChmModel.h"
 #include "MarkdownModel.h"
@@ -1278,12 +1279,7 @@ void ShowMatchCount(MainWindow* win) {
 
 // Engines whose PDF page coordinates SyncTeX maps to
 bool IsSyncTexEngine(Kind kind) {
-#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-    if (kind == kindEnginePdfium) {
-        return true;
-    }
-#endif
-    return kind == kindEngineMupdf;
+    return IsPdfPageEngine(kind);
 }
 
 Str HandleSyncCmd(Str cmd, bool* ack) {

@@ -260,6 +260,7 @@ bool IsOpenCachePath(Str path);
 TempStr MaybeCopyEphemeralHostFile(Str path);
 
 bool EngineSupportsAnnotations(EngineBase*);
+bool IsPdfPageEngine(Kind kind);
 bool EngineGetAnnotations(EngineBase*, Vec<Annotation*>&);
 bool EngineHasUnsavedAnnotations(EngineBase*);
 bool EngineHasRedactMarks(EngineBase*);

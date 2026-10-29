@@ -482,7 +482,7 @@ void GetPropsText(DocController* ctrl, str::Builder& out) {
     AppendPropTranslated(out, DocProp::Author, GetPropValueTemp(props, DocProp::Author));
     AppendPropTranslated(out, DocProp::Copyright, GetPropValueTemp(props, DocProp::Copyright));
 
-    bool isPdfDate = dm && (kindEngineMupdf == dm->engineType || kindEnginePdfium == dm->engineType);
+    bool isPdfDate = dm && IsPdfPageEngine(dm->engineType);
     Str val = GetPropValueTemp(props, DocProp::CreationDate);
     AppendDateProp(out, Tr("Created:"), val, isPdfDate);
     val = GetPropValueTemp(props, DocProp::ModificationDate);
