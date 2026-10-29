@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
-Ordered work list. Order: A → B13 → B1 → B2–B6 → B7 (with B8–B12) → D1–D2 → C1 →
-E2 → D4/D5. Status: `todo`, `doing`, `done`, `blocked` (reason). Update
+Ordered work list. Order: A → B13 → B1 → B2–B6 → C1 → B7 triage (pdfium vs mupdf full-suite runs) → fixes by
+group (absorbing B5, B8–B12) → E2 → D1–D2 → D4/D5. Status: `todo`, `doing`, `done`, `blocked` (reason). Update
 the status and add the commit when an item lands. Details and measurements go
 in `solokpdf-progress.md`, not here.
 
