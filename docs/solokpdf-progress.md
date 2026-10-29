@@ -1812,8 +1812,11 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
 - Normal rendering is opaque white. The transparency-grid path uses alpha;
   full transparent-page compositing parity and advanced dark-mode parity are
   not established.
-- Print **bitmap generation** passed. Physical printers, print dialogs,
-  spooler behavior and export workflows were not comprehensively tested.
+- Print **bitmap generation** passed. PDFium tabs read `/ViewerPreferences`
+  print defaults through an on-demand MuPDF query, without loading the editor
+  (`tests/ad-hoc-pdfium-print-prefs.ts` checks all four values on both engines).
+  Physical printers, print dialogs, spooler behavior and export workflows were
+  not comprehensively tested.
 - Two-document Tab Groups and normal-session paths persisted across restart.
   `tests/ad-hoc-pdfium-view-state.ts` restores page, zoom and scroll from the
   session and from file history; both engines save identical values (scroll

@@ -4525,21 +4525,8 @@ static PageLayout GetPreferredLayout(fz_context* ctx, fz_document* doc) {
     return layout;
 }
 
-// reads the four print-related /ViewerPreferences entries from a PDF document.
-// returns false for non-PDF engines or when none of the entries are present.
-bool GetPdfViewerPrintPrefs(EngineBase* engineBase, PdfViewerPrintPrefs& prefs) {
-    EngineMupdf* engine = AsEngineMupdf(engineBase);
-    if (!engine || !engine->pdfdoc) {
-        return false;
-    }
-    fz_context* ctx = engine->Ctx();
-    if (!ctx) {
-        return false;
-    }
-    pdf_document* pdfdoc = engine->pdfdoc;
-
-    ScopedRecursiveMutex cs(&engine->docLock);
-
+// Read the four optional print defaults without loading page content.
+static bool ReadViewerPrintPrefs(fz_context* ctx, pdf_document* pdfdoc, PdfViewerPrintPrefs& prefs) {
     pdf_obj* vprefs = nullptr;
     fz_var(vprefs);
     fz_try(ctx) {
@@ -4597,6 +4584,18 @@ bool GetPdfViewerPrintPrefs(EngineBase* engineBase, PdfViewerPrintPrefs& prefs) 
         fz_report_error(ctx);
     }
     return found;
+}
+
+bool GetPdfViewerPrintPrefs(EngineBase* engineBase, PdfViewerPrintPrefs& prefs) {
+    EngineMupdf* engine = AsEngineMupdf(engineBase);
+    if (!engine) {
+        return engineBase && engineBase->GetViewerPrintPrefs(prefs);
+    }
+    if (!engine->pdfdoc || !engine->Ctx()) {
+        return false;
+    }
+    ScopedRecursiveMutex cs(&engine->docLock);
+    return ReadViewerPrintPrefs(engine->Ctx(), engine->pdfdoc, prefs);
 }
 
 static bool IsLinearizedFile(EngineMupdf* e) {
@@ -5840,6 +5839,18 @@ static pdf_document* OpenPdfForQuery(fz_context* ctx, Str path, Str data, Str pa
         return nullptr;
     }
     return doc;
+}
+
+bool PdfViewerPrintPrefsMupdf(Str path, Str data, Str password, PdfViewerPrintPrefs& prefs) {
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    if (!ctx) {
+        return false;
+    }
+    pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
+    bool found = doc && ReadViewerPrintPrefs(ctx, doc, prefs);
+    pdf_drop_document(ctx, doc);
+    fz_drop_context(ctx);
+    return found;
 }
 
 // Read uncommon page geometry once; ordinary PDFium pages do not open a MuPDF document.

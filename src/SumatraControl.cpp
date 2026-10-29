@@ -1625,6 +1625,16 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 0, dm->pdfSync ? StrL("sync=loaded") : StrL("sync=none"));
                 break;
             }
+            if (str::Eq(StringArg(req, 0), StrL("print-prefs"))) {
+                PdfViewerPrintPrefs prefs;
+                bool found = GetPdfViewerPrintPrefs(engine, prefs);
+                AppendTestResult(
+                    req, 0,
+                    fmt("found=%d tray=%d copies=%d duplex=%d scaling=%d", found,
+                        prefs.hasPickTrayByPdfSize && prefs.pickTrayByPdfSize, prefs.hasNumCopies ? prefs.numCopies : 0,
+                        prefs.hasDuplex ? (int)prefs.duplex + 1 : 0, prefs.hasPrintScaling && prefs.printScalingNone));
+                break;
+            }
             int textLen = 0;
             Str pageText = engine->GetTextForPage(1, &textLen);
             bool found = false;

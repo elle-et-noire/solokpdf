@@ -8,6 +8,7 @@ import { testit as hover } from "./ad-hoc-pdfium-hover.ts";
 import { testit as memory } from "./ad-hoc-pdfium-memory.ts";
 import { testit as outline } from "./ad-hoc-pdfium-outline.ts";
 import { testit as permissions } from "./ad-hoc-pdfium-permissions.ts";
+import { testit as printPrefs } from "./ad-hoc-pdfium-print-prefs.ts";
 import { testit as saveas } from "./ad-hoc-pdfium-saveas.ts";
 import { testit as synctex } from "./ad-hoc-pdfium-synctex.ts";
 import { testit as tools } from "./ad-hoc-pdfium-tools.ts";
@@ -26,6 +27,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-outline", outline],
   ["ad-hoc-pdfium-unsupported", unsupported],
   ["ad-hoc-pdfium-permissions", permissions],
+  ["ad-hoc-pdfium-print-prefs", printPrefs],
   ["ad-hoc-pdfium-form-js", formJs],
   ["ad-hoc-pdfium-document-js", documentJs],
   ["ad-hoc-vim-keys", vimKeys],

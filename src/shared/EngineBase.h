@@ -469,6 +469,8 @@ enum class TransformDir {
 };
 PointF TransformPagePoint(PointF pt, SizeF page, float zoom, int rotation, TransformDir dir);
 
+struct PdfViewerPrintPrefs;
+
 class EngineBase {
   public:
     Kind kind = nullptr;
@@ -603,6 +605,7 @@ class EngineBase {
 
     // 1-based page from safe PDF /OpenAction GoTo, or 0 (issue #1631)
     virtual int GetOpenActionPageNo() { return 0; }
+    virtual bool GetViewerPrintPrefs(PdfViewerPrintPrefs&) { return false; }
 
     // an EngineMupdf of the same file that edits the annotations of an engine that can't (EnginePdfium)
     virtual bool HasAnnotationEditor() { return false; }
@@ -734,6 +737,7 @@ struct PdfViewerPrintPrefs {
 };
 
 bool GetPdfViewerPrintPrefs(EngineBase* engine, PdfViewerPrintPrefs& prefs);
+bool PdfViewerPrintPrefsMupdf(Str path, Str data, Str password, PdfViewerPrintPrefs& prefs);
 void SetChapterLayoutHold(bool hold);
 bool SaveFileOrData(Str srcFilePath, Str data, Str dstFilePath);
 

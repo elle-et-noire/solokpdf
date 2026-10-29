@@ -1553,6 +1553,10 @@ class EnginePdfium : public EngineBase {
         return pageNo;
     }
 
+    bool GetViewerPrintPrefs(PdfViewerPrintPrefs& prefs) override {
+        return PdfViewerPrintPrefsMupdf(FilePath(), fileData, password, prefs);
+    }
+
     // A known size needs no lock: the UI thread waited ~10 ms per call while pages drew.
     RectF PageMediabox(int pageNo) override {
         if (pageNo >= 1 && pageNo <= pageCount) {
