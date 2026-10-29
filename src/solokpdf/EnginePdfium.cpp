@@ -147,6 +147,8 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDFBookmark_GetFirstChild)       \
     X(FPDFBookmark_GetNextSibling)      \
     X(FPDFBookmark_GetTitle)            \
+    X(FPDFBookmark_GetColor)            \
+    X(FPDFBookmark_GetStyle)            \
     X(FPDFBookmark_GetDest)             \
     X(FPDFBookmark_GetAction)           \
     X(FPDF_GetMetaText)                 \
@@ -1335,6 +1337,14 @@ class EnginePdfium : public EngineBase {
             item->id = ++id;
             item->parent = parent;
             item->dest = dest;
+            item->fontFlags = gPdfium.FPDFBookmark_GetStyle(mark) & 3;
+            float red = 0, green = 0, blue = 0;
+            if (gPdfium.FPDFBookmark_GetColor(mark, &red, &green, &blue)) {
+                u8 r = (u8)(red * 255), g = (u8)(green * 255), b = (u8)(blue * 255);
+                if (r || g || b) {
+                    item->color = MkRgb(r, g, b);
+                }
+            }
             item->child = ReadBookmarks(gPdfium.FPDFBookmark_GetFirstChild(doc, mark), item, depth + 1, budget, id);
             *tail = item;
             tail = &item->next;

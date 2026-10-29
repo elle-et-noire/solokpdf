@@ -1714,6 +1714,8 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   both). Outlines containing named actions or GoToR destinations use the lazy
   MuPDF editor's TOC, including its attachment entries. PDFium reads ordinary
   outlines itself. `tests/ad-hoc-pdfium-outline.ts` compares both engines.
+  PDFium reads bookmark colors and bold/italic styles through its own API;
+  `issue-3560` checks the sidebar colors against MuPDF.
   GoToE remains unsupported by both engines.
 - Auto Generate TOC uses MuPDF's numbered-heading scanner for PDFium documents.
   Its text-line and hierarchy rules therefore yield the same entries and pages
