@@ -2416,26 +2416,33 @@ class EnginePdfium : public EngineBase {
                 }
             }
         }
-        if (len(value) > 0 || prop == DocProp::Keywords || !HasXmp()) {
-            return value;
-        }
-        EngineBase* source = AnnotationEditor(EditorLoad::Load);
-        return source ? source->GetPropertyTemp(prop) : TempStr{};
+        return value;
     }
 
     void GetProperties(Props& propsOut) override {
         EngineBase::GetProperties(propsOut);
         TempStr keywords = GetPropertyTemp(DocProp::Keywords);
-        if (len(keywords) == 0 && HasXmp()) {
-            EngineBase* source = AnnotationEditor(EditorLoad::Load);
-            if (source) {
-                Props xmpProps;
-                source->GetProperties(xmpProps);
-                keywords = str::DupTemp(GetPropValueTemp(xmpProps, DocProp::Keywords));
-            }
-        }
         if (len(keywords) > 0) {
             AddProp(propsOut, DocProp::Keywords, keywords);
+        }
+
+        // Document Properties only (the frame title runs on every open): PDFium can't read
+        // the catalog's XMP, so fields missing from Info come from MuPDF
+        if (HasXmp()) {
+            EngineBase* source = AnnotationEditor(EditorLoad::Load);
+            Props xmpProps;
+            if (source) {
+                source->GetProperties(xmpProps);
+            }
+            constexpr DocProp kXmpProps[] = {DocProp::Title,        DocProp::Author,           DocProp::Subject,
+                                             DocProp::Copyright,    DocProp::CreatorApp,       DocProp::PdfProducer,
+                                             DocProp::CreationDate, DocProp::ModificationDate, DocProp::Keywords};
+            for (DocProp prop : kXmpProps) {
+                Str val = GetPropValueTemp(xmpProps, prop);
+                if (len(GetPropValueTemp(propsOut, prop)) == 0 && len(val) > 0) {
+                    AddProp(propsOut, prop, str::DupTemp(val));
+                }
+            }
         }
 
         int signatures = 0;
