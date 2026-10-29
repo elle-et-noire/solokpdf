@@ -120,6 +120,11 @@ struct PageText {
 void FreePageText(PageText*);
 void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects);
 int PdfOpenActionPageMupdf(Str path, Str data, Str password);
+struct PdfPageGeometry {
+    SizeF size;
+    int rotation = 0;
+};
+bool PdfPageGeometryMupdf(Str path, Str data, Str password, int pageCount, Vec<PdfPageGeometry>& out);
 // a link EnginePdfium can't fully read: a Named page jump (targetPage) or a GoToR's named /D (remoteDest)
 struct PdfLinkMupdf {
     RectF rect;

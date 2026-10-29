@@ -864,6 +864,8 @@ TempStr PageRenderColorsResultTemp(Str path, int* exitCodeOut, int pageNo, int z
     int gray = 0;
     // bounding box of the non-white pixels
     int bx0 = 0, by0 = 0, bx1 = 0, by1 = 0;
+    int rx0 = 0, ry0 = 0, rx1 = 0, ry1 = 0;
+    int ux0 = 0, uy0 = 0, ux1 = 0, uy1 = 0;
     int rMin = 255, rMax = 0, gMin = 255, gMax = 0, bMin = 255, bMax = 0;
     if (bpp >= 3) {
         for (int y = 0; y < rgb->height; y++) {
@@ -895,9 +897,23 @@ TempStr PageRenderColorsResultTemp(Str path, int* exitCodeOut, int pageNo, int z
                     gray++;
                 }
                 if (r > 180 && g < 80 && b < 80) {
+                    if (red == 0) {
+                        rx0 = x, ry0 = y, rx1 = x + 1, ry1 = y + 1;
+                    }
+                    rx0 = std::min(rx0, x);
+                    ry0 = std::min(ry0, y);
+                    rx1 = std::max(rx1, x + 1);
+                    ry1 = std::max(ry1, y + 1);
                     red++;
                 }
                 if (b > 180 && r < 80 && g < 80) {
+                    if (blue == 0) {
+                        ux0 = x, uy0 = y, ux1 = x + 1, uy1 = y + 1;
+                    }
+                    ux0 = std::min(ux0, x);
+                    uy0 = std::min(uy0, y);
+                    ux1 = std::max(ux1, x + 1);
+                    uy1 = std::max(uy1, y + 1);
                     blue++;
                 }
                 if (r < rMin) {
@@ -922,9 +938,10 @@ TempStr PageRenderColorsResultTemp(Str path, int* exitCodeOut, int pageNo, int z
         }
     }
     int spread = (rMax - rMin) + (gMax - gMin) + (bMax - bMin);
-    out.Append(fmt("red=%d nonwhite=%d size=%dx%d pages=%d page=%d blue=%d spread=%d gray=%d box=%d,%d,%d,%d\n", red,
+    out.Append(fmt("red=%d nonwhite=%d size=%dx%d pages=%d page=%d blue=%d spread=%d gray=%d box=%d,%d,%d,%d", red,
                    nonWhite, rgb->width, rgb->height, engine->PageCount(), pageNo, blue, spread, gray, bx0, by0, bx1,
                    by1));
+    out.Append(fmt(" redBox=%d,%d,%d,%d blueBox=%d,%d,%d,%d\n", rx0, ry0, rx1, ry1, ux0, uy0, ux1, uy1));
     if (rgb != bmp) {
         FreePixmap(rgb);
     }

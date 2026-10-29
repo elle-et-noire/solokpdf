@@ -114,7 +114,12 @@ TempStr SearchResultTemp(Str pdfPath, Str needle, Str password) {
         ts->SetMatchCase(false);
         Vec<TextSel>* sel = ts->FindFirst(1, needle);
         if (sel && len(*sel) > 0) {
-            out.Append(fmt("FOUND needle=%s page=%d\n", needle, (*sel)[0].pageNo));
+            Rect rect = (*sel)[0].rect;
+            for (const TextSel& hit : *sel) {
+                rect = rect.Union(hit.rect);
+            }
+            out.Append(fmt("FOUND needle=%s page=%d rect=%d,%d,%d,%d\n", needle, (*sel)[0].pageNo, rect.x, rect.y,
+                           rect.dx, rect.dy));
         } else {
             out.Append(fmt("NOTFOUND needle=%s\n", needle));
         }
@@ -820,9 +825,10 @@ TempStr PageLinksResultTemp(Str path, int pageNo, int* exitCodeOut) {
         }
         RectF src = el->GetRect();
         RectF destRc = dest->GetRect();
-        out.Append(fmt("kind=%s page=%d src=%g,%g,%g,%g dest=%g,%g,%g,%g value=%s\n", Str(dest->GetKind()),
-                       PageDestGetPageNo(dest), src.x, src.y, src.dx, src.dy, destRc.x, destRc.y, destRc.dx, destRc.dy,
-                       valueShown));
+        RectF screen = engine->Transform(src, pageNo, 1.5f, 0);
+        out.Append(fmt("kind=%s page=%d src=%g,%g,%g,%g dest=%g,%g,%g,%g screen=%g,%g,%g,%g value=%s\n",
+                       Str(dest->GetKind()), PageDestGetPageNo(dest), src.x, src.y, src.dx, src.dy, destRc.x, destRc.y,
+                       destRc.dx, destRc.dy, screen.x, screen.y, screen.dx, screen.dy, valueShown));
     }
     if (nLinks == 0) {
         if (exitCodeOut) {

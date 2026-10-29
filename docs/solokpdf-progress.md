@@ -1781,8 +1781,11 @@ SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
   transform with float error (5507.9995 px) and were floored, drawing about a
   third of high-zoom tiles a pixel off; they now snap within 0.05 px.
   `tests/ad-hoc-pdfium-tiles.ts` checks 45-degree hairlines across tile edges
-  at five fractional zooms (res 1–4) for both engines. Arbitrary
-  UserUnit/page-box combinations need broader tests.
+  at five fractional zooms (res 1–4) for both engines. Page size, link/search
+  positions and rendered geometry now match MuPDF for offset/intersected page
+  boxes, snapped rotation and `/UserUnit` 0.5, 2 and 3.7
+  (`tests/ad-hoc-pdfium-pagebox.ts`). Geometry stored only in compressed object
+  streams or files above 32 MiB still needs testing and normalization.
 - Rotated text selects along glyph quads, as with MuPDF (`issue-4839`, which
   failed with PDFium before). PDFium reports only axis-aligned boxes, so quads
   are built from each glyph's matrix, origin, advance and the font's

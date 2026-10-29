@@ -79,6 +79,8 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDF_GetPageSizeByIndexF)         \
     X(FPDF_LoadPage)                    \
     X(FPDF_ClosePage)                   \
+    X(FPDFPage_GetRotation)             \
+    X(FPDFPage_SetRotation)             \
     X(FPDF_PageToDevice)                \
     X(FPDFPage_CountObjects)            \
     X(FPDFPage_GetObject)               \
@@ -382,6 +384,40 @@ class PdfiumCookie : public AbortCookie {
 // same limit as EngineMupdf: smaller files are read into memory
 constexpr i64 kMaxMemoryFileSize = 32LL * 1024 * 1024;
 
+static bool HasUnusualGeometry(Str data) {
+    constexpr char kUserUnit[] = "/UserUnit";
+    constexpr char kRotate[] = "/Rotate";
+    for (int i = 0; i < len(data); i++) {
+        if (data.s[i] != '/') {
+            continue;
+        }
+        if (i + sizeof(kUserUnit) - 1 <= len(data) && memcmp(data.s + i, kUserUnit, sizeof(kUserUnit) - 1) == 0) {
+            return true;
+        }
+        if (i + sizeof(kRotate) - 1 > len(data) || memcmp(data.s + i, kRotate, sizeof(kRotate) - 1) != 0) {
+            continue;
+        }
+        int at = i + sizeof(kRotate) - 1;
+        while (at < len(data) && (data.s[at] == ' ' || data.s[at] == '\r' || data.s[at] == '\n')) {
+            at++;
+        }
+        int sign = 1;
+        if (at < len(data) && (data.s[at] == '-' || data.s[at] == '+')) {
+            sign = data.s[at++] == '-' ? -1 : 1;
+        }
+        int rotation = 0;
+        bool hasDigit = false;
+        while (at < len(data) && data.s[at] >= '0' && data.s[at] <= '9') {
+            hasDigit = true;
+            rotation = (rotation * 10 + data.s[at++] - '0') % 360;
+        }
+        if (!hasDigit || (sign * rotation) % 90 != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Tile edges are whole screen pixels but come back through the transform as e.g. 5507.9995;
 // flooring that drew the tile a pixel off from where RenderCache places it.
 constexpr double kPixelSnap = 0.05;
@@ -449,6 +485,7 @@ class EnginePdfium : public EngineBase {
     Str password;
     bool runtime = false;
     Vec<PdfiumPage*> pages;
+    Vec<PdfPageGeometry> geometry;
     Vec<IPageDestination*> namedDests;
     StrVec pageLabels;
     TocTree* toc = nullptr;
@@ -499,8 +536,22 @@ class EnginePdfium : public EngineBase {
         auto*& p = pages[pageNo - 1];
         if (!p) {
             FS_SIZEF size{};
-            if (!gPdfium.FPDF_GetPageSizeByIndexF(doc, pageNo - 1, &size) || !isfinite(size.width) ||
-                !isfinite(size.height) || size.width <= 0 || size.height <= 0) {
+            if (len(geometry) == pageCount) {
+                FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+                if (!page) {
+                    return nullptr;
+                }
+                int rotation = geometry[pageNo - 1].rotation;
+                if (gPdfium.FPDFPage_GetRotation(page) != rotation) {
+                    gPdfium.FPDFPage_SetRotation(page, rotation);
+                }
+                gPdfium.FPDF_ClosePage(page);
+                size.width = geometry[pageNo - 1].size.dx;
+                size.height = geometry[pageNo - 1].size.dy;
+            } else if (!gPdfium.FPDF_GetPageSizeByIndexF(doc, pageNo - 1, &size)) {
+                return nullptr;
+            }
+            if (!isfinite(size.width) || !isfinite(size.height) || size.width <= 0 || size.height <= 0) {
                 return nullptr;
             }
             auto* info = new PdfiumPage();
@@ -1174,6 +1225,11 @@ class EnginePdfium : public EngineBase {
             return false;
         }
         VecResize(pages, pageCount);
+        if (HasUnusualGeometry(fileData)) {
+            if (!PdfPageGeometryMupdf(path, fileData, password, pageCount, geometry)) {
+                VecClear(geometry);
+            }
+        }
         int revision = gPdfium.FPDF_GetSecurityHandlerRevision(doc);
         isPasswordProtected = revision >= 0;
         unsigned long permissions = gPdfium.FPDF_GetDocPermissions(doc);
