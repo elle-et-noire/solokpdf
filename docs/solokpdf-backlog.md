@@ -1,6 +1,7 @@
 # SolokPDF backlog
 
-Ordered work list. Status: `todo`, `doing`, `done`, `blocked` (reason). Update
+Ordered work list. Order: A → B1 → B2–B6 → D1–D3 → B7 (with B8–B12) → C1 → E1 →
+E2 → D4/D5. Status: `todo`, `doing`, `done`, `blocked` (reason). Update
 the status and add the commit when an item lands. Details and measurements go
 in `solokpdf-progress.md`, not here.
 
@@ -28,32 +29,37 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B4  | `FixedPageUI.WindowBgCol` page-surround color                                                       | `Canvas.cpp` `isPdf`                                                                             | todo                  |
 | B5  | Engineering-drawing enhance (`CmdToggleEngineeringDrawingEnhance`): implement for PDFium or hide it | `EngineMupdfToggleCadEnhance`                                                                    | todo                  |
 | B6  | Theme change drops cached dark-mode analysis for PDFium tabs                                        | `EngineMupdfInvalidateDarkMode`                                                                  | todo (verify first)   |
+| B8  | "Fit content" zoom (`PageContentBox` not implemented)                                               | `EnginePdfium`                                                                                   | todo (verify first)   |
+| B9  | Copy/Save image under the cursor (`GetImageForPageElement`, `GetImageDataForPageElement`)           | `EnginePdfium`                                                                                   | todo (verify first)   |
+| B10 | Page boxes query (`GetPdfPageBoxes`)                                                                | `EnginePdfium`                                                                                   | todo (verify first)   |
+| B11 | Non-blocking `TryGetElements` / `TryExtractPageText` (UI thread waits otherwise)                    | `EnginePdfium`                                                                                   | todo (verify first)   |
+| B12 | Test comparing every command's visibility/enabled state between engines on the same PDF             | `TestCommandVisibility`                                                                          | todo                  |
 | B7  | Upstream full-suite failures on PDFium, triaged and fixed                                           | full-suite run                                                                                   | blocked (run pending) |
 
-## C. Integration and distribution
+## C. Coexistence with SumatraPDF
 
-| ID  | Item                                                                                                                        | Status          |
-| --- | --------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| C1  | File associations under a SolokPDF ProgID (no clash with SumatraPDF); "default app" and "Open with" from the portable build | todo            |
-| C2  | Explorer thumbnails and preview pane through PDFium, shipped in the ZIP                                                     | todo (after C1) |
+| ID  | Item                                                                                                                                                                                             | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| C1  | Own window class and other names that clash with an installed SumatraPDF (its installer closes `SUMATRA_PDF_FRAME` windows; `-reuse-instance`/`-dde` forward search finds the first such window) | todo   |
 
 ## D. CI
 
-| ID  | Item                                       | Status          |
-| --- | ------------------------------------------ | --------------- |
-| D1  | Release job in parallel with debug         | todo            |
-| D2  | Compile cache (sccache) for CI builds      | todo            |
-| D3  | Shard the full suite across runners        | todo            |
-| D4  | Weekly scheduled full suite once it passes | todo (after B7) |
+| ID  | Item                                                                             | Status          |
+| --- | -------------------------------------------------------------------------------- | --------------- |
+| D1  | Release job in parallel with debug                                               | todo            |
+| D2  | Compile cache (sccache) for CI builds                                            | todo            |
+| D3  | Shard the full suite across runners                                              | todo            |
+| D4  | Weekly scheduled full suite once it passes                                       | todo (after B7) |
+| D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | todo            |
 
 ## E. Quality
 
-| ID  | Item                                                | Status          |
-| --- | --------------------------------------------------- | --------------- |
-| E1  | Close the remaining startup gap shown by A1         | todo (after A1) |
-| E2  | Hours-long open/close/render leak stress            | todo            |
-| E3  | ASan build of the app with PDFium for the fuzz test | todo            |
-| E4  | Transparent-page compositing parity                 | todo            |
+| ID  | Item                                                | Status                                |
+| --- | --------------------------------------------------- | ------------------------------------- |
+| E1  | Close the remaining startup gap shown by A1         | todo (after A1)                       |
+| E2  | Hours-long open/close/render leak stress            | todo                                  |
+| E3  | ASan build of the app with PDFium for the fuzz test | deferred (prebuilt PDFium isn't ASan) |
+| E4  | Transparent-page compositing parity                 | deferred (rare documents)             |
 
 ## F. Needs the owner
 
@@ -65,4 +71,6 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
 XFA editing and GoToE (unsupported in both engines); `src/ng/`; distribution
 (GitHub Releases, update checks, release criteria): the owner has no plans to
-distribute.
+distribute. Explorer thumbnails/preview (needs DLL registration; little value
+for one user). The default-app association already works through
+`Applications\SolokPDF.exe`.
