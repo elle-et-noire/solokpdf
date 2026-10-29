@@ -22,13 +22,13 @@ jobs:
     runs-on: windows-2025-vs2026
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .work/pdfium
           key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
@@ -49,7 +49,7 @@ jobs:
         run: bun tests/run-solokpdf-ci.ts
       - name: Upload test output
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: solokpdf-test-output
           path: |
@@ -65,20 +65,20 @@ jobs:
     runs-on: windows-2025-vs2026
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .work/pdfium
           key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
       - name: Build release
         run: bun cmd/solok-build.ts -rel
       - name: Upload portable ZIP
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: SolokPDF-experimental-x64
           path: out/SolokPDF-experimental-x64.zip
