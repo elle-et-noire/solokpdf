@@ -106,7 +106,9 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDFText_ClosePage)               \
     X(FPDFText_CountChars)              \
     X(FPDFText_GetUnicode)              \
+    X(FPDFText_IsGenerated)             \
     X(FPDFText_GetCharBox)              \
+    X(FPDFText_GetLooseCharBox)         \
     X(FPDFText_GetMatrix)               \
     X(FPDFText_GetCharOrigin)           \
     X(FPDFText_GetFontSize)             \
@@ -115,6 +117,7 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDFFont_GetAscent)               \
     X(FPDFFont_GetDescent)              \
     X(FPDFFont_GetGlyphWidth)           \
+    X(FPDFFont_GetBaseFontName)         \
     X(FPDFLink_Enumerate)               \
     X(FPDFLink_GetAnnotRect)            \
     X(FPDFLink_GetDest)                 \
@@ -1025,7 +1028,26 @@ class EnginePdfium : public EngineBase {
         return true;
     }
 
-    PageText ReadPageText(FPDF_PAGE page, PdfiumPage* info) {
+    // Distiller's Latin-1 ToUnicode map mislabels CP-1251 Type1 glyphs in these families.
+    bool IsCp1251Font(FPDF_PAGEOBJECT obj) {
+        FPDF_FONT font = obj ? gPdfium.FPDFTextObj_GetFont(obj) : nullptr;
+        char name[128]{};
+        if (!font || gPdfium.FPDFFont_GetBaseFontName(font, name, sizeof(name)) >= sizeof(name)) {
+            return false;
+        }
+        const char* family = name;
+        if (strlen(family) > 7 && family[6] == '+') {
+            family += 7;
+        }
+        return _strnicmp(family, "Literaturnaya", 13) == 0 ||
+               (_strnicmp(family, "Academy", 7) == 0 && (family[7] == 0 || family[7] == '-'));
+    }
+
+    PageText ReadPageText(FPDF_PAGE page, PdfiumPage* info, bool* missingUnicode = nullptr) {
+        constexpr UINT kCyrillicCodePage = 1251;
+        constexpr double kMinWordGapEm = 0.2;
+        constexpr double kMaxWordGapEm = 1.5;
+        constexpr float kMaxLooseBoxEm = 3;
         PageText result;
         FPDF_TEXTPAGE textPage = gPdfium.FPDFText_LoadPage(page);
         if (!textPage) {
@@ -1038,25 +1060,89 @@ class EnginePdfium : public EngineBase {
             Vec<Rect> coords;
             Vec<QuadF> quads;
             bool hasRotated = false;
+            FPDF_PAGEOBJECT lastObj = nullptr;
+            bool cp1251Font = false;
+            unsigned int prevCode = 0;
+            double prevRight = 0, prevBottom = 0, prevTop = 0;
             for (int i = 0; i < count; i++) {
                 unsigned int code = gPdfium.FPDFText_GetUnicode(textPage, i);
+                if (!code && missingUnicode && gPdfium.FPDFText_IsGenerated(textPage, i) == 0) {
+                    *missingUnicode = true;
+                }
+                unsigned int nextCode = i + 1 < count ? gPdfium.FPDFText_GetUnicode(textPage, i + 1) : 0;
+                if ((code == '\r' && nextCode == '\n') || (code == ' ' && (nextCode == '\r' || nextCode == '\n'))) {
+                    continue;
+                }
+                if (code == ' ' && (prevCode == 0 || prevCode == '\n' || prevCode == '\r')) {
+                    continue;
+                }
+                FPDF_PAGEOBJECT obj = gPdfium.FPDFText_GetTextObject(textPage, i);
+                if (obj != lastObj) {
+                    cp1251Font = IsCp1251Font(obj);
+                    lastObj = obj;
+                }
+                if (cp1251Font && code >= 0xc0 && code <= 0xff) {
+                    char ch = (char)code;
+                    WCHAR mapped = 0;
+                    if (MultiByteToWideChar(kCyrillicCodePage, 0, &ch, 1, &mapped, 1) == 1) {
+                        code = mapped;
+                    }
+                }
                 if (!code || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) {
                     code = 0xfffd;
                 }
-                char buf[8]{};
-                int bytes = 0;
-                str::Utf8Encode(buf, bytes, (int)code);
-                text.Append(Str(buf, bytes));
                 double left = 0, right = 0, bottom = 0, top = 0;
+                double wordLeft = 0, wordRight = 0;
+                bool useLoose = false;
                 Rect box;
                 if (gPdfium.FPDFText_GetCharBox(textPage, i, &left, &right, &bottom, &top)) {
+                    FS_RECTF loose{};
+                    float size = (float)gPdfium.FPDFText_GetFontSize(textPage, i);
+                    wordLeft = left;
+                    wordRight = right;
+                    if (gPdfium.FPDFText_GetLooseCharBox(textPage, i, &loose)) {
+                        wordLeft = loose.left;
+                        wordRight = loose.right;
+                        if (size > 0 && loose.top - loose.bottom <= kMaxLooseBoxEm * size) {
+                            useLoose = true;
+                            left = loose.left;
+                            right = loose.right;
+                            bottom = loose.bottom;
+                            top = loose.top;
+                        }
+                    }
                     RectF rect = ToPageRect(page, info, left, bottom, right, top);
                     if (isfinite(rect.x) && isfinite(rect.y) && isfinite(rect.dx) && isfinite(rect.dy) &&
                         fabs(rect.x) < INT_MAX / 4 && fabs(rect.y) < INT_MAX / 4 && rect.dx < INT_MAX / 4 &&
                         rect.dy < INT_MAX / 4) {
                         box = rect.Round();
+                        if (useLoose) {
+                            box.dx = std::max(1, (int)roundf(rect.dx));
+                        }
                     }
                 }
+                if (code == '\n' || code == '\r') {
+                    box = Rect();
+                }
+                bool sameLine = prevTop > bottom && top > prevBottom;
+                double gap = wordLeft - prevRight;
+                double em = std::max(prevTop - prevBottom, top - bottom);
+                if (code == ' ' && sameLine && i + 1 < count) {
+                    FS_RECTF next{};
+                    if (gPdfium.FPDFText_GetLooseCharBox(textPage, i + 1, &next) &&
+                        next.left - prevRight < kMinWordGapEm * em) {
+                        continue;
+                    }
+                }
+                if (prevCode > ' ' && code > ' ' && sameLine && gap > kMinWordGapEm * em && gap < kMaxWordGapEm * em) {
+                    text.Append(StrL(" "));
+                    VecAppend(coords, Rect());
+                    VecAppend(quads, QuadF());
+                }
+                char buf[8]{};
+                int bytes = 0;
+                str::Utf8Encode(buf, bytes, (int)code);
+                text.Append(Str(buf, bytes));
                 VecAppend(coords, box);
 
                 // rotated glyphs select along their quads (#4839), upright ones use their box
@@ -1066,6 +1152,10 @@ class EnginePdfium : public EngineBase {
                     hasRotated = true;
                 }
                 VecAppend(quads, quad);
+                prevCode = code;
+                prevRight = wordRight;
+                prevBottom = bottom;
+                prevTop = top;
             }
             result.text = text.TakeStr();
             result.nCodepoints = len(coords);
@@ -1889,26 +1979,40 @@ class EnginePdfium : public EngineBase {
     }
 
     PageText ExtractPageText(int pageNo) override {
-        // MuPDF preserves synthesized form text, word spacing, Unicode and selection bounds.
-        EngineBase* textEngine = AnnotationEditor(EditorLoad::Load);
-        if (textEngine) {
-            return textEngine->ExtractPageText(pageNo);
-        }
-
         PdfiumProfile profile(StrL("text"), pageNo);
-        ScopedMutex lock(&gPdfiumLock);
-        profile.Mark(StrL("lock"));
-        auto* info = Page(pageNo);
-        if (!info) {
-            return {};
+        PageText result;
+        bool hasWidget = false;
+        bool missingUnicode = false;
+        {
+            ScopedMutex lock(&gPdfiumLock);
+            profile.Mark(StrL("lock"));
+            auto* info = Page(pageNo);
+            if (!info) {
+                return {};
+            }
+            FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+            if (!page) {
+                return {};
+            }
+            profile.Mark(StrL("page"));
+            result = ReadPageText(page, info, &missingUnicode);
+            int count = gPdfium.FPDFPage_GetAnnotCount(page);
+            for (int i = 0; i < count && !hasWidget; i++) {
+                FPDF_ANNOTATION annot = gPdfium.FPDFPage_GetAnnot(page, i);
+                hasWidget = annot && gPdfium.FPDFAnnot_GetSubtype(annot) == FPDF_ANNOT_WIDGET;
+                if (annot) {
+                    gPdfium.FPDFPage_CloseAnnot(annot);
+                }
+            }
+            gPdfium.FPDF_ClosePage(page);
         }
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
-        if (!page) {
-            return {};
+        if (hasWidget || missingUnicode) {
+            EngineBase* editor = AnnotationEditor(EditorLoad::Load);
+            if (editor) {
+                FreePageText(&result);
+                return editor->ExtractPageText(pageNo);
+            }
         }
-        profile.Mark(StrL("page"));
-        PageText result = ReadPageText(page, info);
-        gPdfium.FPDF_ClosePage(page);
         profile.Mark(StrL("characters"));
         return result;
     }

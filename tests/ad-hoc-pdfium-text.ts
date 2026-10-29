@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
-import { assemblePdf, extractPageText, runStandalone, tmpPath } from "./util.ts";
+import { ControlCommand, withControlledSumatra } from "./control.ts";
+import { assemblePdf, EXE, extractPageText, runStandalone, tmpPath } from "./util.ts";
 
 export async function testit(): Promise<void> {
   const pdf = tmpPath("pdfium-text.pdf");
@@ -29,6 +30,19 @@ export async function testit(): Promise<void> {
     if (actual !== expected) {
       throw new Error(`PDFium text ${JSON.stringify(actual)}, MuPDF ${JSON.stringify(expected)}`);
     }
+
+    await withControlledSumatra(
+      EXE,
+      async (client) => {
+        const text = await client.request(ControlCommand.TestCurrentPdf, ["Library"]);
+        if (text[0] !== 0 || !String(text[1]).includes("Library Functions Manual")) {
+          throw new Error(`text extraction failed: ${text[1]}`);
+        }
+        const editor = await client.request(ControlCommand.TestCurrentPdf, ["editor"]);
+        if (editor[1] !== "editor=none") throw new Error(`text extraction loaded editor: ${editor[1]}`);
+      },
+      [pdf],
+    );
   } finally {
     if (previous === undefined) delete process.env.SOLOKPDF_ENGINE;
     else process.env.SOLOKPDF_ENGINE = previous;

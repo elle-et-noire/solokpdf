@@ -1736,10 +1736,10 @@ continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
   JavaScript menus, button navigation and joined URLs while ordinary links
   stay on PDFium. `tests/ad-hoc-pdfium-links.ts` checks both engines.
   PDFium text still differs on some plain URLs (4 of 95 sampled pages).
-- Requested PDFium text extraction uses the lazy MuPDF editor's page text,
-  preserving form appearances, word spacing, Unicode and selection bounds.
-  Ordinary PDF open and rendering stay on PDFium; the editor loads on the
-  first text request. PDFium's linkifier still reads PDFium text on demand.
+- PDFium extracts routine page text through its own text API. Character gaps,
+  loose glyph boxes, line breaks and a CP-1251 font mapping preserve spacing,
+  Unicode and selection bounds. A page with form widgets or unmapped glyphs
+  uses MuPDF text only when requested. Plain pages leave the editor unloaded.
 - PDFium search uses that extracted page text. Dehyphenated terms now match
   across line breaks, as in `issue-1189` and the generated B15 search test.
 - PDFium enumerates image bounds for cursor hit testing and the Selected Image
