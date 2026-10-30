@@ -1996,6 +1996,8 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   It runs unit tests and selected PDFium, Vim, count-prefix, and update-check
   tests. Pushes and manual runs also build the release ZIP after debug passes;
   the ZIP is kept as an Actions artifact for 14 days. No upload secrets are used.
+- The full-suite workflow runs weekly on Monday at 02:00 JST with separate
+  PDFium and MuPDF jobs; manual runs still accept an engine and test filter (D4).
 
 The first development milestone (native build, PDFium pages in the original
 UI, MuPDF comparison, reproducible steps and explicit gaps) has been reached.

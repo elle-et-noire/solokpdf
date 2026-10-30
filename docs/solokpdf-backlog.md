@@ -86,7 +86,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | D1  | Release job in parallel with debug                                               | todo                                                                                   |
 | D2  | Compile cache (sccache) for CI builds                                            | todo                                                                                   |
 | D3  | Shard the full suite across runners                                              | deferred: the suite takes ~25 min once a hung test is cut off (per-test timeout added) |
-| D4  | Weekly scheduled full suite once it passes                                       | todo (after B7)                                                                        |
+| D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)                                                  |
 | D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | todo                                                                                   |
 
 ## E. Quality

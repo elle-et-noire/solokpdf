@@ -1,9 +1,9 @@
 name: SolokPDF full tests
 
-# Upstream's whole suite against the SolokPDF debug build. Manual only: it
-# takes far longer than the per-push CI and is for triaging PDFium/SolokPDF
-# differences, not for gating pushes.
+# Upstream's whole suite against the SolokPDF debug build.
 on:
+  schedule:
+    - cron: "0 17 * * 0"
   workflow_dispatch:
     inputs:
       tests:
@@ -17,7 +17,7 @@ on:
         default: pdfium
 
 concurrency:
-  group: solokpdf-full-tests-${{ github.ref }}-${{ inputs.engine }}
+  group: solokpdf-full-tests-${{ github.ref }}-${{ github.event_name }}-${{ inputs.engine || 'both' }}
   cancel-in-progress: true
 
 permissions:
@@ -29,6 +29,10 @@ env:
 jobs:
   full:
     runs-on: windows-2025-vs2026
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: ${{ fromJSON(github.event_name == 'schedule' && '["pdfium","mupdf"]' || format('["{0}"]', inputs.engine)) }}
     # the suite drives a real GUI; a hung test should fail the run
     timeout-minutes: 180
     steps:
@@ -50,13 +54,13 @@ jobs:
         env:
           SUMATRA_TEST_EXE: ${{ github.workspace }}\out\solokpdf-dev\SolokPDF.exe
           TESTS: ${{ inputs.tests }}
-          SOLOKPDF_ENGINE: ${{ inputs.engine }}
+          SOLOKPDF_ENGINE: ${{ matrix.engine }}
         run: bun tests/run-github-ci.ts $env:TESTS
       - name: Upload test output
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: solokpdf-full-test-output-${{ inputs.engine }}
+          name: solokpdf-full-test-output-${{ matrix.engine }}
           path: |
             tests/tmp/
             .work/tests-tmp/tmp/
