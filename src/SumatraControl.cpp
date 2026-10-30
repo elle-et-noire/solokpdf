@@ -1714,6 +1714,31 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 FreePageText(&text);
                 break;
             }
+            if (str::Eq(StringArg(req, 0), StrL("try-text")) || str::Eq(StringArg(req, 0), StrL("try-elements"))) {
+                // the non-blocking reads paint, link following, search and hover use
+                i32 pageNo = 0;
+                IntArg(req, 1, pageNo);
+                if (pageNo < 1 || pageNo > engine->PageCount()) {
+                    AppendTestResult(req, 1, StrL("invalid page"));
+                    break;
+                }
+                if (str::Eq(StringArg(req, 0), StrL("try-text"))) {
+                    PageText text;
+                    bool ok = engine->TryExtractPageText(pageNo, &text);
+                    AppendTestResult(req, 0,
+                                     fmt("ok=%d chars=%d partial=%d", (int)ok, text.nCodepoints, (int)text.partial));
+                    FreePageText(&text);
+                    break;
+                }
+                Vec<IPageElement*> els;
+                bool ok = engine->TryGetElements(pageNo, &els);
+                int links = 0;
+                for (IPageElement* el : els) {
+                    links += el && el->IsLink() ? 1 : 0;
+                }
+                AppendTestResult(req, 0, fmt("ok=%d elements=%d links=%d", (int)ok, len(els), links));
+                break;
+            }
             if (str::Eq(StringArg(req, 0), StrL("editor"))) {
                 bool loaded = engine->AnnotationEditor(EditorLoad::IfLoaded) != nullptr;
                 AppendTestResult(req, 0, loaded ? StrL("editor=loaded") : StrL("editor=none"));

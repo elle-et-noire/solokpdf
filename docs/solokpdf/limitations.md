@@ -111,9 +111,13 @@ Current behavior of PDFium tabs by area, compared with MuPDF. Item status is in
   Attention 15, BERT 16, Japanese IPA 64. `TestCurrentPdf editor` stayed
   `none` after every page (B14 check); no narrowing was needed.
 - `TryGetElements` and `TryExtractPageText` skip a page whose render holds the
-  PDFium lock, as MuPDF does, so link outlines, link recompute, search and the
-  I-beam hover don't wait for a render on the UI thread. Non-blocking text
-  doesn't load the hidden editor; a blocking read completes partial text (B11).
+  PDFium lock, as MuPDF does, so link outlines, link recompute and the I-beam
+  hover don't wait for a render on the UI thread (B11). They keep the lock they
+  probed and never load the hidden editor: until it is loaded, elements are
+  PDFium's (every link but file-attachment ones, which a blocking read adds),
+  and text MuPDF must supply returns false, so search reads such a page once,
+  blocking. Once loaded, the editor answers through its own non-blocking reads
+  (B51, `ad-hoc-pdfium-try-reads`).
 - PDFium drops its discretionary hyphen marker from extracted text, so search
   joins split words as MuPDF does. `issue-1189` and the generated B15 search
   test cover this path without loading the editor.

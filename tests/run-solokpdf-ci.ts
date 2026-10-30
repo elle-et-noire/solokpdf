@@ -32,6 +32,7 @@ import { testit as xmp } from "./ad-hoc-pdfium-xmp.ts";
 import { testit as commentAuthors } from "./ad-hoc-pdfium-comment-authors.ts";
 import { testit as annotations } from "./ad-hoc-pdfium-annotations.ts";
 import { testit as redactionUndo } from "./ad-hoc-pdfium-redaction-undo.ts";
+import { testit as tryReads } from "./ad-hoc-pdfium-try-reads.ts";
 import { testit as unsupported } from "./ad-hoc-pdfium-unsupported.ts";
 import { testit as windowBg } from "./ad-hoc-pdfium-window-bg.ts";
 import { testit as vimKeys } from "./ad-hoc-vim-keys.ts";
@@ -62,6 +63,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-comment-authors", commentAuthors],
   ["ad-hoc-pdfium-annotations", annotations],
   ["ad-hoc-pdfium-redaction-undo", redactionUndo],
+  ["ad-hoc-pdfium-try-reads", tryReads],
   ["ad-hoc-pdfium-outline", outline],
   ["ad-hoc-pdfium-unsupported", unsupported],
   ["ad-hoc-pdfium-permissions", permissions],

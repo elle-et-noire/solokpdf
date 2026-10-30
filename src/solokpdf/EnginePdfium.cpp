@@ -1771,6 +1771,11 @@ class EnginePdfium : public EngineBase {
 
     bool HasPageAnnotations(int pageNo) override {
         ScopedMutex lock(&gPdfiumLock);
+        return HasAnnotsLocked(pageNo);
+    }
+
+    // Caller holds gPdfiumLock.
+    bool HasAnnotsLocked(int pageNo) {
         PdfiumPage* info = Page(pageNo);
         if (!info) {
             return true;
@@ -1801,14 +1806,14 @@ class EnginePdfium : public EngineBase {
         return info->hasAnnotations;
     }
 
-    // Hover may skip a page while its render owns PDFium's global lock. The lock isn't
-    // recursive (SRWLOCK) and HasPageAnnotations takes it, so only probe it here.
+    // Hover skips a page while its render owns PDFium's global lock (not recursive).
     bool TryHasPageAnnotations(int pageNo) override {
         if (!gPdfiumLock.TryLock()) {
             return false;
         }
+        bool res = HasAnnotsLocked(pageNo);
         gPdfiumLock.Unlock();
-        return HasPageAnnotations(pageNo);
+        return res;
     }
 
     // Empty fillable fields by EngineMupdfGetFormFieldHighlightRects' rules, read with PDFium's form
@@ -1911,9 +1916,14 @@ class EnginePdfium : public EngineBase {
         if (AnnotationEditor(EditorLoad::IfLoaded)) {
             return false;
         }
+        ScopedMutex lock(&gPdfiumLock);
+        return FormWidgetLocked(pageNo, pos, found, cursor);
+    }
+
+    // Caller holds gPdfiumLock.
+    bool FormWidgetLocked(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor) {
         found = false;
         cursor = WidgetCursorKind::None;
-        ScopedMutex lock(&gPdfiumLock);
         PdfiumPage* info = Page(pageNo);
         if (!form || !info) {
             return true;
@@ -1940,7 +1950,7 @@ class EnginePdfium : public EngineBase {
         return true;
     }
 
-    // Hover skips a page while its render owns the lock; FormWidgetAt takes it (not recursive).
+    // Hover skips a page while its render owns the lock.
     bool TryFormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor) override {
         if (AnnotationEditor(EditorLoad::IfLoaded)) {
             return false;
@@ -1950,8 +1960,9 @@ class EnginePdfium : public EngineBase {
             cursor = WidgetCursorKind::None;
             return true;
         }
+        bool res = FormWidgetLocked(pageNo, pos, found, cursor);
         gPdfiumLock.Unlock();
-        return FormWidgetAt(pageNo, pos, found, cursor);
+        return res;
     }
 
     // Caller holds gPdfiumLock. Every widget, hidden ones too, as MuPDF lists them.
@@ -2460,8 +2471,8 @@ class EnginePdfium : public EngineBase {
     // Hover's prefetch never loads the editor: without it, text MuPDF must supply is left partial.
     PageText ExtractPrefetchText(int pageNo) override { return ExtractText(pageNo, EditorLoad::IfLoaded); }
 
-    // Search and the I-beam hover skip a page while its render owns the lock (not recursive).
-    // Like the prefetch it never loads the editor; a blocking read completes partial text.
+    // False while a render owns the lock or the text needs the editor, which can't load here:
+    // the I-beam hover only reads cached text and search then reads the page once, blocking.
     bool TryExtractPageText(int pageNo, PageText* out) override {
         if (EngineBase* redacted = RedactedEditor(pageNo)) {
             return redacted->TryExtractPageText(pageNo, out);
@@ -2470,9 +2481,16 @@ class EnginePdfium : public EngineBase {
         if (!gPdfiumLock.TryLock()) {
             return false;
         }
+        bool needsEditor = false;
+        PageText text = TextLocked(pageNo, &needsEditor);
         gPdfiumLock.Unlock();
-        *out = ExtractText(pageNo, EditorLoad::IfLoaded);
-        return true;
+        if (!needsEditor) {
+            *out = text;
+            return true;
+        }
+        FreePageText(&text);
+        EngineBase* editor = AnnotationEditor(EditorLoad::IfLoaded);
+        return editor && editor->TryExtractPageText(pageNo, out);
     }
 
     PageText ExtractText(int pageNo, EditorLoad load) {
@@ -2481,32 +2499,13 @@ class EnginePdfium : public EngineBase {
         }
         PdfiumProfile profile(StrL("text"), pageNo);
         PageText result;
-        bool widgetText = false;
-        bool missingUnicode = false;
+        bool needsEditor = false;
         {
             ScopedMutex lock(&gPdfiumLock);
             profile.Mark(StrL("lock"));
-            auto* info = Page(pageNo);
-            if (!info) {
-                return {};
-            }
-            FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
-            if (!page) {
-                return {};
-            }
-            profile.Mark(StrL("page"));
-            result = ReadPageText(page, info, &missingUnicode);
-            int count = gPdfium.FPDFPage_GetAnnotCount(page);
-            for (int i = 0; i < count && !widgetText; i++) {
-                FPDF_ANNOTATION annot = gPdfium.FPDFPage_GetAnnot(page, i);
-                if (annot) {
-                    widgetText = WidgetHasText(annot);
-                    gPdfium.FPDFPage_CloseAnnot(annot);
-                }
-            }
-            gPdfium.FPDF_ClosePage(page);
+            result = TextLocked(pageNo, &needsEditor);
         }
-        if (widgetText || missingUnicode) {
+        if (needsEditor) {
             EngineBase* editor = AnnotationEditor(load);
             if (editor) {
                 FreePageText(&result);
@@ -2518,6 +2517,33 @@ class EnginePdfium : public EngineBase {
         return result;
     }
 
+    // Caller holds gPdfiumLock. needsEditor: MuPDF's text has more (widget text, missing Unicode).
+    PageText TextLocked(int pageNo, bool* needsEditor) {
+        *needsEditor = false;
+        auto* info = Page(pageNo);
+        if (!info) {
+            return {};
+        }
+        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        if (!page) {
+            return {};
+        }
+        bool missingUnicode = false;
+        bool widgetText = false;
+        PageText result = ReadPageText(page, info, &missingUnicode);
+        int count = gPdfium.FPDFPage_GetAnnotCount(page);
+        for (int i = 0; i < count && !widgetText; i++) {
+            FPDF_ANNOTATION annot = gPdfium.FPDFPage_GetAnnot(page, i);
+            if (annot) {
+                widgetText = WidgetHasText(annot);
+                gPdfium.FPDFPage_CloseAnnot(annot);
+            }
+        }
+        gPdfium.FPDF_ClosePage(page);
+        *needsEditor = widgetText || missingUnicode;
+        return result;
+    }
+
     Vec<IPageElement*> GetElements(int pageNo) override {
         EngineBase* redacted = RedactedEditor(pageNo);
         if (redacted && redacted->BenchLoadPage(pageNo)) {
@@ -2526,14 +2552,9 @@ class EnginePdfium : public EngineBase {
         bool useMupdf = false;
         {
             ScopedMutex lock(&gPdfiumLock);
-            auto* info = Page(pageNo);
-            if (!info) {
-                return Vec<IPageElement*>();
-            }
-            LoadLinks(pageNo, info);
-            useMupdf = info->useMupdfElements;
-            if (!useMupdf && (!info->hasFileAttachments || info->attachmentLinksLoaded)) {
-                return PageElements(info);
+            Vec<IPageElement*> own;
+            if (ElementsLocked(pageNo, own, &useMupdf)) {
+                return own;
             }
         }
 
@@ -2561,7 +2582,22 @@ class EnginePdfium : public EngineBase {
         return PageElements(info);
     }
 
-    // Paint's link outlines and link recompute skip a page while its render owns the lock.
+    // Caller holds gPdfiumLock. PDFium's elements; false when GetElements uses MuPDF's (useMupdf)
+    // or adds attachment links.
+    bool ElementsLocked(int pageNo, Vec<IPageElement*>& out, bool* useMupdf) {
+        *useMupdf = false;
+        auto* info = Page(pageNo);
+        if (!info) {
+            return true;
+        }
+        LoadLinks(pageNo, info);
+        out = PageElements(info);
+        *useMupdf = info->useMupdfElements;
+        return !info->useMupdfElements && (!info->hasFileAttachments || info->attachmentLinksLoaded);
+    }
+
+    // Paint's link outlines and link recompute skip a page while its render owns the lock. They
+    // never load the editor: PDFium's elements have every link but attachment ones until it is.
     bool TryGetElements(int pageNo, Vec<IPageElement*>* out) override {
         if (EngineBase* redacted = RedactedEditor(pageNo)) {
             return redacted->TryGetElements(pageNo, out);
@@ -2570,8 +2606,15 @@ class EnginePdfium : public EngineBase {
         if (!gPdfiumLock.TryLock()) {
             return false;
         }
+        bool useMupdf = false;
+        ElementsLocked(pageNo, *out, &useMupdf);
         gPdfiumLock.Unlock();
-        *out = GetElements(pageNo);
+        EngineBase* source = useMupdf ? AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
+        Vec<IPageElement*> mupdf;
+        // empty until the editor loaded the page
+        if (source && source->TryGetElements(pageNo, &mupdf) && len(mupdf) > 0) {
+            *out = mupdf;
+        }
         return true;
     }
 
@@ -2588,12 +2631,20 @@ class EnginePdfium : public EngineBase {
     }
 
     IPageElement* GetElementAtPos(int pageNo, PointF point) override {
-        // skip while a render owns the lock; GetElements takes it itself (not recursive)
-        if (!gPdfiumLock.TryLock()) {
-            return nullptr;
+        Vec<IPageElement*> links;
+        bool complete = false;
+        if (!RedactedEditor(pageNo)) {
+            // skip while a render owns the lock
+            if (!gPdfiumLock.TryLock()) {
+                return nullptr;
+            }
+            bool useMupdf = false;
+            complete = ElementsLocked(pageNo, links, &useMupdf);
+            gPdfiumLock.Unlock();
         }
-        gPdfiumLock.Unlock();
-        auto links = GetElements(pageNo);
+        if (!complete) {
+            links = GetElements(pageNo);
+        }
         for (int i = len(links) - 1; i >= 0; i--) {
             if (links[i]->rect.Contains(point)) {
                 return links[i];
