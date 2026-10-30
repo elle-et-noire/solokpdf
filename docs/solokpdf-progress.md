@@ -1749,10 +1749,10 @@ without stalling locally; Run 3 CI saw a 4.3-second scroll block with its
 cursor over the window, so a CI rerun is needed (B23). Non-blocking PDFium
 text and element queries (B11) remain separate work.
 
-The `lazy-tab-state-after-save` seed does not restore a document in either
-engine: it writes `SumatraPDF-settings.txt` and sets `RememberOpenedFiles = false`,
-which disables session restore by design. B25 needs a test that reaches a lazy
-tab without changing that setting's behavior.
+`lazy-tab-state-after-save` seeds the active settings file with
+`RememberOpenedFiles = true`, so the session restores a lazy tab, then rewrites
+it with `false` before the save that drops the session (B25). It passes on both
+engines.
 
 PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a render-device
 pass to vector strokes, text and narrow fills, adjusts minimum line width, and
