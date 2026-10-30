@@ -3640,6 +3640,10 @@ class PasswordCloner : public PasswordUI {
 };
 
 EngineBase* EngineMupdf::Clone() {
+    // the file still has what an applied redaction removed
+    if (EngineBase* redacted = EngineMupdfRedactedEngine(this)) {
+        return redacted;
+    }
     // use this document's encryption key (if any) to load the clone
     u8 cryptKey[32]{};
     bool hasCryptKey = false;
@@ -10037,6 +10041,31 @@ bool EngineMupdfPageRedacted(EngineBase* engine, int pageNo) {
         }
     }
     return false;
+}
+
+static bool AnyPageRedacted(EngineMupdf* e) {
+    if (!e->hasRedactedPages) {
+        return false;
+    }
+    ScopedRecursiveMutex docScope(&e->docLock);
+    for (int pageNo : e->redactPages) {
+        if (EngineMupdfPageRedacted(e, pageNo)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The engine holding the document, AddRef'd, when an applied redaction changed it: a copy
+// from the file (print, palette thumbnails) would show what was redacted. Serializing it
+// would mutate it (save state, journal), so output shares it; renders are thread-safe.
+EngineBase* EngineMupdfRedactedEngine(EngineBase* engine) {
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
+    if (!e || !e->pdfdoc || !AnyPageRedacted(e)) {
+        return nullptr;
+    }
+    e->AddRef();
+    return e;
 }
 
 // Apply every /Redact annotation: rewrite the page content, drop the marks,

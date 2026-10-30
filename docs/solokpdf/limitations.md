@@ -221,7 +221,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   MuPDF editor and, as on MuPDF tabs, leaves the file unsaved and the step
   undoable. Until Save reloads the tab, PDFium draws, extracts text and lists
   elements of a page that an applied redaction step rewrote through the
-  editor; undo returns the page to PDFium (B17). The editor remains lazy until
+  editor; undo returns the page to PDFium (B17). Print and the command
+  palette's page thumbnails render a copy read from the file, so while an
+  applied redaction is unsaved they render the editor's document instead, on
+  both engines (B52). The editor remains lazy until
   annotation work starts; ordinary PDF open and render are unchanged.
   `tests/ad-hoc-pdfium-redactions.ts` runs `redact-annotations.ts` in both
   engines; `ad-hoc-pdfium-redaction-undo` checks the black box, text, file and
@@ -307,7 +310,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 - Print **bitmap generation** passed. PDFium tabs read `/ViewerPreferences`
   print defaults through an on-demand MuPDF query, without loading the editor
   (`tests/ad-hoc-pdfium-print-prefs.ts` checks all four values on both
-  engines). Physical printers, print dialogs, spooler behavior and export
+  engines). After Apply Redactions and before Save, print renders the
+  redacted document from the editor, not the file (B52,
+  `ad-hoc-pdfium-redaction-undo`). Physical printers, print dialogs, spooler
+  behavior and export
   workflows were not comprehensively tested (F1 needs the owner).
 
 ## Sessions, memory and robustness

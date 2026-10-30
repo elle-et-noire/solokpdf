@@ -5,6 +5,7 @@
 #include "base/AutoWin.h"
 #include "base/UITask.h"
 #include "base/Win.h"
+#include "base/Pixmap.h"
 #include "gui/Dpi.h"
 
 #include "gui/UIModels.h"
@@ -1737,6 +1738,33 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     links += el && el->IsLink() ? 1 : 0;
                 }
                 AppendTestResult(req, 0, fmt("ok=%d elements=%d links=%d", (int)ok, len(els), links));
+                break;
+            }
+            if (str::Eq(StringArg(req, 0), StrL("clone-page"))) {
+                // a page of the copy print and palette thumbnails render, printed
+                i32 pageNo = 0;
+                IntArg(req, 1, pageNo);
+                if (pageNo < 1 || pageNo > engine->PageCount()) {
+                    AppendTestResult(req, 1, StrL("invalid page"));
+                    break;
+                }
+                EngineBase* clone = engine->Clone();
+                if (!clone) {
+                    AppendTestResult(req, 1, StrL("clone failed"));
+                    break;
+                }
+                RenderPageArgs args(pageNo, 1.f, 0, nullptr, RenderTarget::Print);
+                Pixmap* raw = clone->RenderPage(args);
+                Pixmap* px = raw ? EnsureReadablePixmap(raw) : nullptr;
+                int ink = px ? CountNonWhitePixels(px) : -1;
+                if (px != raw) {
+                    FreePixmap(px);
+                }
+                FreePixmap(raw);
+                PageText text = clone->ExtractPageText(pageNo);
+                AppendTestResult(req, 0, fmt("ink=%d text=%s", ink, text.text));
+                FreePageText(&text);
+                SafeEngineRelease(&clone);
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("editor"))) {

@@ -1,7 +1,8 @@
 // Apply Redactions keeps the document open and undoable in both engines (B17).
 // A PDFium tab draws and reads a redacted page from the MuPDF editor until it is
 // saved: the black box shows, the text is gone, the file is untouched, and one
-// undo brings the original page back.
+// undo brings the original page back. Print renders a copy of the document; until Save
+// it must be the redacted one (B52).
 
 import { readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -46,6 +47,17 @@ function waitState(client: ControlClient, ok: (s: State) => boolean, what: strin
   return pollUntil(() => state(client), ok, { error: (s) => `${kTag}: ${what}\n${s.raw}` });
 }
 
+// page 1 of the copy print renders: its ink and text
+async function printed(client: ControlClient): Promise<{ ink: number; text: string; raw: string }> {
+  const res = await client.request(ControlCommand.TestCurrentPdf, ["clone-page", 1]);
+  const raw = String(res[1] ?? "");
+  const m = /^ink=(-?\d+) text=([\s\S]*)$/.exec(raw);
+  if (res[0] !== 0 || !m) {
+    throw new Error(`${kTag}: clone-page: ${raw}`);
+  }
+  return { ink: +m[1]!, text: m[2]!, raw };
+}
+
 // near-black pixels of the canvas: text, or the black box redaction burns in
 function darkPixels(canvas: number): number {
   const img = captureWindowPixels(canvas);
@@ -85,6 +97,10 @@ async function runEngine(engine: string): Promise<void> {
     }
     await client.waitForRenderIdle();
     const before = darkPixels(canvas);
+    const printBefore = await printed(client);
+    if (!printBefore.text.includes(SECRET)) {
+      throw new Error(`${kTag} ${engine}: print copy before applying: ${printBefore.raw}`);
+    }
 
     sendCommandSync(frame, cmdId("CmdApplyRedactions"));
     s = await waitState(client, (st) => st.annotations === 0, "applying did not remove the mark");
@@ -93,6 +109,16 @@ async function runEngine(engine: string): Promise<void> {
     }
     if (!readFileSync(pdf).equals(original)) {
       throw new Error(`${kTag} ${engine}: applying must not write the file before Save`);
+    }
+    const printApplied = await printed(client);
+    if (
+      printApplied.text.includes(SECRET) ||
+      !printApplied.text.includes("KEEPWORD") ||
+      printApplied.ink < printBefore.ink * 1.5
+    ) {
+      throw new Error(
+        `${kTag} ${engine}: print must show the unsaved redaction (ink ${printBefore.ink}): ${printApplied.raw}`,
+      );
     }
     const timeoutMs = 5000 * SLOW_BUILD_FACTOR;
     const applied = await pollUntil(
@@ -105,6 +131,10 @@ async function runEngine(engine: string): Promise<void> {
     s = await waitState(client, (st) => st.annotations === 1, "one undo did not bring back the mark");
     if (!s.text.includes(SECRET) || s.modified || s.canUndo) {
       throw new Error(`${kTag} ${engine}: undo must restore the original page\n${s.raw}`);
+    }
+    const printUndone = await printed(client);
+    if (!printUndone.text.includes(SECRET)) {
+      throw new Error(`${kTag} ${engine}: print after undo: ${printUndone.raw}`);
     }
     await pollUntil(
       async () => (await client.waitForRenderIdle(), darkPixels(canvas)),

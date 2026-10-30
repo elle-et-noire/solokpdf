@@ -2054,6 +2054,10 @@ class EnginePdfium : public EngineBase {
     }
 
     EngineBase* Clone() override {
+        // the file still has what a redaction applied in the editor removed
+        if (EngineBase* redacted = EngineMupdfRedactedEngine(this)) {
+            return redacted;
+        }
         TempStr error;
         PasswordCloner pwdUI(password);
         EngineBase* clone = dataBacked ? CreateEnginePdfiumFromData(fileData, &pwdUI, &error)
