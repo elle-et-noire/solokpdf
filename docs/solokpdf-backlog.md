@@ -72,7 +72,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B41 | Palette tab deletion                                                                                                                                                        | Run 4: PDFium only           | done — Record palette flake (B41)                                                    |
 | B42 | Home scrollbar assertion                                                                                                                                                    | Run 4: issue-6367            | done — Fix home scrollbar test (B42)                                                 |
 | B43 | Tab scroll assertion                                                                                                                                                        | Run 4: issue-6405            | done — Allow tab scroll rounding (B43)                                               |
-| B44 | Gate the per-open catalog query (OpenAction, PageLayout, Direction) behind the existing geometry byte scan so PDFs without those keys skip it (~1 ms, 20 ms when encrypted) | `EnginePdfium`               | todo                                                                                 |
+| B44 | Gate the per-open catalog query (OpenAction, PageLayout, Direction) behind the existing geometry byte scan so PDFs without those keys skip it (~1 ms, 20 ms when encrypted) | `EnginePdfium`               | done — Skip catalog query without catalog keys (B44)                                 |
 
 ## C. Coexistence with SumatraPDF
 

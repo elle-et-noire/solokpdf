@@ -1719,7 +1719,12 @@ can run the targeted tests.
 The existing cheap MuPDF OpenAction query now reads `/PageLayout` and
 `/ViewerPreferences/Direction` before the display model is built. It does not
 load the hidden editor. Both engines pass `issue-2022`, including remembered
-state; the first PDFium open still makes one catalog query (B38).
+state (B38). The page geometry byte scan now also looks for `/OpenAction`,
+`/PageLayout` and `/Direction`, including in Flate object streams; without
+them PDFium skips the query. Encrypted object streams and files of 32 MiB or
+more still query. `ad-hoc-pdfium-catalog-layout` checks a plain catalog, a
+compressed one and a catalog without these keys, whose open logs no query
+(B44).
 
 `shape-annotation-placement` failed three of three local MuPDF reruns: the
 first page click did not anchor the rectangle. This locked desktop pins the
@@ -1802,7 +1807,7 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   renders unchanged. `tests/issue-5724.ts` checks exact entries and pages in
   both engines; `tests/issue-6227.ts` checks the command on demand.
 - `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
-  API for it, so MuPDF reads it on a first open without history. Release
+  API for it, so MuPDF reads it when the byte scan finds a catalog key. Release
   cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB
   vector PDF and 18.8–20.4 ms on IPA, whose AES-256 (R6) key check MuPDF
   repeats.

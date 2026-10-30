@@ -403,31 +403,48 @@ class PdfiumCookie : public AbortCookie {
 // same limit as EngineMupdf: smaller files are read into memory
 constexpr i64 kMaxMemoryFileSize = 32LL * 1024 * 1024;
 
-static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker);
+// Keys a byte scan looks for; each needs a MuPDF query.
+enum PdfKeys {
+    kGeometryKeys = 1, // /UserUnit, /Rotate off a multiple of 90
+    kCatalogKeys = 2,  // /OpenAction, /PageLayout, /ViewerPreferences /Direction
+};
 
-static bool HasUnusualGeometry(Str data, FPDF_FILEACCESS* access = nullptr, unsigned long offset = 0) {
-    constexpr char kUserUnit[] = "/UserUnit";
-    constexpr char kRotate[] = "/Rotate";
-    constexpr char kObjStm[] = "/ObjStm";
+static int ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker, int want);
+
+static bool HasName(Str data, int i, Str name) {
+    return i + len(name) <= len(data) && memcmp(data.s + i, name.s, len(name)) == 0;
+}
+
+// Returns the keys of want that data may hold. Without access an object stream may hold any:
+// encrypted ones can't be inflated.
+static int ScanPdfKeys(Str data, int want, FPDF_FILEACCESS* access = nullptr, unsigned long offset = 0) {
+    int found = 0;
     int i = 0;
-    while (i < len(data)) {
+    while (i < len(data) && found != want) {
         char* slash = (char*)memchr(data.s + i, '/', len(data) - i);
         if (!slash) {
-            return false;
+            break;
         }
         i = (int)(slash - data.s);
-        if (access && i + sizeof(kObjStm) - 1 <= len(data) && memcmp(data.s + i, kObjStm, sizeof(kObjStm) - 1) == 0 &&
-            ScanObjStream(*access, offset + i)) {
-            return true;
+        if (HasName(data, i, StrL("/ObjStm"))) {
+            found |= access ? ScanObjStream(*access, offset + i, want & ~found) : want;
         }
-        if (i + sizeof(kUserUnit) - 1 <= len(data) && memcmp(data.s + i, kUserUnit, sizeof(kUserUnit) - 1) == 0) {
-            return true;
+        if (HasName(data, i, StrL("/OpenAction")) || HasName(data, i, StrL("/PageLayout")) ||
+            HasName(data, i, StrL("/Direction"))) {
+            found |= kCatalogKeys & want;
         }
-        if (i + sizeof(kRotate) - 1 > len(data) || memcmp(data.s + i, kRotate, sizeof(kRotate) - 1) != 0) {
+        if (!(want & kGeometryKeys)) {
             i++;
             continue;
         }
-        int at = i + sizeof(kRotate) - 1;
+        if (HasName(data, i, StrL("/UserUnit"))) {
+            found |= kGeometryKeys;
+        }
+        if (!HasName(data, i, StrL("/Rotate"))) {
+            i++;
+            continue;
+        }
+        int at = i + len(StrL("/Rotate"));
         while (at < len(data) && (data.s[at] == ' ' || data.s[at] == '\r' || data.s[at] == '\n')) {
             at++;
         }
@@ -442,15 +459,15 @@ static bool HasUnusualGeometry(Str data, FPDF_FILEACCESS* access = nullptr, unsi
             rotation = (rotation * 10 + data.s[at++] - '0') % 360;
         }
         if (!hasDigit || (sign * rotation) % 90 != 0) {
-            return true;
+            found |= kGeometryKeys;
         }
         i = at;
     }
-    return false;
+    return found & want;
 }
 
-// Inspect plain and Flate objects; unsupported stream filters use MuPDF.
-static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker) {
+// Inspect plain and Flate objects; unsupported stream filters may hold any key.
+static int ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker, int want) {
     constexpr unsigned long kPrefix = 512;
     constexpr unsigned long kHeader = 8192;
     constexpr unsigned long kBlock = 64 * 1024;
@@ -458,7 +475,7 @@ static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker) {
     unsigned long size = access.m_FileLen - start < kHeader ? access.m_FileLen - start : kHeader;
     char header[kHeader + 1]{};
     if (!access.m_GetBlock(access.m_Param, start, (unsigned char*)header, size)) {
-        return true;
+        return want;
     }
     char* obj = header + marker - start;
     char* dict = obj;
@@ -466,33 +483,33 @@ static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker) {
         dict--;
     }
     if (dict == header) {
-        return true;
+        return want;
     }
     char* stream = strstr(obj, "stream");
     char* length = strstr(dict, "/Length");
     if (!stream || !length || length > stream) {
-        return true;
+        return want;
     }
     char* end = nullptr;
     unsigned long bytes = strtoul(length + 7, &end, 10);
     if (end == length + 7 || bytes > access.m_FileLen) {
-        return true;
+        return want;
     }
     unsigned long offset = start + (unsigned long)(stream - header) + 6;
     if (header[offset - start] == '\r') {
         offset++;
     }
     if (header[offset - start] != '\n') {
-        return true;
+        return want;
     }
     offset++;
     if (bytes > access.m_FileLen - offset) {
-        return true;
+        return want;
     }
     char* filter = strstr(dict, "/Filter");
     char* params = strstr(dict, "/DecodeParms");
     if (!filter || filter > stream || (params && params < stream)) {
-        return true;
+        return want;
     }
     char* codec = filter + 7;
     while (codec < stream && (*codec == ' ' || *codec == '\r' || *codec == '\n')) {
@@ -502,21 +519,21 @@ static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker) {
     if (stream - codec <= (int)sizeof(kFlate) || memcmp(codec, kFlate, sizeof(kFlate) - 1) != 0 ||
         (codec[sizeof(kFlate) - 1] != ' ' && codec[sizeof(kFlate) - 1] != '/' && codec[sizeof(kFlate) - 1] != '\r' &&
          codec[sizeof(kFlate) - 1] != '\n' && codec[sizeof(kFlate) - 1] != '>')) {
-        return true;
+        return want;
     }
     z_stream z{};
     if (inflateInit(&z) != Z_OK) {
-        return true;
+        return want;
     }
     unsigned char input[kBlock];
     unsigned char output[kBlock + 32];
     int overlap = 0;
-    bool unusual = false;
+    int found = 0;
     bool done = false;
     while (bytes > 0 && !done) {
         unsigned long n = bytes < kBlock ? bytes : kBlock;
         if (!access.m_GetBlock(access.m_Param, offset, input, n)) {
-            unusual = true;
+            found = want;
             break;
         }
         offset += n;
@@ -528,14 +545,14 @@ static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker) {
             z.avail_out = kBlock;
             int status = inflate(&z, Z_NO_FLUSH);
             if (status != Z_OK && status != Z_STREAM_END) {
-                unusual = true;
+                found = want;
                 done = true;
                 break;
             }
             int produced = kBlock - (int)z.avail_out;
             int total = overlap + produced;
-            if (HasUnusualGeometry(Str((char*)output, total))) {
-                unusual = true;
+            found |= ScanPdfKeys(Str((char*)output, total), want & ~found);
+            if (found == want) {
                 done = true;
                 break;
             }
@@ -545,10 +562,10 @@ static bool ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker) {
         }
     }
     if (!done) {
-        unusual = true;
+        found = want;
     }
     inflateEnd(&z);
-    return unusual;
+    return found;
 }
 
 // Tile edges are whole screen pixels but come back through the transform as e.g. 5507.9995;
@@ -612,6 +629,8 @@ class EnginePdfium : public EngineBase {
     FPDF_FORMHANDLE form = nullptr;
     bool acroForm = false;
     bool documentJs = false;
+    // false when a byte scan found no /OpenAction, /PageLayout or /Direction
+    bool catalogKeys = true;
     HANDLE file = INVALID_HANDLE_VALUE;
     Str fileData;
     bool dataBacked = false;
@@ -1567,13 +1586,16 @@ class EnginePdfium : public EngineBase {
             return false;
         }
         VecResize(pages, pageCount);
-        if (!isPasswordProtected && fileData.s && len(fileData) < kMaxMemoryFileSize &&
-            HasUnusualGeometry(fileData, &access)) {
-            if (!PdfPageGeometryMupdf(path, fileData, password, pageCount, geometry)) {
+        int revision = gPdfium.FPDF_GetSecurityHandlerRevision(doc);
+        // One byte scan gates the MuPDF geometry and catalog queries.
+        if (fileData.s && len(fileData) < kMaxMemoryFileSize) {
+            int want = isPasswordProtected ? kCatalogKeys : kGeometryKeys | kCatalogKeys;
+            int keys = ScanPdfKeys(fileData, want, revision >= 0 ? nullptr : &access);
+            catalogKeys = (keys & kCatalogKeys) != 0;
+            if ((keys & kGeometryKeys) && !PdfPageGeometryMupdf(path, fileData, password, pageCount, geometry)) {
                 VecClear(geometry);
             }
         }
-        int revision = gPdfium.FPDF_GetSecurityHandlerRevision(doc);
         isPasswordProtected = revision >= 0;
         unsigned long permissions = gPdfium.FPDF_GetDocPermissions(doc);
         unsigned long userPermissions = gPdfium.FPDF_GetDocUserPermissions(doc);
@@ -1768,6 +1790,10 @@ class EnginePdfium : public EngineBase {
     }
 
     int GetOpenActionPageNo() override {
+        if (!catalogKeys) {
+            return 0;
+        }
+        logf("PDFium: catalog query\n");
         PdfiumProfile profile(StrL("openaction"));
         int pageNo = PdfOpenActionPageMupdf(FilePath(), fileData, password, &preferredLayout);
         profile.Mark(StrL("read"));
