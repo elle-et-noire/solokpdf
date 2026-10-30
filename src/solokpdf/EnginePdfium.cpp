@@ -1699,14 +1699,14 @@ class EnginePdfium : public EngineBase {
         return info->hasAnnotations;
     }
 
-    // Hover may skip a page while its render owns PDFium's global lock.
+    // Hover may skip a page while its render owns PDFium's global lock. The lock isn't
+    // recursive (SRWLOCK) and HasPageAnnotations takes it, so only probe it here.
     bool TryHasPageAnnotations(int pageNo) override {
         if (!gPdfiumLock.TryLock()) {
             return false;
         }
-        bool found = HasPageAnnotations(pageNo);
         gPdfiumLock.Unlock();
-        return found;
+        return HasPageAnnotations(pageNo);
     }
 
     // Run document scripts before rendering so their widget values appear on the first page.
@@ -2216,11 +2216,12 @@ class EnginePdfium : public EngineBase {
     }
 
     IPageElement* GetElementAtPos(int pageNo, PointF point) override {
+        // skip while a render owns the lock; GetElements takes it itself (not recursive)
         if (!gPdfiumLock.TryLock()) {
             return nullptr;
         }
-        auto links = GetElements(pageNo);
         gPdfiumLock.Unlock();
+        auto links = GetElements(pageNo);
         for (int i = len(links) - 1; i >= 0; i--) {
             if (links[i]->rect.Contains(point)) {
                 return links[i];
