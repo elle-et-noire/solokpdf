@@ -18,7 +18,7 @@ import {
   tmpPath,
   USE_NG,
 } from "./util.ts";
-import { getWindowText, moveWindow } from "./winapi.ts";
+import { getWindowText, getWorkArea, moveWindow, setProcessDpiAware } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 
 async function testHomeTitle(): Promise<void> {
@@ -75,13 +75,15 @@ async function waitHome(client: ControlClient, ok: (h: HomeSelection) => boolean
 
 async function testHomeScrollbar(): Promise<void> {
   // ng has no windows mode; its smart bar would auto-hide
-  const dir = makeAppDir("scroll", 20, USE_NG ? "Scrollbars = overlay\n" : "");
+  const nFiles = 10;
+  const dir = makeAppDir("scroll", nFiles, USE_NG ? "Scrollbars = overlay\n" : "");
   const { proc, client, frame } = await launchControlled(["-appdata", dir]);
   try {
     moveWindow(frame, 100, 100, 700, 450);
-    await waitHome(client, (h) => h.entries === 20 && h.vbar, "no scrollbar for 20 files in a small window");
+    await waitHome(client, (h) => h.entries === nFiles && h.vbar, "no scrollbar for files in a small window");
     // tall enough for every entry: no bar
-    moveWindow(frame, 0, 0, 1900, 1400);
+    const work = getWorkArea();
+    moveWindow(frame, work.left, work.top, work.right - work.left, work.bottom - work.top);
     await waitHome(client, (h) => !h.vbar, "scrollbar shown with nothing to scroll");
     await client.quit();
   } finally {
@@ -163,6 +165,7 @@ async function testHomeHeader(nFiles: number): Promise<void> {
 }
 
 export async function testit(): Promise<void> {
+  setProcessDpiAware();
   await testHomeTitle();
   await testHomeScrollbar();
   await testHomeHeader(2);

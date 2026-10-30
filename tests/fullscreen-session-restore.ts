@@ -8,7 +8,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
-import { getWindowRect, isZoomed, postMessage, sleep, WM_CLOSE, type Rect } from "./winapi.ts";
+import { getWindowRect, getWorkArea, isZoomed, postMessage, sleep, WM_CLOSE, type Rect } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommand, waitForExit } from "./win-automation.ts";
 
 const PDF = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
@@ -37,6 +37,9 @@ async function toggleFullscreen(frame: number): Promise<Rect> {
 }
 
 export async function testit(): Promise<void> {
+  const work = getWorkArea();
+  const dx = Math.min(800, work.right - work.left - 100);
+  const dy = Math.min(600, work.bottom - work.top - 100);
   const dir = tmpPath("fullscreen-session-restore");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -44,7 +47,7 @@ export async function testit(): Promise<void> {
   writeFileSync(
     settingsPath,
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = true\nReuseInstance = false\n" +
-      "WindowState = 1\nWindowPos = 560 120 800 860\n",
+      `WindowState = 1\nWindowPos = ${work.left + 50} ${work.top + 50} ${dx} ${dy}\n`,
   );
 
   // 1: a normal window with a document, fullscreen, quit

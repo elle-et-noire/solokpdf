@@ -63,7 +63,11 @@ export async function testit(): Promise<void> {
     "CheckForUpdates = false\nRestoreSession = false\nShowStartPage = false\nShowToc = false\nShowFavorites = false\nUseTabs = true\nSidebarWindowSize = grow\n",
   );
 
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdfA]);
+  const work = getWorkArea();
+  const startDx = Math.min(1024, work.right - work.left - 300);
+  const startDy = Math.min(700, work.bottom - work.top - 100);
+  const pos = `${startDx}x${startDy}@${work.left + 20}x${work.top + 20}`;
+  const { proc, client, frame } = await launchControlled(["-window-pos", pos, "-appdata", appdata, pdfA]);
   try {
     await client.waitForRenderIdle();
 

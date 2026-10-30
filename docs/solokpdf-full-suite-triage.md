@@ -15,6 +15,9 @@ Per-push CI also failed the PDFium scroll and annotation lazy-load tests.
 install dialog when Claude is absent (E); the local DPI override sequence
 completes. The tests now check installation first. `issue-5944`, `issue-906`,
 and `trim-empty-margins-restore` used stale output or geometry assertions (E).
+`fullscreen-session-restore`, `issue-6367`, and `issue-6080` assumed more
+screen space than the 1024 × 720 runner provided (E); corrected tests pass
+locally. `lazy-tab-state-after-save` seeds a disabled session (S).
 
 ## Complete paired runs
 

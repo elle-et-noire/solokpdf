@@ -1703,6 +1703,12 @@ the control pipe before invoking it. Local DPI override toggles complete,
 and both tests pass; CI rerun is pending. `issue-6017` also sets its test
 process DPI awareness before comparing Win32 pixels (B30).
 
+Run 3's fullscreen restore, sidebar growth (`issue-6080`), and Home scrollbar
+(`issue-6367`) checks assumed a larger monitor than the runner's 1024 × 720
+work area. Their test windows now fit the work area. `issue-6367` also sets
+test-process DPI awareness so requested widths match measured widths. All
+three pass locally; CI rerun is pending (B36).
+
 PDFium reports a 12-point text line as about 60 × 8.7 points. The trim guard
 discarded it because its height was under 10 points. It now discards a box
 only when both dimensions are under 10 points. `issue-trim-margins` fails
