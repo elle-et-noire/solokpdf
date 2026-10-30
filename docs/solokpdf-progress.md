@@ -1961,8 +1961,13 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
 - Two-document Tab Groups and normal-session paths persisted across restart.
   `tests/ad-hoc-pdfium-view-state.ts` restores page, zoom and scroll from the
   session and from file history; both engines save identical values (scroll
-  within 0.2 pt of the seed). Crash recovery, inactive-tab allocation
-  attribution and hours-long leak stress remain unverified.
+  within 0.2 pt of the seed). Crash recovery and inactive-tab allocation
+  attribution remain unverified.
+  `ad-hoc-pdfium-leak` cycles two PDF tabs through open, scroll, zoom, search,
+  tab switch and close. A 2-minute local run completed 147 cycles and 12 idle
+  samples: Private Bytes 113.1–126.7 MiB (last 115.7), handles 686→680,
+  GDI 225–226. The sustained-trend thresholds passed. `--minutes=N` extends
+  the duration; hours-long runtime has not been measured (E2).
 - `tests/ad-hoc-pdfium-fuzz.ts` mutates a seed covering every link action,
   outline view, named destinations, page labels, boxes/rotation and rotated
   text (plus corpus PDFs when present) at byte and token level (extreme numbers,

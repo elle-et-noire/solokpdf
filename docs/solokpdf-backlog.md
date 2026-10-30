@@ -94,7 +94,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | ID  | Item                                                | Status                                                                                                                              |
 | --- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | E1  | Close the remaining startup gap shown by A1         | done, no change needed: CI pairs put PDFium +2.3/+2.6 ms (normal open) and -1.3/-41.6 ms (direct launch) vs MuPDF on Attention/BERT |
-| E2  | Hours-long open/close/render leak stress            | todo                                                                                                                                |
+| E2  | Hours-long open/close/render leak stress            | done — Add PDFium leak stress (E2)                                                                                                    |
 | E3  | ASan build of the app with PDFium for the fuzz test | deferred (prebuilt PDFium isn't ASan)                                                                                               |
 | E4  | Transparent-page compositing parity                 | deferred (rare documents)                                                                                                           |
 
