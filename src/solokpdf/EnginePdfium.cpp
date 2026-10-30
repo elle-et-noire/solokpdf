@@ -1095,7 +1095,7 @@ class EnginePdfium : public EngineBase {
 
     PageText ReadPageText(FPDF_PAGE page, PdfiumPage* info, bool* missingUnicode = nullptr) {
         constexpr UINT kCyrillicCodePage = 1251;
-        constexpr double kMinWordGapEm = 0.2;
+        constexpr double kMinWordGapEm = 0.1;
         constexpr double kMaxWordGapEm = 1.5;
         constexpr float kMaxLooseBoxEm = 3;
         PageText result;

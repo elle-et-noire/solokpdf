@@ -1687,6 +1687,11 @@ Run 3's trim restore test rejected a real trim: page aspect changed from
 its arbitrary half-size threshold. The assertion now checks page aspect on
 every platform; the local test passes (B33).
 
+PDFium dropped the space in `Protected Access` from issue #5871 because its
+0.2 em filter rejected the condensed font's word gap. The same 0.1 em
+threshold used for MuPDF now keeps it. `issue-5871` fails before and passes
+after on PDFium (B34).
+
 PDFium reports a 12-point text line as about 60 × 8.7 points. The trim guard
 discarded it because its height was under 10 points. It now discards a box
 only when both dimensions are under 10 points. `issue-trim-margins` fails
