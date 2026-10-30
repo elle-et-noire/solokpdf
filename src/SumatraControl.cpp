@@ -1740,6 +1740,13 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 0, fmt("ok=%d elements=%d links=%d", (int)ok, len(els), links));
                 break;
             }
+            if (str::Eq(StringArg(req, 0), StrL("hold-editor-lock"))) {
+                i32 ms = 0;
+                IntArg(req, 1, ms);
+                bool held = EngineMupdfHoldDocLock(engine, ms);
+                AppendTestResult(req, held ? 0 : 1, held ? StrL("held") : StrL("no editor"));
+                break;
+            }
             if (str::Eq(StringArg(req, 0), StrL("clone-page"))) {
                 // a page of the copy print and palette thumbnails render, printed
                 i32 pageNo = 0;

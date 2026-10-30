@@ -119,6 +119,7 @@ bool EngineMupdfHasUserRedactMarks(EngineBase*);
 bool EngineMupdfApplyRedactions(EngineBase*, Vec<Annotation*>& deletedOut);
 bool EngineMupdfPageRedacted(EngineBase*, int pageNo);
 EngineBase* EngineMupdfRedactedEngine(EngineBase*);
+bool EngineMupdfHoldDocLock(EngineBase*, int ms);
 void EngineMupdfBeginOperation(EngineBase*, const char* name);
 void EngineMupdfEndOperation(EngineBase*);
 bool EngineMupdfCanUndo(EngineBase*);

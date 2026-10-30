@@ -3582,6 +3582,7 @@ EngineMupdf::~EngineMupdf() {
     fz_drop_context(ctx);
 
     str::Free(pdfPassword);
+    free(redactedFlags);
     if (pageLabels) {
         pageLabels->~StrVec();
         pageLabels = nullptr;
@@ -9401,6 +9402,8 @@ static Str WhyNotSaveFromMemory(EngineMupdf* e, Str path, const pdf_write_option
     return {};
 }
 
+static void SyncRedacted(EngineBase* engine, EngineMupdf* e);
+
 // re-save current pdf document using mupdf (as opposed to just saving the data)
 // this is used after the PDF was modified by the user (e.g. by adding / changing
 // annotations).
@@ -9478,6 +9481,7 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
         epdf->modifiedAnnotations = false;
         // undoing back to here means the file on disk matches again
         epdf->savedUndoPos = EngineMupdfUndoPos(epdf, nullptr);
+        SyncRedacted(engine, epdf);
     }
     return ok;
 }
@@ -9973,6 +9977,81 @@ static void InvalidateFzPageAfterContentChange(EngineMupdf* e, FzPageInfo* pi) {
 
 static const char* kApplyRedactionsOp = "Apply redactions";
 
+// Caller holds docLock. Whether the entry at undo step `step` is applied and still an apply
+// (an edit after undoing it replaces the step). pos: the current undo position.
+static int RedactStepState(EngineMupdf* e, int step, int pos) {
+    constexpr int kStale = -1;
+    if (step < 0) {
+        return 1;
+    }
+    const char* name = nullptr;
+    auto* ctx = e->Ctx();
+    fz_try(ctx) {
+        name = pdf_undoredo_step(ctx, e->pdfdoc, step);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+    }
+    if (!name || !str::Eq(Str(name), Str(kApplyRedactionsOp))) {
+        return kStale;
+    }
+    return step < pos ? 1 : 0;
+}
+
+// Caller holds docLock. Rederive redactedFlags from the journal, dropping entries of replaced
+// steps.
+static void RecomputeRedacted(EngineMupdf* e) {
+    int pos = EngineMupdfUndoPos(e, nullptr);
+    if (pos < 0 || !e->redactedFlags) {
+        return;
+    }
+    Vec<u8> now;
+    VecAppendBlanks(now, e->pageCount + 1);
+    for (int i = len(e->redactSteps) - 1; i >= 0; i--) {
+        int state = RedactStepState(e, e->redactSteps[i], pos);
+        int pageNo = e->redactPages[i];
+        if (state < 0 || pageNo < 1 || pageNo > e->pageCount) {
+            VecRemoveAt(e->redactSteps, i);
+            VecRemoveAt(e->redactPages, i);
+            continue;
+        }
+        now[pageNo] |= (u8)state;
+    }
+    bool any = false;
+    for (int pageNo = 1; pageNo <= e->pageCount; pageNo++) {
+        e->redactedFlags[pageNo] = now[pageNo];
+        any |= now[pageNo] != 0;
+    }
+    AtomicBoolSet(&e->hasRedactedPages, any);
+}
+
+// An engine that edits through e (PDFium) caches its own text of a page redaction rewrote;
+// apply, undo and redo change which text is current.
+static void InvalidateRedactedText(EngineBase* engine, EngineMupdf* e, const Vec<int>& pages) {
+    if (!engine || engine == e) {
+        return;
+    }
+    for (int pageNo : pages) {
+        engine->InvalidateTextForPage(pageNo);
+    }
+}
+
+// After apply, undo, redo or save: which pages differ from the file now. Any page an apply
+// rewrote may have new content, also one that stays redacted.
+static void SyncRedacted(EngineBase* engine, EngineMupdf* e) {
+    Vec<int> pages;
+    {
+        ScopedRecursiveMutex docScope(&e->docLock);
+        for (int pageNo : e->redactPages) {
+            if (!VecContains(pages, pageNo)) {
+                VecAppend(pages, pageNo);
+            }
+        }
+        RecomputeRedacted(e);
+    }
+    InvalidateRedactedText(engine, e, pages);
+}
+
 // Remember which pages the apply at undo step `step` rewrote. A new step replaces
 // the undone steps at and after its position.
 static void RecordRedactedPages(EngineMupdf* e, int step, const Vec<int>& pages) {
@@ -9987,73 +10066,20 @@ static void RecordRedactedPages(EngineMupdf* e, int step, const Vec<int>& pages)
         VecAppend(e->redactSteps, step);
         VecAppend(e->redactPages, pageNo);
     }
-    e->hasRedactedPages = true;
-}
-
-// An engine that edits through e (PDFium) caches its own text of the pages
-// redaction rewrote; apply, undo and redo change which text is current.
-static void InvalidateRedactedText(EngineBase* engine, EngineMupdf* e) {
-    if (!engine || engine == e) {
-        return;
-    }
-    for (int pageNo : e->redactPages) {
-        engine->InvalidateTextForPage(pageNo);
+    if (!e->redactedFlags) {
+        e->redactedFlags = AllocArray<u8>(e->pageCount + 1);
     }
 }
 
-// Whether an applied Apply Redactions step rewrote pageNo, so its content
-// differs from the file. A PDFium tab draws and reads such a page from the
-// editor until it is saved and reloaded.
+// Whether an applied Apply Redactions step rewrote pageNo, so its content differs from
+// the file. A PDFium tab draws and reads such a page from the editor until it is saved
+// and reloaded. Lock-free: every PDFium render and hover asks.
 bool EngineMupdfPageRedacted(EngineBase* engine, int pageNo) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
-    if (!e || !e->pdfdoc || !e->hasRedactedPages) {
+    if (!e || !AtomicBoolGet(&e->hasRedactedPages) || pageNo < 1 || pageNo > e->pageCount) {
         return false;
     }
-    auto* ctx = e->Ctx();
-    ScopedRecursiveMutex docScope(&e->docLock);
-    if (!VecContains(e->redactPages, pageNo)) {
-        return false;
-    }
-    int pos = EngineMupdfUndoPos(e, nullptr);
-    for (int i = 0; i < len(e->redactPages); i++) {
-        if (e->redactPages[i] != pageNo) {
-            continue;
-        }
-        int step = e->redactSteps[i];
-        // unknown step, or the journal is busy: the editor has the current content
-        if (step < 0 || pos < 0) {
-            return true;
-        }
-        if (step >= pos) {
-            // undone
-            continue;
-        }
-        const char* name = nullptr;
-        fz_try(ctx) {
-            name = pdf_undoredo_step(ctx, e->pdfdoc, step);
-        }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
-            return true;
-        }
-        if (name && str::Eq(Str(name), Str(kApplyRedactionsOp))) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool AnyPageRedacted(EngineMupdf* e) {
-    if (!e->hasRedactedPages) {
-        return false;
-    }
-    ScopedRecursiveMutex docScope(&e->docLock);
-    for (int pageNo : e->redactPages) {
-        if (EngineMupdfPageRedacted(e, pageNo)) {
-            return true;
-        }
-    }
-    return false;
+    return e->redactedFlags && e->redactedFlags[pageNo];
 }
 
 // The engine holding the document, AddRef'd, when an applied redaction changed it: a copy
@@ -10061,24 +10087,64 @@ static bool AnyPageRedacted(EngineMupdf* e) {
 // would mutate it (save state, journal), so output shares it; renders are thread-safe.
 EngineBase* EngineMupdfRedactedEngine(EngineBase* engine) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
-    if (!e || !e->pdfdoc || !AnyPageRedacted(e)) {
+    if (!e || !e->pdfdoc || !AtomicBoolGet(&e->hasRedactedPages)) {
         return nullptr;
     }
     e->AddRef();
     return e;
 }
 
-// Apply every /Redact annotation: rewrite the page content, drop the marks,
-// and return the Sumatra wrappers that MuPDF deleted (caller must Detach +
-// DeleteAnnotation). Incremental save is unsafe afterwards; pdfdoc->redacted
-// already forces a full rewrite in EngineMupdfSaveUpdated.
-bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut) {
-    VecReset(deletedOut);
+struct HoldDocLockData {
+    EngineMupdf* e = nullptr;
+    int ms = 0;
+    AtomicBool held = 0;
+    AtomicRefCount refs = 2;
+};
+
+static void ReleaseHoldData(HoldDocLockData* d) {
+    if (AtomicRefCountDec(&d->refs) == 0) {
+        delete d;
+    }
+}
+
+static void HoldDocLockThread(HoldDocLockData* d) {
+    {
+        ScopedRecursiveMutex docScope(&d->e->docLock);
+        AtomicBoolSet(&d->held, true);
+        SleepInMs(d->ms);
+    }
+    d->e->Release();
+    ReleaseHoldData(d);
+}
+
+// Test hook: another thread holds the editor's docLock for ms, as a long render does.
+// Returns once it is held.
+bool EngineMupdfHoldDocLock(EngineBase* engine, int ms) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
-    if (!e || !e->pdfdoc) {
+    if (!e) {
         return false;
     }
+    auto* d = new HoldDocLockData();
+    d->e = e;
+    d->ms = ms;
+    e->AddRef();
+    ThreadHandle th = StartThread(MkFunc0<HoldDocLockData>(HoldDocLockThread, d), StrL("HoldDocLock"));
+    if (!th) {
+        e->Release();
+        delete d;
+        return false;
+    }
+    SafeCloseThreadHandle(&th);
+    for (int i = 0; i < 5000 && !AtomicBoolGet(&d->held); i++) {
+        SleepInMs(1);
+    }
+    bool held = AtomicBoolGet(&d->held);
+    ReleaseHoldData(d);
+    return held;
+}
 
+// Redact every page with a /Redact mark as one undo step (MuPDF journals each page separately).
+static void RedactAllPages(EngineBase* engine, EngineMupdf* e, Vec<int>& redacted, Vec<Annotation*>& deletedOut) {
     pdf_redact_options opts{};
     opts.black_boxes = 1;
     opts.image_method = PDF_REDACT_IMAGE_PIXELS;
@@ -10086,11 +10152,6 @@ bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut
     opts.text = PDF_REDACT_TEXT_REMOVE;
 
     auto* ctx = e->Ctx();
-    bool any = false;
-    // the undo step this apply becomes: -1 when nested in another or unjournalled
-    int step = e->pdfdoc->journal ? EngineMupdfUndoPos(e, nullptr) : -1;
-    Vec<int> redacted;
-    // MuPDF journals each page separately; applying is one undo step.
     ScopedEngineOperation op(engine, kApplyRedactionsOp);
     ScopedRecursiveMutex pagesScope(&e->pagesLock);
     ScopedMutex renderScope(&e->renderLock);
@@ -10169,15 +10230,37 @@ bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut
         InvalidateFzPageAfterContentChange(e, pi);
         e->InvalidateTextForPage(pageNo);
         VecAppend(redacted, pageNo);
-        any = true;
+    }
+}
+
+// Apply every /Redact annotation: rewrite the page content, drop the marks,
+// and return the Sumatra wrappers that MuPDF deleted (caller must Detach +
+// DeleteAnnotation). Incremental save is unsafe afterwards; pdfdoc->redacted
+// already forces a full rewrite in EngineMupdfSaveUpdated.
+bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut) {
+    VecReset(deletedOut);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
+    if (!e || !e->pdfdoc) {
+        return false;
     }
 
+    // the undo step this apply becomes; -1 without a journal, where it can't be undone
+    int step = e->pdfdoc->journal ? EngineMupdfUndoPos(e, nullptr) : -1;
+    if (e->pdfdoc->journal && step < 0) {
+        // inside another operation: undo couldn't tell when the pages change
+        logf("EngineMupdfApplyRedactions: the undo history is busy\n");
+        return false;
+    }
+    Vec<int> redacted;
+    RedactAllPages(engine, e, redacted, deletedOut);
+
+    bool any = len(redacted) > 0;
     if (any) {
         e->modifiedAnnotations = true;
         // the marks are burned in and gone; nothing left to apply
         e->createdRedactMark = false;
         RecordRedactedPages(e, step, redacted);
-        InvalidateRedactedText(engine, e);
+        SyncRedacted(engine, e);
     }
     return any;
 }
@@ -10559,7 +10642,7 @@ static bool EngineMupdfUndoRedo(EngineBase* engine, bool redo, Vec<Annotation*>&
         return false;
     }
     SyncPagesAfterUndoRedo(e, removedOut);
-    InvalidateRedactedText(engine, e);
+    SyncRedacted(engine, e);
     return true;
 }
 

@@ -2,7 +2,8 @@
 // A PDFium tab draws and reads a redacted page from the MuPDF editor until it is
 // saved: the black box shows, the text is gone, the file is untouched, and one
 // undo brings the original page back. Print renders a copy of the document; until Save
-// it must be the redacted one (B52).
+// it must be the redacted one (B52). Search follows apply and undo, and a PDFium page that
+// isn't redacted never waits for the editor's lock (B53).
 
 import { readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -17,14 +18,17 @@ const SECRET = "SECRETWORD";
 // 24pt "SECRETWORD KEEPWORD"; the mark covers SECRETWORD (x 72..245)
 function makePdf(): string {
   const content = `BT /F1 24 Tf 72 700 Td (${SECRET} KEEPWORD) Tj ET`;
+  const content2 = "BT /F1 24 Tf 72 700 Td (PAGETWO) Tj ET";
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    "<< /Type /Pages /Count 2 /Kids [3 0 R 7 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> " +
       "/Contents 5 0 R /Annots [6 0 R] >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
     `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
     "<< /Type /Annot /Subtype /Redact /P 3 0 R /Rect [66 690 247 725] /QuadPoints [66 725 247 725 66 690 247 690] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 8 0 R >>",
+    `<< /Length ${content2.length} >>\nstream\n${content2}\nendstream`,
   ]);
 }
 
@@ -56,6 +60,34 @@ async function printed(client: ControlClient): Promise<{ ink: number; text: stri
     throw new Error(`${kTag}: clone-page: ${raw}`);
   }
   return { ink: +m[1]!, text: m[2]!, raw };
+}
+
+// whether search finds SECRET on page 1
+async function found(client: ControlClient): Promise<boolean> {
+  const res = await client.request(ControlCommand.TestCurrentPdf, [SECRET]);
+  const m = / found=(\d) /.exec(String(res[1] ?? ""));
+  if (res[0] !== 0 || !m) {
+    throw new Error(`${kTag}: search: ${String(res[1])}`);
+  }
+  return m[1] === "1";
+}
+
+// How long a non-blocking read of pageNo takes while another thread holds the editor's
+// document lock (as a long editor render does). Waits the hold out before returning.
+async function readWhileEditorBusy(client: ControlClient, pageNo: number): Promise<number> {
+  const kHoldMs = 1500;
+  const held = await client.request(ControlCommand.TestCurrentPdf, ["hold-editor-lock", kHoldMs]);
+  if (held[0] !== 0) {
+    throw new Error(`${kTag}: hold-editor-lock: ${String(held[1])}`);
+  }
+  const start = Date.now();
+  const res = await client.request(ControlCommand.TestCurrentPdf, ["try-elements", pageNo]);
+  const ms = Date.now() - start;
+  if (res[0] !== 0) {
+    throw new Error(`${kTag}: try-elements: ${String(res[1])}`);
+  }
+  await new Promise((r) => setTimeout(r, Math.max(0, kHoldMs - ms) + 100));
+  return ms;
 }
 
 // near-black pixels of the canvas: text, or the black box redaction burns in
@@ -120,6 +152,15 @@ async function runEngine(engine: string): Promise<void> {
         `${kTag} ${engine}: print must show the unsaved redaction (ink ${printBefore.ink}): ${printApplied.raw}`,
       );
     }
+    if (await found(client)) {
+      throw new Error(`${kTag} ${engine}: search finds redacted text`);
+    }
+    if (engine === "pdfium") {
+      const ms = await readWhileEditorBusy(client, 2);
+      if (ms > 750) {
+        throw new Error(`${kTag}: reading an unredacted page waited ${ms} ms for the editor`);
+      }
+    }
     const timeoutMs = 5000 * SLOW_BUILD_FACTOR;
     const applied = await pollUntil(
       async () => (await client.waitForRenderIdle(), darkPixels(canvas)),
@@ -135,6 +176,15 @@ async function runEngine(engine: string): Promise<void> {
     const printUndone = await printed(client);
     if (!printUndone.text.includes(SECRET)) {
       throw new Error(`${kTag} ${engine}: print after undo: ${printUndone.raw}`);
+    }
+    if (!(await found(client))) {
+      throw new Error(`${kTag} ${engine}: search misses the text undo restored`);
+    }
+    if (engine === "pdfium") {
+      const ms = await readWhileEditorBusy(client, 1);
+      if (ms > 750) {
+        throw new Error(`${kTag}: after undo, page 1 waited ${ms} ms for the editor`);
+      }
     }
     await pollUntil(
       async () => (await client.waitForRenderIdle(), darkPixels(canvas)),

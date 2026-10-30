@@ -2036,6 +2036,8 @@ class EnginePdfium : public EngineBase {
             editorFailed = true;
             return nullptr;
         }
+        // it draws pages an applied redaction rewrote; SetHideAnnotations keeps this in step
+        res->hideAnnotations = hideAnnotations;
         InterlockedExchangePointer((void* volatile*)&editor, res);
         return res;
     }
@@ -2266,7 +2268,6 @@ class EnginePdfium : public EngineBase {
 
     Pixmap* RenderPage(RenderPageArgs& args) override {
         if (EngineBase* redacted = RedactedEditor(args.pageNo)) {
-            redacted->hideAnnotations = hideAnnotations;
             return redacted->RenderPage(args);
         }
         PdfiumProfile profile(StrL("render"), args.pageNo);
@@ -2401,6 +2402,10 @@ class EnginePdfium : public EngineBase {
     // Rounded inward: a pixel of photo edge recolored shows less than a line of untinted paper.
     void GetBitmapRecolorSkipRects(int pageNo, float zoom, int rotation, const RectF& renderPageRect, Size bmpSize,
                                    Vec<Rect>& skipRects) override {
+        if (EngineBase* redacted = RedactedEditor(pageNo)) {
+            redacted->GetBitmapRecolorSkipRects(pageNo, zoom, rotation, renderPageRect, bmpSize, skipRects);
+            return;
+        }
         VecClear(skipRects);
         RectF box = PageMediabox(pageNo);
         if (box.IsEmpty() || renderPageRect.IsEmpty() || !isfinite(zoom) || zoom <= 0) {

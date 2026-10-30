@@ -224,7 +224,12 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   editor; undo returns the page to PDFium (B17). Print and the command
   palette's page thumbnails render a copy read from the file, so while an
   applied redaction is unsaved they render the editor's document instead, on
-  both engines (B52). The editor remains lazy until
+  both engines (B52). Which pages are redacted is derived from the undo
+  journal on apply, undo, redo and save and read without the editor's lock,
+  so other pages never wait for it; text extracted while a redaction changes
+  a page is dropped, so search can't find redacted words, and redacted pages
+  take recolor skip rects and the annotation switch from the editor (B53).
+  The editor remains lazy until
   annotation work starts; ordinary PDF open and render are unchanged.
   `tests/ad-hoc-pdfium-redactions.ts` runs `redact-annotations.ts` in both
   engines; `ad-hoc-pdfium-redaction-undo` checks the black box, text, file and

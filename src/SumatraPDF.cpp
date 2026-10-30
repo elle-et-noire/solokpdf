@@ -1955,7 +1955,7 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
 
     EngineBase* engine = tab->GetEngine();
     if (engine) {
-        engine->hideAnnotations = tab->hideAnnotations;
+        engine->SetHideAnnotations(tab->hideAnnotations);
         float imageZoom = gSettings->imageUI.defaultZoomFloat;
         if (engine->kind == kindEngineImage && imageZoom != 0) {
             zoomVirtual = imageZoom;
@@ -11708,7 +11708,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
                 tab->hideAnnotations = !tab->hideAnnotations;
                 EngineBase* engine = tab->GetEngine();
                 if (engine) {
-                    engine->hideAnnotations = tab->hideAnnotations;
+                    engine->SetHideAnnotations(tab->hideAnnotations);
                 }
                 MainWindowRerender(win);
             }
@@ -11719,7 +11719,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
                 tab->hideAnnotations = false;
                 EngineBase* engine = tab->GetEngine();
                 if (engine) {
-                    engine->hideAnnotations = false;
+                    engine->SetHideAnnotations(false);
                 }
                 MainWindowRerender(win);
             }
@@ -11730,7 +11730,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
                 tab->hideAnnotations = true;
                 EngineBase* engine = tab->GetEngine();
                 if (engine) {
-                    engine->hideAnnotations = true;
+                    engine->SetHideAnnotations(true);
                 }
                 MainWindowRerender(win);
             }

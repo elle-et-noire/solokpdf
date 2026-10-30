@@ -472,6 +472,8 @@ struct TextCacheEntry {
     // partial text a full one replaced, kept alive for a reader still holding its pointers
     PageText superseded;
     TextExtractionState state = TextExtractionState::NotExtracted;
+    // bumped by InvalidateTextForPage: text extracted before it is dropped
+    int gen = 0;
 
     // Consume text; a concurrent extraction may have filled this slot.
     void StoreText(PageText text) {
@@ -991,20 +993,25 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
     }
     int count = ChapterPageCount(loc.chapter);
 
-    bool extract;
-    {
-        ScopedMutex scope(&textCacheLock);
-        TextCacheEntry* page = pageTextCache->Ensure(loc, count);
-        // Finished includes textless pages. Pending still allows synchronous extraction.
-        // Partial (prefetched) text satisfies all but a blocking read.
-        bool done = page->state == TextExtractionState::Finished;
-        extract = mode == TextReadMode::Blocking ? !done || page->data.partial : !done && !page->data.partial;
-        if (extract && mode == TextReadMode::Blocking) {
-            page->state = TextExtractionState::Pending;
+    for (;;) {
+        bool extract;
+        int gen;
+        {
+            ScopedMutex scope(&textCacheLock);
+            TextCacheEntry* page = pageTextCache->Ensure(loc, count);
+            // Finished includes textless pages. Pending still allows synchronous extraction.
+            // Partial (prefetched) text satisfies all but a blocking read.
+            bool done = page->state == TextExtractionState::Finished;
+            extract = mode == TextReadMode::Blocking ? !done || page->data.partial : !done && !page->data.partial;
+            if (extract && mode == TextReadMode::Blocking) {
+                page->state = TextExtractionState::Pending;
+            }
+            gen = page->gen;
         }
-    }
+        if (!extract) {
+            break;
+        }
 
-    if (extract) {
         PageText extracted;
         if (mode == TextReadMode::Blocking) {
             extracted = ExtractPageText(pageNo);
@@ -1017,7 +1024,17 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
         EnsurePageText(&extracted);
 
         ScopedMutex scope(&textCacheLock);
-        pageTextCache->Ensure(loc, count)->StoreText(extracted);
+        TextCacheEntry* page = pageTextCache->Ensure(loc, count);
+        if (page->gen == gen) {
+            page->StoreText(extracted);
+            break;
+        }
+        // invalidated while extracting (e.g. a redaction applied): the text may be stale
+        FreePageText(&extracted);
+        if (mode != TextReadMode::Blocking) {
+            text = ReturnPageText({}, lenOut, coordsOut, quadsOut);
+            return mode == TextReadMode::Prefetch;
+        }
     }
 
     ScopedMutex scope(&textCacheLock);
@@ -1057,9 +1074,21 @@ void EngineBase::InvalidateTextForPage(int pageNo) {
     if (!page) {
         return;
     }
-    FreePageText(&page->data);
+    // a reader (the find thread) may still hold the last text's pointers
     FreePageText(&page->superseded);
+    page->superseded = page->data;
+    page->data = {};
     page->state = TextExtractionState::NotExtracted;
+    page->gen++;
+}
+
+// The UI thread's switch; an engine's annotation editor draws some of its pages (PDFium).
+void EngineBase::SetHideAnnotations(bool hide) {
+    hideAnnotations = hide;
+    EngineBase* editor = HasAnnotationEditor() ? AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
+    if (editor && editor != this) {
+        editor->hideAnnotations = hide;
+    }
 }
 
 // number of pages the loaded document contains. Comes from the chapter table

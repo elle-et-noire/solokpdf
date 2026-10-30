@@ -231,12 +231,15 @@ class EngineMupdf : public EngineBase {
     int journalNesting = 0;
     // position in the undo history the file was last saved at
     int savedUndoPos = 0;
-    // pages Apply Redactions rewrote, each with the undo step that did it (-1: unknown,
-    // counts as always applied). Guarded by docLock; see EngineMupdfPageRedacted
+    // pages Apply Redactions rewrote, each with the undo step that did it (-1: the document
+    // has no journal, so always applied). Guarded by docLock
     Vec<int> redactSteps;
     Vec<int> redactPages;
-    // set once redactPages is first filled, read without docLock
-    bool hasRedactedPages = false;
+    // [pageNo] set while an applied step rewrote it: derived from the above on apply, undo,
+    // redo and save under docLock, read without it. Allocated once
+    u8* redactedFlags = nullptr;
+    // any redactedFlags set
+    AtomicBool hasRedactedPages = 0;
 
     // The whole file, once the document reads from memory (a small file at
     // load, a big one after its first change). Saving then never re-reads the
