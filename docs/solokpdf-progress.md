@@ -2072,6 +2072,26 @@ The Windows keyboard layout supplies `/`, `'`, `` ` ``, and `:` through OEM
 keys; other layouts need verification. Ng has the setting and command ids but
 still needs GPUI input, hints, marks, and command-line UI.
 
+## CI compile cache plan (D2, blocked)
+
+MSBuild has no compiler-launcher setting, and sccache could not be run locally
+to check one, so CI has no compile cache yet. Plan, all unverified:
+
+- `mozilla-actions/sccache-action@v0` with `SCCACHE_GHA_ENABLED=true`.
+- Copy `sccache.exe` to `<dir>\cl.exe`; a workflow step writes a root
+  `Directory.Build.targets` (not committed, so local builds stay unchanged)
+  setting `CLToolExe=cl.exe`, `CLToolPath=<dir>`, `UseMultiToolTask=true`,
+  `TrackFileAccess=false`, and per `ClCompile`
+  `DebugInformationFormat=OldStyle` (`/Z7`; sccache can't cache `/Zi`),
+  `MultiProcessorCompilation=false` (multi-file `/MP` calls are uncached)
+  and `PrecompiledHeader=NotUsing` (`/Yu base/Base.h` is uncached). It must
+  be `.targets`: `.props` is imported before the projects' own
+  `ItemDefinitionGroup`, which would override it.
+- To check before enabling: sccache, invoked as `cl.exe`, finds the real
+  compiler on MSBuild's `PATH`; it reads MSBuild's UTF-16 response files;
+  `sccache --show-stats` reports hits on a rerun; no-PCH cold builds and
+  `/GL` release builds still fit the 120-minute timeout.
+
 ## Full-suite triage (2026-10-29)
 
 Run 4 on `88dda80cb`: `command-palette-delete-tab` failed once on PDFium
