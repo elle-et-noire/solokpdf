@@ -10,6 +10,7 @@ import { testit as cad } from "./ad-hoc-pdfium-cad.ts";
 import { testit as commands } from "./ad-hoc-pdfium-commands.ts";
 import { testit as formJs } from "./ad-hoc-pdfium-form-js.ts";
 import { testit as forms } from "./ad-hoc-pdfium-forms.ts";
+import { testit as formHighlight } from "./ad-hoc-pdfium-form-highlight.ts";
 import { testit as hover } from "./ad-hoc-pdfium-hover.ts";
 import { testit as memory } from "./ad-hoc-pdfium-memory.ts";
 import { testit as outline } from "./ad-hoc-pdfium-outline.ts";
@@ -41,6 +42,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-catalog-layout", catalogLayout],
   ["ad-hoc-pdfium-saveas", saveas],
   ["ad-hoc-pdfium-forms", forms],
+  ["ad-hoc-pdfium-form-highlight", formHighlight],
   ["ad-hoc-pdfium-hover", hover],
   ["ad-hoc-pdfium-synctex", synctex],
   ["ad-hoc-pdfium-tools", tools],

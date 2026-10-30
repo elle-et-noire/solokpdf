@@ -74,7 +74,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B43 | Tab scroll assertion                                                                                                                                                        | Run 4: issue-6405            | done — Allow tab scroll rounding (B43)                                               |
 | B44 | Gate the per-open catalog query (OpenAction, PageLayout, Direction) behind the existing geometry byte scan so PDFs without those keys skip it (~1 ms, 20 ms when encrypted) | `EnginePdfium`               | done — Skip catalog query without catalog keys (B44)                                 |
 | B45 | Read-aloud restyle chapter                                                                                                                                                  | Run 5: PDFium only           | done — Record read-aloud restyle flake (B45)                                         |
-| B46 | AcroForm PDFs load the hidden MuPDF editor on first paint: `HighlightFormFields` reads empty fields via MuPDF; use PDFium's form API                                        | B12: form fixture            | todo                                                                                 |
+| B46 | AcroForm PDFs load the hidden MuPDF editor on first paint: `HighlightFormFields` reads empty fields via MuPDF; use PDFium's form API                                        | B12: form fixture            | done — Read form highlights with PDFium (B46)                                        |
 
 ## C. Coexistence with SumatraPDF
 

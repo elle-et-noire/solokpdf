@@ -135,6 +135,13 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDFPage_GetAnnotCount)           \
     X(FPDFPage_GetAnnot)                \
     X(FPDFAnnot_GetSubtype)             \
+    X(FPDFAnnot_GetFlags)               \
+    X(FPDFAnnot_GetRect)                \
+    X(FPDFAnnot_HasKey)                 \
+    X(FPDFAnnot_GetValueType)           \
+    X(FPDFAnnot_GetFormFieldType)       \
+    X(FPDFAnnot_GetFormFieldFlags)      \
+    X(FPDFAnnot_GetFormFieldValue)      \
     X(FPDFPage_CloseAnnot)              \
     X(FPDFAction_GetType)               \
     X(FPDFAction_GetDest)               \
@@ -264,6 +271,9 @@ struct PdfiumPage {
     Vec<RectF> images;
     bool imageElementsLoaded = false;
     Vec<IPageElement*> imageElements;
+    // empty fillable form fields, in page space, until the editor holds field values
+    bool formRectsLoaded = false;
+    Vec<RectF> formRects;
 };
 
 struct PdfiumProfile {
@@ -1729,6 +1739,99 @@ class EnginePdfium : public EngineBase {
         }
         gPdfiumLock.Unlock();
         return HasPageAnnotations(pageNo);
+    }
+
+    // Empty fillable fields by EngineMupdfGetFormFieldHighlightRects' rules, read with PDFium's form
+    // API. Once the editor is loaded it holds the edited values, so it answers instead.
+    bool FormHighlightRects(int pageNo, Vec<RectF>& out) override {
+        if (AnnotationEditor(EditorLoad::IfLoaded)) {
+            return false;
+        }
+        ScopedMutex lock(&gPdfiumLock);
+        PdfiumPage* info = Page(pageNo);
+        if (!form || !info) {
+            return true;
+        }
+        if (!info->formRectsLoaded && !LoadFormRects(pageNo, info)) {
+            return false;
+        }
+        for (RectF& r : info->formRects) {
+            VecAppend(out, r);
+        }
+        return true;
+    }
+
+    // Caller holds gPdfiumLock. False when a signature's state needs MuPDF.
+    bool LoadFormRects(int pageNo, PdfiumPage* info) {
+        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        if (!page) {
+            return false;
+        }
+        VecClear(info->formRects);
+        bool ok = true;
+        int count = gPdfium.FPDFPage_GetAnnotCount(page);
+        for (int i = 0; i < count && ok; i++) {
+            FPDF_ANNOTATION annot = gPdfium.FPDFPage_GetAnnot(page, i);
+            if (!annot) {
+                continue;
+            }
+            int highlight = FormFieldHighlight(annot);
+            if (highlight < 0) {
+                ok = false;
+            }
+            FS_RECTF r{};
+            if (highlight > 0 && gPdfium.FPDFAnnot_GetRect(annot, &r)) {
+                RectF rect = ToPageRect(page, info, r.left, r.bottom, r.right, r.top);
+                if (!rect.IsEmpty()) {
+                    VecAppend(info->formRects, rect);
+                }
+            }
+            gPdfium.FPDFPage_CloseAnnot(annot);
+        }
+        gPdfium.FPDF_ClosePage(page);
+        if (!ok) {
+            VecClear(info->formRects);
+            return false;
+        }
+        info->formRectsLoaded = true;
+        return true;
+    }
+
+    // Caller holds gPdfiumLock. 1: empty fillable field, 0: not, -1: unknown signature state.
+    int FormFieldHighlight(FPDF_ANNOTATION annot) {
+        constexpr int kHidden = FPDF_ANNOT_FLAG_HIDDEN | FPDF_ANNOT_FLAG_NOVIEW | FPDF_ANNOT_FLAG_INVISIBLE;
+        if (gPdfium.FPDFAnnot_GetSubtype(annot) != FPDF_ANNOT_WIDGET || (gPdfium.FPDFAnnot_GetFlags(annot) & kHidden)) {
+            return 0;
+        }
+        if (gPdfium.FPDFAnnot_GetFormFieldFlags(form, annot) & FPDF_FORMFLAG_READONLY) {
+            return 0;
+        }
+        int type = gPdfium.FPDFAnnot_GetFormFieldType(form, annot);
+        if (type == FPDF_FORMFIELD_SIGNATURE) {
+            // PDFium has no signed-state query; /V is the signature dictionary, maybe on a parent field
+            if (gPdfium.FPDFAnnot_HasKey(annot, "V")) {
+                return gPdfium.FPDFAnnot_GetValueType(annot, "V") == FPDF_OBJECT_DICTIONARY ? 0 : 1;
+            }
+            if (!gPdfium.FPDFAnnot_HasKey(annot, "Parent") || gPdfium.FPDF_GetSignatureCount(doc) == 0) {
+                return 1;
+            }
+            return -1;
+        }
+        bool button = type == FPDF_FORMFIELD_CHECKBOX || type == FPDF_FORMFIELD_RADIOBUTTON;
+        bool fillable = button || type == FPDF_FORMFIELD_TEXTFIELD || type == FPDF_FORMFIELD_COMBOBOX ||
+                        type == FPDF_FORMFIELD_LISTBOX;
+        if (!fillable) {
+            return 0;
+        }
+        unsigned long bytes = gPdfium.FPDFAnnot_GetFormFieldValue(form, annot, nullptr, 0);
+        if (bytes <= sizeof(FPDF_WCHAR)) {
+            return 1;
+        }
+        WCHAR* value = AllocArrayTemp<WCHAR>(bytes / sizeof(WCHAR) + 1);
+        gPdfium.FPDFAnnot_GetFormFieldValue(form, annot, (FPDF_WCHAR*)value, bytes);
+        TempStr v = ToUtf8Temp(WStr(value));
+        bool empty = button ? str::Eq(v, StrL("Off")) : str::IsEmptyOrWhiteSpace(v);
+        return empty ? 1 : 0;
     }
 
     // Run document scripts before rendering so their widget values appear on the first page.

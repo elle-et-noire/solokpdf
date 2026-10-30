@@ -611,6 +611,8 @@ class EngineBase {
     virtual bool HasAnnotationEditor() { return false; }
     virtual EngineBase* AnnotationEditor(EditorLoad) { return nullptr; }
     virtual bool HasAcroForm() { return false; }
+    // empty fillable form fields; false: ask the annotation editor
+    virtual bool FormHighlightRects(int, Vec<RectF>&) { return false; }
     virtual bool HasPageAnnotations(int) { return true; }
     virtual bool TryHasPageAnnotations(int pageNo) { return HasPageAnnotations(pageNo); }
     virtual EngineBase* HeadingTocEngine(EditorLoad) { return this; }

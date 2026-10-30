@@ -1660,6 +1660,23 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 0, loaded ? StrL("editor=loaded") : StrL("editor=none"));
                 break;
             }
+            if (str::Eq(StringArg(req, 0), StrL("form-highlights"))) {
+                i32 pageNo = 0;
+                IntArg(req, 1, pageNo);
+                if (pageNo < 1 || pageNo > engine->PageCount()) {
+                    AppendTestResult(req, 1, StrL("invalid page"));
+                    break;
+                }
+                Vec<RectF> rects;
+                EngineMupdfGetFormFieldHighlightRects(engine, pageNo, nullptr, rects);
+                str::Builder res;
+                res.Append(fmt("rects=%d", len(rects)));
+                for (RectF& r : rects) {
+                    res.Append(fmt(" %.1f,%.1f,%.1f,%.1f", r.x, r.y, r.dx, r.dy));
+                }
+                AppendTestResult(req, 0, ToStrTemp(res));
+                break;
+            }
             if (str::Eq(StringArg(req, 0), StrL("sync"))) {
                 AppendTestResult(req, 0, dm->pdfSync ? StrL("sync=loaded") : StrL("sync=none"));
                 break;

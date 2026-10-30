@@ -10877,6 +10877,10 @@ bool EngineMupdfGetPageWidgets(EngineBase* engine, int pageNo, Vec<Annotation*>&
 // Page-space rects of empty fillable fields on pageNo (issue #5966). skip is
 // the field currently being edited, if any, so its overlay isn't double-tinted.
 void EngineMupdfGetFormFieldHighlightRects(EngineBase* engine, int pageNo, Annotation* skip, Vec<RectF>& out) {
+    // EnginePdfium reads untouched fields itself, so painting doesn't load its editor
+    if (engine && engine->FormHighlightRects(pageNo, out)) {
+        return;
+    }
     EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!epdf) {
         return;

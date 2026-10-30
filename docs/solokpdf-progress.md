@@ -1913,16 +1913,18 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   (`ad-hoc-pdfium`: 9600 widget pixels on screen and in print, as MuPDF). For
   fields without an appearance (`NeedAppearances`) PDFium builds its own, as in
   Chrome: its checkmark glyph and a combo box arrow differ from MuPDF's. Fields
-  can be filled through the hidden MuPDF editor, which loads on the first form
-  query only when PDFium reports an AcroForm; with `HighlightFormFields` on
-  (the default) the first paint is such a query (B46). Once loaded, MuPDF draws widgets
+  can be filled through the hidden MuPDF editor, which loads on the first
+  widget hit test (the pointer over a page, for its cursor) or edit only when
+  PDFium reports an AcroForm. `HighlightFormFields` reads empty fields with
+  PDFium's form API until then, so painting does not load it
+  (`tests/ad-hoc-pdfium-form-highlight.ts` matches MuPDF's rects). Once loaded, MuPDF draws widgets
   over PDFium's page instead of PDFium's widget pass, so edited values do not
   show stale appearances. Text, choice, checkbox and radio edits use MuPDF's
   existing incremental save and undo paths. `tests/issue-6240.ts` checks
   buttons and saving; `tests/ad-hoc-pdfium-forms.ts` checks text and choice
   values, view/print rendering and saved copies in both engines. XFA remains
   unsupported; signing uses the same lazy MuPDF editor for PDFium documents.
-  PDFium draws untouched widgets. The first form query loads the hidden MuPDF
+  PDFium draws untouched widgets. The first widget hit test loads the hidden MuPDF
   editor, whose widgets replace PDFium's widget pass after an edit; documents
   without forms keep the PDFium-only open and render path. Its existing edit,
   undo and incremental save paths handle text, choice and button fields.

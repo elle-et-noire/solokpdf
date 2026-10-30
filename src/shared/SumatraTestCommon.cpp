@@ -1310,7 +1310,10 @@ TempStr SetFormFieldResultTemp(int pageNo, int idx, Str value, int* exitCodeOut)
         return StrL("ERROR invalid-page");
     }
     Vec<Annotation*> widgets;
+    // This may load a PDFium tab's editor; give it the app's JavaScript setting, as a user edit would.
+    EngineMupdfSetDisableJavaScript(gSettings->disableJavaScript);
     bool pageReady = EngineMupdfGetPageWidgets(dm->GetEngine(), pageNo, widgets);
+    EngineMupdfSetDisableJavaScript(true);
     if (!pageReady) {
         if (exitCodeOut) {
             *exitCodeOut = 2;
