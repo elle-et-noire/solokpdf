@@ -1693,9 +1693,11 @@ only when both dimensions are under 10 points. `issue-trim-margins` fails
 before and passes after on PDFium; MuPDF and trim restore also pass (B29).
 
 PDFium reuses its loaded bookmark tree without taking the global render lock.
-`issue-6362` now scrolls and changes pages while a slow page draws without
-stalling; MuPDF and PDFium both pass. Non-blocking PDFium text and element
-queries (B11) remain separate work.
+Hover annotation and link queries now also skip a page while rendering holds
+that lock, as MuPDF's hover does. `issue-6362` scrolls and changes pages
+without stalling locally; Run 3 CI saw a 4.3-second scroll block with its
+cursor over the window, so a CI rerun is needed (B23). Non-blocking PDFium
+text and element queries (B11) remain separate work.
 
 The `lazy-tab-state-after-save` seed does not restore a document in either
 engine: it writes `SumatraPDF-settings.txt` and sets `RememberOpenedFiles = false`,

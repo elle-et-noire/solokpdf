@@ -2377,7 +2377,7 @@ Annotation* DisplayModel::GetAnnotationAtPos(Point pt, Annotation* annot) {
 
 Annotation* DisplayModel::GetAnnotationAtPosHover(Point pt, Annotation* annot) {
     int pageNo = VisiblePageAt(this, pt);
-    if (ValidPageNo(pageNo) && engine->HasAnnotationEditor() && !engine->HasPageAnnotations(pageNo) &&
+    if (ValidPageNo(pageNo) && engine->HasAnnotationEditor() && !engine->TryHasPageAnnotations(pageNo) &&
         !engine->AnnotationEditor(EditorLoad::IfLoaded)) {
         return nullptr;
     }

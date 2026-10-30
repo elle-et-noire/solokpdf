@@ -1699,6 +1699,16 @@ class EnginePdfium : public EngineBase {
         return info->hasAnnotations;
     }
 
+    // Hover may skip a page while its render owns PDFium's global lock.
+    bool TryHasPageAnnotations(int pageNo) override {
+        if (!gPdfiumLock.TryLock()) {
+            return false;
+        }
+        bool found = HasPageAnnotations(pageNo);
+        gPdfiumLock.Unlock();
+        return found;
+    }
+
     // Run document scripts before rendering so their widget values appear on the first page.
     void LoadDocumentJs() {
         if (documentJs && MupdfJavaScriptEnabled()) {
@@ -2206,7 +2216,11 @@ class EnginePdfium : public EngineBase {
     }
 
     IPageElement* GetElementAtPos(int pageNo, PointF point) override {
+        if (!gPdfiumLock.TryLock()) {
+            return nullptr;
+        }
         auto links = GetElements(pageNo);
+        gPdfiumLock.Unlock();
         for (int i = len(links) - 1; i >= 0; i--) {
             if (links[i]->rect.Contains(point)) {
                 return links[i];

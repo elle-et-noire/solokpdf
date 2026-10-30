@@ -612,6 +612,7 @@ class EngineBase {
     virtual EngineBase* AnnotationEditor(EditorLoad) { return nullptr; }
     virtual bool HasAcroForm() { return false; }
     virtual bool HasPageAnnotations(int) { return true; }
+    virtual bool TryHasPageAnnotations(int pageNo) { return HasPageAnnotations(pageNo); }
     virtual EngineBase* HeadingTocEngine(EditorLoad) { return this; }
 
     virtual bool HasToc();
