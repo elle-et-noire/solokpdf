@@ -103,7 +103,8 @@ async function expectPageLabels(): Promise<void> {
   );
 }
 
-// plain-text URL, wrapped URL (not joined, like MuPDF), DOI, and a URL covered by a link annotation
+// plain-text URL, wrapped URL (joined into one link per line, like MuPDF since #2239), DOI, and a URL covered
+// by a link annotation
 function autoLinksFixture(): string {
   // one text block with y steps, as in a typeset paragraph
   const lines: [number, string][] = [
@@ -133,7 +134,8 @@ const expectedAutoLinks = [
   "https://arxiv.org/abs/1706.03762",
   "https://doi.org/10.1109/WICSA.2015.29",
   "https://example.com/solok-auto",
-  "https://example.com/wrapped/",
+  "https://example.com/wrapped/tail-part",
+  "https://example.com/wrapped/tail-part",
 ];
 
 // with DisableAutoLinks only the annotation link remains
