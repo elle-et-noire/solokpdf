@@ -1823,6 +1823,9 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   loose glyph boxes, line breaks and a CP-1251 font mapping preserve spacing,
   Unicode and selection bounds. A page with form widgets or unmapped glyphs
   uses MuPDF text only when requested. Plain pages leave the editor unloaded.
+  `ad-hoc-pdfium-text-fallback` extracted all 95 pages of 3 corpus PDFs:
+  Attention 15, BERT 16, Japanese IPA 64. `TestCurrentPdf editor` stayed
+  `none` after every page (B14 check); no narrowing was needed.
 - PDFium drops its discretionary hyphen marker from extracted text, so search
   joins split words as MuPDF does. `issue-1189` and the generated B15 search
   test cover this path without loading the editor.

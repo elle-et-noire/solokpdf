@@ -1637,6 +1637,22 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 2, StrL("NOTREADY no-engine"));
                 break;
             }
+            if (str::Eq(StringArg(req, 0), StrL("pages"))) {
+                AppendTestResult(req, 0, fmt("pages=%d", engine->PageCount()));
+                break;
+            }
+            if (str::Eq(StringArg(req, 0), StrL("text-page"))) {
+                i32 pageNo = 0;
+                IntArg(req, 1, pageNo);
+                if (pageNo < 1 || pageNo > engine->PageCount()) {
+                    AppendTestResult(req, 1, StrL("invalid page"));
+                    break;
+                }
+                PageText text = engine->ExtractPageText(pageNo);
+                AppendTestResult(req, 0, fmt("chars=%d", text.nCodepoints));
+                FreePageText(&text);
+                break;
+            }
             if (str::Eq(StringArg(req, 0), StrL("editor"))) {
                 bool loaded = engine->AnnotationEditor(EditorLoad::IfLoaded) != nullptr;
                 AppendTestResult(req, 0, loaded ? StrL("editor=loaded") : StrL("editor=none"));

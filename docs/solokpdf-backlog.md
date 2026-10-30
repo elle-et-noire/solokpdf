@@ -42,7 +42,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
 | ID  | Item                         | Evidence                     | Status                                                                               |
 | --- | ---------------------------- | ---------------------------- | ------------------------------------------------------------------------------------ |
-| B14 | PDFium text extraction       | B7 text group                | done — Extract PDFium text without routine editor loads (B14)                        |
+| B14 | PDFium text extraction       | B7 text group                | done — Measure PDFium text fallback (B14)                                            |
 | B15 | PDFium search                | B7 search group              | done — Join PDFium hyphenated search text (fixes #1189)                              |
 | B16 | PDFium links                 | B7 links group               | done — Link wrapped URLs in PDFium (fixes #2239)                                     |
 | B17 | PDFium annotations           | B7 annotations group         | blocked — Redaction reload loses undo journal; cursor tests need an unlocked session |
