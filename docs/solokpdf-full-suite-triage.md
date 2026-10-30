@@ -27,6 +27,8 @@ desktop pins the cursor at `(0,0)` (E, B39).
 `issue-5918` failed 3/3 local MuPDF reruns and one PDFium rerun at next-file
 navigation despite a completed folder scan; its shared cause is unresolved
 (B40).
+The PDFium annotation clipboard test still fails after redaction reload
+discards its undo journal (B17).
 
 ## Complete paired runs
 

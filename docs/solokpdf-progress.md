@@ -1851,6 +1851,9 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   `issue-5329` passes on both engines after seeding the active settings file;
   annotation tooltips include authors when enabled (B26).
   Redaction apply still saves and reloads the PDFium tab, losing undo history.
+  Run 3's annotation clipboard test fails when one undo cannot restore the
+  redaction marks on both pages. A reload discards the editor journal; B17
+  needs undo state that survives the rewritten PDF.
   Cursor-driven annotation checks also need an unlocked Windows session.
 - Applying redactions on a PDFium tab uses that already loaded MuPDF editor,
   saves its rewritten content and reloads the tab in PDFium. The editor remains
