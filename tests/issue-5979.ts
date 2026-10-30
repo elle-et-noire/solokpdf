@@ -1,6 +1,7 @@
 // #5979: UI created or retained on a high-DPI monitor must use the new
 // monitor's fonts after the frame moves to a lower-DPI monitor.
 import { join } from "node:path";
+import { ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
 import { cmdId, dpiRequest, requireDpiShrank, ROOT, runStandalone, waitForDpiFrame, writeAppdata } from "./util.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
@@ -48,7 +49,8 @@ export async function testit(): Promise<void> {
     sendCommandSync(find.frame, cmdId("CmdFindFirst"));
     // This creates the panel when Claude and WebView2 are available; the DPI
     // assertions below stay optional so hosted runners without them can pass.
-    sendCommandSync(find.frame, cmdId("CmdAIChatWithClaudeCode"));
+    const [, installed] = await find.client.request(ControlCommand.TestAIChat, ["installed"]);
+    if (installed === "installed=1") sendCommandSync(find.frame, cmdId("CmdAIChatWithClaudeCode"));
     const high = await waitForDpiFrame(find.client, 144, (s) => (s.find ?? 0) > 0);
     toggleTo75(find.frame);
     const low = await waitForDpiFrame(find.client, 72, (s) => (s.find ?? 0) > 0);

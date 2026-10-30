@@ -15,6 +15,7 @@ import {
   getClassName,
   isWindowVisible,
   postMessage,
+  setProcessDpiAware,
   sleep,
   waitForTopWindow,
   WM_KEYDOWN,
@@ -69,6 +70,7 @@ function colorDelta(a: [number, number, number], b: [number, number, number]): n
 }
 
 export async function testit(): Promise<void> {
+  setProcessDpiAware();
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
   await withControlledSumatra(
     EXE,
@@ -79,6 +81,12 @@ export async function testit(): Promise<void> {
       }
       await client.waitForRenderIdle();
       await client.setNotificationsEnabled(false);
+
+      const [, installed] = await client.request(ControlCommand.TestAIChat, ["installed"]);
+      if (installed !== "installed=1") {
+        console.log("issue-6017: Claude is not installed; skipping panel check");
+        return;
+      }
 
       sendCommandSync(frame, cmdId("CmdAIChatWithClaudeCode"));
       await sleep(200 * SLOW_BUILD_FACTOR);

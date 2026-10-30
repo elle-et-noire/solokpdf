@@ -58,6 +58,7 @@
 #include "HomePage.h"
 #include "Notifications.h"
 #include "AIChatCommon.h"
+#include "AIChatPanel.h"
 #include "SumatraDialogs.h"
 #include "PageGridDialogCommon.h"
 #include "AnnotEditToolbar.h"
@@ -2062,6 +2063,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
         }
 
         case ControlCmd::TestAIChat: {
+            if (str::Eq(StringArg(req, 0), StrL("installed"))) {
+                bool installed = GetClaudeCodeProvider()->IsInstalled();
+                AppendTestResult(req, 0, installed ? StrL("installed=1") : StrL("installed=0"));
+                break;
+            }
             i32 backend = 0;
             Str filePath = StringArg(req, 1);
             Str message = StringArg(req, 2);

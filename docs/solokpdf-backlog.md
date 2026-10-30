@@ -58,7 +58,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B27 | PDFium external images       | B7 R: issue-3731             | blocked — PDFium lacks external stream loader; editor render barred                                                       |
 | B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | done — Select PDFium bookmarks under the hidden tree root                                                                 |
 | B29 | PDFium trim margins          | B7 P: issue-trim-margins     | done — Keep narrow text bounds when trimming                                                                              |
-| B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | todo                                                                                                                      |
+| B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | done — Avoid modal AI install dialog in tests                                                                             |
 | B31 | Control output assertions    | Run 3: issue-5944, issue-906 | done — Accept current `screen` and `rect` fields                                                                          |
 | B32 | CI annotation cursor         | Run 3: annotation CI         | done — Park cursor before checking lazy editor                                                                            |
 | B33 | Trim restore assertion       | Run 3: trim restore          | done — Compare page aspect on every platform                                                                              |

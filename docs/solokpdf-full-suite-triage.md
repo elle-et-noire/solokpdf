@@ -11,6 +11,10 @@ and the three blocked CAD/external-image cases. The shared failures are
 `issue-5979`, `issue-6017`, `issue-6080`, and `trim-empty-margins-restore`.
 MuPDF alone failed `shape-annotation-placement` and `issue-5918`.
 Per-push CI also failed the PDFium scroll and annotation lazy-load tests.
+`issue-5979` and `issue-6017` reached an AI command that can show a modal
+install dialog when Claude is absent (E); the local DPI override sequence
+completes. The tests now check installation first. `issue-5944`, `issue-906`,
+and `trim-empty-margins-restore` used stale output or geometry assertions (E).
 
 ## Complete paired runs
 
