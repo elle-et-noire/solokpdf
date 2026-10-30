@@ -67,6 +67,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B36 | Hosted window geometry       | Run 3: window tests          | done — Size test windows within the work area                                                                             |
 | B37 | Cursor and RTL capture tests | Run 3: input and capture     | blocked — Locked desktop prevents cursor and capture checks                                                               |
 | B38 | PDF catalog layout           | Run 3: issue-2022            | blocked — PDFium has no public PageLayout query; routine editor load barred                                               |
+| B39 | MuPDF shape placement        | Run 3: shape placement       | blocked — Cursor stays at origin on locked desktop                                                                        |
 
 ## C. Coexistence with SumatraPDF
 

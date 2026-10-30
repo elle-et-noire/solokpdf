@@ -1721,6 +1721,11 @@ with `r2l=0`. PDFium exposes `/ViewerPreferences/Direction` but has no public
 open would violate the PDFium-only routine path; scanning raw bytes would miss
 compressed catalog objects. B38 is blocked on a reliable cheap catalog gate.
 
+`shape-annotation-placement` failed three of three local MuPDF reruns: the
+first page click did not anchor the rectangle. This locked desktop pins the
+cursor at `(0,0)` during drag tests, so B39 needs an interactive rerun before
+an app change can be judged.
+
 PDFium reports a 12-point text line as about 60 × 8.7 points. The trim guard
 discarded it because its height was under 10 points. It now discards a box
 only when both dimensions are under 10 points. `issue-trim-margins` fails

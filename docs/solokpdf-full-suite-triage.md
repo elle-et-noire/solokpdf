@@ -22,6 +22,8 @@ locally. `lazy-tab-state-after-save` seeds a disabled session (S).
 capture verification (E); the local locked desktop prevents it (B37).
 `issue-2022` remains a PDFium catalog-layout gap (P); PDFium has no public
 `PageLayout` query, and routine editor loads are barred (B38).
+`shape-annotation-placement` fails 3/3 local MuPDF reruns while the locked
+desktop pins the cursor at `(0,0)` (E, B39).
 
 ## Complete paired runs
 
