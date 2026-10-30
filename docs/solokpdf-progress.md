@@ -1866,15 +1866,16 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   leave it unloaded. The markup diagnostic now reads annotations from all pages.
   `issue-5329` passes on both engines after seeding the active settings file;
   annotation tooltips include authors when enabled (B26).
-  Redaction apply still saves and reloads the PDFium tab, losing undo history.
-  Run 3's annotation clipboard test fails when one undo cannot restore the
-  redaction marks on both pages. A reload discards the editor journal; B17
-  needs undo state that survives the rewritten PDF.
-  Cursor-driven annotation checks also need an unlocked Windows session.
-- Applying redactions on a PDFium tab uses that already loaded MuPDF editor,
-  saves its rewritten content and reloads the tab in PDFium. The editor remains
-  lazy until annotation work starts; ordinary PDF open and render are unchanged.
-  `tests/ad-hoc-pdfium-redactions.ts` runs `redact-annotations.ts` in both engines.
+  Cursor-driven annotation checks need an unlocked Windows session.
+- Applying redactions on a PDFium tab rewrites pages in the already loaded MuPDF
+  editor and, as on MuPDF tabs, leaves the file unsaved and the step undoable.
+  Until Save reloads the tab, PDFium draws, extracts text and lists elements of
+  a page that an applied redaction step rewrote through the editor; undo returns
+  the page to PDFium (B17). The editor remains lazy until annotation work starts;
+  ordinary PDF open and render are unchanged.
+  `tests/ad-hoc-pdfium-redactions.ts` runs `redact-annotations.ts` in both
+  engines; `ad-hoc-pdfium-redaction-undo` checks the black box, text, file and
+  undo/redo in both, and `annot-undo-one-step`'s redaction part passes on both.
 - PDF tools accept a PDFium tab. The viewer stays in PDFium while MuPDF's
   existing file tools perform bake, compression, page extraction/deletion,
   encryption/decryption, merge, text extraction and scripts on demand. Merge

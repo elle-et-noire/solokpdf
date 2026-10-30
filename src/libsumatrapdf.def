@@ -1939,6 +1939,8 @@ EXPORTS
 
 	pdf_undoredo_state
 
+	pdf_undoredo_step
+
 	pdf_undo
 
 	pdf_redo

@@ -9967,6 +9967,78 @@ static void InvalidateFzPageAfterContentChange(EngineMupdf* e, FzPageInfo* pi) {
     pi->fullyLoaded = false;
 }
 
+static const char* kApplyRedactionsOp = "Apply redactions";
+
+// Remember which pages the apply at undo step `step` rewrote. A new step replaces
+// the undone steps at and after its position.
+static void RecordRedactedPages(EngineMupdf* e, int step, const Vec<int>& pages) {
+    ScopedRecursiveMutex docScope(&e->docLock);
+    for (int i = len(e->redactSteps) - 1; i >= 0 && step >= 0; i--) {
+        if (e->redactSteps[i] >= step) {
+            VecRemoveAt(e->redactSteps, i);
+            VecRemoveAt(e->redactPages, i);
+        }
+    }
+    for (int pageNo : pages) {
+        VecAppend(e->redactSteps, step);
+        VecAppend(e->redactPages, pageNo);
+    }
+    e->hasRedactedPages = true;
+}
+
+// An engine that edits through e (PDFium) caches its own text of the pages
+// redaction rewrote; apply, undo and redo change which text is current.
+static void InvalidateRedactedText(EngineBase* engine, EngineMupdf* e) {
+    if (!engine || engine == e) {
+        return;
+    }
+    for (int pageNo : e->redactPages) {
+        engine->InvalidateTextForPage(pageNo);
+    }
+}
+
+// Whether an applied Apply Redactions step rewrote pageNo, so its content
+// differs from the file. A PDFium tab draws and reads such a page from the
+// editor until it is saved and reloaded.
+bool EngineMupdfPageRedacted(EngineBase* engine, int pageNo) {
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
+    if (!e || !e->pdfdoc || !e->hasRedactedPages) {
+        return false;
+    }
+    auto* ctx = e->Ctx();
+    ScopedRecursiveMutex docScope(&e->docLock);
+    if (!VecContains(e->redactPages, pageNo)) {
+        return false;
+    }
+    int pos = EngineMupdfUndoPos(e, nullptr);
+    for (int i = 0; i < len(e->redactPages); i++) {
+        if (e->redactPages[i] != pageNo) {
+            continue;
+        }
+        int step = e->redactSteps[i];
+        // unknown step, or the journal is busy: the editor has the current content
+        if (step < 0 || pos < 0) {
+            return true;
+        }
+        if (step >= pos) {
+            // undone
+            continue;
+        }
+        const char* name = nullptr;
+        fz_try(ctx) {
+            name = pdf_undoredo_step(ctx, e->pdfdoc, step);
+        }
+        fz_catch(ctx) {
+            fz_report_error(ctx);
+            return true;
+        }
+        if (name && str::Eq(Str(name), Str(kApplyRedactionsOp))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Apply every /Redact annotation: rewrite the page content, drop the marks,
 // and return the Sumatra wrappers that MuPDF deleted (caller must Detach +
 // DeleteAnnotation). Incremental save is unsafe afterwards; pdfdoc->redacted
@@ -9986,8 +10058,11 @@ bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut
 
     auto* ctx = e->Ctx();
     bool any = false;
+    // the undo step this apply becomes: -1 when nested in another or unjournalled
+    int step = e->pdfdoc->journal ? EngineMupdfUndoPos(e, nullptr) : -1;
+    Vec<int> redacted;
     // MuPDF journals each page separately; applying is one undo step.
-    ScopedEngineOperation op(engine, "Apply redactions");
+    ScopedEngineOperation op(engine, kApplyRedactionsOp);
     ScopedRecursiveMutex pagesScope(&e->pagesLock);
     ScopedMutex renderScope(&e->renderLock);
 
@@ -10064,6 +10139,7 @@ bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut
         }
         InvalidateFzPageAfterContentChange(e, pi);
         e->InvalidateTextForPage(pageNo);
+        VecAppend(redacted, pageNo);
         any = true;
     }
 
@@ -10071,6 +10147,8 @@ bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut
         e->modifiedAnnotations = true;
         // the marks are burned in and gone; nothing left to apply
         e->createdRedactMark = false;
+        RecordRedactedPages(e, step, redacted);
+        InvalidateRedactedText(engine, e);
     }
     return any;
 }
@@ -10452,6 +10530,7 @@ static bool EngineMupdfUndoRedo(EngineBase* engine, bool redo, Vec<Annotation*>&
         return false;
     }
     SyncPagesAfterUndoRedo(e, removedOut);
+    InvalidateRedactedText(engine, e);
     return true;
 }
 

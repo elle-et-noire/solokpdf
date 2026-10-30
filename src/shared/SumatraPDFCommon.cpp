@@ -2380,18 +2380,6 @@ void ApplyRedactionsInTab(WindowTab* tab) {
         ShowWarningNotification(win, Tr("Failed to apply redactions"), kNotif5SecsTimeOut);
         return;
     }
-    if (engine->HasAnnotationEditor()) {
-        tab->ignoreNextAutoReload = true;
-        if (!EngineMupdfSaveUpdated(engine, {}, {})) {
-            tab->ignoreNextAutoReload = false;
-            ShowWarningNotification(win, Tr("Failed to apply redactions"), kNotif5SecsTimeOut);
-            return;
-        }
-        ReloadDocument(win, false);
-        tab->ignoreNextAutoReload = true;
-        ShowTemporaryNotification(win, Tr("Redactions applied."), kNotif5SecsTimeOut);
-        return;
-    }
     MainWindowRerender(win);
     ShowTemporaryNotification(win, Tr("Redactions applied."), kNotif5SecsTimeOut);
 }

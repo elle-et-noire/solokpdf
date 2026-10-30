@@ -2243,7 +2243,17 @@ class EnginePdfium : public EngineBase {
         return status;
     }
 
+    // The editor, when an applied redaction rewrote pageNo: PDFium still has the file's content.
+    EngineBase* RedactedEditor(int pageNo) {
+        EngineBase* res = AnnotationEditor(EditorLoad::IfLoaded);
+        return res && EngineMupdfPageRedacted(res, pageNo) ? res : nullptr;
+    }
+
     Pixmap* RenderPage(RenderPageArgs& args) override {
+        if (EngineBase* redacted = RedactedEditor(args.pageNo)) {
+            redacted->hideAnnotations = hideAnnotations;
+            return redacted->RenderPage(args);
+        }
         PdfiumProfile profile(StrL("render"), args.pageNo);
         PdfiumCookie localCookie;
         PdfiumCookie* cookie = &localCookie;
@@ -2451,6 +2461,9 @@ class EnginePdfium : public EngineBase {
     PageText ExtractPrefetchText(int pageNo) override { return ExtractText(pageNo, EditorLoad::IfLoaded); }
 
     PageText ExtractText(int pageNo, EditorLoad load) {
+        if (EngineBase* redacted = RedactedEditor(pageNo)) {
+            return redacted->ExtractPageText(pageNo);
+        }
         PdfiumProfile profile(StrL("text"), pageNo);
         PageText result;
         bool widgetText = false;
@@ -2491,6 +2504,10 @@ class EnginePdfium : public EngineBase {
     }
 
     Vec<IPageElement*> GetElements(int pageNo) override {
+        EngineBase* redacted = RedactedEditor(pageNo);
+        if (redacted && redacted->BenchLoadPage(pageNo)) {
+            return redacted->GetElements(pageNo);
+        }
         bool useMupdf = false;
         {
             ScopedMutex lock(&gPdfiumLock);
