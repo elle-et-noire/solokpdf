@@ -46,10 +46,25 @@ export const excludedTests: Record<string, string> = {
   "issue-6279": "drives the system Save dialog on an administrative share, untried on a runner",
   // the daily job builds SumatraPDF-static.exe, which embeds no installer payload
   "issue-6025": "installer UI needs the embedded libsumatrapdf.dll, which the static CI exe does not have",
+  // both fail on both engines: the hosted desktop has no cursor input or RTL capture (backlog B37)
+  "toolbar-hover-dropdown": "right-clicks Save with the cursor, which the hosted desktop ignores",
+  "issue-6113": "captures an RTL window, which fails on the hosted desktop",
 };
 
+// MuPDF features PDFium tabs lack by design (backlog B21, B27)
+const pdfiumExcludedTests: Record<string, string> = {
+  "issue-5937": "Engineering Drawing Enhancement is hidden on PDFium tabs",
+  "issue-6361": "raster CAD detection needs the MuPDF enhance pass",
+  "issue-3731": "PDFium has no external-stream image loader",
+};
+
+function isExcluded(name: string): boolean {
+  if (excludedTests[name]) return true;
+  return process.env.SOLOKPDF_ENGINE !== "mupdf" && !!pdfiumExcludedTests[name];
+}
+
 export function ciTests(): NamedTest[] {
-  return allTests.filter(([name]) => !excludedTests[name]);
+  return allTests.filter(([name]) => !isExcluded(name));
 }
 
 type Failure = { name: string; msg: string };
@@ -89,7 +104,7 @@ export async function testit(tests: NamedTest[] = ciTests()): Promise<void> {
     throw new Error(`${EXE} doesn't exist: build it first (bun cmd/build.ts -asan -dbg)`);
   }
 
-  const skipped = Object.keys(excludedTests);
+  const skipped = allTests.map(([name]) => name).filter(isExcluded);
   console.log(`running ${tests.length} tests, skipping ${skipped.length}: ${skipped.join(", ")}\n`);
 
   const failures: Failure[] = [];
