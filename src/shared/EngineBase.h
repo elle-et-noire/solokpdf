@@ -116,6 +116,7 @@ struct PageText {
     Rect* coords = nullptr;
     QuadF* quads = nullptr; // glyph corners; null when the engine only has AABBs
     int nCodepoints = 0;    // number of Unicode codepoints and bounding boxes in coords
+    bool partial = false;   // cheaper text for hover; a blocking read extracts the full text
 };
 
 void FreePageText(PageText*);
@@ -579,9 +580,11 @@ class EngineBase {
     // caller needs to free() the result and *coordsOut (if coordsOut is non-nullptr)
     virtual PageText ExtractPageText(int) { return {}; }
     virtual bool TryExtractPageText(int pageNo, PageText* out);
+    virtual PageText ExtractPrefetchText(int pageNo) { return ExtractPageText(pageNo); }
 
     bool HasTextForPage(int pageNo);
     void RequestTextExtraction(int pageNo);
+    void PrefetchTextForPage(int pageNo);
     Str GetTextForPage(int pageNo, int* lenOut = nullptr, Rect** coordsOut = nullptr, QuadF** quadsOut = nullptr);
     bool TryGetTextForPage(int pageNo, int* lenOut = nullptr, Rect** coordsOut = nullptr, QuadF** quadsOut = nullptr);
     void InvalidateTextForPage(int pageNo);
@@ -677,7 +680,8 @@ class EngineBase {
   private:
     enum class TextReadMode {
         Blocking,
-        Nonblocking
+        Nonblocking,
+        Prefetch
     };
     bool ReadPageText(int pageNo, TextReadMode mode, Str& text, int* lenOut, Rect** coordsOut, QuadF** quadsOut);
     Location TextLocation(int pageNo);
@@ -700,6 +704,7 @@ class EnginePdfProxy : public EngineBase {
     Str GetImageDataForPageElement(IPageElement* ipel) override;
     bool TryGetElements(int pageNo, Vec<IPageElement*>* out) override;
     bool TryExtractPageText(int pageNo, PageText* out) override;
+    PageText ExtractPrefetchText(int pageNo) override;
     void ReleaseTextExtractionThreadContext() override;
     void GetPdfPageBoxes(int pageNo, Vec<PdfPageBox>& out) override;
     int GetOpenActionPageNo() override;

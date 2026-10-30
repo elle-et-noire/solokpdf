@@ -2,7 +2,9 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra, type ControlClient } from "./control.ts";
+import { findCanvas, FRAME_CLASS } from "./win-automation.ts";
 import { assemblePdf, EXE, runStandalone, tmpPath } from "./util.ts";
+import { getClientRect, packCoords, postMessage, waitForTopWindow, WM_MOUSEMOVE } from "./winapi.ts";
 
 const kWidget = "/Type /Annot /Subtype /Widget /F 4 /DA (/Helv 12 Tf 0 g)";
 const kRadio = 49152; // Radio | NoToggleToOff
@@ -86,6 +88,26 @@ async function highlights(client: ControlClient, pageNo: number): Promise<string
   return query(client, ["form-highlights", pageNo]);
 }
 
+const WM_SETCURSOR = 0x0020;
+const HTCLIENT = 1;
+
+// A cursor resting over the window (the CI runner's window covers the screen) hovers the page (B49).
+async function hoverPage(client: ControlClient, pid: number): Promise<void> {
+  const canvas = findCanvas(await waitForTopWindow(pid, FRAME_CLASS, 5000));
+  if (!canvas) throw new Error("no canvas");
+  const rc = getClientRect(canvas);
+  const kSteps = 24;
+  for (let i = 0; i <= kSteps; i++) {
+    for (let j = 0; j <= kSteps; j++) {
+      const x = Math.round(rc.left + ((rc.right - rc.left - 1) * i) / kSteps);
+      const y = Math.round(rc.top + ((rc.bottom - rc.top - 1) * j) / kSteps);
+      postMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
+      postMessage(canvas, WM_SETCURSOR, canvas, HTCLIENT | (WM_MOUSEMOVE << 16));
+    }
+  }
+  await client.waitForRenderIdle();
+}
+
 type State = { before: string[]; after: string[] };
 
 async function run(engine: string): Promise<State> {
@@ -97,16 +119,20 @@ async function run(engine: string): Promise<State> {
 
   return withControlledSumatra(
     EXE,
-    async (client) => {
+    async (client, proc) => {
       await client.waitForRenderIdle();
+      await hoverPage(client, proc.pid!);
       if (engine === "pdfium") {
         const editor = await query(client, ["editor"]);
-        if (editor !== "editor=none") throw new Error(`pdfium: form paint loaded the MuPDF editor (${editor})`);
+        if (editor !== "editor=none")
+          throw new Error(`pdfium: form paint or hover loaded the MuPDF editor (${editor})`);
       }
       const before = [await highlights(client, 1), await highlights(client, 2)];
       if (engine === "pdfium" && (await query(client, ["editor"])) !== "editor=none") {
         throw new Error("pdfium: highlight query loaded the MuPDF editor");
       }
+      // selecting reads the full text: the filled field's text, which only MuPDF extracts
+      await client.seedTextSelection(1);
       const res = await client.setFormField(1, 0, "typed");
       if (res[0] !== 0) throw new Error(`${engine}: fill: ${String(res[1])}`);
       const after = [await highlights(client, 1), await highlights(client, 2)];

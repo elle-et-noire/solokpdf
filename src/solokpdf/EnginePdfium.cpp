@@ -2445,7 +2445,12 @@ class EnginePdfium : public EngineBase {
         return hasText;
     }
 
-    PageText ExtractPageText(int pageNo) override {
+    PageText ExtractPageText(int pageNo) override { return ExtractText(pageNo, EditorLoad::Load); }
+
+    // Hover's prefetch never loads the editor: without it, text MuPDF must supply is left partial.
+    PageText ExtractPrefetchText(int pageNo) override { return ExtractText(pageNo, EditorLoad::IfLoaded); }
+
+    PageText ExtractText(int pageNo, EditorLoad load) {
         PdfiumProfile profile(StrL("text"), pageNo);
         PageText result;
         bool widgetText = false;
@@ -2474,11 +2479,12 @@ class EnginePdfium : public EngineBase {
             gPdfium.FPDF_ClosePage(page);
         }
         if (widgetText || missingUnicode) {
-            EngineBase* editor = AnnotationEditor(EditorLoad::Load);
+            EngineBase* editor = AnnotationEditor(load);
             if (editor) {
                 FreePageText(&result);
                 return editor->ExtractPageText(pageNo);
             }
+            result.partial = load == EditorLoad::IfLoaded;
         }
         profile.Mark(StrL("characters"));
         return result;

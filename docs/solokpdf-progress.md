@@ -1832,7 +1832,10 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   loose glyph boxes, line breaks and a CP-1251 font mapping preserve spacing,
   Unicode and selection bounds. A page with unmapped glyphs, or a shown widget
   whose appearance draws text (or, lacking one, has a value), uses MuPDF text
-  only when requested. Plain pages leave the editor unloaded.
+  only when requested. Hover's text prefetch keeps PDFium's text there until a
+  search, selection or copy reads the page, so hovering never loads the editor;
+  until then hover shows no I-beam over read-only field text (B49,
+  `ad-hoc-pdfium-form-highlight`). Plain pages leave the editor unloaded.
   `ad-hoc-pdfium-text-fallback` extracted all 95 pages of 3 corpus PDFs:
   Attention 15, BERT 16, Japanese IPA 64. `TestCurrentPdf editor` stayed
   `none` after every page (B14 check); no narrowing was needed.

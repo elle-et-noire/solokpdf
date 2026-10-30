@@ -37,7 +37,9 @@ static void EnsurePageText(PageText* pageText) {
         return;
     }
     // TakeStr()/Vec::Take() can allocate backing storage even for empty pages.
+    bool partial = pageText->partial;
     FreePageText(pageText);
+    pageText->partial = partial;
 }
 
 void FreePageText(PageText* pageText) {
@@ -467,15 +469,22 @@ enum class TextExtractionState {
 
 struct TextCacheEntry {
     PageText data;
+    // partial text a full one replaced, kept alive for a reader still holding its pointers
+    PageText superseded;
     TextExtractionState state = TextExtractionState::NotExtracted;
 
     // Consume text; a concurrent extraction may have filled this slot.
     void StoreText(PageText text) {
-        if (state == TextExtractionState::Finished) {
+        if (state == TextExtractionState::Finished || (text.partial && data.partial)) {
             FreePageText(&text);
             return;
         }
-        FreePageText(&data);
+        if (data.partial) {
+            FreePageText(&superseded);
+            superseded = data;
+        } else {
+            FreePageText(&data);
+        }
         data = text;
         state = TextExtractionState::Finished;
     }
@@ -488,6 +497,7 @@ struct ChapterTextCache {
     ~ChapterTextCache() {
         for (TextCacheEntry& page : pages) {
             FreePageText(&page.data);
+            FreePageText(&page.superseded);
         }
     }
 };
@@ -873,7 +883,7 @@ struct TextExtractionThreadData {
 };
 
 static void ExtractTextThread(TextExtractionThreadData* data) {
-    data->engine->GetTextForPage(data->pageNo);
+    data->engine->PrefetchTextForPage(data->pageNo);
     data->engine->ReleaseTextExtractionThreadContext();
     data->engine->Release();
     delete data;
@@ -986,7 +996,9 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
         ScopedMutex scope(&textCacheLock);
         TextCacheEntry* page = pageTextCache->Ensure(loc, count);
         // Finished includes textless pages. Pending still allows synchronous extraction.
-        extract = page->state != TextExtractionState::Finished;
+        // Partial (prefetched) text satisfies all but a blocking read.
+        bool done = page->state == TextExtractionState::Finished;
+        extract = mode == TextReadMode::Blocking ? !done || page->data.partial : !done && !page->data.partial;
         if (extract && mode == TextReadMode::Blocking) {
             page->state = TextExtractionState::Pending;
         }
@@ -996,6 +1008,8 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
         PageText extracted;
         if (mode == TextReadMode::Blocking) {
             extracted = ExtractPageText(pageNo);
+        } else if (mode == TextReadMode::Prefetch) {
+            extracted = ExtractPrefetchText(pageNo);
         } else if (!TryExtractPageText(pageNo, &extracted)) {
             text = ReturnPageText({}, lenOut, coordsOut, quadsOut);
             return false;
@@ -1018,6 +1032,12 @@ bool EngineBase::TryGetTextForPage(int pageNo, int* lenOut, Rect** coordsOut, Qu
     return ReadPageText(pageNo, TextReadMode::Nonblocking, text, lenOut, coordsOut, quadsOut);
 }
 
+// Hover's background extraction: an engine may store partial text that GetTextForPage replaces.
+void EngineBase::PrefetchTextForPage(int pageNo) {
+    Str text;
+    ReadPageText(pageNo, TextReadMode::Prefetch, text, nullptr, nullptr, nullptr);
+}
+
 Str EngineBase::GetTextForPage(int pageNo, int* lenOut, Rect** coordsOut, QuadF** quadsOut) {
     Str text;
     ReadPageText(pageNo, TextReadMode::Blocking, text, lenOut, coordsOut, quadsOut);
@@ -1038,6 +1058,7 @@ void EngineBase::InvalidateTextForPage(int pageNo) {
         return;
     }
     FreePageText(&page->data);
+    FreePageText(&page->superseded);
     page->state = TextExtractionState::NotExtracted;
 }
 
@@ -1258,6 +1279,10 @@ bool EnginePdfProxy::TryGetElements(int pageNo, Vec<IPageElement*>* out) {
 
 bool EnginePdfProxy::TryExtractPageText(int pageNo, PageText* out) {
     return pdfEngine->TryExtractPageText(pageNo, out);
+}
+
+PageText EnginePdfProxy::ExtractPrefetchText(int pageNo) {
+    return pdfEngine->ExtractPrefetchText(pageNo);
 }
 
 void EnginePdfProxy::ReleaseTextExtractionThreadContext() {
