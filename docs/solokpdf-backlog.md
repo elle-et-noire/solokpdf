@@ -66,6 +66,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B35 | External PDF viewers         | Run 3: issue-6184            | done — Open PDFium tabs in known PDF viewers (fixes #6184)                                                                |
 | B36 | Hosted window geometry       | Run 3: window tests          | done — Size test windows within the work area                                                                             |
 | B37 | Cursor and RTL capture tests | Run 3: input and capture     | blocked — Locked desktop prevents cursor and capture checks                                                               |
+| B38 | PDF catalog layout           | Run 3: issue-2022            | blocked — PDFium has no public PageLayout query; routine editor load barred                                               |
 
 ## C. Coexistence with SumatraPDF
 

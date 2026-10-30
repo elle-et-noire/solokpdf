@@ -1715,6 +1715,12 @@ notification capture hangs on the locked desktop. Neither test can establish
 an app regression in this session; B37 is blocked until an interactive desktop
 can run the targeted tests.
 
+`issue-2022` passes with MuPDF but PDFium opens the R2L two-column document
+with `r2l=0`. PDFium exposes `/ViewerPreferences/Direction` but has no public
+`/PageLayout` query. Loading the hidden MuPDF editor for every ordinary PDF
+open would violate the PDFium-only routine path; scanning raw bytes would miss
+compressed catalog objects. B38 is blocked on a reliable cheap catalog gate.
+
 PDFium reports a 12-point text line as about 60 × 8.7 points. The trim guard
 discarded it because its height was under 10 points. It now discards a box
 only when both dimensions are under 10 points. `issue-trim-margins` fails

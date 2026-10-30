@@ -20,6 +20,8 @@ screen space than the 1024 × 720 runner provided (E); corrected tests pass
 locally. `lazy-tab-state-after-save` seeds a disabled session (S).
 `toolbar-hover-dropdown` and `issue-6113` still need interactive cursor and
 capture verification (E); the local locked desktop prevents it (B37).
+`issue-2022` remains a PDFium catalog-layout gap (P); PDFium has no public
+`PageLayout` query, and routine editor loads are barred (B38).
 
 ## Complete paired runs
 
