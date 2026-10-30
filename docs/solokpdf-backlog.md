@@ -71,6 +71,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B40 | HTML next-file navigation    | Run 3: issue-5918            | blocked — Local reruns fail both engines; cause unisolated                           |
 | B41 | Palette tab deletion         | Run 4: PDFium only           | done — Record palette flake (B41)                                                     |
 | B42 | Home scrollbar assertion     | Run 4: issue-6367            | done — Fix home scrollbar test (B42)                                                  |
+| B43 | Tab scroll assertion         | Run 4: issue-6405            | done — Allow tab scroll rounding (B43)                                                |
 
 ## C. Coexistence with SumatraPDF
 

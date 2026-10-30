@@ -2064,6 +2064,10 @@ past the hosted runner's 989 × 640 client area. The test now checks scrollbar
 visibility against the last caption and available area (B42, S). Local PDFium
 and MuPDF runs passed.
 
+Run 4 `issue-6405` failed on both engines after a 1–2 px tab-switch scroll
+change. The original top-reset bug would move hundreds of pixels; the test now
+allows 2 px of rounding (B43, S). Local PDFium and MuPDF runs passed.
+
 The complete paired Actions logs at `e7de6e7ac` reached all 462 eligible
 tests on each engine. PDFium passed 342 and MuPDF passed 370; 122 distinct
 tests failed (P30 S80 R5 E5 M2). The 83 tests missed by earlier partial logs

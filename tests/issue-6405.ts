@@ -11,6 +11,7 @@ const WM_MOUSEWHEEL = 0x020a;
 const WM_COMMAND = 0x0111;
 const WHEEL_DELTA = 120;
 const SWITCHES = 30;
+const SCROLL_TOLERANCE = 2;
 
 async function wheelDown(canvas: number, notches: number): Promise<void> {
   await ensureModifierKeysUp();
@@ -73,7 +74,7 @@ export async function testit(): Promise<void> {
       await selectTab(client, frame, "img.jpg");
       await sleep(100);
       const pos = getScrollInfo(canvas).pos;
-      if (pos !== want) {
+      if (Math.abs(pos - want) > SCROLL_TOLERANCE) {
         throw new Error(`issue-6405: switch ${i + 1}: image scroll ${want} -> ${pos}`);
       }
     }
