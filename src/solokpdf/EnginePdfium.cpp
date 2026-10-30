@@ -2460,6 +2460,21 @@ class EnginePdfium : public EngineBase {
     // Hover's prefetch never loads the editor: without it, text MuPDF must supply is left partial.
     PageText ExtractPrefetchText(int pageNo) override { return ExtractText(pageNo, EditorLoad::IfLoaded); }
 
+    // Search and the I-beam hover skip a page while its render owns the lock (not recursive).
+    // Like the prefetch it never loads the editor; a blocking read completes partial text.
+    bool TryExtractPageText(int pageNo, PageText* out) override {
+        if (EngineBase* redacted = RedactedEditor(pageNo)) {
+            return redacted->TryExtractPageText(pageNo, out);
+        }
+        *out = {};
+        if (!gPdfiumLock.TryLock()) {
+            return false;
+        }
+        gPdfiumLock.Unlock();
+        *out = ExtractText(pageNo, EditorLoad::IfLoaded);
+        return true;
+    }
+
     PageText ExtractText(int pageNo, EditorLoad load) {
         if (EngineBase* redacted = RedactedEditor(pageNo)) {
             return redacted->ExtractPageText(pageNo);
@@ -2544,6 +2559,20 @@ class EnginePdfium : public EngineBase {
             }
         }
         return PageElements(info);
+    }
+
+    // Paint's link outlines and link recompute skip a page while its render owns the lock.
+    bool TryGetElements(int pageNo, Vec<IPageElement*>* out) override {
+        if (EngineBase* redacted = RedactedEditor(pageNo)) {
+            return redacted->TryGetElements(pageNo, out);
+        }
+        *out = Vec<IPageElement*>();
+        if (!gPdfiumLock.TryLock()) {
+            return false;
+        }
+        gPdfiumLock.Unlock();
+        *out = GetElements(pageNo);
+        return true;
     }
 
     Vec<IPageElement*> PageElements(PdfiumPage* info) {
