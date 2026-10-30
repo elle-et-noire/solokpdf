@@ -35,18 +35,23 @@ RestoreSession = false
 RememberOpenedFiles = false
 `;
 
-async function frameCount(client: ControlClient, pid: number): Promise<number> {
+// A relayout's WM_SETREDRAW FALSE clears WS_VISIBLE on a shown frame for a moment, so
+// "visible" can miss one; "existing" counts frames until they are destroyed.
+type FrameFilter = "visible" | "existing";
+
+async function frameCount(client: ControlClient, pid: number, filter: FrameFilter): Promise<number> {
   if (IS_MAC) {
     const raw = String((await client.request(ControlCommand.TestUiState, []))[1] ?? "");
     return Number(/windows=(\d+)/.exec(raw)?.[1] ?? "0");
   }
-  return getFrames(pid).length;
+  return getFrames(pid, filter).length;
 }
 
-function getFrames(pid: number): number[] {
+function getFrames(pid: number, filter: FrameFilter): number[] {
   const res: number[] = [];
   enumWindows((hwnd) => {
-    if (getWindowPid(hwnd) === pid && getClassName(hwnd) === FRAME_CLASS && isWindowVisible(hwnd)) {
+    const shown = filter === "existing" || isWindowVisible(hwnd);
+    if (getWindowPid(hwnd) === pid && getClassName(hwnd) === FRAME_CLASS && shown) {
       res.push(hwnd);
     }
     return true;
@@ -81,11 +86,13 @@ export async function testit(): Promise<void> {
     await client.waitForRenderIdle();
     sendCommandSync(frame, cmdId("CmdDuplicateInNewWindow"));
 
+    // judge the sample that ended the wait: a second one could catch a relayout
     const twoDeadline = Date.now() + 8000;
-    while ((await frameCount(client, proc.pid!)) < 2 && Date.now() < twoDeadline) {
+    let opened = await frameCount(client, proc.pid!, "visible");
+    while (opened < 2 && Date.now() < twoDeadline) {
       await sleep(50);
+      opened = await frameCount(client, proc.pid!, "visible");
     }
-    const opened = await frameCount(client, proc.pid!);
     if (opened !== 2) {
       throw new Error(`command-palette-delete-tab: expected 2 frames, got ${opened}`);
     }
@@ -126,7 +133,7 @@ export async function testit(): Promise<void> {
       } catch (e) {
         throw new Error(`command-palette-delete-tab: process died (${String((e as Error)?.message ?? e)})`);
       }
-      nFrames = await frameCount(client, proc.pid!);
+      nFrames = await frameCount(client, proc.pid!, "existing");
       if (nFrames === 1) {
         break;
       }

@@ -2073,6 +2073,12 @@ still needs GPUI input, hints, marks, and command-line UI.
 Run 4 on `88dda80cb`: `command-palette-delete-tab` failed once on PDFium
 (`expected 2 frames, got 1`) and passed on MuPDF. Three local reruns per engine
 passed (3/3 PDFium, 3/3 MuPDF); no code change is justified (B41, E).
+Run 5 failed it again on PDFium only, after 0.4 s. Five local runs per engine
+passed. The test sampled visible frames twice after the duplicate window
+appeared: a relayout's `WM_SETREDRAW FALSE` clears `WS_VISIBLE` for a moment,
+so the second sample could miss a frame. It now judges the sample that ended
+the wait and, after Delete, counts existing frames, so the closed window must
+be destroyed. Five reruns per engine pass (B41, S).
 
 Run 4 `issue-6367` failed on both engines because ten thumbnails still extend
 past the hosted runner's 989 × 640 client area. The test now checks scrollbar
