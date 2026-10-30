@@ -40,38 +40,39 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
 ### B7 follow-ups
 
-| ID  | Item                         | Evidence                     | Status                                                                               |
-| --- | ---------------------------- | ---------------------------- | ------------------------------------------------------------------------------------ |
-| B14 | PDFium text extraction       | B7 text group                | done — Measure PDFium text fallback (B14)                                            |
-| B15 | PDFium search                | B7 search group              | done — Join PDFium hyphenated search text (fixes #1189)                              |
-| B16 | PDFium links                 | B7 links group               | done — Link wrapped URLs in PDFium (fixes #2239)                                     |
-| B17 | PDFium annotations           | B7 annotations group         | blocked — Redaction reload loses undo journal; cursor tests need an unlocked session |
-| B18 | PDFium images                | B7 images group              | done — Enable PDFium image actions (fixes #6214)                                     |
-| B19 | PDFium fit content           | B7 layout group              | done — Fit PDFium content bounds (fixes #6241)                                       |
-| B20 | PDFium page boxes            | B7 page boxes group          | done — Report PDFium page boxes (fixes #814)                                         |
-| B21 | PDFium CAD enhance           | B7 CAD group                 | blocked — PDFium lacks CAD render controls; color changes barred                     |
-| B22 | PDFium bookmark colors       | B7 rendering group           | done — Honor PDFium bookmark styles (fixes #3560)                                    |
-| B23 | PDFium scroll responsiveness | B7 responsiveness group      | done — Skip PDFium hover queries while a render holds its lock (fixes #6362)         |
-| B24 | PDFium XMP properties        | B7 XMP group                 | done — Fill PDFium XMP properties from lazy editor                                   |
-| B25 | Restore lazy session tab     | B7 R: lazy tab no-doc        | blocked — test seeds wrong file and disables opened-file memory                      |
-| B26 | PDFium comment authors       | B7 R: issue-5329             | done — Verify PDFium comment authors                                                 |
-| B27 | PDFium external images       | B7 R: issue-3731             | blocked — PDFium lacks external stream loader; editor render barred                  |
-| B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | done — Select PDFium bookmarks under the hidden tree root                            |
-| B29 | PDFium trim margins          | B7 P: issue-trim-margins     | done — Keep narrow text bounds when trimming                                         |
-| B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | done — Avoid modal AI install dialog in tests                                        |
-| B31 | Control output assertions    | Run 3: issue-5944, issue-906 | done — Accept current `screen` and `rect` fields                                     |
-| B32 | CI annotation cursor         | Run 3: annotation CI         | done — Park cursor before checking lazy editor                                       |
-| B33 | Trim restore assertion       | Run 3: trim restore          | done — Compare page aspect on every platform                                         |
-| B34 | Condensed header spacing     | Run 3: issue-5871            | done — Keep PDFium condensed word spaces (fixes #5871)                               |
-| B35 | External PDF viewers         | Run 3: issue-6184            | done — Open PDFium tabs in known PDF viewers (fixes #6184)                           |
-| B36 | Hosted window geometry       | Run 3: window tests          | done — Size test windows within the work area                                        |
-| B37 | Cursor and RTL capture tests | Run 3: input and capture     | blocked — Locked desktop prevents cursor and capture checks                          |
-| B38 | PDF catalog layout           | Run 3: issue-2022            | done — Honor PDF catalog layout (fixes #2022)                                        |
-| B39 | MuPDF shape placement        | Run 3: shape placement       | blocked — Cursor stays at origin on locked desktop                                   |
-| B40 | HTML next-file navigation    | Run 3: issue-5918            | blocked — Local reruns fail both engines; cause unisolated                           |
-| B41 | Palette tab deletion         | Run 4: PDFium only           | done — Record palette flake (B41)                                                     |
-| B42 | Home scrollbar assertion     | Run 4: issue-6367            | done — Fix home scrollbar test (B42)                                                  |
-| B43 | Tab scroll assertion         | Run 4: issue-6405            | done — Allow tab scroll rounding (B43)                                                |
+| ID  | Item                                                                                                                                                                        | Evidence                     | Status                                                                               |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------ |
+| B14 | PDFium text extraction                                                                                                                                                      | B7 text group                | done — Measure PDFium text fallback (B14)                                            |
+| B15 | PDFium search                                                                                                                                                               | B7 search group              | done — Join PDFium hyphenated search text (fixes #1189)                              |
+| B16 | PDFium links                                                                                                                                                                | B7 links group               | done — Link wrapped URLs in PDFium (fixes #2239)                                     |
+| B17 | PDFium annotations                                                                                                                                                          | B7 annotations group         | blocked — Redaction reload loses undo journal; cursor tests need an unlocked session |
+| B18 | PDFium images                                                                                                                                                               | B7 images group              | done — Enable PDFium image actions (fixes #6214)                                     |
+| B19 | PDFium fit content                                                                                                                                                          | B7 layout group              | done — Fit PDFium content bounds (fixes #6241)                                       |
+| B20 | PDFium page boxes                                                                                                                                                           | B7 page boxes group          | done — Report PDFium page boxes (fixes #814)                                         |
+| B21 | PDFium CAD enhance                                                                                                                                                          | B7 CAD group                 | blocked — PDFium lacks CAD render controls; color changes barred                     |
+| B22 | PDFium bookmark colors                                                                                                                                                      | B7 rendering group           | done — Honor PDFium bookmark styles (fixes #3560)                                    |
+| B23 | PDFium scroll responsiveness                                                                                                                                                | B7 responsiveness group      | done — Skip PDFium hover queries while a render holds its lock (fixes #6362)         |
+| B24 | PDFium XMP properties                                                                                                                                                       | B7 XMP group                 | done — Fill PDFium XMP properties from lazy editor                                   |
+| B25 | Restore lazy session tab                                                                                                                                                    | B7 R: lazy tab no-doc        | blocked — test seeds wrong file and disables opened-file memory                      |
+| B26 | PDFium comment authors                                                                                                                                                      | B7 R: issue-5329             | done — Verify PDFium comment authors                                                 |
+| B27 | PDFium external images                                                                                                                                                      | B7 R: issue-3731             | blocked — PDFium lacks external stream loader; editor render barred                  |
+| B28 | PDFium TOC selection                                                                                                                                                        | B7 P: toc-selection-visible  | done — Select PDFium bookmarks under the hidden tree root                            |
+| B29 | PDFium trim margins                                                                                                                                                         | B7 P: issue-trim-margins     | done — Keep narrow text bounds when trimming                                         |
+| B30 | Shared UI command hangs                                                                                                                                                     | B7 R: issue-5979, issue-6017 | done — Avoid modal AI install dialog in tests                                        |
+| B31 | Control output assertions                                                                                                                                                   | Run 3: issue-5944, issue-906 | done — Accept current `screen` and `rect` fields                                     |
+| B32 | CI annotation cursor                                                                                                                                                        | Run 3: annotation CI         | done — Park cursor before checking lazy editor                                       |
+| B33 | Trim restore assertion                                                                                                                                                      | Run 3: trim restore          | done — Compare page aspect on every platform                                         |
+| B34 | Condensed header spacing                                                                                                                                                    | Run 3: issue-5871            | done — Keep PDFium condensed word spaces (fixes #5871)                               |
+| B35 | External PDF viewers                                                                                                                                                        | Run 3: issue-6184            | done — Open PDFium tabs in known PDF viewers (fixes #6184)                           |
+| B36 | Hosted window geometry                                                                                                                                                      | Run 3: window tests          | done — Size test windows within the work area                                        |
+| B37 | Cursor and RTL capture tests                                                                                                                                                | Run 3: input and capture     | blocked — Locked desktop prevents cursor and capture checks                          |
+| B38 | PDF catalog layout                                                                                                                                                          | Run 3: issue-2022            | done — Honor PDF catalog layout (fixes #2022)                                        |
+| B39 | MuPDF shape placement                                                                                                                                                       | Run 3: shape placement       | blocked — Cursor stays at origin on locked desktop                                   |
+| B40 | HTML next-file navigation                                                                                                                                                   | Run 3: issue-5918            | blocked — Local reruns fail both engines; cause unisolated                           |
+| B41 | Palette tab deletion                                                                                                                                                        | Run 4: PDFium only           | done — Record palette flake (B41)                                                    |
+| B42 | Home scrollbar assertion                                                                                                                                                    | Run 4: issue-6367            | done — Fix home scrollbar test (B42)                                                 |
+| B43 | Tab scroll assertion                                                                                                                                                        | Run 4: issue-6405            | done — Allow tab scroll rounding (B43)                                               |
+| B44 | Gate the per-open catalog query (OpenAction, PageLayout, Direction) behind the existing geometry byte scan so PDFs without those keys skip it (~1 ms, 20 ms when encrypted) | `EnginePdfium`               | todo                                                                                 |
 
 ## C. Coexistence with SumatraPDF
 
@@ -86,7 +87,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | D1  | Release job in parallel with debug                                               | todo                                                                                   |
 | D2  | Compile cache (sccache) for CI builds                                            | todo                                                                                   |
 | D3  | Shard the full suite across runners                                              | deferred: the suite takes ~25 min once a hung test is cut off (per-test timeout added) |
-| D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)                                                  |
+| D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)                                                 |
 | D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | todo                                                                                   |
 
 ## E. Quality
@@ -94,7 +95,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | ID  | Item                                                | Status                                                                                                                              |
 | --- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | E1  | Close the remaining startup gap shown by A1         | done, no change needed: CI pairs put PDFium +2.3/+2.6 ms (normal open) and -1.3/-41.6 ms (direct launch) vs MuPDF on Attention/BERT |
-| E2  | Hours-long open/close/render leak stress            | done — Add PDFium leak stress (E2)                                                                                                    |
+| E2  | Hours-long open/close/render leak stress            | done — Add PDFium leak stress (E2)                                                                                                  |
 | E3  | ASan build of the app with PDFium for the fuzz test | deferred (prebuilt PDFium isn't ASan)                                                                                               |
 | E4  | Transparent-page compositing parity                 | deferred (rare documents)                                                                                                           |
 
