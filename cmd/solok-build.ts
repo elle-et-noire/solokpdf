@@ -57,12 +57,15 @@ for (const name of [
   "COPYING.BSD",
   "COPYING.AGPL",
   "readme.md",
-  "docs/solokpdf-progress.md",
-  "docs/solokpdf-benchmark-2026-10-24.json",
-  "docs/solokpdf-benchmark-release-2026-10-25.json",
-  "docs/solokpdf-benchmark-lazy-dest-2026-10-25.json",
-  "docs/solokpdf-profile-2026-10-25.json",
-  "docs/solokpdf-memory-2026-10-26.json",
+  "docs/solokpdf/README.md",
+  "docs/solokpdf/limitations.md",
+  "docs/solokpdf/features.md",
+  "docs/solokpdf/history.md",
+  "docs/solokpdf/data/benchmark-2026-10-24.json",
+  "docs/solokpdf/data/benchmark-release-2026-10-25.json",
+  "docs/solokpdf/data/benchmark-lazy-dest-2026-10-25.json",
+  "docs/solokpdf/data/profile-2026-10-25.json",
+  "docs/solokpdf/data/memory-2026-10-26.json",
 ]) {
   if (existsSync(name)) copyIn(name, name);
 }
@@ -90,7 +93,7 @@ for (const entry of readdirSync(join(pdfium, "licenses"), { recursive: true, wit
 copyIn(join(pdfium, "solok-pin.json"), "licenses/pdfium/solok-pin.json");
 writeFileSync(
   join(portable, "README-DEV.txt"),
-  "SolokPDF experimental portable build, derived from SumatraPDF.\nPDFium is the default PDF backend. Set SOLOKPDF_ENGINE=mupdf for comparison.\nSee docs/solokpdf-progress.md in the source checkout for limitations and tests.\nUpstream binary updates are disabled. Installer/associations are unvalidated.\n",
+  "SolokPDF experimental portable build, derived from SumatraPDF.\nPDFium is the default PDF backend. Set SOLOKPDF_ENGINE=mupdf for comparison.\nSee docs/solokpdf/limitations.md in the source checkout for limitations and tests.\nUpstream binary updates are disabled. Installer/associations are unvalidated.\n",
 );
 packaged.push("README-DEV.txt");
 

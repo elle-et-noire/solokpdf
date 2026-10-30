@@ -1,15 +1,10 @@
-# SolokPDF development log
+# SolokPDF history
 
-SolokPDF disables upstream update checks, commands and settings UI. Existing
-`CheckForUpdates` settings remain parseable but have no effect.
+Measurement and work log, oldest first. Current behavior is in
+[limitations.md](limitations.md); item status is in [backlog.md](backlog.md).
+Condensed measurements are in [data/](data/).
 
-## Current priority and handoff
-
-The move to PDFium is for its current text appearance: the user wants to avoid
-MuPDF's thinner-looking text. Preserve PDFium's font selection, antialiasing,
-render resolution and color processing. Do not switch the default to MuPDF to
-meet memory/startup targets. Font-info v2 remains probe-only because it changes
-rendered output.
+## Summary as of 2026-10-26
 
 Opaque views now use an identity gray palette when every rendered pixel is
 opaque and R=G=B; other opaque views use BGR. PDFium still renders unchanged BGRA.
@@ -19,14 +14,14 @@ a later variant that skips the lock only outside renders cut dense-wide zoom
 latency ~40% with lower peaks ("Lock-free page sizes" below).
 The 2026-10-25 single-buffer trial was also rejected: its large-tile savings came
 with a light-wide CPU regression and slower group restoration. Its measurements
-remain in `solokpdf-phase4-ownership-2026-10-25.json` and the tab-group reports.
+remain in `data/phase4-ownership-2026-10-25.json` and the tab-group reports.
 
 The tab-group pass has four qualifying pairs each for 4/8/16 tabs. Restore peaks
 fell 2–3 MiB at 4/8 tabs and 13.4 MiB at 16; active-ready time rose in all
 three sets. The 16-tab rerun excludes one high-load pair. The render-buffer
 trial is rejected for general use, including its light-wide CPU regression.
-See `solokpdf-tabgroup-2026-10-25.json` and
-`solokpdf-tabgroup-16-idle-2026-10-25.json`.
+See `data/tabgroup-2026-10-25.json` and
+`data/tabgroup-16-idle-2026-10-25.json`.
 
 A system font cache now cuts the first text page's load from 116–273 ms to
 31–62 ms with identical pixels; see "System font cache" below. With it, PDFium's
@@ -37,12 +32,11 @@ lock cut the 4-tab startup gap from +68 to +19 ms. Working set already matched
 MuPDF; tiles now live in mapped DIB sections like MuPDF's, so Private Bytes
 match too.
 
-Resume from `solokpdf-dev` after reading `agents.md`, `readme.md` and this file.
 The 2026-10-26 pass adds pixel-payload accounting and independent background-load
 monitoring. Its render-gate trial is deferred: a qualifying light-wide comparison
 used 10.4% more CPU with unchanged wall time. The active source retains pretrial
 rendering. Release/Debug folders and ZIPs were refreshed and checked. Evidence:
-`solokpdf-memory-2026-10-26.json`. The frozen pretrial Release remains
+`data/memory-2026-10-26.json`. The frozen pretrial Release remains
 `out/solok-finish-after-release/SolokPDF.exe`; the rejected older trial stays at
 `out/solok-ownership-after-release/SolokPDF.exe`. General resident-memory and
 startup improvements remain unestablished.
@@ -281,7 +275,7 @@ was caught by this test and corrected; it now exercises engine destruction.
 ## Phase 4: measured baseline, optimization incomplete
 
 Run `bun experiments/pdfium/benchmark-ui.ts <pdf>` after both builds exist.
-Raw samples are checked in as `docs/solokpdf-benchmark-2026-10-24.json`.
+Raw samples are checked in as `data/benchmark-2026-10-24.json`.
 
 Machine: Windows 10.0.26300 / 26H2, Intel i7-1260P, 16 logical processors,
 15.7 GiB RAM. Debug x64, v145, same 900×1000 requested window, 100% zoom,
@@ -324,7 +318,7 @@ machine, three runs and counter definitions as above, using the same optimized
 SolokPDF executable with the two engine choices. No unmodified upstream Release
 binary was built; these numbers must not be compared against the Debug baseline
 as an engine-only change. Raw data:
-`docs/solokpdf-benchmark-release-2026-10-25.json`.
+`data/benchmark-release-2026-10-25.json`.
 
 | Release engine | PDF tabs | First render idle, ms | Page 4 → idle, ms | 12 scroll lines → idle, ms | Private Bytes, MiB | Working set, MiB |
 | -------------- | -------: | --------------------: | ----------------: | -------------------------: | -----------------: | ---------------: |
@@ -351,7 +345,7 @@ PDFium/MuPDF DLLs. Same machine, PDF, requested window, zoom, isolated settings,
 warm file cache and PDB exclusion as above. Two rounds of three launches per
 variant/tab count; variant order reverses in each round's middle run. No build
 ran during measurement. Raw samples, PDF/executable/DLL hashes and round numbers:
-`docs/solokpdf-benchmark-lazy-dest-2026-10-25.json`.
+`data/benchmark-lazy-dest-2026-10-25.json`.
 
 Keep the before executable/PDB under `out/solok-phase4-baseline/`, with the same
 DLLs as the current portable build, then run:
@@ -397,7 +391,7 @@ test larger math/scan corpora before another cache or startup change.
 ### Font-loading diagnosis (2026-10-25)
 
 This iteration adds diagnostics; it adopts no new rendering/font policy.
-Raw measurements and hashes: `docs/solokpdf-profile-2026-10-25.json`.
+Raw measurements and hashes: `data/profile-2026-10-25.json`.
 
 `experiments/pdfium/make-corpus.ts` verifies the original paper's hash and creates
 two ignored fixtures: 20 copies merged into 300 vector pages (39.5 MiB), and all
@@ -477,7 +471,7 @@ Same machine as above, requested 900x1000 window, measured frame DPI 120,
 warm file cache and application PDBs temporarily hidden. Two rounds of three
 launches per variant/input/tab count; order alternates within each round and
 starts in the opposite order in round two. Raw counters, hashes, timings and
-pixel comparisons: `docs/solokpdf-memory-2026-10-25.json`.
+pixel comparisons: `data/memory-2026-10-25.json`.
 
 The workload visits pages 1/4, uses 25/50/100/200/400% zoom, scrolls, toggles
 transparency, visits all tabs, then repeats zoom/cancellation and closes tabs
@@ -536,7 +530,7 @@ bun experiments/pdfium/memory-ui.ts --before out/solok-memory-before/SolokPDF.ex
 
 A prior render-buffer serialization trial was rejected: memory gains were not
 consistent. It is absent from the final code. Its exploratory data are in
-`docs/solokpdf-memory-lock-trial-2026-10-25.json`; its first launch overlapped a
+`data/memory-lock-trial-2026-10-25.json`; its first launch overlapped a
 functional check and its workload differed, so do not combine it with the
 accepted comparison. Next: independent PDFs, inactive-tab/font retention and
 larger-tile cancellation costs.
@@ -553,7 +547,7 @@ without cache-trimming hooks under the PDFium mutex.
 
 Compared the Release executable from `e258f5944` with this change, using the same
 rebuilt DLLs on both sides. DLL/PDF/executable/source hashes, counters and image
-comparisons: `docs/solokpdf-memory-gray-2026-10-25.json`. Frozen inputs and workload
+comparisons: `data/memory-gray-2026-10-25.json`. Frozen inputs and workload
 match the previous storage experiment: 1/4 tabs, pages 1/4, 25/50/100/200/400%
 zoom, scrolling, transparency, tab visits, zoom cancellation and pending-render
 close. Two rounds of three launches per variant/input/tab count, alternating
@@ -732,7 +726,7 @@ gray/line view was visually inspected.
 
 All 52 final launches and 67 image comparisons completed. Counters, phase
 summaries, executable/DLL/PDF/source hashes and image hashes are in
-`docs/solokpdf-memory-extended-2026-10-25.json`; full polling samples and PNGs
+`data/memory-extended-2026-10-25.json`; full polling samples and PNGs
 remain under its `experiments[].path` directories. Earlier exploratory runs
 (`out/solok-independent-preflight`, `out/solok-independent-paired`) are excluded:
 the measurement helpers were still being extended. All temporarily hidden PDBs
@@ -885,7 +879,7 @@ comparisons: 80 standard-corpus, 16 gray/color/alpha/rotation edge, 20 dense-wid
 another 28 launches and 60 matching comparisons. Results are not mixed between
 candidate hashes. Input/executable/DLL/source/image hashes, phase summaries,
 CPU/pressure counters, lifecycle snapshots and test logs are recorded in
-`docs/solokpdf-phase4-batch-2026-10-25.json`; raw polling and PNGs stay in `out/`.
+`data/phase4-batch-2026-10-25.json`; raw polling and PNGs stay in `out/`.
 
 All temporary PDB renames were restored, and generated VS files were returned
 to their original state after verifying only `--with-pdfium` generation changes.
@@ -980,7 +974,7 @@ Release and Debug built with zero warnings/errors and passed the targeted GUI
 checks. There were 72 paired memory-workload launches (64 without diagnostics),
 118 matching image pairs and 72 document lifetimes in the open/close check.
 No full unit suite was run. The complete evidence is assembled in
-`solokpdf-phase4-ownership-2026-10-25.json`; raw counters, logs and screenshots
+`data/phase4-ownership-2026-10-25.json`; raw counters, logs and screenshots
 stay under `out/solok-ownership-*`. Debug output links needed retries after
 LNK1104; no ACL/security settings changed. Generated VS files were restored
 after validation. The previous accepted artifacts and portable build remain
@@ -1078,7 +1072,7 @@ PDBs were restored after every failed/finished run. Unrelated formatter-only
 hunks were reverted. No full suites, portable replacement or
 additional application optimization was performed.
 
-Results and audits are in `solokpdf-tabgroup-2026-10-25.json`. Raw data/captures:
+Results and audits are in `data/tabgroup-2026-10-25.json`. Raw data/captures:
 `out/solok-tabgroup-main/` and `out/solok-tabgroup-main-16/`; independent counter
 verification: `out/solok-tabgroup-cpu-reference.json`. The ownership candidate
 remains a large-tile peak-memory experiment. Defer adoption for ordinary group
@@ -1108,7 +1102,7 @@ peak with the trial. The largest sampling gap was 55.6 ms. The 4/8-tab gains
 remain small and the light-wide single-tab CPU regression remains. The trial
 was rejected for general use; only its render mutex and allocation counters
 were removed from `EnginePdfium.cpp`, restoring its `6a4198892` content. Full
-results are in `solokpdf-tabgroup-16-idle-2026-10-25.json`.
+results are in `data/tabgroup-16-idle-2026-10-25.json`.
 
 The reverted Release and Debug built with zero warnings/errors.
 Debug needed retries for intermittent output-file `LNK1104` errors.
@@ -1174,7 +1168,7 @@ and new two-document disk group/session-restart checks. The cache serializer's
 focused harness passed 27 checks. Full unit suites were not run; the clipboard
 baseline failure remains. Raw logs/PNGs stay in `out/solok-*`; condensed results,
 hashes, exclusions and controlled CPU samples are in
-`solokpdf-memory-2026-10-26.json`.
+`data/memory-2026-10-26.json`.
 
 ### Normal-PDF startup and resident-memory diagnosis (2026-10-26)
 
@@ -1211,7 +1205,7 @@ for background CPU (two BERT, two IPA attempts); the final IPA attempt could
 not start after the host exceeded the quiet-start limit for 60 seconds. No IPA
 performance or memory comparison qualifies. Full samples, exclusions, hashes
 and logs: `out/solok-normal-startup-2026-10-26/results.json`; condensed record:
-`docs/solokpdf-normal-startup-2026-10-26.json`. A pilot caught and corrected an
+`data/normal-startup-2026-10-26.json`. A pilot caught and corrected an
 empty-window `WaitRenderIdle` call in the measurement script; pilot data are
 excluded. Application C/C++ code and PDFium rendering were not changed.
 
@@ -1302,7 +1296,7 @@ resolution and colors. The next diagnostic is allocation attribution of
 post-visit non-pixel memory, followed by a pixel-identical font-matching
 candidate if one can be constructed. No application optimization was made.
 
-Condensed results and hashes: `docs/solokpdf-direct-startup-2026-10-26.json`.
+Condensed results and hashes: `data/direct-startup-2026-10-26.json`.
 Raw samples, exclusions, Cache Info text and logs are in
 `out/solok-direct-startup-2026-10-26/`,
 `out/solok-direct-startup-ipa-2026-10-26/` and their `-profile-` counterparts.
@@ -1393,7 +1387,7 @@ test a font-lookup candidate that keeps PDFium's font choice and rendered text
 pixels identical for aliases and Japanese glyphs. Keep tile-cache policy and
 rendering settings unchanged until that evidence exists. No optimization was
 implemented. Condensed results and hashes are in
-`docs/solokpdf-allocation-2026-10-26.json`; raw rows/PNGs/logs are under
+`data/allocation-2026-10-26.json`; raw rows/PNGs/logs are under
 `out/solok-alloc-*`, `out/solok-multi-alloc-*` and `out/solok-attrib-*`.
 
 ## Phase 5: portable development identity
@@ -1432,21 +1426,7 @@ access. Sidebar auto-hide test `issue-5819` could not move the cursor in the
 locked session. The extracted ZIP opened and rendered a PDF, then quit with
 exit code 0.
 
-- `kAppName` and executable identity change only with `SOLOKPDF_PDFIUM`.
-  The underlying upstream target name remains for a small build-system diff;
-  the staging wrapper names the runnable application `SolokPDF.exe`.
-- `SolokPDF-settings.txt`, local `SolokPDF` / `SolokPDF-data`, instance-map and
-  DDE service names are separate. Existing settings are not migrated or overwritten.
-- The frame, QuickLook agent class and mutex, QuickLook startup value, and
-  preview logging key and directory also have SolokPDF names.
-  `ad-hoc-solok-coexist` puts a fake SumatraPDF frame first and checks that
-  reuse and DDE reach SolokPDF.
-- Upstream binary update checks are disabled for this fork. Installer and file
-  associations are not configured or validated; use the portable application.
-- Copyright/license files remain unchanged. The package includes root notices,
-  vendored license files and all PDFium `licenses/` texts plus the pin manifest.
-  MuPDF and its AGPL obligations remain because the fallback/library remain.
-- No binary, downloaded PDF, build cache, PDB or archive is added to Git.
+SolokPDF's names, settings and notices: [Portable identity](features.md#portable-identity).
 
 ## System font cache (2026-10-26)
 
@@ -1474,7 +1454,7 @@ warm 31–62 ms on Attention/BERT; IPA 7–12 ms throughout. Warm enumeration
 took 27–58 ms: 7–15 ms for the key and cache, the rest PDFium's own pass over
 ~5,200 GDI entries. `tests/ad-hoc-pdfium.ts` compares off/cold/warm on a
 fixture with unembedded localized fonts and Japanese glyphs; serving empty
-`name` tables made it fail. Results: `solokpdf-font-cache-2026-10-26.json`.
+`name` tables made it fail. Results: `data/font-cache-2026-10-26.json`.
 
 ### Direct launch with a warm cache
 
@@ -1495,7 +1475,7 @@ state differs); only paired differences are comparable. Diagnostic
 pages render one after the other under `gPdfiumLock`, page 1 waiting 49–52 ms;
 its load then took 45–53 ms, 42–51 ms of it the font replay. On BERT the
 start-page thumbnail thread opened the PDF again and waited 118–136 ms for the
-lock. Results: `solokpdf-direct-startup-warm-2026-10-26.json`.
+lock. Results: `data/direct-startup-warm-2026-10-26.json`.
 
 ### Startup font warm-up
 
@@ -1513,7 +1493,7 @@ previous build's hashes; first-page loads fell to 3–14 ms. Same-exe A/B,
 warm-up on minus off, five pairs each: Attention −91 ms, BERT −105 ms, IPA
 +5 ms (−15 to +93). Against MuPDF, on a noisier host than the warm-cache
 pass: +13/+79/+56 ms. Closed-document Private Bytes stayed at MuPDF's level
-(77.7 vs 77.6 MiB). Results: `solokpdf-font-warmup-2026-10-26.json`.
+(77.7 vs 77.6 MiB). Results: `data/font-warmup-2026-10-26.json`.
 
 ### Shared thumbnail engine
 
@@ -1543,7 +1523,7 @@ hashes and a debug view capture was byte-identical.
 PDFium minus MuPDF: +68 ms before, +50 ms with file I/O outside the lock,
 +19 ms with both. 1-tab medians moved within noise (+17, +15, +62 ms; the
 control connected at the same time in the gated runs). Results:
-`solokpdf-lock-scope-2026-10-26.json`.
+`data/lock-scope-2026-10-26.json`.
 
 ### Zoom latency
 
@@ -1620,468 +1600,9 @@ didn't change measurably (+31–46 ms behind MuPDF before, +46 ms after, four
 gated pairs each); the stall delayed UI work, not rendering. Raw data:
 `out/solok-uilock-{dense,light}`, `out/solok-uilock-*-run*`.
 
-## Theme page colors (2026-10-27)
+## CI compile cache plan (D2, dropped)
 
-With `DocumentColorsFollowTheme = smart`, PDFium pages take the theme's text and
-background colors, as MuPDF's do; `EngineUsesDocumentColorsFollowTheme` used to
-exclude PDFium, so its pages stayed white under every theme. Photos keep their
-colors on dark and light themes; MuPDF keeps them on dark themes only.
-
-- The recolor is `RenderCache`'s shared bitmap pass. `EnginePdfium`
-  `GetBitmapRecolorSkipRects` reports image rects from PDFium's page objects,
-  including images in form XObjects, collected on a page's first themed render.
-- Each image is decoded once (`FPDFImageObj_GetBitmap`) for MuPDF's classifier,
-  now shared as `PdfDarkModeShouldPreserveImagePixels`: scans, layout panels and
-  figures on a flat light backdrop (#6088) recolor with the page, as do 1-bit
-  images and thin strips.
-- Tiles showing a photo skip gray storage: a gray tile's palette recolor can't
-  spare it. `off` renders as before; `legacy` recolors everything.
-- `RenderCache` no longer keeps only a tile's largest skip rect; MuPDF already
-  returns at most one.
-
-New themes: Catppuccin Latte/Frappe/Macchiato, Gruvbox Light, Everforest Light,
-Rose Pine Dawn, Sepia.
-
-Inactive tabs of 13 dark themes took colors from outside their palettes, mostly
-purple (Solarized Dark `#5b0c6f`): upstream copied an old computed blend. They
-now use a neighboring color of the theme's own palette, as Light and Dark do.
-
-Themes change from the keyboard: the command palette (Ctrl+K) lists every
-theme as "Set theme '…'" (upstream hides them there), and the Change Theme
-dialog previews with the arrow keys, applies with Enter and cancels with Esc.
-`T` / `Shift+T` (`CmdNextTheme` / `CmdPrevTheme`, new) step through the themes
-in menu order, wrapping, and show the new theme's name.
-`tests/ad-hoc-theme-keyboard.ts` drives all three.
-
-`smart` is now the default (upstream: `off`); a settings file that saved `off`
-keeps it. Light keeps white pages; Light Gray (new) is the gray-page variant,
-with gray sidebar, tabs, toolbar and title bar too.
-
-`tests/ad-hoc-pdfium-theme.ts` checks a dark and a light theme: no white paper,
-both photos untouched, a figure's gray backdrop recolored, and `legacy` recoloring
-photos; it fails on the previous build. `issue-6088` and `issue-5911`, run with
-SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
-
-`ad-hoc-pdfium-theme-switch` keeps one PDFium tab open through dark → light →
-dark, then smart → legacy → off → smart. Photo and paper counts return to their
-original values. PDFium's cached image rectangles describe page objects and do
-not depend on theme or mode; `UpdateDocumentColors` advances the render cache's
-dark-mode epoch. B6 needs no engine invalidation.
-
-## Known limitations and next work
-
-PDFium's bookmarks tree was present but its first item stayed unselected:
-the selection walker treated the hidden root as collapsed. It now selects
-top-level items. `toc-selection-visible` passes on both engines (B28).
-
-`issue-5944` and `issue-906` now accept the control pipe's `screen=` and
-`rect=` fields; both pass locally (B31).
-
-Run 3 CI placed the window under the cursor, so `OnMouseMove` on an annotated
-page could load the editor before the render-only assertion. The test now
-parks the cursor outside the window before opening it and restores it after.
-The test passes locally; the CI rerun is pending (B32).
-
-Run 3's trim restore test rejected a real trim: page aspect changed from
-1.293 to 0.364, while the scroll extent shrank from 1279 to 721 and missed
-its arbitrary half-size threshold. The assertion now checks page aspect on
-every platform; the local test passes (B33).
-
-PDFium dropped the space in `Protected Access` from issue #5871 because its
-0.2 em filter rejected the condensed font's word gap. The same 0.1 em
-threshold used for MuPDF now keeps it. `issue-5871` fails before and passes
-after on PDFium (B34).
-
-Known external PDF viewers now accept a PDFium tab as a PDF document. Their
-file-extension gate still excludes other formats. `issue-6184` fails before
-and passes after with its temporary HKCU viewer registration (B35).
-
-Run 3's `issue-5979` and `issue-6017` blocked a synchronous command for
-120 seconds on both engines. The AI command opens a modal install dialog
-when Claude is absent. The tests now query provider availability through
-the control pipe before invoking it. Local DPI override toggles complete,
-and both tests pass; CI rerun is pending. `issue-6017` also sets its test
-process DPI awareness before comparing Win32 pixels (B30).
-
-Run 3's fullscreen restore, sidebar growth (`issue-6080`), and Home scrollbar
-(`issue-6367`) checks assumed a larger monitor than the runner's 1024 × 720
-work area. Their test windows now fit the work area. `issue-6367` also sets
-test-process DPI awareness so requested widths match measured widths. All
-three pass locally; CI rerun is pending (B36).
-
-Run 3 failed `toolbar-hover-dropdown` and `issue-6113` on both engines.
-Locally, toolbar clicks report the real cursor moving to `(0,0)`, and the RTL
-notification capture hangs on the locked desktop. Neither test can establish
-an app regression in this session; B37 is blocked until an interactive desktop
-can run the targeted tests.
-
-`issue-2022` failed before on PDFium (`r2l=0` for a catalog declaring R2L).
-The existing cheap MuPDF OpenAction query now reads `/PageLayout` and
-`/ViewerPreferences/Direction` before the display model is built. It does not
-load the hidden editor. Both engines pass `issue-2022`, including remembered
-state (B38). The page geometry byte scan now also looks for `/OpenAction`,
-`/PageLayout` and `/Direction`, including in Flate object streams; without
-them PDFium skips the query. Encrypted object streams and files of 32 MiB or
-more still query. `ad-hoc-pdfium-catalog-layout` checks a plain catalog, a
-compressed one and a catalog without these keys, whose open logs no query
-(B44).
-
-`shape-annotation-placement` failed three of three local MuPDF reruns: the
-first page click did not anchor the rectangle. This locked desktop pins the
-cursor at `(0,0)` during drag tests, so B39 needs an interactive rerun before
-an app change can be judged.
-
-`issue-5918` passed PDFium and failed MuPDF in Run 3. Three local MuPDF
-reruns failed at next-file navigation, and one local PDFium run failed there
-too. The folder scan completes, but the title remains `page-0000.html`.
-B40 is blocked until the shared navigation failure is isolated; the evidence
-does not support a MuPDF-only fix.
-
-PDFium reports a 12-point text line as about 60 × 8.7 points. The trim guard
-discarded it because its height was under 10 points. It now discards a box
-only when both dimensions are under 10 points. `issue-trim-margins` fails
-before and passes after on PDFium; MuPDF and trim restore also pass (B29).
-
-PDFium reuses its loaded bookmark tree without taking the global render lock.
-Hover annotation and link queries now also skip a page while rendering holds
-that lock, as MuPDF's hover does. `issue-6362` scrolls and changes pages
-without stalling locally; Run 3 CI saw a 4.3-second scroll block with its
-cursor over the window, so a CI rerun is needed (B23). Non-blocking PDFium
-text and element queries (B11) remain separate work.
-
-`lazy-tab-state-after-save` seeds the active settings file with
-`RememberOpenedFiles = true`, so the session restores a lazy tab, then rewrites
-it with `false` before the save that drops the session (B25). It passes on both
-engines.
-
-PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a render-device
-pass to vector strokes, text and narrow fills, adjusts minimum line width, and
-darkens raster drawings; PDFium has no equivalent per-render control. The toggle
-continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
-`ad-hoc-pdfium-commands` compares every command's menu and palette state
-between engines on plain, outlined, annotated, form and encrypted PDFs; this
-command is the only difference.
-`issue-6361` detects raster CAD on MuPDF and fails on PDFium. Detection without
-the prohibited PDFium color processing would leave the drawing unchanged (B21).
-
-- PDFium handles file-backed PDFs, in-memory attachments, `.p7m` PDFs and Kindle
-  Print Replica. The shell preview/filter DLLs and PDFs generated inside other
-  document engines retain their upstream paths. Files above 4 GiB fall back.
-- Password-protected PDFs open in PDFium via the password dialog, `-pwd` and
-  `DefaultPasswords`; a canceled dialog isn't repeated by MuPDF. PDFium's open
-  API accepts a password, not MuPDF's decryption key. When "Remember password"
-  is checked, file history keeps the existing MuPDF key and a separate PDFium
-  password encrypted with current-user DPAPI. The file's MD5 digest is DPAPI
-  entropy, so a changed file cannot reuse it. The password is never stored as
-  plain text; deleting the history entry deletes both values. Existing MuPDF
-  keys still reopen in MuPDF. DPAPI is user-scoped and local to Windows, so
-  copying settings to another account or machine does not carry the PDFium
-  password. Encrypted PDFs no longer reach the MuPDF-only PDF tools (e.g.
-  Decrypt) through the fallback. PDFium reads the effective print, copy,
-  annotation and form permissions from `FPDF_GetDocPermissions` and reads the
-  underlying user mask with `FPDF_GetDocUserPermissions`; security revision
-  `-1` means unencrypted. The effective mask gives an owner-password opener
-  full rights, matching MuPDF's `fz_has_permission`. Document Properties lists
-  all four denied operations on either engine. The standard Windows build
-  defines `DISABLE_DOCUMENT_RESTRICTIONS`, so both engines report denials but
-  allow the operations; changing that policy would change existing MuPDF
-  behavior. No MuPDF editor is loaded to read PDFium's permission flags.
-  `tests/ad-hoc-pdfium-permissions.ts` compares both engines with restricted
-  user and owner passwords and checks the standard build's print/form policy.
-- All eight destination views, link `/Contents` tooltips and GoToR/Launch file
-  links match MuPDF on a fixture (links and outline). PDFium reports
-  First/Last/Prev/NextPage actions only as unsupported and can't name a GoToR
-  destination without loading the target, so a page with such a link reads
-  them with MuPDF, like `/OpenAction`. Named links match MuPDF's targets and
-  rects, including on a cropped, rotated page; a GoToR with a named `/D` opens
-  the target there, as with MuPDF (an explicit page array opens at the start in
-  both). Outlines containing named actions or GoToR destinations use the lazy
-  MuPDF editor's TOC, including its attachment entries. PDFium reads ordinary
-  outlines itself. `tests/ad-hoc-pdfium-outline.ts` compares both engines.
-  PDFium reads bookmark colors and bold/italic styles through its own API;
-  `issue-3560` checks the sidebar colors against MuPDF.
-  GoToE remains unsupported by both engines.
-- Auto Generate TOC uses MuPDF's numbered-heading scanner for PDFium documents.
-  Its text-line and hierarchy rules therefore yield the same entries and pages
-  as MuPDF. PDFium opens the hidden editor only when the setting is enabled or
-  the command is invoked, and skips it when the PDF has an outline. The scan
-  stays on MuPDF's background thread; PDFium displays its generated tree when
-  ready. This avoids a second heuristic and leaves ordinary PDF opens and
-  renders unchanged. `tests/issue-5724.ts` checks exact entries and pages in
-  both engines; `tests/issue-6227.ts` checks the command on demand.
-- `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
-  API for it, so MuPDF reads it when the byte scan finds a catalog key. Release
-  cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB
-  vector PDF and 18.8–20.4 ms on IPA, whose AES-256 (R6) key check MuPDF
-  repeats.
-- Page labels match MuPDF in the toolbar and label lookup (fixture plus
-  Attention/BERT/IPA). Labels are read eagerly at open, one call per page.
-- PDFium tabs create a SyncTeX synchronizer when a sidecar exists. Command-line
-  and DDE forward search and inverse lookup use the same page coordinates as
-  MuPDF. The synchronizer needs only page count for `.synctex` and page media
-  boxes for legacy `.pdfsync`. Neither path loads the hidden editor.
-  `tests/ad-hoc-pdfium-synctex.ts` compares two pages and their rectangles.
-- Plain-text URLs, e-mails and DOIs become links through MuPDF's shared
-  linkifier, honoring `DisableAutoLinks`. PDFium uses the lazy MuPDF page
-  elements for unsupported actions, other annotations and navigating push
-  buttons; a form field's `/TU` tooltip comes from PDFium. Wrapped URLs join from
-  PDFium's page text without loading the editor. JavaScript menus and button
-  navigation still use MuPDF. `tests/ad-hoc-pdfium-links.ts` checks both engines.
-  PDFium text still differs on some plain URLs (4 of 95 sampled pages).
-- PDFium extracts routine page text through its own text API. Character gaps,
-  loose glyph boxes, line breaks and a CP-1251 font mapping preserve spacing,
-  Unicode and selection bounds. A page with unmapped glyphs, or a shown widget
-  whose appearance draws text (or, lacking one, has a value), uses MuPDF text
-  only when requested. Hover's text prefetch keeps PDFium's text there until a
-  search, selection or copy reads the page, so hovering never loads the editor;
-  until then hover shows no I-beam over read-only field text (B49,
-  `ad-hoc-pdfium-form-highlight`). Plain pages leave the editor unloaded.
-  `ad-hoc-pdfium-text-fallback` extracted all 95 pages of 3 corpus PDFs:
-  Attention 15, BERT 16, Japanese IPA 64. `TestCurrentPdf editor` stayed
-  `none` after every page (B14 check); no narrowing was needed.
-- PDFium drops its discretionary hyphen marker from extracted text, so search
-  joins split words as MuPDF does. `issue-1189` and the generated B15 search
-  test cover this path without loading the editor.
-- Fit Content and Fit Visible use PDFium page-object bounds, clipped to the
-  visible page. Blank pages use the page box. Zoom never loads the editor;
-  `issue-6241` checks the content ratio and editor state.
-- Page box overlays read explicit boxes through PDFium. An inherited box uses
-  the editor only when PDFium omits a named box that the file contains.
-  `issue-814` and the B20 test check direct and inherited boxes.
-- PDFium enumerates image bounds for cursor hit testing and the Selected Image
-  menu, cut to clip paths and the page as MuPDF's (`issue-6441`). Copy and Save resolve the matching image through the lazy MuPDF editor,
-  preserving orientation and CMYK JPEG/TIFF data without changing PDFium
-  rendering. `tests/ad-hoc-pdfium-images.ts` checks extraction and orientation;
-  `tests/issue-6360.ts` checks the context menu and clipboard.
-- With the active settings file, `issue-3731` passes on MuPDF and fails on
-  PDFium: an opt-in external image stream renders blank. PDFium exposes no
-  external stream loader. Rendering the page through the MuPDF editor passes,
-  but violates the PDFium render path and large-file memory/locking rules (B27).
-- Annotations of PDFium documents are edited, undone and saved by a hidden
-  MuPDF document of the same file, which draws them over PDFium's pages once
-  loaded, including redaction marks. PDFium's own incremental save, used before,
-  wrote every parsed object: one annotation added up to 35 MB.
-- PDFium loads the editor when an annotated page needs comment elements and
-  before the first annotation journal operation. Plain-page render and hover
-  leave it unloaded. The markup diagnostic now reads annotations from all pages.
-  `issue-5329` passes on both engines after seeding the active settings file;
-  annotation tooltips include authors when enabled (B26).
-  Cursor-driven annotation checks need an unlocked Windows session.
-- Applying redactions on a PDFium tab rewrites pages in the already loaded MuPDF
-  editor and, as on MuPDF tabs, leaves the file unsaved and the step undoable.
-  Until Save reloads the tab, PDFium draws, extracts text and lists elements of
-  a page that an applied redaction step rewrote through the editor; undo returns
-  the page to PDFium (B17). The editor remains lazy until annotation work starts;
-  ordinary PDF open and render are unchanged.
-  `tests/ad-hoc-pdfium-redactions.ts` runs `redact-annotations.ts` in both
-  engines; `ad-hoc-pdfium-redaction-undo` checks the black box, text, file and
-  undo/redo in both, and `annot-undo-one-step`'s redaction part passes on both.
-- PDF tools accept a PDFium tab. The viewer stays in PDFium while MuPDF's
-  existing file tools perform bake, compression, page extraction/deletion,
-  encryption/decryption, merge, text extraction and scripts on demand. Merge
-  uses the lazy MuPDF editor only for an encrypted tab's password or unsaved
-  annotations; bake and extract likewise copy unsaved annotations. File tools
-  open or reload their output through the normal PDFium path. View rotation
-  already works in both engines; it does not rewrite page rotation in the file.
-  `tests/ad-hoc-pdfium-tools.ts`, `merge-struct-parents.ts`, `tool-merge.ts`
-  and `pdf-script.ts` cover these paths.
-- Document-level JavaScript runs in PDFium documents through the hidden MuPDF
-  editor when enabled. Neither engine supports editing XFA forms; PDFium shows
-  them read-only and reports XFA in Unsupported Features, matching MuPDF's
-  read-only fallback.
-  Document Properties lists the ones a document uses ("Unsupported
-  Features"; empty for most papers), checked by
-  `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
-  a notification on every load. Signed PDFium documents use the hidden MuPDF
-  editor for verification text and certificate details in Document Properties.
-  PDFium's signature count gates that load; ordinary PDFs stay on PDFium alone.
-  Sign Document and signature-field clicks use the lazy MuPDF editor to sign,
-  certify and save incrementally, then reopen the result in PDFium while
-  retaining the view state. Unsaved annotation and form edits share that save.
-  See `docs/solokpdf-forms.md`.
-- PDFium's attachment count gates loading the hidden MuPDF editor when the TOC
-  is first requested. Its attachment entries are copied after PDFium's bookmarks;
-  the same editor supplies bytes to Open/Save Attachment. This keeps ordinary
-  PDF opens and renders on PDFium alone and avoids PDFium's whole-document save.
-  A page-link query checks PDFium annotation subtypes and reads FileAttachment
-  links from that editor only when the page has one. The editor's quick page
-  load avoids text extraction. `tests/ad-hoc-pdfium-unsupported.ts` checks the
-  list against MuPDF; `tests/embedded-image-attachment.ts` opens a page
-  attachment in both engines.
-- Document Properties parses PDFium's `CreationDate` and `ModDate` as PDF dates,
-  including their time zones, matching MuPDF (`tests/ad-hoc-pdfium-dates.ts`).
-  Missing Info properties fall back to the lazy MuPDF editor when the file has
-  Catalog XMP metadata. Info values win. `xmp-properties` checks both engines;
-  a generated XMP document is in the quick SolokPDF CI checks.
-- Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
-  annotation except widgets, so form fields used to be blank; documents with
-  an AcroForm now get a form handle and `FPDF_FFLDraw` after each render
-  (`ad-hoc-pdfium`: 9600 widget pixels on screen and in print, as MuPDF). For
-  fields without an appearance (`NeedAppearances`) PDFium builds its own, as in
-  Chrome: its checkmark glyph and a combo box arrow differ from MuPDF's. Fields
-  can be filled through the hidden MuPDF editor, which loads on the first
-  click on a field or edit only when PDFium reports an AcroForm.
-  `HighlightFormFields` and the hover cursor (I-beam or hand, by MuPDF's
-  smallest-widget and read-only rules) read fields with PDFium's form API until
-  then, so painting, hovering and clicking off fields do not load it
-  (`tests/ad-hoc-pdfium-form-highlight.ts`, `tests/ad-hoc-pdfium-form-hover.ts`). Once loaded, MuPDF draws widgets
-  over PDFium's page instead of PDFium's widget pass, so edited values do not
-  show stale appearances. Text, choice, checkbox and radio edits use MuPDF's
-  existing incremental save and undo paths. `tests/issue-6240.ts` checks
-  buttons and saving; `tests/ad-hoc-pdfium-forms.ts` checks text and choice
-  values, view/print rendering and saved copies in both engines. XFA remains
-  unsupported; signing uses the same lazy MuPDF editor for PDFium documents.
-  PDFium draws untouched widgets. The first click on a field loads the hidden MuPDF
-  editor, whose widgets replace PDFium's widget pass after an edit; documents
-  without forms keep the PDFium-only open and render path. Its existing edit,
-  undo and incremental save paths handle text, choice and button fields.
-  `EngineMupdf::FinishLoading()` enables form JavaScript in that editor under
-  the same `DisableJavaScript` setting as a MuPDF document, with no separate
-  PDFium script runner. A calculated value survives save and reopen in both
-  engines (`tests/ad-hoc-pdfium-form-js.ts`). PDFium checks the document's
-  JavaScript action count on open and loads the editor only when it is nonzero
-  and JavaScript is enabled. This runs document scripts before the first page
-  render; its widgets then show any initialized values. Loading on open avoids
-  a second render and lets scripts affect the initial view. PDFs without
-  document scripts and runs with `DisableJavaScript` keep the PDFium-only open
-  path. `tests/ad-hoc-pdfium-document-js.ts` checks both engines, the setting,
-  initialized widget rendering and the no-script path.
-- View tiles use integer page extents. Tile edges came back from the
-  transform with float error (5507.9995 px) and were floored, drawing about a
-  third of high-zoom tiles a pixel off; they now snap within 0.05 px.
-  `tests/ad-hoc-pdfium-tiles.ts` checks 45-degree hairlines across tile edges
-  at five fractional zooms (res 1–4) for both engines. Page size, link/search
-  positions and rendered geometry now match MuPDF for offset/intersected page
-  boxes, snapped rotation and `/UserUnit` 0.5, 2 and 3.7
-  (`tests/ad-hoc-pdfium-pagebox.ts`). That test also covers compressed page
-  dictionaries in plain and Flate object streams. Encrypted object streams
-  and files at least 32 MiB use PDFium's own geometry: unusual `/UserUnit` or
-  rotation there may differ from MuPDF. Scanning those cases added 18.3 ms
-  and 16.2 ms to the measured encrypted IPA and 41 MB vector load-info
-  medians, respectively. The 33 MiB fixture checks this limitation.
-- Rotated text selects along glyph quads, as with MuPDF (`issue-4839`, which
-  failed with PDFium before). PDFium reports only axis-aligned boxes, so quads
-  are built from each glyph's matrix, origin, advance and the font's
-  ascent/descent; on the test's 45° Helvetica they match MuPDF's width and
-  direction and are 19% shorter (MuPDF uses the font bbox). Upright pages
-  keep no quads, as before.
-- Normal rendering is opaque white. The transparency-grid path uses alpha;
-  full transparent-page compositing parity and advanced dark-mode parity are
-  not established.
-- `FixedPageUI.WindowBgCol` colors the page surround on PDFium tabs as on
-  MuPDF tabs (`tests/ad-hoc-pdfium-window-bg.ts`). The Change Color dialog
-  already uses the fixed-page color for PDFium.
-- Print **bitmap generation** passed. PDFium tabs read `/ViewerPreferences`
-  print defaults through an on-demand MuPDF query, without loading the editor
-  (`tests/ad-hoc-pdfium-print-prefs.ts` checks all four values on both engines).
-  Physical printers, print dialogs, spooler behavior and export workflows were
-  not comprehensively tested.
-- Two-document Tab Groups and normal-session paths persisted across restart.
-  `tests/ad-hoc-pdfium-view-state.ts` restores page, zoom and scroll from the
-  session and from file history; both engines save identical values (scroll
-  within 0.2 pt of the seed). Crash recovery and inactive-tab allocation
-  attribution remain unverified.
-  `ad-hoc-pdfium-leak` cycles two PDF tabs through open, scroll, zoom, search,
-  tab switch and close. A 2-minute local run completed 147 cycles and 12 idle
-  samples: Private Bytes 113.1–126.7 MiB (last 115.7), handles 686→680,
-  GDI 225–226. The sustained-trend thresholds passed. `--minutes=N` extends
-  the duration; hours-long runtime has not been measured (E2).
-- `tests/ad-hoc-pdfium-fuzz.ts` mutates a seed covering every link action,
-  outline view, named destinations, page labels, boxes/rotation and rotated
-  text (plus corpus PDFs when present) at byte and token level (extreme numbers,
-  swapped keywords, dangling/cyclic references), then renders each input and
-  reads its links, outline and text in one Debug app, flagging a crash or a
-  20 s hang. 1,150 inputs (seeds 1 and 2) found none; most still reached
-  rendering, links and the outline. Debug only: no ASan build of PDFium or the
-  app, so silent memory errors aren't caught. Chrome/Edge comparisons remain.
-  A passing close stress check is not an exhaustive proof against races.
-- The clipboard unit-test failure seen on the unchanged baseline came from this
-  host: right after `GetClipboardData` the clipboard was no longer open
-  (`ERROR_CLIPBOARD_NOT_OPEN`, no formats). ESET's `ebehmoni.dll` and ATOK's TIP
-  are injected into the process; which one closes it is unconfirmed. The test
-  now opens the clipboard per read and retries, and `GetClipboardImageAsPixmap`
-  retries while `CF_BITMAP` is still listed. The unit suite then passed 11 runs
-  in a row (before, most runs failed). No tests were removed or disabled.
-- Files of 32 MiB or more keep a handle that shares writes, as MuPDF's does:
-  producers can overwrite them while open and the document reloads
-  (`tests/ad-hoc-pdfium.ts` covers small and 33 MiB files). PDFium Save As
-  after rename/delete reads that handle (`tests/ad-hoc-pdfium-saveas.ts`).
-  Hover scans PDFium's page annotation subtypes before loading the hidden
-  MuPDF editor; plain pages keep their files renameable, while annotated pages
-  retain annotation hover (`tests/ad-hoc-pdfium-hover.ts`). MuPDF's large-file
-  handle blocks rename/delete on Windows once its editor is loaded.
-- GitHub Actions CI builds SolokPDF debug on pushes and PRs to `solokpdf-dev`.
-  It runs unit tests and selected PDFium, Vim, count-prefix, and update-check
-  tests. Pushes and manual runs also build the release ZIP after debug passes;
-  the ZIP is kept as an Actions artifact for 14 days. No upload secrets are used.
-- The full-suite workflow runs weekly on Monday at 02:00 JST with separate
-  PDFium and MuPDF jobs; manual runs still accept an engine and test filter (D4).
-
-The first development milestone (native build, PDFium pages in the original
-UI, MuPDF comparison, reproducible steps and explicit gaps) has been reached.
-Full feature/performance parity and release readiness have not been reached.
-
-## Count prefix
-
-`KeyScrollLineAmount` sets the vertical keyboard line step (default 48 px at
-96 DPI); values below 1 fall back to `ScrollLineAmount`. `j`/`k`, Up/Down,
-command counts, and count prefixes use it. Wheel, touchpad, scrollbar arrows,
-and horizontal scrolling retain `ScrollLineAmount`. Ng uses the same keyboard
-step; its command count behavior remains separate.
-
-In the document view, digits prefix the next scroll or page command (`3j`,
-`10k`). The prefix multiplies a command's own count argument, stops at 9999,
-and clears on Esc, mouse input, focus loss, or another command. A shortcut
-assigned to a digit takes precedence. The pending count appears at the bottom
-right. This Windows UI behavior has no ng counterpart yet.
-
-## Keyboard shortcuts dialog
-
-Settings > Customize Keyboard Shortcuts opens a filterable command and binding
-list. It captures key combinations, accepts command arguments, warns before
-reassigning a key, and removes or resets user bindings. OK saves Shortcuts and
-reloads accelerators immediately; Cancel discards edits. Built-in keys cannot
-be removed because the settings format has no way to suppress them without
-assigning the key to another command. Ng needs a GPUI version of this dialog.
-
-## Vim key mode
-
-`VimKeys = true` enables the mode; it is off by default. Settings > Vim Key
-Mode and the command palette toggle it. User `Shortcuts` take precedence.
-Keys work in the document canvas or frame, not in edit fields.
-
-| Keys                             | Action                                                     |
-| -------------------------------- | ---------------------------------------------------------- |
-| `gg`, `G`, `{n}gg`, `{n}G`       | First, last, or numbered page                              |
-| `/`, `n`, `N`                    | Find box, next match, previous match                       |
-| `Ctrl+O`, `Ctrl+I`               | Navigation back, forward                                   |
-| `f`                              | Label visible links; type a label to follow, Esc to cancel |
-| `m{a-z}`, `'{a-z}`, `` `{a-z} `` | Set or jump to a document mark                             |
-| `''`                             | Return to the position before the last jump                |
-| `Ctrl+D/U`, `Ctrl+F/B`           | Half-page or full-page down/up; counts apply               |
-| `Ctrl+E/Y`                       | One wheel line down/up (`ScrollLineAmount`); counts apply  |
-| `zz`, `zt`, `zb`                 | Center current page, align its top or bottom               |
-| `yy`, `{n}yy`                    | Copy current page text, or text from `n` pages             |
-| `gt`, `gT`, `{n}gt`              | Next, previous, or numbered tab                            |
-| `:`                              | Bottom command line                                        |
-
-The command line accepts a page number, `q` (close tab), `qa` (exit), `w`
-(Save As), `tabn`, `tabp`, `set vim`, and `set novim`. Up/Down recall commands
-for the session; other text opens a filtered command palette. Marks use page
-coordinates and persist in `FileState.VimMarks` when file history is enabled.
-
-Displaced defaults: `g` Go To Page dialog, `n` next page, `f` fullscreen,
-`m` cursor position, `Ctrl+O` Open, `Ctrl+D` Properties, `Ctrl+F` Find,
-`Ctrl+B` Add Favorite, and `Ctrl+Y` Custom Zoom. `Ctrl+E` and `Ctrl+U`
-were unbound. The menus retain the displaced commands. `p`, Space and
-PageDown retain previous-page and page-down navigation.
-
-Link hints use the existing page-link path and work on fixed-page documents.
-The Windows keyboard layout supplies `/`, `'`, `` ` ``, and `:` through OEM
-keys; other layouts need verification. Ng has the setting and command ids but
-still needs GPUI input, hints, marks, and command-line UI.
-
-## CI compile cache plan (D2, blocked)
+Dropped: sccache gains uncertain (no PCH or `/MP` caching); CI takes ~20 min.
 
 MSBuild has no compiler-launcher setting, and sccache could not be run locally
 to check one, so CI has no compile cache yet. Plan, all unverified:
@@ -2102,6 +1623,39 @@ to check one, so CI has no compile cache yet. Plan, all unverified:
   `/GL` release builds still fit the 120-minute timeout.
 
 ## Full-suite triage (2026-10-29)
+
+Run 3 test-only fixes:
+
+`issue-5944` and `issue-906` now accept the control pipe's `screen=` and
+`rect=` fields; both pass locally (B31).
+
+Run 3 CI placed the window under the cursor, so `OnMouseMove` on an annotated
+page could load the editor before the render-only assertion. The test now
+parks the cursor outside the window before opening it and restores it after.
+The test passes locally; the CI rerun is pending (B32).
+
+Run 3's trim restore test rejected a real trim: page aspect changed from
+1.293 to 0.364, while the scroll extent shrank from 1279 to 721 and missed
+its arbitrary half-size threshold. The assertion now checks page aspect on
+every platform; the local test passes (B33).
+
+Run 3's `issue-5979` and `issue-6017` blocked a synchronous command for
+120 seconds on both engines. The AI command opens a modal install dialog
+when Claude is absent. The tests now query provider availability through
+the control pipe before invoking it. Local DPI override toggles complete,
+and both tests pass; CI rerun is pending. `issue-6017` also sets its test
+process DPI awareness before comparing Win32 pixels (B30).
+
+Run 3's fullscreen restore, sidebar growth (`issue-6080`), and Home scrollbar
+(`issue-6367`) checks assumed a larger monitor than the runner's 1024 × 720
+work area. Their test windows now fit the work area. `issue-6367` also sets
+test-process DPI awareness so requested widths match measured widths. All
+three pass locally; CI rerun is pending (B36).
+
+`lazy-tab-state-after-save` seeds the active settings file with
+`RememberOpenedFiles = true`, so the session restores a lazy tab, then rewrites
+it with `false` before the save that drops the session (B25). It passes on both
+engines.
 
 Run 4 on `88dda80cb`: `command-palette-delete-tab` failed once on PDFium
 (`expected 2 frames, got 1`) and passed on MuPDF. Three local reruns per engine
@@ -2135,4 +1689,4 @@ tests failed (P30 S80 R5 E5 M2). The 83 tests missed by earlier partial logs
 include PDFium selection, TOC and margin gaps, two shared UI hangs, and more
 tests using the upstream settings/product name. Their classification and the
 test-only path fixes are in
-[solokpdf-full-suite-triage.md](solokpdf-full-suite-triage.md).
+[full-suite-triage.md](full-suite-triage.md).

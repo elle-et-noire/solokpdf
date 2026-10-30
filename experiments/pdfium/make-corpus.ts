@@ -12,7 +12,7 @@ const sha256 = (file: string) => createHash("sha256").update(readFileSync(file))
 const sourceSha256 = sha256(source);
 const expectedSourceSha256 = "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697";
 if (sourceSha256 !== expectedSourceSha256) {
-  throw new Error("Expected Attention Is All You Need arXiv:1706.03762v7; see docs/solokpdf-progress.md");
+  throw new Error("Expected Attention Is All You Need arXiv:1706.03762v7; see docs/solokpdf/history.md");
 }
 mkdirSync(out, { recursive: true });
 const commands: string[][] = [];

@@ -33,14 +33,14 @@ PDFium also opens password-protected PDFs, attached PDFs, `.p7m` and Kindle
 Print Replica. Annotations, forms, document JavaScript, signatures, redaction,
 attachments and the PDF tools work on PDFium tabs through a MuPDF editor of the
 same file, loaded only when needed. XFA and GoToE are unsupported in both
-engines. See "Known limitations" in the development log for remaining gaps.
+engines. See [limitations](docs/solokpdf/limitations.md) for remaining gaps.
 
 Settings use `SolokPDF-settings.txt`; local data uses `SolokPDF` / `SolokPDF-data`.
 Upstream binary updates are disabled. Installer and association workflows have
 not been validated; use the portable build. Existing copyright and license
 terms remain, including MuPDF's AGPL obligations; see `AUTHORS` and `COPYING`.
 
-See [build, tests, measurements and limitations](docs/solokpdf-progress.md).
+See [SolokPDF docs](docs/solokpdf/README.md) for build, tests, measurements and limitations.
 
 ## Original SumatraPDF project
 
