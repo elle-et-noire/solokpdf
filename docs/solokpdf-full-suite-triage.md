@@ -1,5 +1,17 @@
 # SolokPDF full-suite triage
 
+## Run 3 (2026-10-29, commit 58e85d285)
+
+Both engines reached 462 tests: PDFium failed 21, MuPDF 13. The PDFium-only
+failures are annotation clipboard, `issue-6184`, `issue-5871`,
+`toc-selection-visible`, `issue-trim-margins`, `issue-2022`, `issue-6362`,
+and the three blocked CAD/external-image cases. The shared failures are
+`toolbar-hover-dropdown`, `issue-6113`, `lazy-tab-state-after-save`,
+`issue-5944`, `issue-906`, `fullscreen-session-restore`, `issue-6367`,
+`issue-5979`, `issue-6017`, `issue-6080`, and `trim-empty-margins-restore`.
+MuPDF alone failed `shape-annotation-placement` and `issue-5918`.
+Per-push CI also failed the PDFium scroll and annotation lazy-load tests.
+
 ## Complete paired runs
 
 The PDFium and MuPDF logs in `.work/full-suite/*-full.log` each reached all 462

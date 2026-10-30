@@ -52,7 +52,7 @@ export async function testit(): Promise<void> {
   }
 
   const withPwd = await runSearch(encryptedPdf, PASSWORD);
-  if (!withPwd.match(/^FOUND .*page=1$/)) {
+  if (!withPwd.match(/^FOUND .*page=1(?: rect=[^\r\n]+)?$/)) {
     throw new Error(`encrypted pdf did not open/search with -pwd: ${withPwd}`);
   }
 

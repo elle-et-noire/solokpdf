@@ -34,7 +34,7 @@ function makePdf(): string {
 }
 
 function parseLinks(out: string): { page: number; src: number[]; dest: number[] }[] {
-  const re = /^kind=\S+ page=(-?\d+) src=([^ ]+) dest=([^ ]+) value=.*$/gm;
+  const re = /^kind=\S+ page=(-?\d+) src=([^ ]+) dest=([^ ]+) (?:screen=[^ ]+ )?value=.*$/gm;
   const links = [];
   for (const m of out.matchAll(re)) {
     links.push({

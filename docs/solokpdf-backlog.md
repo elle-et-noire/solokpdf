@@ -59,6 +59,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | done — Select PDFium bookmarks under the hidden tree root                                                                 |
 | B29 | PDFium trim margins          | B7 P: issue-trim-margins     | todo                                                                                                                      |
 | B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | todo                                                                                                                      |
+| B31 | Control output assertions    | Run 3: issue-5944, issue-906 | done — Accept current `screen` and `rect` fields                                                                          |
 
 ## C. Coexistence with SumatraPDF
 

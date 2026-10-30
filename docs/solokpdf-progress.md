@@ -1674,6 +1674,9 @@ PDFium's bookmarks tree was present but its first item stayed unselected:
 the selection walker treated the hidden root as collapsed. It now selects
 top-level items. `toc-selection-visible` passes on both engines (B28).
 
+`issue-5944` and `issue-906` now accept the control pipe's `screen=` and
+`rect=` fields; both pass locally (B31).
+
 PDFium reuses its loaded bookmark tree without taking the global render lock.
 `issue-6362` now scrolls and changes pages while a slow page draws without
 stalling; MuPDF and PDFium both pass. Non-blocking PDFium text and element
