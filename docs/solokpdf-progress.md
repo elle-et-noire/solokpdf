@@ -2059,6 +2059,11 @@ Run 4 on `88dda80cb`: `command-palette-delete-tab` failed once on PDFium
 (`expected 2 frames, got 1`) and passed on MuPDF. Three local reruns per engine
 passed (3/3 PDFium, 3/3 MuPDF); no code change is justified (B41, E).
 
+Run 4 `issue-6367` failed on both engines because ten thumbnails still extend
+past the hosted runner's 989 × 640 client area. The test now checks scrollbar
+visibility against the last caption and available area (B42, S). Local PDFium
+and MuPDF runs passed.
+
 The complete paired Actions logs at `e7de6e7ac` reached all 462 eligible
 tests on each engine. PDFium passed 342 and MuPDF passed 370; 122 distinct
 tests failed (P30 S80 R5 E5 M2). The 83 tests missed by earlier partial logs

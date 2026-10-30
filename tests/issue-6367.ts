@@ -81,10 +81,14 @@ async function testHomeScrollbar(): Promise<void> {
   try {
     moveWindow(frame, 100, 100, 700, 450);
     await waitHome(client, (h) => h.entries === nFiles && h.vbar, "no scrollbar for files in a small window");
-    // tall enough for every entry: no bar
+    // The hosted work area may still be too short for all thumbnails.
     const work = getWorkArea();
     moveWindow(frame, work.left, work.top, work.right - work.left, work.bottom - work.top);
-    await waitHome(client, (h) => !h.vbar, "scrollbar shown with nothing to scroll");
+    await waitHome(
+      client,
+      (h) => h.vbar === h.lastCaption[1]! + h.lastCaption[3]! > h.thumbsArea[1]! + h.thumbsArea[3]!,
+      "scrollbar does not match content height",
+    );
     await client.quit();
   } finally {
     await killAndWait(proc);
