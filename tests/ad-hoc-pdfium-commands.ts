@@ -139,7 +139,12 @@ export async function testit(): Promise<void> {
     }
     const [pdfium, mupdf] = reports;
     const editor = pdfium.get("editor") ?? "";
-    if (editor === "editor=none -> editor=loaded") problems.push(`${name}: visibility loaded the editor`);
+    // pages with annotations or fields may load the editor on their own (hover, B13/B47), which can
+    // land inside the query window, so only documents without them must stay editor-free
+    const mayLoadEditor = name === "annots" || name === "form";
+    if (!mayLoadEditor && editor === "editor=none -> editor=loaded") {
+      problems.push(`${name}: visibility loaded the editor`);
+    }
     for (const [key, mupdfVis] of mupdf) {
       if (key === "editor") continue;
       const pdfiumVis = pdfium.get(key) ?? "missing";
