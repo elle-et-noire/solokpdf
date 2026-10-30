@@ -1709,6 +1709,12 @@ work area. Their test windows now fit the work area. `issue-6367` also sets
 test-process DPI awareness so requested widths match measured widths. All
 three pass locally; CI rerun is pending (B36).
 
+Run 3 failed `toolbar-hover-dropdown` and `issue-6113` on both engines.
+Locally, toolbar clicks report the real cursor moving to `(0,0)`, and the RTL
+notification capture hangs on the locked desktop. Neither test can establish
+an app regression in this session; B37 is blocked until an interactive desktop
+can run the targeted tests.
+
 PDFium reports a 12-point text line as about 60 × 8.7 points. The trim guard
 discarded it because its height was under 10 points. It now discards a box
 only when both dimensions are under 10 points. `issue-trim-margins` fails

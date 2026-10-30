@@ -18,6 +18,8 @@ and `trim-empty-margins-restore` used stale output or geometry assertions (E).
 `fullscreen-session-restore`, `issue-6367`, and `issue-6080` assumed more
 screen space than the 1024 × 720 runner provided (E); corrected tests pass
 locally. `lazy-tab-state-after-save` seeds a disabled session (S).
+`toolbar-hover-dropdown` and `issue-6113` still need interactive cursor and
+capture verification (E); the local locked desktop prevents it (B37).
 
 ## Complete paired runs
 
