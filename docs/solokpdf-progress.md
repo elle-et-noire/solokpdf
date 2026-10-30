@@ -1715,11 +1715,11 @@ notification capture hangs on the locked desktop. Neither test can establish
 an app regression in this session; B37 is blocked until an interactive desktop
 can run the targeted tests.
 
-`issue-2022` passes with MuPDF but PDFium opens the R2L two-column document
-with `r2l=0`. PDFium exposes `/ViewerPreferences/Direction` but has no public
-`/PageLayout` query. Loading the hidden MuPDF editor for every ordinary PDF
-open would violate the PDFium-only routine path; scanning raw bytes would miss
-compressed catalog objects. B38 is blocked on a reliable cheap catalog gate.
+`issue-2022` failed before on PDFium (`r2l=0` for a catalog declaring R2L).
+The existing cheap MuPDF OpenAction query now reads `/PageLayout` and
+`/ViewerPreferences/Direction` before the display model is built. It does not
+load the hidden editor. Both engines pass `issue-2022`, including remembered
+state; the first PDFium open still makes one catalog query (B38).
 
 `shape-annotation-placement` failed three of three local MuPDF reruns: the
 first page click did not anchor the rectangle. This locked desktop pins the

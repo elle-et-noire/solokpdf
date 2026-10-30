@@ -1769,7 +1769,7 @@ class EnginePdfium : public EngineBase {
 
     int GetOpenActionPageNo() override {
         PdfiumProfile profile(StrL("openaction"));
-        int pageNo = PdfOpenActionPageMupdf(FilePath(), fileData, password);
+        int pageNo = PdfOpenActionPageMupdf(FilePath(), fileData, password, &preferredLayout);
         profile.Mark(StrL("read"));
         return pageNo;
     }

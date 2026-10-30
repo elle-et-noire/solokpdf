@@ -1940,6 +1940,7 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
         if (engine->kind == kindEngineImage && imageZoom != 0) {
             zoomVirtual = imageZoom;
         }
+        int openPage = engine->GetOpenActionPageNo();
         // first open: EbookUI / ComicBookUI DefaultDisplayMode override the
         // global default when set (issue #2588). Remembered FileState wins.
         if (!fs) {
@@ -1952,11 +1953,8 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
         // First open without per-file remembered state: honor PDF Catalog
         // /OpenAction when it is a safe internal GoTo (issue #1631). Does not
         // override history, -page / -named-dest (applied later), or reloads.
-        if (!fs && ss.page == 1) {
-            int openPage = engine->GetOpenActionPageNo();
-            if (openPage >= 1) {
-                ss.page = openPage;
-            }
+        if (!fs && ss.page == 1 && openPage >= 1) {
+            ss.page = openPage;
         }
     }
 

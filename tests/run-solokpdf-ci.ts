@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { EXE, formatDuration, prepareTestEnvironment, runTest, type NamedTest } from "./util.ts";
 import { setTestWindowLayout } from "./winapi.ts";
 import { testit as documentJs } from "./ad-hoc-pdfium-document-js.ts";
+import { testit as catalogLayout } from "./ad-hoc-pdfium-catalog-layout.ts";
 import { testit as dates } from "./ad-hoc-pdfium-dates.ts";
 import { testit as coexist } from "./ad-hoc-solok-coexist.ts";
 import { testit as themeSwitch } from "./ad-hoc-pdfium-theme-switch.ts";
@@ -36,6 +37,7 @@ import { testit as trimMargins } from "./issue-trim-margins.ts";
 
 const tests: NamedTest[] = [
   ["ad-hoc-pdfium-memory", memory],
+  ["ad-hoc-pdfium-catalog-layout", catalogLayout],
   ["ad-hoc-pdfium-saveas", saveas],
   ["ad-hoc-pdfium-forms", forms],
   ["ad-hoc-pdfium-hover", hover],

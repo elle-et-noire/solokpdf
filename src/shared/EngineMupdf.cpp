@@ -5964,7 +5964,7 @@ void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupd
     fz_drop_context(ctx);
 }
 
-int PdfOpenActionPageMupdf(Str path, Str data, Str password) {
+int PdfOpenActionPageMupdf(Str path, Str data, Str password, PageLayout* layout) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
         return 0;
@@ -5972,6 +5972,7 @@ int PdfOpenActionPageMupdf(Str path, Str data, Str password) {
     int pageNo = 0;
     pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
     if (doc) {
+        *layout = GetPreferredLayout(ctx, (fz_document*)doc);
         int pageCount = 0;
         fz_try(ctx) {
             pageCount = pdf_count_pages(ctx, doc);

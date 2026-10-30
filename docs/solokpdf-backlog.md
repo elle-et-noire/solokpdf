@@ -66,7 +66,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B35 | External PDF viewers         | Run 3: issue-6184            | done — Open PDFium tabs in known PDF viewers (fixes #6184)                           |
 | B36 | Hosted window geometry       | Run 3: window tests          | done — Size test windows within the work area                                        |
 | B37 | Cursor and RTL capture tests | Run 3: input and capture     | blocked — Locked desktop prevents cursor and capture checks                          |
-| B38 | PDF catalog layout           | Run 3: issue-2022            | blocked — PDFium has no public PageLayout query; routine editor load barred          |
+| B38 | PDF catalog layout           | Run 3: issue-2022            | done — Honor PDF catalog layout (fixes #2022)                                        |
 | B39 | MuPDF shape placement        | Run 3: shape placement       | blocked — Cursor stays at origin on locked desktop                                   |
 | B40 | HTML next-file navigation    | Run 3: issue-5918            | blocked — Local reruns fail both engines; cause unisolated                           |
 | B41 | Palette tab deletion         | Run 4: PDFium only           | done — Record palette flake (B41)                                                     |
