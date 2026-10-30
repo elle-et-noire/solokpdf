@@ -1687,6 +1687,11 @@ Run 3's trim restore test rejected a real trim: page aspect changed from
 its arbitrary half-size threshold. The assertion now checks page aspect on
 every platform; the local test passes (B33).
 
+PDFium reports a 12-point text line as about 60 × 8.7 points. The trim guard
+discarded it because its height was under 10 points. It now discards a box
+only when both dimensions are under 10 points. `issue-trim-margins` fails
+before and passes after on PDFium; MuPDF and trim restore also pass (B29).
+
 PDFium reuses its loaded bookmark tree without taking the global render lock.
 `issue-6362` now scrolls and changes pages while a slow page draws without
 stalling; MuPDF and PDFium both pass. Non-blocking PDFium text and element

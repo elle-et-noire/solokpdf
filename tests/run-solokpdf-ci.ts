@@ -32,6 +32,7 @@ import { testit as windowBg } from "./ad-hoc-pdfium-window-bg.ts";
 import { testit as vimKeys } from "./ad-hoc-vim-keys.ts";
 import { testit as countPrefix } from "./ad-hoc-count-prefix.ts";
 import { testit as noUpdateCheck } from "./ad-hoc-no-update-check.ts";
+import { testit as trimMargins } from "./issue-trim-margins.ts";
 
 const tests: NamedTest[] = [
   ["ad-hoc-pdfium-memory", memory],
@@ -46,6 +47,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-images", images],
   ["ad-hoc-pdfium-fit-content", fitContent],
   ["ad-hoc-pdfium-page-boxes", pageBoxes],
+  ["ad-hoc-pdfium-trim-margins", trimMargins],
   ["ad-hoc-pdfium-scroll", scroll],
   ["ad-hoc-pdfium-bookmarks", bookmarks],
   ["ad-hoc-pdfium-xmp", xmp],

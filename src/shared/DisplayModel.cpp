@@ -2123,7 +2123,7 @@ bool DisplayModel::EnsureTrimEmptyMarginsForVisiblePages() {
             }
             pi->contentBoxCalculated = true;
             RectF cbox = engine->PageContentBox(pageNo);
-            if (cbox.IsEmpty() || cbox.dx < 10 || cbox.dy < 10) {
+            if (cbox.IsEmpty() || (cbox.dx < 10 && cbox.dy < 10)) {
                 cbox = PageMediaBox(pageNo);
             }
             pi->contentBox = cbox;
