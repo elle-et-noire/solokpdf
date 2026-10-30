@@ -63,6 +63,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B32 | CI annotation cursor         | Run 3: annotation CI         | done — Park cursor before checking lazy editor                                                                            |
 | B33 | Trim restore assertion       | Run 3: trim restore          | done — Compare page aspect on every platform                                                                              |
 | B34 | Condensed header spacing     | Run 3: issue-5871            | done — Keep PDFium condensed word spaces (fixes #5871)                                                                    |
+| B35 | External PDF viewers         | Run 3: issue-6184            | done — Open PDFium tabs in known PDF viewers (fixes #6184)                                                                |
 
 ## C. Coexistence with SumatraPDF
 

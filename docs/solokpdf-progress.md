@@ -1692,6 +1692,10 @@ PDFium dropped the space in `Protected Access` from issue #5871 because its
 threshold used for MuPDF now keeps it. `issue-5871` fails before and passes
 after on PDFium (B34).
 
+Known external PDF viewers now accept a PDFium tab as a PDF document. Their
+file-extension gate still excludes other formats. `issue-6184` fails before
+and passes after with its temporary HKCU viewer registration (B35).
+
 PDFium reports a 12-point text line as about 60 × 8.7 points. The trim guard
 discarded it because its height was under 10 points. It now discards a box
 only when both dimensions are under 10 points. `issue-trim-margins` fails

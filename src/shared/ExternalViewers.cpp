@@ -476,7 +476,9 @@ bool CanViewWithKnownExternalViewer(WindowTab* tab, int cmdId) {
     Kind engineKind = tab->GetEngineType();
     if (engineKind != nullptr) {
         if (ev->engineKind != nullptr) {
-            if (ev->engineKind != engineKind) {
+            // PDF viewers accept PDFium tabs without admitting MuPDF's other formats.
+            bool pdfViewer = ev->engineKind == kindEngineMupdf && IsPdfPageEngine(engineKind) && IsPdfDoc(tab);
+            if (ev->engineKind != engineKind && !pdfViewer) {
                 logf("CanViewWithKnownExternalViewer cmd: %d, ev->engineKind '%s' != engineKind '%s'\n", cmdId,
                      Str(ev->engineKind), Str(engineKind));
                 return false;
