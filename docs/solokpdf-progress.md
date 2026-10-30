@@ -1677,6 +1677,11 @@ top-level items. `toc-selection-visible` passes on both engines (B28).
 `issue-5944` and `issue-906` now accept the control pipe's `screen=` and
 `rect=` fields; both pass locally (B31).
 
+Run 3 CI placed the window under the cursor, so `OnMouseMove` on an annotated
+page could load the editor before the render-only assertion. The test now
+parks the cursor outside the window before opening it and restores it after.
+The test passes locally; the CI rerun is pending (B32).
+
 PDFium reuses its loaded bookmark tree without taking the global render lock.
 `issue-6362` now scrolls and changes pages while a slow page draws without
 stalling; MuPDF and PDFium both pass. Non-blocking PDFium text and element
