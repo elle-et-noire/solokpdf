@@ -1846,7 +1846,7 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   the editor only when PDFium omits a named box that the file contains.
   `issue-814` and the B20 test check direct and inherited boxes.
 - PDFium enumerates image bounds for cursor hit testing and the Selected Image
-  menu. Copy and Save resolve the matching image through the lazy MuPDF editor,
+  menu, cut to clip paths and the page as MuPDF's (`issue-6441`). Copy and Save resolve the matching image through the lazy MuPDF editor,
   preserving orientation and CMYK JPEG/TIFF data without changing PDFium
   rendering. `tests/ad-hoc-pdfium-images.ts` checks extraction and orientation;
   `tests/issue-6360.ts` checks the context menu and clipboard.

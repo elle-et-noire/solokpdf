@@ -76,6 +76,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B45 | Read-aloud restyle chapter                                                                                                                                                  | Run 5: PDFium only           | done — Record read-aloud restyle flake (B45)                                         |
 | B46 | AcroForm PDFs load the hidden MuPDF editor on first paint: `HighlightFormFields` reads empty fields via MuPDF; use PDFium's form API                                        | B12: form fixture            | done — Read form highlights with PDFium (B46)                                        |
 | B47 | Hovering an AcroForm page loads the hidden MuPDF editor: the widget cursor hit test, page elements and text extraction go through MuPDF; use PDFium                         | B46: form fixture            | done — Read form hover with PDFium (B47)                                             |
+| B48 | PDFium image elements ignore clip paths: double-click and Ctrl+C cover a cropped photo's whole image (upstream #6441)                                                       | D5: issue-6441               | done — Clip PDFium image rects to clip paths (B48)                                   |
 
 ## C. Coexistence with SumatraPDF
 

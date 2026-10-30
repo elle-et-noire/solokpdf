@@ -65,94 +65,100 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     return password;
 }
 
-#define PDFIUM_API(X)                                                                                               \
-    X(FPDF_InitLibraryWithConfig)                                                                                   \
-    X(FPDF_DestroyLibrary)                                                                                          \
-    X(FPDF_GetDefaultSystemFontInfo)                                                                                \
-    X(FPDF_SetSystemFontInfo)                                                                                       \
-    X(FPDF_FreeDefaultSystemFontInfo)                                                                               \
-    X(FPDF_LoadCustomDocument)                                                                                      \
-    X(FPDF_LoadMemDocument)                                                                                         \
-    X(FPDF_CloseDocument)                                                                                           \
-    X(FPDF_GetLastError)                                                                                            \
-    X(FPDF_GetPageCount)                                                                                            \
-    X(FPDF_GetDocPermissions)                                                                                       \
-    X(FPDF_GetDocUserPermissions)                                                                                   \
-    X(FPDF_GetSecurityHandlerRevision)                                                                              \
-    X(FPDF_GetPageSizeByIndexF)                                                                                     \
-    X(FPDF_LoadPage)                                                                                                \
-    X(FPDF_ClosePage)                                                                                               \
-    X(FPDFPage_GetRotation)                                                                                         \
-    X(FPDFPage_SetRotation)                                                                                         \
-    X(FPDF_PageToDevice)                                                                                            \
-    X(FPDFPage_CountObjects)                                                                                        \
-    X(FPDFPage_GetObject)                                                                                           \
-    X(FPDFPageObj_GetType)                                                                                          \
-    X(FPDFPageObj_GetMatrix)                                                                                        \
-    X(FPDFPageObj_GetBounds)                                                                                        \
-    X(FPDFPage_GetMediaBox)                                                                                         \
-    X(FPDFPage_GetCropBox)                                                                                          \
-    X(FPDFPage_GetBleedBox)                                                                                         \
-    X(FPDFPage_GetTrimBox)                                                                                          \
-    X(FPDFPage_GetArtBox)                                                                                           \
-    X(FPDFFormObj_CountObjects)                                                                                     \
-    X(FPDFFormObj_GetObject)                                                                                        \
-    X(FPDFImageObj_GetImageMetadata)                                                                                \
-    X(FPDFImageObj_GetImagePixelSize)                                                                               \
-    X(FPDFImageObj_GetBitmap)                                                                                       \
-    X(FPDFBitmap_GetFormat)                                                                                         \
-    X(FPDFBitmap_GetBuffer)                                                                                         \
-    X(FPDFBitmap_GetWidth)                                                                                          \
-    X(FPDFBitmap_GetHeight)                                                                                         \
-    X(FPDFBitmap_GetStride)                                                                                         \
-    X(FPDFBitmap_CreateEx)                                                                                          \
-    X(FPDFBitmap_Destroy)                                                                                           \
-    X(FPDF_RenderPageBitmap_Start)                                                                                  \
-    X(FPDF_RenderPage_Continue)                                                                                     \
-    X(FPDF_RenderPage_Close)                                                                                        \
-    X(FPDFText_LoadPage)                                                                                            \
-    X(FPDFText_ClosePage)                                                                                           \
-    X(FPDFText_CountChars)                                                                                          \
-    X(FPDFText_GetUnicode)                                                                                          \
-    X(FPDFText_IsGenerated)                                                                                         \
-    X(FPDFText_IsHyphen)                                                                                            \
-    X(FPDFText_GetCharBox)                                                                                          \
-    X(FPDFText_GetLooseCharBox)                                                                                     \
-    X(FPDFText_GetMatrix)                                                                                           \
-    X(FPDFText_GetCharOrigin)                                                                                       \
-    X(FPDFText_GetFontSize)                                                                                         \
-    X(FPDFText_GetTextObject)                                                                                       \
-    X(FPDFTextObj_GetFont)                                                                                          \
-    X(FPDFFont_GetAscent)                                                                                           \
-    X(FPDFFont_GetDescent)                                                                                          \
-    X(FPDFFont_GetGlyphWidth)                                                                                       \
-    X(FPDFFont_GetBaseFontName)                                                                                     \
-    X(FPDFLink_Enumerate)                                                                                           \
-    X(FPDFLink_GetAnnotRect)                                                                                        \
-    X(FPDFLink_GetDest)                                                                                             \
-    X(FPDFLink_GetAction)                                                                                           \
-    X(FPDFLink_GetAnnot)                                                                                            \
-    X(FPDFAnnot_GetStringValue)                                                                                     \
-    X(FPDFPage_GetAnnotCount)                                                                                       \
-    X(FPDFPage_GetAnnot)                                                                                            \
-    X(FPDFAnnot_GetSubtype)                                                                                         \
-    X(FPDFAnnot_GetFlags)                                                                                           \
-    X(FPDFAnnot_GetRect)                                                                                            \
-    X(FPDFAnnot_HasKey)                                                                                             \
-    X(FPDFAnnot_GetValueType)                                                                                       \
-    X(FPDFAnnot_GetFormFieldType)                                                                                   \
-    X(FPDFAnnot_GetFormFieldFlags)                                                                                  \
-    X(FPDFAnnot_GetFormFieldValue)                                                                                  \
-    X(FPDFAnnot_GetAP)                                                                                              \
-    X(FPDFAnnot_GetFormFieldAlternateName)                                                                          \
-    X(FPDFPage_CloseAnnot) X(FPDFAction_GetType) X(FPDFAction_GetDest) X(FPDFAction_GetURIPath)                     \
-        X(FPDFAction_GetFilePath) X(FPDFDest_GetDestPageIndex) X(FPDFDest_GetLocationInPage) X(FPDFDest_GetView)    \
-            X(FPDF_GetNamedDestByName) X(FPDFBookmark_GetFirstChild) X(FPDFBookmark_GetNextSibling)                 \
-                X(FPDFBookmark_GetTitle) X(FPDFBookmark_GetColor) X(FPDFBookmark_GetStyle) X(FPDFBookmark_GetDest)  \
-                    X(FPDFBookmark_GetAction) X(FPDF_GetMetaText) X(FPDF_GetPageLabel) X(FPDF_GetFormType)          \
-                        X(FPDFDoc_GetJavaScriptActionCount) X(FPDF_GetSignatureCount) X(FPDFDoc_GetAttachmentCount) \
-                            X(FPDFDOC_InitFormFillEnvironment) X(FPDFDOC_ExitFormFillEnvironment)                   \
-                                X(FORM_OnAfterLoadPage) X(FORM_OnBeforeClosePage) X(FPDF_FFLDraw)
+#define PDFIUM_API(X)                                                                                                \
+    X(FPDF_InitLibraryWithConfig)                                                                                    \
+    X(FPDF_DestroyLibrary)                                                                                           \
+    X(FPDF_GetDefaultSystemFontInfo)                                                                                 \
+    X(FPDF_SetSystemFontInfo)                                                                                        \
+    X(FPDF_FreeDefaultSystemFontInfo)                                                                                \
+    X(FPDF_LoadCustomDocument)                                                                                       \
+    X(FPDF_LoadMemDocument)                                                                                          \
+    X(FPDF_CloseDocument)                                                                                            \
+    X(FPDF_GetLastError)                                                                                             \
+    X(FPDF_GetPageCount)                                                                                             \
+    X(FPDF_GetDocPermissions)                                                                                        \
+    X(FPDF_GetDocUserPermissions)                                                                                    \
+    X(FPDF_GetSecurityHandlerRevision)                                                                               \
+    X(FPDF_GetPageSizeByIndexF)                                                                                      \
+    X(FPDF_LoadPage)                                                                                                 \
+    X(FPDF_ClosePage)                                                                                                \
+    X(FPDFPage_GetRotation)                                                                                          \
+    X(FPDFPage_SetRotation)                                                                                          \
+    X(FPDF_PageToDevice)                                                                                             \
+    X(FPDFPage_CountObjects)                                                                                         \
+    X(FPDFPage_GetObject)                                                                                            \
+    X(FPDFPageObj_GetType)                                                                                           \
+    X(FPDFPageObj_GetMatrix)                                                                                         \
+    X(FPDFPageObj_GetBounds)                                                                                         \
+    X(FPDFPageObj_GetClipPath)                                                                                       \
+    X(FPDFClipPath_CountPaths)                                                                                       \
+    X(FPDFClipPath_CountPathSegments)                                                                                \
+    X(FPDFClipPath_GetPathSegment)                                                                                   \
+    X(FPDFPathSegment_GetPoint)                                                                                      \
+    X(FPDFPage_GetMediaBox)                                                                                          \
+    X(FPDFPage_GetCropBox)                                                                                           \
+    X(FPDFPage_GetBleedBox)                                                                                          \
+    X(FPDFPage_GetTrimBox)                                                                                           \
+    X(FPDFPage_GetArtBox)                                                                                            \
+    X(FPDFFormObj_CountObjects)                                                                                      \
+    X(FPDFFormObj_GetObject)                                                                                         \
+    X(FPDFImageObj_GetImageMetadata)                                                                                 \
+    X(FPDFImageObj_GetImagePixelSize)                                                                                \
+    X(FPDFImageObj_GetBitmap)                                                                                        \
+    X(FPDFBitmap_GetFormat)                                                                                          \
+    X(FPDFBitmap_GetBuffer)                                                                                          \
+    X(FPDFBitmap_GetWidth)                                                                                           \
+    X(FPDFBitmap_GetHeight)                                                                                          \
+    X(FPDFBitmap_GetStride)                                                                                          \
+    X(FPDFBitmap_CreateEx)                                                                                           \
+    X(FPDFBitmap_Destroy)                                                                                            \
+    X(FPDF_RenderPageBitmap_Start)                                                                                   \
+    X(FPDF_RenderPage_Continue)                                                                                      \
+    X(FPDF_RenderPage_Close)                                                                                         \
+    X(FPDFText_LoadPage)                                                                                             \
+    X(FPDFText_ClosePage)                                                                                            \
+    X(FPDFText_CountChars)                                                                                           \
+    X(FPDFText_GetUnicode)                                                                                           \
+    X(FPDFText_IsGenerated)                                                                                          \
+    X(FPDFText_IsHyphen)                                                                                             \
+    X(FPDFText_GetCharBox)                                                                                           \
+    X(FPDFText_GetLooseCharBox)                                                                                      \
+    X(FPDFText_GetMatrix)                                                                                            \
+    X(FPDFText_GetCharOrigin)                                                                                        \
+    X(FPDFText_GetFontSize)                                                                                          \
+    X(FPDFText_GetTextObject)                                                                                        \
+    X(FPDFTextObj_GetFont)                                                                                           \
+    X(FPDFFont_GetAscent)                                                                                            \
+    X(FPDFFont_GetDescent)                                                                                           \
+    X(FPDFFont_GetGlyphWidth)                                                                                        \
+    X(FPDFFont_GetBaseFontName)                                                                                      \
+    X(FPDFLink_Enumerate)                                                                                            \
+    X(FPDFLink_GetAnnotRect)                                                                                         \
+    X(FPDFLink_GetDest)                                                                                              \
+    X(FPDFLink_GetAction)                                                                                            \
+    X(FPDFLink_GetAnnot)                                                                                             \
+    X(FPDFAnnot_GetStringValue)                                                                                      \
+    X(FPDFPage_GetAnnotCount)                                                                                        \
+    X(FPDFPage_GetAnnot)                                                                                             \
+    X(FPDFAnnot_GetSubtype)                                                                                          \
+    X(FPDFAnnot_GetFlags)                                                                                            \
+    X(FPDFAnnot_GetRect)                                                                                             \
+    X(FPDFAnnot_HasKey)                                                                                              \
+    X(FPDFAnnot_GetValueType)                                                                                        \
+    X(FPDFAnnot_GetFormFieldType)                                                                                    \
+    X(FPDFAnnot_GetFormFieldFlags)                                                                                   \
+    X(FPDFAnnot_GetFormFieldValue)                                                                                   \
+    X(FPDFAnnot_GetAP)                                                                                               \
+    X(FPDFAnnot_GetFormFieldAlternateName)                                                                           \
+    X(FPDFPage_CloseAnnot)                                                                                           \
+    X(FPDFAction_GetType) X(FPDFAction_GetDest) X(FPDFAction_GetURIPath) X(FPDFAction_GetFilePath)                   \
+        X(FPDFDest_GetDestPageIndex) X(FPDFDest_GetLocationInPage) X(FPDFDest_GetView) X(FPDF_GetNamedDestByName)    \
+            X(FPDFBookmark_GetFirstChild) X(FPDFBookmark_GetNextSibling) X(FPDFBookmark_GetTitle)                    \
+                X(FPDFBookmark_GetColor) X(FPDFBookmark_GetStyle) X(FPDFBookmark_GetDest) X(FPDFBookmark_GetAction)  \
+                    X(FPDF_GetMetaText) X(FPDF_GetPageLabel) X(FPDF_GetFormType) X(FPDFDoc_GetJavaScriptActionCount) \
+                        X(FPDF_GetSignatureCount) X(FPDFDoc_GetAttachmentCount) X(FPDFDOC_InitFormFillEnvironment)   \
+                            X(FPDFDOC_ExitFormFillEnvironment) X(FORM_OnAfterLoadPage) X(FORM_OnBeforeClosePage)     \
+                                X(FPDF_FFLDraw)
 
 Kind kindEnginePdfium = "enginePdfium";
 
@@ -811,12 +817,43 @@ class EnginePdfium : public EngineBase {
         }
         RectF pageBounds(0, 0, info->size.dx, info->size.dy);
         RectF rect = RectF::FromXY(c[0], c[3]).Union(RectF::FromXY(c[1], c[2])).Intersect(pageBounds);
+        rect = ClipToPaths(page, info, obj, parent, rect);
         if (rect.IsEmpty()) {
             return;
         }
         auto* element = new PageElementImage();
         element->rect = rect;
         VecAppend(info->imageElements, (IPageElement*)element);
+    }
+
+    // Caller holds gPdfiumLock. rect cut to obj's clip paths, as MuPDF clips image elements (#6441).
+    // A clip path is in the space of the stream holding obj, which `parent` maps to the page.
+    RectF ClipToPaths(FPDF_PAGE page, PdfiumPage* info, FPDF_PAGEOBJECT obj, const FS_MATRIX& parent, RectF rect) {
+        FPDF_CLIPPATH clip = gPdfium.FPDFPageObj_GetClipPath(obj);
+        int nPaths = clip ? gPdfium.FPDFClipPath_CountPaths(clip) : 0;
+        for (int i = 0; i < nPaths && !rect.IsEmpty(); i++) {
+            int nSegments = gPdfium.FPDFClipPath_CountPathSegments(clip, i);
+            float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+            int nPoints = 0;
+            for (int j = 0; j < nSegments; j++) {
+                float x = 0, y = 0;
+                FPDF_PATHSEGMENT segment = gPdfium.FPDFClipPath_GetPathSegment(clip, i, j);
+                if (!segment || !gPdfium.FPDFPathSegment_GetPoint(segment, &x, &y)) {
+                    continue;
+                }
+                PointF p =
+                    ToPage(page, info, parent.a * x + parent.c * y + parent.e, parent.b * x + parent.d * y + parent.f);
+                x0 = nPoints == 0 ? p.x : std::min(x0, p.x);
+                y0 = nPoints == 0 ? p.y : std::min(y0, p.y);
+                x1 = nPoints == 0 ? p.x : std::max(x1, p.x);
+                y1 = nPoints == 0 ? p.y : std::max(y1, p.y);
+                nPoints++;
+            }
+            if (nPoints > 0) {
+                rect = rect.Intersect(RectF(x0, y0, x1 - x0, y1 - y0));
+            }
+        }
+        return rect;
     }
 
     void CollectImageElements(FPDF_PAGE page, int pageNo, PdfiumPage* info) {
