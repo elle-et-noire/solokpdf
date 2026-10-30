@@ -671,13 +671,23 @@ enum class ControlCmd : u16 {
     TestPageAdjust = 138,
     // urls the current markdown document's browser view was served
     TestMarkdownServed = 139,
-    TestShortcutsDialog = 140,
-    TestVimKeys = 141,
-    TestSetFormField = 142,
-    TestDocumentJsOpen = 143,
-    TestCurrentPdf = 144,
+    // the current document: from a temporary folder?, its notification, its path
+    TestTemporaryFile = 140,
+    // [x, y] frame client point the auto-hide sidebar takes as the cursor; x < 0 clears
+    TestSidebarCursor = 141,
+    // [destPath, pageSizeIdx, fontSize]: Convert EPUB to PDF without its dialog
+    TestConvertEpubToPdf = 142,
+    // [path, pageNo]: image element rects of a page
+    TestPageImages = 143,
+    // the first window's page and scroll position
+    TestScrollState = 144,
+    TestShortcutsDialog = 145,
+    TestVimKeys = 146,
+    TestSetFormField = 147,
+    TestDocumentJsOpen = 148,
+    TestCurrentPdf = 149,
     // every command's visibility on a surface, one "CmdName vis" line each
-    TestAllCommandVisibility = 145,
+    TestAllCommandVisibility = 150,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1105,6 +1115,19 @@ static void ExecuteControlRequest(ControlRequest* req) {
             break;
         }
 
+        case ControlCmd::TestPageImages: {
+            Str path = StringArg(req, 0);
+            i32 pageNo = 1;
+            if (len(path) == 0 || !IntArg(req, 1, pageNo)) {
+                AppendError(req, StrL("TestPageImages expects string path, int pageNo"));
+                break;
+            }
+            int exitCode = 0;
+            Str res = PageImagesResultTemp(path, pageNo, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
         case ControlCmd::TestPageLinks: {
             Str path = StringArg(req, 0);
             i32 pageNo = 1;
@@ -1374,7 +1397,10 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             int exitCode = 0;
-            Str res = FindPageRangeResultTemp(pdf, needle, first, last, spec, &exitCode);
+            i32 backward = 0;
+            IntArg(req, 5, backward); // optional: 1 searches backward
+            FindDirection dir = backward ? FindDirection::Backward : FindDirection::Forward;
+            Str res = FindPageRangeResultTemp(pdf, needle, first, last, spec, &exitCode, dir);
             AppendTestResult(req, exitCode, res);
             break;
         }
@@ -1517,6 +1543,39 @@ static void ExecuteControlRequest(ControlRequest* req) {
             int exitCode = 0;
             Str res = MarkdownFollowLinkResultTemp(href, follow != 0, &exitCode);
             AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestTemporaryFile: {
+            int exitCode = 0;
+            Str res = TemporaryFileResultTemp(StringArg(req, 0), &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestConvertEpubToPdf: {
+            Str destPath = StringArg(req, 0);
+            i32 pageSizeIdx = 0;
+            i32 fontSize = 0;
+            if (len(destPath) == 0 || !IntArg(req, 1, pageSizeIdx) || !IntArg(req, 2, fontSize)) {
+                AppendError(req, StrL("TestConvertEpubToPdf expects string destPath, int pageSizeIdx, int fontSize"));
+                break;
+            }
+            int exitCode = 0;
+            Str res = ConvertEpubToPdfResultTemp(destPath, pageSizeIdx, fontSize, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestSidebarCursor: {
+            i32 x = 0;
+            i32 y = 0;
+            if (!IntArg(req, 0, x) || !IntArg(req, 1, y)) {
+                AppendError(req, StrL("TestSidebarCursor expects int x, int y"));
+                break;
+            }
+            SetSidebarTestCursor(Point(x, y));
+            AppendTestResult(req, 0, StrL("OK"));
             break;
         }
 
@@ -2088,6 +2147,13 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             int exitCode = 0;
             Str res = AdvSettingsRowsResultTemp(action, arg, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestScrollState: {
+            int exitCode = 0;
+            Str res = ScrollStateResultTemp(&exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }

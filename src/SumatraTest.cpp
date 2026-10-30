@@ -52,6 +52,7 @@ extern "C" {
 #include "EbookBase.h"
 #include "ChmFile.h"
 #include "RefHover.h"
+#include "Notifications.h"
 #include "SumatraTest.h"
 
 // internal LZX test hook, defined in chm.c but not exposed in chm.h
@@ -1303,6 +1304,28 @@ TempStr RefHoverResultTemp(Str action, int x, int y, int* exitCodeOut) {
             return fmt("ERROR no-link x=%d y=%d", x, y);
         }
     }
+    // canvas point of the current page's x-th EPUB footnote link, to click
+    if (str::Eq(action, StrL("noteref")) && dm) {
+        int pageNo = dm->CurrentPageNo();
+        int n = 0;
+        for (IPageElement* el : dm->GetEngine()->GetElements(pageNo)) {
+            IPageDestination* dest = el && el->Is(kindPageElementDest) ? el->AsLink() : nullptr;
+            if (!dest || !dest->isNoteRef) {
+                continue;
+            }
+            // skip the zero-width link mupdf adds at the <a>'s anchor
+            RectF r = el->GetRect();
+            if (r.dx <= 0.f || n++ < x) {
+                continue;
+            }
+            Point pt = dm->CvtToScreen(pageNo, PointF(r.x + (r.dx / 2), r.y + (r.dy / 2)));
+            return fmt("OK noteref=%d,%d page=%d rect=%g,%g,%g,%g", pt.x, pt.y, pageNo, r.x, r.y, r.dx, r.dy);
+        }
+        if (exitCodeOut) {
+            *exitCodeOut = 1;
+        }
+        return fmt("ERROR no-noteref page=%d", pageNo);
+    }
     RefHoverState* s = win ? win->refHover : nullptr;
     if (!s || !s->hwndPopup || !HwndIsVisible(s->hwndPopup)) {
         return fmt("OK visible=0");
@@ -1310,6 +1333,29 @@ TempStr RefHoverResultTemp(Str action, int x, int y, int* exitCodeOut) {
     auto& d = s->displayed;
     return fmt("OK visible=1 hwnd=%d page=%d y=%d zoom=%d x=%d", (int)(INT_PTR)s->hwndPopup, d.destPage,
                (int)d.region.y, (int)(d.userZoom * 100), (int)d.region.x);
+}
+
+// The current document: from a temporary folder?, is the notification about
+// that up, and its path. "dismiss" closes the notification the way its close
+// button does. Used by tests/issue-6437.ts
+TempStr TemporaryFileResultTemp(Str action, int* exitCodeOut) {
+    if (exitCodeOut) {
+        *exitCodeOut = 0;
+    }
+    MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+    WindowTab* tab = win ? win->CurrentTab() : nullptr;
+    if (!tab || len(tab->filePath) == 0 || !win->IsDocLoaded()) {
+        if (exitCodeOut) {
+            *exitCodeOut = 2;
+        }
+        return str::DupTemp(StrL("NOTREADY no-doc"));
+    }
+    NotificationWnd* wnd = GetNotificationForGroup(win, kNotifTemporaryFile);
+    if (str::Eq(action, StrL("dismiss")) && wnd) {
+        CloseNotification(wnd, NotifCloseReason::User);
+    }
+    return fmt("OK temp=%d notif=%d show=%d path=%s", IsTemporaryFile(tab->filePath) ? 1 : 0, wnd ? 1 : 0,
+               gSettings->temporaryFileShowNotification ? 1 : 0, tab->filePath);
 }
 
 // The current tab's pages: each page's width, which a test gives a unique value

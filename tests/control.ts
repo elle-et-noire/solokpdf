@@ -109,13 +109,13 @@ export enum ControlCommand {
   ResolveUnsavedChanges = 110,
   TestRefHover = 111,
   TestPageInfo = 112,
-  TestShortcutsDialog = 140,
-  TestVimKeys = 141,
-  TestSetFormField = 142,
-  TestDocumentJsOpen = 143,
-  TestCurrentPdf = 144,
+  TestShortcutsDialog = 145,
+  TestVimKeys = 146,
+  TestSetFormField = 147,
+  TestDocumentJsOpen = 148,
+  TestCurrentPdf = 149,
   // every command's visibility on a surface, one "CmdName vis" line each
-  TestAllCommandVisibility = 145,
+  TestAllCommandVisibility = 150,
   TestSidebarThumbnails = 113,
   TestFrameNcStrips = 114,
   TestMergePdf = 115,
@@ -151,6 +151,15 @@ export enum ControlCommand {
   TestPageAdjust = 138,
   // orig: urls the current markdown document's browser view was served
   TestMarkdownServed = 139,
+  TestTemporaryFile = 140,
+  // orig: [x, y] frame client point the auto-hide sidebar takes as the cursor; x < 0 clears
+  TestSidebarCursor = 141,
+  // [destPath, pageSizeIdx, fontSize]: Convert EPUB to PDF without its dialog
+  TestConvertEpubToPdf = 142,
+  // [path, pageNo]: image element rects of a page
+  TestPageImages = 143,
+  // the first window's page and scroll position
+  TestScrollState = 144,
 }
 
 export type ControlArg = number | string | Uint8Array | ControlArg[];

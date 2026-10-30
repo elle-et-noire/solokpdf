@@ -2157,24 +2157,31 @@ static void FzLinkifyPageText(FzPageInfo* pageInfo, fz_stext_page* stext) {
     free(coords);
 }
 
+// image blocks get the visible bbox (clip path and page), not the whole
+// image: a cropped photo is drawn masked by a clip (#6441)
+constexpr int kImageTextPageFlags = FZ_STEXT_PRESERVE_IMAGES | FZ_STEXT_CLIP;
+
+// a block whose image is entirely clipped away isn't shown
+static bool IsVisibleImageBlock(fz_stext_block* block) {
+    if (block->type != FZ_STEXT_BLOCK_IMAGE || fz_is_empty_rect(block->bbox)) {
+        return false;
+    }
+    // no colorspace = stencil mask painted with the fill color, not a
+    // picture (#1480)
+    return block->u.i.image->colorspace != nullptr;
+}
+
 static void FzFindImagePositions(fz_context* ctx, int pageNo, Location loc, Vec<FitzPageImageInfo*>& images,
                                  fz_stext_page* stext) {
     if (!stext) {
         return;
     }
     fz_stext_block* block = stext->first_block;
-    fz_image* image;
     while (block) {
-        if (block->type != FZ_STEXT_BLOCK_IMAGE) {
-            block = block->next;
-            continue;
-        }
-        image = block->u.i.image;
-        if (image->colorspace != nullptr) {
-            // no colorspace = stencil mask painted with the fill color, not a
-            // picture (#1480). FzFindImageAtIdx must skip the same blocks.
+        // FzFindImageAtIdx must skip the same blocks
+        if (IsVisibleImageBlock(block)) {
             FitzPageImageInfo* img = new FitzPageImageInfo{block->bbox, block->u.i.transform};
-            img->image = fz_keep_image(ctx, image);
+            img->image = fz_keep_image(ctx, block->u.i.image);
             auto* pel = new PageElementImage();
             pel->pageNo = pageNo;
             pel->loc = loc;
@@ -2188,7 +2195,7 @@ static void FzFindImagePositions(fz_context* ctx, int pageNo, Location loc, Vec<
 }
 
 static fz_stext_page* FzLoadImageTextPage(fz_context* ctx, FzPageInfo* pageInfo) {
-    fz_stext_options opts = NewTextPageOptions(FZ_STEXT_PRESERVE_IMAGES);
+    fz_stext_options opts = NewTextPageOptions(kImageTextPageFlags);
     fz_stext_page* stext = nullptr;
     fz_var(stext);
     fz_try(ctx) {
@@ -2210,15 +2217,10 @@ static fz_image* FzFindImageAtIdx(fz_context* ctx, FzPageInfo* pageInfo, int idx
     // kind a hacky
     fz_stext_block* block = stext->first_block;
     while (block) {
-        if (block->type != FZ_STEXT_BLOCK_IMAGE) {
-            block = block->next;
-            continue;
-        }
-        fz_image* image = block->u.i.image;
-        if (image->colorspace != nullptr) {
+        if (IsVisibleImageBlock(block)) {
             // Same skip as FzFindImagePositions, so imageID stays aligned.
             if (idx == 0) {
-                image = fz_keep_image(ctx, image);
+                fz_image* image = fz_keep_image(ctx, block->u.i.image);
                 fz_matrix ctm = block->u.i.transform;
                 // an svg around one raster: save and copy the raster itself
                 fz_matrix inner = fz_identity;
@@ -6322,7 +6324,7 @@ static FzPageInfo* GetFzPageInfoLocked(EngineMupdf* e, Location loc, bool loadQu
 
     fz_stext_page* stext = nullptr;
     fz_var(stext);
-    fz_stext_options opts = NewTextPageOptions(FZ_STEXT_PRESERVE_IMAGES);
+    fz_stext_options opts = NewTextPageOptions(kImageTextPageFlags);
     fz_try(ctx) {
         stext = NewStextPage(ctx, page, &opts, cookie, StextRun::Contents);
     }
@@ -6368,6 +6370,9 @@ static FzPageInfo* GetFzPageInfoLocked(EngineMupdf* e, Location loc, bool loadQu
             // a link that goes somewhere in this document has no URL to show,
             // so show the description the PDF gives it, like other viewers do
             auto* dest = (PageDestinationMupdf*)pel->AsLink();
+            if (dest && (link->flags & FZ_LINK_FLAG_NOTEREF)) {
+                dest->isNoteRef = true;
+            }
             if (dest && len(dest->GetValue()) == 0) {
                 dest->value = PdfLinkContents(ctx, e->pdfdoc, pdfpage, pageNo, link->rect);
             }
@@ -11101,6 +11106,61 @@ TempStr EngineMupdfGetPdfOutline(Str path) {
     fz_drop_document(ctx, doc);
     fz_drop_context(ctx);
     return res;
+}
+
+// lays out an ebook (EPUB, ...) into pages of pageDx x pageDy points with text
+// of fontSize points and writes them as a PDF that keeps the text, as
+// `sumatrapdf-tool convert` does. Returns the number of pages, 0 on failure.
+int EngineMupdfEbookToPdf(Str srcPath, Str dstPath, float pageDx, float pageDy, float fontSize) {
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    if (!ctx) {
+        return 0;
+    }
+    fz_register_document_handlers(ctx);
+    // same image fix as the viewer (#5805)
+    const char* userCss = "img { height: auto !important; max-width: 100% !important; }\n";
+    int nPages = 0;
+    fz_document* doc = nullptr;
+    fz_document_writer* wri = nullptr;
+    fz_page* page = nullptr;
+    fz_var(doc);
+    fz_var(wri);
+    fz_var(page);
+    fz_var(nPages);
+    fz_try(ctx) {
+        doc = fz_open_document(ctx, CStrTemp(srcPath));
+        fz_style_document(ctx, doc, 1, userCss);
+        fz_layout_document(ctx, doc, pageDx, pageDy, fontSize);
+        int count = fz_count_pages(ctx, doc);
+        wri = fz_new_pdf_writer(ctx, CStrTemp(dstPath), "compress");
+        for (int i = 0; i < count; i++) {
+            page = fz_load_page(ctx, doc, i);
+            fz_rect box = fz_bound_page_box(ctx, page, FZ_CROP_BOX);
+            fz_matrix ctm = fz_translate(-box.x0, -box.y0);
+            box = fz_transform_rect(box, ctm);
+            fz_device* dev = fz_begin_page(ctx, wri, box);
+            fz_run_page(ctx, page, dev, ctm, nullptr);
+            fz_end_page(ctx, wri);
+            fz_drop_page(ctx, page);
+            page = nullptr;
+        }
+        fz_close_document_writer(ctx, wri);
+        nPages = count;
+    }
+    fz_always(ctx) {
+        fz_drop_page(ctx, page);
+        fz_drop_document_writer(ctx, wri);
+        fz_drop_document(ctx, doc);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        nPages = 0;
+    }
+    fz_drop_context(ctx);
+    if (nPages == 0) {
+        file::Delete(dstPath);
+    }
+    return nPages;
 }
 
 TempStr EngineMupdfGetPdfInfo(Str path) {

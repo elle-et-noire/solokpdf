@@ -69,6 +69,7 @@ bool AreLoadThreadsActive();
 // with their panes)
 void FrameSyncSplitters(MainWindow*);
 void UpdateSidebarOverlay(MainWindow*, SidebarOverlayUpdate);
+void SetSidebarTestCursor(Point pt);
 void SetAnnotCreateArgs(AnnotCreateArgs&, CustomCommand*);
 void BeginPdfEditOperation(MainWindow*, const char* name);
 void EndPdfEditOperation(MainWindow*);
@@ -344,3 +345,5 @@ void ShowFileInFolder(MainWindow* win, Str path);
 void SmartZoom(MainWindow* win, float factor, Point* pt, bool smartZoom);
 TempStr GetSumatraDataDirTemp();
 TempStr GetSumatraBuildSpecificDirTemp();
+
+extern Kind kNotifTemporaryFile;

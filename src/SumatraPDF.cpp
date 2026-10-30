@@ -1823,6 +1823,26 @@ static void FinishPendingDocumentRelayout(MainWindow* win) {
 //   to be resized and placed
 static void SetTabLoadError(WindowTab* tab, Str path);
 
+static void MaybeShowTemporaryFileNotification(MainWindow* win, WindowTab* tab);
+
+// ShowThumbnailsIfNoToc: a document without bookmarks opens with page
+// thumbnails in the sidebar's top panel instead of no sidebar (#6407).
+// Bookmarks still being generated from headings count as bookmarks
+static bool OpensWithThumbnails(MainWindow* win, WindowTab* tab) {
+    if (!gSettings->showThumbnailsIfNoToc || !tab || win->presentation) {
+        return false;
+    }
+    // a top panel the user switched to favorites or thumbnails keeps that
+    if (tab->sidebarView != SidebarView::Bookmarks || !CanShowThumbnails(tab)) {
+        return false;
+    }
+    DisplayModel* dm = tab->AsFixed();
+    if (!dm || dm->PageCount() < 2 || EngineMupdfHeadingTocPending(dm->GetEngine())) {
+        return false;
+    }
+    return !win->ctrl->HasToc();
+}
+
 // placeWindow : if true then the Window will be moved/sized according
 //   to the 'state' information even if the window was already placed
 //   before (isNewWindow=false)
@@ -2183,7 +2203,12 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
     if (!IsMainWindowValidAndNotClosing(win)) {
         return;
     }
+    if (OpensWithThumbnails(win, tab)) {
+        tab->sidebarView = SidebarView::Thumbnails;
+        showToc = true;
+    }
     SetSidebarVisibility(win, showToc, gSettings->showFavorites);
+    MaybeShowTemporaryFileNotification(win, tab);
     if (dm) {
         if (dm->pendingRelayout) {
             // canvas not yet sized; RelayoutFrame / ShowWindow WM_SIZE will
@@ -4135,6 +4160,12 @@ void StartLoadDocuments(StrVec& paths, MainWindow* win, bool skipHistory) {
 // exclusively to sync. Copy to our open-cache and load that instead (#4705).
 static void MaybeDetachEphemeralHostFile(LoadArgs* args) {
     Str path = args->FilePath();
+    // TemporaryFileAutoMove: open the copy in TemporaryFileDestDir (#6437)
+    TempStr permanent = MaybeAutoCopyTemporaryFile(path);
+    if (len(permanent) > 0) {
+        args->SetFilePath(permanent);
+        return;
+    }
     if (!path::IsEphemeralHostFile(path) || IsOpenCachePath(path)) {
         return;
     }
@@ -4937,20 +4968,17 @@ bool SaveAnnotationsToMaybeNewPdfFile(WindowTab* tab) {
 
     TempStr srcFileName = str::DupTemp(engine->FilePath());
     // Seed the dialog with "foo Copy.pdf" so Save doesn't overwrite the source
-    // unless the user deliberately picks the original name.
-    TempStr suggestedSource = srcFileName;
+    // unless the user deliberately picks the original name. For our copy of an
+    // Outlook / OneNote attachment, just the name: not our cache folder (#6435)
+    TempStr seed = IsOpenCachePath(srcFileName) ? path::GetBaseNameTemp(srcFileName) : srcFileName;
+    TempStr ext = path::GetExtTemp(srcFileName);
 #if defined(SOLOKPDF_PDFIUM)
     if (EnginePdfiumIsDataBacked(engine)) {
-        suggestedSource = tab->displayName ? Str(tab->displayName) : StrL("attachment.pdf");
-    }
-#endif
-    TempStr noExt = path::GetPathNoExtTemp(suggestedSource);
-    TempStr ext = path::GetExtTemp(suggestedSource);
-#if defined(SOLOKPDF_PDFIUM)
-    if (EnginePdfiumIsDataBacked(engine)) {
+        seed = tab->displayName ? Str(tab->displayName) : StrL("attachment.pdf");
         ext = StrL(".pdf");
     }
 #endif
+    TempStr noExt = path::GetPathNoExtTemp(seed);
     TempStr suggested = fmt("%s Copy%s", noExt, ext);
     TempWStr suggestedW = ToWStrTemp(suggested);
     wstr::BufSet(WStr(dstFileName, dimof(dstFileName)), suggestedW);
@@ -5840,6 +5868,120 @@ static void DeleteCurrentFile(MainWindow* win) {
 }
 
 static bool RenameCurrentFileTo(MainWindow* win, Str dstFilePath);
+
+Kind kNotifTemporaryFile = "notifTemporaryFile";
+
+static void OnTemporaryFileNotifClosed(NotificationClosedEvent* ev) {
+    // closing it means "don't tell me again"
+    if (ev->reason == NotifCloseReason::User) {
+        gSettings->temporaryFileShowNotification = false;
+        ScheduleSaveSettings();
+    }
+    RemoveNotification(ev->wnd);
+}
+
+// TemporaryFileShowNotification: say the document is from a temporary folder
+// and offer to copy it to a permanent one, once per file (#6437)
+static void MaybeShowTemporaryFileNotification(MainWindow* win, WindowTab* tab) {
+    if (!gSettings->temporaryFileShowNotification || gPluginMode || !CanAccessDisk() || !tab) {
+        return;
+    }
+    if (tab->temporaryFileNotified || !IsTemporaryFile(tab->filePath)) {
+        return;
+    }
+    tab->temporaryFileNotified = true;
+    NotificationCreateArgs args;
+    args.win = win;
+    args.groupId = kNotifTemporaryFile;
+    args.tab = tab;
+    args.corner = NotifCorner::BottomLeft;
+    args.timeoutMs = kNotifNoTimeout;
+    args.msg = fmt("%s ([%s](Help/Handling-temporary-files)). [%s](CmdCopyTemporaryFileToNonTemporary)",
+                   Tr("File from a temporary folder"), Tr("learn more"), Tr("Copy to a permanent folder"));
+    args.onClosed = MkFunc1Void(OnTemporaryFileNotifClosed);
+    ShowNotification(args);
+}
+
+static TempStr KnownFolderTemp(const KNOWNFOLDERID& id) {
+    PWSTR pathW = nullptr;
+    if (FAILED(SHGetKnownFolderPath(id, 0, nullptr, &pathW)) || !pathW) {
+        return {};
+    }
+    TempStr res = ToUtf8Temp(pathW);
+    CoTaskMemFree(pathW);
+    return res;
+}
+
+// asks for the folder temporary files are copied to, starting in Downloads
+// (or Documents)
+static TempStr AskTemporaryFileDestDirTemp(MainWindow* win) {
+    AutoReleaseComPtr<IFileOpenDialog> dlg;
+    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dlg));
+    if (FAILED(hr) || !dlg) {
+        logf("AskTemporaryFileDestDirTemp: CoCreateInstance(CLSID_FileOpenDialog) failed: 0x%x\n", (uint)hr);
+        return {};
+    }
+    DWORD opts = 0;
+    dlg->GetOptions(&opts);
+    dlg->SetOptions(opts | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST);
+    dlg->SetTitle(CWStrTemp(Tr("Copy temporary files to")));
+    TempStr startDir = KnownFolderTemp(FOLDERID_Downloads);
+    if (!dir::Exists(startDir)) {
+        startDir = KnownFolderTemp(FOLDERID_Documents);
+    }
+    AutoReleaseComPtr<IShellItem> startItem;
+    if (len(startDir) > 0 &&
+        SUCCEEDED(SHCreateItemFromParsingName(CWStrTemp(startDir), nullptr, IID_PPV_ARGS(&startItem)))) {
+        dlg->SetFolder(startItem);
+    }
+    hr = dlg->Show(win->hwndFrame);
+    if (FAILED(hr)) {
+        return {};
+    }
+    AutoReleaseComPtr<IShellItem> result;
+    PWSTR pathW = nullptr;
+    if (FAILED(dlg->GetResult(&result)) || !result || FAILED(result->GetDisplayName(SIGDN_FILESYSPATH, &pathW))) {
+        return {};
+    }
+    TempStr res = ToUtf8Temp(pathW);
+    CoTaskMemFree(pathW);
+    return res;
+}
+
+// CmdCopyTemporaryFileToNonTemporary: copies the document from a temporary
+// folder to TemporaryFileDestDir (asked for when not set) and re-opens it from
+// there; its history entry moves along (#6437)
+static void CopyTemporaryFileToPermanent(MainWindow* win) {
+    if (!CanAccessDisk() || gPluginMode || !win->IsDocLoaded()) {
+        return;
+    }
+    WindowTab* tab = win->CurrentTab();
+    TempStr srcPath = str::DupTemp(tab->filePath);
+    if (!IsTemporaryFile(srcPath) || !file::Exists(srcPath)) {
+        return;
+    }
+    TempStr dir = TemporaryFileDestDirTemp();
+    if (len(dir) == 0) {
+        dir = AskTemporaryFileDestDirTemp(win);
+        if (len(dir) == 0) {
+            return;
+        }
+        str::ReplaceWithCopy(&gSettings->temporaryFileDestDir, dir);
+        ScheduleSaveSettings();
+    }
+    TempStr dstPath = CopyTemporaryFileTo(srcPath, dir);
+    if (len(dstPath) == 0) {
+        ShowWarningNotification(win, Tr("Failed to copy the file"), kNotif5SecsTimeOut);
+        return;
+    }
+    RemoveNotificationsForGroup(win, kNotifTemporaryFile);
+    UpdateTabFileDisplayStateForTab(tab);
+    RenameFileInHistory(srcPath, dstPath);
+    LoadArgs args(dstPath, win);
+    args.forceReuse = true;
+    LoadDocument(&args);
+    ShowPlainNotification(win, fmt("%s %s", Tr("Copied to"), dstPath), kNotif5SecsTimeOut);
+}
 
 static void RenameCurrentFile(MainWindow* win) {
     if (!CanAccessDisk()) {
@@ -9094,6 +9236,48 @@ static TempStr GetCrashInfoDirTemp() {
     return path::JoinTemp(buildDir, StrL("crashinfo"));
 }
 
+// newest .dmp in dir, empty if none
+static TempStr NewestMiniDumpTemp(Str dir) {
+    if (!dir::Exists(dir)) {
+        return {};
+    }
+    TempStr newest;
+    FILETIME newestTime{};
+    DirIter di{dir};
+    for (DirIterEntry* de : di) {
+        if (!str::EqI(path::GetExtTemp(de->name), StrL(".dmp"))) {
+            continue;
+        }
+        if (newest && CompareFileTime(&de->modificationTime, &newestTime) <= 0) {
+            continue;
+        }
+        newest = str::DupTemp(de->filePath);
+        newestTime = de->modificationTime;
+    }
+    return newest;
+}
+
+// Each build has its own crashinfo folder in the data dir: show every one
+// that has minidumps, with its newest selected.
+static void ShowCrashMiniDumps(MainWindow* win) {
+    TempStr dataDir = GetSumatraDataDirTemp();
+    int nShown = 0;
+    DirIter builds{dataDir};
+    builds.includeFiles = false;
+    builds.includeDirs = true;
+    for (DirIterEntry* de : builds) {
+        TempStr dmp = NewestMiniDumpTemp(path::JoinTemp(de->filePath, StrL("crashinfo")));
+        if (len(dmp) == 0) {
+            continue;
+        }
+        OpenPathInDefaultFileManager(dmp);
+        nShown++;
+    }
+    if (nShown == 0 && win) {
+        ShowTemporaryNotification(win, fmt("No crash minidumps in %s", dataDir), kNotif5SecsTimeOut);
+    }
+}
+
 static void ShowLogFileSmart() {
     TempStr path = gLogFilePath;
     if (len(path) == 0) {
@@ -10284,6 +10468,10 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
             RenameCurrentFile(win);
             break;
 
+        case CmdCopyTemporaryFileToNonTemporary:
+            CopyTemporaryFileToPermanent(win);
+            break;
+
         case CmdDeleteFile:
             DeleteCurrentFile(win);
             break;
@@ -10383,6 +10571,10 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
 
         case CmdShowLog:
             ShowLogFileSmart();
+            break;
+
+        case CmdDebugShowCrashMiniDumps:
+            ShowCrashMiniDumps(win);
             break;
 
         case CmdScreenshot:
@@ -10772,7 +10964,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
                 if (IsPreviewInstalled()) {
                     UnRegisterPreviewer();
                 } else {
-                    RegisterPreviewer(info.allUsers, info.installationDir);
+                    RegisterPreviewer(info.allUsers, info.installationDir, {kAllPreviewExts, kAllPreviewExts});
                 }
             }
             break;
@@ -11244,6 +11436,10 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
 
         case CmdConvertToPDF:
             ShowConvertToPdfDialog(win);
+            break;
+
+        case CmdConvertEpubToPdf:
+            ShowConvertEpubToPdfDialog(win);
             break;
 
         case CmdConvertPdfToImages:
@@ -13252,6 +13448,14 @@ static bool FocusIsEditBox() {
     return focus && GetClassNameW(focus, cls, dimof(cls)) > 0 && _wcsicmp(cls, WC_EDITW) == 0;
 }
 
+// frame client point the sidebar poll uses instead of the real cursor; set by
+// tests/issue-5819.ts, which can't move the cursor on a locked desktop
+static Point gSidebarTestCursor{-1, -1};
+
+void SetSidebarTestCursor(Point pt) {
+    gSidebarTestCursor = pt;
+}
+
 // SidebarAutoHide (#5819): a poll shows the floating sidebar when the mouse
 // reaches the canvas edge on the sidebar's side, or the focus moves into it
 // (F12, Tab). It hides when the mouse leaves it, or the focus does when the
@@ -13272,6 +13476,10 @@ void UpdateSidebarOverlay(MainWindow* win, SidebarOverlayUpdate update) {
     GetCursorPos(&cursor);
     Point pt = HwndScreenToClient(win->hwndFrame, Point(cursor.x, cursor.y));
     bool overFrame = GetAncestor(WindowFromPoint(cursor), GA_ROOT) == win->hwndFrame;
+    if (gSidebarTestCursor.x >= 0) {
+        pt = gSidebarTestCursor;
+        overFrame = true;
+    }
     Rect col = win->sidebarOverlayRc;
     Rect strip = col;
     strip.dx = std::min(DpiScale(kRevealDx), col.dx);
@@ -15377,7 +15585,8 @@ static void DeleteOldPdfPreviewLogs(int keep) {
     }
 }
 
-// Copies of OneNote/Outlook extracts. Delete leftovers from a crash; live
+// Copies of OneNote/Outlook extracts, a folder each (files directly in
+// open-cache are from older versions). Delete leftovers from a crash; live
 // tabs delete their own copy when the tab closes.
 static void DeleteStaleOpenCacheFiles() {
     TempStr dataDir = GetSumatraDataDirTemp();
@@ -15398,9 +15607,10 @@ static void DeleteStaleOpenCacheFiles() {
 
     DirIter di{cacheDir};
     di.includeFiles = true;
-    di.includeDirs = false;
+    di.includeDirs = true;
     for (DirIterEntry* de : di) {
-        FILETIME atime = de->accessTime;
+        // listing a folder updates its access time, writing its copy doesn't
+        FILETIME atime = de->isDir ? de->modificationTime : de->accessTime;
         ULARGE_INTEGER a;
         a.LowPart = atime.dwLowDateTime;
         a.HighPart = atime.dwHighDateTime;
@@ -15408,7 +15618,7 @@ static void DeleteStaleOpenCacheFiles() {
         if (ageSec < kMaxAgeSec) {
             continue;
         }
-        bool ok = file::Delete(de->filePath);
+        bool ok = de->isDir ? dir::RemoveAll(de->filePath) : file::Delete(de->filePath);
         logf("DeleteStaleOpenCacheFiles: delete '%s' (age %lld h) -> %d\n", de->filePath, (long long)(ageSec / 3600),
              (int)ok);
     }
@@ -15939,7 +16149,7 @@ static void ShowCrashHandlerMessage() {
         return;
     }
 
-    Str msg = fmt(Tr("%s crashed.\n\nPress 'Cancel' to see the crash report.").s, StrL(kAppName));
+    Str msg = fmt(Tr("%s crashed.\n\nPress 'Cancel' to see how to report the crash.").s, StrL(kAppName));
     uint flags = MB_ICONERROR | MB_OK | MB_OKCANCEL | MbRtlReadingMaybe();
     flags |= MB_SETFOREGROUND | MB_TOPMOST;
 
@@ -15957,9 +16167,6 @@ static void ShowCrashHandlerMessage() {
 #else
 #define kMinidumpSubmitUrl "https://www.sumatrapdfreader.org/app/sumatrapdf/uploadminidump"
 #endif
-
-// where InstallCrashHandler() writes the .dmp, in the crash arena
-static Str gCrashDumpPath;
 
 // Message from MuPDF's uncaught-throw abort (error.c). Looked up at crash time
 // so we do not need a hard link for every tool that builds CrashHandlerNoOp.
@@ -15997,7 +16204,7 @@ static Str GetCrashComment(Arena* a, Str condStr, Str fileLine, bool isCrash) {
     } else {
         b.Append(StrL("Type: debug report (not crash)\n"));
     }
-    b.Append(str::Format(a, "Minidump: %s\n", gCrashDumpPath));
+    b.Append(str::Format(a, "Minidump: %s\n", CrashHandlerDumpPath()));
     if (condStr) {
         b.Append(str::Format(a, "Cond: %s @ %s\n", condStr, fileLine));
     }
@@ -16070,12 +16277,6 @@ static void InstallSumatraCrashHandler(bool localOnly) {
     if (gIsAsanBuild) {
         return;
     }
-    // a crash report we could never send is not worth the machinery, so this
-    // must run after InitializePolicies()
-    if (!HasPermission(Perm::InternetAccess)) {
-        log(StrL("InstallSumatraCrashHandler: skipping, no Perm::InternetAccess\n"));
-        return;
-    }
 
     TempStr crashInfoDir = GetCrashInfoDirTemp();
 
@@ -16095,16 +16296,20 @@ static void InstallSumatraCrashHandler(bool localOnly) {
         cfg.uploadCrashes = false;
         cfg.uploadDebugReports = false;
     }
+    // a policy without internet access still gets a local .dmp to attach to
+    // an issue; must run after InitializePolicies()
+    if (!HasPermission(Perm::InternetAccess)) {
+        log(StrL("InstallSumatraCrashHandler: no Perm::InternetAccess, not uploading\n"));
+        cfg.submitUrl = {};
+        cfg.uploadCrashes = false;
+        cfg.uploadDebugReports = false;
+    }
     cfg.getCrashComment = GetCrashComment;
     cfg.onCrashBegin = OnCrashBegin;
     cfg.showCrashMessage = ShowCrashHandlerMessage;
     cfg.canEndCrashedThread = TtsOnEngineCrash;
 
     InstallCrashHandler(cfg);
-    Arena* a = CrashHandlerArena();
-    if (a) {
-        gCrashDumpPath = str::Dup(a, cfg.crashDumpPath);
-    }
     CaptureSettings();
 }
 

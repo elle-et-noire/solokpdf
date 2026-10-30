@@ -1443,6 +1443,20 @@ export function emptyClipboard(): boolean {
   }
 }
 
+// Keeps the clipboard open for `ms`, as a clipboard listener (rdpclip,
+// clipboard history) does after a change.
+export async function holdClipboard(ms: number): Promise<boolean> {
+  if (!user32.symbols.OpenClipboard(null)) {
+    return false;
+  }
+  try {
+    await sleep(ms);
+    return true;
+  } finally {
+    user32.symbols.CloseClipboard();
+  }
+}
+
 export async function getClipboardText(timeoutMs = 1000): Promise<string> {
   if (IS_MAC) {
     const deadline = Date.now() + timeoutMs;

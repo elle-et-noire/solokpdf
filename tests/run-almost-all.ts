@@ -134,6 +134,14 @@ import { testit as issue6247 } from "./issue-6247.ts";
 import { testit as issue6250 } from "./issue-6250.ts";
 import { testit as issue6252 } from "./issue-6252.ts";
 import { testit as issue6429 } from "./issue-6429.ts";
+import { testit as issue6431 } from "./issue-6431.ts";
+import { testit as issue6433 } from "./issue-6433.ts";
+import { testit as issue6434 } from "./issue-6434.ts";
+import { testit as issue6407 } from "./issue-6407.ts";
+import { testit as issue6435 } from "./issue-6435.ts";
+import { testit as issue6437 } from "./issue-6437.ts";
+import { testit as issue6439 } from "./issue-6439.ts";
+import { testit as convertEpubToPdf } from "./convert-epub-to-pdf.ts";
 import { testit as installerDesktopShortcut } from "./installer-desktop-shortcut.ts";
 import { testit as issue4291 } from "./issue-4291.ts";
 import { testit as issue6271 } from "./issue-6271.ts";
@@ -172,9 +180,13 @@ import { testit as issue1293 } from "./issue-1293.ts";
 import { testit as issue4788 } from "./issue-4788.ts";
 import { testit as issue6359 } from "./issue-6359.ts";
 import { testit as issue6360 } from "./issue-6360.ts";
+import { testit as issue6441 } from "./issue-6441.ts";
+import { testit as issue6442 } from "./issue-6442.ts";
+import { testit as issue6444 } from "./issue-6444.ts";
 import { testit as issue6361 } from "./issue-6361.ts";
 import { testit as issue6362 } from "./issue-6362.ts";
 import { testit as issue6276 } from "./issue-6276.ts";
+import { testit as issue6402 } from "./issue-6402.ts";
 import { testit as issue6279 } from "./issue-6279.ts";
 import { testit as issue6280 } from "./issue-6280.ts";
 import { testit as issue6322 } from "./issue-6322.ts";
@@ -488,10 +500,15 @@ export const tests: NamedTest[] = [
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
   ["issue-1315", issue1315],
-  ["issue-5819", issue5819],
   ["sidebar-thumbnails", sidebarThumbnails],
-  ["issue-6388", issue6388],
+  ["issue-6230", issue6230],
   ["issue-6360", issue6360],
+  ["issue-5819", issue5819],
+  ["issue-6252", issue6252],
+  ["ng-embedded", ngEmbedded],
+  ["issue-6431", issue6431],
+  ["issue-5924", issue5924],
+  ["issue-6388", issue6388],
   ["issue-6385", issue6385],
   ["pdf-script", pdfScript],
   ["annotation clipboard tests", annotationClipboardTests],
@@ -511,8 +528,14 @@ export const tests: NamedTest[] = [
   ["issue-6371", issue6371],
   ["issue-6372", issue6372],
   ["issue-5890", issue5890],
-  ["issue-6252", issue6252],
   ["issue-6429", issue6429],
+  ["issue-6433", issue6433],
+  ["issue-6434", issue6434],
+  ["issue-6407", issue6407],
+  ["issue-6435", issue6435],
+  ["issue-6437", issue6437],
+  ["issue-6439", issue6439],
+  ["convert-epub-to-pdf", convertEpubToPdf],
   ["issue-6239", issue6239],
   ["issue-3755", issue3755],
   ["pdf-save-dedup-stream", pdfSaveDedupStream],
@@ -534,6 +557,7 @@ export const tests: NamedTest[] = [
   ["issue-2423", issue2423],
   ["jpeg-xl-pdf", jpegXlPdf],
   ["issue-6276", issue6276],
+  ["issue-6402", issue6402],
   ["issue-6269", issue6269],
   ["toolbar-hover-dropdown", toolbarHoverDropdown],
   ["session-restore-tab-state", sessionRestoreTabState],
@@ -635,7 +659,6 @@ export const tests: NamedTest[] = [
   // --- no Sumatra process -------------------------------------------------
   ["lint-command-ids", lintCommandIds],
   ["build-cli", buildCli],
-  ["ng-embedded", ngEmbedded],
   ["parse-tip-brackets", parseTipBrackets],
   ["combining-mark-first", combiningMarkFirst],
   ["issue-5840", issue5840],
@@ -685,7 +708,6 @@ export const tests: NamedTest[] = [
   ["issue-4684", issue4684],
   ["issue-6302", issue6302],
   ["issue-5922", issue5922],
-  ["issue-5924", issue5924],
   ["issue-5926", issue5926],
   ["issue-1914", issue1914],
   ["issue-1198", issue1198],
@@ -818,7 +840,6 @@ export const tests: NamedTest[] = [
   ["issue-5850", issue5850],
   ["issue-6028", issue6028],
   ["issue-6228", issue6228],
-  ["issue-6230", issue6230],
   ["issue-6232", issue6232],
   ["issue-6232-filter", issue6232Filter],
   ["issue-6232-refresh", issue6232Refresh],
@@ -936,6 +957,9 @@ export const tests: NamedTest[] = [
   ["cbr-network-unrar", cbrNetworkUnrar],
   ["file-link-no-dest", fileLinkNoDest],
   ["control-pipe-busy", controlPipeBusy],
+  ["issue-6441", issue6441],
+  ["issue-6442", issue6442],
+  ["issue-6444", issue6444],
 ];
 
 export async function testit(opts?: SuiteOptions): Promise<void> {

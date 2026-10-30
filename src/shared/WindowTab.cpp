@@ -40,8 +40,9 @@ WindowTab::WindowTab(MainWindow* win) {
 void WindowTab::SetFilePath(Str path) {
     type = Type::Document;
     bool changed = filePath && !path::IsSame(filePath, path);
-    if (changed && IsOpenCachePath(filePath)) {
-        file::Delete(filePath);
+    if (changed) {
+        DeleteOpenCacheCopy(filePath);
+        temporaryFileNotified = false;
     }
     if (changed) {
         str::FreePtr(&pendingFindText);
@@ -150,9 +151,7 @@ WindowTab::~WindowTab() {
     }
     delete pendingLoadArgs;
 #endif
-    if (IsOpenCachePath(filePath)) {
-        file::Delete(filePath);
-    }
+    DeleteOpenCacheCopy(filePath);
     str::Free(filePath);
     filePath = {};
     str::Free(displayName);

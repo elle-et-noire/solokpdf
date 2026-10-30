@@ -79,6 +79,7 @@ static const i32 gNoDocWhitelist[] = {
     CmdFavoriteShowInTab,
     CmdGoToHomePage,
     CmdShowLog,
+    CmdDebugShowCrashMiniDumps,
     CmdClearHistory,
     CmdRemoveDeletedFilesFromHistory,
     CmdDeleteCachedFiles,
@@ -245,6 +246,8 @@ static const i32 removeIfNoDiskAccessPerm[] = {
     CmdCreateShortcutToFile,
     CmdSaveEmbeddedFile,
     CmdShowLog,
+    CmdDebugShowCrashMiniDumps,
+    CmdCopyTemporaryFileToNonTemporary,
     CmdShowGeneratedHTML,
     0,
 };
@@ -419,6 +422,16 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
 
     if (cmdId == CmdInsertTextSnippet) {
         return CommandVisibility::Hide;
+    }
+    // only a document from a temporary folder has somewhere to be copied (#6437)
+    if (cmdId == CmdCopyTemporaryFileToNonTemporary) {
+#if OS_WASM
+        return CommandVisibility::Hide;
+#else
+        if (!ctx.isDocLoaded || !IsTemporaryFile(ctx.filePath)) {
+            return CommandVisibility::Hide;
+        }
+#endif
     }
     if (origCmdId == CmdInsertTextSnippet && !ctx.supportsAnnots) {
         return CommandVisibility::Hide;
@@ -731,6 +744,10 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
     }
 
     if ((cmdId == CmdAdjustBrightness || cmdId == CmdAdjustContrast) && !ctx.isFixedPage) {
+        return CommandVisibility::Hide;
+    }
+
+    if (cmdId == CmdConvertEpubToPdf && !ctx.isEpub) {
         return CommandVisibility::Hide;
     }
 

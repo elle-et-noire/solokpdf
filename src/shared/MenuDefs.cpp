@@ -665,6 +665,10 @@ MenuDef menuDefDebug[] = {
         CmdDebugShowNotif,
     },
     {
+        StrL("Show crash minidumps"),
+        CmdDebugShowCrashMiniDumps,
+    },
+    {
         {},
         0,
     },
@@ -1093,6 +1097,10 @@ MenuDef menuDefDocumentOperations[] = {
     {
         TrN("Convert PDF to Images..."),
         CmdConvertPdfToImages,
+    },
+    {
+        TrN("Convert EPUB to PDF..."),
+        CmdConvertEpubToPdf,
     },
     {
         TrN("Show in fo&lder"),

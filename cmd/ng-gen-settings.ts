@@ -1463,6 +1463,27 @@ const globalPrefs: Field[] = [
     "if true, a document will be reloaded automatically whenever it's changed " +
       "(currently doesn't work for documents shown in the ebook UI)",
   ).ver("2.5"),
+  field(
+    "TemporaryFileShowNotification",
+    Bool,
+    true,
+    "if true, opening a file from a temporary folder (e.g. an Outlook attachment) shows a notification " +
+      "offering to copy it to a permanent folder. Closing that notification sets this to false",
+  ).ver("3.7"),
+  field(
+    "TemporaryFileDestDir",
+    Str,
+    null,
+    "folder that files from a temporary folder are copied to. When empty or not a folder, " +
+      "Copy Temporary File to Permanent Folder asks for one and remembers it here",
+  ).ver("3.7"),
+  field(
+    "TemporaryFileAutoMove",
+    Bool,
+    true,
+    "if true and TemporaryFileDestDir is set, a file from a temporary folder is copied there " +
+      "when it opens, and opened from there",
+  ).ver("3.7"),
   field("RememberOpenedFiles", Bool, true, "if true, remember which documents were opened and their display settings"),
   field(
     "RememberStatePerDocument",
@@ -1582,6 +1603,13 @@ const globalPrefs: Field[] = [
       "even one that was closed with it hidden",
   ).ver("3.7"),
   field(
+    "ShowThumbnailsIfNoToc",
+    Bool,
+    false,
+    "if true, a document without bookmarks (and with more than one page) opens with " +
+      "the sidebar showing page thumbnails",
+  ).ver("3.7"),
+  field(
     "SidebarOnRight",
     Bool,
     false,
@@ -1628,6 +1656,13 @@ const globalPrefs: Field[] = [
     false,
     "if true, document links are ignored so you can select and read " +
       "(useful for drawings with many links); if false, clicking a link follows it",
+  ).ver("3.7"),
+  field(
+    "DisableLeftDragPan",
+    Bool,
+    false,
+    "if true, dragging with the left mouse button where there is no text selects text " +
+      "instead of panning the page. Shift + left drag, right drag and the scrollbars still pan",
   ).ver("3.7"),
   field(
     "ExplorerQuickLook",
@@ -2281,6 +2316,9 @@ const globalPrefsLayout = [
   "NoHomeTab",
   "HomePageSortByFrequentlyRead",
   "ReloadModifiedDocuments",
+  "TemporaryFileShowNotification",
+  "TemporaryFileDestDir",
+  "TemporaryFileAutoMove",
   "RememberOpenedFiles",
   "RememberStatePerDocument",
   "RestoreSession",
@@ -2296,6 +2334,7 @@ const globalPrefsLayout = [
   "SortFavoritesByName",
   "ShowToc",
   "AlwaysShowSidebar",
+  "ShowThumbnailsIfNoToc",
   "SidebarOnRight",
   "SidebarAutoHide",
   "SidebarWindowSize",
@@ -2303,6 +2342,7 @@ const globalPrefsLayout = [
   "HighlightFormFields",
   "ClickEdgeToTurnPage",
   "DisableLinks",
+  "DisableLeftDragPan",
   "ExplorerQuickLook",
   "RememberViewOffsetOnPageTurn",
   "MouseWheelTurnsPage",

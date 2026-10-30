@@ -125,6 +125,9 @@ struct PdfToolDialog : WindowBase {
     VirtButton* browseBtn = nullptr;
     VirtButton* actionBtn = nullptr;
     VirtButton* cancelBtn = nullptr;
+    VirtText* hintText = nullptr;
+    // a ghost button after the hint, collapsed until a dialog shows it
+    VirtButton* footerBtn = nullptr;
     // the line AddLine() built last, so a dialog can put more in it
     HBox* lastLine = nullptr;
     // the text at a line's right end: the pages a range picks, an image's size
@@ -150,7 +153,7 @@ struct PdfToolDialog : WindowBase {
     VirtText* AddLineMeta();
     void SetMeta(Str s, bool ok);
     void AddFilesBlock(Str destPath, WStr filter, WStr defExt, bool withFormat = false);
-    void AddFooter(Str actionText, Str hint = {});
+    void AddFooter(Str actionText, Str hint = {}, Str footerBtnText = {});
     void FinishDialog(Edit* focusOn);
     void SetActionEnabled(bool enabled);
 
@@ -401,10 +404,16 @@ void PdfToolDialog::AddFilesBlock(Str destPath, WStr filter, WStr defExt, bool w
 }
 
 // the hint on the left, Cancel and the action button (the default) on the right
-void PdfToolDialog::AddFooter(Str actionText, Str hint) {
+void PdfToolDialog::AddFooter(Str actionText, Str hint, Str footerBtnText) {
     HBox* row = NewRow();
     if (hint) {
-        row->AddChild(NewLabel(hint, fontMeta, colMuted));
+        hintText = NewLabel(hint, fontMeta, colMuted);
+        row->AddChild(hintText);
+    }
+    if (footerBtnText) {
+        footerBtn = NewDlgButton(hwnd, footerBtnText, fontMeta, DlgButtonStyle::Ghost, false);
+        footerBtn->SetIsVisible(false);
+        row->AddChild(footerBtn);
     }
     row->AddChild(new Spacer(0, 0), 1);
 
@@ -1198,6 +1207,121 @@ void ShowConvertToPdfDialog(MainWindow* win) {
     }
 }
 
+// --- Convert EPUB to PDF dialog ---
+
+// the page sizes of kEbookPdfPageSizes, A5 first
+static DropDown* NewPageSizeDropDown(HWND parent, PlatformFont* font) {
+    auto* dd = new DropDown();
+    DropDown::CreateArgs args;
+    args.parent = parent;
+    args.font = font;
+    args.isRtl = IsUIRtl();
+    dd->Create(args);
+    StrVec items;
+    for (const EbookPdfPageSize& ps : kEbookPdfPageSizes) {
+        items.Append(ps.label);
+    }
+    dd->SetItems(items);
+    CbSetCurrentSelection(dd, 0);
+    dd->SetColors(ThemeWindowTextColor(), ThemeWindowControlBackgroundColor());
+    return dd;
+}
+
+// editable combo listing kEbookPdfFontSizes; any other size can be typed in
+static DropDown* NewFontSizeCombo(HWND parent, PlatformFont* font) {
+    DropDown::CreateArgs args;
+    args.parent = parent;
+    args.font = font;
+    args.isRtl = IsUIRtl();
+    args.isEditable = true;
+    auto* dd = new DropDown();
+    dd->Create(args);
+    StrVec items;
+    for (int size : kEbookPdfFontSizes) {
+        items.Append(fmt("%d", size));
+    }
+    dd->SetItems(items);
+    dd->SetText(fmt("%d", kEbookPdfDefaultFontSize));
+    dd->SetColors(ThemeWindowTextColor(), ThemeWindowControlBackgroundColor());
+    return dd;
+}
+
+// lays the book out into pages of the chosen size and writes them as a PDF
+// that keeps the text, then opens it
+struct ConvertEpubToPdfDialog : PdfToolDialog {
+    DropDown* dropPageSize = nullptr;
+    DropDown* dropFontSize = nullptr;
+
+    bool Create(MainWindow* win, WindowTab* tab);
+    void DoIt(VirtMouseEvent* ev = nullptr) override;
+};
+
+void ConvertEpubToPdfDialog::DoIt(VirtMouseEvent*) {
+    TempStr destPath = destEdit->GetTextTemp();
+    if (len(destPath) == 0) {
+        return;
+    }
+    int fontSize = EbookPdfFontSizeFromText(dropFontSize->GetTextTemp());
+    if (fontSize == 0) {
+        MessageBoxWarning(hwnd, Tr("Invalid font size"), Tr("Convert EPUB to PDF"));
+        return;
+    }
+    int idx = CbGetCurrentSelection(dropPageSize);
+    if (idx < 0 || idx >= dimofi(kEbookPdfPageSizes)) {
+        idx = 0;
+    }
+    const EbookPdfPageSize& ps = kEbookPdfPageSizes[idx];
+    logf("ConvertEpubToPdf: '%s' -> '%s', %s, %d pt\n", srcPath, destPath, ps.label, fontSize);
+
+    HCURSOR prev = SetCursor(LoadCursor(nullptr, IDC_WAIT));
+    int nPages = EngineMupdfEbookToPdf(srcPath, destPath, ps.dx, ps.dy, (float)fontSize);
+    SetCursor(prev);
+    if (nPages == 0) {
+        MessageBoxWarning(hwnd, Tr("Failed to save a file"), Tr("Convert EPUB to PDF"));
+        return;
+    }
+    logf("ConvertEpubToPdf: wrote %d pages\n", nPages);
+    MainWindow* w = win;
+    TempStr path = str::DupTemp(destPath);
+    Close();
+    LoadArgs args(path, w);
+    StartLoadDocument(&args);
+}
+
+bool ConvertEpubToPdfDialog::Create(MainWindow* w, WindowTab* tab) {
+    if (!CreateToolDialog(w, tab, Tr("Convert EPUB to PDF"))) {
+        return false;
+    }
+    AddLine(Tr("Page size"));
+    dropPageSize = NewPageSizeDropDown(hwnd, fontText);
+    lastLine->AddChild(dropPageSize);
+
+    AddLine(Tr("Font size"));
+    dropFontSize = NewFontSizeCombo(hwnd, fontText);
+    lastLine->AddChild(dropFontSize);
+
+    AddFilesBlock(DefaultPdfDestPathTemp(srcPath), L"PDF Files\0*.pdf\0All Files\0*.*\0", L"pdf");
+    AddFooter(Tr("Convert to PDF"));
+    FinishDialog(destEdit);
+    return true;
+}
+
+void ShowConvertEpubToPdfDialog(MainWindow* win) {
+    if (!win || !win->IsDocLoaded()) {
+        return;
+    }
+    WindowTab* tab = win->CurrentTab();
+    if (!IsEpubDoc(tab)) {
+        return;
+    }
+    logf("ShowConvertEpubToPdfDialog: opening for '%s'\n", tab->filePath);
+
+    auto* dlg = new ConvertEpubToPdfDialog();
+    if (!dlg->Create(win, tab)) {
+        delete dlg;
+    }
+}
+
 // --- Convert PDF to Images dialog (issue #5991) ---
 
 // editable combo listing kImageDpiChoices; any other DPI can be typed in
@@ -1303,6 +1427,9 @@ struct ConvertPdfToImagesDialog : PdfToolDialog {
     void DoIt(VirtMouseEvent* ev = nullptr) override;
     void OnBrowseTemplate(VirtMouseEvent* ev = nullptr);
     void UpdateButton();
+    bool SelectedPages(Vec<int>& pages);
+    void UpdateExisting(bool pagesOk);
+    void OnUseNewNames(VirtMouseEvent* ev = nullptr);
     void OnPagesModeChanged();
     void OnDpiPicked();
     void OnDpiTyped();
@@ -1359,7 +1486,61 @@ void ConvertPdfToImagesDialog::UpdateButton() {
         int n = radioAll && radioAll->IsChecked() ? pageCount : 1;
         SetMeta(PageCountTextTemp(n, pageCount), true);
     }
+    UpdateExisting(destOk && pagesOk);
     SetActionEnabled(destOk && pagesOk && dpi > 0);
+}
+
+// the pages the mode picks; false for a custom range that doesn't parse
+bool ConvertPdfToImagesDialog::SelectedPages(Vec<int>& pages) {
+    VecReset(pages);
+    if (radioCurrent && radioCurrent->IsChecked()) {
+        DisplayModel* dm = win ? win->AsFixed() : nullptr;
+        int cur = dm ? dm->CurrentPageNo() : 0;
+        if (cur < 1 || cur > pageCount) {
+            return false;
+        }
+        VecAppend(pages, cur);
+        return true;
+    }
+    if (radioAll && radioAll->IsChecked()) {
+        CollectAllPages(pageCount, pages);
+        return true;
+    }
+    TempStr custom = pagesEdit ? pagesEdit->GetTextTemp() : TempStr{};
+    return ParseDeletePages(custom, pageCount, pages);
+}
+
+// files the conversion would overwrite: the hint says how many, the action
+// becomes Overwrite and Use New Names picks free names (#6439)
+void ConvertPdfToImagesDialog::UpdateExisting(bool pagesOk) {
+    int nExisting = 0;
+    Vec<int> pages;
+    if (pagesOk && SelectedPages(pages)) {
+        nExisting = CountExistingImages(destEdit->GetTextTemp(), pages);
+    }
+    if (nExisting > 0) {
+        hintText->SetText(ExistingImagesTextTemp(nExisting));
+        hintText->SetColor(kColText, colTxt);
+        actionBtn->SetText(Tr("Overwrite"));
+    } else {
+        hintText->SetText(Tr("Use <N> for the page number"));
+        hintText->SetColor(kColText, colMuted);
+        actionBtn->SetText(Tr("Convert"));
+    }
+    footerBtn->SetIsVisible(nExisting > 0);
+    if (layout) {
+        DoLayout(); // the texts' widths changed
+    }
+    HwndInvalidate(hwnd);
+}
+
+void ConvertPdfToImagesDialog::OnUseNewNames(VirtMouseEvent*) {
+    Vec<int> pages;
+    if (!SelectedPages(pages)) {
+        return;
+    }
+    destEdit->SetText(UniqueImagesTemplateTemp(destEdit->GetTextTemp(), pages));
+    UpdateButton();
 }
 
 void ConvertPdfToImagesDialog::OnBrowseTemplate(VirtMouseEvent*) {
@@ -1417,19 +1598,8 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
     }
 
     Vec<int> pages;
-    if (radioCurrent && radioCurrent->IsChecked()) {
-        int cur = dm->CurrentPageNo();
-        if (cur < 1 || cur > pageCount) {
-            return;
-        }
-        VecAppend(pages, cur);
-    } else if (radioAll && radioAll->IsChecked()) {
-        CollectAllPages(pageCount, pages);
-    } else {
-        TempStr custom = pagesEdit ? pagesEdit->GetTextTemp() : TempStr{};
-        if (!ParseDeletePages(custom, pageCount, pages)) {
-            return;
-        }
+    if (!SelectedPages(pages)) {
+        return;
     }
 
     // the box may have been filled without a change notification
@@ -1491,11 +1661,16 @@ bool ConvertPdfToImagesDialog::Create(MainWindow* w, WindowTab* tab) {
 
     TempStr noExt = path::GetPathNoExtTemp(srcPath);
     TempStr pngPath = str::JoinTemp(noExt, StrL("-<N>.png"));
+    Vec<int> allPages;
+    CollectAllPages(pageCount, allPages);
+    pngPath = UniqueImagesTemplateTemp(pngPath, allPages);
     AddFilesBlock(pngPath, {}, {}, true);
     browseBtn->onClick =
         MkMethod1<ConvertPdfToImagesDialog, VirtMouseEvent*, &ConvertPdfToImagesDialog::OnBrowseTemplate>(this);
 
-    AddFooter(Tr("Convert"), Tr("Use <N> for the page number"));
+    AddFooter(Tr("Convert"), Tr("Use <N> for the page number"), Tr("Use New Names"));
+    footerBtn->onClick =
+        MkMethod1<ConvertPdfToImagesDialog, VirtMouseEvent*, &ConvertPdfToImagesDialog::OnUseNewNames>(this);
     FinishDialog(destEdit);
 
     destEdit->onTextChanged = MkMethod0<ConvertPdfToImagesDialog, &ConvertPdfToImagesDialog::UpdateButton>(this);

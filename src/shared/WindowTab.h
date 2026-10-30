@@ -177,6 +177,8 @@ struct WindowTab {
     bool reloadOnFocus = false;
     // opened via CmdOpenFileNoHistory: do not write File History / Windows Recent
     bool skipHistory = false;
+    // the temporary-folder notification was shown for filePath (#6437)
+    bool temporaryFileNotified = false;
 
     // TODO: terrible hack
     bool askedToSaveAnnotations = false;
@@ -231,3 +233,4 @@ bool SaveDataToFile(HWND hwndParent, Str fileName, Str data);
 #endif
 
 bool IsPdfDoc(WindowTab* tab);
+bool IsEpubDoc(WindowTab* tab);

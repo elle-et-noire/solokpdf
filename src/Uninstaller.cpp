@@ -33,6 +33,7 @@ static Button* gButtonExit = nullptr;
 static Button* gButtonUninstaller = nullptr;
 static bool gWasSearchFilterInstalled = false;
 static bool gWasPreviewInstaller = false;
+static PreviewHandlers gOurPreviewHandlers;
 static Str gUninstallerLogPath;
 
 #if 0
@@ -347,6 +348,7 @@ int RunUninstaller() {
         log(StrL("Search filter is installed\n"));
     }
     gWasPreviewInstaller = IsPreviewInstalled();
+    gOurPreviewHandlers = GetOurPreviewHandlers();
     if (gWasPreviewInstaller) {
         log(StrL("Previewer is installed\n"));
     }
@@ -382,7 +384,7 @@ int RunUninstaller() {
         RegisterSearchFilter(gCli->allUsers, gCli->installDir);
     }
     if (gWasPreviewInstaller) {
-        RegisterPreviewer(gCli->allUsers, gCli->installDir);
+        RegisterPreviewer(gCli->allUsers, gCli->installDir, gOurPreviewHandlers);
     }
     InitSelfDelete();
     LaunchFileIfExists(uninstallerLogPath);

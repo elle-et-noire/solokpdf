@@ -235,6 +235,7 @@ Str EngineMupdfLoadAnnotAttachment(EngineBase*, int objNum);
 Str EngineMupdfLoadEmbedded(EngineBase*, PageDestination*);
 TempStr EngineMupdfGetPdfInfo(Str path);
 TempStr EngineMupdfGetPdfOutline(Str path);
+int EngineMupdfEbookToPdf(Str srcPath, Str dstPath, float pageDx, float pageDy, float fontSize);
 #if !OS_WIN
 struct Pixmap;
 struct IPageElement;
@@ -258,6 +259,12 @@ EngineBase* CreateEngineFromData(Str data, Str nameHint, PasswordUI* pwdUI);
 
 bool IsOpenCachePath(Str path);
 TempStr MaybeCopyEphemeralHostFile(Str path);
+void DeleteOpenCacheCopy(Str path);
+bool IsTemporaryFile(Str path);
+TempStr TemporaryFileDestDirTemp();
+TempStr TemporaryFileCopyPathTemp(Str src, Str dir, bool* reuse);
+TempStr CopyTemporaryFileTo(Str src, Str dir);
+TempStr MaybeAutoCopyTemporaryFile(Str path);
 
 bool EngineSupportsAnnotations(EngineBase*);
 bool IsPdfPageEngine(Kind kind);

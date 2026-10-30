@@ -2833,7 +2833,9 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y) {
     }
 #endif
 
-    bool startDrag = !canCopy || ((isShift || !isOverText) && !isCtrl);
+    // DisableLeftDragPan: where there's no text, a drag selects instead of panning (#6444)
+    bool panOffText = !gSettings->disableLeftDragPan;
+    bool startDrag = !canCopy || ((isShift || (!isOverText && panOffText)) && !isCtrl);
     logf("OnMouseLeftButtonDown: %d,%d overText %d ctrl %d shift %d -> %s\n", x, y, isOverText ? 1 : 0, isCtrl ? 1 : 0,
          isShift ? 1 : 0, startDrag ? StrL("drag") : StrL("select"));
     if (startDrag) {
@@ -3145,6 +3147,13 @@ static void OnMouseLeftButtonUp(MainWindow* win, int x, int y) {
             if (newWin && newWin->IsDocLoaded()) {
                 newWin->linkHandler->ScrollTo(dest);
             }
+            AppShellInvalidate(win);
+            return;
+        }
+
+        // an EPUB footnote link shows the note in a popup instead of jumping to it
+        if (dest && dest->isNoteRef &&
+            RefHoverShowNoteRef(win->refHover, win, win->ctrl, win->linkHandler, dm, x, y, link)) {
             AppShellInvalidate(win);
             return;
         }

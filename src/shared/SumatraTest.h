@@ -5,8 +5,12 @@ void EnsureTestSettings();
 TempStr SynctexResultTemp(Str pdfPath, Str srcPath, int line);
 TempStr InverseSearchResultTemp(Str pdfPath, int pageNo, int x, int y);
 TempStr SearchResultTemp(Str pdfPath, Str needle, Str password = Str());
-TempStr FindPageRangeResultTemp(Str pdfPath, Str needle, int first, int last, Str spec = {},
-                                int* exitCodeOut = nullptr);
+enum class FindDirection {
+    Forward,
+    Backward
+};
+TempStr FindPageRangeResultTemp(Str pdfPath, Str needle, int first, int last, Str spec = {}, int* exitCodeOut = nullptr,
+                                FindDirection dir = FindDirection::Forward);
 TempStr DestResultTemp(Str pdfPath, int destNo);
 TempStr NamedDestResultTemp(Str pdfPath, Str destName);
 TempStr ChmResultTemp(Str chmPath, int* exitCodeOut = nullptr);
@@ -20,6 +24,7 @@ TempStr ScrollToLinkResultTemp(int minViewportDelta, int* exitCodeOut = nullptr)
 TempStr I18nErrorStringResultTemp(int* exitCodeOut = nullptr);
 TempStr GetTocResultTemp(Str path, int* exitCodeOut = nullptr);
 TempStr PageLinksResultTemp(Str path, int pageNo, int* exitCodeOut = nullptr);
+TempStr PageImagesResultTemp(Str path, int pageNo, int* exitCodeOut = nullptr);
 TempStr PageCommentsResultTemp(Str path, int pageNo, int* exitCodeOut = nullptr);
 TempStr TocNavigateResultTemp(int destNo, int* exitCodeOut = nullptr);
 TempStr TocSidebarNavResultTemp(int destNo, int* exitCodeOut = nullptr);
@@ -50,6 +55,7 @@ TempStr DocumentJsOpenResultTemp(Str path, int pageNo, int idx, int* exitCodeOut
 void DiscardUnsavedChangesInAllTabs();
 TempStr ResolveUnsavedChangesResultTemp(Str action, Str path, int* exitCodeOut = nullptr);
 TempStr RefHoverResultTemp(Str action, int x, int y, int* exitCodeOut = nullptr);
+TempStr TemporaryFileResultTemp(Str action, int* exitCodeOut = nullptr);
 TempStr PageInfoResultTemp(int* exitCodeOut = nullptr);
 TempStr SidebarThumbnailsResultTemp(int* exitCodeOut = nullptr);
 TempStr FrameNcStripsResultTemp(int* exitCodeOut = nullptr);
