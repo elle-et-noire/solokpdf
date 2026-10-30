@@ -2055,6 +2055,10 @@ still needs GPUI input, hints, marks, and command-line UI.
 
 ## Full-suite triage (2026-10-29)
 
+Run 4 on `88dda80cb`: `command-palette-delete-tab` failed once on PDFium
+(`expected 2 frames, got 1`) and passed on MuPDF. Three local reruns per engine
+passed (3/3 PDFium, 3/3 MuPDF); no code change is justified (B41, E).
+
 The complete paired Actions logs at `e7de6e7ac` reached all 462 eligible
 tests on each engine. PDFium passed 342 and MuPDF passed 370; 122 distinct
 tests failed (P30 S80 R5 E5 M2). The 83 tests missed by earlier partial logs

@@ -69,6 +69,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B38 | PDF catalog layout           | Run 3: issue-2022            | blocked — PDFium has no public PageLayout query; routine editor load barred          |
 | B39 | MuPDF shape placement        | Run 3: shape placement       | blocked — Cursor stays at origin on locked desktop                                   |
 | B40 | HTML next-file navigation    | Run 3: issue-5918            | blocked — Local reruns fail both engines; cause unisolated                           |
+| B41 | Palette tab deletion         | Run 4: PDFium only           | done — Record palette flake (B41)                                                     |
 
 ## C. Coexistence with SumatraPDF
 
