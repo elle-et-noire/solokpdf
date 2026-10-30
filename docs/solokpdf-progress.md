@@ -1726,6 +1726,12 @@ first page click did not anchor the rectangle. This locked desktop pins the
 cursor at `(0,0)` during drag tests, so B39 needs an interactive rerun before
 an app change can be judged.
 
+`issue-5918` passed PDFium and failed MuPDF in Run 3. Three local MuPDF
+reruns failed at next-file navigation, and one local PDFium run failed there
+too. The folder scan completes, but the title remains `page-0000.html`.
+B40 is blocked until the shared navigation failure is isolated; the evidence
+does not support a MuPDF-only fix.
+
 PDFium reports a 12-point text line as about 60 × 8.7 points. The trim guard
 discarded it because its height was under 10 points. It now discards a box
 only when both dimensions are under 10 points. `issue-trim-margins` fails

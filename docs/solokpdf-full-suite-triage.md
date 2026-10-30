@@ -24,6 +24,9 @@ capture verification (E); the local locked desktop prevents it (B37).
 `PageLayout` query, and routine editor loads are barred (B38).
 `shape-annotation-placement` fails 3/3 local MuPDF reruns while the locked
 desktop pins the cursor at `(0,0)` (E, B39).
+`issue-5918` failed 3/3 local MuPDF reruns and one PDFium rerun at next-file
+navigation despite a completed folder scan; its shared cause is unresolved
+(B40).
 
 ## Complete paired runs
 
