@@ -61,6 +61,8 @@ async function inkOf(epub: string): Promise<number> {
       }
     },
     ["-appdata", appData, epub],
+    // a hosted runner took over 10 s to open the YaHei EPUB mid-suite
+    { connectTimeoutMs: 30000 },
   );
 
   const bmp = readFileSync(join(appData, "page-1.bmp"));
