@@ -10,6 +10,7 @@ struct TocItem;
 struct PropValue;
 struct PageTextCache;
 enum class DocProp : u8;
+enum class WidgetCursorKind;
 class EngineBase;
 
 // whether EngineBase::AnnotationEditor() loads the editor when it isn't yet
@@ -613,6 +614,11 @@ class EngineBase {
     virtual bool HasAcroForm() { return false; }
     // empty fillable form fields; false: ask the annotation editor
     virtual bool FormHighlightRects(int, Vec<RectF>&) { return false; }
+    // form field at a page point and its hover cursor; false: ask the annotation editor
+    virtual bool FormWidgetAt(int, PointF, bool&, WidgetCursorKind&) { return false; }
+    virtual bool TryFormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor) {
+        return FormWidgetAt(pageNo, pos, found, cursor);
+    }
     virtual bool HasPageAnnotations(int) { return true; }
     virtual bool TryHasPageAnnotations(int pageNo) { return HasPageAnnotations(pageNo); }
     virtual EngineBase* HeadingTocEngine(EditorLoad) { return this; }

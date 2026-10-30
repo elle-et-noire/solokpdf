@@ -577,5 +577,11 @@ Annotation* EngineGetWidgetAtPos(EngineBase* engine, int pageNo, PointF pos) {
     if (!IsEngineMupdf(engine) && !(engine && engine->HasAcroForm())) {
         return nullptr;
     }
+    // an engine that reads its own fields spares loading the editor where there is none
+    bool found = true;
+    WidgetCursorKind cursor{};
+    if (engine->FormWidgetAt(pageNo, pos, found, cursor) && !found) {
+        return nullptr;
+    }
     return EngineMupdfGetWidgetAtPos(engine, pageNo, pos);
 }

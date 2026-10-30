@@ -10,6 +10,7 @@
 #include "DocProperties.h"
 #include "EngineBase.h"
 #include "EngineAll.h"
+#include "Annotation.h"
 #include "Settings.h"
 #include "PdfDarkMode.h"
 #include <psapi.h>
@@ -64,111 +65,94 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     return password;
 }
 
-#define PDFIUM_API(X)                   \
-    X(FPDF_InitLibraryWithConfig)       \
-    X(FPDF_DestroyLibrary)              \
-    X(FPDF_GetDefaultSystemFontInfo)    \
-    X(FPDF_SetSystemFontInfo)           \
-    X(FPDF_FreeDefaultSystemFontInfo)   \
-    X(FPDF_LoadCustomDocument)          \
-    X(FPDF_LoadMemDocument)             \
-    X(FPDF_CloseDocument)               \
-    X(FPDF_GetLastError)                \
-    X(FPDF_GetPageCount)                \
-    X(FPDF_GetDocPermissions)           \
-    X(FPDF_GetDocUserPermissions)       \
-    X(FPDF_GetSecurityHandlerRevision)  \
-    X(FPDF_GetPageSizeByIndexF)         \
-    X(FPDF_LoadPage)                    \
-    X(FPDF_ClosePage)                   \
-    X(FPDFPage_GetRotation)             \
-    X(FPDFPage_SetRotation)             \
-    X(FPDF_PageToDevice)                \
-    X(FPDFPage_CountObjects)            \
-    X(FPDFPage_GetObject)               \
-    X(FPDFPageObj_GetType)              \
-    X(FPDFPageObj_GetMatrix)            \
-    X(FPDFPageObj_GetBounds)            \
-    X(FPDFPage_GetMediaBox)             \
-    X(FPDFPage_GetCropBox)              \
-    X(FPDFPage_GetBleedBox)             \
-    X(FPDFPage_GetTrimBox)              \
-    X(FPDFPage_GetArtBox)               \
-    X(FPDFFormObj_CountObjects)         \
-    X(FPDFFormObj_GetObject)            \
-    X(FPDFImageObj_GetImageMetadata)    \
-    X(FPDFImageObj_GetImagePixelSize)   \
-    X(FPDFImageObj_GetBitmap)           \
-    X(FPDFBitmap_GetFormat)             \
-    X(FPDFBitmap_GetBuffer)             \
-    X(FPDFBitmap_GetWidth)              \
-    X(FPDFBitmap_GetHeight)             \
-    X(FPDFBitmap_GetStride)             \
-    X(FPDFBitmap_CreateEx)              \
-    X(FPDFBitmap_Destroy)               \
-    X(FPDF_RenderPageBitmap_Start)      \
-    X(FPDF_RenderPage_Continue)         \
-    X(FPDF_RenderPage_Close)            \
-    X(FPDFText_LoadPage)                \
-    X(FPDFText_ClosePage)               \
-    X(FPDFText_CountChars)              \
-    X(FPDFText_GetUnicode)              \
-    X(FPDFText_IsGenerated)             \
-    X(FPDFText_IsHyphen)                \
-    X(FPDFText_GetCharBox)              \
-    X(FPDFText_GetLooseCharBox)         \
-    X(FPDFText_GetMatrix)               \
-    X(FPDFText_GetCharOrigin)           \
-    X(FPDFText_GetFontSize)             \
-    X(FPDFText_GetTextObject)           \
-    X(FPDFTextObj_GetFont)              \
-    X(FPDFFont_GetAscent)               \
-    X(FPDFFont_GetDescent)              \
-    X(FPDFFont_GetGlyphWidth)           \
-    X(FPDFFont_GetBaseFontName)         \
-    X(FPDFLink_Enumerate)               \
-    X(FPDFLink_GetAnnotRect)            \
-    X(FPDFLink_GetDest)                 \
-    X(FPDFLink_GetAction)               \
-    X(FPDFLink_GetAnnot)                \
-    X(FPDFAnnot_GetStringValue)         \
-    X(FPDFPage_GetAnnotCount)           \
-    X(FPDFPage_GetAnnot)                \
-    X(FPDFAnnot_GetSubtype)             \
-    X(FPDFAnnot_GetFlags)               \
-    X(FPDFAnnot_GetRect)                \
-    X(FPDFAnnot_HasKey)                 \
-    X(FPDFAnnot_GetValueType)           \
-    X(FPDFAnnot_GetFormFieldType)       \
-    X(FPDFAnnot_GetFormFieldFlags)      \
-    X(FPDFAnnot_GetFormFieldValue)      \
-    X(FPDFPage_CloseAnnot)              \
-    X(FPDFAction_GetType)               \
-    X(FPDFAction_GetDest)               \
-    X(FPDFAction_GetURIPath)            \
-    X(FPDFAction_GetFilePath)           \
-    X(FPDFDest_GetDestPageIndex)        \
-    X(FPDFDest_GetLocationInPage)       \
-    X(FPDFDest_GetView)                 \
-    X(FPDF_GetNamedDestByName)          \
-    X(FPDFBookmark_GetFirstChild)       \
-    X(FPDFBookmark_GetNextSibling)      \
-    X(FPDFBookmark_GetTitle)            \
-    X(FPDFBookmark_GetColor)            \
-    X(FPDFBookmark_GetStyle)            \
-    X(FPDFBookmark_GetDest)             \
-    X(FPDFBookmark_GetAction)           \
-    X(FPDF_GetMetaText)                 \
-    X(FPDF_GetPageLabel)                \
-    X(FPDF_GetFormType)                 \
-    X(FPDFDoc_GetJavaScriptActionCount) \
-    X(FPDF_GetSignatureCount)           \
-    X(FPDFDoc_GetAttachmentCount)       \
-    X(FPDFDOC_InitFormFillEnvironment)  \
-    X(FPDFDOC_ExitFormFillEnvironment)  \
-    X(FORM_OnAfterLoadPage)             \
-    X(FORM_OnBeforeClosePage)           \
-    X(FPDF_FFLDraw)
+#define PDFIUM_API(X)                                                                                               \
+    X(FPDF_InitLibraryWithConfig)                                                                                   \
+    X(FPDF_DestroyLibrary)                                                                                          \
+    X(FPDF_GetDefaultSystemFontInfo)                                                                                \
+    X(FPDF_SetSystemFontInfo)                                                                                       \
+    X(FPDF_FreeDefaultSystemFontInfo)                                                                               \
+    X(FPDF_LoadCustomDocument)                                                                                      \
+    X(FPDF_LoadMemDocument)                                                                                         \
+    X(FPDF_CloseDocument)                                                                                           \
+    X(FPDF_GetLastError)                                                                                            \
+    X(FPDF_GetPageCount)                                                                                            \
+    X(FPDF_GetDocPermissions)                                                                                       \
+    X(FPDF_GetDocUserPermissions)                                                                                   \
+    X(FPDF_GetSecurityHandlerRevision)                                                                              \
+    X(FPDF_GetPageSizeByIndexF)                                                                                     \
+    X(FPDF_LoadPage)                                                                                                \
+    X(FPDF_ClosePage)                                                                                               \
+    X(FPDFPage_GetRotation)                                                                                         \
+    X(FPDFPage_SetRotation)                                                                                         \
+    X(FPDF_PageToDevice)                                                                                            \
+    X(FPDFPage_CountObjects)                                                                                        \
+    X(FPDFPage_GetObject)                                                                                           \
+    X(FPDFPageObj_GetType)                                                                                          \
+    X(FPDFPageObj_GetMatrix)                                                                                        \
+    X(FPDFPageObj_GetBounds)                                                                                        \
+    X(FPDFPage_GetMediaBox)                                                                                         \
+    X(FPDFPage_GetCropBox)                                                                                          \
+    X(FPDFPage_GetBleedBox)                                                                                         \
+    X(FPDFPage_GetTrimBox)                                                                                          \
+    X(FPDFPage_GetArtBox)                                                                                           \
+    X(FPDFFormObj_CountObjects)                                                                                     \
+    X(FPDFFormObj_GetObject)                                                                                        \
+    X(FPDFImageObj_GetImageMetadata)                                                                                \
+    X(FPDFImageObj_GetImagePixelSize)                                                                               \
+    X(FPDFImageObj_GetBitmap)                                                                                       \
+    X(FPDFBitmap_GetFormat)                                                                                         \
+    X(FPDFBitmap_GetBuffer)                                                                                         \
+    X(FPDFBitmap_GetWidth)                                                                                          \
+    X(FPDFBitmap_GetHeight)                                                                                         \
+    X(FPDFBitmap_GetStride)                                                                                         \
+    X(FPDFBitmap_CreateEx)                                                                                          \
+    X(FPDFBitmap_Destroy)                                                                                           \
+    X(FPDF_RenderPageBitmap_Start)                                                                                  \
+    X(FPDF_RenderPage_Continue)                                                                                     \
+    X(FPDF_RenderPage_Close)                                                                                        \
+    X(FPDFText_LoadPage)                                                                                            \
+    X(FPDFText_ClosePage)                                                                                           \
+    X(FPDFText_CountChars)                                                                                          \
+    X(FPDFText_GetUnicode)                                                                                          \
+    X(FPDFText_IsGenerated)                                                                                         \
+    X(FPDFText_IsHyphen)                                                                                            \
+    X(FPDFText_GetCharBox)                                                                                          \
+    X(FPDFText_GetLooseCharBox)                                                                                     \
+    X(FPDFText_GetMatrix)                                                                                           \
+    X(FPDFText_GetCharOrigin)                                                                                       \
+    X(FPDFText_GetFontSize)                                                                                         \
+    X(FPDFText_GetTextObject)                                                                                       \
+    X(FPDFTextObj_GetFont)                                                                                          \
+    X(FPDFFont_GetAscent)                                                                                           \
+    X(FPDFFont_GetDescent)                                                                                          \
+    X(FPDFFont_GetGlyphWidth)                                                                                       \
+    X(FPDFFont_GetBaseFontName)                                                                                     \
+    X(FPDFLink_Enumerate)                                                                                           \
+    X(FPDFLink_GetAnnotRect)                                                                                        \
+    X(FPDFLink_GetDest)                                                                                             \
+    X(FPDFLink_GetAction)                                                                                           \
+    X(FPDFLink_GetAnnot)                                                                                            \
+    X(FPDFAnnot_GetStringValue)                                                                                     \
+    X(FPDFPage_GetAnnotCount)                                                                                       \
+    X(FPDFPage_GetAnnot)                                                                                            \
+    X(FPDFAnnot_GetSubtype)                                                                                         \
+    X(FPDFAnnot_GetFlags)                                                                                           \
+    X(FPDFAnnot_GetRect)                                                                                            \
+    X(FPDFAnnot_HasKey)                                                                                             \
+    X(FPDFAnnot_GetValueType)                                                                                       \
+    X(FPDFAnnot_GetFormFieldType)                                                                                   \
+    X(FPDFAnnot_GetFormFieldFlags)                                                                                  \
+    X(FPDFAnnot_GetFormFieldValue)                                                                                  \
+    X(FPDFAnnot_GetAP)                                                                                              \
+    X(FPDFAnnot_GetFormFieldAlternateName)                                                                          \
+    X(FPDFPage_CloseAnnot) X(FPDFAction_GetType) X(FPDFAction_GetDest) X(FPDFAction_GetURIPath)                     \
+        X(FPDFAction_GetFilePath) X(FPDFDest_GetDestPageIndex) X(FPDFDest_GetLocationInPage) X(FPDFDest_GetView)    \
+            X(FPDF_GetNamedDestByName) X(FPDFBookmark_GetFirstChild) X(FPDFBookmark_GetNextSibling)                 \
+                X(FPDFBookmark_GetTitle) X(FPDFBookmark_GetColor) X(FPDFBookmark_GetStyle) X(FPDFBookmark_GetDest)  \
+                    X(FPDFBookmark_GetAction) X(FPDF_GetMetaText) X(FPDF_GetPageLabel) X(FPDF_GetFormType)          \
+                        X(FPDFDoc_GetJavaScriptActionCount) X(FPDF_GetSignatureCount) X(FPDFDoc_GetAttachmentCount) \
+                            X(FPDFDOC_InitFormFillEnvironment) X(FPDFDOC_ExitFormFillEnvironment)                   \
+                                X(FORM_OnAfterLoadPage) X(FORM_OnBeforeClosePage) X(FPDF_FFLDraw)
 
 Kind kindEnginePdfium = "enginePdfium";
 
@@ -257,6 +241,11 @@ static struct PdfiumApi {
     }
 } gPdfium;
 
+struct PdfiumWidget {
+    RectF rect;
+    WidgetCursorKind cursor = WidgetCursorKind::None;
+};
+
 struct PdfiumPage {
     SizeF size;
     bool annotationsChecked = false;
@@ -274,6 +263,9 @@ struct PdfiumPage {
     // empty fillable form fields, in page space, until the editor holds field values
     bool formRectsLoaded = false;
     Vec<RectF> formRects;
+    // form widgets for hover and click hit tests, until the editor is loaded
+    bool widgetsLoaded = false;
+    Vec<PdfiumWidget> widgets;
 };
 
 struct PdfiumProfile {
@@ -1370,7 +1362,9 @@ class EnginePdfium : public EngineBase {
             }
             auto subtype = gPdfium.FPDFAnnot_GetSubtype(annot);
             bool isAttachment = subtype == FPDF_ANNOT_FILEATTACHMENT;
-            if (subtype != FPDF_ANNOT_LINK) {
+            if (subtype == FPDF_ANNOT_WIDGET && !WidgetIsLink(annot)) {
+                AddWidgetTip(page, pageNo, info, annot);
+            } else if (subtype != FPDF_ANNOT_LINK) {
                 info->useMupdfElements = true;
             }
             gPdfium.FPDFPage_CloseAnnot(annot);
@@ -1382,6 +1376,45 @@ class EnginePdfium : public EngineBase {
         gPdfium.FPDF_ClosePage(page);
         info->linksLoaded = true;
         profile.Mark(StrL("load-and-scan"));
+    }
+
+    // Caller holds gPdfiumLock. MuPDF makes links of push buttons that navigate (issue #1914).
+    bool WidgetIsLink(FPDF_ANNOTATION annot) {
+        int type = form ? gPdfium.FPDFAnnot_GetFormFieldType(form, annot) : -1;
+        if (type != FPDF_FORMFIELD_PUSHBUTTON && type != -1) {
+            return false;
+        }
+        return gPdfium.FPDFAnnot_HasKey(annot, "Dest") || gPdfium.FPDFAnnot_HasKey(annot, "A") ||
+               gPdfium.FPDFAnnot_HasKey(annot, "AA");
+    }
+
+    // Caller holds gPdfiumLock. A form field's /TU tooltip as a comment, as MuPDF shows it (issue #2083).
+    void AddWidgetTip(FPDF_PAGE page, int pageNo, PdfiumPage* info, FPDF_ANNOTATION annot) {
+        unsigned long bytes = form ? gPdfium.FPDFAnnot_GetFormFieldAlternateName(form, annot, nullptr, 0) : 0;
+        bool fromField = bytes > sizeof(WCHAR);
+        if (!fromField) {
+            bytes = gPdfium.FPDFAnnot_GetStringValue(annot, "TU", nullptr, 0);
+        }
+        constexpr unsigned long kMaxTipBytes = 64 * 1024;
+        if (bytes <= sizeof(WCHAR) || bytes > kMaxTipBytes || bytes % sizeof(WCHAR) != 0) {
+            return;
+        }
+        WCHAR* buf = AllocArrayTemp<WCHAR>((int)(bytes / sizeof(WCHAR)));
+        unsigned long got = fromField
+                                ? gPdfium.FPDFAnnot_GetFormFieldAlternateName(form, annot, (FPDF_WCHAR*)buf, bytes)
+                                : gPdfium.FPDFAnnot_GetStringValue(annot, "TU", (FPDF_WCHAR*)buf, bytes);
+        FS_RECTF r{};
+        if (got != bytes || !gPdfium.FPDFAnnot_GetRect(annot, &r)) {
+            return;
+        }
+        RectF rect = ToPageRect(page, info, r.left, r.bottom, r.right, r.top);
+        if (rect.IsEmpty()) {
+            return;
+        }
+        auto* tip = new PageElementComment(ToUtf8Temp(WStr(buf, (int)(bytes / sizeof(WCHAR)) - 1)));
+        tip->pageNo = pageNo;
+        tip->rect = rect;
+        VecAppend(info->links, (IPageElement*)tip);
     }
 
     TocItem* ReadBookmarks(FPDF_BOOKMARK first, TocItem* parent, int depth, int& budget, int& id) {
@@ -1834,6 +1867,100 @@ class EnginePdfium : public EngineBase {
         return empty ? 1 : 0;
     }
 
+    // Form field under pos by EngineMupdfGetWidgetAtPos' rules (the smallest widget containing it)
+    // with GetWidgetCursorKind's cursor, read with PDFium so hover and clicks off fields don't load
+    // the editor. Once it is loaded it answers instead.
+    bool FormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor) override {
+        if (AnnotationEditor(EditorLoad::IfLoaded)) {
+            return false;
+        }
+        found = false;
+        cursor = WidgetCursorKind::None;
+        ScopedMutex lock(&gPdfiumLock);
+        PdfiumPage* info = Page(pageNo);
+        if (!form || !info) {
+            return true;
+        }
+        if (!info->widgetsLoaded) {
+            LoadWidgets(pageNo, info);
+        }
+        PdfiumWidget* best = nullptr;
+        float bestArea = 0;
+        for (PdfiumWidget& w : info->widgets) {
+            if (!w.rect.Contains(pos)) {
+                continue;
+            }
+            float area = w.rect.dx * w.rect.dy;
+            if (!best || area < bestArea) {
+                best = &w;
+                bestArea = area;
+            }
+        }
+        if (best) {
+            found = true;
+            cursor = best->cursor;
+        }
+        return true;
+    }
+
+    // Hover skips a page while its render owns the lock; FormWidgetAt takes it (not recursive).
+    bool TryFormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor) override {
+        if (AnnotationEditor(EditorLoad::IfLoaded)) {
+            return false;
+        }
+        if (!gPdfiumLock.TryLock()) {
+            found = false;
+            cursor = WidgetCursorKind::None;
+            return true;
+        }
+        gPdfiumLock.Unlock();
+        return FormWidgetAt(pageNo, pos, found, cursor);
+    }
+
+    // Caller holds gPdfiumLock. Every widget, hidden ones too, as MuPDF lists them.
+    void LoadWidgets(int pageNo, PdfiumPage* info) {
+        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        if (!page) {
+            return;
+        }
+        VecClear(info->widgets);
+        int count = gPdfium.FPDFPage_GetAnnotCount(page);
+        for (int i = 0; i < count; i++) {
+            FPDF_ANNOTATION annot = gPdfium.FPDFPage_GetAnnot(page, i);
+            if (!annot) {
+                continue;
+            }
+            FS_RECTF r{};
+            if (gPdfium.FPDFAnnot_GetSubtype(annot) == FPDF_ANNOT_WIDGET && gPdfium.FPDFAnnot_GetRect(annot, &r)) {
+                PdfiumWidget w;
+                w.rect = ToPageRect(page, info, r.left, r.bottom, r.right, r.top);
+                w.cursor = FormFieldCursor(annot);
+                VecAppend(info->widgets, w);
+            }
+            gPdfium.FPDFPage_CloseAnnot(annot);
+        }
+        gPdfium.FPDF_ClosePage(page);
+        info->widgetsLoaded = true;
+    }
+
+    // Caller holds gPdfiumLock. I-beam over text and choice fields, hand over check boxes and radio buttons.
+    WidgetCursorKind FormFieldCursor(FPDF_ANNOTATION annot) {
+        if (gPdfium.FPDFAnnot_GetFormFieldFlags(form, annot) & FPDF_FORMFLAG_READONLY) {
+            return WidgetCursorKind::None;
+        }
+        switch (gPdfium.FPDFAnnot_GetFormFieldType(form, annot)) {
+            case FPDF_FORMFIELD_TEXTFIELD:
+            case FPDF_FORMFIELD_COMBOBOX:
+            case FPDF_FORMFIELD_LISTBOX:
+                return WidgetCursorKind::Text;
+            case FPDF_FORMFIELD_CHECKBOX:
+            case FPDF_FORMFIELD_RADIOBUTTON:
+                return WidgetCursorKind::Button;
+            default:
+                return WidgetCursorKind::None;
+        }
+    }
+
     // Run document scripts before rendering so their widget values appear on the first page.
     void LoadDocumentJs() {
         if (documentJs && MupdfJavaScriptEnabled()) {
@@ -2254,10 +2381,37 @@ class EnginePdfium : public EngineBase {
         }
     }
 
+    // Caller holds gPdfiumLock. Whether a shown widget draws text, which MuPDF's text includes and
+    // PDFium's doesn't. Without an appearance MuPDF makes one that shows the field's value.
+    bool WidgetHasText(FPDF_ANNOTATION annot) {
+        constexpr int kHidden = FPDF_ANNOT_FLAG_HIDDEN | FPDF_ANNOT_FLAG_NOVIEW;
+        if (gPdfium.FPDFAnnot_GetSubtype(annot) != FPDF_ANNOT_WIDGET || (gPdfium.FPDFAnnot_GetFlags(annot) & kHidden)) {
+            return false;
+        }
+        bool hasText = false;
+        unsigned long bytes = gPdfium.FPDFAnnot_GetAP(annot, FPDF_ANNOT_APPEARANCEMODE_NORMAL, nullptr, 0);
+        if (bytes > sizeof(FPDF_WCHAR)) {
+            WCHAR* ap = AllocArray<WCHAR>(bytes / sizeof(WCHAR) + 1);
+            gPdfium.FPDFAnnot_GetAP(annot, FPDF_ANNOT_APPEARANCEMODE_NORMAL, (FPDF_WCHAR*)ap, bytes);
+            hasText = wcsstr(ap, L"BT") != nullptr;
+            free(ap);
+            return hasText;
+        }
+        bytes = form ? gPdfium.FPDFAnnot_GetFormFieldValue(form, annot, nullptr, 0) : 0;
+        if (bytes <= sizeof(FPDF_WCHAR)) {
+            return false;
+        }
+        WCHAR* value = AllocArray<WCHAR>(bytes / sizeof(WCHAR) + 1);
+        gPdfium.FPDFAnnot_GetFormFieldValue(form, annot, (FPDF_WCHAR*)value, bytes);
+        hasText = !wstr::Eq(WStr(value), WStrL(L"Off"));
+        free(value);
+        return hasText;
+    }
+
     PageText ExtractPageText(int pageNo) override {
         PdfiumProfile profile(StrL("text"), pageNo);
         PageText result;
-        bool hasWidget = false;
+        bool widgetText = false;
         bool missingUnicode = false;
         {
             ScopedMutex lock(&gPdfiumLock);
@@ -2273,16 +2427,16 @@ class EnginePdfium : public EngineBase {
             profile.Mark(StrL("page"));
             result = ReadPageText(page, info, &missingUnicode);
             int count = gPdfium.FPDFPage_GetAnnotCount(page);
-            for (int i = 0; i < count && !hasWidget; i++) {
+            for (int i = 0; i < count && !widgetText; i++) {
                 FPDF_ANNOTATION annot = gPdfium.FPDFPage_GetAnnot(page, i);
-                hasWidget = annot && gPdfium.FPDFAnnot_GetSubtype(annot) == FPDF_ANNOT_WIDGET;
                 if (annot) {
+                    widgetText = WidgetHasText(annot);
                     gPdfium.FPDFPage_CloseAnnot(annot);
                 }
             }
             gPdfium.FPDF_ClosePage(page);
         }
-        if (hasWidget || missingUnicode) {
+        if (widgetText || missingUnicode) {
             EngineBase* editor = AnnotationEditor(EditorLoad::Load);
             if (editor) {
                 FreePageText(&result);

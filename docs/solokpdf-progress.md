@@ -1823,14 +1823,16 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   `tests/ad-hoc-pdfium-synctex.ts` compares two pages and their rectangles.
 - Plain-text URLs, e-mails and DOIs become links through MuPDF's shared
   linkifier, honoring `DisableAutoLinks`. PDFium uses the lazy MuPDF page
-  elements for unsupported actions and widgets. Wrapped URLs join from
+  elements for unsupported actions, other annotations and navigating push
+  buttons; a form field's `/TU` tooltip comes from PDFium. Wrapped URLs join from
   PDFium's page text without loading the editor. JavaScript menus and button
   navigation still use MuPDF. `tests/ad-hoc-pdfium-links.ts` checks both engines.
   PDFium text still differs on some plain URLs (4 of 95 sampled pages).
 - PDFium extracts routine page text through its own text API. Character gaps,
   loose glyph boxes, line breaks and a CP-1251 font mapping preserve spacing,
-  Unicode and selection bounds. A page with form widgets or unmapped glyphs
-  uses MuPDF text only when requested. Plain pages leave the editor unloaded.
+  Unicode and selection bounds. A page with unmapped glyphs, or a shown widget
+  whose appearance draws text (or, lacking one, has a value), uses MuPDF text
+  only when requested. Plain pages leave the editor unloaded.
   `ad-hoc-pdfium-text-fallback` extracted all 95 pages of 3 corpus PDFs:
   Attention 15, BERT 16, Japanese IPA 64. `TestCurrentPdf editor` stayed
   `none` after every page (B14 check); no narrowing was needed.
@@ -1914,17 +1916,18 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   fields without an appearance (`NeedAppearances`) PDFium builds its own, as in
   Chrome: its checkmark glyph and a combo box arrow differ from MuPDF's. Fields
   can be filled through the hidden MuPDF editor, which loads on the first
-  widget hit test (the pointer over a page, for its cursor) or edit only when
-  PDFium reports an AcroForm. `HighlightFormFields` reads empty fields with
-  PDFium's form API until then, so painting does not load it
-  (`tests/ad-hoc-pdfium-form-highlight.ts` matches MuPDF's rects). Once loaded, MuPDF draws widgets
+  click on a field or edit only when PDFium reports an AcroForm.
+  `HighlightFormFields` and the hover cursor (I-beam or hand, by MuPDF's
+  smallest-widget and read-only rules) read fields with PDFium's form API until
+  then, so painting, hovering and clicking off fields do not load it
+  (`tests/ad-hoc-pdfium-form-highlight.ts`, `tests/ad-hoc-pdfium-form-hover.ts`). Once loaded, MuPDF draws widgets
   over PDFium's page instead of PDFium's widget pass, so edited values do not
   show stale appearances. Text, choice, checkbox and radio edits use MuPDF's
   existing incremental save and undo paths. `tests/issue-6240.ts` checks
   buttons and saving; `tests/ad-hoc-pdfium-forms.ts` checks text and choice
   values, view/print rendering and saved copies in both engines. XFA remains
   unsupported; signing uses the same lazy MuPDF editor for PDFium documents.
-  PDFium draws untouched widgets. The first widget hit test loads the hidden MuPDF
+  PDFium draws untouched widgets. The first click on a field loads the hidden MuPDF
   editor, whose widgets replace PDFium's widget pass after an edit; documents
   without forms keep the PDFium-only open and render path. Its existing edit,
   undo and incremental save paths handle text, choice and button fields.

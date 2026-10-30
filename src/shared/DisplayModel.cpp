@@ -58,6 +58,7 @@
 #include "DocController.h"
 #include "EngineBase.h"
 #include "EngineAll.h"
+#include "Annotation.h"
 #include "AppSettings.h"
 #include "SumatraPDF.h"
 #include "PdfSync.h"
@@ -2395,6 +2396,25 @@ Annotation* DisplayModel::GetWidgetAtPos(Point pt) {
     }
     PointF pos = CvtFromScreen(pt, pageNo);
     return EngineGetWidgetAtPos(engine, pageNo, pos);
+}
+
+// Hover cursor over a form field. An engine that reads its own fields answers
+// without loading the annotation editor or waiting on a render.
+WidgetCursorKind DisplayModel::GetWidgetCursorAtPos(Point pt) {
+    if (AnnotationsAreDisabled()) {
+        return WidgetCursorKind::None;
+    }
+    int pageNo = VisiblePageAt(this, pt);
+    if (!ValidPageNo(pageNo)) {
+        return WidgetCursorKind::None;
+    }
+    PointF pos = CvtFromScreen(pt, pageNo);
+    bool found = false;
+    WidgetCursorKind cursor = WidgetCursorKind::None;
+    if (engine->TryFormWidgetAt(pageNo, pos, found, cursor)) {
+        return cursor;
+    }
+    return GetWidgetCursorKind(EngineGetWidgetAtPos(engine, pageNo, pos));
 }
 
 // note: returns false for pages that haven't been rendered yet

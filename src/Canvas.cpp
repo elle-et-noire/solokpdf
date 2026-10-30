@@ -3187,7 +3187,7 @@ static LRESULT OnSetCursorMouseNone(MainWindow* win, HWND hwnd) {
 
     // PDF form fields: I-beam over text/choice, hand over checkbox/radio
     {
-        WidgetCursorKind kind = GetWidgetCursorKind(dm->GetWidgetAtPos(pt));
+        WidgetCursorKind kind = dm->GetWidgetCursorAtPos(pt);
         if (kind == WidgetCursorKind::Text) {
             SetCursorCached(IDC_IBEAM);
             return TRUE;

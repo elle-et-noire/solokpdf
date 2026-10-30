@@ -232,6 +232,7 @@ struct DisplayModel : DocController {
     Annotation* GetAnnotationAtPos(Point pt, Annotation*);
     Annotation* GetAnnotationAtPosHover(Point pt, Annotation*);
     Annotation* GetWidgetAtPos(Point pt);
+    WidgetCursorKind GetWidgetCursorAtPos(Point pt);
 
     int GetPageNoByPoint(Point pt);
     Point CvtToScreen(int pageNo, PointF pt);

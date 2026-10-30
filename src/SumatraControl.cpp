@@ -1677,6 +1677,33 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 0, ToStrTemp(res));
                 break;
             }
+            Str query = StringArg(req, 0);
+            if (str::Eq(query, StrL("widget-cursor")) || str::Eq(query, StrL("widget-hit"))) {
+                // form field at a page point, as canvas hover (cursor) or a click (hit) finds it
+                i32 pageNo = 0;
+                i32 x = 0;
+                i32 y = 0;
+                IntArg(req, 1, pageNo);
+                IntArg(req, 2, x);
+                IntArg(req, 3, y);
+                if (pageNo < 1 || pageNo > engine->PageCount()) {
+                    AppendTestResult(req, 1, StrL("invalid page"));
+                    break;
+                }
+                Point pt = dm->CvtToScreen(pageNo, PointF((float)x, (float)y));
+                if (str::Eq(query, StrL("widget-hit"))) {
+                    AppendTestResult(req, 0, dm->GetWidgetAtPos(pt) ? StrL("widget=yes") : StrL("widget=no"));
+                    break;
+                }
+                WidgetCursorKind kind = dm->GetWidgetCursorAtPos(pt);
+                Str name = kind == WidgetCursorKind::Text     ? StrL("text")
+                           : kind == WidgetCursorKind::Button ? StrL("button")
+                                                              : StrL("none");
+                IPageElement* el = dm->GetElementAtPos(pt, nullptr);
+                Str tip = el && el->Is(kindPageElementComment) ? el->GetValue() : StrL("-");
+                AppendTestResult(req, 0, fmt("cursor=%s tip=%s pt=%d,%d", name, tip, pt.x, pt.y));
+                break;
+            }
             if (str::Eq(StringArg(req, 0), StrL("sync"))) {
                 AppendTestResult(req, 0, dm->pdfSync ? StrL("sync=loaded") : StrL("sync=none"));
                 break;

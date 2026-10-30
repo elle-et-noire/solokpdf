@@ -75,6 +75,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B44 | Gate the per-open catalog query (OpenAction, PageLayout, Direction) behind the existing geometry byte scan so PDFs without those keys skip it (~1 ms, 20 ms when encrypted) | `EnginePdfium`               | done — Skip catalog query without catalog keys (B44)                                 |
 | B45 | Read-aloud restyle chapter                                                                                                                                                  | Run 5: PDFium only           | done — Record read-aloud restyle flake (B45)                                         |
 | B46 | AcroForm PDFs load the hidden MuPDF editor on first paint: `HighlightFormFields` reads empty fields via MuPDF; use PDFium's form API                                        | B12: form fixture            | done — Read form highlights with PDFium (B46)                                        |
+| B47 | Hovering an AcroForm page loads the hidden MuPDF editor: the widget cursor hit test, page elements and text extraction go through MuPDF; use PDFium                         | B46: form fixture            | done — Read form hover with PDFium (B47)                                             |
 
 ## C. Coexistence with SumatraPDF
 
