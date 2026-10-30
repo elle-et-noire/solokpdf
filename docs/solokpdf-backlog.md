@@ -40,25 +40,25 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 
 ### B7 follow-ups
 
-| ID  | Item                         | Evidence                     | Status                                                        |
-| --- | ---------------------------- | ---------------------------- | ------------------------------------------------------------- |
-| B14 | PDFium text extraction       | B7 text group                | done — Extract PDFium text without routine editor loads (B14) |
-| B15 | PDFium search                | B7 search group              | done — Join PDFium hyphenated search text (fixes #1189)       |
-| B16 | PDFium links                 | B7 links group               | done — Link wrapped URLs in PDFium (fixes #2239)              |
+| ID  | Item                         | Evidence                     | Status                                                                                                                    |
+| --- | ---------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| B14 | PDFium text extraction       | B7 text group                | done — Extract PDFium text without routine editor loads (B14)                                                             |
+| B15 | PDFium search                | B7 search group              | done — Join PDFium hyphenated search text (fixes #1189)                                                                   |
+| B16 | PDFium links                 | B7 links group               | done — Link wrapped URLs in PDFium (fixes #2239)                                                                          |
 | B17 | PDFium annotations           | B7 annotations group         | blocked - Load PDFium annotation editor (fixes #6217); redaction reload loses undo; cursor tests need an unlocked session |
-| B18 | PDFium images                | B7 images group              | done — Enable PDFium image actions (fixes #6214)              |
-| B19 | PDFium fit content           | B7 layout group              | done — Fit PDFium content bounds (fixes #6241)                |
-| B20 | PDFium page boxes            | B7 page boxes group          | done — Report PDFium page boxes (fixes #814)                  |
+| B18 | PDFium images                | B7 images group              | done — Enable PDFium image actions (fixes #6214)                                                                          |
+| B19 | PDFium fit content           | B7 layout group              | done — Fit PDFium content bounds (fixes #6241)                                                                            |
+| B20 | PDFium page boxes            | B7 page boxes group          | done — Report PDFium page boxes (fixes #814)                                                                              |
 | B21 | PDFium CAD enhance           | B7 CAD group                 | blocked — PDFium lacks CAD render controls; color changes barred                                                          |
-| B22 | PDFium bookmark colors       | B7 rendering group           | done — Honor PDFium bookmark styles (fixes #3560)                                                          |
-| B23 | PDFium scroll responsiveness | B7 responsiveness group      | done — Avoid PDFium TOC lock on scroll (fixes #6362)                                                          |
-| B24 | PDFium XMP properties        | B7 XMP group                 | done — Fill PDFium XMP properties from lazy editor                                                          |
-| B25 | Restore lazy session tab     | B7 R: lazy tab no-doc        | blocked — test seeds wrong file and disables opened-file memory                                                          |
-| B26 | PDFium comment authors       | B7 R: issue-5329             | done — Verify PDFium comment authors                                                          |
-| B27 | PDFium external images       | B7 R: issue-3731             | blocked — PDFium lacks external stream loader; editor render barred                                                          |
-| B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | todo                                                          |
-| B29 | PDFium trim margins          | B7 P: issue-trim-margins     | todo                                                          |
-| B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | todo                                                          |
+| B22 | PDFium bookmark colors       | B7 rendering group           | done — Honor PDFium bookmark styles (fixes #3560)                                                                         |
+| B23 | PDFium scroll responsiveness | B7 responsiveness group      | done — Avoid PDFium TOC lock on scroll (fixes #6362)                                                                      |
+| B24 | PDFium XMP properties        | B7 XMP group                 | done — Fill PDFium XMP properties from lazy editor                                                                        |
+| B25 | Restore lazy session tab     | B7 R: lazy tab no-doc        | blocked — test seeds wrong file and disables opened-file memory                                                           |
+| B26 | PDFium comment authors       | B7 R: issue-5329             | done — Verify PDFium comment authors                                                                                      |
+| B27 | PDFium external images       | B7 R: issue-3731             | blocked — PDFium lacks external stream loader; editor render barred                                                       |
+| B28 | PDFium TOC selection         | B7 P: toc-selection-visible  | done — Select PDFium bookmarks under the hidden tree root                                                                 |
+| B29 | PDFium trim margins          | B7 P: issue-trim-margins     | todo                                                                                                                      |
+| B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | todo                                                                                                                      |
 
 ## C. Coexistence with SumatraPDF
 

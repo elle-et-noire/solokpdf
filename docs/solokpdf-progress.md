@@ -1670,6 +1670,10 @@ dark-mode epoch. B6 needs no engine invalidation.
 
 ## Known limitations and next work
 
+PDFium's bookmarks tree was present but its first item stayed unselected:
+the selection walker treated the hidden root as collapsed. It now selects
+top-level items. `toc-selection-visible` passes on both engines (B28).
+
 PDFium reuses its loaded bookmark tree without taking the global render lock.
 `issue-6362` now scrolls and changes pages while a slow page draws without
 stalling; MuPDF and PDFium both pass. Non-blocking PDFium text and element

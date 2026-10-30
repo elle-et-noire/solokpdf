@@ -232,8 +232,8 @@ static TocItem* FindVisibleParentTreeItem(TreeView* treeView, TocItem* ti) {
     }
     while (true) {
         auto* parent = ti->parent;
-        if (parent == nullptr) {
-            // ti is a root node
+        // The hidden root is always expanded.
+        if (parent == nullptr || parent == (TocItem*)treeView->treeModel->Root()) {
             return ti;
         }
         if (treeView->IsExpanded((TreeItem)parent)) {

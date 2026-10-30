@@ -7,7 +7,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control";
-import { assemblePdf, runStandalone, tmpPath, USE_NG } from "./util";
+import { assemblePdf, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util";
 import { launchControlled, killAndWait } from "./win-automation";
 import { findChildWindow, sleep, treeGetSelection, treeIsItemInView } from "./winapi";
 
@@ -96,7 +96,7 @@ export async function testit(): Promise<void> {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "ShowToc = true\nShowFavorites = false\nRestoreSession = false\nCheckForUpdates = false\n",
   );
 
