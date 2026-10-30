@@ -61,6 +61,7 @@ Each one works on MuPDF tabs and silently does nothing on PDFium tabs.
 | B30 | Shared UI command hangs      | B7 R: issue-5979, issue-6017 | todo                                                                                                                      |
 | B31 | Control output assertions    | Run 3: issue-5944, issue-906 | done — Accept current `screen` and `rect` fields                                                                          |
 | B32 | CI annotation cursor         | Run 3: annotation CI         | done — Park cursor before checking lazy editor                                                                            |
+| B33 | Trim restore assertion       | Run 3: trim restore          | done — Compare page aspect on every platform                                                                              |
 
 ## C. Coexistence with SumatraPDF
 

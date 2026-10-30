@@ -1682,6 +1682,11 @@ page could load the editor before the render-only assertion. The test now
 parks the cursor outside the window before opening it and restores it after.
 The test passes locally; the CI rerun is pending (B32).
 
+Run 3's trim restore test rejected a real trim: page aspect changed from
+1.293 to 0.364, while the scroll extent shrank from 1279 to 721 and missed
+its arbitrary half-size threshold. The assertion now checks page aspect on
+every platform; the local test passes (B33).
+
 PDFium reuses its loaded bookmark tree without taking the global render lock.
 `issue-6362` now scrolls and changes pages while a slow page draws without
 stalling; MuPDF and PDFium both pass. Non-blocking PDFium text and element
