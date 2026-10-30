@@ -63,7 +63,6 @@ jobs:
           retention-days: 7
 
   release:
-    needs: debug
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/solokpdf-dev')
     runs-on: windows-2025-vs2026
     timeout-minutes: 120
