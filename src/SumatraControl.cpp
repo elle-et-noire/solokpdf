@@ -676,6 +676,8 @@ enum class ControlCmd : u16 {
     TestSetFormField = 142,
     TestDocumentJsOpen = 143,
     TestCurrentPdf = 144,
+    // every command's visibility on a surface, one "CmdName vis" line each
+    TestAllCommandVisibility = 145,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1858,6 +1860,29 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 visName = StrL("disable");
             }
             AppendTestResult(req, 0, fmt("cmd=%s vis=%s", name, visName));
+            break;
+        }
+
+        case ControlCmd::TestAllCommandVisibility: {
+            if (len(gWindows) == 0 || !gWindows[0]) {
+                AppendTestResult(req, 2, StrL("NOTREADY no-window"));
+                break;
+            }
+            CommandSurface surface =
+                str::EqI(StringArg(req, 0), StrL("palette")) ? CommandSurface::Palette : CommandSurface::Menu;
+            AppCommandCtx ctx = NewAppCommandCtx(gWindows[0], Point{});
+            str::Builder out;
+            for (int i = 0; i < gCommandsCount; i++) {
+                CommandVisibility vis = GetCommandVisibility(gCommands[i].id, ctx, surface);
+                Str visName = StrL("show");
+                if (vis == CommandVisibility::Hide) {
+                    visName = StrL("hide");
+                } else if (vis == CommandVisibility::Disable) {
+                    visName = StrL("disable");
+                }
+                out.Append(fmt("%s %s\n", Str(gCommands[i].name), visName));
+            }
+            AppendTestResult(req, 0, ToStrTemp(out));
             break;
         }
 

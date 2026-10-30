@@ -1758,6 +1758,9 @@ PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a render-device
 pass to vector strokes, text and narrow fills, adjusts minimum line width, and
 darkens raster drawings; PDFium has no equivalent per-render control. The toggle
 continues to work on MuPDF tabs. `ad-hoc-pdfium-cad` checks both command states.
+`ad-hoc-pdfium-commands` compares every command's menu and palette state
+between engines on plain, outlined, annotated, form and encrypted PDFs; this
+command is the only difference.
 `issue-6361` detects raster CAD on MuPDF and fails on PDFium. Detection without
 the prohibited PDFium color processing would leave the drawing unchanged (B21).
 
@@ -1911,7 +1914,8 @@ the prohibited PDFium color processing would leave the drawing unchanged (B21).
   fields without an appearance (`NeedAppearances`) PDFium builds its own, as in
   Chrome: its checkmark glyph and a combo box arrow differ from MuPDF's. Fields
   can be filled through the hidden MuPDF editor, which loads on the first form
-  query only when PDFium reports an AcroForm. Once loaded, MuPDF draws widgets
+  query only when PDFium reports an AcroForm; with `HighlightFormFields` on
+  (the default) the first paint is such a query (B46). Once loaded, MuPDF draws widgets
   over PDFium's page instead of PDFium's widget pass, so edited values do not
   show stale appearances. Text, choice, checkbox and radio edits use MuPDF's
   existing incremental save and undo paths. `tests/issue-6240.ts` checks

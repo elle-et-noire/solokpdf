@@ -114,6 +114,8 @@ export enum ControlCommand {
   TestSetFormField = 142,
   TestDocumentJsOpen = 143,
   TestCurrentPdf = 144,
+  // every command's visibility on a surface, one "CmdName vis" line each
+  TestAllCommandVisibility = 145,
   TestSidebarThumbnails = 113,
   TestFrameNcStrips = 114,
   TestMergePdf = 115,
