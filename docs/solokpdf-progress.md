@@ -2080,6 +2080,13 @@ so the second sample could miss a frame. It now judges the sample that ended
 the wait and, after Delete, counts existing frames, so the closed window must
 be destroyed. Five reruns per engine pass (B41, S).
 
+Run 5 failed `read-aloud-restyle-stale-page` on PDFium only: after the second
+restyle, read aloud reported chapter 36 while it had been reading 34. The test
+opens an EPUB, which `SOLOKPDF_ENGINE` does not affect, and it passed in the
+other nine CI runs. CI runs take 2.2–4.4 s against 5–6.6 s locally, so runner
+speech may outpace the one-chapter allowance. Three local runs per engine
+passed; recorded as a flake (B45, E).
+
 Run 4 `issue-6367` failed on both engines because ten thumbnails still extend
 past the hosted runner's 989 × 640 client area. The test now checks scrollbar
 visibility against the last caption and available area (B42, S). Local PDFium
