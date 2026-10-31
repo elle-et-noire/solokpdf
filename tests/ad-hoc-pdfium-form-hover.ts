@@ -59,6 +59,17 @@ async function query(client: ControlClient, args: (string | number)[]): Promise<
   return String(res[1]);
 }
 
+// Hover gives up while a render holds the engine's lock and reports no field, so retry a miss.
+async function widgetCursor(client: ControlClient, x: number, y: number): Promise<string> {
+  let res = "";
+  for (let i = 0; i < 4; i++) {
+    res = await query(client, ["widget-cursor", 1, x, y]);
+    if (!res.startsWith("cursor=none tip=- ")) break;
+    await Bun.sleep(50);
+  }
+  return res;
+}
+
 async function expectEditor(client: ControlClient, engine: string, want: string, what: string): Promise<void> {
   if (engine !== "pdfium") return;
   const editor = await query(client, ["editor"]);
@@ -91,7 +102,7 @@ async function run(engine: string): Promise<Map<string, string>> {
 
       const hits = new Map<string, Hit>();
       for (const [name, x, y] of probes) {
-        const res = await query(client, ["widget-cursor", 1, x, y]);
+        const res = await widgetCursor(client, x, y);
         const m = /^cursor=(\w+) tip=(.*) pt=(-?\d+),(-?\d+)$/.exec(res);
         if (!m) throw new Error(`${name}: bad widget-cursor result: ${res}`);
         hits.set(name, { cursor: `${m[1]} tip=${m[2]}`, x: Number(m[3]), y: Number(m[4]) });
@@ -117,7 +128,7 @@ async function run(engine: string): Promise<Map<string, string>> {
 
       // once the editor is loaded it answers, and must agree
       for (const [n, x, y] of probes) {
-        const m = /^cursor=(\w+) tip=(.*) pt=/.exec(await query(client, ["widget-cursor", 1, x, y]))!;
+        const m = /^cursor=(\w+) tip=(.*) pt=/.exec(await widgetCursor(client, x, y))!;
         const after = `${m[1]} tip=${m[2]}`;
         if (after !== hits.get(n)!.cursor) {
           throw new Error(`${engine} ${n}: ${after} after edit, ${hits.get(n)!.cursor} before`);
