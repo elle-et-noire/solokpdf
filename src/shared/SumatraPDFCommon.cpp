@@ -324,6 +324,12 @@ bool ScrollbarsUseOverlay() {
     return mode == kScrollbarSmart || mode == kScrollbarOverlay;
 }
 
+// Always-shown overlay bars keep room beside the page so its edges can be
+// scrolled out from under them. Smart bars are mostly hidden: no room.
+bool OverlayScrollbarsTakeRoom() {
+    return ScrollbarModeFromPrefs() == kScrollbarOverlay;
+}
+
 SeqStrings gToolbarModeNames = "show\0hide\0overlay\0";
 
 int ToolbarModeFromPrefs() {

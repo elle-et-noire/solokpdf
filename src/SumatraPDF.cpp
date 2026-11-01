@@ -4666,6 +4666,8 @@ void UpdateFixedPageScrollbarsVisibility() {
         // canvas space, so the usable viewport changes. Relayout the document
         // (recomputes page layout and window-scrollbar visibility for the new
         // mode), the same way a resize does; RerenderFixedPage() then redraws.
+        // SetUiDpi() picks up the room overlay bars keep beside the page.
+        w->AsFixed()->SetUiDpi(w->AsFixed()->uiDpi);
         w->AsFixed()->SetViewPortSize(w->GetViewPortSize());
     }
     RerenderFixedPage();

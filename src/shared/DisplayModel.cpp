@@ -969,6 +969,11 @@ void DisplayModel::SetUiDpi(int dpi) {
     auto scale = [dpi](int n) -> int { return DpiScaleByDpi(dpi, n); };
     windowMargin = {scale(m.top), scale(m.right), scale(m.bottom), scale(m.left)};
     pageSpacing = {scale(sp.dx), scale(sp.dy)};
+    // the same room whether or not the bars show, so the page never moves
+    if (OverlayScrollbarsTakeRoom()) {
+        windowMargin.right += DpiGetSystemMetrics(SM_CXVSCROLL, dpi);
+        windowMargin.bottom += DpiGetSystemMetrics(SM_CYHSCROLL, dpi);
+    }
 #ifdef DRAW_PAGE_SHADOWS
     windowMargin.top += scale(3);
     windowMargin.bottom += scale(5);

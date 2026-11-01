@@ -155,6 +155,7 @@ int ScrollbarModeFromPrefs();
 
 bool ScrollbarsAreHidden();
 bool ScrollbarsUseOverlay();
+bool OverlayScrollbarsTakeRoom();
 OverlayScrollbar::Mode ScrollbarsOverlayMode();
 
 // toolbar mode values: "show\0hide\0overlay\0" (Toolbar and Fullscreen.Toolbar)
