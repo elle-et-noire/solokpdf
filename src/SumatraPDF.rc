@@ -76,7 +76,7 @@ IDR_EMBEDDED_PAK        RCDATA               QM(EMBEDDED_PAK)
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 #if defined(SOLOKPDF_PDFIUM)
-// tinted by tools/solokpdf/make-icon.py; windows tint IDI_SOLOK_BADGE at run time
+// from src/solokpdf/AppIcon.svg by tools/solokpdf/make-icon.py; windows redraw it in the theme
 IDI_SUMATRAPDF          ICON "solokpdf\\SolokPDF.ico"
 2                       ICON "solokpdf\\SolokPDF.ico"
 #else
@@ -94,9 +94,6 @@ IDI_SUMATRAPDF          ICON "gfx\\SumatraPDF-smaller.ico"
 7                       ICON "gfx\\img-32bit.ico"
 8                       ICON "gfx\\pdf-32bit.ico"
 9                       ICON "gfx\\mobi-32bit.ico"
-#if defined(SOLOKPDF_PDFIUM)
-IDI_SOLOK_BADGE         ICON "gfx\\SumatraPDF-smaller.ico"
-#endif
 
     /////////////////////////////////////////////////////////////////////////////
 

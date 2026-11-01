@@ -27,18 +27,20 @@ SolokPDF disables upstream update checks, commands and settings UI. Existing
   MuPDF and its AGPL obligations remain because the fallback/library remain.
 - No binary, downloaded PDF, build cache, PDB or archive is added to Git.
 
-## Theme-tinted icon
+## Theme-colored icon
 
-The app icon's yellow badge takes the hue of the theme's link color in every
-window: title bar, taskbar, Alt+Tab, About and dialogs. It's recolored in OKLCH
-with lightness scaled toward the new hue, so black "PDF" stays readable; a gray
-link color uses its faint hue, a pure gray one the exe's blue. Windows update on
-a theme change; open dialogs keep their icon.
+The app icon is SumatraPDF's (badge, band, "PDF") traced to vector paths in
+`src/solokpdf/AppIcon.svg`: badge and band are a few cubics fitted to the
+original outline, the letters rounded rects fitted to its text. Windows draw it
+in the theme's colors with GDI+ at each size: the badge in the UI background
+(`ControlBackgroundColor`), so it melts into the title bar, and the band and
+"PDF" in the document text color (`TextColor`), which the theme already keeps
+readable on its background. Title bar, taskbar, Alt+Tab, About and dialogs
+follow; windows update on a theme change, open dialogs keep their icon.
 
-The exe's own icon (Explorer, Start, shortcuts) can't follow the theme. It is
-fixed to the Light theme's blue, so it differs from SumatraPDF's.
-`tools/solokpdf/make-icon.py` writes it (`src/solokpdf/SolokPDF.ico`) with the
-same algorithm as `src/solokpdf/AppIconTheme.cpp`.
+The exe's icon (Explorer, Start, shortcuts) can't follow the theme; it is the
+same drawing in One Dark's colors. `tools/solokpdf/make-icon.py` generates it
+(`src/solokpdf/SolokPDF.ico`) and the path data (`AppIconPaths.h`) from the SVG.
 
 ## Theme page colors
 

@@ -7,149 +7,44 @@
 #include "gui/win/WinGui.h"
 #include "Theme.h"
 #include "SumatraConfig.h"
-#include "resource.h"
+#include "AppIconPaths.h"
 #include "AppIconTheme.h"
 
 /*
-Windows' icons take the hue of the theme's link color: the app icon's yellow
-badge, IDI_SOLOK_BADGE, is tinted in OKLCH. tools/solokpdf/make-icon.py does
-the same for the exe's icon with the Light theme's link color; keep them in step.
+Windows' icons are drawn from src/solokpdf/AppIcon.svg in the theme's colors:
+the badge in the UI background, so it melts into the title bar, and the band
+and "PDF" in the document text color. The exe's icon is the same drawing in
+One Dark's colors (tools/solokpdf/make-icon.py).
 
-  pixel ─► OKLCH (L, C, h) ─► (L * k, C, link hue) ─► lower C into sRGB ─► pixel
-
-k moves lightness halfway from yellow's most-saturated lightness (~0.93) to the
-link hue's, so a blue badge isn't washed out. Black text and gray edges
-(saturation < kMinSat) are left alone. A gray link color still has a faint hue
-(Dark's #6B7280 is bluish); a pure gray one takes the exe's hue, never yellow.
+Each size is drawn directly: scaling one bitmap down bleeds its edges.
 */
 
-constexpr float kMinSat = 0.25f;
-constexpr Color kBadgeColor = MkRgb(0xff, 0xf0, 0x00);
-// the Light theme's link color, which make-icon.py gives the exe's icon
-constexpr Color kExeLinkColor = MkRgb(0x00, 0x20, 0xa0);
-constexpr float kMinHueChroma = 0.005f;
+constexpr float kIconBox = 256;
 
-struct Oklch {
-    float l, c, h;
-};
-
-static float ToLinear(float c) {
-    return c <= 0.04045f ? c / 12.92f : powf((c + 0.055f) / 1.055f, 2.4f);
-}
-
-static float FromLinear(float c) {
-    c = std::clamp(c, 0.0f, 1.0f);
-    return c <= 0.0031308f ? c * 12.92f : (1.055f * powf(c, 1.0f / 2.4f)) - 0.055f;
-}
-
-static Oklch ToOklch(float r, float g, float b) {
-    r = ToLinear(r);
-    g = ToLinear(g);
-    b = ToLinear(b);
-    float l = cbrtf((0.4122214708f * r) + (0.5363325363f * g) + (0.0514459929f * b));
-    float m = cbrtf((0.2119034982f * r) + (0.6806995451f * g) + (0.1073969566f * b));
-    float s = cbrtf((0.0883024619f * r) + (0.2817188376f * g) + (0.6299787005f * b));
-    float L = (0.2104542553f * l) + (0.7936177850f * m) - (0.0040720468f * s);
-    float A = (1.9779984951f * l) - (2.4285922050f * m) + (0.4505937099f * s);
-    float B = (0.0259040371f * l) + (0.7827717662f * m) - (0.8086757660f * s);
-    return {L, hypotf(A, B), atan2f(B, A)};
-}
-
-static Oklch ToOklch(Color col) {
-    u8 r, g, b;
-    UnpackColor(col, r, g, b);
-    return ToOklch(r / 255.0f, g / 255.0f, b / 255.0f);
-}
-
-// linear sRGB, may be out of [0, 1]
-static void ToLinearRgb(Oklch v, float* rgb) {
-    float A = v.c * cosf(v.h);
-    float B = v.c * sinf(v.h);
-    float l = powf(v.l + (0.3963377774f * A) + (0.2158037573f * B), 3);
-    float m = powf(v.l - (0.1055613458f * A) - (0.0638541728f * B), 3);
-    float s = powf(v.l - (0.0894841775f * A) - (1.2914855480f * B), 3);
-    rgb[0] = (4.0767416621f * l) - (3.3077115913f * m) + (0.2309699292f * s);
-    rgb[1] = (-1.2684380046f * l) + (2.6097574011f * m) - (0.3413193965f * s);
-    rgb[2] = (-0.0041960863f * l) - (0.7034186147f * m) + (1.7076147010f * s);
-}
-
-static bool InGamut(Oklch v) {
-    float rgb[3];
-    ToLinearRgb(v, rgb);
-    for (float x : rgb) {
-        if (x < -1e-4f || x > 1 + 1e-4f) {
-            return false;
+static void AddLoops(Gdiplus::GraphicsPath& path, const float* pts, const int* loops, int nLoops, float scale) {
+    for (int i = 0; i < nLoops; i++) {
+        Vec<Gdiplus::PointF> v;
+        for (int j = 0; j < loops[i]; j++) {
+            VecAppend(v, Gdiplus::PointF(pts[j * 2] * scale, pts[j * 2 + 1] * scale));
         }
+        path.StartFigure();
+        path.AddBeziers(v.els, len(v));
+        path.CloseFigure();
+        pts += loops[i] * 2;
     }
-    return true;
 }
 
-// the highest chroma up to maxC that sRGB can show at lightness l and hue h
-static float FitChroma(float l, float maxC, float h) {
-    if (InGamut({l, maxC, h})) {
-        return maxC;
-    }
-    float lo = 0;
-    float hi = maxC;
-    for (int i = 0; i < 20; i++) {
-        float mid = (lo + hi) / 2;
-        if (InGamut({l, mid, h})) {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    return lo;
+static void FillLayer(Gdiplus::Graphics& g, const float* pts, const int* loops, int nLoops, float scale, Color col) {
+    // text counters wind the other way: holes under the nonzero rule
+    Gdiplus::GraphicsPath path(Gdiplus::FillModeWinding);
+    AddLoops(path, pts, loops, nLoops, scale);
+    Gdiplus::SolidBrush br(GdiRgbFromColor(col));
+    g.FillPath(&br, &path);
 }
 
-// the lightness where hue h reaches its highest chroma: yellow ~0.93, blue ~0.45
-static float CuspLightness(float h) {
-    float best = 0.5f;
-    float bestC = 0;
-    for (int i = 1; i < 100; i++) {
-        float l = i / 100.0f;
-        float c = FitChroma(l, 0.4f, h);
-        if (c > bestC) {
-            bestC = c;
-            best = l;
-        }
-    }
-    return best;
-}
-
-static void Rehue(u8* bgra, float h, float k) {
-    float b = bgra[0] / 255.0f;
-    float g = bgra[1] / 255.0f;
-    float r = bgra[2] / 255.0f;
-    float mx = std::max({r, g, b});
-    float mn = std::min({r, g, b});
-    if (mx <= 0 || (mx - mn) / mx < kMinSat) {
-        return;
-    }
-    Oklch v = ToOklch(r, g, b);
-    v.l *= k;
-    v.c = FitChroma(v.l, v.c, h);
-    v.h = h;
-    float rgb[3];
-    ToLinearRgb(v, rgb);
-    bgra[0] = (u8)lroundf(FromLinear(rgb[2]) * 255);
-    bgra[1] = (u8)lroundf(FromLinear(rgb[1]) * 255);
-    bgra[2] = (u8)lroundf(FromLinear(rgb[0]) * 255);
-}
-
-// the badge icon at size x size, recolored to hue h with lightness scale k
-static HICON TintBadge(int size, float h, float k) {
-    HMODULE mod = GetModuleHandleW(nullptr);
-    auto src = (HICON)LoadImageW(mod, MAKEINTRESOURCEW(IDI_SOLOK_BADGE), IMAGE_ICON, size, size, LR_DEFAULTCOLOR);
-    if (!src) {
-        return nullptr;
-    }
-    ICONINFO ii{};
-    if (!GetIconInfo(src, &ii)) {
-        DestroyIcon(src);
-        return nullptr;
-    }
-
+// an icon from straight-alpha BGRA rows; Bitmap::GetHICON mishandles partial alpha
+// (edges came out brighter than the background on dark themes)
+static HICON IconFromBgra(int size, const u8* src, int stride) {
     BITMAPINFO bmi{};
     bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
     bmi.bmiHeader.biWidth = size;
@@ -157,29 +52,47 @@ static HICON TintBadge(int size, float h, float k) {
     bmi.bmiHeader.biPlanes = 1;
     bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
-    HDC dc = GetDC(nullptr);
     void* bits = nullptr;
-    HBITMAP color = CreateDIBSection(dc, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    HICON res = nullptr;
-    if (color && GetDIBits(dc, ii.hbmColor, 0, size, bits, &bmi, DIB_RGB_COLORS) == size) {
-        u8* px = (u8*)bits;
-        for (int i = 0; i < size * size; i++) {
-            Rehue(px + (i * 4), h, k);
+    HBITMAP color = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    HBITMAP mask = CreateBitmap(size, size, 1, 1, nullptr);
+    HICON icon = nullptr;
+    if (color && mask) {
+        for (int y = 0; y < size; y++) {
+            memcpy((u8*)bits + (y * size * 4), src + (y * stride), size * 4);
         }
-        ICONINFO out = ii;
-        out.hbmColor = color;
-        res = CreateIconIndirect(&out);
+        ICONINFO ii{TRUE, 0, 0, mask, color};
+        icon = CreateIconIndirect(&ii);
     }
-    ReleaseDC(nullptr, dc);
     DeleteObject(color);
-    DeleteObject(ii.hbmColor);
-    DeleteObject(ii.hbmMask);
-    DestroyIcon(src);
-    return res;
+    DeleteObject(mask);
+    return icon;
+}
+
+static HICON DrawAppIcon(int size, Color badge, Color ink) {
+    Gdiplus::Bitmap bmp(size, size, PixelFormat32bppARGB);
+    {
+        Gdiplus::Graphics g(&bmp);
+        g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+        g.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+        g.Clear(Gdiplus::Color(0, 0, 0, 0));
+        float scale = size / kIconBox;
+        FillLayer(g, kIconBandPts, kIconBandLoops, dimofi(kIconBandLoops), scale, ink);
+        FillLayer(g, kIconBadgePts, kIconBadgeLoops, dimofi(kIconBadgeLoops), scale, badge);
+        FillLayer(g, kIconTextPts, kIconTextLoops, dimofi(kIconTextLoops), scale, ink);
+    }
+    Gdiplus::BitmapData data;
+    Gdiplus::Rect rc(0, 0, size, size);
+    if (bmp.LockBits(&rc, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &data) != Gdiplus::Ok) {
+        return nullptr;
+    }
+    HICON icon = IconFromBgra(size, (const u8*)data.Scan0, data.Stride);
+    bmp.UnlockBits(&data);
+    return icon;
 }
 
 struct ThemedIcon {
-    Color link;
+    Color badge;
+    Color ink;
     int size;
     HICON icon;
 };
@@ -188,22 +101,16 @@ struct ThemedIcon {
 static Vec<ThemedIcon> gThemedIcons;
 
 static HICON ThemedAppIcon(int size) {
-    Color link = ThemeWindowLinkColor();
+    Color badge = ThemeControlBackgroundColor();
+    Color ink = ThemeWindowTextColor();
     for (ThemedIcon& ti : gThemedIcons) {
-        if (ti.link == link && ti.size == size) {
+        if (ti.badge == badge && ti.ink == ink && ti.size == size) {
             return ti.icon;
         }
     }
-
-    Oklch target = ToOklch(link);
-    if (target.c < kMinHueChroma) {
-        target = ToOklch(kExeLinkColor);
-    }
-    float h = target.h;
-    float k = (1 + (CuspLightness(h) / CuspLightness(ToOklch(kBadgeColor).h))) / 2;
-    HICON icon = TintBadge(size, h, k);
+    HICON icon = DrawAppIcon(size, badge, ink);
     if (icon) {
-        VecAppend(gThemedIcons, ThemedIcon{link, size, icon});
+        VecAppend(gThemedIcons, ThemedIcon{badge, ink, size, icon});
     }
     return icon;
 }
