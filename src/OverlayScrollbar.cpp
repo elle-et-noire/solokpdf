@@ -16,6 +16,9 @@ static bool gScrollbarClassRegistered = false;
 // if true, draw small filled triangles instead of chevrons
 static bool gThickArrows = true;
 
+// width of the scrollbar in every state
+static constexpr int kBarWidthDip = 8;
+
 // all live overlay scrollbars, for global mouse tracking
 static Vec<OverlayScrollbar*> gAllScrollbars;
 static UINT_PTR gMouseTrackTimer = 0;
@@ -216,7 +219,7 @@ static void PaintScrollbar(OverlayScrollbar* sb) {
     }
     fillRect(thumbRc, thumbCol);
 
-    if (IsThick(sb)) {
+    if (IsThick(sb) && sb->hasArrows) {
         Gdiplus::Graphics gfx(hdcMem);
         gfx.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
 
@@ -567,7 +570,7 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
             int my = GET_Y_LPARAM(lp);
             SetCapture(hwnd);
 
-            if (IsThick(sb)) {
+            if (IsThick(sb) && sb->hasArrows) {
                 Rect arrowTop = GetArrowTopRect(sb);
                 Rect arrowBot = GetArrowBottomRect(sb);
                 Point pt(mx, my);
@@ -720,12 +723,11 @@ OverlayScrollbar* OverlayScrollbarCreate(HWND hwndOwner, OverlayScrollbar::Type 
     sb->hwndOwner = hwndOwner;
     sb->type = type;
     sb->mode = mode;
-    sb->thinWidth = DpiScale(4);
-    sb->thickWidth = DpiScale(16);
-    int sysWidth = DpiGetSystemMetrics(IsVert(sb) ? SM_CXVSCROLL : SM_CYHSCROLL);
-    if (sysWidth > 0) {
-        sb->thickWidth = sysWidth;
-    }
+    // one narrow width in every state; hovering only darkens it. Arrows don't
+    // fit that width, so the track runs the whole length
+    sb->thinWidth = DpiScale(kBarWidthDip);
+    sb->thickWidth = sb->thinWidth;
+    sb->hasArrows = false;
     DWORD exStyle = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
     DWORD style = WS_POPUP;
 

@@ -58,7 +58,7 @@ Rect GetTrackRect(OverlayScrollbar* sb) {
     Rect rc = ClientRect(sb);
     int arrowSize = 0;
     int gap = 0;
-    if (IsThick(sb)) {
+    if (IsThick(sb) && sb->hasArrows) {
         arrowSize = IsVert(sb) ? rc.dx : rc.dy;
         gap = DpiScale(2);
     }
