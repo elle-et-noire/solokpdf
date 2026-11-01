@@ -12,7 +12,7 @@
 
 /*
 Windows' icons are drawn from src/solokpdf/AppIcon.svg in the theme's colors:
-the badge in the UI background, so it melts into the title bar, and the band
+the badge in the title bar color (ThemeTabStripColor), so it melts into it, and the band
 and "PDF" in the document text color. The exe's icon is the same drawing in
 One Dark's colors (tools/solokpdf/make-icon.py).
 
@@ -101,7 +101,7 @@ struct ThemedIcon {
 static Vec<ThemedIcon> gThemedIcons;
 
 static HICON ThemedAppIcon(int size) {
-    Color badge = ThemeControlBackgroundColor();
+    Color badge = ThemeTabStripColor();
     Color ink = ThemeWindowTextColor();
     for (ThemedIcon& ti : gThemedIcons) {
         if (ti.badge == badge && ti.ink == ink && ti.size == size) {

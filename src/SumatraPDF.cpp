@@ -2705,7 +2705,7 @@ static void UpdateToolbarSidebarText(MainWindow* win) {
 }
 
 static Color DwmFrameBorderColorForCurrentTheme() {
-    return IsCurrentThemeDefault() ? (Color)DWMWA_COLOR_DEFAULT : ThemeControlBackgroundColor();
+    return IsCurrentThemeDefault() ? (Color)DWMWA_COLOR_DEFAULT : ThemeTabStripColor();
 }
 
 // Win11 DWM attributes; ignored (HRESULT failure) on older Windows.
@@ -12766,7 +12766,7 @@ static void DrawCaptionButton(MainWindow* win, HDC hdc, ButtonInfo* bi) {
     gfx.SetSmoothingMode(Gdiplus::SmoothingModeNone);
 
     if (isSysButton) {
-        Color bgc = ThemeControlBackgroundColor();
+        Color bgc = ThemeTabStripColor();
         SolidBrush bgBrNormal(GdiRgbFromColor(bgc));
         gfx.FillRectangle(&bgBrNormal, rButton.x, rButton.y, rButton.dx, rButton.dy);
 
@@ -12826,7 +12826,7 @@ static void DrawCaptionButton(MainWindow* win, HDC hdc, ButtonInfo* bi) {
         int iconPx = DpiScale(kCaptionGlyphDip);
         DrawCaptionSysButtonGlyph(hdc, kind, rc, iconCol, iconPx);
     } else if (button == CB_MENU) {
-        SolidBrush bgBrMenu(GdiRgbFromColor(ThemeControlBackgroundColor()));
+        SolidBrush bgBrMenu(GdiRgbFromColor(ThemeTabStripColor()));
         gfx.FillRectangle(&bgBrMenu, rButton.x, rButton.y, rButton.dx, rButton.dy);
 
         if (win->isMenuOpen) {
@@ -12840,10 +12840,10 @@ static void DrawCaptionButton(MainWindow* win, HDC hdc, ButtonInfo* bi) {
         }
 
         if (buttonRGB != 1) {
-            if (GetLightness(ThemeWindowTextColor()) > GetLightness(ThemeControlBackgroundColor())) {
+            if (GetLightness(ThemeWindowTextColor()) > GetLightness(ThemeTabStripColor())) {
                 buttonRGB ^= 0xff;
             }
-            u8 buttonAlpha = u8((255 - abs((int)GetLightness(ThemeControlBackgroundColor()) - buttonRGB)) / 2);
+            u8 buttonAlpha = u8((255 - abs((int)GetLightness(ThemeTabStripColor()) - buttonRGB)) / 2);
             SolidBrush br(Gdiplus::Color(buttonAlpha, buttonRGB, buttonRGB, buttonRGB));
             gfx.FillRectangle(&br, rc.x, rc.y, rc.dx, rc.dy);
         }
@@ -12857,7 +12857,7 @@ static void DrawCaptionButton(MainWindow* win, HDC hdc, ButtonInfo* bi) {
             gfx.DrawLine(&p, rc.x, rc.y + (i * rc.dy / 2), rc.x + rc.dx, rc.y + (i * rc.dy / 2));
         }
     } else if (button == CB_SYSTEM_MENU) {
-        SolidBrush bgBrSys(GdiRgbFromColor(ThemeControlBackgroundColor()));
+        SolidBrush bgBrSys(GdiRgbFromColor(ThemeTabStripColor()));
         gfx.FillRectangle(&bgBrSys, rButton.x, rButton.y, rButton.dx, rButton.dy);
         int xIcon = DpiGetSystemMetrics(SM_CXSMICON);
         int yIcon = DpiGetSystemMetrics(SM_CYSMICON);
@@ -12911,7 +12911,7 @@ static LRESULT CustomCaptionFrameProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
                 SetLayout(memDC, 0);
             }
             {
-                HBRUSH brCap = CreateSolidBrush(ThemeControlBackgroundColor());
+                HBRUSH brCap = CreateSolidBrush(ThemeTabStripColor());
                 RECT rcFill = ToRECT(captionArea);
                 HdcFillRect(memDC, ToRect(rcFill), brCap);
                 DeleteObject(brCap);
@@ -12929,7 +12929,7 @@ static LRESULT CustomCaptionFrameProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
             {
                 RECT rcCaption = ToRECT(captionArea);
                 ExcludeClipRect(hdc, rcCaption.left, rcCaption.top, rcCaption.right, rcCaption.bottom);
-                HBRUSH brBorder = CreateSolidBrush(ThemeControlBackgroundColor());
+                HBRUSH brBorder = CreateSolidBrush(ThemeTabStripColor());
                 HdcFillRect(hdc, ToRect(ps.rcPaint), brBorder);
                 DeleteObject(brBorder);
             }
@@ -13279,7 +13279,7 @@ static LRESULT CALLBACK CaptionOverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
     if (msg == WM_PAINT) {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        HBRUSH bg = CreateSolidBrush(ThemeControlBackgroundColor());
+        HBRUSH bg = CreateSolidBrush(ThemeTabStripColor());
         HdcFillRect(hdc, HwndClientRect(hwnd), bg);
         DeleteObject(bg);
         for (int i = CB_BTN_FIRST; i < CB_BTN_COUNT; i++) {
@@ -13999,7 +13999,7 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
                 DeleteObject(br);
                 if (!win->captionRect.IsEmpty()) {
                     RECT rcCaption = ToRECT(win->captionRect);
-                    HBRUSH brCaption = CreateSolidBrush(ThemeControlBackgroundColor());
+                    HBRUSH brCaption = CreateSolidBrush(ThemeTabStripColor());
                     HdcFillRect(hdc, ToRect(rcCaption), brCaption);
                     DeleteObject(brCaption);
                 }

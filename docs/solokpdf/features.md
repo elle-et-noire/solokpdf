@@ -32,8 +32,8 @@ SolokPDF disables upstream update checks, commands and settings UI. Existing
 The app icon is SumatraPDF's (badge, band, "PDF") traced to vector paths in
 `src/solokpdf/AppIcon.svg`: badge and band are a few cubics fitted to the
 original outline, the letters rounded rects fitted to its text. Windows draw it
-in the theme's colors with GDI+ at each size: the badge in the UI background
-(`ControlBackgroundColor`), so it melts into the title bar, and the band and
+in the theme's colors with GDI+ at each size: the badge in the title bar color
+(`InactiveTabBackgroundColor`, see below), so it melts into it, and the band and
 "PDF" in the document text color (`TextColor`), which the theme already keeps
 readable on its background. Title bar, taskbar, Alt+Tab, About and dialogs
 follow; windows update on a theme change, open dialogs keep their icon.
@@ -41,6 +41,24 @@ follow; windows update on a theme change, open dialogs keep their icon.
 The exe's icon (Explorer, Start, shortcuts) can't follow the theme; it is the
 same drawing in One Dark's colors. `tools/solokpdf/make-icon.py` generates it
 (`src/solokpdf/SolokPDF.ico`) and the path data (`AppIconPaths.h`) from the SVG.
+
+## Chrome-style tabs
+
+Upstream drew the selected tab and the empty tab strip in the toolbar's color
+and only unselected tabs as boxes, so the unselected ones stood out. As in
+Chrome, the title bar, tab strip, caption buttons and window border now take
+`InactiveTabBackgroundColor` (`ThemeTabStripColor`); unselected tabs merge into
+it (a hovered one shows a faint box) and the selected tab keeps
+`ControlBackgroundColor`, joining the toolbar below.
+
+17 themes got a new strip color: one step darker than the toolbar (contrast at
+least 1.18, OKLCH lightness step at most 0.11), taken from the theme's own
+colors where one fits (Monokai and Gruvbox their page background, Latte and Ayu
+their hover color, Gruvbox Light, Rose Pine Dawn, Sepia and GitHub Dark their
+edge color, Purpy its notification background) and otherwise the toolbar's hue
+darkened. Themes whose toolbar is too dark to go below (Dark, Nebula, Purpy,
+Purpy Slate, GitHub Dark, Mocha, Macchiato, Tokyo Night, Ayu, Palenight) get a
+lighter strip instead.
 
 ## Theme page colors
 

@@ -1001,7 +1001,8 @@ LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 return 0;
             }
             HDC hdc = GetDC(hwnd);
-            Color bgCol = GetColor(kColTabBg);
+            // the strip is the unselected tabs' color; the selected tab stands out
+            Color bgCol = GetColor(kColTabInactiveBg);
             if (vroot) {
                 PaintVirtTree(vroot, hdc, clientRc, bgCol);
             } else {
