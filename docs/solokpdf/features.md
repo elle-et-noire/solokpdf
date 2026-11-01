@@ -48,8 +48,11 @@ Upstream drew the selected tab and the empty tab strip in the toolbar's color
 and only unselected tabs as boxes, so the unselected ones stood out. As in
 Chrome, the title bar, tab strip, caption buttons and window border now take
 `InactiveTabBackgroundColor` (`ThemeTabStripColor`); unselected tabs merge into
-it (a hovered one shows a faint box) and the selected tab keeps
-`ControlBackgroundColor`, joining the toolbar below. Every tab shows its close
+it (a hovered one shows a faint box). The selected tab and the toolbar take
+the canvas color around the pages, which themed pages share (upstream:
+`ControlBackgroundColor`), so with the toolbar hidden the tab joins the
+document. `ActiveTabBackgroundColor` now defaults to it; the built-in themes no
+longer set it. Every tab shows its close
 button (upstream: the selected one only); non-selected tabs narrower than 100
 DIP hide it. Hovered, the ✕ steps toward the text color instead of turning
 white on a red circle.
@@ -73,6 +76,15 @@ edge color, Purpy its notification background) and otherwise the toolbar's hue
 darkened. Themes whose toolbar is too dark to go below (Dark, Nebula, Purpy,
 Purpy Slate, GitHub Dark, Mocha, Macchiato, Tokyo Night, Ayu, Palenight) get a
 lighter strip instead.
+
+Where the strip nearly matches the canvas (contrast under 1.13), it takes the
+nearest palette color instead, darker if one fits: `ControlBackgroundColor`
+for Choco, Choco Navy, Purpy, Purpy Slate, Nord, Gruvbox, Night Owl and
+Palenight, `NotificationBackgroundColor` for Solarized Dark and Monokai,
+`EdgeColor` for Light Warm. Toolbar buttons hover and toggle against the
+canvas the same way: `HotBackgroundColor` and the selection color unless they
+nearly vanish on it (Purpy, Purpy Slate, Light Warm, Rose Pine Dawn, One Dark)
+or coincide (Night Owl).
 
 ## Selection colors
 

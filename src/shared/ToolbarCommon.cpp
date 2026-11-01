@@ -49,10 +49,10 @@ ToolbarButtonInfo gCustomButtons[kMaxCustomButtons + 1];
 
 static int gCustomButtonsCount = 0;
 
-// Light theme ControlBackgroundColor is white, which is what the old themed
-// rebar/toolbar painted. Other themes use their control background.
+// the canvas color, as the selected tab above: they read as one surface with
+// the document
 Color TbBgColor() {
-    return ThemeControlBackgroundColor();
+    return ThemeCanvasColor();
 }
 
 Color TbTextColor() {
@@ -70,7 +70,7 @@ Color TbDisabledColor() {
 }
 
 Color TbHoverColor() {
-    return ThemeHotBackgroundColor();
+    return ThemeToolbarHoverColor();
 }
 
 // A ground a shade off the normal one, for telling two areas of a drop-down
@@ -81,7 +81,7 @@ Color TbSubtleBgColor() {
 }
 
 Color TbSelectedColor() {
-    return ThemeSelectedBackgroundColor();
+    return ThemeToolbarSelectedColor();
 }
 
 Color TbEdgeColor() {

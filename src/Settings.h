@@ -144,12 +144,13 @@ struct Theme {
     Str name;
     // color of text in menus, toolbar, tabs and sidebars
     ParsedColor textColor;
-    // background color of the window around the document
+    // background color of the window around the document, the toolbar and
+    // the active tab
     ParsedColor backgroundColor;
-    // background color of toolbar, tabs, sidebars and dialogs
+    // background color of sidebars and dialogs
     ParsedColor controlBackgroundColor;
-    // background color of the active tab; if empty, uses
-    // ControlBackgroundColor
+    // background color of the active tab; if empty, the color around the
+    // document
     ParsedColor activeTabBackgroundColor;
     // background color of inactive tabs; if empty, derived from
     // ControlBackgroundColor

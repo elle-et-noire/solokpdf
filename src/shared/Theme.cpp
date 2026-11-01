@@ -40,7 +40,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #000000
         BackgroundColor = #f2f2f2
         ControlBackgroundColor = #ffffff
-        ActiveTabBackgroundColor = #ffffff
         InactiveTabBackgroundColor = #e6e6e6
         LinkColor = #0020a0
         DisabledTextColor = #808080
@@ -60,7 +59,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #F9FAFB
         BackgroundColor = #000000
         ControlBackgroundColor = #000000
-        ActiveTabBackgroundColor = #000000
         InactiveTabBackgroundColor = #191919
         LinkColor = #6B7280
         DisabledTextColor = #6B7280
@@ -80,7 +78,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #333333
         BackgroundColor = #ebe6da
         ControlBackgroundColor = #f5f1e8
-        ActiveTabBackgroundColor = #f5f1e8
         InactiveTabBackgroundColor = #e6dcc5
         LinkColor = #0020a0
         DisabledTextColor = #8a8578
@@ -100,7 +97,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #000000
         BackgroundColor = #eaeaea
         ControlBackgroundColor = #eaeaea
-        ActiveTabBackgroundColor = #eaeaea
         InactiveTabBackgroundColor = #d8d8d8
         LinkColor = #0020a0
         DisabledTextColor = #808080
@@ -120,7 +116,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #bac9d0
         BackgroundColor = #263238
         ControlBackgroundColor = #263238
-        ActiveTabBackgroundColor = #263238
         InactiveTabBackgroundColor = #152026
         LinkColor = #8aa3b0
         DisabledTextColor = #6b7c85
@@ -140,7 +135,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #ffffff
         BackgroundColor = #2d2d30
         ControlBackgroundColor = #2d2d30
-        ActiveTabBackgroundColor = #2d2d30
         InactiveTabBackgroundColor = #1b1b1e
         LinkColor = #9999a0
         DisabledTextColor = #808088
@@ -160,7 +154,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #212323
         BackgroundColor = #fdf6e3
         ControlBackgroundColor = #eee8d5
-        ActiveTabBackgroundColor = #eee8d5
         InactiveTabBackgroundColor = #e0d5b1
         LinkColor = #268bd2
         DisabledTextColor = #93a1a1
@@ -180,7 +173,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #839496
         BackgroundColor = #002b36
         ControlBackgroundColor = #073642
-        ActiveTabBackgroundColor = #073642
         InactiveTabBackgroundColor = #00232f
         LinkColor = #268bd2
         DisabledTextColor = #586e75
@@ -200,7 +192,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #f8f8f2
         BackgroundColor = #282a36
         ControlBackgroundColor = #44475a
-        ActiveTabBackgroundColor = #44475a
         InactiveTabBackgroundColor = #343746
         LinkColor = #8be9fd
         DisabledTextColor = #6272a4
@@ -220,7 +211,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #CBE3E7
         BackgroundColor = #100E23
         ControlBackgroundColor = #1E1C31
-        ActiveTabBackgroundColor = #1E1C31
         InactiveTabBackgroundColor = #312e51
         LinkColor = #91DDFF
         DisabledTextColor = #6b6b8a
@@ -240,7 +230,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #FDD085
         BackgroundColor = #4F6232
         ControlBackgroundColor = #1E3304
-        ActiveTabBackgroundColor = #1E3304
         InactiveTabBackgroundColor = #0d2000
         LinkColor = #A2E53B
         DisabledTextColor = #8a9a60
@@ -260,7 +249,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #D7AD62
         BackgroundColor = #2A1104
         ControlBackgroundColor = #351f14
-        ActiveTabBackgroundColor = #351f14
         InactiveTabBackgroundColor = #1c0802
         LinkColor = #E8CD12
         DisabledTextColor = #8a7040
@@ -280,7 +268,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #D7AD62
         BackgroundColor = #0a1a28
         ControlBackgroundColor = #172736
-        ActiveTabBackgroundColor = #172736
         InactiveTabBackgroundColor = #03111f
         LinkColor = #E8CD12
         DisabledTextColor = #8a7040
@@ -300,7 +287,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #E2C3C3
         BackgroundColor = #2c1b30
         ControlBackgroundColor = #1E0126
-        ActiveTabBackgroundColor = #1E0126
         InactiveTabBackgroundColor = #301d35
         LinkColor = #EFF0B8
         DisabledTextColor = #8a7088
@@ -320,7 +306,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #E2C3C3
         BackgroundColor = #20222A
         ControlBackgroundColor = #0e1019
-        ActiveTabBackgroundColor = #0e1019
         InactiveTabBackgroundColor = #282a35
         LinkColor = #EFF0B8
         DisabledTextColor = #8a7088
@@ -340,7 +325,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #abb2bf
         BackgroundColor = #282c34
         ControlBackgroundColor = #21252b
-        ActiveTabBackgroundColor = #21252b
         InactiveTabBackgroundColor = #0b0e14
         LinkColor = #61afef
         DisabledTextColor = #5c6370
@@ -360,7 +344,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #f8f8f2
         BackgroundColor = #272822
         ControlBackgroundColor = #3e3d32
-        ActiveTabBackgroundColor = #3e3d32
         InactiveTabBackgroundColor = #272822
         LinkColor = #66d9ef
         DisabledTextColor = #75715e
@@ -380,7 +363,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #d8dee9
         BackgroundColor = #2e3440
         ControlBackgroundColor = #3b4252
-        ActiveTabBackgroundColor = #3b4252
         InactiveTabBackgroundColor = #2e3440
         LinkColor = #88c0d0
         DisabledTextColor = #4c566a
@@ -400,7 +382,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #e6edf3
         BackgroundColor = #0d1117
         ControlBackgroundColor = #161b22
-        ActiveTabBackgroundColor = #161b22
         InactiveTabBackgroundColor = #30363d
         LinkColor = #2f81f7
         DisabledTextColor = #6e7681
@@ -420,7 +401,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #cdd6f4
         BackgroundColor = #1e1e2e
         ControlBackgroundColor = #181825
-        ActiveTabBackgroundColor = #181825
         InactiveTabBackgroundColor = #313244
         LinkColor = #89b4fa
         DisabledTextColor = #6c7086
@@ -440,7 +420,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #c0caf5
         BackgroundColor = #1a1b26
         ControlBackgroundColor = #16161e
-        ActiveTabBackgroundColor = #16161e
         InactiveTabBackgroundColor = #24283b
         LinkColor = #7aa2f7
         DisabledTextColor = #565f89
@@ -460,7 +439,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #ebdbb2
         BackgroundColor = #282828
         ControlBackgroundColor = #3c3836
-        ActiveTabBackgroundColor = #3c3836
         InactiveTabBackgroundColor = #282828
         LinkColor = #83a598
         DisabledTextColor = #928374
@@ -480,7 +458,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #d6deeb
         BackgroundColor = #011627
         ControlBackgroundColor = #0b2942
-        ActiveTabBackgroundColor = #0b2942
         InactiveTabBackgroundColor = #011627
         LinkColor = #82aaff
         DisabledTextColor = #5f7e97
@@ -500,7 +477,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #bfbdb6
         BackgroundColor = #0b0e14
         ControlBackgroundColor = #0d1017
-        ActiveTabBackgroundColor = #0d1017
         InactiveTabBackgroundColor = #1b2733
         LinkColor = #59c2ff
         DisabledTextColor = #565b66
@@ -520,7 +496,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #a6accd
         BackgroundColor = #292d3e
         ControlBackgroundColor = #1b1e2b
-        ActiveTabBackgroundColor = #1b1e2b
         InactiveTabBackgroundColor = #292d3e
         LinkColor = #82aaff
         DisabledTextColor = #676e95
@@ -540,7 +515,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #4c4f69
         BackgroundColor = #eff1f5
         ControlBackgroundColor = #e6e9ef
-        ActiveTabBackgroundColor = #e6e9ef
         InactiveTabBackgroundColor = #ccd0da
         LinkColor = #1e66f5
         DisabledTextColor = #9ca0b0
@@ -560,7 +534,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #c6d0f5
         BackgroundColor = #303446
         ControlBackgroundColor = #292c3c
-        ActiveTabBackgroundColor = #292c3c
         InactiveTabBackgroundColor = #171928
         LinkColor = #8caaee
         DisabledTextColor = #737994
@@ -580,7 +553,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #cad3f5
         BackgroundColor = #24273a
         ControlBackgroundColor = #1e2030
-        ActiveTabBackgroundColor = #1e2030
         InactiveTabBackgroundColor = #363a4f
         LinkColor = #8aadf4
         DisabledTextColor = #6e738d
@@ -600,7 +572,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #3c3836
         BackgroundColor = #fbf1c7
         ControlBackgroundColor = #f2e5bc
-        ActiveTabBackgroundColor = #f2e5bc
         InactiveTabBackgroundColor = #d5c4a1
         LinkColor = #076678
         DisabledTextColor = #928374
@@ -620,7 +591,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #5c6a72
         BackgroundColor = #fdf6e3
         ControlBackgroundColor = #f4f0d9
-        ActiveTabBackgroundColor = #f4f0d9
         InactiveTabBackgroundColor = #dcd8c2
         LinkColor = #3a94c5
         DisabledTextColor = #a6b0a0
@@ -640,7 +610,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #575279
         BackgroundColor = #faf4ed
         ControlBackgroundColor = #fffaf3
-        ActiveTabBackgroundColor = #fffaf3
         InactiveTabBackgroundColor = #dfdad9
         LinkColor = #286983
         DisabledTextColor = #9893a5
@@ -660,7 +629,6 @@ static Str themesTxt = StrL(R"(Themes [
         TextColor = #433422
         BackgroundColor = #f4ecd8
         ControlBackgroundColor = #ece2c8
-        ActiveTabBackgroundColor = #ece2c8
         InactiveTabBackgroundColor = #cdbf9f
         LinkColor = #2f5d8a
         DisabledTextColor = #9c8e74
@@ -1220,9 +1188,18 @@ Color ThemeWindowControlBackgroundColor() {
     return ThemeControlBackgroundColor();
 }
 
+// the canvas around the pages, which themed pages share
+Color ThemeCanvasColor() {
+    Color bg;
+    ThemeDocumentColors(bg);
+    return bg;
+}
+
+// The selected tab, like the toolbar, takes the canvas color: with the toolbar
+// hidden the tab joins the document.
 Color ThemeActiveTabBackgroundColor() {
     return gUseHighContrast ? SysWindowBgColor()
-                            : GetThemeCol(gCurrentTheme->activeTabBackgroundColor, ThemeWindowControlBackgroundColor());
+                            : GetThemeCol(gCurrentTheme->activeTabBackgroundColor, ThemeCanvasColor());
 }
 
 Color ThemeInactiveTabBackgroundColor() {
@@ -1231,12 +1208,6 @@ Color ThemeInactiveTabBackgroundColor() {
     }
     Color fallback = AccentColor(ThemeWindowControlBackgroundColor(), 25);
     return GetThemeCol(gCurrentTheme->inactiveTabBackgroundColor, fallback);
-}
-
-// the title bar and the tab strip, as in Chrome: unselected tabs share it and
-// the selected tab takes ControlBackgroundColor, joining the toolbar below
-Color ThemeTabStripColor() {
-    return ThemeInactiveTabBackgroundColor();
 }
 
 Color ThemeWindowLinkColor() {
@@ -1277,32 +1248,144 @@ constexpr float kMinSelectionTextContrast = 4.0f;
 // the text readable (mostly EdgeColor); the hover color when none does. Not
 // the window background: themed pages take it, and a selection on them vanished
 // (Greeny).
-Color ThemeSelectedBackgroundColor() {
-    Color bg = ThemeControlBackgroundColor();
-    if (gUseHighContrast) {
-        return AccentColor(bg, 28);
-    }
+enum class PalettePick {
+    Nearest,
+    Furthest
+};
+enum class PaletteSide {
+    Any,
+    Darker,
+    TowardText
+};
+
+struct PalettePickArgs {
+    Color bg = 0;
+    PalettePick pick = PalettePick::Nearest;
+    PaletteSide side = PaletteSide::Any;
+    float minContrast = 1.0f;
+    float minTextContrast = 1.0f;
+    Color skip = kColorUnset;
+};
+
+// The theme color nearest to or furthest from a.bg among those on a.side of
+// it, at least a.minContrast from it and keeping text on it readable;
+// kColorUnset if none. BackgroundColor isn't a candidate: themed pages take it.
+static Color PickPaletteColor(const PalettePickArgs& a) {
     Color text = ThemeWindowTextColor();
-    bool towardLight = RelLuminance(text) > RelLuminance(bg);
+    float bgLum = RelLuminance(a.bg);
+    bool towardLight = RelLuminance(text) > bgLum;
     Color candidates[] = {
-        ThemeEdgeColor(),         ThemeHotBackgroundColor(),       ThemeInactiveTabBackgroundColor(),
-        ThemeDisabledEdgeColor(), ThemeActiveTabBackgroundColor(), ThemeNotificationsBackgroundColor()};
-    Color res = ThemeHotBackgroundColor();
+        ThemeEdgeColor(),         ThemeHotBackgroundColor(),           ThemeInactiveTabBackgroundColor(),
+        ThemeDisabledEdgeColor(), ThemeNotificationsBackgroundColor(), ThemeControlBackgroundColor()};
+    Color res = kColorUnset;
     float best = 0;
     for (Color c : candidates) {
-        if ((RelLuminance(c) > RelLuminance(bg)) != towardLight) {
+        bool lighter = RelLuminance(c) > bgLum;
+        if (a.side == PaletteSide::Darker && lighter) {
             continue;
         }
-        if (ContrastRatio(text, c) < kMinSelectionTextContrast) {
+        if (a.side == PaletteSide::TowardText && lighter != towardLight) {
             continue;
         }
-        float contrast = ContrastRatio(c, bg);
-        if (contrast > best) {
+        float contrast = ContrastRatio(c, a.bg);
+        if (c == a.skip || contrast < a.minContrast || ContrastRatio(text, c) < a.minTextContrast) {
+            continue;
+        }
+        bool better = a.pick == PalettePick::Furthest ? contrast > best : (best == 0 || contrast < best);
+        if (better) {
             best = contrast;
             res = c;
         }
     }
     return res;
+}
+
+// A selection: toggled-on buttons (sidebar views), the selected bookmark or
+// list row and text selected on a page. A palette color, not a lightness shift
+// of the background (that made Solarized Dark's and Greeny's garish): the one
+// furthest from the background, toward the text, that keeps the text readable
+// (mostly EdgeColor); the hover color when none does.
+Color ThemeSelectedBackgroundColor() {
+    Color bg = ThemeControlBackgroundColor();
+    if (gUseHighContrast) {
+        return AccentColor(bg, 28);
+    }
+    PalettePickArgs args;
+    args.bg = bg;
+    args.pick = PalettePick::Furthest;
+    args.side = PaletteSide::TowardText;
+    args.minTextContrast = kMinSelectionTextContrast;
+    Color res = PickPaletteColor(args);
+    return res == kColorUnset ? ThemeHotBackgroundColor() : res;
+}
+
+// the selected tab against the tab strip
+constexpr float kMinStripContrast = 1.13f;
+
+// The title bar and the tab strip, as in Chrome: unselected tabs share it and
+// the selected tab takes the canvas color. InactiveTabBackgroundColor, unless
+// the canvas nearly matches it (Monokai, Nord); then the nearest palette color,
+// darker if one fits.
+Color ThemeTabStripColor() {
+    Color strip = ThemeInactiveTabBackgroundColor();
+    if (gUseHighContrast) {
+        return strip;
+    }
+    PalettePickArgs args;
+    args.bg = ThemeCanvasColor();
+    args.minContrast = kMinStripContrast;
+    if (ContrastRatio(strip, args.bg) >= kMinStripContrast) {
+        return strip;
+    }
+    args.side = PaletteSide::Darker;
+    Color res = PickPaletteColor(args);
+    if (res == kColorUnset) {
+        args.side = PaletteSide::Any;
+        res = PickPaletteColor(args);
+    }
+    return res == kColorUnset ? strip : res;
+}
+
+// toolbar button states against the canvas-colored toolbar
+constexpr float kMinToolbarSelectedContrast = 1.2f;
+constexpr float kMinToolbarHoverContrast = 1.08f;
+
+// Toggled-on toolbar buttons: the selection color, unless it nearly matches
+// the canvas (One Dark); then the palette color furthest from it.
+Color ThemeToolbarSelectedColor() {
+    Color sel = ThemeSelectedBackgroundColor();
+    if (gUseHighContrast) {
+        return sel;
+    }
+    PalettePickArgs args;
+    args.bg = ThemeCanvasColor();
+    if (ContrastRatio(sel, args.bg) >= kMinToolbarSelectedContrast) {
+        return sel;
+    }
+    args.pick = PalettePick::Furthest;
+    args.minContrast = kMinToolbarSelectedContrast;
+    args.minTextContrast = kMinSelectionTextContrast;
+    Color res = PickPaletteColor(args);
+    return res == kColorUnset ? sel : res;
+}
+
+// Hovered toolbar buttons: HotBackgroundColor, unless it nearly matches the
+// canvas (Purpy, One Dark) or the selection (Night Owl); then the nearest
+// palette color that shows.
+Color ThemeToolbarHoverColor() {
+    Color hot = ThemeHotBackgroundColor();
+    if (gUseHighContrast) {
+        return hot;
+    }
+    PalettePickArgs args;
+    args.bg = ThemeCanvasColor();
+    args.skip = ThemeToolbarSelectedColor();
+    if (hot != args.skip && ContrastRatio(hot, args.bg) >= kMinToolbarHoverContrast) {
+        return hot;
+    }
+    args.minContrast = kMinToolbarHoverContrast;
+    Color res = PickPaletteColor(args);
+    return res == kColorUnset ? hot : res;
 }
 
 Color ThemeEdgeColor() {

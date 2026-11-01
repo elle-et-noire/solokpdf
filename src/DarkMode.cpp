@@ -177,7 +177,7 @@ void ThemeApplyPlatformColors() {
 
     gColsTab[kColTabText] = text;
     gColsTab[kColTabBg] = ThemeActiveTabBackgroundColor();
-    gColsTab[kColTabInactiveBg] = ThemeInactiveTabBackgroundColor();
+    gColsTab[kColTabInactiveBg] = ThemeTabStripColor();
 
     gColsWin[kColWinText] = text;
     gColsWin[kColWinBg] = ctlBg;
