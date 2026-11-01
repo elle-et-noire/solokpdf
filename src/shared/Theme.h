@@ -14,15 +14,12 @@ void SumatraUpdateTheme();
 void UpdateThemeAfterSystemColorChange();
 void UpdateThemeAfterHighContrastChange();
 bool ThemeUsesHighContrastColors();
-// how far a selected tree row is shaded from the tree background (AccentColor)
-constexpr int kTreeSelectionAccent = 40;
 void CreateThemeCommands();
 
 Color ThemeDocumentColors(Color&);
 Color ThemePageRenderColors(Color&);
 Color ThemeMainWindowBackgroundColor();
 Color ThemeControlBackgroundColor();
-Color ThemeTreeSelectionColor();
 Color ThemeWindowBackgroundColor();
 Color ThemeWindowTextColor();
 Color ThemeWindowTextDisabledColor();

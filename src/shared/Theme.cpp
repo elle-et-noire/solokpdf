@@ -1168,11 +1168,6 @@ Color ThemeControlBackgroundColor() {
     return gUseHighContrast ? SysWindowBgColor() : GetThemeCol(gCurrentTheme->controlBackgroundColor, kColRed);
 }
 
-// a selected bookmark row; also the text selection on pages
-Color ThemeTreeSelectionColor() {
-    return AccentColor(ThemeControlBackgroundColor(), kTreeSelectionAccent);
-}
-
 Color ThemeMainWindowBackgroundColor() {
     if (gUseHighContrast) {
         return SysWindowBgColor();
@@ -1256,9 +1251,58 @@ Color ThemeHotBackgroundColor() {
     return GetThemeCol(gCurrentTheme->hotBackgroundColor, fallback);
 }
 
-// a toggled-on button: the toolbar's and the sidebar's view icons
+// WCAG relative luminance, 0..1
+static float RelLuminance(Color c) {
+    auto lin = [](u8 v) {
+        float x = (float)v / 255.0f;
+        return x <= 0.03928f ? x / 12.92f : powf((x + 0.055f) / 1.055f, 2.4f);
+    };
+    return (0.2126f * lin(GetRed(c))) + (0.7152f * lin(GetGreen(c))) + (0.0722f * lin(GetBlue(c)));
+}
+
+// WCAG contrast ratio, 1..21
+static float ContrastRatio(Color a, Color b) {
+    float la = RelLuminance(a);
+    float lb = RelLuminance(b);
+    return (std::max(la, lb) + 0.05f) / (std::min(la, lb) + 0.05f);
+}
+
+// text on a selection has to stay readable
+constexpr float kMinSelectionTextContrast = 4.0f;
+
+// A selection: toggled-on buttons (toolbar, sidebar views), the selected
+// bookmark or list row and text selected on a page. A palette color, not a
+// lightness shift of the background (that made Solarized Dark's and Greeny's
+// garish): the one furthest from the background, toward the text, that keeps
+// the text readable (mostly EdgeColor); the hover color when none does. Not
+// the window background: themed pages take it, and a selection on them vanished
+// (Greeny).
 Color ThemeSelectedBackgroundColor() {
-    return AccentColor(ThemeControlBackgroundColor(), 28);
+    Color bg = ThemeControlBackgroundColor();
+    if (gUseHighContrast) {
+        return AccentColor(bg, 28);
+    }
+    Color text = ThemeWindowTextColor();
+    bool towardLight = RelLuminance(text) > RelLuminance(bg);
+    Color candidates[] = {
+        ThemeEdgeColor(),         ThemeHotBackgroundColor(),       ThemeInactiveTabBackgroundColor(),
+        ThemeDisabledEdgeColor(), ThemeActiveTabBackgroundColor(), ThemeNotificationsBackgroundColor()};
+    Color res = ThemeHotBackgroundColor();
+    float best = 0;
+    for (Color c : candidates) {
+        if ((RelLuminance(c) > RelLuminance(bg)) != towardLight) {
+            continue;
+        }
+        if (ContrastRatio(text, c) < kMinSelectionTextContrast) {
+            continue;
+        }
+        float contrast = ContrastRatio(c, bg);
+        if (contrast > best) {
+            best = contrast;
+            res = c;
+        }
+    }
+    return res;
 }
 
 Color ThemeEdgeColor() {
@@ -1380,22 +1424,6 @@ Color ThemeScrollbarColor() {
 
 // a thumb too close to its track to see
 constexpr float kMinThumbContrast = 1.5f;
-
-// WCAG relative luminance, 0..1
-static float RelLuminance(Color c) {
-    auto lin = [](u8 v) {
-        float x = (float)v / 255.0f;
-        return x <= 0.03928f ? x / 12.92f : powf((x + 0.055f) / 1.055f, 2.4f);
-    };
-    return (0.2126f * lin(GetRed(c))) + (0.7152f * lin(GetGreen(c))) + (0.0722f * lin(GetBlue(c)));
-}
-
-// WCAG contrast ratio, 1..21
-static float ContrastRatio(Color a, Color b) {
-    float la = RelLuminance(a);
-    float lb = RelLuminance(b);
-    return (std::max(la, lb) + 0.05f) / (std::min(la, lb) + 0.05f);
-}
 
 // A palette color, not a shade derived from the track (a lightness shift
 // turned Solarized Dark's teal and Greeny's green garish): the edge color, or

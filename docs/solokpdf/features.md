@@ -56,7 +56,7 @@ white on a red circle.
 
 The sidebar's view icons (Bookmarks, Thumbnails, Favorites) and other icon
 buttons hover and select in the toolbar's colors (`HotBackgroundColor`, and
-`ThemeSelectedBackgroundColor` for a toggled-on one).
+the selection color below for a toggled-on one).
 
 Splitters (sidebar, panels, AI chat) take the panel's color, without upstream's
 darker bar; it shows while hovered or dragged.
@@ -71,6 +71,18 @@ Purpy Slate, GitHub Dark, Mocha, Macchiato, Tokyo Night, Ayu, Palenight) get a
 lighter strip instead.
 
 ## Selection colors
+
+One palette color marks every selection: toggled-on toolbar and sidebar view
+buttons, the selected bookmark and list rows, and text selected on pages
+(`ThemeSelectedBackgroundColor`). Of the theme's own colors (edge, hover, tab,
+notification), it is the one furthest from the control background toward the
+text color that keeps text on it at contrast 4.0 or more: mostly `EdgeColor`,
+Everforest Light's disabled edge; Solarized Dark and Greeny, whose text is too
+faint on their edge color, fall back to `HotBackgroundColor`, as do One Dark,
+Night Owl and Ayu. The window background is left out: themed pages take it, so
+a selection on them would vanish. Upstream shifted the background's HSL
+lightness by 25 to 45 units, which made saturated themes garish (Solarized
+Dark a bright teal, Greeny a bright green).
 
 The bookmark tree keeps its unfocused selection color when it has the focus
 (upstream: the system's blue highlight); high contrast mode still uses the

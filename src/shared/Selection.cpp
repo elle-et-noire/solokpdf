@@ -744,7 +744,7 @@ void PaintSelection(MainWindow* win, Gfx* gfx) {
     bool drawBorder = true;
     Color page;
     ThemePageRenderColors(page);
-    Color treeSel = ThemeTreeSelectionColor();
+    Color treeSel = ThemeSelectedBackgroundColor();
     if (col == kDefaultSelectionColor && IsLightColor(page) == IsLightColor(treeSel)) {
         col = OverlayReaching(treeSel, page, alpha);
         drawBorder = false;

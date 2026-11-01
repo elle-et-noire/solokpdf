@@ -157,8 +157,9 @@ void ThemeApplyPlatformColors() {
 
     gColsListBox[kColListText] = text;
     gColsListBox[kColListBg] = ctlBg;
-    gColsListBox[kColListSel] = AccentColor(ctlBg, 25);
-    gColsListBox[kColListSelFocused] = AccentColor(ctlBg, 45);
+    // the bookmarks' selection, focused or not
+    gColsListBox[kColListSel] = ThemeSelectedBackgroundColor();
+    gColsListBox[kColListSelFocused] = ThemeSelectedBackgroundColor();
     gColsListBox[kColListScrollbar] = ThemeScrollbarThumbColor();
 
     gColsSplitter[kColSplitterBg] = ctlBg;
