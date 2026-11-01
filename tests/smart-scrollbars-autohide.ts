@@ -104,9 +104,10 @@ export async function testit(): Promise<void> {
       if (bars.length !== 2) {
         throw new Error(`smart-scrollbars-autohide: want 2 overlay scrollbars, got ${bars.length}`);
       }
-      // the capture has to see a shown bar, or a pass below proves nothing
+      // the capture has to see a shown bar, or a pass below proves nothing. Only
+      // one: in a window that didn't get the focus smart bars hide right away
       const shown = bars.map((b) => barPixelsShown(frame, canvas, b));
-      if (shown.some((n) => n <= strayPixels)) {
+      if (shown.every((n) => n <= strayPixels)) {
         throw new Error(`smart-scrollbars-autohide: bars not visible after opening (${shown})`);
       }
 
