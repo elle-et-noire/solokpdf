@@ -49,7 +49,12 @@ and only unselected tabs as boxes, so the unselected ones stood out. As in
 Chrome, the title bar, tab strip, caption buttons and window border now take
 `InactiveTabBackgroundColor` (`ThemeTabStripColor`); unselected tabs merge into
 it (a hovered one shows a faint box) and the selected tab keeps
-`ControlBackgroundColor`, joining the toolbar below.
+`ControlBackgroundColor`, joining the toolbar below. Every tab shows its close
+button (upstream: the selected one only); non-selected tabs narrower than 100
+DIP hide it.
+
+Splitters (sidebar, panels, AI chat) take the panel's color, without upstream's
+darker bar; it shows while hovered or dragged.
 
 17 themes got a new strip color: one step darker than the toolbar (contrast at
 least 1.18, OKLCH lightness step at most 0.11), taken from the theme's own
@@ -104,8 +109,9 @@ in menu order, wrapping, and show the new theme's name.
 `tests/ad-hoc-theme-keyboard.ts` drives all three.
 
 `smart` is now the default (upstream: `off`); a settings file that saved `off`
-keeps it. Light keeps white pages; Light Gray (new) is the gray-page variant,
-with gray sidebar, tabs, toolbar and title bar too.
+keeps it. Light keeps white pages, and its canvas is white to match (upstream:
+gray, as with `off`); Light Gray (new) is the gray-page variant, with gray
+sidebar, tabs, toolbar and title bar too.
 
 `tests/ad-hoc-pdfium-theme.ts` checks a dark and a light theme: no white paper,
 both photos untouched, a figure's gray backdrop recolored, and `legacy` recoloring

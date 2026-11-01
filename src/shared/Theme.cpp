@@ -1065,6 +1065,14 @@ Color ThemeDocumentColors(Color& bg) {
     Color text = ThemeWindowTextColor();
     bg = ThemeMainWindowBackgroundColor();
 
+    // Light keeps white paper (ThemePageRenderColors); the canvas matches it
+    ParsedColor* mainBg = GetPrefsColor(gSettings->mainWindowBackground);
+    bool customMainBg = mainBg->parsedOk && !IsDefaultMainWinColor(mainBg);
+    if (IsCurrentThemeDefault() && !gUseHighContrast && !customMainBg) {
+        bg = kColWhite;
+        return text;
+    }
+
     // the system palette is exact: tinting it away from COLOR_WINDOW is the
     // kind of "close enough" color high contrast mode exists to avoid
     if (gCurrThemeIndex < 3 && !gUseHighContrast) {

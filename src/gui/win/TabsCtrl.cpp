@@ -41,6 +41,9 @@ using Gdiplus::UnitPixel;
 
 static const WStr kTabsCtrlClassName = L"SumatraTabsCtrlClass";
 
+// narrower non-selected tabs hide their ✕ (DIP)
+constexpr int kCloseMinTabDx = 100;
+
 // hwnd is kept LTR (like the canvas); UI direction comes from the parent frame
 static bool IsTabsRtl(HWND hwnd) {
     HWND parent = GetParent(hwnd);
@@ -194,12 +197,18 @@ void TabCtrl::SetBounds(Rect r) {
     closeBtn->padding.right = hit.Right() - rClose.Right();
     closeBtn->padding.bottom = hit.Bottom() - rClose.Bottom();
     closeBtn->SetBounds(hit);
+
+    // width decides whether a non-selected tab shows its ✕
+    closeBtn->visibility = CloseVisible() ? Visibility::Visible : Visibility::Collapse;
 }
 
-// like Chrome: only the selected tab shows (and hit-tests) its ✕, so a click
-// on a non-selected tab always selects it and can't accidentally close it
+// like Chrome: every tab shows its ✕, except narrow non-selected ones, where
+// it would leave no room for the title
 bool TabCtrl::CloseVisible() {
-    return ti->canClose && IsSelected();
+    if (!ti->canClose) {
+        return false;
+    }
+    return IsSelected() || bounds.dx >= DpiScale(kCloseMinTabDx);
 }
 
 void TabCtrl::Paint(VirtPaintCtx& ctx) {
