@@ -345,13 +345,13 @@ const theme: Field[] = [
     "ScrollbarColor",
     Color,
     "",
-    "background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, derived from ControlBackgroundColor, or Windows' own colors in the Light and Dark themes",
+    "background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, ControlBackgroundColor",
   ).ver("3.7"),
   field(
     "ScrollbarThumbColor",
     Color,
     "",
-    "thumb and arrows of the overlay scrollbars; if empty, derived from TextColor and ScrollbarColor, or Windows' own colors in the Light and Dark themes",
+    "thumb and arrows of the overlay scrollbars; if empty, derived from ScrollbarColor, like the thumbnails' scrollbar",
   ).ver("3.7"),
   field("ColorizeControls", Bool, false, "if true, apply the theme colors to Windows controls and window areas too"),
 ];

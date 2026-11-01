@@ -636,10 +636,9 @@ static const StructInfo gThemeInfo = {
     "highlighted notification tip; if empty, derived from the colors above\0text color of a highlighted notification "
     "tip; if empty, derived from the colors above\0background of the citation hover preview's frame; if empty, pale "
     "yellow in light themes, HotBackgroundColor in dark ones\0border color of the citation hover preview; if empty, "
-    "uses HotEdgeColor\0background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, derived from "
-    "ControlBackgroundColor, or Windows' own colors in the Light and Dark themes\0thumb and arrows of the overlay "
-    "scrollbars; if empty, derived from TextColor and ScrollbarColor, or Windows' own colors in the Light and Dark "
-    "themes\0if true, apply the theme colors to Windows controls and window areas too",
+    "uses HotEdgeColor\0background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, "
+    "ControlBackgroundColor\0thumb and arrows of the overlay scrollbars; if empty, derived from ScrollbarColor, like "
+    "the thumbnails' scrollbar\0if true, apply the theme colors to Windows controls and window areas too",
     false};
 
 static const FieldInfo gTabFileFields[] = {
@@ -1402,10 +1401,9 @@ static const StructInfo gTheme_1_Info = {
     "highlighted notification tip; if empty, derived from the colors above\0text color of a highlighted notification "
     "tip; if empty, derived from the colors above\0background of the citation hover preview's frame; if empty, pale "
     "yellow in light themes, HotBackgroundColor in dark ones\0border color of the citation hover preview; if empty, "
-    "uses HotEdgeColor\0background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, derived from "
-    "ControlBackgroundColor, or Windows' own colors in the Light and Dark themes\0thumb and arrows of the overlay "
-    "scrollbars; if empty, derived from TextColor and ScrollbarColor, or Windows' own colors in the Light and Dark "
-    "themes\0if true, apply the theme colors to Windows controls and window areas too",
+    "uses HotEdgeColor\0background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, "
+    "ControlBackgroundColor\0thumb and arrows of the overlay scrollbars; if empty, derived from ScrollbarColor, like "
+    "the thumbnails' scrollbar\0if true, apply the theme colors to Windows controls and window areas too",
     false};
 
 static const FieldInfo gThemesFields[] = {

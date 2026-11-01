@@ -1363,34 +1363,19 @@ Color ThemeHoverPreviewEdgeColor() {
     return GetThemeCol(gCurrentTheme->hoverPreviewEdgeColor, ThemeHotEdgeColor());
 }
 
-// index of the built-in Dark theme; it and Light come first in themesTxt
-constexpr int kThemeIdxDark = 1;
-
-// Overlay scrollbars keep Windows' own colors in the built-in Light and Dark
-// themes and in high contrast, unless the theme sets them; other themes tint them.
+// Overlay scrollbars take the theme's colors, like the sidebar's thumbnails;
+// high contrast keeps Windows' own.
 bool ThemeTintsScrollbars() {
-    if (!HasCurrentTheme() || gUseHighContrast) {
-        return false;
-    }
-    if (GetParsedColor(gCurrentTheme->scrollbarColor)->parsedOk ||
-        GetParsedColor(gCurrentTheme->scrollbarThumbColor)->parsedOk) {
-        return true;
-    }
-    return gCurrThemeIndex > kThemeIdxDark;
+    return HasCurrentTheme() && !gUseHighContrast;
 }
 
 Color ThemeScrollbarColor() {
     return GetThemeCol(gCurrentTheme->scrollbarColor, ThemeControlBackgroundColor());
 }
 
-// Windows' thumb sits about halfway from the track to the text color, in light
-// and dark alike
+// also the lists' and thumbnails' scrollbar color (kColListScrollbar)
 Color ThemeScrollbarThumbColor() {
-    Color bg = ThemeScrollbarColor();
-    Color txt = ThemeWindowTextColor();
-    Color halfway = MkRgb((u8)((GetRed(bg) + GetRed(txt)) / 2), (u8)((GetGreen(bg) + GetGreen(txt)) / 2),
-                          (u8)((GetBlue(bg) + GetBlue(txt)) / 2));
-    return GetThemeCol(gCurrentTheme->scrollbarThumbColor, halfway);
+    return GetThemeCol(gCurrentTheme->scrollbarThumbColor, AccentColor(ThemeScrollbarColor(), 60));
 }
 
 // Links inside a warning notification. The theme's link color is picked to sit on

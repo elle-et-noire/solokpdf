@@ -157,11 +157,12 @@ with a size grip that resizes the frame when it isn't maximized.
   and, on hover, the arrows, over the page; no corner box. The empty track
   still takes clicks while hovered. It fades out 1.5 s after the mouse stops
   or a scroll (was 3 s and 5 s, at once) and takes no room.
-- Themes other than Light and Dark tint the bars: `ScrollbarColor` and
-  `ScrollbarThumbColor` (new theme fields), derived from
-  `ControlBackgroundColor` and `TextColor` when empty. Each pixel of the native
-  look keeps its place between Windows' track and thumb colors, mapped onto the
-  theme's pair. `windows` bars stay Windows' light or dark.
+- Every theme, Light and Dark included, tints the bars: `ScrollbarColor` and
+  `ScrollbarThumbColor` (new theme fields), by default `ControlBackgroundColor`
+  and the thumbnails' scrollbar color (`AccentColor(ScrollbarColor, 60)`, which
+  lists now take from `ScrollbarThumbColor` too). Each pixel of the native look
+  keeps its place between Windows' track and thumb colors, mapped onto the
+  theme's pair. High contrast and `windows` bars keep Windows' colors.
 
 `tests/smart-scrollbars-autohide.ts` reads the bars off the screen and checks
 an auto-hidden smart bar stays hidden.

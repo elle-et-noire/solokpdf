@@ -158,7 +158,7 @@ void ThemeApplyPlatformColors() {
     gColsListBox[kColListBg] = ctlBg;
     gColsListBox[kColListSel] = AccentColor(ctlBg, 25);
     gColsListBox[kColListSelFocused] = AccentColor(ctlBg, 45);
-    gColsListBox[kColListScrollbar] = AccentColor(ctlBg, 60);
+    gColsListBox[kColListScrollbar] = ThemeScrollbarThumbColor();
 
     gColsSplitter[kColSplitterBg] = ctlBg;
     gColsFill[kColFillBg] = ctlBg;

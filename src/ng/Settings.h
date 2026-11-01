@@ -193,12 +193,10 @@ struct Theme {
     // HotEdgeColor
     ParsedColor hoverPreviewEdgeColor;
     // background of the overlay scrollbars (Scrollbars = smart or
-    // overlay); if empty, derived from ControlBackgroundColor, or Windows'
-    // own colors in the Light and Dark themes
+    // overlay); if empty, ControlBackgroundColor
     ParsedColor scrollbarColor;
     // thumb and arrows of the overlay scrollbars; if empty, derived from
-    // TextColor and ScrollbarColor, or Windows' own colors in the Light
-    // and Dark themes
+    // ScrollbarColor, like the thumbnails' scrollbar
     ParsedColor scrollbarThumbColor;
     // if true, apply the theme colors to Windows controls and window areas
     // too
