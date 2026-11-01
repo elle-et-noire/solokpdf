@@ -34,7 +34,7 @@ desktop or a physical printer; known gaps are in `limitations.md`.
 - [backlog.md](backlog.md): open and dropped items.
 - [limitations.md](limitations.md): current PDFium-tab behavior and known
   limitations by area.
-- [features.md](features.md): SolokPDF-only features (identity, theme page
+- [features.md](features.md): SolokPDF-only features (identity, themed icon, theme page
   colors, count prefix, shortcuts dialog, Vim keys).
 - [history.md](history.md): baseline, engine map, phases 2–5, font cache and
   other measurements, dropped CI cache plan, 2026-10-29 UI review, full-suite

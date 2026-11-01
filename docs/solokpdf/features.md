@@ -27,6 +27,19 @@ SolokPDF disables upstream update checks, commands and settings UI. Existing
   MuPDF and its AGPL obligations remain because the fallback/library remain.
 - No binary, downloaded PDF, build cache, PDB or archive is added to Git.
 
+## Theme-tinted icon
+
+The app icon's yellow badge takes the hue of the theme's link color in every
+window: title bar, taskbar, Alt+Tab, About and dialogs. It's recolored in OKLCH
+with lightness scaled toward the new hue, so black "PDF" stays readable; a gray
+link color uses its faint hue, a pure gray one the exe's blue. Windows update on
+a theme change; open dialogs keep their icon.
+
+The exe's own icon (Explorer, Start, shortcuts) can't follow the theme. It is
+fixed to the Light theme's blue, so it differs from SumatraPDF's.
+`tools/solokpdf/make-icon.py` writes it (`src/solokpdf/SolokPDF.ico`) with the
+same algorithm as `src/solokpdf/AppIconTheme.cpp`.
+
 ## Theme page colors
 
 Added 2026-10-27.

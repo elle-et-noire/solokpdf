@@ -422,7 +422,12 @@ HWND HwndBase::CreateCustomHwnd(const CreateCustomArgs& args, WStr defaultClassN
     // trigger creating a backgroundBrush
     SetColors(kColorNoChange, args.bgColor);
     if (args.icon) {
-        HwndSetIcon(hwnd, args.icon);
+        // the app may swap its icon, e.g. for one tinted to the theme
+        if (gWindowBaseSetIcon) {
+            gWindowBaseSetIcon(hwnd, args.icon);
+        } else {
+            HwndSetIcon(hwnd, args.icon);
+        }
     }
     if (style & WS_VISIBLE) {
         if (style & WS_MAXIMIZE)
@@ -460,6 +465,7 @@ Color WindowBase::GetColor(int idx) const {
 }
 
 void (*gWindowBaseApplyDarkMode)(HWND) = nullptr;
+void (*gWindowBaseSetIcon)(HWND, HICON) = nullptr;
 
 void WindowBase::ApplyDarkMode() {
     if (gWindowBaseApplyDarkMode) {

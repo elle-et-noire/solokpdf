@@ -176,6 +176,7 @@ struct HwndBase {
 // re-applies OS dark mode to a window. gui/ doesn't name darkmodelib; null
 // means there is nothing to apply
 extern void (*gWindowBaseApplyDarkMode)(HWND);
+extern void (*gWindowBaseSetIcon)(HWND, HICON);
 
 // Base of the top-level windows (and the child windows that place themselves,
 // like the notification toasts). Not an ILayout: a window isn't positioned by a

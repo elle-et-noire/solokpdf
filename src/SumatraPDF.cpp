@@ -151,6 +151,7 @@
 #include "OpenFileFilters.h"
 #if defined(SOLOKPDF_PDFIUM)
 #include "solokpdf/EnginePdfium.h"
+#include "solokpdf/AppIconTheme.h"
 #endif
 #include "SumatraLog.h"
 
@@ -2773,6 +2774,9 @@ static MainWindow* CreateMainWindow() {
     }
     // WM_NCCALCSIZE returning 0 disables DWM rounded corners; re-enable them.
     SetWindowRoundedCorners(hwndFrame, true);
+#if defined(SOLOKPDF_PDFIUM)
+    ApplyThemedAppIcon(hwndFrame);
+#endif
 
     ReportIf(nullptr != FindMainWindowByHwnd(hwndFrame));
     MainWindow* win = new MainWindow(hwndFrame);
@@ -3075,6 +3079,9 @@ void UpdateAfterThemeChange() {
         UpdateAIChatTheme(win);
         DarkModeApplyToFrameAfterThemeChange(win);
         UpdateWindowFrameBorderColor(win);
+#if defined(SOLOKPDF_PDFIUM)
+        ApplyThemedAppIcon(win->hwndFrame);
+#endif
         // TODO: this only rerenders canvas, not frame, even with
         // includingNonClientArea == true.
         MainWindowRerender(win, true);
@@ -12854,7 +12861,11 @@ static void DrawCaptionButton(MainWindow* win, HDC hdc, ButtonInfo* bi) {
         gfx.FillRectangle(&bgBrSys, rButton.x, rButton.y, rButton.dx, rButton.dy);
         int xIcon = DpiGetSystemMetrics(SM_CXSMICON);
         int yIcon = DpiGetSystemMetrics(SM_CYSMICON);
-        HICON hIcon = (HICON)GetClassLongPtr(win->hwndFrame, GCLP_HICONSM);
+        // the window's own icon when set (SolokPDF tints it to the theme)
+        auto hIcon = (HICON)SendMessageW(win->hwndFrame, WM_GETICON, ICON_SMALL, 0);
+        if (!hIcon) {
+            hIcon = (HICON)GetClassLongPtr(win->hwndFrame, GCLP_HICONSM);
+        }
         int x = rButton.x + ((rButton.dx - xIcon) / 2);
         int y = rButton.y + ((rButton.dy - yIcon) / 2);
         DrawIconEx(hdc, x, y, hIcon, xIcon, yIcon, 0, nullptr, DI_NORMAL);

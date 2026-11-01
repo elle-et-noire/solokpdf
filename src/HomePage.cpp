@@ -40,6 +40,9 @@
 #include "PagePosition.h"
 #include "HomePage.h"
 #include "HomePageCommon.h"
+#if defined(SOLOKPDF_PDFIUM)
+#include "solokpdf/AppIconTheme.h"
+#endif
 
 // how the shared tip code (TipText.cpp) opens a url link
 static void OpenTipUrl(Str url) {
@@ -821,6 +824,9 @@ void ShowAboutWindow(MainWindow* win) {
     if (!gHwndAbout) {
         return;
     }
+#if defined(SOLOKPDF_PDFIUM)
+    ApplyThemedAppIcon(gHwndAbout);
+#endif
 
     HwndSetRtl(gHwndAbout, IsUIRtl());
 

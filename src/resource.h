@@ -3,6 +3,7 @@
 // Used by SumatraPDF.rc
 //
 #define IDI_SUMATRAPDF 1
+#define IDI_SOLOK_BADGE 10
 
 #define IDC_CURSORDRAG 132
 #define IDD_PROPSHEET_PRINT_ADVANCED 139
