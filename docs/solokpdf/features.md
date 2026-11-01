@@ -54,6 +54,10 @@ button (upstream: the selected one only); non-selected tabs narrower than 100
 DIP hide it. Hovered, the ✕ steps toward the text color instead of turning
 white on a red circle.
 
+The menu bar beside the tabs takes the title bar color and `TextColor`; a
+hovered or open menu shows the selected tab's color. Upstream let darkmodelib
+draw it as a box in `ControlBackgroundColor` with `DarkerTextColor`.
+
 The sidebar's view icons (Bookmarks, Thumbnails, Favorites) and other icon
 buttons hover and select in the toolbar's colors (`HotBackgroundColor`, and
 the selection color below for a toggled-on one).

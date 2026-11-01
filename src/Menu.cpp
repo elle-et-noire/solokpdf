@@ -1880,15 +1880,30 @@ int GetMenuBarRebarHeight(MainWindow* win) {
     return ideal;
 }
 
+static void FillRectColor(HDC hdc, const RECT& rc, Color col) {
+    HBRUSH br = CreateSolidBrush(col);
+    FillRect(hdc, &rc, br);
+    DeleteObject(br);
+}
+
+// The menu bar sits in the title bar: it takes the title bar's color and the
+// tabs' text color; a hot or open item looks like the selected tab.
+static LRESULT PaintMenuBarItem(NMTBCUSTOMDRAW* cd) {
+    UINT state = cd->nmcd.uItemState;
+    if (state & (CDIS_HOT | CDIS_SELECTED | CDIS_CHECKED)) {
+        FillRectColor(cd->nmcd.hdc, cd->nmcd.rc, ThemeActiveTabBackgroundColor());
+    }
+    bool disabled = state & CDIS_DISABLED;
+    cd->clrText = disabled ? ThemeWindowTextDisabledColor() : ThemeWindowTextColor();
+    cd->nStringBkMode = TRANSPARENT;
+    cd->nmcd.uItemState &= ~(CDIS_HOT | CDIS_SELECTED | CDIS_CHECKED | CDIS_DISABLED);
+    return TBCDRF_USECDCOLORS | TBCDRF_NOBACKGROUND | TBCDRF_NOEDGES | TBCDRF_NOOFFSET;
+}
+
 static LRESULT CALLBACK MenuBarReBarWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass,
                                             DWORD_PTR /*dwRefData*/) {
     if (WM_ERASEBKGND == uMsg) {
-        // always paint background with theme color to avoid gray strips in light theme
-        HDC hdc = (HDC)wParam;
-        Color bgCol = ThemeControlBackgroundColor();
-        auto* bgBrush = CreateSolidBrush(bgCol);
-        HdcFillRect(hdc, HwndClientRect(hWnd), bgBrush);
-        DeleteObject(bgBrush);
+        FillRectColor((HDC)wParam, ToRECT(HwndClientRect(hWnd)), ThemeTabStripColor());
         return 1;
     }
     if (WM_NOTIFY == uMsg) {
@@ -1898,16 +1913,10 @@ static LRESULT CALLBACK MenuBarReBarWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
             NMTBCUSTOMDRAW* custDraw = (NMTBCUSTOMDRAW*)hdr;
             switch (custDraw->nmcd.dwDrawStage) {
                 case CDDS_PREPAINT:
+                    FillRectColor(custDraw->nmcd.hdc, custDraw->nmcd.rc, ThemeTabStripColor());
                     return CDRF_NOTIFYITEMDRAW;
-                case CDDS_ITEMPREPAINT: {
-                    auto col = ThemeWindowTextColor();
-                    UINT itemState = custDraw->nmcd.uItemState;
-                    if (itemState & CDIS_DISABLED) {
-                        col = ThemeWindowTextDisabledColor();
-                    }
-                    custDraw->clrText = col;
-                    return CDRF_DODEFAULT;
-                }
+                case CDDS_ITEMPREPAINT:
+                    return PaintMenuBarItem(custDraw);
             }
         }
     }
@@ -2133,7 +2142,7 @@ void CreateMenuBarRebar(MainWindow* win) {
     REBARINFO rbi{};
     rbi.cbSize = sizeof(REBARINFO);
     SendMessageW(win->hwndMenuReBar, RB_SETBARINFO, 0, (LPARAM)&rbi);
-    SendMessageW(win->hwndMenuReBar, RB_SETBKCOLOR, 0, ThemeControlBackgroundColor());
+    SendMessageW(win->hwndMenuReBar, RB_SETBKCOLOR, 0, ThemeTabStripColor());
 
     style = WS_CHILD | WS_CLIPSIBLINGS | TBSTYLE_FLAT | TBSTYLE_LIST;
     style |= CCS_NODIVIDER | CCS_NOPARENTALIGN;

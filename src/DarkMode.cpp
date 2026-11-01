@@ -248,7 +248,8 @@ void DarkModeApplyToMenuBar(HWND hwndRebar) {
     if (!gUseDarkModeLib) {
         return;
     }
-    DarkMode::setWindowNotifyCustomDrawSubclass(hwndRebar);
+    // no notify subclass: MenuBarReBarWndProc draws the menu bar in the title
+    // bar's colors, darkmodelib's would draw it as a dialog
     DarkMode::setChildCtrlsSubclassAndTheme(hwndRebar);
 }
 
