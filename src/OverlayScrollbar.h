@@ -50,6 +50,7 @@ struct OverlayScrollbar {
     // themed hover cross-fade: when it started and how long it runs (0: none)
     u64 hoverAnimStart = 0;
     int hoverAnimMs = 0;
+    u64 fadeOutStart = 0; // auto-hide fade-out
 
     // auto-hide timing (milliseconds)
     int showAfterScrollMs = 1500;    // how long to show thin bar after scroll info update
@@ -70,6 +71,7 @@ struct OverlayScrollbar {
     static constexpr UINT_PTR kTimerAutoHide = 1;
     static constexpr UINT_PTR kTimerRepeatScroll = 2;
     static constexpr UINT_PTR kTimerHoverAnim = 3;
+    static constexpr UINT_PTR kTimerFadeOut = 4;
 };
 
 OverlayScrollbar* OverlayScrollbarCreate(HWND hwndOwner, OverlayScrollbar::Type type,

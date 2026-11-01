@@ -20,6 +20,8 @@ static bool gThickArrows = true;
 
 // repaint interval of the hover cross-fade, about the display's refresh
 static constexpr UINT kHoverAnimFrameMs = 16;
+// how long an auto-hiding smart bar takes to fade out
+static constexpr int kAutoHideFadeMs = 500;
 
 // all live overlay scrollbars, for global mouse tracking
 static Vec<OverlayScrollbar*> gAllScrollbars;
@@ -683,6 +685,25 @@ static void MakeLayeredWindowTransparent(HWND hwnd) {
     UpdateLayeredWindow(hwnd, nullptr, nullptr, nullptr, nullptr, nullptr, 0, &blend, ULW_ALPHA);
 }
 
+// One frame of the auto-hide fade: only the window's overall opacity changes,
+// the bar drawn last stays. Ease-out, like the hover fade.
+static void FadeOutStep(OverlayScrollbar* sb) {
+    u64 elapsed = GetTickCount64() - sb->fadeOutStart;
+    if (IsVisible(sb) || elapsed >= (u64)kAutoHideFadeMs) {
+        KillTimer(sb->hwnd, OverlayScrollbar::kTimerFadeOut);
+        if (!IsVisible(sb)) {
+            MakeLayeredWindowTransparent(sb->hwnd);
+        }
+        return;
+    }
+    double rest = 1.0 - ((double)elapsed / (double)kAutoHideFadeMs);
+    BLENDFUNCTION blend{};
+    blend.BlendOp = AC_SRC_OVER;
+    blend.SourceConstantAlpha = (BYTE)(rest * rest * rest * 255.0);
+    blend.AlphaFormat = AC_SRC_ALPHA;
+    UpdateLayeredWindow(sb->hwnd, nullptr, nullptr, nullptr, nullptr, nullptr, 0, &blend, ULW_ALPHA);
+}
+
 void SetState(OverlayScrollbar* sb, State newState) {
     if (sb->state == newState) {
         return;
@@ -693,6 +714,8 @@ void SetState(OverlayScrollbar* sb, State newState) {
 
     OverlayScrollbarUpdatePos(sb);
     if (nowVisible) {
+        // needed again mid-fade: PaintScrollbar() restores full opacity
+        KillTimer(sb->hwnd, OverlayScrollbar::kTimerFadeOut);
         if (!wasVisible) {
             ShowScrollbarHwnd(sb);
         }
@@ -701,7 +724,15 @@ void SetState(OverlayScrollbar* sb, State newState) {
         // Make fully transparent instead of ShowWindow(SW_HIDE) because
         // SW_HIDE can trigger Z-order changes that hide other popups
         sb->mouseOverThumb = false;
-        MakeLayeredWindowTransparent(sb->hwnd);
+        if (wasVisible && newState == State::SmartInvisible) {
+            // auto-hide fades out; the bar is already hidden as far as the
+            // rest of the code is concerned (clicks pass through it)
+            sb->fadeOutStart = GetTickCount64();
+            SetTimer(sb->hwnd, OverlayScrollbar::kTimerFadeOut, kHoverAnimFrameMs, nullptr);
+        } else {
+            KillTimer(sb->hwnd, OverlayScrollbar::kTimerFadeOut);
+            MakeLayeredWindowTransparent(sb->hwnd);
+        }
     }
 
     KillTimer(sb->hwnd, OverlayScrollbar::kTimerAutoHide);
@@ -854,6 +885,10 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
                 if (!sb->isDragging) {
                     HideScrollbarWindow(sb);
                 }
+                return 0;
+            }
+            if (wp == OverlayScrollbar::kTimerFadeOut) {
+                FadeOutStep(sb);
                 return 0;
             }
             if (wp == OverlayScrollbar::kTimerHoverAnim) {
