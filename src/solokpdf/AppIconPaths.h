@@ -67,3 +67,11 @@ static const float kIconTextPts[] = {
     179.00f, 136.33f, 179.00f, 132.50f,
 };
 static const int kIconTextLoops[] = {22, 22, 19, 25, 19, 22, 22, 19};
+
+// the gap between band and badge: a line, two cubics and a line, stroked
+static const float kIconSeamPts[] = {
+    45.13f, 227.29f, 39.00f, 197.92f, 28.91f, 149.59f, 47.30f, 97.79f,
+    91.00f, 72.43f, 131.46f, 48.95f, 184.27f, 42.87f, 230.00f, 44.19f,
+    259.99f, 45.06f,
+};
+static const float kIconSeamWidth = 6.00f;

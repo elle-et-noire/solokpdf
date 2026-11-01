@@ -1,6 +1,6 @@
 # Generates from src/solokpdf/AppIcon.svg:
 #   src/solokpdf/AppIconPaths.h  path data AppIconTheme.cpp draws at run time
-#   src/solokpdf/SolokPDF.ico    the exe's icon, in the SVG's (One Dark) colors
+#   src/solokpdf/SolokPDF.ico    the exe's icon, in the SVG's (One Dark) color
 # Run from the repo root: python tools/solokpdf/make-icon.py
 # Needs matplotlib (its Agg renderer draws the .ico) and Pillow.
 import io
@@ -19,28 +19,38 @@ from PIL import Image
 SVG = "src/solokpdf/AppIcon.svg"
 HDR = "src/solokpdf/AppIconPaths.h"
 ICO = "src/solokpdf/SolokPDF.ico"
-LAYERS = ("band", "badge", "text")  # drawn in this order
+SHAPES = ("band", "badge")  # filled in the ink color
+CUTS = ("text",)  # cut out of them, as is the seam stroke
 ICO_SIZES = (256, 64, 48, 40, 32, 24, 20, 16)
+BOX = 256
 
 
-# each layer: (fill color, [loop]); a loop is [start, (c1, c2, p) ...]; only M C Z occur
+# a path's loops: [start, (c1, c2, p) ...]; the seam is one open run of an
+# L, two Cs and an L, kept as its 9 points
 def parse_svg():
     svg = open(SVG, encoding="utf-8").read()
-    layers = {}
-    for pid, fill, d in re.findall(r'<path id="(\w+)" fill="(#[0-9a-f]{6})"[^>]*\sd="([^"]+)"', svg):
+    paths = {}
+    for pid, d in re.findall(r'<path id="(\w+)"[^>]*\sd="([^"]+)"', svg):
         loops = []
-        for cmd, args in re.findall(r"([MCZ])([^MCZ]*)", d):
+        for cmd, args in re.findall(r"([MCLZ])([^MCLZ]*)", d):
             nums = [float(v) for v in re.findall(r"-?\d+(?:\.\d+)?", args)]
             pts = list(zip(nums[0::2], nums[1::2]))
             if cmd == "M":
                 loops.append([pts[0]])
-            elif cmd == "C":
+            elif cmd in "CL":
                 loops[-1] += pts
-        layers[pid] = (fill, loops)
-    return layers
+        paths[pid] = loops
+    ink = re.search(r'<g fill="(#[0-9a-f]{6})"', svg).group(1)
+    seam_width = float(re.search(r'<path id="seam"[^>]*stroke-width="([\d.]+)"', svg).group(1))
+    assert len(paths["seam"]) == 1 and len(paths["seam"][0]) == 9, paths["seam"]
+    return paths, ink, seam_width
 
 
-def write_header(layers):
+def float_rows(pts):
+    return ["    " + " ".join(f"{x:.2f}f, {y:.2f}f," for x, y in pts[i : i + 4]) for i in range(0, len(pts), 4)]
+
+
+def write_header(paths, seam_width):
     out = [
         "/* Copyright 2026 SolokPDF contributors. License: GPLv3 */",
         "",
@@ -48,16 +58,20 @@ def write_header(layers):
         "// per layer: loops of a start point and 3 points per cubic, in a 256 x 256 box",
         "",
     ]
-    for name in LAYERS:
-        loops = layers[name][1]
-        pts = [p for loop in loops for p in loop]
+    for name in SHAPES + CUTS:
+        loops = paths[name]
         cname = name.capitalize()
         out.append(f"static const float kIcon{cname}Pts[] = {{")
-        for i in range(0, len(pts), 4):
-            out.append("    " + " ".join(f"{x:.2f}f, {y:.2f}f," for x, y in pts[i : i + 4]))
+        out += float_rows([p for loop in loops for p in loop])
         out.append("};")
         out.append(f"static const int kIcon{cname}Loops[] = {{{', '.join(str(len(l)) for l in loops)}}};")
         out.append("")
+    out.append("// the gap between band and badge: a line, two cubics and a line, stroked")
+    out.append("static const float kIconSeamPts[] = {")
+    out += float_rows(paths["seam"][0])
+    out.append("};")
+    out.append(f"static const float kIconSeamWidth = {seam_width:.2f}f;")
+    out.append("")
     open(HDR, "w", newline="\n").write("\n".join(out))
 
 
@@ -73,28 +87,61 @@ def to_path(loops):
     return Path(verts, codes)
 
 
-# drawn at its own size, not scaled down from 256: resampling bleeds edges
-def render(layers, size):
+def seam_path(pts):
+    codes = [Path.MOVETO, Path.LINETO] + [Path.CURVE4] * 6 + [Path.LINETO]
+    return Path(pts, codes)
+
+
+# coverage (0..1) of what draw() paints, at its own size: resampling bleeds edges
+def coverage(size, draw):
     fig = plt.figure(figsize=(size / 100, size / 100), dpi=100)
     ax = fig.add_axes([0, 0, 1, 1])
-    ax.set_xlim(0, 256)
-    ax.set_ylim(256, 0)
+    ax.set_xlim(0, BOX)
+    ax.set_ylim(BOX, 0)
     ax.axis("off")
     fig.patch.set_alpha(0)
-    for name in LAYERS:
-        fill, loops = layers[name]
-        ax.add_patch(PathPatch(to_path(loops), facecolor=fill, edgecolor="none", lw=0))
+    draw(ax, size)
     fig.canvas.draw()
-    img = Image.fromarray(np.asarray(fig.canvas.buffer_rgba()).copy(), "RGBA")
+    alpha = np.asarray(fig.canvas.buffer_rgba())[:, :, 3].astype(np.float32) / 255
     plt.close(fig)
-    return img
+    return alpha
 
 
-def write_ico(layers):
+# the shape minus the cuts, in the ink color; the seam is at least 1 px wide
+def render(paths, ink, seam_width, size):
+    def shapes(ax, _):
+        for name in SHAPES:
+            ax.add_patch(PathPatch(to_path(paths[name]), facecolor="k", edgecolor="none", lw=0))
+
+    def cuts(ax, size):
+        for name in CUTS:
+            ax.add_patch(PathPatch(to_path(paths[name]), facecolor="k", edgecolor="none", lw=0))
+        width_px = max(seam_width * size / BOX, 1.0)
+        # linewidth is in points: 72 per inch, 100 px per inch here
+        ax.add_patch(
+            PathPatch(
+                seam_path(paths["seam"][0]),
+                facecolor="none",
+                edgecolor="k",
+                lw=width_px * 0.72,
+                capstyle="butt",
+                joinstyle="round",
+            )
+        )
+
+    alpha = coverage(size, shapes) * (1 - coverage(size, cuts))
+    rgb = [int(ink[i : i + 2], 16) for i in (1, 3, 5)]
+    img = np.zeros((size, size, 4), np.uint8)
+    img[:, :, :3] = rgb
+    img[:, :, 3] = np.round(alpha * 255).astype(np.uint8)
+    return Image.fromarray(img, "RGBA")
+
+
+def write_ico(paths, ink, seam_width):
     pngs = []
     for size in ICO_SIZES:
         buf = io.BytesIO()
-        render(layers, size).save(buf, "PNG")
+        render(paths, ink, seam_width, size).save(buf, "PNG")
         pngs.append(buf.getvalue())
     out = struct.pack("<HHH", 0, 1, len(pngs))
     off = 6 + 16 * len(pngs)
@@ -105,7 +152,6 @@ def write_ico(layers):
     open(ICO, "wb").write(out + b"".join(pngs))
 
 
-layers = parse_svg()
-assert set(layers) == set(LAYERS), layers.keys()
-write_header(layers)
-write_ico(layers)
+paths, ink, seam_width = parse_svg()
+write_header(paths, seam_width)
+write_ico(paths, ink, seam_width)

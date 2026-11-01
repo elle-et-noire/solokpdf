@@ -32,14 +32,16 @@ SolokPDF disables upstream update checks, commands and settings UI. Existing
 The app icon is SumatraPDF's (badge, band, "PDF") traced to vector paths in
 `src/solokpdf/AppIcon.svg`: badge and band are a few cubics fitted to the
 original outline, the letters rounded rects fitted to its text. Windows draw it
-in the theme's colors with GDI+ at each size: the badge in the title bar color
-(`InactiveTabBackgroundColor`, see below), so it melts into it, and the band and
-"PDF" in the document text color (`TextColor`), which the theme already keeps
-readable on its background. Title bar, taskbar, Alt+Tab, About and dialogs
-follow; windows update on a theme change, open dialogs keep their icon.
+with GDI+ at each size in the document text color (`TextColor`), which the
+theme already keeps readable on its title bar: band and badge as one shape, cut
+by a 6-unit gap along the badge's upper-left edge (at least 1 px) and by "PDF",
+so the title bar shows through both. The gap runs past the outline at both ends
+and the cuts are multiplied out of the shape's coverage, so its ends are clean
+cuts with no hairlines. Title bar, taskbar, Alt+Tab, About and dialogs follow;
+windows update on a theme change, open dialogs keep their icon.
 
 The exe's icon (Explorer, Start, shortcuts) can't follow the theme; it is the
-same drawing in One Dark's colors. `tools/solokpdf/make-icon.py` generates it
+same drawing in One Dark's text color. `tools/solokpdf/make-icon.py` generates it
 (`src/solokpdf/SolokPDF.ico`) and the path data (`AppIconPaths.h`) from the SVG.
 
 ## Chrome-style tabs
