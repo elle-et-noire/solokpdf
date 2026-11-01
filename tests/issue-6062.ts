@@ -8,7 +8,7 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
-import { ROOT, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { ROOT, SETTINGS_FILE, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled, sendCommand, sendCommandSync } from "./win-automation.ts";
 import {
   captureWindowPixels,
@@ -91,7 +91,7 @@ async function runCloseLastFile(scrollbars: string): Promise<void> {
   const pdf = join(appData, "doc.pdf");
   copyFileSync(SRC_PDF, pdf);
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     [
       "UiLanguage = en",
       "CheckForUpdates = false",

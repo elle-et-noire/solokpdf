@@ -20,7 +20,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { ROOT, tmpPath, USE_NG } from "./util.ts";
+import { ROOT, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
 import { launchControlled, waitForExit, findCanvas, vScrollbarColorCount, killAndWait } from "./win-automation.ts";
 import {
   captureWindowPixels,
@@ -88,7 +88,7 @@ export async function testit(): Promise<void> {
   const appDataDir = tmpPath("issue-5850-appdata");
   rmSync(appDataDir, { recursive: true, force: true });
   mkdirSync(appDataDir, { recursive: true });
-  writeFileSync(join(appDataDir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appDataDir, SETTINGS_FILE), SETTINGS);
 
   const { proc, client, frame } = await launchControlled(["-appdata", appDataDir, PDF], { defaultWindowPos: true });
   try {
