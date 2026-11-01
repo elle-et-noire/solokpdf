@@ -193,7 +193,8 @@ The thumbnails' scrollbar (sidebar and command palette) is drawn the same way
 with arrows on hover over the theme's transition, arrows stepping a row. It
 runs along the list's right edge over its whole height, outside the padding.
 The current page's frame takes the theme's `HotEdgeColor` (upstream: a fixed
-blue).
+blue); the other pages get a 1px frame in `ScrollbarThumbColor` (upstream:
+none, so Light's white pages vanished on its white sidebar).
 
 `tests/smart-scrollbars-autohide.ts` reads the bars off the screen and checks
 an auto-hidden smart bar stays hidden.

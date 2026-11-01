@@ -487,9 +487,13 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
             ev->gfx->DrawPixmap(thumbnail, target);
         }
 
+        // the theme's accent, as on a focused field's border; the other pages
+        // a thin frame in the scrollbar's color, so a page shows on a sidebar
+        // of its color (Light)
         if (isCurrent) {
-            // the theme's accent, as on a focused field's border
             ev->gfx->DrawRect(pageRect, ThemeHotEdgeColor(), 3);
+        } else {
+            ev->gfx->DrawRect(pageRect, ThemeScrollbarThumbColor(), 1);
         }
 
         TempStr label = fmt("%d", pageNo);
