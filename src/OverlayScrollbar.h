@@ -41,7 +41,6 @@ struct OverlayScrollbar {
 
     int thinWidth = 0;
     int thickWidth = 0;
-    bool hasArrows = true; // thick bar draws line-scroll arrows at both ends
 
     // auto-hide timing (milliseconds)
     int showAfterScrollMs = 5000;    // how long to show thin bar after scroll info update
