@@ -23,7 +23,7 @@ function makePdf(): string {
 export async function testit(): Promise<void> {
   const pdf = tmpPath("count-prefix.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
-  const appdata = writeAppdata("count-prefix-appdata", "SmoothScroll = false\nRestoreSession = false");
+  const appdata = writeAppdata("count-prefix-appdata", "SmoothScroll = false\nRestoreSession = false\nScrollbars = windows");
   const { proc, client, frame } = await launchControlled([
     "-appdata",
     appdata,

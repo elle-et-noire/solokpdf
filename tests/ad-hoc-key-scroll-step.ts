@@ -19,7 +19,7 @@ const WHEEL_DOWN = 0xff880000n;
 export async function testit(): Promise<void> {
   const dir = writeAppdata(
     "key-scroll-step-appdata",
-    "KeyScrollLineAmount = 100\nScrollLineAmount = 10\nSmoothScroll = false\nRestoreSession = false\n",
+    "KeyScrollLineAmount = 100\nScrollLineAmount = 10\nSmoothScroll = false\nRestoreSession = false\nScrollbars = windows\n",
   );
   const pdf = tmpPath("key-scroll-step.pdf");
   writeFileSync(pdf, makeTopBottomPdf(20));
@@ -64,7 +64,7 @@ export async function testit(): Promise<void> {
 
   const fallbackDir = writeAppdata(
     "key-scroll-step-fallback-appdata",
-    "KeyScrollLineAmount = 0\nScrollLineAmount = 10\nSmoothScroll = false\nRestoreSession = false\n",
+    "KeyScrollLineAmount = 0\nScrollLineAmount = 10\nSmoothScroll = false\nRestoreSession = false\nScrollbars = windows\n",
   );
   const fallback = await launchControlled(["-appdata", fallbackDir, "-zoom", "200", "-view", "continuous", pdf]);
   try {

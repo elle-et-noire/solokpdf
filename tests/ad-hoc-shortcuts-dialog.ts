@@ -20,7 +20,7 @@ export async function testit(): Promise<void> {
   const pdf = join(dir, "pages.pdf");
   const settings = join(dir, "SolokPDF-settings.txt");
   writeFileSync(pdf, makePdf(), "latin1");
-  writeFileSync(settings, "UiLanguage = en\nReuseInstance = false\nShowStartPage = false\nSmoothScroll = false\n");
+  writeFileSync(settings, "UiLanguage = en\nReuseInstance = false\nShowStartPage = false\nSmoothScroll = false\nScrollbars = windows\n");
 
   const { proc, client, frame } = await launchControlled(
     ["-appdata", dir, "-zoom", "200", "-view", "continuous", pdf],

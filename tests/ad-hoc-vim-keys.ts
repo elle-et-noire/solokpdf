@@ -54,7 +54,7 @@ export async function testit(): Promise<void> {
 
   const appdata = writeAppdata(
     "vim-keys-appdata",
-    "VimKeys = true\nRestoreSession = false\nSmoothScroll = false\nKeyScrollLineAmount = 100\nScrollLineAmount = 10\nUseTabs = true\nNoHomeTab = true\nCtrlTabSimple = true\n",
+    "VimKeys = true\nRestoreSession = false\nSmoothScroll = false\nScrollbars = windows\nKeyScrollLineAmount = 100\nScrollLineAmount = 10\nUseTabs = true\nNoHomeTab = true\nCtrlTabSimple = true\n",
   );
   const { proc, client, frame } = await launchControlled(
     ["-appdata", appdata, "-zoom", "200", "-view", "continuous", pdf, pdf2],
