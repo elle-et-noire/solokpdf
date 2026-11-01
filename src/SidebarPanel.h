@@ -58,3 +58,4 @@ void UpdateSidebarPanelsText(MainWindow*);
 void UpdateSidebarPanelsDpi(MainWindow*, int dpi);
 void UpdateSidebarPanelsIcons(MainWindow*);
 ILayout* PadSidebarItem(ILayout*, HWND parent);
+void SetSidebarSearchMargins(Edit*, HWND parent);

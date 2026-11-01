@@ -614,6 +614,7 @@ void CreateFavorites(MainWindow* win) {
         filterEdit->Create(eargs);
     }
     win->favFilterEdit = filterEdit;
+    SetSidebarSearchMargins(filterEdit, parent);
     filterEdit->onTextChanged = MkFunc0(OnFavFilterTextChanged, win);
     SetWindowSubclass(filterEdit->hwnd, WndProcFavFilterEdit, NextSubclassId(), (DWORD_PTR)win);
 
