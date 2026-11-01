@@ -52,8 +52,8 @@ struct OverlayScrollbar {
     int hoverAnimMs = 0;
 
     // auto-hide timing (milliseconds)
-    int showAfterScrollMs = 5000;    // how long to show thin bar after scroll info update
-    int hideAfterMouseStopMs = 3000; // hide after mouse stops moving
+    int showAfterScrollMs = 1500;    // how long to show thin bar after scroll info update
+    int hideAfterMouseStopMs = 1500; // hide after mouse stops moving
 
     // internal state
     State state = State::Hidden;

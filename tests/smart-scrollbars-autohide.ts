@@ -27,7 +27,7 @@ import { findCanvas, waitForFrame } from "./win-automation.ts";
 
 const SCROLLBAR_CLASS = "SUMATRA_OVERLAY_SCROLLBAR";
 // OverlayScrollbar::showAfterScrollMs plus slack for a slow (ASan) build
-const autoHideWaitMs = 8000;
+const autoHideWaitMs = 4000;
 // pixels a hidden bar may still differ by: the frame's rounded corner clips
 // the screen there but not the PrintWindow capture. A shown bar is thousands.
 const strayPixels = 64;

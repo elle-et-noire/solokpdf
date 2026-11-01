@@ -187,8 +187,88 @@ static HTHEME OpenScrollBarTheme(OverlayScrollbar* sb) {
     return OpenThemeData(sb->hwnd, L"ScrollBar");
 }
 
+static HDC CreateDibDC(HDC hdcRef, int w, int h, DWORD** pixelsOut, HBITMAP* bmpOut) {
+    BITMAPINFO bmi{};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = w;
+    bmi.bmiHeader.biHeight = -h;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    HDC hdc = CreateCompatibleDC(hdcRef);
+    void* bits = nullptr;
+    HBITMAP bmp = hdc ? CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0) : nullptr;
+    if (!bmp || !bits) {
+        if (bmp) {
+            DeleteObject(bmp);
+        }
+        if (hdc) {
+            DeleteDC(hdc);
+        }
+        return nullptr;
+    }
+    SelectObject(hdc, bmp);
+    *pixelsOut = (DWORD*)bits;
+    *bmpOut = bmp;
+    return hdc;
+}
+
+static void FreeDibDC(HDC hdc, HBITMAP bmp) {
+    DeleteDC(hdc);
+    DeleteObject(bmp);
+}
+
+// A smart bar at rest is only the theme's thin thumb line, over the page. The
+// theme draws that line on a box of the track's color, so recover the line's
+// coverage from how far each pixel moved from the box color toward the line's.
+static void DrawThumbOverPage(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD* pixels, int w, int h) {
+    for (int i = 0; i < w * h; i++) {
+        pixels[i] = 0;
+    }
+    Rect thumb = GetThumbRect(sb);
+    if (thumb.dx <= 0 || thumb.dy <= 0) {
+        return;
+    }
+    int part = IsVert(sb) ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ;
+    int state = sb->isDragging ? SCRBS_PRESSED : SCRBS_NORMAL;
+    DrawThemePart(theme, hdc, part, state, thumb);
+    GdiFlush();
+
+    // the box's edge can be lighter: take its color between the line and the
+    // edge, across the line
+    int midX = thumb.x + thumb.dx / 2;
+    int midY = thumb.y + thumb.dy / 2;
+    DWORD line = pixels[midY * w + midX] & 0xffffff;
+    int boxX = IsVert(sb) ? thumb.x + (thumb.dx * 3 / 4) : midX;
+    int boxY = IsVert(sb) ? midY : thumb.y + (thumb.dy * 3 / 4);
+    DWORD box = pixels[boxY * w + boxX] & 0xffffff;
+    // green is as good as any channel for the coverage
+    int boxG = (int)((box >> 8) & 0xff);
+    int span = boxG - (int)((line >> 8) & 0xff);
+    for (int y = thumb.y; y < thumb.y + thumb.dy; y++) {
+        for (int x = thumb.x; x < thumb.x + thumb.dx; x++) {
+            DWORD& px = pixels[y * w + x];
+            int moved = boxG - (int)((px >> 8) & 0xff);
+            int alpha = span == 0 ? 255 : std::clamp(moved * 255 / span, 0, 255);
+            DWORD res = (DWORD)alpha << 24;
+            for (int shift = 0; shift < 24; shift += 8) {
+                res |= ((((line >> shift) & 0xff) * (DWORD)alpha) / 255) << shift;
+            }
+            px = res;
+        }
+    }
+}
+
 // one look of the bar: hovered (on Windows 11 wide, with arrows) or not
-static void DrawThemedBar(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD* pixels, int w, bool hover) {
+static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD* pixels, int w, int h, bool hover) {
+    if (!hover && !IsAlwaysThickMode(sb)) {
+        DrawThumbOverPage(sb, theme, hdc, pixels, w, h);
+        return;
+    }
+    DWORD bg = PremultiplyPixel(ThemeTrackColor(), 255);
+    for (int i = 0; i < w * h; i++) {
+        pixels[i] = bg;
+    }
     bool vert = IsVert(sb);
     int barState = hover ? SCRBS_HOVER : SCRBS_NORMAL;
     int thumbState = barState;
@@ -204,22 +284,27 @@ static void DrawThemedBar(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD* pi
     DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowStart, GetArrowTopRect(sb));
     DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowEnd, GetArrowBottomRect(sb));
     DrawThemePart(theme, hdc, vert ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ, thumbState, GetThumbRect(sb));
-    if (sb->cornerDy <= 0) {
-        return;
-    }
-    // the theme's corner background has a 1px frame a native corner doesn't
-    // show: spread its inner color over the whole square
-    Rect corner = CornerRect(sb);
-    DrawThemePart(theme, hdc, SBP_SIZEBOXBKGND, barState, corner);
-    GdiFlush();
-    DWORD bg = pixels[(corner.y + corner.dy / 2) * w + corner.x + corner.dx / 2];
-    for (int y = corner.y; y < corner.y + corner.dy; y++) {
-        for (int x = corner.x; x < corner.x + corner.dx; x++) {
-            pixels[y * w + x] = bg;
+    if (sb->cornerDy > 0) {
+        // the theme's corner background has a 1px frame a native corner doesn't
+        // show: spread its inner color over the whole square
+        Rect corner = CornerRect(sb);
+        DrawThemePart(theme, hdc, SBP_SIZEBOXBKGND, barState, corner);
+        GdiFlush();
+        DWORD cornerBg = pixels[(corner.y + corner.dy / 2) * w + corner.x + corner.dx / 2];
+        for (int y = corner.y; y < corner.y + corner.dy; y++) {
+            for (int x = corner.x; x < corner.x + corner.dx; x++) {
+                pixels[y * w + x] = cornerBg;
+            }
+        }
+        if (CornerHasGrip(sb)) {
+            DrawThemePart(theme, hdc, SBP_SIZEBOX, SZB_RIGHTALIGN, corner);
         }
     }
-    if (CornerHasGrip(sb)) {
-        DrawThemePart(theme, hdc, SBP_SIZEBOX, SZB_RIGHTALIGN, corner);
+
+    // this look is opaque, like a native bar
+    GdiFlush();
+    for (int i = 0; i < w * h; i++) {
+        pixels[i] |= 0xff000000;
     }
 }
 
@@ -262,62 +347,36 @@ static void StartHoverAnim(OverlayScrollbar* sb, bool hover) {
 
 // Draw the bar with the theme native scrollbars use, so it looks the same (on
 // Windows 11 a thin line that widens and shows its arrows while the mouse is
-// over it). Returns false without a theme; the caller then draws its own.
+// over it); a smart bar at rest is the line alone, over the page. Returns false
+// without a theme; the caller then draws its own.
 static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, int w, int h) {
     HTHEME theme = OpenScrollBarTheme(sb);
     if (!theme) {
         return false;
     }
     bool hover = sb->mouseOverBand || sb->isDragging;
-    DrawThemedBar(sb, theme, hdc, pixels, w, hover);
+    DrawThemedLook(sb, theme, hdc, pixels, w, h, hover);
 
-    // mid-transition: blend in the look we are leaving
+    // mid-transition: blend in the look we are leaving (premultiplied, so all
+    // four channels blend alike)
     int t = HoverAnimProgress(sb);
-    if (t < 255) {
-        HDC hdcFrom = CreateCompatibleDC(hdc);
-        BITMAPINFO bmi{};
-        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        bmi.bmiHeader.biWidth = w;
-        bmi.bmiHeader.biHeight = -h;
-        bmi.bmiHeader.biPlanes = 1;
-        bmi.bmiHeader.biBitCount = 32;
-        bmi.bmiHeader.biCompression = BI_RGB;
-        void* bits = nullptr;
-        HBITMAP bmp = CreateDIBSection(hdcFrom, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-        if (bmp && bits) {
-            HGDIOBJ old = SelectObject(hdcFrom, bmp);
-            DWORD* from = (DWORD*)bits;
-            DWORD bg = PremultiplyPixel(ThemeTrackColor(), 255);
-            for (int i = 0; i < w * h; i++) {
-                from[i] = bg;
+    DWORD* from = nullptr;
+    HBITMAP bmpFrom = nullptr;
+    HDC hdcFrom = t < 255 ? CreateDibDC(hdc, w, h, &from, &bmpFrom) : nullptr;
+    if (hdcFrom) {
+        DrawThemedLook(sb, theme, hdcFrom, from, w, h, !hover);
+        for (int i = 0; i < w * h; i++) {
+            DWORD res = 0;
+            for (int shift = 0; shift < 32; shift += 8) {
+                DWORD ca = (from[i] >> shift) & 0xff;
+                DWORD cb = (pixels[i] >> shift) & 0xff;
+                res |= ((ca * (255 - t) + cb * t) / 255) << shift;
             }
-            DrawThemedBar(sb, theme, hdcFrom, from, w, !hover);
-            GdiFlush();
-            for (int i = 0; i < w * h; i++) {
-                DWORD a = from[i];
-                DWORD b = pixels[i];
-                DWORD res = 0;
-                for (int shift = 0; shift < 24; shift += 8) {
-                    DWORD ca = (a >> shift) & 0xff;
-                    DWORD cb = (b >> shift) & 0xff;
-                    res |= ((ca * (255 - t) + cb * t) / 255) << shift;
-                }
-                pixels[i] = res;
-            }
-            SelectObject(hdcFrom, old);
+            pixels[i] = res;
         }
-        if (bmp) {
-            DeleteObject(bmp);
-        }
-        DeleteDC(hdcFrom);
+        FreeDibDC(hdcFrom, bmpFrom);
     }
     CloseThemeData(theme);
-
-    // a native bar is opaque; theme drawing leaves the alpha bytes undefined
-    GdiFlush();
-    for (int i = 0; i < w * h; i++) {
-        pixels[i] |= 0xff000000;
-    }
     return true;
 }
 
@@ -515,15 +574,7 @@ static void PaintScrollbar(OverlayScrollbar* sb) {
 
     memset(bits, 0, (size_t)w * h * 4);
 
-    bool themedDone = false;
-    if (sb->themed) {
-        DWORD bg = PremultiplyPixel(ThemeTrackColor(), 255);
-        DWORD* pixels = (DWORD*)bits;
-        for (int i = 0; i < w * h; i++) {
-            pixels[i] = bg;
-        }
-        themedDone = PaintThemedScrollbar(sb, hdcMem, pixels, w, h);
-    }
+    bool themedDone = sb->themed && PaintThemedScrollbar(sb, hdcMem, (DWORD*)bits, w, h);
     if (!themedDone) {
         PaintCustomScrollbar(sb, hdcMem, bits, w, h);
     }
