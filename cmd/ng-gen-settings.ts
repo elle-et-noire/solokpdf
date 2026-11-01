@@ -1867,7 +1867,7 @@ const globalPrefs: Field[] = [
     "the name of the theme to use. System follows the Windows light/dark app mode " +
       "and switches between LastLightTheme and LastDarkTheme. Built-in themes: " +
       "Light, Dark, Light Warm, Light Gray, Dark from 3.5, Charcoal, Solarized Light, " +
-      "Solarized Dark, Dracula, Nebula, Greeny, Choco, Purpy, One Dark, Monokai, " +
+      "Solarized Dark, Dracula, Nebula, Greeny, Choco, Choco Navy, Purpy, Purpy Slate, One Dark, Monokai, " +
       "Nord, GitHub Dark, Catppuccin Mocha, Tokyo Night, Gruvbox, Night Owl, Ayu, " +
       "Palenight, Catppuccin Latte, Catppuccin Frappe, Catppuccin Macchiato, " +
       "Gruvbox Light, Everforest Light, Rose Pine Dawn, Sepia, System (custom Themes[] entries can add more)",
@@ -1875,7 +1875,7 @@ const globalPrefs: Field[] = [
     .ver("3.5")
     .doc(
       "valid themes: Light, Dark, Light Warm, Light Gray, Dark from 3.5, Charcoal, Solarized Light, " +
-        "Solarized Dark, Dracula, Nebula, Greeny, Choco, Purpy, One Dark, Monokai, Nord, " +
+        "Solarized Dark, Dracula, Nebula, Greeny, Choco, Choco Navy, Purpy, Purpy Slate, One Dark, Monokai, Nord, " +
         "GitHub Dark, Catppuccin Mocha, Tokyo Night, Gruvbox, Night Owl, Ayu, Palenight, Catppuccin Latte, Catppuccin Frappe, Catppuccin Macchiato, " +
         "Gruvbox Light, Everforest Light, Rose Pine Dawn, Sepia, System",
     ),

@@ -68,6 +68,14 @@ Inactive tabs of 13 dark themes took colors from outside their palettes, mostly
 purple (Solarized Dark `#5b0c6f`): upstream copied an old computed blend. They
 now use a neighboring color of the theme's own palette, as Light and Dark do.
 
+Choco and Purpy (upstream #5194, no source palette) had pages and UI in
+unrelated hues: Choco a brown page under a navy UI, Purpy a slate page under a
+purple UI. Each now comes in two variants that keep every color's lightness and
+take the other side's hue; text, link, hot-edge and notification highlight
+colors are unchanged. Choco spreads the page's brown to the UI, Choco Navy the
+UI's navy to the page; Purpy spreads the UI's purple to the page, Purpy Slate
+the page's slate to the UI. The name keeps the color it names.
+
 Themes change from the keyboard: the command palette (Ctrl+K) lists every
 theme as "Set theme '…'" (upstream hides them there), and the Change Theme
 dialog previews with the arrow keys, applies with Enter and cancels with Esc.
