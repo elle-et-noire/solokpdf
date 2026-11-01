@@ -116,6 +116,18 @@ export async function testit(): Promise<void> {
       if (after.some((n) => n > strayPixels)) {
         throw new Error(`smart-scrollbars-autohide: a bar still shows after auto-hide (differing pixels: ${after})`);
       }
+
+      // the horizontal bar stops short of the vertical one while both are
+      // needed, hidden or not: stretching it as the vertical one hid made it
+      // visibly grow just before it faded out too
+      const rects = bars.map((b) => getWindowRect(b));
+      const vert = rects[0].bottom - rects[0].top > rects[0].right - rects[0].left ? rects[0] : rects[1];
+      const horz = vert === rects[0] ? rects[1] : rects[0];
+      if (horz.right > vert.left) {
+        throw new Error(
+          `smart-scrollbars-autohide: the horizontal bar runs under the vertical one after auto-hide (right ${horz.right}, vertical bar at ${vert.left})`,
+        );
+      }
     },
     ["-appdata", appdata, "-view", "continuous", "-zoom", "200", join(ROOT, "tests", "issue-5871.pdf")],
   );

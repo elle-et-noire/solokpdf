@@ -697,6 +697,7 @@ void SetState(OverlayScrollbar* sb, State newState) {
         return;
     }
     bool wasVisible = IsVisible(sb);
+    bool wasActive = IsActive(sb);
     sb->state = newState;
     bool nowVisible = IsVisible(sb);
 
@@ -728,8 +729,8 @@ void SetState(OverlayScrollbar* sb, State newState) {
         SetTimer(sb->hwnd, OverlayScrollbar::kTimerAutoHide, sb->showAfterScrollMs, nullptr);
     }
 
-    // themed bars share the corner square, which depends on both being shown
-    if (sb->themed && wasVisible != nowVisible) {
+    // themed bars share the corner square, which depends on both being needed
+    if (sb->themed && wasActive != IsActive(sb)) {
         for (auto* other : gAllScrollbars) {
             if (other != sb && other->hwndOwner == sb->hwndOwner) {
                 OverlayScrollbarUpdatePos(other);
@@ -1249,15 +1250,17 @@ void OverlayScrollbarUpdatePos(OverlayScrollbar* sb) {
         siblingInset = scrollW;
     }
     if (sb->themed) {
-        // like native scrollbars: when both show, the horizontal bar stops
-        // short and the vertical one runs on to draw the corner square
-        bool siblingVisible = false;
+        // like native scrollbars: when both are needed, the horizontal bar
+        // stops short and the vertical one runs on to draw the corner square.
+        // Needed, not shown: an auto-hiding smart bar must not stretch its
+        // sibling just before that one hides too
+        bool siblingActive = false;
         for (auto* other : gAllScrollbars) {
-            if (other != sb && other->hwndOwner == sb->hwndOwner && IsVisible(other)) {
-                siblingVisible = true;
+            if (other != sb && other->hwndOwner == sb->hwndOwner && IsActive(other)) {
+                siblingActive = true;
             }
         }
-        bool both = IsVisible(sb) && siblingVisible;
+        bool both = IsActive(sb) && siblingActive;
         sb->cornerDy = (IsVert(sb) && both) ? scrollW : 0;
         siblingInset = (!IsVert(sb) && both) ? scrollW : 0;
     }
