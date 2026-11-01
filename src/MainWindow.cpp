@@ -847,11 +847,11 @@ void MainWindow::ShowFrameRateDur(double durMs) {
     frameRateWnd->ShowFrameRateDur(durMs);
 }
 
-// The sidebar takes the title bar's color; its search fields the canvas
-// color, so they read as fields.
+// The sidebar takes the canvas color; its search fields the control
+// background, so they read as fields.
 void UpdateControlsColors(MainWindow* win) {
     Color bgCol = ThemeSidebarColor();
-    Color editBgCol = ThemeCanvasColor();
+    Color editBgCol = ThemeControlBackgroundColor();
     Color txtCol = ThemeWindowTextColor();
 
     // logf("retrieved doc colors in tree control: 0x%x 0x%x\n", treeTxtCol, treeBgCol);

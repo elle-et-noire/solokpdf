@@ -145,15 +145,15 @@ struct Theme {
     // color of text in menus, toolbar, tabs and sidebars
     ParsedColor textColor;
     // background color of the window around the document, the toolbar, the
-    // active tab and the scrollbars
+    // sidebar, the active tab and the scrollbars
     ParsedColor backgroundColor;
-    // background color of dialogs
+    // background color of dialogs and search fields
     ParsedColor controlBackgroundColor;
     // background color of the active tab; if empty, the color around the
     // document
     ParsedColor activeTabBackgroundColor;
-    // background color of inactive tabs, the title bar and the sidebar; if
-    // empty, derived from ControlBackgroundColor
+    // background color of inactive tabs and the title bar; if empty,
+    // derived from ControlBackgroundColor
     ParsedColor inactiveTabBackgroundColor;
     // color of clickable links in the UI
     ParsedColor linkColor;

@@ -63,8 +63,8 @@ The menu bar beside the tabs takes the title bar color and `TextColor`; a
 hovered or open menu shows the selected tab's color. Upstream let darkmodelib
 draw it as a box in `ControlBackgroundColor` with `DarkerTextColor`.
 
-The sidebar, splitters included, takes the title bar's color
-(`ThemeSidebarColor`); its search fields take the canvas color, and they and
+The sidebar, splitters included, takes the canvas color, as the toolbar does
+(`ThemeSidebarColor`); its search fields take `ControlBackgroundColor`, and they and
 the Bookmarks and Favorites trees a 6×4 DIP margin (upstream: flush with the
 panel's edges). A hovered bookmark or favorite fills its row with the hover
 color below (upstream: the Explorer theme's own hot face).
@@ -112,11 +112,9 @@ Night Owl and Ayu. The window background is left out: themed pages take it, so
 a selection on them would vanish. Upstream shifted the background's HSL
 lightness by 25 to 45 units, which made saturated themes garish (Solarized
 Dark a bright teal, Greeny a bright green). The selection has to show on the
-canvas (toolbar, pages) and on the sidebar (contrast 1.2): where the pick
-doesn't (the sidebar takes `EdgeColor` in Gruvbox Light, Sepia, Light Warm),
-it is the palette color that shows best on both; where none shows (Ayu, One
-Dark, Everforest Light, Rose Pine Dawn), the surface nearer the text color
-mixed toward the text.
+canvas (toolbar, sidebar, pages; contrast 1.2): where the pick doesn't (One
+Dark), it is the palette color that shows best there; where none shows, the
+canvas mixed toward the text color.
 
 The bookmark tree keeps its unfocused selection color when it has the focus
 (upstream: the system's blue highlight); high contrast mode still uses the

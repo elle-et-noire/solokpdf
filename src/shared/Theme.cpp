@@ -1327,9 +1327,8 @@ static float SurfaceContrast(Color c) {
 // garish): the one furthest from the control background, toward the text,
 // that keeps the text readable (mostly EdgeColor); the hover color when none
 // does. It has to show on the canvas and on the sidebar: where it doesn't
-// (the sidebar takes EdgeColor in Gruvbox Light, Sepia), the palette color
-// that shows best on both; where none shows (Ayu, One Dark), the surface
-// nearer the text color mixed toward it.
+// (One Dark), the palette color that shows best on both; where none shows,
+// the surface nearer the text color mixed toward it.
 Color ThemeSelectedBackgroundColor() {
     Color bg = ThemeControlBackgroundColor();
     if (gUseHighContrast) {
@@ -1397,9 +1396,9 @@ Color ThemeTabStripColor() {
     return res == kColorUnset ? strip : res;
 }
 
-// the sidebar takes the title bar's color
+// the sidebar takes the canvas color, as the toolbar does
 Color ThemeSidebarColor() {
-    return ThemeTabStripColor();
+    return ThemeCanvasColor();
 }
 
 // how far a hovered button's fill goes from its surface to the selection
