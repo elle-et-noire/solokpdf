@@ -88,8 +88,10 @@ with a size grip that resizes the frame when it isn't maximized.
   margins grow by the bar widths), so fit width and scrolling to the edge never
   leave the page's edge under a bar, and the page doesn't move as bars come and
   go.
-- `smart` at rest is the thin thumb line alone, over the page, and hides 1.5 s
-  after the mouse stops or a scroll (was 3 s and 5 s). It takes no room.
+- `smart` has no background: the thumb (a thin line at rest, wide on hover)
+  and, on hover, the arrows, over the page; no corner box. The empty track
+  still takes clicks while hovered. It fades out 1.5 s after the mouse stops
+  or a scroll (was 3 s and 5 s, at once) and takes no room.
 - Themes other than Light and Dark tint the bars: `ScrollbarColor` and
   `ScrollbarThumbColor` (new theme fields), derived from
   `ControlBackgroundColor` and `TextColor` when empty. Each pixel of the native

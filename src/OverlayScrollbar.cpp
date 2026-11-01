@@ -51,7 +51,9 @@ static Rect CornerRect(OverlayScrollbar* sb) {
 // corner of a resizable, not maximized frame
 static bool CornerHasGrip(OverlayScrollbar* sb) {
     HWND root = GetAncestor(sb->hwndOwner, GA_ROOT);
-    if (sb->cornerDy <= 0 || !root || IsZoomed(root) || !(GetWindowLongW(root, GWL_STYLE) & WS_THICKFRAME)) {
+    // smart bars draw no corner box, so no grip either
+    if (sb->cornerDy <= 0 || !IsAlwaysThickMode(sb) || !root || IsZoomed(root) ||
+        !(GetWindowLongW(root, GWL_STYLE) & WS_THICKFRAME)) {
         return false;
     }
     RECT rc;
@@ -220,8 +222,9 @@ static void FreeDibDC(HDC hdc, HBITMAP bmp) {
     DeleteObject(bmp);
 }
 
-// Theme colors for a themed bar: Windows' track and thin-thumb colors, the two
-// ends of the scale a drawn pixel sits on, and the theme's pair it maps onto
+// Colors of a themed bar: Windows' track and thin-thumb colors, the two ends of
+// the scale a drawn pixel sits on, and the pair the bar is drawn in (the
+// theme's when `on`, else Windows' own)
 struct ScrollbarTint {
     bool on = false;
     DWORD nativeTrack = 0; // DIB pixels, 0xRRGGBB
@@ -236,9 +239,6 @@ static DWORD ColorToPixel(Color c) {
 
 static ScrollbarTint GetScrollbarTint(OverlayScrollbar* sb, HTHEME theme, HDC hdcRef, int w) {
     ScrollbarTint tint;
-    if (!ThemeTintsScrollbars()) {
-        return tint;
-    }
     // draw the plain track, then a thumb on it, and read both colors back
     bool vert = IsVert(sb);
     int barDx = std::max(w, 8);
@@ -261,9 +261,13 @@ static ScrollbarTint GetScrollbarTint(OverlayScrollbar* sb, HTHEME theme, HDC hd
     tint.nativeThumb = px[midY * rc.dx + midX] & 0xffffff;
     FreeDibDC(hdc, bmp);
 
-    tint.track = ColorToPixel(ThemeScrollbarColor());
-    tint.thumb = ColorToPixel(ThemeScrollbarThumbColor());
-    tint.on = tint.nativeTrack != tint.nativeThumb;
+    tint.track = tint.nativeTrack;
+    tint.thumb = tint.nativeThumb;
+    if (ThemeTintsScrollbars() && tint.nativeTrack != tint.nativeThumb) {
+        tint.on = true;
+        tint.track = ColorToPixel(ThemeScrollbarColor());
+        tint.thumb = ColorToPixel(ThemeScrollbarThumbColor());
+    }
     return tint;
 }
 
@@ -287,59 +291,39 @@ static void RecolorLook(const ScrollbarTint& tint, DWORD* pixels, int n) {
     }
 }
 
-// A smart bar at rest is only the theme's thin thumb line, over the page. The
-// theme draws that line on a box of the track's color, so recover the line's
-// coverage from how far each pixel moved from the box color toward the line's.
-static void DrawThumbOverPage(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTint& tint, HDC hdc, DWORD* pixels,
-                              int w, int h) {
-    for (int i = 0; i < w * h; i++) {
-        pixels[i] = 0;
-    }
-    Rect thumb = GetThumbRect(sb);
-    if (thumb.dx <= 0 || thumb.dy <= 0) {
-        return;
-    }
-    int part = IsVert(sb) ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ;
-    int state = sb->isDragging ? SCRBS_PRESSED : SCRBS_NORMAL;
-    DrawThemePart(theme, hdc, part, state, thumb);
-    GdiFlush();
-
-    // the box's edge can be lighter: take its color between the line and the
-    // edge, across the line
-    int midX = thumb.x + thumb.dx / 2;
-    int midY = thumb.y + thumb.dy / 2;
-    DWORD line = pixels[midY * w + midX] & 0xffffff;
-    int boxX = IsVert(sb) ? thumb.x + (thumb.dx * 3 / 4) : midX;
-    int boxY = IsVert(sb) ? midY : thumb.y + (thumb.dy * 3 / 4);
-    DWORD box = pixels[boxY * w + boxX] & 0xffffff;
-    DWORD color = tint.on ? tint.thumb : line;
-    // green is as good as any channel for the coverage
-    int boxG = (int)((box >> 8) & 0xff);
-    int span = boxG - (int)((line >> 8) & 0xff);
-    for (int y = thumb.y; y < thumb.y + thumb.dy; y++) {
-        for (int x = thumb.x; x < thumb.x + thumb.dx; x++) {
-            DWORD& px = pixels[y * w + x];
-            int moved = boxG - (int)((px >> 8) & 0xff);
-            int alpha = span == 0 ? 255 : std::clamp(moved * 255 / span, 0, 255);
-            DWORD res = (DWORD)alpha << 24;
-            for (int shift = 0; shift < 24; shift += 8) {
-                res |= ((((color >> shift) & 0xff) * (DWORD)alpha) / 255) << shift;
-            }
-            px = res;
+// Smart bars have no background: take the track out of an opaque look, leaving
+// the thumb and arrows over the page. A pixel's coverage is how far it moved
+// from the track color toward the thumb's; its premultiplied color then is
+// what it adds on top of the track, so darker hot or pressed thumbs stay so.
+// `minAlpha` keeps the empty track clickable (a 0 alpha pixel lets clicks through).
+static void LiftOffTrack(const ScrollbarTint& tint, DWORD* pixels, int n, DWORD minAlpha) {
+    int trackG = (int)((tint.track >> 8) & 0xff);
+    int span = (int)((tint.thumb >> 8) & 0xff) - trackG;
+    for (int i = 0; i < n; i++) {
+        int moved = (int)((pixels[i] >> 8) & 0xff) - trackG;
+        int alpha = span == 0 ? 255 : std::clamp(moved * 255 / span, 0, 255);
+        if ((DWORD)alpha <= minAlpha) {
+            pixels[i] = minAlpha << 24;
+            continue;
         }
+        DWORD res = (DWORD)alpha << 24;
+        for (int shift = 0; shift < 24; shift += 8) {
+            int p = (int)((pixels[i] >> shift) & 0xff);
+            int t = (int)((tint.track >> shift) & 0xff);
+            int c = p - (t * (255 - alpha) / 255);
+            res |= (DWORD)std::clamp(c, 0, alpha) << shift;
+        }
+        pixels[i] = res;
     }
 }
 
 // one look of the bar: hovered (on Windows 11 wide, with arrows) or not
 static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTint& tint, HDC hdc, DWORD* pixels, int w,
                            int h, bool hover) {
-    if (!hover && !IsAlwaysThickMode(sb)) {
-        DrawThumbOverPage(sb, theme, tint, hdc, pixels, w, h);
-        return;
-    }
-    DWORD bg = PremultiplyPixel(ThemeTrackColor(), 255);
+    // the track's own color, so whatever no part covers is track too
+    bool overPage = !IsAlwaysThickMode(sb);
     for (int i = 0; i < w * h; i++) {
-        pixels[i] = bg;
+        pixels[i] = tint.nativeTrack | 0xff000000;
     }
     bool vert = IsVert(sb);
     int barState = hover ? SCRBS_HOVER : SCRBS_NORMAL;
@@ -356,7 +340,7 @@ static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTi
     DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowStart, GetArrowTopRect(sb));
     DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowEnd, GetArrowBottomRect(sb));
     DrawThemePart(theme, hdc, vert ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ, thumbState, GetThumbRect(sb));
-    if (sb->cornerDy > 0) {
+    if (sb->cornerDy > 0 && !overPage) {
         // the theme's corner background has a 1px frame a native corner doesn't
         // show: spread its inner color over the whole square
         Rect corner = CornerRect(sb);
@@ -377,14 +361,18 @@ static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTi
         }
     }
 
-    // this look is opaque, like a native bar
+    // opaque so far, like a native bar
     GdiFlush();
     if (tint.on) {
         RecolorLook(tint, pixels, w * h);
-        return;
+    } else {
+        for (int i = 0; i < w * h; i++) {
+            pixels[i] |= 0xff000000;
+        }
     }
-    for (int i = 0; i < w * h; i++) {
-        pixels[i] |= 0xff000000;
+    if (overPage) {
+        // hovered, the empty track still takes clicks (page up / down)
+        LiftOffTrack(tint, pixels, w * h, hover ? 1 : 0);
     }
 }
 
@@ -427,8 +415,8 @@ static void StartHoverAnim(OverlayScrollbar* sb, bool hover) {
 
 // Draw the bar with the theme native scrollbars use, so it looks the same (on
 // Windows 11 a thin line that widens and shows its arrows while the mouse is
-// over it); a smart bar at rest is the line alone, over the page. Returns false
-// without a theme; the caller then draws its own.
+// over it); a smart bar has no background, only the thumb and arrows over the
+// page. Returns false without a theme; the caller then draws its own.
 static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, int w, int h) {
     HTHEME theme = OpenScrollBarTheme(sb);
     if (!theme) {
