@@ -44,7 +44,10 @@ function paintedScrollbarStrip(canvas: number): string {
   // a corner well inside the canvas is background by construction: the About
   // box is centered and the home page's rows do not reach it
   const bg = at(4, 4);
-  for (let y = 4; y < h - 4; y += 7) {
+  // a stale bar runs the full height; skip the home page header, whose buttons
+  // reach the right edge of a narrow window (the default layout at 125% DPI)
+  const headerDy = Math.floor(h / 4);
+  for (let y = headerDy; y < h - 4; y += 7) {
     if (at(w - 4, y) !== bg) {
       return `right edge at y=${y} is 0x${at(w - 4, y).toString(16)}, background is 0x${bg.toString(16)}`;
     }
