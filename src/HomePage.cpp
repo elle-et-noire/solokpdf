@@ -94,11 +94,16 @@ struct TipHookInstaller {
 };
 static TipHookInstaller gTipHookInstaller;
 
+#if defined(SOLOKPDF_PDFIUM)
+// upstream's author's products; the fork doesn't advertise them
+static Str sumatraPromos;
+#else
 static Str sumatraPromos = StrL(R"promos(Try [Edna](https://edna.arslexis.io): a note taking web app for power users.
 Try [MarkLexis](https://marklexis.arslexis.io): a bookmarking web application.
 Try [Sumatra File Manager](https://sumatrafilemanager.com): file manager with super powers.
 Try [Sumatra File Manager Online](https://online.sumatrafilemanager.com): file manager for S3, Dropbox and more.
 )promos");
+#endif
 
 static Str promoFromServer;
 
@@ -167,6 +172,20 @@ struct AboutRow {
     Str url;
 };
 
+#if defined(SOLOKPDF_PDFIUM)
+#define kSolokRepoUrl "https://github.com/elle-et-noire/solokpdf"
+#define kSolokBlobUrl kSolokRepoUrl "/blob/solokpdf-dev/"
+
+// fork links first; the footer names the upstream app this build is based on
+static AboutRow gAboutRows[] = {
+    {StrL("docs"), StrL("SolokPDF docs"), StrL(kSolokRepoUrl "/tree/solokpdf-dev/docs/solokpdf")},
+    {StrL("limitations"), StrL("PDFium differences"), StrL(kSolokBlobUrl "docs/solokpdf/limitations.md")},
+    {StrL("source"), StrL("GitHub repository"), StrL(kSolokRepoUrl)},
+    {StrL("licenses"), StrL("Various Open Source"), StrL(kSolokBlobUrl "AUTHORS")},
+    {StrL("based on SumatraPDF " CURR_VERSION_STRA), StrL("SumatraPDF website"), Str(kWebsiteURL)},
+    {{}, StrL("SumatraPDF manual"), StrL("https://www.sumatrapdfreader.org/docs/SumatraPDF-documentation")},
+    {{}, {}, {}}};
+#else
 static AboutRow gAboutRows[] = {
     {StrL("manual"), StrL("SumatraPDF manual"), StrL("https://www.sumatrapdfreader.org/docs/SumatraPDF-documentation")},
     {StrL("version history"), StrL("What's new"), StrL("https://www.sumatrapdfreader.org/docs/Version-history")},
@@ -181,6 +200,7 @@ static AboutRow gAboutRows[] = {
     {StrL("more software by me"), StrL("Sumatra File Manager"), StrL("https://sumatrafilemanager.com")},
     {{}, StrL("Sumatra File Manager Online"), StrL("https://online.sumatrafilemanager.com")},
     {{}, {}, {}}};
+#endif
 
 // the rows from kAboutSoftwareRow on are the other software, in the footer
 constexpr int kAboutSoftwareEnd = dimofi(gAboutRows) - 1;
@@ -242,7 +262,12 @@ void SetPromoString(Str s) {
 }
 
 static TempStr GetAppVersionTemp() {
+#if defined(SOLOKPDF_PDFIUM)
+    // the version is upstream's; say so, or it reads as SolokPDF's own
+    TempStr s = str::DupTemp(StrL("(SumatraPDF v" CURR_VERSION_STRA ")"));
+#else
     TempStr s = str::DupTemp(StrL("v" CURR_VERSION_STRA));
+#endif
     if (IsProcess64()) {
         s = str::JoinTemp(s, StrL(" 64-bit"));
     } else {
@@ -260,7 +285,12 @@ static TempStr AboutVersionLineTemp() {
     Str built = StrL(__DATE__ " " __TIME__);
     // without the seconds
     built.len = std::max(0, len(built) - 3);
+#if defined(SOLOKPDF_PDFIUM)
+    // upstream's version is in the footer; the build date identifies a fork build
+    return fmt("%s, built %s", bits, built);
+#else
     return fmt("%s %s, built %s", StrL(CURR_VERSION_STRA), bits, built);
+#endif
 }
 
 constexpr Color kCol1 = MkRgb(196, 64, 50);

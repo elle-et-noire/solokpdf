@@ -17,6 +17,9 @@ SolokPDF disables upstream update checks, commands and settings UI. Existing
   preview logging key and directory also have SolokPDF names.
   `ad-hoc-solok-coexist` puts a fake SumatraPDF frame first and checks that
   reuse and DDE reach SolokPDF.
+- About links to this repository's docs, limitations, source and licenses;
+  its footer names the upstream SumatraPDF version with links to upstream's
+  website and manual. Upstream's author's product promos are not shown.
 - Upstream binary update checks are disabled for this fork. Installer and file
   associations are not configured or validated; use the portable application.
 - Copyright/license files remain unchanged. The package includes root notices,
