@@ -462,9 +462,12 @@ static void OnFavCustomDraw(TreeView::CustomDrawEvent* ev) {
             res |= CDRF_NOTIFYPOSTPAINT;
         }
         // the Explorer theme's hot face isn't a palette color
-        bool isHot = (cd->uItemState & CDIS_HOT) && !(cd->uItemState & CDIS_SELECTED);
-        if (isHot && !ThemeUsesHighContrastColors()) {
+        // a selected row keeps its color under the mouse
+        bool underMouse = (cd->uItemState & CDIS_HOT) && !ThemeUsesHighContrastColors();
+        if (underMouse) {
             cd->uItemState &= ~CDIS_HOT;
+        }
+        if (underMouse && !(cd->uItemState & CDIS_SELECTED)) {
             tvcd->clrTextBk = ThemeHoverColorOn(ev->treeView->bgColor);
             res |= CDRF_NEWFONT;
         }

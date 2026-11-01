@@ -476,6 +476,7 @@ export const TVM_SELECTITEM = 0x110b;
 export const TVM_EXPAND = 0x1102;
 export const TVM_GETCOUNT = 0x1105;
 export const TVM_GETITEMHEIGHT = 0x111c;
+export const TVM_SETHOT = 0x113a;
 export const TVGN_ROOT = 0x0;
 export const TVGN_NEXT = 0x1;
 export const TVGN_CHILD = 0x4;
@@ -981,6 +982,11 @@ export function treeGetNextItem(tree: number, flag: number, item: bigint = 0n): 
 
 export function treeGetRoot(tree: number): bigint {
   return treeGetNextItem(tree, TVGN_ROOT, 0n);
+}
+
+// makes item the row under the mouse (0n: none), as hovering it would
+export function treeSetHot(tree: number, item: bigint): void {
+  sendMessage(tree, TVM_SETHOT, 0, item);
 }
 
 export function treeGetSelection(tree: number): bigint {

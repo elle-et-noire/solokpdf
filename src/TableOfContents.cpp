@@ -924,12 +924,17 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
         bool isMultiMatch = TocItemIsMultiHighlight(win, tocItem);
         bool isSelected = isTreeSelected || isMultiMatch;
         bool hasFocus = isTreeSelected && (GetFocus() == tv->hwnd) && ThemeUsesHighContrastColors();
-        bool isHot = !isSelected && (cd->uItemState & CDIS_HOT) && !ThemeUsesHighContrastColors();
+        // a selected row keeps the selection color under the mouse; either way
+        // the theme's hot face goes
+        bool underMouse = (cd->uItemState & CDIS_HOT) && !ThemeUsesHighContrastColors();
+        bool isHot = underMouse && !isSelected;
         gTocHotItem = isHot ? cd->dwItemSpec : 0;
 
         LRESULT res = 0;
-        if (isHot) {
+        if (underMouse) {
             cd->uItemState &= ~CDIS_HOT;
+        }
+        if (isHot) {
             tvcd->clrTextBk = ThemeHoverColorOn(tv->bgColor);
             res |= CDRF_NEWFONT;
         }
