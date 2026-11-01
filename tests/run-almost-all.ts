@@ -500,6 +500,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["issue-3755", issue3755],
+  ["issue-5956", issue5956],
   ["issue-6062", issue6062],
   ["issue-5918", issue5918],
   ["issue-1315", issue1315],
@@ -540,7 +542,6 @@ export const tests: NamedTest[] = [
   ["issue-6439", issue6439],
   ["convert-epub-to-pdf", convertEpubToPdf],
   ["issue-6239", issue6239],
-  ["issue-3755", issue3755],
   ["pdf-save-dedup-stream", pdfSaveDedupStream],
   ["issue-5446", issue5446],
   ["annot-color-dropdown", annotColorDropdown],
@@ -635,7 +636,6 @@ export const tests: NamedTest[] = [
   ["restore-session-close-reentry", restoreSessionCloseReentry],
   ["issue-4705", issue4705],
   ["toc-tree-sent-click", tocTreeSentClick],
-  ["issue-5956", issue5956],
   ["issue-6137", issue6137],
   ["free-text-edit-matches-render", freeTextEditMatchesRender],
   ["free-text-in-place-edit", freeTextInPlaceEdit],

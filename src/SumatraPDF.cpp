@@ -1295,6 +1295,8 @@ void ControllerCallbackHandler::UpdateScrollbars(DisplayModel* dm, Size canvas) 
             OverlayScrollbarShow(win->overlayScrollH, true);
             OverlayScrollbarSetInfo(win->overlayScrollH, &si, TRUE);
         } else {
+            // OnHScroll steps from the bar's range even when it's hidden
+            OverlayScrollbarSetInfo(win->overlayScrollH, &si, FALSE);
             OverlayScrollbarShow(win->overlayScrollH, false);
         }
     } else {
@@ -1379,6 +1381,9 @@ void ControllerCallbackHandler::UpdateScrollbars(DisplayModel* dm, Size canvas) 
             OverlayScrollbarShow(win->overlayScrollV, true);
             OverlayScrollbarSetInfo(win->overlayScrollV, &si, TRUE);
         } else {
+            // OnVScroll steps from the bar's range even when it's hidden: a stale
+            // one let a page that fits "scroll", so the wheel never turned it
+            OverlayScrollbarSetInfo(win->overlayScrollV, &si, FALSE);
             OverlayScrollbarShow(win->overlayScrollV, false);
         }
     }
