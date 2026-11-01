@@ -244,13 +244,111 @@ PageThumbnailsCtrl::PageThumbnailsCtrl(MainWindow* win, PlatformFont* font, int 
     VirtCtrl::onDoubleClick =
         MkMethod1<PageThumbnailsCtrl, VirtMouseEvent*, &PageThumbnailsCtrl::OnThumbDoubleClick>(this);
     VirtCtrl::onKeyDown = MkMethod1<PageThumbnailsCtrl, VirtKeyEvent*, &PageThumbnailsCtrl::OnThumbKeyDown>(this);
+    onMouseLeave = MkMethod0<PageThumbnailsCtrl, &PageThumbnailsCtrl::OnThumbMouseLeave>(this);
 
     SetTab(win->CurrentTab());
 }
 
 PageThumbnailsCtrl::~PageThumbnailsCtrl() {
+    StopScrollbarAnim();
     DetachThumbnailCache(cache);
     cache = nullptr;
+}
+
+//--- scrollbar: the canvas's overlay bars' look, thickness and hover cross-fade
+
+// repaint interval of the hover cross-fade, about the display's refresh
+constexpr UINT kScrollbarAnimFrameMs = 16;
+
+// as wide as a native bar, like the canvas's
+int PageThumbnailsCtrl::ScrollbarDx() {
+    if (MaxScrollY() <= 0) {
+        return 0;
+    }
+    return DpiGetSystemMetrics(SM_CXVSCROLL, GetDpi());
+}
+
+// a square arrow at each end, like a native bar
+Rect PageThumbnailsCtrl::TrackRectLocal() {
+    Rect sb = ScrollbarRectLocal();
+    if (sb.IsEmpty()) {
+        return {};
+    }
+    sb.SubTB(sb.dx, sb.dx);
+    return sb;
+}
+
+void PageThumbnailsCtrl::PaintScrollbar(VirtPaintCtx& ctx) {
+    Rect sb = ScrollbarRectLocal();
+    Rect track = TrackRectLocal();
+    if (sb.IsEmpty() || track.IsEmpty()) {
+        return;
+    }
+    ThemedBarLook look;
+    look.track = {0, track.y - sb.y, sb.dx, track.dy};
+    look.arrowStart = {0, 0, sb.dx, track.y - sb.y};
+    look.arrowEnd = {0, track.Bottom() - sb.y, sb.dx, sb.Bottom() - track.Bottom()};
+    look.thumb = ThumbRectLocal();
+    look.thumb.Offset(-sb.x, -sb.y);
+    look.hover = sbHover || draggingThumb;
+    look.thumbHot = sbThumbHot;
+    look.pressed = draggingThumb;
+    Pixmap* px = PaintThemedBar(sb.Size(), look, EaseOutProgress(sbAnimStart, sbAnimMs));
+    if (!px) {
+        VirtListBox::PaintScrollbar(ctx);
+        return;
+    }
+    sb.Offset(ctx.bounds.x, ctx.bounds.y);
+    ctx.gfx->DrawPixmap(px, sb);
+    FreePixmap(px);
+}
+
+void CALLBACK PageThumbnailsCtrl::ScrollbarAnimProc(HWND hwnd, UINT, UINT_PTR id, DWORD) {
+    auto* ctrl = (PageThumbnailsCtrl*)id;
+    if (EaseOutProgress(ctrl->sbAnimStart, ctrl->sbAnimMs) >= 255) {
+        KillTimer(hwnd, id);
+        ctrl->sbAnimHwnd = nullptr;
+    }
+    ctrl->Invalidate();
+}
+
+void PageThumbnailsCtrl::StopScrollbarAnim() {
+    if (sbAnimHwnd) {
+        KillTimer(sbAnimHwnd, (UINT_PTR)this);
+        sbAnimHwnd = nullptr;
+    }
+}
+
+// The mouse over the strip widens the bar, cross-fading over the theme's time;
+// the thumb under it turns hot
+void PageThumbnailsCtrl::UpdateScrollbarHover(Point pt, bool inside) {
+    Rect sb = ScrollbarRectLocal();
+    bool hover = inside && sb.Contains(pt);
+    bool thumbHot = hover && ThumbRectLocal().Contains(pt);
+    if (thumbHot != sbThumbHot) {
+        sbThumbHot = thumbHot;
+        Invalidate();
+    }
+    if (hover == sbHover) {
+        return;
+    }
+    sbHover = hover;
+    if (draggingThumb) {
+        // stays wide until the drag ends
+        return;
+    }
+    sbAnimMs = ThemedBarHoverMs(hover);
+    sbAnimStart = GetTickCount64();
+    HWND hwnd = GetHwnd();
+    if (sbAnimMs > 0 && hwnd && !sbAnimHwnd) {
+        sbAnimHwnd = hwnd;
+        SetTimer(hwnd, (UINT_PTR)this, kScrollbarAnimFrameMs, ScrollbarAnimProc);
+    }
+    Invalidate();
+}
+
+void PageThumbnailsCtrl::OnThumbMouseLeave() {
+    UpdateScrollbarHover({}, false);
 }
 
 // (Re)start from the tab's document: its pages, the current page and the dpi.
@@ -313,7 +411,7 @@ void PageThumbnailsCtrl::RefreshPage(int pageNo) {
 }
 
 void PageThumbnailsCtrl::SetBounds(Rect r) {
-    int reservedScrollbarDx = DpiScaleByDpi(dpi, 10);
+    int reservedScrollbarDx = DpiGetSystemMetrics(SM_CXVSCROLL, dpi);
     int availableDx = r.dx - padding.left - padding.right - reservedScrollbarDx;
     int newCols = (availableDx + gap) / (thumbDx + gap);
     newCols = ClampI(newCols, 1, kThumbnailMaxCols);
@@ -496,6 +594,7 @@ void PageThumbnailsCtrl::OnThumbMouseDown(VirtMouseEvent* ev) {
 }
 
 void PageThumbnailsCtrl::OnThumbMouseMove(VirtMouseEvent* ev) {
+    UpdateScrollbarHover(ev->pt, true);
     int oldScrollY = scrollY;
     VirtListBox::OnMouseMove(ev);
     if (scrollY != oldScrollY) {

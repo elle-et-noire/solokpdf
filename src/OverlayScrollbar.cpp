@@ -3,6 +3,7 @@
 
 #include "base/Base.h"
 #include <vssym32.h>
+#include "base/Pixmap.h"
 #include "gui/Dpi.h"
 #include "base/Win.h"
 
@@ -237,10 +238,9 @@ static DWORD ColorToPixel(Color c) {
     return ((DWORD)GetRed(c) << 16) | ((DWORD)GetGreen(c) << 8) | (DWORD)GetBlue(c);
 }
 
-static ScrollbarTint GetScrollbarTint(OverlayScrollbar* sb, HTHEME theme, HDC hdcRef, int w) {
+static ScrollbarTint GetScrollbarTint(bool vert, HTHEME theme, HDC hdcRef, int w) {
     ScrollbarTint tint;
     // draw the plain track, then a thumb on it, and read both colors back
-    bool vert = IsVert(sb);
     int barDx = std::max(w, 8);
     Rect rc = vert ? Rect{0, 0, barDx, barDx * 3} : Rect{0, 0, barDx * 3, barDx};
     DWORD* px = nullptr;
@@ -317,29 +317,55 @@ static void LiftOffTrack(const ScrollbarTint& tint, DWORD* pixels, int n, DWORD 
     }
 }
 
-// one look of the bar: hovered (on Windows 11 wide, with arrows) or not
-static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTint& tint, HDC hdc, DWORD* pixels, int w,
-                           int h, bool hover) {
-    // the track's own color, so whatever no part covers is track too
-    bool overPage = !IsAlwaysThickMode(sb);
-    for (int i = 0; i < w * h; i++) {
+// track, arrows and thumb of one look: hovered (on Windows 11 wide, with
+// arrows) or not, over the track's own color, so whatever no part covers is
+// track too
+static void DrawLookParts(HTHEME theme, const ScrollbarTint& tint, HDC hdc, DWORD* pixels, int n,
+                          const ThemedBarLook& look, bool vert, bool hover) {
+    for (int i = 0; i < n; i++) {
         pixels[i] = tint.nativeTrack | 0xff000000;
     }
-    bool vert = IsVert(sb);
     int barState = hover ? SCRBS_HOVER : SCRBS_NORMAL;
     int thumbState = barState;
-    if (sb->isDragging) {
+    if (look.pressed) {
         thumbState = SCRBS_PRESSED;
-    } else if (hover && sb->mouseOverThumb) {
+    } else if (hover && look.thumbHot) {
         thumbState = SCRBS_HOT;
     }
     int arrowStart = vert ? (hover ? ABS_UPHOVER : ABS_UPNORMAL) : (hover ? ABS_LEFTHOVER : ABS_LEFTNORMAL);
     int arrowEnd = vert ? (hover ? ABS_DOWNHOVER : ABS_DOWNNORMAL) : (hover ? ABS_RIGHTHOVER : ABS_RIGHTNORMAL);
 
-    DrawThemePart(theme, hdc, vert ? SBP_UPPERTRACKVERT : SBP_UPPERTRACKHORZ, barState, GetTrackRect(sb));
-    DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowStart, GetArrowTopRect(sb));
-    DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowEnd, GetArrowBottomRect(sb));
-    DrawThemePart(theme, hdc, vert ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ, thumbState, GetThumbRect(sb));
+    DrawThemePart(theme, hdc, vert ? SBP_UPPERTRACKVERT : SBP_UPPERTRACKHORZ, barState, look.track);
+    DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowStart, look.arrowStart);
+    DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowEnd, look.arrowEnd);
+    DrawThemePart(theme, hdc, vert ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ, thumbState, look.thumb);
+}
+
+// the drawn look in the theme's colors, opaque like a native bar
+static void FinishLook(const ScrollbarTint& tint, DWORD* pixels, int n) {
+    GdiFlush();
+    if (tint.on) {
+        RecolorLook(tint, pixels, n);
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        pixels[i] |= 0xff000000;
+    }
+}
+
+// one look of the bar: hovered (on Windows 11 wide, with arrows) or not
+static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTint& tint, HDC hdc, DWORD* pixels, int w,
+                           int h, bool hover) {
+    bool overPage = !IsAlwaysThickMode(sb);
+    ThemedBarLook look;
+    look.track = GetTrackRect(sb);
+    look.arrowStart = GetArrowTopRect(sb);
+    look.arrowEnd = GetArrowBottomRect(sb);
+    look.thumb = GetThumbRect(sb);
+    look.thumbHot = sb->mouseOverThumb;
+    look.pressed = sb->isDragging;
+    DrawLookParts(theme, tint, hdc, pixels, w * h, look, IsVert(sb), hover);
+    int barState = hover ? SCRBS_HOVER : SCRBS_NORMAL;
     if (sb->cornerDy > 0 && !overPage) {
         // the theme's corner background has a 1px frame a native corner doesn't
         // show: spread its inner color over the whole square
@@ -361,35 +387,44 @@ static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTi
         }
     }
 
-    // opaque so far, like a native bar
-    GdiFlush();
-    if (tint.on) {
-        RecolorLook(tint, pixels, w * h);
-    } else {
-        for (int i = 0; i < w * h; i++) {
-            pixels[i] |= 0xff000000;
-        }
-    }
+    FinishLook(tint, pixels, w * h);
     if (overPage) {
         // hovered, the empty track still takes clicks (page up / down)
         LiftOffTrack(tint, pixels, w * h, hover ? 1 : 0);
     }
 }
 
-// 0..255 progress of the hover transition, 255 when none is running
-static int HoverAnimProgress(OverlayScrollbar* sb) {
-    if (sb->hoverAnimMs <= 0) {
+// 0..255 progress of a hover transition started at `start`, 255 when none is
+// running (`ms` 0) or it is over
+int EaseOutProgress(u64 start, int ms) {
+    if (ms <= 0) {
         return 255;
     }
-    u64 elapsed = GetTickCount64() - sb->hoverAnimStart;
-    if (elapsed >= (u64)sb->hoverAnimMs) {
+    u64 elapsed = GetTickCount64() - start;
+    if (elapsed >= (u64)ms) {
         return 255;
     }
     // ease-out, like native bars: measured on Windows 11, leaving one is ~65%
     // faded a third of the way into the theme's 1275 ms
-    double t = (double)elapsed / (double)sb->hoverAnimMs;
+    double t = (double)elapsed / (double)ms;
     double rest = 1.0 - t;
     return (int)((1.0 - (rest * rest * rest)) * 255.0);
+}
+
+static int HoverAnimProgress(OverlayScrollbar* sb) {
+    return EaseOutProgress(sb->hoverAnimStart, sb->hoverAnimMs);
+}
+
+// the theme's time for the cross-fade into (`hover`) or out of the hovered look
+static int HoverTransitionMs(HTHEME theme, bool vert, bool hover) {
+    int part = vert ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ;
+    int from = hover ? SCRBS_NORMAL : SCRBS_HOVER;
+    int to = hover ? SCRBS_HOVER : SCRBS_NORMAL;
+    DWORD ms = 0;
+    if (FAILED(GetThemeTransitionDuration(theme, part, from, to, TMT_TRANSITIONDURATIONS, &ms))) {
+        return 0;
+    }
+    return (int)ms;
 }
 
 // Native bars cross-fade between their looks over the theme's transition time.
@@ -398,18 +433,26 @@ static void StartHoverAnim(OverlayScrollbar* sb, bool hover) {
     sb->hoverAnimMs = 0;
     HTHEME theme = OpenScrollBarTheme(sb);
     if (theme) {
-        int part = IsVert(sb) ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ;
-        int from = hover ? SCRBS_NORMAL : SCRBS_HOVER;
-        int to = hover ? SCRBS_HOVER : SCRBS_NORMAL;
-        DWORD ms = 0;
-        if (SUCCEEDED(GetThemeTransitionDuration(theme, part, from, to, TMT_TRANSITIONDURATIONS, &ms))) {
-            sb->hoverAnimMs = (int)ms;
-        }
+        sb->hoverAnimMs = HoverTransitionMs(theme, IsVert(sb), hover);
         CloseThemeData(theme);
     }
     sb->hoverAnimStart = GetTickCount64();
     if (sb->hoverAnimMs > 0) {
         SetTimer(sb->hwnd, OverlayScrollbar::kTimerHoverAnim, kHoverAnimFrameMs, nullptr);
+    }
+}
+
+// mid-transition: blend in the look we are leaving (premultiplied, so all four
+// channels blend alike); `t` 0..255 is how far `to` has come
+static void CrossFade(DWORD* to, const DWORD* from, int n, int t) {
+    for (int i = 0; i < n; i++) {
+        DWORD res = 0;
+        for (int shift = 0; shift < 32; shift += 8) {
+            DWORD ca = (from[i] >> shift) & 0xff;
+            DWORD cb = (to[i] >> shift) & 0xff;
+            res |= ((ca * (255 - t) + cb * t) / 255) << shift;
+        }
+        to[i] = res;
     }
 }
 
@@ -423,7 +466,7 @@ static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, i
         return false;
     }
     bool hover = sb->mouseOverBand || sb->isDragging;
-    ScrollbarTint tint = GetScrollbarTint(sb, theme, hdc, IsVert(sb) ? w : h);
+    ScrollbarTint tint = GetScrollbarTint(IsVert(sb), theme, hdc, IsVert(sb) ? w : h);
     DrawThemedLook(sb, theme, tint, hdc, pixels, w, h, hover);
 
     // mid-transition: blend in the look we are leaving (premultiplied, so all
@@ -434,19 +477,68 @@ static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, i
     HDC hdcFrom = t < 255 ? CreateDibDC(hdc, w, h, &from, &bmpFrom) : nullptr;
     if (hdcFrom) {
         DrawThemedLook(sb, theme, tint, hdcFrom, from, w, h, !hover);
-        for (int i = 0; i < w * h; i++) {
-            DWORD res = 0;
-            for (int shift = 0; shift < 32; shift += 8) {
-                DWORD ca = (from[i] >> shift) & 0xff;
-                DWORD cb = (pixels[i] >> shift) & 0xff;
-                res |= ((ca * (255 - t) + cb * t) / 255) << shift;
-            }
-            pixels[i] = res;
-        }
+        CrossFade(pixels, from, w * h, t);
         FreeDibDC(hdcFrom, bmpFrom);
     }
     CloseThemeData(theme);
     return true;
+}
+
+// the theme the canvas's bars use, for a bar without a window of its own
+static HTHEME OpenBarTheme() {
+    bool dark = DarkModeScrollBarsAreDark();
+    return OpenThemeData(nullptr, dark ? L"DarkMode_Explorer::ScrollBar" : L"ScrollBar");
+}
+
+int ThemedBarHoverMs(bool hover) {
+    HTHEME theme = OpenBarTheme();
+    if (!theme) {
+        return 0;
+    }
+    int ms = HoverTransitionMs(theme, true, hover);
+    CloseThemeData(theme);
+    return ms;
+}
+
+// An opaque vertical bar in the look of an always-shown overlay bar, for a list
+// that lays out its own (the thumbnails). `progress` (0..255) cross-fades from
+// the other look. Null without a theme; the caller then draws its own.
+Pixmap* PaintThemedBar(Size size, const ThemedBarLook& look, int progress) {
+    int w = size.dx;
+    int h = size.dy;
+    if (w <= 0 || h <= 0) {
+        return nullptr;
+    }
+    HTHEME theme = OpenBarTheme();
+    if (!theme) {
+        return nullptr;
+    }
+    Pixmap* px = AllocPixmapDIB(w, h);
+    HDC hdc = px ? CreateCompatibleDC(nullptr) : nullptr;
+    if (!hdc) {
+        FreePixmap(px);
+        CloseThemeData(theme);
+        return nullptr;
+    }
+    HGDIOBJ prev = SelectObject(hdc, px->hbmp);
+    DWORD* pixels = (DWORD*)px->data;
+    ScrollbarTint tint = GetScrollbarTint(true, theme, hdc, w);
+    DrawLookParts(theme, tint, hdc, pixels, w * h, look, true, look.hover);
+    FinishLook(tint, pixels, w * h);
+
+    DWORD* from = nullptr;
+    HBITMAP bmpFrom = nullptr;
+    HDC hdcFrom = progress < 255 ? CreateDibDC(hdc, w, h, &from, &bmpFrom) : nullptr;
+    if (hdcFrom) {
+        DrawLookParts(theme, tint, hdcFrom, from, w * h, look, true, !look.hover);
+        FinishLook(tint, from, w * h);
+        CrossFade(pixels, from, w * h, progress);
+        FreeDibDC(hdcFrom, bmpFrom);
+    }
+    SelectObject(hdc, prev);
+    DeleteDC(hdc);
+    CloseThemeData(theme);
+    return px;
 }
 
 // Our own look: a thin bar, thick with arrows while the mouse is over it

@@ -508,13 +508,22 @@ struct VirtListBox : VirtCtrl {
     bool ScrollTo(int y);
     bool ScrollBy(int dy);
 
+  protected:
+    bool draggingThumb = false;
+
+    int GetDpi();
+    virtual int ScrollbarDx();
+    virtual Rect TrackRectLocal();
+    virtual void PaintScrollbar(VirtPaintCtx&);
+    Rect ScrollbarRectLocal();
+    Rect ThumbRectLocal();
+
   private:
     int selIdx = -1;
     int anchorIdx = -1;
     Vec<u8> selected;
     // EnsureVisible() called before the first layout; applied by SetBounds()
     int pendingVisibleIdx = -1;
-    bool draggingThumb = false;
     // where the thumb drag started, in window coords, and the scroll position
     // it started from
     int dragStartY = 0;
@@ -523,12 +532,8 @@ struct VirtListBox : VirtCtrl {
     void EnsureSelectedSize();
     void ApplyClick(int idx, bool ctrl, bool shift);
     void ApplyNav(int idx, bool ctrl, bool shift);
-    int GetDpi();
-    int ScrollbarDx();
     Rect ContentRectLocal();
     Rect ItemsRectLocal();
-    Rect ScrollbarRectLocal();
-    Rect ThumbRectLocal();
     bool SelectAndNotify(int idx);
 };
 

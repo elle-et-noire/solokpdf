@@ -74,6 +74,23 @@ struct OverlayScrollbar {
     static constexpr UINT_PTR kTimerFadeOut = 4;
 };
 
+// A vertical bar a list lays out itself (the thumbnails'), drawn like an
+// always-shown overlay bar. Rects are relative to the bar.
+struct ThemedBarLook {
+    Rect track;
+    Rect arrowStart;
+    Rect arrowEnd;
+    Rect thumb;
+    bool hover = false;
+    bool thumbHot = false;
+    bool pressed = false;
+};
+
+struct Pixmap;
+Pixmap* PaintThemedBar(Size, const ThemedBarLook&, int progress);
+int ThemedBarHoverMs(bool hover);
+int EaseOutProgress(u64 start, int ms);
+
 OverlayScrollbar* OverlayScrollbarCreate(HWND hwndOwner, OverlayScrollbar::Type type,
                                          OverlayScrollbar::Mode mode = OverlayScrollbar::Mode::Smart);
 void OverlayScrollbarDestroy(OverlayScrollbar* sb);

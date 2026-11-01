@@ -164,6 +164,10 @@ with a size grip that resizes the frame when it isn't maximized.
   keeps its place between Windows' track and thumb colors, mapped onto the
   theme's pair. High contrast and `windows` bars keep Windows' colors.
 
+The thumbnails' scrollbar (sidebar and command palette) is drawn the same way
+(`PaintThemedBar`): as wide as a native bar, a thin line at rest that widens
+with arrows on hover over the theme's transition, arrows stepping a row.
+
 `tests/smart-scrollbars-autohide.ts` reads the bars off the screen and checks
 an auto-hidden smart bar stays hidden.
 

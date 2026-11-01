@@ -46,6 +46,7 @@ struct PageThumbnailsCtrl : VirtListBox {
     void OnThumbMouseWheel(VirtMouseEvent*);
     void OnThumbDoubleClick(VirtMouseEvent*);
     void OnThumbKeyDown(VirtKeyEvent*);
+    void OnThumbMouseLeave();
     void Activate();
     void Deactivate();
     void HandleKey(int vkey);
@@ -58,9 +59,24 @@ struct PageThumbnailsCtrl : VirtListBox {
     Rect PageRect(int pageNo);
 
   protected:
+    int ScrollbarDx() override;
+    Rect TrackRectLocal() override;
+    void PaintScrollbar(VirtPaintCtx&) override;
     int PageAtPoint(Point);
     void OpenSelectedPage();
     void ResetCache();
+
+  private:
+    // the scrollbar's hover look and its cross-fade (like the canvas's bars)
+    bool sbHover = false;
+    bool sbThumbHot = false;
+    u64 sbAnimStart = 0;
+    int sbAnimMs = 0;
+    HWND sbAnimHwnd = nullptr;
+
+    void UpdateScrollbarHover(Point pt, bool inside);
+    void StopScrollbarAnim();
+    static void CALLBACK ScrollbarAnimProc(HWND, UINT, UINT_PTR, DWORD);
 };
 
 Pixmap* RenderPageThumbnail(EngineBase*, int pageNo, Location, int rotation, int thumbDx, int thumbDy);

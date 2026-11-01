@@ -1850,6 +1850,7 @@ int VirtListBox::MaxScrollY() {
     return res > 0 ? res : 0;
 }
 
+// the scrollbar's strip, 0 wide when there is nothing to scroll
 int VirtListBox::ScrollbarDx() {
     if (MaxScrollY() <= 0) {
         return 0;
@@ -1880,9 +1881,14 @@ Rect VirtListBox::ScrollbarRectLocal() {
     return {r.Right() - dx, r.y, dx, r.dy};
 }
 
+// the part of the strip the thumb moves in; the rest are arrows
+Rect VirtListBox::TrackRectLocal() {
+    return ScrollbarRectLocal();
+}
+
 // null when there is nothing to scroll
 Rect VirtListBox::ThumbRectLocal() {
-    Rect sb = ScrollbarRectLocal();
+    Rect sb = TrackRectLocal();
     if (sb.IsEmpty()) {
         return {};
     }
@@ -2241,19 +2247,7 @@ void VirtListBox::Paint(VirtPaintCtx& ctx) {
             }
         }
         ctx.gfx->PopClip();
-
-        Rect thumb = ThumbRectLocal();
-        if (!thumb.IsEmpty()) {
-            Color colThumb = GetColor(kColListScrollbar);
-            if (colThumb == kColorUnset && !ColorSkipsPaint(colBg)) {
-                colThumb = AccentColor(colBg, 60);
-            }
-            Point orig = ctx.bounds.TL();
-            thumb.Offset(orig.x, orig.y);
-            // a slim thumb with a gap on both sides, like an overlay scrollbar
-            thumb.SubLR(2, 2);
-            ctx.gfx->FillRect(thumb, colThumb);
-        }
+        PaintScrollbar(ctx);
     }
 
     // dashed outline while the list has the keys (annotations list, find
@@ -2272,6 +2266,23 @@ void VirtListBox::Paint(VirtPaintCtx& ctx) {
     }
 }
 
+void VirtListBox::PaintScrollbar(VirtPaintCtx& ctx) {
+    Rect thumb = ThumbRectLocal();
+    if (thumb.IsEmpty()) {
+        return;
+    }
+    Color colBg = GetColor(kColListBg);
+    Color colThumb = GetColor(kColListScrollbar);
+    if (colThumb == kColorUnset && !ColorSkipsPaint(colBg)) {
+        colThumb = AccentColor(colBg, 60);
+    }
+    Point orig = ctx.bounds.TL();
+    thumb.Offset(orig.x, orig.y);
+    // a slim thumb with a gap on both sides, like an overlay scrollbar
+    thumb.SubLR(2, 2);
+    ctx.gfx->FillRect(thumb, colThumb);
+}
+
 void VirtListBox::OnMouseDown(VirtMouseEvent* ev) {
     Rect thumb = ThumbRectLocal();
     if (!thumb.IsEmpty() && thumb.Contains(ev->pt)) {
@@ -2286,9 +2297,10 @@ void VirtListBox::OnMouseDown(VirtMouseEvent* ev) {
     }
     Rect sb = ScrollbarRectLocal();
     if (!sb.IsEmpty() && sb.Contains(ev->pt)) {
-        // above / below the thumb: page towards the click
+        // above / below the thumb: page towards the click; an arrow: a row
         int dir = (ev->pt.y < thumb.y) ? -1 : 1;
-        ScrollBy(dir * UsableDy());
+        int dy = TrackRectLocal().Contains(ev->pt) ? UsableDy() : GetItemHeight();
+        ScrollBy(dir * dy);
         ev->didHandle = true;
         return;
     }
@@ -2306,7 +2318,7 @@ void VirtListBox::OnMouseMove(VirtMouseEvent* ev) {
     if (!draggingThumb) {
         return;
     }
-    Rect sb = ScrollbarRectLocal();
+    Rect sb = TrackRectLocal();
     Rect thumb = ThumbRectLocal();
     int range = sb.dy - thumb.dy;
     if (range <= 0) {
