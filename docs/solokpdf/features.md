@@ -62,8 +62,10 @@ hovered or open menu shows the selected tab's color. Upstream let darkmodelib
 draw it as a box in `ControlBackgroundColor` with `DarkerTextColor`.
 
 The sidebar, splitters included, takes the title bar's color
-(`ThemeSidebarColor`); its search fields take the canvas color and a 6×4 DIP
-margin, so they read as fields (upstream: flush with the panel's edges).
+(`ThemeSidebarColor`); its search fields take the canvas color, and they and
+the Bookmarks and Favorites trees a 6×4 DIP margin (upstream: flush with the
+panel's edges). A hovered bookmark or favorite fills its row with the hover
+color below (upstream: the Explorer theme's own hot face).
 
 A hovered toolbar or sidebar button is filled halfway from its surface to the
 selection color (`ThemeHoverColorOn`), so hover and toggled-on read as two

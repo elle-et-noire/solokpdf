@@ -410,16 +410,16 @@ static LRESULT CALLBACK WndProcSidebarPanel(HWND hwnd, UINT msg, WPARAM wp, LPAR
     return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
-// room around a view's search field (DIP), so it reads as a field on the
-// sidebar rather than as a band across it
-constexpr int kSearchPadX = 6;
-constexpr int kSearchPadY = 4;
+// room around a view's search field and tree (DIP): the field reads as a
+// field, not a band across the sidebar, and rows don't touch its edges
+constexpr int kItemPadX = 6;
+constexpr int kItemPadY = 4;
 
-ILayout* PadSidebarSearch(Edit* edit, HWND parent) {
+ILayout* PadSidebarItem(ILayout* item, HWND parent) {
     int dpi = DpiGetForHwnd(parent);
-    int dx = DpiScaleByDpi(dpi, kSearchPadX);
-    int dy = DpiScaleByDpi(dpi, kSearchPadY);
-    return new Padding(edit, Insets{dy, dx, dy, dx});
+    int dx = DpiScaleByDpi(dpi, kItemPadX);
+    int dy = DpiScaleByDpi(dpi, kItemPadY);
+    return new Padding(item, Insets{dy, dx, dy, dx});
 }
 
 static void UpdateViewIcons(SidebarPanel* p, int dpi) {

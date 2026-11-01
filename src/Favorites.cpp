@@ -461,6 +461,13 @@ static void OnFavCustomDraw(TreeView::CustomDrawEvent* ev) {
         if (filterActive || hasFileName) {
             res |= CDRF_NOTIFYPOSTPAINT;
         }
+        // the Explorer theme's hot face isn't a palette color
+        bool isHot = (cd->uItemState & CDIS_HOT) && !(cd->uItemState & CDIS_SELECTED);
+        if (isHot && !ThemeUsesHighContrastColors()) {
+            cd->uItemState &= ~CDIS_HOT;
+            tvcd->clrTextBk = ThemeHoverColorOn(ev->treeView->bgColor);
+            res |= CDRF_NEWFONT;
+        }
         ev->result = res;
         return;
     }
@@ -634,8 +641,8 @@ void CreateFavorites(MainWindow* win) {
     auto* vbox = new VBox();
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
-    vbox->AddChild(PadSidebarSearch(filterEdit, parent));
-    vbox->AddChild(treeView, 1);
+    vbox->AddChild(PadSidebarItem(filterEdit, parent));
+    vbox->AddChild(PadSidebarItem(treeView, parent), 1);
     win->favViewLayout = vbox;
 
     UpdateControlsColors(win);

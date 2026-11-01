@@ -57,4 +57,4 @@ bool SidebarPanelHasFocus(SidebarPanel*);
 void UpdateSidebarPanelsText(MainWindow*);
 void UpdateSidebarPanelsDpi(MainWindow*, int dpi);
 void UpdateSidebarPanelsIcons(MainWindow*);
-ILayout* PadSidebarSearch(Edit*, HWND parent);
+ILayout* PadSidebarItem(ILayout*, HWND parent);

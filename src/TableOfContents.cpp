@@ -758,6 +758,10 @@ static bool HasTocFilter(MainWindow* win) {
     return len(words) > 0;
 }
 
+// the row under the mouse, set at its PREPAINT: the Explorer theme's hot face
+// isn't a palette color, so POSTPAINT fills it with the hover color instead
+static DWORD_PTR gTocHotItem = 0;
+
 // POSTPAINT: redraw title (optional filter highlight), optional right-aligned
 // page label, and multi-match "current page" highlight (issue #4642).
 static void DrawTocItemPostPaint(TreeView::CustomDrawEvent* ev, MainWindow* win) {
@@ -797,6 +801,10 @@ static void DrawTocItemPostPaint(TreeView::CustomDrawEvent* ev, MainWindow* win)
     bool hasFocus = isTreeSelected && (GetFocus() == tv->hwnd) && ThemeUsesHighContrastColors();
     Color bgCol, txtCol;
     ResolveTreeFilterItemColors(hdc, itemRect, tv->bgColor, tv->textColor, isSelected, hasFocus, &bgCol, &txtCol);
+    bool isHot = !isSelected && gTocHotItem != 0 && cd->dwItemSpec == gTocHotItem;
+    if (isHot) {
+        bgCol = ThemeHoverColorOn(tv->bgColor);
+    }
     // Per-bookmark color from the document (when not the focused selection).
     if (!(isTreeSelected && hasFocus) && tocItem->color != kColorUnset) {
         txtCol = tocItem->color;
@@ -821,7 +829,7 @@ static void DrawTocItemPostPaint(TreeView::CustomDrawEvent* ev, MainWindow* win)
     // Always repaint selected / multi-match rows so themed selection colors
     // replace Explorer's light inactive-selection face (issue #5848). Also
     // when page numbers or filter bars need drawing.
-    if (!showPage && !filterActive && !isSelected) {
+    if (!showPage && !filterActive && !isSelected && !isHot) {
         return;
     }
 
@@ -916,8 +924,15 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
         bool isMultiMatch = TocItemIsMultiHighlight(win, tocItem);
         bool isSelected = isTreeSelected || isMultiMatch;
         bool hasFocus = isTreeSelected && (GetFocus() == tv->hwnd) && ThemeUsesHighContrastColors();
+        bool isHot = !isSelected && (cd->uItemState & CDIS_HOT) && !ThemeUsesHighContrastColors();
+        gTocHotItem = isHot ? cd->dwItemSpec : 0;
 
         LRESULT res = 0;
+        if (isHot) {
+            cd->uItemState &= ~CDIS_HOT;
+            tvcd->clrTextBk = ThemeHoverColorOn(tv->bgColor);
+            res |= CDRF_NEWFONT;
+        }
         if (isSelected) {
             // Theme-aware selection fill/text; strip CDIS_SELECTED so Explorer
             // theme does not paint a light inactive selection over dark text.
@@ -939,8 +954,8 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
             res |= CDRF_NEWFONT;
         }
         // POSTPAINT: selection colors (issue #5848), page numbers, filter, multi-match.
-        bool needPost =
-            isSelected || filterActive || (showPageNumbers && tocItem->pageNo > 0) || (multiHighlight && isMultiMatch);
+        bool needPost = isSelected || isHot || filterActive || (showPageNumbers && tocItem->pageNo > 0) ||
+                        (multiHighlight && isMultiMatch);
         if (needPost) {
             res |= CDRF_NOTIFYPOSTPAINT;
         }
@@ -1219,8 +1234,8 @@ void CreateToc(MainWindow* win) {
     auto* vbox = new VBox();
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
-    vbox->AddChild(PadSidebarSearch(filterEdit, parent));
-    vbox->AddChild(treeView, 1);
+    vbox->AddChild(PadSidebarItem(filterEdit, parent));
+    vbox->AddChild(PadSidebarItem(treeView, parent), 1);
     win->tocViewLayout = vbox;
 
     int dpi = DpiGetForHwnd(parent);
