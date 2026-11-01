@@ -41,6 +41,11 @@ struct OverlayScrollbar {
 
     int thinWidth = 0;
     int thickWidth = 0;
+    // drawn with the native scrollbar theme: arrows always take their room
+    bool themed = false;
+    bool themeSet = false;  // SetWindowTheme() was called for themeDark
+    bool themeDark = false; // window theme is DarkMode_Explorer
+    bool mouseOverBand = false;
 
     // auto-hide timing (milliseconds)
     int showAfterScrollMs = 5000;    // how long to show thin bar after scroll info update

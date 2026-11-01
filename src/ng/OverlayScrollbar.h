@@ -56,6 +56,7 @@ struct OverlayScrollbar {
 
     int thinWidth = 0;
     int thickWidth = 0;
+    bool themed = false; // the Windows app draws with the native scrollbar theme
 
     // how long to show the thin bar after a scroll, and after the mouse stops
     int showAfterScrollMs = 5000;

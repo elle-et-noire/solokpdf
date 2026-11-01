@@ -11,6 +11,8 @@ struct MainWindow;
 // darkmodelib is in use and drawing something other than the classic look. For
 // the few places that have to draw differently themselves
 bool DarkModeIsActive();
+// native scrollbars are drawn with the dark Explorer theme
+bool DarkModeScrollBarsAreDark();
 // background for a dialog we create ourselves
 Color DarkModeDialogBgColor();
 

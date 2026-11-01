@@ -2,10 +2,12 @@
    License: GPLv3 */
 
 #include "base/Base.h"
+#include <vssym32.h>
 #include "gui/Dpi.h"
 #include "base/Win.h"
 
 #include "Theme.h"
+#include "DarkMode.h"
 #include "OverlayScrollbar.h"
 #include "OverlayScrollbarCommon.h"
 
@@ -134,48 +136,57 @@ static bool MouseOverOwnerSurface(OverlayScrollbar* sb, Point pt) {
     return true;
 }
 
-// Update the layered window with the current appearance
-static void PaintScrollbar(OverlayScrollbar* sb) {
-    if (!sb->hwnd || !HwndIsVisible(sb->hwnd)) {
+static void DrawThemePart(HTHEME theme, HDC hdc, int part, int state, Rect r) {
+    if (r.dx <= 0 || r.dy <= 0) {
         return;
     }
+    RECT rc = ToRECT(r);
+    DrawThemeBackground(theme, hdc, part, state, &rc, nullptr);
+}
 
-    Rect wrc = HwndWindowRect(sb->hwnd);
-    int w = wrc.dx;
-    int h = wrc.dy;
-    if (w <= 0 || h <= 0) {
-        return;
+// Draw the bar with the theme native scrollbars use, so it looks the same (on
+// Windows 11 a thin line that widens and shows its arrows while the mouse is
+// over it). Returns false without a theme; the caller then draws its own.
+static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, int w, int h) {
+    // the same window theme the canvas gets for its native scrollbars
+    bool dark = DarkModeScrollBarsAreDark();
+    if (dark != sb->themeDark || !sb->themeSet) {
+        SetWindowTheme(sb->hwnd, dark ? L"DarkMode_Explorer" : nullptr, nullptr);
+        sb->themeDark = dark;
+        sb->themeSet = true;
     }
-
-    HDC hdcScreen = GetDC(nullptr);
-    HDC hdcMem = CreateCompatibleDC(hdcScreen);
-    if (!hdcMem) {
-        ReleaseDC(nullptr, hdcScreen);
-        return;
+    HTHEME theme = OpenThemeData(sb->hwnd, L"ScrollBar");
+    if (!theme) {
+        return false;
     }
-
-    BITMAPINFO bmi{};
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = w;
-    bmi.bmiHeader.biHeight = -h;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-
-    void* bits = nullptr;
-    HBITMAP hbmp = CreateDIBSection(hdcMem, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!hbmp || !bits) {
-        if (hbmp) {
-            DeleteObject(hbmp);
-        }
-        DeleteDC(hdcMem);
-        ReleaseDC(nullptr, hdcScreen);
-        return;
+    bool vert = IsVert(sb);
+    bool hover = sb->mouseOverBand || sb->isDragging;
+    int barState = hover ? SCRBS_HOVER : SCRBS_NORMAL;
+    int thumbState = barState;
+    if (sb->isDragging) {
+        thumbState = SCRBS_PRESSED;
+    } else if (sb->mouseOverThumb) {
+        thumbState = SCRBS_HOT;
     }
-    HBITMAP hbmpOld = (HBITMAP)SelectObject(hdcMem, hbmp);
+    int arrowStart = vert ? (hover ? ABS_UPHOVER : ABS_UPNORMAL) : (hover ? ABS_LEFTHOVER : ABS_LEFTNORMAL);
+    int arrowEnd = vert ? (hover ? ABS_DOWNHOVER : ABS_DOWNNORMAL) : (hover ? ABS_RIGHTHOVER : ABS_RIGHTNORMAL);
 
-    memset(bits, 0, (size_t)w * h * 4);
+    DrawThemePart(theme, hdc, vert ? SBP_UPPERTRACKVERT : SBP_UPPERTRACKHORZ, barState, GetTrackRect(sb));
+    DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowStart, GetArrowTopRect(sb));
+    DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowEnd, GetArrowBottomRect(sb));
+    DrawThemePart(theme, hdc, vert ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ, thumbState, GetThumbRect(sb));
+    CloseThemeData(theme);
 
+    // a native bar is opaque; theme drawing leaves the alpha bytes undefined
+    GdiFlush();
+    for (int i = 0; i < w * h; i++) {
+        pixels[i] |= 0xff000000;
+    }
+    return true;
+}
+
+// Our own look: a thin bar, thick with arrows while the mouse is over it
+static void PaintCustomScrollbar(OverlayScrollbar* sb, HDC hdcMem, void* bits, int w, int h) {
     bool thick = IsThick(sb);
     u8 alpha = kAlphaThin;
     if (thick) {
@@ -322,6 +333,62 @@ static void PaintScrollbar(OverlayScrollbar* sb) {
             }
         }
     }
+}
+
+// Update the layered window with the current appearance
+static void PaintScrollbar(OverlayScrollbar* sb) {
+    if (!sb->hwnd || !HwndIsVisible(sb->hwnd)) {
+        return;
+    }
+
+    Rect wrc = HwndWindowRect(sb->hwnd);
+    int w = wrc.dx;
+    int h = wrc.dy;
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+
+    HDC hdcScreen = GetDC(nullptr);
+    HDC hdcMem = CreateCompatibleDC(hdcScreen);
+    if (!hdcMem) {
+        ReleaseDC(nullptr, hdcScreen);
+        return;
+    }
+
+    BITMAPINFO bmi{};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = w;
+    bmi.bmiHeader.biHeight = -h;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    void* bits = nullptr;
+    HBITMAP hbmp = CreateDIBSection(hdcMem, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!hbmp || !bits) {
+        if (hbmp) {
+            DeleteObject(hbmp);
+        }
+        DeleteDC(hdcMem);
+        ReleaseDC(nullptr, hdcScreen);
+        return;
+    }
+    HBITMAP hbmpOld = (HBITMAP)SelectObject(hdcMem, hbmp);
+
+    memset(bits, 0, (size_t)w * h * 4);
+
+    bool themedDone = false;
+    if (sb->themed) {
+        DWORD bg = PremultiplyPixel(ThemeTrackColor(), 255);
+        DWORD* pixels = (DWORD*)bits;
+        for (int i = 0; i < w * h; i++) {
+            pixels[i] = bg;
+        }
+        themedDone = PaintThemedScrollbar(sb, hdcMem, pixels, w, h);
+    }
+    if (!themedDone) {
+        PaintCustomScrollbar(sb, hdcMem, bits, w, h);
+    }
 
     POINT ptSrc = {0, 0};
     SIZE szWnd = {w, h};
@@ -432,6 +499,12 @@ static void CALLBACK MouseTrackTimerProc(HWND /*hwnd*/, UINT /*msg*/, UINT_PTR /
         // was still over the page, which is distracting while reading
         Rect sbRect = GetScrollbarScreenRect(sb);
         bool overScrollbar = sbRect.Contains(pt) && overOwner;
+
+        // the native theme draws the whole bar differently while hovered
+        if (sb->themed && !sb->isDragging && sb->mouseOverBand != overScrollbar) {
+            sb->mouseOverBand = overScrollbar;
+            PaintScrollbar(sb);
+        }
 
         if (sb->isDragging) {
             // Don't change state while dragging
@@ -725,6 +798,11 @@ OverlayScrollbar* OverlayScrollbarCreate(HWND hwndOwner, OverlayScrollbar::Type 
     int sysWidth = DpiGetSystemMetrics(IsVert(sb) ? SM_CXVSCROLL : SM_CYHSCROLL);
     if (sysWidth > 0) {
         sb->thickWidth = sysWidth;
+    }
+    // with visual styles, look like a native scrollbar: its width in every state
+    sb->themed = IsAppThemed() && sysWidth > 0;
+    if (sb->themed) {
+        sb->thinWidth = sysWidth;
     }
     DWORD exStyle = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
     DWORD style = WS_POPUP;
