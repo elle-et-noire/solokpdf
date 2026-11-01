@@ -1037,7 +1037,7 @@ static const FieldInfo gSettingsFields[] = {
     {offsetof(Settings, autoGenerateTOC), SettingType::Bool, false},
     {offsetof(Settings, showStartPage), SettingType::Bool, true},
     {offsetof(Settings, sidebarDx), SettingType::Int, 0, true},
-    {offsetof(Settings, scrollbars), SettingType::String, (intptr_t)"windows", false, gEnumSettingsScrollbars, nullptr},
+    {offsetof(Settings, scrollbars), SettingType::String, (intptr_t)"overlay", false, gEnumSettingsScrollbars, nullptr},
     {offsetof(Settings, scrollbarInSinglePage), SettingType::Bool, false},
     {offsetof(Settings, smoothScroll), SettingType::Bool, true},
     {offsetof(Settings, scrollLineAmount), SettingType::Int, 16},

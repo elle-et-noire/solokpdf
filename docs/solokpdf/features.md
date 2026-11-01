@@ -78,6 +78,9 @@ dark-mode epoch. B6 needs no engine invalidation.
 
 Added 2026-11-01.
 
+`Scrollbars = overlay` is the default (upstream: `windows`); a settings file
+that saved `windows` keeps it.
+
 `Scrollbars = smart` and `overlay` draw with the theme native scrollbars use
 (`DarkMode_Explorer` in dark themes), so they look like `windows` ones: on
 Windows 11 a thin line that widens with arrows on hover, cross-faded over the

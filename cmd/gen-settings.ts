@@ -1788,7 +1788,7 @@ const globalPrefs: Field[] = [
   field(
     "Scrollbars",
     Str,
-    "windows",
+    "overlay",
     "scrollbar mode: windows (standard Windows scrollbar), smart (overlay scrollbar with auto-hide), overlay (always visible overlay scrollbar), hidden (no scrollbars)",
   )
     .enum(["windows", "smart", "overlay", "hidden"])
