@@ -395,7 +395,7 @@ static LRESULT CALLBACK WndProcSidebarPanel(HWND hwnd, UINT msg, WPARAM wp, LPAR
 
     // the header and the thumbnails are virtual controls, so this window paints
     // them and hands them their input
-    if (VirtHostOnMessage(hwnd, p->root, msg, wp, lp, res, ThemeCanvasColor())) {
+    if (VirtHostOnMessage(hwnd, p->root, msg, wp, lp, res, ThemeSidebarColor())) {
         return res;
     }
 
@@ -433,6 +433,7 @@ static void UpdateViewIcons(SidebarPanel* p, int dpi) {
         b->pixmapDisabled = GetCachedPixmapForSvg(svg, sz, sz, ThemeWindowTextDisabledColor());
         b->padding = Insets{pad, pad, pad, pad};
         b->isSelected = p->view == v && p->hosted;
+        b->SetColor(kColIconBtnBgHover, ThemeHoverColorOn(ThemeSidebarColor()));
         b->SetIsEnabled(IsSidebarViewAvailable(p->win, v));
         b->Invalidate();
     }

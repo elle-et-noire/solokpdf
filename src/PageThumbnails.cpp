@@ -231,8 +231,8 @@ PageThumbnailsCtrl::PageThumbnailsCtrl(MainWindow* win, PlatformFont* font, int 
     // the palette's edit box keeps the keyboard focus; the sidebar takes it
     SetFlag(vwfFocusable, host == ThumbnailsHost::Sidebar);
     SetColor(kColListText, ThemeWindowTextColor());
-    // the sidebar takes the canvas color (UpdateControlsColors)
-    Color bg = host == ThumbnailsHost::Sidebar ? ThemeCanvasColor() : ThemeWindowControlBackgroundColor();
+    // the sidebar takes the title bar's color (UpdateControlsColors)
+    Color bg = host == ThumbnailsHost::Sidebar ? ThemeSidebarColor() : ThemeWindowControlBackgroundColor();
     SetColor(kColListBg, bg);
 
     rowsModel = new ThumbnailRowsModel();

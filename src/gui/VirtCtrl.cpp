@@ -3102,12 +3102,15 @@ void VirtIconButton::Paint(VirtPaintCtx& ctx) {
     Color bgSel = GetColor(kColIconBtnBgSelected);
     // a disabled button's last checked state is leftover (e.g. Fit Single Page
     // after switching to the home page); don't paint it as selected
-    if (isSelected && enabled && bgSel != kColorUnset) {
+    bool showsSelected = isSelected && enabled && bgSel != kColorUnset;
+    if (showsSelected) {
         ctx.gfx->FillRoundedRect(action, highlightRadius, bgSel);
     }
+    // a toggled-on button keeps its color under the mouse
     Color bgHover = GetColor(kColIconBtnBgHover);
-    if (enabled && HasFlag(vwfHovered) && bgHover != kColorUnset) {
-        Rect hi = (dropDx > 0 && hoverOnDropdown) ? drop : action;
+    bool onDrop = dropDx > 0 && hoverOnDropdown;
+    if (enabled && HasFlag(vwfHovered) && bgHover != kColorUnset && (onDrop || !showsSelected)) {
+        Rect hi = onDrop ? drop : action;
         ctx.gfx->FillRoundedRect(hi, highlightRadius, bgHover);
     }
     Pixmap* px = (!enabled && pixmapDisabled) ? pixmapDisabled : pixmap;

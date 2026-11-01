@@ -70,7 +70,7 @@ Color TbDisabledColor() {
 }
 
 Color TbHoverColor() {
-    return ThemeCanvasHoverColor();
+    return ThemeHoverColorOn(TbBgColor());
 }
 
 // A ground a shade off the normal one, for telling two areas of a drop-down

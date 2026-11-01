@@ -145,15 +145,15 @@ struct Theme {
     // color of text in menus, toolbar, tabs and sidebars
     ParsedColor textColor;
     // background color of the window around the document, the toolbar, the
-    // sidebar and the active tab
+    // active tab and the scrollbars
     ParsedColor backgroundColor;
-    // background color of dialogs and search fields
+    // background color of dialogs
     ParsedColor controlBackgroundColor;
     // background color of the active tab; if empty, the color around the
     // document
     ParsedColor activeTabBackgroundColor;
-    // background color of inactive tabs; if empty, derived from
-    // ControlBackgroundColor
+    // background color of inactive tabs, the title bar and the sidebar; if
+    // empty, derived from ControlBackgroundColor
     ParsedColor inactiveTabBackgroundColor;
     // color of clickable links in the UI
     ParsedColor linkColor;
@@ -194,7 +194,7 @@ struct Theme {
     // HotEdgeColor
     ParsedColor hoverPreviewEdgeColor;
     // background of the overlay scrollbars (Scrollbars = smart or
-    // overlay); if empty, ControlBackgroundColor
+    // overlay); if empty, the color around the document
     ParsedColor scrollbarColor;
     // thumb and arrows of the overlay scrollbars and lists; if empty,
     // EdgeColor, or DisabledTextColor where EdgeColor is too close to

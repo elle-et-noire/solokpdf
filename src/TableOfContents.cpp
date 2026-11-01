@@ -1241,7 +1241,7 @@ void UpdateSidebarColors(MainWindow* win) {
         return;
     }
     win->pageThumbs->SetColor(kColListText, ThemeWindowTextColor());
-    win->pageThumbs->SetColor(kColListBg, ThemeCanvasColor());
+    win->pageThumbs->SetColor(kColListBg, ThemeSidebarColor());
     UpdateSidebarPanelsIcons(win);
 }
 

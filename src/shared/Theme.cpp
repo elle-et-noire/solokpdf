@@ -1265,6 +1265,8 @@ struct PalettePickArgs {
     float minContrast = 1.0f;
     float minTextContrast = 1.0f;
     Color skip = kColorUnset;
+    // a second surface the color sits on: the lower contrast of the two counts
+    Color bg2 = kColorUnset;
 };
 
 // The theme color nearest to or furthest from a.bg among those on a.side of
@@ -1288,6 +1290,9 @@ static Color PickPaletteColor(const PalettePickArgs& a) {
             continue;
         }
         float contrast = ContrastRatio(c, a.bg);
+        if (a.bg2 != kColorUnset) {
+            contrast = std::min(contrast, ContrastRatio(c, a.bg2));
+        }
         if (c == a.skip || contrast < a.minContrast || ContrastRatio(text, c) < a.minTextContrast) {
             continue;
         }
@@ -1300,18 +1305,31 @@ static Color PickPaletteColor(const PalettePickArgs& a) {
     return res;
 }
 
-// button states and selections against the canvas-colored toolbar, sidebar
-// and pages
-constexpr float kMinCanvasSelectedContrast = 1.2f;
-constexpr float kMinCanvasHoverContrast = 1.08f;
+// a selection against the canvas (toolbar, pages) and the sidebar
+constexpr float kMinSurfaceSelectedContrast = 1.2f;
+// how far a mixed selection moves toward the text color per step
+constexpr float kSelectionMixStep = 0.05f;
+
+// t of the way from a to b
+static Color MixColors(Color a, Color b, float t) {
+    auto mix = [t](u8 x, u8 y) { return (u8)lroundf((float)x + (((float)y - (float)x) * t)); };
+    return MkRgb(mix(GetRed(a), GetRed(b)), mix(GetGreen(a), GetGreen(b)), mix(GetBlue(a), GetBlue(b)));
+}
+
+// how well c shows on both the canvas and the sidebar
+static float SurfaceContrast(Color c) {
+    return std::min(ContrastRatio(c, ThemeCanvasColor()), ContrastRatio(c, ThemeSidebarColor()));
+}
 
 // A selection: toggled-on buttons (toolbar, sidebar views), the selected
 // bookmark or list row and text selected on a page. A palette color, not a
 // lightness shift of the background (that made Solarized Dark's and Greeny's
 // garish): the one furthest from the control background, toward the text,
 // that keeps the text readable (mostly EdgeColor); the hover color when none
-// does. Where that nearly matches the canvas (One Dark), the palette color
-// furthest from the canvas.
+// does. It has to show on the canvas and on the sidebar: where it doesn't
+// (the sidebar takes EdgeColor in Gruvbox Light, Sepia), the palette color
+// that shows best on both; where none shows (Ayu, One Dark), the surface
+// nearer the text color mixed toward it.
 Color ThemeSelectedBackgroundColor() {
     Color bg = ThemeControlBackgroundColor();
     if (gUseHighContrast) {
@@ -1326,15 +1344,30 @@ Color ThemeSelectedBackgroundColor() {
     if (sel == kColorUnset) {
         sel = ThemeHotBackgroundColor();
     }
-
-    args.bg = ThemeCanvasColor();
-    if (ContrastRatio(sel, args.bg) >= kMinCanvasSelectedContrast) {
+    if (SurfaceContrast(sel) >= kMinSurfaceSelectedContrast) {
         return sel;
     }
+
+    Color canvas = ThemeCanvasColor();
+    Color sidebar = ThemeSidebarColor();
+    args.bg = canvas;
+    args.bg2 = sidebar;
     args.side = PaletteSide::Any;
-    args.minContrast = kMinCanvasSelectedContrast;
+    args.minContrast = kMinSurfaceSelectedContrast;
     Color res = PickPaletteColor(args);
-    return res == kColorUnset ? sel : res;
+    if (res != kColorUnset) {
+        return res;
+    }
+
+    Color text = ThemeWindowTextColor();
+    Color from = ContrastRatio(canvas, text) < ContrastRatio(sidebar, text) ? canvas : sidebar;
+    for (float t = kSelectionMixStep; t < 1.0f; t += kSelectionMixStep) {
+        Color c = MixColors(from, text, t);
+        if (SurfaceContrast(c) >= kMinSurfaceSelectedContrast) {
+            return c;
+        }
+    }
+    return sel;
 }
 
 // the selected tab against the tab strip
@@ -1364,23 +1397,21 @@ Color ThemeTabStripColor() {
     return res == kColorUnset ? strip : res;
 }
 
-// Hovered buttons on the toolbar and sidebar: HotBackgroundColor, unless it
-// nearly matches the canvas (Purpy, One Dark) or the selection (Night Owl);
-// then the nearest palette color that shows.
-Color ThemeCanvasHoverColor() {
-    Color hot = ThemeHotBackgroundColor();
+// the sidebar takes the title bar's color
+Color ThemeSidebarColor() {
+    return ThemeTabStripColor();
+}
+
+// how far a hovered button's fill goes from its surface to the selection
+constexpr float kHoverTowardSelected = 0.5f;
+
+// A hovered button on surface bg: halfway to the selection color, so hover
+// and toggled-on read as two steps of one color.
+Color ThemeHoverColorOn(Color bg) {
     if (gUseHighContrast) {
-        return hot;
+        return ThemeHotBackgroundColor();
     }
-    PalettePickArgs args;
-    args.bg = ThemeCanvasColor();
-    args.skip = ThemeSelectedBackgroundColor();
-    if (hot != args.skip && ContrastRatio(hot, args.bg) >= kMinCanvasHoverContrast) {
-        return hot;
-    }
-    args.minContrast = kMinCanvasHoverContrast;
-    Color res = PickPaletteColor(args);
-    return res == kColorUnset ? hot : res;
+    return MixColors(bg, ThemeSelectedBackgroundColor(), kHoverTowardSelected);
 }
 
 Color ThemeEdgeColor() {
@@ -1497,7 +1528,7 @@ bool ThemeTintsScrollbars() {
 }
 
 Color ThemeScrollbarColor() {
-    return GetThemeCol(gCurrentTheme->scrollbarColor, ThemeControlBackgroundColor());
+    return GetThemeCol(gCurrentTheme->scrollbarColor, ThemeCanvasColor());
 }
 
 // a thumb too close to its track to see

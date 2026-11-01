@@ -61,17 +61,21 @@ The menu bar beside the tabs takes the title bar color and `TextColor`; a
 hovered or open menu shows the selected tab's color. Upstream let darkmodelib
 draw it as a box in `ControlBackgroundColor` with `DarkerTextColor`.
 
-The sidebar takes the canvas color too, splitters included; its search fields
-keep `ControlBackgroundColor` and a 6×4 DIP margin, so they read as fields
-(upstream: flush with the panel's edges). The sidebar's view icons (Bookmarks,
-Thumbnails, Favorites) and other icon buttons hover and select in the
-toolbar's colors (below).
+The sidebar, splitters included, takes the title bar's color
+(`ThemeSidebarColor`); its search fields take the canvas color and a 6×4 DIP
+margin, so they read as fields (upstream: flush with the panel's edges).
+
+A hovered toolbar or sidebar button is filled halfway from its surface to the
+selection color (`ThemeHoverColorOn`), so hover and toggled-on read as two
+steps of one color; a toggled-on button keeps the selection color under the
+mouse (upstream: it took the hover color).
 
 Toolbar buttons light up in a rounded box 2 DIP inside their neighbors and 4
 DIP inside the bar's top and bottom (upstream: the full button, edge to edge).
 
 The thumbnails' frames take the scrollbar thumb color: 3 px around the current
-page (upstream: a fixed blue), 1 px around the others.
+page (upstream: a fixed blue), 1 px around the others. The scrollbars' track
+defaults to the canvas color.
 
 Splitters (sidebar, panels, AI chat) take the panel's color, without upstream's
 darker bar; it shows while hovered or dragged.
@@ -89,10 +93,7 @@ Where the strip nearly matches the canvas (contrast under 1.13), it takes the
 nearest palette color instead, darker if one fits: `ControlBackgroundColor`
 for Choco, Choco Navy, Purpy, Purpy Slate, Nord, Gruvbox, Night Owl and
 Palenight, `NotificationBackgroundColor` for Solarized Dark and Monokai,
-`EdgeColor` for Light Warm. Toolbar and sidebar buttons hover against the
-canvas the same way (`ThemeCanvasHoverColor`): `HotBackgroundColor` unless it
-nearly vanishes on it (Purpy, Purpy Slate, Light Warm, Rose Pine Dawn, One
-Dark) or is the selection color (Night Owl, Solarized Dark).
+`EdgeColor` for Light Warm.
 
 ## Selection colors
 
@@ -106,9 +107,12 @@ faint on their edge color, fall back to `HotBackgroundColor`, as do One Dark,
 Night Owl and Ayu. The window background is left out: themed pages take it, so
 a selection on them would vanish. Upstream shifted the background's HSL
 lightness by 25 to 45 units, which made saturated themes garish (Solarized
-Dark a bright teal, Greeny a bright green). Where the pick nearly matches the
-canvas, which the toolbar, sidebar and pages share (contrast under 1.2, One
-Dark), it is the palette color furthest from the canvas instead.
+Dark a bright teal, Greeny a bright green). The selection has to show on the
+canvas (toolbar, pages) and on the sidebar (contrast 1.2): where the pick
+doesn't (the sidebar takes `EdgeColor` in Gruvbox Light, Sepia, Light Warm),
+it is the palette color that shows best on both; where none shows (Ayu, One
+Dark, Everforest Light, Rose Pine Dawn), the surface nearer the text color
+mixed toward the text.
 
 The bookmark tree keeps its unfocused selection color when it has the focus
 (upstream: the system's blue highlight); high contrast mode still uses the
@@ -205,7 +209,7 @@ with a size grip that resizes the frame when it isn't maximized.
   still takes clicks while hovered. It fades out 1.5 s after the mouse stops
   or a scroll (was 3 s and 5 s, at once) and takes no room.
 - Every theme, Light and Dark included, tints the bars: `ScrollbarColor` and
-  `ScrollbarThumbColor` (new theme fields), by default `ControlBackgroundColor`
+  `ScrollbarThumbColor` (new theme fields), by default the canvas color
   and a palette color: `EdgeColor`, or `DisabledTextColor` where `EdgeColor`'s
   contrast with the track is under 1.5 (One Dark, Night Owl, Ayu, Nord, …).
   Lists, the thumbnails included, take `ScrollbarThumbColor` too. A lightness
@@ -218,9 +222,9 @@ The thumbnails' scrollbar (sidebar and command palette) is drawn the same way
 (`PaintThemedBar`): as wide as a native bar, a thin line at rest that widens
 with arrows on hover over the theme's transition, arrows stepping a row. It
 runs along the list's right edge over its whole height, outside the padding.
-The current page's frame takes the theme's `HotEdgeColor` (upstream: a fixed
-blue); the other pages get a 1px frame in `ScrollbarThumbColor` (upstream:
-none, so Light's white pages vanished on its white sidebar).
+The current page's frame is 3 px of `ScrollbarThumbColor` (upstream: a fixed
+blue); the other pages get a 1px frame in it (upstream: none, so Light's white
+pages vanished on its white sidebar).
 
 `tests/smart-scrollbars-autohide.ts` reads the bars off the screen and checks
 an auto-hidden smart bar stays hidden.

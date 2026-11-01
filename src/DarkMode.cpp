@@ -150,7 +150,7 @@ void ThemeApplyPlatformColors() {
     gColsBtnDefault[kColBtnTextDisabled] = disabled;
 
     // the toolbar's, so the sidebar's view icons light up the same way
-    gColsIconBtn[kColIconBtnBgHover] = ThemeCanvasHoverColor();
+    gColsIconBtn[kColIconBtnBgHover] = ThemeHoverColorOn(ctlBg);
     gColsIconBtn[kColIconBtnBgSelected] = ThemeSelectedBackgroundColor();
     gColsIconBtn[kColIconBtnChevron] = text;
     gColsIconBtn[kColIconBtnChevronDisabled] = disabled;
