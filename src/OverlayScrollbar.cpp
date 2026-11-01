@@ -361,6 +361,10 @@ static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTi
         DrawThemePart(theme, hdc, SBP_SIZEBOXBKGND, barState, corner);
         GdiFlush();
         DWORD cornerBg = pixels[(corner.y + corner.dy / 2) * w + corner.x + corner.dx / 2];
+        if (tint.on) {
+            // a theme's bars get one background: the corner takes the track's
+            cornerBg = tint.nativeTrack | 0xff000000;
+        }
         for (int y = corner.y; y < corner.y + corner.dy; y++) {
             for (int x = corner.x; x < corner.x + corner.dx; x++) {
                 pixels[y * w + x] = cornerBg;
