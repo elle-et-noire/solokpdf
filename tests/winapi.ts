@@ -1098,6 +1098,14 @@ export function setWindowPos(
   return user32.symbols.SetWindowPos(hwnd, 0, x, y, w, h, flags);
 }
 
+// Keep a window above all non-topmost ones (or stop), without activating it:
+// lets a test read its pixels off the screen while another app has the focus.
+export function setTopmost(hwnd: number, on: boolean): boolean {
+  const insertAfter = on ? -1 : -2; // HWND_TOPMOST / HWND_NOTOPMOST
+  const flags = 0x0001 | 0x0002 | SWP_NOACTIVATE; // SWP_NOSIZE | SWP_NOMOVE
+  return user32.symbols.SetWindowPos(hwnd, insertAfter, 0, 0, 0, 0, flags);
+}
+
 export function showWindow(hwnd: number, cmd: number): boolean {
   if (IS_MAC) {
     if (cmd === SW_RESTORE && isZoomed(hwnd)) {
@@ -1922,6 +1930,41 @@ export function captureWindowDCRegionPixels(
   gdi32.symbols.DeleteObject(bmp);
   gdi32.symbols.DeleteDC(memDC);
   src.close();
+  return data;
+}
+
+// What the screen shows in a rectangle, layered windows included (CAPTUREBLT),
+// as BGRA bytes. Raise the windows first (setTopmost): only what is on top shows.
+export function captureScreenRegionPixels(x: number, y: number, w: number, h: number): Uint8Array | null {
+  if (w <= 0 || h <= 0) {
+    return null;
+  }
+  const CAPTUREBLT = 0x40000000;
+  const screenDC = user32.symbols.GetWindowDC(0);
+  const memDC = gdi32.symbols.CreateCompatibleDC(screenDC);
+  const bmi = new ArrayBuffer(40);
+  const dv = new DataView(bmi);
+  dv.setUint32(0, 40, true);
+  dv.setInt32(4, w, true);
+  dv.setInt32(8, -h, true);
+  dv.setUint16(12, 1, true);
+  dv.setUint16(14, 32, true);
+  const bitsPtr = new BigUint64Array(1);
+  const bmp = gdi32.symbols.CreateDIBSection(memDC, ptr(bmi), 0, ptr(bitsPtr), 0n, 0);
+  if (!bmp || !bitsPtr[0]) {
+    gdi32.symbols.DeleteDC(memDC);
+    user32.symbols.ReleaseDC(0, screenDC);
+    return null;
+  }
+  const oldObj = gdi32.symbols.SelectObject(memDC, bmp);
+  const copied = gdi32.symbols.BitBlt(memDC, 0, 0, w, h, screenDC, x, y, SRCCOPY | CAPTUREBLT);
+  gdi32.symbols.SelectObject(memDC, oldObj);
+
+  const bits = Number(bitsPtr[0]) as unknown as Parameters<typeof toArrayBuffer>[0];
+  const data = copied ? new Uint8Array(toArrayBuffer(bits, 0, w * h * 4)).slice() : null;
+  gdi32.symbols.DeleteObject(bmp);
+  gdi32.symbols.DeleteDC(memDC);
+  user32.symbols.ReleaseDC(0, screenDC);
   return data;
 }
 

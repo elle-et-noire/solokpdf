@@ -382,7 +382,9 @@ static void PaintCustomScrollbar(OverlayScrollbar* sb, HDC hdcMem, void* bits, i
 
 // Update the layered window with the current appearance
 static void PaintScrollbar(OverlayScrollbar* sb) {
-    if (!sb->hwnd || !HwndIsVisible(sb->hwnd)) {
+    // an auto-hidden bar keeps its window, made transparent: painting it would
+    // bring it back with no timer left to hide it
+    if (!sb->hwnd || !HwndIsVisible(sb->hwnd) || !IsVisible(sb)) {
         return;
     }
 

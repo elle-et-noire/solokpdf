@@ -42,6 +42,7 @@ import { testit as issue5972 } from "./issue-5972.ts";
 import { testit as annotFilterToolbar } from "./annot-filter-toolbar.ts";
 import { testit as dviOpen } from "./dvi-open.ts";
 import { testit as fontCacheShutdown } from "./font-cache-shutdown.ts";
+import { testit as smartScrollbarsAutohide } from "./smart-scrollbars-autohide.ts";
 
 // The slowest of the regular tests. They still run here and in the daily CI
 // suite, just not in run-pre-release: a couple of seconds each is nothing on
@@ -81,6 +82,8 @@ export const slowTests: NamedTest[] = [
   ["dvi-open", dviOpen],
   // quits during background EPUB layout; ASan catches the font-cache use-after-free
   ["font-cache-shutdown", fontCacheShutdown],
+  // waits out the smart scrollbars' auto-hide
+  ["smart-scrollbars-autohide", smartScrollbarsAutohide],
 ];
 
 export const tests: NamedTest[] = [...almostAllTests, ...notInPreReleaseTests, ...slowTests];
