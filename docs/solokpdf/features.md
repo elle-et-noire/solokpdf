@@ -77,6 +77,10 @@ sidebar (otherwise, e.g. a white page under a dark theme with
 `DocumentColorsFollowTheme = off`, the selection stays yellow). The current find
 match and touch selection handles stay yellow.
 
+Lists (thumbnails, annotations, find results, command palette) and the
+Favorites tree draw no dotted focus outline; the selection shows where the
+keys go.
+
 ## Theme page colors
 
 Added 2026-10-27.

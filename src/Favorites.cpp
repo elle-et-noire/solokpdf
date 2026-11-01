@@ -436,9 +436,6 @@ static void DrawFavItemText(TreeView::CustomDrawEvent* ev, MainWindow* win) {
     GfxHdc gfx(hdc);
     DrawTreeItemFilterHighlight(&gfx, labelRect, fti->text, words, bgCol, txtCol, tv->GetFont(), fti->fileNameOffset,
                                 fti->fileNameLen);
-    if ((cd->uItemState & CDIS_FOCUS) && isSelected && hasFocus) {
-        gfx.DrawFocusRect(labelRect);
-    }
 }
 
 static void OnFavCustomDraw(TreeView::CustomDrawEvent* ev) {
