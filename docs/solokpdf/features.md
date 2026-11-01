@@ -65,6 +65,18 @@ darkened. Themes whose toolbar is too dark to go below (Dark, Nebula, Purpy,
 Purpy Slate, GitHub Dark, Mocha, Macchiato, Tokyo Night, Ayu, Palenight) get a
 lighter strip instead.
 
+## Selection colors
+
+The bookmark tree keeps its unfocused selection color when it has the focus
+(upstream: the system's blue highlight); high contrast mode still uses the
+system highlight. Text and rectangle selections on pages take that color too,
+with no outline: the overlay's color and alpha are solved so the page
+background turns exactly into it. This applies while `FixedPageUI.SelectionColor`
+is the default `#ffff00` and the page is on the same light/dark side as the
+sidebar (otherwise, e.g. a white page under a dark theme with
+`DocumentColorsFollowTheme = off`, the selection stays yellow). The current find
+match and touch selection handles stay yellow.
+
 ## Theme page colors
 
 Added 2026-10-27.

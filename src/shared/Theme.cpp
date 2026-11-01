@@ -1168,6 +1168,11 @@ Color ThemeControlBackgroundColor() {
     return gUseHighContrast ? SysWindowBgColor() : GetThemeCol(gCurrentTheme->controlBackgroundColor, kColRed);
 }
 
+// a selected bookmark row; also the text selection on pages
+Color ThemeTreeSelectionColor() {
+    return AccentColor(ThemeControlBackgroundColor(), kTreeSelectionAccent);
+}
+
 Color ThemeMainWindowBackgroundColor() {
     if (gUseHighContrast) {
         return SysWindowBgColor();

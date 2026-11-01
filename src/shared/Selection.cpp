@@ -56,6 +56,7 @@
 #include "Translations.h"
 #endif
 #include "SumatraPDF.h"
+#include "Theme.h"
 #if !defined(SUMATRA_NG)
 #include "Canvas.h"
 #endif
@@ -568,6 +569,33 @@ static void PaintTransparentQuads(Gfx* gfx, Rect screenRc, Vec<Point>& pts, Colo
 #endif
 }
 
+// SelectionColor's default; it means "the bookmark selection color"
+constexpr Color kDefaultSelectionColor = MkRgb(0xff, 0xff, 0x00);
+
+// Overlay that turns the page background into `want`, so a selection looks like
+// a selected bookmark: col = page + (want - page) / alpha, raising alpha from
+// `alpha` until col fits in 0..255 on every channel.
+static Color OverlayReaching(Color want, Color page, u8& alpha) {
+    u8 wantCh[3] = {GetRed(want), GetGreen(want), GetBlue(want)};
+    u8 pageCh[3] = {GetRed(page), GetGreen(page), GetBlue(page)};
+    int a = alpha;
+    for (int i = 0; i < 3; i++) {
+        int d = wantCh[i] - pageCh[i];
+        int room = d > 0 ? 255 - pageCh[i] : pageCh[i];
+        if (d != 0 && room > 0) {
+            a = std::max(a, (std::abs(d) * 255 + room - 1) / room);
+        }
+    }
+    a = std::min(a, 255);
+    alpha = (u8)a;
+    u8 res[3];
+    for (int i = 0; i < 3; i++) {
+        int c = pageCh[i] + (wantCh[i] - pageCh[i]) * 255 / a;
+        res[i] = (u8)limitValue(c, 0, 255);
+    }
+    return MkRgb(res[0], res[1], res[2]);
+}
+
 #if defined(SUMATRA_NG)
 void PaintSelection(MainWindow* win, gp::PaintCtx* ctx) {
 #else
@@ -710,21 +738,32 @@ void PaintSelection(MainWindow* win, Gfx* gfx) {
     if (alpha == 0) {
         alpha = kSelectionDefaultAlpha;
     }
+    // the default yellow takes the bookmark selection color, borderless like it,
+    // unless the page isn't themed (a dark shade over a white page hides text)
+    Color col = parsedCol->col;
+    bool drawBorder = true;
+    Color page;
+    ThemePageRenderColors(page);
+    Color treeSel = ThemeTreeSelectionColor();
+    if (col == kDefaultSelectionColor && IsLightColor(page) == IsLightColor(treeSel)) {
+        col = OverlayReaching(treeSel, page, alpha);
+        drawBorder = false;
+    }
 #if defined(SUMATRA_NG)
     Rect canvas(Point(), win->AsFixed()->GetViewPort().Size());
 #endif
     if (len(quadPts) > 0) {
 #if defined(SUMATRA_NG)
-        PaintTransparentQuads(ctx, canvas, quadPts, parsedCol->col, alpha, /*drawBorder*/ true);
+        PaintTransparentQuads(ctx, canvas, quadPts, col, alpha, drawBorder);
 #else
-        PaintTransparentQuads(gfx, win->canvasRc, quadPts, parsedCol->col, alpha, /*drawBorder*/ true);
+        PaintTransparentQuads(gfx, win->canvasRc, quadPts, col, alpha, drawBorder);
 #endif
     }
     if (len(rects) > 0) {
 #if defined(SUMATRA_NG)
-        PaintTransparentRectangles(ctx, canvas, rects, parsedCol->col, alpha, 1, /*drawBorder*/ true);
+        PaintTransparentRectangles(ctx, canvas, rects, col, alpha, 1, drawBorder);
 #else
-        PaintTransparentRectangles(gfx, win->canvasRc, rects, parsedCol->col, alpha, 1, /*drawBorder*/ true);
+        PaintTransparentRectangles(gfx, win->canvasRc, rects, col, alpha, 1, drawBorder);
 #endif
     }
 #if !defined(SUMATRA_NG)

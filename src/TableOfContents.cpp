@@ -793,7 +793,8 @@ static void DrawTocItemPostPaint(TreeView::CustomDrawEvent* ev, MainWindow* win)
     // current bookmark is visible, not only the TreeView selection.
     bool isSelected = isTreeSelected || isMultiMatch;
     // Focus ring / highlight-text only for the real tree selection.
-    bool hasFocus = isTreeSelected && (GetFocus() == tv->hwnd);
+    // focus keeps the unfocused selection colors, except for high contrast's palette
+    bool hasFocus = isTreeSelected && (GetFocus() == tv->hwnd) && ThemeUsesHighContrastColors();
     Color bgCol, txtCol;
     ResolveTreeFilterItemColors(hdc, itemRect, tv->bgColor, tv->textColor, isSelected, hasFocus, &bgCol, &txtCol);
     // Per-bookmark color from the document (when not the focused selection).
@@ -914,7 +915,7 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
         }
         bool isMultiMatch = TocItemIsMultiHighlight(win, tocItem);
         bool isSelected = isTreeSelected || isMultiMatch;
-        bool hasFocus = isTreeSelected && (GetFocus() == tv->hwnd);
+        bool hasFocus = isTreeSelected && (GetFocus() == tv->hwnd) && ThemeUsesHighContrastColors();
 
         LRESULT res = 0;
         if (isSelected) {

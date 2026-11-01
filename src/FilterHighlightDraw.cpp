@@ -180,7 +180,7 @@ void ResolveTreeFilterItemColors(HDC hdc, Rect itemRc, Color treeBg, Color treeT
         // unreadable (issue #5848). COLOR_BTNFACE has the same problem when
         // system colors are not fully remapped.
         Color base = !IsSpecialColor(treeBg) ? treeBg : ThemeControlBackgroundColor();
-        *bgOut = AccentColor(base, 40);
+        *bgOut = AccentColor(base, kTreeSelectionAccent);
         *txtOut = IsSpecialColor(treeTxt) ? ThemeWindowTextColor() : treeTxt;
         return;
     }
