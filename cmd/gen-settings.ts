@@ -341,6 +341,18 @@ const theme: Field[] = [
     "",
     "border color of the citation hover preview; if empty, uses HotEdgeColor",
   ).ver("3.7"),
+  field(
+    "ScrollbarColor",
+    Color,
+    "",
+    "background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, derived from ControlBackgroundColor, or Windows' own colors in the Light and Dark themes",
+  ).ver("3.7"),
+  field(
+    "ScrollbarThumbColor",
+    Color,
+    "",
+    "thumb and arrows of the overlay scrollbars; if empty, derived from TextColor and ScrollbarColor, or Windows' own colors in the Light and Dark themes",
+  ).ver("3.7"),
   field("ColorizeControls", Bool, false, "if true, apply the theme colors to Windows controls and window areas too"),
 ];
 

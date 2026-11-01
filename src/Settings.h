@@ -192,6 +192,14 @@ struct Theme {
     // border color of the citation hover preview; if empty, uses
     // HotEdgeColor
     ParsedColor hoverPreviewEdgeColor;
+    // background of the overlay scrollbars (Scrollbars = smart or
+    // overlay); if empty, derived from ControlBackgroundColor, or Windows'
+    // own colors in the Light and Dark themes
+    ParsedColor scrollbarColor;
+    // thumb and arrows of the overlay scrollbars; if empty, derived from
+    // TextColor and ScrollbarColor, or Windows' own colors in the Light
+    // and Dark themes
+    ParsedColor scrollbarThumbColor;
     // if true, apply the theme colors to Windows controls and window areas
     // too
     bool colorizeControls;

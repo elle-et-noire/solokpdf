@@ -1304,6 +1304,36 @@ Color ThemeHoverPreviewEdgeColor() {
     return GetThemeCol(gCurrentTheme->hoverPreviewEdgeColor, ThemeHotEdgeColor());
 }
 
+// index of the built-in Dark theme; it and Light come first in themesTxt
+constexpr int kThemeIdxDark = 1;
+
+// Overlay scrollbars keep Windows' own colors in the built-in Light and Dark
+// themes and in high contrast, unless the theme sets them; other themes tint them.
+bool ThemeTintsScrollbars() {
+    if (!HasCurrentTheme() || gUseHighContrast) {
+        return false;
+    }
+    if (GetParsedColor(gCurrentTheme->scrollbarColor)->parsedOk ||
+        GetParsedColor(gCurrentTheme->scrollbarThumbColor)->parsedOk) {
+        return true;
+    }
+    return gCurrThemeIndex > kThemeIdxDark;
+}
+
+Color ThemeScrollbarColor() {
+    return GetThemeCol(gCurrentTheme->scrollbarColor, ThemeControlBackgroundColor());
+}
+
+// Windows' thumb sits about halfway from the track to the text color, in light
+// and dark alike
+Color ThemeScrollbarThumbColor() {
+    Color bg = ThemeScrollbarColor();
+    Color txt = ThemeWindowTextColor();
+    Color halfway = MkRgb((u8)((GetRed(bg) + GetRed(txt)) / 2), (u8)((GetGreen(bg) + GetGreen(txt)) / 2),
+                          (u8)((GetBlue(bg) + GetBlue(txt)) / 2));
+    return GetThemeCol(gCurrentTheme->scrollbarThumbColor, halfway);
+}
+
 // Links inside a warning notification. The theme's link color is picked to sit on
 // the window background and can vanish on the amber warning background (Dracula's
 // cyan, Choco's yellow). Links are underlined, so reusing the warning text color

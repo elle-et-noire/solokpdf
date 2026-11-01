@@ -74,6 +74,31 @@ original values. PDFium's cached image rectangles describe page objects and do
 not depend on theme or mode; `UpdateDocumentColors` advances the render cache's
 dark-mode epoch. B6 needs no engine invalidation.
 
+## Overlay scrollbars
+
+Added 2026-11-01.
+
+`Scrollbars = smart` and `overlay` draw with the theme native scrollbars use
+(`DarkMode_Explorer` in dark themes), so they look like `windows` ones: on
+Windows 11 a thin line that widens with arrows on hover, cross-faded over the
+theme's transition time with an ease-out. Both bars shown fill the corner box,
+with a size grip that resizes the frame when it isn't maximized.
+
+- `overlay` keeps room for the bars beside the page (right and bottom window
+  margins grow by the bar widths), so fit width and scrolling to the edge never
+  leave the page's edge under a bar, and the page doesn't move as bars come and
+  go.
+- `smart` at rest is the thin thumb line alone, over the page, and hides 1.5 s
+  after the mouse stops or a scroll (was 3 s and 5 s). It takes no room.
+- Themes other than Light and Dark tint the bars: `ScrollbarColor` and
+  `ScrollbarThumbColor` (new theme fields), derived from
+  `ControlBackgroundColor` and `TextColor` when empty. Each pixel of the native
+  look keeps its place between Windows' track and thumb colors, mapped onto the
+  theme's pair. `windows` bars stay Windows' light or dark.
+
+`tests/smart-scrollbars-autohide.ts` reads the bars off the screen and checks
+an auto-hidden smart bar stays hidden.
+
 ## Count prefix
 
 `KeyScrollLineAmount` sets the vertical keyboard line step (default 48 px at

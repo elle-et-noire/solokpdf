@@ -218,10 +218,78 @@ static void FreeDibDC(HDC hdc, HBITMAP bmp) {
     DeleteObject(bmp);
 }
 
+// Theme colors for a themed bar: Windows' track and thin-thumb colors, the two
+// ends of the scale a drawn pixel sits on, and the theme's pair it maps onto
+struct ScrollbarTint {
+    bool on = false;
+    DWORD nativeTrack = 0; // DIB pixels, 0xRRGGBB
+    DWORD nativeThumb = 0;
+    DWORD track = 0;
+    DWORD thumb = 0;
+};
+
+static DWORD ColorToPixel(Color c) {
+    return ((DWORD)GetRed(c) << 16) | ((DWORD)GetGreen(c) << 8) | (DWORD)GetBlue(c);
+}
+
+static ScrollbarTint GetScrollbarTint(OverlayScrollbar* sb, HTHEME theme, HDC hdcRef, int w) {
+    ScrollbarTint tint;
+    if (!ThemeTintsScrollbars()) {
+        return tint;
+    }
+    // draw the plain track, then a thumb on it, and read both colors back
+    bool vert = IsVert(sb);
+    int barDx = std::max(w, 8);
+    Rect rc = vert ? Rect{0, 0, barDx, barDx * 3} : Rect{0, 0, barDx * 3, barDx};
+    DWORD* px = nullptr;
+    HBITMAP bmp = nullptr;
+    HDC hdc = CreateDibDC(hdcRef, rc.dx, rc.dy, &px, &bmp);
+    if (!hdc) {
+        return tint;
+    }
+    int midX = rc.dx / 2;
+    int midY = rc.dy / 2;
+    DrawThemePart(theme, hdc, vert ? SBP_UPPERTRACKVERT : SBP_UPPERTRACKHORZ, SCRBS_NORMAL, rc);
+    GdiFlush();
+    int trackX = vert ? rc.dx * 3 / 4 : midX;
+    int trackY = vert ? midY : rc.dy * 3 / 4;
+    tint.nativeTrack = px[trackY * rc.dx + trackX] & 0xffffff;
+    DrawThemePart(theme, hdc, vert ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ, SCRBS_NORMAL, rc);
+    GdiFlush();
+    tint.nativeThumb = px[midY * rc.dx + midX] & 0xffffff;
+    FreeDibDC(hdc, bmp);
+
+    tint.track = ColorToPixel(ThemeScrollbarColor());
+    tint.thumb = ColorToPixel(ThemeScrollbarThumbColor());
+    tint.on = tint.nativeTrack != tint.nativeThumb;
+    return tint;
+}
+
+// Repaint an opaque look in the theme's colors. A pixel keeps how far it sits
+// from Windows' track color toward its thumb color; past the thumb (hot,
+// pressed) it goes on past the theme's thumb color, so those stay darker.
+static void RecolorLook(const ScrollbarTint& tint, DWORD* pixels, int n) {
+    int trackG = (int)((tint.nativeTrack >> 8) & 0xff);
+    int span = (int)((tint.nativeThumb >> 8) & 0xff) - trackG;
+    for (int i = 0; i < n; i++) {
+        float a = (float)((int)((pixels[i] >> 8) & 0xff) - trackG) / (float)span;
+        a = std::clamp(a, 0.0f, 2.0f);
+        DWORD res = 0xff000000;
+        for (int shift = 0; shift < 24; shift += 8) {
+            float from = (float)((tint.track >> shift) & 0xff);
+            float to = (float)((tint.thumb >> shift) & 0xff);
+            int c = (int)(from + (a * (to - from)) + 0.5f);
+            res |= (DWORD)std::clamp(c, 0, 255) << shift;
+        }
+        pixels[i] = res;
+    }
+}
+
 // A smart bar at rest is only the theme's thin thumb line, over the page. The
 // theme draws that line on a box of the track's color, so recover the line's
 // coverage from how far each pixel moved from the box color toward the line's.
-static void DrawThumbOverPage(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD* pixels, int w, int h) {
+static void DrawThumbOverPage(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTint& tint, HDC hdc, DWORD* pixels,
+                              int w, int h) {
     for (int i = 0; i < w * h; i++) {
         pixels[i] = 0;
     }
@@ -242,6 +310,7 @@ static void DrawThumbOverPage(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD
     int boxX = IsVert(sb) ? thumb.x + (thumb.dx * 3 / 4) : midX;
     int boxY = IsVert(sb) ? midY : thumb.y + (thumb.dy * 3 / 4);
     DWORD box = pixels[boxY * w + boxX] & 0xffffff;
+    DWORD color = tint.on ? tint.thumb : line;
     // green is as good as any channel for the coverage
     int boxG = (int)((box >> 8) & 0xff);
     int span = boxG - (int)((line >> 8) & 0xff);
@@ -252,7 +321,7 @@ static void DrawThumbOverPage(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD
             int alpha = span == 0 ? 255 : std::clamp(moved * 255 / span, 0, 255);
             DWORD res = (DWORD)alpha << 24;
             for (int shift = 0; shift < 24; shift += 8) {
-                res |= ((((line >> shift) & 0xff) * (DWORD)alpha) / 255) << shift;
+                res |= ((((color >> shift) & 0xff) * (DWORD)alpha) / 255) << shift;
             }
             px = res;
         }
@@ -260,9 +329,10 @@ static void DrawThumbOverPage(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD
 }
 
 // one look of the bar: hovered (on Windows 11 wide, with arrows) or not
-static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD* pixels, int w, int h, bool hover) {
+static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTint& tint, HDC hdc, DWORD* pixels, int w,
+                           int h, bool hover) {
     if (!hover && !IsAlwaysThickMode(sb)) {
-        DrawThumbOverPage(sb, theme, hdc, pixels, w, h);
+        DrawThumbOverPage(sb, theme, tint, hdc, pixels, w, h);
         return;
     }
     DWORD bg = PremultiplyPixel(ThemeTrackColor(), 255);
@@ -303,6 +373,10 @@ static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD* p
 
     // this look is opaque, like a native bar
     GdiFlush();
+    if (tint.on) {
+        RecolorLook(tint, pixels, w * h);
+        return;
+    }
     for (int i = 0; i < w * h; i++) {
         pixels[i] |= 0xff000000;
     }
@@ -355,7 +429,8 @@ static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, i
         return false;
     }
     bool hover = sb->mouseOverBand || sb->isDragging;
-    DrawThemedLook(sb, theme, hdc, pixels, w, h, hover);
+    ScrollbarTint tint = GetScrollbarTint(sb, theme, hdc, IsVert(sb) ? w : h);
+    DrawThemedLook(sb, theme, tint, hdc, pixels, w, h, hover);
 
     // mid-transition: blend in the look we are leaving (premultiplied, so all
     // four channels blend alike)
@@ -364,7 +439,7 @@ static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, i
     HBITMAP bmpFrom = nullptr;
     HDC hdcFrom = t < 255 ? CreateDibDC(hdc, w, h, &from, &bmpFrom) : nullptr;
     if (hdcFrom) {
-        DrawThemedLook(sb, theme, hdcFrom, from, w, h, !hover);
+        DrawThemedLook(sb, theme, tint, hdcFrom, from, w, h, !hover);
         for (int i = 0; i < w * h; i++) {
             DWORD res = 0;
             for (int shift = 0; shift < 32; shift += 8) {
