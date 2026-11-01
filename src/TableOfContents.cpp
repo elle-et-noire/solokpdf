@@ -1219,8 +1219,7 @@ void CreateToc(MainWindow* win) {
     auto* vbox = new VBox();
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
-    vbox->AddChild(filterEdit);
-    vbox->AddChild(new Spacer(0, 2)); // gap under the search field
+    vbox->AddChild(PadSidebarSearch(filterEdit, parent));
     vbox->AddChild(treeView, 1);
     win->tocViewLayout = vbox;
 
@@ -1242,7 +1241,7 @@ void UpdateSidebarColors(MainWindow* win) {
         return;
     }
     win->pageThumbs->SetColor(kColListText, ThemeWindowTextColor());
-    win->pageThumbs->SetColor(kColListBg, ThemeControlBackgroundColor());
+    win->pageThumbs->SetColor(kColListBg, ThemeCanvasColor());
     UpdateSidebarPanelsIcons(win);
 }
 

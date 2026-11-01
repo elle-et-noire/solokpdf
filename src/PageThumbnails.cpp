@@ -231,7 +231,9 @@ PageThumbnailsCtrl::PageThumbnailsCtrl(MainWindow* win, PlatformFont* font, int 
     // the palette's edit box keeps the keyboard focus; the sidebar takes it
     SetFlag(vwfFocusable, host == ThumbnailsHost::Sidebar);
     SetColor(kColListText, ThemeWindowTextColor());
-    SetColor(kColListBg, ThemeWindowControlBackgroundColor());
+    // the sidebar takes the canvas color (UpdateControlsColors)
+    Color bg = host == ThumbnailsHost::Sidebar ? ThemeCanvasColor() : ThemeWindowControlBackgroundColor();
+    SetColor(kColListBg, bg);
 
     rowsModel = new ThumbnailRowsModel();
 
@@ -487,14 +489,10 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
             ev->gfx->DrawPixmap(thumbnail, target);
         }
 
-        // the theme's accent, as on a focused field's border; the other pages
-        // a thin frame in the scrollbar's color, so a page shows on a sidebar
-        // of its color (Light)
-        if (isCurrent) {
-            ev->gfx->DrawRect(pageRect, ThemeHotEdgeColor(), 3);
-        } else {
-            ev->gfx->DrawRect(pageRect, ThemeScrollbarThumbColor(), 1);
-        }
+        // a frame in the scrollbar's color, so a page shows on a sidebar of
+        // its color (Light); the current page's is thicker
+        int frameDx = isCurrent ? 3 : 1;
+        ev->gfx->DrawRect(pageRect, ThemeScrollbarThumbColor(), frameDx);
 
         TempStr label = fmt("%d", pageNo);
         if (chapters) {

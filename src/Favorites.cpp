@@ -634,8 +634,7 @@ void CreateFavorites(MainWindow* win) {
     auto* vbox = new VBox();
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
-    vbox->AddChild(filterEdit);
-    vbox->AddChild(new Spacer(0, 2)); // gap under the search field
+    vbox->AddChild(PadSidebarSearch(filterEdit, parent));
     vbox->AddChild(treeView, 1);
     win->favViewLayout = vbox;
 

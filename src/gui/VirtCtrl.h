@@ -697,6 +697,8 @@ struct VirtButton : VirtText {
     // colors: kColBtn*, defaulting to gColsBtnDefault when isDefault
     Insets textPadding{.top = 4, .right = 8, .bottom = 4, .left = 8};
     int cornerRadius = 0;
+    // the background and border keep this far inside the bounds
+    Insets bgInsets{};
 
     VirtButton(Str s, PlatformFont* font = nullptr);
     ~VirtButton() override;
@@ -741,6 +743,10 @@ struct VirtIconButton : VirtCtrl {
     bool hasDropdown = false;
     // which half of a split button is hovered (action vs dropdown)
     bool hoverOnDropdown = false;
+    // the hover / selected fill keeps this far inside the bounds, its corners
+    // rounded by highlightRadius (a diameter, as FillRoundedRect takes it)
+    Insets highlightInsets{};
+    int highlightRadius = 0;
     // colors: kColIconBtn*
     VirtMouseHandler onDropdown;
 

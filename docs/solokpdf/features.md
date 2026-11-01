@@ -61,9 +61,17 @@ The menu bar beside the tabs takes the title bar color and `TextColor`; a
 hovered or open menu shows the selected tab's color. Upstream let darkmodelib
 draw it as a box in `ControlBackgroundColor` with `DarkerTextColor`.
 
-The sidebar's view icons (Bookmarks, Thumbnails, Favorites) and other icon
-buttons hover and select in the toolbar's colors (`HotBackgroundColor`, and
-the selection color below for a toggled-on one).
+The sidebar takes the canvas color too, splitters included; its search fields
+keep `ControlBackgroundColor` and a 6×4 DIP margin, so they read as fields
+(upstream: flush with the panel's edges). The sidebar's view icons (Bookmarks,
+Thumbnails, Favorites) and other icon buttons hover and select in the
+toolbar's colors (below).
+
+Toolbar buttons light up in a rounded box 2 DIP inside their neighbors and 4
+DIP inside the bar's top and bottom (upstream: the full button, edge to edge).
+
+The thumbnails' frames take the scrollbar thumb color: 3 px around the current
+page (upstream: a fixed blue), 1 px around the others.
 
 Splitters (sidebar, panels, AI chat) take the panel's color, without upstream's
 darker bar; it shows while hovered or dragged.
@@ -81,10 +89,10 @@ Where the strip nearly matches the canvas (contrast under 1.13), it takes the
 nearest palette color instead, darker if one fits: `ControlBackgroundColor`
 for Choco, Choco Navy, Purpy, Purpy Slate, Nord, Gruvbox, Night Owl and
 Palenight, `NotificationBackgroundColor` for Solarized Dark and Monokai,
-`EdgeColor` for Light Warm. Toolbar buttons hover and toggle against the
-canvas the same way: `HotBackgroundColor` and the selection color unless they
-nearly vanish on it (Purpy, Purpy Slate, Light Warm, Rose Pine Dawn, One Dark)
-or coincide (Night Owl).
+`EdgeColor` for Light Warm. Toolbar and sidebar buttons hover against the
+canvas the same way (`ThemeCanvasHoverColor`): `HotBackgroundColor` unless it
+nearly vanishes on it (Purpy, Purpy Slate, Light Warm, Rose Pine Dawn, One
+Dark) or is the selection color (Night Owl, Solarized Dark).
 
 ## Selection colors
 
@@ -98,7 +106,9 @@ faint on their edge color, fall back to `HotBackgroundColor`, as do One Dark,
 Night Owl and Ayu. The window background is left out: themed pages take it, so
 a selection on them would vanish. Upstream shifted the background's HSL
 lightness by 25 to 45 units, which made saturated themes garish (Solarized
-Dark a bright teal, Greeny a bright green).
+Dark a bright teal, Greeny a bright green). Where the pick nearly matches the
+canvas, which the toolbar, sidebar and pages share (contrast under 1.2, One
+Dark), it is the palette color furthest from the canvas instead.
 
 The bookmark tree keeps its unfocused selection color when it has the focus
 (upstream: the system's blue highlight); high contrast mode still uses the

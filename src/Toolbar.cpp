@@ -793,6 +793,27 @@ static void ApplyToolbarItemColors(VirtCtrl* w) {
     }
 }
 
+// margin (DIP) between a button's hover / toggled fill and the bar's edges
+// and its neighbors, and the fill's corner diameter
+constexpr int kTbHighlightInsetX = 2;
+constexpr int kTbHighlightInsetY = 4;
+constexpr int kTbHighlightCorner = 8;
+
+static void ApplyToolbarItemShape(VirtCtrl* w) {
+    int dx = DpiScale(kTbHighlightInsetX);
+    int dy = DpiScale(kTbHighlightInsetY);
+    Insets in{dy, dx, dy, dx};
+    if (auto* ib = AsVirtIconButton(w)) {
+        ib->highlightInsets = in;
+        ib->highlightRadius = DpiScale(kTbHighlightCorner);
+        return;
+    }
+    if (auto* b = AsVirtButton(w)) {
+        b->bgInsets = in;
+        b->cornerRadius = DpiScale(kTbHighlightCorner);
+    }
+}
+
 static void RefreshToolbarIcons(MainWindow* win) {
     ToolbarVirt* tb = win->toolbarVirt;
     if (!tb) {
@@ -2644,6 +2665,7 @@ static void BuildToolbarLayout(MainWindow* win) {
             w = ib;
         }
         ApplyToolbarItemColors(w);
+        ApplyToolbarItemShape(w);
         w->id = bi.cmdId;
         if (bi.toolTip) {
             bool translate = !noTranslate && !bi.isText;
@@ -2673,6 +2695,7 @@ static void BuildToolbarLayout(MainWindow* win) {
             w = ib;
         }
         ApplyToolbarItemColors(w);
+        ApplyToolbarItemShape(w);
         w->id = bi.cmdId;
         if (bi.toolTip) {
             w->SetTooltip(ToolbarTipTemp(bi.cmdId, bi.toolTip, true));

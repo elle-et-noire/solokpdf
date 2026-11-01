@@ -70,7 +70,7 @@ Color TbDisabledColor() {
 }
 
 Color TbHoverColor() {
-    return ThemeToolbarHoverColor();
+    return ThemeCanvasHoverColor();
 }
 
 // A ground a shade off the normal one, for telling two areas of a drop-down
@@ -81,7 +81,7 @@ Color TbSubtleBgColor() {
 }
 
 Color TbSelectedColor() {
-    return ThemeToolbarSelectedColor();
+    return ThemeSelectedBackgroundColor();
 }
 
 Color TbEdgeColor() {

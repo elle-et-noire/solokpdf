@@ -257,8 +257,8 @@ const ebookUI: Field[] = [
 const theme: Field[] = [
   field("Name", Str, "", "name of the theme, as shown in the Settings / Theme menu"),
   field("TextColor", Color, "", "color of text in menus, toolbar, tabs and sidebars"),
-  field("BackgroundColor", Color, "", "background color of the window around the document, the toolbar and the active tab"),
-  field("ControlBackgroundColor", Color, "", "background color of sidebars and dialogs"),
+  field("BackgroundColor", Color, "", "background color of the window around the document, the toolbar, the sidebar and the active tab"),
+  field("ControlBackgroundColor", Color, "", "background color of dialogs and search fields"),
   field(
     "ActiveTabBackgroundColor",
     Color,

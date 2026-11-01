@@ -1300,11 +1300,18 @@ static Color PickPaletteColor(const PalettePickArgs& a) {
     return res;
 }
 
-// A selection: toggled-on buttons (sidebar views), the selected bookmark or
-// list row and text selected on a page. A palette color, not a lightness shift
-// of the background (that made Solarized Dark's and Greeny's garish): the one
-// furthest from the background, toward the text, that keeps the text readable
-// (mostly EdgeColor); the hover color when none does.
+// button states and selections against the canvas-colored toolbar, sidebar
+// and pages
+constexpr float kMinCanvasSelectedContrast = 1.2f;
+constexpr float kMinCanvasHoverContrast = 1.08f;
+
+// A selection: toggled-on buttons (toolbar, sidebar views), the selected
+// bookmark or list row and text selected on a page. A palette color, not a
+// lightness shift of the background (that made Solarized Dark's and Greeny's
+// garish): the one furthest from the control background, toward the text,
+// that keeps the text readable (mostly EdgeColor); the hover color when none
+// does. Where that nearly matches the canvas (One Dark), the palette color
+// furthest from the canvas.
 Color ThemeSelectedBackgroundColor() {
     Color bg = ThemeControlBackgroundColor();
     if (gUseHighContrast) {
@@ -1315,8 +1322,19 @@ Color ThemeSelectedBackgroundColor() {
     args.pick = PalettePick::Furthest;
     args.side = PaletteSide::TowardText;
     args.minTextContrast = kMinSelectionTextContrast;
+    Color sel = PickPaletteColor(args);
+    if (sel == kColorUnset) {
+        sel = ThemeHotBackgroundColor();
+    }
+
+    args.bg = ThemeCanvasColor();
+    if (ContrastRatio(sel, args.bg) >= kMinCanvasSelectedContrast) {
+        return sel;
+    }
+    args.side = PaletteSide::Any;
+    args.minContrast = kMinCanvasSelectedContrast;
     Color res = PickPaletteColor(args);
-    return res == kColorUnset ? ThemeHotBackgroundColor() : res;
+    return res == kColorUnset ? sel : res;
 }
 
 // the selected tab against the tab strip
@@ -1346,44 +1364,21 @@ Color ThemeTabStripColor() {
     return res == kColorUnset ? strip : res;
 }
 
-// toolbar button states against the canvas-colored toolbar
-constexpr float kMinToolbarSelectedContrast = 1.2f;
-constexpr float kMinToolbarHoverContrast = 1.08f;
-
-// Toggled-on toolbar buttons: the selection color, unless it nearly matches
-// the canvas (One Dark); then the palette color furthest from it.
-Color ThemeToolbarSelectedColor() {
-    Color sel = ThemeSelectedBackgroundColor();
-    if (gUseHighContrast) {
-        return sel;
-    }
-    PalettePickArgs args;
-    args.bg = ThemeCanvasColor();
-    if (ContrastRatio(sel, args.bg) >= kMinToolbarSelectedContrast) {
-        return sel;
-    }
-    args.pick = PalettePick::Furthest;
-    args.minContrast = kMinToolbarSelectedContrast;
-    args.minTextContrast = kMinSelectionTextContrast;
-    Color res = PickPaletteColor(args);
-    return res == kColorUnset ? sel : res;
-}
-
-// Hovered toolbar buttons: HotBackgroundColor, unless it nearly matches the
-// canvas (Purpy, One Dark) or the selection (Night Owl); then the nearest
-// palette color that shows.
-Color ThemeToolbarHoverColor() {
+// Hovered buttons on the toolbar and sidebar: HotBackgroundColor, unless it
+// nearly matches the canvas (Purpy, One Dark) or the selection (Night Owl);
+// then the nearest palette color that shows.
+Color ThemeCanvasHoverColor() {
     Color hot = ThemeHotBackgroundColor();
     if (gUseHighContrast) {
         return hot;
     }
     PalettePickArgs args;
     args.bg = ThemeCanvasColor();
-    args.skip = ThemeToolbarSelectedColor();
-    if (hot != args.skip && ContrastRatio(hot, args.bg) >= kMinToolbarHoverContrast) {
+    args.skip = ThemeSelectedBackgroundColor();
+    if (hot != args.skip && ContrastRatio(hot, args.bg) >= kMinCanvasHoverContrast) {
         return hot;
     }
-    args.minContrast = kMinToolbarHoverContrast;
+    args.minContrast = kMinCanvasHoverContrast;
     Color res = PickPaletteColor(args);
     return res == kColorUnset ? hot : res;
 }

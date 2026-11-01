@@ -17,6 +17,7 @@
 
 #include "gui/PlatformFont.h"
 #include "gui/Gfx.h"
+#include "gui/GuiColors.h"
 #include "gui/VirtCtrl.h"
 #include "gui/win/TabsCtrl.h"
 #include "gui/win/FrameRateWnd.h"
@@ -846,19 +847,27 @@ void MainWindow::ShowFrameRateDur(double durMs) {
     frameRateWnd->ShowFrameRateDur(durMs);
 }
 
+// The sidebar takes the canvas color, as the toolbar and the selected tab do;
+// its search fields keep the control background, so they read as fields.
 void UpdateControlsColors(MainWindow* win) {
-    Color bgCol = ThemeControlBackgroundColor();
+    Color bgCol = ThemeCanvasColor();
+    Color editBgCol = ThemeControlBackgroundColor();
     Color txtCol = ThemeWindowTextColor();
 
     // logf("retrieved doc colors in tree control: 0x%x 0x%x\n", treeTxtCol, treeBgCol);
 
-    // the panel labels and the splitters are virtual controls: they follow the
-    // gui/ color defaults, which SumatraUpdateTheme() already refreshed
+    VirtSplitter* splitters[] = {win->sidebarSplitter, win->sidebarPanelsSplitter, win->sidebarMiddleSplitter};
+    for (VirtSplitter* s : splitters) {
+        if (s) {
+            s->SetColor(kColSplitterBg, bgCol);
+        }
+    }
+
     if (win->tocTreeView) {
         win->tocTreeView->SetColors(txtCol, bgCol);
 
         if (win->tocFilterEdit) {
-            win->tocFilterEdit->SetColors(txtCol, bgCol);
+            win->tocFilterEdit->SetColors(txtCol, editBgCol);
         }
         UpdateSidebarColors(win);
     }
@@ -869,7 +878,7 @@ void UpdateControlsColors(MainWindow* win) {
     if (favTreeView) {
         favTreeView->SetColors(txtCol, bgCol);
         if (win->favFilterEdit) {
-            win->favFilterEdit->SetColors(txtCol, bgCol);
+            win->favFilterEdit->SetColors(txtCol, editBgCol);
         }
     }
 }

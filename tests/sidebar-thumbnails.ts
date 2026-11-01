@@ -155,12 +155,14 @@ function click(s: Sidebar, page: number, mk = 0) {
   clickPt(s.hwnd, pointIn(s, page, 0.5, 0.5), mk);
 }
 
-// the current page's frame (MkRgb(0, 120, 215)), as a COLORREF off the screen
-function isFrameBlue(c: number): boolean {
+// the current page's frame, as a COLORREF off the screen: the scrollbar thumb
+// color, Light's EdgeColor #c0c0c0 (the settings next to the debug exe)
+function isFrameColor(c: number): boolean {
   const r = c & 0xff;
   const g = (c >> 8) & 0xff;
   const b = (c >> 16) & 0xff;
-  return r < 60 && g > 90 && g < 150 && b > 180;
+  const near = (v: number) => Math.abs(v - 0xc0) <= 8;
+  return near(r) && near(g) && near(b);
 }
 
 // Whether the screen shows the current page's thumbnail framed on both sides.
@@ -200,7 +202,7 @@ function frameOnScreen(s: Sidebar): boolean {
     return left && right;
   }
   const row = readWindowDCRow(s.hwnd, r.x - 2, r.y + Math.floor(r.dy / 2), r.dx + 4);
-  return row.slice(0, edge).some(isFrameBlue) && row.slice(-edge).some(isFrameBlue);
+  return row.slice(0, edge).some(isFrameColor) && row.slice(-edge).some(isFrameColor);
 }
 
 // clicks a panel's view icon

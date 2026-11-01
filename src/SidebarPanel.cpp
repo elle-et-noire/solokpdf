@@ -395,7 +395,7 @@ static LRESULT CALLBACK WndProcSidebarPanel(HWND hwnd, UINT msg, WPARAM wp, LPAR
 
     // the header and the thumbnails are virtual controls, so this window paints
     // them and hands them their input
-    if (VirtHostOnMessage(hwnd, p->root, msg, wp, lp, res, ThemeControlBackgroundColor())) {
+    if (VirtHostOnMessage(hwnd, p->root, msg, wp, lp, res, ThemeCanvasColor())) {
         return res;
     }
 
@@ -408,6 +408,18 @@ static LRESULT CALLBACK WndProcSidebarPanel(HWND hwnd, UINT msg, WPARAM wp, LPAR
         return 0;
     }
     return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+// room around a view's search field (DIP), so it reads as a field on the
+// sidebar rather than as a band across it
+constexpr int kSearchPadX = 6;
+constexpr int kSearchPadY = 4;
+
+ILayout* PadSidebarSearch(Edit* edit, HWND parent) {
+    int dpi = DpiGetForHwnd(parent);
+    int dx = DpiScaleByDpi(dpi, kSearchPadX);
+    int dy = DpiScaleByDpi(dpi, kSearchPadY);
+    return new Padding(edit, Insets{dy, dx, dy, dx});
 }
 
 static void UpdateViewIcons(SidebarPanel* p, int dpi) {

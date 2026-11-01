@@ -2977,19 +2977,26 @@ Color VirtButton::TextColor(Color bg) const {
     return EnsureContrast(textCol, bg);
 }
 
+static Rect ShrinkByInsets(Rect r, const Insets& in) {
+    r.SubTB(in.top, in.bottom);
+    r.SubLR(in.left, in.right);
+    return r;
+}
+
 void VirtButton::Paint(VirtPaintCtx& ctx) {
     bool isEnabled = HasFlag(vwfEnabled);
     Color bg = GetColor((isEnabled && HasFlag(vwfHovered)) ? kColBtnBgHover : kColBtnBg);
     Color borderCol = GetColor(kColBtnBorder);
+    Rect bgRect = ShrinkByInsets(ctx.bounds, bgInsets);
     if (cornerRadius > 0) {
         Color border = ColorSkipsPaint(borderCol) ? kColorTransparent : borderCol;
-        ctx.gfx->FillRoundedRect(ctx.bounds, cornerRadius, bg, border);
+        ctx.gfx->FillRoundedRect(bgRect, cornerRadius, bg, border);
         borderCol = kColorUnset;
     } else {
-        ctx.gfx->FillRect(ctx.bounds, bg);
+        ctx.gfx->FillRect(bgRect, bg);
     }
     if (!ColorSkipsPaint(borderCol)) {
-        Rect b = ctx.bounds;
+        Rect b = bgRect;
         ctx.gfx->FillRect({b.x, b.y, b.dx, 1}, borderCol);
         ctx.gfx->FillRect({b.x, b.Bottom() - 1, b.dx, 1}, borderCol);
         ctx.gfx->FillRect({b.x, b.y, 1, b.dy}, borderCol);
@@ -3084,23 +3091,24 @@ Size VirtIconButton::GetIdealSize() {
 void VirtIconButton::Paint(VirtPaintCtx& ctx) {
     bool enabled = IsEnabled();
     int dropDx = DropdownDx();
-    Rect action = ctx.bounds;
-    Rect drop = ctx.bounds;
+    Rect hiRect = ShrinkByInsets(ctx.bounds, highlightInsets);
+    Rect action = hiRect;
+    Rect drop = hiRect;
     if (dropDx > 0) {
-        action.dx -= dropDx;
+        action.dx = ctx.bounds.Right() - dropDx - hiRect.x;
         drop.x = ctx.bounds.Right() - dropDx;
-        drop.dx = dropDx;
+        drop.dx = hiRect.Right() - drop.x;
     }
     Color bgSel = GetColor(kColIconBtnBgSelected);
     // a disabled button's last checked state is leftover (e.g. Fit Single Page
     // after switching to the home page); don't paint it as selected
     if (isSelected && enabled && bgSel != kColorUnset) {
-        ctx.gfx->FillRect(action, bgSel);
+        ctx.gfx->FillRoundedRect(action, highlightRadius, bgSel);
     }
     Color bgHover = GetColor(kColIconBtnBgHover);
     if (enabled && HasFlag(vwfHovered) && bgHover != kColorUnset) {
         Rect hi = (dropDx > 0 && hoverOnDropdown) ? drop : action;
-        ctx.gfx->FillRect(hi, bgHover);
+        ctx.gfx->FillRoundedRect(hi, highlightRadius, bgHover);
     }
     Pixmap* px = (!enabled && pixmapDisabled) ? pixmapDisabled : pixmap;
     Rect r = ctx.content;
