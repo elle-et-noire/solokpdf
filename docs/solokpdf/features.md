@@ -168,8 +168,11 @@ with a size grip that resizes the frame when it isn't maximized.
   or a scroll (was 3 s and 5 s, at once) and takes no room.
 - Every theme, Light and Dark included, tints the bars: `ScrollbarColor` and
   `ScrollbarThumbColor` (new theme fields), by default `ControlBackgroundColor`
-  and the thumbnails' scrollbar color (`AccentColor(ScrollbarColor, 60)`, which
-  lists now take from `ScrollbarThumbColor` too). Each pixel of the native look
+  and a palette color: `EdgeColor`, or `DisabledTextColor` where `EdgeColor`'s
+  contrast with the track is under 1.5 (One Dark, Night Owl, Ayu, Nord, …).
+  Lists, the thumbnails included, take `ScrollbarThumbColor` too. A lightness
+  shift of the track made saturated themes garish (Solarized Dark a bright
+  teal, Greeny a bright green). Each pixel of the native look
   keeps its place between Windows' track and thumb colors, mapped onto the
   theme's pair. High contrast and `windows` bars keep Windows' colors.
 

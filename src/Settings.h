@@ -195,8 +195,9 @@ struct Theme {
     // background of the overlay scrollbars (Scrollbars = smart or
     // overlay); if empty, ControlBackgroundColor
     ParsedColor scrollbarColor;
-    // thumb and arrows of the overlay scrollbars; if empty, derived from
-    // ScrollbarColor, like the thumbnails' scrollbar
+    // thumb and arrows of the overlay scrollbars and lists; if empty,
+    // EdgeColor, or DisabledTextColor where EdgeColor is too close to
+    // ScrollbarColor
     ParsedColor scrollbarThumbColor;
     // if true, apply the theme colors to Windows controls and window areas
     // too

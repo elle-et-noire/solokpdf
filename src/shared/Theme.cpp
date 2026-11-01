@@ -1378,9 +1378,40 @@ Color ThemeScrollbarColor() {
     return GetThemeCol(gCurrentTheme->scrollbarColor, ThemeControlBackgroundColor());
 }
 
-// also the lists' and thumbnails' scrollbar color (kColListScrollbar)
+// a thumb too close to its track to see
+constexpr float kMinThumbContrast = 1.5f;
+
+// WCAG relative luminance, 0..1
+static float RelLuminance(Color c) {
+    auto lin = [](u8 v) {
+        float x = (float)v / 255.0f;
+        return x <= 0.03928f ? x / 12.92f : powf((x + 0.055f) / 1.055f, 2.4f);
+    };
+    return (0.2126f * lin(GetRed(c))) + (0.7152f * lin(GetGreen(c))) + (0.0722f * lin(GetBlue(c)));
+}
+
+// WCAG contrast ratio, 1..21
+static float ContrastRatio(Color a, Color b) {
+    float la = RelLuminance(a);
+    float lb = RelLuminance(b);
+    return (std::max(la, lb) + 0.05f) / (std::min(la, lb) + 0.05f);
+}
+
+// A palette color, not a shade derived from the track (a lightness shift
+// turned Solarized Dark's teal and Greeny's green garish): the edge color, or
+// the disabled text color where the edge almost vanishes on the track (One
+// Dark, Night Owl). Also the lists' and thumbnails' (kColListScrollbar).
 Color ThemeScrollbarThumbColor() {
-    return GetThemeCol(gCurrentTheme->scrollbarThumbColor, AccentColor(ThemeScrollbarColor(), 60));
+    Color track = ThemeScrollbarColor();
+    Color thumb = ThemeEdgeColor();
+    float edgeContrast = ContrastRatio(thumb, track);
+    if (edgeContrast < kMinThumbContrast) {
+        Color disabled = ThemeWindowTextDisabledColor();
+        if (ContrastRatio(disabled, track) > edgeContrast) {
+            thumb = disabled;
+        }
+    }
+    return GetThemeCol(gCurrentTheme->scrollbarThumbColor, thumb);
 }
 
 // Links inside a warning notification. The theme's link color is picked to sit on

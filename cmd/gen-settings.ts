@@ -351,7 +351,7 @@ const theme: Field[] = [
     "ScrollbarThumbColor",
     Color,
     "",
-    "thumb and arrows of the overlay scrollbars; if empty, derived from ScrollbarColor, like the thumbnails' scrollbar",
+    "thumb and arrows of the overlay scrollbars and lists; if empty, EdgeColor, or DisabledTextColor where EdgeColor is too close to ScrollbarColor",
   ).ver("3.7"),
   field("ColorizeControls", Bool, false, "if true, apply the theme colors to Windows controls and window areas too"),
 ];
