@@ -6,7 +6,7 @@
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
-import { cmdId, runStandalone, tmpPath, USE_NG } from "./util";
+import { cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
 import { clientToScreen, getClientRect, postMessage, sleep, VK_ESCAPE, WM_CHAR, WM_KEYDOWN } from "./winapi";
 import {
   findCanvas,
@@ -94,7 +94,7 @@ export async function testit(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nReloadModifiedDocuments = true\n",
   );
 

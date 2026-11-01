@@ -6,7 +6,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { runStandalone, tmpPath, crc32, makePng } from "./util.ts";
+import { runStandalone, tmpPath, crc32, makePng, SETTINGS_FILE } from "./util.ts";
 import { findCanvas, launchControlled, killAndWait, ensureModifierKeysUp, ngInput } from "./win-automation.ts";
 import {
   clientToScreen,
@@ -89,7 +89,7 @@ export async function testit(): Promise<void> {
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     ["RestoreSession = false", "ShowStartPage = false", "SmoothScroll = true", "MouseWheelTurnsPage = false", ""].join(
       "\n",
     ),

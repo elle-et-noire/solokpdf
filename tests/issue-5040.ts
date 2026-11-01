@@ -19,7 +19,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control";
-import { EXE, runStandalone, tmpPath } from "./util";
+import { EXE, runStandalone, tmpPath, SETTINGS_FILE } from "./util";
 import { sleep } from "./winapi";
 import { findLatexEngine } from "./issue-5633";
 
@@ -125,7 +125,7 @@ async function checkSynctexFlavor(pdflatex: string, gzip: boolean): Promise<void
   const dir = tmpPath(`issue-5040-${gzip ? "gz" : "plain"}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
 
   // first compile has the filler pages, so the sections sit late in the document
   await compile(pdflatex, dir, nFiller, gzip);

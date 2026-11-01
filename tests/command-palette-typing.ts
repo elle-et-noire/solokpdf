@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient } from "./control.ts";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { ROOT, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { postMessage, sleep, WM_KEYDOWN, WM_KEYUP } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommand, waitForPalette, paletteState } from "./win-automation.ts";
 
@@ -47,7 +47,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("command-palette-typing");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);

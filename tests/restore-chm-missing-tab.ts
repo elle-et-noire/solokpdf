@@ -12,7 +12,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
 
 import { killAndWait, killProcessesNamed, launchControlled, takeStderr } from "./win-automation.ts";
 import { sleep } from "./winapi.ts";
@@ -54,7 +54,7 @@ ${tabState(MISSING_EPUB)}
   ]
 ]
 `;
-  writeFileSync(join(APPDATA, "SumatraPDF-settings.txt"), seed, "utf8");
+  writeFileSync(join(APPDATA, SETTINGS_FILE), seed, "utf8");
 }
 
 export async function testit(): Promise<void> {

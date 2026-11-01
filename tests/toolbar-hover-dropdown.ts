@@ -15,7 +15,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { assemblePdf, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
+import { assemblePdf, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import {
   captureWindowToPng,
   getWorkArea,
@@ -719,7 +719,7 @@ async function checkCustomZoomLevels(dir: string, pdf: string): Promise<void> {
   const appdata = join(dir, "appdata-custom");
   mkdirSync(appdata);
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "UiLanguage = en\nRestoreSession = false\nShowStartPage = false\nCheckForUpdates = false\n" +
       `Theme = Dark\nZoomLevels = ${CUSTOM_ZOOM_LEVELS.join(" ")}\n`,
   );
@@ -783,7 +783,7 @@ export async function testit(): Promise<void> {
   const appdata = join(dir, "appdata");
   mkdirSync(appdata);
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "UiLanguage = en\nRestoreSession = false\nShowStartPage = false\nCheckForUpdates = false\n",
   );
 

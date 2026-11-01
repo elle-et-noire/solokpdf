@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, makeBlankPdf } from "./util.ts";
+import { cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, makeBlankPdf, SETTINGS_FILE } from "./util.ts";
 import {
   clientToScreen,
   getClientRect,
@@ -105,10 +105,7 @@ export async function testit(): Promise<void> {
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
   writeFileSync(pdf, makeBlankPdf(), "latin1");
-  writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
-    "UiLanguage = en\nRestoreSession = false\nCheckForUpdates = false\n",
-  );
+  writeFileSync(join(appdata, SETTINGS_FILE), "UiLanguage = en\nRestoreSession = false\nCheckForUpdates = false\n");
 
   const { proc, client, frame } = await launchControlled([
     "-appdata",

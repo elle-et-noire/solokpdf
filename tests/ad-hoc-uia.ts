@@ -17,7 +17,7 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXE, ROOT, tmpPath } from "./util";
+import { EXE, ROOT, tmpPath, SETTINGS_FILE } from "./util";
 import { FRAME_CLASS } from "./win-automation";
 import {
   moveWindow,
@@ -144,7 +144,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("ad-hoc-uia-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   await killProcessesNamed("SumatraPDF.exe");
   const logPath = tmpPath("ad-hoc-uia-log.txt");

@@ -3,7 +3,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { cmdId, ROOT, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, ROOT, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 type FindUiState = {
@@ -63,7 +63,7 @@ export async function testit(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nSearchUIFloating = false\n",
   );
 

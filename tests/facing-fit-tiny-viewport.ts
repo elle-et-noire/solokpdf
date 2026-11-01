@@ -7,7 +7,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host";
-import { runStandalone, tmpPath, makeBlankPdf } from "./util";
+import { runStandalone, tmpPath, makeBlankPdf, SETTINGS_FILE } from "./util";
 import { killAndWait, launchControlled } from "./win-automation";
 import {
   getWindowRect,
@@ -41,7 +41,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("facing-fit-tiny-viewport-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {

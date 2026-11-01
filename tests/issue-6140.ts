@@ -16,7 +16,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { EXE, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
 
 const BACKENDS = ["webview2", "ie"];
 const MD_NAMES = ["Test Test.md", "100% & C#1 (v2)+[a]@b;c=d!.md", "Ünïcode Tëst.md"];
@@ -72,7 +72,7 @@ export async function testit(): Promise<void> {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [
       "MarkdownUI [",
       "\tUseFixedPageUI = false",

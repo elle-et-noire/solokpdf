@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { EXE, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 
 const PDF = "C:/Users/kjk/Downloads/Зал центральний ще новіше.1.pdf";
 const PAGE_WIDTH = 1684;
@@ -15,7 +15,7 @@ const LABELS = [
 async function render(mode: string): Promise<Buffer> {
   const dir = tmpPath(`cad-text-${mode}`);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), `EngineeringDrawingEnhance = ${mode}\n`);
+  writeFileSync(join(dir, SETTINGS_FILE), `EngineeringDrawingEnhance = ${mode}\n`);
   await withControlledSumatra(
     EXE,
     async (client) => {

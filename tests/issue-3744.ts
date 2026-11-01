@@ -11,7 +11,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { EXE, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 
 // minimal N-page PDF (content doesn't matter; we assert CurrentPageNo).
 function makePdf(nPages: number): Buffer {
@@ -92,7 +92,7 @@ export async function testit(): Promise<void> {
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "ReuseInstance = false\nRestoreSession = false\nShowStartPage = false\nCheckForUpdates = false\n",
   );
 

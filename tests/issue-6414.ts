@@ -4,7 +4,7 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { centerPixel, thumbnailPath, waitForFile } from "./issue-6236.ts";
-import { makePng, runStandalone, tmpPath } from "./util.ts";
+import { makePng, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
 
 const SRC_PDF = join(import.meta.dir, "issue-3219.pdf");
@@ -16,7 +16,7 @@ export async function testit(): Promise<void> {
   const appData = join(root, "appdata");
   mkdirSync(appData, { recursive: true });
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     ["UiLanguage = en", "CheckForUpdates = false", "RememberOpenedFiles = true", "ShowStartPage = true", ""].join("\n"),
   );
 

@@ -7,7 +7,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_WIN } from "./host.ts";
-import { assemblePdf, EXE, runStandalone, tmpPath } from "./util.ts";
+import { assemblePdf, EXE, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { FRAME_CLASS, killAndWait, killProcessesNamed } from "./win-automation.ts";
 import { findTopWindow, sendCopyDataW, sleep } from "./winapi.ts";
 
@@ -44,7 +44,7 @@ function seedSettings(dir: string, pdf: string): void {
 `;
   }
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en
 CheckForUpdates = false
 RestoreSession = true

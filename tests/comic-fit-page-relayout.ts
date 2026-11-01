@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { join } from "node:path";
-import { cmdId, runStandalone, tmpPath, pngChunk, makeStoredZip } from "./util.ts";
+import { cmdId, runStandalone, tmpPath, pngChunk, makeStoredZip, SETTINGS_FILE } from "./util.ts";
 import { launchControlled, sendCommandSync, killAndWait } from "./win-automation.ts";
 import { ControlCommand } from "./control.ts";
 
@@ -40,7 +40,7 @@ export async function testit(): Promise<void> {
     ]),
   );
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     [
       "ReuseInstance = false",
       "RestoreSession = false",

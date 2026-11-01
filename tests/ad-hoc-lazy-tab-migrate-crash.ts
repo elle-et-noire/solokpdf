@@ -16,14 +16,14 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, killProcessesNamed, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 const PDF = resolve("tests/issue-1189.pdf");
 const EPUB = resolve("tests/issue-6095.epub");
 
 const APPDATA = tmpPath("ad-hoc-lazy-tab-migrate-appdata");
-const SETTINGS_PATH = join(APPDATA, "SumatraPDF-settings.txt");
+const SETTINGS_PATH = join(APPDATA, SETTINGS_FILE);
 
 // flat page number that MigrateFileStatePagePos turns into a "bm:" bookmark
 const LEGACY_EPUB_PAGE_NO = 2;

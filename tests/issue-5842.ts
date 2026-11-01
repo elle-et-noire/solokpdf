@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runAppUnitTests, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { EXE, runAppUnitTests, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
 
 const TARGET_DEST_NO = 3;
 const MIN_TARGET_SCROLL_Y = 500;
@@ -52,7 +52,7 @@ export async function testit(): Promise<void> {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     ["MarkdownUI [", "\tUseFixedPageUI = false", "]", "RestoreSession = false", "ShowStartPage = false", ""].join("\n"),
   );
 

@@ -7,7 +7,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { EXE, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 
 function settings(): string {
   return ["MarkdownUI [", "\tUseFixedPageUI = true", "]", "RestoreSession = false", "ShowStartPage = false", ""].join(
@@ -37,7 +37,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("issue-6143-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), settings());
+  writeFileSync(join(appdata, SETTINGS_FILE), settings());
 
   const empty = join(dir, "empty.md");
   writeFileSync(empty, "");

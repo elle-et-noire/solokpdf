@@ -14,7 +14,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control";
-import { EXE, makeMinimalPdf, runStandalone, tmpPath } from "./util";
+import { EXE, makeMinimalPdf, runStandalone, tmpPath, SETTINGS_FILE } from "./util";
 
 // the .md and the .pdf it links to, both with a space and an umlaut in the name
 const MD_NAME = "umlaut ä test.md";
@@ -62,7 +62,7 @@ function makeFolder(): { dir: string; appdata: string } {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     ["MarkdownUI [", "\tUseFixedPageUI = false", "]", "RestoreSession = false", "ShowStartPage = false", ""].join("\n"),
   );
   return { dir, appdata };

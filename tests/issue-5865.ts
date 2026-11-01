@@ -9,7 +9,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util";
+import { ROOT, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util";
 import {
   clientToScreen,
   getClientRect,
@@ -145,7 +145,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("issue-5865-appdata");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
 
   // run 1: open the doc, go fullscreen, quit (saves WindowState = 3)
   await runOnce(dir, [pdf], async (frame, canvas) => {

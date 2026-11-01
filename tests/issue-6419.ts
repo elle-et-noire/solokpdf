@@ -7,7 +7,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 import { WM_KEYDOWN, postMessage, sleep } from "./winapi.ts";
 
@@ -73,7 +73,7 @@ export async function testit(): Promise<void> {
   writeFileSync(otherHtml, "<!doctype html><html><body><p>other tab</p></body></html>");
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), "RestoreSession = false\nShowStartPage = false\n");
+  writeFileSync(join(appdata, SETTINGS_FILE), "RestoreSession = false\nShowStartPage = false\n");
 
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, longHtml, otherHtml]);
   try {

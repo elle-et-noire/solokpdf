@@ -6,7 +6,7 @@
 // A second SumatraPDF instance serves as the host; only its frame hwnd is used.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runStandalone, writeAppdata } from "./util.ts";
+import { runStandalone, writeAppdata, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
 import { embedWindow } from "./winapi.ts";
 
@@ -19,7 +19,7 @@ function scrollbarsIn(settings: string): string {
 
 export async function testit(): Promise<void> {
   const appdata = writeAppdata("ad-hoc-embedded-scrollbars-appdata", "Scrollbars = smart");
-  const settingsPath = join(appdata, "SumatraPDF-settings.txt");
+  const settingsPath = join(appdata, SETTINGS_FILE);
 
   const host = await launchControlled([PDF]);
   try {

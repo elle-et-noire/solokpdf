@@ -10,7 +10,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { runStandalone, tmpPath, makeTopBottomPdf } from "./util.ts";
+import { runStandalone, tmpPath, makeTopBottomPdf, SETTINGS_FILE } from "./util.ts";
 import { findCanvas, launchControlled, killAndWait, ensureModifierKeysUp } from "./win-automation.ts";
 import {
   clientToScreen,
@@ -80,7 +80,7 @@ async function testPdfWheel(): Promise<void> {
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [
       "RestoreSession = false",
       "ShowStartPage = false",
@@ -149,7 +149,7 @@ async function testMarkdownWheel(): Promise<void> {
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     ["MarkdownUI [", "\tUseFixedPageUI = false", "]", "RestoreSession = false", "ShowStartPage = false", ""].join("\n"),
   );
 

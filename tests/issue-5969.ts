@@ -12,7 +12,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
 import { sendCommand, waitForFrame } from "./win-automation.ts";
-import { cmdId, EXE, makeMinimalPdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { cmdId, EXE, makeMinimalPdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
 
 const SETTINGS = `UiLanguage = en
 CheckForUpdates = false
@@ -137,7 +137,7 @@ export async function testit(): Promise<void> {
   const appDataDir = tmpPath("issue-5969-appdata");
   rmSync(appDataDir, { recursive: true, force: true });
   mkdirSync(appDataDir, { recursive: true });
-  writeFileSync(join(appDataDir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appDataDir, SETTINGS_FILE), SETTINGS);
 
   const twoPage = tmpPath("issue-5969-two.pdf");
   writeFileSync(twoPage, makeTwoPagePdf());

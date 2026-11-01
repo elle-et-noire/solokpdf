@@ -2,7 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { ROOT, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import {
   findChildWindow,
   findTopWindow,
@@ -77,7 +77,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("command-palette-thumbnails");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);

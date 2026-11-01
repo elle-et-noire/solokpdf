@@ -19,7 +19,7 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control";
-import { cmdId, tmpPath, USE_NG } from "./util";
+import { cmdId, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
 import { launchControlled, sendCommandSync, killAndWait } from "./win-automation";
 import { collapseTreeRoots, countVisibleTreeRows, findChildWindow, sleep, treeGetSelection } from "./winapi";
 
@@ -84,7 +84,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("issue-1998-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   // kill stale dev-build instances so reuse-instance can't forward our launch
   // to an old window (which would leave our process window-less)

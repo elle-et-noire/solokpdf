@@ -12,7 +12,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpPath } from "./util.ts";
+import { tmpPath, SETTINGS_FILE } from "./util.ts";
 import { makeFixtures } from "./ad-hoc-issue-4600.ts";
 import { findCanvas, launchSumatra, waitForFrame, killAndWait, killProcessesNamed } from "./win-automation.ts";
 import { captureWindowPixels, moveWindow, setForegroundWindow, showWindow, sleep, SW_RESTORE } from "./winapi.ts";
@@ -24,7 +24,7 @@ async function render(settings: string[]): Promise<Cap> {
   const appdata = tmpPath("issue-4600-margin-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), [...settings, `RestoreSession = false`, ``].join("\n"));
+  writeFileSync(join(appdata, SETTINGS_FILE), [...settings, `RestoreSession = false`, ``].join("\n"));
   const epub = join(tmpPath("epub-font"), "none.epub");
   const proc = launchSumatra(["-appdata", appdata, "-view", "single page", "-zoom", "fit page", epub]);
   try {

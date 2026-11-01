@@ -9,7 +9,7 @@
 
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { EXE, ROOT, runStandalone, tmpPath } from "./util.ts";
+import { EXE, ROOT, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { spawn } from "node:child_process";
 import { windowPosArgs } from "./win-automation.ts";
 import { killAndWait } from "./winapi.ts";
@@ -124,7 +124,7 @@ export async function testit(): Promise<void> {
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [
       "ReuseInstance = true",
       "UseTabs = true",

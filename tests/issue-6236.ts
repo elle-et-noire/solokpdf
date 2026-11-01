@@ -5,7 +5,7 @@
 //   python -c "from PIL import Image; Image.new('RGB',(200,300),(220,30,30)).save('tests/issue-6236.jpg',quality=90)"
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadPng, pngPixel, runStandalone, tmpPath } from "./util.ts";
+import { loadPng, pngPixel, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
 import { sleep } from "./winapi.ts";
 
@@ -127,7 +127,7 @@ export async function testit(): Promise<void> {
   const appData = join(root, "appdata");
   mkdirSync(appData, { recursive: true });
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     ["UiLanguage = en", "CheckForUpdates = false", "RememberOpenedFiles = true", "ShowStartPage = true", ""].join("\n"),
   );
   const withCover = join(root, "book.epub");

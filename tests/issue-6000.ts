@@ -9,7 +9,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, USE_NG, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { ROOT, USE_NG, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import {
   captureWindowDCRegionPixels,
   captureWindowToPng,
@@ -174,7 +174,7 @@ export async function testit(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `Theme = Dark
 UiLanguage = en
 CheckForUpdates = false

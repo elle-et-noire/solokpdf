@@ -5,7 +5,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control";
 import { IS_MAC } from "./host";
-import { cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util";
+import { cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
 import { clientToScreen, getClientRect, postMessage, sleep, VK_ESCAPE, WM_CHAR, WM_KEYDOWN } from "./winapi";
 import { findCanvas, killAndWait, launchControlled, openContextMenu, waitForContextMenu } from "./win-automation";
 
@@ -106,10 +106,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("issue-5997");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
-    "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n",
-  );
+  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n");
   const pdf = join(dir, "free-text.pdf");
   writeFileSync(pdf, makePdf());
 

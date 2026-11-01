@@ -7,7 +7,7 @@ import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { cmdId, ROOT, runStandalone, tmpPath, USE_NG } from "./util";
+import { cmdId, ROOT, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
 import {
   enumChildWindows,
   enumWindows,
@@ -37,7 +37,7 @@ function makeAppDir(): string {
     states.push(`\t[\n\t\tFilePath = ${p}\n\t\tOpenCount = ${nFiles - i}\n\t]`);
   }
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = true\n` +
       `HomePageViewMode = thumbnails\nFileStates [\n${states.join("\n")}\n]\n`,
   );

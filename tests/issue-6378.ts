@@ -5,7 +5,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host.ts";
-import { cmdId, makeBlankPdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
+import { cmdId, makeBlankPdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import {
   enumChildWindows,
   enumWindows,
@@ -105,7 +105,7 @@ export async function testit(): Promise<void> {
   const pdf = join(dir, "blank.pdf");
   writeFileSync(pdf, makeBlankPdf(), "latin1");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "UiLanguage = en\nRestoreSession = false\nShowStartPage = false\nCheckForUpdates = false\nSearchUIFloating = false\n",
   );
 

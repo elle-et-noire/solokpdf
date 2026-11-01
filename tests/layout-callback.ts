@@ -4,7 +4,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cmdId, ROOT, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { cmdId, ROOT, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import { launchControlled, killAndWait, sendCommandSync, waitForTitle } from "./win-automation.ts";
 import { captureWindowDCRegionPixels, sendCopyDataW, setProcessDpiAware, sleep } from "./winapi.ts";
 import type { LayoutInfo, LayoutItem } from "./control.ts";
@@ -102,7 +102,7 @@ export async function testit(): Promise<void> {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [
       "ShowToolbar = true",
       "ShowMenubar = false",

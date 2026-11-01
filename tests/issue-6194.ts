@@ -9,7 +9,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { assemblePdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { assemblePdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { packCoords, sendMessage, sleep, WM_MOUSEMOVE } from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
 
@@ -64,7 +64,7 @@ export async function testit(): Promise<void> {
   mkdirSync(appdata, { recursive: true });
   writeFileSync(pdf, makePdf(), "latin1");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "UiLanguage = en\nRestoreSession = false\nShowStartPage = false\nCheckForUpdates = false\n",
   );
 

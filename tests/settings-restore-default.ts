@@ -7,7 +7,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import {
   killAndWait,
   launchControlled,
@@ -123,7 +123,7 @@ export async function testit(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   // saveSettings: applying a value re-reads the settings file, so the app must
   // be allowed to write it first

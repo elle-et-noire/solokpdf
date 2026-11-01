@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, uniquePipeName } from "./control.ts";
-import { ROOT, tmpPath } from "./util.ts";
+import { ROOT, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, waitForExit, waitForFrame, windowPosArgs } from "./win-automation.ts";
 
 const EXE = join(ROOT, "out", "prf64", "SumatraPDF.exe");
@@ -153,7 +153,7 @@ export async function testit(): Promise<void> {
   rmSync(appData, { recursive: true, force: true });
   mkdirSync(appData, { recursive: true });
   writeFileSync(
-    join(appData, "SumatraPDF-settings.txt"),
+    join(appData, SETTINGS_FILE),
     [
       "UiLanguage = en",
       "CheckForUpdates = false",

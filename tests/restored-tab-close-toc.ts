@@ -10,7 +10,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { cmdId, pollUntil, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, pollUntil, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, killProcessesNamed, launchControlled, sendCommand, takeStderr } from "./win-automation.ts";
 import { getWindowText } from "./winapi.ts";
 
@@ -52,7 +52,7 @@ ${tabState(TOC_PDF, true)}
   ]
 ]
 `;
-  writeFileSync(join(APPDATA, "SumatraPDF-settings.txt"), seed, "utf8");
+  writeFileSync(join(APPDATA, SETTINGS_FILE), seed, "utf8");
 }
 
 export async function testit(): Promise<void> {

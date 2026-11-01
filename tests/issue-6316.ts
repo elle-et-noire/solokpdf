@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Socket } from "node:net";
 import { connect, controlCommands as C, sendCommand } from "../cmd/ng-dbg-control";
-import { EXE, USE_NG, makePdf, runStandalone, tmpPath } from "./util";
+import { EXE, USE_NG, makePdf, runStandalone, tmpPath, SETTINGS_FILE } from "./util";
 import { windowPosArgs } from "./win-automation";
 import { killAndWait, sleep } from "./winapi";
 
@@ -26,7 +26,7 @@ CheckForUpdates = false
 RestoreSession = false
 ReloadModifiedDocuments = ${mode === "auto"}
 `;
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), settings);
+  writeFileSync(join(dir, SETTINGS_FILE), settings);
 
   const logPath = join(dir, "app.log");
   const pipe = `issue-6316-${process.pid}-${mode}`;

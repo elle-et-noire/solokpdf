@@ -34,7 +34,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, cmdId, tmpPath, EXE } from "./util.ts";
+import { ROOT, cmdId, tmpPath, EXE, SETTINGS_FILE } from "./util.ts";
 import { countDifferingPixels, sendCommand, waitForFrame, killAndWait } from "./win-automation.ts";
 import {
   getTaskbarAutoHide,
@@ -115,7 +115,7 @@ export async function testit(): Promise<void> {
   const appDataDir = tmpPath("issue-5866-appdata");
   rmSync(appDataDir, { recursive: true, force: true });
   mkdirSync(appDataDir, { recursive: true });
-  writeFileSync(join(appDataDir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appDataDir, SETTINGS_FILE), SETTINGS);
 
   const hadAutoHide = getTaskbarAutoHide();
   let proc: Bun.Subprocess | undefined;

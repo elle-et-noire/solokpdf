@@ -10,7 +10,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, uniquePipeName } from "./control.ts";
-import { cmdId, EXE, tmpPath, USE_NG } from "./util.ts";
+import { cmdId, EXE, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import { makeFixtures } from "./ad-hoc-issue-4600.ts";
 import { captureWindowToPng, killAndWait, killProcessesNamed, waitForFrame } from "./win-automation.ts";
 import {
@@ -126,7 +126,7 @@ function writeSettings(extra: string[]): void {
   rmSync(APPDATA, { recursive: true, force: true });
   mkdirSync(APPDATA, { recursive: true });
   writeFileSync(
-    join(APPDATA, "SumatraPDF-settings.txt"),
+    join(APPDATA, SETTINGS_FILE),
     [`EBookUI [`, `\tFontName = Georgia`, `\tLineSpacing = 1.4`, `]`, `RestoreSession = false`, ...extra, ``].join(
       "\n",
     ),
@@ -254,9 +254,9 @@ export async function testit(): Promise<void> {
   if (USE_NG) {
     writeSettings([]);
     await ngApply(epub, "This file");
-    checkThisFile(readFileSync(join(APPDATA, "SumatraPDF-settings.txt"), "utf8"));
+    checkThisFile(readFileSync(join(APPDATA, SETTINGS_FILE), "utf8"));
     await ngApply(epub, "For all ebooks");
-    checkAllEbooks(readFileSync(join(APPDATA, "SumatraPDF-settings.txt"), "utf8"));
+    checkAllEbooks(readFileSync(join(APPDATA, SETTINGS_FILE), "utf8"));
     console.log("  ng: the CSS box, Tab stops, Esc and Reset checks drive Win32 controls; skipped");
     return;
   }
@@ -407,7 +407,7 @@ export async function testit(): Promise<void> {
     } finally {
       await killAndWait(l.proc);
     }
-    checkThisFile(readFileSync(join(APPDATA, "SumatraPDF-settings.txt"), "utf8"));
+    checkThisFile(readFileSync(join(APPDATA, SETTINGS_FILE), "utf8"));
   }
 
   // --- OK with "For all ebooks" writes the global section ----------------
@@ -425,7 +425,7 @@ export async function testit(): Promise<void> {
     } finally {
       await killAndWait(l.proc);
     }
-    checkAllEbooks(readFileSync(join(APPDATA, "SumatraPDF-settings.txt"), "utf8"));
+    checkAllEbooks(readFileSync(join(APPDATA, SETTINGS_FILE), "utf8"));
   }
 }
 

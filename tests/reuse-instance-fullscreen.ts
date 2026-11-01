@@ -4,7 +4,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { EXE, ROOT, runStandalone, tmpPath } from "./util.ts";
+import { EXE, ROOT, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { sleep } from "./winapi.ts";
 
 const PDF = join(ROOT, "tests", "issue-1189.pdf");
@@ -52,7 +52,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("reuse-instance-fullscreen");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
 
   await withControlledSumatra(
     EXE,

@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
 import { getScrollInfo, sendMessage, sleep } from "./winapi.ts";
 import { findCanvas, sendCommandSync, waitForFrame } from "./win-automation.ts";
-import { cmdId, EXE, ROOT, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, EXE, ROOT, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 
 const PDF = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
 const WM_VSCROLL = 0x0115;
@@ -25,7 +25,7 @@ export async function testit(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     `SmoothScroll = true
 UiLanguage = en
 RestoreSession = false

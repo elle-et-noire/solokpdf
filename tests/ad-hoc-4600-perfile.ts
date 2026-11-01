@@ -8,7 +8,7 @@
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXE, tmpPath } from "./util.ts";
+import { EXE, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { makeFixtures } from "./ad-hoc-issue-4600.ts";
 import { findCanvas, killAndWait, killProcessesNamed, launchSumatra, waitForFrame } from "./win-automation.ts";
 import { captureWindowPixels, moveWindow, setForegroundWindow, showWindow, sleep, SW_RESTORE } from "./winapi.ts";
@@ -19,7 +19,7 @@ async function render(epub: string, settings: string): Promise<Uint8Array> {
   const appdata = tmpPath("issue-4600-perfile-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), settings);
+  writeFileSync(join(appdata, SETTINGS_FILE), settings);
   const proc = launchSumatra(["-appdata", appdata, "-view", "single page", "-zoom", "fit page", epub]);
   try {
     const frame = await waitForFrame(proc.pid!);
@@ -113,7 +113,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("issue-4600-perfile-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  const settingsPath = join(appdata, "SumatraPDF-settings.txt");
+  const settingsPath = join(appdata, SETTINGS_FILE);
   writeFileSync(settingsPath, prefs(`\t\tEBookUI [\n\t\t\tFontName = Courier New\n\t\t]`, epub));
   const other = join(EPUB_DIR, "cls.epub");
   // no -for-testing: that mode never writes the settings file back

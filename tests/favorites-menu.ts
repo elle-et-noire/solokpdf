@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
-import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled, pressKey, waitForContextMenu } from "./win-automation.ts";
 import {
   getMenuItemCount,
@@ -93,7 +93,7 @@ export async function testit(): Promise<void> {
   mkdirSync(appdata, { recursive: true });
   writeFileSync(pdf, makePdf(), "latin1");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "CheckForUpdates = false\nRestoreSession = false\nShowStartPage = false\nShowFavorites = false\nUseTabs = true\n",
   );
 

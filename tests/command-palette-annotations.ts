@@ -7,7 +7,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { assemblePdf, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { postMessage, sleep, VK_RETURN, WM_KEYDOWN } from "./winapi.ts";
 import {
   killAndWait,
@@ -46,7 +46,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("command-palette-annotations");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
   const pdf = join(dir, "annots.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
 

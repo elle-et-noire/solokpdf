@@ -5,7 +5,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { ROOT, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import {
   enumWindows,
   getClassName,
@@ -78,7 +78,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("command-palette-delete-tab");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
 
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);

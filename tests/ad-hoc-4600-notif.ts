@@ -3,7 +3,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { makeMinimalPdf, tmpPath } from "./util.ts";
+import { makeMinimalPdf, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { makeFixtures } from "./ad-hoc-issue-4600.ts";
 import { captureWindowToPng, killAndWait, killProcessesNamed, launchSumatra, waitForFrame } from "./win-automation.ts";
 import { moveWindow, setForegroundWindow, showWindow, sleep, SW_RESTORE } from "./winapi.ts";
@@ -13,7 +13,7 @@ async function shot(doc: string, fontName: string, tag: string): Promise<void> {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [`EBookUI [`, `\tFontName = ${fontName}`, `]`, `RestoreSession = false`, ``].join("\n"),
   );
   const proc = launchSumatra(["-appdata", appdata, "-view", "single page", "-zoom", "fit page", doc]);
@@ -50,7 +50,7 @@ async function shotPerFile(doc: string, globalFont: string, fileFont: string, ta
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [
       `EBookUI [`,
       `\tFontName = ${globalFont}`,

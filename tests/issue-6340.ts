@@ -7,7 +7,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { assemblePdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
+import { assemblePdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import {
   findTopWindow,
   getWindowRect,
@@ -88,10 +88,7 @@ export async function testit(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
-    "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n",
-  );
+  writeFileSync(join(appdata, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n");
   const pdf = join(dir, "annots.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
 

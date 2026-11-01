@@ -4,7 +4,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runStandalone, tmpPath } from "./util.ts";
+import { runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { findCanvas, launchControlled, killAndWait } from "./win-automation.ts";
 import { captureWindowPixels, sleep } from "./winapi.ts";
 
@@ -46,7 +46,7 @@ export async function testit(): Promise<void> {
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     ["RestoreSession = false", "ShowStartPage = false", "ShowToc = false", ""].join("\n"),
   );
 

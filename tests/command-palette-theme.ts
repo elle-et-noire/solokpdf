@@ -5,7 +5,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { captureWindowPixels, sleep } from "./winapi.ts";
 import {
   waitForPalette,
@@ -100,7 +100,7 @@ export async function testit(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   const { proc, client, frame } = await launchControlled(["-appdata", appdata]);
   try {

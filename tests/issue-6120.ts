@@ -15,7 +15,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { assemblePdf, cmdId, pollUntil, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { assemblePdf, cmdId, pollUntil, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import { clickAt, findChildByClass, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 import { getClientRect, getWindowLong, GWL_EXSTYLE } from "./winapi.ts";
 
@@ -76,7 +76,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("issue-6120");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
   writeFileSync(join(dir, "doc.pdf"), makePdf(), "latin1");
 
   const { proc, client, frame } = await launchControlled([

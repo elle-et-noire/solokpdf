@@ -15,13 +15,13 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, killProcessesNamed, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 const MOBI = String.raw`C:\Users\kjk\OneDrive\!sumatra\1000.mobi`;
 
 const APPDATA = tmpPath("ad-hoc-chapters-settings-appdata");
-const SETTINGS_PATH = join(APPDATA, "SumatraPDF-settings.txt");
+const SETTINGS_PATH = join(APPDATA, SETTINGS_FILE);
 
 function resetAppData(): void {
   rmSync(APPDATA, { recursive: true, force: true });

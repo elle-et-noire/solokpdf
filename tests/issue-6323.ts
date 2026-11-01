@@ -6,7 +6,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_WIN } from "./host.ts";
-import { cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 import {
   enumWindows,
@@ -71,7 +71,7 @@ export async function testit(): Promise<void> {
   mkdirSync(appdata);
   writeFileSync(md, "# Printer selection\n\nMarkdown print test.\n");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     ["MarkdownUI [", "\tUseFixedPageUI = false", "]", "RestoreSession = false", ""].join("\n"),
   );
 
@@ -81,7 +81,7 @@ export async function testit(): Promise<void> {
     const before = topWindows();
     sendCommand(frame, cmdId("CmdPrint"));
     let dialog = 0;
-    for (const deadline = Date.now() + 8000; Date.now() < deadline && !dialog;) {
+    for (const deadline = Date.now() + 8000; Date.now() < deadline && !dialog; ) {
       dialog = newPrintDialog(before);
       await sleep(100);
     }

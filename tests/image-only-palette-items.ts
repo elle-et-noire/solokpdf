@@ -5,7 +5,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { ROOT, SLOW_BUILD_FACTOR, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { ROOT, SLOW_BUILD_FACTOR, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { sleep } from "./winapi.ts";
 import {
   findPalette,
@@ -104,7 +104,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("image-only-palette-items");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
 
   await checkDocument(join(ROOT, "ext", "a-zlib", "zlib.3.pdf"), false, dir);
   await checkDocument(join(ROOT, "tests", "issue-1201-data", "001.png"), true, dir);

@@ -9,7 +9,7 @@ import { deflateSync } from "node:zlib";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { IS_MAC } from "./host.ts";
-import { runStandalone, tmpPath, pngChunk, makeStoredZip } from "./util.ts";
+import { runStandalone, tmpPath, pngChunk, makeStoredZip, SETTINGS_FILE } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
 import { captureWindowPixels } from "./winapi.ts";
 
@@ -114,7 +114,7 @@ export async function testit(): Promise<void> {
   entries.push({ name: `${String(TALL_PAGE).padStart(3, "0")}.jpg`, data: readFileSync(TALL_JPG) });
   writeFileSync(cbz, makeStoredZip(entries));
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     ["ReuseInstance = false", "RestoreSession = false", "ShowStartPage = false", "CheckForUpdates = false"].join("\n"),
   );
 

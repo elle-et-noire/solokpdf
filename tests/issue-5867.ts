@@ -8,7 +8,7 @@
 // Uses -appdata so it never touches the user's real settings.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util";
+import { ROOT, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util";
 import { launchControlled, sendCommandSync, killAndWait } from "./win-automation";
 
 // truncated in the middle of an attribute value -- what the settings watcher
@@ -46,7 +46,7 @@ async function runWithIcon(name: string, svg: string): Promise<void> {
   const dir = tmpPath(`issue-5867-${name}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), settings(svg));
+  writeFileSync(join(dir, SETTINGS_FILE), settings(svg));
 
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   try {

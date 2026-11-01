@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
-import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { assemblePdf, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { clientToScreen, packCoords, sendMessage, setCursorPos, sleep, WM_MOUSEMOVE } from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
@@ -34,10 +34,7 @@ export async function testit(): Promise<void> {
   );
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
-    "UiLanguage = en\nRestoreSession = false\nCheckForUpdates = false\n",
-  );
+  writeFileSync(join(appdata, SETTINGS_FILE), "UiLanguage = en\nRestoreSession = false\nCheckForUpdates = false\n");
   const { proc, client, frame } = await launchControlled([
     "-appdata",
     appdata,

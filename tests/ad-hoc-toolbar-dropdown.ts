@@ -15,7 +15,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control";
-import { cmdId, EXE, ROOT, runStandalone, tmpPath } from "./util";
+import { cmdId, EXE, ROOT, runStandalone, tmpPath, SETTINGS_FILE } from "./util";
 import { findChildByClass, FRAME_CLASS } from "./win-automation";
 import { enumWindows, getClassName, postMessage, WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP } from "./winapi";
 
@@ -71,7 +71,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("ad-hoc-toolbar-dropdown");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
 
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
   await withControlledSumatra(

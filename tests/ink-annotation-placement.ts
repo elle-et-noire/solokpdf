@@ -4,7 +4,16 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { cmdId, pollUntil, runStandalone, tmpPath, SLOW_BUILD_FACTOR, USE_NG, makeBlankPdf } from "./util.ts";
+import {
+  cmdId,
+  pollUntil,
+  runStandalone,
+  tmpPath,
+  SLOW_BUILD_FACTOR,
+  USE_NG,
+  makeBlankPdf,
+  SETTINGS_FILE,
+} from "./util.ts";
 import {
   clientToScreen,
   getClientRect,
@@ -170,7 +179,7 @@ export async function testit(): Promise<void> {
   mkdirSync(appdata, { recursive: true });
   writeFileSync(pdf, makeBlankPdf(), "latin1");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     "UiLanguage = en\nRestoreSession = false\nShowStartPage = false\nCheckForUpdates = false\n",
   );
 

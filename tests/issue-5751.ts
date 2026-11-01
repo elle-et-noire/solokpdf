@@ -7,7 +7,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { launchControlled, pressKey, sendCommandSync, killAndWait } from "./win-automation.ts";
 import { sleep, VK_RIGHT } from "./winapi.ts";
 import { ControlClient, ControlCommand } from "./control.ts";
@@ -96,7 +96,7 @@ export async function testit(): Promise<void> {
   writeFileSync(pdf, makePdf(5));
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {

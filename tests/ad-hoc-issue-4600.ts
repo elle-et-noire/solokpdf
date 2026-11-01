@@ -17,7 +17,7 @@ import { deflateRawSync } from "node:zlib";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { EXE, runStandalone, tmpPath, crc32 } from "./util.ts";
+import { EXE, runStandalone, tmpPath, crc32, SETTINGS_FILE } from "./util.ts";
 
 const EPUB_DIR = tmpPath("epub-font");
 
@@ -140,7 +140,7 @@ async function render(epub: string, cfg: Cfg): Promise<Uint8Array> {
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     [
       `EBookUI [`,
       `\tFontName = ${cfg.fontName}`,

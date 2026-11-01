@@ -7,7 +7,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ControlClient, HomeSelection } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import { captureWindowDCRegionPixels, captureWindowPixels, postMessage, sleep } from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
 
@@ -36,7 +36,7 @@ export async function testit(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    join(dir, "SumatraPDF-settings.txt"),
+    join(dir, SETTINGS_FILE),
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nShowTips = true\n",
   );
   const { proc, client, frame } = await launchControlled(["-appdata", dir]);

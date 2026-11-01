@@ -10,7 +10,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath, writeStoredZip } from "./util.ts";
+import { EXE, runStandalone, tmpPath, writeStoredZip, SETTINGS_FILE } from "./util.ts";
 
 const SETTINGS = `UiLanguage = en
 CheckForUpdates = false
@@ -62,7 +62,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("issue-6244-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
   const withInfo = tmpPath("issue-6244-comicinfo.cbz");
   writeStoredZip(withInfo, [...pages(), { name: "ComicInfo.xml", data: Buffer.from(COMIC_INFO) }]);

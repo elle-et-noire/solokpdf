@@ -4,7 +4,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { EXE, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 
 const SETTINGS = `UiLanguage = en
 CheckForUpdates = false
@@ -68,7 +68,7 @@ export async function testit(): Promise<void> {
   const dir = tmpPath("issue-5991");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "SumatraPDF-settings.txt"), SETTINGS);
+  writeFileSync(join(dir, SETTINGS_FILE), SETTINGS);
   const pdf = join(dir, "pages.pdf");
   writeFileSync(pdf, makeTwoPagePdf());
 

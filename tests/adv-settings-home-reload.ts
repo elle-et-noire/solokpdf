@@ -6,7 +6,7 @@
 
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { ROOT, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { sleep } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 import { ControlCommand, type ControlClient } from "./control.ts";
@@ -35,7 +35,7 @@ export async function testit(): Promise<void> {
   const pdf = join(appdata, "doc.pdf");
   copyFileSync(join(ROOT, "ext", "a-zlib", "zlib.3.pdf"), pdf);
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = true\nShowStartPage = true\nFileStates [\n\t[\n\t\tFilePath = ${pdf}\n\t\tOpenCount = 1\n\t]\n]\n`,
   );
 

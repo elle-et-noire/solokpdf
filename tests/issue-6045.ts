@@ -7,7 +7,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import {
   captureWindowPixels,
   captureWindowDCRegionPixels,
@@ -196,10 +196,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("issue-6045-appdata");
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
-    "Theme = Dark\nRestoreSession = false\nCheckForUpdates = false\n",
-  );
+  writeFileSync(join(appdata, SETTINGS_FILE), "Theme = Dark\nRestoreSession = false\nCheckForUpdates = false\n");
 
   const { proc, client, frame } = await launchControlled(["-appdata", appdata]);
   try {
