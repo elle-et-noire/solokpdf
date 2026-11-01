@@ -30,8 +30,37 @@ bool IsAlwaysThickMode(OverlayScrollbar* sb) {
     return sb->mode == OverlayScrollbar::Mode::Thick;
 }
 
+// the bar itself, without the corner square a themed vertical bar also covers
 Rect ClientRect(OverlayScrollbar* sb) {
-    return HwndClientRect(sb->hwnd);
+    Rect rc = HwndClientRect(sb->hwnd);
+    rc.dy -= sb->cornerDy;
+    return rc;
+}
+
+static Rect CornerRect(OverlayScrollbar* sb) {
+    Rect rc = HwndClientRect(sb->hwnd);
+    return {0, rc.dy - sb->cornerDy, rc.dx, sb->cornerDy};
+}
+
+// Native scrollbars put a size grip in their corner when it is the bottom-right
+// corner of a resizable, not maximized frame
+static bool CornerHasGrip(OverlayScrollbar* sb) {
+    HWND root = GetAncestor(sb->hwndOwner, GA_ROOT);
+    if (sb->cornerDy <= 0 || !root || IsZoomed(root) || !(GetWindowLongW(root, GWL_STYLE) & WS_THICKFRAME)) {
+        return false;
+    }
+    RECT rc;
+    GetClientRect(root, &rc);
+    POINT br{rc.right, rc.bottom};
+    ClientToScreen(root, &br);
+    // the frame draws a thin border of its own inside its client area
+    int slack = DpiScale(2);
+    Rect ownerRc = HwndWindowRect(sb->hwndOwner);
+    return br.x - (ownerRc.x + ownerRc.dx) <= slack && br.y - (ownerRc.y + ownerRc.dy) <= slack;
+}
+
+static bool OverCornerGrip(OverlayScrollbar* sb, Point pt) {
+    return CornerHasGrip(sb) && CornerRect(sb).Contains(pt);
 }
 
 // Calculate thumb rect within the track
@@ -76,7 +105,7 @@ static Rect GetScrollbarScreenRect(OverlayScrollbar* sb) {
     Rect ownerRc = HwndWindowRect(sb->hwndOwner);
     int scrollW = ScaledWidth(sb, true);
     if (IsVert(sb)) {
-        return {ownerRc.x + ownerRc.dx - scrollW, ownerRc.y, scrollW, ownerRc.dy};
+        return {ownerRc.x + ownerRc.dx - scrollW, ownerRc.y, scrollW, ownerRc.dy - sb->cornerDy};
     }
     return {ownerRc.x, ownerRc.y + ownerRc.dy - scrollW, ownerRc.dx, scrollW};
 }
@@ -175,6 +204,22 @@ static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, i
     DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowStart, GetArrowTopRect(sb));
     DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowEnd, GetArrowBottomRect(sb));
     DrawThemePart(theme, hdc, vert ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ, thumbState, GetThumbRect(sb));
+    if (sb->cornerDy > 0) {
+        // the theme's corner background has a 1px frame a native corner doesn't
+        // show: spread its inner color over the whole square
+        Rect corner = CornerRect(sb);
+        DrawThemePart(theme, hdc, SBP_SIZEBOXBKGND, barState, corner);
+        GdiFlush();
+        DWORD bg = pixels[(corner.y + corner.dy / 2) * w + corner.x + corner.dx / 2];
+        for (int y = corner.y; y < corner.y + corner.dy; y++) {
+            for (int x = corner.x; x < corner.x + corner.dx; x++) {
+                pixels[y * w + x] = bg;
+            }
+        }
+        if (CornerHasGrip(sb)) {
+            DrawThemePart(theme, hdc, SBP_SIZEBOX, SZB_RIGHTALIGN, corner);
+        }
+    }
     CloseThemeData(theme);
 
     // a native bar is opaque; theme drawing leaves the alpha bytes undefined
@@ -440,6 +485,16 @@ void SetState(OverlayScrollbar* sb, State newState) {
     if (newState == State::SmartThin) {
         SetTimer(sb->hwnd, OverlayScrollbar::kTimerAutoHide, sb->showAfterScrollMs, nullptr);
     }
+
+    // themed bars share the corner square, which depends on both being shown
+    if (sb->themed && wasVisible != nowVisible) {
+        for (auto* other : gAllScrollbars) {
+            if (other != sb && other->hwndOwner == sb->hwndOwner) {
+                OverlayScrollbarUpdatePos(other);
+                PaintScrollbar(other);
+            }
+        }
+    }
 }
 
 // Restart the thin-bar auto-hide countdown (showAfterScrollMs). SetState only
@@ -478,18 +533,6 @@ static void CALLBACK MouseTrackTimerProc(HWND /*hwnd*/, UINT /*msg*/, UINT_PTR /
             continue;
         }
 
-        // Only process scrollbars whose owner is in the active window hierarchy
-        bool ownerActive = IsOrIsParentOf(hwndForeground, sb->hwndOwner);
-        if (!ownerActive) {
-            // If we were showing, hide
-            if (IsVisible(sb)) {
-                if (!sb->isDragging) {
-                    HideScrollbarWindow(sb);
-                }
-            }
-            continue;
-        }
-
         // Check if mouse is over the owner window's client area, and not over a
         // different top-level window covering it (edit annotations, etc.)
         bool overOwner = MouseOverOwnerSurface(sb, pt);
@@ -500,10 +543,23 @@ static void CALLBACK MouseTrackTimerProc(HWND /*hwnd*/, UINT /*msg*/, UINT_PTR /
         Rect sbRect = GetScrollbarScreenRect(sb);
         bool overScrollbar = sbRect.Contains(pt) && overOwner;
 
-        // the native theme draws the whole bar differently while hovered
+        // the native theme draws the whole bar differently while hovered, also
+        // in an inactive window
         if (sb->themed && !sb->isDragging && sb->mouseOverBand != overScrollbar) {
             sb->mouseOverBand = overScrollbar;
             PaintScrollbar(sb);
+        }
+
+        // Only process scrollbars whose owner is in the active window hierarchy
+        bool ownerActive = IsOrIsParentOf(hwndForeground, sb->hwndOwner);
+        if (!ownerActive) {
+            // If we were showing, hide
+            if (IsVisible(sb)) {
+                if (!sb->isDragging) {
+                    HideScrollbarWindow(sb);
+                }
+            }
+            continue;
         }
 
         if (sb->isDragging) {
@@ -638,6 +694,12 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
         case WM_LBUTTONDOWN: {
             int mx = GET_X_LPARAM(lp);
             int my = GET_Y_LPARAM(lp);
+            if (OverCornerGrip(sb, Point(mx, my))) {
+                // the size grip resizes the frame, as a native one does
+                HWND root = GetAncestor(sb->hwndOwner, GA_ROOT);
+                PostMessageW(root, WM_SYSCOMMAND, SC_SIZE | WMSZ_BOTTOMRIGHT, 0);
+                return 0;
+            }
             SetCapture(hwnd);
 
             if (IsThick(sb)) {
@@ -750,6 +812,15 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
 
         case WM_MOUSEACTIVATE:
             return MA_NOACTIVATE;
+
+        case WM_SETCURSOR: {
+            Point pt = HwndScreenToClient(hwnd, GetCursorPosition());
+            if (OverCornerGrip(sb, pt)) {
+                SetCursor(GetCachedCursor(IDC_SIZENWSE));
+                return TRUE;
+            }
+            break;
+        }
 
         case WM_NCHITTEST: {
             // pass through rightmost 2px of vertical scrollbar for frame resize
@@ -921,6 +992,19 @@ void OverlayScrollbarUpdatePos(OverlayScrollbar* sb) {
     int siblingInset = 0;
     if (IsThick(sb) && siblingThick) {
         siblingInset = scrollW;
+    }
+    if (sb->themed) {
+        // like native scrollbars: when both show, the horizontal bar stops
+        // short and the vertical one runs on to draw the corner square
+        bool siblingVisible = false;
+        for (auto* other : gAllScrollbars) {
+            if (other != sb && other->hwndOwner == sb->hwndOwner && IsVisible(other)) {
+                siblingVisible = true;
+            }
+        }
+        bool both = IsVisible(sb) && siblingVisible;
+        sb->cornerDy = (IsVert(sb) && both) ? scrollW : 0;
+        siblingInset = (!IsVert(sb) && both) ? scrollW : 0;
     }
 
     if (IsVert(sb)) {

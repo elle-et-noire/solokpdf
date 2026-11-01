@@ -46,6 +46,7 @@ struct OverlayScrollbar {
     bool themeSet = false;  // SetWindowTheme() was called for themeDark
     bool themeDark = false; // window theme is DarkMode_Explorer
     bool mouseOverBand = false;
+    int cornerDy = 0; // themed vertical bar: height of the corner square below it
 
     // auto-hide timing (milliseconds)
     int showAfterScrollMs = 5000;    // how long to show thin bar after scroll info update
