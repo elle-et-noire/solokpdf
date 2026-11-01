@@ -232,7 +232,11 @@ static int HoverAnimProgress(OverlayScrollbar* sb) {
     if (elapsed >= (u64)sb->hoverAnimMs) {
         return 255;
     }
-    return (int)(elapsed * 255 / (u64)sb->hoverAnimMs);
+    // ease-out, like native bars: measured on Windows 11, leaving one is ~65%
+    // faded a third of the way into the theme's 1275 ms
+    double t = (double)elapsed / (double)sb->hoverAnimMs;
+    double rest = 1.0 - t;
+    return (int)((1.0 - (rest * rest * rest)) * 255.0);
 }
 
 // Native bars cross-fade between their looks over the theme's transition time.
