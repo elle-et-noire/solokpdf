@@ -18,32 +18,32 @@ rendered output.
 
 Work on branch `solokpdf-dev`. Read `AGENTS.md`, `readme.md`, this file and
 [backlog.md](backlog.md), then the parts of [limitations.md](limitations.md)
-for the area at hand. When an item lands, update its backlog row (status and
-commit subject) and the matching text in `limitations.md`; put measurements in
-[history.md](history.md) and condensed data in `data/`.
+for the area at hand. When an item lands, move its backlog row to
+[history.md](history.md#completed-backlog) and update the matching text in
+`limitations.md`; put measurements in `history.md` and condensed data in
+`data/`. Record upstream merges in [upstream-merges.md](upstream-merges.md).
 
 ## Status
 
-The first development milestone (native build, PDFium pages in the original
-UI, MuPDF comparison, reproducible steps and explicit gaps) has been reached.
-Full feature/performance parity and release readiness have not been reached.
+PDFium pages work in the original UI, with MuPDF as fallback and hidden
+editor. Backlog items A1–E5 landed by 2026-11-01. Open items need an unlocked
+desktop or a physical printer; known gaps are in `limitations.md`.
 
 ## Documents
 
-- [backlog.md](backlog.md): ordered work list and item status.
+- [backlog.md](backlog.md): open and dropped items.
 - [limitations.md](limitations.md): current PDFium-tab behavior and known
   limitations by area.
 - [features.md](features.md): SolokPDF-only features (identity, theme page
   colors, count prefix, shortcuts dialog, Vim keys).
 - [history.md](history.md): baseline, engine map, phases 2–5, font cache and
-  other measurements, dropped CI cache plan, full-suite triage log.
+  other measurements, dropped CI cache plan, 2026-10-29 UI review, full-suite
+  triage log, completed backlog.
 - [annotations.md](annotations.md): annotation editing on PDFium tabs through
   the hidden MuPDF editor.
 - [forms.md](forms.md): document JavaScript, forms and signing on PDFium tabs.
 - [full-suite-triage.md](full-suite-triage.md): upstream full-suite failures
   per engine and their classification.
-- [review-2026-10-29.md](review-2026-10-29.md): review of the SolokPDF UI
-  commits up to `0e219f451`.
-- [upstream-merge-assessment-2026-10-29.md](upstream-merge-assessment-2026-10-29.md):
-  upstream merge assessment of 2026-10-29.
+- [upstream-merges.md](upstream-merges.md): upstream merge assessment and
+  results (2026-10-29, 2026-10-31).
 - `data/`: condensed measurement JSON cited by `history.md`.

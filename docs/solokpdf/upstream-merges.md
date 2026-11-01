@@ -1,11 +1,13 @@
-# Upstream merge assessment — 2026-10-29
+# Upstream merges
+
+## Assessment (2026-10-29)
 
 `upstream/master` was fetched at `a30e4d642` (2026-10-28). The merge base
 with `solokpdf-dev` is `842ea1be5` (2026-10-22). Upstream is **71 commits**
 ahead of that base. This assessment uses local commit `ece895b27` as the
 SolokPDF side.
 
-## Changes since the base
+### Changes since the base
 
 Areas overlap; the counts below are not additive. The feature and fix counts
 use commit subjects; path counts include every commit touching that area.
@@ -22,7 +24,7 @@ The sidebar, Merge PDF, printing, and markdown fixes are the most useful
 upstream changes to take soon. The GPUI and Brotli updates need build review
 because they replace large generated sources.
 
-## Trial merge
+### Trial merge
 
 Ran `git merge --no-commit --no-ff upstream/master` in a detached worktree at
 `ece895b27`. Git reported six conflicting files:
@@ -41,7 +43,7 @@ files. That is a text-merge result, not a build or behavior check. The trial
 was aborted and the temporary worktree removed; no merge was made on
 `solokpdf-dev`.
 
-## Recommended approach
+### Recommended approach
 
 Merge `upstream/master` in a separate integration branch. Resolve the command
 and control IDs first, then reconcile `cmd/gen-settings.ts` and
@@ -53,7 +55,7 @@ tests for those areas. Keep the existing MuPDF patch ledger intact.
 Rough effort: **2–4 engineer-days** for conflict resolution, regeneration,
 builds, and focused tests. Further runtime issues may extend that estimate.
 
-## Merge result
+## Merge result (27797acfd)
 
 Merged `upstream/master` at `27797acfd` (75 commits from the base) on
 `merge-upstream`. Upstream's sidebar command precedes SolokPDF's theme/Vim

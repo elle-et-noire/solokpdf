@@ -1,7 +1,8 @@
 # SolokPDF limitations
 
-Current behavior of PDFium tabs by area, compared with MuPDF. Item status is in
-[backlog.md](backlog.md); measurements are in [history.md](history.md).
+Current behavior of PDFium tabs by area, compared with MuPDF. Open items are in
+[backlog.md](backlog.md); landed items (the B/D/E IDs below) and measurements
+are in [history.md](history.md).
 
 ## Opening files
 
