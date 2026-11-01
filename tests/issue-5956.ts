@@ -11,12 +11,14 @@
 import { join } from "node:path";
 import { ControlClient } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { ROOT, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { ROOT, cmdId, runStandalone, tmpPath, writeAppdata } from "./util.ts";
 import {
-  captureWindowPixels,
+  captureWindowDCRegionPixels,
   captureWindowToPng,
+  getClientRect,
   postMessage,
   sendMessage,
+  setProcessDpiAware,
   sleep,
   VK_ESCAPE,
   WM_CLOSE,
@@ -66,12 +68,18 @@ async function closePalette(client: ControlClient, frame: number): Promise<void>
   }
 }
 
+// What the canvas shows, read from its window DC. PrintWindow is no good here:
+// with overlay scrollbars it returns the canvas of an RTL frame mirrored, though
+// the screen shows it right.
 function grabCanvas(canvas: number): Shot {
-  const shot = captureWindowPixels(canvas);
-  if (!shot) {
+  const rc = getClientRect(canvas);
+  const w = rc.right - rc.left;
+  const h = rc.bottom - rc.top;
+  const data = captureWindowDCRegionPixels(canvas, 0, 0, w, h);
+  if (!data) {
     throw new Error("issue-5956: canvas capture failed");
   }
-  return shot;
+  return { w, h, data };
 }
 
 function countDiff(a: Shot, b: Shot): number {
@@ -107,7 +115,9 @@ function hMirror(src: Shot): Shot {
 
 export async function testit(): Promise<void> {
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
-  const { proc, client, frame } = await launchControlled([pdf]);
+  // defaults, not the settings of whoever runs the test
+  const appdata = writeAppdata("issue-5956", "");
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
@@ -142,6 +152,8 @@ export async function testit(): Promise<void> {
     if (!canvas) {
       throw new Error("issue-5956: canvas not found");
     }
+    // on a scaled display, capture the whole canvas
+    setProcessDpiAware();
     await client.waitForRenderIdle();
     captureWindowToPng(canvas, tmpPath("issue-5956-ltr.png"));
     const before = grabCanvas(canvas);
