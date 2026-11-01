@@ -25,8 +25,8 @@ capture verification (E); the local locked desktop prevents it (B37).
 `shape-annotation-placement` fails 3/3 local MuPDF reruns while the locked
 desktop pins the cursor at `(0,0)` (E, B39).
 `issue-5918` failed 3/3 local MuPDF reruns and one PDFium rerun at next-file
-navigation despite a completed folder scan; its shared cause is unresolved
-(B40).
+navigation despite a completed folder scan: a slow WebView2 cold start
+outlasted the test's 5-second wait (B40, fixed in the test).
 The PDFium annotation clipboard test still fails after redaction reload
 discards its undo journal (B17).
 

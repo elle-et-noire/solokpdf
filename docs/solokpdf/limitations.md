@@ -355,11 +355,11 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   first page click did not anchor the rectangle. This locked desktop pins the
   cursor at `(0,0)` during drag tests, so B39 needs an interactive rerun
   before an app change can be judged.
-- `issue-5918` passed PDFium and failed MuPDF in Run 3. Three local MuPDF
-  reruns failed at next-file navigation, and one local PDFium run failed there
-  too. The folder scan completes, but the title remains `page-0000.html`.
-  B40 is blocked until the shared navigation failure is isolated; the evidence
-  does not support a MuPDF-only fix.
+- `issue-5918` failed intermittently on both engines (B40): the title changes
+  only once WebView2 shows the next page, and a slow WebView2 cold start
+  outlasted the test's 5-second wait. Delaying WebView2 by 8 seconds
+  reproduced it; the navigation is queued, not lost. The test now waits 30
+  seconds.
 - The clipboard unit-test failure seen on the unchanged baseline came from
   this host: right after `GetClipboardData` the clipboard was no longer open
   (`ERROR_CLIPBOARD_NOT_OPEN`, no formats). ESET's `ebehmoni.dll` and ATOK's

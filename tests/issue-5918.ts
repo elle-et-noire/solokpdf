@@ -36,6 +36,7 @@ import {
 
 const nFiles = 400;
 const headingsPerFile = 3;
+const nextFileTimeoutMs = 30000;
 
 function makeFolder(): string {
   const dir = tmpPath("issue-5918");
@@ -167,8 +168,9 @@ async function testTocAndNextFile(dir: string): Promise<void> {
     }
 
     sendCommand(frame, cmdId("CmdOpenNextFileInFolder"));
-    // TOC must stay complete through the switch (a reload would drop to the flat list)
-    const deadline = Date.now() + 5000;
+    // TOC must stay complete through the switch (a reload would drop to the flat list).
+    // The title changes once WebView2 shows the page; its cold start can take seconds on CI.
+    const deadline = Date.now() + nextFileTimeoutMs;
     let switched = false;
     while (Date.now() < deadline) {
       const n = await tocItemCount(frame, client);
