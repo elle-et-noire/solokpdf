@@ -47,6 +47,9 @@ struct OverlayScrollbar {
     bool themeDark = false; // window theme is DarkMode_Explorer
     bool mouseOverBand = false;
     int cornerDy = 0; // themed vertical bar: height of the corner square below it
+    // themed hover cross-fade: when it started and how long it runs (0: none)
+    u64 hoverAnimStart = 0;
+    int hoverAnimMs = 0;
 
     // auto-hide timing (milliseconds)
     int showAfterScrollMs = 5000;    // how long to show thin bar after scroll info update
@@ -66,6 +69,7 @@ struct OverlayScrollbar {
     // timer IDs
     static constexpr UINT_PTR kTimerAutoHide = 1;
     static constexpr UINT_PTR kTimerRepeatScroll = 2;
+    static constexpr UINT_PTR kTimerHoverAnim = 3;
 };
 
 OverlayScrollbar* OverlayScrollbarCreate(HWND hwndOwner, OverlayScrollbar::Type type,

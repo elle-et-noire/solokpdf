@@ -18,6 +18,9 @@ static bool gScrollbarClassRegistered = false;
 // if true, draw small filled triangles instead of chevrons
 static bool gThickArrows = true;
 
+// repaint interval of the hover cross-fade, about the display's refresh
+static constexpr UINT kHoverAnimFrameMs = 16;
+
 // all live overlay scrollbars, for global mouse tracking
 static Vec<OverlayScrollbar*> gAllScrollbars;
 static UINT_PTR gMouseTrackTimer = 0;
@@ -173,10 +176,7 @@ static void DrawThemePart(HTHEME theme, HDC hdc, int part, int state, Rect r) {
     DrawThemeBackground(theme, hdc, part, state, &rc, nullptr);
 }
 
-// Draw the bar with the theme native scrollbars use, so it looks the same (on
-// Windows 11 a thin line that widens and shows its arrows while the mouse is
-// over it). Returns false without a theme; the caller then draws its own.
-static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, int w, int h) {
+static HTHEME OpenScrollBarTheme(OverlayScrollbar* sb) {
     // the same window theme the canvas gets for its native scrollbars
     bool dark = DarkModeScrollBarsAreDark();
     if (dark != sb->themeDark || !sb->themeSet) {
@@ -184,17 +184,17 @@ static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, i
         sb->themeDark = dark;
         sb->themeSet = true;
     }
-    HTHEME theme = OpenThemeData(sb->hwnd, L"ScrollBar");
-    if (!theme) {
-        return false;
-    }
+    return OpenThemeData(sb->hwnd, L"ScrollBar");
+}
+
+// one look of the bar: hovered (on Windows 11 wide, with arrows) or not
+static void DrawThemedBar(OverlayScrollbar* sb, HTHEME theme, HDC hdc, DWORD* pixels, int w, bool hover) {
     bool vert = IsVert(sb);
-    bool hover = sb->mouseOverBand || sb->isDragging;
     int barState = hover ? SCRBS_HOVER : SCRBS_NORMAL;
     int thumbState = barState;
     if (sb->isDragging) {
         thumbState = SCRBS_PRESSED;
-    } else if (sb->mouseOverThumb) {
+    } else if (hover && sb->mouseOverThumb) {
         thumbState = SCRBS_HOT;
     }
     int arrowStart = vert ? (hover ? ABS_UPHOVER : ABS_UPNORMAL) : (hover ? ABS_LEFTHOVER : ABS_LEFTNORMAL);
@@ -204,21 +204,108 @@ static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, i
     DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowStart, GetArrowTopRect(sb));
     DrawThemePart(theme, hdc, SBP_ARROWBTN, arrowEnd, GetArrowBottomRect(sb));
     DrawThemePart(theme, hdc, vert ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ, thumbState, GetThumbRect(sb));
-    if (sb->cornerDy > 0) {
-        // the theme's corner background has a 1px frame a native corner doesn't
-        // show: spread its inner color over the whole square
-        Rect corner = CornerRect(sb);
-        DrawThemePart(theme, hdc, SBP_SIZEBOXBKGND, barState, corner);
-        GdiFlush();
-        DWORD bg = pixels[(corner.y + corner.dy / 2) * w + corner.x + corner.dx / 2];
-        for (int y = corner.y; y < corner.y + corner.dy; y++) {
-            for (int x = corner.x; x < corner.x + corner.dx; x++) {
-                pixels[y * w + x] = bg;
+    if (sb->cornerDy <= 0) {
+        return;
+    }
+    // the theme's corner background has a 1px frame a native corner doesn't
+    // show: spread its inner color over the whole square
+    Rect corner = CornerRect(sb);
+    DrawThemePart(theme, hdc, SBP_SIZEBOXBKGND, barState, corner);
+    GdiFlush();
+    DWORD bg = pixels[(corner.y + corner.dy / 2) * w + corner.x + corner.dx / 2];
+    for (int y = corner.y; y < corner.y + corner.dy; y++) {
+        for (int x = corner.x; x < corner.x + corner.dx; x++) {
+            pixels[y * w + x] = bg;
+        }
+    }
+    if (CornerHasGrip(sb)) {
+        DrawThemePart(theme, hdc, SBP_SIZEBOX, SZB_RIGHTALIGN, corner);
+    }
+}
+
+// 0..255 progress of the hover transition, 255 when none is running
+static int HoverAnimProgress(OverlayScrollbar* sb) {
+    if (sb->hoverAnimMs <= 0) {
+        return 255;
+    }
+    u64 elapsed = GetTickCount64() - sb->hoverAnimStart;
+    if (elapsed >= (u64)sb->hoverAnimMs) {
+        return 255;
+    }
+    return (int)(elapsed * 255 / (u64)sb->hoverAnimMs);
+}
+
+// Native bars cross-fade between their looks over the theme's transition time.
+// Start that when the mouse enters or leaves the bar.
+static void StartHoverAnim(OverlayScrollbar* sb, bool hover) {
+    sb->hoverAnimMs = 0;
+    HTHEME theme = OpenScrollBarTheme(sb);
+    if (theme) {
+        int part = IsVert(sb) ? SBP_THUMBBTNVERT : SBP_THUMBBTNHORZ;
+        int from = hover ? SCRBS_NORMAL : SCRBS_HOVER;
+        int to = hover ? SCRBS_HOVER : SCRBS_NORMAL;
+        DWORD ms = 0;
+        if (SUCCEEDED(GetThemeTransitionDuration(theme, part, from, to, TMT_TRANSITIONDURATIONS, &ms))) {
+            sb->hoverAnimMs = (int)ms;
+        }
+        CloseThemeData(theme);
+    }
+    sb->hoverAnimStart = GetTickCount64();
+    if (sb->hoverAnimMs > 0) {
+        SetTimer(sb->hwnd, OverlayScrollbar::kTimerHoverAnim, kHoverAnimFrameMs, nullptr);
+    }
+}
+
+// Draw the bar with the theme native scrollbars use, so it looks the same (on
+// Windows 11 a thin line that widens and shows its arrows while the mouse is
+// over it). Returns false without a theme; the caller then draws its own.
+static bool PaintThemedScrollbar(OverlayScrollbar* sb, HDC hdc, DWORD* pixels, int w, int h) {
+    HTHEME theme = OpenScrollBarTheme(sb);
+    if (!theme) {
+        return false;
+    }
+    bool hover = sb->mouseOverBand || sb->isDragging;
+    DrawThemedBar(sb, theme, hdc, pixels, w, hover);
+
+    // mid-transition: blend in the look we are leaving
+    int t = HoverAnimProgress(sb);
+    if (t < 255) {
+        HDC hdcFrom = CreateCompatibleDC(hdc);
+        BITMAPINFO bmi{};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = w;
+        bmi.bmiHeader.biHeight = -h;
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+        void* bits = nullptr;
+        HBITMAP bmp = CreateDIBSection(hdcFrom, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+        if (bmp && bits) {
+            HGDIOBJ old = SelectObject(hdcFrom, bmp);
+            DWORD* from = (DWORD*)bits;
+            DWORD bg = PremultiplyPixel(ThemeTrackColor(), 255);
+            for (int i = 0; i < w * h; i++) {
+                from[i] = bg;
             }
+            DrawThemedBar(sb, theme, hdcFrom, from, w, !hover);
+            GdiFlush();
+            for (int i = 0; i < w * h; i++) {
+                DWORD a = from[i];
+                DWORD b = pixels[i];
+                DWORD res = 0;
+                for (int shift = 0; shift < 24; shift += 8) {
+                    DWORD ca = (a >> shift) & 0xff;
+                    DWORD cb = (b >> shift) & 0xff;
+                    res |= ((ca * (255 - t) + cb * t) / 255) << shift;
+                }
+                pixels[i] = res;
+            }
+            SelectObject(hdcFrom, old);
         }
-        if (CornerHasGrip(sb)) {
-            DrawThemePart(theme, hdc, SBP_SIZEBOX, SZB_RIGHTALIGN, corner);
+        if (bmp) {
+            DeleteObject(bmp);
         }
+        DeleteDC(hdcFrom);
     }
     CloseThemeData(theme);
 
@@ -549,6 +636,7 @@ static void CALLBACK MouseTrackTimerProc(HWND /*hwnd*/, UINT /*msg*/, UINT_PTR /
         // in an inactive window
         if (sb->themed && !sb->isDragging && sb->mouseOverBand != overScrollbar) {
             sb->mouseOverBand = overScrollbar;
+            StartHoverAnim(sb, overScrollbar);
             PaintScrollbar(sb);
         }
 
@@ -632,6 +720,14 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
                 if (!sb->isDragging) {
                     HideScrollbarWindow(sb);
                 }
+                return 0;
+            }
+            if (wp == OverlayScrollbar::kTimerHoverAnim) {
+                if (HoverAnimProgress(sb) >= 255) {
+                    KillTimer(hwnd, OverlayScrollbar::kTimerHoverAnim);
+                    sb->hoverAnimMs = 0;
+                }
+                PaintScrollbar(sb);
                 return 0;
             }
             if (wp == OverlayScrollbar::kTimerRepeatScroll) {
