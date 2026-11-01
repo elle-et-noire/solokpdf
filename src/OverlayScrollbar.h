@@ -84,6 +84,7 @@ void OverlayScrollbarGetInfo(OverlayScrollbar* sb, SCROLLINFO* si);
 void OverlayScrollbarUpdatePos(OverlayScrollbar* sb);
 
 void OverlayScrollbarShow(OverlayScrollbar* sb, bool show);
+void OverlayScrollbarRepaint(OverlayScrollbar* sb);
 void OverlayScrollbarHide(OverlayScrollbar* sb);
 
 void OverlayScrollbarNotifyScroll(OverlayScrollbar* sb);

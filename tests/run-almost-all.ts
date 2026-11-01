@@ -482,6 +482,7 @@ import { testit as cbrNetworkUnrar } from "./cbr-network-unrar.ts";
 import { testit as fileLinkNoDest } from "./file-link-no-dest.ts";
 import { testit as annotTextPopupReload } from "./annot-text-popup-reload.ts";
 import { testit as controlPipeBusy } from "./control-pipe-busy.ts";
+import { testit as overlayScrollbarTheme } from "./overlay-scrollbar-theme.ts";
 
 async function annotationClipboardTests(): Promise<void> {
   beginSharedControlledSession();
@@ -960,6 +961,7 @@ export const tests: NamedTest[] = [
   ["issue-6441", issue6441],
   ["issue-6442", issue6442],
   ["issue-6444", issue6444],
+  ["overlay-scrollbar-theme", overlayScrollbarTheme],
 ];
 
 export async function testit(opts?: SuiteOptions): Promise<void> {

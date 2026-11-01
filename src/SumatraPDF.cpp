@@ -3075,6 +3075,8 @@ void UpdateAfterThemeChange() {
         MainWindowRerender(win, true);
         uint flags = RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN;
         RedrawWindow(win->hwndFrame, nullptr, nullptr, flags);
+        OverlayScrollbarRepaint(win->overlayScrollV);
+        OverlayScrollbarRepaint(win->overlayScrollH);
     }
     CommandPaletteUpdateTheme();
     UpdateDocumentColors();

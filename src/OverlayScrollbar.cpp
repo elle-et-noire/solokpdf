@@ -1312,6 +1312,14 @@ void OverlayScrollbarHide(OverlayScrollbar* sb) {
 }
 
 // Show/hide
+// Draw again in the current colors, e.g. after a theme change: the bar is a
+// layered popup, which a redraw of its owner's window tree doesn't reach
+void OverlayScrollbarRepaint(OverlayScrollbar* sb) {
+    if (sb) {
+        PaintScrollbar(sb);
+    }
+}
+
 void OverlayScrollbarShow(OverlayScrollbar* sb, bool show) {
     if (!sb) {
         return;
