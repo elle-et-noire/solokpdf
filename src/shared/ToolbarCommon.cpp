@@ -81,7 +81,7 @@ Color TbSubtleBgColor() {
 }
 
 Color TbSelectedColor() {
-    return AccentColor(TbBgColor(), 28);
+    return ThemeSelectedBackgroundColor();
 }
 
 Color TbEdgeColor() {

@@ -37,7 +37,6 @@ constexpr int kThumbnailSidebarPadding = 8;
 constexpr int kThumbnailMaxCols = 6;
 constexpr int kThumbnailRenderScreens = 1;
 constexpr int kThumbnailKeepScreens = 2;
-constexpr Color kCurrentPageColor = MkRgb(0, 120, 215);
 
 static Pixmap* const kThumbnailRenderFailed = (Pixmap*)(intptr_t)-1;
 
@@ -268,6 +267,16 @@ int PageThumbnailsCtrl::ScrollbarDx() {
     return DpiGetSystemMetrics(SM_CXVSCROLL, GetDpi());
 }
 
+// flush with the right edge over the whole height, like the canvas's bar, not
+// inside the padding
+Rect PageThumbnailsCtrl::ScrollbarRectLocal() {
+    int dx = ScrollbarDx();
+    if (dx == 0) {
+        return {};
+    }
+    return {bounds.dx - dx, 0, dx, bounds.dy};
+}
+
 // a square arrow at each end, like a native bar
 Rect PageThumbnailsCtrl::TrackRectLocal() {
     Rect sb = ScrollbarRectLocal();
@@ -479,7 +488,8 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
         }
 
         if (isCurrent) {
-            ev->gfx->DrawRect(pageRect, kCurrentPageColor, 3);
+            // the theme's accent, as on a focused field's border
+            ev->gfx->DrawRect(pageRect, ThemeHotEdgeColor(), 3);
         }
 
         TempStr label = fmt("%d", pageNo);

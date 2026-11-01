@@ -149,8 +149,9 @@ void ThemeApplyPlatformColors() {
     gColsBtnDefault[kColBtnBorder] = hotEdge;
     gColsBtnDefault[kColBtnTextDisabled] = disabled;
 
-    gColsIconBtn[kColIconBtnBgHover] = AccentColor(ctlBg, 20);
-    gColsIconBtn[kColIconBtnBgSelected] = AccentColor(ctlBg, 36);
+    // the toolbar's, so the sidebar's view icons light up the same way
+    gColsIconBtn[kColIconBtnBgHover] = ThemeHotBackgroundColor();
+    gColsIconBtn[kColIconBtnBgSelected] = ThemeSelectedBackgroundColor();
     gColsIconBtn[kColIconBtnChevron] = text;
     gColsIconBtn[kColIconBtnChevronDisabled] = disabled;
 

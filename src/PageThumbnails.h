@@ -60,6 +60,7 @@ struct PageThumbnailsCtrl : VirtListBox {
 
   protected:
     int ScrollbarDx() override;
+    Rect ScrollbarRectLocal() override;
     Rect TrackRectLocal() override;
     void PaintScrollbar(VirtPaintCtx&) override;
     int PageAtPoint(Point);

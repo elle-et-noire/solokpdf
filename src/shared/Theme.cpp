@@ -1256,6 +1256,11 @@ Color ThemeHotBackgroundColor() {
     return GetThemeCol(gCurrentTheme->hotBackgroundColor, fallback);
 }
 
+// a toggled-on button: the toolbar's and the sidebar's view icons
+Color ThemeSelectedBackgroundColor() {
+    return AccentColor(ThemeControlBackgroundColor(), 28);
+}
+
 Color ThemeEdgeColor() {
     if (gUseHighContrast) {
         // borders have to stay visible, so they take the text color

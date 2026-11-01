@@ -51,7 +51,12 @@ Chrome, the title bar, tab strip, caption buttons and window border now take
 it (a hovered one shows a faint box) and the selected tab keeps
 `ControlBackgroundColor`, joining the toolbar below. Every tab shows its close
 button (upstream: the selected one only); non-selected tabs narrower than 100
-DIP hide it.
+DIP hide it. Hovered, the ✕ steps toward the text color instead of turning
+white on a red circle.
+
+The sidebar's view icons (Bookmarks, Thumbnails, Favorites) and other icon
+buttons hover and select in the toolbar's colors (`HotBackgroundColor`, and
+`ThemeSelectedBackgroundColor` for a toggled-on one).
 
 Splitters (sidebar, panels, AI chat) take the panel's color, without upstream's
 darker bar; it shows while hovered or dragged.
@@ -170,7 +175,10 @@ with a size grip that resizes the frame when it isn't maximized.
 
 The thumbnails' scrollbar (sidebar and command palette) is drawn the same way
 (`PaintThemedBar`): as wide as a native bar, a thin line at rest that widens
-with arrows on hover over the theme's transition, arrows stepping a row.
+with arrows on hover over the theme's transition, arrows stepping a row. It
+runs along the list's right edge over its whole height, outside the padding.
+The current page's frame takes the theme's `HotEdgeColor` (upstream: a fixed
+blue).
 
 `tests/smart-scrollbars-autohide.ts` reads the bars off the screen and checks
 an auto-hidden smart bar stays hidden.

@@ -3180,7 +3180,7 @@ void VirtCloseButton::Paint(VirtPaintCtx& ctx) {
     // slightly translucent when it sits on content it doesn't own
     u8 a = (withCircle && !isHover) ? 215 : 255;
     Color circle = GetColor(isHover ? kColCloseCircleHover : kColCloseCircle);
-    if (isHover || withCircle) {
+    if ((isHover || withCircle) && !ColorSkipsPaint(circle)) {
         Rect er = r;
         if (mirrorDx) {
             er.x = mirrorX(r.x + r.dx - 1);

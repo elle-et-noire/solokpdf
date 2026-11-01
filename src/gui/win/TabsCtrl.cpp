@@ -43,6 +43,8 @@ static const WStr kTabsCtrlClassName = L"SumatraTabsCtrlClass";
 
 // narrower non-selected tabs hide their ✕ (DIP)
 constexpr int kCloseMinTabDx = 100;
+// how much a hovered ✕ moves toward the text color (AdjustLightness2 units)
+constexpr float kCloseHoverStep = 50.0f;
 
 // hwnd is kept LTR (like the canvas); UI direction comes from the parent frame
 static bool IsTabsRtl(HWND hwnd) {
@@ -292,8 +294,13 @@ void TabCtrl::Paint(VirtPaintCtx& ctx) {
         gfx->FillEllipse({dotX, dotY, dotRadius * 2, dotRadius * 2}, MkRgb(0xEE, 0x22, 0x22));
     }
 
-    // the ✕ blends into the tab, so it takes the tab's background
+    // the ✕ blends into the tab, so it takes the tab's background; hovered it
+    // only steps toward the text color, without the red circle
     closeBtn->SetColor(kColCloseCircle, tabBgCol);
+    closeBtn->SetColor(kColCloseCircleHover, kColorTransparent);
+    Color x = closeBtn->GetColor(kColCloseX);
+    float step = IsLightColor(tabBgCol) ? -kCloseHoverStep : kCloseHoverStep;
+    closeBtn->SetColor(kColCloseXHover, AdjustLightness2(x, step));
 }
 
 void TabCtrl::OnMouseDown(VirtMouseEvent* ev) {

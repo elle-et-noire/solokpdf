@@ -515,7 +515,7 @@ struct VirtListBox : VirtCtrl {
     virtual int ScrollbarDx();
     virtual Rect TrackRectLocal();
     virtual void PaintScrollbar(VirtPaintCtx&);
-    Rect ScrollbarRectLocal();
+    virtual Rect ScrollbarRectLocal();
     Rect ThumbRectLocal();
 
   private:
