@@ -1769,6 +1769,11 @@ class EnginePdfium : public EngineBase {
     bool HasAnnotationEditor() override { return true; }
     bool HasAcroForm() override { return acroForm; }
 
+    bool HasSignatures() override {
+        ScopedMutex lock(&gPdfiumLock);
+        return gPdfium.FPDF_GetSignatureCount(doc) > 0;
+    }
+
     bool HasPageAnnotations(int pageNo) override {
         ScopedMutex lock(&gPdfiumLock);
         return HasAnnotsLocked(pageNo);

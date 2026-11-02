@@ -9206,7 +9206,7 @@ PdfSigResult::~PdfSigResult() {
 // Every signature's verdict, for showing them without opening Properties.
 PdfSigResult* EngineMupdfCheckSignatures(EngineBase* engine) {
     auto* res = new PdfSigResult();
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (e && e->pdfdoc) {
         ScopedRecursiveMutex scope(&e->docLock);
         GetSignatures(e, res);
@@ -9217,7 +9217,7 @@ PdfSigResult* EngineMupdfCheckSignatures(EngineBase* engine) {
 // Asks the CAs about this document's signers: slow, and leaves the answers in
 // Windows' cache, where the next look at the signatures finds them.
 void EngineMupdfFetchRevocation(EngineBase* engine) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc) {
         return;
     }

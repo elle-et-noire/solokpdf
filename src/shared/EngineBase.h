@@ -619,6 +619,7 @@ class EngineBase {
     virtual bool HasAnnotationEditor() { return false; }
     virtual EngineBase* AnnotationEditor(EditorLoad) { return nullptr; }
     virtual bool HasAcroForm() { return false; }
+    virtual bool HasSignatures() { return false; }
     // empty fillable form fields; false: ask the annotation editor
     virtual bool FormHighlightRects(int, Vec<RectF>&) { return false; }
     // form field at a page point and its hover cursor; false: ask the annotation editor

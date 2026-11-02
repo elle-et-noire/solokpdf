@@ -206,6 +206,9 @@ are in [history.md](history.md).
 
 ## Annotations, forms, signatures and attachments
 
+- Ctrl+drag rectangular selections can create highlights on PDFium tabs,
+  matching MuPDF (`tests/issue-6467.ts`).
+
 Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 - Annotations of PDFium documents are edited, undone and saved by a hidden
@@ -245,6 +248,8 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   a notification on every load. Signed PDFium documents use the hidden MuPDF
   editor for verification text and certificate details in Document Properties.
   PDFium's signature count gates that load; ordinary PDFs stay on PDFium alone.
+  Signed PDFium tabs also show validation status, the Signatures sidebar and
+  `CmdShowSignatures`; the signature count gates this load too.
   Sign Document and signature-field clicks use the lazy MuPDF editor to sign,
   certify and save incrementally, then reopen the result in PDFium while
   retaining the view state. Unsaved annotation and form edits share that save.

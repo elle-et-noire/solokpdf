@@ -6026,9 +6026,13 @@ static void MaybeShowSignatureStatus(MainWindow* win, WindowTab* tab) {
         return;
     }
     EngineBase* engine = tab->AsFixed()->GetEngine();
-    if (!EngineMupdfIsPdf(engine) || EngineMupdfCountSignedSignatures(engine) == 0) {
+    if (!IsPdfPageEngine(engine->kind) ||
+        (engine->HasAnnotationEditor() ? !engine->HasSignatures() : EngineMupdfCountSignedSignatures(engine) == 0)) {
         delete tab->signatures;
         tab->signatures = nullptr;
+        return;
+    }
+    if (engine->HasAnnotationEditor() && !engine->AnnotationEditor(EditorLoad::Load)) {
         return;
     }
     EutlRegisterLookup();
