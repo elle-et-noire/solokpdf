@@ -1428,6 +1428,7 @@
     <ClInclude Include="..\src\SearchAndDDE.h" />
     <ClInclude Include="..\src\Settings.h" />
     <ClInclude Include="..\src\SidebarPanel.h" />
+    <ClInclude Include="..\src\SignatureUI.h" />
     <ClInclude Include="..\src\SimpleBrowserWindow.h" />
     <ClInclude Include="..\src\SumatraDialogs.h" />
     <ClInclude Include="..\src\SumatraPDF.h" />
@@ -1558,6 +1559,7 @@
     <ClInclude Include="..\src\shared\RefHoverPopupCommon.h" />
     <ClInclude Include="..\src\shared\RenderCache.h" />
     <ClInclude Include="..\src\shared\RestrictedUseConfig.h" />
+    <ClInclude Include="..\src\shared\RtfDoc.h" />
     <ClInclude Include="..\src\shared\Screenshot.h" />
     <ClInclude Include="..\src\shared\ScreenshotCommon.h" />
     <ClInclude Include="..\src\shared\SearchAndDDECommon.h" />
@@ -1593,6 +1595,7 @@
     <ClInclude Include="..\src\shared\UpdateTemp.h" />
     <ClInclude Include="..\src\shared\Version.h" />
     <ClInclude Include="..\src\shared\VirtualDesktop.h" />
+    <ClInclude Include="..\src\shared\WebViewCapture.h" />
     <ClInclude Include="..\src\shared\WebpReader.h" />
     <ClInclude Include="..\src\shared\WindowTab.h" />
     <ClInclude Include="..\src\shared\gui\PlatformFont.h" />
@@ -1710,9 +1713,11 @@
     <ClCompile Include="..\src\ShortcutsDialog.cpp" />
     <ClCompile Include="..\src\SidebarPanel.cpp" />
     <ClCompile Include="..\src\SignDocumentDialog.cpp" />
+    <ClCompile Include="..\src\SignatureUI.cpp" />
     <ClCompile Include="..\src\SimpleBrowserWindow.cpp" />
     <ClCompile Include="..\src\SumatraControl.cpp" />
     <ClCompile Include="..\src\SumatraDialogs.cpp" />
+    <ClCompile Include="..\src\SumatraOnlineDialog.cpp" />
     <ClCompile Include="..\src\SumatraPDF.cpp" />
     <ClCompile Include="..\src\SumatraTest.cpp" />
     <ClCompile Include="..\src\TabGroupsManage.cpp" />
@@ -2172,6 +2177,7 @@
     <ClCompile Include="..\src\shared\EbookSettingsDialogCommon.cpp" />
     <ClCompile Include="..\src\shared\EmbeddedResources.cpp" />
     <ClCompile Include="..\src\shared\EngineBase.cpp" />
+    <ClCompile Include="..\src\shared\EngineCaj.cpp" />
     <ClCompile Include="..\src\shared\EngineCreate.cpp" />
     <ClCompile Include="..\src\shared\EngineDjvuDec.cpp" />
     <ClCompile Include="..\src\shared\EngineDvi.cpp" />
@@ -2259,6 +2265,7 @@
     <ClCompile Include="..\src\shared\RegistryInstaller.cpp" />
     <ClCompile Include="..\src\shared\RenderCache.cpp" />
     <ClCompile Include="..\src\shared\RestrictedUseConfig.cpp" />
+    <ClCompile Include="..\src\shared\RtfDoc.cpp" />
     <ClCompile Include="..\src\shared\ScreenshotCommon.cpp" />
     <ClCompile Include="..\src\shared\SearchAndDDECommon.cpp" />
     <ClCompile Include="..\src\shared\SelectTextKeyboard.cpp">
@@ -2299,6 +2306,7 @@
     <ClCompile Include="..\src\shared\Translations.cpp" />
     <ClCompile Include="..\src\shared\UpdateCheckCommon.cpp" />
     <ClCompile Include="..\src\shared\UpdateTemp.cpp" />
+    <ClCompile Include="..\src\shared\WebViewCapture_win.cpp" />
     <ClCompile Include="..\src\shared\WebpReader.cpp" />
     <ClCompile Include="..\src\shared\WindowTab.cpp" />
     <ClCompile Include="..\src\shared\gui\PlatformFont.cpp" />
@@ -2445,6 +2453,20 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile x64_asan|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\src\shared\tests\RenderCache_ut.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release x64_asan|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseAnalyze|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseAnalyze|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseAnalyze|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseAnalyze x64_asan|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile x64_asan|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\src\shared\tests\RtfDoc_ut.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>

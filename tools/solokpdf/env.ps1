@@ -9,8 +9,6 @@ $bunDir = Join-Path $repoDir '.work\tools\bun-windows-x64'
 $prettierBin = Join-Path $repoDir '.work\build-deps\node_modules\.bin'
 $env:PATH = "$bunDir;$prettierBin;$vsDir\MSBuild\Current\Bin;$vsDir\VC\Tools\Llvm\x64\bin;" + $env:PATH
 $env:NODE_PATH = Join-Path $repoDir '.work\build-deps\node_modules'
-$env:SUMATRA_SLN = 'vs2026\SumatraPDF.slnx'
-$env:SUMATRA_TEST_EXE = Join-Path $repoDir 'out\solokpdf-dev\SolokPDF.exe'
 if ($Toolset) {
     $props = Join-Path $repoDir '.work\solok-toolset.props'
     New-Item -ItemType Directory -Force (Split-Path $props) | Out-Null
