@@ -1794,6 +1794,7 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 | D1  | Release job in parallel with debug                                               | done — Run CI release build in parallel (D1) |
 | D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)       |
 | D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | done — Merge upstream f45967f87 (D5)         |
+| D6  | Merge upstream/master at 254c2ae7c into solokpdf-dev                             | done — Merge upstream/master 254c2ae7c (D6)  |
 
 ### E. Quality
 

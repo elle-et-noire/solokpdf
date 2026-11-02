@@ -52,6 +52,7 @@
 #include "Menu.h"
 #include "uia/Provider.h"
 #include "SearchAndDDE.h"
+#include "SignatureUI.h"
 #include "Selection.h"
 #include "LinkFollow.h"
 #include "SelectTextKeyboard.h"
@@ -1417,6 +1418,9 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y, WPARAM key) {
     HideToolbarHoverDropdown(win);
 
     if (ReadingBarOnLeftDown(win, x, y)) {
+        return;
+    }
+    if (SigMarksOnLeftDown(win, x, y)) {
         return;
     }
 
@@ -3058,6 +3062,7 @@ static bool DrawDocument(MainWindow* win, HDC hdc, Rect rcArea) {
 
     PaintReadAloudHighlight(win, &gfx);
     ReadingBarPaint(win, &gfx);
+    PaintSignatureMarks(win, &gfx);
 
     if (win->fwdSearchMark.show) {
         PaintForwardSearchMark(win, &gfx);
@@ -3254,6 +3259,9 @@ static LRESULT OnSetCursorMouseNone(MainWindow* win, HWND hwnd) {
 
 static LRESULT OnSetCursor(MainWindow* win, HWND hwnd) {
     ReportIf(win->hwndCanvas != hwnd);
+    if (SigMarksOnSetCursor(win)) {
+        return TRUE;
+    }
     if (ReadingBarOnSetCursor(win)) {
         win->DeleteToolTip();
         return TRUE;

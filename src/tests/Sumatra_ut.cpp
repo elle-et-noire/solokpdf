@@ -2,6 +2,7 @@
    License: GPLv3 */
 
 #include "base/Base.h"
+#include "base/Http.h"
 
 #if IS_DEBUG
 
@@ -81,6 +82,7 @@ void WinUtilTest();
 // in src/tests/*_ut.cpp
 void ChapterTable_UnitTests();
 void LitDoc_UnitTests();
+void RtfDoc_UnitTests();
 void MobiDoc_UnitTests();
 void PagePosition_UnitTests();
 void PdfSync_UnitTests();
@@ -99,6 +101,7 @@ bool MarkdownModel_UnitTestBrowserNavigationUrl();
 bool MarkdownToc_UnitTestHtmlLinks();
 bool MarkdownToc_UnitTestHtmlHeadings();
 bool MarkdownToc_UnitTestMermaid();
+bool MarkdownToc_UnitTestHighlightWikilinks();
 bool MarkdownToc_TestLineBreaks();
 bool EbookDoc_UnitTestNormalizeURL();
 bool EbookDoc_UnitTestLoading();
@@ -111,6 +114,7 @@ bool EngineMupdf_UnitTestEbookFontFamilyCss();
 bool EngineMupdf_UnitTestEbookMarginCss();
 bool EngineMupdf_UnitTestMergeEBookUI();
 bool EngineMupdf_UnitTestPageLabels();
+bool EngineMupdf_UnitTestDoi();
 bool Accelerators_UnitTestFolderNavIsSafe();
 bool Accelerators_UnitTestTreeTakesLetters();
 bool Accelerators_UnitTestCreateAnnotEdit();
@@ -379,7 +383,22 @@ Exit:
     DeleteRegKey(HKEY_CURRENT_USER, StrL("Software\\SumatraPDF-unit-tests"));
 }
 
+static void OnlineURLAllowedTest() {
+    utassert(OnlineURLAllowed(StrL("https://online.sumatrapdfreader.org/api/files")));
+    utassert(OnlineURLAllowed(StrL("http://localhost:9332/desktop")));
+    utassert(OnlineURLAllowed(StrL("http://127.0.0.1:9332/api/files")));
+    utassert(OnlineURLAllowed(StrL("https://online.sumatrapdfreader.org")));
+    utassert(OnlineURLAllowed(StrL("http://localhost:9332")));
+    utassert(OnlineURLAllowed(StrL("http://127.0.0.1:9332")));
+    utassert(OnlineURLAllowed(StrL("https://online.sumatrapdfreader.org:443/api/files")));
+    utassert(!OnlineURLAllowed(StrL("https://online.sumatrapdfreader.org.evil.example/api/files")));
+    utassert(!OnlineURLAllowed(StrL("http://localhost")));
+    utassert(!OnlineURLAllowed(StrL("http://localhost:80")));
+    utassert(!OnlineURLAllowed(StrL("https://user@online.sumatrapdfreader.org/api/files")));
+}
+
 static void SumatraPDF_UnitTests() {
+    OnlineURLAllowedTest();
     RestrictedUseConfigTest();
     ControlFrameActionTest();
     OpenDdeCmdTest();
@@ -644,6 +663,7 @@ int RunAppUnitTests(bool forAi) {
 
     ChapterTable_UnitTests();
     LitDoc_UnitTests();
+    RtfDoc_UnitTests();
     MobiDoc_UnitTests();
     PagePosition_UnitTests();
     PdfSync_UnitTests();
@@ -665,6 +685,7 @@ int RunAppUnitTests(bool forAi) {
     utassert(MarkdownToc_UnitTestHtmlLinks());
     utassert(MarkdownToc_UnitTestHtmlHeadings());
     utassert(MarkdownToc_UnitTestMermaid());
+    utassert(MarkdownToc_UnitTestHighlightWikilinks());
     utassert(MarkdownToc_TestLineBreaks());
     utassert(EbookDoc_UnitTestNormalizeURL());
     utassert(EbookDoc_UnitTestLoading());
@@ -677,6 +698,7 @@ int RunAppUnitTests(bool forAi) {
     utassert(EngineMupdf_UnitTestEbookMarginCss());
     utassert(EngineMupdf_UnitTestMergeEBookUI());
     utassert(EngineMupdf_UnitTestPageLabels());
+    utassert(EngineMupdf_UnitTestDoi());
     utassert(Accelerators_UnitTestFolderNavIsSafe());
     utassert(Accelerators_UnitTestTreeTakesLetters());
     utassert(Accelerators_UnitTestCreateAnnotEdit());

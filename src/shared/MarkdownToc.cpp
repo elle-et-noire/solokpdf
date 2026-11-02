@@ -87,7 +87,8 @@ static cmark_parser* CreateMarkdownParser(Str data) {
     // no "autoheaderid": its slug rules differ from GitHub's, so the ids it
     // makes don't match the "#anchor" links such documents carry.
     // AddHeadingAnchors() emits them instead (#5883).
-    const char* exts[] = {"table", "strikethrough", "autolink", "tagfilter", "tasklist"};
+    // "highlight" is ==marked== (Obsidian), not a GFM extension.
+    const char* exts[] = {"table", "strikethrough", "autolink", "tagfilter", "tasklist", "highlight"};
     for (const char* ext : exts) {
         cmark_syntax_extension* syntax = cmark_find_syntax_extension(ext);
         if (syntax) {
@@ -285,6 +286,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Ar
   line-height: 1.5; color: var(--fg); background: var(--bg); margin: 0; padding: 2rem 3rem; max-width: 980px; }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
+mark { background: var(--mark); color: var(--mark-fg); padding: 0 .15em; border-radius: .15em; }
 h1,h2,h3,h4,h5,h6 { margin-top: 1.5rem; margin-bottom: 1rem; font-weight: 600; line-height: 1.25; }
 h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
 h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
@@ -292,7 +294,10 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospac
 pre { background: var(--code-bg); padding: 16px; overflow: auto; border-radius: 6px; }
 code { background: var(--code-bg); padding: .2em .4em; border-radius: 6px; }
 pre code { background: transparent; padding: 0; }
-pre.mermaid { background: transparent; text-align: center; overflow: visible; }
+pre.mermaid { background: transparent; text-align: center; overflow: visible;
+  --pele-bg: transparent; --pele-fg: var(--fg); --pele-muted: var(--muted); --pele-line: var(--fg);
+  --pele-surface: var(--code-bg); --pele-surface-alt: var(--border); --pele-border: var(--border);
+  --pele-accent: var(--link); }
 pre.mermaid svg { max-width: 100%%; height: auto; }
 pre[data-lang]::before { content: attr(data-lang); display: block; margin-bottom: 8px; color: var(--muted);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
@@ -329,8 +334,8 @@ struct CodeBlockCounts {
 };
 
 // cmark emits <pre><code class="language-mermaid">…</code></pre> for ```mermaid
-// fences. mermaid.js looks for <pre class="mermaid"> (or elements with that class).
-// Other languages get <pre data-lang="python">, which the page shows as a label.
+// fences. Pele mounts <pre class="mermaid">. Other languages get
+// <pre data-lang="python">, which the page shows as a label.
 static CodeBlockCounts RewriteCodeBlocks(str::Builder& out, Str body) {
     CodeBlockCounts counts;
     for (Str rest = body; rest;) {
@@ -392,40 +397,30 @@ static CodeBlockCounts RewriteCodeBlocks(str::Builder& out, Str body) {
     return counts;
 }
 
-// mermaid.min.js lives in IDR_EMBEDDED_PAK and mermaid-run.js is kMermaidRunJs,
-// both served from the markdown virtual host (GetDataForUrl). Not inline, so
-// kMarkdownCsp can allow just these two scripts. Must match kMdVirtualHost in
-// MarkdownModel.cpp.
+// pele.min.js (Pele 1.13.0, a Mermaid renderer) lives in IDR_EMBEDDED_PAK and
+// mermaid-run.js is kMermaidRunJs, both served from the markdown virtual host
+// (GetDataForUrl). Not inline, so kMarkdownCsp can allow just these two scripts.
+// Must match kMdVirtualHost in MarkdownModel.cpp.
 static const char kMermaidBootstrap[] = R"HTML(
-<script src="https://sumatrapdf.markdown/mermaid.min.js"></script>
+<script src="https://sumatrapdf.markdown/pele.min.js"></script>
 <script src="https://sumatrapdf.markdown/mermaid-run.js"></script>
 )HTML";
 
 static const char kMermaidRunJs[] = R"JS(
 (function () {
-  if (typeof mermaid === "undefined") return;
-  var bg = getComputedStyle(document.body).backgroundColor || "";
-  var dark = false;
-  var m = bg.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-  if (m) {
-    var r = +m[1], g = +m[2], b = +m[3];
-    dark = (0.2126 * r + 0.7152 * g + 0.0722 * b) < 140;
-  }
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: "strict",
-    theme: dark ? "dark" : "default"
+  if (typeof pele === "undefined" || !pele.mount) return;
+  document.querySelectorAll("pre.mermaid").forEach(function (el) {
+    pele.mount(el, el.textContent);
   });
-  mermaid.run({ querySelector: "pre.mermaid" }).catch(function () {});
 })();
 )JS";
 
 // Raw HTML in markdown is rendered (#6380), so the page must not run the
-// document's script (e.g. <img onerror=...>): only our mermaid and code scripts.
+// document's script (e.g. <img onerror=...>): only our pele and code scripts.
 static const char kMarkdownCsp[] =
     "<meta http-equiv=\"Content-Security-Policy\" content=\""
     "default-src 'self' data:; img-src * data:; media-src * data:; style-src 'self' 'unsafe-inline'; "
-    "script-src https://sumatrapdf.markdown/mermaid.min.js https://sumatrapdf.markdown/mermaid-run.js "
+    "script-src https://sumatrapdf.markdown/pele.min.js https://sumatrapdf.markdown/mermaid-run.js "
     "https://sumatrapdf.markdown/microlighter.min.js https://sumatrapdf.markdown/code-run.js; "
     "object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'\">";
 
@@ -492,8 +487,10 @@ static TempStr MarkdownPageCssTemp() {
     Str border = isDefault ? StrL("#d0d7de") : ColorToCssTemp(AccentColor(bgCol, 25));
     Str codeBg = isDefault ? StrL("#f6f8fa") : ColorToCssTemp(AccentColor(bgCol, 8));
 
-    TempStr cssVars =
-        fmt("--bg:%s; --fg:%s; --link:%s; --muted:%s; --border:%s; --code-bg:%s;", bg, fg, link, muted, border, codeBg);
+    Str markBg = dark ? StrL("#e6c229") : StrL("#fff8c5");
+    Str markFg = dark ? StrL("#1f2328") : fg;
+    TempStr cssVars = fmt("--bg:%s; --fg:%s; --link:%s; --muted:%s; --border:%s; --code-bg:%s; --mark:%s; --mark-fg:%s;",
+                          bg, fg, link, muted, border, codeBg, markBg, markFg);
     // code colors: GitHub's light or dark palette
     Str syntax = dark ? StrL(
                             "--syntax-comment:#8b949e; --syntax-keyword:#ff7b72; --syntax-string:#a5d6ff; "
@@ -529,6 +526,262 @@ static TempStr MarkdownLinkToHtmlTemp(Str url) {
     Str base(path.s, len(path) - len(ext));
     Str suffix(url.s + len(path), len(url) - len(path));
     return fmt("%s.html%s", base, suffix);
+}
+
+// Page.md next to the current note. ".md"/".markdown" is stripped and added
+// back so RewriteMarkdownLinks can turn it into the virtual .html page.
+// Another extension (Photo.png) is not a note. ".." would leave the folder.
+static bool WikilinkNormalizePage(Str* page) {
+    if (str::EndsWithI(*page, StrL(".markdown"))) {
+        page->len -= 9;
+    } else if (str::EndsWithI(*page, StrL(".md"))) {
+        page->len -= 3;
+    } else {
+        Str last = *page;
+        for (int i = 0; i < len(*page); i++) {
+            if (page->s[i] == '/') {
+                last = Str(page->s + i + 1, len(*page) - i - 1);
+            }
+        }
+        for (int i = 1; i < len(last); i++) {
+            if (last.s[i] == '.') {
+                return false;
+            }
+        }
+    }
+    return len(*page) > 0;
+}
+
+static Str WikilinkLastSeg(Str page) {
+    int start = 0;
+    for (int i = 0; i < len(page); i++) {
+        if (page.s[i] == '/') {
+            start = i + 1;
+        }
+    }
+    return Str(page.s + start, len(page) - start);
+}
+
+static bool WikilinkAppendPage(str::Builder& url, Str page) {
+    bool any = false;
+    int start = 0;
+    for (int i = 0; i <= len(page); i++) {
+        if (i < len(page) && page.s[i] != '/') {
+            continue;
+        }
+        Str seg(page.s + start, i - start);
+        start = i + 1;
+        if (str::Eq(seg, StrL("."))) {
+            continue;
+        }
+        if (len(seg) == 0 || str::Eq(seg, StrL(".."))) {
+            return false;
+        }
+        if (any && !url.AppendChar('/')) {
+            return false;
+        }
+        if (!url.Append(seg)) {
+            return false;
+        }
+        any = true;
+    }
+    return any && url.Append(StrL(".md"));
+}
+
+static bool WikilinkAppendHeading(str::Builder& url, Str heading) {
+    str::TrimWsBoth(heading);
+    if (len(heading) == 0) {
+        return false;
+    }
+    Str slug = MarkdownHeadingSlug(heading);
+    bool ok = len(slug) > 0 && url.AppendChar('#') && url.Append(slug);
+    str::Free(slug);
+    return ok;
+}
+
+// [[Page]], [[Page#Heading]], [[#Heading]], [[Page|alias]]. The brackets are
+// plain text to cmark (and split across nodes until consolidated), so this is
+// not an inline syntax extension. ![[embed]] stays text. Formatting inside
+// the brackets splits the text run and is left unchanged.
+static bool FillWikilink(Str inner, str::Builder& url, str::Builder& label) {
+    str::TrimWsBoth(inner);
+    if (len(inner) == 0 || str::ContainsChar(inner, '\n') || str::ContainsChar(inner, '\r') ||
+        str::Contains(inner, StrL("#^"))) {
+        return false;
+    }
+    Str target = inner;
+    Str alias;
+    if (str::CutChar(inner, '|', &target, &alias)) {
+        str::TrimWsBoth(target);
+        str::TrimWsBoth(alias);
+    }
+    if (len(target) == 0 || str::ContainsChar(target, ':') || str::ContainsChar(target, '\\') ||
+        str::ContainsChar(target, '?') || str::ContainsChar(target, '*') || str::ContainsChar(target, '"') ||
+        str::ContainsChar(target, '<') || str::ContainsChar(target, '>')) {
+        return false;
+    }
+
+    if (target.s[0] == '#') {
+        Str heading(target.s + 1, target.len - 1);
+        str::TrimWsBoth(heading);
+        if (!WikilinkAppendHeading(url, heading)) {
+            return false;
+        }
+        return label.Append(len(alias) ? alias : heading);
+    }
+
+    Str page = target;
+    Str heading;
+    if (str::CutChar(target, '#', &page, &heading)) {
+        str::TrimWsBoth(page);
+        str::TrimWsBoth(heading);
+    }
+    if (len(page) == 0 || page.s[0] == '/' || !WikilinkNormalizePage(&page) || !WikilinkAppendPage(url, page)) {
+        return false;
+    }
+    if (len(heading) > 0 && !WikilinkAppendHeading(url, heading)) {
+        return false;
+    }
+    return label.Append(len(alias) ? alias : WikilinkLastSeg(page));
+}
+
+static cmark_node* WikilinkTextNode(Str s) {
+    if (len(s) == 0) {
+        return nullptr;
+    }
+    cmark_node* node = cmark_node_new(CMARK_NODE_TEXT);
+    if (!node || !cmark_node_set_literal(node, CStrTemp(s))) {
+        cmark_node_free(node);
+        return nullptr;
+    }
+    return node;
+}
+
+static cmark_node* WikilinkLinkNode(Str url, Str label) {
+    cmark_node* link = cmark_node_new(CMARK_NODE_LINK);
+    cmark_node* text = WikilinkTextNode(label);
+    if (!link || !text || !cmark_node_set_url(link, CStrTemp(url)) || !cmark_node_append_child(link, text)) {
+        if (text && (!link || cmark_node_parent(text) != link)) {
+            cmark_node_free(text);
+        }
+        cmark_node_free(link);
+        return nullptr;
+    }
+    return link;
+}
+
+static bool WikilinkInsideLink(cmark_node* node) {
+    for (cmark_node* parent = cmark_node_parent(node); parent; parent = cmark_node_parent(parent)) {
+        cmark_node_type type = cmark_node_get_type(parent);
+        if (type == CMARK_NODE_LINK || type == CMARK_NODE_IMAGE) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void RewriteWikilinkNode(cmark_node* text) {
+    if (WikilinkInsideLink(text)) {
+        return;
+    }
+    const char* lit = cmark_node_get_literal(text);
+    if (!lit) {
+        return;
+    }
+    int n = (int)strlen(lit);
+    bool has = false;
+    for (int i = 0; i + 1 < n; i++) {
+        if (lit[i] == '[' && lit[i + 1] == '[') {
+            has = true;
+            break;
+        }
+    }
+    if (!has) {
+        return;
+    }
+
+    Vec<cmark_node*> nodes;
+    int i = 0;
+    int plain = 0;
+    bool any = false;
+    auto drop = [&]() {
+        for (cmark_node* node : nodes) {
+            cmark_node_free(node);
+        }
+    };
+    while (i + 1 < n) {
+        if (lit[i] != '[' || lit[i + 1] != '[') {
+            i++;
+            continue;
+        }
+        if (i > 0 && lit[i - 1] == '!') {
+            i += 2;
+            continue;
+        }
+        int close = -1;
+        for (int j = i + 2; j + 1 < n; j++) {
+            if (lit[j] == '\n' || lit[j] == '\r') {
+                break;
+            }
+            if (lit[j] == ']' && lit[j + 1] == ']') {
+                close = j;
+                break;
+            }
+        }
+        if (close < 0) {
+            i += 2;
+            continue;
+        }
+        str::Builder url;
+        str::Builder label;
+        if (!FillWikilink(Str(lit + i + 2, close - (i + 2)), url, label)) {
+            i += 2;
+            continue;
+        }
+        if (i > plain) {
+            cmark_node* lead = WikilinkTextNode(Str(lit + plain, i - plain));
+            if (!lead) {
+                drop();
+                return;
+            }
+            VecAppend(nodes, lead);
+        }
+        cmark_node* link = WikilinkLinkNode(ToStr(url), ToStr(label));
+        if (!link) {
+            drop();
+            return;
+        }
+        VecAppend(nodes, link);
+        any = true;
+        i = close + 2;
+        plain = i;
+    }
+    if (!any) {
+        drop();
+        return;
+    }
+    if (plain < n) {
+        cmark_node* tail = WikilinkTextNode(Str(lit + plain, n - plain));
+        if (!tail) {
+            drop();
+            return;
+        }
+        VecAppend(nodes, tail);
+    }
+    for (cmark_node* node : nodes) {
+        if (!cmark_node_insert_before(text, node)) {
+            cmark_node_free(node);
+        }
+    }
+    cmark_node_free(text);
+}
+
+static void RewriteWikilinks(cmark_node* doc) {
+    Vec<cmark_node*> texts;
+    VisitMarkdownNodes(doc, CMARK_NODE_TEXT, [&](cmark_node* node) { VecAppend(texts, node); });
+    for (cmark_node* node : texts) {
+        RewriteWikilinkNode(node);
+    }
 }
 
 static void RewriteMarkdownLinks(cmark_node* doc) {
@@ -658,6 +911,9 @@ static char* MarkdownToHtmlBody(Str markdown, int options = CMARK_OPT_DEFAULT) {
         return nullptr;
     }
 
+    // [[Page]] is several text nodes ([ [ Page ] ]) until they are joined.
+    cmark_consolidate_text_nodes(doc);
+    RewriteWikilinks(doc);
     RewriteMarkdownLinks(doc);
     PreserveSafeEmptyAnchors(doc);
     AddHeadingAnchors(doc);
@@ -821,7 +1077,7 @@ bool MarkdownToc_UnitTestHtmlHeadings() {
 }
 
 // ```mermaid fences become <pre class="mermaid">; the page path also injects
-// mermaid.min.js when any were rewritten (#5927). Avoid MarkdownToHtmlPage here
+// pele.min.js when any were rewritten (#5927). Avoid MarkdownToHtmlPage here
 // — it needs a live theme for CSS (not set up in -unit-tests).
 bool MarkdownToc_UnitTestMermaid() {
     Str md = StrL("before\n\n```mermaid\nflowchart TD\n    A --> B\n```\n\nafter\n");
@@ -849,7 +1105,68 @@ bool MarkdownToc_UnitTestMermaid() {
     ok = ok && (nPlain.mermaid == 0) && (nPlain.withLang == 1) && (nPlain.plain == 1) &&
          str::Contains(plain, StrL("<pre data-lang=\"js\"><code class=\"language-js\">")) &&
          str::Contains(plain, StrL("<pre><code>plain")) && !str::Contains(plain, StrL("pre class=\"mermaid\""));
+    Str run = MermaidRunJs();
+    ok = ok && str::Contains(run, StrL("pele.mount"));
     return ok;
+}
+
+bool MarkdownToc_UnitTestHighlightWikilinks() {
+    struct {
+        Str md;
+        Str want;
+    } cases[] = {
+        {StrL("==hi==\n"), StrL("<p><mark>hi</mark></p>\n")},
+        {StrL("==**bold**==\n"), StrL("<p><mark><strong>bold</strong></mark></p>\n")},
+        {StrL("== highlighted ==\n"), StrL("<p><mark> highlighted </mark></p>\n")},
+        {StrL("`==no==`\n"), StrL("<p><code>==no==</code></p>\n")},
+        {StrL("[[Page]]\n"), StrL("<p><a href=\"Page.html\">Page</a></p>\n")},
+        {StrL("[[folder/Page]]\n"), StrL("<p><a href=\"folder/Page.html\">Page</a></p>\n")},
+        {StrL("[[Page.md]]\n"), StrL("<p><a href=\"Page.html\">Page</a></p>\n")},
+        {StrL("[[./Page]]\n"), StrL("<p><a href=\"Page.html\">Page</a></p>\n")},
+        {StrL("[[My Page]]\n"), StrL("<p><a href=\"My%20Page.html\">My Page</a></p>\n")},
+        {StrL("[[Page#Hello World]]\n"), StrL("<p><a href=\"Page.html#hello-world\">Page</a></p>\n")},
+        {StrL("[[#Hello World]]\n"), StrL("<p><a href=\"#hello-world\">Hello World</a></p>\n")},
+        {StrL("[[Page|the alias]]\n"), StrL("<p><a href=\"Page.html\">the alias</a></p>\n")},
+        {StrL("![[Page]]\n"), StrL("<p>![[Page]]</p>\n")},
+        {StrL("[[../Page]]\n"), StrL("<p>[[../Page]]</p>\n")},
+        {StrL("[[Photo.png]]\n"), StrL("<p>[[Photo.png]]</p>\n")},
+        {StrL("==[[Page]]==\n"), StrL("<p><mark><a href=\"Page.html\">Page</a></mark></p>\n")},
+    };
+    for (auto& c : cases) {
+        char* body = MarkdownToHtmlBody(c.md, CMARK_OPT_UNSAFE);
+        if (!body) {
+            return false;
+        }
+        bool ok = str::Eq(Str(body), c.want);
+        if (!ok) {
+            fprintf(stderr, "highlight/wikilink\n md: %s got: %s want: %s\n", c.md.s, body, c.want.s);
+        }
+        cmark_get_default_mem_allocator()->free(body);
+        if (!ok) {
+            return false;
+        }
+    }
+
+    char* fenced = MarkdownToHtmlBody(StrL("```\n==no==\n[[Page]]\n```\n"), CMARK_OPT_UNSAFE);
+    if (!fenced) {
+        return false;
+    }
+    Str fence(fenced);
+    bool fenceOk = str::Contains(fence, StrL("==no==")) && str::Contains(fence, StrL("[[Page]]")) &&
+                   !str::Contains(fence, StrL("<mark>")) && !str::Contains(fence, StrL("href="));
+    cmark_get_default_mem_allocator()->free(fenced);
+    if (!fenceOk) {
+        return false;
+    }
+
+    char* headed = MarkdownToHtmlBody(StrL("See [[#Hello World]]\n\n## Hello World\n"), CMARK_OPT_UNSAFE);
+    if (!headed) {
+        return false;
+    }
+    Str head(headed);
+    bool headOk = str::Contains(head, StrL("href=\"#hello-world\"")) && str::Contains(head, StrL("id=\"hello-world\""));
+    cmark_get_default_mem_allocator()->free(headed);
+    return headOk;
 }
 
 bool MarkdownToc_TestLineBreaks() {

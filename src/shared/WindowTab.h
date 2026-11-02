@@ -24,13 +24,16 @@ enum class SidebarContent {
     Favorites,
 };
 #else
+struct PdfSigResult;
+
 // what a sidebar panel shows
 enum class SidebarView {
     Bookmarks,
     Thumbnails,
     Favorites,
+    Signatures,
 };
-constexpr int kSidebarViewCount = 3;
+constexpr int kSidebarViewCount = 4;
 
 SidebarView SidebarViewFromStr(Str s, SidebarView def);
 Str SidebarViewToStr(SidebarView);
@@ -172,11 +175,15 @@ struct WindowTab {
 #else
     // what the sidebar's top panel shows (showToc: whether it does)
     SidebarView sidebarView = SidebarView::Bookmarks;
+    // what checking the signatures found; set by a background job. Owned
+    PdfSigResult* signatures = nullptr;
 #endif
     // whether to auto-reload the document when the tab is selected
     bool reloadOnFocus = false;
     // opened via CmdOpenFileNoHistory: do not write File History / Windows Recent
     bool skipHistory = false;
+    // a Home tab from the "+" button: an ordinary tab, unlike the pinned first one
+    bool isExtraHome = false;
     // the temporary-folder notification was shown for filePath (#6437)
     bool temporaryFileNotified = false;
 
@@ -207,6 +214,7 @@ struct WindowTab {
     ~WindowTab();
 
     bool IsAboutTab() const;
+    bool IsPinnedHomeTab() const;
     bool IsFavoritesTab() const;
     bool IsNonDocumentTab() const;
 
@@ -234,3 +242,4 @@ bool SaveDataToFile(HWND hwndParent, Str fileName, Str data);
 
 bool IsPdfDoc(WindowTab* tab);
 bool IsEpubDoc(WindowTab* tab);
+bool IsCajDoc(WindowTab* tab);

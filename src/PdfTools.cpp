@@ -555,8 +555,9 @@ void PdfBakeDialog::DoIt(VirtMouseEvent*) {
     logf("PdfBakeDoIt: baking '%s' to '%s'\n", inputPath, destPath);
 
     // build argv for pdfbake_main: "bake" input output
-    char* argv[] = {(char*)"bake", CStrTemp(inputPath), CStrTemp(destPath)};
-    int argc = 3;
+    char* argv[] = {(char*)"bake", (char*)"-p", PdfToolPasswordTemp(win, srcPath), CStrTemp(inputPath),
+                    CStrTemp(destPath)};
+    int argc = dimofi(argv);
 
     fz_set_optind(0);
     int res = pdfbake_main(argc, argv);
@@ -631,8 +632,10 @@ void PdfExtractTextDialog::DoIt(VirtMouseEvent*) {
     bool isPdf = tab && IsPdfDoc(tab);
     if (isPdf) {
         // use muconvert for PDF
-        char* argv[] = {(char*)"convert", (char*)"-o", CStrTemp(destPath), CStrTemp(srcPath), CStrTemp(pages)};
-        int argc = 5;
+        char* argv[] = {(char*)"convert", (char*)"-p",        PdfToolPasswordTemp(win, srcPath),
+                        (char*)"-o",      CStrTemp(destPath), CStrTemp(srcPath),
+                        CStrTemp(pages)};
+        int argc = dimofi(argv);
         fz_set_optind(0);
         ok = muconvert_main(argc, argv) == 0;
     } else {
@@ -699,9 +702,11 @@ void PdfCompressDialog::DoIt(VirtMouseEvent*) {
     logf("PdfCompressDoIt: compressing '%s' to '%s'\n", srcPath, destPath);
 
     // equivalent of: clean -gggg -e 100 -f -i -t -Z input output
-    char* argv[] = {(char*)"clean", (char*)"-gggg", (char*)"-e", (char*)"100",      (char*)"-f",
-                    (char*)"-i",    (char*)"-t",    (char*)"-Z", CStrTemp(srcPath), CStrTemp(destPath)};
-    int argc = 10;
+    char* argv[] = {(char*)"clean", (char*)"-p",       PdfToolPasswordTemp(win, srcPath),
+                    (char*)"-gggg", (char*)"-e",       (char*)"100",
+                    (char*)"-f",    (char*)"-i",       (char*)"-t",
+                    (char*)"-Z",    CStrTemp(srcPath), CStrTemp(destPath)};
+    int argc = dimofi(argv);
 
     fz_set_optind(0);
     int res = pdfclean_main(argc, argv);
@@ -763,8 +768,9 @@ void PdfDecompressDialog::DoIt(VirtMouseEvent*) {
     logf("PdfDecompressDoIt: decompressing '%s' to '%s'\n", srcPath, destPath);
 
     // equivalent of: clean -d input output
-    char* argv[] = {(char*)"clean", (char*)"-d", CStrTemp(srcPath), CStrTemp(destPath)};
-    int argc = 4;
+    char* argv[] = {(char*)"clean", (char*)"-p",       PdfToolPasswordTemp(win, srcPath),
+                    (char*)"-d",    CStrTemp(srcPath), CStrTemp(destPath)};
+    int argc = dimofi(argv);
 
     fz_set_optind(0);
     int res = pdfclean_main(argc, argv);
@@ -865,10 +871,12 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
     // use the same compression flags as Compress PDF so the result is re-written
     // compactly; otherwise the kept pages drag along the original's full content
     // and the output is nearly as big as the source
-    char* argv[] = {(char*)"clean",      (char*)"-gggg",     (char*)"-e",        (char*)"100",
-                    (char*)"-f",         (char*)"-i",        (char*)"-t",        (char*)"-Z",
-                    CStrTemp(inputPath), CStrTemp(destPath), CStrTemp(pageRange)};
-    int argc = 11;
+    char* argv[] = {(char*)"clean",     (char*)"-p",         PdfToolPasswordTemp(win, srcPath),
+                    (char*)"-gggg",     (char*)"-e",         (char*)"100",
+                    (char*)"-f",        (char*)"-i",         (char*)"-t",
+                    (char*)"-Z",        CStrTemp(inputPath), CStrTemp(destPath),
+                    CStrTemp(pageRange)};
+    int argc = dimofi(argv);
 
     fz_set_optind(0);
     int res = pdfclean_main(argc, argv);
@@ -1054,17 +1062,9 @@ void ShowPdfEncryptDialog(MainWindow* win) {
 // --- Decrypt PDF dialog ---
 
 struct PdfDecryptDialog : PdfToolDialog {
-    // the password the document was opened with
-    Str password;
-
-    ~PdfDecryptDialog() override;
-    bool Create(MainWindow* win, WindowTab* tab, Str pwd);
+    bool Create(MainWindow* win, WindowTab* tab);
     void DoIt(VirtMouseEvent* ev = nullptr) override;
 };
-
-PdfDecryptDialog::~PdfDecryptDialog() {
-    str::FreePtr(&password);
-}
 
 void PdfDecryptDialog::DoIt(VirtMouseEvent*) {
     TempStr destPath = destEdit->GetTextTemp();
@@ -1072,16 +1072,14 @@ void PdfDecryptDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
-    logf("PdfDecryptDoIt: decrypting '%s' to '%s', password len: %d\n", srcPath, destPath, len(password));
+    logf("PdfDecryptDoIt: decrypting '%s' to '%s'\n", srcPath, destPath);
 
-    // equivalent of: clean -p <pwd> -D input output
-    // -p provides the password to open the encrypted input, -D removes encryption from output
-    char* argv[] = {(char*)"clean", (char*)"-p",       CStrTemp(password),
+    // equivalent of: clean -p <key> -D input output
+    char* argv[] = {(char*)"clean", (char*)"-p",       PdfToolPasswordTemp(win, srcPath),
                     (char*)"-D",    CStrTemp(srcPath), CStrTemp(destPath)};
-    int argc = 6;
 
     fz_set_optind(0);
-    int res = pdfclean_main(argc, argv);
+    int res = pdfclean_main(dimofi(argv), argv);
     if (res == 0) {
         logf("PdfDecryptDoIt: decrypted successfully\n");
         MainWindow* w = win;
@@ -1090,17 +1088,15 @@ void PdfDecryptDialog::DoIt(VirtMouseEvent*) {
         LoadArgs args(path, w);
         StartLoadDocument(&args);
     } else {
-        logf("PdfDecryptDoIt: pdfclean_main failed with %d, src: '%s', password len: %d\n", res, srcPath,
-             len(password));
-        MessageBoxWarning(hwnd, StrL("Failed to decrypt PDF file."), Tr("Decrypt PDF"));
+        logf("PdfDecryptDoIt: failed, src: '%s'\n", srcPath);
+        ShowWarningNotification(win, Tr("Failed to decrypt PDF file."), kNotif5SecsTimeOut);
     }
 }
 
-bool PdfDecryptDialog::Create(MainWindow* w, WindowTab* tab, Str pwd) {
+bool PdfDecryptDialog::Create(MainWindow* w, WindowTab* tab) {
     if (!CreateToolDialog(w, tab, Tr("Decrypt PDF"))) {
         return false;
     }
-    password = str::Dup(pwd);
     AddFilesBlock(MakeUniqueFilePathTemp(srcPath), L"PDF Files\0*.pdf\0All Files\0*.*\0", L"pdf");
     AddFooter(Tr("Decrypt PDF"));
     FinishDialog(destEdit);
@@ -1123,16 +1119,15 @@ void ShowPdfDecryptDialog(MainWindow* win) {
         logf("ShowPdfDecryptDialog: '%s' is not encrypted, skipping\n", tab->filePath);
         return;
     }
-    EngineBase* pdf = engine->HasAnnotationEditor() ? engine->AnnotationEditor(EditorLoad::Load) : engine;
-    Str pwd = EngineMupdfGetPassword(pdf);
-    if (len(pwd) == 0 && !engine->HasAnnotationEditor()) {
+    Str pwd = Str(PdfToolPasswordTemp(win, tab->filePath));
+    if (len(pwd) == 0) {
         logf("ShowPdfDecryptDialog: '%s' is encrypted but no password available\n", tab->filePath);
         return;
     }
     logf("ShowPdfDecryptDialog: opening for '%s', password len: %d\n", tab->filePath, len(pwd));
 
     auto* dlg = new PdfDecryptDialog();
-    if (!dlg->Create(win, tab, pwd)) {
+    if (!dlg->Create(win, tab)) {
         delete dlg;
     }
 }
@@ -1317,6 +1312,59 @@ void ShowConvertEpubToPdfDialog(MainWindow* win) {
     logf("ShowConvertEpubToPdfDialog: opening for '%s'\n", tab->filePath);
 
     auto* dlg = new ConvertEpubToPdfDialog();
+    if (!dlg->Create(win, tab)) {
+        delete dlg;
+    }
+}
+
+// runs caj2pdf on the open CAJ file, then opens the PDF
+struct ConvertCajToPdfDialog : PdfToolDialog {
+    bool Create(MainWindow* win, WindowTab* tab);
+    void DoIt(VirtMouseEvent* ev = nullptr) override;
+};
+
+void ConvertCajToPdfDialog::DoIt(VirtMouseEvent*) {
+    TempStr destPath = destEdit->GetTextTemp();
+    if (len(destPath) == 0) {
+        return;
+    }
+    logf("ConvertCajToPdf: '%s' -> '%s'\n", srcPath, destPath);
+
+    HCURSOR prev = SetCursor(LoadCursor(nullptr, IDC_WAIT));
+    bool ok = ConvertCajToPdf(srcPath, destPath);
+    SetCursor(prev);
+    if (!ok) {
+        MessageBoxWarning(hwnd, CajErrorReasonTemp(srcPath), Tr("Convert CAJ to PDF"));
+        return;
+    }
+    MainWindow* w = win;
+    TempStr path = str::DupTemp(destPath);
+    Close();
+    LoadArgs args(path, w);
+    StartLoadDocument(&args);
+}
+
+bool ConvertCajToPdfDialog::Create(MainWindow* w, WindowTab* tab) {
+    if (!CreateToolDialog(w, tab, Tr("Convert CAJ to PDF"))) {
+        return false;
+    }
+    AddFilesBlock(DefaultPdfDestPathTemp(srcPath), L"PDF Files\0*.pdf\0All Files\0*.*\0", L"pdf");
+    AddFooter(Tr("Convert to PDF"));
+    FinishDialog(destEdit);
+    return true;
+}
+
+void ShowConvertCajToPdfDialog(MainWindow* win) {
+    if (!win || !win->IsDocLoaded()) {
+        return;
+    }
+    WindowTab* tab = win->CurrentTab();
+    if (!IsCajDoc(tab)) {
+        return;
+    }
+    logf("ShowConvertCajToPdfDialog: opening for '%s'\n", tab->filePath);
+
+    auto* dlg = new ConvertCajToPdfDialog();
     if (!dlg->Create(win, tab)) {
         delete dlg;
     }

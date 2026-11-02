@@ -19,6 +19,7 @@
 #include "SumatraPDF.h"
 #include "EmbeddedResources.h"
 #include "MarkdownToc.h"
+#include "FileThumbnails.h"
 #include "PagePosition.h"
 #include "MarkdownModel.h"
 
@@ -481,12 +482,37 @@ bool MarkdownModel::OnBeforeNavigate(Str url, bool newWindow) {
     return true;
 }
 
+// a capture outlives its model when the tab closes first, so it only keeps the path
+struct HtmlThumbnailCapture {
+    Str filePath;
+};
+
+static void HtmlThumbnailCaptured(HtmlThumbnailCapture* d, Str png) {
+    SetThumbnailFromImage(d->filePath, png);
+    str::Free(d->filePath);
+    delete d;
+}
+
+// the thumbnail is a picture of the loaded page, taken once, before the saved scroll position is restored
+void MarkdownModel::MaybeCaptureThumbnail(Str filePath) {
+    if (!isHtml || didCaptureThumbnail || !path::IsSame(filePath, pages[0])) {
+        return;
+    }
+    didCaptureThumbnail = true;
+    auto* d = new HtmlThumbnailCapture{str::Dup(filePath)};
+    if (!BrowserViewCapturePng(docView, MkFunc1(HtmlThumbnailCaptured, d))) {
+        str::Free(d->filePath);
+        delete d;
+    }
+}
+
 void MarkdownModel::OnDocumentComplete(Str url) {
     if (len(url) == 0) {
         return;
     }
     TempStr plainUrl = NormalizeMarkdownUrlTemp(url);
     TempStr filePath = VirtualUrlToFileTemp(plainUrl);
+    MaybeCaptureThumbnail(filePath);
     int pageNo = pages.Find(filePath) + 1;
     if (pageNo < 1) {
         pageNo = currentPageNo;
@@ -512,10 +538,10 @@ static bool IsPageScriptUrl(Str url, Str name) {
     return str::EqI(url, name) || (str::EndsWithI(url, name) && url.s[len(url) - len(name) - 1] == '/');
 }
 
-// scripts the page MarkdownToHtmlPage makes loads: mermaid for ```mermaid
+// scripts the page MarkdownToHtmlPage makes loads: pele for ```mermaid
 // fences, microlighter and code-run.js for code blocks
 static Str PageScriptData(Str url) {
-    Str embedded[] = {StrL("mermaid.min.js"), StrL("microlighter.min.js")};
+    Str embedded[] = {StrL("pele.min.js"), StrL("microlighter.min.js")};
     for (Str name : embedded) {
         if (!IsPageScriptUrl(url, name)) {
             continue;
@@ -739,8 +765,13 @@ bool MarkdownModel::Load(Str fileName) {
     str::ReplaceWithCopy(&baseDir, path::GetDirTemp(fileName));
     isHtml = IsHtmlFileType(GuessFileType(fileName, true));
 
+    // .md files in a folder are usually one set of docs, .html files usually aren't (#6448)
     StrVec mdFiles;
-    CollectMarkdownFiles(baseDir, fileName, isHtml, mdFiles);
+    if (isHtml) {
+        mdFiles.Append(fileName);
+    } else {
+        CollectMarkdownFiles(baseDir, fileName, false, mdFiles);
+    }
     if (len(mdFiles) == 0) {
         return false;
     }

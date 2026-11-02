@@ -39,6 +39,7 @@ WindowTab::WindowTab(MainWindow* win) {
 
 void WindowTab::SetFilePath(Str path) {
     type = Type::Document;
+    isExtraHome = false;
     bool changed = filePath && !path::IsSame(filePath, path);
     if (changed) {
         DeleteOpenCacheCopy(filePath);
@@ -66,7 +67,7 @@ bool WindowTab::IsAboutTab() const {
 
 #if !defined(SUMATRA_NG)
 // the SidebarView / SidebarBottomView settings
-static const char* kSidebarViewNames[kSidebarViewCount] = {"bookmarks", "thumbnails", "favorites"};
+static const char* kSidebarViewNames[kSidebarViewCount] = {"bookmarks", "thumbnails", "favorites", "signatures"};
 
 SidebarView SidebarViewFromStr(Str s, SidebarView def) {
     for (int i = 0; i < kSidebarViewCount; i++) {
@@ -83,6 +84,11 @@ Str SidebarViewToStr(SidebarView v) {
 
 #endif
 
+// the first Home tab: compact and fixed in place. IsAboutTab() is any Home tab
+bool WindowTab::IsPinnedHomeTab() const {
+    return IsAboutTab() && !isExtraHome;
+}
+
 bool WindowTab::IsFavoritesTab() const {
     ReportIf(type == WindowTab::Type::None);
     return type == WindowTab::Type::Favorites;
@@ -95,6 +101,9 @@ bool WindowTab::IsNonDocumentTab() const {
 
 WindowTab::~WindowTab() {
     logf("~WindowTab: 0x%p, dm: 0x%p\n", this, AsFixed());
+#if !defined(SUMATRA_NG)
+    delete signatures;
+#endif
     // Nothing may point at a tab that is going away.
     ReadAloudForgetTab(this);
 #if !defined(SUMATRA_NG)

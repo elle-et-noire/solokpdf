@@ -579,6 +579,7 @@ const enginesSources = [
   "src/ng/EngineBase.cpp",
   "src/ng/EngineCreate.cpp",
   "src/ng/EngineDjvuDec.cpp",
+  "src/ng/EngineCaj.cpp",
   "src/ng/EngineDvi.cpp",
   "src/ng/ExifDump.cpp",
   "src/ng/EngineEbook.cpp",
@@ -592,6 +593,7 @@ const enginesSources = [
   "src/ng/ImageReader.cpp",
   "src/ng/JxlReader.cpp",
   "src/ng/LitDoc.cpp",
+  "src/ng/RtfDoc.cpp",
   "src/ng/MobiDoc.cpp",
   "src/PalmDbReader.cpp",
   "src/ng/PdfCad.cpp",
@@ -1629,6 +1631,7 @@ export const targets: Target[] = [
       "src/ng/gui/NativeWindow_wasm.cpp",
       "src/ng/gui/OleDragDrop_win.cpp",
       "src/ng/OleDragDropCommon_win.cpp",
+      "src/ng/WebViewCapture_win.cpp",
       "src/ng/gui/NativeFileDlg_win.cpp",
       "src/ng/OpenFileFilters_win.cpp",
       "src/ng/gui/NativeMsgBox_win.cpp",
@@ -1685,7 +1688,7 @@ export const targets: Target[] = [
     // orig's desktop screenshot picker. Win32 only; other platforms keep the
     // page render in src/ng/Screenshot.cpp.
     perPlatform: {
-      win: { sources: ["src/ScreenshotCapture.cpp"] },
+      win: { sources: ["src/ScreenshotCapture.cpp"], includes: ["ext/webview2"] },
     },
   },
 ];

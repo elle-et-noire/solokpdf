@@ -980,6 +980,7 @@ static const FieldInfo gSettingsFields[] = {
     {offsetof(Settings, lazyLoading), SettingType::Bool, false},
     {offsetof(Settings, mainWindowBackground), SettingType::Color, (intptr_t)"#80fff200"},
     {offsetof(Settings, noHomeTab), SettingType::Bool, false},
+    {offsetof(Settings, noCaj2pdfConverterDownload), SettingType::Bool, false},
     {offsetof(Settings, homePageSortByFrequentlyRead), SettingType::Bool, false},
     {offsetof(Settings, homePageViewMode), SettingType::String, (intptr_t)"thumbnails", false,
      gEnumSettingsHomePageViewMode, nullptr},
@@ -988,6 +989,7 @@ static const FieldInfo gSettingsFields[] = {
     {offsetof(Settings, filePicker), SettingType::String, (intptr_t)"", false, gEnumSettingsFilePicker, "os"},
     {offsetof(Settings, printerUI), SettingType::String, (intptr_t)"", false, gEnumSettingsPrinterUI, "auto"},
     {offsetof(Settings, reloadModifiedDocuments), SettingType::Bool, true},
+    {offsetof(Settings, showSignatureStatus), SettingType::Bool, true},
     {offsetof(Settings, temporaryFileShowNotification), SettingType::Bool, true},
     {offsetof(Settings, temporaryFileDestDir), SettingType::String, 0},
     {offsetof(Settings, temporaryFileAutoMove), SettingType::Bool, true},
@@ -1151,36 +1153,39 @@ static const FieldInfo gSettingsFields[] = {
     {offsetof(Settings, openCountWeek), SettingType::Int, 0, true},
     {offsetof(Settings, propWinPos), SettingType::Compact, (intptr_t)&gPointInfo, true},
     {offsetof(Settings, checkForUpdates), SettingType::Bool, true, true},
+    {offsetof(Settings, onlineApiKey), SettingType::String, 0, true},
+    {offsetof(Settings, onlineServer), SettingType::String, 0, true},
     {(size_t)-1, SettingType::Comment, 0, true},
     {(size_t)-1, SettingType::Comment, (intptr_t)"Settings below are not recognized by the current version", true},
 };
 const StructInfo gSettingsInfo = {
     sizeof(Settings),
-    179,
+    183,
     gSettingsFields,
     "\0\0DefaultDisplayMode\0DefaultZoom\0DisableJavaScript\0AllowExternalImages\0EnableTeXEnhancements\0EscToExit\0Vim"
-    "Keys\0FullPathInTitle\0InverseSearchCmdLine\0LazyLoading\0MainWindowBackground\0NoHomeTab\0HomePageSortByFrequentl"
-    "yRead\0HomePageViewMode\0ThumbnailsType\0FilePicker\0PrinterUI\0ReloadModifiedDocuments\0TemporaryFileShowNotifica"
-    "tion\0TemporaryFileDestDir\0TemporaryFileAutoMove\0RememberOpenedFiles\0RememberStatePerDocument\0RestoreSession\0"
-    "ReuseInstance\0ShowMenubar\0ShowMenubarWithTabs\0ShowPageNumberInTabs\0ShowHomePageReadingProgress\0ShowChaptersIn"
-    "Ebooks\0ShowTips\0CustomColors\0ShowToolbar\0Toolbar\0ToolbarPosition\0SearchUIFloating\0ShowFavorites\0SidebarBot"
-    "tomView\0ShowSidebarMiddle\0SortFavoritesByName\0ShowToc\0AlwaysShowSidebar\0ShowThumbnailsIfNoToc\0SidebarOnRight"
-    "\0SidebarAutoHide\0SidebarWindowSize\0ShowLinks\0HighlightFormFields\0ClickEdgeToTurnPage\0DisableLinks\0DisableLe"
-    "ftDragPan\0ExplorerQuickLook\0RememberViewOffsetOnPageTurn\0MouseWheelTurnsPage\0ScrollEdgeTurnsPage\0ShowDocument"
-    "FocusIndicator\0ShowAnnotationNotification\0ShowFileNavigateHint\0ShowAnnotationAuthorInTooltip\0ShowTocPageNumber"
-    "s\0AutoGenerateTOC\0ShowStartPage\0SidebarDx\0Scrollbars\0ScrollbarInSinglePage\0SmoothScroll\0ScrollLineAmount\0K"
-    "eyScrollLineAmount\0SaveMemory\0PaddingAfterLastPage\0ContinuousScrollFollowsRotation\0IgnoreDestinationZoom\0High"
-    "lightLinkDestination\0CitationHoverDelay\0ReadAloudVoiceId\0ReadAloudSpeed\0ReadingAutoScrollSpeed\0ReadingBar\0Fa"
-    "stScrollOverScrollbar\0PreventSleepInFullscreen\0TabWidth\0Theme\0HelpTheme\0LastLightTheme\0LastDarkTheme\0Docume"
-    "ntColorsFollowTheme\0TocDy\0SidebarMiddleDy\0ToolbarCustomLayout\0ToolbarShowReadAloud\0ToolbarSize\0TreeFontName"
-    "\0TreeFontSize\0UIFontSize\0DisableAntiAlias\0EngineeringDrawingEnhance\0DisableAutoLinks\0UseSysColors\0UseTabs\0"
-    "ShowCaption\0SelectionToolbar\0SelectionToolbarLayout\0TabsMru\0CtrlTabSimple\0ZoomLevels\0ZoomIncrement\0\0FixedP"
-    "ageUI\0\0EBookUI\0\0ComicBookUI\0\0ImageUI\0\0ChmUI\0\0MarkdownUI\0\0HtmlUI\0\0ClaudeCode\0\0GrokBuild\0\0CodexBui"
-    "ld\0\0AntiGravity\0\0AIChat\0\0AIChatSidebarDx\0\0TranslateToLang\0TranslateFromLang\0TranslateEngine\0\0Annotatio"
-    "ns\0\0ExternalViewers\0\0ForwardSearch\0\0PrinterDefaults\0\0Fullscreen\0\0SelectionHandlers\0\0TextSnippets\0\0Sh"
-    "ortcuts\0\0Themes\0\0TabGroups\0\0CustomScreenDPI\0\0\0DefaultPasswords\0UiLanguage\0VersionToSkip\0WindowState\0W"
-    "indowPos\0SearchUIWindowPos\0AnnotationsWindowShowNote\0HelpWindowPos\0FileStates\0SessionData\0ReopenOnce\0TimeOf"
-    "LastUpdateCheck\0OpenCountWeek\0PropWinPos\0CheckForUpdates\0\0",
+    "Keys\0FullPathInTitle\0InverseSearchCmdLine\0LazyLoading\0MainWindowBackground\0NoHomeTab\0NoCaj2pdfConverterDownl"
+    "oad\0HomePageSortByFrequentlyRead\0HomePageViewMode\0ThumbnailsType\0FilePicker\0PrinterUI\0ReloadModifiedDocument"
+    "s\0ShowSignatureStatus\0TemporaryFileShowNotification\0TemporaryFileDestDir\0TemporaryFileAutoMove\0RememberOpened"
+    "Files\0RememberStatePerDocument\0RestoreSession\0ReuseInstance\0ShowMenubar\0ShowMenubarWithTabs\0ShowPageNumberIn"
+    "Tabs\0ShowHomePageReadingProgress\0ShowChaptersInEbooks\0ShowTips\0CustomColors\0ShowToolbar\0Toolbar\0ToolbarPosi"
+    "tion\0SearchUIFloating\0ShowFavorites\0SidebarBottomView\0ShowSidebarMiddle\0SortFavoritesByName\0ShowToc\0AlwaysS"
+    "howSidebar\0ShowThumbnailsIfNoToc\0SidebarOnRight\0SidebarAutoHide\0SidebarWindowSize\0ShowLinks\0HighlightFormFie"
+    "lds\0ClickEdgeToTurnPage\0DisableLinks\0DisableLeftDragPan\0ExplorerQuickLook\0RememberViewOffsetOnPageTurn\0Mouse"
+    "WheelTurnsPage\0ScrollEdgeTurnsPage\0ShowDocumentFocusIndicator\0ShowAnnotationNotification\0ShowFileNavigateHint"
+    "\0ShowAnnotationAuthorInTooltip\0ShowTocPageNumbers\0AutoGenerateTOC\0ShowStartPage\0SidebarDx\0Scrollbars\0Scroll"
+    "barInSinglePage\0SmoothScroll\0ScrollLineAmount\0KeyScrollLineAmount\0SaveMemory\0PaddingAfterLastPage\0Continuous"
+    "ScrollFollowsRotation\0IgnoreDestinationZoom\0HighlightLinkDestination\0CitationHoverDelay\0ReadAloudVoiceId\0Read"
+    "AloudSpeed\0ReadingAutoScrollSpeed\0ReadingBar\0FastScrollOverScrollbar\0PreventSleepInFullscreen\0TabWidth\0Theme"
+    "\0HelpTheme\0LastLightTheme\0LastDarkTheme\0DocumentColorsFollowTheme\0TocDy\0SidebarMiddleDy\0ToolbarCustomLayout"
+    "\0ToolbarShowReadAloud\0ToolbarSize\0TreeFontName\0TreeFontSize\0UIFontSize\0DisableAntiAlias\0EngineeringDrawingE"
+    "nhance\0DisableAutoLinks\0UseSysColors\0UseTabs\0ShowCaption\0SelectionToolbar\0SelectionToolbarLayout\0TabsMru\0C"
+    "trlTabSimple\0ZoomLevels\0ZoomIncrement\0\0FixedPageUI\0\0EBookUI\0\0ComicBookUI\0\0ImageUI\0\0ChmUI\0\0MarkdownUI"
+    "\0\0HtmlUI\0\0ClaudeCode\0\0GrokBuild\0\0CodexBuild\0\0AntiGravity\0\0AIChat\0\0AIChatSidebarDx\0\0TranslateToLang"
+    "\0TranslateFromLang\0TranslateEngine\0\0Annotations\0\0ExternalViewers\0\0ForwardSearch\0\0PrinterDefaults\0\0Full"
+    "screen\0\0SelectionHandlers\0\0TextSnippets\0\0Shortcuts\0\0Themes\0\0TabGroups\0\0CustomScreenDPI\0\0\0DefaultPas"
+    "swords\0UiLanguage\0VersionToSkip\0WindowState\0WindowPos\0SearchUIWindowPos\0AnnotationsWindowShowNote\0HelpWindo"
+    "wPos\0FileStates\0SessionData\0ReopenOnce\0TimeOfLastUpdateCheck\0OpenCountWeek\0PropWinPos\0CheckForUpdates\0Onli"
+    "neApiKey\0OnlineServer\0\0",
     "\0\0default layout of pages. page aspect (3.7+): first open of a PDF, XPS, DjVu, PostScript or DVI file uses page "
     "1 — taller than wide is continuous + fit width, wider than tall is single page + fit page; a remembered FileState "
     "still wins\0default zoom. valid values: fit page, fit width, fit height, fit content or percent like 100%\0if "
@@ -1193,7 +1198,8 @@ const StructInfo gSettingsInfo = {
     "a session delays loading each document until its tab is selected\0background color of the area around the "
     "document, traditionally yellow. Only applies to the Light theme; the default #80fff200 is a marker meaning \"use "
     "the theme's color\", so setting any other value also colorizes the toolbar and sidebars\0if true, doesn't open "
-    "Home tab\0if true, the home page lists documents by how often they've been opened (the pre-3.6 behavior); if "
+    "Home tab\0if true, doesn't offer to download the caj2pdf converter. CAJ files open only if it's already "
+    "downloaded\0if true, the home page lists documents by how often they've been opened (the pre-3.6 behavior); if "
     "false, the most recently opened come first\0how the home page shows the document history: thumbnails (a grid of "
     "page previews) or list (one row per file)\0how the home page thumbnail is made from a document's first page: "
     "legacy (the top of the page, cropped to a 212x150 frame) or full (the whole page, scaled to fit a 150x212 frame). "
@@ -1204,16 +1210,17 @@ const StructInfo gSettingsInfo = {
     "classic (the classic dialog, whose Preferences button opens the printer driver's own property sheet). modern "
     "falls back to the classic dialog when Windows can't show the modern one\0if true, a document will be reloaded "
     "automatically whenever it's changed (currently doesn't work for documents shown in the ebook UI)\0if true, "
-    "opening a file from a temporary folder (e.g. an Outlook attachment) shows a notification offering to copy it to a "
-    "permanent folder. Closing that notification sets this to false\0folder that files from a temporary folder are "
-    "copied to. When empty or not a folder, Copy Temporary File to Permanent Folder asks for one and remembers it "
-    "here\0if true and TemporaryFileDestDir is set, a file from a temporary folder is copied there when it opens, and "
-    "opened from there\0if true, remember which documents were opened and their display settings\0if true, store "
-    "display settings for each document separately (i.e. everything after UseDefaultState in FileStates)\0if true and "
-    "SessionData isn't empty, that session will be restored at startup\0if true, open documents in the already running "
-    "SumatraPDF instead of starting a new one\0if true, show the menu bar (F9 toggles it; the choice is remembered "
-    "across sessions)\0if true, show the menu bar when using tabs (useTabs = true)\0if true, show the current page as "
-    "n/N after the file name on tabs\0if true, show reading progress (n/N, or chapter:page for ebooks) on home page "
+    "opening a digitally signed PDF shows whether its signatures are valid\0if true, opening a file from a temporary "
+    "folder (e.g. an Outlook attachment) shows a notification offering to copy it to a permanent folder. Closing that "
+    "notification sets this to false\0folder that files from a temporary folder are copied to. When empty or not a "
+    "folder, Copy Temporary File to Permanent Folder asks for one and remembers it here\0if true and "
+    "TemporaryFileDestDir is set, a file from a temporary folder is copied there when it opens, and opened from "
+    "there\0if true, remember which documents were opened and their display settings\0if true, store display settings "
+    "for each document separately (i.e. everything after UseDefaultState in FileStates)\0if true and SessionData isn't "
+    "empty, that session will be restored at startup\0if true, open documents in the already running SumatraPDF "
+    "instead of starting a new one\0if true, show the menu bar (F9 toggles it; the choice is remembered across "
+    "sessions)\0if true, show the menu bar when using tabs (useTabs = true)\0if true, show the current page as n/N "
+    "after the file name on tabs\0if true, show reading progress (n/N, or chapter:page for ebooks) on home page "
     "thumbnails and list rows\0if true, a document with chapters (EPUB, MOBI) shows the current place as a chapter and "
     "a page within that chapter, in the toolbar, Go to Page and the page-info tip. if false, those show one page "
     "number for the whole document. the saved position stays a chapter bookmark either way, and next / previous page "
@@ -1350,8 +1357,9 @@ const StructInfo gSettingsInfo = {
     "opened files (in most recently used order)\0state of the last session, usage depends on RestoreSession\0data "
     "required for reloading documents after an auto-update\0data required to determine when SumatraPDF last checked "
     "for updates\0value required to determine recency for the OpenCount value in FileStates\0position of the document "
-    "properties window\0if true, check once a day whether an update is available\0\0Settings below are not recognized "
-    "by the current version",
+    "properties window\0if true, check once a day whether an update is available\0API key for Sumatra Online. Set from "
+    "File / Link Sumatra Online. Do not share the settings file.\0an empty value means the public Sumatra Online site. "
+    "The dialog does not edit it.\0\0Settings below are not recognized by the current version",
     false};
 static const FieldInfo gTheme_1_Fields[] = {
     {offsetof(Theme, name), SettingType::String, (intptr_t)""},

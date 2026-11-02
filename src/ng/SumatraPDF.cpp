@@ -192,7 +192,12 @@ bool SumatraLaunchBrowser(Str url) {
 
     // ng: orig's LaunchFileShell(url, {}, "open")
     logf("SumatraLaunchBrowser: '%s'\n", url);
+#if OS_WASM
+    // goes through the host's openUrl hook
+    LaunchBrowser(url);
+#else
     gp::OpenUrl(ToGpui(url));
+#endif
     return true;
 }
 
@@ -893,9 +898,25 @@ struct SumatraPasswordUI : PasswordUI {
     bool needsPassword = false;
     bool canAsk = true;
     bool rememberPassword = false;
+    bool needsCaj2pdfConsent = false;
 
     Str GetPassword(Str path, u8* fileDigest, u8 decryptionKeyOut[32], bool* saveKey) override;
+    bool ConfirmCaj2pdfDownload() override;
 };
+
+// the user's yes, for the one load that runs after the dialog answers
+static bool gCaj2pdfDownloadAllowed = false;
+
+bool SumatraPasswordUI::ConfirmCaj2pdfDownload() {
+    if (gCaj2pdfDownloadAllowed) {
+        gCaj2pdfDownloadAllowed = false;
+        return true;
+    }
+    if (!gSettings->noCaj2pdfConverterDownload && !IsStressTesting() && canAsk) {
+        needsCaj2pdfConsent = true;
+    }
+    return false;
+}
 
 // the passwords the user typed this session, so a reload does not ask again
 struct SessionPassword {
@@ -1075,7 +1096,7 @@ static bool ShouldUsePageAspect(Str path) {
     }
     FileType ft = GuessFileTypeFromName(path, true);
     return ft == FileType::PDF || ft == FileType::Xps || ft == FileType::DjVu || ft == FileType::PS ||
-           ft == FileType::Dvi;
+           ft == FileType::Dvi || ft == FileType::Caj;
 }
 
 static void ApplyPageAspect(EngineBase* engine, DisplayMode* modeOut, float* zoomOut) {
@@ -1258,6 +1279,46 @@ static void OnPasswordEntered(PasswordRetry* retry, PasswordDialogResult* res) {
         return;
     }
     LoadDocument(win, path, prefs, reuse);
+}
+
+// "Error loading foo.caj: <why>" when the converter is what failed
+static TempStr LoadErrorMsgTemp(Str path) {
+    TempStr msg = fmt(Tr("Error loading %s").s, path);
+    TempStr reason = CajErrorReasonTemp(path);
+    return len(reason) > 0 ? fmt("%s: %s", msg, reason) : msg;
+}
+
+static void OnCaj2pdfDownloadAnswered(PasswordRetry* retry, Caj2pdfDownloadDialogResult* res) {
+    MainWindow* win = retry->win;
+    TempStr path = str::DupTemp(retry->path);
+    LoadPrefs prefs = retry->prefs;
+    LoadReuse reuse = retry->reuse;
+    str::Free(retry->path);
+    delete retry;
+    if (!res->download && res->dontAskAgain) {
+        gSettings->noCaj2pdfConverterDownload = true;
+        ScheduleSaveSettings();
+    }
+    if (!IsMainWindowValidAndNotClosing(win)) {
+        return;
+    }
+    if (!res->download) {
+        ShowWarningNotification(win, LoadErrorMsgTemp(path), kNotif5SecsTimeOut);
+        AppShellInvalidate(win);
+        return;
+    }
+    gCaj2pdfDownloadAllowed = true;
+    LoadDocument(win, path, prefs, reuse);
+    gCaj2pdfDownloadAllowed = false;
+}
+
+static void AskForCaj2pdfAndLoad(MainWindow* win, Str path, LoadPrefs prefs, LoadReuse reuse) {
+    auto* retry = new PasswordRetry();
+    retry->win = win;
+    retry->path = str::Dup(path);
+    retry->prefs = prefs;
+    retry->reuse = reuse;
+    ShowCaj2pdfDownloadDialog(win, MkFunc1(OnCaj2pdfDownloadAnswered, retry));
 }
 
 static void AskForPasswordAndLoad(MainWindow* win, Str path, LoadPrefs prefs, LoadReuse reuse) {
@@ -1485,6 +1546,9 @@ static void ShowLoadErrorTab(MainWindow* win, Str fullPath, LoadReuse reuse) {
             tab = nullptr;
         }
     }
+    if (!tab) {
+        tab = HomeTabToReuse(win);
+    }
     if (tab) {
         HideFindBar(win);
         HideSelectionToolbar(win);
@@ -1554,8 +1618,11 @@ MainWindow* LoadDocument(MainWindow* win, Str path, LoadPrefs prefs, LoadReuse r
             AskForPasswordAndLoad(win, fullPath, prefs, reuse);
             return nullptr;
         }
-        TempStr msg = fmt(Tr("Error loading %s").s, fullPath);
-        ShowWarningNotification(win, msg, kNotif5SecsTimeOut);
+        if (pwdUI.needsCaj2pdfConsent) {
+            AskForCaj2pdfAndLoad(win, fullPath, prefs, reuse);
+            return nullptr;
+        }
+        ShowWarningNotification(win, LoadErrorMsgTemp(fullPath), kNotif5SecsTimeOut);
         ShowLoadErrorTab(win, fullPath, reuse);
         return nullptr;
     }
@@ -1589,7 +1656,8 @@ static MainWindow* LoadDocumentFinish(MainWindow* win, Str fullPath, DocControll
     // next / prev file in folder need: the tab keeps its identity, its
     // controller is swapped
     WindowTab* reuseTab = win->CurrentTab();
-    if (reuse == LoadReuse::CurrentTab && reuseTab && !reuseTab->IsNonDocumentTab()) {
+    bool replaceDoc = reuse == LoadReuse::CurrentTab && reuseTab && !reuseTab->IsNonDocumentTab();
+    if (replaceDoc || HomeTabToReuse(win)) {
         HideFindBar(win);
         HideSelectionToolbar(win);
         // orig's CloseDocumentInCurrentTab: the document the session reads is
@@ -2828,8 +2896,10 @@ static void OnSaveFileAsPathPicked(SaveFileAsCtx* ctx, SavePathArgs* args) {
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
     logf("SaveCurrentFileAs: '%s' -> '%s'\n", srcFileName, dstFilePath);
 
-    bool convertedAsPdf = engine && (engine->kind == kindEngineDvi || engine->kind == kindEnginePostScript) &&
-                          str::EndsWithI(dstFilePath, StrL(".pdf"));
+    bool convertedAsPdf =
+        engine &&
+        (engine->kind == kindEngineDvi || engine->kind == kindEnginePostScript || engine->kind == kindEngineCaj) &&
+        str::EndsWithI(dstFilePath, StrL(".pdf"));
     // Make sure that the file has a valid extension
     if (!convertedAsPdf && !str::EndsWithI(dstFilePath, defExt)) {
         dstFilePath = str::JoinTemp(dstFilePath, defExt);
@@ -2932,6 +3002,11 @@ TempStr GetSumatraDataDirTemp() {
         return {};
     }
     return path::JoinTemp(dir, StrL("data"));
+}
+
+// already next to the exe for a portable copy
+TempStr GetConverterDataDirTemp() {
+    return GetSumatraDataDirTemp();
 }
 
 // ng: orig's CloseDocumentInCurrentTab. The tab keeps its identity and its
@@ -3489,6 +3564,8 @@ void CloseTab(WindowTab* tab, bool quitIfLast) {
     if (win->GetTabIdx(tab) < 0) {
         return;
     }
+    // closing a Home tab isn't "the last document is gone"
+    bool closedHome = tab->IsAboutTab();
     RemoveTab(tab);
     delete tab;
     if (!IsMainWindowValid(win)) {
@@ -3496,7 +3573,7 @@ void CloseTab(WindowTab* tab, bool quitIfLast) {
     }
     // only the home tab left, and another window is open: this one goes away
     WindowTab* lastTab = (win->TabCount() == 1) ? win->GetTab(0) : nullptr;
-    if (lastTab && lastTab->IsAboutTab() && len(gWindows) > 1) {
+    if (lastTab && lastTab->IsAboutTab() && len(gWindows) > 1 && !closedHome) {
         CloseWindow(win, false, false);
         return;
     }
@@ -5976,12 +6053,16 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
             ToggleKeyboardLinkFollowing(win);
             break;
 
+        case CmdFindHistory:
         case CmdFindFirst:
             // orig: Ctrl+F on the start page filters the file list instead
             if (win->IsCurrentTabAbout()) {
                 HomePageFocusSearch(win);
             } else {
                 FindFirst(win);
+                if (cmdId == CmdFindHistory) {
+                    FindEditShowHistory(win);
+                }
             }
             break;
 
@@ -6042,6 +6123,10 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
 
         case CmdGoToHomePage:
             GoToHomeTab(win);
+            break;
+
+        case CmdNewTab:
+            AddExtraHomeTab(win);
             break;
 
         case CmdFavoriteAdd:
@@ -6297,6 +6382,10 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
             break;
         }
 
+        case CmdDebugSaveSettings:
+            SaveSettingsNow();
+            break;
+
 #if OS_WIN
         // open the OS "Open with" / Default apps UI for this extension
         case CmdFixDefaultApp: {
@@ -6499,6 +6588,10 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
             ShowConvertEpubToPdfDialog(win);
             break;
 
+        case CmdConvertCajToPDF:
+            ShowConvertCajToPdfDialog(win);
+            break;
+
         case CmdConvertPdfToImages:
             ShowConvertPdfToImagesDialog(win);
             break;
@@ -6549,7 +6642,8 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
 
         case CmdPdfShowInfo:
             if (tab && len(tab->filePath) > 0 && CouldBePDFDoc(tab)) {
-                TempStr info = EngineMupdfGetPdfInfo(tab->filePath);
+                TempStr info =
+                    EngineMupdfGetPdfInfo(tab->filePath, EngineMupdfToolPasswordTemp(tab->GetEngine(), tab->filePath));
                 if (info) {
                     ShowTextInWindow(win, StrL("PDF Info"), info);
                 }
@@ -6596,6 +6690,10 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
         case CmdExit:
             OnMenuExit();
             return;
+
+        case CmdSumatraOnline:
+            ShowTemporaryNotification(win, StrL("Sumatra Online is not in this build yet."), kNotif5SecsTimeOut);
+            break;
 
         default:
             // ng: cmd/port-commands.ts reads this through the automation
@@ -7247,6 +7345,7 @@ int GpuiMain(int argc, char** argv) {
     DetectExternalViewers();
     FileWatcherInit();
     RunAsync(MkFunc0Void(DeleteStaleDviCache), StrL("DeleteStaleDviCache"));
+    RunAsync(MkFunc0Void(DeleteStaleCajCache), StrL("DeleteStaleCajCache"));
     gRenderCache = new RenderCache();
 
     gp::App* app = gp::AppNew();
@@ -7318,6 +7417,9 @@ int GpuiMain(int argc, char** argv) {
         }
     }
     gApplyCliViewToEbookLayout = false;
+#if OS_WASM
+    AddStartupHomeTab(win);
+#endif
 #if OS_DARWIN
     AppShellOpenDocsReady();
 #endif

@@ -155,7 +155,7 @@ enum class HeadingTocStart {
 };
 void EngineMupdfStartHeadingToc(EngineBase* engine, const Func0& onDone, HeadingTocStart start);
 void EngineMupdfCancelHeadingToc(EngineBase* engine);
-Str EngineMupdfGetPassword(EngineBase* engine);
+TempStr EngineMupdfToolPasswordTemp(EngineBase* engine, Str srcPath);
 bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& showErrorFunc);
 bool EngineMupdfSaveCopy(EngineBase* engine, Str path);
 
@@ -201,8 +201,47 @@ bool IsUnsignedSignatureWidget(Annotation*, TempStr* fieldNameOut);
 bool EngineMupdfSignDocument(EngineBase*, const PdfSignArgs&, Str* errOut);
 void ListWindowsSigningCertificates(StrVec& thumbprints, StrVec& labels);
 
+enum class SigVerdict {
+    ValidQualified,
+    Valid,
+    Unknown,
+    Invalid,
+};
+// one signature, for showing without going back to the engine
+struct PdfSigEntry {
+    SigVerdict verdict = SigVerdict::Unknown;
+    bool isDocTimestamp = false;
+    int pageNo = 0;
+    // in page coordinates; empty for a signature that isn't visible
+    RectF rect;
+    Str signer;
+    Str status;
+    // the lines of details that say why that's the status
+    Str validity;
+    Str details;
+    Str certDer;
+    ~PdfSigEntry();
+};
+struct PdfSigSummary {
+    // not counting document timestamps
+    int nSigned = 0;
+    int nQualified = 0;
+    bool anyInvalid = false;
+    bool anyUnknown = false;
+};
+struct PdfSigResult {
+    PdfSigSummary sum;
+    Vec<PdfSigEntry*> entries;
+    // closed for this tab
+    bool barDismissed = false;
+    ~PdfSigResult();
+};
+
 #if OS_WIN
-void SetEutlLookupFn(bool (*fn)(const u8* der, int derLen));
+struct EutlLookup;
+void SetEutlLookup(const EutlLookup* lookup);
+void EngineMupdfFetchRevocation(EngineBase* engine);
+PdfSigResult* EngineMupdfCheckSignatures(EngineBase* engine);
 struct PdfSigCert {
     PdfSigCert* next = nullptr;
     Str label;
@@ -236,7 +275,7 @@ TocTree* EngineMupdfAttachmentToc(EngineBase*);
 void EngineMupdfAttachmentLinks(EngineBase*, int pageNo, Vec<IPageElement*>& out);
 Str EngineMupdfLoadAnnotAttachment(EngineBase*, int objNum);
 Str EngineMupdfLoadEmbedded(EngineBase*, PageDestination*);
-TempStr EngineMupdfGetPdfInfo(Str path);
+TempStr EngineMupdfGetPdfInfo(Str path, Str password);
 TempStr EngineMupdfGetPdfOutline(Str path);
 int EngineMupdfEbookToPdf(Str srcPath, Str dstPath, float pageDx, float pageDy, float fontSize);
 #if !OS_WIN
@@ -254,6 +293,23 @@ bool IsEngineDviAvailable();
 bool IsEngineDviSupportedFileType(FileType);
 EngineBase* CreateEngineDviFromFile(Str fileName);
 void DeleteStaleDviCache();
+
+/* EngineCaj.cpp */
+enum class CajError {
+    None,
+    NoConverter,
+    DownloadFailed,
+    ConverterDidNotRun,
+    ConversionFailed,
+    TimedOut,
+};
+
+bool IsEngineCajAvailable();
+bool IsEngineCajSupportedFileType(FileType);
+CajError GetCajError(Str path, u32* codeOut);
+bool ConvertCajToPdf(Str src, Str dst);
+EngineBase* CreateEngineCajFromFile(Str fileName, PasswordUI* pwdUI);
+void DeleteStaleCajCache();
 
 bool IsSupportedFileType(FileType kind, bool enableEngineEbooks);
 

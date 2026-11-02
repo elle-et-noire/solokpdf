@@ -1463,7 +1463,7 @@ MergeSource* MergePdfWnd::AddSource(Str path, EngineBase* engine) {
     EngineBase* pdf = engine->isPasswordProtected && engine->HasAnnotationEditor()
                           ? engine->AnnotationEditor(EditorLoad::Load)
                           : engine;
-    src->password = str::Dup(EngineMupdfGetPassword(pdf));
+    src->password = str::Dup(EngineMupdfToolPasswordTemp(pdf, path));
     src->engine = engine;
     src->pageCount = engine->PageCount();
     src->color = kSourceColors[len(sources->all) % dimof(kSourceColors)];

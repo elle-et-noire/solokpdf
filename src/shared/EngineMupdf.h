@@ -192,6 +192,8 @@ class EngineMupdf : public EngineBase {
     fz_outline* outline = nullptr;
     fz_outline* attachments = nullptr;
     pdf_obj* pdfInfo = nullptr;
+    // from foo.opf next to foo.epub; overrides the EPUB's own metadata
+    Vec<PropValue> epubSidecarProps;
     StrVec* pageLabels = nullptr;
 
     TocTree* tocTree = nullptr;
@@ -209,7 +211,6 @@ class EngineMupdf : public EngineBase {
     int pendingHeadingTocIdCounter = 0;
 
     // password used to decrypt the document (needed for re-encryption/decryption)
-    TempStr pdfPassword;
 
     // used to track "dirty" state of annotations. not perfect because if we add and delete
     // the same annotation, we should be back to 0

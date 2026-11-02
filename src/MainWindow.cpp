@@ -61,7 +61,10 @@
 #include "Canvas.h"
 #include "HomePage.h"
 #include "MainWindow.h"
+#include "Selection.h"
+#include "Tabs.h"
 #include "MainWindowCommon.h"
+#include "SignatureUI.h"
 
 static void SafeDeleteTabsCtrl(TabsCtrl* tabsCtrl) {
     logf("SafeDeleteTabsCtrl: 0x%p\n", tabsCtrl);
@@ -225,6 +228,8 @@ MainWindow::~MainWindow() {
     // the views' layouts own their controls
     delete tocViewLayout;
     delete pageThumbs;
+    DeleteSignaturesCtrl(this);
+    DeleteSigBar(this);
     delete tocFilteredTree;
     if (favTreeView) {
         delete favTreeView->treeModel;
@@ -722,23 +727,7 @@ static void PopulateTabCloseFlags(AppCommandCtx& ctx) {
 
     int nTabs = ctx.win->TabCount();
     ctx.nTabs = nTabs;
-    WindowTab* currTab = ctx.tab;
-    int tabIdx = ctx.win->GetTabIdx(currTab);
-    ctx.canCloseTabsToRight = tabIdx < (nTabs - 1);
-    int nFirstDocTab = 0;
-    for (int i = 0; i < nTabs; i++) {
-        WindowTab* tab = ctx.win->GetTab(i);
-        if (tab->IsAboutTab()) {
-            nFirstDocTab = 1;
-            continue;
-        }
-        ctx.hasDocTabs = true;
-        if (tab == currTab) {
-            ctx.canCloseTabsToLeft = i > nFirstDocTab;
-            continue;
-        }
-        ctx.canCloseOtherTabs = true;
-    }
+    SetTabCloseFlags(ctx);
 }
 
 AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
@@ -784,6 +773,7 @@ AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
 
     ctx.isSpeaking = TtsIsSpeaking();
     ctx.clipboardHasImage = IsClipboardFormatAvailable(CF_BITMAP);
+    ctx.hasSignatures = TabHasSignatures(ctx.tab);
     ctx.aiChatAvailable = IsAIChatAvailable();
     ctx.aiChatSupported = IsAIChatSupportedForTab(ctx.tab);
     ctx.grokInstalled = IsBackendInstalled(AIChatBackend::Grok);
@@ -803,6 +793,7 @@ AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
         ctx.isFixedPage = true;
         EngineBase* engine = dm->GetEngine();
         ctx.hasTextSelection = ctx.hasSelection && len(dm->textSelection->result) > 0;
+        ctx.hasDrawnRectSelection = ctx.hasSelection && IsDrawnRectSelection(win);
         ctx.supportsAnnots = EngineSupportsAnnotations(engine);
         ctx.hasUnsavedAnnotations = EngineHasUnsavedAnnotations(engine);
         ctx.hasRedactMarks = EngineHasRedactMarksNoWait(engine);

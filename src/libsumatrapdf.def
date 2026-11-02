@@ -107,10 +107,9 @@ EXPORTS
 	pdf_set_annot_line_end_style
 
 	pdf_run_page_widgets_with_usage
+	pdf_run_page_annots_with_usage
 
 	pdf_run_page_contents_with_usage
-
-	pdf_run_page_annots_with_usage
 
 	pdf_new_vectorize_filter
 
@@ -1938,7 +1937,6 @@ EXPORTS
 	pdf_abandon_operation
 
 	pdf_undoredo_state
-
 	pdf_undoredo_step
 
 	pdf_undo
@@ -2022,6 +2020,15 @@ EXPORTS
 	pkcs7_windows_check_digest
 	pkcs7_windows_distinguished_name
 	pkcs7_windows_inspect
+	pkcs7_windows_check_chain
+	pkcs7_windows_verify_ts
+	pkcs7_windows_rev_new
+	pkcs7_windows_rev_free
+	pkcs7_windows_rev_add_crl
+	pkcs7_windows_rev_add_ocsp
+	pkcs7_windows_fetch_revocation
+	pdf_signature_hash_bytes
+	pdf_to_int64
 	pkcs7_windows_sig_info_clear
 	pkcs7_windows_sig_info_free
 
@@ -2041,6 +2048,7 @@ EXPORTS
 ; Keep the cmark-gfm static-lib project; link it only into mupdf/libsumatrapdf.dll
 ; and re-export these so SumatraPDF.exe does not carry a second copy.
 
+	cmark_consolidate_text_nodes
 	cmark_find_syntax_extension
 	cmark_get_default_mem_allocator
 	cmark_gfm_core_extensions_ensure_registered
@@ -2048,14 +2056,18 @@ EXPORTS
 	cmark_iter_get_node
 	cmark_iter_new
 	cmark_iter_next
+	cmark_node_append_child
 	cmark_node_first_child
 	cmark_node_free
 	cmark_node_get_heading_level
+	cmark_node_get_literal
 	cmark_node_get_type
 	cmark_node_get_url
 	cmark_node_insert_before
 	cmark_node_new
 	cmark_node_next
+	cmark_node_parent
+	cmark_node_set_literal
 	cmark_node_set_on_enter
 	cmark_node_set_url
 	cmark_node_unlink

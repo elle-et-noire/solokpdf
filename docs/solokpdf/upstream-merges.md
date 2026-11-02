@@ -109,3 +109,28 @@ same way before the merge); `installer-desktop-shortcut` and `issue-6442` find
 the installer's checkboxes overlapping by 1 px with upstream's added
 thumbnails option, in layout code identical to upstream's. The ng build, full
 suites and these click tests on an unlocked desktop were not run.
+
+## Merge result (2026-11-02)
+
+Merged `upstream/master` at `254c2ae7c`, 80 commits after `f45967f87`, into
+`solokpdf-dev`. Upstream brought EU Trusted List and revocation validation,
+validation at signing time, the Signatures sidebar and `CmdShowSignatures`,
+LIT/ebook/RTF fixes, Ctrl+drag highlights, `CmdDebugSaveSettings`, extra Home
+tabs with a "+" button, thumbnail progress, GPUI, ng/wasm work, and MuPDF
+patches `0074`–`0082`. All vendored patch names appear in the patch ledger.
+
+Conflicts:
+
+| File | Resolution |
+| --- | --- |
+| `cmd/gen-commands.ts`, generated commands | Upstream's commands first, SolokPDF's theme/Vim commands after; regenerated. |
+| Generated settings | Regenerated both versions from merged generators; SolokPDF defaults retained. |
+| `src/SumatraControl.cpp`, `tests/control.ts` | Upstream IDs 145–148; SolokPDF IDs moved to 149–154. |
+| `TabsCtrl.cpp`, sidebar and ng shell | Kept SolokPDF theme colors and close buttons; added Home sizing and themed "+"; kept ng branding. |
+| `MergePdf.cpp`, `PdfTools.cpp`, shared MuPDF code | Kept PDFium encrypted-file handling and upstream tool keys, widgets and signature validation. |
+| Properties, exports, test list | Kept PDFium date handling and extra exports; combined upstream tests with SolokPDF test order. |
+
+Signed PDFium tabs use the hidden MuPDF editor for the signature list and
+validation, after `FPDF_GetSignatureCount` finds a signature. Unsigned PDFium
+tabs leave the editor unloaded. Ctrl+drag highlight uses the shared selection
+path on PDFium tabs.

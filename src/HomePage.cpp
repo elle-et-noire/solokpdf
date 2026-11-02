@@ -1400,6 +1400,7 @@ void HomePageFocusSearch(MainWindow* win) {
     if (win->homeSearch) {
         win->homeSearch->SetIsVisible(true);
         EditSetFocus(win->homeSearch);
+        EditSelectAll(win->homeSearch);
     }
 }
 
@@ -3098,7 +3099,30 @@ static void UpdateHomeWinScrollbar(MainWindow* win) {
         SetScrollInfo(win->hwndCanvas, SB_VERT, &si, TRUE);
     }
     // may resize the canvas, which re-lays out the page
-    ShowScrollBar(win->hwndCanvas, SB_VERT, show);
+    ShowWinScrollBar(win->hwndCanvas, SB_VERT, show);
+}
+
+void HomePageRepaintWinScrollbar(MainWindow* win) {
+    if (!win || !win->hwndCanvas || !HwndIsVisible(win->hwndCanvas)) {
+        return;
+    }
+    if (ScrollbarsAreHidden() || ScrollbarsUseOverlay()) {
+        return;
+    }
+    auto& c = HomeLayout(win);
+    if (!c.valid || c.totalContentDy <= c.thumbsVisibleDy) {
+        return;
+    }
+    // relayout runs before ShowWindow, and again before the scrollbar theme is
+    // applied. Those frame paints are dropped. This runs after a visible client
+    // paint, which is when a resize would repaint the bar.
+    static bool repainting = false;
+    if (repainting) {
+        return;
+    }
+    repainting = true;
+    SendMessageW(win->hwndCanvas, WM_NCPAINT, 1, 0);
+    repainting = false;
 }
 
 void HomePageCreate(MainWindow* win) {

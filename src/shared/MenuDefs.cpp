@@ -129,6 +129,10 @@ MenuDef menuDefFile[] = {
         CmdPrint,
     },
     {
+        TrN("Lin&k Sumatra Online..."),
+        CmdSumatraOnline,
+    },
+    {
         StrL(kMenuSeparator),
         0,
     },
@@ -1101,6 +1105,10 @@ MenuDef menuDefDocumentOperations[] = {
     {
         TrN("Convert EPUB to PDF..."),
         CmdConvertEpubToPdf,
+    },
+    {
+        TrN("Convert CAJ to PDF..."),
+        CmdConvertCajToPDF,
     },
     {
         TrN("Show in fo&lder"),

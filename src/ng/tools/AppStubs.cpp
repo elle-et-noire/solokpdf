@@ -36,6 +36,10 @@ TempStr GetSumatraDataDirTemp() {
     return {};
 }
 
+TempStr GetConverterDataDirTemp() {
+    return {};
+}
+
 bool IsStressTesting() {
     return false;
 }
@@ -151,6 +155,7 @@ void HomePageInvalidateLayoutCache() {}
 
 struct FileState;
 void HomePageThumbnailChanged(FileState*) {}
+void SetThumbnailFromImage(Str, Str) {}
 
 // SumatraPDFCommon.cpp, which only the app builds
 void OnThumbnailsTypeChanged() {}

@@ -34,6 +34,8 @@ class Field {
   // saved & deserialized like any setting, but hidden from the advanced
   // settings dialog (app-managed / deprecated-for-migration values)
   Internal = false;
+  // not written by genStructMarkdown or genStructHTML. .internal() does not do this
+  OmitFromDocs = false;
   DocComment: string;
   Version = "2.3";
   StructName = "";
@@ -57,6 +59,10 @@ class Field {
   }
   internal(): this {
     this.Internal = true;
+    return this;
+  }
+  omitFromDocs(): this {
+    this.OmitFromDocs = true;
     return this;
   }
   notSaved(): this {
@@ -1421,6 +1427,12 @@ const globalPrefs: Field[] = [
   ),
   field("NoHomeTab", Bool, false, "if true, doesn't open Home tab"),
   field(
+    "NoCaj2pdfConverterDownload",
+    Bool,
+    false,
+    "if true, doesn't offer to download the caj2pdf converter. CAJ files open only if it's already downloaded",
+  ),
+  field(
     "HomePageSortByFrequentlyRead",
     Bool,
     false,
@@ -1475,6 +1487,12 @@ const globalPrefs: Field[] = [
     "if true, a document will be reloaded automatically whenever it's changed " +
       "(currently doesn't work for documents shown in the ebook UI)",
   ).ver("2.5"),
+  field(
+    "ShowSignatureStatus",
+    Bool,
+    true,
+    "if true, opening a digitally signed PDF shows whether its signatures are valid",
+  ).ver("3.7"),
   field(
     "TemporaryFileShowNotification",
     Bool,
@@ -2234,6 +2252,19 @@ const globalPrefs: Field[] = [
   // saved & honored, but hidden from the advanced settings dialog (edited via
   // the "Automatically check for updates" checkbox in Options instead)
   field("CheckForUpdates", Bool, true, "if true, check once a day whether an update is available").internal(),
+  field(
+    "OnlineApiKey",
+    Str,
+    null,
+    "API key for Sumatra Online. Set from File / Link Sumatra Online. Do not share the settings file.",
+  )
+    .internal()
+    .ver("3.7")
+    .omitFromDocs(),
+  field("OnlineServer", Str, null, "an empty value means the public Sumatra Online site. The dialog does not edit it.")
+    .internal()
+    .ver("3.7")
+    .omitFromDocs(),
   emptyLine(),
   comment("Settings below are not recognized by the current version"),
 ];
@@ -2326,8 +2357,10 @@ const globalPrefsLayout = [
   "FullPathInTitle",
   "LazyLoading",
   "NoHomeTab",
+  "NoCaj2pdfConverterDownload",
   "HomePageSortByFrequentlyRead",
   "ReloadModifiedDocuments",
+  "ShowSignatureStatus",
   "TemporaryFileShowNotification",
   "TemporaryFileDestDir",
   "TemporaryFileAutoMove",
@@ -2385,6 +2418,8 @@ const globalPrefsLayout = [
   "MarkdownUI",
   "HtmlUI",
   "CheckForUpdates",
+  "OnlineApiKey",
+  "OnlineServer",
 ];
 
 const globalPrefsStruct = struct("Settings", globalPrefs, "Preferences are persisted in SumatraPDF-settings.txt");
@@ -2874,7 +2909,7 @@ function genStructHTML(struc: Field, indent: string): string {
 
   const fields = struc.Default as Field[];
   for (const field of fields) {
-    if (field.NotSaved || isComment(field)) continue;
+    if (field.NotSaved || field.OmitFromDocs || isComment(field)) continue;
     let comment = docWithEnum(field);
     if (field.Version !== "2.3") {
       comment += ` (introduced in version ${field.Version})`;
@@ -2954,7 +2989,7 @@ function genStructMarkdown(struc: Field, indent: string): string {
 
   const fields = struc.Default as Field[];
   for (const field of fields) {
-    if (field.NotSaved || isComment(field)) continue;
+    if (field.NotSaved || field.OmitFromDocs || isComment(field)) continue;
     let comment = docWithEnum(field);
     if (field.Version !== "2.3") {
       comment += ` (introduced in version ${field.Version})`;

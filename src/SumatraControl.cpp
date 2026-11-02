@@ -68,6 +68,7 @@
 #include "Menu.h"
 #include "EngineAll.h"
 #include "EutlTrust.h"
+#include "SignatureUI.h"
 #include "CommandPalette.h"
 #include "PdfTools.h"
 #include "MergePdf.h"
@@ -682,13 +683,18 @@ enum class ControlCmd : u16 {
     TestPageImages = 143,
     // the first window's page and scroll position
     TestScrollState = 144,
-    TestShortcutsDialog = 145,
-    TestVimKeys = 146,
-    TestSetFormField = 147,
-    TestDocumentJsOpen = 148,
-    TestCurrentPdf = 149,
+    TestDrawRectSelection = 145,
+    TestEutlUpdate = 146,
+    TestFetchRevocation = 147,
+    // [action]: the state of the signature bar, panel, marks and dialog
+    TestSignatureStatus = 148,
+    TestShortcutsDialog = 149,
+    TestVimKeys = 150,
+    TestSetFormField = 151,
+    TestDocumentJsOpen = 152,
+    TestCurrentPdf = 153,
     // every command's visibility on a surface, one "CmdName vis" line each
-    TestAllCommandVisibility = 150,
+    TestAllCommandVisibility = 154,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1025,6 +1031,36 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             int exitCode = 0;
             Str res = ClickClearsSelectionResultTemp(word, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestSignatureStatus: {
+            MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+            AppendTestResult(req, 0, win ? SignatureUiStateTemp(win, StringArg(req, 0)) : TempStr{});
+            break;
+        }
+
+        case ControlCmd::TestFetchRevocation: {
+            DisplayModel* dm = len(gWindows) > 0 && gWindows[0] ? gWindows[0]->AsFixed() : nullptr;
+            if (dm) {
+                EngineMupdfFetchRevocation(dm->GetEngine());
+            }
+            AppendTestResult(req, dm ? 0 : 1, StrL("done"));
+            break;
+        }
+
+        case ControlCmd::TestEutlUpdate: {
+            Str err;
+            bool ok = EutlUpdate(&err);
+            AppendTestResult(req, ok ? 0 : 1, ok ? EutlCacheInfoTemp() : str::DupTemp(err));
+            str::Free(err);
+            break;
+        }
+
+        case ControlCmd::TestDrawRectSelection: {
+            int exitCode = 0;
+            Str res = DrawRectSelectionResultTemp(StringArg(req, 0), &exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }

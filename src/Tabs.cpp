@@ -38,6 +38,7 @@
 #include "FileHistory.h"
 #include "Theme.h"
 #include "Translations.h"
+#include "HomePage.h"
 #include "Tabs.h"
 #include "MenuDefs.h"
 #include "TabsCommon.h"
@@ -114,6 +115,11 @@ void UpdateTabWidth(MainWindow* win) {
     if (win->tabsCtrl) {
         win->tabsCtrl->LayoutTabs();
     }
+}
+
+// posted: the click comes from the button that adding a tab rebuilds
+static void OnTabsPlusClick(MainWindow* win) {
+    HwndPostCommand(win->hwndFrame, CmdNewTab);
 }
 
 void RemoveTab(WindowTab* tab) {
@@ -323,14 +329,7 @@ void CloseAllTabs(MainWindow* win) {
     };
     // can't close while iterating over the tabs so collect them first
     Vec<WindowTab*> toClose;
-    int nTabs = win->TabCount();
-    for (int i = 0; i < nTabs; i++) {
-        WindowTab* t = win->GetTab(i);
-        if (t->IsAboutTab()) {
-            continue;
-        }
-        VecAppend(toClose, t);
-    }
+    CollectClosableTabs(win, toClose);
     CloseCollectedTabs(win, toClose);
 }
 
@@ -508,6 +507,7 @@ void CreateTabbar(MainWindow* win) {
     tabsCtrl->onSelectionChanged = MkFunc1(MainWindowTabSelectionChanged, win);
     tabsCtrl->onContextMenu = MkFunc1(TabsContextMenu, tabsCtrl);
     tabsCtrl->onTabMigration = MkFunc1(MainWindowTabMigration, win);
+    tabsCtrl->onPlusClick = MkFunc0<MainWindow>(OnTabsPlusClick, win);
     tabsCtrl->Create(args);
     win->tabsCtrl = tabsCtrl;
     win->tabSelectionHistory = new Vec<WindowTab*>();
@@ -588,29 +588,19 @@ void SaveCurrentWindowTab(MainWindow* win) {
     VecAppend(*win->tabSelectionHistory, tab);
 }
 
-// Home is always the first tab
-static WindowTab* InsertHomeTab(MainWindow* win, bool deferUpdate) {
-    WindowTab* homeTab = new WindowTab(win);
-    homeTab->type = WindowTab::Type::About;
-    homeTab->canvasRc = win->canvasRc;
+static WindowTab* InsertHomeTab(MainWindow* win, int idx, HomeTabKind kind, bool deferUpdate) {
+    WindowTab* homeTab = NewHomeTab(win, kind);
+    bool isPinned = kind == HomeTabKind::Pinned;
     TabInfo* newTab = new TabInfo();
     newTab->text = str::Dup(StrL("Home"));
     newTab->tooltip = {};
-    newTab->isPinned = true;
+    newTab->isPinned = isPinned;
     newTab->canClose = true;
+    newTab->fitToLabel = isPinned;
     newTab->userData = (UINT_PTR)homeTab;
-    int insertedIdx = win->tabsCtrl->InsertTab(0, newTab, !deferUpdate);
-    ReportIf(insertedIdx != 0);
+    int insertedIdx = win->tabsCtrl->InsertTab(idx, newTab, !deferUpdate);
+    ReportIf(insertedIdx != idx);
     return homeTab;
-}
-
-static WindowTab* FindHomeTab(MainWindow* win) {
-    for (WindowTab* tab : win->Tabs()) {
-        if (tab->IsAboutTab()) {
-            return tab;
-        }
-    }
-    return nullptr;
 }
 
 // select the Home tab, creating it when NoHomeTab left the window without one
@@ -621,14 +611,35 @@ void GoToHomeTab(MainWindow* win) {
     WindowTab* homeTab = FindHomeTab(win);
     if (homeTab) {
         TabsSelect(win, win->GetTabIdx(homeTab));
+        HomePageFocusSearch(win);
         return;
     }
 
     // InsertTab selects without TCN_SELCHANGE, so save / load the models here
     SaveCurrentWindowTab(win);
-    homeTab = InsertHomeTab(win, false);
+    homeTab = InsertHomeTab(win, 0, HomeTabKind::Pinned, false);
     UpdateTabWidth(win);
     LoadModelIntoTab(homeTab);
+    HomePageFocusSearch(win);
+}
+
+// the "+" button: another Home tab after the last one. It stays out of the
+// session, which only stores documents
+void AddExtraHomeTab(MainWindow* win) {
+    if (!win || !win->tabsCtrl || !SettingsUseTabs()) {
+        return;
+    }
+    // the first Home tab is pinned, unless NoHomeTab: a file opened from it must
+    // not leave a Home tab behind
+    if (win->TabCount() == 0 && !gSettings->noHomeTab) {
+        GoToHomeTab(win);
+        return;
+    }
+    SaveCurrentWindowTab(win);
+    WindowTab* homeTab = InsertHomeTab(win, win->TabCount(), HomeTabKind::Extra, false);
+    UpdateTabWidth(win);
+    LoadModelIntoTab(homeTab);
+    HomePageFocusSearch(win);
 }
 
 WindowTab* AddTabToWindow(MainWindow* win, WindowTab* tab, bool deferUpdate) {
@@ -646,7 +657,7 @@ WindowTab* AddTabToWindow(MainWindow* win, WindowTab* tab, bool deferUpdate) {
     bool noHomeTab = gSettings->noHomeTab;
     bool createHomeTab = useTabs && !noHomeTab && (idx == 0);
     if (createHomeTab) {
-        InsertHomeTab(win, deferUpdate);
+        InsertHomeTab(win, 0, HomeTabKind::Pinned, deferUpdate);
         idx++;
     }
 
@@ -767,6 +778,9 @@ void MoveTab(MainWindow* win, int dir) {
         return;
     }
     if (newIdx >= nTabs) {
+        return;
+    }
+    if (win->GetTab(idx)->IsPinnedHomeTab() || win->GetTab(newIdx)->IsPinnedHomeTab()) {
         return;
     }
     win->tabsCtrl->SwapTabs(idx, newIdx);

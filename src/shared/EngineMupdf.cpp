@@ -42,6 +42,7 @@ extern "C" {
 #include "EngineBase.h"
 #include "PdfDarkMode.h"
 #include "EngineAll.h"
+#include "EutlTrust.h"
 #include "EbookBase.h"
 #include "EbookDoc.h"
 #include "Settings.h"
@@ -1388,6 +1389,11 @@ static int RuneAt(Utf8PageText pageText, int off) {
     return pageText.codepoints[off];
 }
 
+// not isdigit(): a code point above 255 is out of its range
+static bool RuneIsDigit(int c) {
+    return c >= '0' && c <= '9';
+}
+
 static Str SliceByRuneOff(Utf8PageText pageText, int startOff, int endOff) {
     startOff = limitValue(startOff, 0, pageText.len);
     endOff = limitValue(endOff, startOff, pageText.len);
@@ -1487,6 +1493,10 @@ static bool EndsURL(int c) {
     // https://github.com/sumatrapdfreader/sumatrapdf/issues/1313
     // 0xff0c is ","
     return c == 0xff0c;
+}
+
+static bool EndsDoi(int c) {
+    return EndsURL(c) || c == '"' || c == '<' || c == '>';
 }
 
 // Trim trailing punctuation that likely belongs to surrounding sentence text, not
@@ -1615,7 +1625,7 @@ static int LinkifyEmailAddressOff(int startOff, Utf8PageText pageText) {
 // Detect a printed DOI ("10." + 4-9 digit registrant + "/" + non-empty suffix),
 // e.g. "10.1109/WICSA.2015.29". `start` must point at the leading '1'. Returns
 // the end ptr (exclusive) past the suffix, or nullptr if `start` is not a DOI.
-// The suffix runs to the first EndsURL() terminator (whitespace, fullwidth
+// The suffix runs to the first EndsDoi() terminator (whitespace, fullwidth
 // comma) or quote/angle bracket; trailing sentence punctuation is trimmed.
 static int LinkifyFindDoiEndOff(int startOff, Utf8PageText pageText) {
     if (!StartsWithAscii(pageText, startOff, "10.")) {
@@ -1624,7 +1634,7 @@ static int LinkifyFindDoiEndOff(int startOff, Utf8PageText pageText) {
     int p = startOff + 3;
     int regStart = p;
     int pageEnd = pageText.len;
-    while (p < pageEnd && isdigit(RuneAt(pageText, p))) {
+    while (p < pageEnd && RuneIsDigit(RuneAt(pageText, p))) {
         p++;
     }
     int regLen = p - regStart;
@@ -1633,8 +1643,7 @@ static int LinkifyFindDoiEndOff(int startOff, Utf8PageText pageText) {
     }
     p++; // skip '/'
     int suffixStart = p;
-    while (p < pageEnd && !EndsURL(RuneAt(pageText, p)) && RuneAt(pageText, p) != '"' && RuneAt(pageText, p) != '<' &&
-           RuneAt(pageText, p) != '>') {
+    while (p < pageEnd && !EndsDoi(RuneAt(pageText, p))) {
         p++;
     }
     if (p == suffixStart) {
@@ -1659,6 +1668,7 @@ static LinkRectList* LinkifyText(Utf8PageText pageText, Rect* coords) {
         Str protocol;
 
         int startChar = RuneAt(pageText, startOff);
+        int prevChar = startOff > 0 ? RuneAt(pageText, startOff - 1) : ' ';
         if ('@' == startChar) {
             // potential email address without mailto:
             int emailOff = LinkifyFindEmailOff(pageText, startOff);
@@ -1667,17 +1677,14 @@ static LinkRectList* LinkifyText(Utf8PageText pageText, Rect* coords) {
             if (endOff >= 0) {
                 startOff = emailOff;
             }
-        } else if (startOff > 0 &&
-                   (RuneAt(pageText, startOff - 1) == '/' || IsAlphaNumRune(RuneAt(pageText, startOff - 1)))) {
+        } else if (prevChar == '/' || IsAlphaNumRune(prevChar)) {
             // hyperlinks must not be preceded by a slash (indicates a different protocol)
             // or an alphanumeric character (indicates part of a different protocol)
         } else if ('h' == startChar && (StartsWithAscii(pageText, startOff, "http://") ||
                                         StartsWithAscii(pageText, startOff, "https://"))) {
-            int prevChar = startOff > 0 ? RuneAt(pageText, startOff - 1) : ' ';
             endOff = LinkifyFindEndOff(startOff, prevChar, pageText);
             multiline = LinkifyCheckMultiline(pageText, startOff, endOff, coords);
         } else if ('w' == startChar && StartsWithAscii(pageText, startOff, "www.")) {
-            int prevChar = startOff > 0 ? RuneAt(pageText, startOff - 1) : ' ';
             endOff = LinkifyFindEndOff(startOff, prevChar, pageText);
             multiline = LinkifyCheckMultiline(pageText, startOff, endOff, coords);
             protocol = StrL("http://");
@@ -3546,6 +3553,7 @@ static void FreePageInfo(fz_context* ctx, FzPageInfo* pi) {
 }
 
 EngineMupdf::~EngineMupdf() {
+    FreeProps(epubSidecarProps);
     pagesLock.Lock();
 
     auto* ctx = _ctx;
@@ -3581,7 +3589,6 @@ EngineMupdf::~EngineMupdf() {
     }
     fz_drop_context(ctx);
 
-    str::Free(pdfPassword);
     free(redactedFlags);
     if (pageLabels) {
         pageLabels->~StrVec();
@@ -4215,6 +4222,16 @@ static TempStr AssemblePdfTemp(const char* const* objs, int nObjs) {
     return ToStrTemp(b);
 }
 
+// a code point above 255 after "10." is not a digit, and must not reach isdigit()
+bool EngineMupdf_UnitTestDoi() {
+    Utf8PageText good = MakeUtf8PageTextTemp(StrL("10.1234/abc def"));
+    if (LinkifyFindDoiEndOff(0, good) != 11) {
+        return false;
+    }
+    Utf8PageText notDoi = MakeUtf8PageTextTemp(StrL("10.\xc5\x82\xc3\xb3"));
+    return LinkifyFindDoiEndOff(0, notDoi) == -1;
+}
+
 bool EngineMupdf_UnitTestPageLabels() {
     const char* objs[] = {
         "<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [0 << /S /r >> 3 << /S /D >>] >> >>",
@@ -4459,9 +4476,6 @@ bool EngineMupdf::LoadFromStream(fz_stream* stm, Str nameHint, PasswordUI* pwdUI
             ok = fz_authenticate_password(ctx, _doc, pwdA.s);
         }
 #endif
-        if (ok) {
-            str::ReplaceWithCopy(&pdfPassword, pwdA);
-        }
         str::Free(pwd);
     }
 
@@ -4902,6 +4916,7 @@ bool EngineMupdf::FinishLoading() {
     // page-progression-direction, so a manga EPUB came out left-to-right
     // (#1264). Read it ourselves.
     if (GuessFileTypeFromName(FilePath()) == FileType::Epub) {
+        EpubGetSidecarMetadata(FilePath(), epubSidecarProps);
         EpubReadingDirection dir = EpubGetReadingDirection(FilePath());
         preferredLayout.r2lDeclared = dir.declared;
         if (dir.rtl) {
@@ -8286,6 +8301,11 @@ TempStr EngineMupdf::GetPropertyTemp(DocProp prop) {
         return ExtractFontListTemp();
     }
 
+    Str sidecarVal = GetPropValueTemp(epubSidecarProps, prop);
+    if (len(sidecarVal) > 0) {
+        return str::DupTemp(sidecarVal);
+    }
+
     auto* ctx = Ctx();
     ScopedRecursiveMutex ctxScope(&docLock);
 
@@ -8399,6 +8419,28 @@ static void CollectSignatureFields(fz_context* ctx, pdf_document* pdfdoc, Vec<pd
     pdf_obj* ftVal = nullptr;
     pdf_walk_tree(ctx, formFields, PDF_NAME(Kids), OnSigFieldArrive, nullptr, &walk, ftName, &ftVal);
     fields = walk.fields;
+}
+
+// where the signature shows on its page, in the coordinates the app uses
+static RectF SigFieldRect(fz_context* ctx, pdf_obj* field) {
+    RectF res;
+    pdf_obj* page = pdf_dict_get(ctx, field, PDF_NAME(P));
+    if (!page) {
+        return res;
+    }
+    fz_try(ctx) {
+        fz_rect r = pdf_dict_get_rect(ctx, field, PDF_NAME(Rect));
+        if (!fz_is_empty_rect(r)) {
+            fz_matrix ctm;
+            pdf_page_obj_transform(ctx, page, nullptr, &ctm);
+            r = fz_transform_rect(r, ctm);
+            res = RectF(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+        }
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+    }
+    return res;
 }
 
 static int PageNoForSigField(fz_context* ctx, pdf_document* pdfdoc, pdf_obj* field) {
@@ -8522,17 +8564,10 @@ static void AppendSigValidation(str::Builder& out, pdf_signature_error certErr, 
 #endif
 
 #if OS_WIN
-static bool (*gEutlLookupFn)(const u8* der, int derLen) = nullptr;
+static const EutlLookup* gEutlLookup = nullptr;
 
-void SetEutlLookupFn(bool (*fn)(const u8* der, int derLen)) {
-    gEutlLookupFn = fn;
-}
-
-static bool CertIsEuTrusted(const u8* der, int derLen) {
-    if (!gEutlLookupFn || !der || derLen <= 0) {
-        return false;
-    }
-    return gEutlLookupFn(der, derLen);
+void SetEutlLookup(const EutlLookup* lookup) {
+    gEutlLookup = lookup;
 }
 
 static TempStr FormatUnixTimeTemp(int64_t unixSecs) {
@@ -8611,12 +8646,278 @@ static bool SubFilterIsCades(const char* sf) {
     return sf && str::StartsWith(Str(sf), StrL("ETSI.CAdES"));
 }
 
-static void AppendTrustSource(str::Builder& s, const u8* der, int derLen) {
-    if (CertIsEuTrusted(der, derLen)) {
-        s.Append(StrL("  Source of trust: European Union Trusted List (EUTL)\n"));
-    } else {
-        s.Append(StrL("  Source of trust: Windows Certificate Store\n"));
+// what an open list says about one chain, as anchor_fn
+struct EutlAnchorArgs {
+    void* list = nullptr;
+    i64 when = 0;
+    EutlKind kind = EutlKind::CA;
+};
+
+static int EutlAnchorStatus(void* ud, const unsigned char* der, int derLen) {
+    auto* args = (EutlAnchorArgs*)ud;
+    if (!gEutlLookup || !args->list) {
+        return 0;
     }
+    return gEutlLookup->status(args->list, (const u8*)der, derLen, args->when, args->kind);
+}
+
+// what makes a signature qualified: a qualified certificate on a qualified
+// device, from a CA the list says was granted that service when it was signed
+enum class SigLevel {
+    None,
+    // claims to be qualified, but the list doesn't back it
+    QualifiedClaim,
+    AdvancedOnQc,
+    QualifiedESig,
+    QualifiedESeal,
+};
+
+static SigLevel QualifiedLevel(const pkcs7_windows_sig_info& info, const pkcs7_windows_chain_info& chain) {
+    if (!info.has_qc_statement) {
+        return SigLevel::None;
+    }
+    if (!info.qc_compliance || !chain.eu_chain_ok) {
+        return SigLevel::QualifiedClaim;
+    }
+    bool isSeal = info.qc_type == PKCS7_QC_TYPE_ESEAL;
+    int need = isSeal ? kEutlESeal : kEutlESig;
+    if (info.qc_type == PKCS7_QC_TYPE_WEB || (chain.eu_status & need) == 0) {
+        return SigLevel::QualifiedClaim;
+    }
+    if (!info.qc_sscd) {
+        return SigLevel::AdvancedOnQc;
+    }
+    return isSeal ? SigLevel::QualifiedESeal : SigLevel::QualifiedESig;
+}
+
+static void AppendTrustSource(str::Builder& s, const pkcs7_windows_chain_info& chain) {
+    if (chain.eu_chain_ok && chain.eu_status != 0) {
+        s.Append(StrL("  Source of trust: European Union Trusted List (EUTL)\n"));
+    } else if (chain.os_trusted) {
+        s.Append(StrL("  Source of trust: Windows Certificate Store\n"));
+    } else {
+        s.Append(StrL("  Source of trust: none\n"));
+    }
+}
+
+// a timestamp only proves a time if its own signer is trusted at that time
+static bool TimestampIsTrusted(fz_context* ctx, unsigned char* tok, size_t tokLen, i64 genTime, void* eutlList) {
+    if (genTime <= 0) {
+        return false;
+    }
+    EutlAnchorArgs anchor;
+    anchor.list = eutlList;
+    anchor.when = genTime;
+    anchor.kind = EutlKind::TSA;
+    void* store = (gEutlLookup && eutlList) ? gEutlLookup->store(eutlList) : nullptr;
+    pkcs7_windows_chain_info chain{};
+    pkcs7_windows_check_chain(ctx, tok, tokLen, genTime, store, nullptr, EutlAnchorStatus, &anchor, &chain);
+    return chain.os_trusted || chain.eu_chain_ok;
+}
+
+// where in the file what the signature covers ends
+static i64 SigCoveredEnd(fz_context* ctx, pdf_obj* vDict) {
+    pdf_obj* range = pdf_dict_get(ctx, vDict, PDF_NAME(ByteRange));
+    int n = range ? pdf_array_len(ctx, range) : 0;
+    if (n < 2) {
+        return 0;
+    }
+    return pdf_to_int64(ctx, pdf_array_get(ctx, range, n - 2)) + pdf_to_int64(ctx, pdf_array_get(ctx, range, n - 1));
+}
+
+// A trusted document timestamp also proves when the signatures it covers
+// existed (PAdES B-LTA). Returns 0 if none does.
+static i64 DocTimestampCovering(fz_context* ctx, pdf_document* pdfdoc, const Vec<pdf_obj*>& fields, pdf_obj* sigV,
+                                void* eutlList) {
+    i64 sigEnd = SigCoveredEnd(ctx, sigV);
+    i64 earliest = 0;
+    for (pdf_obj* field : fields) {
+        pdf_obj* v = pdf_dict_get(ctx, field, PDF_NAME(V));
+        if (!v || v == sigV || !SubFilterIsDocTimeStamp(SigSubFilter(ctx, v)) || SigCoveredEnd(ctx, v) <= sigEnd) {
+            continue;
+        }
+        char* contents = nullptr;
+        fz_stream* stm = nullptr;
+        fz_buffer* stamped = nullptr;
+        fz_var(contents);
+        fz_var(stm);
+        fz_var(stamped);
+        fz_try(ctx) {
+            size_t n = pdf_signature_contents(ctx, pdfdoc, field, &contents);
+            stm = pdf_signature_hash_bytes(ctx, pdfdoc, field);
+            stamped = fz_read_all(ctx, stm, 64 * 1024);
+            i64 genTime = 0;
+            bool ok = n > 0 &&
+                      pkcs7_windows_verify_ts(ctx, (unsigned char*)contents, n, stamped->data, stamped->len, &genTime);
+            if (ok && TimestampIsTrusted(ctx, (unsigned char*)contents, n, genTime, eutlList) &&
+                (earliest == 0 || genTime < earliest)) {
+                earliest = genTime;
+            }
+        }
+        fz_always(ctx) {
+            fz_drop_buffer(ctx, stamped);
+            fz_drop_stream(ctx, stm);
+            fz_free(ctx, contents);
+        }
+        fz_catch(ctx) {
+            fz_report_error(ctx);
+        }
+    }
+    return earliest;
+}
+
+static void AppendQualifiedLine(str::Builder& s, SigLevel level, Str listDate) {
+    switch (level) {
+        case SigLevel::None:
+            break;
+        case SigLevel::QualifiedClaim:
+            if (len(listDate) == 0) {
+                s.Append(StrL("  The certificate says it is qualified, but the EU Trusted List isn't downloaded.\n"));
+            } else {
+                s.Append(
+                    fmt("  The certificate says it is qualified, but the EU Trusted List (last checked on %s) "
+                        "doesn't confirm it.\n",
+                        listDate));
+            }
+            break;
+        case SigLevel::AdvancedOnQc:
+            s.Append(
+                fmt("  This is an advanced electronic signature with a qualified certificate, based on EU "
+                    "Trusted List information last checked on %s.\n",
+                    listDate));
+            break;
+        case SigLevel::QualifiedESig:
+            s.Append(
+                fmt("  This is a Qualified Electronic Signature according to EU Regulation 910/2014, based on "
+                    "EU Trusted List information last checked on %s.\n",
+                    listDate));
+            break;
+        case SigLevel::QualifiedESeal:
+            s.Append(
+                fmt("  This is a Qualified Electronic Seal according to EU Regulation 910/2014, based on EU "
+                    "Trusted List information last checked on %s.\n",
+                    listDate));
+            break;
+    }
+}
+
+static void AppendRevocationLine(str::Builder& s, const pkcs7_windows_chain_info& chain) {
+    switch (chain.revocation) {
+        case PKCS7_REV_REVOKED:
+            s.Append(StrL("  Revocation: the certificate was revoked.\n"));
+            break;
+        case PKCS7_REV_GOOD:
+            if (chain.revoked_later) {
+                s.Append(StrL("  Revocation: the certificate was revoked, but only after this signature was made.\n"));
+            } else {
+                s.Append(StrL("  Revocation: the certificate wasn't revoked.\n"));
+            }
+            break;
+        case PKCS7_REV_UNKNOWN:
+            s.Append(StrL("  Revocation: not checked, no revocation data is available.\n"));
+            break;
+    }
+}
+
+// the CRLs and OCSP responses in the document's security store
+static pkcs7_windows_rev_data* LoadDssRevocation(fz_context* ctx, pdf_document* pdfdoc) {
+    pdf_obj* root = pdf_dict_get(ctx, pdf_trailer(ctx, pdfdoc), PDF_NAME(Root));
+    pdf_obj* dss = root ? pdf_dict_gets(ctx, root, "DSS") : nullptr;
+    if (!dss) {
+        return nullptr;
+    }
+    pkcs7_windows_rev_data* rev = pkcs7_windows_rev_new();
+    for (int isOcsp = 0; rev && isOcsp < 2; isOcsp++) {
+        pdf_obj* arr = pdf_dict_gets(ctx, dss, isOcsp ? "OCSPs" : "CRLs");
+        int n = arr ? pdf_array_len(ctx, arr) : 0;
+        for (int i = 0; i < n; i++) {
+            fz_buffer* buf = nullptr;
+            fz_var(buf);
+            fz_try(ctx) {
+                buf = pdf_load_stream(ctx, pdf_array_get(ctx, arr, i));
+                if (isOcsp) {
+                    pkcs7_windows_rev_add_ocsp(ctx, rev, buf->data, buf->len);
+                } else {
+                    pkcs7_windows_rev_add_crl(rev, buf->data, buf->len);
+                }
+            }
+            fz_always(ctx) {
+                fz_drop_buffer(ctx, buf);
+            }
+            fz_catch(ctx) {
+                fz_report_error(ctx);
+            }
+        }
+    }
+    return rev;
+}
+
+static void AppendVerdict(str::Builder& s, PdfSigSummary* sum, PdfSigEntry* entry, bool isDocTs, SigLevel level,
+                          const pkcs7_windows_chain_info& chain, pdf_signature_error digErr, int edits, int laterSigs,
+                          i64 provenTime) {
+    bool trusted = chain.os_trusted || chain.eu_chain_ok;
+    Str status;
+    bool invalid = false;
+    bool unknown = false;
+    bool qualified = false;
+    if (isDocTs) {
+        if (provenTime > 0 && trusted) {
+            status = StrL("Valid document timestamp.");
+        } else {
+            status = StrL("Validity unknown: the document timestamp couldn't be verified.");
+            unknown = true;
+        }
+    } else if (digErr != PDF_SIGNATURE_ERROR_OKAY) {
+        status = StrL("Invalid: the signed part of the document doesn't match the signature.");
+        invalid = true;
+    } else if (chain.revocation == PKCS7_REV_REVOKED) {
+        status = StrL("Invalid: the signer's certificate was revoked.");
+        invalid = true;
+    } else if (!trusted) {
+        status = StrL("Validity unknown: the signer's identity couldn't be verified.");
+        unknown = true;
+    } else if (edits && laterSigs == 0) {
+        status = StrL("Validity unknown: the document was changed after this signature.");
+        unknown = true;
+    } else if (level == SigLevel::QualifiedESig) {
+        status = StrL("Valid qualified electronic signature.");
+        qualified = true;
+    } else if (level == SigLevel::QualifiedESeal) {
+        status = StrL("Valid qualified electronic seal.");
+        qualified = true;
+    } else {
+        status = StrL("Valid signature.");
+    }
+    s.Append(fmt("  Status: %s\n", status));
+    if (entry) {
+        entry->status = str::Dup(status);
+        entry->verdict = invalid     ? SigVerdict::Invalid
+                         : unknown   ? SigVerdict::Unknown
+                         : qualified ? SigVerdict::ValidQualified
+                                     : SigVerdict::Valid;
+    }
+    if (sum) {
+        sum->anyInvalid |= invalid;
+        sum->anyUnknown |= unknown;
+        sum->nSigned += isDocTs ? 0 : 1;
+        sum->nQualified += qualified ? 1 : 0;
+    }
+}
+
+static pdf_signature_error CertErrFromChain(const pkcs7_windows_chain_info& chain) {
+    if (chain.no_certificate) {
+        return PDF_SIGNATURE_ERROR_NO_CERTIFICATE;
+    }
+    if (chain.os_trusted || chain.eu_chain_ok) {
+        return PDF_SIGNATURE_ERROR_OKAY;
+    }
+    if (chain.self_signed) {
+        return PDF_SIGNATURE_ERROR_SELF_SIGNED;
+    }
+    if (chain.untrusted_root) {
+        return PDF_SIGNATURE_ERROR_SELF_SIGNED_IN_CHAIN;
+    }
+    return PDF_SIGNATURE_ERROR_NOT_TRUSTED;
 }
 
 static void AppendLtvLine(str::Builder& s, bool ltv, int64_t notAfterUnix) {
@@ -8657,10 +8958,12 @@ static void AppendPadesLevel(str::Builder& s, bool isCades, bool hasTs, bool ltv
 
 static void AppendSignatureFieldInfo(fz_context* ctx, str::Builder& s, pdf_pkcs7_verifier* verifier,
                                      pdf_document* pdfdoc, pdf_obj* sigObj, int sigNo, int pageNo, bool docHasDss,
-                                     bool docHasDocTs, int laterSigs) {
+                                     bool docHasDocTs, int laterSigs, void* eutlList, const Vec<pdf_obj*>& fields,
+                                     pkcs7_windows_rev_data* docRev, PdfSigResult* res) {
     if (len(s) > 0) {
         s.AppendChar('\n');
     }
+    int sectionStart = len(s);
     pdf_obj* vDict = pdf_dict_get(ctx, sigObj, PDF_NAME(V));
     if (!vDict) {
         vDict = sigObj;
@@ -8686,10 +8989,58 @@ static void AppendSignatureFieldInfo(fz_context* ctx, str::Builder& s, pdf_pkcs7
     char* contents = nullptr;
     size_t contentsLen = 0;
     pkcs7_windows_sig_info info{};
+    pkcs7_windows_chain_info chain{};
+    EutlAnchorArgs anchor;
+    anchor.list = eutlList;
+    anchor.when = time(nullptr);
+    anchor.kind = isDocTs ? EutlKind::TSA : EutlKind::CA;
+    void* eutlStore = (gEutlLookup && eutlList) ? gEutlLookup->store(eutlList) : nullptr;
+    // the time this signature is checked as of: a trusted timestamp proves
+    // when it was made, without one all we have is now
+    i64 provenTime = 0;
     fz_try(ctx) {
         contentsLen = pdf_signature_contents(ctx, pdfdoc, sigObj, &contents);
         if (contentsLen > 0) {
             pkcs7_windows_inspect(ctx, (unsigned char*)contents, contentsLen, &info);
+            for (int ti = 0; ti < info.n_ts; ti++) {
+                pkcs7_windows_ts_info& ts = info.ts[ti];
+                if (ts.verified && TimestampIsTrusted(ctx, ts.token, ts.token_len, ts.gen_time_unix, eutlList)) {
+                    if (provenTime == 0 || ts.gen_time_unix < provenTime) {
+                        provenTime = ts.gen_time_unix;
+                    }
+                } else {
+                    ts.verified = 0;
+                }
+            }
+            if (provenTime == 0 && !isDocTs) {
+                provenTime = DocTimestampCovering(ctx, pdfdoc, fields, vDict, eutlList);
+            }
+            if (isDocTs) {
+                // a document timestamp's own time, once checked
+                fz_stream* stm = pdf_signature_hash_bytes(ctx, pdfdoc, sigObj);
+                fz_buffer* stamped = nullptr;
+                fz_var(stamped);
+                fz_try(ctx) {
+                    stamped = fz_read_all(ctx, stm, 64 * 1024);
+                    i64 genTime = 0;
+                    if (pkcs7_windows_verify_ts(ctx, (unsigned char*)contents, contentsLen, stamped->data, stamped->len,
+                                                &genTime)) {
+                        provenTime = genTime;
+                    }
+                }
+                fz_always(ctx) {
+                    fz_drop_buffer(ctx, stamped);
+                    fz_drop_stream(ctx, stm);
+                }
+                fz_catch(ctx) {
+                    fz_rethrow(ctx);
+                }
+            }
+            if (provenTime > 0) {
+                anchor.when = provenTime;
+            }
+            pkcs7_windows_check_chain(ctx, (unsigned char*)contents, contentsLen, provenTime, eutlStore, docRev,
+                                      EutlAnchorStatus, &anchor, &chain);
         }
     }
     fz_always(ctx) {
@@ -8700,8 +9051,21 @@ static void AppendSignatureFieldInfo(fz_context* ctx, str::Builder& s, pdf_pkcs7
         fz_report_error(ctx);
     }
 
+    pdf_signature_error digErr = PDF_SIGNATURE_ERROR_UNKNOWN;
+    int edits = 0;
+    fz_try(ctx) {
+        digErr = pdf_check_digest(ctx, verifier, pdfdoc, sigObj);
+        edits = pdf_signature_incremental_change_since_signing(ctx, pdfdoc, sigObj);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+    }
+    SigLevel level = QualifiedLevel(info, chain);
+    PdfSigEntry* entry = res ? new PdfSigEntry() : nullptr;
+    AppendVerdict(s, res ? &res->sum : nullptr, entry, isDocTs, level, chain, digErr, edits, laterSigs, provenTime);
+
     s.Append(isDocTs ? StrL("  Timestamp certificate:\n") : StrL("  User certificate:\n"));
-    AppendTrustSource(s, info.cert_der, info.cert_der_len);
+    AppendTrustSource(s, chain);
     if (info.signer_cn && info.signer_cn[0]) {
         s.Append(fmt("  Signed by: %s\n", Str(info.signer_cn)));
     } else {
@@ -8718,8 +9082,10 @@ static void AppendSignatureFieldInfo(fz_context* ctx, str::Builder& s, pdf_pkcs7
     }
     if (signedAt) {
         s.Append(fmt("  Signature time: %s\n", signedAt));
-        if (isDocTs) {
+        if (isDocTs && provenTime > 0) {
             s.Append(StrL("  The time and date displayed is from the secure time & date server.\n"));
+        } else if (isDocTs) {
+            s.Append(StrL("  This timestamp couldn't be verified.\n"));
         } else {
             s.Append(StrL("  The time and date displayed is from the user device.\n"));
         }
@@ -8727,27 +9093,35 @@ static void AppendSignatureFieldInfo(fz_context* ctx, str::Builder& s, pdf_pkcs7
     if (info.issuer_cn && info.issuer_cn[0]) {
         s.Append(fmt("  Certificate issued by: %s\n", Str(info.issuer_cn)));
     }
-    if (info.has_qc_statement) {
-        s.Append(StrL("  Qualified certificate (eIDAS qcStatements).\n"));
+    int validityStart = len(s);
+    if (!isDocTs) {
+        Str listDate = (gEutlLookup && eutlList) ? gEutlLookup->date(eutlList) : Str();
+        AppendQualifiedLine(s, level, listDate);
     }
 
-    pdf_signature_error certErr = PDF_SIGNATURE_ERROR_UNKNOWN;
-    pdf_signature_error digErr = PDF_SIGNATURE_ERROR_UNKNOWN;
-    int edits = 0;
-    fz_try(ctx) {
-        certErr = pdf_check_certificate(ctx, verifier, pdfdoc, sigObj);
-        digErr = pdf_check_digest(ctx, verifier, pdfdoc, sigObj);
-        edits = pdf_signature_incremental_change_since_signing(ctx, pdfdoc, sigObj);
+    if (!isDocTs) {
+        if (provenTime > 0) {
+            s.Append(StrL("  The signature was validated as of the secure (timestamp) time.\n"));
+        } else {
+            s.Append(StrL("  The signature was validated as of the current time.\n"));
+        }
+        if (chain.not_time_valid) {
+            s.Append(
+                StrL("  The certificate isn't valid at that time, and no trusted timestamp proves the "
+                     "signature was made while it was.\n"));
+        }
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
-    }
+
+    pdf_signature_error certErr = CertErrFromChain(chain);
     if (!isDocTs) {
         AppendSigValidation(s, certErr, digErr, edits, laterSigs);
     }
 
+    AppendRevocationLine(s, chain);
     bool ltv = docHasDss;
-    AppendLtvLine(s, ltv, info.not_after_unix);
+    // long-term validation needs the document to carry the proof itself
+    AppendLtvLine(s, chain.revocation_embedded && chain.revocation == PKCS7_REV_GOOD, info.not_after_unix);
+    int validityEnd = len(s);
     if (info.hash_algo) {
         s.Append(fmt("  Hash algorithm: %s\n", Str(info.hash_algo)));
     }
@@ -8772,14 +9146,17 @@ static void AppendSignatureFieldInfo(fz_context* ctx, str::Builder& s, pdf_pkcs7
         const pkcs7_windows_ts_info& ts = info.ts[ti];
         s.Append(StrL("  -----\n"));
         s.Append(StrL("  Included Time Stamp:\n"));
-        AppendTrustSource(s, ts.cert_der, ts.cert_der_len);
         if (ts.signer_cn && ts.signer_cn[0]) {
             s.Append(fmt("  Signed by: %s\n", Str(ts.signer_cn)));
         }
         TempStr tsTime = FormatUnixTimeTemp(ts.gen_time_unix);
         if (tsTime) {
             s.Append(fmt("  Signature time: %s\n", tsTime));
-            s.Append(StrL("  The time and date displayed is from the secure time & date server.\n"));
+            if (ts.verified) {
+                s.Append(StrL("  The time and date displayed is from the secure time & date server.\n"));
+            } else {
+                s.Append(StrL("  This timestamp couldn't be verified, so this time proves nothing.\n"));
+            }
         }
         if (ts.issuer_cn && ts.issuer_cn[0]) {
             s.Append(fmt("  Certificate issued by: %s\n", Str(ts.issuer_cn)));
@@ -8793,12 +9170,90 @@ static void AppendSignatureFieldInfo(fz_context* ctx, str::Builder& s, pdf_pkcs7
         }
     }
 
+    if (entry) {
+        Str all = ToStr(s);
+        entry->isDocTimestamp = isDocTs;
+        entry->pageNo = pageNo;
+        entry->signer = str::Dup(Str(info.signer_cn));
+        entry->validity = str::Dup(Str(all.s + validityStart, validityEnd - validityStart));
+        entry->details = str::Dup(Str(all.s + sectionStart, len(all) - sectionStart));
+        entry->certDer = str::Dup(Str((const char*)info.cert_der, info.cert_der_len));
+        entry->rect = SigFieldRect(ctx, sigObj);
+        VecAppend(res->entries, entry);
+    }
     pkcs7_windows_sig_info_free(ctx, &info);
 }
 
 PdfSigCert::~PdfSigCert() {
     str::Free(label);
     str::Free(der);
+}
+
+static TempStr GetSignatures(EngineMupdf* e, PdfSigResult* res);
+
+PdfSigEntry::~PdfSigEntry() {
+    str::Free(signer);
+    str::Free(status);
+    str::Free(validity);
+    str::Free(details);
+    str::Free(certDer);
+}
+
+PdfSigResult::~PdfSigResult() {
+    DeleteVecMembers(entries);
+}
+
+// Every signature's verdict, for showing them without opening Properties.
+PdfSigResult* EngineMupdfCheckSignatures(EngineBase* engine) {
+    auto* res = new PdfSigResult();
+    EngineMupdf* e = AsEngineMupdf(engine);
+    if (e && e->pdfdoc) {
+        ScopedRecursiveMutex scope(&e->docLock);
+        GetSignatures(e, res);
+    }
+    return res;
+}
+
+// Asks the CAs about this document's signers: slow, and leaves the answers in
+// Windows' cache, where the next look at the signatures finds them.
+void EngineMupdfFetchRevocation(EngineBase* engine) {
+    EngineMupdf* e = AsEngineMupdf(engine);
+    if (!e || !e->pdfdoc) {
+        return;
+    }
+    fz_context* ctx = e->Ctx();
+    StrVec blobs;
+    {
+        ScopedRecursiveMutex scope(&e->docLock);
+        Vec<pdf_obj*> fields;
+        fz_try(ctx) {
+            CollectSignatureFields(ctx, e->pdfdoc, fields);
+            for (pdf_obj* field : fields) {
+                char* contents = nullptr;
+                size_t n = pdf_signature_contents(ctx, e->pdfdoc, field, &contents);
+                if (n > 0) {
+                    blobs.Append(Str(contents, (int)n));
+                }
+                fz_free(ctx, contents);
+            }
+        }
+        fz_always(ctx) {
+            for (pdf_obj* field : fields) {
+                pdf_drop_obj(ctx, field);
+            }
+        }
+        fz_catch(ctx) {
+            fz_report_error(ctx);
+        }
+    }
+    void* list = gEutlLookup ? gEutlLookup->open() : nullptr;
+    void* store = (gEutlLookup && list) ? gEutlLookup->store(list) : nullptr;
+    for (Str blob : blobs) {
+        pkcs7_windows_fetch_revocation((unsigned char*)blob.s, (size_t)len(blob), 0, store);
+    }
+    if (gEutlLookup && list) {
+        gEutlLookup->close(list);
+    }
 }
 
 PdfSigCert* EngineMupdfGetSignatureCerts(EngineBase* engine) {
@@ -8903,7 +9358,7 @@ static void AppendOpenSslSigText(fz_context* ctx, str::Builder& out, pdf_pkcs7_v
 }
 #endif
 
-static TempStr GetSignatures(EngineMupdf* e) {
+static TempStr GetSignatures(EngineMupdf* e, PdfSigResult* res) {
 #if OS_WIN || OS_DARWIN || defined(SUMATRA_HAVE_OPENSSL)
     pdf_document* pdfdoc = e->pdfdoc;
     if (!pdfdoc) {
@@ -8916,6 +9371,12 @@ static TempStr GetSignatures(EngineMupdf* e) {
     str::Builder sigs;
     pdf_pkcs7_verifier* verifier = nullptr;
     Vec<pdf_obj*> fields;
+#if OS_WIN
+    void* eutlList = nullptr;
+    pkcs7_windows_rev_data* docRev = nullptr;
+    fz_var(eutlList);
+    fz_var(docRev);
+#endif
     fz_var(verifier);
     fz_try(ctx) {
 #if OS_WIN
@@ -8927,6 +9388,8 @@ static TempStr GetSignatures(EngineMupdf* e) {
 #endif
         CollectSignatureFields(ctx, pdfdoc, fields);
 #if OS_WIN
+        eutlList = gEutlLookup ? gEutlLookup->open() : nullptr;
+        docRev = LoadDssRevocation(ctx, pdfdoc);
         bool hasDss = PdfHasDssRevocation(ctx, pdfdoc);
         bool hasDocTs = false;
         for (pdf_obj* field : fields) {
@@ -8941,7 +9404,7 @@ static TempStr GetSignatures(EngineMupdf* e) {
             ++sigNo;
             int pageNo = PageNoForSigField(ctx, pdfdoc, field);
             AppendSignatureFieldInfo(ctx, sigs, verifier, pdfdoc, field, sigNo, pageNo, hasDss, hasDocTs,
-                                     LaterSignatures(ctx, pdfdoc, fields, field));
+                                     LaterSignatures(ctx, pdfdoc, fields, field), eutlList, fields, docRev, res);
         }
 #else
         for (int i = 0; i < len(fields); i++) {
@@ -8955,6 +9418,12 @@ static TempStr GetSignatures(EngineMupdf* e) {
             pdf_drop_obj(ctx, field);
         }
         pdf_drop_verifier(ctx, verifier);
+#if OS_WIN
+        if (gEutlLookup && eutlList) {
+            gEutlLookup->close(eutlList);
+        }
+        pkcs7_windows_rev_free(docRev);
+#endif
     }
     fz_catch(ctx) {
         fz_report_error(ctx);
@@ -8990,7 +9459,7 @@ void EngineMupdf::GetProperties(Props& propsOut) {
         AddProp(propsOut, DocProp::Encryption, val);
     }
 
-    TempStr sigs = GetSignatures(this);
+    TempStr sigs = GetSignatures(this, nullptr);
     if (len(sigs) > 0) {
         AddProp(propsOut, DocProp::Signatures, sigs);
     }
@@ -8998,6 +9467,18 @@ void EngineMupdf::GetProperties(Props& propsOut) {
     // for epub files, list all files in the archive
     Str path = FilePath();
     if (path && str::EndsWithI(path, StrL(".epub"))) {
+        for (const PropValue& p : epubSidecarProps) {
+            AddProp(propsOut, p.prop, str::DupTemp(p.val));
+        }
+
+        // mupdf only exposes the title and the author
+        Props epubProps;
+        EpubGetMetadata(path, epubProps);
+        for (const PropValue& p : epubProps) {
+            AddProp(propsOut, p.prop, str::DupTemp(p.val));
+        }
+        FreeProps(epubProps);
+
         ArchiveExtractProgressCb emptyCb;
         Archive* zip = OpenArchiveFromFile(path, /*eagerLoad=*/false, emptyCb);
         if (zip) {
@@ -9073,10 +9554,7 @@ bool EngineMupdfIsEncrypted(EngineBase* engine) {
     return epdf && epdf->pdfdoc && epdf->pdfdoc->crypt;
 }
 
-Str EngineMupdfGetPassword(EngineBase* engine) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
-    return epdf ? epdf->pdfPassword : Str{};
-}
+constexpr int kPdfCryptKeyLen = 32;
 
 //--- saving a file whose bytes are in memory (discussion #6256)
 
@@ -9087,6 +9565,23 @@ static bool FileUnchangedSinceLoad(EngineMupdf* e, Str path) {
     }
     FILETIME t = file::GetModificationTime(path);
     return FileTimeEq(t, e->fileTimeAtLoad);
+}
+
+// The password for a tool re-opening srcPath, the file the engine has open: the
+// engine's key, since one remembered in file history comes without a password.
+// Empty when none is needed or the key may no longer fit the file.
+TempStr EngineMupdfToolPasswordTemp(EngineBase* engine, Str srcPath) {
+    EngineMupdf* e = AsEngineMupdf(engine);
+    if (!e || !e->isPasswordProtected || !e->pdfdoc || !str::EqI(e->FilePath(), srcPath)) {
+        return str::DupTemp(StrL(""));
+    }
+    if (!FileUnchangedSinceLoad(e, srcPath)) {
+        logf("EngineMupdfToolPasswordTemp: '%s' changed since it was opened\n", srcPath);
+        return str::DupTemp(StrL(""));
+    }
+    ScopedRecursiveMutex scope(&e->docLock);
+    u8* key = pdf_crypt_key(e->Ctx(), e->pdfdoc->crypt);
+    return fmt("%s%s", StrL(PDF_RAW_KEY_PASSWORD_PREFIX), str::MemToHexTemp(Str((char*)key, kPdfCryptKeyLen)));
 }
 
 // Point the document at the whole file in memory. Takes the locks every
@@ -11059,7 +11554,8 @@ bool EngineMupdfGetPageWidgets(EngineBase* engine, int pageNo, Vec<Annotation*>&
     if (!epdf) {
         return true;
     }
-    FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
+    // blocking: the try-lock lookup reports no widgets while another thread holds the page locks
+    FzPageInfo* pi = epdf->GetFzPageInfo(pageNo, true);
     if (!pi) {
         return false;
     }
@@ -11247,7 +11743,7 @@ Annotation* MakeAnnotationWrapper(EngineMupdf* engine, pdf_annot* annot, int pag
     return res;
 }
 
-extern "C" fz_buffer* pdfinfo_to_buffer(fz_context* ctx, const char* filename);
+extern "C" fz_buffer* pdfinfo_to_buffer(fz_context* ctx, const char* filename, const char* password);
 
 static void outline_to_buffer_rec(fz_context* ctx, fz_output* out, fz_outline* outline, int level) {
     while (outline) {
@@ -11354,7 +11850,7 @@ int EngineMupdfEbookToPdf(Str srcPath, Str dstPath, float pageDx, float pageDy, 
     return nPages;
 }
 
-TempStr EngineMupdfGetPdfInfo(Str path) {
+TempStr EngineMupdfGetPdfInfo(Str path, Str password) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
     if (!ctx) {
         return {};
@@ -11363,7 +11859,7 @@ TempStr EngineMupdfGetPdfInfo(Str path) {
     TempStr res;
     fz_buffer* buf = nullptr;
     fz_try(ctx) {
-        buf = pdfinfo_to_buffer(ctx, path.s);
+        buf = pdfinfo_to_buffer(ctx, path.s, CStrTemp(password));
         unsigned char* data;
         size_t n = fz_buffer_storage(ctx, buf, &data);
         res = str::DupTemp(Str((char*)data, (int)n));

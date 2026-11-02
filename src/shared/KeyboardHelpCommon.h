@@ -27,7 +27,11 @@ static const int kSecView[] = {
 
 static const int kSecDoc[] = {
     CmdOpenFile, CmdSaveAs, CmdPrint, CmdReloadDocument,
-    CmdClose, CmdNewWindow, CmdOpenNextFileInFolder,
+    CmdClose,
+#if !OS_WASM
+    CmdNewWindow,
+#endif
+    CmdOpenNextFileInFolder,
     CmdOpenPrevFileInFolder, CmdRenameFile, CmdProperties, 0,
 };
 

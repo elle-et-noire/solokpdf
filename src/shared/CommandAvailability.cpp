@@ -78,8 +78,10 @@ static const i32 gNoDocWhitelist[] = {
     CmdFavoriteToggle,
     CmdFavoriteShowInTab,
     CmdGoToHomePage,
+    CmdNewTab,
     CmdShowLog,
     CmdDebugShowCrashMiniDumps,
+    CmdDebugSaveSettings,
     CmdClearHistory,
     CmdRemoveDeletedFilesFromHistory,
     CmdDeleteCachedFiles,
@@ -92,6 +94,7 @@ static const i32 gNoDocWhitelist[] = {
     CmdTabGroupRestore,
     CmdSetScreenshotHotkey,
     CmdStopReadAloud,
+    CmdSumatraOnline,
     0,
 };
 
@@ -134,8 +137,8 @@ static const i32 removeIfNoExtractedText[] = {
     0,
 };
 
-// annotations created from a text selection; a rectangular selection has no
-// text to mark up. checked after !supportsAnnots already hid them for non-PDF
+// annotations created from a text selection; only Highlight can also fill a
+// drawn rectangle. checked after !supportsAnnots already hid them for non-PDF
 static const i32 createAnnotFromSelection[] = {
     CmdCreateAnnotHighlight,
     CmdCreateAnnotSquiggly,
@@ -159,6 +162,7 @@ static const i32 removeIfNoInternetPerms[] = {
     CmdHelpOpenManualOnWebsite,
     CmdHelpOpenKeyboardShortcuts,
     CmdContributeTranslation,
+    CmdSumatraOnline,
     0,
 };
 
@@ -182,6 +186,8 @@ static const i32 removeIfNoPrefsPerms[] = {
     CmdToggleFavoritesSort,
     CmdGoToNextFavorite,
     CmdGoToPrevFavorite,
+    CmdSumatraOnline,
+    CmdDebugSaveSettings,
     0,
 };
 
@@ -340,6 +346,7 @@ static const i32 gBlacklistCommandsFromPalette[] = {
     CmdFileHistory,
     CmdFavorite,
     CmdGoToHomePage,
+    CmdNewTab,
     0,
 };
 
@@ -401,6 +408,8 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
 #endif
 #if OS_WASM
     if (cmdId == CmdRunPDFScript) return CommandVisibility::Hide;
+    // a browser tab has one canvas, so one window
+    if (cmdId == CmdNewWindow || cmdId == CmdDuplicateInNewWindow) return CommandVisibility::Hide;
 #endif
     if (cmdId <= CmdFirst) {
         return CommandVisibility::Hide;
@@ -421,6 +430,9 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
     }
 
     if (cmdId == CmdInsertTextSnippet) {
+        return CommandVisibility::Hide;
+    }
+    if (cmdId == CmdShowSignatures && !ctx.hasSignatures) {
         return CommandVisibility::Hide;
     }
     // only a document from a temporary folder has somewhere to be copied (#6437)
@@ -508,7 +520,7 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         }
         return ctx.hasOpenDocuments ? CommandVisibility::Show : CommandVisibility::Disable;
     }
-    if (cmdId == CmdGoToHomePage) {
+    if (cmdId == CmdGoToHomePage || cmdId == CmdNewTab) {
         return SettingsUseTabs() ? CommandVisibility::Show : CommandVisibility::Hide;
     }
     if (cmdId == CmdNextTab || cmdId == CmdPrevTab || cmdId == CmdNextTabSmart || cmdId == CmdPrevTabSmart ||
@@ -534,6 +546,12 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
             return CommandVisibility::Show;
         }
         return MapForSurface(CommandVisibility::Disable, surface);
+    }
+
+    // The whitelist returns before the permission lists. This command is on
+    // that list, so the internet and prefs checks have to happen here.
+    if (cmdId == CmdSumatraOnline && (!HasPermission(Perm::InternetAccess) || !HasPermission(Perm::SavePreferences))) {
+        return CommandVisibility::Hide;
     }
 
     if (CmdWorksWithoutDocument(cmdId)) {
@@ -567,7 +585,7 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         return CommandVisibility::Hide;
     }
     // search has nothing to scan; the item stays, greyed, as in the Go To menu
-    if (cmdId == CmdFindFirst && ctx.isImageCollection) {
+    if ((cmdId == CmdFindFirst || cmdId == CmdFindHistory) && ctx.isImageCollection) {
         return MapForSurface(CommandVisibility::Disable, surface);
     }
 
@@ -623,7 +641,8 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         }
     }
 
-    if (!ctx.hasTextSelection && CmdIdInList(cmdId, createAnnotFromSelection)) {
+    bool canFillRect = cmdId == CmdCreateAnnotHighlight && ctx.hasDrawnRectSelection;
+    if (!ctx.hasTextSelection && !canFillRect && CmdIdInList(cmdId, createAnnotFromSelection)) {
         return MapForSurface(CommandVisibility::Disable, surface);
     }
 
@@ -748,6 +767,10 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
     }
 
     if (cmdId == CmdConvertEpubToPdf && !ctx.isEpub) {
+        return CommandVisibility::Hide;
+    }
+
+    if (cmdId == CmdConvertCajToPDF && ctx.engineKind != kindEngineCaj) {
         return CommandVisibility::Hide;
     }
 

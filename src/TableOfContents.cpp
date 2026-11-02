@@ -37,6 +37,7 @@
 #include "FilterHighlightDraw.h"
 #include "PageThumbnails.h"
 #include "SidebarPanel.h"
+#include "SignatureUI.h"
 #include "TableOfContents.h"
 #include "TableOfContentsCommon.h"
 #include "MenuDefs.h"
@@ -1247,6 +1248,7 @@ void CreateToc(MainWindow* win) {
     int dpi = DpiGetForHwnd(parent);
     win->pageThumbs = new PageThumbnailsCtrl(win, GetAppFont(), dpi, ThumbnailsHost::Sidebar);
     win->pageThumbs->SetIsVisible(false);
+    CreateSignaturesCtrl(win);
 
     UpdateControlsColors(win);
 }
@@ -1263,6 +1265,8 @@ void UpdateSidebarColors(MainWindow* win) {
     }
     win->pageThumbs->SetColor(kColListText, ThemeWindowTextColor());
     win->pageThumbs->SetColor(kColListBg, ThemeSidebarColor());
+    SignaturesCtrlColorsAndDpi(win, DpiGetForHwnd(win->hwndFrame));
+    SigBarUpdate(win);
     UpdateSidebarPanelsIcons(win);
 }
 

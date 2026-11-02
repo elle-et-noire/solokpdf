@@ -63,6 +63,9 @@ struct PropertiesWnd : WindowBase {
     str::Builder propsText;
     Point initialPos;
     PdfSigCert* certs = nullptr;
+    HWND parentHwnd = nullptr;
+    // kept apart so a rebuilt text can put it back
+    str::Builder fontsText;
 
     ~PropertiesWnd() override;
     bool Create(HWND parent);
@@ -290,7 +293,7 @@ PropertiesWnd::~PropertiesWnd() {
 }
 
 // CryptUIDlgViewContext lives in cryptui.dll, loaded only when a certificate is viewed
-static void ViewCertDer(HWND parent, Str der) {
+void ViewCertDer(HWND parent, Str der) {
     if (len(der) == 0) {
         return;
     }
@@ -349,8 +352,36 @@ void PropertiesWnd::ViewCertificate(VirtMouseEvent*) {
     }
 }
 
+// the signatures' text depends on the list, the fonts part doesn't
+static void RebuildPropsText(PropertiesWnd* w) {
+    MainWindow* win = FindMainWindowByHwnd(w->parentHwnd);
+    if (!win || !win->ctrl) {
+        return;
+    }
+    str::Builder text;
+    GetPropsText(win->ctrl, text);
+    AppendCertsText(text, w->certs);
+    AlignPropertiesText(text);
+    Str props = ToStr(w->propsText);
+    int fonts = len(w->fontsText) > 0 ? str::IndexOf(props, ToStr(w->fontsText)) : -1;
+    EndWithSingleNewline(text);
+    if (fonts >= 0) {
+        text.Append(ToStr(w->fontsText));
+    }
+    w->propsText.Reset();
+    w->propsText.Append(ToStr(text));
+    w->SetPropsText(ToStr(w->propsText));
+}
+
 void OnEutlUpdateDone(EutlUpdateJob* job) {
-    if (job->hwnd && IsWindow(job->hwnd)) {
+    if (job->refreshed) {
+        for (PropertiesWnd* w : gPropertiesWindows) {
+            if (w->certs) {
+                RebuildPropsText(w);
+            }
+        }
+    }
+    if (!job->silent && job->hwnd && IsWindow(job->hwnd)) {
         MessageBoxW(job->hwnd, CWStrTemp(job->msg), L"EU Trusted List",
                     MB_OK | (job->ok ? MB_ICONINFORMATION : MB_ICONWARNING));
     }
@@ -409,17 +440,25 @@ void PropertiesWnd::SizeToContent() {
     int footerDy = footer->MinIntrinsicHeight(footerDx) + (2 * DpiScale(kToolDlgFootPadDy));
     int textDx = maxLineDx + editProps->GetLeftTextMargin() + sbDx;
     int wantedDx = std::max(textDx, footerDx) + (2 * padDx);
-    int textDy = (nLines + 1) * PlatformFontLineHeight(propsFont);
-    int wantedDy = textDy + (2 * padDy) + footerDy;
 
     Rect wr = HwndWindowRect(hwnd);
     Rect cr = HwndClientRect(hwnd);
     Rect work = GetWorkAreaRect(wr, hwnd);
     int maxDx = (work.dx * 80 / 100) - (wr.dx - cr.dx);
     int maxDy = (work.dy * 80 / 100) - (wr.dy - cr.dy);
-    ShowScrollBar(editProps->hwnd, SB_VERT, wantedDy > maxDy);
-    ResizeHwndToClientArea(hwnd, std::min(wantedDx, maxDx), std::min(wantedDy, maxDy), false);
-    DoLayout();
+    auto sizeForLines = [&](int lines) {
+        int wantedDy = ((lines + 1) * PlatformFontLineHeight(propsFont)) + (2 * padDy) + footerDy;
+        ShowScrollBar(editProps->hwnd, SB_VERT, wantedDy > maxDy);
+        ResizeHwndToClientArea(hwnd, std::min(wantedDx, maxDx), std::min(wantedDy, maxDy), false);
+        DoLayout();
+    };
+    sizeForLines(nLines);
+
+    // a value wider than the window (an EPUB description) wraps into more lines
+    int wrappedLines = (int)SendMessageW(editProps->hwnd, EM_GETLINECOUNT, 0, 0);
+    if (wrappedLines > nLines) {
+        sizeForLines(wrappedLines);
+    }
 }
 
 void PropertiesWnd::ApplyDarkMode() {
@@ -570,6 +609,8 @@ void OnGetFontsFinished(GetFontsResult* result) {
         // fontsText starts with "\n" to separate it with a single empty line
         EndWithSingleNewline(w->propsText);
         w->propsText.Append(ToStr(result->fontsText));
+        w->fontsText.Reset();
+        w->fontsText.Append(ToStr(result->fontsText));
         w->SetPropsText(ToStr(w->propsText));
         w->SizeToContent();
     }
@@ -588,11 +629,21 @@ void ShowProperties(HWND parent, DocController* ctrl) {
     }
 
     auto* wnd = new PropertiesWnd();
+    wnd->parentHwnd = parent;
     VecAppend(gPropertiesWindows, wnd);
     DisplayModel* dm = ctrl->AsFixed();
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
     if (EngineMupdfIsPdf(engine) || (engine && engine->HasAnnotationEditor())) {
         EutlRegisterLookup();
+    }
+    if (wnd->certs && !gForTesting && HasPermission(Perm::InternetAccess)) {
+        // both only refresh what the text says: it's there already
+        auto* job = new EutlUpdateJob;
+        job->silent = true;
+        job->update = EutlNeedsUpdate();
+        job->engine = engine;
+        engine->AddRef();
+        RunAsync(MkFunc0<EutlUpdateJob>(EutlUpdateThread, job), StrL("SigOnlineChecks"));
     }
     GetPropsText(ctrl, wnd->propsText);
     EngineBase* sigEngine =

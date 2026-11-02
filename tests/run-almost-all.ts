@@ -21,6 +21,7 @@ import { setTestWindowLayout } from "./winapi.ts";
 import { beginSharedControlledSession, endSharedControlledSession } from "./win-automation.ts";
 import { testit as lintCommandIds } from "./lint-command-ids.ts";
 import { testit as jbig2ResizeOverflow } from "./jbig2-resize-overflow.ts";
+import { testit as issue6468 } from "./issue-6468.ts";
 import { testit as jpegXlPdf } from "./jpeg-xl-pdf.ts";
 import { testit as buildCli } from "./build-cli.ts";
 import { testit as ngEmbedded } from "./ng-embedded.ts";
@@ -117,6 +118,7 @@ import { testit as issue2155 } from "./issue-2155.ts";
 import { testit as issue2254 } from "./issue-2254.ts";
 import { testit as issue1846 } from "./issue-1846.ts";
 import { testit as xmpProperties } from "./xmp-properties.ts";
+import { testit as epubMetadataProperties } from "./epub-metadata-properties.ts";
 import { testit as issue5950 } from "./issue-5950.ts";
 import { testit as issue5993 } from "./issue-5993.ts";
 import { testit as issue5845 } from "./issue-5845.ts";
@@ -142,6 +144,7 @@ import { testit as issue6435 } from "./issue-6435.ts";
 import { testit as issue6437 } from "./issue-6437.ts";
 import { testit as issue6439 } from "./issue-6439.ts";
 import { testit as convertEpubToPdf } from "./convert-epub-to-pdf.ts";
+import { testit as rtf } from "./rtf.ts";
 import { testit as installerDesktopShortcut } from "./installer-desktop-shortcut.ts";
 import { testit as issue4291 } from "./issue-4291.ts";
 import { testit as issue6271 } from "./issue-6271.ts";
@@ -166,6 +169,9 @@ import { testit as issue4753 } from "./issue-4753.ts";
 import { testit as issue4055 } from "./issue-4055.ts";
 import { testit as issue2165 } from "./issue-2165.ts";
 import { testit as issue3472 } from "./issue-3472.ts";
+import { testit as pdfDecryptRememberedKey } from "./pdf-decrypt-remembered-key.ts";
+import { testit as pdfToolsEncrypted } from "./pdf-tools-encrypted.ts";
+import { testit as passwordDialogReuseInstance } from "./password-dialog-reuse-instance.ts";
 import { testit as pdfOnlyMenuItems } from "./pdf-only-menu-items.ts";
 import { testit as issue2258 } from "./issue-2258.ts";
 import { testit as issue2737 } from "./issue-2737.ts";
@@ -177,6 +183,9 @@ import { testit as issue6330 } from "./issue-6330.ts";
 import { testit as issue6332 } from "./issue-6332.ts";
 import { testit as issue6339 } from "./issue-6339.ts";
 import { testit as issue1293 } from "./issue-1293.ts";
+import { testit as epubFirstPageImage } from "./epub-first-page-image.ts";
+import { testit as cssInvalidColor } from "./css-invalid-color.ts";
+import { testit as epubPreWraps } from "./epub-pre-wraps.ts";
 import { testit as issue4788 } from "./issue-4788.ts";
 import { testit as issue6359 } from "./issue-6359.ts";
 import { testit as issue6360 } from "./issue-6360.ts";
@@ -246,6 +255,7 @@ import { testit as issue1438 } from "./issue-1438.ts";
 import { testit as issue1136 } from "./issue-1136.ts";
 import { testit as navigateFilesDeleteSelection } from "./navigate-files-delete-selection.ts";
 import { testit as issue893 } from "./issue-893.ts";
+import { testit as findHistoryAltDown } from "./find-history-alt-down.ts";
 import { testit as issue1699 } from "./issue-1699.ts";
 import { testit as issue1998 } from "./issue-1998.ts";
 import { testit as issue2199 } from "./issue-2199.ts";
@@ -374,6 +384,10 @@ import { testit as issue6107 } from "./issue-6107.ts";
 
 import { testit as issue5968 } from "./issue-5968.ts";
 import { testit as issue5978 } from "./issue-5978.ts";
+import { testit as issue6455 } from "./issue-6455.ts";
+import { testit as issue6459 } from "./issue-6459.ts";
+import { testit as issue6467 } from "./issue-6467.ts";
+import { testit as issue6464 } from "./issue-6464.ts";
 import { testit as issue6352 } from "./issue-6352.ts";
 import { testit as issue6354 } from "./issue-6354.ts";
 import { testit as issue6355 } from "./issue-6355.ts";
@@ -442,6 +456,7 @@ import { testit as issue6012 } from "./issue-6012.ts";
 import { testit as issue6080 } from "./issue-6080.ts";
 import { testit as issue6203 } from "./issue-6203.ts";
 import { testit as issue6205 } from "./issue-6205.ts";
+import { testit as advSettingsEnter } from "./adv-settings-enter.ts";
 import { testit as advSettingsFreshDefaults } from "./adv-settings-fresh-defaults.ts";
 import { testit as issue6137AdvSettings } from "./issue-6137-adv-settings.ts";
 import { testit as advSettingsHomeReload } from "./adv-settings-home-reload.ts";
@@ -461,6 +476,7 @@ import { testit as issue6137 } from "./issue-6137.ts";
 import { testit as issue6140 } from "./issue-6140.ts";
 import { testit as issue6142 } from "./issue-6142.ts";
 import { testit as issue6419 } from "./issue-6419.ts";
+import { testit as issue6448 } from "./issue-6448.ts";
 import { testit as issue6143 } from "./issue-6143.ts";
 import { testit as issue6144 } from "./issue-6144.ts";
 import { testit as toolbarTabSwitchPos } from "./toolbar-tab-switch-pos.ts";
@@ -510,6 +526,12 @@ export const tests: NamedTest[] = [
   ["issue-5918", issue5918],
   ["issue-1315", issue1315],
   ["sidebar-thumbnails", sidebarThumbnails],
+  ["issue-6269", issue6269],
+  ["issue-6385", issue6385],
+  ["issue-6240", issue6240],
+  ["issue-4788", issue4788],
+  ["issue-6373", issue6373],
+  ["issue-6468", issue6468],
   ["issue-6230", issue6230],
   ["issue-6360", issue6360],
   ["issue-5819", issue5819],
@@ -518,7 +540,6 @@ export const tests: NamedTest[] = [
   ["issue-6431", issue6431],
   ["issue-5924", issue5924],
   ["issue-6388", issue6388],
-  ["issue-6385", issue6385],
   ["pdf-script", pdfScript],
   ["annotation clipboard tests", annotationClipboardTests],
   ["issue-6352", issue6352],
@@ -545,6 +566,7 @@ export const tests: NamedTest[] = [
   ["issue-6437", issue6437],
   ["issue-6439", issue6439],
   ["convert-epub-to-pdf", convertEpubToPdf],
+  ["rtf", rtf],
   ["issue-6239", issue6239],
   ["pdf-save-dedup-stream", pdfSaveDedupStream],
   ["issue-5446", issue5446],
@@ -566,7 +588,6 @@ export const tests: NamedTest[] = [
   ["jpeg-xl-pdf", jpegXlPdf],
   ["issue-6276", issue6276],
   ["issue-6402", issue6402],
-  ["issue-6269", issue6269],
   ["toolbar-hover-dropdown", toolbarHoverDropdown],
   ["session-restore-tab-state", sessionRestoreTabState],
   ["exit-edit-pdf-deselects", exitEditPdfDeselects],
@@ -615,6 +636,7 @@ export const tests: NamedTest[] = [
   ["ad-hoc-md-missing-file", mdMissingFile],
   ["issue-6142", issue6142],
   ["issue-6419", issue6419],
+  ["issue-6448", issue6448],
   ["issue-6148", issue6148],
   ["issue-6393", issue6393],
   ["issue-6397", issue6397],
@@ -648,6 +670,7 @@ export const tests: NamedTest[] = [
   ["issue-6101", issue6101],
   ["issue-5907", issue5907],
   ["issue-893", issue893],
+  ["find-history-alt-down", findHistoryAltDown],
   ["cmyk-image-save", cmykImageSave],
   ["issue-6214", issue6214],
   ["issue-5868", issue5868],
@@ -702,7 +725,6 @@ export const tests: NamedTest[] = [
   ["issue-6163", issue6163],
   ["issue-4973", issue4973],
   ["issue-2083", issue2083],
-  ["issue-6240", issue6240],
   ["issue-6241", issue6241],
   ["issue-5329", issue5329],
   ["issue-6288", issue6288],
@@ -765,9 +787,13 @@ export const tests: NamedTest[] = [
   ["issue-2254", issue2254],
   ["issue-1846", issue1846],
   ["xmp-properties", xmpProperties],
+  ["epub-metadata-properties", epubMetadataProperties],
   ["issue-5950", issue5950],
   ["issue-3472", issue3472],
   ["pdf-only-menu-items", pdfOnlyMenuItems],
+  ["pdf-tools-encrypted", pdfToolsEncrypted],
+  ["password-dialog-reuse-instance", passwordDialogReuseInstance],
+  ["pdf-decrypt-remembered-key", pdfDecryptRememberedKey],
   ["security-ghsa-p2ph-2rvm-q37m", ghsaP2ph2rvmQ37m],
   ["security-ghsa-5wm7-225j-9qcj", ghsa5wm7225j9qcj],
   ["issue-6364", issue6364],
@@ -803,7 +829,9 @@ export const tests: NamedTest[] = [
   ["issue-6332", issue6332],
   ["issue-6339", issue6339],
   ["issue-1293", issue1293],
-  ["issue-4788", issue4788],
+  ["epub-first-page-image", epubFirstPageImage],
+  ["css-invalid-color", cssInvalidColor],
+  ["epub-pre-wraps", epubPreWraps],
   ["issue-6359", issue6359],
   ["issue-6361", issue6361],
   ["issue-6362", issue6362],
@@ -887,7 +915,6 @@ export const tests: NamedTest[] = [
   ["issue-6341", issue6341],
   ["issue-6337", issue6337],
   ["issue-6367", issue6367],
-  ["issue-6373", issue6373],
   ["find-float-switch-results", findFloatSwitchResults],
   ["command-palette-theme", commandPaletteTheme],
   ["command-palette-delete-tab", commandPaletteDeleteTab],
@@ -938,6 +965,7 @@ export const tests: NamedTest[] = [
   ["issue-6080", issue6080],
   ["issue-6203", issue6203],
   ["issue-6205", issue6205],
+  ["adv-settings-enter", advSettingsEnter],
   ["adv-settings-fresh-defaults", advSettingsFreshDefaults],
   ["issue-6137-adv-settings", issue6137AdvSettings],
   ["adv-settings-home-reload", advSettingsHomeReload],
@@ -970,6 +998,10 @@ export const tests: NamedTest[] = [
   ["issue-6442", issue6442],
   ["issue-6444", issue6444],
   ["overlay-scrollbar-theme", overlayScrollbarTheme],
+  ["issue-6455", issue6455],
+  ["issue-6459", issue6459],
+  ["issue-6467", issue6467],
+  ["issue-6464", issue6464],
 ];
 
 export async function testit(opts?: SuiteOptions): Promise<void> {

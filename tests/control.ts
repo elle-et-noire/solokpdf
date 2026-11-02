@@ -109,13 +109,13 @@ export enum ControlCommand {
   ResolveUnsavedChanges = 110,
   TestRefHover = 111,
   TestPageInfo = 112,
-  TestShortcutsDialog = 145,
-  TestVimKeys = 146,
-  TestSetFormField = 147,
-  TestDocumentJsOpen = 148,
-  TestCurrentPdf = 149,
+  TestShortcutsDialog = 149,
+  TestVimKeys = 150,
+  TestSetFormField = 151,
+  TestDocumentJsOpen = 152,
+  TestCurrentPdf = 153,
   // every command's visibility on a surface, one "CmdName vis" line each
-  TestAllCommandVisibility = 150,
+  TestAllCommandVisibility = 154,
   TestSidebarThumbnails = 113,
   TestFrameNcStrips = 114,
   TestMergePdf = 115,
@@ -160,6 +160,10 @@ export enum ControlCommand {
   TestPageImages = 143,
   // the first window's page and scroll position
   TestScrollState = 144,
+  TestDrawRectSelection = 145,
+  TestEutlUpdate = 146,
+  TestFetchRevocation = 147,
+  TestSignatureStatus = 148,
 }
 
 export type ControlArg = number | string | Uint8Array | ControlArg[];

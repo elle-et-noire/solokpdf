@@ -159,6 +159,7 @@ enum class PdfToolKind {
     SaveSelectionAsImage,
     Merge,
     ConvertEpubToPdf,
+    ConvertCajToPdf,
 };
 
 // orig's three "Pages:" radios of the Convert PDF to Images dialog
@@ -258,7 +259,6 @@ struct PdfToolDlg {
     bool visible = false;
     PdfToolKind kind = PdfToolKind::Bake;
     Str srcPath;   // owned
-    Str password;  // owned; the password Decrypt re-opens the document with
     Str browseExt; // owned; the default extension of the "..." save dialog
     // ExistingImageCount() for the inputs in existKey (owned): a frame doesn't
     // touch the disk
@@ -454,6 +454,8 @@ static Str ToolTitleFor(PdfToolKind kind) {
             return Tr("Merge PDF");
         case PdfToolKind::ConvertEpubToPdf:
             return Tr("Convert EPUB to PDF");
+        case PdfToolKind::ConvertCajToPdf:
+            return Tr("Convert CAJ to PDF");
     }
     return {};
 }
@@ -495,6 +497,8 @@ static Str (*ToolTitleFn(PdfToolKind kind))() {
             return ToolTitleOf<PdfToolKind::SaveSelectionAsImage>;
         case PdfToolKind::ConvertEpubToPdf:
             return ToolTitleOf<PdfToolKind::ConvertEpubToPdf>;
+        case PdfToolKind::ConvertCajToPdf:
+            return ToolTitleOf<PdfToolKind::ConvertCajToPdf>;
         case PdfToolKind::Merge:
             break;
     }
@@ -518,6 +522,7 @@ static Str ToolActionText() {
         case PdfToolKind::Merge:
             return Tr("Save");
         case PdfToolKind::ConvertEpubToPdf:
+        case PdfToolKind::ConvertCajToPdf:
             return Tr("Convert to PDF");
         default:
             return ToolTitle();
@@ -647,8 +652,6 @@ static void FreeToolState(gp::Window* toolWin) {
     str::FreePtr(&gTool.mergeClipText);
     str::Free(gTool.srcPath);
     gTool.srcPath = {};
-    str::Free(gTool.password);
-    gTool.password = {};
     str::Free(gTool.browseExt);
     gTool.browseExt = {};
     str::Free(gTool.existKey);
@@ -726,8 +729,9 @@ static void PdfBakeDoIt() {
     logf("PdfBakeDoIt: baking '%s' to '%s'\n", inputPath, destPath);
 
     // build argv for pdfbake_main: "bake" input output
-    char* argv[] = {(char*)"bake", CStrTemp(inputPath), CStrTemp(destPath)};
-    int argc = 3;
+    char* argv[] = {(char*)"bake", (char*)"-p", PdfToolPasswordTemp(win, gTool.srcPath), CStrTemp(inputPath),
+                    CStrTemp(destPath)};
+    int argc = dimofi(argv);
 
     fz_set_optind(0);
     int res = pdfbake_main(argc, argv);
@@ -761,8 +765,10 @@ static void PdfExtractTextDoIt() {
     bool isPdf = tab && IsPdfDoc(tab);
     if (isPdf) {
         // use muconvert for PDF
-        char* argv[] = {(char*)"convert", (char*)"-o", CStrTemp(destPath), CStrTemp(gTool.srcPath), CStrTemp(pages)};
-        int argc = 5;
+        char* argv[] = {(char*)"convert", (char*)"-p",        PdfToolPasswordTemp(win, gTool.srcPath),
+                        (char*)"-o",      CStrTemp(destPath), CStrTemp(gTool.srcPath),
+                        CStrTemp(pages)};
+        int argc = dimofi(argv);
         fz_set_optind(0);
         ok = muconvert_main(argc, argv) == 0;
     } else {
@@ -792,12 +798,14 @@ static void PdfCleanDoIt(bool decompress) {
 
     // compress is: clean -gggg -e 100 -f -i -t -Z input output
     // decompress is: clean -d input output
+    char* pwd = PdfToolPasswordTemp(gTool.win, gTool.srcPath);
     char* compressArgv[] = {
-        (char*)"clean", (char*)"-gggg",          (char*)"-e",       (char*)"100", (char*)"-f", (char*)"-i", (char*)"-t",
-        (char*)"-Z",    CStrTemp(gTool.srcPath), CStrTemp(destPath)};
-    char* decompressArgv[] = {(char*)"clean", (char*)"-d", CStrTemp(gTool.srcPath), CStrTemp(destPath)};
+        (char*)"clean", (char*)"-p", pwd,         (char*)"-gggg",          (char*)"-e",       (char*)"100", (char*)"-f",
+        (char*)"-i",    (char*)"-t", (char*)"-Z", CStrTemp(gTool.srcPath), CStrTemp(destPath)};
+    char* decompressArgv[] = {(char*)"clean",          (char*)"-p",       pwd, (char*)"-d",
+                              CStrTemp(gTool.srcPath), CStrTemp(destPath)};
     char** argv = decompress ? decompressArgv : compressArgv;
-    int argc = decompress ? 4 : 10;
+    int argc = decompress ? dimofi(decompressArgv) : dimofi(compressArgv);
 
     fz_set_optind(0);
     int res = pdfclean_main(argc, argv);
@@ -862,10 +870,12 @@ static void PdfDeletePageDoIt() {
     // use the same compression flags as Compress PDF so the result is re-written
     // compactly; otherwise the kept pages drag along the original's full content
     // and the output is nearly as big as the source
-    char* argv[] = {(char*)"clean",      (char*)"-gggg",     (char*)"-e",        (char*)"100",
-                    (char*)"-f",         (char*)"-i",        (char*)"-t",        (char*)"-Z",
-                    CStrTemp(inputPath), CStrTemp(destPath), CStrTemp(pageRange)};
-    int argc = 11;
+    char* argv[] = {(char*)"clean",     (char*)"-p",         PdfToolPasswordTemp(win, gTool.srcPath),
+                    (char*)"-gggg",     (char*)"-e",         (char*)"100",
+                    (char*)"-f",        (char*)"-i",         (char*)"-t",
+                    (char*)"-Z",        CStrTemp(inputPath), CStrTemp(destPath),
+                    CStrTemp(pageRange)};
+    int argc = dimofi(argv);
 
     fz_set_optind(0);
     int res = pdfclean_main(argc, argv);
@@ -921,24 +931,21 @@ static void PdfDecryptDoIt() {
     }
     MainWindow* win = gTool.win;
 
-    logf("PdfDecryptDoIt: decrypting '%s' to '%s', password len: %d\n", gTool.srcPath, destPath, len(gTool.password));
+    logf("PdfDecryptDoIt: decrypting '%s' to '%s'\n", gTool.srcPath, destPath);
 
-    // equivalent of: clean -p <pwd> -D input output
-    // -p provides the password to open the encrypted input, -D removes encryption from output
-    char* argv[] = {(char*)"clean",          (char*)"-p",       CStrTemp(gTool.password), (char*)"-D",
+    // equivalent of: clean -p <key> -D input output
+    char* argv[] = {(char*)"clean",          (char*)"-p",       PdfToolPasswordTemp(win, gTool.srcPath), (char*)"-D",
                     CStrTemp(gTool.srcPath), CStrTemp(destPath)};
-    int argc = 6;
 
     fz_set_optind(0);
-    int res = pdfclean_main(argc, argv);
+    int res = pdfclean_main(dimofi(argv), argv);
     if (res == 0) {
         logf("PdfDecryptDoIt: decrypted successfully\n");
         CloseAndLoad(destPath);
         return;
     }
-    logf("PdfDecryptDoIt: pdfclean_main failed with %d, src: '%s', password len: %d\n", res, gTool.srcPath,
-         len(gTool.password));
-    MessageBoxWarning(win, StrL("Failed to decrypt PDF file."), Tr("Decrypt PDF"));
+    logf("PdfDecryptDoIt: failed, src: '%s'\n", gTool.srcPath);
+    ShowWarningNotification(win, Tr("Failed to decrypt PDF file."), kNotif5SecsTimeOut);
 }
 
 // orig's ConvertEpubToPdfDialog::DoIt: ddFormat holds the page size and the
@@ -966,6 +973,20 @@ static void ConvertEpubToPdfDoIt() {
         return;
     }
     logf("ConvertEpubToPdf: wrote %d pages\n", nPages);
+    CloseAndLoad(destPath);
+}
+
+// orig's ConvertCajToPdfDialog::DoIt
+static void ConvertCajToPdfDoIt() {
+    TempStr destPath = DestPathTemp();
+    if (len(destPath) == 0) {
+        return;
+    }
+    logf("ConvertCajToPdf: '%s' -> '%s'\n", gTool.srcPath, destPath);
+    if (!ConvertCajToPdf(gTool.srcPath, destPath)) {
+        MessageBoxWarning(gTool.win, CajErrorReasonTemp(gTool.srcPath), Tr("Convert CAJ to PDF"));
+        return;
+    }
     CloseAndLoad(destPath);
 }
 
@@ -1673,7 +1694,7 @@ static bool AddMergeSource(Str filePath, int at) {
     }
     MergeSourceDlg source;
     source.path = str::Dup(filePath);
-    source.password = str::Dup(EngineMupdfGetPassword(engine));
+    source.password = str::Dup(EngineMupdfToolPasswordTemp(engine, filePath));
     source.pageCount = engine->PageCount();
     source.thumbStart = len(gTool.mergeThumbs->thumbs);
     source.color = kSourceColors[len(gTool.mergeSources) % dimofi(kSourceColors)];
@@ -2180,6 +2201,9 @@ static void PdfToolDoIt() {
             break;
         case PdfToolKind::ConvertEpubToPdf:
             ConvertEpubToPdfDoIt();
+            break;
+        case PdfToolKind::ConvertCajToPdf:
+            ConvertCajToPdfDoIt();
             break;
         case PdfToolKind::ConvertToImages:
             ConvertPdfToImagesDoIt();
@@ -2818,6 +2842,8 @@ static const char* ToolWindowName(PdfToolKind kind) {
             return "converttopdf";
         case PdfToolKind::ConvertEpubToPdf:
             return "convertepubtopdf";
+        case PdfToolKind::ConvertCajToPdf:
+            return "convertcajtopdf";
         case PdfToolKind::ConvertToImages:
             return "converttoimages";
         case PdfToolKind::SaveSelectionAsImage:
@@ -3012,7 +3038,7 @@ void ShowMergePdfDialog(MainWindow* win) {
     MergeSourceDlg source;
     source.color = kSourceColors[0];
     source.path = str::Dup(tab->filePath);
-    source.password = str::Dup(EngineMupdfGetPassword(engine));
+    source.password = str::Dup(EngineMupdfToolPasswordTemp(engine, tab->filePath));
     source.pageCount = engine->PageCount();
     source.engine = engine;
     engine->AddRef();
@@ -3062,16 +3088,10 @@ void ShowPdfDecryptDialog(MainWindow* win) {
         logf("ShowPdfDecryptDialog: '%s' is not encrypted, skipping\n", tab->filePath);
         return;
     }
-    Str pwd = EngineMupdfGetPassword(engine);
-    if (len(pwd) == 0) {
-        logf("ShowPdfDecryptDialog: '%s' is encrypted but no password available\n", tab->filePath);
-        return;
-    }
-    logf("ShowPdfDecryptDialog: opening for '%s', password len: %d\n", tab->filePath, len(pwd));
+    logf("ShowPdfDecryptDialog: opening for '%s'\n", tab->filePath);
     if (!StartToolDialog(win, PdfToolKind::Decrypt, MakeUniqueFilePathTemp(tab->filePath), StrL(".pdf"))) {
         return;
     }
-    gTool.password = str::Dup(pwd);
     AppShellInvalidate(win);
 }
 
@@ -3113,6 +3133,22 @@ void ShowConvertEpubToPdfDialog(MainWindow* win) {
     }
     InitPageSizeDropDown(win);
     InitFontSizeCombo(win);
+    AppShellInvalidate(win);
+}
+
+void ShowConvertCajToPdfDialog(MainWindow* win) {
+    ToolScope scope;
+    if (!CanShowToolDialog(win, false)) {
+        return;
+    }
+    WindowTab* tab = win->CurrentTab();
+    if (!IsCajDoc(tab)) {
+        return;
+    }
+    logf("ShowConvertCajToPdfDialog: opening for '%s'\n", tab->filePath);
+    if (!StartToolDialog(win, PdfToolKind::ConvertCajToPdf, DefaultPdfDestPathTemp(tab->filePath), StrL(".pdf"))) {
+        return;
+    }
     AppShellInvalidate(win);
 }
 
