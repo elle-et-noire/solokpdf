@@ -9,6 +9,7 @@
 #include "EngineBase.h"
 #include "DisplayModel.h"
 #include "RenderCache.h"
+#include "MainWindow.h"
 #include "WindowTab.h"
 #include "FileHistory.h"
 #include "SumatraPDF.h"
@@ -25,6 +26,9 @@ void SetTabPageAdjust(WindowTab* tab, int brightness, int contrast, PageAdjustSa
         dm->SetPageAdjust(brightness, contrast);
         gRenderCache->InvalidateAll(dm);
         dm->RepaintDisplay();
+        if (IsCurrentTab(tab->win, tab)) {
+            MainWindowRerender(tab->win);
+        }
     }
     if (save != PageAdjustSave::Remember) {
         return;

@@ -5,6 +5,7 @@ struct PageThumbnailsCache;
 struct ThumbnailRowsModel;
 struct Location;
 struct Pixmap;
+struct ViewPageOptions;
 
 enum class ThumbnailsHost {
     // the command palette's "&" mode: the page under the mouse is selected,
@@ -81,3 +82,5 @@ struct PageThumbnailsCtrl : VirtListBox {
 };
 
 Pixmap* RenderPageThumbnail(EngineBase*, int pageNo, Location, int rotation, int thumbDx, int thumbDy);
+Pixmap* RenderPageThumbnail(EngineBase*, int pageNo, Location, int rotation, int thumbDx, int thumbDy,
+                            const ViewPageOptions& options);

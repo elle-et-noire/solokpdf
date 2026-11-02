@@ -26,6 +26,7 @@ void RegenerateMissingThumbnails();
 Pixmap* LoadThumbnail(FileState* fs);
 Pixmap* ColoredThumbnail(FileState* fs);
 void FreeThumbnailColorData(FileState* fs);
+void FreeThumbnailData(FileState* fs);
 bool HasThumbnail(FileState* fs);
 void SetThumbnail(FileState* fs, Pixmap* bmp, ViewEngineClass engineClass, const Vec<Rect>* skipRects = nullptr);
 void SetThumbnail(FileState* fs, Pixmap* bmp);

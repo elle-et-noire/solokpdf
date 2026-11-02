@@ -57,6 +57,7 @@ struct ViewPageOptions {
     bool grayscale = false;
     int imageProbeScale = 1;
 };
+Pixmap* ApplyViewPageAdjust(Pixmap* bmp, ViewPageOptions options);
 Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions options = {});
 void CollectThumbnailSkipRects(EngineBase* engine, int pageNo, float zoom, int rotation, const RectF& pageRect,
                                Size bmpSize, Vec<Rect>& skipRects);

@@ -48,6 +48,15 @@ void FreeThumbnailColorData(FileState* fs) {
     fs->thumbnailColorData = nullptr;
 }
 
+void FreeThumbnailData(FileState* fs) {
+    if (!fs) {
+        return;
+    }
+    FreePixmap(fs->thumbnail);
+    fs->thumbnail = nullptr;
+    FreeThumbnailColorData(fs);
+}
+
 TempStr GetThumbnailSidecarPathTemp(Str filePath) {
     TempStr png = GetThumbnailPathTemp(filePath);
     return len(png) > 0 ? str::JoinTemp(png, StrL(".theme")) : TempStr();
@@ -103,17 +112,30 @@ Pixmap* ColoredThumbnail(FileState* fs) {
     auto* color = ColorData(fs);
     DarkModeProfile profile;
     BuildViewDarkModeProfile(color->engineClass, &profile);
-    if (color->engineClass == ViewEngineClass::Image || color->engineClass == ViewEngineClass::Captured) {
+    ViewPageOptions options;
+    options.grayscale = gSettings->fixedPageUI.grayscale;
+    options.brightness = fs->brightness;
+    options.contrast = fs->contrast;
+    bool recolor = color->engineClass != ViewEngineClass::Image && color->engineClass != ViewEngineClass::Captured;
+    if (!recolor && !options.grayscale && options.brightness == 0 && options.contrast == 0) {
         return neutral;
     }
-    if (color->colored && color->hash == profile.hash) {
+    u32 hash = profile.hash;
+    hash = hash * 31 + (u32)options.grayscale;
+    hash = hash * 31 + (u32)options.brightness;
+    hash = hash * 31 + (u32)options.contrast;
+    if (color->colored && color->hash == hash) {
         return color->colored;
     }
     FreePixmap(color->colored);
     color->colored = ClonePixmap(neutral);
-    color->hash = profile.hash;
-    if (color->colored && !color->colored->hasAlpha) {
-        Vec<Rect>* skip = len(color->skipRects) > 0 ? &color->skipRects : nullptr;
+    color->hash = hash;
+    color->colored = ApplyViewPageAdjust(color->colored, options);
+    if (recolor && color->colored && !color->colored->hasAlpha) {
+        Vec<Rect>* skip =
+            profile.mode == PageColorMode::PreserveImages && profile.preservePdfImages && len(color->skipRects) > 0
+                ? &color->skipRects
+                : nullptr;
         RecolorPixmap(color->colored, profile.foreground, profile.pageBackground, profile.linkColor, skip);
     }
     return color->colored ? color->colored : neutral;
@@ -297,9 +319,7 @@ bool HasThumbnail(FileState* fs) {
     FILETIME fileTime = file::GetModificationTime(fs->filePath);
     // delete the thumbnail if the file is newer than the thumbnail
     if (FileTimeDiffInSecs(fileTime, bmpTime) > 0) {
-        FreePixmap(fs->thumbnail);
-        fs->thumbnail = nullptr;
-        FreeThumbnailColorData(fs);
+        FreeThumbnailData(fs);
         DeleteThumbnailForFile(fs->filePath);
         HomePageThumbnailChanged(fs);
     }
@@ -311,14 +331,8 @@ void RemoveThumbnail(FileState* fs) {
     if (!fs || len(fs->filePath) == 0) {
         return;
     }
-    TempStr bmpPath = GetThumbnailPathTemp(fs->filePath);
-    if (bmpPath) {
-        file::Delete(bmpPath);
-    }
-    file::Delete(GetThumbnailSidecarPathTemp(fs->filePath));
-    FreePixmap(fs->thumbnail);
-    fs->thumbnail = nullptr;
-    FreeThumbnailColorData(fs);
+    DeleteThumbnailForFile(fs->filePath);
+    FreeThumbnailData(fs);
     HomePageThumbnailChanged(fs);
 }
 
@@ -329,8 +343,7 @@ void SetThumbnail(FileState* fs, Pixmap* bmp, ViewEngineClass engineClass, const
         FreePixmap(bmp);
         return;
     }
-    FreePixmap(fs->thumbnail);
-    FreeThumbnailColorData(fs);
+    FreeThumbnailData(fs);
     fs->thumbnail = PixmapToBgr(bmp);
     auto* color = new ThumbnailColorData();
     color->engineClass = engineClass;

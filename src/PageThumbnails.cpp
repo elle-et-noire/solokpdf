@@ -17,6 +17,7 @@
 #include "gui/VirtCtrl.h"
 
 #include "Settings.h"
+#include "AppSettings.h"
 #include "DisplayMode.h"
 #include "DocController.h"
 #include "EngineBase.h"
@@ -82,6 +83,7 @@ struct ThumbnailRenderWorker {
     int rotation = 0;
     int thumbDx = 0;
     int thumbDy = 0;
+    ViewPageOptions options;
 };
 
 static void FreeThumbnail(Pixmap* thumbnail) {
@@ -126,7 +128,8 @@ static void DetachThumbnailCache(PageThumbnailsCache* cache) {
     DeleteThumbnailCache(cache);
 }
 
-Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int rotation, int thumbDx, int thumbDy) {
+Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int rotation, int thumbDx, int thumbDy,
+                            const ViewPageOptions& viewOptions) {
     // reflow docs share one mediabox; don't use a flat pageNo that a clone's
     // chapter layout may have already shifted
     int boxPage = loc.IsValid() && engine->isReflowable ? 1 : pageNo;
@@ -144,9 +147,13 @@ Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int ro
     pageRect = engine->Transform(pageRect, boxPage, 1.0f, rotation, true);
     RenderPageArgs args(pageNo, zoom, rotation, &pageRect, RenderTarget::View);
     args.loc = loc;
-    ViewPageOptions options;
+    ViewPageOptions options = viewOptions;
     options.imageProbeScale = kThumbnailImageProbeScale;
     return PixmapToBgr(RenderViewPage(engine, args, options));
+}
+
+Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int rotation, int thumbDx, int thumbDy) {
+    return RenderPageThumbnail(engine, pageNo, loc, rotation, thumbDx, thumbDy, {});
 }
 
 static void FinishThumbnailRender(ThumbnailRenderTask* task) {
@@ -188,7 +195,8 @@ static void RenderAndPostThumbnail(ThumbnailRenderWorker* worker, EngineBase* en
     task->cache = worker->cache;
     task->pageNo = pageNo;
     task->loc = loc;
-    task->bitmap = RenderPageThumbnail(engine, pageNo, loc, worker->rotation, worker->thumbDx, worker->thumbDy);
+    task->bitmap =
+        RenderPageThumbnail(engine, pageNo, loc, worker->rotation, worker->thumbDx, worker->thumbDy, worker->options);
     uitask::Post(MkFunc0<ThumbnailRenderTask>(FinishThumbnailRender, task));
 }
 
@@ -822,6 +830,9 @@ void PageThumbnailsCtrl::StartRendering() {
     worker->rotation = cache->rotation;
     worker->thumbDx = cache->thumbDx;
     worker->thumbDy = cache->thumbDy;
+    worker->options.grayscale = gSettings->fixedPageUI.grayscale;
+    worker->options.brightness = dm->brightness;
+    worker->options.contrast = dm->contrast;
     if (!cache->renderEngine) {
         worker->sourceEngine = engine;
         engine->AddRef();

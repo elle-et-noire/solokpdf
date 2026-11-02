@@ -171,6 +171,16 @@ void CollectThumbnailSkipRects(EngineBase* engine, int pageNo, float zoom, int r
     CollectSkipRects(engine, pageNo, zoom, rotation, pageRect, bmpSize, kThumbnailImageProbeScale, skipRects);
 }
 
+Pixmap* ApplyViewPageAdjust(Pixmap* bmp, ViewPageOptions options) {
+    if (options.grayscale) {
+        bmp = GrayscalePagePixmap(bmp);
+    }
+    if (options.brightness != 0 || options.contrast != 0) {
+        bmp = AdjustPagePixmap(bmp, options.brightness, options.contrast);
+    }
+    return bmp;
+}
+
 Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions options) {
     DarkModeProfile profile;
     BuildViewDarkModeProfile(engine, &profile);
@@ -180,13 +190,7 @@ Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions
     if (!bmp) {
         return nullptr;
     }
-
-    if (options.grayscale) {
-        bmp = GrayscalePagePixmap(bmp);
-    }
-    if (options.brightness != 0 || options.contrast != 0) {
-        bmp = AdjustPagePixmap(bmp, options.brightness, options.contrast);
-    }
+    bmp = ApplyViewPageAdjust(bmp, options);
 
     ViewEngineClass engineClass = ClassifyViewEngine(engine);
     bool recolor = DarkModeProfileUsesLegacyPostProcess(&profile);

@@ -487,7 +487,7 @@ static void HomeThumbReadPng(HomeThumb* t) {
         str::Free(t->png);
         t->png = {};
         t->size = {};
-        file::Delete(path);
+        DeleteThumbnailForFile(t->fs->filePath);
     }
 }
 

@@ -36,6 +36,7 @@ function thumbnailPdf(): string {
 }
 
 export async function testit(): Promise<void> {
+  let grayscaleFailed = false;
   setProcessDpiAware();
   const dir = tmpPath("pdfium-thumb-theme");
   rmSync(dir, { recursive: true, force: true });
@@ -86,6 +87,14 @@ export async function testit(): Promise<void> {
     if (!match || !/rendered=[1-9]/.test(raw)) throw new Error(`F12 thumbnail missing: ${raw}`);
     const f12 = shot(Number(match[1]), "f12-dark");
     if (f12.paper > 300) throw new Error("F12 thumbnail lost dark paper");
+
+    sendCommandSync(frame, cmdId("CmdToggleGrayscale"));
+    await sleep(150);
+    const grayPath = join(dir, "f12-gray.png");
+    if (!captureWindowToPng(Number(match[1]), grayPath)) throw new Error("F12 grayscale capture failed");
+    grayscaleFailed = count(loadPng(grayPath), [255, 0, 0]) > 10;
+    sendCommandSync(frame, cmdId("CmdToggleGrayscale"));
+    await sleep(150);
 
     const changeTheme = async (theme: string) => {
       const res = await client.request(ControlCommand.TestInvokeCommand, [`CmdSetTheme ${theme}`]);
@@ -151,6 +160,26 @@ export async function testit(): Promise<void> {
     if (savedLight.paper < 600) throw new Error("saved Home thumbnail did not switch to light paper");
   } finally {
     await killAndWait(reopened.proc);
+  }
+
+  writeFileSync(
+    join(dir, "SolokPDF-settings.txt"),
+    `UiLanguage = en\nCheckForUpdates = false\nShowStartPage = true\nRememberOpenedFiles = true\nHomePageViewMode = thumbnails\nTheme = Solarized Dark\nDocumentColorsFollowTheme = legacy\nFileStates [\n\t[\n\t\tFilePath = ${pdf}\n\t\tOpenCount = 1\n\t]\n]\n`,
+  );
+  const legacy = await launchControlled(["-appdata", dir]);
+  let legacyFailed = false;
+  try {
+    const home = await legacy.client.homeSelection("thumbnails");
+    if (!home.ready || home.entries !== 1) throw new Error(`legacy Home thumbnail missing: ${home.raw}`);
+    await sleep(100);
+    const path = join(dir, "home-legacy.png");
+    if (!captureWindowToPng(findCanvas(legacy.frame), path)) throw new Error("legacy Home capture failed");
+    legacyFailed = count(loadPng(path), [255, 0, 0]) > 10;
+  } finally {
+    await killAndWait(legacy.proc);
+  }
+  if (grayscaleFailed || legacyFailed) {
+    throw new Error(`F12 ignored grayscale=${grayscaleFailed}; legacy Home preserved photo colors=${legacyFailed}`);
   }
 }
 

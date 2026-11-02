@@ -1722,8 +1722,7 @@ void DeleteFileEBookUI(FileEBookUI* v) {
 }
 
 void DeleteFileState(FileState* fs) {
-    FreePixmap(fs->thumbnail);
-    FreeThumbnailColorData(fs);
+    FreeThumbnailData(fs);
     FreeStruct(&gFileStateInfo, fs);
 }
 
@@ -1852,8 +1851,7 @@ void DeleteSettings(Settings* gp) {
     }
 
     for (FileState* ds : *gp->fileStates) {
-        FreePixmap(ds->thumbnail);
-        FreeThumbnailColorData(ds);
+        FreeThumbnailData(ds);
     }
     FreeStruct(&gSettingsInfo, gp);
 }

@@ -1360,6 +1360,8 @@ void RenameFileInHistory(Str oldPath, Str newPath) {
     if (path::IsSame(oldPath, newPath)) {
         return;
     }
+    DeleteThumbnailForFile(oldPath);
+    DeleteThumbnailForFile(newPath);
     FileState* fs = FileHistoryFindByPath(newPath);
     bool oldIsPinned = false;
     int oldOpenCount = 0;
@@ -1381,9 +1383,7 @@ void RenameFileInHistory(Str oldPath, Str newPath) {
         fs->isPinned = fs->isPinned || oldIsPinned;
         fs->openCount += oldOpenCount;
         // the thumbnail is recreated by LoadDocument
-        FreePixmap(fs->thumbnail);
-        fs->thumbnail = nullptr;
-        FreeThumbnailColorData(fs);
+        FreeThumbnailData(fs);
     }
 }
 
@@ -2822,9 +2822,7 @@ void OnThumbnailsTypeChanged() {
     Vec<FileState*>* states = FileHistoryStates();
     if (states) {
         for (FileState* fs : *states) {
-            FreePixmap(fs->thumbnail);
-            fs->thumbnail = nullptr;
-            FreeThumbnailColorData(fs);
+            FreeThumbnailData(fs);
             HomePageThumbnailChanged(fs);
         }
     }

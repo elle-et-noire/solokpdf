@@ -117,8 +117,7 @@ void FileHistoryDemote(Str filePath, bool hide) {
     }
     // also delete the thumbnail and move the link towards the
     // back in the Frequently Read list
-    FreePixmap(state->thumbnail);
-    state->thumbnail = nullptr;
+    FreeThumbnailData(state);
     state->openCount >>= 2;
     state->isMissing = hide;
     logf("MarkFileInexistent: '%s', isMissing: %d\n", filePath, (int)hide);
@@ -246,9 +245,7 @@ void CleanUpThumbnailCache() {
         }
         logf("CleanUpThumbnailCache: deleting thumb for missing '%s'\n", fs->filePath);
         DeleteThumbnailForFile(fs->filePath);
-        FreePixmap(fs->thumbnail);
-        fs->thumbnail = nullptr;
-        FreeThumbnailColorData(fs);
+        FreeThumbnailData(fs);
     }
 }
 

@@ -65,7 +65,10 @@ are in [history.md](history.md).
 - Home list, Home thumbnails and F12 page thumbnails use a theme-text selection
   outline. F12 keeps a thin page frame and spaces the selected ring outside it
   (B54).
-- F12 and Home thumbnails follow theme page colors, preserving PDF photos (B55).
+- F12 and Home thumbnails follow theme page colors, preserving PDF photos in
+  PreserveImages mode and recoloring them in legacy mode (B55). Grayscale,
+  brightness and contrast match the view; Home uses each file's remembered
+  brightness and contrast, since preview-only values are not saved per file.
   EPUB page thumbnails recolor as a bitmap, so embedded images can change color;
   browser-captured HTML/Markdown thumbnails keep the theme at capture time.
 
