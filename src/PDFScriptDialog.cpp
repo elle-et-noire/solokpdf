@@ -42,7 +42,6 @@ constexpr int kScriptListDx = 300;
 constexpr int kScriptListRowDy = 28;
 constexpr int kScriptListInsetDx = 8;
 constexpr int kScriptListRadius = 4;
-constexpr int kScriptListSelShift = 28;
 constexpr int kScriptOutputLines = 7;
 constexpr int kScriptCodeFontPx = 14;
 constexpr int kScriptOutputFontPx = 13;
@@ -350,7 +349,7 @@ void PDFScriptWnd::DrawExample(VirtListBox::DrawItemEvent* ev) {
     Rect rc = ev->itemRect;
     gfx->FillRect(rc, colBg);
     if (ev->selected) {
-        gfx->FillRoundedRect(rc, DpiScale(kScriptListRadius), AccentColor(colBg, kScriptListSelShift));
+        gfx->FillRoundedRect(rc, DpiScale(kScriptListRadius), ThemeSelectedColorOn(colBg));
     }
     int inset = DpiScale(kScriptListInsetDx);
     Rect rcText{rc.x + inset, rc.y, rc.dx - 2 * inset, rc.dy};

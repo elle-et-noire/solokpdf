@@ -1908,7 +1908,8 @@ static void LayoutHomePage(HomePageLayout& l) {
 
 static void DrawHomeViewButton(Gfx* gfx, Pixmap* icon, Rect r, bool selected, bool hovered) {
     if (selected || hovered) {
-        Color bg = AccentColor(ThemeMainWindowBackgroundColor(), selected ? 28 : 14);
+        Color homeBg = ThemeMainWindowBackgroundColor();
+        Color bg = selected ? ThemeSelectedColorOn(homeBg) : ThemeHoverColorOn(homeBg);
         gfx->FillRoundedRect(r, DpiScale(4), bg);
     }
     if (icon) {
@@ -2001,7 +2002,7 @@ static void DrawHomeListRow(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filt
     }
 
     if (gShowListSeparatorLine) {
-        Color lineCol = AccentColor(ThemeMainWindowBackgroundColor(), 30);
+        Color lineCol = ThemeEdgeColor();
         gfx->DrawLine(Rect(row.x, row.y + row.dy - 1, row.dx, 0), lineCol);
     }
 

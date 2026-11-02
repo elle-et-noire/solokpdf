@@ -571,7 +571,7 @@ void FindWindowWnd::DrawResultItem(VirtListBox::DrawItemEvent* ev) {
     }
 
     if (ev->selected) {
-        colBg = AccentColor(colBg, 30);
+        colBg = ThemeSelectedColorOn(colBg);
     }
     gfx->FillRect(rc, colBg);
 

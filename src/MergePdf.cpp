@@ -62,11 +62,6 @@ constexpr int kDotDx = 7;
 // the selection and hover frame: around a page and its label
 constexpr int kFramePad = 8;
 constexpr int kFrameRadius = 6;
-constexpr int kSelShift = 26;
-constexpr int kSelUnfocusedShift = 16;
-constexpr int kHoverShift = 9;
-constexpr int kFocusRingShift = 45;
-constexpr int kPageEdgeShift = 22;
 // the remove / restore button in a page's top-right corner
 constexpr int kCornerBtnDx = 22;
 constexpr int kCornerBtnInset = 6;
@@ -572,14 +567,14 @@ void MergeGrid::DrawCell(Gfx* gfx, int idx) {
     int radius = DpiScaleByDpi(dpi, kFrameRadius);
     Color colFrame = kColorUnset;
     if (item.selected) {
-        colFrame = AccentColor(colBg, isFocused ? kSelShift : kSelUnfocusedShift);
+        colFrame = ThemeSelectedColorOn(colBg);
     } else if (idx == hoverIdx && press == MergePress::None) {
-        colFrame = AccentColor(colBg, kHoverShift);
+        colFrame = ThemeHoverColorOn(colBg);
     }
     if (colFrame != kColorUnset) {
         gfx->FillRoundedRect(fr, radius, colFrame);
     } else if (idx == focusIdx && isFocused) {
-        gfx->FillRoundedRect(fr, radius, colBg, AccentColor(colBg, kFocusRingShift));
+        gfx->FillRoundedRect(fr, radius, colBg, ThemeHotEdgeColor());
     }
 
     // the page is the thumbnail's size once rendered: rotated, it's landscape
@@ -594,7 +589,7 @@ void MergeGrid::DrawCell(Gfx* gfx, int idx) {
     // white pages on a white grid need an edge
     Rect edge = page;
     edge.Inflate(1, 1);
-    gfx->FillRect(edge, AccentColor(colBg, kPageEdgeShift));
+    gfx->FillRect(edge, ThemeEdgeColor());
     gfx->FillRect(page, kColWhite);
     if (hasThumb) {
         gfx->DrawPixmap(thumb, page);
@@ -659,7 +654,7 @@ void MergeGrid::Paint(VirtPaintCtx& ctx) {
         int y0 = std::min(bandFrom.y, bandTo.y) - scrollY;
         Rect band{origin.x + x0, origin.y + y0, std::abs(bandTo.x - bandFrom.x), std::abs(bandTo.y - bandFrom.y)};
         ctx.gfx->FillRects(&band, 1, colTxt, kBandAlpha);
-        ctx.gfx->DrawRect(band, AccentColor(GetColor(kColListBg), kFocusRingShift));
+        ctx.gfx->DrawRect(band, ThemeHotEdgeColor());
     }
     ctx.gfx->PopClip();
 }

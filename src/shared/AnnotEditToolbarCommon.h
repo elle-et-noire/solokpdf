@@ -41,7 +41,6 @@ struct AnnotEditItem {
     Str iconName;
     bool mupdfIcon = false;
 };
-bool BarIsDark();
 Color BarBg();
 Color BarBorderColor();
 Color BarTextColor();

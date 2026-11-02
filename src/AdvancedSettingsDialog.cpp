@@ -59,7 +59,6 @@ constexpr int kAdvHelpGapDy = 3;
 constexpr int kAdvHelpLines = 4;
 constexpr int kAdvFootPadDy = 5;
 constexpr int kAdvRadius = 4;
-constexpr int kAdvSelShift = 28;
 constexpr int kAdvFaintShift = 25;
 constexpr int kAdvHeaderShiftDy = 4;
 constexpr int kAdvSwatchDx = 12;
@@ -370,7 +369,7 @@ void AdvancedSettingsWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
     }
     SettingItem* item = (*m->items)[row.itemIdx];
     if (ev->selected) {
-        colBg = AccentColor(colBg, kAdvSelShift);
+        colBg = ThemeSelectedColorOn(colBg);
         gfx->FillRoundedRect(rc, DpiScale(kAdvRadius), colBg);
     }
 
@@ -459,7 +458,7 @@ void AdvancedSettingsWnd::BeginEditValue(int idx) {
     args.font = listBox->font;
     args.text = FormatSettingValueTemp(item);
     auto* c = new Edit();
-    c->SetColors(ThemeWindowTextColor(), AccentColor(ThemeWindowControlBackgroundColor(), kAdvSelShift));
+    c->SetColors(ThemeWindowTextColor(), ThemeSelectedColorOn(ThemeWindowControlBackgroundColor()));
     // Suppress re-entrant CancelEditValue while Create/show/focus pump messages.
     editCreating = true;
     pendingCancelEdit = false;
@@ -1610,7 +1609,7 @@ void RestrictedUseWnd::DrawItem(VirtListBox::DrawItemEvent* ev) {
         text = GetSysColor(COLOR_WINDOWTEXT);
     }
     if (ev->selected) {
-        bg = AccentColor(bg, 30);
+        bg = ThemeSelectedColorOn(bg);
     }
     gfx->FillRect(row, bg);
 

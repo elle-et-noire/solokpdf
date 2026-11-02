@@ -151,10 +151,7 @@ static PointF gClickAnchor;
 // --- colors (orig's) --------------------------------------------------------
 
 static Color BarHoverBg() {
-    if (BarIsDark()) {
-        return AccentColor(ThemeWindowControlBackgroundColor(), 15);
-    }
-    return AccentColor(BarBg(), 10);
+    return ThemeHoverColorOn(BarBg());
 }
 
 // --- PdfColor helpers (orig's) ----------------------------------------------

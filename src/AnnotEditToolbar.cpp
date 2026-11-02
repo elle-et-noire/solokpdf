@@ -119,10 +119,7 @@ struct ContentsEditSlot : VirtCustom {
 };
 
 static Color BarHoverBg(Color bg) {
-    if (BarIsDark()) {
-        return AccentColor(ThemeWindowControlBackgroundColor(), 15);
-    }
-    return AccentColor(bg, 10);
+    return ThemeHoverColorOn(bg);
 }
 
 // clang-format on
@@ -1612,8 +1609,7 @@ static void StartContentsEdit(AnnotEditToolbar* tb) {
     args.font = tb->font;
     args.isRtl = IsUIRtl();
     auto* edit = new Edit();
-    Color bg = BarIsDark() ? ThemeWindowControlBackgroundColor() : MkRgb(255, 255, 255);
-    edit->SetColors(BarTextColor(), bg);
+    edit->SetColors(BarTextColor(), ThemeControlBackgroundColor());
     HWND hwnd = edit->Create(args);
     if (!hwnd) {
         delete edit;
@@ -2269,7 +2265,7 @@ void DrawAnnotationListRow(Gfx* gfx, PlatformFont* font, Rect rc, Annotation* an
         colText = GetSysColor(COLOR_WINDOWTEXT);
     }
     if (selected) {
-        colBg = AccentColor(colBg, 30);
+        colBg = ThemeSelectedColorOn(colBg);
     }
     gfx->FillRect(rc, colBg);
 

@@ -304,9 +304,10 @@ void ReadAloudPlaybackBar::SyncLabels() {
 void ReadAloudPlaybackBar::SyncColors() {
     Color colBg = ThemeNotificationsBackgroundColor();
     Color colTxt = ThemeNotificationsTextColor();
-    Color colBorder = kColGray;
-    Color colBtnBg = AccentColor(colBg, 8, -8);
-    Color colBtnHover = AccentColor(colBg, 16, -16);
+    // outlined buttons that light up like the toolbar's
+    Color colBorder = ThemeEdgeColor();
+    Color colBtnBg = colBg;
+    Color colBtnHover = ThemeHoverColorOn(colBg);
     VirtButton* btns[] = {btnPause, btnStop};
     for (VirtButton* b : btns) {
         b->SetColor(kColBtnBg, colBtnBg);
@@ -315,7 +316,7 @@ void ReadAloudPlaybackBar::SyncColors() {
         b->SetColor(kColBtnText, colTxt);
     }
     Color thumb = colTxt;
-    speedSlider->SetColor(kColSliderTrack, AccentColor(colBg, 28, -28));
+    speedSlider->SetColor(kColSliderTrack, ThemeEdgeColor());
     speedSlider->SetColor(kColSliderFill, thumb);
     speedSlider->SetColor(kColSliderThumb, thumb);
     speedSlider->SetColor(kColSliderThumbHover, AccentColor(thumb, 18, -18));

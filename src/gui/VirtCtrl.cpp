@@ -2543,7 +2543,7 @@ void VirtSplitter::Paint(VirtPaintCtx& ctx) {
     }
     // blends into the panel; shown only while hovered or dragged
     bool hot = isDragging || (flags & vwfHovered);
-    ctx.gfx->FillRect(ctx.bounds, hot ? AccentColor(bg, 30) : bg);
+    ctx.gfx->FillRect(ctx.bounds, hot ? GetColor(kColSplitterBgHover) : bg);
 }
 
 void VirtSplitter::OnMouseDown(VirtMouseEvent* ev) {

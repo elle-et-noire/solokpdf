@@ -137,15 +137,18 @@ void ThemeApplyPlatformColors() {
     gColsText[kColText] = text;
     gColsLink[kColText] = link;
 
+    // buttons in the hover / selection steps: a button rests at the hover
+    // color and lights up to the selection; the default one a step further
+    Color btnSel = ThemeSelectedColorOn(ctlBg);
     gColsBtn[kColBtnText] = text;
-    gColsBtn[kColBtnBg] = AccentColor(ctlBg, 14);
-    gColsBtn[kColBtnBgHover] = AccentColor(ctlBg, 28);
+    gColsBtn[kColBtnBg] = ThemeHoverColorOn(ctlBg);
+    gColsBtn[kColBtnBgHover] = btnSel;
     gColsBtn[kColBtnBorder] = edge;
     gColsBtn[kColBtnTextDisabled] = disabled;
 
     gColsBtnDefault[kColBtnText] = text;
-    gColsBtnDefault[kColBtnBg] = AccentColor(ctlBg, 26);
-    gColsBtnDefault[kColBtnBgHover] = AccentColor(ctlBg, 40);
+    gColsBtnDefault[kColBtnBg] = btnSel;
+    gColsBtnDefault[kColBtnBgHover] = ThemeSelectedColorOn(btnSel);
     gColsBtnDefault[kColBtnBorder] = hotEdge;
     gColsBtnDefault[kColBtnTextDisabled] = disabled;
 
@@ -162,10 +165,11 @@ void ThemeApplyPlatformColors() {
     gColsListBox[kColListScrollbar] = ThemeScrollbarThumbColor();
 
     gColsSplitter[kColSplitterBg] = ctlBg;
+    gColsSplitter[kColSplitterBgHover] = ThemeHoverColorOn(ctlBg);
     gColsFill[kColFillBg] = ctlBg;
     gColsLine[kColLineFg] = edge;
 
-    gColsSlider[kColSliderTrack] = AccentColor(ctlBg, 40);
+    gColsSlider[kColSliderTrack] = edge;
     gColsSlider[kColSliderFill] = text;
     gColsSlider[kColSliderThumb] = text;
     gColsSlider[kColSliderThumbHover] = AccentColor(text, 20);

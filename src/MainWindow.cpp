@@ -860,6 +860,7 @@ void UpdateControlsColors(MainWindow* win) {
     for (VirtSplitter* s : splitters) {
         if (s) {
             s->SetColor(kColSplitterBg, bgCol);
+            s->SetColor(kColSplitterBgHover, ThemeHoverColorOn(bgCol));
         }
     }
 

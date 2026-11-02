@@ -1823,7 +1823,7 @@ void CommandPaletteWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
 
     gfx->FillRect(rc, colBg);
     if (ev->selected) {
-        colBg = AccentColor(colBg, 28);
+        colBg = ThemeSelectedColorOn(colBg);
         gfx->FillRoundedRect(rc, DpiScale(kPaletteSelectionRadius), colBg);
     }
 

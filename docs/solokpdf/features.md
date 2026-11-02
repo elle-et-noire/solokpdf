@@ -50,6 +50,9 @@ of the window's chrome, with an `EdgeColor` border; where that nearly matches
 the page under it (contrast under 1.13: custom themes, unthemed pages), the
 page mixed toward the text color. It used the theme's `BackgroundColor`, which
 themed pages take too, so in dark themes it vanished into the page.
+The annotation editing toolbar takes the same colors. The read-aloud and
+auto-scroll bars keep the notification color but outline their buttons and
+draw their slider track in `EdgeColor` (was a fixed gray).
 
 The exe's icon (Explorer, Start, shortcuts) can't follow the theme; it is the
 same drawing in One Dark's text color. `tools/solokpdf/make-icon.py` generates it
@@ -123,6 +126,15 @@ surface's own hue. Upstream shifted the background's HSL lightness by 25 to 45
 units, which made saturated themes garish (Solarized Dark a bright teal, Greeny
 a bright green); picking a palette color instead mostly picked `EdgeColor`, a
 line color, too strong and sometimes off-hue (Solarized Light's gray-blue).
+
+Every list and button that marks a selection or a hover takes these two steps
+on its own background, where each used to shift the lightness by its own amount
+(14 to 45 units): the command palette, the find results, the files-in-folder and
+annotation lists, Advanced Settings and the other dialogs' lists, the Merge
+grid, the Home page's view buttons, the minimize and maximize buttons, the
+sidebar splitters and dialog buttons (resting at the hover step, the default
+one at the selection). Slider tracks and the Home list's separators take
+`EdgeColor`. Context menus aren't ours to color: Windows draws them.
 
 The built-in themes' `EdgeColor` (borders, dividers, scrollbar thumbs) stands
 out from the canvas by contrast 1.7 to 2 and from fields by 1.3 or more.

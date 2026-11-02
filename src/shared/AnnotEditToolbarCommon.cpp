@@ -32,38 +32,24 @@
 #include "AnnotEditToolbar.h"
 #include "AnnotEditToolbarCommon.h"
 
-bool BarIsDark() {
-    return !IsLightColor(ThemeWindowBackgroundColor());
-}
-
+// the floating bar takes the selection toolbar's colors: the tab strip's,
+// set apart from the page under it, with an EdgeColor border
 Color BarBg() {
-    if (BarIsDark()) {
-        return ThemeWindowBackgroundColor();
-    }
-    Color contentBg;
-    ThemePageRenderColors(contentBg);
-    return AccentColor(contentBg, 12);
+    Color page;
+    ThemePageRenderColors(page);
+    return ThemeCardColorOn(page);
 }
 
 Color BarBorderColor() {
-    if (BarIsDark()) {
-        return AccentColor(ThemeWindowControlBackgroundColor(), 35);
-    }
-    return AccentColor(BarBg(), 8);
+    return ThemeEdgeColor();
 }
 
 Color BarTextColor() {
-    if (BarIsDark()) {
-        return ThemeWindowTextColor();
-    }
-    return MkRgb(27, 29, 33);
+    return ThemeWindowTextColor();
 }
 
 Color BarMutedTextColor() {
-    if (BarIsDark()) {
-        return ThemeWindowTextDisabledColor();
-    }
-    return MkRgb(92, 96, 104);
+    return ThemeWindowTextDisabledColor();
 }
 
 Str KindName(AnnotEditKind kind) {
@@ -273,10 +259,7 @@ float PdfPathPop(float* stk, int& top) {
 }
 
 Color BarActiveBg() {
-    if (BarIsDark()) {
-        return AccentColor(ThemeWindowControlBackgroundColor(), 35);
-    }
-    return AccentColor(BarBg(), 22);
+    return ThemeSelectedColorOn(BarBg());
 }
 
 void AnnotChanged(WindowTab* tab) {

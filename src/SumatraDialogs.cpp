@@ -411,7 +411,6 @@ constexpr int kDlgListRowDy = 24;
 // the rows' text lines up with the dialog's fields
 constexpr int kDlgListInsetDx = 8;
 constexpr int kDlgListRadius = 4;
-constexpr int kDlgListSelShift = 28;
 
 // a row of a dialog's list: its text, on a rounded selection, and `meta`
 // muted at the other end
@@ -419,7 +418,7 @@ void DrawDlgListItem(VirtListBox* lb, Gfx* gfx, Rect rc, bool selected, Str text
     Color colBg = lb->GetColor(kColListBg);
     gfx->FillRect(rc, colBg);
     if (selected) {
-        gfx->FillRoundedRect(rc, DpiScaleByDpi(lb->dpi, kDlgListRadius), AccentColor(colBg, kDlgListSelShift));
+        gfx->FillRoundedRect(rc, DpiScaleByDpi(lb->dpi, kDlgListRadius), ThemeSelectedColorOn(colBg));
     }
     int inset = DpiScaleByDpi(lb->dpi, kDlgListInsetDx);
     Rect rcText{rc.x + inset, rc.y, rc.dx - (2 * inset), rc.dy};

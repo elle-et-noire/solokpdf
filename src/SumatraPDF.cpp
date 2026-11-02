@@ -12784,7 +12784,7 @@ static void DrawCaptionButton(MainWindow* win, HDC hdc, ButtonInfo* bi) {
             if (isClose) {
                 bgCol = isPushed ? Gdiplus::Color(200, 196, 43, 28) : Gdiplus::Color(255, 196, 43, 28);
             } else {
-                Color hotBg = isPushed ? AccentColor(bgc, 40) : AccentColor(bgc, 20);
+                Color hotBg = isPushed ? ThemeSelectedColorOn(bgc) : ThemeHoverColorOn(bgc);
                 bgCol = GdiRgbFromColor(hotBg);
             }
             SolidBrush bgBr(bgCol);

@@ -84,6 +84,7 @@ extern Color gColsListBox[kColListCount];
 //--- VirtSplitter
 enum {
     kColSplitterBg,
+    kColSplitterBgHover,
     kColSplitterCount,
 };
 extern Color gColsSplitter[kColSplitterCount];
