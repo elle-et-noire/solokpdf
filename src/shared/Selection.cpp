@@ -738,15 +738,15 @@ void PaintSelection(MainWindow* win, Gfx* gfx) {
     if (alpha == 0) {
         alpha = kSelectionDefaultAlpha;
     }
-    // the default yellow takes the bookmark selection color, borderless like it,
+    // the default yellow takes the selection toolbar's color, borderless,
     // unless the page isn't themed (a dark shade over a white page hides text)
     Color col = parsedCol->col;
     bool drawBorder = true;
     Color page;
     ThemePageRenderColors(page);
-    Color treeSel = ThemeSelectedBackgroundColor();
-    if (col == kDefaultSelectionColor && IsLightColor(page) == IsLightColor(treeSel)) {
-        col = OverlayReaching(treeSel, page, alpha);
+    Color selCol = ThemeTextSelectionColorOn(page);
+    if (col == kDefaultSelectionColor && IsLightColor(page) == IsLightColor(selCol)) {
+        col = OverlayReaching(selCol, page, alpha);
         drawBorder = false;
     }
 #if defined(SUMATRA_NG)

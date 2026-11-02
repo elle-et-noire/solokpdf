@@ -146,11 +146,13 @@ Light and Dark had a cool gray on a warm or neutral background.
 
 The bookmark tree keeps its unfocused selection color when it has the focus
 (upstream: the system's blue highlight); high contrast mode still uses the
-system highlight. Text and rectangle selections on pages take that color too,
-with no outline: the overlay's color and alpha are solved so the page
-background turns exactly into it. This applies while `FixedPageUI.SelectionColor`
-is the default `#ffff00` and the page is on the same light/dark side as the
-sidebar (otherwise, e.g. a white page under a dark theme with
+system highlight. Text and rectangle selections on pages take the selection
+toolbar's color instead (the tab strip's), so the highlight and the toolbar
+over it read as one, at least contrast 1.25 from the page (pushed further,
+darker or lighter, where the strip is closer: Dark, Solarized Dark), with no
+outline: the overlay's color and alpha are solved so the page background turns
+exactly into it. This applies while `FixedPageUI.SelectionColor` is the default
+`#ffff00` and the page is on the same light/dark side as that color (otherwise, e.g. a white page under a dark theme with
 `DocumentColorsFollowTheme = off`, the selection stays yellow). The current find
 match and touch selection handles stay yellow.
 

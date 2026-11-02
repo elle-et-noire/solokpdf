@@ -1333,6 +1333,28 @@ Color ThemeCardColorOn(Color page) {
     return strip;
 }
 
+// text selected on a page against the page
+constexpr float kMinTextSelectionContrast = 1.25f;
+
+// Text selected on a page: the selection toolbar's color (the tab strip's), so
+// the highlight and the toolbar over it read as one. Where that is too close
+// to the page to show a selection (Dark, Solarized Dark), it is pushed on in
+// the same direction, darker or lighter.
+Color ThemeTextSelectionColorOn(Color page) {
+    if (gUseHighContrast) {
+        return ThemeSelectedColorOn(page);
+    }
+    Color card = ThemeCardColorOn(page);
+    Color away = RelLuminance(card) < RelLuminance(page) ? kColBlack : kColWhite;
+    for (float t = 0; t < 1.0f; t += kSelectionMixStep) {
+        Color c = MixColors(card, away, t);
+        if (ContrastRatio(c, page) >= kMinTextSelectionContrast) {
+            return c;
+        }
+    }
+    return ThemeSelectedColorOn(page);
+}
+
 // non-text UI against its background (WCAG 1.4.11)
 constexpr float kMinInkContrast = 3.0f;
 
