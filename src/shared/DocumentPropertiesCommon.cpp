@@ -490,7 +490,9 @@ void GetPropsText(DocController* ctrl, str::Builder& out) {
     AppendPropTranslated(out, DocProp::Source, GetPropValueTemp(props, DocProp::Source));
     AppendPropTranslated(out, DocProp::Language, GetPropValueTemp(props, DocProp::Language));
 
-    bool isPdfDate = dm && IsPdfPageEngine(dm->engineType);
+    // EPUB dates use ISO 8601, not PDF date syntax.
+    bool isEpub = GuessFileTypeFromName(path) == FileType::Epub;
+    bool isPdfDate = dm && IsPdfPageEngine(dm->engineType) && !isEpub;
     Str val = GetPropValueTemp(props, DocProp::CreationDate);
     AppendDateProp(out, Tr("Created:"), val, isPdfDate);
     val = GetPropValueTemp(props, DocProp::ModificationDate);
