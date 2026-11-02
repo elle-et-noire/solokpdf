@@ -1311,17 +1311,17 @@ Color ThemeSelectedBackgroundColor() {
     return ThemeSelectedColorOn(ThemeCanvasColor());
 }
 
-// a popup card against the page under it
-constexpr float kMinCardContrast = 1.5f;
+// a popup card against the page under it, as the tab strip against the canvas
+constexpr float kMinCardContrast = 1.13f;
 
-// A popup card over the page (the selection toolbar): the control background,
-// as fields and menus have, unless it shows less than kMinCardContrast; then the page
-// mixed toward the text color. Themed pages take BackgroundColor, so a card
-// in it vanished (Solarized Dark).
+// A popup card over the page (the selection toolbar): the tab strip's color,
+// so the window's chrome reads as one, unless it nearly matches the page
+// (custom themes, unthemed pages); then the page mixed toward the text color.
+// Themed pages take BackgroundColor, so a card in it vanished (Solarized Dark).
 Color ThemeCardColorOn(Color page) {
-    Color ctl = ThemeControlBackgroundColor();
-    if (gUseHighContrast || ContrastRatio(ctl, page) >= kMinCardContrast) {
-        return ctl;
+    Color strip = ThemeTabStripColor();
+    if (gUseHighContrast || ContrastRatio(strip, page) >= kMinCardContrast) {
+        return strip;
     }
     Color text = ThemeWindowTextColor();
     for (float t = kSelectionMixStep; t < 1.0f; t += kSelectionMixStep) {
@@ -1330,7 +1330,7 @@ Color ThemeCardColorOn(Color page) {
             return c;
         }
     }
-    return ctl;
+    return strip;
 }
 
 // non-text UI against its background (WCAG 1.4.11)
