@@ -57,7 +57,8 @@ document. `ActiveTabBackgroundColor` now defaults to it; the built-in themes no
 longer set it. Every tab shows its close
 button (upstream: the selected one only); non-selected tabs narrower than 100
 DIP hide it. Hovered, the ✕ steps toward the text color instead of turning
-white on a red circle.
+white on a red circle. Minimize, maximize and close are 46 DIP wide, as Windows
+11 draws them (upstream: square, as tall as the caption).
 
 The menu bar beside the tabs takes the title bar color and `TextColor`; a
 hovered or open menu shows the selected tab's color. Upstream let darkmodelib

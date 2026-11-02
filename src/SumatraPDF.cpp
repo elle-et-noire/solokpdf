@@ -3077,6 +3077,8 @@ void UpdateAfterThemeChange() {
         RefreshAnnotationHoverOverlay(win);
         UpdateAIChatTheme(win);
         DarkModeApplyToFrameAfterThemeChange(win);
+        // after darkmodelib, which recolors the sidebar trees and fields
+        UpdateControlsColors(win);
         UpdateWindowFrameBorderColor(win);
 #if defined(SOLOKPDF_PDFIUM)
         ApplyThemedAppIcon(win->hwndFrame);
@@ -6741,6 +6743,8 @@ void OpenNextPrevFileInFolder(MainWindow* win, bool forward, Str pathToDelete) {
 constexpr int kFrameBorderSize = 1;
 // size (DIP) of the min/max/restore/close caption glyphs
 constexpr int kCaptionGlyphDip = 10;
+// width (DIP) of min/max/restore/close, as Windows 11 draws them
+constexpr int kCaptionBtnDxDip = 46;
 
 using UILayout = MainWindow::UIState::Layout;
 
@@ -6828,21 +6832,22 @@ static void SyncCaptionLayout(MainWindow* win) {
     win->captionRow2->rtl = isRtl;
 
     int winBtn = twoRow ? menuBarDy : (pad + tabHeight + 2);
+    int winBtnDx = std::max(DpiScale(kCaptionBtnDxDip), winBtn);
     // hamburger / app icon match the tab band; min/max/close span the pad too
     int tabBtn = twoRow ? menuBarDy : tabHeight;
 
-    auto setBtn = [&](int id, bool vis, int sz) {
-        win->capBtn[id]->idealSize = {sz, sz};
+    auto setBtn = [&](int id, bool vis, int dx, int dy) {
+        win->capBtn[id]->idealSize = {dx, dy};
         SetVis(win->capBtn[id], vis);
         win->captionBtn[id].id = id;
         win->captionBtn[id].visible = vis;
     };
-    setBtn(CB_SYSTEM_MENU, true, tabBtn);
-    setBtn(CB_MENU, !twoRow, tabBtn);
-    setBtn(CB_MINIMIZE, true, winBtn);
-    setBtn(CB_MAXIMIZE, !maximized, winBtn);
-    setBtn(CB_RESTORE, maximized, winBtn);
-    setBtn(CB_CLOSE, true, winBtn);
+    setBtn(CB_SYSTEM_MENU, true, tabBtn, tabBtn);
+    setBtn(CB_MENU, !twoRow, tabBtn, tabBtn);
+    setBtn(CB_MINIMIZE, true, winBtnDx, winBtn);
+    setBtn(CB_MAXIMIZE, !maximized, winBtnDx, winBtn);
+    setBtn(CB_RESTORE, maximized, winBtnDx, winBtn);
+    setBtn(CB_CLOSE, true, winBtnDx, winBtn);
 
     SetVis(win->capMenuSlot, twoRow);
     SetVis(win->capTabsRow1, !twoRow);
@@ -6863,7 +6868,7 @@ static void SyncCaptionLayout(MainWindow* win) {
         if (rowDx <= 0) {
             rowDx = HwndClientRect(win->hwndFrame).dx;
         }
-        int menuMax = std::max(rowDx - (4 * winBtn), 0);
+        int menuMax = std::max(rowDx - winBtn - (3 * winBtnDx), 0);
         int natural = menuMax;
         if (win->hwndMenuToolbar) {
             int btnCount = TbGetButtonCount(win->hwndMenuToolbar);
@@ -6874,7 +6879,7 @@ static void SyncCaptionLayout(MainWindow* win) {
         }
         win->capMenuSlot->dx = std::min(natural, menuMax);
         win->capRow2Lead->dx = winBtn;
-        win->capRow2Trail->dx = 3 * winBtn;
+        win->capRow2Trail->dx = 3 * winBtnDx;
         if (win->tabsCtrl) {
             bool showTabs = hasFileTabs && !win->isQuickLook;
             win->tabsVisible = showTabs;
