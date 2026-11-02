@@ -33,5 +33,5 @@ XFA editing and GoToE (unsupported in both engines); `src/ng/`; distribution
 (GitHub Releases, update checks, release criteria): the owner has no plans to
 distribute. Explorer thumbnails/preview (needs DLL registration; little value
 for one user). The default-app association already works through
-`Applications\SolokPDF.exe`. Crash recovery and inactive-tab allocation
-attribution remain unverified; Chrome/Edge rendering comparisons remain open.
+`Applications\SolokPDF.exe`. Crash-recovery verification, inactive-tab
+allocation attribution and Chrome/Edge rendering comparisons.
