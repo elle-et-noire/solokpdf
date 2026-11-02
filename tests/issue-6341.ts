@@ -10,6 +10,7 @@ import { cmdId, makeBlankPdf, pollUntil, runStandalone, tmpPath, USE_NG, SETTING
 import { findTopWindow, getControlText, packCoords, sendMessage, sendText, WM_COMMAND } from "./winapi.ts";
 import {
   clickAt,
+  clickCanvasAway,
   findCanvas,
   findChildByClass,
   killAndWait,
@@ -123,7 +124,7 @@ async function acceptNote(client: ControlClient, frame: number): Promise<void> {
     const y = box.y + Math.floor(box.dy / 2);
     await client.request(ControlCommand.TestInput, ["click", x, y, 0, 0]);
   } else {
-    await clickAt(findCanvas(frame), 420, 620, 0);
+    await clickCanvasAway(findCanvas(frame));
   }
   await pollUntil(
     async () => toolbarDump(client),

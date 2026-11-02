@@ -388,6 +388,12 @@ export async function clickAt(hwnd: number, x: number, y: number, settleMs = 350
   await sleep(settleMs);
 }
 
+export async function clickCanvasAway(canvas: number): Promise<void> {
+  const margin = 40;
+  const rc = getClientRect(canvas);
+  await clickAt(canvas, Math.max(1, rc.right - margin), Math.max(1, rc.bottom - margin), 0);
+}
+
 type ScreenRect = { left: number; top: number; right: number; bottom: number };
 
 function rectHasPoint(r: ScreenRect, x: number, y: number): boolean {

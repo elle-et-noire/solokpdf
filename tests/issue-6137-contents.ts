@@ -11,6 +11,7 @@ import { cmdId, pollUntil, runStandalone, tmpPath, USE_NG, makeBlankPdf, SETTING
 import { findTopWindow, packCoords, sendMessage, WM_COMMAND, WM_KILLFOCUS } from "./winapi.ts";
 import {
   clickAt,
+  clickCanvasAway,
   findCanvas,
   findChildByClass,
   killAndWait,
@@ -172,7 +173,7 @@ export async function testit(): Promise<void> {
       throw new Error(`issue-6137-contents: OSK kill-focus closed the editor: ${dump}`);
     }
 
-    await clickAt(canvas, 420, 620, 0);
+    await clickCanvasAway(canvas);
     await client.waitForRenderIdle();
 
     dump = await toolbarDump(client);

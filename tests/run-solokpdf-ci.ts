@@ -43,8 +43,10 @@ import { testit as trimMargins } from "./issue-trim-margins.ts";
 import { testit as sigStatus } from "./ad-hoc-pdfium-sig-status.ts";
 import { testCtrlTShortcut, testNoHomeDefault } from "./issue-6464.ts";
 import { testit as selectionOutlines } from "./ad-hoc-selection-outlines.ts";
+import { testit as windowSize } from "./ad-hoc-b58-window-size.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-b58-window-size", windowSize],
   ["issue-6464-ctrl-t", testCtrlTShortcut],
   ["issue-6464-no-home-default", testNoHomeDefault],
   ["ad-hoc-selection-outlines", selectionOutlines],

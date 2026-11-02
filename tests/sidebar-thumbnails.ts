@@ -38,6 +38,7 @@ type View = "bookmarks" | "thumbnails" | "favorites";
 const views: View[] = ["bookmarks", "thumbnails", "favorites"];
 // orig's fourth view icon, Signatures, is off: the test document isn't signed
 const NO_SIG = USE_NG ? "" : "0";
+const WINDOW_POS = "900x700@20x0";
 type Panel = {
   hwnd: number;
   visible: boolean;
@@ -227,7 +228,7 @@ export async function testit(): Promise<void> {
   const pdf = join(dir, "doc.pdf");
   writeFileSync(pdf, makePdf(4, 601, 3, 0), "latin1");
 
-  const { proc, client, frame } = await launchControlled(["-view", "single page", pdf]);
+  const { proc, client, frame } = await launchControlled(["-window-pos", WINDOW_POS, "-view", "single page", pdf]);
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
@@ -337,6 +338,12 @@ export async function testit(): Promise<void> {
       await sleep(150);
       return false;
     });
+
+    // Bring page 3 into view, then click it from page 2.
+    sendCommandSync(frame, cmdId("CmdGoToNextPage"));
+    await waitFor("page 3 did not enter the thumbnails viewport", async () => (await sidebar(client)).current === 3);
+    sendCommandSync(frame, cmdId("CmdGoToPrevPage"));
+    await waitFor("page 2 did not return", async () => (await sidebar(client)).current === 2);
 
     // a click goes to the page
     s = await sidebar(client);

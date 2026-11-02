@@ -7,7 +7,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { cmdId, makePdf, pollUntil, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, makePdf, pollUntil, runStandalone, tmpPath, writeAppdata } from "./util.ts";
 import {
   clientToScreen,
   MK_LBUTTON,
@@ -20,6 +20,9 @@ import {
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 type Rect = { x: number; y: number; dx: number; dy: number };
+
+const WINDOW_POS = "900x660@40x40";
+const SIDEBAR_DX = 380;
 
 type Sidebar = {
   hwnd: number;
@@ -95,7 +98,16 @@ export async function testit(): Promise<void> {
   const pdf = join(dir, "doc.pdf");
   writeFileSync(pdf, makePdf(5, 400, 0, 0), "latin1");
 
-  const { proc, client, frame } = await launchControlled(["-view", "book view", pdf]);
+  const appdata = writeAppdata("issue-6270-appdata", `SidebarDx = ${SIDEBAR_DX}\nRestoreSession = false\n`);
+  const { proc, client, frame } = await launchControlled([
+    "-window-pos",
+    WINDOW_POS,
+    "-appdata",
+    appdata,
+    "-view",
+    "book view",
+    pdf,
+  ]);
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);

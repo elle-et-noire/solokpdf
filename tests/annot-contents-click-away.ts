@@ -9,6 +9,7 @@ import { cmdId, pollUntil, runStandalone, tmpPath, USE_NG, makeBlankPdf, SETTING
 import { findTopWindow, getControlText, packCoords, sendMessage, WM_COMMAND } from "./winapi.ts";
 import {
   clickAt,
+  clickCanvasAway,
   findCanvas,
   findChildByClass,
   killAndWait,
@@ -174,7 +175,7 @@ export async function testit(): Promise<void> {
       const y = box.y + Math.floor(box.dy / 2);
       await client.request(ControlCommand.TestInput, ["click", x, y, 0, 0]);
     } else {
-      await clickAt(canvas, 420, 620, 0);
+      await clickCanvasAway(canvas);
     }
     await client.waitForRenderIdle();
 
