@@ -6,6 +6,8 @@ are in [history.md](history.md).
 
 ## Opening files
 
+- Ctrl+T opens a new Home tab from a document or Home search (B57).
+
 - PDFium handles file-backed PDFs, in-memory attachments, `.p7m` PDFs and Kindle
   Print Replica. The shell preview/filter DLLs and PDFs generated inside other
   document engines retain their upstream paths. Files above 4 GiB fall back.

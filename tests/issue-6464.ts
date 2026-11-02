@@ -98,6 +98,39 @@ async function waitForDocument(client: ControlClient): Promise<void> {
   await client.waitForRenderIdle();
 }
 
+async function testCtrlT(pdf: string, appdata: string): Promise<void> {
+  const { proc, client } = await launchControlled(["-appdata", appdata, pdf]);
+  try {
+    await client.waitForRenderIdle();
+    check(await onDocument(client), "Ctrl+T should start in a document");
+    for (const key of ["Ctrl+T", "Ctrl+Shift+T", "t"]) {
+      const want = key === "Ctrl+T" ? "CmdNewTab" : key === "t" ? "CmdNextTheme" : "CmdReopenLastClosedFile";
+      const res = await client.request(ControlCommand.TestShortcutsDialog, ["resolve", "", key]);
+      check(res[1] === want, `${key} maps to ${res[1]}, want ${want}`);
+    }
+    const pressed = await client.request(ControlCommand.TestShortcutsDialog, ["press", "", "Ctrl+T"]);
+    check(pressed[1] === "CmdNewTab", "Ctrl+T should open Home from a document");
+    await waitForTabs(client, 3);
+    await expectSearchFocus(client);
+    check(!(await onDocument(client)), "Ctrl+T should select Home");
+    await client.request(ControlCommand.TestShortcutsDialog, ["press", "", "Ctrl+T"]);
+    await waitForTabs(client, 4);
+    await expectSearchFocus(client);
+  } finally {
+    await killAndWait(proc);
+  }
+}
+
+export async function testCtrlTShortcut(): Promise<void> {
+  const pdf = tmpPath("issue-6464-ctrl-t.pdf");
+  writeFileSync(pdf, makeTextPdf("new tab shortcut"));
+  const appdata = writeAppdata(
+    "issue-6464-ctrl-t",
+    "NoHomeTab = false\nRestoreSession = false\nCheckForUpdates = false\n",
+  );
+  await testCtrlT(pdf, appdata);
+}
+
 async function testOpenInHomeTab(paths: string[], appdata: string): Promise<void> {
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, paths[0]!]);
   try {
@@ -260,6 +293,7 @@ export async function testit(): Promise<void> {
     paths.push(p);
   }
   const settings = "RestoreSession = false\nCheckForUpdates = false\n";
+  await testCtrlTShortcut();
   await testLayoutAndPlus(pdf, writeAppdata("issue-6464-appdata", settings));
   await testCrowded(paths, writeAppdata("issue-6464-crowded", settings));
   await testOpenInHomeTab(paths, writeAppdata("issue-6464-open", settings));

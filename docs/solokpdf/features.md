@@ -51,6 +51,9 @@ same drawing in One Dark's text color. `tools/solokpdf/make-icon.py` generates i
 
 ## Chrome-style tabs
 
+Ctrl+T opens a new Home tab like the "+" button, including when Home search has
+focus. Ctrl+Shift+T still reopens the last closed file; plain T changes theme.
+
 Upstream drew the selected tab and the empty tab strip in the toolbar's color
 and only unselected tabs as boxes, so the unselected ones stood out. As in
 Chrome, the title bar, tab strip, caption buttons and window border now take

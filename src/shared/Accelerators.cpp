@@ -74,6 +74,7 @@ static Accel gBuiltInAccelerators[] = {
     {{kShift | kCtrl | kVirt, VK_UP}, CmdNavigateFilesInFolder},
     {{kVirt, VK_F2}, CmdRenameFile},
     {{kCtrl | kVirt, 'W'}, CmdClose},
+    {{kCtrl | kVirt, 'T'}, CmdNewTab},
     {{kCtrl | kVirt, 'N'}, CmdNewWindow},
     {{kShift | kCtrl | kVirt, 'N'}, CmdDuplicateInNewWindow},
     {{kCtrl | kVirt, 'S'}, CmdSaveAs},
