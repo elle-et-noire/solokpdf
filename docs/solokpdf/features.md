@@ -65,7 +65,8 @@ it (a hovered one shows a faint box). The selected tab and the toolbar take
 the canvas color around the pages, which themed pages share (upstream:
 `ControlBackgroundColor`), so with the toolbar hidden the tab joins the
 document. `ActiveTabBackgroundColor` now defaults to it; the built-in themes no
-longer set it. Every tab shows its close
+longer set it. Greeny's and Light Warm's `InactiveTabBackgroundColor` now sit
+1.3 to 1.4 from the canvas, as the other themes' do (were 2.55 and 1.72). Every tab shows its close
 button (upstream: the selected one only); non-selected tabs narrower than 100
 DIP hide it. Hovered, the ✕ steps toward the text color instead of turning
 white on a red circle. Minimize, maximize and close are 46 DIP wide, as Windows
