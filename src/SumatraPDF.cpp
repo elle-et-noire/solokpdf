@@ -1024,16 +1024,25 @@ DocControllerCallback* CreateControllerCallbackHandler(MainWindow* win) {
 
 struct ThumbnailRenderData {
     const OnBitmapRendered* saveThumbnail = nullptr;
+    EngineBase* engine = nullptr;
+    RectF pageRect;
+    float zoom = 0;
+    Pixmap* bmp = nullptr;
 };
 
-static void ThumbnailRenderFinished(ThumbnailRenderData* d, PageRenderRequest* req) {
-    // extract bitmap from request and pass to original callback
-    // the callback takes ownership of the bitmap (the present-layer handle)
-    RenderedBitmap* bmp = RenderedBitmapFromPixmap(req->bmp);
-    req->bmp = nullptr; // prevent double-free
+static void ThumbnailRenderFinished(ThumbnailRenderData* d) {
+    RenderedBitmap* bmp = RenderedBitmapFromPixmap(d->bmp);
     d->saveThumbnail->Call(bmp);
     delete d->saveThumbnail;
     delete d;
+}
+
+static void RenderNeutralThumbnail(ThumbnailRenderData* d) {
+    RenderPageArgs args(1, d->zoom, 0, &d->pageRect);
+    d->bmp = d->engine->RenderPage(args);
+    d->engine->Release();
+    d->engine = nullptr;
+    uitask::Post(MkFunc0<ThumbnailRenderData>(ThumbnailRenderFinished, d));
 }
 
 void ControllerCallbackHandler::RenderThumbnail(DisplayModel* dm, Size size, const OnBitmapRendered* saveThumbnail) {
@@ -1050,21 +1059,22 @@ void ControllerCallbackHandler::RenderThumbnail(DisplayModel* dm, Size size, con
     pageRect.dy = std::min(pageRect.dy, (float)size.dy / zoom);
     pageRect = engine->Transform(pageRect, 1, 1.0f, 0, true);
 
-    // always render thumbnails with anti-aliasing for quality
-    bool savedAntiAlias = engine->disableAntiAlias;
-    engine->disableAntiAlias = false;
-
     auto* td = new ThumbnailRenderData();
     td->saveThumbnail = saveThumbnail;
-    auto cb = MkFunc1(ThumbnailRenderFinished, td);
-    gRenderCache->Render(dm, 1, 0, zoom, pageRect, cb);
-    engine->disableAntiAlias = savedAntiAlias;
+    td->engine = engine;
+    td->pageRect = pageRect;
+    td->zoom = zoom;
+    engine->AddRef();
+    RunAsync(MkFunc0<ThumbnailRenderData>(RenderNeutralThumbnail, td), StrL("RenderNeutralThumbnail"));
 }
 
 void CreateThumbnailFromFileFinish(CreateThumbnailFromFileData* d) {
+    FileState* fs = FileHistoryFindByPath(d->filePath);
+    if (fs) {
+        fs->thumbnailPending = false;
+    }
     if (d->bmp) {
-        FileState* fs = FileHistoryFindByPath(d->filePath);
-        SetThumbnail(fs, d->bmp);
+        SetThumbnail(fs, d->bmp, d->colorClass, &d->skipRects);
         d->bmp = nullptr;
         MaybeRedrawHomePage();
     }
@@ -4735,9 +4745,13 @@ void UpdateDocumentColors() {
                 chm->UpdateTheme();
             }
         }
+        if (win->pageThumbs) {
+            win->pageThumbs->SetTab(win->CurrentTab());
+        }
     }
 
     RerenderEverything();
+    MaybeRedrawHomePage();
 }
 
 void UpdateFixedPageScrollbarsVisibility() {

@@ -189,6 +189,13 @@ colors on dark and light themes; MuPDF keeps them on dark themes only.
 - `RenderCache` no longer keeps only a tile's largest skip rect; MuPDF already
   returns at most one.
 
+F12 page thumbnails use the same page colors and photo exclusions as the view.
+Changing the theme or `DocumentColorsFollowTheme` replaces their cached renders.
+Home saves neutral PNGs with a versioned sidecar containing the engine class and
+photo rectangles. It colors a copy for the current theme, so switching themes
+updates Home without reopening a file. Old PNGs color without photo exclusions
+until that file is next opened. Covers and image files keep their pixels.
+
 New themes: Catppuccin Latte/Frappe/Macchiato, Gruvbox Light, Everforest Light,
 Rose Pine Dawn, Sepia.
 

@@ -20,6 +20,7 @@
 #include "DisplayMode.h"
 #include "DocController.h"
 #include "EngineBase.h"
+#include "PdfDarkMode.h"
 #include "DisplayModel.h"
 #include "MainWindow.h"
 #include "Theme.h"
@@ -143,7 +144,9 @@ Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int ro
     pageRect = engine->Transform(pageRect, boxPage, 1.0f, rotation, true);
     RenderPageArgs args(pageNo, zoom, rotation, &pageRect, RenderTarget::View);
     args.loc = loc;
-    return PixmapToBgr(engine->RenderPage(args));
+    ViewPageOptions options;
+    options.imageProbeScale = kThumbnailImageProbeScale;
+    return PixmapToBgr(RenderViewPage(engine, args, options));
 }
 
 static void FinishThumbnailRender(ThumbnailRenderTask* task) {
@@ -489,7 +492,9 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
         int x = left + (col * (thumbDx + gap));
         Rect pageRect{x, ev->itemRect.y, thumbDx, thumbDy};
         bool isCurrent = pageNo == selectedPage;
-        ev->gfx->FillRect(pageRect, kColWhite);
+        Color pageBg;
+        ThemePageRenderColors(pageBg);
+        ev->gfx->FillRect(pageRect, pageBg);
 
         Pixmap* thumbnail = ThumbnailToDraw(cache, pageNo - 1);
         if (thumbnail) {

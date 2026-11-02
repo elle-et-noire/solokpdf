@@ -2,6 +2,8 @@
    License: GPLv3 */
 
 class EngineBase;
+struct RenderPageArgs;
+struct Pixmap;
 struct fz_context;
 struct fz_image;
 
@@ -17,6 +19,17 @@ enum class PageColorMode {
     LegacyInvert,
     PreserveImages,
 };
+
+enum class ViewEngineClass : u32 {
+    Image,
+    Pdfium,
+    Mupdf,
+    Fixed,
+    Reflowable,
+    Captured,
+};
+
+constexpr int kThumbnailImageProbeScale = 4;
 
 // Full-bleed backgrounds / scans at or above this threshold are recolored with the page.
 static constexpr float kMaxPreserveImagePageCoverage = 0.75f;
@@ -36,6 +49,17 @@ static constexpr int kPreservePdfImagesMinSize = 72;
 
 bool DarkModeProfileUsesLegacyPostProcess(const DarkModeProfile* profile);
 void BuildViewDarkModeProfile(EngineBase* engine, DarkModeProfile* profile);
+void BuildViewDarkModeProfile(ViewEngineClass engineClass, DarkModeProfile* profile);
+ViewEngineClass ClassifyViewEngine(EngineBase* engine);
+struct ViewPageOptions {
+    int brightness = 0;
+    int contrast = 0;
+    bool grayscale = false;
+    int imageProbeScale = 1;
+};
+Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions options = {});
+void CollectThumbnailSkipRects(EngineBase* engine, int pageNo, float zoom, int rotation, const RectF& pageRect,
+                               Size bmpSize, Vec<Rect>& skipRects);
 bool EngineUsesDocumentColorsFollowTheme(EngineBase* engine);
 bool EngineUsesReflowThemeCss(EngineBase* engine);
 TempStr ReflowDocumentThemeCssTemp();

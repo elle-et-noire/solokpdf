@@ -8,9 +8,9 @@ License: GPLv3 */
 
 #include "Settings.h"
 #include "AppSettings.h"
+#include "FileThumbnails.h"
 #include "FileHistory.h"
 
-void DeleteThumbnailForFile(Str path);
 void HomePageInvalidateLayoutCache();
 
 // maximum number of files to remember in total
@@ -248,6 +248,7 @@ void CleanUpThumbnailCache() {
         DeleteThumbnailForFile(fs->filePath);
         FreePixmap(fs->thumbnail);
         fs->thumbnail = nullptr;
+        FreeThumbnailColorData(fs);
     }
 }
 

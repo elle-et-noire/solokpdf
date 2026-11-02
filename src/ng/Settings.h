@@ -284,6 +284,8 @@ struct FileState {
     Vec<int>* tocState;
     // thumbnails are saved as PNG files in sumatrapdfcache directory
     Pixmap* thumbnail;
+    // cached thumbnail color data
+    void* thumbnailColorData;
     // image list holding the file's shell icon
     HIMAGELIST himl;
     // path of the document
@@ -365,6 +367,8 @@ struct FileState {
     // if true, the view can be panned past the page edges, so any part of
     // a page can be brought to the center of the window
     bool freePan;
+    // a thumbnail render is queued or running
+    bool thumbnailPending;
 };
 
 // a subset of FileState required for restoring the state of a single

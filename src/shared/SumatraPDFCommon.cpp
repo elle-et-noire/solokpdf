@@ -1383,6 +1383,7 @@ void RenameFileInHistory(Str oldPath, Str newPath) {
         // the thumbnail is recreated by LoadDocument
         FreePixmap(fs->thumbnail);
         fs->thumbnail = nullptr;
+        FreeThumbnailColorData(fs);
     }
 }
 
@@ -1993,7 +1994,7 @@ bool OpenFileExternally(Str path) {
 }
 
 void CreateThumbnailForFile(MainWindow* win, FileState* ds) {
-    if (!ds || !ShouldSaveThumbnail(ds) || IsBrowserCapturedThumbnail(ds->filePath)) {
+    if (!ds || ds->thumbnailPending || !ShouldSaveThumbnail(ds) || IsBrowserCapturedThumbnail(ds->filePath)) {
         return;
     }
 
@@ -2607,7 +2608,7 @@ void OnFrameKeyB(MainWindow* win, bool isShift) {
 
 // page 1 as the home page shows it: ThumbnailsType legacy is the top of the
 // page as wide as the frame, full the whole page scaled to fit the frame
-static Pixmap* RenderEngineThumbnail(EngineBase* engine) {
+static Pixmap* RenderEngineThumbnail(EngineBase* engine, CreateThumbnailFromFileData* d = nullptr) {
     RectF pageRect = engine->PageMediabox(1);
     if (pageRect.IsEmpty()) {
         return nullptr;
@@ -2622,7 +2623,14 @@ static Pixmap* RenderEngineThumbnail(EngineBase* engine) {
     }
     pageRect = engine->Transform(pageRect, 1, 1.0f, 0, true);
     RenderPageArgs args(1, zoom, 0, &pageRect);
-    return engine->RenderPage(args);
+    Pixmap* bmp = engine->RenderPage(args);
+    if (bmp && d) {
+        d->colorClass = ClassifyViewEngine(engine);
+        if (d->colorClass == ViewEngineClass::Pdfium || d->colorClass == ViewEngineClass::Mupdf) {
+            CollectThumbnailSkipRects(engine, 1, zoom, 0, pageRect, Size(bmp->width, bmp->height), d->skipRects);
+        }
+    }
+    return bmp;
 }
 
 // the cover, or else the first page, of d->filePath. Releases d->engine
@@ -2653,7 +2661,7 @@ static Pixmap* RenderFileThumbnail(CreateThumbnailFromFileData* d) {
     if (!engine) {
         return nullptr;
     }
-    Pixmap* bmp = RenderEngineThumbnail(engine);
+    Pixmap* bmp = RenderEngineThumbnail(engine, d);
     engine->Release();
     d->engine = nullptr;
     return bmp;
@@ -2671,7 +2679,7 @@ void SetThumbnailFromImage(Str filePath, Str imageData) {
     }
     Pixmap* bmp = RenderEngineThumbnail(engine);
     engine->Release();
-    SetThumbnail(fs, bmp);
+    SetThumbnail(fs, bmp, ViewEngineClass::Captured);
 }
 
 // thumbnail threads read gSettings and file history, so a settings reload
@@ -2711,6 +2719,7 @@ static void CreateThumbnailFromFileThread(CreateThumbnailFromFileData* d) {
 // create a thumbnail by loading the file with a temporary engine
 // used for lazy-loaded files that don't have a loaded controller
 void CreateThumbnailFromFileAsync(FileState* ds, EngineBase* engine) {
+    ds->thumbnailPending = true;
     auto* d = new CreateThumbnailFromFileData();
     d->filePath = str::Dup(ds->filePath);
     d->engine = engine;
@@ -2738,6 +2747,7 @@ static void CollectThumbnailFiles(Vec<FileState*>& list) {
 }
 
 static CreateThumbnailFromFileData* NewThumbnailData(FileState* fs) {
+    fs->thumbnailPending = true;
     auto* d = new CreateThumbnailFromFileData();
     d->filePath = str::Dup(fs->filePath);
     d->fileEBookUI = CopyFileEBookUI(fs->eBookUI);
@@ -2814,6 +2824,7 @@ void OnThumbnailsTypeChanged() {
         for (FileState* fs : *states) {
             FreePixmap(fs->thumbnail);
             fs->thumbnail = nullptr;
+            FreeThumbnailColorData(fs);
             HomePageThumbnailChanged(fs);
         }
     }
@@ -2849,7 +2860,7 @@ void RegenerateMissingThumbnails() {
     auto* data = new RegenerateThumbnailsData();
     for (FileState* fs : list) {
         TempStr thumbPath = GetThumbnailPathTemp(fs->filePath);
-        if (len(thumbPath) == 0 || file::Exists(thumbPath)) {
+        if (fs->thumbnailPending || len(thumbPath) == 0 || file::Exists(thumbPath)) {
             continue;
         }
         VecAppend(data->files, NewThumbnailData(fs));

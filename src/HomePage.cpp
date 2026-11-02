@@ -1993,7 +1993,7 @@ static void DrawHomeListRow(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filt
     }
 
     // LoadThumbnail only hits disk the first time; result stays on fs->thumbnail
-    Pixmap* thumbImg = LoadThumbnail(fs);
+    Pixmap* thumbImg = ColoredThumbnail(fs);
     Rect thumbBox = thumb.rcListThumb;
     if (thumbImg) {
         Size szThumb(thumbImg->width, thumbImg->height);
@@ -2070,7 +2070,7 @@ static void DrawHomeThumbnail(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& fi
     const Rect& page = thumb.rcPage;
     DrawHomeThumbnailShadow(gfx, page);
     // disk load only first time; stays on fs->thumbnail afterwards
-    Pixmap* thumbImg = LoadThumbnail(fs);
+    Pixmap* thumbImg = ColoredThumbnail(fs);
     if (thumbImg) {
         Size size(thumbImg->width, thumbImg->height);
         if (size != thumb.szThumb) {
@@ -2078,8 +2078,6 @@ static void DrawHomeThumbnail(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& fi
             thumb.szThumb = size;
         }
         gfx->PushClip(page);
-        // note: we used to invert bitmaps in dark theme but that doesn't
-        // make sense for thumbnails
         gfx->DrawPixmap(thumbImg, page);
         gfx->PopClip();
     } else {

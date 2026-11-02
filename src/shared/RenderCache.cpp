@@ -51,14 +51,6 @@ int gMaxRenderThreads = 8;
 // Whether to run the bitmap recolor pass when no dark profile applies.
 // MuPDF, DjVu, and native HTML-layout ebook engines (CHM, EPUB, MOBI, …)
 // are recolored; image/comic collections keep original pixels.
-static bool ShouldUpdateBitmapColorsLegacy(EngineBase* engine, RenderCache* cache) {
-    (void)cache;
-    if (EngineUsesReflowThemeCss(engine)) {
-        return false;
-    }
-    return EngineUsesDocumentColorsFollowTheme(engine);
-}
-
 // Grayscale only the page bitmap; overlays are painted later.
 static Pixmap* GrayscalePagePixmap(Pixmap* bmp) {
     if (!bmp) {
@@ -157,6 +149,65 @@ static Pixmap* AdjustPagePixmap(Pixmap* bmp, int brightness, int contrast) {
             }
         }
     }
+    return bmp;
+}
+
+static void CollectSkipRects(EngineBase* engine, int pageNo, float zoom, int rotation, const RectF& pageRect,
+                             Size bmpSize, int scale, Vec<Rect>& skipRects) {
+    engine->GetBitmapRecolorSkipRects(pageNo, zoom * scale, rotation, pageRect,
+                                      Size(bmpSize.dx * scale, bmpSize.dy * scale), skipRects);
+    if (scale == 1) {
+        return;
+    }
+    for (Rect& r : skipRects) {
+        r = Rect::FromXY((r.x + scale - 1) / scale, (r.y + scale - 1) / scale, (r.Right()) / scale,
+                         (r.Bottom()) / scale);
+    }
+}
+
+// Probe at view scale so photos below the thumbnail's 72-pixel cutoff keep their colors.
+void CollectThumbnailSkipRects(EngineBase* engine, int pageNo, float zoom, int rotation, const RectF& pageRect,
+                               Size bmpSize, Vec<Rect>& skipRects) {
+    CollectSkipRects(engine, pageNo, zoom, rotation, pageRect, bmpSize, kThumbnailImageProbeScale, skipRects);
+}
+
+Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions options) {
+    DarkModeProfile profile;
+    BuildViewDarkModeProfile(engine, &profile);
+    args.darkProfile = profile.mode == PageColorMode::Normal ? nullptr : &profile;
+    Pixmap* bmp = engine->RenderPage(args);
+    args.darkProfile = nullptr;
+    if (!bmp) {
+        return nullptr;
+    }
+
+    if (options.grayscale) {
+        bmp = GrayscalePagePixmap(bmp);
+    }
+    if (options.brightness != 0 || options.contrast != 0) {
+        bmp = AdjustPagePixmap(bmp, options.brightness, options.contrast);
+    }
+
+    ViewEngineClass engineClass = ClassifyViewEngine(engine);
+    bool recolor = DarkModeProfileUsesLegacyPostProcess(&profile);
+    if (profile.mode == PageColorMode::Normal) {
+        recolor = engineClass == ViewEngineClass::Pdfium || engineClass == ViewEngineClass::Mupdf ||
+                  engineClass == ViewEngineClass::Fixed;
+    }
+    if (!recolor || bmp->hasAlpha) {
+        return bmp;
+    }
+
+    Vec<Rect> skipRects;
+    Vec<Rect>* skip = nullptr;
+    if (profile.mode == PageColorMode::PreserveImages && profile.preservePdfImages && args.pageRect) {
+        CollectSkipRects(engine, args.pageNo, args.zoom, args.rotation, *args.pageRect, Size(bmp->width, bmp->height),
+                         options.imageProbeScale, skipRects);
+        if (len(skipRects) > 0) {
+            skip = &skipRects;
+        }
+    }
+    RecolorPixmap(bmp, profile.foreground, profile.pageBackground, profile.linkColor, skip);
     return bmp;
 }
 
@@ -1397,11 +1448,6 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
     // so a page with transparency composites over it (#5844)
     args.keepAlpha = true;
     args.transparentBackdrop = ShowTransparencyGrid();
-    DarkModeProfile darkProfile;
-    BuildViewDarkModeProfile(engine, &darkProfile);
-    if (darkProfile.mode != PageColorMode::Normal) {
-        args.darkProfile = &darkProfile;
-    }
     // a previous render might have run a 3rd-party WIC codec that unmasked
     // fp exceptions on this thread, which would crash mupdf float math
     // ng: WIC is win32; nothing unmasks them on the other platforms
@@ -1409,7 +1455,11 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
     MaskFpExceptions();
 #endif
     auto timeStart = TimeGet();
-    Pixmap* bmp = engine->RenderPage(args);
+    ViewPageOptions options;
+    options.grayscale = req.grayscale;
+    options.brightness = req.brightness;
+    options.contrast = req.contrast;
+    Pixmap* bmp = RenderViewPage(engine, args, options);
     if (req.abort || req.darkModeEpoch != cache->darkModeEpoch) {
         // aborted or colors changed mid-render - discard result
         FreePixmap(bmp);
@@ -1425,38 +1475,6 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
     req.errorCode = bmp ? 0 : 1;
 
     if (bmp) {
-        if (req.grayscale) {
-            bmp = GrayscalePagePixmap(bmp);
-            req.bmp = bmp;
-        }
-        if (req.brightness != 0 || req.contrast != 0) {
-            bmp = AdjustPagePixmap(bmp, req.brightness, req.contrast);
-            req.bmp = bmp;
-        }
-        const DarkModeProfile* profile = args.darkProfile;
-        bool recolor;
-        if (profile) {
-            // object-level smart dark renders themed output directly
-            recolor = DarkModeProfileUsesLegacyPostProcess(profile);
-        } else {
-            recolor = ShouldUpdateBitmapColorsLegacy(engine, cache);
-        }
-        if (recolor && !bmp->hasAlpha) {
-            bool preserve = profile && profile->mode == PageColorMode::PreserveImages && profile->preservePdfImages;
-            Vec<Rect> skipRects;
-            Vec<Rect>* skipRectsPtr = nullptr;
-            if (preserve) {
-                Size bmpSize(bmp->width, bmp->height);
-                engine->GetBitmapRecolorSkipRects(req.pageNo, req.zoom, req.rotation, req.pageRect, bmpSize, skipRects);
-                if (len(skipRects) > 0) {
-                    skipRectsPtr = &skipRects;
-                }
-            }
-            Color textCol = profile ? profile->foreground : cache->textColor;
-            Color bgCol = profile ? profile->pageBackground : cache->backgroundColor;
-            Color linkCol = profile ? profile->linkColor : cache->linkColor;
-            RecolorPixmap(bmp, textCol, bgCol, linkCol, skipRectsPtr);
-        }
         if (req.abort || req.darkModeEpoch != cache->darkModeEpoch) {
             // colors changed while recoloring - discard result
             FreePixmap(bmp);

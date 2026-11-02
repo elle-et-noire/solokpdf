@@ -263,7 +263,12 @@ const ebookUI: Field[] = [
 const theme: Field[] = [
   field("Name", Str, "", "name of the theme, as shown in the Settings / Theme menu"),
   field("TextColor", Color, "", "color of text in menus, toolbar, tabs and sidebars"),
-  field("BackgroundColor", Color, "", "background color of the window around the document, the toolbar, the sidebar, the active tab and the scrollbars"),
+  field(
+    "BackgroundColor",
+    Color,
+    "",
+    "background color of the window around the document, the toolbar, the sidebar, the active tab and the scrollbars",
+  ),
   field("ControlBackgroundColor", Color, "", "background color of dialogs and search fields"),
   field(
     "ActiveTabBackgroundColor",
@@ -1287,6 +1292,8 @@ const fileState: Field[] = [
     "NULL",
     "thumbnails are saved as PNG files in sumatrapdfcache directory",
   ).notSaved(),
+  field("ThumbnailColorData", { name: "", ctype: "void *" }, "NULL", "cached thumbnail color data").notSaved(),
+  field("ThumbnailPending", Bool, false, "a thumbnail render is queued or running").notSaved(),
   field("Index", Int, 0, "temporary value needed for FileHistory::cmpOpenCount").notSaved(),
   field("Himl", { name: "", ctype: "HIMAGELIST" }, "NULL", "image list holding the file's shell icon").notSaved(),
   field("IconIdx", Int, -1, "index of the file's shell icon in Himl, -1 if not loaded yet").notSaved(),
@@ -1299,6 +1306,7 @@ const fileStateLayout = [
   "EBookUI",
   "TocState",
   "Thumbnail",
+  "ThumbnailColorData",
   "Himl",
   "FilePath",
   "DecryptionKey",
@@ -1329,6 +1337,7 @@ const fileStateLayout = [
   "UniformPageWidth",
   "TrimEmptyMargins",
   "FreePan",
+  "ThumbnailPending",
 ];
 fileState.sort((a, b) => fileStateLayout.indexOf(a.Name) - fileStateLayout.indexOf(b.Name));
 

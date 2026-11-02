@@ -12,6 +12,7 @@ constexpr int kThumbnailFullDy = 212;
 struct Pixmap;
 struct FileState;
 struct RenderedBitmap;
+enum class ViewEngineClass : u32;
 using OnBitmapRendered = Func1<RenderedBitmap*>;
 
 bool ThumbnailsAreFullPage();
@@ -23,8 +24,12 @@ void OnThumbnailsTypeChanged();
 void RegenerateMissingThumbnails();
 
 Pixmap* LoadThumbnail(FileState* fs);
+Pixmap* ColoredThumbnail(FileState* fs);
+void FreeThumbnailColorData(FileState* fs);
 bool HasThumbnail(FileState* fs);
+void SetThumbnail(FileState* fs, Pixmap* bmp, ViewEngineClass engineClass, const Vec<Rect>* skipRects = nullptr);
 void SetThumbnail(FileState* fs, Pixmap* bmp);
+TempStr GetThumbnailSidecarPathTemp(Str filePath);
 void SetThumbnailFromImage(Str filePath, Str imageData);
 void SaveThumbnail(FileState* fs);
 void RemoveThumbnail(FileState* fs);

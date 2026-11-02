@@ -4,3 +4,4 @@
 // --- shared by FileThumbnailsCommon.cpp and each app's FileThumbnails.cpp ---
 
 bool PixmapIsEmpty(const Pixmap* px);
+void SaveThumbnailSidecar(FileState* fs);

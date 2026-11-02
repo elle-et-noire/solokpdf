@@ -65,6 +65,9 @@ are in [history.md](history.md).
 - Home list, Home thumbnails and F12 page thumbnails use a theme-text selection
   outline. F12 keeps a thin page frame and spaces the selected ring outside it
   (B54).
+- F12 and Home thumbnails follow theme page colors, preserving PDF photos (B55).
+  EPUB page thumbnails recolor as a bitmap, so embedded images can change color;
+  browser-captured HTML/Markdown thumbnails keep the theme at capture time.
 
 - View tiles use integer page extents. Tile edges came back from the
   transform with float error (5507.9995 px) and were floored, drawing about a

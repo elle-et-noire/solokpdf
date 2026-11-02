@@ -73,10 +73,15 @@ void SaveThumbnail(FileState* fs) {
     WCHAR* pathW = CWStrTemp(tmpPath);
     Gdiplus::Status st = bmp->Save(pathW, &tmpClsid, nullptr);
     delete bmp;
+    if (st == Gdiplus::Ok) {
+        file::Delete(GetThumbnailSidecarPathTemp(fs->filePath));
+    }
     if (st != Gdiplus::Ok || !file::RenameReplace(thumbnailPath, tmpPath)) {
         logf("SaveThumbnail: Save('%s') failed with %d\n", thumbnailPath, (int)st);
         file::Delete(tmpPath);
+        return;
     }
+    SaveThumbnailSidecar(fs);
 }
 
 struct ChmThumbnailTask : HtmlWindowCallback {

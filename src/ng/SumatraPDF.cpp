@@ -866,9 +866,12 @@ MainWindow* FindMainWindowByFile(Str file, bool focusTab, MainWindow* limitWin) 
 // --- thumbnails (orig's, from SumatraPDF.cpp) --------------------------------
 
 void CreateThumbnailFromFileFinish(CreateThumbnailFromFileData* d) {
+    FileState* fs = FileHistoryFindByPath(d->filePath);
+    if (fs) {
+        fs->thumbnailPending = false;
+    }
     if (d->bmp) {
-        FileState* fs = FileHistoryFindByPath(d->filePath);
-        SetThumbnail(fs, d->bmp);
+        SetThumbnail(fs, d->bmp, d->colorClass, &d->skipRects);
         d->bmp = nullptr;
         MaybeRedrawHomePage();
     }

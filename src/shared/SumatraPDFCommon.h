@@ -123,6 +123,8 @@ struct CreateThumbnailFromFileData {
     // the file again (owned)
     EngineBase* engine = nullptr;
     Pixmap* bmp = nullptr;
+    ViewEngineClass colorClass = ViewEngineClass::Image;
+    Vec<Rect> skipRects;
     // see LoadDocumentAsyncData: the thumbnail is rendered off the UI thread,
     // so the per-document ebook settings have to come along as a copy (#4600)
     FileEBookUI* fileEBookUI = nullptr;
