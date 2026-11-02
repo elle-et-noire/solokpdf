@@ -42,6 +42,8 @@ Color ThemeWindowLinkColor();
 Color ThemeHotBackgroundColor();
 Color ThemeSelectedBackgroundColor();
 Color ThemeSelectedColorOn(Color bg);
+Color ThemeCardColorOn(Color page);
+Color ThemeInkOn(Color bg);
 Color ThemeHoverColorOn(Color bg);
 Color ThemeSidebarColor();
 Color ThemeEdgeColor();

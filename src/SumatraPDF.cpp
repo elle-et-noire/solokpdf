@@ -13872,6 +13872,10 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
             // System theme (no-op unless Theme = System)
             if (lp && str::EqI(ToUtf8Temp((const WCHAR*)lp), StrL("ImmersiveColorSet"))) {
                 UpdateThemeAfterSystemColorChange();
+#if defined(SOLOKPDF_PDFIUM)
+                // the taskbar's color may have changed: the big icon follows it
+                ApplyThemedAppIcon(hwnd);
+#endif
             }
             // high contrast can be toggled at any time (Alt+Shift+PrtScr);
             // SPI_SETHIGHCONTRAST arrives here (no-op unless it changed)

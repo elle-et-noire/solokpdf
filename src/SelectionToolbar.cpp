@@ -105,47 +105,27 @@ static bool SelectionBoundsChanged(Rect a, Rect b, int slack) {
     return abs(a.x - b.x) > slack || abs(a.y - b.y) > slack || abs(a.dx - b.dx) > slack || abs(a.dy - b.dy) > slack;
 }
 
-// theme-derived colors for the floating card; light mode tints the page
-// render background so the card sits naturally over the document
-static bool SelBarIsDark() {
-    return !IsLightColor(ThemeWindowBackgroundColor());
-}
-
+// the floating card stands out from the page under it, in the theme's colors
 static Color SelBarBg() {
-    if (SelBarIsDark()) {
-        return ThemeWindowBackgroundColor();
-    }
-    Color contentBg;
-    ThemePageRenderColors(contentBg);
-    return AccentColor(contentBg, 12);
+    Color page;
+    ThemePageRenderColors(page);
+    return ThemeCardColorOn(page);
 }
 
 static Color SelBarBorderColor() {
-    if (SelBarIsDark()) {
-        return AccentColor(ThemeWindowControlBackgroundColor(), 35);
-    }
-    return AccentColor(SelBarBg(), 8);
+    return ThemeEdgeColor();
 }
 
 static Color SelBarTextColor() {
-    if (SelBarIsDark()) {
-        return ThemeWindowTextColor();
-    }
-    return MkRgb(27, 29, 33);
+    return ThemeWindowTextColor();
 }
 
 static Color SelBarMutedTextColor() {
-    if (SelBarIsDark()) {
-        return ThemeWindowTextDisabledColor();
-    }
-    return MkRgb(92, 96, 104);
+    return ThemeWindowTextDisabledColor();
 }
 
 static Color SelBarHoverBg(Color bg) {
-    if (SelBarIsDark()) {
-        return AccentColor(ThemeWindowControlBackgroundColor(), 15);
-    }
-    return AccentColor(bg, 10);
+    return ThemeHoverColorOn(bg);
 }
 
 static void UpdateButtonIcons(SelectionToolbar* tb, int size) {

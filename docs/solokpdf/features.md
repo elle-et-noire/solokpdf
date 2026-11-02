@@ -38,7 +38,18 @@ by a 6-unit gap along the badge's upper-left edge (at least 1 px) and by "PDF",
 so the title bar shows through both. The gap runs past the outline at both ends
 and the cuts are multiplied out of the shape's coverage, so its ends are clean
 cuts with no hairlines. Title bar, taskbar, Alt+Tab, About and dialogs follow;
-windows update on a theme change, open dialogs keep their icon.
+windows update on a theme change, open dialogs keep their icon. The big icon
+(taskbar, Alt+Tab) sits on the taskbar, not the title bar, so it takes the
+text color only where that shows there by contrast 3; else the canvas color,
+else one pushed toward white or black. The taskbar's color comes from Windows'
+personalization settings (light, dark, or the accent shade) and is re-read
+when they change.
+
+The floating selection toolbar takes the control background, as fields and
+menus do, with an `EdgeColor` border; where that nearly matches the page under
+it, the page mixed toward the text color (contrast 1.15). It used the theme's
+`BackgroundColor`, which themed pages take too, so in dark themes it vanished
+into the page.
 
 The exe's icon (Explorer, Start, shortcuts) can't follow the theme; it is the
 same drawing in One Dark's text color. `tools/solokpdf/make-icon.py` generates it

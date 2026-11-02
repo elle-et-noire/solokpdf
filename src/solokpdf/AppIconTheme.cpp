@@ -12,7 +12,8 @@
 
 /*
 Windows' icons are drawn from src/solokpdf/AppIcon.svg in the theme's document
-text color: band and badge as one shape, cut by the gap between them and by
+text color, the big one (taskbar, Alt+Tab) in a theme color that shows on the
+taskbar: band and badge as one shape, cut by the gap between them and by
 "PDF", which show the title bar through. The exe's icon is the same drawing in
 One Dark's text color (tools/solokpdf/make-icon.py).
 
@@ -153,8 +154,7 @@ struct ThemedIcon {
 // never freed: a dialog opened before a theme change still shows its icon
 static Vec<ThemedIcon> gThemedIcons;
 
-static HICON ThemedAppIcon(int size) {
-    Color ink = ThemeWindowTextColor();
+static HICON ThemedAppIcon(int size, Color ink) {
     for (ThemedIcon& ti : gThemedIcons) {
         if (ti.ink == ink && ti.size == size) {
             return ti.icon;
@@ -167,9 +167,41 @@ static HICON ThemedAppIcon(int size) {
     return icon;
 }
 
+// Windows 11's taskbar in light and dark mode
+constexpr Color kTaskbarLight = MkRgb(0xee, 0xee, 0xee);
+constexpr Color kTaskbarDark = MkRgb(0x1c, 0x1c, 0x1c);
+// AccentPalette holds 8 RGBA shades, lightest first; an accent taskbar shows the 6th
+constexpr int kAccentShades = 8;
+constexpr int kTaskbarAccentShade = 5;
+
+// the taskbar's color, from the personalization settings: light, dark, or the
+// accent color ("Show accent color on Start and taskbar", dark mode only)
+static Color TaskbarColor() {
+    Str personalize = StrL("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize");
+    DWORD light = 1;
+    DWORD accent = 0;
+    ReadRegDWORD(HKEY_CURRENT_USER, personalize, StrL("SystemUsesLightTheme"), light);
+    ReadRegDWORD(HKEY_CURRENT_USER, personalize, StrL("ColorPrevalence"), accent);
+    if (light) {
+        return kTaskbarLight;
+    }
+    if (accent) {
+        u8 pal[kAccentShades * 4];
+        DWORD cb = sizeof(pal);
+        LSTATUS res = RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Accent",
+                                   L"AccentPalette", RRF_RT_REG_BINARY, nullptr, pal, &cb);
+        if (res == ERROR_SUCCESS && cb == sizeof(pal)) {
+            const u8* c = pal + (kTaskbarAccentShade * 4);
+            return MkRgb(c[0], c[1], c[2]);
+        }
+    }
+    return kTaskbarDark;
+}
+
+// the small icon sits in our title bar, the big one on the taskbar
 void ApplyThemedAppIcon(HWND hwnd) {
-    HICON bigIcon = ThemedAppIcon(GetSystemMetrics(SM_CXICON));
-    HICON smallIcon = ThemedAppIcon(GetSystemMetrics(SM_CXSMICON));
+    HICON bigIcon = ThemedAppIcon(GetSystemMetrics(SM_CXICON), ThemeInkOn(TaskbarColor()));
+    HICON smallIcon = ThemedAppIcon(GetSystemMetrics(SM_CXSMICON), ThemeWindowTextColor());
     if (!hwnd || !bigIcon || !smallIcon) {
         return;
     }

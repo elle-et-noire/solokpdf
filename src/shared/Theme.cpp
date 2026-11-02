@@ -1311,6 +1311,54 @@ Color ThemeSelectedBackgroundColor() {
     return ThemeSelectedColorOn(ThemeCanvasColor());
 }
 
+// a popup card against the page under it
+constexpr float kMinCardContrast = 1.15f;
+
+// A popup card over the page (the selection toolbar): the control background,
+// as fields and menus have, unless it nearly matches the page; then the page
+// mixed toward the text color. Themed pages take BackgroundColor, so a card
+// in it vanished (Solarized Dark).
+Color ThemeCardColorOn(Color page) {
+    Color ctl = ThemeControlBackgroundColor();
+    if (gUseHighContrast || ContrastRatio(ctl, page) >= kMinCardContrast) {
+        return ctl;
+    }
+    Color text = ThemeWindowTextColor();
+    for (float t = kSelectionMixStep; t < 1.0f; t += kSelectionMixStep) {
+        Color c = MixColors(page, text, t);
+        if (ContrastRatio(c, page) >= kMinCardContrast) {
+            return c;
+        }
+    }
+    return ctl;
+}
+
+// non-text UI against its background (WCAG 1.4.11)
+constexpr float kMinInkContrast = 3.0f;
+
+// A mark drawn on a surface outside the app (the taskbar icon on the
+// taskbar): the text color, else the canvas color, as long as it shows by
+// kMinInkContrast; else the better one pushed toward white or black.
+Color ThemeInkOn(Color bg) {
+    Color text = ThemeWindowTextColor();
+    if (ContrastRatio(text, bg) >= kMinInkContrast) {
+        return text;
+    }
+    Color canvas = ThemeCanvasColor();
+    if (ContrastRatio(canvas, bg) >= kMinInkContrast) {
+        return canvas;
+    }
+    Color ink = ContrastRatio(text, bg) >= ContrastRatio(canvas, bg) ? text : canvas;
+    Color away = ContrastRatio(kColWhite, bg) >= ContrastRatio(kColBlack, bg) ? kColWhite : kColBlack;
+    for (float t = kSelectionMixStep; t < 1.0f; t += kSelectionMixStep) {
+        Color c = MixColors(ink, away, t);
+        if (ContrastRatio(c, bg) >= kMinInkContrast) {
+            return c;
+        }
+    }
+    return away;
+}
+
 // the selected tab against the tab strip
 constexpr float kMinStripContrast = 1.13f;
 

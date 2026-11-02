@@ -1054,3 +1054,17 @@ export function makePdf(n: number, first: number, tocPage: number, annotPage: nu
   objs[apObj] = `<< /Type /XObject /Subtype /Form /BBox [0 0 120 120] /Length ${ap.length} >>\nstream\n${ap}endstream`;
   return assemblePdf(objs.slice(1));
 }
+
+// WCAG contrast ratio (1..21) of two [r, g, b] colors, as the app's Theme.cpp computes it
+export function contrastRatio(a: number[], b: number[]): number {
+  const lum = (c: number[]) => {
+    const lin = (v: number) => {
+      const x = v / 255;
+      return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * lin(c[0]!) + 0.7152 * lin(c[1]!) + 0.0722 * lin(c[2]!);
+  };
+  const la = lum(a);
+  const lb = lum(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}

@@ -428,6 +428,8 @@ import { testit as issue4662 } from "./issue-4662.ts";
 import { testit as issue6013 } from "./issue-6013.ts";
 import { testit as issue6018 } from "./issue-6018.ts";
 import { testit as selectionToolbarStays } from "./selection-toolbar-stays.ts";
+import { testit as selectionToolbarContrast } from "./selection-toolbar-contrast.ts";
+import { testit as taskbarIconContrast } from "./taskbar-icon-contrast.ts";
 import { testit as keyboardSelectYankEmpty } from "./keyboard-select-yank-empty.ts";
 import { testit as selectionToolbarMove } from "./selection-toolbar-move.ts";
 import { testit as selectionFontBbox } from "./selection-font-bbox.ts";
@@ -923,6 +925,8 @@ export const tests: NamedTest[] = [
   ["issue-4662", issue4662],
   ["issue-6018", issue6018],
   ["selection-toolbar-stays", selectionToolbarStays],
+  ["selection-toolbar-contrast", selectionToolbarContrast],
+  ["taskbar-icon-contrast", taskbarIconContrast],
   ["keyboard-select-yank-empty", keyboardSelectYankEmpty],
   ["selection-font-bbox", selectionFontBbox],
   ["issue-4839", issue4839],

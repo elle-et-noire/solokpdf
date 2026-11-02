@@ -268,6 +268,7 @@ const gdi32 = loadDll("gdi32.dll", {
   GetPixel: { args: [FFIType.u64, FFIType.i32, FFIType.i32], returns: FFIType.u32 },
   CreateSolidBrush: { args: [FFIType.u32], returns: FFIType.u64 },
   GetObjectW: { args: [FFIType.u64, FFIType.i32, FFIType.ptr], returns: FFIType.i32 },
+  GetBitmapBits: { args: [FFIType.u64, FFIType.i32, FFIType.ptr], returns: FFIType.i32 },
   CreateDIBSection: {
     args: [FFIType.u64, FFIType.ptr, FFIType.u32, FFIType.ptr, FFIType.u64, FFIType.u32],
     returns: FFIType.u64,
@@ -407,6 +408,9 @@ export const WM_DISPLAYCHANGE = 0x007e;
 export const WM_SETTEXT = 0x000c;
 export const WM_GETTEXT = 0x000d;
 export const WM_GETTEXTLENGTH = 0x000e;
+export const WM_GETICON = 0x007f;
+export const ICON_SMALL = 0;
+export const ICON_BIG = 1;
 export const WM_KEYDOWN = 0x0100;
 export const WM_KEYUP = 0x0101;
 export const WM_CHAR = 0x0102;
@@ -2869,4 +2873,41 @@ export function processesUsingFile(path: string): string[] {
     rm.symbols.RmEndSession(session[0]);
     rm.close();
   }
+}
+
+// A window's icon (WM_GETICON) as top-down BGRA pixels; null if it has none or
+// it isn't 32 bpp. Icons are shared USER objects, so this works across processes.
+export function getWindowIconPixels(hwnd: number, which: number): { dx: number; dy: number; bgra: Uint8Array } | null {
+  const hicon = BigInt(sendMessage(hwnd, WM_GETICON, which, 0));
+  if (hicon === 0n) {
+    return null;
+  }
+  // ICONINFO { BOOL fIcon; DWORD xHotspot; DWORD yHotspot; HBITMAP hbmMask; HBITMAP hbmColor; }
+  const ii = new BigUint64Array(4);
+  if (!user32.symbols.GetIconInfo(hicon, ptr(ii))) {
+    return null;
+  }
+  const hbmMask = ii[2]!;
+  const hbmColor = ii[3]!;
+  let res: { dx: number; dy: number; bgra: Uint8Array } | null = null;
+  if (hbmColor !== 0n) {
+    // BITMAP { LONG bmType; LONG bmWidth; LONG bmHeight; LONG bmWidthBytes; WORD bmPlanes; WORD bmBitsPixel; ... }
+    const bm = new Int32Array(8);
+    gdi32.symbols.GetObjectW(hbmColor, 32, ptr(bm));
+    const dx = bm[1]!;
+    const dy = bm[2]!;
+    const bpp = new Uint16Array(bm.buffer)[9]!;
+    if (bpp === 32) {
+      const bgra = new Uint8Array(dx * dy * 4);
+      gdi32.symbols.GetBitmapBits(hbmColor, bgra.length, ptr(bgra));
+      res = { dx, dy, bgra };
+    }
+  }
+  if (hbmMask !== 0n) {
+    gdi32.symbols.DeleteObject(hbmMask);
+  }
+  if (hbmColor !== 0n) {
+    gdi32.symbols.DeleteObject(hbmColor);
+  }
+  return res;
 }
