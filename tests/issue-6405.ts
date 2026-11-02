@@ -29,7 +29,7 @@ async function currentTab(client: ControlClient): Promise<string> {
   return String(res[1] ?? "").trim();
 }
 
-// the window also has a Home tab, so cycle until the wanted tab is current
+// Cycle until the wanted document is current.
 async function selectTab(client: ControlClient, frame: number, name: string): Promise<void> {
   let last = await currentTab(client);
   for (let i = 0; i < 4 && !last.includes(name); i++) {

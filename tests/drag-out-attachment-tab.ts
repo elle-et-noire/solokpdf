@@ -6,7 +6,16 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type ControlClient, ControlCommand } from "./control.ts";
-import { assemblePdf, pollUntil, runStandalone, SLOW_BUILD_FACTOR, TESTS_TMP_DIR, tmpPath, USE_NG } from "./util.ts";
+import {
+  assemblePdf,
+  pollUntil,
+  runStandalone,
+  SETTINGS_FILE,
+  SLOW_BUILD_FACTOR,
+  TESTS_TMP_DIR,
+  tmpPath,
+  USE_NG,
+} from "./util.ts";
 import {
   clientToScreen,
   enumWindows,
@@ -116,6 +125,7 @@ export async function testit(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "outer.pdf");
   writeFileSync(pdf, makePdfWithImageAttachment(), "latin1");
+  writeFileSync(join(dir, SETTINGS_FILE), "NoHomeTab = false\n");
 
   if (USE_NG) {
     // ng saves the attachment under a unique name; make it differ from the tab's
@@ -123,7 +133,15 @@ export async function testit(): Promise<void> {
     mkdirSync(attachments, { recursive: true });
     writeFileSync(join(attachments, ATTACHMENT), "");
   }
-  const { proc, client, frame } = await launchControlled(["-view", "single page", "-zoom", "fit page", pdf]);
+  const { proc, client, frame } = await launchControlled([
+    "-appdata",
+    dir,
+    "-view",
+    "single page",
+    "-zoom",
+    "fit page",
+    pdf,
+  ]);
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);

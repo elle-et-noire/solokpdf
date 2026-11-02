@@ -5,7 +5,7 @@
 
 import { existsSync } from "node:fs";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { cmdId, EXE, runStandalone } from "./util.ts";
+import { cmdId, EXE, runStandalone, writeAppdata } from "./util.ts";
 import { sleep } from "./winapi.ts";
 
 function parseToolbarX(layoutOutput: string): number {
@@ -56,6 +56,7 @@ export async function testit(): Promise<void> {
   const docPath = existsSync(mobi) ? mobi : "tests/issue-5846.epub";
   const cmdOpen = cmdId("CmdOpenFile");
   const cmdPrint = cmdId("CmdPrint");
+  const appdata = writeAppdata("toolbar-tab-switch-pos", "NoHomeTab = false\n");
   await withControlledSumatra(
     EXE,
     async (client) => {
@@ -90,7 +91,7 @@ export async function testit(): Promise<void> {
         throw new Error(`Print icon shifted: doc=${printScreenXDoc} home=${printScreenXHome}`);
       }
     },
-    [docPath],
+    ["-appdata", appdata, docPath],
   );
 }
 

@@ -1465,10 +1465,8 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 | B52 | Printing a PDFium tab after Apply Redactions but before Save prints the unredacted file (print clones from disk); print the editor's redacted content                                                                                                                                          | review                       | done — Print unsaved redactions (B52)                                                |
 | B53 | B17 follow-ups (review): `EngineMupdfPageRedacted` takes the editor `docLock` and walks the journal on every render/hover once a page was redacted; step `-1` entries never clear; text invalidation races an in-flight extraction; recolor skip rects and `hideAnnotations` on redacted pages | review                       | done — Track redacted pages without the editor lock (B53)                            |
 | B57 | Ctrl+T opens a new Home tab like "+"                                                                                                                                                                                                                                                           | UI                           | done — Bind Ctrl+T to a new Home tab (B57)                                           |
-
-| B56 | `NoHomeTab` on by default: the first Home tab is replaced like "+" | UI | done — Replace the first Home when opening a file (B56) |
-
-| B54 | Theme-colored, spaced selection outlines (Home list, F12 thumbnails) | UI | done — Match Home and F12 selection outlines (B54) |
+| B56 | `NoHomeTab` on by default: the first Home tab is replaced like "+"                                                                                                                                                                                                                             | UI                           | done — Replace the first Home when opening a file (B56)                              |
+| B54 | Theme-colored, spaced selection outlines (Home list, F12 thumbnails)                                                                                                                                                                                                                           | UI                           | done — Match Home and F12 selection outlines (B54)                                   |
 
 ### C. Coexistence with SumatraPDF
 

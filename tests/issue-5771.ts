@@ -4,7 +4,7 @@
 
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { ROOT, cmdId, runStandalone } from "./util.ts";
+import { ROOT, cmdId, runStandalone, writeAppdata } from "./util.ts";
 import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 import { postMessage, sleep, VK_ESCAPE, WM_KEYDOWN, WM_KEYUP } from "./winapi.ts";
 
@@ -72,7 +72,8 @@ function postKey(hwnd: number, vk: number): void {
 
 export async function testit(): Promise<void> {
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
-  const { proc, client, frame } = await launchControlled([pdf]);
+  const appdata = writeAppdata("issue-5771-appdata", "NoHomeTab = false\n");
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);

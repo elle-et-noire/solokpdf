@@ -33,6 +33,7 @@ Theme = Light
 CheckForUpdates = false
 RestoreSession = false
 RememberOpenedFiles = false
+NoHomeTab = false
 `;
 
 // A relayout's WM_SETREDRAW FALSE clears WS_VISIBLE on a shown frame for a moment, so

@@ -244,7 +244,8 @@ void GoToHomeTab(MainWindow* win) {
     }
 
     SaveCurrentWindowTab(win);
-    homeTab = NewHomeTab(win, HomeTabKind::Pinned);
+    HomeTabKind kind = gSettings->noHomeTab ? HomeTabKind::Extra : HomeTabKind::Pinned;
+    homeTab = NewHomeTab(win, kind);
     VecInsertAt(win->tabs, 0, homeTab);
     TabsUIOnTabsChanged(win);
     LoadModelIntoTab(homeTab);
