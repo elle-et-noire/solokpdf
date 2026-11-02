@@ -430,6 +430,8 @@ TempStr SelectionToolbarLayoutDumpTemp() {
     if (visible) {
         Rect r = tb->host->ScreenRect();
         out.Append(fmt("placed=%d,%d,%d,%d\n", r.x, r.y, r.dx, r.dy));
+        Color bg = SelBarBg();
+        out.Append(fmt("bg=%d,%d,%d\n", (int)GetRed(bg), (int)GetGreen(bg), (int)GetBlue(bg)));
     }
     if (!tb) {
         out.Append(StrL("buttons=0\n"));

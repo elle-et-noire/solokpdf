@@ -7,9 +7,20 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { cmdId, contrastRatio, makeTextPdf, runStandalone, SETTINGS_FILE, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import {
+  cmdId,
+  contrastRatio,
+  loadPng,
+  makeTextPdf,
+  pngPixel,
+  runStandalone,
+  SETTINGS_FILE,
+  SLOW_BUILD_FACTOR,
+  tmpPath,
+} from "./util.ts";
 import { killAndWait, launchControlled, pressVKey, sendCommandSync } from "./win-automation.ts";
 import {
+  captureWindowToPng,
   enumWindows,
   getClassName,
   getClientRect,
@@ -18,18 +29,16 @@ import {
   findChildWindow,
   isWindowVisible,
   postChar,
-  readWindowDCRow,
   setProcessDpiAware,
   sleep,
 } from "./winapi.ts";
 
 const VK_END = 0x23;
 const LINE = "The quick brown fox jumps over the lazy dog";
-const THEMES = ["Solarized Dark", "Light"];
+const THEMES = ["Solarized Dark", "Dark", "Light"];
 // a card has to separate from the page at least this much (the app aims at 1.15)
 const MIN_CONTRAST = 1.12;
 
-const rgbOf = (c: number) => [c & 0xff, (c >> 8) & 0xff, (c >> 16) & 0xff];
 const hex = (c: number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
 
 async function waitFor(what: string, check: () => Promise<boolean>): Promise<void> {
@@ -43,8 +52,9 @@ async function waitFor(what: string, check: () => Promise<boolean>): Promise<voi
   throw new Error(`selection-toolbar-contrast: ${what}`);
 }
 
-// selects the line with the keyboard (v, End) and waits for the toolbar
-async function selectLine(client: ControlClient, frame: number): Promise<void> {
+// selects the line with the keyboard (v, End), waits for the toolbar and
+// returns the card color the app chose
+async function selectLine(client: ControlClient, frame: number): Promise<number[]> {
   sendCommandSync(frame, cmdId("CmdSelectTextViaKeyboard"));
   const dump = async () => String((await client.request(ControlCommand.TestSelectTextKeyboard, []))[1] ?? "");
   await waitFor("keyboard selection did not start", async () => /active=1/.test(await dump()));
@@ -52,7 +62,13 @@ async function selectLine(client: ControlClient, frame: number): Promise<void> {
   await waitFor("visual mode did not start", async () => /visual=1/.test(await dump()));
   pressVKey(frame, VK_END);
   const toolbar = async () => String((await client.request(ControlCommand.TestSelectionToolbar, []))[1] ?? "");
-  await waitFor("selection toolbar did not appear", async () => /^visible=1$/m.test(await toolbar()));
+  let raw = "";
+  await waitFor("selection toolbar did not appear", async () => /^visible=1$/m.test((raw = await toolbar())));
+  const m = /^bg=(\d+),(\d+),(\d+)$/m.exec(raw);
+  if (!m) {
+    throw new Error(`selection-toolbar-contrast: no bg= in:\n${raw}`);
+  }
+  return m.slice(1).map(Number);
 }
 
 function findToolbar(pid: number): number {
@@ -67,14 +83,25 @@ function findToolbar(pid: number): number {
   return res;
 }
 
-// the most common color of a canvas row: the page (or the canvas around it, the same color when themed)
-function pageColor(canvas: number, y: number): number[] {
-  const row = readWindowDCRow(canvas, 0, y, getClientRect(canvas).right);
-  const counts = new Map<number, number>();
-  for (const c of row) {
-    counts.set(c, (counts.get(c) ?? 0) + 1);
+// the most common color along the canvas row at screen y: the page (or the
+// canvas around it, the same color when themed). PrintWindow, as for the card
+function pageColor(frame: number, canvas: number, screenY: number): number[] {
+  const shot = tmpPath("selection-toolbar-contrast-frame.png");
+  if (!captureWindowToPng(frame, shot)) {
+    throw new Error("selection-toolbar-contrast: can't capture the frame");
   }
-  return rgbOf([...counts].sort((a, b) => b[1] - a[1])[0]![0]);
+  const img = loadPng(shot);
+  const fw = getWindowRect(frame);
+  const cw = getWindowRect(canvas);
+  const counts = new Map<string, number>();
+  for (let x = cw.left - fw.left; x < cw.right - fw.left; x++) {
+    const k = pngPixel(img, x, screenY - fw.top).join(",");
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return [...counts]
+    .sort((a, b) => b[1] - a[1])[0]![0]
+    .split(",")
+    .map(Number);
 }
 
 async function checkTheme(theme: string, pdf: string): Promise<void> {
@@ -89,21 +116,30 @@ async function checkTheme(theme: string, pdf: string): Promise<void> {
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
-    await selectLine(client, frame);
+    const want = await selectLine(client, frame);
 
     const toolbar = findToolbar(proc.pid!);
     if (!toolbar) {
       throw new Error("selection-toolbar-contrast: no toolbar window");
     }
-    // left edge, past the 1px border, halfway down: card background, no button
+    // left edge, past the 1px border, halfway down: card background, no
+    // button. PrintWindow, not the screen: another window may cover the
+    // popup. Polled: right after it shows, it may not be painted yet
     const tr = getClientRect(toolbar);
-    const card = rgbOf(readWindowDCRow(toolbar, 3, Math.floor(tr.bottom / 2), 1)[0]!);
+    const shot = tmpPath("selection-toolbar-contrast.png");
+    let card: number[] = [];
+    await waitFor(`${theme}: card isn't painted in ${hex(want)}`, async () => {
+      if (!captureWindowToPng(toolbar, shot)) {
+        return false;
+      }
+      card = pngPixel(loadPng(shot), 3, Math.floor(tr.bottom / 2));
+      return hex(card) === hex(want);
+    });
 
     // the canvas row level with the card's middle
     const canvas = findChildWindow(frame, "SUMATRA_PDF_CANVAS");
     const tw = getWindowRect(toolbar);
-    const cw = getWindowRect(canvas);
-    const page = pageColor(canvas, Math.floor((tw.top + tw.bottom) / 2) - cw.top);
+    const page = pageColor(frame, canvas, Math.floor((tw.top + tw.bottom) / 2));
 
     const k = contrastRatio(card, page);
     if (k < MIN_CONTRAST) {
