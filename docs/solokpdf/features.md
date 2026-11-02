@@ -112,6 +112,13 @@ units, which made saturated themes garish (Solarized Dark a bright teal, Greeny
 a bright green); picking a palette color instead mostly picked `EdgeColor`, a
 line color, too strong and sometimes off-hue (Solarized Light's gray-blue).
 
+The built-in themes' `EdgeColor` (borders, dividers, scrollbar thumbs) stands
+out from the canvas by contrast 1.7 to 1.8 and from fields by 1.3 or more.
+Dracula, Monokai, Solarized Dark and Gruvbox had theirs over 2.2; Night Owl,
+One Dark, Ayu, Rose Pine Dawn and Light Warm under 1.35, so field borders all
+but vanished; Solarized Light, Everforest Light and Dark had a cool gray on a
+warm or neutral background.
+
 The bookmark tree keeps its unfocused selection color when it has the focus
 (upstream: the system's blue highlight); high contrast mode still uses the
 system highlight. Text and rectangle selections on pages take that color too,
@@ -209,7 +216,7 @@ with a size grip that resizes the frame when it isn't maximized.
 - Every theme, Light and Dark included, tints the bars: `ScrollbarColor` and
   `ScrollbarThumbColor` (new theme fields), by default the canvas color
   and a palette color: `EdgeColor`, or `DisabledTextColor` where `EdgeColor`'s
-  contrast with the track is under 1.5 (One Dark, Night Owl, Ayu, Nord, …).
+  contrast with the track is under 1.5 (Greeny, Purpy, Palenight).
   Lists, the thumbnails included, take `ScrollbarThumbColor` too. A lightness
   shift of the track made saturated themes garish (Solarized Dark a bright
   teal, Greeny a bright green). Each pixel of the native look
