@@ -1468,6 +1468,8 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 
 | B56 | `NoHomeTab` on by default: the first Home tab is replaced like "+" | UI | done — Replace the first Home when opening a file (B56) |
 
+| B54 | Theme-colored, spaced selection outlines (Home list, F12 thumbnails) | UI | done — Match Home and F12 selection outlines (B54) |
+
 ### C. Coexistence with SumatraPDF
 
 | ID  | Item                                                                                                                                                                                             | Status                                |

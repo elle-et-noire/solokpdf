@@ -9,13 +9,12 @@ there.
 
 ## Open
 
-| ID  | Item                                                                 | Status                                                        |
-| --- | -------------------------------------------------------------------- | ------------------------------------------------------------- |
-| B54 | Theme-colored, spaced selection outlines (Home list, F12 thumbnails) | todo                                                          |
-| B55 | Theme-colored thumbnails (F12 and Home)                              | todo                                                          |
-| B37 | Cursor and RTL capture tests (full-suite run 3)                      | blocked — locked desktop prevents cursor and capture checks   |
-| D3  | Shard the full suite across runners                                  | deferred: the suite takes ~25 min once a hung test is cut off |
-| F1  | Physical printer, print dialog and spooler check                     | needs the owner                                               |
+| ID  | Item                                             | Status                                                        |
+| --- | ------------------------------------------------ | ------------------------------------------------------------- |
+| B55 | Theme-colored thumbnails (F12 and Home)          | todo                                                          |
+| B37 | Cursor and RTL capture tests (full-suite run 3)  | blocked — locked desktop prevents cursor and capture checks   |
+| D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
+| F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
 
 B37 needs a rerun on an unlocked, interactive desktop.
 

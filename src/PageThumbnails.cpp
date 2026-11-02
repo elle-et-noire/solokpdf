@@ -32,7 +32,9 @@ constexpr int kThumbnailDx = 120;
 constexpr int kThumbnailDy = 170;
 constexpr int kThumbnailGap = 16;
 constexpr int kThumbnailPadding = 16;
-// the sidebar can be as narrow as 150 px: one 120 px column must still fit
+constexpr int kThumbnailSelectionGap = 4;
+constexpr int kThumbnailSelectionWidth = 2;
+// leave room for the selected ring at the sidebar edges
 constexpr int kThumbnailSidebarPadding = 8;
 constexpr int kThumbnailMaxCols = 6;
 constexpr int kThumbnailRenderScreens = 1;
@@ -424,6 +426,14 @@ void PageThumbnailsCtrl::RefreshPage(int pageNo) {
 void PageThumbnailsCtrl::SetBounds(Rect r) {
     int reservedScrollbarDx = DpiGetSystemMetrics(SM_CXVSCROLL, dpi);
     int availableDx = r.dx - padding.left - padding.right - reservedScrollbarDx;
+    int naturalDx = DpiScaleByDpi(dpi, kThumbnailDx);
+    int newThumbDx = host == ThumbnailsHost::Sidebar ? std::min(naturalDx, std::max(1, availableDx)) : naturalDx;
+    int newThumbDy = Scale(DpiScaleByDpi(dpi, kThumbnailDy), newThumbDx, naturalDx);
+    if (thumbDx != newThumbDx || thumbDy != newThumbDy) {
+        thumbDx = newThumbDx;
+        thumbDy = newThumbDy;
+        ResetCache();
+    }
     int newCols = (availableDx + gap) / (thumbDx + gap);
     newCols = ClampI(newCols, 1, kThumbnailMaxCols);
     if (newCols != cols) {
@@ -442,7 +452,7 @@ void PageThumbnailsCtrl::SetBounds(Rect r) {
     }
     itemDy = thumbDy + rowGap;
     padding.top = rowGap;
-    padding.bottom = 0;
+    padding.bottom = DpiScaleByDpi(dpi, kThumbnailSelectionGap + kThumbnailSelectionWidth);
 
     VirtListBox::SetBounds(r);
     EnsureVisible((selectedPage - 1) / cols);
@@ -489,10 +499,13 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
             ev->gfx->DrawPixmap(thumbnail, target);
         }
 
-        // a frame in the scrollbar's color, so a page shows on a sidebar of
-        // its color (Light); the current page's is thicker
-        int frameDx = isCurrent ? 3 : 1;
-        ev->gfx->DrawRect(pageRect, ThemeScrollbarThumbColor(), frameDx);
+        ev->gfx->DrawRect(pageRect, ThemeScrollbarThumbColor());
+        if (isCurrent) {
+            Rect outline = pageRect;
+            outline.Inflate(DpiScaleByDpi(dpi, kThumbnailSelectionGap), DpiScaleByDpi(dpi, kThumbnailSelectionGap));
+            DrawSelectionOutline(ev->gfx, outline, DpiScaleByDpi(dpi, kThumbnailSelectionWidth),
+                                 DpiScaleByDpi(dpi, kThumbnailSelectionWidth), ThemeWindowTextColor());
+        }
 
         TempStr label = fmt("%d", pageNo);
         if (chapters) {

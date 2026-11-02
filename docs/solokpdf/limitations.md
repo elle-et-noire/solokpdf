@@ -62,6 +62,10 @@ are in [history.md](history.md).
 
 ## Rendering and geometry
 
+- Home list, Home thumbnails and F12 page thumbnails use a theme-text selection
+  outline. F12 keeps a thin page frame and spaces the selected ring outside it
+  (B54).
+
 - View tiles use integer page extents. Tile edges came back from the
   transform with float error (5507.9995 px) and were floored, drawing about a
   third of high-zoom tiles a pixel off; they now snap within 0.05 px.

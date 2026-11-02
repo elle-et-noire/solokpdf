@@ -111,6 +111,11 @@ Palenight, `NotificationBackgroundColor` for Solarized Dark and Monokai,
 
 ## Selection colors
 
+Home list rows, Home thumbnails and F12 page thumbnails use a 2-DIP rounded
+selection outline in the theme's text color. Page thumbnails keep their thin
+frame; the selection outline sits four DPI-scaled pixels outside the page.
+The sidebar reserves room for the outline at its edges and between rows.
+
 The floating selection toolbar takes the tab strip's color, so it reads as part
 of the window's chrome, with an `EdgeColor` border; where that nearly matches
 the page under it (contrast under 1.13: custom themes, unthemed pages), the

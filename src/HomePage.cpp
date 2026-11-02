@@ -1939,23 +1939,8 @@ static TempStr FileSizeForHomeListTemp(i64 size) {
     return str::FormatSizeShortTemp(size, nullptr);
 }
 
-// light blue outline marking the keyboard-selected list row (issue #1136).
-// A fixed color: it has to read as "selected" against both the light and the
-// dark page background. A thumbnail gets a ring in the text color instead
-constexpr Color kHomeSelectionColor = MkRgb(0x4c, 0xa6, 0xff);
-
-static void DrawHomeRoundedOutline(Gfx* gfx, const Rect& r, int radius, Color color, int thickness) {
-    Rect line = r;
-    for (int i = 0; i < thickness && !line.IsEmpty(); i++) {
-        gfx->FillRoundedRect(line, std::max(radius - (2 * i), 1), kColorTransparent, color);
-        line.Inflate(-1, -1);
-    }
-}
-
 static void DrawHomeSelectionOutline(Gfx* gfx, const Rect& r, int radius) {
-    int penDx = DpiScale(2);
-    Color col = HomePageIsListView() ? kHomeSelectionColor : ThemeWindowTextColor();
-    DrawHomeRoundedOutline(gfx, r, radius, col, penDx);
+    DrawSelectionOutline(gfx, r, radius, DpiScale(2), ThemeWindowTextColor());
 }
 
 // Give the file name the width it needs and put the directory path in what's

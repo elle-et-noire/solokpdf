@@ -108,6 +108,8 @@ struct Gfx {
     virtual bool SetMirrored(bool) = 0;
 };
 
+void DrawSelectionOutline(Gfx* gfx, const Rect& r, int radius, int thickness, Color color);
+
 // Draws with plain gdi, immediately and without anti-aliasing. Kept for the
 // surfaces that interleave raw gdi drawing with Gfx drawing on the same HDC
 // (the caption frame and installer): GfxDirect2D writes to the

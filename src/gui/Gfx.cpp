@@ -32,6 +32,14 @@ Gfx::~Gfx() {
     }
 }
 
+void DrawSelectionOutline(Gfx* gfx, const Rect& r, int radius, int thickness, Color color) {
+    Rect line = r;
+    for (int i = 0; i < thickness && !line.IsEmpty(); i++) {
+        gfx->FillRoundedRect(line, std::max(radius - (2 * i), 1), kColorTransparent, color);
+        line.Inflate(-1, -1);
+    }
+}
+
 GfxHdc::GfxHdc(HDC hdc) {
     this->hdc = hdc;
 }

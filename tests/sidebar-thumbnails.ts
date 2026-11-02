@@ -342,7 +342,7 @@ export async function testit(): Promise<void> {
     s = await sidebar(client);
     click(s, 3);
     await waitFor("a click on page 3 didn't go there", async () => (await sidebar(client)).current === 3);
-    // the clicked page has the blue frame only, no selection border around it
+    // the clicked page keeps its thin frame and gets a spaced selection ring
     if (IS_MAC) {
       console.log("SKIP sidebar-thumbnails selection border: macOS has no window DC");
     } else {
@@ -363,9 +363,9 @@ export async function testit(): Promise<void> {
         }
       } else {
         const row = readWindowDCRow(s.hwnd, r3.x - 12, r3.y + Math.floor(r3.dy / 2), 12);
-        if (!row.slice(8, 11).every((c) => c === row[0])) {
+        if (row.slice(1, 6).some((c) => c !== row[0]) || !row.slice(7, 12).some((c) => c !== row[0])) {
           throw new Error(
-            `sidebar-thumbnails: the current page has a selection border: ${row.map((c) => c.toString(16))}`,
+            `sidebar-thumbnails: the current page lacks a spaced selection ring: ${row.map((c) => c.toString(16))}`,
           );
         }
       }
