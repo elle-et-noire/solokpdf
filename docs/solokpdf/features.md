@@ -46,8 +46,8 @@ personalization settings (light, dark, or the accent shade) and is re-read
 when they change.
 
 The floating selection toolbar takes the control background, as fields and
-menus do, with an `EdgeColor` border; where that nearly matches the page under
-it, the page mixed toward the text color (contrast 1.15). It used the theme's
+menus do, with an `EdgeColor` border, where that stands out from the page
+under it by contrast 1.5; else the page mixed toward the text color to 1.5. It used the theme's
 `BackgroundColor`, which themed pages take too, so in dark themes it vanished
 into the page.
 

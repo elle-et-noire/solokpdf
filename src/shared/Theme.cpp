@@ -1312,10 +1312,10 @@ Color ThemeSelectedBackgroundColor() {
 }
 
 // a popup card against the page under it
-constexpr float kMinCardContrast = 1.15f;
+constexpr float kMinCardContrast = 1.5f;
 
 // A popup card over the page (the selection toolbar): the control background,
-// as fields and menus have, unless it nearly matches the page; then the page
+// as fields and menus have, unless it shows less than kMinCardContrast; then the page
 // mixed toward the text color. Themed pages take BackgroundColor, so a card
 // in it vanished (Solarized Dark).
 Color ThemeCardColorOn(Color page) {

@@ -36,8 +36,8 @@ import {
 const VK_END = 0x23;
 const LINE = "The quick brown fox jumps over the lazy dog";
 const THEMES = ["Solarized Dark", "Dark", "Light"];
-// a card has to separate from the page at least this much (the app aims at 1.15)
-const MIN_CONTRAST = 1.12;
+// a card has to separate from the page at least this much (the app aims at 1.5)
+const MIN_CONTRAST = 1.45;
 
 const hex = (c: number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
 
