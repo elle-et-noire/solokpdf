@@ -4,7 +4,17 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXE, USE_NG, cmdId, extractPageText, makeTextPdf, pollUntil, runStandalone, tmpPath } from "./util.ts";
+import {
+  EXE,
+  USE_NG,
+  cmdId,
+  extractPageText,
+  makeTextPdf,
+  pollUntil,
+  runStandalone,
+  tmpPath,
+  SETTINGS_FILE,
+} from "./util.ts";
 import { launchControlled, pressEnter, sendCommand, waitToolWindow } from "./win-automation.ts";
 import { findChildWindow, getControlText } from "./winapi.ts";
 
@@ -138,7 +148,7 @@ export async function testit(): Promise<void> {
   const log = join(dir, "log.txt");
   const encrypted = makeEncryptedPdf(dir, "rc4-40");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     `FileStates [\n\t[\n\t\tFilePath = ${encrypted}\n\t\tDecryptionKey = ${rememberedKey(encrypted)}\n\t]\n]\n`,
   );
 

@@ -5,7 +5,17 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
-import { EXE, USE_NG, cmdId, extractPageText, makeTopBottomPdf, pollUntil, runStandalone, tmpPath } from "./util.ts";
+import {
+  EXE,
+  USE_NG,
+  cmdId,
+  extractPageText,
+  makeTopBottomPdf,
+  pollUntil,
+  runStandalone,
+  tmpPath,
+  SETTINGS_FILE,
+} from "./util.ts";
 import { killAndWait, launchControlled, pressEnter, sendCommand, waitToolWindow } from "./win-automation.ts";
 import { enumChildWindows, getClassName, getControlText, sendText } from "./winapi.ts";
 import { kPassword, rememberedKey } from "./pdf-decrypt-remembered-key.ts";
@@ -141,7 +151,7 @@ export async function testit(): Promise<void> {
   mkdirSync(appdata);
   const rc4 = encrypt(dir, "rc4-40");
   writeFileSync(
-    join(appdata, "SumatraPDF-settings.txt"),
+    join(appdata, SETTINGS_FILE),
     `FileStates [\n\t[\n\t\tFilePath = ${rc4}\n\t\tDecryptionKey = ${rememberedKey(rc4)}\n\t]\n]\n`,
   );
   const withKey: Launch = () => launchControlled(["-appdata", appdata, rc4]);

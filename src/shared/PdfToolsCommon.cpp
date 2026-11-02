@@ -40,7 +40,11 @@ extern "C" void fz_set_optind(int val);
 // the value of -p for a tool re-opening srcPath, the current tab's file
 char* PdfToolPasswordTemp(MainWindow* win, Str srcPath) {
     WindowTab* tab = win ? win->CurrentTab() : nullptr;
-    return CStrTemp(EngineMupdfToolPasswordTemp(tab ? tab->GetEngine() : nullptr, srcPath));
+    EngineBase* engine = tab ? tab->GetEngine() : nullptr;
+    if (engine && engine->isPasswordProtected && engine->HasAnnotationEditor()) {
+        engine = engine->AnnotationEditor(EditorLoad::Load);
+    }
+    return CStrTemp(EngineMupdfToolPasswordTemp(engine, srcPath));
 }
 
 bool PageRangeOk(Str s, int pageCount, bool isExtract, Vec<int>& pages) {
