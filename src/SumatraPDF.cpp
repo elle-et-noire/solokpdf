@@ -3068,7 +3068,6 @@ void UpdateAfterThemeChange() {
         DeleteObject(win->brControlBgColor);
         win->brControlBgColor = CreateSolidBrush(ThemeControlBackgroundColor());
 
-        UpdateControlsColors(win);
         RebuildMenuBarForWindow(win);
         UpdateToolbarAfterThemeChange(win);
         RecreateFindBar(win);
