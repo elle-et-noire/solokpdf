@@ -401,12 +401,11 @@ TempStr ExtractPdfPagesResultTemp(Str destPath, Str pagesSpec, int annotsOnly, i
         inputPath = tmpPath;
     }
     dir::CreateForFile(destPath);
-    char* argv[] = {
-        (char*)"clean",     (char*)"-p",         CStrTemp(EngineMupdfToolPasswordTemp(engine, tab->filePath)),
-        (char*)"-gggg",     (char*)"-e",         (char*)"100",
-        (char*)"-f",        (char*)"-i",         (char*)"-t",
-        (char*)"-Z",        CStrTemp(inputPath), CStrTemp(destPath),
-        CStrTemp(pageRange)};
+    char* argv[] = {(char*)"clean",     (char*)"-p",         PdfToolPasswordTemp(win, tab->filePath),
+                    (char*)"-gggg",     (char*)"-e",         (char*)"100",
+                    (char*)"-f",        (char*)"-i",         (char*)"-t",
+                    (char*)"-Z",        CStrTemp(inputPath), CStrTemp(destPath),
+                    CStrTemp(pageRange)};
     fz_set_optind(0);
     int res = pdfclean_main(dimofi(argv), argv);
     if (tmpPath) {

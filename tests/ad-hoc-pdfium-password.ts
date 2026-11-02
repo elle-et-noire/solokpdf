@@ -65,16 +65,22 @@ export async function testit(): Promise<void> {
     `RememberOpenedFiles = true\nRememberStatePerDocument = true\nFileStates [\n  [\n    FilePath = ${encrypted}\n    ProtectedPassword = ${sealed}\n  ]\n]\n`,
   );
 
+  const extracted = join(dir, "extracted.pdf");
   await withControlledSumatra(
     EXE,
     async (client) => {
       const deadline = Date.now() + 10_000;
-      while (Date.now() < deadline) {
+      let opened = false;
+      while (!opened && Date.now() < deadline) {
         const res = await client.request(ControlCommand.TestDocumentProperties);
-        if (res[0] === 0) return;
-        await Bun.sleep(100);
+        opened = res[0] === 0;
+        if (!opened) await Bun.sleep(100);
       }
-      throw new Error("Remembered password did not open the document");
+      if (!opened) throw new Error("Remembered password did not open the document");
+
+      // PDF tools re-open the file and need the PDFium tab's password
+      const res = await client.request(ControlCommand.TestExtractPages, [extracted, "1", 0]);
+      if (res[0] !== 0) throw new Error(`Extract pages failed: ${String(res[1] ?? "").trim()}`);
     },
     ["-appdata", appdata, "-log-to-file", log, encrypted],
     { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
@@ -83,6 +89,8 @@ export async function testit(): Promise<void> {
   if (!output.includes("PDFium 158.0.8111.0: opened") || output.includes("Using MuPDF fallback")) {
     throw new Error("Remembered password did not reopen in PDFium");
   }
+  const check = Bun.spawnSync([EXE, "clean", "-p", password, "-D", extracted, join(dir, "extracted-plain.pdf")]);
+  if (check.exitCode !== 0) throw new Error(`Extracted pages don't open with the password: ${check.stderr}`);
 
   const rememberedDir = join(dir, "remembered");
   mkdirSync(rememberedDir);

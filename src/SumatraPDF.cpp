@@ -49,6 +49,7 @@
 #include "Annotation.h"
 #include "FormFields.h"
 #include "PdfTools.h"
+#include "PdfToolsCommon.h"
 #include "MergePdf.h"
 #include "ChmModel.h"
 #include "MarkdownModel.h"
@@ -11592,8 +11593,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
                 if (tab->hwndPDFInfo && IsWindow(tab->hwndPDFInfo)) {
                     SetForegroundWindow(tab->hwndPDFInfo);
                 } else {
-                    TempStr info = EngineMupdfGetPdfInfo(tab->filePath,
-                                                         EngineMupdfToolPasswordTemp(tab->GetEngine(), tab->filePath));
+                    TempStr info = EngineMupdfGetPdfInfo(tab->filePath, Str(PdfToolPasswordTemp(win, tab->filePath)));
                     if (info) {
                         tab->hwndPDFInfo = ShowTextInWindow(StrL("PDF Info"), info, &tab->hwndPDFInfo);
                     }
