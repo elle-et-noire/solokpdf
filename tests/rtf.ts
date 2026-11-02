@@ -7,7 +7,7 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { EXE, runStandalone, tmpPath, USE_NG, writeAppdata } from "./util.ts";
 import { captureWindowPixels } from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
 
@@ -21,7 +21,16 @@ async function testCenteredTable(dir: string): Promise<void> {
   }
   const rtf = join(dir, "centered.rtf");
   writeFileSync(rtf, kCenteredRtf, "latin1");
-  const { proc, client, frame } = await launchControlled(["-view", "single page", "-zoom", "fit page", rtf]);
+  const appdata = writeAppdata("rtf-center", "Theme = Light\nMainWindowBackground = #ffcc00\n");
+  const { proc, client, frame } = await launchControlled([
+    "-appdata",
+    appdata,
+    "-view",
+    "single page",
+    "-zoom",
+    "fit page",
+    rtf,
+  ]);
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);

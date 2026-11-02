@@ -26,7 +26,7 @@ for the area at hand. When an item lands, move its backlog row to
 ## Status
 
 PDFium pages work in the original UI, with MuPDF as fallback and hidden
-editor. Backlog items A1–E5 landed by 2026-11-01. Open items need an unlocked
+editor. Backlog items A1–E5 and D6 landed by 2026-11-02. Open items need an unlocked
 desktop or a physical printer; known gaps are in `limitations.md`.
 
 ## Documents
@@ -45,5 +45,5 @@ desktop or a physical printer; known gaps are in `limitations.md`.
 - [full-suite-triage.md](full-suite-triage.md): upstream full-suite failures
   per engine and their classification.
 - [upstream-merges.md](upstream-merges.md): upstream merge assessment and
-  results (2026-10-29, 2026-10-31).
+  results (2026-10-29, 2026-10-31, 2026-11-02).
 - `data/`: condensed measurement JSON cited by `history.md`.

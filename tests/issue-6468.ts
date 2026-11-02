@@ -6,14 +6,14 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { cmdId, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { cmdId, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 import { sendCopyDataW } from "./winapi.ts";
 
 const kCopyDataDdeW = 0x44646557;
 const PDF = resolve("ext/a-zlib/zlib.3.pdf");
 const APPDATA = tmpPath("issue-6468-appdata");
-const SETTINGS = join(APPDATA, "SumatraPDF-settings.txt");
+const SETTINGS = join(APPDATA, SETTINGS_FILE);
 const kPageSaved = "PageNo = 2";
 
 async function currentPage(client: ControlClient): Promise<number> {

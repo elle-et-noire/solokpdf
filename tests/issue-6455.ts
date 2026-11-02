@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXE_FROM_ARGV, ROOT, runStandalone, tmpPath, USE_NG, writeAppdata } from "./util.ts";
+import { EXE_FROM_ARGV, ROOT, runStandalone, tmpPath, USE_NG, writeAppdata, SETTINGS_FILE } from "./util.ts";
 import { enumWindows, getClassName, getWindowText, postMessage, sendMessage } from "./winapi.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
 
@@ -199,7 +199,7 @@ export async function testit(): Promise<void> {
   try {
     // Cancel downloads nothing and, without "Don't ask again", the next open asks again
     const appdata = writeAppdata("issue-6455-settings", "RestoreSession = false\nCheckForUpdates = false");
-    const settingsPath = join(appdata, "SumatraPDF-settings.txt");
+    const settingsPath = join(appdata, SETTINGS_FILE);
     await openDeclined({ button: kIdCancel, dontAsk: false }, appdata);
     if (readFileSync(settingsPath, "utf8").includes("NoCaj2pdfConverterDownload = true")) {
       throw new Error("issue-6455: plain Cancel remembered the answer");

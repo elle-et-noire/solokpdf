@@ -128,9 +128,10 @@ async function main() {
 
   const { genDocsForBuild } = await import("./gen-docs");
   await genDocsForBuild();
-  await runLogged(join("bin", "premake5.exe"), ["vs2022"]);
+  const solokSolution = process.env.SUMATRA_SLN;
+  await runLogged(join("bin", "premake5.exe"), solokSolution ? ["--with-pdfium", "vs2026"] : ["vs2022"]);
   await runLogged(msbuildPath, [
-    String.raw`vs2022\SumatraPDF.sln`,
+    solokSolution ?? String.raw`vs2022\SumatraPDF.sln`,
     `/t:${target}`,
     `/p:Configuration=Debug;Platform=${platform}`,
     "/m",

@@ -4,7 +4,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXE, USE_NG, makeTextPdf, pollUntil, runStandalone, tmpPath } from "./util.ts";
+import { EXE, USE_NG, makeTextPdf, pollUntil, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled, pressEnter, waitForTitle } from "./win-automation.ts";
 import {
   captureWindowDCRegionPixels,
@@ -89,7 +89,7 @@ async function waitForPaintedDialog(pid: number, name: string): Promise<number> 
 function makeAppdata(dir: string, name: string): string {
   const appdata = join(dir, name);
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, "SumatraPDF-settings.txt"), "Theme = Light\nCheckForUpdates = false\n");
+  writeFileSync(join(appdata, SETTINGS_FILE), "Theme = Light\nCheckForUpdates = false\n");
   return appdata;
 }
 

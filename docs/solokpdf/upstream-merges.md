@@ -121,16 +121,31 @@ patches `0074`–`0082`. All vendored patch names appear in the patch ledger.
 
 Conflicts:
 
-| File | Resolution |
-| --- | --- |
-| `cmd/gen-commands.ts`, generated commands | Upstream's commands first, SolokPDF's theme/Vim commands after; regenerated. |
-| Generated settings | Regenerated both versions from merged generators; SolokPDF defaults retained. |
-| `src/SumatraControl.cpp`, `tests/control.ts` | Upstream IDs 145–148; SolokPDF IDs moved to 149–154. |
-| `TabsCtrl.cpp`, sidebar and ng shell | Kept SolokPDF theme colors and close buttons; added Home sizing and themed "+"; kept ng branding. |
-| `MergePdf.cpp`, `PdfTools.cpp`, shared MuPDF code | Kept PDFium encrypted-file handling and upstream tool keys, widgets and signature validation. |
-| Properties, exports, test list | Kept PDFium date handling and extra exports; combined upstream tests with SolokPDF test order. |
+| File                                              | Resolution                                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `cmd/gen-commands.ts`, generated commands         | Upstream's commands first, SolokPDF's theme/Vim commands after; regenerated.                      |
+| Generated settings                                | Regenerated both versions from merged generators; SolokPDF defaults retained.                     |
+| `src/SumatraControl.cpp`, `tests/control.ts`      | Upstream IDs 145–148; SolokPDF IDs moved to 149–154.                                              |
+| `TabsCtrl.cpp`, sidebar and ng shell              | Kept SolokPDF theme colors and close buttons; added Home sizing and themed "+"; kept ng branding. |
+| `MergePdf.cpp`, `PdfTools.cpp`, shared MuPDF code | Kept PDFium encrypted-file handling and upstream tool keys, widgets and signature validation.     |
+| Properties, exports, test list                    | Kept PDFium dates, EPUB ISO dates and extra exports; combined upstream tests with SolokPDF order. |
 
 Signed PDFium tabs use the hidden MuPDF editor for the signature list and
-validation, after `FPDF_GetSignatureCount` finds a signature. Unsigned PDFium
+validation, after PDFium finds nonempty signature contents. Unsigned PDFium
 tabs leave the editor unloaded. Ctrl+drag highlight uses the shared selection
 path on PDFium tabs.
+
+SolokPDF and ng Windows debug builds passed. The debug unit runner passed
+104843 tests with each engine. The PDFium CI set passed 39/39; the MuPDF run
+passed 36/39, with three PDFium-specific assertions in `sig-status`,
+`catalog-layout` and `theme-switch` inapplicable to MuPDF. Both engines passed
+`issue-6467`, `issue-6468`, `create-annot-enters-edit-mode`, RTF, encrypted PDF
+tools and password reuse. `issue-6455` passed on both with the VS compiler
+environment; `issue-6448` and `issue-6459` failed on both (no WebView thumbnail
+and no PDF after the simulated Convert click).
+
+The locked desktop prevented the foreground/click checks in `issue-6269`,
+`issue-6385`, `issue-6464` and `sig-validation` on both engines. `issue-5918`
+did not switch to the next Markdown file; `issue-6380` saw no WebView resource
+requests. These need an unlocked desktop rerun. Network-dependent EU Trusted
+List and revocation probes and the large external RTF corpus were skipped.

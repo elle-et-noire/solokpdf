@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
 import { IS_WIN } from "./host";
-import { cmdId, loadPng, makePng, runStandalone, tmpPath, USE_NG } from "./util";
+import { cmdId, loadPng, makePng, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
 import { findChildWindow, sendMessage, sleep, treeExpandRecursively, TVE_EXPAND, TVM_GETCOUNT } from "./winapi";
 import {
   killAndWait,
@@ -103,7 +103,7 @@ async function testThumbnail(dir: string): Promise<void> {
   const appData = join(dir, "appdata");
   mkdirSync(appData, { recursive: true });
   const settings = ["UiLanguage = en", "CheckForUpdates = false", "RememberOpenedFiles = true", "ShowStartPage = true"];
-  writeFileSync(join(appData, "SumatraPDF-settings.txt"), settings.join("\n") + "\n");
+  writeFileSync(join(appData, SETTINGS_FILE), settings.join("\n") + "\n");
   // MuPDF draws an image it can't load as "[image]" on white
   writeFileSync(join(dir, "red.png"), makePng(64, 64, [192, 0, 0]));
   const path = join(dir, "red.html");
