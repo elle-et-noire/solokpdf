@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { ControlCommand, type ControlClient, withControlledSumatra } from "./control.ts";
 import { makeCert, writeEutlCache, writeSignedPdf } from "./pki-chain.ts";
-import { cmdId, EXE, makeTextPdf, runStandalone, tmpPath, writeAppdata } from "./util.ts";
+import { assemblePdf, cmdId, EXE, runStandalone, tmpPath, writeAppdata } from "./util.ts";
 import { sendCommandSync, waitForFrame } from "./win-automation.ts";
 
 async function editor(client: ControlClient): Promise<string> {
@@ -11,7 +11,16 @@ async function editor(client: ControlClient): Promise<string> {
 
 export async function testit(): Promise<void> {
   const plain = tmpPath("d6-plain.pdf");
-  writeFileSync(plain, makeTextPdf("unsigned"));
+  writeFileSync(
+    plain,
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R 5 0 R] >> >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Annots [4 0 R 5 0 R] >>",
+      "<< /Type /Annot /Subtype /Widget /FT /Sig /T (empty) /Rect [50 50 100 100] >>",
+      "<< /Type /Annot /Subtype /Widget /FT /Sig /T (blank) /V << /Type /Sig /Filter /Adobe.PPKLite >> /Rect [120 50 170 100] >>",
+    ]),
+  );
   const appdata = writeAppdata("d6-signatures", "RestoreSession = false\nCheckForUpdates = false\n");
   writeEutlCache(appdata, []);
 
@@ -19,6 +28,7 @@ export async function testit(): Promise<void> {
     EXE,
     async (client) => {
       await client.waitForRenderIdle();
+      await client.request(ControlCommand.TestDocumentSignatures);
       const state = String((await client.request(ControlCommand.TestSignatureStatus, []))[1] ?? "");
       if (!state.includes("rows=0") || (await editor(client)) !== "editor=none") {
         throw new Error(`unsigned PDF loaded editor or showed signatures: ${state}`);
@@ -37,7 +47,8 @@ export async function testit(): Promise<void> {
         const state = String((await client.request(ControlCommand.TestSignatureStatus, []))[1] ?? "");
         if (state.includes("rows=1")) {
           const wantEditor = process.env.SOLOKPDF_ENGINE === "mupdf" ? "editor=none" : "editor=loaded";
-          if ((await editor(client)) !== wantEditor) throw new Error(`signed PDF editor state differs from ${wantEditor}`);
+          if ((await editor(client)) !== wantEditor)
+            throw new Error(`signed PDF editor state differs from ${wantEditor}`);
           sendCommandSync(await waitForFrame(proc.pid!), cmdId("CmdShowSignatures"));
           const shown = String((await client.request(ControlCommand.TestSignatureStatus, []))[1] ?? "");
           if (!shown.includes("panel=1")) throw new Error(`CmdShowSignatures did not open panel: ${shown}`);

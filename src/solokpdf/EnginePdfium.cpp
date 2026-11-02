@@ -158,7 +158,7 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
                     X(FPDF_GetMetaText) X(FPDF_GetPageLabel) X(FPDF_GetFormType) X(FPDFDoc_GetJavaScriptActionCount) \
                         X(FPDF_GetSignatureCount) X(FPDFDoc_GetAttachmentCount) X(FPDFDOC_InitFormFillEnvironment)   \
                             X(FPDFDOC_ExitFormFillEnvironment) X(FORM_OnAfterLoadPage) X(FORM_OnBeforeClosePage)     \
-                                X(FPDF_FFLDraw)
+                                X(FPDF_FFLDraw) X(FPDF_GetSignatureObject) X(FPDFSignatureObj_GetContents)
 
 Kind kindEnginePdfium = "enginePdfium";
 
@@ -1769,9 +1769,20 @@ class EnginePdfium : public EngineBase {
     bool HasAnnotationEditor() override { return true; }
     bool HasAcroForm() override { return acroForm; }
 
+    bool HasSignedSigsLocked() {
+        int count = gPdfium.FPDF_GetSignatureCount(doc);
+        for (int i = 0; i < count; i++) {
+            FPDF_SIGNATURE sig = gPdfium.FPDF_GetSignatureObject(doc, i);
+            if (sig && gPdfium.FPDFSignatureObj_GetContents(sig, nullptr, 0) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool HasSignatures() override {
         ScopedMutex lock(&gPdfiumLock);
-        return gPdfium.FPDF_GetSignatureCount(doc) > 0;
+        return HasSignedSigsLocked();
     }
 
     bool HasPageAnnotations(int pageNo) override {
@@ -1892,7 +1903,7 @@ class EnginePdfium : public EngineBase {
             if (gPdfium.FPDFAnnot_HasKey(annot, "V")) {
                 return gPdfium.FPDFAnnot_GetValueType(annot, "V") == FPDF_OBJECT_DICTIONARY ? 0 : 1;
             }
-            if (!gPdfium.FPDFAnnot_HasKey(annot, "Parent") || gPdfium.FPDF_GetSignatureCount(doc) == 0) {
+            if (!gPdfium.FPDFAnnot_HasKey(annot, "Parent") || !HasSignedSigsLocked()) {
                 return 1;
             }
             return -1;
@@ -2897,12 +2908,7 @@ class EnginePdfium : public EngineBase {
             }
         }
 
-        int signatures = 0;
-        {
-            ScopedMutex lock(&gPdfiumLock);
-            signatures = gPdfium.FPDF_GetSignatureCount(doc);
-        }
-        if (signatures <= 0) {
+        if (!HasSignatures()) {
             return;
         }
 

@@ -247,9 +247,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   `tests/ad-hoc-pdfium-unsupported.ts`. PDFium documents no longer show it as
   a notification on every load. Signed PDFium documents use the hidden MuPDF
   editor for verification text and certificate details in Document Properties.
-  PDFium's signature count gates that load; ordinary PDFs stay on PDFium alone.
+  PDFium's signature count and nonempty signature contents gate that load;
+  ordinary PDFs and unsigned signature fields stay on PDFium alone.
   Signed PDFium tabs also show validation status, the Signatures sidebar and
-  `CmdShowSignatures`; the signature count gates this load too.
+  `CmdShowSignatures`; signed contents gate this load too.
   Sign Document and signature-field clicks use the lazy MuPDF editor to sign,
   certify and save incrementally, then reopen the result in PDFium while
   retaining the view state. Unsaved annotation and form edits share that save.
