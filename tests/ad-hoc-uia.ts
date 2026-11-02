@@ -157,7 +157,7 @@ export async function testit(): Promise<void> {
       throw new Error("SumatraPDF main window did not appear");
     }
     showWindow(frame, SW_RESTORE);
-    moveWindow(frame, 60, 60, 1100, 850);
+    moveWindow(frame, 60, 60, 900, 680);
     const canvas = await waitForChildWindow(frame, "SUMATRA_PDF_CANVAS");
     if (!canvas) {
       throw new Error("could not find the canvas window");

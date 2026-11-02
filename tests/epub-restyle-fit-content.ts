@@ -60,7 +60,7 @@ export async function testit(): Promise<void> {
       await client.setChapterLayoutHold(false);
       await client.waitForRenderIdle(30000);
     },
-    ["-appdata", appdata, "-log-to-file", log, "-window-pos", "1000x900@40x40", epub],
+    ["-appdata", appdata, "-log-to-file", log, "-window-pos", "900x700@40x40", epub],
   );
 
   const logText = readFileSync(log, "utf8");

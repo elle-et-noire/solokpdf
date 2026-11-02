@@ -54,7 +54,7 @@ export async function testit(): Promise<void> {
         sendCommandSync(frame, cmdId("CmdToggleLightDarkTheme"));
         await Bun.sleep(delayMs);
       },
-      ["-appdata", appdata, "-log-to-file", log, "-window-pos", "1000x900@40x40", "-view", "continuous", epub],
+      ["-appdata", appdata, "-log-to-file", log, "-window-pos", "900x700@40x40", "-view", "continuous", epub],
     );
     console.log(`epub-quit-during-layout: launch ${i + 1}/${LAUNCHES} (quit after ${delayMs} ms) ok`);
   }

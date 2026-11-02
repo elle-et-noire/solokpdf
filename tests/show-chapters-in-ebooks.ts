@@ -62,7 +62,7 @@ async function openEpub(showChapters: boolean): Promise<void> {
       }
       await waitLaidOut(client);
     },
-    ["-appdata", appdata, "-window-pos", "1000x900@40x40", epub],
+    ["-appdata", appdata, "-window-pos", "900x700@40x40", epub],
   );
 }
 

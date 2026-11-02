@@ -1119,7 +1119,7 @@ export function setTopmost(hwnd: number, on: boolean): boolean {
 export function showWindow(hwnd: number, cmd: number): boolean {
   if (IS_MAC) {
     if (cmd === SW_RESTORE && isZoomed(hwnd)) {
-      return moveWindow(hwnd, 80, 80, 1200, 900);
+      return moveWindow(hwnd, 80, 40, 900, 700);
     }
     return true;
   }

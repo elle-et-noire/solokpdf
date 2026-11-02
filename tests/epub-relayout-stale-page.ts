@@ -208,7 +208,7 @@ async function runLayout(l: Layout, epub: string, epub2: string, log: string): P
         throw new Error(`${l.name}: page count collapsed to ${after.pageCount} after the restyles`);
       }
     },
-    ["-appdata", appdata, "-log-to-file", log, "-window-pos", "1000x900@40x40", "-view", "continuous", epub, epub2],
+    ["-appdata", appdata, "-log-to-file", log, "-window-pos", "900x700@40x40", "-view", "continuous", epub, epub2],
   );
 
   // without the restyle the run proves nothing: fail loudly instead of

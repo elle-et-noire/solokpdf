@@ -128,7 +128,7 @@ export async function testit(): Promise<void> {
       "-log-to-file",
       join(dir, "log.txt"),
       "-window-pos",
-      "1000x900@40x40",
+      "900x700@40x40",
       "-view",
       "continuous",
       epub,

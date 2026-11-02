@@ -220,7 +220,7 @@ async function checkTallList(): Promise<void> {
       await pressKey(edit, VK_DOWN);
       await editText(client, edit, "90%", "Down did not move to the next custom level");
     },
-    ["-appdata", appdata, "-window-pos", "1100x900@40x40", "-zoom", "100", pdf],
+    ["-appdata", appdata, "-window-pos", "900x700@40x40", "-zoom", "100", pdf],
   );
 }
 
@@ -307,7 +307,7 @@ export async function testit(): Promise<void> {
         throw new Error(`custom-zoom-dialog: the dialog zoomed to ${zoom2}, want fit page`);
       }
     },
-    ["-appdata", appdata, "-window-pos", "1100x900@40x40", "-zoom", "100", pdf],
+    ["-appdata", appdata, "-window-pos", "900x700@40x40", "-zoom", "100", pdf],
   );
 
   await checkTallList();

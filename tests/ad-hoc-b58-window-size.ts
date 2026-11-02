@@ -3,7 +3,8 @@ import { cmdId, makeTextPdf, runStandalone, tmpPath, writeAppdata } from "./util
 import { sleep } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
-const WINDOW_POS = "640x600@40x40";
+const WINDOW_POS = "900x700@40x40";
+const HOME_TAB_MAX_DIVISOR = 2;
 
 export async function testit(): Promise<void> {
   const pdf = tmpPath("b58-window-size.pdf");
@@ -25,8 +26,8 @@ export async function testit(): Promise<void> {
       after = await tabs();
     }
     if (after.length !== 3) throw new Error(`B58: expected three tabs, got ${after.length}`);
-    if (after[0]!.rect.dx >= after[1]!.rect.dx)
-      throw new Error(`B58: pinned Home ${after[0]!.rect.dx} is not narrower than document ${after[1]!.rect.dx}`);
+    if (after[0]!.rect.dx * HOME_TAB_MAX_DIVISOR >= after[1]!.rect.dx)
+      throw new Error(`B58: pinned Home ${after[0]!.rect.dx} is not less than half document ${after[1]!.rect.dx}`);
     if (after[1]!.rect.dx !== after[2]!.rect.dx) throw new Error("B58: document and new Home widths differ");
     if (after[1]!.rect.dx >= docDx) throw new Error("B58: document tab did not shrink when new Home opened");
     const plus = (await client.virtTree()).find((v) => v.kind === "tabsPlus");

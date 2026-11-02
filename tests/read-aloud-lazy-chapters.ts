@@ -124,7 +124,7 @@ export async function testit(): Promise<void> {
         );
       }
     },
-    ["-appdata", appdata, "-window-pos", "1000x900@40x40", "-view", "continuous", first],
+    ["-appdata", appdata, "-window-pos", "900x700@40x40", "-view", "continuous", first],
   );
 }
 

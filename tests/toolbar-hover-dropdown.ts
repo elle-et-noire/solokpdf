@@ -91,9 +91,8 @@ const CUSTOM_ZOOM_STRIP = ["50%", "75%", "100%", "Fit Page", "Fit Width", "150%"
 const ZOOM_ROWS = [7, 6, 5, 4, 3, 1];
 const CUSTOM_ZOOM_ROWS = [4, 3];
 
-// a window away from the edges of the screen: a drop-down that would hang off
-// the monitor is slid back on, which is right but takes it off centre
-const WINDOW_POS = "1100x900@40x40";
+// Keep the window within a 1024x768 work area while testing drop-down placement.
+const WINDOW_POS = "1024x700@0x20";
 
 type Btn = { cmd: number; hidden: boolean; x: number; y: number; dx: number; dy: number };
 

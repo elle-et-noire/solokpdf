@@ -30,7 +30,7 @@ async function render(settings: string[]): Promise<Cap> {
   try {
     const frame = await waitForFrame(proc.pid!);
     showWindow(frame, SW_RESTORE);
-    moveWindow(frame, 40, 40, 1000, 800);
+    moveWindow(frame, 40, 40, 900, 700);
     setForegroundWindow(frame);
     await sleep(2500);
     const cap = captureWindowPixels(findCanvas(frame));

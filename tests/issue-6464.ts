@@ -22,6 +22,8 @@ import { killAndWait, launchControlled, sendCommandSync } from "./win-automation
 const TAB_KIND = "tabCtrl";
 const PLUS_KIND = "tabsPlus";
 const BAR_KIND = "tabs";
+const WINDOW_POS = "900x700@40x40";
+const HOME_TAB_MAX_DIVISOR = 2;
 const TABS_READY_MS = 10_000;
 const CROWDED_DOCS = 14;
 const DDE_COPYDATA_ID = 0x44646557;
@@ -131,10 +133,10 @@ export async function testCtrlTShortcut(): Promise<void> {
 }
 
 async function testOpenInHomeTab(paths: string[], appdata: string): Promise<void> {
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata, paths[0]!]);
+  const { proc, client, frame } = await launchControlled(["-window-pos", WINDOW_POS, "-appdata", appdata, paths[0]!]);
   try {
     await client.waitForRenderIdle();
-    await waitForTabs(client, 2);
+    const homeDx = (await waitForTabs(client, 2)).tabs[0]!.rect.dx;
 
     sendCommandSync(frame, cmdId("CmdNewTab"));
     await waitForTabs(client, 3);
@@ -150,7 +152,9 @@ async function testOpenInHomeTab(paths: string[], appdata: string): Promise<void
     await expectSearchFocus(client);
     openFile(frame, paths[2]!);
     await waitForDocument(client);
-    await waitForTabs(client, 4);
+    const b = await waitForTabs(client, 4);
+    check(b.tabs[0]!.rect.dx === homeDx, "the pinned Home should have stayed compact");
+    check(b.tabs[0]!.rect.dx * HOME_TAB_MAX_DIVISOR < b.tabs[1]!.rect.dx, "the pinned Home should still be compact");
     sendCommandSync(frame, cmdId("CmdGoToHomePage"));
     await expectSearchFocus(client);
     await waitForTabs(client, 4);
@@ -231,12 +235,12 @@ async function expectPinnedHomeKept(client: ControlClient, frame: number): Promi
 }
 
 async function testLayoutAndPlus(pdf: string, appdata: string): Promise<void> {
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+  const { proc, client, frame } = await launchControlled(["-window-pos", WINDOW_POS, "-appdata", appdata, pdf]);
   try {
     await client.waitForRenderIdle();
     let b = await waitForTabs(client, 2);
     const [home, doc] = b.tabs;
-    check(home!.rect.dx < doc!.rect.dx, `Home is ${home!.rect.dx}, document ${doc!.rect.dx}`);
+    check(home!.rect.dx * HOME_TAB_MAX_DIVISOR < doc!.rect.dx, `Home is ${home!.rect.dx}, document ${doc!.rect.dx}`);
     check(doc!.rect.x === home!.rect.x + home!.rect.dx, "document tab should follow Home");
     check(!!b.plus, "no + button");
     check(b.plus!.rect.x === doc!.rect.x + doc!.rect.dx, "+ should follow the last tab");
@@ -323,9 +327,9 @@ export async function testit(): Promise<void> {
   }
   const settings = "RestoreSession = false\nCheckForUpdates = false\nNoHomeTab = false\n";
   await testCtrlTShortcut();
+  await testOpenInHomeTab(paths, writeAppdata("issue-6464-open", settings));
   await testLayoutAndPlus(pdf, writeAppdata("issue-6464-appdata", settings));
   await testCrowded(paths, writeAppdata("issue-6464-crowded", settings));
-  await testOpenInHomeTab(paths, writeAppdata("issue-6464-open", settings));
   await testNoHomeDefault();
   await testNoHomeCommand();
   // without -for-testing, ReuseInstance would hand the launch to any running instance

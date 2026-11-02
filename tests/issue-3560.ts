@@ -100,7 +100,7 @@ export async function testit(): Promise<void> {
     if (isZoomed(frame)) {
       showWindow(frame, SW_RESTORE);
     }
-    moveWindow(frame, 40, 20, 1000, 800);
+    moveWindow(frame, 40, 20, 900, 700);
     await client.waitForRenderIdle();
 
     const deadline = Date.now() + 5000;

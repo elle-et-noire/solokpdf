@@ -94,7 +94,7 @@ export async function testit(): Promise<void> {
     },
     // a fixed window: the book reflows to its width, and the assertion below is
     // about where one line lands
-    ["-appdata", appdata, "-window-pos", "1000x900@40x40", "-view", "continuous", epub],
+    ["-appdata", appdata, "-window-pos", "900x700@40x40", "-view", "continuous", epub],
   );
 }
 

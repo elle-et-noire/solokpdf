@@ -90,7 +90,7 @@ export async function testit(): Promise<void> {
     if (!frame) {
       throw new Error("SumatraPDF frame window didn't appear");
     }
-    moveWindow(frame, 40, 20, 1000, 760);
+    moveWindow(frame, 40, 20, 900, 700);
     await sleep(1200);
 
     const tree = findChildByClass(frame, "SysTreeView32");

@@ -27,7 +27,7 @@ async function render(epub: string, settings: string): Promise<Uint8Array> {
       throw new Error(`no frame for ${epub}`);
     }
     showWindow(frame, SW_RESTORE);
-    moveWindow(frame, 40, 40, 1000, 800);
+    moveWindow(frame, 40, 40, 900, 700);
     setForegroundWindow(frame);
     await sleep(2500);
     const cap = captureWindowPixels(findCanvas(frame));

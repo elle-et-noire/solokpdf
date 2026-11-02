@@ -176,7 +176,7 @@ async function testTheme(theme: "Light" | "Dark"): Promise<void> {
 
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {
-    moveWindow(frame, 40, 20, 1000, 800);
+    moveWindow(frame, 40, 20, 900, 700);
     await client.waitForRenderIdle();
     const add = await client.request(ControlCommand.TestFavoriteNav, ["add", 1]);
     if (add[0] !== 0) {

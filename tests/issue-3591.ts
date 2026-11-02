@@ -59,7 +59,7 @@ export async function testit(): Promise<void> {
     if (isZoomed(frame)) {
       showWindow(frame, SW_RESTORE);
     }
-    moveWindow(frame, 60, 60, 1200, 900);
+    moveWindow(frame, 60, 60, 900, 680);
     await client.waitForRenderIdle();
 
     const canvas = findCanvas(frame);

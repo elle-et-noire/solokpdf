@@ -57,7 +57,7 @@ export async function testit(): Promise<void> {
         await client.waitForRenderIdle(30000);
       }
     },
-    ["-appdata", appdata, "-window-pos", "1000x900@40x40", "-view", "continuous", epub],
+    ["-appdata", appdata, "-window-pos", "900x700@40x40", "-view", "continuous", epub],
   );
 }
 

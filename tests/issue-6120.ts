@@ -83,7 +83,7 @@ export async function testit(): Promise<void> {
     "-appdata",
     dir,
     "-window-pos",
-    "1100x900@40x40",
+    "900x700@40x40",
     join(dir, "doc.pdf"),
   ]);
   try {

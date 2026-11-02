@@ -143,7 +143,7 @@ async function launch(epub: string): Promise<Launched> {
     throw new Error("SumatraPDF window didn't open");
   }
   showWindow(frame, SW_RESTORE);
-  moveWindow(frame, 40, 40, 1000, 800);
+  moveWindow(frame, 40, 40, 900, 700);
   setForegroundWindow(frame);
   await sleep(2000);
   return { proc, frame };
