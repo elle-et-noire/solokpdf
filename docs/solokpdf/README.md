@@ -26,8 +26,8 @@ for the area at hand. When an item lands, move its backlog row to
 ## Status
 
 PDFium pages work in the original UI, with MuPDF as fallback and hidden
-editor. Backlog items A1–E5 and D6 landed by 2026-11-02. Open items need an unlocked
-desktop or a physical printer; known gaps are in `limitations.md`.
+editor. Completed work through D6 is in `history.md`; open items need an
+unlocked desktop or a physical printer. Known gaps are in `limitations.md`.
 
 ## Documents
 
@@ -35,15 +35,12 @@ desktop or a physical printer; known gaps are in `limitations.md`.
 - [limitations.md](limitations.md): current PDFium-tab behavior and known
   limitations by area.
 - [features.md](features.md): SolokPDF-only features (identity, theme-colored icon, Chrome-style tabs, theme page
-  colors, count prefix, shortcuts dialog, Vim keys).
-- [history.md](history.md): baseline, engine map, phases 2–5, font cache and
-  other measurements, dropped CI cache plan, 2026-10-29 UI review, full-suite
-  triage log, completed backlog.
+  colors, selection colors, overlay scrollbars, count prefix, shortcuts dialog, Vim keys).
+- [history.md](history.md): baseline, engine map, performance measurements,
+  2026-10-29 UI review, full-suite results and completed backlog.
 - [annotations.md](annotations.md): annotation editing on PDFium tabs through
   the hidden MuPDF editor.
 - [forms.md](forms.md): document JavaScript, forms and signing on PDFium tabs.
-- [full-suite-triage.md](full-suite-triage.md): upstream full-suite failures
-  per engine and their classification.
 - [upstream-merges.md](upstream-merges.md): upstream merge assessment and
   results (2026-10-29, 2026-10-31, 2026-11-02).
 - `data/`: condensed measurement JSON cited by `history.md`.

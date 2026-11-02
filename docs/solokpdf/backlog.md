@@ -12,11 +12,10 @@ there.
 | ID  | Item                                             | Status                                                        |
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
 | B37 | Cursor and RTL capture tests (full-suite run 3)  | blocked — locked desktop prevents cursor and capture checks   |
-| B39 | MuPDF shape placement (full-suite run 3)         | blocked — cursor stays at origin on locked desktop            |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
 
-B37 and B39 need a rerun on an unlocked, interactive desktop.
+B37 needs a rerun on an unlocked, interactive desktop.
 
 ## Dropped
 
@@ -34,4 +33,5 @@ XFA editing and GoToE (unsupported in both engines); `src/ng/`; distribution
 (GitHub Releases, update checks, release criteria): the owner has no plans to
 distribute. Explorer thumbnails/preview (needs DLL registration; little value
 for one user). The default-app association already works through
-`Applications\SolokPDF.exe`.
+`Applications\SolokPDF.exe`. Crash recovery and inactive-tab allocation
+attribution remain unverified; Chrome/Edge rendering comparisons remain open.

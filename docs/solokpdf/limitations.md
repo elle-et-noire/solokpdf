@@ -201,8 +201,7 @@ are in [history.md](history.md).
 - PDFium reuses its loaded bookmark tree without taking the global render lock.
   Hover annotation and link queries also skip a page while rendering holds
   that lock, as MuPDF's hover does. `issue-6362` scrolls and changes pages
-  without stalling locally; Run 3 CI had seen a 4.3-second scroll block with
-  its cursor over the window (B23).
+  without stalling locally (B23).
 
 ## Annotations, forms, signatures and attachments
 
@@ -333,8 +332,7 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 - Two-document Tab Groups and normal-session paths persisted across restart.
   `tests/ad-hoc-pdfium-view-state.ts` restores page, zoom and scroll from the
   session and from file history; both engines save identical values (scroll
-  within 0.2 pt of the seed). Crash recovery and inactive-tab allocation
-  attribution remain unverified.
+  within 0.2 pt of the seed).
   `ad-hoc-pdfium-leak` cycles two PDF tabs through open, scroll, zoom, search,
   tab switch and close. A 2-minute local run completed 147 cycles and 12 idle
   samples: Private Bytes 113.1–126.7 MiB (last 115.7), handles 686→680,
@@ -348,7 +346,7 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   crash or a 20 s hang. 1,150 inputs (seeds 1 and 2) found none; most still
   reached rendering, links and the outline. Debug only: no ASan build of
   PDFium or the app, so silent memory errors aren't caught (E3 dropped:
-  prebuilt PDFium isn't ASan). Chrome/Edge comparisons remain. A passing close
+  prebuilt PDFium isn't ASan). A passing close
   stress check is not an exhaustive proof against races.
 
 ## Tests and CI
@@ -358,23 +356,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   RTL notification capture hangs on the locked desktop. Neither test can
   establish an app regression in this session; B37 is blocked until an
   interactive desktop can run the targeted tests.
-- `shape-annotation-placement` failed three of three local MuPDF reruns: the
-  first page click did not anchor the rectangle. This locked desktop pins the
-  cursor at `(0,0)` during drag tests, so B39 needs an interactive rerun
-  before an app change can be judged.
-- `issue-5918` failed intermittently on both engines (B40): the title changes
-  only once WebView2 shows the next page, and a slow WebView2 cold start
-  outlasted the test's 5-second wait. Delaying WebView2 by 8 seconds
-  reproduced it; the navigation is queued, not lost. The test now waits 30
-  seconds.
-- The clipboard unit-test failure seen on the unchanged baseline came from
-  this host: right after `GetClipboardData` the clipboard was no longer open
-  (`ERROR_CLIPBOARD_NOT_OPEN`, no formats). ESET's `ebehmoni.dll` and ATOK's
-  TIP are injected into the process; which one closes it is unconfirmed. The
-  test now opens the clipboard per read and retries, and
-  `GetClipboardImageAsPixmap` retries while `CF_BITMAP` is still listed. The
-  unit suite then passed 11 runs in a row (before, most runs failed). No tests
-  were removed or disabled.
+- `shape-annotation-placement` passes on both engines in hosted CI run
+  41349548951 (B39); local locked-desktop drag attempts remain unreliable.
+- The baseline clipboard test failure was fixed with per-read opens and
+  retries; the unit suite passed 11 consecutive runs.
 - GitHub Actions CI builds SolokPDF debug on pushes and PRs to `solokpdf-dev`.
   It runs unit tests and selected PDFium, Vim, count-prefix, and update-check
   tests. Pushes and manual runs also build the release ZIP in parallel with
@@ -387,4 +372,4 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   hosted-desktop cursor/capture tests (`toolbar-hover-dropdown`,
   `issue-6113`), so a red weekly run means a regression (B50). The suite takes
   ~25 min once a hung test is cut off by the per-test timeout; sharding is
-  deferred (D3). Triage: [full-suite-triage.md](full-suite-triage.md).
+  deferred (D3). Both engines passed in run 41349548951.

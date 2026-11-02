@@ -38,8 +38,9 @@ MuPDF draws the annotations into the same pixels
   EnginePdfium has one. `AnnotEngineMupdf()` resolves the engine that holds a
   document's annotations, so the EngineMupdf\* annotation entry points and the
   UI work unchanged. The Annotation objects are the editor's.
-- The editor loads on the first annotation query: a hover, the annotation
-  list, edit mode, a create. 38–98 ms in a Debug build on the corpus papers.
+- The editor loads on the first annotation query: hover on an annotated page,
+  the annotation list, edit mode, or creation. Plain-page hover stays in PDFium
+  (B13/B47). Loading took 38–98 ms in a Debug build on the corpus papers.
   Until then PDFium draws the annotations (`FPDF_ANNOT`), so viewing only
   costs nothing. A tile reads the editor once, so it never gets annotations
   from both engines.
@@ -52,8 +53,8 @@ MuPDF draws the annotations into the same pixels
   for one annotation on the corpus files. The app then reloads the document.
 - Rendering doesn't serialize the editor: MuPDF's writer marks changes as saved
   and adds a journal step, so it can't run per edit.
-- Form fields stay PDFium's (`FPDF_FFLDraw`); their widgets in the editor are
-  never used.
+- PDFium draws form fields with `FPDF_FFLDraw` until the editor loads. Then
+  MuPDF draws and edits the widgets, without a duplicate PDFium pass.
 - FileAttachment icons use the editor's link only when PDFium finds that
   subtype on the queried page. The editor loads that page without extracting
   text, so ordinary pages keep PDFium's link path.
@@ -61,13 +62,13 @@ MuPDF draws the annotations into the same pixels
 ## Limits
 
 - Redaction marks use the same lazy MuPDF editor as other annotations.
-  Applying them saves the rewritten file and reloads PDFium so the removed
-  content is no longer rendered. A save failure leaves the edited document
-  open and reports the error.
+  Applying them rewrites the editor's pages; the change remains unsaved and
+  undoable until Save (B17). Print uses the editor's redacted pages before Save.
 - Page space is assumed equal in both engines; pages with `/UserUnit` aren't
   checked.
-- A clone (printing, thumbnails) reloads the file, so it shows the saved
-  annotations, as an EngineMupdf clone does.
+- A clone reloads saved annotations from the file. Printing is the B52
+  exception: after Apply Redactions and before Save, it uses the editor's
+  redacted document.
 
 ## Stages
 
@@ -81,7 +82,7 @@ MuPDF draws the annotations into the same pixels
    skips that query. The existing widget editing and incremental save paths
    then serve both engines. Once the editor is loaded, PDFium omits its widget
    pass and MuPDF draws widgets with annotations, so edits appear without a
-   duplicate or stale field. XFA and signing remain separate gaps.
+   duplicate or stale field. XFA remains a separate gap.
 
 ## Tests
 
@@ -108,8 +109,9 @@ Mouse input is window messages. Upstream tests passing with PDFium:
 `annot-filter-syntax`, `annot-text-popup-reload`, `file-link-no-dest`,
 `ad-hoc-paste-image-annot`, `ad-hoc-annot-edit-race`.
 
-These upstream annotation tests fail on this host with MuPDF too, because
-injected mouse input is dropped: `annot-undo-redo`, `annot-copy-paste`,
+These upstream annotation tests fail on this locked local desktop because
+injected mouse input is dropped; the included tests pass in hosted CI run
+41349548951: `annot-undo-redo`, `annot-copy-paste`,
 `annot-cut-paste`, `annot-filter-toolbar`, `annot-list-placement`,
 `annot-color-dropdown`, `annot-contents-click-away`, `annot-nudge`,
 `annot-moveable-types`, `ink-thickness`, `stamp-edit-toolbar-name`, and the

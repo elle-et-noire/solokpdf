@@ -4,62 +4,6 @@ Measurement and work log, oldest first. Current behavior is in
 [limitations.md](limitations.md); open items are in [backlog.md](backlog.md).
 Condensed measurements are in [data/](data/).
 
-## Summary as of 2026-10-26
-
-Opaque views now use an identity gray palette when every rendered pixel is
-opaque and R=G=B; other opaque views use BGR. PDFium still renders unchanged BGRA.
-The accepted Phase 4 pass keeps row-level cancellation and rejects already-canceled
-allocations. A size-cache candidate was rejected for higher large-tile peaks;
-a later variant that skips the lock only outside renders cut dense-wide zoom
-latency ~40% with lower peaks ("Lock-free page sizes" below).
-The 2026-10-25 single-buffer trial was also rejected: its large-tile savings came
-with a light-wide CPU regression and slower group restoration. Its measurements
-remain in `data/phase4-ownership-2026-10-25.json` and the tab-group reports.
-
-The tab-group pass has four qualifying pairs each for 4/8/16 tabs. Restore peaks
-fell 2–3 MiB at 4/8 tabs and 13.4 MiB at 16; active-ready time rose in all
-three sets. The 16-tab rerun excludes one high-load pair. The render-buffer
-trial is rejected for general use, including its light-wide CPU regression.
-See `data/tabgroup-2026-10-25.json` and
-`data/tabgroup-16-idle-2026-10-25.json`.
-
-A system font cache now cuts the first text page's load from 116–273 ms to
-31–62 ms with identical pixels; see "System font cache" below. With it, PDFium's
-direct-launch lag behind MuPDF fell to +123/+114/+10 ms (Attention/BERT/IPA).
-A startup font warm-up then saved another 91/105 ms on the text PDFs, and
-thumbnails now reuse the open engine: +26/+64/−8 ms behind MuPDF. A narrower
-lock cut the 4-tab startup gap from +68 to +19 ms. Working set already matched
-MuPDF; tiles now live in mapped DIB sections like MuPDF's, so Private Bytes
-match too.
-
-The 2026-10-26 pass adds pixel-payload accounting and independent background-load
-monitoring. Its render-gate trial is deferred: a qualifying light-wide comparison
-used 10.4% more CPU with unchanged wall time. The active source retains pretrial
-rendering. Release/Debug folders and ZIPs were refreshed and checked. Evidence:
-`data/memory-2026-10-26.json`. The frozen pretrial Release remains
-`out/solok-finish-after-release/SolokPDF.exe`; the rejected older trial stays at
-`out/solok-ownership-after-release/SolokPDF.exe`. General resident-memory and
-startup improvements remain unestablished.
-
-The 2026-10-26 normal-PDF diagnostic used one Release executable for PDFium and
-MuPDF, with independent background-load sampling. Six pairs across two documents
-qualified; the third document did not qualify before host load blocked further
-runs. PDFium's document open-to-render-idle median was 282.8 vs 131.1 ms and
-256.0 vs 123.7 ms. Its extra Private Bytes while open were 1.9 and 5.9 MiB;
-nearly all one-document memory was released on close. Continue targeted
-diagnosis; do not adopt font-info v2 or change cache policy on this evidence.
-See the normal-PDF diagnostic section below.
-
-A controlled direct-launch pass now has three qualifying pairs for each of
-Attention, BERT and IPA. Paired PDFium minus MuPDF render-idle medians are
-+429, +284 and +13 ms. Release phase logs put the text PDFs' first-page load
-at 290–405 ms versus 3–10 ms on IPA. Known tile pixels are smaller with
-PDFium in all three cases, while settled Private Bytes are higher on the two
-text PDFs and lower on IPA. Isolated probes now attribute most of the synthetic
-font-alias fixture's 36 MiB page state to font data and measure 2–4 MiB of
-document state per ordinary PDF. The remaining application-side bytes lack
-allocation stacks. See the direct-launch and allocation sections below.
-
 ## Baseline (2026-10-24)
 
 - The initial repository had no commits or files. Its `origin` remains
@@ -84,18 +28,19 @@ allocation stacks. See the direct-launch and allocation sections below.
   denied; missing v143. Build uses a local MSBuild
   `ForceImportBeforeCppProps` override to select installed v145 without
   modifying upstream source. Windows 7 compatibility is unverified.
-- Unmodified debug build **passed** (`out/baseline/build-final.log`). Initial
+- Unmodified debug build **passed**. Initial
   links of newly created PE files intermittently returned LNK1104; retrying
   without source changes passed. The cause was not established; no security
   settings were changed.
-- Original executable/DLLs are preserved under `out/baseline/bin/`.
 - Official `bun cmd/run-unit-tests.ts -dbg` **failed on the unmodified baseline**:
   `ClipboardImage_ut.cpp:88`, `len(dib) > sizeof(BITMAPV5HEADER)`, followed by
-  access violation at line 90. Do not report the unit suite as passing.
-  Raw output: `out/dbg64/unit-tests-dbg.txt`; build/test driver log:
-  `out/baseline/unit-test-build.log`. The unrelated test was not changed.
+  access violation at line 90. The baseline suite failed.
+  `GetClipboardData` later lost the open
+  clipboard on this host. ESET's `ebehmoni.dll` and ATOK's TIP were injected;
+  the culprit was unconfirmed. Per-read opens and retries fixed the test, and
+  the unit suite passed 11 consecutive runs.
 
-## Engine map from this revision
+## Engine map at baseline (842ea1be5)
 
 | Responsibility     | Existing implementation / integration boundary                                                                                                                                    |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -109,33 +54,17 @@ allocation stacks. See the direct-launch and allocation sections below.
 | Sessions           | `src/TabGroupsManage.cpp`, shared header and generated settings; UI-level tab/session management                                                                                  |
 | Build integration  | `premake5.files.lua` and `premake5.lua`; regenerate using official Premake                                                                                                        |
 
-MuPDF-specific annotation/form APIs extend beyond EngineBase. An independent
-PDFium engine must report unsupported operations rather than claim parity.
-`src/solokpdf/EnginePdfium.cpp` now opens each file-backed PDF using PDFium only.
-MuPDF remains available for explicit comparison and fallback, not as a second
-live document. Thumbnail/print cloning can temporarily open another PDFium
-document, as the existing EngineBase contract permits.
+MuPDF-specific annotation/form APIs extended beyond EngineBase at baseline.
+The PDFium engine later gained a lazy hidden MuPDF editor for annotations,
+forms and signatures. Thumbnail/print cloning can temporarily open another
+engine instance, as the existing EngineBase contract permits.
 
 PDFium public `fpdfview.h` requires serialization of **all** calls across the
 process, including calls on different documents. A per-document mutex alone
 would be insufficient. Destruction must use the same global synchronization.
 
-## Reproduce the original build
-
-```powershell
-# From repository root, with local Bun available (or an existing Bun on PATH):
-New-Item -ItemType Directory -Force .work/build-deps | Out-Null
-. ./tools/solokpdf/env.ps1 -Toolset v145
-bun add --cwd .work/build-deps minio@8.0.6 prettier@3.6.2
-./bin/premake5.exe vs2022
-bun cmd/build.ts -dbg
-bun cmd/run-unit-tests.ts -dbg
-# All ad-hoc GUI launches must include -for-testing.
-./out/dbg64/SumatraPDF.exe -for-testing path/to/paper.pdf
-```
-
-With v143 installed, use `-Toolset v143`. The optional website checkout is absent;
-the official scripts skip the embedded manual and JavaScript examples.
+The baseline `vs2022` build used `tools/solokpdf/env.ps1 -Toolset v145`
+because v143 was absent on that host.
 
 ## Phase 2: independent renderer
 
@@ -178,7 +107,7 @@ Observed PDF SHA-256:
 `bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697`.
 The PDF is not redistributed in Git or the portable package.
 
-Comparison results (`out/pdfium-comparison/`):
+Comparison results:
 
 - Pages 3 and 4, 96 and 144 DPI, PDFium normal/LCD and the baseline's
   `sumatrapdf-tool draw -A 8` (MuPDF 1.28.5). Matching page pixel dimensions.
@@ -187,8 +116,6 @@ Comparison results (`out/pdfium-comparison/`):
   Greek symbols, vector diagrams and thin lines. No missing formula glyphs or
   displaced content was observed on these pages. This is limited visual evidence,
   not a broad correctness or readability score.
-- Normal text appearance differs subtly. A native-display human review at the
-  reader's preferred zoom is still needed to choose a rendering preference.
 - PNG probe runs report initialization, document/page loading, render samples,
   PNG encoding and process memory separately. Runs varied substantially with
   machine load; raw JSON is retained. For example, the first isolated 144-DPI
@@ -237,7 +164,8 @@ Implementation details:
   closed, so producers (e.g. LaTeX) can overwrite the open PDF and it reloads.
   This costs the file size per open document. Larger files keep a handle and
   custom reader for the document's lifetime. Pages/text pages/render
-  handles are closed after each operation; no second engine's PDF is retained.
+  handles are closed after each operation. Later annotation, form and signature
+  work added a lazy hidden MuPDF editor.
 - Existing cache owns BGRA pixmaps; progressive render pause callbacks consume
   an atomic AbortCookie. Queued cancellation is checked after acquiring the
   mutex; render-close precedes page-close. No detached PDFium worker is added.
@@ -248,8 +176,8 @@ Implementation details:
   is below 0.01 point in the targeted fixture.
 - Owned page links, cached named destinations and bounded bookmark trees use
   existing destination/TOC types. The UI and Tab Groups implementation are reused.
-- The DLL stays mapped for the process lifetime to avoid loader churn; PDFium
-  global state shuts down when its last engine closes.
+- The DLL stays mapped for the process lifetime to avoid loader churn. Later,
+  startup font warm-up kept PDFium initialized between documents.
 
 `tests/ad-hoc-pdfium.ts` passed on the renamed portable debug executable:
 
@@ -272,7 +200,7 @@ Tab Groups clicks missed their controls. The application itself was unchanged.
 An early ownership error (`defaultExt` was a literal rather than owned memory)
 was caught by this test and corrected; it now exercises engine destruction.
 
-## Phase 4: measured baseline, optimization incomplete
+## Phase 4: performance measurements and changes
 
 Run `bun experiments/pdfium/benchmark-ui.ts <pdf>` after both builds exist.
 Raw samples are checked in as `data/benchmark-2026-10-24.json`.
@@ -308,8 +236,7 @@ PDFium navigates faster in this fixture but starts slower and uses more private
 memory. The lightweight objective is **not achieved yet**. The implementation
 already uses lazy file reads and short-lived PDFium page handles, renders into
 the final Pixmap buffer, reuses upstream tile/text caches, and bounds output
-allocations. No speculative cache tuning was applied. Next: larger math/scan
-corpora, page/font/cache profiling and cancellation latency.
+allocations. No speculative cache tuning was applied.
 
 ### Release comparison (2026-10-25)
 
@@ -347,14 +274,6 @@ variant/tab count; variant order reverses in each round's middle run. No build
 ran during measurement. Raw samples, PDF/executable/DLL hashes and round numbers:
 `data/benchmark-lazy-dest-2026-10-25.json`.
 
-Keep the before executable/PDB under `out/solok-phase4-baseline/`, with the same
-DLLs as the current portable build, then run:
-
-```powershell
-bun experiments/pdfium/benchmark-ui.ts --release --before out/solok-phase4-baseline/SolokPDF.exe --output out/solok-phase4-paired
-bun experiments/pdfium/benchmark-ui.ts --release --before out/solok-phase4-baseline/SolokPDF.exe --output out/solok-phase4-paired-repeat
-```
-
 Medians of six launches per row; MiB uses process counters:
 
 | Release engine        | PDF tabs | First render idle, ms | Private Bytes at first idle, MiB | Private Bytes after all tabs visited, MiB | Working set after all tabs visited, MiB |
@@ -383,10 +302,7 @@ byte-identical and were visually inspected. This is limited regression evidence.
 
 Debug and Release builds passed with zero warnings/errors. Fresh executables
 initially rejected reads/launches; Debug also hit `LNK1104` on output DLLs/exe.
-Retries passed without ACL/security changes. Logs:
-`out/solok-phase4-build-{debug,release}.log`,
-`out/solok-phase4-test-{debug,release}.log`. Next: profile page/font retention and
-test larger math/scan corpora before another cache or startup change.
+Retries passed without ACL/security changes.
 
 ### Font-loading diagnosis (2026-10-25)
 
@@ -448,10 +364,7 @@ was rejected; the speedup is not an application startup improvement.
 The diagnostic Debug build passed with zero warnings/errors. The existing
 `tests/ad-hoc-pdfium.ts` passed with profiling disabled and enabled. The optimized
 standalone probe also built successfully. Output-file `LNK1104` failures cleared
-on retries without ACL/security changes. Logs: `out/solok-phase4-profile-build.log`,
-`out/solok-phase4-profile{,-enabled}-test.log`, `out/solok-phase4-font-check.log`.
-Next: preserve font-name/style matching while reducing enumeration work, and
-attribute the vector-document memory gap before changing cache policy.
+on retries without ACL/security changes.
 
 ### Opaque view bitmap storage (2026-10-25)
 
@@ -511,29 +424,14 @@ and derived/synthetic fixtures, not broad PDF compatibility evidence.
 Both final builds passed with zero warnings/errors. `tests/ad-hoc-pdfium.ts`
 passed in Release and Debug, including search/selection, cropped/rotated links,
 TOC, view/print bitmap generation, history, Tab Groups and pending-render close.
-Logs: `out/solok-memory-bgr-final-build-{debug,release}.log` and
-`out/solok-memory-final-test-{debug,release}.log`. Earlier PE/PDB access failures
+Earlier PE/PDB access failures
 required retries/output backups; no ACL or security settings were changed.
-
-Reproduce with the frozen inputs and the saved before/after executables:
-
-```powershell
-$memoryPdfs = @('.work/corpus/attention-1706.03762v7.pdf',
-    '.work/corpus/phase4/attention-vector-300.pdf',
-    '.work/corpus/phase4/attention-raster-15.pdf',
-    'out/solok-phase4-font-check/fonts.pdf')
-bun experiments/pdfium/memory-ui.ts --before out/solok-memory-before/SolokPDF.exe --after out/solok-memory-final-release/SolokPDF.exe --output out/solok-memory-final-paired @memoryPdfs
-bun experiments/pdfium/memory-ui.ts --before out/solok-memory-before/SolokPDF.exe --after out/solok-memory-final-release/SolokPDF.exe --reverse --output out/solok-memory-final-repeat @memoryPdfs
-bun experiments/pdfium/make-memory-fixture.ts
-bun experiments/pdfium/memory-ui.ts --before out/solok-memory-before/SolokPDF.exe --after out/solok-memory-final-release/SolokPDF.exe --runs 1 --output out/solok-memory-final-edge out/solok-memory-fixtures/odd-rgb-alpha.pdf
-```
 
 A prior render-buffer serialization trial was rejected: memory gains were not
 consistent. It is absent from the final code. Its exploratory data are in
 `data/memory-lock-trial-2026-10-25.json`; its first launch overlapped a
 functional check and its workload differed, so do not combine it with the
-accepted comparison. Next: independent PDFs, inactive-tab/font retention and
-larger-tile cancellation costs.
+accepted comparison.
 
 ### Lossless gray view bitmap storage (2026-10-25)
 
@@ -594,29 +492,10 @@ Japanese glyph coverage.
 Release runs and Debug. A focused harness ran the new gray round-trip/rejection
 test plus existing palette/BGR/BGRA tests: 210 checks, zero failures. Full unit
 suites were not run. Both final builds passed with zero warnings/errors.
-Logs: `out/solok-gray-build-release-final.log`,
-`out/solok-gray-build-debug-retry3.log`, `out/solok-gray-test-*-final*.log`,
-`out/solok-gray-focused-elevated.log`. PE reads/launches and Debug links needed
+PE reads/launches and Debug links needed
 retries/output backups, without ACL/security changes. An earlier GUI check
 overlapping a build timed out in the missing-DLL fallback; standalone repeats
 passed. The access failures and timeout causes remain unresolved.
-
-Reproduce with the frozen inputs and saved executables (do not regenerate inputs
-between variants):
-
-```powershell
-$grayPdfs = @('.work/corpus/attention-1706.03762v7.pdf',
-    '.work/corpus/phase4/attention-vector-300.pdf',
-    '.work/corpus/phase4/attention-raster-15.pdf',
-    'out/solok-phase4-font-check/fonts.pdf')
-bun experiments/pdfium/memory-ui.ts --before out/solok-gray-before/SolokPDF.exe --after out/solok-gray-after-release/SolokPDF.exe --output out/solok-gray-paired @grayPdfs
-bun experiments/pdfium/memory-ui.ts --before out/solok-gray-before/SolokPDF.exe --after out/solok-gray-after-release/SolokPDF.exe --reverse --output out/solok-gray-repeat @grayPdfs
-bun experiments/pdfium/make-gray-fixture.ts
-bun experiments/pdfium/memory-ui.ts --before out/solok-gray-before/SolokPDF.exe --after out/solok-gray-after-release/SolokPDF.exe --runs 1 --output out/solok-gray-edge out/solok-memory-fixtures/gray-near-gray.pdf out/solok-memory-fixtures/odd-rgb-alpha.pdf
-```
-
-Next: independent PDFs, long-lived GDI resource counts and larger-tile
-cancellation before changing font or cache policy.
 
 ### Independent documents, retention and cancellation (2026-10-25)
 
@@ -733,28 +612,7 @@ the measurement helpers were still being extended. All temporarily hidden PDBs
 were restored. No application rebuild, full unit suite or portable replacement
 was needed for these diagnostic-only changes.
 
-Reproduce with the frozen inputs and saved executables:
-
-```powershell
-$bgrExe = 'out/solok-gray-before/SolokPDF.exe'
-$grayExe = 'out/solok-gray-after-release/SolokPDF.exe'
-$extraPdfs = @('.work/corpus/independent/bert-1810.04805.pdf',
-    '.work/corpus/independent/ipa-2026-soshiki.pdf')
-bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --runs 2 --output out/solok-independent-final-paired @extraPdfs
-bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --runs 2 --reverse --output out/solok-independent-final-repeat @extraPdfs
-$mixedPdfs = @('.work/corpus/attention-1706.03762v7.pdf', $extraPdfs[0],
-    $extraPdfs[1], 'tests/issue-6101.pdf')
-bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --mixed --tabs 4 --runs 2 --hold 120 --cycles 24 --output out/solok-retention-paired @mixedPdfs
-bun experiments/pdfium/make-wide-fixture.ts
-bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --runs 2 --large --window 2400x1800 --output out/solok-wide-paired out/solok-memory-fixtures/wide-gray-color.pdf
-bun experiments/pdfium/memory-ui.ts --before $bgrExe --after $grayExe --runs 2 --large --window 2400x1800 --reverse --output out/solok-wide-repeat out/solok-memory-fixtures/wide-gray-color.pdf
-```
-
-Next: measure an empty-window baseline and repeated open/close cycles, record
-system memory pressure, and separate PDFium rendering from gray scanning/copying
-and BGR packing. Investigate cancellation during postprocessing before changing
-font matching, cache eviction or tile resolution. This run applies no further
-memory optimization.
+This run applied no further memory optimization.
 
 ### Batched cancellation and retention pass (2026-10-25)
 
@@ -764,19 +622,16 @@ and alpha conversion. Canceling gray conversion preserves the original pixmap
 and deletes any partial DIB. Canceled BGR/alpha buffers are discarded. Normal
 rendering, fonts, flags, resolution, colors and cache policy are unchanged.
 
-The baseline adds only optional phase diagnostics and an unused cancellation
-argument to `d7fd279f3`. Original artifacts remain in `out/solok-finish-before/`;
-`out/solok-finish-before-matched/` combines its EXE/PDB with the same frozen DLLs
-used by the accepted candidate. No preserved baseline or portable EXE was
-overwritten. Accepted builds are `out/solok-finish-after-release/SolokPDF.exe`
-and `out/solok-finish-after-debug/SolokPDF.exe`.
+The baseline added only optional phase diagnostics and an unused cancellation
+argument to `d7fd279f3`. The comparison used matched DLLs; no baseline or
+portable executable was overwritten at the time.
 
 The new focused test failed first: 219 checks, six failures. After adding
 cancellation it passed 222 checks with zero failures, including existing
 palette/BGR/BGRA tests. Cases cover cancellation during gray scanning and DIB
 copying, source preservation and GDI cleanup. Release and Debug built with zero
 warnings/errors and passed `tests/ad-hoc-pdfium.ts`. Full unit suites were not
-run; the earlier clipboard baseline failure remains unresolved.
+run; the earlier clipboard baseline failure was fixed later.
 
 Optional `SOLOKPDF_PROFILE=1` logs now separate geometry, allocation, lock wait,
 page load, fill, drawing, close, alpha conversion, gray scan/allocation/copy and
@@ -821,8 +676,7 @@ rounds with opposite starting orders. `make-cancel-fixture.ts` generates the
 light fixture: large gray/near-gray tiles with little drawing work. Its pauses
 are 35 ms; dense/standard workloads use 20 ms. Faster geometry may allow more
 overlapping temporary buffers, but allocation ownership was not isolated.
-The rejected source/artifacts remain under `out/solok-finish-final-{release,debug}`,
-marked `REJECTED.txt`; their counters are kept separate. The working tree was
+The rejected trial's counters were kept separate. The working tree was
 restored exactly to the accepted candidate's four C/C++ source hashes.
 
 The lifetime workload starts empty, opens the original paper, BERT, the IPA
@@ -879,33 +733,12 @@ comparisons: 80 standard-corpus, 16 gray/color/alpha/rotation edge, 20 dense-wid
 another 28 launches and 60 matching comparisons. Results are not mixed between
 candidate hashes. Input/executable/DLL/source/image hashes, phase summaries,
 CPU/pressure counters, lifecycle snapshots and test logs are recorded in
-`data/phase4-batch-2026-10-25.json`; raw polling and PNGs stay in `out/`.
+`data/phase4-batch-2026-10-25.json`.
 
 All temporary PDB renames were restored, and generated VS files were returned
 to their original state after verifying only `--with-pdfium` generation changes.
 SDK discovery, PE reads/launches and output links required retries; no ACL or
-security settings changed. Build/test logs use `out/solok-finish-*.log`.
-At the end of this batch, raw `out/rel64` / `out/dbg64` held the rejected
-size-cache trial. Later builds overwrite them; use the labeled paths for each
-pass. Portable folders and ZIP archives were not updated.
-
-Reproduce the accepted comparisons with the frozen files:
-
-```powershell
-$beforeExe = 'out/solok-finish-before-matched/SolokPDF.exe'
-$acceptedExe = 'out/solok-finish-after-release/SolokPDF.exe'
-$batchPdfs = @('.work/corpus/attention-1706.03762v7.pdf',
-    '.work/corpus/independent/bert-1810.04805.pdf',
-    '.work/corpus/independent/ipa-2026-soshiki.pdf',
-    'out/solok-phase4-font-check/fonts.pdf',
-    '.work/corpus/phase4/attention-raster-15.pdf')
-bun experiments/pdfium/memory-ui.ts --before $beforeExe --after $acceptedExe --runs 2 --output out/solok-finish-corpus-paired @batchPdfs
-bun experiments/pdfium/memory-ui.ts --before $beforeExe --after $acceptedExe --runs 2 --reverse --output out/solok-finish-corpus-repeat @batchPdfs
-$lifetimePdfs = $batchPdfs[0..3]
-bun experiments/pdfium/lifetime-ui.ts --before $beforeExe --after $acceptedExe --hold 600 --cycles 32 --output out/solok-finish-lifetime @lifetimePdfs
-bun experiments/pdfium/lifetime-ui.ts --before $beforeExe --after $acceptedExe --hold 0 --cycles 32 --reverse --output out/solok-finish-lifetime-repeat @lifetimePdfs
-bun experiments/pdfium/memory-ui.ts --before $beforeExe --after $acceptedExe --profile --large --cycles 24 --tabs 1 --runs 1 --output out/solok-finish-profile out/solok-memory-fixtures/wide-gray-color.pdf
-```
+security settings changed. Portable folders and ZIP archives were not updated.
 
 The four planned checks are complete. Further work needs allocation ownership
 and a bounded render-buffer design before revisiting layout-lock separation;
@@ -965,35 +798,20 @@ attribute SDK/allocator warm state or prove hours-long leak freedom.
 
 The first ownership-only probe hid the staged PDB but left the raw build-output
 PDB readable. The candidate could load matching symbols; its cold footprint was
-about 20 MiB larger. Those two runs are excluded and preserved in
-`out/solok-ownership-cache-{before,after}`. Corrected probes use
-`out/solok-ownership-cache-paired-{before,after}`. Performance/lifetime scripts
+about 20 MiB larger, so those two runs were excluded. Performance/lifetime scripts
 already hid both PDB locations, so their results were unaffected.
 
 Release and Debug built with zero warnings/errors and passed the targeted GUI
 checks. There were 72 paired memory-workload launches (64 without diagnostics),
 118 matching image pairs and 72 document lifetimes in the open/close check.
 No full unit suite was run. The complete evidence is assembled in
-`data/phase4-ownership-2026-10-25.json`; raw counters, logs and screenshots
-stay under `out/solok-ownership-*`. Debug output links needed retries after
+`data/phase4-ownership-2026-10-25.json`. Debug output links needed retries after
 LNK1104; no ACL/security settings changed. Generated VS files were restored
 after validation. The previous accepted artifacts and portable build remain
-unchanged. Adoption remains deferred.
+unchanged. The trial was not adopted.
 
-Reproduce the ownership and bound checks:
-
-```powershell
-$before = 'out/solok-finish-after-release/SolokPDF.exe'
-$after = 'out/solok-ownership-after-release/SolokPDF.exe'
-bun experiments/pdfium/memory-ui.ts --before $before --after $after --large --cycles 24 --runs 2 --output out/solok-ownership-dense out/solok-memory-fixtures/wide-gray-color.pdf
-bun experiments/pdfium/memory-ui.ts --before out/solok-ownership-before-release/SolokPDF.exe --after $after --profile --large --cycles 24 --runs 1 --output out/solok-ownership-profile out/solok-memory-fixtures/wide-gray-color.pdf
-bun experiments/pdfium/check-buffers.ts out/solok-ownership-profile
-bun experiments/pdfium/ownership-ui.ts --exe $after --hold 60 --output out/solok-ownership-cache-check .work/corpus/attention-1706.03762v7.pdf .work/corpus/independent/bert-1810.04805.pdf .work/corpus/independent/ipa-2026-soshiki.pdf out/solok-phase4-font-check/fonts.pdf
-```
-
-Further work should isolate the light-wide CPU increase before changing queue
-scheduling again. Inactive-tab cache policy remains a separate tradeoff requiring
-reactivation measurements; no automatic inactive eviction was introduced.
+The light-wide CPU increase prevented a queue scheduling change. Inactive-tab
+eviction was not introduced because reactivation costs were unmeasured.
 
 ### Tab-group restore under background-load gates (2026-10-25)
 
@@ -1064,7 +882,7 @@ eight qualify (4/8 tabs), eight are excluded. Six excluded pairs are 16-tab
 attempts: other-CPU means reached 11.9–21.3%, with p95 up to 35.6%. All failed
 the unchanged limits. The user confirmed a concurrent heavy task cannot be
 stopped, so no further performance runs were started. A qualifying 16-tab
-comparison is still required; excluded measurements are not adoption evidence.
+excluded measurements are not adoption evidence.
 
 All 108 paired canvas images matched, including 96 from excluded 16-tab pairs.
 The latter validate rendering/path restoration in those attempts, not performance.
@@ -1072,17 +890,9 @@ PDBs were restored after every failed/finished run. Unrelated formatter-only
 hunks were reverted. No full suites, portable replacement or
 additional application optimization was performed.
 
-Results and audits are in `data/tabgroup-2026-10-25.json`. Raw data/captures:
-`out/solok-tabgroup-main/` and `out/solok-tabgroup-main-16/`; independent counter
-verification: `out/solok-tabgroup-cpu-reference.json`. The ownership candidate
-remains a large-tile peak-memory experiment. Defer adoption for ordinary group
-restoration until the missing low-load 16-tab comparison is available.
-
-Resume that comparison when the host is quiet, with a fresh output directory:
-
-```powershell
-bun experiments/pdfium/tabgroup-ui.ts --counts 16 --runs 4 --output out/solok-tabgroup-16-idle .work/corpus/attention-1706.03762v7.pdf .work/corpus/independent/bert-1810.04805.pdf .work/corpus/independent/ipa-2026-soshiki.pdf .work/corpus/phase4/attention-raster-15.pdf
-```
+Results and audits are in `data/tabgroup-2026-10-25.json`. The ownership
+candidate remained a large-tile peak-memory experiment pending the quiet-host
+rerun below.
 
 ### Quiet-host 16-tab rerun and rollback (2026-10-25/26)
 
@@ -1111,8 +921,7 @@ ownership probe on the Release executable measured 82.8 MiB Private Bytes in an
 empty window, 153.6 MiB after visiting all tabs and 84.6 MiB five seconds after
 closing them. Cache Info reported seven tiles while open and zero after close.
 Its 39.49 MiB tile estimate assumes four bytes/pixel, so it is not an allocation
-breakdown for compact gray/BGR tiles. The probe is in
-`out/solok-post-revert-ownership/`.
+breakdown for compact gray/BGR tiles.
 
 ### Pixel accounting and controlled CPU comparison (2026-10-26)
 
@@ -1127,7 +936,7 @@ the gate. Large conversions release the SDK lock after closing SDK handles so
 UI requests can cancel conversion. Fonts, pixels, resolution and cache eviction
 accounting stay unchanged. The overlap check failed on the preceding candidate
 and passed on the final trial. The trial is saved as
-`experiments/pdfium/render-gate.patch`, applicable to the current source.
+`experiments/pdfium/render-gate.patch`; it no longer applies to current source.
 
 Exploratory memory/CPU comparisons did not monitor background CPU continuously.
 They are not sufficient to attribute CPU differences to the code. A separate
@@ -1166,8 +975,8 @@ The trial matched 38 paired canvas images and completed 40 document lifetimes,
 including the wide fixture. Stable Release/Debug builds passed the targeted GUI
 and new two-document disk group/session-restart checks. The cache serializer's
 focused harness passed 27 checks. Full unit suites were not run; the clipboard
-baseline failure remains. Raw logs/PNGs stay in `out/solok-*`; condensed results,
-hashes, exclusions and controlled CPU samples are in
+baseline failure was fixed later. Condensed results, hashes, exclusions and
+controlled CPU samples are in
 `data/memory-2026-10-26.json`.
 
 ### Normal-PDF startup and resident-memory diagnosis (2026-10-26)
@@ -1203,8 +1012,7 @@ Eligible other-CPU means ranged 3.2–9.8%, p95 reached 17.2%, OS memory load
 reached 61%, and the largest monitor gap was 216.8 ms. Four pairs were excluded
 for background CPU (two BERT, two IPA attempts); the final IPA attempt could
 not start after the host exceeded the quiet-start limit for 60 seconds. No IPA
-performance or memory comparison qualifies. Full samples, exclusions, hashes
-and logs: `out/solok-normal-startup-2026-10-26/results.json`; condensed record:
+performance or memory comparison qualifies. Condensed results are in
 `data/normal-startup-2026-10-26.json`. A pilot caught and corrected an
 empty-window `WaitRenderIdle` call in the measurement script; pilot data are
 excluded. Application C/C++ code and PDFium rendering were not changed.
@@ -1286,28 +1094,20 @@ combined evidence makes first-use font enumeration the leading startup cause
 for these text PDFs; it does not prove the exact application font calls or
 their retained memory.
 
-Decision: continue only a narrow font-lookup and allocation-ownership
-investigation. A startup saving appears plausible on documents that trigger
-enumeration; the IPA control shows no general PDFium delay. No general
-resident-memory saving is established, so do not change tile cache policy.
-Before adopting any font-path change, compare application-rendered text pixels
-for aliases and Japanese glyphs, as well as font selection, antialiasing,
-resolution and colors. The next diagnostic is allocation attribution of
-post-visit non-pixel memory, followed by a pixel-identical font-matching
-candidate if one can be constructed. No application optimization was made.
+At this stage, startup savings appeared plausible on PDFs that trigger font
+enumeration; IPA showed no general PDFium delay. Resident-memory savings were
+unestablished, so tile-cache policy stayed unchanged. A font-path change needed
+matching pixels for aliases and Japanese glyphs, as well as unchanged font
+selection, antialiasing, resolution and colors. No optimization was made then.
 
 Condensed results and hashes: `data/direct-startup-2026-10-26.json`.
-Raw samples, exclusions, Cache Info text and logs are in
-`out/solok-direct-startup-2026-10-26/`,
-`out/solok-direct-startup-ipa-2026-10-26/` and their `-profile-` counterparts.
 
 ### Non-pixel allocation attribution and continuation decision (2026-10-26)
 
 An opt-in Release profile now records process Private Bytes and working set at
 PDFium load/render/close phase markers. It built with zero warnings/errors, and
 `tests/ad-hoc-pdfium.ts --no-build` passed against the instrumented executable.
-The instrumented executable is kept in `out/solok-attrib-release/`; the stable
-portable executable was restored after the build. Profile-phase deltas in the
+The stable portable executable was restored after the build. Profile-phase deltas in the
 application overlap UI and render allocations, so they are not PDFium-only
 allocation counts. Six direct-launch pairs qualified and three were excluded by
 background CPU or monitor gaps; they are diagnostic and excluded from the
@@ -1378,53 +1178,25 @@ the remaining measurement limit, not evidence of a PDFium leak. The small
 post-close residuals and repeated document-close recovery argue against a
 large persistent PDFium leak in this corpus.
 
-Decision: continue diagnosis only; no optimization is justified yet. The most
-specific startup candidate is first-use font enumeration on PDFs that request
-unembedded fonts. A resident-memory improvement is plausible for font-heavy
-documents, but the measured v2 shortcut changes text pixels. Next, capture
-privileged allocation stacks for the ordinary-PDF application residual and
-test a font-lookup candidate that keeps PDFium's font choice and rendered text
-pixels identical for aliases and Japanese glyphs. Keep tile-cache policy and
-rendering settings unchanged until that evidence exists. No optimization was
-implemented. Condensed results and hashes are in
-`data/allocation-2026-10-26.json`; raw rows/PNGs/logs are under
-`out/solok-alloc-*`, `out/solok-multi-alloc-*` and `out/solok-attrib-*`.
+At this stage, first-use font enumeration was the specific startup candidate.
+Font-info v2 changed text pixels, so tile-cache policy and rendering settings
+stayed unchanged. No optimization was implemented in this diagnostic pass.
+Condensed results and hashes are in `data/allocation-2026-10-26.json`.
 
 ## Phase 5: portable development identity
 
-The initial packaging results below describe `48eb0f96a`. Both ZIPs were
-rebuilt on 2026-10-27 with theme page colors (smart by default) and the new
-themes, after `ad-hoc-pdfium`, `-theme` and `-tiles` passed on the Release
-build. Each was checked after extraction, without PDB or source tree: with
-default settings and a dark theme, PDFium draws a themed page with its photo
-untouched, and the app quits normally. `cmd/solok-build.ts` writes each ZIP
-from the files it copies into the portable folder (Windows' `tar.exe`),
-without PDBs, caches, logs or settings.
+The initial `48eb0f96a` Debug and Release ZIPs excluded PDBs, settings,
+caches and downloaded PDFs. On 2026-10-27 both were rebuilt with theme page
+colors. Extracted packages opened and rendered PDFs, including with a dark
+theme, and exited normally without a PDB or source tree. The host briefly
+denied file reads and process creation after a build; retries passed without
+security or ACL changes, and the cause was not established.
 
-Both Debug and Release builds completed and passed the targeted GUI validation.
-Release produced `out/solokpdf-portable/SolokPDF.exe` (14,285,312 bytes). This host
-initially denied file reads/process creation (`EPERM`/access denied) after the
-build; a later retry succeeded without security or ACL changes. The cause is
-unresolved. Logs: `out/solok-release-retry.log`,
-`out/pdfium-release-gui-test.log`. Debug and Release measurements are separated
-above.
-
-Portable packages are `out/SolokPDF-experimental-x64.zip` (Release) and
-`out/SolokPDF-experimental-debug-x64.zip` (Debug), excluding PDBs, settings/history
-and downloaded PDFs. The debug executable is 26,628,096 bytes; PDFium DLL is
-7,586,816 bytes. Archives contain dependencies, documentation and notices.
-The extracted package is additionally checked for default PDFium document
-display/search and normal shutdown, without relying on a PDB or a source tree.
-
-The Release ZIP was rebuilt on 2026-10-29 from `2091722eb` after the upstream
-merge and PDFium additions; it is 23,051,111 bytes. The Release executable
-passed all 18 `tests/ad-hoc-pdfium*.ts` checks, plus `ad-hoc-vim-keys`,
-`ad-hoc-count-prefix`, `ad-hoc-shortcuts-dialog`, `sidebar-thumbnails`,
-`sidebar-thumbnails-close`, and Merge PDF tests `issue-6371`, `issue-6372`,
-`issue-6397`. Signing required a run outside the sandbox for private-key
-access. Sidebar auto-hide test `issue-5819` could not move the cursor in the
-locked session. The extracted ZIP opened and rendered a PDF, then quit with
-exit code 0.
+The 2026-10-29 Release ZIP at `2091722eb` was 23,051,111 bytes. Its exe
+passed all 18 `ad-hoc-pdfium*.ts` tests plus Vim, count prefix, shortcuts,
+sidebar and Merge PDF checks. Signing needed private-key access outside
+the sandbox; locked-session cursor input blocked `issue-5819`. The extracted
+ZIP opened and rendered a PDF, then exited with code 0.
 
 SolokPDF's names, settings and notices: [Portable identity](features.md#portable-identity).
 
@@ -1503,9 +1275,8 @@ now takes a reference to the tab's engine instead. Every PDFium run then
 opened the document once, and BERT's thumbnail PNG was byte-identical. Against
 MuPDF (5 pairs each, warm cache and warm-up): BERT +64 ms, Attention +26 ms,
 IPA −8 ms. BERT's remaining gap matches its two visible pages rendering in
-turn under the lock. `issue-5817` and `issue-6352` fail with and without this
-change: they write `SumatraPDF-settings.txt`, which SolokPDF doesn't read.
-Raw data: `out/solok-thumb-share-2026-10-26/`.
+turn under the lock. `issue-5817` and `issue-6352` failed at the time because
+they wrote `SumatraPDF-settings.txt`; the settings-path fixes came later.
 
 ### Narrower lock scope
 
@@ -1530,8 +1301,7 @@ control connected at the same time in the gated runs). Results:
 `experiments/pdfium/zoom-ui.ts` (Attention, warm cache, 5 alternating runs)
 times zoom command to render idle. PDFium medians were lower or equal despite
 drawing tiles one at a time: 200% 38 vs 63 ms, 400% 40 vs 60, 800% 26 vs 22,
-150% 33 vs 52, fit width 20 vs 20, 100% 19 vs 26. Raw rows:
-`out/solok-zoom-2026-10-26/results.json`.
+150% 33 vs 52, fit width 20 vs 20, 100% 19 vs 26.
 
 ### Memory by region type
 
@@ -1552,7 +1322,6 @@ Private memory became 65.3/64.7 (BERT), 66.2/64.5 (Attention), 69.7/77.5
 (IPA) and 80.1/83.0 MiB (4 tabs); total working set didn't change, since the
 same pixels moved. The debug view capture was byte-identical, unit tests
 passed and zoom medians stayed within noise (200% 39 vs 61 ms for MuPDF).
-Raw maps: `out/solok-memory-map-mapped-*`.
 
 ### Leak check of the 2026-10-26 additions
 
@@ -1576,7 +1345,6 @@ and 0 GDI objects per round. Private Bytes alternate between about 111 and
 120 MiB from round to round (allocator/cache state), so a leak below roughly
 10 KiB per round would not show. This bounds the new form handle, form page
 views, MuPDF link queries and text quads; it is not an hours-long proof.
-Raw samples: `out/solok-leak-2026-10-26/results.json`.
 
 ### Lock-free page sizes for the UI thread
 
@@ -1597,30 +1365,7 @@ background-load gates), before → after:
 
 All 20 view comparisons matched. BERT/Attention direct-launch render idle
 didn't change measurably (+31–46 ms behind MuPDF before, +46 ms after, four
-gated pairs each); the stall delayed UI work, not rendering. Raw data:
-`out/solok-uilock-{dense,light}`, `out/solok-uilock-*-run*`.
-
-## CI compile cache plan (D2, dropped)
-
-Dropped: sccache gains uncertain (no PCH or `/MP` caching); CI takes ~20 min.
-
-MSBuild has no compiler-launcher setting, and sccache could not be run locally
-to check one, so CI has no compile cache yet. Plan, all unverified:
-
-- `mozilla-actions/sccache-action@v0` with `SCCACHE_GHA_ENABLED=true`.
-- Copy `sccache.exe` to `<dir>\cl.exe`; a workflow step writes a root
-  `Directory.Build.targets` (not committed, so local builds stay unchanged)
-  setting `CLToolExe=cl.exe`, `CLToolPath=<dir>`, `UseMultiToolTask=true`,
-  `TrackFileAccess=false`, and per `ClCompile`
-  `DebugInformationFormat=OldStyle` (`/Z7`; sccache can't cache `/Zi`),
-  `MultiProcessorCompilation=false` (multi-file `/MP` calls are uncached)
-  and `PrecompiledHeader=NotUsing` (`/Yu base/Base.h` is uncached). It must
-  be `.targets`: `.props` is imported before the projects' own
-  `ItemDefinitionGroup`, which would override it.
-- To check before enabling: sccache, invoked as `cl.exe`, finds the real
-  compiler on MSBuild's `PATH`; it reads MSBuild's UTF-16 response files;
-  `sccache --show-stats` reports hits on a rerun; no-PCH cold builds and
-  `/GL` release builds still fit the 120-minute timeout.
+gated pairs each); the stall delayed UI work, not rendering.
 
 ## UI review (2026-10-29)
 
@@ -1641,77 +1386,15 @@ No further actionable defect was found in the theme, shortcuts dialog, VS entrie
 
 ## Full-suite triage (2026-10-29)
 
-Run 3 test-only fixes:
-
-`issue-5944` and `issue-906` now accept the control pipe's `screen=` and
-`rect=` fields; both pass locally (B31).
-
-Run 3 CI placed the window under the cursor, so `OnMouseMove` on an annotated
-page could load the editor before the render-only assertion. The test now
-parks the cursor outside the window before opening it and restores it after.
-The test passes locally; the CI rerun is pending (B32).
-
-Run 3's trim restore test rejected a real trim: page aspect changed from
-1.293 to 0.364, while the scroll extent shrank from 1279 to 721 and missed
-its arbitrary half-size threshold. The assertion now checks page aspect on
-every platform; the local test passes (B33).
-
-Run 3's `issue-5979` and `issue-6017` blocked a synchronous command for
-120 seconds on both engines. The AI command opens a modal install dialog
-when Claude is absent. The tests now query provider availability through
-the control pipe before invoking it. Local DPI override toggles complete,
-and both tests pass; CI rerun is pending. `issue-6017` also sets its test
-process DPI awareness before comparing Win32 pixels (B30).
-
-Run 3's fullscreen restore, sidebar growth (`issue-6080`), and Home scrollbar
-(`issue-6367`) checks assumed a larger monitor than the runner's 1024 × 720
-work area. Their test windows now fit the work area. `issue-6367` also sets
-test-process DPI awareness so requested widths match measured widths. All
-three pass locally; CI rerun is pending (B36).
-
-`lazy-tab-state-after-save` seeds the active settings file with
-`RememberOpenedFiles = true`, so the session restores a lazy tab, then rewrites
-it with `false` before the save that drops the session (B25). It passes on both
-engines.
-
-Run 4 on `88dda80cb`: `command-palette-delete-tab` failed once on PDFium
-(`expected 2 frames, got 1`) and passed on MuPDF. Three local reruns per engine
-passed (3/3 PDFium, 3/3 MuPDF); no code change is justified (B41, E).
-Run 5 failed it again on PDFium only, after 0.4 s. Five local runs per engine
-passed. The test sampled visible frames twice after the duplicate window
-appeared: a relayout's `WM_SETREDRAW FALSE` clears `WS_VISIBLE` for a moment,
-so the second sample could miss a frame. It now judges the sample that ended
-the wait and, after Delete, counts existing frames, so the closed window must
-be destroyed. Five reruns per engine pass (B41, S).
-
-Run 5 failed `read-aloud-restyle-stale-page` on PDFium only: after the second
-restyle, read aloud reported chapter 36 while it had been reading 34. The test
-opens an EPUB, which `SOLOKPDF_ENGINE` does not affect, and it passed in the
-other nine CI runs. CI runs take 2.2–4.4 s against 5–6.6 s locally, so runner
-speech may outpace the one-chapter allowance. Three local runs per engine
-passed; recorded as a flake (B45, E).
-
-Run 4 `issue-6367` failed on both engines because ten thumbnails still extend
-past the hosted runner's 989 × 640 client area. The test now checks scrollbar
-visibility against the last caption and available area (B42, S). Local PDFium
-and MuPDF runs passed.
-
-Run 4 `issue-6405` failed on both engines after a 1–2 px tab-switch scroll
-change. The original top-reset bug would move hundreds of pixels; the test now
-allows 2 px of rounding (B43, S). Local PDFium and MuPDF runs passed.
-
-The complete paired Actions logs at `e7de6e7ac` reached all 462 eligible
-tests on each engine. PDFium passed 342 and MuPDF passed 370; 122 distinct
-tests failed (P30 S80 R5 E5 M2). The 83 tests missed by earlier partial logs
-include PDFium selection, TOC and margin gaps, two shared UI hangs, and more
-tests using the upstream settings/product name. Their classification and the
-test-only path fixes are in
-[full-suite-triage.md](full-suite-triage.md).
+The paired run at `e7de6e7ac` reached 462 eligible tests per engine: 122
+distinct failures (S80, P30, R5, E5, M2). Settings-path fixes (`9653c39a3`,
+E5) and test repairs resolved S; PDFium work including B14–B29 and B48
+addressed P. B50 skips by-design gaps on hosted CI. Both engines passed run
+41349548951; B37 remains open for local cursor/capture checks.
 
 ## Completed backlog
 
-Rows of [backlog.md](backlog.md) that landed between 2026-10-29 and
-2026-11-01, with their commit subjects. Sources: an audit of every
+Rows of [backlog.md](backlog.md) completed by 2026-11-02. Sources: an audit of every
 MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 `AsEngineMupdf` helpers), the known limitations and the upstream full suite.
 
@@ -1766,6 +1449,7 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 | B35 | External PDF viewers                                                                                                                                                                                                                                                                           | Run 3: issue-6184            | done — Open PDFium tabs in known PDF viewers (fixes #6184)                           |
 | B36 | Hosted window geometry                                                                                                                                                                                                                                                                         | Run 3: window tests          | done — Size test windows within the work area                                        |
 | B38 | PDF catalog layout                                                                                                                                                                                                                                                                             | Run 3: issue-2022            | done — Honor PDF catalog layout (fixes #2022)                                        |
+| B39 | MuPDF shape placement                                                                                                                                                                                                                                                                          | Run 3: shape placement       | done — Passes on hosted CI run 41349548951                                           |
 | B40 | HTML next-file navigation                                                                                                                                                                                                                                                                      | Run 3: issue-5918            | done — Wait out WebView2 cold start in issue-5918 test (B40)                         |
 | B41 | Palette tab deletion                                                                                                                                                                                                                                                                           | Run 4: PDFium only           | done — Stabilize palette tab frame count (B41)                                       |
 | B42 | Home scrollbar assertion                                                                                                                                                                                                                                                                       | Run 4: issue-6367            | done — Fix home scrollbar test (B42)                                                 |
@@ -1801,5 +1485,5 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 | ID  | Item                                                                                                                                                                                                                                                                                        | Status                                                                                                                                         |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | E1  | Close the remaining startup gap shown by A1                                                                                                                                                                                                                                                 | done, no change needed: CI pairs put PDFium +2.3/+2.6 ms (normal open) and -1.3/-41.6 ms (direct launch) vs MuPDF on Attention/BERT            |
-| E2  | Hours-long open/close/render leak stress                                                                                                                                                                                                                                                    | done — Add PDFium leak stress (E2)                                                                                                             |
+| E2  | Open/close/render leak stress                                                                                                                                                                                                                                                               | tool added (`--minutes=N`); 2-minute run passed, hours-long run not done                                                                       |
 | E5  | Tests write `SumatraPDF-settings.txt`, but SolokPDF reads `SolokPDF-settings.txt` (`SETTINGS_FILE`): their settings are silently ignored and they run on defaults. Found 2026-11-01 when `Scrollbars` defaulted to `overlay` (`issue-5850`, `issue-6062` fixed); 30+ `issue-*` tests remain | done — Write test settings to SETTINGS_FILE (E5): 114 tests; the ad-hoc pdfium / pdfium-session sentinels and ng mac-highlight keep SumatraPDF |

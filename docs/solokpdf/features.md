@@ -20,8 +20,8 @@ SolokPDF disables upstream update checks, commands and settings UI. Existing
 - About links to this repository's docs, limitations, source and licenses;
   its footer names the upstream SumatraPDF version with links to upstream's
   website and manual. Upstream's author's product promos are not shown.
-- Upstream binary update checks are disabled for this fork. Installer and file
-  associations are not configured or validated; use the portable application.
+- The default-app association works through `Applications\SolokPDF.exe`;
+  installer behavior remains unvalidated.
 - Copyright/license files remain unchanged. The package includes root notices,
   vendored license files and all PDFium `licenses/` texts plus the pin manifest.
   MuPDF and its AGPL obligations remain because the fallback/library remain.
@@ -44,15 +44,6 @@ text color only where that shows there by contrast 3; else the canvas color,
 else one pushed toward white or black. The taskbar's color comes from Windows'
 personalization settings (light, dark, or the accent shade) and is re-read
 when they change.
-
-The floating selection toolbar takes the tab strip's color, so it reads as part
-of the window's chrome, with an `EdgeColor` border; where that nearly matches
-the page under it (contrast under 1.13: custom themes, unthemed pages), the
-page mixed toward the text color. It used the theme's `BackgroundColor`, which
-themed pages take too, so in dark themes it vanished into the page.
-The annotation editing toolbar takes the same colors. The read-aloud and
-auto-scroll bars keep the notification color but outline their buttons and
-draw their slider track in `EdgeColor` (was a fixed gray).
 
 The exe's icon (Explorer, Start, shortcuts) can't follow the theme; it is the
 same drawing in One Dark's text color. `tools/solokpdf/make-icon.py` generates it
@@ -93,10 +84,6 @@ mouse (upstream: it took the hover color).
 Toolbar buttons light up in a rounded box 2 DIP inside their neighbors and 4
 DIP inside the bar's top and bottom (upstream: the full button, edge to edge).
 
-The thumbnails' frames take the scrollbar thumb color: 3 px around the current
-page (upstream: a fixed blue), 1 px around the others. The scrollbars' track
-defaults to the canvas color.
-
 Splitters (sidebar, panels, AI chat) take the panel's color, without upstream's
 darker bar; it shows while hovered or dragged.
 
@@ -116,6 +103,15 @@ Palenight, `NotificationBackgroundColor` for Solarized Dark and Monokai,
 `EdgeColor` for Light Warm.
 
 ## Selection colors
+
+The floating selection toolbar takes the tab strip's color, so it reads as part
+of the window's chrome, with an `EdgeColor` border; where that nearly matches
+the page under it (contrast under 1.13: custom themes, unthemed pages), the
+page mixed toward the text color. It used the theme's `BackgroundColor`, which
+themed pages take too, so in dark themes it vanished into the page.
+The annotation editing toolbar takes the same colors. The read-aloud and
+auto-scroll bars keep the notification color but outline their buttons and
+draw their slider track in `EdgeColor` (was a fixed gray).
 
 A selection is its surface mixed toward the text color until it stands out by
 contrast 1.35 (`ThemeSelectedColorOn`): toggled-on toolbar and sidebar view
@@ -210,8 +206,7 @@ sidebar, tabs, toolbar and title bar too.
 
 `tests/ad-hoc-pdfium-theme.ts` checks a dark and a light theme: no white paper,
 both photos untouched, a figure's gray backdrop recolored, and `legacy` recoloring
-photos; it fails on the previous build. `issue-6088` and `issue-5911`, run with
-SolokPDF's settings file, pass on both engines, as does `ad-hoc-pdfium`.
+photos; it fails on the previous build.
 
 `ad-hoc-pdfium-theme-switch` keeps one PDFium tab open through dark → light →
 dark, then smart → legacy → off → smart. Photo and paper counts return to their
@@ -290,20 +285,20 @@ assigning the key to another command. Ng needs a GPUI version of this dialog.
 Mode and the command palette toggle it. User `Shortcuts` take precedence.
 Keys work in the document canvas or frame, not in edit fields.
 
-| Keys                             | Action                                                     |
-| -------------------------------- | ---------------------------------------------------------- |
-| `gg`, `G`, `{n}gg`, `{n}G`       | First, last, or numbered page                              |
-| `/`, `n`, `N`                    | Find box, next match, previous match                       |
-| `Ctrl+O`, `Ctrl+I`               | Navigation back, forward                                   |
-| `f`                              | Label visible links; type a label to follow, Esc to cancel |
-| `m{a-z}`, `'{a-z}`, `` `{a-z} `` | Set or jump to a document mark                             |
-| `''`                             | Return to the position before the last jump                |
-| `Ctrl+D/U`, `Ctrl+F/B`           | Half-page or full-page down/up; counts apply               |
-| `Ctrl+E/Y`                       | One wheel line down/up (`ScrollLineAmount`); counts apply  |
-| `zz`, `zt`, `zb`                 | Center current page, align its top or bottom               |
-| `yy`, `{n}yy`                    | Copy current page text, or text from `n` pages             |
-| `gt`, `gT`, `{n}gt`              | Next, previous, or numbered tab                            |
-| `:`                              | Bottom command line                                        |
+| Keys                             | Action                                                       |
+| -------------------------------- | ------------------------------------------------------------ |
+| `gg`, `G`, `{n}gg`, `{n}G`       | First, last, or numbered page                                |
+| `/`, `n`, `N`                    | Find box, next match, previous match                         |
+| `Ctrl+O`, `Ctrl+I`               | Navigation back, forward                                     |
+| `f`                              | Label visible links; type a label to follow, Esc to cancel   |
+| `m{a-z}`, `'{a-z}`, `` `{a-z} `` | Set or jump to a document mark                               |
+| `''`                             | Return to the position before the last jump                  |
+| `Ctrl+D/U`, `Ctrl+F/B`           | Half-page or full-page down/up; counts apply                 |
+| `Ctrl+E/Y`                       | One wheel line down/up (`KeyScrollLineAmount`); counts apply |
+| `zz`, `zt`, `zb`                 | Center current page, align its top or bottom                 |
+| `yy`, `{n}yy`                    | Copy current page text, or text from `n` pages               |
+| `gt`, `gT`, `{n}gt`              | Next, previous, or numbered tab                              |
+| `:`                              | Bottom command line                                          |
 
 The command line accepts a page number, `q` (close tab), `qa` (exit), `w`
 (Save As), `tabn`, `tabp`, `set vim`, and `set novim`. Up/Down recall commands
@@ -317,6 +312,7 @@ were unbound. The menus retain the displaced commands. `p`, Space and
 PageDown retain previous-page and page-down navigation.
 
 Link hints use the existing page-link path and work on fixed-page documents.
-The Windows keyboard layout supplies `/`, `'`, `` ` ``, and `:` through OEM
-keys; other layouts need verification. Ng has the setting and command ids but
-still needs GPUI input, hints, marks, and command-line UI.
+Vim matches the character produced by `ToUnicodeEx`, including `/`, `'`,
+`` ` ``, and `:` on JIS keyboards; the JIS regression test covers these keys.
+Ng has the setting and command ids but still needs GPUI input, hints, marks,
+and command-line UI.

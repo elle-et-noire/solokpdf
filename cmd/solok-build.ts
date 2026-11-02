@@ -93,7 +93,7 @@ for (const entry of readdirSync(join(pdfium, "licenses"), { recursive: true, wit
 copyIn(join(pdfium, "solok-pin.json"), "licenses/pdfium/solok-pin.json");
 writeFileSync(
   join(portable, "README-DEV.txt"),
-  "SolokPDF experimental portable build, derived from SumatraPDF.\nPDFium is the default PDF backend. Set SOLOKPDF_ENGINE=mupdf for comparison.\nSee docs/solokpdf/limitations.md in the source checkout for limitations and tests.\nUpstream binary updates are disabled. Installer/associations are unvalidated.\n",
+  "SolokPDF experimental portable build, derived from SumatraPDF.\nPDFium is the default PDF backend. Set SOLOKPDF_ENGINE=mupdf for comparison.\nSee docs/solokpdf/limitations.md in the source checkout for limitations and tests.\nUpstream binary updates are disabled. Default-app association works through Applications\\SolokPDF.exe; installer behavior is unvalidated.\n",
 );
 packaged.push("README-DEV.txt");
 
