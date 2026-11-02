@@ -443,6 +443,7 @@ static void UpdateViewIcons(SidebarPanel* p, int dpi) {
         b->padding = Insets{pad, pad, pad, pad};
         b->isSelected = p->view == v && p->hosted;
         b->SetColor(kColIconBtnBgHover, ThemeHoverColorOn(ThemeSidebarColor()));
+        b->SetColor(kColIconBtnBgSelected, ThemeSelectedColorOn(ThemeSidebarColor()));
         b->SetIsEnabled(IsSidebarViewAvailable(p->win, v));
         b->Invalidate();
     }

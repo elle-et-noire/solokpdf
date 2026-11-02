@@ -179,7 +179,7 @@ void ResolveTreeFilterItemColors(HDC hdc, Rect itemRc, Color treeBg, Color treeT
         // with light theme text that made the initial bookmark highlight
         // unreadable (issue #5848). COLOR_BTNFACE has the same problem when
         // system colors are not fully remapped.
-        *bgOut = ThemeSelectedBackgroundColor();
+        *bgOut = IsSpecialColor(treeBg) ? ThemeSelectedBackgroundColor() : ThemeSelectedColorOn(treeBg);
         *txtOut = IsSpecialColor(treeTxt) ? ThemeWindowTextColor() : treeTxt;
         return;
     }

@@ -149,17 +149,16 @@ void ThemeApplyPlatformColors() {
     gColsBtnDefault[kColBtnBorder] = hotEdge;
     gColsBtnDefault[kColBtnTextDisabled] = disabled;
 
-    // the toolbar's, so the sidebar's view icons light up the same way
     gColsIconBtn[kColIconBtnBgHover] = ThemeHoverColorOn(ctlBg);
-    gColsIconBtn[kColIconBtnBgSelected] = ThemeSelectedBackgroundColor();
+    gColsIconBtn[kColIconBtnBgSelected] = ThemeSelectedColorOn(ctlBg);
     gColsIconBtn[kColIconBtnChevron] = text;
     gColsIconBtn[kColIconBtnChevronDisabled] = disabled;
 
     gColsListBox[kColListText] = text;
     gColsListBox[kColListBg] = ctlBg;
-    // the bookmarks' selection, focused or not
-    gColsListBox[kColListSel] = ThemeSelectedBackgroundColor();
-    gColsListBox[kColListSelFocused] = ThemeSelectedBackgroundColor();
+    // the selection on the list's background, focused or not
+    gColsListBox[kColListSel] = ThemeSelectedColorOn(ctlBg);
+    gColsListBox[kColListSelFocused] = ThemeSelectedColorOn(ctlBg);
     gColsListBox[kColListScrollbar] = ThemeScrollbarThumbColor();
 
     gColsSplitter[kColSplitterBg] = ctlBg;

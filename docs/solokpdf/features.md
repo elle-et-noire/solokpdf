@@ -102,20 +102,15 @@ Palenight, `NotificationBackgroundColor` for Solarized Dark and Monokai,
 
 ## Selection colors
 
-One palette color marks every selection: toggled-on toolbar and sidebar view
-buttons, the selected bookmark and list rows, and text selected on pages
-(`ThemeSelectedBackgroundColor`). Of the theme's own colors (edge, hover, tab,
-notification), it is the one furthest from the control background toward the
-text color that keeps text on it at contrast 4.0 or more: mostly `EdgeColor`,
-Everforest Light's disabled edge; Solarized Dark and Greeny, whose text is too
-faint on their edge color, fall back to `HotBackgroundColor`, as do One Dark,
-Night Owl and Ayu. The window background is left out: themed pages take it, so
-a selection on them would vanish. Upstream shifted the background's HSL
-lightness by 25 to 45 units, which made saturated themes garish (Solarized
-Dark a bright teal, Greeny a bright green). The selection has to show on the
-canvas (toolbar, sidebar, pages; contrast 1.2): where the pick doesn't (One
-Dark), it is the palette color that shows best there; where none shows, the
-canvas mixed toward the text color.
+A selection is its surface mixed toward the text color until it stands out by
+contrast 1.35 (`ThemeSelectedColorOn`): toggled-on toolbar and sidebar view
+buttons, the selected bookmark and text selected on pages on the canvas
+(`ThemeSelectedBackgroundColor`), list rows in dialogs and the command palette
+on the control background. Every theme shows it equally strong, in the
+surface's own hue. Upstream shifted the background's HSL lightness by 25 to 45
+units, which made saturated themes garish (Solarized Dark a bright teal, Greeny
+a bright green); picking a palette color instead mostly picked `EdgeColor`, a
+line color, too strong and sometimes off-hue (Solarized Light's gray-blue).
 
 The bookmark tree keeps its unfocused selection color when it has the focus
 (upstream: the system's blue highlight); high contrast mode still uses the

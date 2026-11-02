@@ -41,6 +41,7 @@ Color ThemeTabStripColor();
 Color ThemeWindowLinkColor();
 Color ThemeHotBackgroundColor();
 Color ThemeSelectedBackgroundColor();
+Color ThemeSelectedColorOn(Color bg);
 Color ThemeHoverColorOn(Color bg);
 Color ThemeSidebarColor();
 Color ThemeEdgeColor();

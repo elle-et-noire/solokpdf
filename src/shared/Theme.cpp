@@ -1238,44 +1238,22 @@ static float ContrastRatio(Color a, Color b) {
     return (std::max(la, lb) + 0.05f) / (std::min(la, lb) + 0.05f);
 }
 
-// text on a selection has to stay readable
-constexpr float kMinSelectionTextContrast = 4.0f;
-
-// A selection: toggled-on buttons (toolbar, sidebar views), the selected
-// bookmark or list row and text selected on a page. A palette color, not a
-// lightness shift of the background (that made Solarized Dark's and Greeny's
-// garish): the one furthest from the background, toward the text, that keeps
-// the text readable (mostly EdgeColor); the hover color when none does. Not
-// the window background: themed pages take it, and a selection on them vanished
-// (Greeny).
-enum class PalettePick {
-    Nearest,
-    Furthest
-};
+// which side of the background PickPaletteColor looks on
 enum class PaletteSide {
     Any,
-    Darker,
-    TowardText
+    Darker
 };
 
 struct PalettePickArgs {
     Color bg = 0;
-    PalettePick pick = PalettePick::Nearest;
     PaletteSide side = PaletteSide::Any;
     float minContrast = 1.0f;
-    float minTextContrast = 1.0f;
-    Color skip = kColorUnset;
-    // a second surface the color sits on: the lower contrast of the two counts
-    Color bg2 = kColorUnset;
 };
 
-// The theme color nearest to or furthest from a.bg among those on a.side of
-// it, at least a.minContrast from it and keeping text on it readable;
-// kColorUnset if none. BackgroundColor isn't a candidate: themed pages take it.
+// The theme color nearest to a.bg on a.side of it, at least a.minContrast from
+// it; kColorUnset if none. BackgroundColor isn't a candidate: themed pages take it.
 static Color PickPaletteColor(const PalettePickArgs& a) {
-    Color text = ThemeWindowTextColor();
     float bgLum = RelLuminance(a.bg);
-    bool towardLight = RelLuminance(text) > bgLum;
     Color candidates[] = {
         ThemeEdgeColor(),         ThemeHotBackgroundColor(),           ThemeInactiveTabBackgroundColor(),
         ThemeDisabledEdgeColor(), ThemeNotificationsBackgroundColor(), ThemeControlBackgroundColor()};
@@ -1286,18 +1264,11 @@ static Color PickPaletteColor(const PalettePickArgs& a) {
         if (a.side == PaletteSide::Darker && lighter) {
             continue;
         }
-        if (a.side == PaletteSide::TowardText && lighter != towardLight) {
-            continue;
-        }
         float contrast = ContrastRatio(c, a.bg);
-        if (a.bg2 != kColorUnset) {
-            contrast = std::min(contrast, ContrastRatio(c, a.bg2));
-        }
-        if (c == a.skip || contrast < a.minContrast || ContrastRatio(text, c) < a.minTextContrast) {
+        if (contrast < a.minContrast) {
             continue;
         }
-        bool better = a.pick == PalettePick::Furthest ? contrast > best : (best == 0 || contrast < best);
-        if (better) {
+        if (best == 0 || contrast < best) {
             best = contrast;
             res = c;
         }
@@ -1305,10 +1276,10 @@ static Color PickPaletteColor(const PalettePickArgs& a) {
     return res;
 }
 
-// a selection against the canvas (toolbar, pages) and the sidebar
-constexpr float kMinSurfaceSelectedContrast = 1.2f;
-// how far a mixed selection moves toward the text color per step
-constexpr float kSelectionMixStep = 0.05f;
+// a selection against the surface it sits on
+constexpr float kSelectedContrast = 1.35f;
+// how far a selection moves toward the text color per step
+constexpr float kSelectionMixStep = 0.01f;
 
 // t of the way from a to b
 static Color MixColors(Color a, Color b, float t) {
@@ -1316,57 +1287,28 @@ static Color MixColors(Color a, Color b, float t) {
     return MkRgb(mix(GetRed(a), GetRed(b)), mix(GetGreen(a), GetGreen(b)), mix(GetBlue(a), GetBlue(b)));
 }
 
-// how well c shows on both the canvas and the sidebar
-static float SurfaceContrast(Color c) {
-    return std::min(ContrastRatio(c, ThemeCanvasColor()), ContrastRatio(c, ThemeSidebarColor()));
-}
-
-// A selection: toggled-on buttons (toolbar, sidebar views), the selected
-// bookmark or list row and text selected on a page. A palette color, not a
-// lightness shift of the background (that made Solarized Dark's and Greeny's
-// garish): the one furthest from the control background, toward the text,
-// that keeps the text readable (mostly EdgeColor); the hover color when none
-// does. It has to show on the canvas and on the sidebar: where it doesn't
-// (One Dark), the palette color that shows best on both; where none shows,
-// the surface nearer the text color mixed toward it.
-Color ThemeSelectedBackgroundColor() {
-    Color bg = ThemeControlBackgroundColor();
+// A selection on surface bg: bg mixed toward the text color until it stands
+// out by kSelectedContrast, so every theme shows it equally strong in the
+// surface's own hue. Palette colors were too strong or off-hue (EdgeColor is
+// a line color: Solarized Light's gray-blue).
+Color ThemeSelectedColorOn(Color bg) {
     if (gUseHighContrast) {
         return AccentColor(bg, 28);
     }
-    PalettePickArgs args;
-    args.bg = bg;
-    args.pick = PalettePick::Furthest;
-    args.side = PaletteSide::TowardText;
-    args.minTextContrast = kMinSelectionTextContrast;
-    Color sel = PickPaletteColor(args);
-    if (sel == kColorUnset) {
-        sel = ThemeHotBackgroundColor();
-    }
-    if (SurfaceContrast(sel) >= kMinSurfaceSelectedContrast) {
-        return sel;
-    }
-
-    Color canvas = ThemeCanvasColor();
-    Color sidebar = ThemeSidebarColor();
-    args.bg = canvas;
-    args.bg2 = sidebar;
-    args.side = PaletteSide::Any;
-    args.minContrast = kMinSurfaceSelectedContrast;
-    Color res = PickPaletteColor(args);
-    if (res != kColorUnset) {
-        return res;
-    }
-
     Color text = ThemeWindowTextColor();
-    Color from = ContrastRatio(canvas, text) < ContrastRatio(sidebar, text) ? canvas : sidebar;
     for (float t = kSelectionMixStep; t < 1.0f; t += kSelectionMixStep) {
-        Color c = MixColors(from, text, t);
-        if (SurfaceContrast(c) >= kMinSurfaceSelectedContrast) {
+        Color c = MixColors(bg, text, t);
+        if (ContrastRatio(c, bg) >= kSelectedContrast) {
             return c;
         }
     }
-    return sel;
+    return MixColors(bg, text, 0.5f);
+}
+
+// toggled-on buttons (toolbar, sidebar views), the selected bookmark and text
+// selected on a page: all on the canvas
+Color ThemeSelectedBackgroundColor() {
+    return ThemeSelectedColorOn(ThemeCanvasColor());
 }
 
 // the selected tab against the tab strip
@@ -1404,13 +1346,13 @@ Color ThemeSidebarColor() {
 // how far a hovered button's fill goes from its surface to the selection
 constexpr float kHoverTowardSelected = 0.5f;
 
-// A hovered button on surface bg: halfway to the selection color, so hover
+// A hovered button on surface bg: halfway to the selection there, so hover
 // and toggled-on read as two steps of one color.
 Color ThemeHoverColorOn(Color bg) {
     if (gUseHighContrast) {
         return ThemeHotBackgroundColor();
     }
-    return MixColors(bg, ThemeSelectedBackgroundColor(), kHoverTowardSelected);
+    return MixColors(bg, ThemeSelectedColorOn(bg), kHoverTowardSelected);
 }
 
 Color ThemeEdgeColor() {
