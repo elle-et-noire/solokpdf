@@ -979,7 +979,7 @@ static const FieldInfo gSettingsFields[] = {
     {offsetof(Settings, inverseSearchCmdLine), SettingType::String, 0},
     {offsetof(Settings, lazyLoading), SettingType::Bool, false},
     {offsetof(Settings, mainWindowBackground), SettingType::Color, (intptr_t)"#80fff200"},
-    {offsetof(Settings, noHomeTab), SettingType::Bool, false},
+    {offsetof(Settings, noHomeTab), SettingType::Bool, true},
     {offsetof(Settings, noCaj2pdfConverterDownload), SettingType::Bool, false},
     {offsetof(Settings, homePageSortByFrequentlyRead), SettingType::Bool, false},
     {offsetof(Settings, homePageViewMode), SettingType::String, (intptr_t)"thumbnails", false,

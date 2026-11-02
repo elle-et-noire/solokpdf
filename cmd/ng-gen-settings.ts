@@ -1425,7 +1425,7 @@ const globalPrefs: Field[] = [
       'Light theme; the default #80fff200 is a marker meaning "use the theme\'s color", so setting ' +
       "any other value also colorizes the toolbar and sidebars",
   ),
-  field("NoHomeTab", Bool, false, "if true, doesn't open Home tab"),
+  field("NoHomeTab", Bool, true, "if true, doesn't open Home tab"),
   field(
     "NoCaj2pdfConverterDownload",
     Bool,

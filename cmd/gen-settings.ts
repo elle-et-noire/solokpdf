@@ -263,7 +263,12 @@ const ebookUI: Field[] = [
 const theme: Field[] = [
   field("Name", Str, "", "name of the theme, as shown in the Settings / Theme menu"),
   field("TextColor", Color, "", "color of text in menus, toolbar, tabs and sidebars"),
-  field("BackgroundColor", Color, "", "background color of the window around the document, the toolbar, the sidebar, the active tab and the scrollbars"),
+  field(
+    "BackgroundColor",
+    Color,
+    "",
+    "background color of the window around the document, the toolbar, the sidebar, the active tab and the scrollbars",
+  ),
   field("ControlBackgroundColor", Color, "", "background color of dialogs and search fields"),
   field(
     "ActiveTabBackgroundColor",
@@ -1445,7 +1450,7 @@ const globalPrefs: Field[] = [
       'Light theme; the default #80fff200 is a marker meaning "use the theme\'s color", so setting ' +
       "any other value also colorizes the toolbar and sidebars",
   ),
-  field("NoHomeTab", Bool, false, "if true, doesn't open Home tab"),
+  field("NoHomeTab", Bool, true, "if true, doesn't open Home tab"),
   field(
     "NoCaj2pdfConverterDownload",
     Bool,

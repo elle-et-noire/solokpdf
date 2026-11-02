@@ -7,6 +7,8 @@ are in [history.md](history.md).
 ## Opening files
 
 - Ctrl+T opens a new Home tab from a document or Home search (B57).
+- With default `NoHomeTab = true`, opening a file leaves no pinned Home tab;
+  Home from the Home command is replaced by the opened file (B56).
 
 - PDFium handles file-backed PDFs, in-memory attachments, `.p7m` PDFs and Kindle
   Print Replica. The shell preview/filter DLLs and PDFs generated inside other

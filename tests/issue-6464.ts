@@ -172,6 +172,13 @@ async function testNoHomeTab(paths: string[], appdata: string): Promise<void> {
     const b = await waitForTabs(withDoc.client, 2);
     check(b.tabs[0]!.rect.dx === b.tabs[1]!.rect.dx, "neither tab should be a compact Home");
     check(b.tabs[0]!.rect.dx <= docDx, "tabs shouldn't grow");
+
+    sendCommandSync(withDoc.frame, cmdId("CmdGoToHomePage"));
+    await waitForTabs(withDoc.client, 3);
+    await expectSearchFocus(withDoc.client);
+    openFile(withDoc.frame, paths[2]!);
+    await waitForDocument(withDoc.client);
+    await waitForTabs(withDoc.client, 3);
   } finally {
     await killAndWait(withDoc.proc);
   }
@@ -192,6 +199,27 @@ async function testNoHomeTab(paths: string[], appdata: string): Promise<void> {
   } finally {
     await killAndWait(empty.proc);
   }
+}
+
+async function testNoHomeSetting(setting: string): Promise<void> {
+  const pdf = tmpPath("issue-6464-default.pdf");
+  writeFileSync(pdf, makeTextPdf("default Home behavior"));
+  const paths = [pdf];
+  for (let i = 1; i < 3; i++) {
+    const path = tmpPath(`issue-6464-default-${i}.pdf`);
+    copyFileSync(pdf, path);
+    paths.push(path);
+  }
+  const appdata = writeAppdata("issue-6464-default", `RestoreSession = false\nCheckForUpdates = false\n${setting}`);
+  await testNoHomeTab(paths, appdata);
+}
+
+export async function testNoHomeDefault(): Promise<void> {
+  await testNoHomeSetting("");
+}
+
+export async function testNoHomeCommand(): Promise<void> {
+  await testNoHomeSetting("NoHomeTab = true\n");
 }
 
 async function expectPinnedHomeKept(client: ControlClient, frame: number, homeDx: number): Promise<void> {
@@ -292,14 +320,15 @@ export async function testit(): Promise<void> {
     copyFileSync(pdf, p);
     paths.push(p);
   }
-  const settings = "RestoreSession = false\nCheckForUpdates = false\n";
+  const settings = "RestoreSession = false\nCheckForUpdates = false\nNoHomeTab = false\n";
   await testCtrlTShortcut();
   await testLayoutAndPlus(pdf, writeAppdata("issue-6464-appdata", settings));
   await testCrowded(paths, writeAppdata("issue-6464-crowded", settings));
   await testOpenInHomeTab(paths, writeAppdata("issue-6464-open", settings));
-  await testNoHomeTab(paths, writeAppdata("issue-6464-nohome", settings + "NoHomeTab = true\n"));
+  await testNoHomeDefault();
+  await testNoHomeCommand();
   // without -for-testing, ReuseInstance would hand the launch to any running instance
-  const sessionSettings = "RestoreSession = true\nReuseInstance = false\nCheckForUpdates = false\n";
+  const sessionSettings = "RestoreSession = true\nReuseInstance = false\nCheckForUpdates = false\nNoHomeTab = false\n";
   await testNotRestored(pdf, writeAppdata("issue-6464-session", sessionSettings));
 }
 

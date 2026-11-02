@@ -617,7 +617,8 @@ void GoToHomeTab(MainWindow* win) {
 
     // InsertTab selects without TCN_SELCHANGE, so save / load the models here
     SaveCurrentWindowTab(win);
-    homeTab = InsertHomeTab(win, 0, HomeTabKind::Pinned, false);
+    HomeTabKind kind = gSettings->noHomeTab ? HomeTabKind::Extra : HomeTabKind::Pinned;
+    homeTab = InsertHomeTab(win, 0, kind, false);
     UpdateTabWidth(win);
     LoadModelIntoTab(homeTab);
     HomePageFocusSearch(win);

@@ -40,10 +40,11 @@ import { testit as countPrefix } from "./ad-hoc-count-prefix.ts";
 import { testit as noUpdateCheck } from "./ad-hoc-no-update-check.ts";
 import { testit as trimMargins } from "./issue-trim-margins.ts";
 import { testit as sigStatus } from "./ad-hoc-pdfium-sig-status.ts";
-import { testCtrlTShortcut } from "./issue-6464.ts";
+import { testCtrlTShortcut, testNoHomeDefault } from "./issue-6464.ts";
 
 const tests: NamedTest[] = [
   ["issue-6464-ctrl-t", testCtrlTShortcut],
+  ["issue-6464-no-home-default", testNoHomeDefault],
   ["ad-hoc-pdfium-sig-status", sigStatus],
   ["ad-hoc-pdfium-memory", memory],
   ["ad-hoc-pdfium-catalog-layout", catalogLayout],
