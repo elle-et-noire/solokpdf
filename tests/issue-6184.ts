@@ -53,7 +53,11 @@ export async function testit(): Promise<void> {
     console.log("SKIP issue-6184: the stand-in viewer is an HKCU App Paths entry and a .cmd");
     return;
   }
-  if (realPdfXchangeInstalled()) {
+  if (!process.env.CI && !process.env.GITHUB_ACTIONS && !process.env.SOLOKPDF_HIDDEN_DESKTOP) {
+    console.log("skipping: viewer launch requires CI or the hidden desktop");
+    return;
+  }
+  if (realPdfXchangeInstalled() || reg(["query", `HKCU\\${APP_PATHS}`]).ok) {
     console.log("skipping: PDF-XChange is installed, the test would launch it for real");
     return;
   }
@@ -72,7 +76,9 @@ export async function testit(): Promise<void> {
   }
 
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
-  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf], {
+    env: { SOLOKPDF_REAL_SHELL_LAUNCH: "1" },
+  });
   try {
     await client.waitForRenderIdle();
     await pressKey(findCanvas(frame), VK_F4);

@@ -47,7 +47,9 @@ and thumbnail capture (`issue-6448`) also passed there. The older
 That failure is not established as desktop-specific.
 
 The app blocks shell launches under `-for-testing`, including URLs, external
-viewers, log files and folder selection. The separate desktop is not an
+viewers, log files and folder selection. A test may set
+`SOLOKPDF_REAL_SHELL_LAUNCH=1` for its app process only when it controls
+the launch target and runs on CI or the hidden desktop. The separate desktop is not an
 absolute isolation boundary: a process can explicitly target the input
 desktop, system services may show UI there, and the clipboard is shared.
 Processes launched outside the runner's job need separate review.

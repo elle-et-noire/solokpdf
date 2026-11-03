@@ -16644,7 +16644,11 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     gCli = &flags;
     gForTesting = flags.forTesting;
     if (gForTesting) {
-        SetEnvironmentVariableW(L"SOLOKPDF_BLOCK_SHELL_LAUNCH", L"1");
+        WCHAR realShell[2]{};
+        if (GetEnvironmentVariableW(L"SOLOKPDF_REAL_SHELL_LAUNCH", realShell, dimof(realShell)) != 1 ||
+            realShell[0] != L'1') {
+            SetEnvironmentVariableW(L"SOLOKPDF_BLOCK_SHELL_LAUNCH", L"1");
+        }
         WCHAR realClipboard[2]{};
         if (GetEnvironmentVariableW(L"SOLOKPDF_REAL_CLIPBOARD", realClipboard, dimof(realClipboard)) != 1 ||
             realClipboard[0] != L'1') {
