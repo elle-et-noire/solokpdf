@@ -94,6 +94,8 @@ struct ActivationEntry {
 };
 static ActivationEntry gActivationTrace[kActivationTraceSize];
 static unsigned gActivationCount;
+static bool gTestFocusGuard = false;
+static bool gTestActivating = false;
 
 static LRESULT CALLBACK ActivationHook(int code, WPARAM wp, LPARAM lp) {
     if (code >= 0) {

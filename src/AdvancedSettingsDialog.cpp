@@ -1503,9 +1503,7 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
     PositionDialog(hwnd, win->hwndFrame);
 
     SetIsVisible(true);
-    if (AppWindowZOrder(hwnd, nullptr) != HWND_BOTTOM || GetActiveWindow() == hwnd) {
-        EditSetFocus(editFilter);
-    }
+    EditSetFocus(editFilter);
     return true;
 }
 
@@ -1903,10 +1901,7 @@ void ShowAdvancedSettingsDialog(MainWindow* win) {
         return;
     }
     if (gAdvancedSettingsWnd) {
-        if (AppWindowZOrder(gAdvancedSettingsWnd->hwnd, nullptr) != HWND_BOTTOM ||
-            GetActiveWindow() == gAdvancedSettingsWnd->hwnd) {
-            HwndSetFocus(gAdvancedSettingsWnd->hwnd);
-        }
+        HwndSetFocus(gAdvancedSettingsWnd->hwnd);
         return;
     }
     auto* wnd = new AdvancedSettingsWnd();

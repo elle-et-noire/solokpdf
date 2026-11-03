@@ -327,15 +327,8 @@ HWND HwndWindowFromPoint(Point p) {
 
 //--- HWND: focus / visibility / Z-order
 
-bool gTestFocusGuard = false;
-bool gTestActivating = false;
-
-bool HwndCanTestFocus(HWND hwnd) {
-    return !gTestFocusGuard || gTestActivating || (hwnd && GetAncestor(hwnd, GA_ROOT) == GetActiveWindow());
-}
-
 HWND HwndSetFocus(HWND hwnd) {
-    return HwndCanTestFocus(hwnd) ? SetFocus(hwnd) : nullptr;
+    return SetFocus(hwnd);
 }
 
 // GetFocus() is null when this thread is not the foreground thread;
@@ -369,7 +362,7 @@ bool IsThreadInMenuMode() {
 // foreground. Attach to the foreground thread so Tab can leave a child HWND
 // for a virtual control (posted-key tests, a dialog that is not active).
 bool HwndSetFocusForce(HWND hwnd) {
-    if (!hwnd || !HwndCanTestFocus(hwnd)) {
+    if (!hwnd) {
         return false;
     }
     if (HwndThreadFocus() == hwnd) {

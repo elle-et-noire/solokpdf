@@ -27,14 +27,14 @@ checking the runner. Local app tests must never run on the owner's desktop.
 
 ### Desktop-dependent checks
 
-| Check                                                | Hidden-desktop behavior                                                                                                                      |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ad-hoc-b68-window` foreground and z-order assertion | Skips when the never-shown desktop has no foreground window.                                                                                 |
-| `issue-6269` foreground branch                       | Skips locally without CI or `SOLOKPDF_REAL_DESKTOP=1`; its background Copy branch runs.                                                      |
-| `overlay-scrollbar-theme`                            | Screen-pixel assertions need a visible input desktop.                                                                                        |
-| `smart-scrollbars-autohide`                          | Screen-pixel assertions need a visible input desktop.                                                                                        |
-| `taskbar-icon-contrast`                              | Skips with a message when the hidden desktop has no taskbar; compare pixels on a visible input desktop.                                      |
-| System clipboard                                     | Shared by desktops in `WinSta0`; `-for-testing` uses an app-local clipboard. Real clipboard tests require CI or `SOLOKPDF_REAL_CLIPBOARD=1`. |
+| Check                                    | Hidden-desktop behavior                                                                                                                      |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ad-hoc-b68-window` foreground assertion | Skips when the never-shown desktop has no foreground window.                                                                                 |
+| `issue-6269` foreground branch           | Skips locally without CI or `SOLOKPDF_REAL_DESKTOP=1`; its background Copy branch runs.                                                      |
+| `overlay-scrollbar-theme`                | Screen-pixel assertions need a visible input desktop.                                                                                        |
+| `smart-scrollbars-autohide`              | Screen-pixel assertions need a visible input desktop.                                                                                        |
+| `taskbar-icon-contrast`                  | Skips with a message when the hidden desktop has no taskbar; compare pixels on a visible input desktop.                                      |
+| System clipboard                         | Shared by desktops in `WinSta0`; `-for-testing` uses an app-local clipboard. Real clipboard tests require CI or `SOLOKPDF_REAL_CLIPBOARD=1`. |
 
 The two skipped foreground branches need a visible input desktop for their
 foreground assertions. Do not opt in to them during local hidden runs. DPI
@@ -73,7 +73,7 @@ clicks. Two screen coordinates set the position; a request without arguments
 clears it. The response is the position. The override works even when a controlled run saves
 settings without `-for-testing`; it never moves the Windows pointer.
 
-With `-for-testing`, app windows open behind other windows without activation.
+With `-for-testing`, app windows open behind other windows without activation. Dialogs opened by tests may take focus and activate on a visible desktop; local tests use the hidden desktop, so this is acceptable.
 Tests that require foreground-only behavior activate their own frame through
 `-dbg-control` `TestFocusState("activate")`. Tests that need normal window-state transitions can set
 `SOLOKPDF_REAL_WINDOW_ACTIVATION=1` for their app process on CI or a hidden
@@ -97,8 +97,7 @@ call a foreground API on the local default run. It queries the UI thread's
 In CI or with `SOLOKPDF_REAL_DESKTOP=1`, it activates its test frame and
 sends `WA_INACTIVE` to check the popup's activation guard. The Copy test uses a
 process-local clipboard, leaving the system clipboard untouched.
-Copy is not a focusable virtual control, so its message-driven mouse-down
-does not exercise the separate `SetFocus` guard.
+Copy is not a focusable virtual control.
 `issue-3472`, `issue-6045`, and the
 `ad-hoc-4600-*` tests still call `SetForegroundWindow`. Ng/mac
 `moveTestCursor()` still moves the real pointer. An unlocked desktop is needed
