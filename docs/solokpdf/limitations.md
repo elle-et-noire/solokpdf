@@ -387,12 +387,13 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   cannot be armed on a hosted desktop.
   OLE drag and drop and foreground-dependent popup tests still need an unlocked
   desktop. See [testing.md](testing.md).
-- On an unlocked desktop, `toolbar-hover-dropdown` passes on both engines.
+- `toolbar-hover-dropdown` passes on both engines, locally and in hosted CI
+  (runs 41627802937, 41627807442), so the full suite runs it again.
   With the original PDF fixture, both engines display upright RTL toast text.
   `PrintWindow` with `PW_RENDERFULLCONTENT` captured a clipped strip on both;
   its stray bars triggered the PDFium failure. B37 paints toast content for
   `WM_PRINTCLIENT`, and standard `PrintWindow` capture passes locally on both
-  engines without reading displayed pixels. Hosted CI remains unverified.
+  engines without reading displayed pixels; it also passes in SolokPDF CI.
 - `shape-annotation-placement` passed on both engines in hosted CI run
   41349548951 (B39).
 - The baseline clipboard test failure was fixed with per-read opens and
@@ -405,8 +406,7 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 - The full-suite workflow runs weekly on Monday at 02:00 JST with separate
   PDFium and MuPDF jobs; manual runs still accept an engine and test filter
   (D4). `run-github-ci.ts` skips the by-design PDFium gaps (`issue-5937`,
-  `issue-6361`, `issue-3731`; unless `SOLOKPDF_ENGINE=mupdf`) and the
-  foreground-dependent `toolbar-hover-dropdown` test, so a red weekly run
-  means a regression (B50, B37). The suite takes
+  `issue-6361`, `issue-3731`; unless `SOLOKPDF_ENGINE=mupdf`), so a red
+  weekly run means a regression (B50). The suite takes
   ~25 min once a hung test is cut off by the per-test timeout; sharding is
   deferred (D3). Both engines passed in run 41349548951.

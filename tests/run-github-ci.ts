@@ -46,8 +46,6 @@ export const excludedTests: Record<string, string> = {
   "issue-6279": "drives the system Save dialog on an administrative share, untried on a runner",
   // the daily job builds SumatraPDF-static.exe, which embeds no installer payload
   "issue-6025": "installer UI needs the embedded libsumatrapdf.dll, which the static CI exe does not have",
-  // the hosted desktop has no cursor input
-  "toolbar-hover-dropdown": "right-clicks Save with the cursor, which the hosted desktop ignores",
 };
 
 // MuPDF features PDFium tabs lack by design (backlog B21, B27)
