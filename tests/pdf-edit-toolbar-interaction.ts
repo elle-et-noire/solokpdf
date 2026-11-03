@@ -50,8 +50,8 @@ function makePdf(): string {
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R 5 0 R 6 0 R] >>",
-    "<< /Type /Annot /Subtype /Highlight /P 3 0 R /Rect [72 680 220 710] " +
-      "/QuadPoints [72 710 220 710 72 680 220 680] /C [1 1 0] /CA 0.5 " +
+    "<< /Type /Annot /Subtype /Highlight /P 3 0 R /Rect [72 560 220 590] " +
+      "/QuadPoints [72 590 220 590 72 560 220 560] /C [1 1 0] /CA 0.5 " +
       "/T (Ada) /M (D:20260824123400Z) " +
       "/Contents (A deliberately long annotation comment that must be shortened before it is shown in the hover card) >>",
     "<< /Type /Annot /Subtype /Highlight /P 3 0 R /Rect [72 50 220 80] " +
