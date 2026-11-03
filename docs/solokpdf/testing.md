@@ -4,6 +4,8 @@
 coordinates and clears it with no arguments. App cursor queries use it until
 cleared or the process exits. It is available in controlled runs that save
 settings without `-for-testing`. It does not move the Windows pointer.
+The response returns the cursor coordinates and the number of live virtual
+roots tracking mouse leave.
 
 Use `moveTestCursor()` in `tests/win-automation.ts` before sending mouse
 messages. It needs a controlled app. `clickAt()` does this automatically.

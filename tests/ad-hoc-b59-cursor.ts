@@ -7,7 +7,8 @@ import {
   packCoords,
   sendMessage,
   setCursorPos,
-  trackMouseLeave,
+  setForegroundWindow,
+  windowFromPoint,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
@@ -34,7 +35,7 @@ export async function testit(): Promise<void> {
     const real = getCursorPos();
     const wanted = { x: real.x + 17, y: real.y + 23 };
     const moved = await client.request(ControlCommand.TestCursorPosition, [wanted.x, wanted.y]);
-    if (moved[0] !== wanted.x || moved[1] !== wanted.y) throw new Error(`test cursor: ${moved}`);
+    if (moved[0] !== wanted.x || moved[1] !== wanted.y || moved[2] !== 0) throw new Error(`test cursor: ${moved}`);
     if (!same(getCursorPos(), real)) throw new Error("setting override moved real cursor");
     const canvas = findCanvas(frame);
     if (!canvas) throw new Error("canvas missing");
@@ -69,13 +70,18 @@ export async function testit(): Promise<void> {
       if (!tabs) throw new Error("tab bar missing");
       const inside = clientToScreen(tabs.hwnd, tabs.rect.x + 5, tabs.rect.y + 5);
       await client.request(ControlCommand.TestCursorPosition);
+      setForegroundWindow(frame);
       if (setCursorPos(inside.x, inside.y) && same(getCursorPos(), inside)) {
-        sendMessage(tabs.hwnd, WM_MOUSEMOVE, 0, packCoords(tabs.rect.x + 5, tabs.rect.y + 5));
-        if (!trackMouseLeave(tabs.hwnd)) {
-          throw new Error("could not arm mouse leave tracking");
+        if (windowFromPoint(inside.x, inside.y) !== tabs.hwnd) throw new Error("tab bar occluded");
+        let armed: unknown[] = [];
+        for (let i = 0; i < 5; i++) {
+          sendMessage(tabs.hwnd, WM_MOUSEMOVE, 0, packCoords(tabs.rect.x + 5, tabs.rect.y + 5));
+          armed = await client.request(ControlCommand.TestCursorPosition);
+          if (Number(armed[2]) > 0) break;
         }
-        await client.request(ControlCommand.TestCursorPosition, [targetScreen.x, targetScreen.y]);
-        if (trackMouseLeave(tabs.hwnd)) throw new Error("override left mouse leave tracking armed");
+        if (Number(armed[2]) < 1) throw new Error(`could not arm mouse leave tracking: ${armed}`);
+        const overridden = await client.request(ControlCommand.TestCursorPosition, [targetScreen.x, targetScreen.y]);
+        if (overridden[2] !== 0) throw new Error(`override left mouse leave tracking armed: ${overridden}`);
       } else {
         console.log("SKIP mouse leave transition: real pointer unavailable");
       }

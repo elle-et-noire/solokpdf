@@ -2486,6 +2486,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
             Point pt = GetCursorPosition();
             AppendArgInt(req->results, pt.x);
             AppendArgInt(req->results, pt.y);
+            AppendArgInt(req->results, TestMouseLeaveTrackingCount());
             AppendArgEnd(req->results);
             break;
         }
