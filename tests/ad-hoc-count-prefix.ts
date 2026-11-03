@@ -1,8 +1,14 @@
 import { writeFileSync } from "node:fs";
 import { assemblePdf, runStandalone, tmpPath, writeAppdata } from "./util.ts";
-import { findCanvas, killAndWait, launchControlled, pressKey } from "./win-automation.ts";
+import {
+  activateTestFrame,
+  canActivateTestFrame,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  pressKey,
+} from "./win-automation.ts";
 import { getScrollPos } from "./winapi.ts";
-import { ControlCommand } from "./control.ts";
 
 function makePdf(): string {
   const pages = Array.from({ length: 20 }, (_, i) => `${3 + i * 2} 0 R`);
@@ -22,6 +28,10 @@ function makePdf(): string {
 }
 
 export async function testit(): Promise<void> {
+  if (!canActivateTestFrame()) {
+    console.log("SKIP ad-hoc-count-prefix: hidden desktop, CI, or SOLOKPDF_REAL_DESKTOP=1 required");
+    return;
+  }
   const pdf = tmpPath("count-prefix.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
   const appdata = writeAppdata(
@@ -39,7 +49,7 @@ export async function testit(): Promise<void> {
   ]);
   try {
     await client.waitForRenderIdle();
-    await client.request(ControlCommand.TestFocusState, ["activate"]);
+    await activateTestFrame(client);
     const canvas = findCanvas(frame);
     const start = getScrollPos(canvas);
     await pressKey(frame, 0x4a);

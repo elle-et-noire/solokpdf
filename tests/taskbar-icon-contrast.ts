@@ -93,7 +93,7 @@ export async function testit(): Promise<void> {
   setProcessDpiAware();
   const taskbar = taskbarColor();
   if (!taskbar) {
-    console.log("SKIP taskbar-icon-contrast: no taskbar to compare with");
+    console.log("SKIP taskbar-icon-contrast: no taskbar on this desktop; run on a visible input desktop");
     return;
   }
   const [theme] = THEMES.reduce((a, b) => (contrastRatio(a[1], taskbar) <= contrastRatio(b[1], taskbar) ? a : b));

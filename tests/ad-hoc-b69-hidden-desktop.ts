@@ -31,7 +31,10 @@ const user32 = dlopen("user32.dll", {
 const kernel32 = dlopen("kernel32.dll", {
   GetCurrentThreadId: { args: [], returns: FFIType.u32 },
   GetLastError: { args: [], returns: FFIType.u32 },
+  GetErrorMode: { args: [], returns: FFIType.u32 },
 });
+
+const ERROR_MODE = 0x0001 | 0x0002 | 0x8000;
 
 function wide(value: string): Uint16Array {
   return new Uint16Array([...value].map((char) => char.charCodeAt(0)).concat(0));
@@ -54,6 +57,7 @@ export async function testit(): Promise<void> {
   if (!current) throw new Error("GetThreadDesktop failed");
   const name = desktopName(BigInt(current));
   if (name !== process.env.SOLOKPDF_HIDDEN_DESKTOP) throw new Error(`test runs on ${name}`);
+  if ((kernel32.symbols.GetErrorMode() & ERROR_MODE) !== ERROR_MODE) throw new Error("crash UI is not suppressed");
 
   const input = user32.symbols.OpenInputDesktop(0, false, 0x0001);
   if (!input) throw new Error(`OpenInputDesktop: ${kernel32.symbols.GetLastError()}`);

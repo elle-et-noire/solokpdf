@@ -1,11 +1,13 @@
 import { mkdtempSync, openSync, readSync, rmSync, closeSync } from "node:fs";
+import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { dlopen, FFIType, ptr } from "bun:ffi";
 
-const DESKTOP_NAME = "SolokPDFTests";
-const DESKTOP_PATH = `WinSta0\\${DESKTOP_NAME}`;
 const DESKTOP_ALL_ACCESS = 0x01ff;
+const DESKTOP_READOBJECTS = 0x0001;
+const UOI_NAME = 2;
+const ERROR_MODE = 0x0001 | 0x0002 | 0x8000;
 const CREATE_SUSPENDED = 0x00000004;
 const CREATE_NO_WINDOW = 0x08000000;
 const CREATE_UNICODE_ENVIRONMENT = 0x00000400;
@@ -16,13 +18,18 @@ const WAIT_OBJECT_0 = 0;
 const WAIT_TIMEOUT = 258;
 const INVALID_HANDLE_VALUE = 0xffffffffffffffffn;
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+const RELAY_CHUNK_BYTES = 64 * 1024;
 
 const user32 = dlopen("user32.dll", {
   CreateDesktopW: {
     args: [FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.u32, FFIType.u32, FFIType.ptr],
     returns: FFIType.u64,
   },
-  OpenDesktopW: { args: [FFIType.ptr, FFIType.u32, FFIType.bool, FFIType.u32], returns: FFIType.u64 },
+  OpenInputDesktop: { args: [FFIType.u32, FFIType.bool, FFIType.u32], returns: FFIType.u64 },
+  GetUserObjectInformationW: {
+    args: [FFIType.u64, FFIType.i32, FFIType.ptr, FFIType.u32, FFIType.ptr],
+    returns: FFIType.bool,
+  },
   CloseDesktop: { args: [FFIType.u64], returns: FFIType.bool },
 });
 const kernel32 = dlopen("kernel32.dll", {
@@ -55,6 +62,8 @@ const kernel32 = dlopen("kernel32.dll", {
   TerminateProcess: { args: [FFIType.u64, FFIType.u32], returns: FFIType.bool },
   CloseHandle: { args: [FFIType.u64], returns: FFIType.bool },
   GetLastError: { args: [], returns: FFIType.u32 },
+  GetErrorMode: { args: [], returns: FFIType.u32 },
+  SetErrorMode: { args: [FFIType.u32], returns: FFIType.u32 },
 });
 
 function wide(value: string): Uint16Array {
@@ -80,15 +89,46 @@ function outputFile(path: string): bigint {
   return BigInt(handle);
 }
 
-function relay(path: string, state: { fd: number; offset: number }, stream: NodeJS.WriteStream): void {
+function desktopName(handle: bigint): string {
+  const buf = new Uint16Array(128);
+  check(
+    user32.symbols.GetUserObjectInformationW(handle, UOI_NAME, ptr(buf), buf.byteLength, null),
+    "GetUserObjectInformationW",
+  );
+  return String.fromCharCode(...buf.subarray(0, buf.indexOf(0)));
+}
+
+async function relay(
+  path: string,
+  state: { fd: number; offset: number },
+  stream: NodeJS.WriteStream,
+  deadline: number,
+  interrupted: () => boolean,
+): Promise<boolean> {
   if (state.fd < 0) state.fd = openSync(path, "r");
-  const chunk = Buffer.allocUnsafe(64 * 1024);
-  while (true) {
+  let copied = false;
+  for (let i = 0; i < 4; i++) {
+    if (interrupted() || Date.now() >= deadline) break;
+    const chunk = Buffer.allocUnsafe(RELAY_CHUNK_BYTES);
     const count = readSync(state.fd, chunk, 0, chunk.length, state.offset);
     if (!count) break;
+    copied = true;
     state.offset += count;
-    stream.write(chunk.subarray(0, count));
+    if (!stream.write(chunk.subarray(0, count))) {
+      while (stream.writableNeedDrain && !interrupted() && Date.now() < deadline) {
+        const abort = new AbortController();
+        const timer = setTimeout(() => abort.abort(), 100);
+        try {
+          await once(stream, "drain", { signal: abort.signal });
+        } catch (error) {
+          if (!abort.signal.aborted) throw error;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    }
   }
+  return copied;
 }
 
 async function main(): Promise<number> {
@@ -106,10 +146,9 @@ async function main(): Promise<number> {
   const args = argv.slice(commandAt);
   const exe = args[0]!.toLowerCase() === "bun" ? process.execPath : (Bun.which(args[0]!) ?? resolve(args[0]!));
   const cmdline = wide([exe, ...args.slice(1)].map(quote).join(" "));
-  const desktopName = wide(DESKTOP_NAME);
-  let desktop = BigInt(user32.symbols.CreateDesktopW(ptr(desktopName), null, null, 0, DESKTOP_ALL_ACCESS, null));
-  if (!desktop) desktop = BigInt(user32.symbols.OpenDesktopW(ptr(desktopName), 0, false, DESKTOP_ALL_ACCESS));
-  check(desktop, "CreateDesktopW/OpenDesktopW");
+  const name = `SolokPDFTests-${process.pid}-${Date.now().toString(36)}`;
+  const desktop = BigInt(user32.symbols.CreateDesktopW(ptr(wide(name)), null, null, 0, DESKTOP_ALL_ACCESS, null));
+  check(desktop, "CreateDesktopW");
 
   const dir = mkdtempSync(join(tmpdir(), "solok-hidden-"));
   const stdoutPath = join(dir, "stdout.txt");
@@ -130,6 +169,14 @@ async function main(): Promise<number> {
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
   try {
+    const input = BigInt(user32.symbols.OpenInputDesktop(0, false, DESKTOP_READOBJECTS));
+    check(input, "OpenInputDesktop");
+    try {
+      if (desktopName(input) === desktopName(desktop)) throw new Error("test desktop is the input desktop");
+    } finally {
+      check(user32.symbols.CloseDesktop(input), "CloseDesktop(input)");
+    }
+
     const sa = new Uint8Array(24);
     new DataView(sa.buffer).setUint32(0, sa.length, true);
     new DataView(sa.buffer).setUint32(16, 1, true);
@@ -150,7 +197,7 @@ async function main(): Promise<number> {
     const si = new Uint8Array(104);
     const siView = new DataView(si.buffer);
     siView.setUint32(0, si.length, true);
-    const desktopPath = wide(DESKTOP_PATH);
+    const desktopPath = wide(`WinSta0\\${name}`);
     siView.setBigUint64(16, BigInt(ptr(desktopPath)), true);
     siView.setUint32(60, STARTF_USESTDHANDLES, true);
     siView.setBigUint64(80, stdin, true);
@@ -159,25 +206,32 @@ async function main(): Promise<number> {
     const pi = new Uint8Array(24);
     const cwd = wide(process.cwd());
     const env = wide(
-      Object.entries({ ...process.env, SOLOKPDF_HIDDEN_DESKTOP: DESKTOP_NAME })
+      Object.entries({ ...process.env, SOLOKPDF_HIDDEN_DESKTOP: name })
         .map(([key, value]) => `${key}=${value}`)
         .join("\0") + "\0",
     );
-    check(
-      kernel32.symbols.CreateProcessW(
-        ptr(wide(exe)),
-        ptr(cmdline),
-        null,
-        null,
-        true,
-        CREATE_SUSPENDED | CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
-        ptr(env),
-        ptr(cwd),
-        ptr(si),
-        ptr(pi),
-      ),
-      "CreateProcessW",
-    );
+    const previousErrorMode = kernel32.symbols.GetErrorMode();
+    kernel32.symbols.SetErrorMode(previousErrorMode | ERROR_MODE);
+    let created: boolean;
+    try {
+      created = Boolean(
+        kernel32.symbols.CreateProcessW(
+          ptr(wide(exe)),
+          ptr(cmdline),
+          null,
+          null,
+          true,
+          CREATE_SUSPENDED | CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
+          ptr(env),
+          ptr(cwd),
+          ptr(si),
+          ptr(pi),
+        ),
+      );
+    } finally {
+      kernel32.symbols.SetErrorMode(previousErrorMode);
+    }
+    check(created, "CreateProcessW");
     const piView = new DataView(pi.buffer);
     proc = piView.getBigUint64(0, true);
     thread = piView.getBigUint64(8, true);
@@ -200,23 +254,28 @@ async function main(): Promise<number> {
     const exitCode = new Uint32Array(1);
     const deadline = Date.now() + timeout;
     while (!interrupted) {
-      relay(stdoutPath, outState, process.stdout);
-      relay(stderrPath, errState, process.stderr);
+      if (Date.now() >= deadline) {
+        console.error(`hidden test timed out after ${timeout} ms`);
+        stop();
+        break;
+      }
+      await relay(stdoutPath, outState, process.stdout, deadline, () => interrupted);
+      if (interrupted || Date.now() >= deadline) continue;
+      await relay(stderrPath, errState, process.stderr, deadline, () => interrupted);
+      if (interrupted || Date.now() >= deadline) continue;
       const wait = kernel32.symbols.WaitForSingleObject(proc, 0);
       if (wait === WAIT_OBJECT_0) {
         check(kernel32.symbols.GetExitCodeProcess(proc, ptr(exitCode)), "GetExitCodeProcess");
         break;
       }
       if (wait !== WAIT_TIMEOUT) throw new Error(`WaitForSingleObject failed: ${kernel32.symbols.GetLastError()}`);
-      if (Date.now() >= deadline) {
-        console.error(`hidden test timed out after ${timeout} ms`);
-        stop();
-        break;
-      }
       await Bun.sleep(100);
     }
-    relay(stdoutPath, outState, process.stdout);
-    relay(stderrPath, errState, process.stderr);
+    while (!interrupted && Date.now() < deadline) {
+      const out = await relay(stdoutPath, outState, process.stdout, deadline, () => interrupted);
+      const err = await relay(stderrPath, errState, process.stderr, deadline, () => interrupted);
+      if (!out && !err) break;
+    }
     return interrupted ? 124 : exitCode[0]!;
   } finally {
     process.off("SIGINT", stop);
@@ -227,10 +286,13 @@ async function main(): Promise<number> {
     if (stdin) kernel32.symbols.CloseHandle(stdin);
     if (stdout) kernel32.symbols.CloseHandle(stdout);
     if (stderr) kernel32.symbols.CloseHandle(stderr);
-    if (desktop) user32.symbols.CloseDesktop(desktop);
     if (outState.fd >= 0) closeSync(outState.fd);
     if (errState.fd >= 0) closeSync(errState.fd);
-    rmSync(dir, { recursive: true, force: true });
+    try {
+      check(user32.symbols.CloseDesktop(desktop), "CloseDesktop(test)");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   }
 }
 

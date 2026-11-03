@@ -2215,6 +2215,9 @@ void AddPathToRecentDocs(Str path) {
 // It'll always run the process, might fail to run non-elevated if fails to find explorer.exe
 // Also, if explorer.exe is running elevated, it'll probably run elevated as well.
 void RunNonElevated(Str exePath) {
+    if (!CanLaunchShell()) {
+        return;
+    }
     if (!file::Exists(exePath)) {
         logf("RunNonElevated: file '%s' doesn't exist\n", exePath);
         return;
@@ -2238,7 +2241,18 @@ Run:
     SafeCloseHandle(&h);
 }
 
+bool CanLaunchShell() {
+    if (GetEnvironmentVariableW(L"SOLOKPDF_BLOCK_SHELL_LAUNCH", nullptr, 0) == 0) {
+        return true;
+    }
+    log(StrL("Blocked shell launch during testing\n"));
+    return false;
+}
+
 bool LaunchFileShell(Str path, Str params, Str verb, bool hidden) {
+    if (!CanLaunchShell()) {
+        return false;
+    }
     if (len(path) == 0) {
         return false;
     }
@@ -2266,6 +2280,9 @@ bool LaunchBrowser(Str url) {
 }
 
 void OpenPathInDefaultFileManager(Str path) {
+    if (!CanLaunchShell()) {
+        return;
+    }
     if (len(path) == 0) {
         return;
     }

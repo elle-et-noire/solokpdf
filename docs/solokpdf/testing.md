@@ -3,10 +3,12 @@
 ## Local Windows runs
 
 Run every local test that can launch an app through the hidden-desktop runner,
-outside the Codex sandbox. The runner creates or opens `WinSta0\SolokPDFTests`,
-starts the test process there, and never switches desktops. Descendant app
+outside the Codex sandbox. The runner creates a unique desktop in `WinSta0`,
+checks it is not the input desktop, and never switches desktops. Ordinary child
 windows stay off the owner's screen. It forwards output and exit status; a
-timeout or Ctrl+C ends the process tree.
+timeout or Ctrl+C ends the process tree. The child inherits Windows error mode
+flags that suppress hard-error and crash dialogs; the app also sets WER no-UI
+mode under the runner. Crashes still fail tests.
 
 ```powershell
 . ./tools/solokpdf/env.ps1
@@ -25,12 +27,14 @@ checking the runner. Local app tests must never run on the owner's desktop.
 
 ### Desktop-dependent checks
 
-| Check                                                | Hidden-desktop behavior                                                                                    |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `ad-hoc-b68-window` foreground and z-order assertion | Skips when the never-shown desktop has no foreground window.                                               |
-| `issue-6269` foreground branch                       | Skips locally without CI or `SOLOKPDF_REAL_DESKTOP=1`; its background Copy branch runs.                    |
-| Direct screen capture                                | Has no displayed hidden-desktop surface to sample reliably; use window-local `PrintWindow` checks instead. |
-| System clipboard                                     | Shared by desktops in `WinSta0`; hidden windows do not isolate it. B67 tracks test-local clipboard work.   |
+| Check                                                | Hidden-desktop behavior                                                                                  |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `ad-hoc-b68-window` foreground and z-order assertion | Skips when the never-shown desktop has no foreground window.                                             |
+| `issue-6269` foreground branch                       | Skips locally without CI or `SOLOKPDF_REAL_DESKTOP=1`; its background Copy branch runs.                  |
+| `overlay-scrollbar-theme`                            | Screen-pixel assertions need a visible input desktop.                                                    |
+| `smart-scrollbars-autohide`                          | Screen-pixel assertions need a visible input desktop.                                                    |
+| `taskbar-icon-contrast`                              | Skips with a message when the hidden desktop has no taskbar; compare pixels on a visible input desktop.  |
+| System clipboard                                     | Shared by desktops in `WinSta0`; hidden windows do not isolate it. B67 tracks test-local clipboard work. |
 
 The two skipped foreground branches need a visible input desktop for their
 foreground assertions. Do not opt in to them during local hidden runs. DPI
@@ -41,6 +45,12 @@ and thumbnail capture (`issue-6448`) also passed there. The older
 `ad-hoc-md-find` probe fails at its find-bar locator: it expects `Edit` and
 `Static` children, while the current bar uses a combo box and virtual status.
 That failure is not established as desktop-specific.
+
+The app blocks shell launches under `-for-testing`, including URLs, external
+viewers, log files and folder selection. The separate desktop is not an
+absolute isolation boundary: a process can explicitly target the input
+desktop, system services may show UI there, and the clipboard is shared.
+Processes launched outside the runner's job need separate review.
 
 The first hidden SolokPDF CI run passed 52/54 tests. `ad-hoc-vim-keys` and
 `ad-hoc-count-prefix` had no focused frame and failed keyboard assertions;

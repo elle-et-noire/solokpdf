@@ -9,7 +9,15 @@ import {
   tmpPath,
   writeAppdata,
 } from "./util.ts";
-import { findCanvas, killAndWait, launchControlled, pressKey, waitToolWindow } from "./win-automation.ts";
+import {
+  activateTestFrame,
+  canActivateTestFrame,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  pressKey,
+  waitToolWindow,
+} from "./win-automation.ts";
 import { ControlCommand } from "./control.ts";
 import { emptyClipboard, getClipboardText, getScrollPos, sendMessage, sendText, sleep } from "./winapi.ts";
 
@@ -32,6 +40,10 @@ function makePdf(links: "links" | "no-links" = "links"): string {
 }
 
 export async function testit(): Promise<void> {
+  if (!canActivateTestFrame()) {
+    console.log("SKIP ad-hoc-vim-keys: hidden desktop, CI, or SOLOKPDF_REAL_DESKTOP=1 required");
+    return;
+  }
   const pdf = tmpPath("vim-keys.pdf");
   const pdf2 = tmpPath("vim-keys-other.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
@@ -72,7 +84,7 @@ export async function testit(): Promise<void> {
   const key = async (stroke: string) => state("key", stroke);
   try {
     await client.waitForRenderIdle();
-    await client.request(ControlCommand.TestFocusState, ["activate"]);
+    await activateTestFrame(client);
     if (!/mode=1/.test(await state())) throw new Error("VimKeys setting was not loaded");
     for (const [stroke, expected] of [
       ["n", "CmdFindNext"],
@@ -255,7 +267,7 @@ export async function testit(): Promise<void> {
   const reopened = await launchControlled(["-appdata", appdata, markedPath], { saveSettings: true });
   try {
     await reopened.client.waitForRenderIdle();
-    await reopened.client.request(ControlCommand.TestFocusState, ["activate"]);
+    await activateTestFrame(reopened.client);
     await pressKey(reopened.frame, 0x23);
     await reopened.client.request(ControlCommand.TestVimKeys, ["key", "'"]);
     await pressKey(reopened.frame, 0x41);
@@ -271,7 +283,7 @@ export async function testit(): Promise<void> {
   const empty = await launchControlled(["-appdata", appdata, noLinks]);
   try {
     await empty.client.waitForRenderIdle();
-    await empty.client.request(ControlCommand.TestFocusState, ["activate"]);
+    await activateTestFrame(empty.client);
     await pressKey(empty.frame, 0x23);
     await pressKey(empty.frame, 0x46);
     await pressKey(empty.frame, 0x47);

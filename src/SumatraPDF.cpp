@@ -3,6 +3,7 @@
 
 #include "base/Base.h"
 #include <locale.h>
+#include <WerApi.h>
 #include "base/Pixmap.h"
 #include "base/WinDynCalls.h"
 #include "base/DirScan.h"
@@ -331,6 +332,9 @@ LoadArgs* LoadArgs::Clone() {
 // lets the shell open a URI for any supported scheme in
 // the appropriate application (web browser, mail client, etc.)
 bool SumatraLaunchBrowser(Str url) {
+    if (gPluginMode && !CanLaunchShell()) {
+        return false;
+    }
     if (gPluginMode) {
         // pass the URI back to the browser
         ReportIf(len(gWindows) == 0);
@@ -16652,6 +16656,20 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     ParseFlags(GetPermArena(), GetCommandLineW(), flags, Str(gToolNames));
     gCli = &flags;
     gForTesting = flags.forTesting;
+    if (gForTesting) {
+        SetEnvironmentVariableW(L"SOLOKPDF_BLOCK_SHELL_LAUNCH", L"1");
+    }
+    if (GetEnvironmentVariableW(L"SOLOKPDF_HIDDEN_DESKTOP", nullptr, 0) > 0) {
+        HMODULE wer = LoadLibraryW(L"wer.dll");
+        if (wer) {
+            using WerSetFlagsFn = HRESULT(WINAPI*)(DWORD);
+            auto setFlags = (WerSetFlagsFn)GetProcAddress(wer, "WerSetFlags");
+            if (setFlags) {
+                setFlags(WER_FAULT_REPORTING_NO_UI);
+            }
+            FreeLibrary(wer);
+        }
+    }
     if (flags.perfLogFile) {
         SetPerfLogPath(flags.perfLogFile);
     }

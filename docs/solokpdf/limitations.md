@@ -397,12 +397,12 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   A foreground check covers three launches; static lint limits tests that move
   the system pointer or activate a window. The B59 cursor test no longer
   compares the real pointer during clicks or override clearing.
-- B69 runs local app tests on `WinSta0\SolokPDFTests` without showing that desktop.
-  The runner relays output and ends the process tree on timeout or Ctrl+C.
-  Two keyboard tests now activate their test frame on that desktop before
-  posting keys. The B68 foreground check and `issue-6269` foreground branch
-  skip locally; see [testing.md](testing.md). The system clipboard remains
-  shared with the owner's desktop (B67).
+- B69 runs local app tests on a unique hidden desktop. The runner suppresses
+  inherited crash UI, relays bounded output, and ends the process tree on
+  timeout or Ctrl+C. Test-mode shell launches are blocked. Two keyboard tests
+  activate only in the runner, CI or with explicit opt-in, then wait for focus.
+  Foreground and screen-pixel checks still need the visible input desktop;
+  see [testing.md](testing.md). The clipboard remains shared (B67).
 - `toolbar-hover-dropdown` passes on both engines, locally and in hosted CI
   (runs 41627802937, 41627807442), so the full suite runs it again.
   With the original PDF fixture, both engines display upright RTL toast text.

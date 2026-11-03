@@ -2558,6 +2558,8 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 DWORD uiThread = GetCurrentThreadId();
                 bool attached = fgThread && fgThread != uiThread && AttachThreadInput(uiThread, fgThread, TRUE);
                 SetForegroundWindow(win->hwndFrame);
+                SetActiveWindow(win->hwndFrame);
+                SetFocus(win->hwndFrame);
                 if (attached) {
                     AttachThreadInput(uiThread, fgThread, FALSE);
                 }

@@ -53,9 +53,11 @@ import { testit as rtlToast } from "./issue-6113.ts";
 import { testit as windowBehind } from "./ad-hoc-b68-window.ts";
 import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
 import { testit as hiddenDesktop } from "./ad-hoc-b69-hidden-desktop.ts";
+import { testit as shellLaunch } from "./ad-hoc-b69-shell-launch.ts";
 
 const tests: NamedTest[] = [
   ["ad-hoc-b69-hidden-desktop", hiddenDesktop],
+  ["ad-hoc-b69-shell-launch", shellLaunch],
   ["lint-desktop-input", lintDesktopInput],
   ["ad-hoc-b68-window", windowBehind],
   ["issue-6113", rtlToast],

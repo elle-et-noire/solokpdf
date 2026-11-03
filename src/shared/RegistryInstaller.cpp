@@ -545,6 +545,9 @@ void CollectNonDefaultRegisteredExtensions(StrVec& out) {
 
 // Open the OS UI to pick/set the default app for ext (".pdf" or "pdf").
 void LaunchDefaultAppDialogForExtension(HWND hwnd, Str extIn) {
+    if (!CanLaunchShell()) {
+        return;
+    }
     TempStr ext = NormalizeExtTemp(extIn);
     if (len(ext) == 0) {
         return;
@@ -572,7 +575,7 @@ void LaunchDefaultAppDialogForExtension(HWND hwnd, Str extIn) {
     } else {
         uri = StrL("ms-settings:defaultapps");
     }
-    ShellExecuteW(hwnd, L"open", CWStrTemp(uri), nullptr, nullptr, SW_SHOWNORMAL);
+    LaunchBrowser(uri);
 }
 
 void LaunchDefaultAppDialogForExtension(Str ext) {

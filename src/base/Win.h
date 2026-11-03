@@ -430,6 +430,7 @@ void AddPathToRecentDocs(Str path);
 
 //--- process launch / shell
 
+bool CanLaunchShell();
 HANDLE LaunchProcessWithCmdLine(Str exe, Str cmdLine);
 HANDLE LaunchProcessInDir(Str cmdLine, Str currDir = Str(), DWORD flags = 0);
 bool CreateProcessHelper(Str exe, Str args);

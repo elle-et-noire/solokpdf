@@ -67,8 +67,7 @@ static LRESULT CALLBACK PluginParentWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
                 urlLen--;
             }
             Str urlZ(urlData, urlLen);
-            WCHAR* url = CWStrTemp(urlZ);
-            ShellExecute(hChild, L"open", url, nullptr, nullptr, SW_SHOW);
+            LaunchFileShell(urlZ, {}, StrL("open"));
             return TRUE;
         }
     } else if (WM_PAINT == msg) {

@@ -84,6 +84,28 @@ let sharedSessionRequested = false;
 let sharedSession: SharedControlledSession | null = null;
 let cursorClient: ControlClient | null = null;
 
+export function canActivateTestFrame(): boolean {
+  return Boolean(
+    process.env.SOLOKPDF_HIDDEN_DESKTOP ||
+      process.env.CI ||
+      process.env.GITHUB_ACTIONS ||
+      process.env.SOLOKPDF_REAL_DESKTOP === "1",
+  );
+}
+
+export async function activateTestFrame(client: ControlClient): Promise<void> {
+  if (!canActivateTestFrame())
+    throw new Error("test frame activation requires hidden desktop, CI, or SOLOKPDF_REAL_DESKTOP=1");
+  await client.request(ControlCommand.TestFocusState, ["activate"]);
+  let state = "";
+  for (let i = 0; i < 40; i++) {
+    state = String((await client.request(ControlCommand.TestFocusState, []))[1]);
+    if (/focus=(frame|canvas) active=frame/.test(state)) return;
+    await sleep(50);
+  }
+  throw new Error(`test frame did not become active and focused: ${state}`);
+}
+
 export async function moveTestCursor(x: number, y: number, client = cursorClient): Promise<void> {
   if (IS_MAC || USE_NG) {
     if (!setCursorPos(x, y)) throw new Error("could not move cursor");

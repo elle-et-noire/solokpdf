@@ -22,7 +22,7 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { findCanvas, killAndWait, launchControlled, moveTestCursor } from "./win-automation.ts";
+import { activateTestFrame, findCanvas, killAndWait, launchControlled, moveTestCursor } from "./win-automation.ts";
 
 const kCanvasClass = "SUMATRA_PDF_CANVAS";
 const kAboutHoverClass = "SUMATRA_ABOUT_HOVER";
@@ -151,7 +151,7 @@ export async function testit(): Promise<void> {
     await clickCopy(app.client, app.frame, canvas, hover, "background");
 
     if (process.env.CI || process.env.GITHUB_ACTIONS || process.env.SOLOKPDF_REAL_DESKTOP === "1") {
-      await app.client.request(ControlCommand.TestFocusState, ["activate"]);
+      await activateTestFrame(app.client);
       if (getForegroundWindow() !== app.frame) throw new Error("issue-6269: could not activate the test frame");
       await app.client.request(ControlCommand.TestClipboardText, ["enable"]);
       const foregroundHover = await showByHover(app.client, canvas, app.proc.pid!);
