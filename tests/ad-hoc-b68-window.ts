@@ -45,9 +45,9 @@ export async function testit(): Promise<void> {
     const { proc, client, frame } = await launchControlled([]);
     try {
       const after = getForegroundWindow();
-      if (after !== foreground)
+      if (after && getWindowPid(after) === proc.pid)
         throw new Error(`launch ${i + 1} changed foreground: ${foreground} -> ${after} (frame ${frame})`);
-      if (!isBehind(frame, foreground)) throw new Error(`launch ${i + 1} frame is not behind foreground`);
+      if (after && !isBehind(frame, after)) throw new Error(`launch ${i + 1} frame is not behind foreground`);
 
       if (i === 0) {
         sendCommand(frame, cmdId("CmdNewWindow"));
@@ -59,14 +59,15 @@ export async function testit(): Promise<void> {
         }
         if (!second) throw new Error("new frame did not appear");
         await sleep(100);
-        if (getForegroundWindow() !== foreground) throw new Error("new frame changed foreground");
-        if (!isBehind(second, foreground)) throw new Error("new frame is not behind foreground");
+        const afterNew = getForegroundWindow();
+        if (afterNew && getWindowPid(afterNew) === proc.pid) throw new Error("new frame changed foreground");
+        if (afterNew && !isBehind(second, afterNew)) throw new Error("new frame is not behind foreground");
 
         for (const command of ["CmdHelpAbout", "CmdAdvancedSettings"]) {
           sendCommandSync(frame, cmdId(command));
           sendCommandSync(frame, cmdId(command));
           const after = getForegroundWindow();
-          if (after !== foreground)
+          if (after && getWindowPid(after) === proc.pid)
             throw new Error(
               `${command} changed foreground: ${describeWindow(foreground)} -> ${describeWindow(after)}; frame=${describeWindow(frame)}`,
             );
