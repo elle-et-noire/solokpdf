@@ -198,7 +198,11 @@ are in [history.md](history.md).
   elements for unsupported actions and other annotations. Navigating push
   buttons enter PDFium's link list through a lightweight MuPDF path-and-data
   query, without loading the hidden editor (B61); `issue-1914` checks keyboard
-  following on both engines. A form field's `/TU` tooltip comes from PDFium.
+  following and destination zoom on both engines. PDFium excludes hidden,
+  no-view and invisible buttons; MuPDF tabs keep their existing link behavior.
+  PDFium cannot inspect a widget action's nested `/S` through its annotation
+  API, so a button with an `/A` or `/AA` dictionary still triggers that query.
+  A form field's `/TU` tooltip comes from PDFium.
   Wrapped URLs join from PDFium's page text without loading the editor.
   JavaScript menus still use MuPDF. `tests/ad-hoc-pdfium-links.ts` checks both
   engines. PDFium text still differs on some plain URLs (4 of 95 sampled pages).
@@ -372,8 +376,8 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   cursor position; message-driven tests no longer move the system pointer.
   Its control response reports app-owned mouse-leave tracking for the B59 test.
   B60 makes all Win32 test launches DPI aware, updates the TOC palette prefix
-  to `%`, and checks the browser caption button against app layout rather than
-  desktop window occlusion.
+  to `%`, and checks every visible caption button against the app's child-window
+  stacking rather than desktop window occlusion.
   OLE drag and drop and foreground-dependent popup tests still need an unlocked
   desktop. See [testing.md](testing.md).
 - Run 3 failed `toolbar-hover-dropdown` and `issue-6113` on both engines.

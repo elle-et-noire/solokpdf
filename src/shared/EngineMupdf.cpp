@@ -2517,7 +2517,13 @@ extern "C" char* pdf_parse_link_dest(fz_context* ctx, pdf_document* doc, pdf_obj
 // followed by Acrobat and by browsers, and by SumatraPDF up to 3.1.2. Give them
 // the same fz_links a /Link annotation gets, so they hover, click, and follow
 // like any other link (fixes #1914).
-static fz_link* MakePushButtonWidgetLinks(fz_context* ctx, pdf_document* doc, pdf_page* pdfpage, int pageNo) {
+enum class WidgetLinkVisibility {
+    All,
+    Visible
+};
+
+static fz_link* MakePushButtonWidgetLinks(fz_context* ctx, pdf_document* doc, pdf_page* pdfpage, int pageNo,
+                                          WidgetLinkVisibility visibility) {
     fz_link* head = nullptr;
     fz_link* tail = nullptr;
     for (pdf_annot* w = pdf_first_widget(ctx, pdfpage); w; w = pdf_next_widget(ctx, w)) {
@@ -2526,7 +2532,9 @@ static fz_link* MakePushButtonWidgetLinks(fz_context* ctx, pdf_document* doc, pd
         fz_var(uri);
         fz_var(rect);
         fz_try(ctx) {
-            if (pdf_widget_type(ctx, w) == PDF_WIDGET_TYPE_BUTTON) {
+            constexpr int kHidden = PDF_ANNOT_IS_HIDDEN | PDF_ANNOT_IS_NO_VIEW | PDF_ANNOT_IS_INVISIBLE;
+            bool visible = visibility == WidgetLinkVisibility::All || !(pdf_annot_flags(ctx, w) & kHidden);
+            if (pdf_widget_type(ctx, w) == PDF_WIDGET_TYPE_BUTTON && visible) {
                 // same places pdf_load_link() looks, in the same order
                 pdf_obj* obj = pdf_annot_obj(ctx, w);
                 pdf_obj* dest = pdf_dict_get(ctx, obj, PDF_NAME(Dest));
@@ -5975,11 +5983,11 @@ void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupd
                 link.rect = RectF(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
                 VecAppend(links, link);
             }
-            widgetLinks = MakePushButtonWidgetLinks(ctx, doc, page, pageNo);
+            widgetLinks = MakePushButtonWidgetLinks(ctx, doc, page, pageNo, WidgetLinkVisibility::Visible);
             for (fz_link* widget = widgetLinks; widget; widget = widget->next) {
                 PdfLinkMupdf link;
                 link.targetPage =
-                    ResolveLink(ctx, &doc->super, Str(widget->uri), nullptr, nullptr, nullptr, &link.destRect);
+                    ResolveLink(ctx, &doc->super, Str(widget->uri), nullptr, nullptr, &link.zoom, &link.destRect);
                 if (link.targetPage > 0) {
                     link.hasDestRect = true;
                 } else {
@@ -6373,7 +6381,7 @@ static FzPageInfo* GetFzPageInfoLocked(EngineMupdf* e, Location loc, bool loadQu
         fz_link* btnLinks = nullptr;
         fz_try(ctx) {
             pdf_page* pdfpage = pdf_page_from_fz_page(ctx, page);
-            btnLinks = MakePushButtonWidgetLinks(ctx, e->pdfdoc, pdfpage, pageNo);
+            btnLinks = MakePushButtonWidgetLinks(ctx, e->pdfdoc, pdfpage, pageNo, WidgetLinkVisibility::All);
         }
         fz_catch(ctx) {
             fz_report_error(ctx);

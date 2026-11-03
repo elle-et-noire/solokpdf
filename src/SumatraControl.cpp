@@ -1740,6 +1740,10 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 0, fmt("pages=%d", engine->PageCount()));
                 break;
             }
+            if (str::Eq(StringArg(req, 0), StrL("zoom"))) {
+                AppendTestResult(req, 0, fmt("zoom=%g", dm->GetZoomVirtual()));
+                break;
+            }
             if (str::Eq(StringArg(req, 0), StrL("text-page"))) {
                 i32 pageNo = 0;
                 IntArg(req, 1, pageNo);

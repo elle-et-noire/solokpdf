@@ -1321,7 +1321,7 @@ class EnginePdfium : public EngineBase {
 
     // PDFium reports First/Last/Prev/NextPage actions only as unsupported and can't name a GoToR
     // destination without loading the target; MuPDF reads both, like /OpenAction.
-    void AddMupdfLinks(int pageNo, PdfiumPage* info) {
+    void AddMupdfLinks(int pageNo, PdfiumPage* info, int insertAt = -1) {
         Vec<PdfLinkMupdf> links;
         PdfLinksMupdf(FilePath(), fileData, password, pageNo, links);
         for (auto& link : links) {
@@ -1359,6 +1359,7 @@ class EnginePdfium : public EngineBase {
                 page->rect = link.hasDestRect
                                  ? link.destRect
                                  : RectF(kDestUseDefault, kDestUseDefault, kDestUseDefault, kDestUseDefault);
+                page->zoom = link.zoom;
                 page->kind = kindDestinationScrollTo;
                 dest = page;
             }
@@ -1366,7 +1367,11 @@ class EnginePdfium : public EngineBase {
                 auto* element = new PageElementDestination(dest);
                 element->pageNo = pageNo;
                 element->rect = link.rect;
-                VecAppend(info->links, (IPageElement*)element);
+                if (insertAt >= 0) {
+                    VecInsertAt(info->links, insertAt++, (IPageElement*)element);
+                } else {
+                    VecAppend(info->links, (IPageElement*)element);
+                }
             }
             str::Free(link.uri);
         }
@@ -1439,7 +1444,8 @@ class EnginePdfium : public EngineBase {
             }
         }
         if (widgetLinks && !needsMupdf) {
-            AddMupdfLinks(pageNo, info);
+            // Hit testing walks backward; keep real /Link annotations above widgets.
+            AddMupdfLinks(pageNo, info, 0);
         }
         gPdfium.FPDF_ClosePage(page);
         info->linksLoaded = true;
@@ -1448,12 +1454,18 @@ class EnginePdfium : public EngineBase {
 
     // Caller holds gPdfiumLock. MuPDF makes links of push buttons that navigate (issue #1914).
     bool WidgetIsLink(FPDF_ANNOTATION annot) {
+        constexpr int kHidden = FPDF_ANNOT_FLAG_HIDDEN | FPDF_ANNOT_FLAG_NOVIEW | FPDF_ANNOT_FLAG_INVISIBLE;
+        if (gPdfium.FPDFAnnot_GetFlags(annot) & kHidden) {
+            return false;
+        }
         int type = form ? gPdfium.FPDFAnnot_GetFormFieldType(form, annot) : -1;
         if (type != FPDF_FORMFIELD_PUSHBUTTON && type != -1) {
             return false;
         }
-        return gPdfium.FPDFAnnot_HasKey(annot, "Dest") || gPdfium.FPDFAnnot_HasKey(annot, "A") ||
-               gPdfium.FPDFAnnot_HasKey(annot, "AA");
+        int destType = gPdfium.FPDFAnnot_GetValueType(annot, "Dest");
+        return destType == FPDF_OBJECT_ARRAY || destType == FPDF_OBJECT_NAME || destType == FPDF_OBJECT_STRING ||
+               gPdfium.FPDFAnnot_GetValueType(annot, "A") == FPDF_OBJECT_DICTIONARY ||
+               gPdfium.FPDFAnnot_GetValueType(annot, "AA") == FPDF_OBJECT_DICTIONARY;
     }
 
     // Caller holds gPdfiumLock. A form field's /TU tooltip as a comment, as MuPDF shows it (issue #2083).

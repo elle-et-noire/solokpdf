@@ -1578,10 +1578,21 @@ export function isWindowEnabled(hwnd: number): boolean {
 
 export const GW_HWNDFIRST = 0;
 export const GW_HWNDNEXT = 2;
+export const GW_CHILD = 5;
 const GW_OWNER = 4;
 
 export function getWindow(hwnd: number, cmd: number): number {
   return Number(user32.symbols.GetWindow(hwnd, cmd));
+}
+
+export function firstAppWindowAtPoint(parent: number, pid: number, x: number, y: number): number {
+  for (let child = getWindow(parent, GW_CHILD); child; child = getWindow(child, GW_HWNDNEXT)) {
+    if (getWindowPid(child) !== pid || !isWindowVisible(child)) continue;
+    const r = getWindowRect(child);
+    if (x < r.left || x >= r.right || y < r.top || y >= r.bottom) continue;
+    return firstAppWindowAtPoint(child, pid, x, y);
+  }
+  return parent;
 }
 
 export function getWindowOwner(hwnd: number): number {

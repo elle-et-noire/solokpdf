@@ -7,13 +7,15 @@
 // clicking it in the app navigates.
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control";
-import { EXE, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util";
+import { EXE, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, writeAppdata } from "./util";
 import { FRAME_CLASS, clickAt, findCanvas, sendCommandSync } from "./win-automation";
 import { sleep, waitForTopWindow } from "./winapi";
 
 // 2 pages. Page 1 carries a pushbutton widget (/FT /Btn with the pushbutton
 // flag) whose action jumps to page 2; there is no /Link annotation anywhere.
-export function makePushButtonPdf(): Buffer {
+export function makePushButtonPdf(
+  options: { flags?: number; view?: string; overlap?: boolean; action?: string } = {},
+): Buffer {
   const enc = (s: string) => Buffer.from(s, "latin1");
   const body: Record<number, Buffer> = {};
   body[1] = enc("<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [7 0 R] >> >>");
@@ -23,8 +25,12 @@ export function makePushButtonPdf(): Buffer {
   // the button: /Ff 65536 is the pushbutton flag, /A a GoTo to page 2
   body[7] = enc(
     `<< /Type /Annot /Subtype /Widget /FT /Btn /Ff 65536 /T (Goto) /P 3 0 R ` +
-      `/Rect [72 600 172 660] /F 4 /MK << /BC [0 0 0] >> /A << /S /GoTo /D [4 0 R /Fit] >> >>`,
+      `/Rect [72 600 172 660] /F ${options.flags ?? 4} /MK << /BC [0 0 0] >> ` +
+      `/A ${options.action ?? `<< /S /GoTo /D [4 0 R ${options.view ?? "/Fit"}] >>`} >>`,
   );
+  if (options.overlap) {
+    body[8] = enc("<< /Type /Annot /Subtype /Link /Rect [72 600 172 660] /A << /S /GoTo /D [3 0 R /Fit] >> >>");
+  }
 
   const stream1 = "BT /F1 18 Tf 72 700 Td (page one) Tj ET";
   body[10] = enc(`<< /Length ${stream1.length} >>\nstream\n${stream1}\nendstream`);
@@ -32,7 +38,7 @@ export function makePushButtonPdf(): Buffer {
   body[11] = enc(`<< /Length ${stream2.length} >>\nstream\n${stream2}\nendstream`);
 
   body[3] = enc(
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [7 0 R] ` +
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [7 0 R${options.overlap ? " 8 0 R" : ""}] ` +
       `/Resources << /Font << /F1 6 0 R >> >> /Contents 10 0 R >>`,
   );
   body[4] = enc(
@@ -77,6 +83,7 @@ async function getLinkState(client: ControlClient): Promise<{ st: LinkState; dum
 export async function testit(): Promise<void> {
   const pdf = tmpPath("issue-1914.pdf");
   writeFileSync(pdf, makePushButtonPdf());
+  const appdata = writeAppdata("issue-1914-appdata", "IgnoreDestinationZoom = false\nDefaultZoom = 100");
 
   await withControlledSumatra(
     EXE,
@@ -144,8 +151,11 @@ export async function testit(): Promise<void> {
       if (st.page !== 2) {
         throw new Error(`clicking the pushbutton should go to page 2, on page ${st.page}\n${dump}`);
       }
+      const zoom = await client.request(ControlCommand.TestCurrentPdf, ["zoom"]);
+      if (zoom[0] !== 0 || zoom[1] !== "zoom=-1")
+        throw new Error(`the /Fit button did not set Fit Page zoom: ${zoom[1]}`);
     },
-    [pdf],
+    ["-appdata", appdata, pdf],
   );
 }
 

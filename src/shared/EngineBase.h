@@ -132,6 +132,7 @@ bool PdfPageGeometryMupdf(Str path, Str data, Str password, int pageCount, Vec<P
 struct PdfLinkMupdf {
     RectF rect;
     RectF destRect;
+    float zoom = 0;
     int targetPage = 0;
     bool hasDestRect = false;
     Str remoteDest; // owned, free with str::Free

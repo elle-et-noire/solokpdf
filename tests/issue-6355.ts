@@ -5,7 +5,14 @@ import { IS_MAC } from "./host.ts";
 import { ControlClient, ControlCommand, type LayoutInfo } from "./control.ts";
 import { SETTINGS_FILE, makeBlankPdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
 import { moveTestCursor, killAndWait, launchControlled, waitForExit } from "./win-automation.ts";
-import { clientToScreen, findChildWindow, isWindowVisible, sleep } from "./winapi.ts";
+import {
+  clientToScreen,
+  findChildWindow,
+  firstAppWindowAtPoint,
+  getClassName,
+  isWindowVisible,
+  sleep,
+} from "./winapi.ts";
 
 async function invoke(client: ControlClient, command: string): Promise<void> {
   const res = await client.request(ControlCommand.TestInvokeCommand, [command]);
@@ -171,20 +178,15 @@ export async function testit(): Promise<void> {
     if (JSON.stringify(overlay.items.canvas.rect) !== JSON.stringify(hidden.items.canvas.rect))
       throw new Error("issue-6355: caption overlay resized the browser");
     if (!USE_NG) {
-      const button = overlay.nodes.find(
-        (node) =>
-          node.kind === "captionBtn" && node.visibility === 0 && node.rect.x <= 12 && node.rect.x + node.rect.dx > 12,
-      );
-      if (!button) throw new Error("issue-6355: system caption button missing from layout");
-      const canvas = overlay.items.canvas.rect;
-      const rect = button.rect;
-      if (
-        canvas.x < rect.x + rect.dx &&
-        rect.x < canvas.x + canvas.dx &&
-        canvas.y < rect.y + rect.dy &&
-        rect.y < canvas.y + canvas.dy
-      )
-        throw new Error(`issue-6355: browser ${JSON.stringify(canvas)} covers caption button ${JSON.stringify(rect)}`);
+      const buttons = overlay.nodes.filter((node) => node.kind === "captionBtn" && node.visibility === 0);
+      if (buttons.length === 0) throw new Error("issue-6355: caption buttons missing from layout");
+      for (const button of buttons) {
+        const rect = button.rect;
+        const point = clientToScreen(browser.frame, rect.x + Math.floor(rect.dx / 2), rect.y + Math.floor(rect.dy / 2));
+        const hit = firstAppWindowAtPoint(browser.frame, browser.proc.pid!, point.x, point.y);
+        if (hit !== browser.frame && getClassName(hit) !== "SumatraCaptionOverlay")
+          throw new Error(`issue-6355: ${getClassName(hit)} covers caption button ${JSON.stringify(rect)}`);
+      }
     }
     await moveTestCursor(0, 0);
     await barLayout(browser.client, false);
