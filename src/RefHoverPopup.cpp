@@ -7,6 +7,7 @@
 #include "base/Win.h"
 
 #include "gui/UIModels.h"
+#include "gui/win/AppWindow.h"
 
 #include "DocController.h"
 #include "EngineBase.h"
@@ -188,7 +189,8 @@ void RefHoverShowPopup(RefHoverState* s, Point screenPt) {
         return;
     }
 
-    SetWindowPos(s->hwndPopup, HWND_TOPMOST, x, y, popupW, popupH, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    SetWindowPos(s->hwndPopup, AppWindowZOrder(s->hwndPopup, HWND_TOPMOST), x, y, popupW, popupH,
+                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
     HwndInvalidate(s->hwndPopup, true);
 }
 

@@ -394,8 +394,9 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   still set foreground. Ng/mac `moveTestCursor()` still moves the real pointer.
   See [testing.md](testing.md).
 - B68 opens `-for-testing` windows behind other windows without activation.
-  A foreground check covers three launches; static lint limits tests that move
-  the system pointer or activate a window. The B59 cursor test no longer
+  A visible-desktop check covers three launches. Hidden runs rely on auditing
+  activation calls; static lint limits tests that move the system pointer or
+  activate a window. The B59 cursor test no longer
   compares the real pointer during clicks or override clearing.
 - B69 runs local app tests on a unique hidden desktop. The runner suppresses
   inherited crash UI, relays bounded output, and ends the process tree on

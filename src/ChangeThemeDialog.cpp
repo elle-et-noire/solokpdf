@@ -144,7 +144,7 @@ void ChangeThemeWnd::PreviewDocumentColors() {
 // focus. The user is working in this dialog, so take the focus back (a focus
 // that is already on one of our controls, e.g. the drop-down, stays put)
 void ChangeThemeWnd::KeepFocus() {
-    HwndToForeground(hwnd);
+    RaiseAppWindow(hwnd, WindowRaise::RestoreForeground);
     HWND focused = ::GetFocus();
     if (focused == hwnd || ::IsChild(hwnd, focused)) {
         return;

@@ -566,7 +566,7 @@ void AdvancedSettingsWnd::KeepFocus() {
     if (gAdvancedSettingsWnd != this || !hwnd) {
         return;
     }
-    HwndToForeground(hwnd);
+    RaiseAppWindow(hwnd, WindowRaise::RestoreForeground);
     HWND focused = ::GetFocus();
     if (focused == hwnd || ::IsChild(hwnd, focused)) {
         return;

@@ -181,7 +181,7 @@ static void PdfToolDialogOnClose(WindowBase::CloseEvent* ev) {
     // dialog has been up, letting DestroyWindow pick the next window can drop
     // the frame behind whatever else is on screen
     if (dlg->win && IsWindow(dlg->win->hwndFrame)) {
-        SetActiveWindow(dlg->win->hwndFrame);
+        RaiseAppWindow(dlg->win->hwndFrame, WindowRaise::Active);
     }
     // must not `delete dlg` here: we're inside the window's own WM_CLOSE
     dlg->ScheduleDelete();

@@ -1628,7 +1628,7 @@ static void StartContentsEdit(AnnotEditToolbar* tb) {
     PositionToolbar(tb, tb->lastAnnotBounds);
     tb->host->Invalidate(false);
     RaiseToolbarHost(tb);
-    SetActiveWindow(tb->host->native);
+    RaiseAppWindow(tb->host->native, WindowRaise::Active);
     edit->SetFocus();
     EditSetCursorPosAtEnd(edit);
 }

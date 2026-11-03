@@ -25,7 +25,7 @@ import {
   moveWindow,
   postMessage,
   sendMessage,
-  setForegroundWindow,
+  setForegroundWindow, // desktop-input: foreground-import
   showWindow,
   sleep,
   waitForTopWindow,
@@ -144,7 +144,7 @@ async function launch(epub: string): Promise<Launched> {
   }
   showWindow(frame, SW_RESTORE);
   moveWindow(frame, 40, 40, 900, 700);
-  setForegroundWindow(frame);
+  setForegroundWindow(frame); // desktop-input: foreground-frame
   await sleep(2000);
   return { proc, frame };
 }
@@ -331,7 +331,7 @@ export async function testit(): Promise<void> {
     const l = await launch(epub);
     try {
       const dlg = await openDialog(l);
-      setForegroundWindow(dlg);
+      setForegroundWindow(dlg); // desktop-input: foreground-dialog
       await sleep(400);
 
       // Tab visits every control, then the drawn buttons (which hold the focus

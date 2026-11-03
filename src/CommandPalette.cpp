@@ -270,7 +270,7 @@ void SafeDeleteCommandPaletteWnd() {
     if (gHwndToActivateOnClose) {
         HWND fg = GetForegroundWindow();
         if (!fg || fg == gHwndToActivateOnClose) {
-            SetActiveWindow(gHwndToActivateOnClose);
+            RaiseAppWindow(gHwndToActivateOnClose, WindowRaise::Active);
         }
         gHwndToActivateOnClose = nullptr;
     }

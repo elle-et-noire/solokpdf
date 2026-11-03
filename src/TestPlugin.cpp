@@ -9,6 +9,7 @@
 #include "base/File.h"
 #include "base/Win.h"
 #include "base/CmdLineArgs.h"
+#include "gui/win/AppWindow.h"
 
 constexpr const WCHAR* kPluginTestName = L"SumatraPDF Plugin Test";
 
@@ -163,7 +164,7 @@ void TestPlugin(WStr cmdLine) {
     PluginStartData data = {args[0], args[2], args[1]};
     HWND hwnd = CreateWindowExW(0, kPluginTestName, kPluginTestName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0,
                                 CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, &data);
-    ShowWindow(hwnd, SW_SHOW);
+    ShowAppWindow(hwnd, SW_SHOW);
 
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {

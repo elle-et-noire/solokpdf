@@ -229,7 +229,7 @@ static LRESULT CALLBACK WndProcUninstallerFrame(HWND hwnd, UINT msg, WPARAM wp, 
             if (gButtonExit) {
                 HwndSetFocus(gButtonExit->hwnd);
             }
-            SetForegroundWindow(hwnd);
+            RaiseAppWindow(hwnd, WindowRaise::Foreground);
             break;
         }
 
@@ -261,8 +261,8 @@ static bool InstanceInit() {
     SetDefaultMsg();
 
     HwndCenterDialog(gHwndFrame);
-    ShowWindow(gHwndFrame, SW_SHOW);
-    SetForegroundWindow(gHwndFrame);
+    ShowAppWindow(gHwndFrame, SW_SHOW);
+    RaiseAppWindow(gHwndFrame, WindowRaise::Foreground);
 
     return TRUE;
 }

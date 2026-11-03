@@ -21,7 +21,7 @@ import {
   getWindowText,
   isWindowVisible,
   moveWindow,
-  setForegroundWindow,
+  setForegroundWindow, // desktop-input: foreground-import
   setProcessDpiAware,
   showWindow,
   sleep,
@@ -212,7 +212,7 @@ export async function testit(): Promise<void> {
     }
 
     moveWindow(windows.help, 50, 50, 720, 560, true);
-    setForegroundWindow(windows.help);
+    setForegroundWindow(windows.help); // desktop-input: foreground-help
     await waitForDarkTheme(windows.help, windows.webView, "resized");
 
     showWindow(windows.help, SW_MAXIMIZE);

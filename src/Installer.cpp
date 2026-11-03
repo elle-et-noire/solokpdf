@@ -1300,7 +1300,7 @@ static void OnInstallationFinished(Flags* cli) {
     if (gWnd->btnExit) {
         HwndSetFocus(gWnd->btnExit->hwnd);
     }
-    SetForegroundWindow(gWnd->hwnd);
+    RaiseAppWindow(gWnd->hwnd, WindowRaise::Foreground);
 
     DeleteWnd(&gWnd->btnInstall);
     DeleteWnd(&gWnd->progressBar);
@@ -1754,7 +1754,7 @@ static LRESULT CALLBACK WndProcInstallerFrame(HWND hwnd, UINT msg, WPARAM wp, LP
 
         case kWmAppStartInstallation: {
             StartInstallation(gWnd);
-            SetForegroundWindow(hwnd);
+            RaiseAppWindow(hwnd, WindowRaise::Foreground);
             break;
         }
 
@@ -1825,7 +1825,7 @@ static bool CreateInstallerWindow(Flags* cli) {
     SetDefaultMsg();
 
     HwndCenterDialog(gWnd->hwnd);
-    ShowWindow(gWnd->hwnd, SW_SHOW);
+    ShowAppWindow(gWnd->hwnd, SW_SHOW);
 
     return true;
 }
@@ -2223,7 +2223,7 @@ int RunInstaller() {
             goto Exit;
         }
         log(StrL("Before SetForegroundWindow()\n"));
-        SetForegroundWindow(gWnd->hwnd);
+        RaiseAppWindow(gWnd->hwnd, WindowRaise::Foreground);
         log(StrL("Before RunApp()\n"));
         ret = RunApp();
         logf("RunApp() returned %d\n", ret);

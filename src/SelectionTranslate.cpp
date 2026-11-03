@@ -507,7 +507,7 @@ static void TeardownSelectionTranslateWnd() {
     HWND hwndOwner = w->hwndOwner;
     if (hwndOwner) {
         EnableWindow(hwndOwner, TRUE);
-        HwndToForeground(hwndOwner);
+        RaiseAppWindow(hwndOwner, WindowRaise::RestoreForeground);
     }
     w->ScheduleDelete();
 }
@@ -722,5 +722,5 @@ void ShowSelectionTranslateDialog(WindowTab* tab, TranslateEngine engineIn) {
     }
 
     gSelectionTranslateWnd = wnd;
-    HwndToForeground(wnd->hwnd);
+    RaiseAppWindow(wnd->hwnd, WindowRaise::RestoreForeground);
 }

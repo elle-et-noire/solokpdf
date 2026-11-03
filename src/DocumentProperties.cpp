@@ -619,7 +619,7 @@ void OnGetFontsFinished(GetFontsResult* result) {
 void ShowProperties(HWND parent, DocController* ctrl) {
     PropertiesWnd* w = FindPropertyWindowByHwnd(parent);
     if (w) {
-        SetActiveWindow(w->hwnd);
+        RaiseAppWindow(w->hwnd, WindowRaise::Active);
         return;
     }
 

@@ -189,7 +189,7 @@ bool GetPasswordWnd::Create() {
     UpdateTheme();
 
     SetIsVisible(true);
-    BringWindowToTop(hwnd);
+    RaiseAppWindow(hwnd, WindowRaise::Top);
     EditSetFocus(editPwd);
     return true;
 }

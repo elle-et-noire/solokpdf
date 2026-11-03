@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { EXE, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { makeFixtures } from "./ad-hoc-issue-4600.ts";
 import { findCanvas, killAndWait, killProcessesNamed, launchSumatra, waitForFrame } from "./win-automation.ts";
-import { captureWindowPixels, moveWindow, setForegroundWindow, showWindow, sleep, SW_RESTORE } from "./winapi.ts";
+import { captureWindowPixels, moveWindow, setForegroundWindow, showWindow, sleep, SW_RESTORE } from "./winapi.ts"; // desktop-input: foreground-import
 
 const EPUB_DIR = tmpPath("epub-font");
 
@@ -28,7 +28,7 @@ async function render(epub: string, settings: string): Promise<Uint8Array> {
     }
     showWindow(frame, SW_RESTORE);
     moveWindow(frame, 40, 40, 900, 700);
-    setForegroundWindow(frame);
+    setForegroundWindow(frame); // desktop-input: foreground-perfile
     await sleep(2500);
     const cap = captureWindowPixels(findCanvas(frame));
     if (!cap) {

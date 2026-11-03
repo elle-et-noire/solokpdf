@@ -2246,10 +2246,7 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
             HwndMoveWindow(win->hwndFrame, &rect);
         }
         if (args->showWin) {
-            ShowWindow(win->hwndFrame, gForTesting ? SW_SHOWNA : showType);
-            if (gForTesting) {
-                SetWindowPos(win->hwndFrame, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            }
+            ShowAppWindow(win->hwndFrame, showType);
         }
 
         // Fire deferred SWP_FRAMECHANGED for custom caption so the
@@ -2977,14 +2974,7 @@ static MainWindow* CreateMainWindow() {
 void ShowMainWindow(MainWindow* win, int windowState) {
     // fullscreen enters from the normal window: exiting fullscreen returns to
     // the state it was entered from, which a saved session doesn't record
-    if (gForTesting) {
-        ShowWindow(win->hwndFrame, SW_SHOWNA);
-        SetWindowPos(win->hwndFrame, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    } else if (WIN_STATE_MAXIMIZED == windowState) {
-        ShowWindow(win->hwndFrame, SW_MAXIMIZE);
-    } else {
-        ShowWindow(win->hwndFrame, SW_SHOW);
-    }
+    ShowAppWindow(win->hwndFrame, WIN_STATE_MAXIMIZED == windowState ? SW_MAXIMIZE : SW_SHOW);
 
     // a hidden frame's GetDpiForWindow() can still be the primary-monitor
     // DPI; after ShowWindow the monitor of the window rect is reliable
@@ -8511,7 +8501,7 @@ void ExitFullScreen(MainWindow* win) {
     SetWindowPos(win->hwndFrame, nullptr, 0, 0, 0, 0, flags);
 
     if (wasMaximized) {
-        ShowWindow(win->hwndFrame, SW_MAXIMIZE);
+        ShowAppWindow(win->hwndFrame, SW_MAXIMIZE);
     } else {
         // Clamp restore geometry to the current work area (display may have
         // rotated or a monitor may have gone away while we were fullscreen).
@@ -10205,15 +10195,11 @@ void LaunchDocumentation(Str docURI) {
             gManualBrowserWindow->webView->resourceProvider = ManualResourceProvider();
             gManualBrowserWindow->webView->Navigate(localUrl);
             HWND hwnd = gManualBrowserWindow->hwnd;
-            ShowWindow(hwnd, gForTesting ? SW_SHOWNOACTIVATE : SW_SHOW);
-            if (gForTesting) {
-                SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            } else if (IsIconic(hwnd)) {
+            ShowAppWindow(hwnd, SW_SHOW);
+            if (!gForTesting && IsIconic(hwnd)) {
                 ShowWindow(hwnd, SW_RESTORE);
             }
-            if (!gForTesting) {
-                SetForegroundWindow(hwnd);
-            }
+            RaiseAppWindow(hwnd, WindowRaise::Foreground);
             return;
         }
 
@@ -14375,7 +14361,7 @@ TempStr WindowStateDuringLoadResultTemp(int* exitCodeOut) {
     // maximized, but the visible window is still at restored size (as during
     // slow load). Without the #5529 guard this rewrites WindowState to NORMAL.
     if (IsZoomed(win->hwndFrame)) {
-        ShowWindow(win->hwndFrame, SW_RESTORE);
+        ShowAppWindow(win->hwndFrame, SW_RESTORE);
     }
 
     // --- mid-load: keep maximized WindowState ---
@@ -14773,7 +14759,6 @@ Retry:
                 if (vdm) {
                     vdm->Release();
                 }
-                AllowSetForegroundWindow(prevProcId);
                 return hwnd; // reuse the window on the current desktop
             }
             otherDesktopWnd = hwnd;
@@ -14785,7 +14770,6 @@ Retry:
             // the previous instance has windows, but none on the current virtual
             // desktop. Reuse it but open the file in a new window (it lands on the
             // current desktop) rather than switching desktops (#5630).
-            AllowSetForegroundWindow(prevProcId);
             *openInNewWindow = true;
             return otherDesktopWnd;
         }
@@ -17071,6 +17055,9 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     existingInstanceHwnd = FindExistingSumatraProcessHwnd(&hMutex, &openInNewWindow);
 
     if (flags.quickLook && existingInstanceHwnd && !gForTesting) {
+        DWORD prevProcId = 0;
+        GetWindowThreadProcessId(existingInstanceHwnd, &prevProcId);
+        AllowSetForegroundWindow(prevProcId);
         bool ok = false;
         for (Str path : flags.fileNames) {
             if (SendExplorerQuickLookToExisting(existingInstanceHwnd, path)) {
@@ -17091,12 +17078,20 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     }
 
     if (flags.dde) {
+        if (existingHwnd) {
+            DWORD prevProcId = 0;
+            GetWindowThreadProcessId(existingHwnd, &prevProcId);
+            AllowSetForegroundWindow(prevProcId);
+        }
         logf("sending flags.dde '%s', hwnd: 0x%p\n", flags.dde, existingHwnd);
         SendMyselfDDE(flags.dde, existingHwnd);
         goto Exit;
     }
 
     if (existingHwnd) {
+        DWORD prevProcId = 0;
+        GetWindowThreadProcessId(existingHwnd, &prevProcId);
+        AllowSetForegroundWindow(prevProcId);
         int nFiles = len(flags.fileNames);
         // reusing an instance whose windows are all on other virtual desktops:
         // open the first file in a new window so it lands on the current desktop
@@ -17279,7 +17274,7 @@ ContinueOpenWindow:
         // desktop, a window that stayed gets it and the cmd-line files instead
         if (winOnCurrentDesktop && winOnCurrentDesktop != win && IsMainWindowValid(winOnCurrentDesktop)) {
             win = winOnCurrentDesktop;
-            SetForegroundWindow(win->hwndFrame);
+            RaiseAppWindow(win->hwndFrame, WindowRaise::Foreground);
         }
     }
 

@@ -547,7 +547,7 @@ static void PositionAnnotFilterWindow(AnnotFilterWindow* w) {
         return;
     }
     Rect r = AnnotFilterWindowPlacementRect(w->win);
-    SetWindowPos(w->hwnd, HWND_TOP, r.x, r.y, r.dx, r.dy, SWP_NOACTIVATE);
+    SetWindowPos(w->hwnd, AppWindowZOrder(w->hwnd, HWND_TOP), r.x, r.y, r.dx, r.dy, SWP_NOACTIVATE);
 }
 
 static void DeleteFloatSelected(AnnotFilterWindow* w) {
@@ -1082,7 +1082,7 @@ void ShowAnnotFilterWindow(MainWindow* win) {
     // Ctrl+W always; Esc only with EscToExit (issue #6124)
     f->floatWnd->closeOnCtrlW = true;
     f->floatWnd->closeOnEsc = gSettings->escToExit;
-    ShowWindow(f->floatWnd->hwnd, SW_SHOW);
+    ShowAppWindow(f->floatWnd->hwnd, SW_SHOW);
     if (f->floatWnd->edit) {
         f->floatWnd->edit->SetFocus();
     }

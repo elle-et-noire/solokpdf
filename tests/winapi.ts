@@ -102,10 +102,10 @@ const user32 = loadDll("user32.dll", {
   IsZoomed: { args: [FFIType.ptr], returns: FFIType.bool },
   GetClientRect: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.bool },
   GetScrollInfo: { args: [FFIType.ptr, FFIType.i32, FFIType.ptr], returns: FFIType.bool },
-  SetCursorPos: { args: [FFIType.i32, FFIType.i32], returns: FFIType.bool },
+  SetCursorPos: { args: [FFIType.i32, FFIType.i32], returns: FFIType.bool }, // desktop-input: ffi-cursor
   MapVirtualKeyW: { args: [FFIType.u32, FFIType.u32], returns: FFIType.u32 },
   GetAsyncKeyState: { args: [FFIType.i32], returns: FFIType.i16 },
-  keybd_event: { args: [FFIType.u8, FFIType.u8, FFIType.u32, FFIType.u64], returns: FFIType.void },
+  keybd_event: { args: [FFIType.u8, FFIType.u8, FFIType.u32, FFIType.u64], returns: FFIType.void }, // desktop-input: ffi-key-up
   ClientToScreen: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.bool },
   GetWindowTextW: { args: [FFIType.ptr, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
   GetWindowRect: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.bool },
@@ -113,7 +113,7 @@ const user32 = loadDll("user32.dll", {
   IsWindowEnabled: { args: [FFIType.ptr], returns: FFIType.bool },
   WindowFromPoint: { args: [FFIType.i64], returns: FFIType.u64 },
   GetAncestor: { args: [FFIType.ptr, FFIType.u32], returns: FFIType.u64 },
-  SetForegroundWindow: { args: [FFIType.ptr], returns: FFIType.bool },
+  SetForegroundWindow: { args: [FFIType.ptr], returns: FFIType.bool }, // desktop-input: ffi-foreground
   GetForegroundWindow: { args: [], returns: FFIType.u64 },
   GetWindowDC: { args: [FFIType.ptr], returns: FFIType.u64 },
   ReleaseDC: { args: [FFIType.ptr, FFIType.u64], returns: FFIType.i32 },
@@ -1153,7 +1153,7 @@ function macWarpCursor(x: number, y: number): boolean {
 
 let macCursor = { x: 0, y: 0 };
 
-export function setCursorPos(x: number, y: number): boolean {
+export function /* desktop-input: cursor-wrapper */ setCursorPos(x: number, y: number): boolean {
   if (IS_MAC) {
     const ok = macWarpCursor(x, y);
     if (ok) {
@@ -1161,7 +1161,7 @@ export function setCursorPos(x: number, y: number): boolean {
     }
     return ok;
   }
-  return user32.symbols.SetCursorPos(x, y);
+  return user32.symbols.SetCursorPos(x, y); // desktop-input: cursor-call
 }
 
 // physical (system-wide) key state: true while the key is held down
@@ -1173,7 +1173,7 @@ const KEYEVENTF_KEYUP = 0x0002;
 
 // inject a key-up for vk, clearing a key the system thinks is still held
 export function injectKeyUp(vk: number): void {
-  user32.symbols.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0n);
+  user32.symbols.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0n); // desktop-input: key-up-call
 }
 
 // Wheel and key tests read the real modifier state: the app ORs GetKeyState
@@ -1643,8 +1643,8 @@ export function getParentWindow(hwnd: number): number {
   return Number(user32.symbols.GetAncestor(hwnd, GA_PARENT));
 }
 
-export function setForegroundWindow(hwnd: number): boolean {
-  return user32.symbols.SetForegroundWindow(hwnd);
+export function /* desktop-input: foreground-wrapper */ setForegroundWindow(hwnd: number): boolean {
+  return user32.symbols.SetForegroundWindow(hwnd); // desktop-input: foreground-call
 }
 
 // the window the user is currently working with (across processes). Use it to

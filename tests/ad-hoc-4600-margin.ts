@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { tmpPath, SETTINGS_FILE } from "./util.ts";
 import { makeFixtures } from "./ad-hoc-issue-4600.ts";
 import { findCanvas, launchSumatra, waitForFrame, killAndWait, killProcessesNamed } from "./win-automation.ts";
-import { captureWindowPixels, moveWindow, setForegroundWindow, showWindow, sleep, SW_RESTORE } from "./winapi.ts";
+import { captureWindowPixels, moveWindow, setForegroundWindow, showWindow, sleep, SW_RESTORE } from "./winapi.ts"; // desktop-input: foreground-import
 
 type Cap = { w: number; h: number; data: Uint8Array };
 type Box = { x0: number; y0: number; x1: number; y1: number };
@@ -31,7 +31,7 @@ async function render(settings: string[]): Promise<Cap> {
     const frame = await waitForFrame(proc.pid!);
     showWindow(frame, SW_RESTORE);
     moveWindow(frame, 40, 40, 900, 700);
-    setForegroundWindow(frame);
+    setForegroundWindow(frame); // desktop-input: foreground-margin
     await sleep(2500);
     const cap = captureWindowPixels(findCanvas(frame));
     if (!cap) {

@@ -9,7 +9,7 @@ import {
   GW_HWNDNEXT,
   sleep,
 } from "./winapi.ts";
-import { FRAME_CLASS, killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
+import { FRAME_CLASS, killAndWait, launchControlled, sendCommand, sendCommandSync } from "./win-automation.ts";
 
 function otherFrame(pid: number, first: number): number {
   let found = 0;
@@ -56,6 +56,12 @@ export async function testit(): Promise<void> {
         await sleep(100);
         if (getForegroundWindow() !== foreground) throw new Error("new frame changed foreground");
         if (!isBehind(second, foreground)) throw new Error("new frame is not behind foreground");
+
+        for (const command of ["CmdHelpAbout", "CmdAdvancedSettings"]) {
+          sendCommandSync(frame, cmdId(command));
+          sendCommandSync(frame, cmdId(command));
+          if (getForegroundWindow() !== foreground) throw new Error(`${command} changed foreground`);
+        }
       }
     } finally {
       client.close();

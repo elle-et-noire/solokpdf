@@ -8,6 +8,7 @@
 
 #include "gui/UIModels.h"
 #include "gui/Gfx.h"
+#include "gui/win/AppWindow.h"
 #include "gui/PlatformWindow.h"
 
 static constexpr WCHAR kPlatformWindowClass[] = L"SUMATRA_PLATFORM_WINDOW";
@@ -138,7 +139,7 @@ PlatformWindow* PlatformWindow::Create(const CreateArgs& args) {
         return nullptr;
     }
     if (args.visible) {
-        ShowWindow(hwnd, SW_SHOWNORMAL);
+        ShowAppWindow(hwnd, SW_SHOWNORMAL);
     }
     return window;
 }
@@ -161,11 +162,13 @@ Rect PlatformWindow::ScreenRect() const {
 }
 
 void PlatformWindow::SetBounds(Rect r) {
-    SetWindowPos(native, HWND_TOP, r.x, r.y, r.dx, r.dy, SWP_NOOWNERZORDER);
+    HWND zOrder = AppWindowZOrder(native, HWND_TOP);
+    UINT flags = SWP_NOOWNERZORDER | (zOrder == HWND_BOTTOM ? SWP_NOACTIVATE : 0);
+    SetWindowPos(native, zOrder, r.x, r.y, r.dx, r.dy, flags);
 }
 
 void PlatformWindow::Show(bool show) {
-    ShowWindow(native, show ? SW_SHOWNORMAL : SW_HIDE);
+    ShowAppWindow(native, show ? SW_SHOWNORMAL : SW_HIDE);
 }
 
 void PlatformWindow::Focus() {
@@ -231,7 +234,7 @@ void PlatformWindowActivateIfForeground(NativeWnd native) {
     }
     HWND fg = GetForegroundWindow();
     if (!fg || fg == native) {
-        SetActiveWindow(native);
+        RaiseAppWindow(native, WindowRaise::Active);
     }
 }
 

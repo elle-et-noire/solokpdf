@@ -2,6 +2,9 @@
    License: GPLv3 */
 
 #include "base/Base.h"
+#ifndef SUMATRA_NG
+#include "gui/win/AppWindow.h"
+#endif
 #ifdef SUMATRA_NG
 #include "VirtKeys.h"
 #endif
@@ -109,7 +112,11 @@ void ApplyExplorerQuickLookChrome(MainWindow* win) {
     }
     Rect r{work.x + ((work.dx - dx) / 2), work.y + ((work.dy - dy) / 2), dx, dy};
     HwndMoveWindow(hwnd, &r);
+#ifdef SUMATRA_NG
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+#else
+    SetWindowPos(hwnd, AppWindowZOrder(hwnd, HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+#endif
     ShowOrHideToolbar(win);
     SetSidebarVisibility(win, false, false);
 #ifdef SUMATRA_NG
@@ -153,7 +160,11 @@ void ShowExplorerQuickLook(Str path) {
         args.noSavePrefs = true;
         LoadDocument(&args);
 #endif
+#ifdef SUMATRA_NG
         SetForegroundWindow(MainWindowHwnd(existing));
+#else
+        RaiseAppWindow(MainWindowHwnd(existing), WindowRaise::Foreground);
+#endif
         return;
     }
 
@@ -180,8 +191,13 @@ void ShowExplorerQuickLook(Str path) {
     ApplyExplorerQuickLookChrome(win);
     HWND hwnd = MainWindowHwnd(win);
     if (hwnd) {
+#ifdef SUMATRA_NG
         ShowWindow(hwnd, SW_SHOW);
         SetForegroundWindow(hwnd);
+#else
+        ShowAppWindow(hwnd, SW_SHOW);
+        RaiseAppWindow(hwnd, WindowRaise::Foreground);
+#endif
     }
 }
 

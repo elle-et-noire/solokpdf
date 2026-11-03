@@ -1032,7 +1032,7 @@ void DeleteFindWindow(MainWindow* win) {
 
 static void PositionFindWindow(FindWindowWnd* w) {
     Rect r = FindWindowPlacementRect(w->win);
-    SetWindowPos(w->hwnd, HWND_TOP, r.x, r.y, r.dx, r.dy, SWP_NOACTIVATE);
+    SetWindowPos(w->hwnd, AppWindowZOrder(w->hwnd, HWND_TOP), r.x, r.y, r.dx, r.dy, SWP_NOACTIVATE);
 }
 
 void ShowFindWindow(MainWindow* win) {
@@ -1063,10 +1063,8 @@ void ShowFindWindow(MainWindow* win) {
     Rect wr = HwndWindowRect(w->hwnd);
     w->UpdateDpi(DpiGetForPoint(wr.x + (wr.dx / 2), wr.y + (wr.dy / 2)));
     w->Layout();
-    ShowWindow(w->hwnd, gForTesting ? SW_SHOWNOACTIVATE : SW_SHOW);
-    if (gForTesting) {
-        SetWindowPos(w->hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    } else {
+    ShowAppWindow(w->hwnd, SW_SHOW);
+    if (!gForTesting) {
         win->findEdit->SetFocus();
     }
     CbEditSelectAll(win->findEdit);

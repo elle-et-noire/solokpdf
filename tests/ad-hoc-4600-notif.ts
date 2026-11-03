@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { makeMinimalPdf, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { makeFixtures } from "./ad-hoc-issue-4600.ts";
 import { captureWindowToPng, killAndWait, killProcessesNamed, launchSumatra, waitForFrame } from "./win-automation.ts";
-import { moveWindow, setForegroundWindow, showWindow, sleep, SW_RESTORE } from "./winapi.ts";
+import { moveWindow, setForegroundWindow, showWindow, sleep, SW_RESTORE } from "./winapi.ts"; // desktop-input: foreground-import
 
 async function shot(doc: string, fontName: string, tag: string): Promise<void> {
   const appdata = tmpPath("issue-4600-notif-appdata");
@@ -21,7 +21,7 @@ async function shot(doc: string, fontName: string, tag: string): Promise<void> {
     const frame = await waitForFrame(proc.pid!);
     showWindow(frame, SW_RESTORE);
     moveWindow(frame, 40, 40, 900, 700);
-    setForegroundWindow(frame);
+    setForegroundWindow(frame); // desktop-input: foreground-frame
     await sleep(2500);
     captureWindowToPng(frame, join(tmpPath("epub-font"), `notif-${tag}.png`));
     console.log(`  wrote notif-${tag}.png`);
@@ -72,7 +72,7 @@ async function shotPerFile(doc: string, globalFont: string, fileFont: string, ta
     const frame = await waitForFrame(proc.pid!);
     showWindow(frame, SW_RESTORE);
     moveWindow(frame, 40, 40, 900, 700);
-    setForegroundWindow(frame);
+    setForegroundWindow(frame); // desktop-input: foreground-notif
     await sleep(2500);
     captureWindowToPng(frame, join(tmpPath("epub-font"), `notif-${tag}.png`));
     console.log(`  wrote notif-${tag}.png (per-file FontName='${fileFont}')`);

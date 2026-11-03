@@ -58,7 +58,7 @@ import {
   getClientRect,
   clientToScreen,
   getCursorPos,
-  setCursorPos,
+  setCursorPos, // desktop-input: cursor-import
   sendCopyDataW,
   getPopupMenuHandle,
   readMenuTree,
@@ -108,7 +108,7 @@ export async function activateTestFrame(client: ControlClient): Promise<void> {
 
 export async function moveTestCursor(x: number, y: number, client = cursorClient): Promise<void> {
   if (IS_MAC || USE_NG) {
-    if (!setCursorPos(x, y)) throw new Error("could not move cursor");
+    if (!setCursorPos(x, y)) throw new Error("could not move cursor"); // desktop-input: cursor-fallback
     return;
   }
   if (!client) throw new Error("moveTestCursor needs a controlled app");

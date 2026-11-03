@@ -16,6 +16,10 @@
 #include "gui/UIModels.h"
 #include "gui/Layout.h"
 #include "gui/PlatformFont.h"
+#ifndef SUMATRA_NG
+#include "gui/win/WinGui.h"
+#include "shared/SumatraConfig.h"
+#endif
 
 #include "ImageSaveCropResize.h"
 #include "ScreenshotCapture.h"
@@ -1037,7 +1041,11 @@ static void CancelScreenshotOverlay(HWND hwnd, ScreenshotOverlayData* data) {
     if (!hwndRestore || !IsWindow(hwndRestore)) {
         return;
     }
+#ifdef SUMATRA_NG
     SetForegroundWindow(hwndRestore);
+#else
+    RaiseAppWindow(hwndRestore, WindowRaise::Foreground);
+#endif
     if (GetWindowThreadProcessId(hwndRestore, nullptr) == GetCurrentThreadId()) {
         SetFocus(hwndRestore);
     }
@@ -1227,12 +1235,25 @@ void TakeScreenshots(HWND hwndRestore) {
     // Center on screen
     int x = (screenW - data->winW) / 2;
     int y = (screenH - data->winH) / 2;
+#ifdef SUMATRA_NG
     SetWindowPos(hwnd, HWND_TOPMOST, x, y, data->winW, data->winH, 0);
+#else
+    SetWindowPos(hwnd, AppWindowZOrder(hwnd, HWND_TOPMOST), x, y, data->winW, data->winH,
+                 gForTesting ? SWP_NOACTIVATE : 0);
+#endif
 
     // Paint the layered content
     PaintOverlayLayered(hwnd, data);
 
+#ifdef SUMATRA_NG
     ShowWindow(hwnd, SW_SHOWNORMAL);
     SetForegroundWindow(hwnd);
     SetFocus(hwnd);
+#else
+    ShowAppWindow(hwnd, SW_SHOWNORMAL);
+    RaiseAppWindow(hwnd, WindowRaise::Foreground);
+    if (!gForTesting) {
+        SetFocus(hwnd);
+    }
+#endif
 }

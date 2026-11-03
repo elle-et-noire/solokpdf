@@ -1443,7 +1443,7 @@ static void TeardownMergeWnd(MergePdfWnd* w) {
         gMergeWnd = nullptr;
     }
     if (w->win && IsMainWindowValidAndNotClosing(w->win)) {
-        SetActiveWindow(w->win->hwndFrame);
+        RaiseAppWindow(w->win->hwndFrame, WindowRaise::Active);
     }
     w->ScheduleDelete();
 }
@@ -2124,7 +2124,7 @@ void ShowMergePdfDialog(MainWindow* win) {
         return;
     }
     if (gMergeWnd) {
-        BringWindowToTop(gMergeWnd->hwnd);
+        RaiseAppWindow(gMergeWnd->hwnd, WindowRaise::Top);
         return;
     }
     logf("ShowMergePdfDialog: '%s'\n", tab->filePath);

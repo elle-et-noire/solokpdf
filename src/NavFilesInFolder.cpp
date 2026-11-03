@@ -171,7 +171,7 @@ static void SafeDeleteNavFilesWnd() {
     if (gHwndToActivateOnNavClose) {
         HWND fg = GetForegroundWindow();
         if (!fg || fg == gHwndToActivateOnNavClose) {
-            SetActiveWindow(gHwndToActivateOnNavClose);
+            RaiseAppWindow(gHwndToActivateOnNavClose, WindowRaise::Active);
         }
         gHwndToActivateOnNavClose = nullptr;
     }
@@ -1325,12 +1325,8 @@ void ShowNavFilesInFolder(MainWindow* win, Str selectPath, bool skipHistory) {
                 // on the home page with no selection keep whatever dir is open
                 gNavFilesWnd->RefreshList();
             }
-            ShowWindow(gNavFilesWnd->hwnd, gForTesting ? SW_SHOWNOACTIVATE : SW_SHOW);
-            if (gForTesting) {
-                SetWindowPos(gNavFilesWnd->hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            } else {
-                SetForegroundWindow(gNavFilesWnd->hwnd);
-            }
+            ShowAppWindow(gNavFilesWnd->hwnd, SW_SHOW);
+            RaiseAppWindow(gNavFilesWnd->hwnd, WindowRaise::Foreground);
             gNavFilesWnd->skipHistory = skipHistory;
             if (!gForTesting) {
                 if (gNavFilesWnd->listBox) {

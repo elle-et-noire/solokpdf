@@ -327,7 +327,7 @@ void ShowTabGroupsDialog(MainWindow* win, TabGroupDialogMode mode) {
     for (auto* w : gTabGroupsWnds) {
         if (w->win == win && w->mode == mode) {
             if (w->hwnd && IsWindow(w->hwnd)) {
-                BringWindowToTop(w->hwnd);
+                RaiseAppWindow(w->hwnd, WindowRaise::Top);
                 return;
             }
             TeardownTabGroupsWnd(w);

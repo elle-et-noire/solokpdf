@@ -11,6 +11,7 @@
 #include "gui/Gfx.h"
 #include "gui/VirtCtrl.h"
 #include "gui/PlatformFont.h"
+#include "gui/win/AppWindow.h"
 #include "gui/VirtHost.h"
 
 // the class names we have already registered. They are string literals that
@@ -265,7 +266,7 @@ Rect VirtHost::ToScreen(Rect r) const {
 void VirtHost::SetPos(Rect r, bool visible) {
     UINT flags = SWP_NOACTIVATE;
     flags |= visible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
-    SetWindowPos(native, HWND_TOP, r.x, r.y, r.dx, r.dy, flags);
+    SetWindowPos(native, AppWindowZOrder(native, HWND_TOP), r.x, r.y, r.dx, r.dy, flags);
 }
 
 void VirtHost::SetBounds(Rect r) {
@@ -274,7 +275,7 @@ void VirtHost::SetBounds(Rect r) {
 }
 
 void VirtHost::Show(bool show) {
-    ShowWindow(native, show ? SW_SHOWNOACTIVATE : SW_HIDE);
+    ShowAppWindow(native, show ? SW_SHOWNOACTIVATE : SW_HIDE);
 }
 
 bool VirtHost::IsVisible() const {

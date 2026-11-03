@@ -407,7 +407,7 @@ bool ShowAnnotationTextPopup(MainWindow* win, Annotation* annot) {
     win->DeleteToolTip();
     popup->host->Show(true);
     popup->host->Invalidate(false);
-    SetActiveWindow(popup->host->native);
+    RaiseAppWindow(popup->host->native, WindowRaise::Active);
     edit->SetFocus();
     // the caret belongs at the start: this is text to read, not to replace
     SendMessageW(edit->hwnd, EM_SETSEL, 0, 0);

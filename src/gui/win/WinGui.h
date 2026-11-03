@@ -1,6 +1,8 @@
 /* Copyright 2024 the SumatraPDF project authors (see AUTHORS file).
    License: Simplified BSD (see COPYING.BSD) */
 
+#include "gui/win/AppWindow.h"
+
 //--- WindowBase
 
 // Event handler conventions:

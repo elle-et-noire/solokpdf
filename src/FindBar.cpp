@@ -705,7 +705,7 @@ static void PositionFindBar(FindBarWnd* bar) {
     }
     Rect r{cx, cy, bar->barDx, bar->barDy};
     r = ShiftRectToWorkArea(r, win->hwndFrame, true);
-    SetWindowPos(bar->hwnd, HWND_TOP, r.x, r.y, r.dx, r.dy, SWP_NOACTIVATE);
+    SetWindowPos(bar->hwnd, AppWindowZOrder(bar->hwnd, HWND_TOP), r.x, r.y, r.dx, r.dy, SWP_NOACTIVATE);
 }
 
 void ShowCompactBar(MainWindow* win) {
@@ -728,7 +728,7 @@ void ShowCompactBar(MainWindow* win) {
     FindBarSetMatchCaseChecked(win, win->findMatchCase);
     FindBarSetMatchWholeWordChecked(win, win->findMatchWholeWord);
     PositionFindBar(bar);
-    ShowWindow(bar->hwnd, SW_SHOW);
+    ShowAppWindow(bar->hwnd, SW_SHOW);
     win->findEdit->SetFocus();
     CbEditSelectAll(win->findEdit);
     // the restored term is only a starting point, not a search request: hitting

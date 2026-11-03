@@ -1644,7 +1644,7 @@ void ImageEditWindow::OnDestroy(WindowBase::DestroyEvent*) {
     auto fn = MkFunc0<ImageEditWindow>(DeleteImageEditWindow, this);
     uitask::Post(fn, "DeleteImageEditWindow");
     if (parent) {
-        HwndToForeground(parent);
+        RaiseAppWindow(parent, WindowRaise::RestoreForeground);
     }
 }
 
@@ -2329,7 +2329,7 @@ void ShowImageEditWindow(HWND parent, ImageEditMode mode, Str filePath, Rendered
     HideKeyboardCues(hwnd);
     ew->SetIsVisible(true);
     SetCurrentModelessDialog(hwnd);
-    HwndToForeground(hwnd);
+    RaiseAppWindow(hwnd, WindowRaise::RestoreForeground);
     RestoreImageEditFocus(ew);
 }
 
