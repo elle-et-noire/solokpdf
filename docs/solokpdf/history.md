@@ -1448,6 +1448,7 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 
 B71 follow-up: Prevent test dialog activation (B71).
 B71 follow-up: Prevent settings focus activation (B71).
+B71 follow-up: Compare tab views after a normal switch (B71).
 
 #### B7 follow-ups
 

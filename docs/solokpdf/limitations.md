@@ -387,7 +387,9 @@ activating About positioning call; dialog positioning now avoids activation,
 and the foreground test covers additional windows. The settings filter avoids
 activating its test-mode window; `ad-hoc-b71-window-focus` checks focus.
 Hosted verification remains
-pending. The external viewer, PNG,
+pending. The tab-view test compares settings changes against a normal tab
+switch and checks the switch preserves the scroll within one point. Hosted
+verification at 100% DPI remains pending. The external viewer, PNG,
 screenshot focus, fullscreen activation, MuPDF placement and process cleanup
 checks also passed hosted runs.
 

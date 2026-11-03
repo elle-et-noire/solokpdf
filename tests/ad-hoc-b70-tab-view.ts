@@ -23,6 +23,20 @@ async function view(client: ControlClient): Promise<string> {
   ].join(" ");
 }
 
+function checkSwitch(before: string, after: string): void {
+  const pattern = /^(.* x=)([-\d.]+)( y=)([-\d.]+)(\s*)$/;
+  const a = pattern.exec(before);
+  const b = pattern.exec(after);
+  if (
+    !a ||
+    !b ||
+    a[1] !== b[1] ||
+    Math.abs(Number(a[2]) - Number(b[2])) > 1 ||
+    Math.abs(Number(a[4]) - Number(b[4])) > 1
+  ) {
+    throw new Error(`tab switch changed view: ${before} -> ${after}`);
+  }
+}
 async function invoke(client: ControlClient, name: string): Promise<void> {
   await request(client, ControlCommand.TestInvokeCommand, [name]);
 }
@@ -58,15 +72,22 @@ async function check(engine: string): Promise<void> {
       if (!y || Number(y[1]) <= 0) throw new Error(`page was not scrolled: ${state}`);
     }
 
+    await invoke(client, "CmdNextTab");
+    const secondControl = await view(client);
+    await invoke(client, "CmdPrevTab");
+    const firstControl = await view(client);
+    checkSwitch(secondBefore, secondControl);
+    checkSwitch(firstBefore, firstControl);
+
     await invoke(client, "CmdOptions");
     const changed = await request(client, ControlCommand.TestAdvSettingsRows, ["toggle-common", 4]);
     if (!changed.includes("UseTabs=false")) throw new Error(`UseTabs: ${changed}`);
     await request(client, ControlCommand.TestAdvSettingsRows, ["save", 0]);
     const firstAfter = await view(client);
-    if (firstAfter !== firstBefore) throw new Error(`${engine} first tab: ${firstBefore} -> ${firstAfter}`);
+    if (firstAfter !== firstControl) throw new Error(`${engine} first tab: ${firstControl} -> ${firstAfter}`);
     await invoke(client, "CmdNextTab");
     const secondAfter = await view(client);
-    if (secondAfter !== secondBefore) throw new Error(`${engine} second tab: ${secondBefore} -> ${secondAfter}`);
+    if (secondAfter !== secondControl) throw new Error(`${engine} second tab: ${secondControl} -> ${secondAfter}`);
   } finally {
     await client.quit().catch(() => {});
     await killAndWait(proc);
