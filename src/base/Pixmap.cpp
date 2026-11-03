@@ -998,17 +998,17 @@ Pixmap* GetClipboardImageAsPixmap() {
     constexpr int kTries = 10;
     constexpr int kPauseMs = 20;
     for (int i = 0; i < kTries; i++) {
-        if (!OpenClipboard(nullptr)) {
+        if (!ClipboardOpen(nullptr)) {
             Sleep(kPauseMs);
             continue;
         }
         // CF_BITMAP is synthesized from CF_DIB and vice versa. The HBITMAP stays
         // owned by the clipboard.
-        HBITMAP hbmp = (HBITMAP)GetClipboardData(CF_BITMAP);
+        HBITMAP hbmp = (HBITMAP)ClipboardGetData(CF_BITMAP);
         Pixmap* pixmap = hbmp ? PixmapFromHBITMAPPixels(hbmp) : nullptr;
         // a DLL hooking GetClipboardData (seen with ESET) can close the clipboard mid-call
-        bool listed = !hbmp && IsClipboardFormatAvailable(CF_BITMAP);
-        CloseClipboard();
+        bool listed = !hbmp && ClipboardHasFormat(CF_BITMAP);
+        ClipboardClose();
         if (pixmap || (!hbmp && !listed)) {
             return pixmap;
         }

@@ -698,6 +698,7 @@ enum class ControlCmd : u16 {
     TestCursorPosition = 155,
     TestClipboardText = 156,
     TestFocusState = 157,
+    TestClipboardFormat = 158,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -2543,10 +2544,64 @@ static void ExecuteControlRequest(ControlRequest* req) {
         }
 
         case ControlCmd::TestClipboardText: {
-            if (str::Eq(StringArg(req, 0), StrL("enable"))) {
-                EnableTestClipboardTextSink();
+            Str action = StringArg(req, 0);
+            bool ok = true;
+            if (str::Eq(action, StrL("enable"))) {
+                SetTestClipboardMode();
+            } else if (str::Eq(action, StrL("set"))) {
+                if (!IsTestClipboardMode()) {
+                    AppendError(req, StrL("test clipboard disabled"));
+                    break;
+                }
+                Str value = StringArg(req, 1);
+                if (len(value) > 0) {
+                    ok = CopyTextToClipboard(value);
+                } else if (ClipboardOpen(nullptr)) {
+                    ok = ClipboardEmpty();
+                    ClipboardClose();
+                } else {
+                    ok = false;
+                }
+            } else if (str::Eq(action, StrL("clear"))) {
+                if (!IsTestClipboardMode()) {
+                    AppendError(req, StrL("test clipboard disabled"));
+                    break;
+                }
+                if (ClipboardOpen(nullptr)) {
+                    ok = ClipboardEmpty();
+                    ClipboardClose();
+                } else {
+                    ok = false;
+                }
             }
-            AppendTestResult(req, 0, GetTestClipboardText());
+            AppendTestResult(req, ok ? 0 : 1, GetTestClipboardText());
+            break;
+        }
+
+        case ControlCmd::TestClipboardFormat: {
+            if (!IsTestClipboardMode()) {
+                AppendError(req, StrL("test clipboard disabled"));
+                break;
+            }
+            Str action = StringArg(req, 0);
+            i32 format = 0;
+            IntArg(req, 1, format);
+            if (str::Eq(action, StrL("register"))) {
+                UINT registered = RegisterClipboardFormatW(CWStrTemp(ToWStrTemp(StringArg(req, 1))));
+                AppendTestResult(req, registered ? 0 : 1, fmt("%d", (int)registered));
+            } else if (str::Eq(action, StrL("set"))) {
+                AppendTestResult(req, SetTestClipboardData((UINT)format, StringArg(req, 2)) ? 0 : 1, StrL("set"));
+            } else if (str::Eq(action, StrL("get"))) {
+                AppendTestResult(req, 0, TestClipboardDataTemp((UINT)format));
+            } else if (str::Eq(action, StrL("has"))) {
+                AppendTestResult(req, 0, ClipboardHasFormat((UINT)format) ? StrL("1") : StrL("0"));
+            } else if (str::Eq(action, StrL("list"))) {
+                AppendTestResult(req, 0, TestClipboardFormatsTemp());
+            } else if (str::Eq(action, StrL("seq"))) {
+                AppendTestResult(req, 0, fmt("%d", (int)ClipboardSequence()));
+            } else {
+                AppendError(req, StrL("invalid clipboard action"));
+            }
             break;
         }
 

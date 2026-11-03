@@ -404,14 +404,14 @@ bool CopyPixmapToClipboard(Pixmap* p, bool appendOnly) {
     bool ok = false;
     if (hPng) {
         static UINT cfPng = RegisterClipboardFormatW(L"PNG");
-        if (!cfPng || !SetClipboardData(cfPng, hPng)) {
+        if (!cfPng || !ClipboardSetData(cfPng, hPng)) {
             GlobalFree(hPng);
         }
     }
-    if (hDibV5 && !SetClipboardData(CF_DIBV5, hDibV5)) {
+    if (hDibV5 && !ClipboardSetData(CF_DIBV5, hDibV5)) {
         GlobalFree(hDibV5);
     }
-    if (SetClipboardData(CF_BITMAP, hbmp)) {
+    if (ClipboardSetData(CF_BITMAP, hbmp)) {
         ok = true;
     } else {
         DeleteObject(hbmp);

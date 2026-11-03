@@ -9,7 +9,8 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { cmdId, makePdf, runStandalone, tmpPath } from "./util.ts";
+import { cmdId, makePdf, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { canTestClipboard, setTestClipboardData } from "./test-clipboard.ts";
 import { sleep } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 
@@ -63,6 +64,7 @@ function copyFileToClipboard(path: string) {
 }
 
 export async function testit(): Promise<void> {
+  if (!canTestClipboard("issue-5890")) return;
   const dir = tmpPath("issue-5890");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -99,7 +101,16 @@ export async function testit(): Promise<void> {
     await merge(client, "rotate", "5", 90);
 
     // copied after the pages: the file is pasted
-    copyFileToClipboard(other);
+    if (USE_NG) {
+      copyFileToClipboard(other);
+    } else {
+      const names = Buffer.from(`${other}\0\0`, "utf16le");
+      const drop = Buffer.alloc(20 + names.length);
+      drop.writeUInt32LE(20, 0);
+      drop.writeUInt32LE(1, 16);
+      names.copy(drop, 20);
+      await setTestClipboardData(client, 15, drop);
+    }
     raw = await merge(client, "paste", "0");
     expectItems(raw, "0:2,1:1s,1:2s,0:3,0:4,0:1,0:2,0:1@90", "paste a file");
 

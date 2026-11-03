@@ -207,13 +207,17 @@ export function windowPosArgs(): string[] {
 // By default the window opens on the right half of the work area. Pass { defaultWindowPos: true } in a test that is
 // about the window's own size or state - fullscreen, maximized, minimized,
 // restoring a remembered position - so the app picks the position itself.
-export function launchSumatra(args: string[], opts?: { defaultWindowPos?: boolean }): Bun.Subprocess {
+export function launchSumatra(
+  args: string[],
+  opts?: { defaultWindowPos?: boolean; env?: Record<string, string> },
+): Bun.Subprocess {
   const posArgs = opts?.defaultWindowPos || args.includes("-window-pos") ? [] : windowPosArgs();
   const proc = Bun.spawn([EXE, "-for-testing", ...posArgs, ...args], {
     stdout: "ignore",
     // ASan writes its report to stderr. "ignore" closes that pipe and the
     // next write kills the process.
     stderr: IS_MAC ? "pipe" : "ignore",
+    env: opts?.env ? { ...process.env, ...opts.env } : undefined,
   });
   if (IS_MAC) {
     drainStderr(proc);

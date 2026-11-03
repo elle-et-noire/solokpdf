@@ -145,6 +145,9 @@ void CommitFormFieldEdit(bool save) {
 
 static LRESULT CALLBACK WndProcFormCtrl(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     bool isChoice = gEdit.isChoice;
+    if (!isChoice && HandleTestEditClipboard(hwnd, msg)) {
+        return 0;
+    }
     switch (msg) {
         case WM_GETDLGCODE:
             // we handle Tab / Enter / Esc ourselves

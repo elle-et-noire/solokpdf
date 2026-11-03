@@ -50,6 +50,14 @@ static void ReplaceDropDownItems(HWND hwnd, StrVec& items) {
 // slot widening as the count comes in - would then wipe out what the user is
 // typing, so put the caret back where it was (issue #6068).
 static LRESULT CALLBACK DropDownProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
+    if (IsTestClipboardMode() && (msg == WM_COPY || msg == WM_CUT || msg == WM_PASTE)) {
+        COMBOBOXINFO info{};
+        info.cbSize = sizeof(info);
+        if (GetComboBoxInfo(hwnd, &info) && info.hwndItem) {
+            HandleTestEditClipboard(info.hwndItem, msg);
+        }
+        return 0;
+    }
     if (msg != WM_SIZE) {
         return DefSubclassProc(hwnd, msg, wp, lp);
     }
@@ -61,6 +69,9 @@ static LRESULT CALLBACK DropDownProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, 
 }
 
 static LRESULT CALLBACK DropDownEditProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
+    if (HandleTestEditClipboard(hwnd, msg)) {
+        return 0;
+    }
     if (msg == WM_CHAR && EditHandleCtrlBack(hwnd, wp)) {
         return 0;
     }

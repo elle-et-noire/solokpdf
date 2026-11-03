@@ -12,13 +12,14 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { cmdId, EXE, runStandalone } from "./util.ts";
 import { launchControlled, sendCommandSync, killAndWait } from "./win-automation.ts";
-import { getClipboardText } from "./winapi.ts";
+import { canTestClipboard, getTestClipboardText } from "./test-clipboard.ts";
 
 const PDF = join(import.meta.dir, "issue-2423.pdf");
 
 const EXPECTED = ["def hello_world():", '    print("Hello World!")', "", "hello_world()"].join("\r\n");
 
 export async function testit(): Promise<void> {
+  if (!canTestClipboard("issue-2423")) return;
   if (!existsSync(PDF)) {
     throw new Error(`fixture missing: ${PDF}`);
   }
@@ -31,7 +32,7 @@ export async function testit(): Promise<void> {
     await client.waitForRenderIdle();
     await client.seedTextSelection(1);
     sendCommandSync(frame, cmdId("CmdCopySelection"));
-    const got = (await getClipboardText(2000)).replace(/[\r\n]+$/, "");
+    const got = (await getTestClipboardText(client)).replace(/[\r\n]+$/, "");
     if (got !== EXPECTED) {
       throw new Error(`#2423: clipboard\n${JSON.stringify(got)}\nexpected\n${JSON.stringify(EXPECTED)}`);
     }

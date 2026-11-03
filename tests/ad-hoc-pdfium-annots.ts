@@ -108,10 +108,12 @@ function yellowPixels(png: string): number {
 }
 
 async function launch(dir: string, pdf: string, engine: string) {
-  return await launchControlled(["-appdata", dir, "-view", "single page", "-zoom", "fit page", pdf], {
+  const app = await launchControlled(["-appdata", dir, "-view", "single page", "-zoom", "fit page", pdf], {
     saveSettings: true,
     env: { SOLOKPDF_ENGINE: engine },
   });
+  if (!process.env.SOLOKPDF_REAL_CLIPBOARD) await app.client.request(ControlCommand.TestClipboardText, ["enable"]);
+  return app;
 }
 
 export async function testit(): Promise<void> {

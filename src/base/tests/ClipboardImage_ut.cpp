@@ -32,7 +32,7 @@ static Pixmap* MakeHalfTransparent(int w, int h) {
 }
 
 static Str ReadOpenClipboardFormat(UINT fmt) {
-    HANDLE h = GetClipboardData(fmt);
+    HANDLE h = ClipboardGetData(fmt);
     if (!h) {
         return {};
     }
@@ -52,9 +52,9 @@ static Str ReadClipboardFormat(UINT fmt) {
     constexpr int kTries = 10;
     constexpr int kPauseMs = 20;
     for (int i = 0; i < kTries; i++) {
-        if (OpenClipboard(nullptr)) {
+        if (ClipboardOpen(nullptr)) {
             Str res = ReadOpenClipboardFormat(fmt);
-            CloseClipboard();
+            ClipboardClose();
             if (len(res) > 0) {
                 return res;
             }
@@ -92,10 +92,10 @@ static void TransparentImageTest() {
     bool ok = CopyPixmapToClipboard(p, false);
     utassert(ok);
 
-    utassert(IsClipboardFormatAvailable(cfPng));
-    utassert(IsClipboardFormatAvailable(CF_DIBV5));
+    utassert(ClipboardHasFormat(cfPng));
+    utassert(ClipboardHasFormat(CF_DIBV5));
     // still there for Paint / Word, which don't understand the other two
-    utassert(IsClipboardFormatAvailable(CF_BITMAP));
+    utassert(ClipboardHasFormat(CF_BITMAP));
 
     Str png = ReadClipboardFormat(cfPng);
     utassert(len(png) > 26);
@@ -127,8 +127,8 @@ static void OpaqueImageTest() {
     utassert(p != nullptr);
     memset(p->data, 0xff, (size_t)p->stride * (size_t)p->height);
     utassert(CopyPixmapToClipboard(p, false));
-    utassert(IsClipboardFormatAvailable(CF_BITMAP));
-    utassert(!IsClipboardFormatAvailable(cfPng));
+    utassert(ClipboardHasFormat(CF_BITMAP));
+    utassert(!ClipboardHasFormat(cfPng));
     FreePixmap(p);
 }
 
@@ -152,7 +152,7 @@ static void RoundTripThroughRenderedBitmapTest() {
     utassert(back->data[(((size_t)back->width - 1) * 4) + 3] == 0); // transparent half
 
     utassert(CopyPixmapToClipboard(back, false));
-    utassert(IsClipboardFormatAvailable(cfPng));
+    utassert(ClipboardHasFormat(cfPng));
     FreePixmap(back);
 }
 

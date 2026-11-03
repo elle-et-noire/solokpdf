@@ -5,6 +5,7 @@
 import { join } from "node:path";
 import { ControlClient } from "./control";
 import { IS_MAC } from "./host";
+import { canTestClipboard, getTestClipboardText, setTestClipboardText } from "./test-clipboard.ts";
 import { ROOT, cmdId, runStandalone, SLOW_BUILD_FACTOR } from "./util";
 import { postMessage, sleep, WM_CLOSE, WM_KEYDOWN } from "./winapi";
 import {
@@ -23,41 +24,6 @@ const VK_END = 0x23;
 const VK_HOME = 0x24;
 const VK_NEXT = 0x22; // Page Down
 
-function clipboardText(): string {
-  if (IS_MAC) {
-    const res = Bun.spawnSync(["pbpaste"], { stdout: "pipe", stderr: "pipe" });
-    if (res.exitCode !== 0) {
-      throw new Error(`issue-5972: pbpaste failed: ${res.stderr.toString()}`);
-    }
-    return res.stdout.toString().replace(/\r?\n$/, "");
-  }
-  const res = Bun.spawnSync(["powershell.exe", "-NoProfile", "-Command", "Get-Clipboard -Raw"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (res.exitCode !== 0) {
-    throw new Error(`issue-5972: Get-Clipboard failed: ${res.stderr.toString()}`);
-  }
-  return res.stdout.toString().replace(/\r?\n$/, "");
-}
-
-function setClipboard(value: string): void {
-  if (IS_MAC) {
-    const res = Bun.spawnSync(["pbcopy"], { stdin: Buffer.from(value), stdout: "pipe", stderr: "pipe" });
-    if (res.exitCode !== 0) {
-      throw new Error(`issue-5972: pbcopy failed: ${res.stderr.toString()}`);
-    }
-    return;
-  }
-  const res = Bun.spawnSync(["powershell.exe", "-NoProfile", "-Command", `Set-Clipboard -Value '${value}'`], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (res.exitCode !== 0) {
-    throw new Error(`issue-5972: Set-Clipboard failed: ${res.stderr.toString()}`);
-  }
-}
-
 const kWait = IS_MAC ? SLOW_BUILD_FACTOR : 1;
 
 async function waitPalette(client: ControlClient): Promise<PaletteState> {
@@ -75,6 +41,7 @@ async function waitPalette(client: ControlClient): Promise<PaletteState> {
 }
 
 export async function testit(): Promise<void> {
+  if (!canTestClipboard("issue-5972")) return;
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
   const { proc, client, frame } = await launchControlled([pdf]);
   try {
@@ -121,11 +88,11 @@ export async function testit(): Promise<void> {
     }
 
     const sentinel = "issue-5972 clipboard sentinel";
-    setClipboard(sentinel);
+    await setTestClipboardText(client, sentinel);
     sendCommandSync(palette, cmdId("CmdCopySelection"));
     const copyDeadline = Date.now() + 3_000 * kWait;
     for (;;) {
-      const copied = clipboardText();
+      const copied = (await getTestClipboardText(client)).replace(/\r?\n$/, "");
       if (copied === query) {
         break;
       }

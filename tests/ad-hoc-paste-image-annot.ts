@@ -11,6 +11,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { cmdId, runStandalone, tmpPath } from "./util.ts";
+import { canUseRealClipboard } from "./test-clipboard.ts";
 import {
   launchSumatra,
   waitForFrame,
@@ -67,6 +68,7 @@ function countRedPixels(png: string): number {
 }
 
 export async function testit(): Promise<void> {
+  if (!canUseRealClipboard("ad-hoc-paste-image-annot")) return;
   const dir = tmpPath("ad-hoc-paste-image-annot");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -84,7 +86,7 @@ export async function testit(): Promise<void> {
   }
 
   await killProcessesNamed("SumatraPDF.exe");
-  const proc = launchSumatra([pdf]);
+  const proc = launchSumatra([pdf], { env: { SOLOKPDF_REAL_CLIPBOARD: "1" } });
   try {
     const frame = await waitForFrame(proc.pid!);
     await sleep(1500);

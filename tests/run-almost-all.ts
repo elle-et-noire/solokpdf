@@ -21,6 +21,8 @@ import { setTestWindowLayout } from "./winapi.ts";
 import { beginSharedControlledSession, endSharedControlledSession } from "./win-automation.ts";
 import { testit as lintCommandIds } from "./lint-command-ids.ts";
 import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
+import { testit as lintSystemClipboard } from "./lint-system-clipboard.ts";
+import { testit as b67Clipboard } from "./ad-hoc-b67-clipboard.ts";
 import { testit as jbig2ResizeOverflow } from "./jbig2-resize-overflow.ts";
 import { testit as issue6468 } from "./issue-6468.ts";
 import { testit as jpegXlPdf } from "./jpeg-xl-pdf.ts";
@@ -533,6 +535,7 @@ export const tests: NamedTest[] = [
   ["issue-1315", issue1315],
   ["sidebar-thumbnails", sidebarThumbnails],
   ["issue-6269", issue6269],
+  ["ad-hoc-b67-clipboard", b67Clipboard],
   ["issue-6385", issue6385],
   ["issue-6240", issue6240],
   ["issue-4788", issue4788],
@@ -690,6 +693,7 @@ export const tests: NamedTest[] = [
   // --- no Sumatra process -------------------------------------------------
   ["lint-command-ids", lintCommandIds],
   ["lint-desktop-input", lintDesktopInput],
+  ["lint-system-clipboard", lintSystemClipboard],
   ["build-cli", buildCli],
   ["parse-tip-brackets", parseTipBrackets],
   ["combining-mark-first", combiningMarkFirst],

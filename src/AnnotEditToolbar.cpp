@@ -1887,6 +1887,10 @@ void EndFreeTextInPlaceEdit(bool accept) {
 }
 
 static LRESULT CALLBACK WndProcFreeTextInPlaceEdit(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    if (HandleTestEditClipboard(hwnd, msg)) {
+        SizeInPlaceEditToText();
+        return 0;
+    }
     switch (msg) {
         case WM_GETDLGCODE:
             // Enter is a new line and Esc cancels, so we want every key

@@ -331,10 +331,22 @@ void RestoreDCState(SavedDCState* state);
 
 //--- clipboard
 
+void SetTestClipboardMode();
+bool IsTestClipboardMode();
+BOOL ClipboardOpen(HWND owner);
+BOOL ClipboardClose();
+BOOL ClipboardEmpty();
+HANDLE ClipboardSetData(UINT format, HANDLE data);
+HANDLE ClipboardGetData(UINT format);
+BOOL ClipboardHasFormat(UINT format);
+DWORD ClipboardSequence();
+Str TestClipboardFormatsTemp();
+Str TestClipboardDataTemp(UINT format);
+bool SetTestClipboardData(UINT format, Str hex);
+bool HandleTestEditClipboard(HWND hwnd, UINT msg);
 bool OpenClipboardForUpdate();
 void CloseClipboardAfterUpdate();
 bool CopyTextToClipboard(Str s);
-void EnableTestClipboardTextSink();
 Str GetTestClipboardText();
 bool AppendTextToClipboard(Str s);
 bool CopyImageToClipboard(HBITMAP hbmp, bool appendOnly);

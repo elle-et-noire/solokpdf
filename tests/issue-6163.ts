@@ -8,7 +8,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { killAndWait, killProcessesNamed, launchControlled, sendCommandSync } from "./win-automation.ts";
-import { getClipboardText } from "./winapi.ts";
+import { canTestClipboard, getTestClipboardText } from "./test-clipboard.ts";
 
 function makePdf(nPages: number): Buffer {
   const kids: string[] = [];
@@ -45,7 +45,7 @@ async function copyLocation(args: string[], nScrolls: number): Promise<string> {
     await client.waitForRenderIdle();
 
     sendCommandSync(frame, cmdId("CmdCopyLocationToClipboard"));
-    return (await getClipboardText()).trim();
+    return (await getTestClipboardText(client)).trim();
   } finally {
     client.close();
     await killAndWait(proc);
@@ -53,6 +53,7 @@ async function copyLocation(args: string[], nScrolls: number): Promise<string> {
 }
 
 export async function testit(): Promise<void> {
+  if (!canTestClipboard("issue-6163")) return;
   const dir = tmpPath("issue-6163");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });

@@ -9320,7 +9320,7 @@ static bool SelectAllInFocusedEditControl() {
     return true;
 }
 
-// Value of GetClipboardSequenceNumber() right after the last CopyAnnotation().
+// Value of ClipboardSequence() right after the last CopyAnnotation().
 // If it still matches, our annotation is the most recent copy and Ctrl+V should
 // paste it; if something else copied since, that wins instead.
 static DWORD gAnnotClipboardSeqNo = 0;
@@ -9336,7 +9336,7 @@ static bool CopyAnnotationToClipboard(Annotation* annot, bool cut) {
     if (!str::IsEmptyOrWhiteSpace(contents)) {
         CopyTextToClipboard(contents);
     }
-    gAnnotClipboardSeqNo = GetClipboardSequenceNumber();
+    gAnnotClipboardSeqNo = ClipboardSequence();
     return true;
 }
 
@@ -9345,7 +9345,7 @@ static bool CopiedAnnotationIsFresh() {
     if (!HasCopiedAnnotation()) {
         return false;
     }
-    return GetClipboardSequenceNumber() == gAnnotClipboardSeqNo;
+    return ClipboardSequence() == gAnnotClipboardSeqNo;
 }
 
 // Copy or cut the annotation the command targets: the one that was
@@ -10374,17 +10374,17 @@ static TempStr PickImageFilePathTemp(HWND hwnd) {
 }
 
 static void PasteImageFromClipboard(MainWindow* win) {
-    if (!OpenClipboard(nullptr)) {
+    if (!ClipboardOpen(nullptr)) {
         return;
     }
-    HBITMAP hbmp = (HBITMAP)GetClipboardData(CF_BITMAP);
+    HBITMAP hbmp = (HBITMAP)ClipboardGetData(CF_BITMAP);
     if (!hbmp) {
-        CloseClipboard();
+        ClipboardClose();
         return;
     }
     // create GDI+ bitmap from clipboard HBITMAP
     Gdiplus::Bitmap gdipBmp(hbmp, nullptr);
-    CloseClipboard();
+    ClipboardClose();
 
     if (gdipBmp.GetWidth() == 0 || gdipBmp.GetHeight() == 0) {
         return;
@@ -10835,7 +10835,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
             // recent copy. An image copied in another app since then wins, or the
             // annotation would hijack Ctrl+V for the rest of the session.
             bool pasteAnnot = win && win->pdfAnnotationsToolbarEnabled &&
-                              (CopiedAnnotationIsFresh() || !IsClipboardFormatAvailable(CF_BITMAP));
+                              (CopiedAnnotationIsFresh() || !ClipboardHasFormat(CF_BITMAP));
             if (pasteAnnot) {
                 lastCreatedAnnot = TryPasteCopiedAnnotation(win, tab, dm, lp);
                 if (lastCreatedAnnot) {
@@ -16642,6 +16642,9 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     gForTesting = flags.forTesting;
     if (gForTesting) {
         SetEnvironmentVariableW(L"SOLOKPDF_BLOCK_SHELL_LAUNCH", L"1");
+        if (GetEnvironmentVariableW(L"SOLOKPDF_REAL_CLIPBOARD", nullptr, 0) == 0) {
+            SetTestClipboardMode();
+        }
     }
     if (GetEnvironmentVariableW(L"SOLOKPDF_HIDDEN_DESKTOP", nullptr, 0) > 0) {
         HMODULE wer = LoadLibraryW(L"wer.dll");
@@ -16832,6 +16835,9 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
 
 #if IS_DEBUG
     if (flags.unitTests) {
+        if (GetEnvironmentVariableW(L"SOLOKPDF_REAL_CLIPBOARD", nullptr, 0) == 0) {
+            SetTestClipboardMode();
+        }
         CreateSumatraAcceleratorTable();
         exitCode = RunAppUnitTests(flags.forAi);
         FreeAcceleratorTables();

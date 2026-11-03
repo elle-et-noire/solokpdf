@@ -403,7 +403,7 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   timeout or Ctrl+C. Test-mode shell launches are blocked. Two keyboard tests
   activate only in the runner, CI or with explicit opt-in, then wait for focus.
   Foreground and screen-pixel checks still need the visible input desktop;
-  see [testing.md](testing.md). The clipboard remains shared (B67).
+  see [testing.md](testing.md). B67 keeps test clipboard data in the app process.
 - `toolbar-hover-dropdown` passes on both engines, locally and in hosted CI
   (runs 41627802937, 41627807442), so the full suite runs it again.
   With the original PDF fixture, both engines display upright RTL toast text.

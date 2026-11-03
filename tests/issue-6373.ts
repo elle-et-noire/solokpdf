@@ -12,8 +12,8 @@ import {
   isWindowVisible,
   sendMessage,
   sendText,
-  setClipboardText,
 } from "./winapi.ts";
+import { setTestClipboardText } from "./test-clipboard.ts";
 
 const PDF = resolve(import.meta.dir, "issue-1189.pdf");
 const EM_GETLINECOUNT = 0x00ba;
@@ -51,7 +51,7 @@ export async function testit(): Promise<void> {
       { error: "script edit" },
     );
 
-    if (!setClipboardText("let a = 1;\nlet b = 2;\nprint(a + b);")) throw new Error("setClipboardText failed");
+    await setTestClipboardText(client, "let a = 1;\nlet b = 2;\nprint(a + b);");
     // the box starts with an example script
     sendText(scriptEdit, "");
     sendMessage(scriptEdit, WM_PASTE, 0, 0);

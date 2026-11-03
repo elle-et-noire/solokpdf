@@ -1254,6 +1254,237 @@ void DeferWinPosHelper::MoveWindowNoCopyBits(HWND hWnd, Rect r) {
 
 //--- clipboard
 
+struct ClipEntry {
+    UINT format;
+    HANDLE data;
+};
+
+static constexpr int kMaxTestBitmapDim = 4096;
+
+static bool gTestClipboardMode = false;
+static bool gTestClipboardOpen = false;
+static DWORD gTestClipboardSeq = 1;
+static Vec<ClipEntry> gTestClipboard;
+
+void SetTestClipboardMode() {
+    gTestClipboardMode = true;
+}
+
+bool IsTestClipboardMode() {
+    return gTestClipboardMode;
+}
+
+static void FreeClipEntry(ClipEntry entry) {
+    if (entry.format == CF_BITMAP) {
+        DeleteObject(entry.data);
+    } else {
+        GlobalFree(entry.data);
+    }
+}
+
+BOOL ClipboardOpen(HWND owner) {
+    if (!gTestClipboardMode) {
+        return OpenClipboard(owner);
+    }
+    if (gTestClipboardOpen) {
+        return FALSE;
+    }
+    gTestClipboardOpen = true;
+    return TRUE;
+}
+
+BOOL ClipboardClose() {
+    if (!gTestClipboardMode) {
+        return CloseClipboard();
+    }
+    gTestClipboardOpen = false;
+    return TRUE;
+}
+
+BOOL ClipboardEmpty() {
+    if (!gTestClipboardMode) {
+        return EmptyClipboard();
+    }
+    if (!gTestClipboardOpen) {
+        return FALSE;
+    }
+    for (ClipEntry entry : gTestClipboard) {
+        FreeClipEntry(entry);
+    }
+    VecReset(gTestClipboard);
+    gTestClipboardSeq++;
+    return TRUE;
+}
+
+HANDLE ClipboardSetData(UINT format, HANDLE data) {
+    if (!gTestClipboardMode) {
+        return SetClipboardData(format, data);
+    }
+    if (!gTestClipboardOpen || !data) {
+        return nullptr;
+    }
+    for (ClipEntry& entry : gTestClipboard) {
+        if (entry.format == format) {
+            FreeClipEntry(entry);
+            entry.data = data;
+            gTestClipboardSeq++;
+            return data;
+        }
+    }
+    if (!VecAppend(gTestClipboard, ClipEntry{format, data})) {
+        return nullptr;
+    }
+    gTestClipboardSeq++;
+    return data;
+}
+
+HANDLE ClipboardGetData(UINT format) {
+    if (!gTestClipboardMode) {
+        return GetClipboardData(format);
+    }
+    if (!gTestClipboardOpen) {
+        return nullptr;
+    }
+    for (ClipEntry entry : gTestClipboard) {
+        if (entry.format == format) {
+            return entry.data;
+        }
+    }
+    return nullptr;
+}
+
+BOOL ClipboardHasFormat(UINT format) {
+    if (!gTestClipboardMode) {
+        return IsClipboardFormatAvailable(format);
+    }
+    for (ClipEntry entry : gTestClipboard) {
+        if (entry.format == format) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+DWORD ClipboardSequence() {
+    return gTestClipboardMode ? gTestClipboardSeq : GetClipboardSequenceNumber();
+}
+
+Str TestClipboardFormatsTemp() {
+    str::Builder sb;
+    for (ClipEntry entry : gTestClipboard) {
+        if (len(sb) > 0) {
+            sb.AppendChar(',');
+        }
+        sb.Append(fmt("%d", (int)entry.format));
+    }
+    return ToStrTemp(sb);
+}
+
+Str TestClipboardDataTemp(UINT format) {
+    if (!gTestClipboardMode || !ClipboardOpen(nullptr)) {
+        return {};
+    }
+    HANDLE h = ClipboardGetData(format);
+    const u8* data = nullptr;
+    size_t n = 0;
+    if (format == CF_BITMAP && h) {
+        BITMAP bmp{};
+        if (GetObject(h, sizeof(bmp), &bmp) && bmp.bmWidth > 0 && bmp.bmHeight > 0 &&
+            bmp.bmWidth <= kMaxTestBitmapDim && bmp.bmHeight <= kMaxTestBitmapDim) {
+            n = sizeof(BITMAPINFOHEADER) + (size_t)bmp.bmWidth * bmp.bmHeight * 4;
+            u8* bits = AllocArrayTemp<u8>((int)n);
+            BITMAPINFO info{};
+            info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+            info.bmiHeader.biWidth = bmp.bmWidth;
+            info.bmiHeader.biHeight = -bmp.bmHeight;
+            info.bmiHeader.biPlanes = 1;
+            info.bmiHeader.biBitCount = 32;
+            info.bmiHeader.biCompression = BI_RGB;
+            HDC dc = GetDC(nullptr);
+            int rows =
+                dc ? GetDIBits(dc, (HBITMAP)h, 0, bmp.bmHeight, bits + sizeof(BITMAPINFOHEADER), &info, DIB_RGB_COLORS)
+                   : 0;
+            if (dc) ReleaseDC(nullptr, dc);
+            if (rows == bmp.bmHeight) {
+                memcpy(bits, &info.bmiHeader, sizeof(BITMAPINFOHEADER));
+                data = bits;
+            }
+        }
+    } else if (h) {
+        n = GlobalSize(h);
+        data = (const u8*)GlobalLock(h);
+    }
+    str::Builder sb;
+    static const char digits[] = "0123456789abcdef";
+    for (size_t i = 0; data && i < n; i++) {
+        sb.AppendChar(digits[data[i] >> 4]);
+        sb.AppendChar(digits[data[i] & 15]);
+    }
+    if (data && format != CF_BITMAP) {
+        GlobalUnlock(h);
+    }
+    ClipboardClose();
+    return ToStrTemp(sb);
+}
+
+static int HexDigit(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+bool SetTestClipboardData(UINT format, Str hex) {
+    if (!gTestClipboardMode || format == 0 || len(hex) % 2 != 0 || !ClipboardOpen(nullptr)) {
+        return false;
+    }
+    size_t n = len(hex) / 2;
+    HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, n ? n : 1);
+    u8* data = h ? (u8*)GlobalLock(h) : nullptr;
+    bool valid = data != nullptr;
+    for (size_t i = 0; valid && i < n; i++) {
+        int hi = HexDigit(hex.s[2 * i]);
+        int lo = HexDigit(hex.s[2 * i + 1]);
+        valid = hi >= 0 && lo >= 0;
+        if (valid) data[i] = (u8)((hi << 4) | lo);
+    }
+    HANDLE clipData = h;
+    if (valid && format == CF_BITMAP) {
+        BITMAPINFOHEADER header{};
+        if (n < sizeof(header)) {
+            valid = false;
+        } else {
+            memcpy(&header, data, sizeof(header));
+            size_t pixels = header.biWidth > 0 && header.biWidth <= kMaxTestBitmapDim && header.biHeight < 0 &&
+                                    -(i64)header.biHeight <= kMaxTestBitmapDim
+                                ? (size_t)header.biWidth * -(i64)header.biHeight * 4
+                                : 0;
+            valid = header.biSize == sizeof(header) && header.biPlanes == 1 && header.biBitCount == 32 &&
+                    header.biCompression == BI_RGB && pixels > 0 && pixels == n - sizeof(header);
+            if (valid) {
+                void* bits = nullptr;
+                HDC dc = GetDC(nullptr);
+                HBITMAP bmp = dc ? CreateDIBSection(dc, (BITMAPINFO*)data, DIB_RGB_COLORS, &bits, nullptr, 0) : nullptr;
+                if (dc) ReleaseDC(nullptr, dc);
+                valid = bmp && bits;
+                if (valid) memcpy(bits, data + sizeof(header), pixels);
+                clipData = bmp;
+            }
+        }
+    }
+    if (data) GlobalUnlock(h);
+    if (format == CF_BITMAP && h) GlobalFree(h);
+    if (valid) valid = ClipboardSetData(format, clipData) != nullptr;
+    if (!valid && clipData && (format == CF_BITMAP ? clipData != h : true)) {
+        if (format == CF_BITMAP)
+            DeleteObject(clipData);
+        else
+            GlobalFree(clipData);
+    }
+    ClipboardClose();
+    return valid;
+}
+
 static HWND gClipboardOwnerWnd = nullptr;
 
 static HWND GetClipboardOwnerWnd() {
@@ -1285,11 +1516,11 @@ bool OpenClipboardForUpdate() {
         return false;
     }
     for (int i = 0; i < kTries; i++) {
-        if (OpenClipboard(owner)) {
-            if (EmptyClipboard()) {
+        if (ClipboardOpen(owner)) {
+            if (ClipboardEmpty()) {
                 return true;
             }
-            CloseClipboard();
+            ClipboardClose();
         }
         Sleep(20);
     }
@@ -1297,7 +1528,7 @@ bool OpenClipboardForUpdate() {
 }
 
 void CloseClipboardAfterUpdate() {
-    CloseClipboard();
+    ClipboardClose();
 }
 
 static bool CopyOrAppendTextToClipboard(WStr text, bool appendOnly) {
@@ -1331,7 +1562,7 @@ static bool CopyOrAppendTextToClipboard(WStr text, bool appendOnly) {
     wstr::BufSet(WStr(globalText, n), text);
     GlobalUnlock(handle);
 
-    if (!SetClipboardData(CF_UNICODETEXT, handle)) {
+    if (!ClipboardSetData(CF_UNICODETEXT, handle)) {
         GlobalFree(handle);
         if (!appendOnly) {
             CloseClipboardAfterUpdate();
@@ -1347,23 +1578,52 @@ static bool CopyOrAppendTextToClipboard(WStr text, bool appendOnly) {
     return true;
 }
 
-static bool testClipboardTextSink = false;
-static Str testClipboardText;
-
-void EnableTestClipboardTextSink() {
-    testClipboardTextSink = true;
-    str::ReplaceWithCopy(&testClipboardText, {});
+Str GetTestClipboardText() {
+    if (!gTestClipboardMode || !ClipboardOpen(nullptr)) {
+        return {};
+    }
+    HGLOBAL h = (HGLOBAL)ClipboardGetData(CF_UNICODETEXT);
+    WCHAR* data = h ? (WCHAR*)GlobalLock(h) : nullptr;
+    size_t maxChars = h ? GlobalSize(h) / sizeof(WCHAR) : 0;
+    size_t n = 0;
+    while (data && n < maxChars && data[n]) n++;
+    Str text = data ? ToUtf8Temp(WStr(data, (int)n)) : Str{};
+    if (data) GlobalUnlock(h);
+    ClipboardClose();
+    return text;
 }
 
-Str GetTestClipboardText() {
-    return testClipboardText;
+bool HandleTestEditClipboard(HWND hwnd, UINT msg) {
+    if (!gTestClipboardMode || (msg != WM_COPY && msg != WM_CUT && msg != WM_PASTE)) {
+        return false;
+    }
+    DWORD style = GetWindowLongW(hwnd, GWL_STYLE);
+    if (msg == WM_PASTE) {
+        if (!(style & ES_READONLY)) {
+            Str text = str::LFToCRLFTemp(GetTestClipboardText());
+            SendMessageW(hwnd, EM_REPLACESEL, TRUE, (LPARAM)ToWStrTemp(text).s);
+        }
+        return true;
+    }
+    if (style & ES_PASSWORD) {
+        return true;
+    }
+    DWORD start = 0;
+    DWORD end = 0;
+    SendMessageW(hwnd, EM_GETSEL, (WPARAM)&start, (LPARAM)&end);
+    int count = GetWindowTextLengthW(hwnd);
+    if (end > start && end <= (DWORD)count) {
+        WCHAR* text = AllocArrayTemp<WCHAR>(count + 1);
+        GetWindowTextW(hwnd, text, count + 1);
+        CopyTextToClipboard(ToUtf8Temp(WStr(text + start, end - start)));
+        if (msg == WM_CUT && !(style & ES_READONLY)) {
+            SendMessageW(hwnd, EM_REPLACESEL, TRUE, (LPARAM)L"");
+        }
+    }
+    return true;
 }
 
 bool CopyTextToClipboard(Str s) {
-    if (testClipboardTextSink) {
-        str::ReplaceWithCopy(&testClipboardText, s);
-        return true;
-    }
     return CopyOrAppendTextToClipboard(ToWStrTemp(s), false);
 }
 
@@ -1384,7 +1644,7 @@ static bool SetClipboardImage(HBITMAP hbmp) {
     if (!clipBmp) {
         return false;
     }
-    if (!SetClipboardData(CF_BITMAP, clipBmp)) {
+    if (!ClipboardSetData(CF_BITMAP, clipBmp)) {
         DeleteObject(clipBmp);
         return false;
     }

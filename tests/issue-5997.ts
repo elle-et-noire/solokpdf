@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control";
-import { IS_MAC } from "./host";
+import { canTestClipboard, getTestClipboardText, setTestClipboardText } from "./test-clipboard.ts";
 import { cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
 import { clientToScreen, getClientRect, postMessage, sleep, VK_ESCAPE, WM_CHAR, WM_KEYDOWN } from "./winapi";
 import { findCanvas, killAndWait, launchControlled, openContextMenu, waitForContextMenu } from "./win-automation";
@@ -40,41 +40,6 @@ function makePdf(): Buffer {
   return Buffer.from(pdf, "latin1");
 }
 
-function setClipboard(value: string): void {
-  if (IS_MAC) {
-    const res = Bun.spawnSync(["pbcopy"], { stdin: Buffer.from(value), stdout: "pipe", stderr: "pipe" });
-    if (res.exitCode !== 0) {
-      throw new Error(`issue-5997: pbcopy failed: ${res.stderr.toString()}`);
-    }
-    return;
-  }
-  const res = Bun.spawnSync(["powershell.exe", "-NoProfile", "-Command", `Set-Clipboard -Value '${value}'`], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (res.exitCode !== 0) {
-    throw new Error(`issue-5997: Set-Clipboard failed: ${res.stderr.toString()}`);
-  }
-}
-
-function clipboardText(): string {
-  if (IS_MAC) {
-    const res = Bun.spawnSync(["pbpaste"], { stdout: "pipe", stderr: "pipe" });
-    if (res.exitCode !== 0) {
-      throw new Error(`issue-5997: pbpaste failed: ${res.stderr.toString()}`);
-    }
-    return res.stdout.toString().replace(/\r?\n$/, "");
-  }
-  const res = Bun.spawnSync(["powershell.exe", "-NoProfile", "-Command", "Get-Clipboard -Raw"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (res.exitCode !== 0) {
-    throw new Error(`issue-5997: Get-Clipboard failed: ${res.stderr.toString()}`);
-  }
-  return res.stdout.toString().trim();
-}
-
 // screen= is the frame point TestContextMenuAt and ctxcmd use.
 async function freeTextCenter(client: ControlClient): Promise<{ x: number; y: number }> {
   const deadline = Date.now() + 5000 * SLOW_BUILD_FACTOR;
@@ -103,6 +68,7 @@ async function copyCommentAt(client: ControlClient, x: number, y: number): Promi
 }
 
 export async function testit(): Promise<void> {
+  if (!canTestClipboard("issue-5997")) return;
   const dir = tmpPath("issue-5997");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -111,7 +77,6 @@ export async function testit(): Promise<void> {
   writeFileSync(pdf, makePdf());
 
   const sentinel = "issue-5997 clipboard sentinel";
-  setClipboard(sentinel);
 
   const { proc, client, frame } = await launchControlled([
     "-appdata",
@@ -123,6 +88,7 @@ export async function testit(): Promise<void> {
     pdf,
   ]);
   try {
+    await setTestClipboardText(client, sentinel);
     await client.waitForRenderIdle();
     if (USE_NG) {
       const at = await freeTextCenter(client);
@@ -131,7 +97,7 @@ export async function testit(): Promise<void> {
       let copied = sentinel;
       while (copied === sentinel && Date.now() < deadline) {
         await sleep(50);
-        copied = clipboardText();
+        copied = (await getTestClipboardText(client)).trim();
       }
       if (copied !== CONTENTS) {
         throw new Error(
@@ -157,7 +123,7 @@ export async function testit(): Promise<void> {
     let copied = sentinel;
     while (copied === sentinel && Date.now() < deadline) {
       await sleep(50);
-      copied = clipboardText();
+      copied = (await getTestClipboardText(client)).trim();
     }
     if (copied !== CONTENTS) {
       throw new Error(

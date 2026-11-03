@@ -788,7 +788,7 @@ void MergeGrid::CopySelected() {
         return;
     }
     CopyTextToClipboard(ToStrTemp(text));
-    clipSeq = GetClipboardSequenceNumber();
+    clipSeq = ClipboardSequence();
 }
 
 // copies the selected pages and takes them out; nothing is selected after
@@ -814,7 +814,7 @@ void MergeGrid::CutSelected() {
 }
 
 bool MergeGrid::HasClipPages() {
-    return len(clip) > 0 && GetClipboardSequenceNumber() == clipSeq;
+    return len(clip) > 0 && ClipboardSequence() == clipSeq;
 }
 
 // copies of the pages last copied or cut, selected, in front of item `at`
@@ -1197,7 +1197,7 @@ void MergeGrid::ShowContextMenu() {
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, rotateFlags, kMenuCut, CWStrTemp(fmt("%s\tCtrl+X", Tr("Cu&t"))));
     AppendMenuW(menu, rotateFlags, kMenuCopy, CWStrTemp(fmt("%s\tCtrl+C", Tr("&Copy"))));
-    bool canPaste = HasClipPages() || IsClipboardFormatAvailable(CF_HDROP);
+    bool canPaste = HasClipPages() || ClipboardHasFormat(CF_HDROP);
     UINT pasteFlags = MF_STRING | (canPaste ? 0 : MF_GRAYED);
     AppendMenuW(menu, pasteFlags, kMenuPaste, CWStrTemp(fmt("%s\tCtrl+V", Tr("&Paste"))));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
@@ -1314,14 +1314,14 @@ static void PdfPathsFromDataObject(IDataObject* dataObj, StrVec& out) {
 
 // PDF files copied in a file manager
 static void PdfPathsFromClipboard(HWND hwnd, StrVec& out) {
-    if (!IsClipboardFormatAvailable(CF_HDROP) || !OpenClipboard(hwnd)) {
+    if (!ClipboardHasFormat(CF_HDROP) || !ClipboardOpen(hwnd)) {
         return;
     }
-    HANDLE h = GetClipboardData(CF_HDROP);
+    HANDLE h = ClipboardGetData(CF_HDROP);
     if (h) {
         PdfPathsFromHDrop((HDROP)h, out);
     }
-    CloseClipboard();
+    ClipboardClose();
 }
 
 struct AddDroppedPdfs {

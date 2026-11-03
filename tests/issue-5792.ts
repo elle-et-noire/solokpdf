@@ -16,10 +16,9 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { IS_MAC } from "./host.ts";
 import { cmdId, EXE, extractPageText, runStandalone } from "./util.ts";
 import { launchControlled, sendCommandSync, killAndWait } from "./win-automation.ts";
-import { getClipboardText } from "./winapi.ts";
+import { canTestClipboard, getTestClipboardText } from "./test-clipboard.ts";
 
 const FB2 = join(import.meta.dir, "issue-5792.fb2");
 
@@ -60,14 +59,7 @@ async function copyAllViaUi(): Promise<string> {
     await client.waitForRenderIdle();
     sendCommandSync(frame, cmdId("CmdSelectAll"));
     sendCommandSync(frame, cmdId("CmdCopySelection"));
-    if (IS_MAC) {
-      return await getClipboardText(2000);
-    }
-    const clip = Bun.spawnSync(["powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw"], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    return clip.stdout.toString();
+    return await getTestClipboardText(client);
   } finally {
     client.close();
     try {
@@ -79,6 +71,7 @@ async function copyAllViaUi(): Promise<string> {
 }
 
 export async function testit(): Promise<void> {
+  if (!canTestClipboard("issue-5792")) return;
   if (!existsSync(FB2)) {
     throw new Error(`fixture missing: ${FB2}`);
   }

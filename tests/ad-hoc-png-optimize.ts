@@ -15,6 +15,7 @@
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { cmdId, runStandalone } from "./util.ts";
+import { canUseRealClipboard } from "./test-clipboard.ts";
 import { launchSumatra, waitForFrame, sendCommand, killAndWait, killProcessesNamed } from "./win-automation.ts";
 import { sleep } from "./winapi.ts";
 
@@ -72,13 +73,14 @@ function pngDims(path: string): string {
 }
 
 export async function testit(): Promise<void> {
+  if (!canUseRealClipboard("ad-hoc-png-optimize")) return;
   const dlDir = downloadsDir();
   const before = clipboardPngs(dlDir);
 
   setClipboardImage();
 
   await killProcessesNamed("SumatraPDF.exe");
-  const proc = launchSumatra([]);
+  const proc = launchSumatra([], { env: { SOLOKPDF_REAL_CLIPBOARD: "1" } });
   let newFile = "";
   try {
     const frame = await waitForFrame(proc.pid!);

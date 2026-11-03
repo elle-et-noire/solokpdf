@@ -19,7 +19,8 @@ import {
   waitToolWindow,
 } from "./win-automation.ts";
 import { ControlCommand } from "./control.ts";
-import { emptyClipboard, getClipboardText, getScrollPos, sendMessage, sendText, sleep } from "./winapi.ts";
+import { getScrollPos, sendMessage, sendText, sleep } from "./winapi.ts";
+import { canTestClipboard, clearTestClipboard, getTestClipboardText } from "./test-clipboard.ts";
 
 const WM_IME_STARTCOMPOSITION = 0x010d;
 const WM_IME_ENDCOMPOSITION = 0x010e;
@@ -40,6 +41,7 @@ function makePdf(links: "links" | "no-links" = "links"): string {
 }
 
 export async function testit(): Promise<void> {
+  if (!canTestClipboard("ad-hoc-vim-keys")) return;
   if (!canActivateTestFrame()) {
     console.log("SKIP ad-hoc-vim-keys: hidden desktop, CI, or SOLOKPDF_REAL_DESKTOP=1 required");
     return;
@@ -72,6 +74,7 @@ export async function testit(): Promise<void> {
     ["-appdata", appdata, "-zoom", "200", "-view", "continuous", pdf, pdf2],
     { saveSettings: true },
   );
+  if (!process.env.SOLOKPDF_REAL_CLIPBOARD) await client.request(ControlCommand.TestClipboardText, ["enable"]);
   let markedPath = "";
   const state = async (action = "state", key = "") => {
     const res = await client.request(ControlCommand.TestVimKeys, [action, key]);
@@ -137,15 +140,15 @@ export async function testit(): Promise<void> {
     await key("b");
     if (getScrollPos(canvas) <= centered) throw new Error("zb did not move the page to the bottom");
 
-    emptyClipboard();
+    await clearTestClipboard(client);
     await key("y");
     await key("y");
-    if (!(await getClipboardText()).includes("vim-page-5")) throw new Error("yy did not copy page 5 text");
-    emptyClipboard();
+    if (!(await getTestClipboardText(client)).includes("vim-page-5")) throw new Error("yy did not copy page 5 text");
+    await clearTestClipboard(client);
     await pressKey(frame, 0x33);
     await key("y");
     await key("y");
-    const copied = await getClipboardText();
+    const copied = await getTestClipboardText(client);
     if (!["vim-page-5", "vim-page-6", "vim-page-7"].every((s) => copied.includes(s)) || copied.includes("vim-page-8")) {
       throw new Error(`3yy copied unexpected pages: ${copied}`);
     }

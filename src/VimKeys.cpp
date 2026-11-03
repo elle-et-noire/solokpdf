@@ -250,6 +250,9 @@ static void RunVimCommand(MainWindow* win, Str input) {
 
 static LRESULT CALLBACK VimCommandProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR ref) {
     auto* win = (MainWindow*)ref;
+    if (HandleTestEditClipboard(hwnd, msg)) {
+        return 0;
+    }
     if (msg == WM_IME_STARTCOMPOSITION) {
         win->vimCmdComposing = true;
     } else if (msg == WM_IME_ENDCOMPOSITION) {

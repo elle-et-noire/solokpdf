@@ -11,9 +11,7 @@ import { ControlCommand, type ControlClient } from "./control.ts";
 import { assemblePdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
 import {
   clientToScreen,
-  emptyClipboard,
   findTopWindow,
-  getClipboardText,
   getPopupMenuHandle,
   postMessage,
   readMenuTree,
@@ -23,6 +21,7 @@ import {
   VK_RETURN,
   WM_KEYDOWN,
 } from "./winapi.ts";
+import { canTestClipboard, clearTestClipboard, getTestClipboardText } from "./test-clipboard.ts";
 import { killAndWait, launchControlled, openContextMenu, waitForContextMenu } from "./win-automation.ts";
 
 const FLOAT_CLASS = "SUMATRA_ANNOT_FILTER_WND";
@@ -158,6 +157,7 @@ function ngMenu(client: ControlClient): RowMenu {
 }
 
 export async function testit(): Promise<void> {
+  if (!canTestClipboard("issue-6365")) return;
   const dir = tmpPath("issue-6365");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -181,9 +181,9 @@ export async function testit(): Promise<void> {
       menu.close();
       throw new Error(`issue-6365: menu ${JSON.stringify(labels)}, want ${JSON.stringify(MENU)}`);
     }
-    emptyClipboard();
+    await clearTestClipboard(client);
     await menu.click(0);
-    const copied = await getClipboardText(2000);
+    const copied = await getTestClipboardText(client);
     if (copied !== NOTE) {
       throw new Error(`issue-6365: Copy Comment copied '${copied}', want '${NOTE}'`);
     }

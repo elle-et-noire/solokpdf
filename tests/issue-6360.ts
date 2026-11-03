@@ -7,6 +7,7 @@
 
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand } from "./control.ts";
+import { canUseRealClipboard } from "./test-clipboard.ts";
 import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
 import {
   clientToScreen,
@@ -110,12 +111,15 @@ async function copyImageFromMenu(client: ControlClient, frame: number): Promise<
 }
 
 export async function testit(): Promise<void> {
+  if (!canUseRealClipboard("issue-6360")) return;
   const pdf = tmpPath("issue-6360.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
   emptyClipboard();
   const seqNo = clipboardSeqNo();
 
-  const { proc, client, frame } = await launchControlled(["-view", "single page", "-zoom", "fit page", pdf]);
+  const { proc, client, frame } = await launchControlled(["-view", "single page", "-zoom", "fit page", pdf], {
+    env: { SOLOKPDF_REAL_CLIPBOARD: "1" },
+  });
   try {
     await client.waitForRenderIdle();
     // a clipboard listener holding the clipboard must delay the copy, not drop it

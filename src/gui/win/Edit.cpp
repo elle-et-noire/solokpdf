@@ -284,7 +284,7 @@ static bool OpenClipboardRetry(HWND hwnd) {
     constexpr int kTries = 10;
     constexpr int kPauseMs = 20;
     for (int i = 0; i < kTries; i++) {
-        if (OpenClipboard(hwnd)) {
+        if (ClipboardOpen(hwnd)) {
             return true;
         }
         Sleep(kPauseMs);
@@ -297,13 +297,16 @@ static WStr GetClipboardTextTemp(HWND hwnd) {
         return {};
     }
     WStr res;
-    HANDLE h = GetClipboardData(CF_UNICODETEXT);
+    HANDLE h = ClipboardGetData(CF_UNICODETEXT);
     WCHAR* s = h ? (WCHAR*)GlobalLock(h) : nullptr;
     if (s) {
-        res = str::DupTemp(WStr(s));
+        size_t maxChars = GlobalSize(h) / sizeof(WCHAR);
+        size_t n = 0;
+        while (n < maxChars && s[n]) n++;
+        res = str::DupTemp(WStr(s, (int)n));
         GlobalUnlock(h);
     }
-    CloseClipboard();
+    ClipboardClose();
     return res;
 }
 
@@ -331,6 +334,15 @@ void Edit::WndProc(ControlBase::WndProcEvent* ev) {
     WPARAM wp = ev->wparam;
     LPARAM lp = ev->lparam;
     switch (msg) {
+        case WM_COPY:
+        case WM_CUT: {
+            if (HandleTestEditClipboard(hwnd, msg)) {
+                ev->result = 0;
+                ev->didHandle = true;
+                return;
+            }
+            break;
+        }
         case WM_SIZE: {
             LRESULT res = WndProcDefault(hwnd, msg, wp, lp);
             ApplyTextPadding();
@@ -409,6 +421,11 @@ void Edit::WndProc(ControlBase::WndProcEvent* ev) {
         }
 
         case WM_PASTE: {
+            if (HandleTestEditClipboard(hwnd, msg)) {
+                ev->result = 0;
+                ev->didHandle = true;
+                return;
+            }
             if (PasteWithCRLF(hwnd)) {
                 ev->result = 0;
                 ev->didHandle = true;
