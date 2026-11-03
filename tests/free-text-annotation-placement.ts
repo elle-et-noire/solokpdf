@@ -17,6 +17,7 @@ import {
   pressEscape,
   sendCommandSync,
   paletteRun,
+  waitForPalette,
 } from "./win-automation.ts";
 
 type Rect = { x: number; y: number; dx: number; dy: number };
@@ -217,6 +218,9 @@ export async function testit(): Promise<void> {
       throw new Error(`free-text-annotation-placement: context point did not place immediately\n${state.raw}`);
     }
 
+    if (!USE_NG && (await waitForPalette(client, frame, 100)).palette) {
+      throw new Error("free-text-annotation-placement: editor mistaken for palette");
+    }
     await paletteRun(client, frame, ">Create Free Text Annotation", "CmdCreateAnnotFreeText");
     state = await waitForPlacement(client, true);
     if (!state.notification || state.annotations !== 2 || state.command !== wantCmd) {

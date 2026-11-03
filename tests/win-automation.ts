@@ -656,11 +656,13 @@ export async function waitForPalette(
 ): Promise<{ palette: number; edit: number }> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const handles = findPalette(frame);
-    let ready = handles.palette !== 0 && handles.edit !== 0;
-    if (ready && USE_NG && !IS_MAC) {
-      ready = (await client.request(ControlCommand.TestCommandPalette, []))[0] === 0;
+    const state = await client.request(ControlCommand.TestCommandPalette, []);
+    let handles = findPalette(frame);
+    if (!USE_NG && state[0] === 0) {
+      const match = /hwnd=(?:0x)?([\da-f]+) edit=(?:0x)?([\da-f]+)/i.exec(String(state[1]));
+      handles = { palette: parseInt(match?.[1] ?? "0", 16), edit: parseInt(match?.[2] ?? "0", 16) };
     }
+    const ready = state[0] === 0 && handles.palette !== 0 && handles.edit !== 0;
     if (ready) {
       return handles;
     }
@@ -766,6 +768,7 @@ export async function paletteRun(client: ControlClient, frame: number, query: st
   const tag = `paletteRun(${cmdName})`;
   sendCommand(frame, cmdId("CmdCommandPalette"));
   const handles = await waitForPalette(client, frame, 8_000 * SLOW_BUILD_FACTOR);
+  if (!handles.palette || !handles.edit) throw new Error(`${tag}: palette did not open`);
   const focusDeadline = Date.now() + 8_000 * SLOW_BUILD_FACTOR;
   while (USE_NG && Date.now() < focusDeadline) {
     const raw = (await paletteState(client)).raw;

@@ -1336,7 +1336,8 @@ TempStr CommandPaletteStateTemp(int* exitCodeOut) {
             "annotPage=%d annotsDone=%d ",
             sel, n, qStart, qEnd, qLen, selectedCmdId, (int)CommandPaletteUiRtl(), (int)wnd->thumbnailMode, thumbPage,
             rendered, nAnnots, annotPage, annotsDone));
-    out.Append(fmt("settingHelp=%d selValue=%s selText=%s\n", (int)helpShown, selValue, selText));
+    out.Append(fmt("hwnd=%p edit=%p settingHelp=%d selValue=%s selText=%s\n", (void*)wnd->hwnd,
+                   (void*)wnd->editQuery->hwnd, (int)helpShown, selValue, selText));
     return finish(0);
 }
 

@@ -523,6 +523,7 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["free-text-annotation-placement", freeTextAnnotationPlacement],
   ["pdf-edit-toolbar-interaction", pdfEditToolbarInteraction],
   ["issue-1106", issue1106],
   ["form-js-no-stderr", formJsNoStderr],
@@ -719,7 +720,6 @@ export const tests: NamedTest[] = [
   ["issue-6053", issue6053],
   ["issue-6054", issue6054],
   ["text-annotation-placement", textAnnotationPlacement],
-  ["free-text-annotation-placement", freeTextAnnotationPlacement],
   ["issue-6198", issue6198],
   ["create-annot-enters-edit-mode", createAnnotEntersEditMode],
   ["issue-6166", issue6166],

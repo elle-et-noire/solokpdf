@@ -379,6 +379,8 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 ## Tests and CI
 
+The palette test helper locates its edit through control state when the frame is behind another window; hosted verification remains pending.
+
 B71: hosted runs 41711900811 and 41711906015 passed the noteref and touch tests.
 Toolbar hover failed on both engines; the canvas now ignores physical mouse
 moves that conflict with the test cursor. Targeted tests pass locally on both
