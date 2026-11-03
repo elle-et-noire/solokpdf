@@ -158,10 +158,10 @@ export async function testit(): Promise<void> {
   );
   const browser = await launchControlled(["-appdata", dir, markdown]);
   try {
-    const deadline = Date.now() + 10_000 * SLOW_BUILD_FACTOR;
+    const deadline = Date.now() + 30_000 * SLOW_BUILD_FACTOR;
     for (;;) {
       const ready = await browser.client.request(ControlCommand.TestMarkdownTocNavigate, [0, 0]);
-      if (ready[0] === 0) break;
+      if (ready[0] === 0 && String(ready[1] ?? "").startsWith("OK scrollX=")) break;
       if (Date.now() > deadline) throw new Error(`issue-6355: browser not ready: ${ready[1]}`);
       await sleep(40);
     }

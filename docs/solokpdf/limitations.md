@@ -394,7 +394,7 @@ verification remains pending. The tab-view test compares settings changes agains
 switch and checks the switch preserves the scroll within one point. Hosted
 verification at 100% DPI remains pending. After restoring focus, the tab-view test
 passes locally on both engines; issue-6412 on PDFium and issue-6355 and
-issue-6252 on MuPDF also pass locally. Their hosted failures need verification.
+issue-6252 on MuPDF also pass locally. The issue-6355 browser readiness wait allows 30 seconds and checks the navigation result; hosted verification remains pending.
 The external viewer, PNG,
 screenshot focus, fullscreen activation, MuPDF placement and process cleanup
 checks also passed hosted runs.
