@@ -379,10 +379,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 ## Tests and CI
 
-B71 remains open: foreground, pointer, touch and PNG checks need hosted or
-safe clipboard verification. The external viewer test passes locally with an
-explicit shell-launch opt-in. Screenshot focus, fullscreen activation, MuPDF
-placement and process cleanup passed hosted runs. See [backlog.md](backlog.md).
+B71 remains open: About activation and toolbar hover need diagnosis, and the
+noteref and touch test changes need hosted verification. The external viewer
+and PNG checks passed hosted runs. Screenshot focus, fullscreen activation,
+MuPDF placement and process cleanup also passed. See [backlog.md](backlog.md).
 
 - B65 saves each tab's view state when a window close is accepted. Targeted
   hidden-desktop runs pass on both engines, including `issue-4788`,
