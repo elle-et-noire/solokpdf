@@ -4,10 +4,9 @@
 // and posting real window messages / reading scrollbar state cross-process.
 // Injected mouse-button input is dropped on the test machine, but PostMessage,
 // MoveWindow and cross-process GetScrollInfo all work (see the project memory
-// env-gui-automation). SetCursorPos only works while the session owns an
-// unlocked desktop -- see hasInteractiveDesktop() below. Message-driven tests
-// use moveTestCursor() in win-automation.ts; keep SetCursorPos for OS-driven
-// operations such as OLE drag and drop. These helpers wrap
+// env-gui-automation). Message-driven tests use moveTestCursor() in
+// win-automation.ts; SetCursorPos remains for native and ng automation.
+// These helpers wrap
 // the handful of user32 calls those tests need so individual test files don't
 // each re-declare the FFI.
 //

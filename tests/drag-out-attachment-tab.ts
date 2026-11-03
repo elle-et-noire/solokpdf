@@ -17,16 +17,13 @@ import {
   USE_NG,
 } from "./util.ts";
 import {
-  clientToScreen,
   enumWindows,
-  getClientRect,
   getWindowPid,
   getWindowText,
   isWindowVisible,
   MK_LBUTTON,
   packCoords,
-  postMessage,
-  setCursorPos,
+  sendMessage,
   sleep,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
@@ -54,42 +51,30 @@ function makePdfWithImageAttachment(): string {
   ]);
 }
 
-// x of a point on the attachment's tab: the tab a click there selects.
-// Scans from the left so the first hit is far from the tab's close button.
-async function findAttachmentTabX(frame: number, tabs: number, y: number): Promise<number> {
-  const width = getClientRect(tabs).right;
-  const step = 30;
-  // start on the first tab (Home)
-  await clickAt(tabs, step, y, 50);
-  for (let x = 2 * step; x < width; x += step) {
-    await clickAt(tabs, x, y, 50);
-    if (getWindowText(frame).includes(ATTACHMENT)) {
-      return x;
-    }
-  }
-  throw new Error("drag-out-attachment-tab: could not find the attachment's tab");
-}
-
-async function findTabBar(frame: number): Promise<{ tabs: number; x: number; y: number }> {
+async function findTabBar(client: ControlClient, frame: number): Promise<{ tabs: number; x: number; y: number }> {
   const tabs = findChildByClass(frame, TABS_CLASS);
   if (!tabs) {
     throw new Error("drag-out-attachment-tab: no tab bar");
   }
-  const y = Math.floor(getClientRect(tabs).bottom / 2);
-  const x = await findAttachmentTabX(frame, tabs, y);
+  const rows = (await client.virtTree(TABS_CLASS)).filter((r) => r.kind === "tabCtrl");
+  if (rows.length < 3)
+    throw new Error(`drag-out-attachment-tab: expected Home, outer and attachment tabs, got ${rows.length}`);
+  const attachment = rows[rows.length - 1]!.rect;
+  const x = attachment.x + Math.min(30, Math.floor(attachment.dx / 3));
+  const y = attachment.y + Math.floor(attachment.dy / 2);
+  await clickAt(tabs, x, y, 50);
   return { tabs, x, y };
 }
 
 // press on the tab, pull it down past the drag threshold, drop below the bar
-function dragOutOrig(frame: number, { tabs, x, y }: { tabs: number; x: number; y: number }): void {
+function dragOutOrig({ tabs, x, y }: { tabs: number; x: number; y: number }): void {
   const dropY = y + DROP_DY;
-  const at = clientToScreen(tabs, x, y);
-  // OLE's DoDragDrop follows the system cursor, outside the app's control path.
-  setCursorPos(at.x, at.y);
-  postMessage(tabs, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(x, y));
-  postMessage(tabs, WM_MOUSEMOVE, MK_LBUTTON, packCoords(x, y + 40));
-  postMessage(tabs, WM_MOUSEMOVE, MK_LBUTTON, packCoords(x, dropY));
-  postMessage(tabs, WM_LBUTTONUP, 0, packCoords(x, dropY));
+  // TabsCtrl takes the drag and release points from these window messages.
+  sendMessage(tabs, WM_MOUSEMOVE, 0, packCoords(x, y));
+  sendMessage(tabs, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(x, y));
+  sendMessage(tabs, WM_MOUSEMOVE, MK_LBUTTON, packCoords(x, y + 40));
+  sendMessage(tabs, WM_MOUSEMOVE, MK_LBUTTON, packCoords(x, dropY));
+  sendMessage(tabs, WM_LBUTTONUP, 0, packCoords(x, dropY));
 }
 
 function processWindowTitles(pid: number): string[] {
@@ -171,7 +156,7 @@ export async function testit(): Promise<void> {
     if (USE_NG) {
       await dragOutNg(client);
     } else {
-      dragOutOrig(frame, await findTabBar(frame));
+      dragOutOrig(await findTabBar(client, frame));
     }
     await sleep(300 * SLOW_BUILD_FACTOR);
 

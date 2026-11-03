@@ -6,7 +6,6 @@ import {
   getCursorPos,
   packCoords,
   sendMessage,
-  setCursorPos,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
@@ -50,22 +49,18 @@ export async function testit(): Promise<void> {
     const target = distance(nearScreen) > distance(distantScreen) ? near : distant;
     const targetScreen = clientToScreen(canvas, target.x, target.y);
     if (distance(targetScreen) < 200 ** 2) throw new Error("real cursor is too close to click target");
-    try {
-      const origin = clientToScreen(canvas, 0, 0);
-      const far = { x: original.x - origin.x, y: original.y - origin.y };
-      await moveTestCursor(targetScreen.x, targetScreen.y);
-      const before = await scroll(client);
-      await clickAt(canvas, target.x, target.y, 0);
-      const afterClick = await scroll(client);
-      if (afterClick !== before) throw new Error(`clickAt became drag: ${before} -> ${afterClick}`);
-      sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(target.x, target.y));
-      sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(far.x, far.y));
-      sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(target.x, target.y));
-      const after = await scroll(client);
-      if (after !== before) throw new Error(`capture move turned click into drag: ${before} -> ${after}`);
-    } finally {
-      setCursorPos(original.x, original.y);
-    }
+    const origin = clientToScreen(canvas, 0, 0);
+    const far = { x: original.x - origin.x, y: original.y - origin.y };
+    await moveTestCursor(targetScreen.x, targetScreen.y);
+    const before = await scroll(client);
+    await clickAt(canvas, target.x, target.y, 0);
+    const afterClick = await scroll(client);
+    if (afterClick !== before) throw new Error(`clickAt became drag: ${before} -> ${afterClick}`);
+    sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(target.x, target.y));
+    sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(far.x, far.y));
+    sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(target.x, target.y));
+    const after = await scroll(client);
+    if (after !== before) throw new Error(`capture move turned click into drag: ${before} -> ${after}`);
 
     const realBeforeClear = getCursorPos();
     const cleared = await client.request(ControlCommand.TestCursorPosition);

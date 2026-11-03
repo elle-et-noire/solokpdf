@@ -385,8 +385,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   B63 opens the annotation fixture after setting that cursor, keeps PDFium
   hover off the editor. The B59 test's mouse-leave check, which needed the
   real pointer over the window and never ran in CI, was removed.
-  OLE drag and drop and foreground-dependent popup tests still need an unlocked
-  desktop. See [testing.md](testing.md).
+  `issue-6269` and `drag-out-attachment-tab` now use the test cursor and
+  window messages; neither moves the real pointer or calls a foreground API.
+  Native dialog tests still set foreground, and ng/mac automation can move the
+  real pointer. See [testing.md](testing.md).
 - `toolbar-hover-dropdown` passes on both engines, locally and in hosted CI
   (runs 41627802937, 41627807442), so the full suite runs it again.
   With the original PDF fixture, both engines display upright RTL toast text.

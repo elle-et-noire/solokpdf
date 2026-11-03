@@ -17,9 +17,13 @@ area, three quarters of its height. `run-almost-all.ts` selects it explicitly.
 `run-github-ci.ts` selects `"workArea"` for the whole work area. App launch
 helpers use `testWindowPos()` unless a test supplies its own position.
 
-Message-driven hover, clicks and selection use the test cursor without an
-interactive desktop. OLE drag and drop still needs the real pointer;
-foreground-dependent popups need an unlocked desktop.
+Original-app message-driven hover, clicks, selection and tab drag-out use the
+test cursor without moving the real pointer. `issue-6269` opens a second
+controlled app window to leave the first frame in the background; it does not
+call `SetForegroundWindow`. The test still changes the system clipboard briefly
+for Copy, saving and restoring its text. Other tests that exercise native
+dialogs still call `SetForegroundWindow`; ng/mac automation can move the real
+pointer. An unlocked desktop is needed for those native paths.
 
 Run app-launching tests outside the Codex sandbox or any similarly restricted
 runner. Inside it, WebView2 crashes with an
