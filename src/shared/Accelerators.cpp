@@ -97,6 +97,9 @@ static Accel gBuiltInAccelerators[] = {
     {{kCtrl | kVirt, 'G'}, CmdGoToPage},
     {{kVirt, 'G'}, CmdGoToPage},
     {{kCtrl | kVirt, 'K'}, CmdCommandPalette},
+#if OS_WIN
+    {{kCtrl | kVirt, VK_OEM_COMMA}, CmdOptions},
+#endif
     //{{kAlt | kVirt, 'K'}, CmdCommandPaletteOnlyTabs}, // removed in 3.6
     // the palette's mode prefixes, typed as ASCII accelerators (any layout)
     {{0, '>'}, CmdCommandPalette},

@@ -4,6 +4,11 @@ Current behavior of PDFium tabs by area, compared with MuPDF. Open items are in
 [backlog.md](backlog.md); landed items (the B/D/E IDs below) and measurements
 are in [history.md](history.md).
 
+## Settings
+
+- Settings and Advanced Settings open one screen on either engine. Ctrl+, opens
+  it; commonly used settings appear above the full list (B70).
+
 ## Opening files
 
 - Ctrl+T opens a new Home tab from a document or Home search (B57).

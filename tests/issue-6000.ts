@@ -10,6 +10,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, USE_NG, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
+import { ControlCommand } from "./control.ts";
 import {
   captureWindowDCRegionPixels,
   captureWindowToPng,
@@ -33,6 +34,7 @@ import {
   pressEnter,
   sendCommand,
   sendCommandSync,
+  waitToolWindow,
 } from "./win-automation.ts";
 
 const CB_SHOWDROPDOWN = 0x014f;
@@ -304,10 +306,14 @@ RememberOpenedFiles = false
     await sleep(50);
 
     sendCommand(frame, cmdId("CmdOptions"));
+    const settingsDlg = await waitToolWindow(client, proc.pid!, "advanced-settings", { title: "Advanced Settings" });
+    if (!settingsDlg) throw new Error("issue-6000: Settings dialog did not open");
+    const opened = await client.request(ControlCommand.TestAdvSettingsRows, ["open-choice", 0]);
+    if (opened[0] !== 0) throw new Error(`issue-6000: Layout choice did not open: ${opened[1]}`);
     let opts = { dlg: 0, combo: 0 };
     const optsDeadline = Date.now() + 5_000;
     while (Date.now() < optsDeadline) {
-      opts = findDialogCombo(proc.pid!, "Settings");
+      opts = findDialogCombo(proc.pid!, "Advanced Settings");
       if (opts.combo) {
         break;
       }

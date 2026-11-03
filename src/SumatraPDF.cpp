@@ -11584,7 +11584,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
         } break;
 
         case CmdOptions:
-            ShowSettingsDialog(win);
+            ShowAdvancedSettingsDialog(win);
             break;
 
         case CmdAdvancedSettings:

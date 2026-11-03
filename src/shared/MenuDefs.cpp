@@ -518,10 +518,12 @@ MenuDef menuDefSettings[] = {
         TrN("&Settings..."),
         CmdOptions,
     },
+#if defined(SUMATRA_NG)
     {
         TrN("&Advanced Settings..."),
         CmdAdvancedSettings,
     },
+#endif
     {
         TrN("Customize &Keyboard Shortcuts..."),
         CmdCustomizeShortcuts,

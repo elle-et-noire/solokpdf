@@ -289,6 +289,13 @@ and clears on Esc, mouse input, focus loss, or another command. A shortcut
 assigned to a digit takes precedence. The pending count appears at the bottom
 right. This Windows UI behavior has no ng counterpart yet.
 
+## Settings
+
+Settings > Settings and Ctrl+, open one screen. Commonly used settings appear
+first with translated labels; the filter also finds their raw setting names.
+Layout, zoom, and inverse search retain their choices. Advanced Settings
+shortcuts open the same screen.
+
 ## Keyboard shortcuts dialog
 
 Settings > Customize Keyboard Shortcuts opens a filterable command and binding

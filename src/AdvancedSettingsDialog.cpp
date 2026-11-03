@@ -27,6 +27,8 @@
 #include "AppSettings.h"
 #include "AppTools.h"
 #include "DisplayMode.h"
+#include "FileHistory.h"
+#include "FileThumbnails.h"
 #include "DocController.h"
 #include "EngineBase.h"
 #include "MainWindow.h"
@@ -40,6 +42,7 @@
 #include "FilterHighlightDraw.h"
 #include "SumatraDialogs.h"
 #include "RestrictedUseConfig.h"
+#include "UpdateCheck.h"
 #include "AdvancedSettingsDialogCommon.h"
 
 // the dialog is drawn like the command palette: a bare filter line, 28 px
@@ -68,10 +71,61 @@ static PlatformFont* UiFont(int px) {
     return DlgUiFont(px);
 }
 
+static const char* kCommonNames[] = {
+    "DefaultDisplayMode", "DefaultZoom",         "ShowToc",        "RememberStatePerDocument", "UseTabs",
+    "CheckForUpdates",    "RememberOpenedFiles", "RestoreSession", "InverseSearchCmdLine",     "EnableTeXEnhancements"};
+
+static Str CommonLabel(Str name) {
+    if (str::Eq(name, StrL("DefaultDisplayMode"))) return Tr("Default &Layout:");
+    if (str::Eq(name, StrL("DefaultZoom"))) return Tr("Default &Zoom:");
+    if (str::Eq(name, StrL("ShowToc"))) return Tr("Show the &bookmarks sidebar when available");
+    if (str::Eq(name, StrL("RememberStatePerDocument"))) return Tr("&Remember these settings for each document");
+    if (str::Eq(name, StrL("UseTabs"))) return Tr("Use &tabs");
+    if (str::Eq(name, StrL("CheckForUpdates"))) return Tr("Automatically check for &updates");
+    if (str::Eq(name, StrL("RememberOpenedFiles"))) return Tr("Remember &opened files");
+    if (str::Eq(name, StrL("RestoreSession"))) return Tr("Reopen last &documents at startup");
+    if (str::Eq(name, StrL("InverseSearchCmdLine"))) return Tr("Set inverse search command line");
+    if (str::Eq(name, StrL("EnableTeXEnhancements"))) return Tr("Enable TeX enhancements");
+    return {};
+}
+
+static TempStr CommonNameTemp(Str name) {
+    return str::ReplaceTemp(CommonLabel(name), StrL("&"), StrL(""));
+}
+
+static bool CommonItemEnabled(SettingItem* item, const Vec<SettingItem*>& items) {
+    Str name = item->name;
+    if (str::Eq(name, StrL("CheckForUpdates"))) {
+        return kUpdateCheckEnabled && HasPermission(Perm::InternetAccess);
+    }
+    if (!str::Eq(name, StrL("RememberStatePerDocument")) && !str::Eq(name, StrL("RestoreSession"))) {
+        return true;
+    }
+    for (SettingItem* other : items) {
+        if (str::Eq(other->name, StrL("RememberOpenedFiles"))) return other->boolVal;
+    }
+    return true;
+}
+
+enum class CommonEdit {
+    None,
+    Layout,
+    Zoom,
+    Inverse
+};
+
+static CommonEdit CommonEditFor(Str name) {
+    if (str::Eq(name, StrL("DefaultDisplayMode"))) return CommonEdit::Layout;
+    if (str::Eq(name, StrL("DefaultZoom"))) return CommonEdit::Zoom;
+    if (str::Eq(name, StrL("InverseSearchCmdLine"))) return CommonEdit::Inverse;
+    return CommonEdit::None;
+}
+
 struct ListBoxModelSettings : ListBoxModel {
     Vec<SettingItem*>* items = nullptr;       // not owned
     Vec<SettingSection*>* sections = nullptr; // not owned
     Vec<SettingRow> rows;
+    int commonSectionIdx = -1;
 
     ~ListBoxModelSettings() override = default;
     int ItemsCount() override { return len(rows); }
@@ -79,6 +133,9 @@ struct ListBoxModelSettings : ListBoxModel {
         const SettingRow& row = rows[i];
         if (row.itemIdx < 0) {
             return (*sections)[row.sectionIdx]->name;
+        }
+        if (row.sectionIdx == commonSectionIdx) {
+            return CommonNameTemp((*items)[row.itemIdx]->name);
         }
         return SettingRowName(*items, row);
     }
@@ -152,6 +209,12 @@ struct AdvancedSettingsWnd : WindowBase {
 
     Vec<SettingItem*> items;
     Vec<SettingSection*> sections;
+    int commonSectionIdx = -1;
+    int fullSectionIdx = -1;
+    int totalRows = 0;
+    Vec<float> zoomLevels;
+    StrVec commonChoices;
+    CommonEdit commonEdit = CommonEdit::None;
 
     bool Create(MainWindow* win);
     void OnKeyDown(KeyEvent* ev);
@@ -163,6 +226,7 @@ struct AdvancedSettingsWnd : WindowBase {
     void OnGetMinMaxInfo(WindowBase::GetMinMaxInfoEvent* ev);
 
     void QueryChanged();
+    void CollectRows();
     int CountChangedSettings() const;
     void UpdateUnsavedRow();
     void UpdateHints();
@@ -225,16 +289,60 @@ void AdvancedSettingsWnd::QueryChanged() {
     // split trims leading/trailing/internal runs of whitespace into words
     filterWords.Reset();
     SplitFilterToWords(filter, filterWords);
-    CollectFilteredSettings(items, filterWords, model->rows);
+    CollectRows();
     listBox->SetModel(model); // resets selection to -1
     prevSel = -1;
     if (countText) {
-        countText->SetText(AdvSettingsCountTemp(CountSettingRows(model->rows), len(items)));
+        countText->SetText(AdvSettingsCountTemp(CountSettingRows(model->rows), totalRows));
         if (layout) {
             DoLayout();
         }
     }
     OnSelectionChanged();
+}
+
+void AdvancedSettingsWnd::CollectRows() {
+    CollectFilteredSettings(items, filterWords, model->rows);
+    bool texEnabled = gSettings->enableTeXEnhancements;
+    for (SettingItem* item : items) {
+        if (str::Eq(item->name, StrL("EnableTeXEnhancements"))) texEnabled = item->boolVal;
+    }
+    int commonCount = 0;
+    for (int i = dimofi(kCommonNames) - 1; i >= 0; i--) {
+        Str name(kCommonNames[i]);
+        if (str::Eq(name, StrL("InverseSearchCmdLine")) && (!texEnabled || !CanAccessDisk())) continue;
+        int itemIdx = -1;
+        for (int j = 0; j < len(items); j++) {
+            if (str::Eq(items[j]->name, name)) {
+                itemIdx = j;
+                break;
+            }
+        }
+        if (itemIdx < 0) continue;
+        TempStr label = CommonNameTemp(name);
+        bool matches = len(filterWords) == 0 || FilterMatches(name, filterWords) || FilterMatches(label, filterWords);
+        if (!matches) continue;
+        if (FindSettingRow(model->rows, itemIdx) < 0) {
+            SettingRow raw;
+            raw.itemIdx = itemIdx;
+            raw.sectionIdx = items[itemIdx]->sectionIdx;
+            VecAppend(model->rows, raw);
+        }
+        SettingRow row;
+        row.itemIdx = itemIdx;
+        row.sectionIdx = commonSectionIdx;
+        VecInsertAt(model->rows, 0, row);
+        commonCount++;
+    }
+    if (commonCount > 0) {
+        SettingRow header;
+        header.sectionIdx = commonSectionIdx;
+        VecInsertAt(model->rows, 0, header);
+        if (len(model->rows) > commonCount + 1) {
+            header.sectionIdx = fullSectionIdx;
+            VecInsertAt(model->rows, commonCount + 1, header);
+        }
+    }
 }
 
 // show the selected setting's name, default and doc comment in the help strip
@@ -368,6 +476,9 @@ void AdvancedSettingsWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
         return;
     }
     SettingItem* item = (*m->items)[row.itemIdx];
+    if (row.sectionIdx == m->commonSectionIdx && !CommonItemEnabled(item, *m->items)) {
+        colText = colMuted;
+    }
     if (ev->selected) {
         colBg = ThemeSelectedColorOn(colBg);
         gfx->FillRoundedRect(rc, DpiScale(kAdvRadius), colBg);
@@ -381,7 +492,7 @@ void AdvancedSettingsWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
     // yellow/accent underlays on matched filter tokens (same as command palette)
     u32 nameFmt = gfxTextEllipsis | gfxTextVCenter;
     nameFmt |= isRtl ? (gfxTextRight | gfxTextRtl) : gfxTextLeft;
-    DrawMaybeHighlightedText(gfx, rcName, SettingRowName(*m->items, row), filterWords, highlighted, colBg, isRtl, false,
+    DrawMaybeHighlightedText(gfx, rcName, m->Item(ev->itemIndex), filterWords, highlighted, colBg, isRtl, false,
                              nameFmt, font, colText);
 
     // an in-place editor covers the value; only its underline shows
@@ -428,6 +539,10 @@ void AdvancedSettingsWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
 // in window (dialog client) coords, which is where the in-place editors go
 Rect AdvancedSettingsWnd::ValueRectForItem(int idx) {
     int lbIdx = FindSettingRow(model->rows, idx);
+    int selected = listBox->GetCurrentSelection();
+    if (selected >= 0 && model->rows[selected].itemIdx == idx) {
+        lbIdx = selected;
+    }
     if (lbIdx < 0) {
         return {};
     }
@@ -518,6 +633,10 @@ void AdvancedSettingsWnd::BeginEditEnum(int idx) {
     DropDown::CreateArgs args;
     args.parent = hwnd;
     args.font = GetFont();
+    int selected = listBox->GetCurrentSelection();
+    commonEdit = selected >= 0 && model->rows[selected].sectionIdx == commonSectionIdx ? CommonEditFor(item->name)
+                                                                                       : CommonEdit::None;
+    args.isEditable = commonEdit == CommonEdit::Zoom || commonEdit == CommonEdit::Inverse;
     auto* c = new DropDown();
     // Suppress re-entrant CancelEditValue / CloseEnumEdit while Create and
     // CB_SHOWDROPDOWN pump messages (filter EN_CHANGE was freeing c mid-flight).
@@ -534,15 +653,38 @@ void AdvancedSettingsWnd::BeginEditEnum(int idx) {
         return;
     }
     StrVec vals;
-    int currSel = 0;
-    for (int i = 0; item->enumValues[i]; i++) {
-        vals.Append(Str(item->enumValues[i]));
-        if (str::EqI(item->strVal, Str(item->enumValues[i]))) {
-            currSel = i;
+    int currSel = -1;
+    commonChoices.Reset();
+    if (commonEdit == CommonEdit::Layout) {
+        Str labels[] = {
+            Tr("Automatic"),         Tr("Single Page"),          Tr("Facing"),     Tr("Book View"), Tr("Continuous"),
+            Tr("Continuous Facing"), Tr("Continuous Book View"), Tr("Page Aspect")};
+        for (int i = 0; i < dimofi(labels); i++) {
+            Str value = i == dimofi(labels) - 1 ? StrL("page aspect") : DisplayModeToString((DisplayMode)i);
+            commonChoices.Append(value);
+            vals.Append(labels[i]);
+            if (str::EqI(item->strVal, value)) currSel = i;
+        }
+    } else if (commonEdit == CommonEdit::Zoom) {
+        CollectZoomLevels(zoomLevels, false);
+        float start = ZoomFromString(item->strVal, kZoomActualSize);
+        for (int i = 0; i < len(zoomLevels); i++) {
+            vals.Append(ZoomLevelStrExact(zoomLevels[i]));
+            if (zoomLevels[i] == start) currSel = i;
+        }
+    } else if (commonEdit == CommonEdit::Inverse) {
+        CollectInverseSearchCommands(vals, item->strVal);
+    } else {
+        for (int i = 0; item->enumValues[i]; i++) {
+            vals.Append(Str(item->enumValues[i]));
+            if (str::EqI(item->strVal, Str(item->enumValues[i]))) currSel = i;
         }
     }
     c->SetItems(vals);
-    CbSetCurrentSelection(c, currSel);
+    if (currSel >= 0) CbSetCurrentSelection(c, currSel);
+    if (commonEdit == CommonEdit::Inverse) c->SetText(item->strVal);
+    if (commonEdit == CommonEdit::Zoom && currSel < 0)
+        c->SetText(ZoomLevelStrExact(ZoomFromString(item->strVal, kZoomActualSize)));
     c->onSelectionChanged = MkMethod0<AdvancedSettingsWnd, &AdvancedSettingsWnd::OnEnumSelectionChanged>(this);
     c->onCloseUp = MkMethod0<AdvancedSettingsWnd, &AdvancedSettingsWnd::OnEnumDropDownClosed>(this);
     dropDownValue = c;
@@ -633,7 +775,16 @@ void AdvancedSettingsWnd::OnEnumSelectionChanged() {
     SettingItem* item = items[editItemIdx];
     int sel = CbGetCurrentSelection(dropDownValue);
     if (sel >= 0) {
-        str::ReplaceWithCopy(&item->strVal, Str(item->enumValues[sel]));
+        if (commonEdit == CommonEdit::Layout) {
+            str::ReplaceWithCopy(&item->strVal, commonChoices[sel]);
+        } else if (commonEdit == CommonEdit::Zoom) {
+            float zoom = zoomLevels[sel];
+            if (zoom != 0) ZoomToString(&item->strVal, zoom, nullptr);
+        } else if (commonEdit == CommonEdit::Inverse) {
+            str::ReplaceWithCopy(&item->strVal, dropDownValue->items[sel]);
+        } else {
+            str::ReplaceWithCopy(&item->strVal, Str(item->enumValues[sel]));
+        }
         NoteItemEdited(item);
         // browsing the list with the arrow keys previews each value in turn
         PreviewSettingChange(item);
@@ -676,13 +827,22 @@ void AdvancedSettingsWnd::CloseEnumEdit(bool keepValue) {
     }
     auto* tmp = dropDownValue;
     dropDownValue = nullptr;
-    if (!keepValue) {
-        SettingItem* item = items[editItemIdx];
+    SettingItem* item = items[editItemIdx];
+    if (keepValue && commonEdit == CommonEdit::Inverse) {
+        str::ReplaceWithCopy(&item->strVal, tmp->GetTextTemp());
+        NoteItemEdited(item);
+    } else if (keepValue && commonEdit == CommonEdit::Zoom && CbGetCurrentSelection(tmp) < 0) {
+        TempStr text = tmp->GetTextTemp();
+        float zoom = (float)atof(CStrTemp(text));
+        if (zoom != 0) ZoomToString(&item->strVal, limitValue(zoom, kZoomMin, kZoomMax), nullptr);
+        NoteItemEdited(item);
+    } else if (!keepValue) {
         str::ReplaceWithCopy(&item->strVal, dropDownOrigVal);
         NoteItemEdited(item);
         PreviewSettingChange(item);
     }
     editItemIdx = -1;
+    commonEdit = CommonEdit::None;
     delete tmp;
     listBox->Invalidate();
     UpdateHints();
@@ -727,14 +887,20 @@ void AdvancedSettingsWnd::ActivateItem(int lbIdx) {
     if (!item) {
         return;
     }
+    if (model->rows[lbIdx].sectionIdx == commonSectionIdx && !CommonItemEnabled(item, items)) return;
     if (item->type == SettingType::Bool) {
         item->boolVal = !item->boolVal;
         NoteItemEdited(item);
+        if (str::Eq(item->name, StrL("EnableTeXEnhancements"))) {
+            CollectRows();
+            listBox->SetModel(model);
+        }
         listBox->Invalidate();
         return;
     }
     int idx = model->rows[lbIdx].itemIdx;
-    if (item->enumValues) {
+    if (item->enumValues ||
+        (model->rows[lbIdx].sectionIdx == commonSectionIdx && CommonEditFor(item->name) != CommonEdit::None)) {
         BeginEditEnum(idx);
         return;
     }
@@ -746,6 +912,21 @@ void AdvancedSettingsWnd::OnItemDoubleClicked() {
 }
 
 void AdvancedSettingsWnd::ApplyChangesAndSave() {
+    bool texEnabled = gSettings->enableTeXEnhancements;
+    for (SettingItem* item : items) {
+        if (str::Eq(item->name, StrL("EnableTeXEnhancements"))) texEnabled = item->boolVal;
+    }
+    if (texEnabled && CanAccessDisk()) {
+        for (SettingItem* item : items) {
+            if (!str::Eq(item->name, StrL("InverseSearchCmdLine")) || len(item->strVal) > 0 || item->changed) continue;
+            StrVec choices;
+            CollectInverseSearchCommands(choices, item->strVal);
+            if (len(choices) > 0) {
+                str::ReplaceWithCopy(&item->strVal, choices[0]);
+                NoteItemEdited(item);
+            }
+        }
+    }
     // snapshot settings that need explicit apply (tabs, menu bar ...) before we
     // overwrite them, so we can act on what actually changed after the reload
     SettingsApplyState before = GetSettingsApplyState();
@@ -789,6 +970,10 @@ void AdvancedSettingsWnd::ApplyChangesAndSave() {
     if (!didChange) {
         return;
     }
+    if (!SettingsRememberOpenedFiles()) {
+        FileHistoryClear(true);
+        EmptyThumbnailCacheDirectory();
+    }
     ScheduleSaveSettings();
     // reload so that all state derived from settings (theme, fonts, parsed
     // colors, custom commands, accelerators ...) is re-computed and applied
@@ -796,6 +981,7 @@ void AdvancedSettingsWnd::ApplyChangesAndSave() {
     // apply changes that a reload doesn't pick up on its own (menu bar, tabs,
     // anti-alias ...) and re-layout the open windows
     ApplyChangedSettingsAndRelayout(before);
+    MaybeRedrawHomePage();
 }
 
 // opens the settings file in the editor associated with .txt files
@@ -821,6 +1007,7 @@ void AdvancedSettingsWnd::OnCancel(VirtMouseEvent*) {
 
 void AdvancedSettingsWnd::OnSave(VirtMouseEvent*) {
     CommitEditValue();
+    CloseEnumEdit(true);
     // queue the dialog teardown first: ApplyChangesAndSave() may post a tabs
     // transition that closes/recreates windows (including this dialog's owner),
     // and uitask runs FIFO, so the delete must be enqueued before it
@@ -1085,6 +1272,21 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
     // OnSize repositions in-place editors after DoLayout; skip the generic path
     autoLayout = false;
     CollectSettings(items, sections);
+    auto* common = new SettingSection();
+    common->name = str::Dup(Tr("Commonly used"));
+    commonSectionIdx = len(sections);
+    VecAppend(sections, common);
+    auto* full = new SettingSection();
+    full->name = str::Dup(Tr("Advanced"));
+    fullSectionIdx = len(sections);
+    VecAppend(sections, full);
+    auto* updates = new SettingItem();
+    updates->name = str::Dup(StrL("CheckForUpdates"));
+    updates->type = SettingType::Bool;
+    updates->fieldOffset = offsetof(Settings, checkForUpdates);
+    updates->boolVal = gSettings->checkForUpdates;
+    updates->defBool = true;
+    VecAppend(items, updates);
 
     {
         CreateCustomArgs args;
@@ -1154,13 +1356,15 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
         model = new ListBoxModelSettings();
         model->items = &items;
         model->sections = &sections;
-        CollectFilteredSettings(items, filterWords, model->rows);
+        model->commonSectionIdx = commonSectionIdx;
+        CollectRows();
+        totalRows = CountSettingRows(model->rows);
         c->onSelectionChanged = MkMethod0<AdvancedSettingsWnd, &AdvancedSettingsWnd::OnSelectionChanged>(this);
         c->onDoubleClick = MkMethod0<AdvancedSettingsWnd, &AdvancedSettingsWnd::OnItemDoubleClicked>(this);
         c->SetModel(model);
         vbox->AddChild(c, 1);
     }
-    countText->SetText(AdvSettingsCountTemp(CountSettingRows(model->rows), len(items)));
+    countText->SetText(AdvSettingsCountTemp(CountSettingRows(model->rows), totalRows));
 
     // the help strip: the selected setting's name and default over its doc comment
     {
@@ -1350,6 +1554,98 @@ TempStr AdvSettingsRowsResultTemp(Str action, int arg, int* exitCodeOut) {
             out.AppendChar('\n');
         }
         return finish(0);
+    }
+    if (str::Eq(action, StrL("common"))) {
+        out.Append(fmt("section=%s\n", wnd->sections[wnd->commonSectionIdx]->name));
+        for (const SettingRow& row : wnd->model->rows) {
+            if (row.itemIdx >= 0 && row.sectionIdx == wnd->commonSectionIdx) {
+                SettingItem* item = wnd->items[row.itemIdx];
+                out.Append(fmt("%s|%s\n", item->name, CommonNameTemp(item->name)));
+            }
+        }
+        return finish(0);
+    }
+    if (str::Eq(action, StrL("visible"))) {
+        for (const SettingRow& row : wnd->model->rows) {
+            if (row.itemIdx < 0) continue;
+            SettingItem* item = wnd->items[row.itemIdx];
+            out.Append(fmt("%s|%s\n", item->name,
+                           row.sectionIdx == wnd->commonSectionIdx ? CommonNameTemp(item->name) : item->name));
+        }
+        return finish(0);
+    }
+    if (str::Eq(action, StrL("toggle-common"))) {
+        if (arg < 0 || arg >= dimofi(kCommonNames)) return finish(1);
+        for (int i = 0; i < len(wnd->model->rows); i++) {
+            const SettingRow& row = wnd->model->rows[i];
+            if (row.itemIdx < 0 || row.sectionIdx != wnd->commonSectionIdx ||
+                !str::Eq(wnd->items[row.itemIdx]->name, Str(kCommonNames[arg])))
+                continue;
+            SettingItem* item = wnd->items[row.itemIdx];
+            wnd->listBox->SetCurrentSelection(i);
+            wnd->ActivateItem(i);
+            out.Append(fmt("%s=%s\n", item->name, FormatSettingValueTemp(item)));
+            return finish(0);
+        }
+        return finish(1);
+    }
+    if (str::Eq(action, StrL("choices"))) {
+        if (arg < 0 || arg >= dimofi(kCommonNames)) return finish(1);
+        for (int i = 0; i < len(wnd->model->rows); i++) {
+            const SettingRow& row = wnd->model->rows[i];
+            if (row.itemIdx < 0 || row.sectionIdx != wnd->commonSectionIdx ||
+                !str::Eq(wnd->items[row.itemIdx]->name, Str(kCommonNames[arg])))
+                continue;
+            wnd->listBox->SetCurrentSelection(i);
+            wnd->BeginEditEnum(row.itemIdx);
+            if (!wnd->dropDownValue) return finish(1);
+            for (Str choice : wnd->dropDownValue->items) {
+                out.Append(choice);
+                out.AppendChar('\n');
+            }
+            wnd->CloseEnumEdit(false);
+            return finish(0);
+        }
+        return finish(1);
+    }
+    if (str::Eq(action, StrL("open-choice"))) {
+        if (arg < 0 || arg >= dimofi(kCommonNames)) return finish(1);
+        for (int i = 0; i < len(wnd->model->rows); i++) {
+            const SettingRow& row = wnd->model->rows[i];
+            if (row.itemIdx < 0 || row.sectionIdx != wnd->commonSectionIdx ||
+                !str::Eq(wnd->items[row.itemIdx]->name, Str(kCommonNames[arg])))
+                continue;
+            wnd->listBox->SetCurrentSelection(i);
+            wnd->listBox->EnsureVisible(i);
+            wnd->BeginEditEnum(row.itemIdx);
+            out.Append(StrL("opened=1\n"));
+            return finish(0);
+        }
+        return finish(1);
+    }
+    if (str::Eq(action, StrL("choose-common"))) {
+        if (arg != 0 && arg != 1 && arg != 8) return finish(1);
+        for (int i = 0; i < len(wnd->model->rows); i++) {
+            const SettingRow& row = wnd->model->rows[i];
+            if (row.itemIdx < 0 || row.sectionIdx != wnd->commonSectionIdx ||
+                !str::Eq(wnd->items[row.itemIdx]->name, Str(kCommonNames[arg])))
+                continue;
+            SettingItem* item = wnd->items[row.itemIdx];
+            wnd->listBox->SetCurrentSelection(i);
+            wnd->listBox->EnsureVisible(i);
+            wnd->BeginEditEnum(row.itemIdx);
+            if (!wnd->dropDownValue) return finish(1);
+            if (arg == 8) {
+                wnd->dropDownValue->SetText(StrL("test-editor %f:%l"));
+            } else {
+                CbSetCurrentSelection(wnd->dropDownValue, arg == 0 ? 7 : 1);
+                wnd->OnEnumSelectionChanged();
+            }
+            wnd->CloseEnumEdit(true);
+            out.Append(fmt("%s=%s\n", item->name, FormatSettingValueTemp(item)));
+            return finish(0);
+        }
+        return finish(1);
     }
     if (str::Eq(action, StrL("nondefault"))) {
         int n = 0;

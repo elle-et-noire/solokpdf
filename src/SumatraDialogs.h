@@ -59,7 +59,6 @@ Str ShowGetPasswordDialog(HWND hwndParent, Str fileName, bool* rememberPassword,
 void ShowGoToPageDialog(MainWindow* win);
 void ShowInverseSearchDialog(MainWindow* win);
 void ShowSumatraOnlineDialog(MainWindow* win);
-void ShowSettingsDialog(MainWindow* win);
 
 enum class PrintRangeAdv {
     All = 0,
