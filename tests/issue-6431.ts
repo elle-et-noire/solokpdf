@@ -23,7 +23,7 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi";
-import { findCanvas, FRAME_CLASS, ngInput } from "./win-automation";
+import { findCanvas, FRAME_CLASS, moveTestCursor, ngInput } from "./win-automation";
 import { waitForTopWindow } from "./winapi";
 
 function makeEpub(): Buffer {
@@ -101,6 +101,8 @@ export async function testit(): Promise<void> {
         const scale = +(/ scale=([\d.]+)/.exec(raw)?.[1] ?? 1);
         await ngInput(client, ["click", Math.round(+m[1]! * scale), Math.round(+m[2]! * scale), 0, 0]);
       } else {
+        const target = clientToScreen(canvas, +m[1]!, +m[2]!);
+        await moveTestCursor(target.x, target.y, client);
         const lp = packCoords(+m[1]!, +m[2]!);
         sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, lp);
         sendMessage(canvas, WM_LBUTTONUP, 0, lp);
