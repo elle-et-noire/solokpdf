@@ -168,6 +168,7 @@ export enum ControlCommand {
   TestClipboardText = 156,
   TestFocusState = 157,
   TestClipboardFormat = 158,
+  TestActivationTrace = 159,
 }
 
 export type ControlArg = number | string | Uint8Array | ControlArg[];

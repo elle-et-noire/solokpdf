@@ -2,3 +2,4 @@
    License: GPLv3 */
 
 void StartSumatraControl(Str pipeName);
+void StartActivationTrace();

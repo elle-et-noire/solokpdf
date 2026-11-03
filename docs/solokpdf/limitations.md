@@ -384,8 +384,10 @@ Toolbar hover failed on both engines; the canvas now ignores physical mouse
 moves that conflict with the test cursor. Targeted tests pass locally on both
 engines; hosted verification remains pending. Run 41711900891 exposed an
 activating About positioning call; dialog positioning now avoids activation,
-and the foreground test covers additional windows. The settings filter avoids
-activating its test-mode window; `ad-hoc-b71-window-focus` checks focus.
+and the foreground test covers additional windows. Settings creation and repeat
+invocation avoid activation in test mode; the focus test checks both. A test-only
+UI-thread activation trace records window classes and module-relative stacks for
+the foreground test to print on failure.
 Hosted verification remains
 pending. The tab-view test compares settings changes against a normal tab
 switch and checks the switch preserves the scroll within one point. Hosted

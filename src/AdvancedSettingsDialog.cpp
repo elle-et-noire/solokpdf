@@ -1903,7 +1903,10 @@ void ShowAdvancedSettingsDialog(MainWindow* win) {
         return;
     }
     if (gAdvancedSettingsWnd) {
-        HwndSetFocus(gAdvancedSettingsWnd->hwnd);
+        if (AppWindowZOrder(gAdvancedSettingsWnd->hwnd, nullptr) != HWND_BOTTOM ||
+            GetActiveWindow() == gAdvancedSettingsWnd->hwnd) {
+            HwndSetFocus(gAdvancedSettingsWnd->hwnd);
+        }
         return;
     }
     auto* wnd = new AdvancedSettingsWnd();

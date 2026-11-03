@@ -1,5 +1,6 @@
 import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { writeFileSync } from "node:fs";
+import { ControlCommand } from "./control.ts";
 import {
   enumWindows,
   getClassName,
@@ -118,6 +119,9 @@ export async function testit(): Promise<void> {
         const afterFind = getForegroundWindow();
         if (afterFind && getWindowPid(afterFind) === proc.pid) throw new Error("CmdFindFirst changed foreground");
       }
+    } catch (err) {
+      const trace = await client.request(ControlCommand.TestActivationTrace, []).catch(() => ["trace unavailable"]);
+      throw new Error(`${err}\nactivation trace:\n${trace[1] ?? trace[0]}`);
     } finally {
       client.close();
       await killAndWait(proc);

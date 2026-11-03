@@ -127,7 +127,7 @@ void ResizeHwndToClientArea(HWND hwnd, int dx, int dy, bool hasMenu) {
     dy = RectDy(r);
     int x = wi.rcWindow.left;
     int y = wi.rcWindow.top;
-    MoveWindow(hwnd, x, y, dx, dy, TRUE);
+    SetWindowPos(hwnd, nullptr, x, y, dx, dy, SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 //--- HWND: screen / work area / placement

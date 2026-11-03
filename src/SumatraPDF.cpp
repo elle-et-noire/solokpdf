@@ -16644,6 +16644,7 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     gCli = &flags;
     gForTesting = flags.forTesting;
     if (gForTesting) {
+        StartActivationTrace();
         WCHAR realShell[2]{};
         if (GetEnvironmentVariableW(L"SOLOKPDF_REAL_SHELL_LAUNCH", realShell, dimof(realShell)) != 1 ||
             realShell[0] != L'1') {

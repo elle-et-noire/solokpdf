@@ -29,6 +29,7 @@
 #include "CommandAvailability.h"
 #include "AppSettings.h"
 #include "Flags.h"
+#include "SumatraConfig.h"
 #include "Installer.h"
 #include "InstallerUtil.h"
 #include "SumatraTest.h"
@@ -82,6 +83,57 @@
 #include "SumatraControlCommon.h"
 
 extern bool gIsStartup;
+
+static constexpr int kActivationTraceSize = 32;
+static constexpr int kActivationStackSize = 24;
+struct ActivationEntry {
+    WCHAR className[128];
+    UINT message;
+    void* stack[kActivationStackSize];
+    USHORT count;
+};
+static ActivationEntry gActivationTrace[kActivationTraceSize];
+static unsigned gActivationCount;
+
+static LRESULT CALLBACK ActivationHook(int code, WPARAM wp, LPARAM lp) {
+    if (code >= 0) {
+        auto* msg = (CWPSTRUCT*)lp;
+        if (((msg->message == WM_ACTIVATE && LOWORD(msg->wParam) != WA_INACTIVE) ||
+             (msg->message == WM_NCACTIVATE && msg->wParam)) &&
+            !(GetWindowLongPtrW(msg->hwnd, GWL_STYLE) & WS_CHILD)) {
+            auto& entry = gActivationTrace[gActivationCount++ % kActivationTraceSize];
+            GetClassNameW(msg->hwnd, entry.className, dimof(entry.className));
+            entry.message = msg->message;
+            entry.count = CaptureStackBackTrace(0, kActivationStackSize, entry.stack, nullptr);
+        }
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
+}
+
+void StartActivationTrace() {
+    SetWindowsHookExW(WH_CALLWNDPROC, ActivationHook, nullptr, GetCurrentThreadId());
+}
+
+static TempStr ActivationTraceTemp() {
+    str::Builder out;
+    unsigned start = gActivationCount > kActivationTraceSize ? gActivationCount - kActivationTraceSize : 0;
+    for (unsigned i = start; i < gActivationCount; i++) {
+        auto& entry = gActivationTrace[i % kActivationTraceSize];
+        out.Append(
+            fmt("%s %s", WStr(entry.className), entry.message == WM_ACTIVATE ? StrL("activate") : StrL("ncactivate")));
+        for (int j = 0; j < entry.count; j++) {
+            MEMORY_BASIC_INFORMATION mbi{};
+            if (VirtualQuery(entry.stack[j], &mbi, sizeof(mbi))) {
+                WCHAR module[MAX_PATH]{};
+                GetModuleFileNameW((HMODULE)mbi.AllocationBase, module, dimof(module));
+                out.Append(
+                    fmt(" %s+0x%llx", WStr(module), (u64)((uintptr_t)entry.stack[j] - (uintptr_t)mbi.AllocationBase)));
+            }
+        }
+        out.Append(StrL("\n"));
+    }
+    return ToStrTemp(out);
+}
 TempStr FindHistoryResultTemp(int* exitCodeOut);
 TempStr LinkDestHighlightResultTemp(int* exitCodeOut);
 
@@ -699,6 +751,7 @@ enum class ControlCmd : u16 {
     TestClipboardText = 156,
     TestFocusState = 157,
     TestClipboardFormat = 158,
+    TestActivationTrace = 159,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -2602,6 +2655,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
             } else {
                 AppendError(req, StrL("invalid clipboard action"));
             }
+            break;
+        }
+
+        case ControlCmd::TestActivationTrace: {
+            AppendTestResult(req, 0, gForTesting ? ActivationTraceTemp() : StrL(""));
             break;
         }
 

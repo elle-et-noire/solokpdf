@@ -61,8 +61,10 @@ import { testit as tabViewB70 } from "./ad-hoc-b70-tab-view.ts";
 import { testit as lintSystemClipboard } from "./lint-system-clipboard.ts";
 import { testit as hoverB71 } from "./ad-hoc-b71-hover.ts";
 import { testit as positionB71 } from "./ad-hoc-b71-window-position.ts";
+import { testit as activationTraceB71 } from "./ad-hoc-b71-activation-trace.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-b71-activation-trace", activationTraceB71],
   ["ad-hoc-b71-window-position", positionB71],
   ["ad-hoc-b71-hover", hoverB71],
   ["ad-hoc-b70-tab-view", tabViewB70],
