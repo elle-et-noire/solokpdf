@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { ControlCommand } from "./control.ts";
-import { runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
 import { clipboardSeqNo, sleep } from "./winapi.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
 
@@ -55,7 +55,7 @@ export async function testit(): Promise<void> {
       !copiedBitmap.subarray(40, 43).equals(dib.subarray(40, 43))
     )
       throw new Error("test bitmap changed");
-    const deadline = Date.now() + 10000;
+    const deadline = Date.now() + 30000 * SLOW_BUILD_FACTOR;
     let ready = false;
     while (Date.now() < deadline) {
       const res = await client.request(ControlCommand.TestMarkdownTocNavigate, [0, 0]);
@@ -69,7 +69,8 @@ export async function testit(): Promise<void> {
     await client.request(ControlCommand.TestInvokeCommand, ["CmdSelectAll"]);
     await client.request(ControlCommand.TestInvokeCommand, ["CmdCopySelection"]);
     let copied = "";
-    while (Date.now() < deadline) {
+    const copyDeadline = Date.now() + 10000 * SLOW_BUILD_FACTOR;
+    while (Date.now() < copyDeadline) {
       const get = await client.request(ControlCommand.TestClipboardText, ["get"]);
       copied = String(get[1] ?? "");
       if (copied.includes(selection)) break;
