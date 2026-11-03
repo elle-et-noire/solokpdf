@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // An ink annotation's bounds (hover mark, hit area, selection box) hug the
 // stroke: the points' extent plus the line width. mupdf pads /Rect by
 // width + 6pt on each side, which made the box much bigger than the ink.
@@ -14,7 +15,6 @@ import {
   MK_LBUTTON,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
@@ -44,7 +44,7 @@ function parseRect(m: RegExpExecArray): RectF {
 async function drawStroke(canvas: number, points: Point[]): Promise<void> {
   const first = points[0]!;
   const screen = clientToScreen(canvas, first.x, first.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(first.x, first.y));
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(first.x, first.y));
   await sleep(50);

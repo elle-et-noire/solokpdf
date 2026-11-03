@@ -70,8 +70,8 @@ export async function testit(): Promise<void> {
       `ShowToc = true\nShowFavorites = false\nSidebarAutoHide = true\nSidebarDx = ${sidebarDx}\n`,
   );
 
-  parkCursorAway();
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+  await parkCursorAway();
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);

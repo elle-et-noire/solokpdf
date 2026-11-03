@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Dark theme: combo corners, combo drop-down list + scrollbar, and tooltips
 // must not stay white (issue #6000). darkmodelib themes ComboLBox; tooltips
 // strip visual styles so TTM_SETTIP* colors apply.
@@ -23,7 +24,6 @@ import {
   postMessage,
   sendMessage,
   sendText,
-  setCursorPos,
   sleep,
   WM_CLOSE,
 } from "./winapi.ts";
@@ -232,7 +232,7 @@ RememberOpenedFiles = false
     const tb = findChildWindow(frame, "SUMATRA_VIRT_TOOLBAR");
     if (tb) {
       const r = getWindowRect(tb);
-      setCursorPos(r.left + 40, r.top + 12);
+      await moveTestCursor(r.left + 40, r.top + 12);
       sendMessage(tb, 0x0020, tb, 1);
       let tip = 0;
       const tipDeadline = Date.now() + 2_000;

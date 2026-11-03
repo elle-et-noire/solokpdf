@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // The app icon at the left of the caption (tabs in the title bar) moves the
 // window when dragged, like in 3.2 - 3.6.1: a steady, big enough target for
 // touch. A click without a drag still opens the system menu.
@@ -12,7 +13,6 @@ import {
   MK_LBUTTON,
   packCoords,
   postMessage,
-  setCursorPos,
   sleep,
   VK_ESCAPE,
   WM_KEYDOWN,
@@ -34,9 +34,9 @@ async function waitFor(what: string, f: () => boolean | Promise<boolean>, timeou
 
 // posts a mouse message at client pt, with the real cursor there too: the
 // move loop and SetCapture look at it
-function mouse(frame: number, msg: number, mk: number, pt: { x: number; y: number }) {
+async function mouse(frame: number, msg: number, mk: number, pt: { x: number; y: number }) {
   const screen = clientToScreen(frame, pt.x, pt.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   postMessage(frame, msg, mk, packCoords(pt.x, pt.y));
 }
 
@@ -59,8 +59,8 @@ export async function testit(): Promise<void> {
     const at = { x: icon.rect.x + Math.floor(icon.rect.dx / 2), y: icon.rect.y + Math.floor(icon.rect.dy / 2) };
 
     // a click opens the system menu
-    mouse(frame, WM_LBUTTONDOWN, MK_LBUTTON, at);
-    mouse(frame, WM_LBUTTONUP, 0, at);
+    await mouse(frame, WM_LBUTTONDOWN, MK_LBUTTON, at);
+    await mouse(frame, WM_LBUTTONUP, 0, at);
     const menu = await waitForContextMenu(3000);
     if (!menu) {
       throw new Error("issue-6261: a click on the icon didn't open the system menu");
@@ -73,9 +73,9 @@ export async function testit(): Promise<void> {
     // that can be seen here is that the menu stays shut. The drag stays on the
     // icon, where a click would open it.
     const to = { x: at.x + 8, y: at.y };
-    mouse(frame, WM_LBUTTONDOWN, MK_LBUTTON, at);
-    mouse(frame, WM_MOUSEMOVE, MK_LBUTTON, to);
-    mouse(frame, WM_LBUTTONUP, 0, to);
+    await mouse(frame, WM_LBUTTONDOWN, MK_LBUTTON, at);
+    await mouse(frame, WM_MOUSEMOVE, MK_LBUTTON, to);
+    await mouse(frame, WM_LBUTTONUP, 0, to);
     const menuAfterDrag = await waitForContextMenu(1000);
     if (menuAfterDrag) {
       postMessage(menuAfterDrag, WM_KEYDOWN, VK_ESCAPE, 0);

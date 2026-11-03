@@ -19,9 +19,8 @@ static int gClassRegistered = 0;
 static LRESULT CALLBACK RefHoverWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_SETCURSOR) {
         RefHoverState* s = (RefHoverState*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
-        POINT p;
-        if (s && GetCursorPos(&p)) {
-            ScreenToClient(hwnd, &p);
+        if (s) {
+            Point p = HwndGetCursorPos(hwnd);
             if (LaunchLinkAtPopupPt(s, p.x, p.y)) {
                 SetCursorCached(IDC_HAND);
                 return TRUE;

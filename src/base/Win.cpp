@@ -1560,7 +1560,26 @@ int ReleaseThreadKeyState() {
 
 //--- cursors / mouse tracking
 
+static bool hasTestCursorPosition = false;
+static Point testCursorPosition{};
+
+void SetTestCursorPosition(Point pt) {
+    testCursorPosition = pt;
+    hasTestCursorPosition = true;
+}
+
+void ClearTestCursorPosition() {
+    hasTestCursorPosition = false;
+}
+
+bool HasTestCursorPosition() {
+    return hasTestCursorPosition;
+}
+
 Point GetCursorPosition() {
+    if (hasTestCursorPosition) {
+        return testCursorPosition;
+    }
     POINT pt{};
     GetCursorPos(&pt);
     return {pt.x, pt.y};
@@ -1638,6 +1657,9 @@ __declspec(noinline) int GetMeasurementSystem() {
 // ask for getting WM_MOUSELEAVE for the window
 // returns true if started tracking
 bool TrackMouseLeave(HWND hwnd) {
+    if (hasTestCursorPosition) {
+        return false;
+    }
     TRACKMOUSEEVENT tme{};
     tme.cbSize = sizeof(TRACKMOUSEEVENT);
     tme.dwFlags = TME_QUERY;

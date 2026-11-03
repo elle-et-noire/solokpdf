@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Resting the mouse on a toolbar button can open a drop-down, after the delay a
 // tooltip takes, and the tooltip gives way to it. Right-click opens it at once
 // if it is not already shown, and does not run the button's command. The Edit
@@ -26,7 +27,6 @@ import {
   readWindowDCRow,
   packCoords,
   sendMessage,
-  setCursorPos,
   setProcessDpiAware,
   sleep,
   MK_RBUTTON,
@@ -305,15 +305,14 @@ async function clickMenuItem(
   }
 }
 
-// rest the mouse on a toolbar button: the real cursor has to be there (the
-// drop-down reads it) and the toolbar has to see a move
+// Rest the test cursor on a toolbar button and send a move to start its hover.
 async function hoverToolbar(client: ControlClient, toolbar: number, x: number, y: number): Promise<void> {
   if (USE_NG) {
     await ngInput(client, ["move", x, y, 0, 0]);
     return;
   }
   const s = clientToScreen(toolbar, x, y);
-  setCursorPos(s.x, s.y);
+  await moveTestCursor(s.x, s.y);
   sendMessage(toolbar, WM_MOUSEMOVE, 0, packCoords(x, y));
 }
 
@@ -328,15 +327,13 @@ async function rightClickToolbar(client: ControlClient, toolbar: number, x: numb
     return;
   }
   const s = clientToScreen(toolbar, x, y);
-  setCursorPos(s.x, s.y);
+  await moveTestCursor(s.x, s.y);
   const lp = packCoords(x, y);
   sendMessage(toolbar, WM_RBUTTONDOWN, MK_RBUTTON, lp);
   sendMessage(toolbar, WM_RBUTTONUP, 0, lp);
 }
 
-// keep resting the mouse on a button until its drop-down is up: something else
-// on the machine can yank the cursor away, and the drop-down reads where it
-// actually is, so a single move is not enough to rely on
+// Keep the test cursor on a button until its drop-down is up.
 async function hoverUntilMenu(
   client: ControlClient,
   toolbar: number,
@@ -877,7 +874,7 @@ export async function testit(): Promise<void> {
         // off the toolbar, on the page. The close grace is 150ms.
         await ngInput(client, ["move", 40, 500, 0, 0]);
       } else {
-        parkCursorAway([getWindowRect(frame), getWindowRect(menu)]);
+        await parkCursorAway([getWindowRect(frame), getWindowRect(menu)]);
         sendMessage(menu, WM_MOUSELEAVE, 0, 0);
         sendMessage(toolbar, WM_MOUSELEAVE, 0, 0);
       }

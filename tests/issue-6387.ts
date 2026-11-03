@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // With one free text selected in Edit PDF, double-clicking another free text
 // edits it in place. The first click only deselected and the double-click was
 // dropped, so the edit opened only on a second double-click.
@@ -14,7 +15,6 @@ import {
   getControlText,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   MK_LBUTTON,
   VK_ESCAPE,
@@ -71,7 +71,7 @@ async function doubleClick(client: ControlClient, canvas: number, x: number, y: 
     return;
   }
   const s = clientToScreen(canvas, x, y);
-  setCursorPos(s.x, s.y);
+  await moveTestCursor(s.x, s.y);
   const pt = packCoords(x, y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, pt);
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, pt);

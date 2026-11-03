@@ -5,7 +5,9 @@
 // Injected mouse-button input is dropped on the test machine, but PostMessage,
 // MoveWindow and cross-process GetScrollInfo all work (see the project memory
 // env-gui-automation). SetCursorPos only works while the session owns an
-// unlocked desktop -- see hasInteractiveDesktop() below. These helpers wrap
+// unlocked desktop -- see hasInteractiveDesktop() below. Message-driven tests
+// use moveTestCursor() in win-automation.ts; keep SetCursorPos for OS-driven
+// operations such as OLE drag and drop. These helpers wrap
 // the handful of user32 calls those tests need so individual test files don't
 // each re-declare the FFI.
 //
@@ -1648,8 +1650,8 @@ export function getSystemMetrics(index: number): number {
 // when reading a DPI-aware window like SumatraPDF's on a scaled display (see
 // project memory dpi-aware-probe-trick). No-op at 100% scaling.
 //
-// This is process-wide and cannot be undone, so only call it from tests that
-// read pixels or physical geometry, not from every test.
+// This is process-wide and cannot be undone. launchControlled() calls it so
+// message coordinates and the app's cursor override use the same pixels.
 export function setProcessDpiAware(): boolean {
   if (!IS_WIN) {
     return false;

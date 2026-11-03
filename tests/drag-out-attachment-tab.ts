@@ -84,6 +84,7 @@ async function findTabBar(frame: number): Promise<{ tabs: number; x: number; y: 
 function dragOutOrig(frame: number, { tabs, x, y }: { tabs: number; x: number; y: number }): void {
   const dropY = y + DROP_DY;
   const at = clientToScreen(tabs, x, y);
+  // OLE's DoDragDrop follows the system cursor, outside the app's control path.
   setCursorPos(at.x, at.y);
   postMessage(tabs, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(x, y));
   postMessage(tabs, WM_MOUSEMOVE, MK_LBUTTON, packCoords(x, y + 40));

@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Editing an annotation while the background annotation-loading thread walks
 // the document's pages used to be a use-after-free: loading a page has MuPDF
 // generate every annotation's appearance stream, reading the same pdf objects
@@ -18,7 +19,6 @@ import {
   getClientRect,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   MK_LBUTTON,
   WM_LBUTTONDOWN,
@@ -143,7 +143,7 @@ export async function testit(): Promise<void> {
       for (let i = 0; i < DRAGS && proc.exitCode === null; i++) {
         const to = { x: mid.x + (i % 2 === 0 ? 18 : -18), y: mid.y + (i % 2 === 0 ? 12 : -12) };
         const sp = clientToScreen(canvas, to.x, to.y);
-        setCursorPos(sp.x, sp.y);
+        await moveTestCursor(sp.x, sp.y, client);
         sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(mid.x, mid.y));
         sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(mid.x, mid.y));
         sendMessage(canvas, WM_MOUSEMOVE, MK_LBUTTON, packCoords(to.x, to.y));

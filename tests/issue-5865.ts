@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // #5865: after quitting while in fullscreen with session restore on, mouse-wheel
 // scrolling did nothing in the auto-restored document (keyboard scrolling still
 // worked). The hidden tab bar kept regenerating WM_PAINT, which starved the
@@ -10,16 +11,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util";
-import {
-  clientToScreen,
-  getClientRect,
-  getScrollInfo,
-  packCoords,
-  postMessage,
-  sendMessage,
-  setCursorPos,
-  sleep,
-} from "./winapi";
+import { clientToScreen, getClientRect, getScrollInfo, packCoords, postMessage, sendMessage, sleep } from "./winapi.ts";
 import {
   findCanvas,
   launchControlled,
@@ -83,11 +75,11 @@ async function scrollToTop(canvas: number): Promise<void> {
 // wheel down over the middle of the canvas; returns how the vertical scrollbar moved
 async function wheelScroll(canvas: number, notches: number): Promise<{ before: number; after: number }> {
   await ensureModifierKeysUp();
-  // park the real cursor over the document: the wheel handler redirects to the
+  // Park the test cursor over the document: the wheel handler redirects to the
   // ToC tree when the cursor is over the sidebar
   const cr = getClientRect(canvas);
   const mid = clientToScreen(canvas, Math.floor(cr.right / 2), Math.floor(cr.bottom / 2));
-  setCursorPos(mid.x, mid.y);
+  await moveTestCursor(mid.x, mid.y);
   const before = getScrollInfo(canvas).pos;
   for (let i = 0; i < notches; i++) {
     postMessage(canvas, WM_MOUSEWHEEL, (-WHEEL_DELTA << 16) >>> 0, packCoords(mid.x, mid.y));

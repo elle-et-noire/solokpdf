@@ -1,10 +1,11 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Cached Home thumbnails keep their aspect ratio when loaded after layout.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { waitForHome } from "./control.ts";
 import { ROOT, makePng, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
-import { repaintWindow, setCursorPos } from "./winapi.ts";
+import { repaintWindow } from "./winapi.ts";
 
 const FRAME = { width: 150, height: 212 };
 const SIZES = [
@@ -18,7 +19,6 @@ export async function testit(): Promise<void> {
     console.log("SKIP issue-6352: Windows loads cached thumbnails during paint");
     return;
   }
-  setCursorPos(0, 0);
   for (const size of SIZES) {
     const appdata = tmpPath(`issue-6352-${size.width}x${size.height}`);
     const cache = join(appdata, "sumatrapdfcache");
@@ -35,6 +35,7 @@ export async function testit(): Promise<void> {
         `FileStates [\n [\n FilePath = ${pdf}\n OpenCount = 1\n ]\n]\n`,
     );
     const { proc, client, frame } = await launchControlled(["-appdata", appdata, "-window-pos", "820x600@20x20"]);
+    await moveTestCursor(0, 0);
     let expected: number[];
     try {
       const blank = await waitForHome(client, (h) => h.entries === 1 && h.outlineFull[3]! > 0, "home not ready");

@@ -56,6 +56,9 @@ static void OnPaintAbout(MainWindow* win) {
 }
 
 static void OnMouseMoveAbout(HWND hwnd) {
+    if (HasTestCursorPosition()) {
+        return;
+    }
     TRACKMOUSEEVENT tme{sizeof(TRACKMOUSEEVENT)};
     tme.dwFlags = TME_LEAVE;
     tme.hwndTrack = hwnd;

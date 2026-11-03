@@ -1,10 +1,9 @@
-// #6234: with the home page's thumbnail band scrolled to the very bottom (End),
-// the captions of the last row must not be cut off by the band's bottom edge.
+// #6234: with the home page's thumbnail band scrolled to the very bottom (End), // the captions of the last row must not be cut off by the band's bottom edge.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SETTINGS_FILE, ROOT, cmdId, runStandalone, tmpPath } from "./util";
-import { setCursorPos, sleep } from "./winapi";
-import { launchControlled, killAndWait, sendCommand } from "./win-automation";
+import { sleep } from "./winapi.ts";
+import { launchControlled, killAndWait, moveTestCursor, sendCommand } from "./win-automation";
 import { waitForHome } from "./control.ts";
 
 const nFiles = 12;
@@ -33,9 +32,9 @@ function sameRect(a: number[], b: number[]): boolean {
 }
 
 export async function testit(): Promise<void> {
-  setCursorPos(0, 0);
   // compact window so the files overflow the thumbs band and End has to scroll
   const { proc, client, frame } = await launchControlled(["-appdata", makeAppDir(), "-window-pos", "820x500@20x20"]);
+  await moveTestCursor(0, 0);
   try {
     const before = await waitForHome(
       client,

@@ -1,5 +1,5 @@
-// Edit PDF mode makes annotations directly interactive: hover outlines them,
-// Ctrl+click enters Edit PDF mode and selects the annotation, and a click
+import { moveTestCursor } from "./win-automation.ts";
+// Edit PDF mode makes annotations directly interactive: hover outlines them, // Ctrl+click enters Edit PDF mode and selects the annotation, and a click
 // on a selected annot shows a compact property row. Text markup (highlight
 // and friends) still needs Ctrl+click so a drag on the marked text can
 // start a selection (issue #6166).
@@ -16,10 +16,9 @@ import {
   MK_CONTROL,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   WM_MOUSEMOVE,
-} from "./winapi";
+} from "./winapi.ts";
 import { clickAt, findCanvas, killAndWait, launchControlled } from "./win-automation";
 
 type AnnotState = {
@@ -107,9 +106,9 @@ async function annotState(client: ControlClient): Promise<AnnotState> {
   }
 }
 
-function moveMouse(canvas: number, x: number, y: number): void {
+async function moveMouse(canvas: number, x: number, y: number): Promise<void> {
   const screen = clientToScreen(canvas, x, y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
 }
 
@@ -123,7 +122,7 @@ async function moveAndWaitForHover(
   const deadline = Date.now() + 2_000;
   let state: AnnotState;
   for (;;) {
-    moveMouse(canvas, x, y);
+    await moveMouse(canvas, x, y);
     await sleep(40);
     state = await annotState(client);
     if (state.hover === expected) {
@@ -149,7 +148,7 @@ async function moveAndWaitForCard(client: ControlClient, canvas: number, x: numb
     if (Date.now() > deadline) {
       throw new Error(`pdf-edit-toolbar-interaction: hover card was not placed\n${state.raw}`);
     }
-    moveMouse(canvas, x, y);
+    await moveMouse(canvas, x, y);
     await sleep(40);
     state = await annotState(client);
   }

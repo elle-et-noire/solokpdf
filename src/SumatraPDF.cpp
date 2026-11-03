@@ -13541,16 +13541,16 @@ static void UpdateCaptionOverlay(MainWindow* win, CaptionUpdate update) {
     } else if (!overlay) {
         KillTimer(win->hwndCaptionOverlay, kCaptionTimer);
     }
-    POINT cursor;
-    GetCursorPos(&cursor);
-    Point pt = HwndScreenToClient(win->hwndFrame, Point(cursor.x, cursor.y));
+    Point cursor = GetCursorPosition();
+    Point pt = HwndScreenToClient(win->hwndFrame, cursor);
     Rect rc = HwndClientRect(win->hwndFrame);
     int revealDy = DpiScale(kCaptionRevealDy);
     int hoverDy = win->captionOverlayShown ? win->captionRect.y + win->captionRect.dy : revealDy;
     GUITHREADINFO gui{sizeof(gui)};
     GetGUIThreadInfo(GetCurrentThreadId(), &gui);
     bool menuUp = gui.hwndActive == win->hwndFrame && (gui.flags & GUI_INMENUMODE) != 0;
-    bool overFrame = GetAncestor(WindowFromPoint(cursor), GA_ROOT) == win->hwndFrame;
+    bool overFrame = HasTestCursorPosition() ? HwndWindowRect(win->hwndFrame).Contains(cursor)
+                                             : GetAncestor(HwndWindowFromPoint(cursor), GA_ROOT) == win->hwndFrame;
     bool shown = overlay && ((overFrame && pt.x >= 0 && pt.x < rc.dx && pt.y >= 0 && pt.y < hoverDy) || menuUp ||
                              GetCapture() == win->hwndFrame);
     if (update == CaptionUpdate::Mouse && shown == win->captionOverlayShown) {
@@ -13703,10 +13703,10 @@ void UpdateSidebarOverlay(MainWindow* win, SidebarOverlayUpdate update) {
         SetTimer(win->hwndCanvas, kSidebarOverlayTimerID, kPollMs, nullptr);
     }
 
-    POINT cursor;
-    GetCursorPos(&cursor);
-    Point pt = HwndScreenToClient(win->hwndFrame, Point(cursor.x, cursor.y));
-    bool overFrame = GetAncestor(WindowFromPoint(cursor), GA_ROOT) == win->hwndFrame;
+    Point cursor = GetCursorPosition();
+    Point pt = HwndScreenToClient(win->hwndFrame, cursor);
+    bool overFrame = HasTestCursorPosition() ? HwndWindowRect(win->hwndFrame).Contains(cursor)
+                                             : GetAncestor(HwndWindowFromPoint(cursor), GA_ROOT) == win->hwndFrame;
     if (gSidebarTestCursor.x >= 0) {
         pt = gSidebarTestCursor;
         overFrame = true;

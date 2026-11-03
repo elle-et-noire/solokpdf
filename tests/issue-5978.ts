@@ -1,10 +1,11 @@
+import { moveTestCursor } from "./win-automation.ts";
 // #5978: hovering a home-page thumbnail that has scrolled under the search
 // field must not draw the selection outline on top of the search field.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host";
 import { SETTINGS_FILE, ROOT, runStandalone, tmpPath } from "./util";
-import { postMessage, setCursorPos, sleep } from "./winapi";
+import { postMessage, sleep } from "./winapi.ts";
 import { findCanvas, launchControlled, killAndWait, ensureModifierKeysUp } from "./win-automation";
 import { ControlCommand, type HomeSelection, waitForHome } from "./control.ts";
 
@@ -49,10 +50,10 @@ export async function testit(): Promise<void> {
   // a cursor left sitting over the thumbnails keeps re-selecting whatever is
   // under it as the band scrolls, so the selection never ends up under the
   // search field (same hover-vs-selection problem as issue-1136)
-  setCursorPos(0, 0);
   // compact window so a few files overflow the thumbs band and we can scroll
   // a thumbnail under the search field
   const { proc, client, frame } = await launchControlled(["-appdata", makeAppDir(), "-window-pos", "820x500@20x20"]);
+  await moveTestCursor(0, 0);
   try {
     await waitForHome(
       client,

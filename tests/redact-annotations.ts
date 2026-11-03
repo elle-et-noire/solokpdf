@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Redact marks selected text or a dragged rectangle; Apply Redactions
 // permanently removes the marked content from the file. Its toolbar button is
 // only there while something is marked.
@@ -18,7 +19,6 @@ import {
   packCoords,
   postChar,
   sendMessage,
-  setCursorPos,
   sleep,
 } from "./winapi.ts";
 import {
@@ -76,14 +76,14 @@ async function waitForSelection(client: ControlClient, want: string): Promise<vo
 
 type Point = { x: number; y: number };
 
-function moveMouse(canvas: number, point: Point, keys = 0): void {
+async function moveMouse(canvas: number, point: Point, keys = 0): Promise<void> {
   const screen = clientToScreen(canvas, point.x, point.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(canvas, WM_MOUSEMOVE, keys, packCoords(point.x, point.y));
 }
 
 async function drag(canvas: number, start: Point, end: Point): Promise<void> {
-  moveMouse(canvas, start);
+  await moveMouse(canvas, start);
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(start.x, start.y));
   await sleep(50);
   sendMessage(canvas, WM_MOUSEMOVE, MK_LBUTTON, packCoords(end.x, end.y));

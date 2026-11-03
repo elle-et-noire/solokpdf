@@ -570,8 +570,7 @@ void LinkHandler::GotoLink(IPageDestination* dest) {
             }
             AppendMenuW(menu, MF_STRING, (UINT)(i + 1), CWStrTemp(MenuToSafeStringTemp(item)));
         }
-        POINT pt{};
-        GetCursorPos(&pt);
+        Point pt = GetCursorPosition();
         int cmd =
             TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_LEFTALIGN, pt.x, pt.y, 0, win->hwndFrame, nullptr);
         DestroyMenu(menu);

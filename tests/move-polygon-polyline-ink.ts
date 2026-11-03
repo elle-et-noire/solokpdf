@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Polygon, polyline and ink annotations are stored as Vertices / InkList, not a
 // user-settable /Rect. Other PDF editors still let you drag them; Sumatra now
 // translates that geometry on move. Dragging an annotation is an Edit PDF mode
@@ -12,7 +13,6 @@ import {
   clientToScreen,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   MK_LBUTTON,
   WM_LBUTTONDOWN,
@@ -102,9 +102,9 @@ async function dragAnnot(canvas: number, s: ShapeDump): Promise<void> {
   const y1 = y0 + DRAG;
   const p0 = clientToScreen(canvas, x0, y0);
   const p1 = clientToScreen(canvas, x1, y1);
-  setCursorPos(p0.x, p0.y);
+  await moveTestCursor(p0.x, p0.y);
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(x0, y0));
-  setCursorPos(p1.x, p1.y);
+  await moveTestCursor(p1.x, p1.y);
   sendMessage(canvas, WM_MOUSEMOVE, MK_LBUTTON, packCoords(x1, y1));
   sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(x1, y1));
 }

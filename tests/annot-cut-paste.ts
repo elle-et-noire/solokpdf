@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Edit PDF mode: Ctrl+X (CmdCutAnnotation) copies an annotation and marks it
 // for deletion; the original goes away when the copy is pasted, so the cut
 // annotation moves instead of being duplicated (issue #5222). A second paste
@@ -17,7 +18,6 @@ import {
   readMenuTree,
   sendMessage,
   sleep,
-  setCursorPos,
   VK_ESCAPE,
   WM_COMMAND,
   WM_KEYDOWN,
@@ -210,7 +210,7 @@ async function hoverDate(client: ControlClient, frame: number, canvas: number, x
   await pressKey(frame, VK_ESCAPE, 0);
   await waitForDeselection(client);
   const s = clientToScreen(canvas, x, y);
-  setCursorPos(s.x, s.y);
+  await moveTestCursor(s.x, s.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
   const deadline = Date.now() + 5_000;
   for (;;) {

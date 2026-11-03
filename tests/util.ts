@@ -936,11 +936,6 @@ export function buildApp(opts?: { silent?: boolean }): void {
 // builds (unless --no-build), runs testit(), exits 0 on pass / 1 on failure.
 export async function runStandalone(testit: () => void | Promise<void>, name?: string): Promise<void> {
   const label = name ?? (process.argv[1] ?? "test").replace(/\\/g, "/").split("/").pop()!.replace(/\.ts$/, "");
-  // a single test is worth running locked (most don't touch the cursor), but
-  // say so, or a cursor-driven failure reads as a bug in the code
-  if (!hasInteractiveDesktop()) {
-    console.error("⚠ this session is locked or disconnected: tests that move the real cursor will fail");
-  }
   try {
     if (!process.argv.includes("--no-build") && !EXE_FROM_ARGV) {
       buildApp();

@@ -198,10 +198,7 @@ static void TooltipTrackActivateAtCursor(HWND hwndTT, HWND owner, int id) {
     if (!hwndTT || !owner || id == 0) {
         return;
     }
-    POINT pt;
-    if (!GetCursorPos(&pt)) {
-        return;
-    }
+    Point pt = GetCursorPosition();
     // Slight offset so the tip is not under the cursor hot-spot.
     int x = pt.x + 12;
     int y = pt.y + 18;

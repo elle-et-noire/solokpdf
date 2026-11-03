@@ -1109,7 +1109,7 @@ static bool BubbleMouse(VirtCtrl* target, VirtMouseEvent& ev, bool (VirtCtrl::*h
 }
 
 void VirtRoot::TrackMouseLeaveIfNeeded() {
-    if (trackingMouseLeave || !hwnd) {
+    if (trackingMouseLeave || !hwnd || HasTestCursorPosition()) {
         return;
     }
     // posted moves (tests) are not the real cursor; TME_LEAVE would fire

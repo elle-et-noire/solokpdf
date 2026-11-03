@@ -157,6 +157,9 @@ static bool MouseOverOwnerSurface(OverlayScrollbar* sb, Point pt) {
     if (!ownerRc.Contains(pt)) {
         return false;
     }
+    if (HasTestCursorPosition()) {
+        return true;
+    }
     POINT p{pt.x, pt.y};
     HWND hit = WindowFromPoint(p);
     if (!hit) {

@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // A free text annotation is edited where it sits on the page: double-clicking
 // it (or the property row's Contents button) puts an edit box over it in the
 // annotation's font and size, the box grows with what is typed, Enter makes a
@@ -16,7 +17,6 @@ import {
   packCoords,
   sendMessage,
   sendText,
-  setCursorPos,
   sleep,
   MK_LBUTTON,
   VK_ESCAPE,
@@ -94,9 +94,9 @@ async function selectedRect(client: ControlClient): Promise<Rect> {
   return { x: +m[1]!, y: +m[2]!, dx: +m[3]!, dy: +m[4]! };
 }
 
-function doubleClickAt(canvas: number, x: number, y: number): void {
+async function doubleClickAt(canvas: number, x: number, y: number): Promise<void> {
   const s = clientToScreen(canvas, x, y);
-  setCursorPos(s.x, s.y);
+  await moveTestCursor(s.x, s.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(x, y));
   sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(x, y));
@@ -108,7 +108,7 @@ function doubleClickAt(canvas: number, x: number, y: number): void {
 // TestInput is already in that space, same as the property-row chip.
 async function doubleClickAnnot(client: ControlClient, canvas: number, x: number, y: number): Promise<void> {
   if (!USE_NG) {
-    doubleClickAt(canvas, x, y);
+    await doubleClickAt(canvas, x, y);
     return;
   }
   const first = await client.request(ControlCommand.TestInput, ["click", x, y, 0, 0]);

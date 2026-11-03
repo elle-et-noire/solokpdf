@@ -1202,8 +1202,7 @@ void MergeGrid::ShowContextMenu() {
     AppendMenuW(menu, pasteFlags, kMenuPaste, CWStrTemp(fmt("%s\tCtrl+V", Tr("&Paste"))));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, kMenuSelectAll, CWStrTemp(Tr("Select &All\tCtrl+A")));
-    POINT pt{};
-    GetCursorPos(&pt);
+    Point pt = GetCursorPosition();
     int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, pt.x, pt.y, 0, GetHwnd(), nullptr);
     DestroyMenu(menu);
     if (cmd == kMenuRemove || cmd == kMenuRestore) {

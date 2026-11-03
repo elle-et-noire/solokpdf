@@ -1,22 +1,13 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Free text annotations from the PDF toolbar or Command Palette enter a
-// placement mode: a preview box the size of the annotation follows the cursor,
-// canvas-margin clicks do nothing, a page click creates it exactly where the
+// placement mode: a preview box the size of the annotation follows the cursor, // canvas-margin clicks do nothing, a page click creates it exactly where the
 // preview was, and Esc cancels.
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG, makeBlankPdf, SETTINGS_FILE } from "./util.ts";
-import {
-  clientToScreen,
-  getClientRect,
-  packCoords,
-  sendMessage,
-  setCursorPos,
-  sleep,
-  WM_COMMAND,
-  WM_MOUSEMOVE,
-} from "./winapi.ts";
+import { clientToScreen, getClientRect, packCoords, sendMessage, sleep, WM_COMMAND, WM_MOUSEMOVE } from "./winapi.ts";
 import {
   clickAt,
   findChildByClass,
@@ -175,7 +166,7 @@ export async function testit(): Promise<void> {
     // Toolbar and notification cursor queries can overwrite the canvas cursor.
     const cursorDeadline = Date.now() + 2_000 * SLOW_BUILD_FACTOR;
     for (;;) {
-      setCursorPos(screenPoint.x, screenPoint.y);
+      await moveTestCursor(screenPoint.x, screenPoint.y);
       sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(pagePoint.x, pagePoint.y));
       state = await placementState(client);
       if ((state.cursor && state.preview) || Date.now() > cursorDeadline) break;
@@ -201,7 +192,7 @@ export async function testit(): Promise<void> {
       throw new Error(`free-text-annotation-placement: click outside the page ended placement\n${state.raw}`);
     }
 
-    setCursorPos(screenPoint.x, screenPoint.y);
+    await moveTestCursor(screenPoint.x, screenPoint.y);
     sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(pagePoint.x, pagePoint.y));
     await clickAt(canvas, pagePoint.x, pagePoint.y, 0);
     state = await waitForPlacement(client, false);

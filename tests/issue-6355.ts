@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Hiding the caption preserves tab navigation and session restoration.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -5,15 +6,7 @@ import { IS_MAC } from "./host.ts";
 import { ControlClient, ControlCommand, type LayoutInfo } from "./control.ts";
 import { SETTINGS_FILE, makeBlankPdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
 import { killAndWait, launchControlled, waitForExit } from "./win-automation.ts";
-import {
-  clientToScreen,
-  findChildWindow,
-  getClassName,
-  isWindowVisible,
-  setCursorPos,
-  sleep,
-  windowFromPoint,
-} from "./winapi.ts";
+import { clientToScreen, findChildWindow, getClassName, isWindowVisible, sleep, windowFromPoint } from "./winapi.ts";
 
 async function invoke(client: ControlClient, command: string): Promise<void> {
   const res = await client.request(ControlCommand.TestInvokeCommand, [command]);
@@ -56,8 +49,8 @@ export async function testit(): Promise<void> {
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = true\nReuseInstance = false\n" +
       "ShowStartPage = false\nNoHomeTab = true\nUseTabs = true\nShowCaption = false\nShowMenubarWithTabs = true\n",
   );
-  setCursorPos(0, 0);
   const first = await launchControlled(["-appdata", dir, ...docs], { saveSettings: true });
+  await moveTestCursor(0, 0);
   try {
     await first.client.waitForRenderIdle();
     const hidden = await barLayout(first.client, false);
@@ -78,14 +71,14 @@ export async function testit(): Promise<void> {
     await invoke(first.client, "CmdToggleCaption off");
     const beforeHover = await barLayout(first.client, false);
     const top = clientToScreen(first.frame, Math.floor(beforeHover.items.frame.rect.dx / 2), 4);
-    setCursorPos(top.x, top.y);
+    await moveTestCursor(top.x, top.y);
     const overlay = await barLayout(first.client, true);
     if (JSON.stringify(overlay.items.canvas.rect) !== JSON.stringify(beforeHover.items.canvas.rect))
       throw new Error("issue-6355: caption overlay resized the document");
-    setCursorPos(top.x, top.y + Math.floor(overlay.items.tabs.rect.y));
+    await moveTestCursor(top.x, top.y + Math.floor(overlay.items.tabs.rect.y));
     await sleep(150);
     await barLayout(first.client, true);
-    setCursorPos(0, 0);
+    await moveTestCursor(0, 0);
     await barLayout(first.client, false);
     await invoke(first.client, "CmdToggleMenuBar off");
     await barLayout(first.client, false);
@@ -128,7 +121,7 @@ export async function testit(): Promise<void> {
     if (hidden.items.canvas.rect.dy <= pinned.items.canvas.rect.dy)
       throw new Error("issue-6355: native caption space was not reclaimed");
     const top = clientToScreen(noTabs.frame, Math.floor(hidden.items.frame.rect.dx / 2), 4);
-    setCursorPos(top.x, top.y);
+    await moveTestCursor(top.x, top.y);
     const hoverDeadline = Date.now() + 5_000;
     let overlay = await noTabs.client.layout();
     while (!overlay.items.menu.visible) {
@@ -136,7 +129,7 @@ export async function testit(): Promise<void> {
       await sleep(40);
       overlay = await noTabs.client.layout();
     }
-    setCursorPos(0, 0);
+    await moveTestCursor(0, 0);
     await barLayout(noTabs.client, false);
     await invoke(noTabs.client, "CmdToggleCaption on");
     const deadline = Date.now() + 5_000;
@@ -174,17 +167,17 @@ export async function testit(): Promise<void> {
     }
     const hidden = await barLayout(browser.client, false);
     const top = clientToScreen(browser.frame, Math.floor(hidden.items.frame.rect.dx / 2), 4);
-    setCursorPos(top.x, top.y);
+    await moveTestCursor(top.x, top.y);
     const overlay = await barLayout(browser.client, true);
     if (JSON.stringify(overlay.items.canvas.rect) !== JSON.stringify(hidden.items.canvas.rect))
       throw new Error("issue-6355: caption overlay resized the browser");
     const button = clientToScreen(browser.frame, 12, 12);
-    setCursorPos(button.x, button.y);
+    await moveTestCursor(button.x, button.y);
     await sleep(150);
     const hit = windowFromPoint(button.x, button.y);
     if (hit !== browser.frame && getClassName(hit) !== "SumatraCaptionOverlay")
       throw new Error(`issue-6355: browser covers caption buttons: ${getClassName(hit)}`);
-    setCursorPos(0, 0);
+    await moveTestCursor(0, 0);
     await barLayout(browser.client, false);
   } finally {
     browser.client.close();
@@ -202,8 +195,8 @@ async function toggleCaptionTwice(dir: string, docs: string[]): Promise<void> {
     join(dir, SETTINGS_FILE),
     "UseTabs = true\nShowCaption = true\nRestoreSession = false\nNoHomeTab = true\n",
   );
-  setCursorPos(0, 0);
   const app = await launchControlled(["-appdata", dir, ...docs]);
+  await moveTestCursor(0, 0);
   try {
     await app.client.waitForRenderIdle();
     const tabs = findChildWindow(app.frame, "SumatraTabsCtrlClass");

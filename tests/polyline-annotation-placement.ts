@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Polyline annotations from the PDF toolbar and Command Palette collect page
 // vertices with a live preview. Double-click, right-click, Enter, and Space
 // finish the path; off-page clicks and Esc cancel it.
@@ -17,7 +18,6 @@ import {
   MK_SHIFT,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   VK_ESCAPE,
   VK_RETURN,
@@ -148,7 +148,7 @@ async function moveMouse(client: ControlClient, canvas: number, point: Point, ke
     return;
   }
   const screen = clientToScreen(canvas, point.x, point.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(canvas, WM_MOUSEMOVE, key, packCoords(point.x, point.y));
 }
 
@@ -250,7 +250,7 @@ export async function testit(): Promise<void> {
         }
       }
       const toolbar = findChildByClass(frame, "SUMATRA_VIRT_TOOLBAR");
-      clickAt(toolbar, x, y, 0);
+      await clickAt(toolbar, x, y, 0);
     };
 
     await clickToolbar();
@@ -427,8 +427,6 @@ export async function testit(): Promise<void> {
     await waitForPlacement(client, false);
 
     // Shift snaps the segment from the previous vertex to 45 degrees (issue #6195).
-    // SetCursorPos queues a WM_MOUSEMOVE with no Shift, which can land after the
-    // synthetic one and undo the snap. Resend until the horizontal preview sticks.
     sendCommand(frame, cmdId("CmdCreateAnnotPolyLine"));
     await waitForPlacement(client, true);
     await clickAt(canvas, p1.x, p1.y, 0);
@@ -458,7 +456,6 @@ export async function testit(): Promise<void> {
       USE_NG && shiftAnchor
         ? { x: shiftAnchor.x + (nearlyFlat.x - p1.x), y: shiftAnchor.y + (nearlyFlat.y - p1.y) }
         : nearlyFlat;
-    // Queued cursor moves can overwrite the synthetic Shift-release move too.
     const pointerDeadline = Date.now() + 2_000 * SLOW_BUILD_FACTOR;
     let restored = false;
     for (;;) {

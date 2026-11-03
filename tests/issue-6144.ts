@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // issue #6144: in a comic (single page, page taller than the window), wheeling
 // at the bottom before the next page has rendered queued many GoToNextPage
 // calls and skipped 5–10 pages. A burst of wheel-down at the bottom of page 1
@@ -8,15 +9,7 @@ import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { runStandalone, tmpPath, crc32, makePng, SETTINGS_FILE } from "./util.ts";
 import { findCanvas, launchControlled, killAndWait, ensureModifierKeysUp, ngInput } from "./win-automation.ts";
-import {
-  clientToScreen,
-  getClientRect,
-  ngInputTarget,
-  packCoords,
-  sendMessage,
-  setCursorPos,
-  sleep,
-} from "./winapi.ts";
+import { clientToScreen, getClientRect, ngInputTarget, packCoords, sendMessage, sleep } from "./winapi.ts";
 
 const WM_MOUSEWHEEL = 0x020a;
 const WHEEL_DELTA = 120;
@@ -116,7 +109,7 @@ export async function testit(): Promise<void> {
 
     const cr = getClientRect(canvas);
     const mid = clientToScreen(canvas, Math.floor(cr.right / 2), Math.floor(cr.bottom / 2));
-    setCursorPos(mid.x, mid.y);
+    await moveTestCursor(mid.x, mid.y);
     const lp = packCoords(mid.x, mid.y);
     const wp = (-WHEEL_DELTA << 16) >>> 0;
     await ensureModifierKeysUp();

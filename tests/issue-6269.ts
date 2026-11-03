@@ -124,6 +124,7 @@ function findHover(pid: number): number {
 
 function postMove(hwnd: number, x: number, y: number): void {
   const screen = clientToScreen(hwnd, x, y);
+  // Win32 foreground and popup hit testing need the system pointer here.
   setCursorPos(screen.x, screen.y);
   sendMessage(hwnd, WM_MOUSEMOVE, 0, packCoords(x, y));
 }

@@ -9,6 +9,7 @@ import { ControlCommand, type ControlClient, type VirtCtrlInfo } from "./control
 import { cmdId, makeTextPdf, runStandalone, tmpPath, writeAppdata } from "./util.ts";
 import {
   packCoords,
+  clientToScreen,
   sendCopyDataW,
   sendMessage,
   sleep,
@@ -17,7 +18,7 @@ import {
   WM_MOUSEMOVE,
   MK_LBUTTON,
 } from "./winapi.ts";
-import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import { killAndWait, launchControlled, moveTestCursor, sendCommandSync } from "./win-automation.ts";
 
 const TAB_KIND = "tabCtrl";
 const PLUS_KIND = "tabsPlus";
@@ -65,10 +66,14 @@ async function onDocument(client: ControlClient): Promise<boolean> {
   return res[0] === 0;
 }
 
-function clickPlus(plus: VirtCtrlInfo): void {
+async function clickPlus(client: ControlClient, plus: VirtCtrlInfo): Promise<void> {
   const x = plus.rect.x + Math.floor(plus.rect.dx / 2);
   const y = plus.rect.y + Math.floor(plus.rect.dy / 2);
   const pt = packCoords(x, y);
+  const screen = clientToScreen(plus.hwnd, x, y);
+  await moveTestCursor(screen.x, screen.y);
+  const hit = await client.virtHit(plus.className, x, y);
+  check(hit?.kind === PLUS_KIND && hit.hwnd === plus.hwnd, `+ hit ${hit?.kind ?? "none"}`);
   sendMessage(plus.hwnd, WM_MOUSEMOVE, 0, pt);
   sendMessage(plus.hwnd, WM_LBUTTONDOWN, MK_LBUTTON, pt);
   sendMessage(plus.hwnd, WM_LBUTTONUP, 0, pt);
@@ -246,7 +251,7 @@ async function testLayoutAndPlus(pdf: string, appdata: string): Promise<void> {
     check(b.plus!.rect.x === doc!.rect.x + doc!.rect.dx, "+ should follow the last tab");
 
     // a real click adds a selected, regular-width Home tab at the end
-    clickPlus(b.plus!);
+    await clickPlus(client, b.plus!);
     b = await waitForTabs(client, 3);
     const extra = b.tabs[2]!;
     check(!(await onDocument(client)), "the new Home tab should be selected");

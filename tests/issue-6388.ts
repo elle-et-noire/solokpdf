@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Dragging an annotation's slider (Thickness, Border Width, Text Size) updates
 // the annotation while the mouse is still down, not only when it is let go.
 //
@@ -17,7 +18,6 @@ import {
   packCoords,
   postMessage,
   sendMessage,
-  setCursorPos,
   VK_ESCAPE,
   WM_KEYDOWN,
   WM_LBUTTONDOWN,
@@ -60,10 +60,10 @@ async function ngInput(client: ControlClient, kind: string, x: number, y: number
   }
 }
 
-function drawStroke(canvas: number, pts: { x: number; y: number }[]): void {
+async function drawStroke(canvas: number, pts: { x: number; y: number }[]): Promise<void> {
   const first = pts[0]!;
   const s = clientToScreen(canvas, first.x, first.y);
-  setCursorPos(s.x, s.y);
+  await moveTestCursor(s.x, s.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(first.x, first.y));
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(first.x, first.y));
   for (let i = 1; i < pts.length; i++) {
@@ -140,7 +140,7 @@ export async function testit(): Promise<void> {
     if (USE_NG) {
       await drawStrokeNg(client, stroke);
     } else {
-      drawStroke(canvas, stroke);
+      await drawStroke(canvas, stroke);
     }
     await client.waitForRenderIdle();
     if ((await inkWidth(client)) !== START_WIDTH) {
@@ -202,14 +202,14 @@ export async function testit(): Promise<void> {
         throw new Error("issue-6388: the color chip's drop-down did not open");
       }
       pr = getWindowRect(popup);
-      // the system sends moves at the real cursor; keep it at the drag's end
-      setCursorPos(ex, sy);
+      // Keep the app's cursor reads at the drag's end.
+      await moveTestCursor(ex, sy);
       sendMessage(popup, WM_MOUSEMOVE, 0, packCoords(sx - pr.left, sy - pr.top));
       sendMessage(popup, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(sx - pr.left, sy - pr.top));
       sendMessage(popup, WM_MOUSEMOVE, MK_LBUTTON, packCoords(ex - pr.left, sy - pr.top));
     }
     await client.waitForRenderIdle();
-    // a stray system move (at the real cursor) can undo ours: drag there again
+    // Repeat the move until the slider applies it.
     const during = await pollUntil(
       () => {
         if (!USE_NG) {

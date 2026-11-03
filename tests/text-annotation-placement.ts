@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Text annotations created from the PDF toolbar or Command Palette enter a
 // placement mode. The SVG icon follows the cursor, canvas-margin clicks do
 // nothing, a page click creates the annotation, and Esc cancels.
@@ -6,16 +7,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG, makeBlankPdf, SETTINGS_FILE } from "./util.ts";
-import {
-  clientToScreen,
-  getClientRect,
-  packCoords,
-  sendMessage,
-  setCursorPos,
-  sleep,
-  WM_COMMAND,
-  WM_MOUSEMOVE,
-} from "./winapi.ts";
+import { clientToScreen, getClientRect, packCoords, sendMessage, sleep, WM_COMMAND, WM_MOUSEMOVE } from "./winapi.ts";
 import {
   clickAt,
   findChildByClass,
@@ -159,7 +151,7 @@ export async function testit(): Promise<void> {
     // Toolbar and notification cursor queries can overwrite the canvas cursor.
     const cursorDeadline = Date.now() + 2_000 * SLOW_BUILD_FACTOR;
     for (;;) {
-      setCursorPos(screenPoint.x, screenPoint.y);
+      await moveTestCursor(screenPoint.x, screenPoint.y);
       sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(pagePoint.x, pagePoint.y));
       state = await placementState(client);
       if (state.cursor || Date.now() > cursorDeadline) break;

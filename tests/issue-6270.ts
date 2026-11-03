@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // #6270: Book view. Clicking the right-hand page of a spread shows that
 // spread, but the thumbnail highlight followed the row's first page.
 // A second click was what made the clicked thumbnail stick.
@@ -8,15 +9,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { cmdId, makePdf, pollUntil, runStandalone, tmpPath, writeAppdata } from "./util.ts";
-import {
-  clientToScreen,
-  MK_LBUTTON,
-  packCoords,
-  sendMessage,
-  setCursorPos,
-  WM_LBUTTONDOWN,
-  WM_LBUTTONUP,
-} from "./winapi.ts";
+import { clientToScreen, MK_LBUTTON, packCoords, sendMessage, WM_LBUTTONDOWN, WM_LBUTTONUP } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 type Rect = { x: number; y: number; dx: number; dy: number };
@@ -62,14 +55,14 @@ async function displayMode(client: ControlClient): Promise<string> {
   return m[1]!;
 }
 
-function click(s: Sidebar, page: number) {
+async function click(s: Sidebar, page: number) {
   const r = s.rects.get(page);
   if (!r || r.dx <= 0) {
     throw new Error(`issue-6270: page ${page}'s thumbnail isn't visible: ${s.raw}`);
   }
   const pt = { x: Math.round(r.x + r.dx / 2), y: Math.round(r.y + r.dy / 2) };
   const screen = clientToScreen(s.hwnd, pt.x, pt.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   const packed = packCoords(pt.x, pt.y);
   sendMessage(s.hwnd, WM_LBUTTONDOWN, MK_LBUTTON, packed);
   sendMessage(s.hwnd, WM_LBUTTONUP, 0, packed);
@@ -78,7 +71,7 @@ function click(s: Sidebar, page: number) {
 // The clicked thumbnail stays highlighted. Book view reports the row's first page.
 async function clickHighlights(client: ControlClient, page: number) {
   const before = await sidebar(client);
-  click(before, page);
+  await click(before, page);
   const after = await pollUntil(
     () => sidebar(client),
     (s) => s.current === page,

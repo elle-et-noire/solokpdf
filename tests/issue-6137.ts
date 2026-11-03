@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // The highlighter is a mode that highlights text: every text selection finished
 // while it's on becomes a highlight annotation, text already selected when it's
 // picked is highlighted at once, and Esc leaves it. Ink paints the way the old
@@ -18,7 +19,6 @@ import {
   postChar,
   postMessage,
   sendMessage,
-  setCursorPos,
   sleep,
   VK_END,
   VK_ESCAPE,
@@ -124,7 +124,7 @@ async function selectLineWithKeyboard(client: ControlClient, frame: number): Pro
 
 async function dragSelect(canvas: number, x0: number, y0: number, x1: number, y1: number): Promise<void> {
   const start = clientToScreen(canvas, x0, y0);
-  setCursorPos(start.x, start.y);
+  await moveTestCursor(start.x, start.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x0, y0));
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(x0, y0));
   await sleep(50);
@@ -140,7 +140,7 @@ async function dragSelect(canvas: number, x0: number, y0: number, x1: number, y1
 async function drawStroke(canvas: number, points: Point[]): Promise<void> {
   const first = points[0]!;
   const screen = clientToScreen(canvas, first.x, first.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(first.x, first.y));
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(first.x, first.y));
   await sleep(50);

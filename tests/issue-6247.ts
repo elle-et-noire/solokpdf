@@ -1,9 +1,9 @@
-// #6247: removing a home page entry of a file with favorites (it is only hidden,
-// not removed from history) left the entry on screen until the next relayout.
+import { moveTestCursor } from "./win-automation.ts";
+// #6247: removing a home page entry of a file with favorites (it is only hidden, // not removed from history) left the entry on screen until the next relayout.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SETTINGS_FILE, ROOT, runStandalone, tmpPath } from "./util";
-import { sendMessage, setCursorPos, sleep } from "./winapi";
+import { sendMessage, sleep } from "./winapi.ts";
 import { findCanvas, launchControlled, killAndWait } from "./win-automation";
 import type { ControlClient, HomeSelection } from "./control.ts";
 
@@ -52,8 +52,8 @@ async function waitForHome(
 
 export async function testit(): Promise<void> {
   // a cursor over the thumbnails would move the selection through hover
-  setCursorPos(0, 0);
   const { proc, client, frame } = await launchControlled(["-appdata", makeAppDir()]);
+  await moveTestCursor(0, 0);
   try {
     const canvas = findCanvas(frame);
     if (!canvas) {

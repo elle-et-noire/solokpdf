@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Undo / redo of PDF edits (MuPDF's journal). Checks that a change can be
 // stepped back and forward, that Undo / Redo are only offered when there is
 // something to step to, and that one gesture is one step: a paste writes the
@@ -18,7 +19,6 @@ import {
   clientToScreen,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   MK_LBUTTON,
   WM_COMMAND,
@@ -131,12 +131,12 @@ async function clickPoint(client: ControlClient, canvas: number, x: number, y: n
 async function dragResize(client: ControlClient, canvas: number, corner: { x: number; y: number }): Promise<void> {
   if (!IS_MAC) {
     const start = clientToScreen(canvas, corner.x, corner.y);
-    setCursorPos(start.x, start.y);
+    await moveTestCursor(start.x, start.y);
     sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(corner.x, corner.y));
     for (let i = 1; i <= 6; i++) {
       const p = { x: corner.x + i * 6, y: corner.y + i * 6 };
       const sp = clientToScreen(canvas, p.x, p.y);
-      setCursorPos(sp.x, sp.y);
+      await moveTestCursor(sp.x, sp.y);
       sendMessage(canvas, WM_MOUSEMOVE, MK_LBUTTON, packCoords(p.x, p.y));
     }
     sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(corner.x + 36, corner.y + 36));

@@ -695,6 +695,7 @@ enum class ControlCmd : u16 {
     TestCurrentPdf = 153,
     // every command's visibility on a surface, one "CmdName vis" line each
     TestAllCommandVisibility = 154,
+    TestCursorPosition = 155,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -2472,6 +2473,21 @@ static void ExecuteControlRequest(ControlRequest* req) {
             StopPerfLog();
             AppendTestResult(req, 0, StrL("OK"));
             break;
+
+        case ControlCmd::TestCursorPosition: {
+            i32 x = 0;
+            i32 y = 0;
+            if (IntArg(req, 0, x) && IntArg(req, 1, y)) {
+                SetTestCursorPosition(Point{x, y});
+            } else {
+                ClearTestCursorPosition();
+            }
+            Point pt = GetCursorPosition();
+            AppendArgInt(req->results, pt.x);
+            AppendArgInt(req->results, pt.y);
+            AppendArgEnd(req->results);
+            break;
+        }
 
         default:
             AppendError(req, StrL("unknown control command"));

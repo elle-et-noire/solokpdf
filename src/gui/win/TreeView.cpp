@@ -666,8 +666,7 @@ void TreeView::OnNotifyReflect(ControlBase::NotifyReflectEvent* rev) {
         ev.isDblClick = (code == NM_DBLCLK);
 
         DWORD pos = GetMessagePos();
-        ev.mouseScreen.x = GET_X_LPARAM(pos);
-        ev.mouseScreen.y = GET_Y_LPARAM(pos);
+        ev.mouseScreen = HasTestCursorPosition() ? GetCursorPosition() : Point{GET_X_LPARAM(pos), GET_Y_LPARAM(pos)};
         Point pt = ev.mouseScreen;
         if (pt.x != -1) {
             pt = HwndMapWindowPoint(HWND_DESKTOP, nmhdr->hwndFrom, pt);

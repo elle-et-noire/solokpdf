@@ -117,7 +117,7 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         case WM_MOUSEMOVE: {
             // posted moves (tests) are not the real cursor; TME_LEAVE would
             // fire at once and cancel a hover the move just started
-            if (HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
+            if (!HasTestCursorPosition() && HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
                 TRACKMOUSEEVENT tme{sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0};
                 TrackMouseEvent(&tme);
             }
@@ -129,7 +129,7 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         case WM_MOUSELEAVE:
             // SetCursorPos inside the window still posts leave. Re-arming from
             // this message posts leave again and starves timers; the next move re-arms.
-            if (HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
+            if (!HasTestCursorPosition() && HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
                 break;
             }
             host->onMouseLeave.Call();
@@ -309,6 +309,9 @@ bool VirtHost::HasFocus() const {
 }
 
 bool VirtHost::ContainsScreenPoint(Point pt) const {
+    if (HasTestCursorPosition()) {
+        return native && HwndWindowRect(native).Contains(pt);
+    }
     HWND under = HwndWindowFromPoint(pt);
     if (!under || !native) {
         return false;

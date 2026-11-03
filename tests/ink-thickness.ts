@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // The ink button's drop-down picks the color of the next stroke and how thick
 // it is: a preview of the stroke and a Thickness slider below the colors. The
 // slider is Annotations.InkBorderWidth, and the stroke drawn after it is set
@@ -24,7 +25,6 @@ import {
   packCoords,
   postMessage,
   sendMessage,
-  setCursorPos,
   VK_ESCAPE,
   WM_KEYDOWN,
   WM_LBUTTONDOWN,
@@ -75,7 +75,7 @@ async function ngClick(client: ControlClient, x: number, y: number, button = 0):
   // The drop-down closes when the real cursor is somewhere else.
   if (IS_MAC) {
     const at = clientToScreen(0, x, y);
-    setCursorPos(at.x, at.y);
+    await moveTestCursor(at.x, at.y);
   }
   const res = await client.request(ControlCommand.TestInput, ["click", x, y, button, 0]);
   const raw = String(res[1] ?? "");
@@ -108,9 +108,9 @@ function thicknessDip(raw: string): ThicknessHit | null {
 }
 
 // right-click opens the drop-down at once, without waiting for the hover delay.
-function rightClickToolbar(toolbar: number, x: number, y: number): void {
+async function rightClickToolbar(toolbar: number, x: number, y: number): Promise<void> {
   const s = clientToScreen(toolbar, x, y);
-  setCursorPos(s.x, s.y);
+  await moveTestCursor(s.x, s.y);
   const lp = packCoords(x, y);
   sendMessage(toolbar, WM_MOUSEMOVE, 0, lp);
   sendMessage(toolbar, WM_RBUTTONDOWN, MK_RBUTTON, lp);
@@ -125,7 +125,7 @@ async function waitInkDropdown(
 ): Promise<RegExpExecArray> {
   const x = btn.x + (btn.dx >> 1);
   const y = btn.y + (btn.dy >> 1);
-  rightClickToolbar(toolbar, x, y);
+  await rightClickToolbar(toolbar, x, y);
   const re = /dropdown-item idx=\d+ cmd=\d+ current=\d rect=(-?\d+),(-?\d+),(-?\d+),(-?\d+) text=thickness=(\d+)/;
   const dump = await pollUntil(
     () => toolbarDump(client),
@@ -186,10 +186,10 @@ async function drawStrokeNg(client: ControlClient, pts: { x: number; y: number }
   await client.request(ControlCommand.TestInput, ["up", last.x, last.y, 0, 0]);
 }
 
-function drawStroke(canvas: number, pts: { x: number; y: number }[]): void {
+async function drawStroke(canvas: number, pts: { x: number; y: number }[]): Promise<void> {
   const first = pts[0]!;
   const s = clientToScreen(canvas, first.x, first.y);
-  setCursorPos(s.x, s.y);
+  await moveTestCursor(s.x, s.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(first.x, first.y));
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(first.x, first.y));
   for (let i = 1; i < pts.length; i++) {
@@ -310,7 +310,7 @@ export async function testit(): Promise<void> {
     if (USE_NG) {
       await drawStrokeNg(client, stroke);
     } else {
-      drawStroke(canvas, stroke);
+      await drawStroke(canvas, stroke);
     }
     await client.waitForRenderIdle();
     const width = await inkAnnotWidth(client);

@@ -122,9 +122,9 @@ void RefHoverOnHideTimer(RefHoverState* s, HWND hwndCanvas) {
     if (!s->hwndPopup || !HwndIsVisible(s->hwndPopup)) {
         return;
     }
-    POINT pt;
-    if (GetCursorPos(&pt)) {
-        if (HwndWindowFromPoint(Point(pt.x, pt.y)) == s->hwndPopup) {
+    Point pt = GetCursorPosition();
+    if (HwndWindowRect(s->hwndPopup).Contains(pt)) {
+        if (HasTestCursorPosition() || HwndWindowFromPoint(pt) == s->hwndPopup) {
             SetTimer(hwndCanvas, kRefHoverHideTimerID, kRefHoverHidePollMs, nullptr);
             return;
         }

@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // The sidebar's panels and its Thumbnails view: which panel a command opens a
 // view in, a view icon switching (or swapping) panel views, a click going to a
 // page and a drag not moving pages (that is Merge PDF's job). Each page of the
@@ -19,7 +20,6 @@ import {
   postMessage,
   sendMessage,
   setProcessDpiAware,
-  setCursorPos,
   readWindowDCRow,
   sleep,
   VK_DOWN,
@@ -142,20 +142,20 @@ function pointIn(s: Sidebar, page: number, fx: number, fy: number): { x: number;
   return { x: Math.round(r.x + r.dx * fx), y: Math.round(r.y + r.dy * fy) };
 }
 
-function mouse(hwnd: number, msg: number, mk: number, pt: { x: number; y: number }) {
-  // SetCapture injects a WM_MOUSEMOVE at the real cursor: keep it where we are
+async function mouse(hwnd: number, msg: number, mk: number, pt: { x: number; y: number }) {
+  // Keep app cursor reads at the message point.
   const screen = clientToScreen(hwnd, pt.x, pt.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(hwnd, msg, mk, packCoords(pt.x, pt.y));
 }
 
-function clickPt(hwnd: number, pt: { x: number; y: number }, mk = 0) {
-  mouse(hwnd, WM_LBUTTONDOWN, MK_LBUTTON | mk, pt);
-  mouse(hwnd, WM_LBUTTONUP, mk, pt);
+async function clickPt(hwnd: number, pt: { x: number; y: number }, mk = 0) {
+  await mouse(hwnd, WM_LBUTTONDOWN, MK_LBUTTON | mk, pt);
+  await mouse(hwnd, WM_LBUTTONUP, mk, pt);
 }
 
-function click(s: Sidebar, page: number, mk = 0) {
-  clickPt(s.hwnd, pointIn(s, page, 0.5, 0.5), mk);
+async function click(s: Sidebar, page: number, mk = 0) {
+  await clickPt(s.hwnd, pointIn(s, page, 0.5, 0.5), mk);
 }
 
 // the current page's frame, as a COLORREF off the screen: the scrollbar thumb
@@ -217,7 +217,7 @@ async function clickIcon(panel: () => Promise<Panel>, view: View) {
     return p.iconRects[views.indexOf(view)]!.dx > 0;
   });
   const r = p.iconRects[views.indexOf(view)]!;
-  clickPt(p.hwnd, { x: r.x + Math.floor(r.dx / 2), y: r.y + Math.floor(r.dy / 2) });
+  await clickPt(p.hwnd, { x: r.x + Math.floor(r.dx / 2), y: r.y + Math.floor(r.dy / 2) });
 }
 
 export async function testit(): Promise<void> {
@@ -347,7 +347,7 @@ export async function testit(): Promise<void> {
 
     // a click goes to the page
     s = await sidebar(client);
-    click(s, 3);
+    await click(s, 3);
     await waitFor("a click on page 3 didn't go there", async () => (await sidebar(client)).current === 3);
     // the clicked page keeps its thin frame and gets a spaced selection ring
     if (IS_MAC) {
@@ -383,9 +383,9 @@ export async function testit(): Promise<void> {
     s = await sidebar(client);
     const from = pointIn(s, 2, 0.5, 0.5);
     const to = pointIn(s, 3, 0.9, 0.9);
-    mouse(s.hwnd, WM_LBUTTONDOWN, MK_LBUTTON, from);
-    mouse(s.hwnd, WM_MOUSEMOVE, MK_LBUTTON, to);
-    mouse(s.hwnd, WM_LBUTTONUP, 0, to);
+    await mouse(s.hwnd, WM_LBUTTONDOWN, MK_LBUTTON, from);
+    await mouse(s.hwnd, WM_MOUSEMOVE, MK_LBUTTON, to);
+    await mouse(s.hwnd, WM_LBUTTONUP, 0, to);
     if ((await widths(client)) !== "601,602,603,604") {
       throw new Error("sidebar-thumbnails: dragging a thumbnail moved pages");
     }

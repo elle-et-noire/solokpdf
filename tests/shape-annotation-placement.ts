@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Rectangle and circle annotations from the PDF toolbar and Command Palette
 // can be dragged out or placed with two opposite-corner clicks. Shift
 // constrains the preview and annotation to equal width and height.
@@ -15,7 +16,6 @@ import {
   MK_SHIFT,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   WM_COMMAND,
   WM_LBUTTONDOWN,
@@ -111,14 +111,14 @@ function toolbarButtonRect(dump: string, command: string): { x: number; y: numbe
   return { x, y, dx: +m[3]! - x, dy: +m[4]! - y };
 }
 
-function moveMouse(canvas: number, point: Point, keys = 0): void {
+async function moveMouse(canvas: number, point: Point, keys = 0): Promise<void> {
   const screen = clientToScreen(canvas, point.x, point.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(canvas, WM_MOUSEMOVE, keys, packCoords(point.x, point.y));
 }
 
 async function drag(canvas: number, start: Point, end: Point, keys = 0): Promise<void> {
-  moveMouse(canvas, start);
+  await moveMouse(canvas, start);
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON | keys, packCoords(start.x, start.y));
   // SetCapture generates a real-cursor WM_MOUSEMOVE. Let it arrive before the
   // synthetic drag update so it cannot erase the supplied MK_SHIFT state.
@@ -218,7 +218,7 @@ export async function testit(): Promise<void> {
     // Toolbar and notification cursor queries can overwrite the canvas cursor.
     const cursorDeadline = Date.now() + 2_000 * SLOW_BUILD_FACTOR;
     for (;;) {
-      moveMouse(canvas, center);
+      await moveMouse(canvas, center);
       state = await placementState(client);
       if (state.cursor || Date.now() > cursorDeadline) break;
       await sleep(40);
@@ -252,7 +252,7 @@ export async function testit(): Promise<void> {
     await client.setNotificationsEnabled(false);
     if (IS_MAC) {
       console.log("SKIP shape-annotation-placement: preview pixels are read from a window DC");
-      moveMouse(canvas, rectangleEnd);
+      await moveMouse(canvas, rectangleEnd);
       for (let i = 0; i < 4; i++) {
         sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(rectangleEnd.x, rectangleEnd.y));
         state = await placementState(client);
@@ -267,7 +267,7 @@ export async function testit(): Promise<void> {
       await sleep(100);
       const before = captureWindowPixels(canvas);
       const blueBefore = countPreviewBlue(before, start, rectangleEnd);
-      moveMouse(canvas, rectangleEnd);
+      await moveMouse(canvas, rectangleEnd);
       await sleep(150);
       let after = captureWindowPixels(canvas);
       for (let i = 0; i < 4; i++) {

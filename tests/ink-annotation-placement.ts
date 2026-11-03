@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Ink annotations from the PDF toolbar and Command Palette: each stroke
 // commits on release and the tool stays on. Esc or an empty click leaves it.
 
@@ -21,7 +22,6 @@ import {
   packCoords,
   postMessage,
   sendMessage,
-  setCursorPos,
   sleep,
   VK_ESCAPE,
   WM_COMMAND,
@@ -130,7 +130,7 @@ async function moveMouse(client: ControlClient, canvas: number, point: Point): P
     return;
   }
   const screen = clientToScreen(canvas, point.x, point.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(point.x, point.y));
 }
 

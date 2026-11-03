@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // #1136: keyboard navigation of the home page file list.
 //  - arrows move a selection, drawn with a light blue outline
 //  - Enter opens the selected file
@@ -11,7 +12,7 @@ import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type ControlClient, waitForHome } from "./control.ts";
 import { SETTINGS_FILE, ROOT, USE_NG, cmdId, runStandalone, tmpPath } from "./util";
-import { sendMessage, setCursorPos } from "./winapi";
+import { sendMessage } from "./winapi.ts";
 import {
   findCanvas,
   findChildByClass,
@@ -75,8 +76,8 @@ async function withHomePage(
 ): Promise<void> {
   // CI uses the whole work area, so a cursor left over the thumbnails changes
   // the keyboard selection through hover before the first test key.
-  setCursorPos(0, 0);
   const { proc, client, frame } = await launchControlled(["-appdata", makeAppDir(name)]);
+  await moveTestCursor(0, 0);
   try {
     const canvas = findCanvas(frame);
     if (!canvas) {

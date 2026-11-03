@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Merge PDF (CmdMergePDF): the dialog's grid of pages. A page's corner button
 // removes it, dragging moves it, a rubber band selects pages and Delete removes
 // (then restores) them, another PDF's pages are added where the Add PDF
@@ -27,7 +28,6 @@ import {
   postMessage,
   sendMessage,
   sendText,
-  setCursorPos,
   sleep,
   VK_DELETE,
   VK_ESCAPE,
@@ -134,9 +134,9 @@ async function mouse(client: ControlClient, hwnd: number, msg: number, mk: numbe
   if (msg === WM_LBUTTONDOWN) {
     await ensureModifierKeysUp();
   }
-  // SetCapture injects a WM_MOUSEMOVE at the real cursor: keep it where we are
+  // Keep app cursor reads at the message point.
   const screen = clientToScreen(hwnd, pt.x, pt.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(hwnd, msg, mk, packCoords(pt.x, pt.y));
 }
 

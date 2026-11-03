@@ -44,8 +44,10 @@ import { testit as sigStatus } from "./ad-hoc-pdfium-sig-status.ts";
 import { testCtrlTShortcut, testNoHomeDefault } from "./issue-6464.ts";
 import { testit as selectionOutlines } from "./ad-hoc-selection-outlines.ts";
 import { testit as windowSize } from "./ad-hoc-b58-window-size.ts";
+import { testit as testCursor } from "./ad-hoc-b59-cursor.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-b59-cursor", testCursor],
   ["ad-hoc-b58-window-size", windowSize],
   ["issue-6464-ctrl-t", testCtrlTShortcut],
   ["issue-6464-no-home-default", testNoHomeDefault],

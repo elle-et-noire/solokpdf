@@ -642,8 +642,7 @@ void AnnotEditChip::Paint(VirtPaintCtx& ctx) {
 // the chip that opened this popup; a click on a different chip still opens
 // that chip's menu.
 static void EatDismissClickOverRect(Rect screenRect) {
-    POINT pt;
-    GetCursorPos(&pt);
+    Point pt = GetCursorPosition();
     if (!screenRect.Contains(pt.x, pt.y)) {
         return;
     }
@@ -2508,11 +2507,11 @@ void UpdateAnnotationHoverOverlay(MainWindow* win) {
     bool appearing = overlay->annot != annot || !IsCurrentTab(win, overlay->tab) || !overlay->host->IsVisible();
     if (appearing) {
         overlay->hasMouseAnchor = false;
-        POINT cursor;
+        Point cursor = GetCursorPosition();
         DisplayModel* dm = win->AsFixed();
-        if (dm && AnnotationIsTextMarkup(annot->type) && GetCursorPos(&cursor) &&
-            ScreenToClient(win->hwndCanvas, &cursor)) {
-            overlay->mouseAnchor = dm->CvtFromScreen(Point(cursor.x, cursor.y), PageNo(annot));
+        if (dm && AnnotationIsTextMarkup(annot->type)) {
+            cursor = HwndScreenToClient(win->hwndCanvas, cursor);
+            overlay->mouseAnchor = dm->CvtFromScreen(cursor, PageNo(annot));
             overlay->hasMouseAnchor = true;
         }
     }

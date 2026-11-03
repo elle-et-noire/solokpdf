@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Stamp, caret, and file-attachment annotations from the PDF toolbar or
 // Command Palette enter a placement mode. A ghost of the annotation follows
 // the cursor; canvas-margin clicks do nothing; a page click creates it; Esc
@@ -12,7 +13,6 @@ import {
   getClientRect,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   VK_ESCAPE,
   WM_COMMAND,
@@ -182,7 +182,7 @@ async function testKind(
   // Toolbar and notification cursor queries can overwrite the canvas cursor.
   const cursorDeadline = Date.now() + 2_000 * SLOW_BUILD_FACTOR;
   for (;;) {
-    setCursorPos(screenPoint.x, screenPoint.y);
+    await moveTestCursor(screenPoint.x, screenPoint.y);
     sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(pagePoint.x, pagePoint.y));
     state = await placementState(client, kind);
     if ((state.cursor && state.preview) || Date.now() > cursorDeadline) break;

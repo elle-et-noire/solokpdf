@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Which annotations can be moved and resized follows the PDF spec and mupdf:
 // /Rect is required on every annotation, and mupdf's rect_subtypes (what
 // pdf_annot_has_rect() answers yes to) is the set whose position is theirs to
@@ -11,7 +12,6 @@ import {
   clientToScreen,
   packCoords,
   sendMessage,
-  setCursorPos,
   MK_LBUTTON,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
@@ -110,7 +110,7 @@ export async function testit(): Promise<void> {
 
       const to = { x: x + 40, y: y + 30 };
       const sp = clientToScreen(canvas, to.x, to.y);
-      setCursorPos(sp.x, sp.y);
+      await moveTestCursor(sp.x, sp.y);
       sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
       sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(x, y));
       sendMessage(canvas, WM_MOUSEMOVE, MK_LBUTTON, packCoords(to.x, to.y));

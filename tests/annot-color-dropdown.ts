@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // The color chips of a selected annotation open the same color drop-down the
 // Edit PDF toolbar's markup buttons have, and the color they apply carries its
 // own opacity, so an annotation with a color chip has no opacity chip.
@@ -26,7 +27,6 @@ import {
   packCoords,
   postMessage,
   sendMessage,
-  setCursorPos,
   sleep,
   VK_ESCAPE,
   WM_COMMAND,
@@ -125,7 +125,7 @@ async function ngClick(client: ControlClient, x: number, y: number, button = 0):
   // The toolbar drop-down closes when the real cursor is somewhere else.
   if (IS_MAC) {
     const at = clientToScreen(0, x, y);
-    setCursorPos(at.x, at.y);
+    await moveTestCursor(at.x, at.y);
   }
   const res = await client.request(ControlCommand.TestInput, ["click", x, y, button, 0]);
   const raw = String(res[1] ?? "");
@@ -317,8 +317,8 @@ async function testMarkup(): Promise<void> {
   writeSettings(appdata);
 
   const pdf = join(process.cwd(), "ext", "a-zlib", "zlib.3.pdf");
-  parkCursorAway();
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+  await parkCursorAway();
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
@@ -382,8 +382,8 @@ async function testShape(): Promise<void> {
     "latin1",
   );
 
-  parkCursorAway();
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+  await parkCursorAway();
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
@@ -585,8 +585,8 @@ async function testToolbarButtons(): Promise<void> {
     "latin1",
   );
 
-  parkCursorAway();
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+  await parkCursorAway();
   const pid = proc.pid!;
   try {
     await client.waitForRenderIdle();
@@ -722,7 +722,7 @@ async function testToolbarButtons(): Promise<void> {
       const stayClosedUntil = Date.now() + 1500;
       while (Date.now() < stayClosedUntil) {
         const s = clientToScreen(toolbar, lx, ly);
-        setCursorPos(s.x, s.y);
+        await moveTestCursor(s.x, s.y);
         sendMessage(toolbar, WM_MOUSEMOVE, 0, packCoords(lx, ly));
         const h = findTopWindow(pid, HOVER_MENU_CLASS);
         if (h && isWindowVisible(h)) {
@@ -771,8 +771,8 @@ async function testCurrentColorAdded(): Promise<void> {
     "latin1",
   );
 
-  parkCursorAway();
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+  await parkCursorAway();
   const pid = proc.pid!;
   try {
     await client.waitForRenderIdle();

@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // A pen's eraser end removes whole InkList strokes while the ink tool stays active.
 // Finish/cancel via -dbg-control: a posted Enter does not reach the ink tool.
 
@@ -11,7 +12,6 @@ import {
   MK_LBUTTON,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
@@ -54,7 +54,7 @@ async function inkState(client: ControlClient, args: (string | number)[] = []): 
 async function drawStroke(canvas: number, points: Point[]): Promise<void> {
   const first = points[0]!;
   const screen = clientToScreen(canvas, first.x, first.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(first.x, first.y));
   sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(first.x, first.y));
   await sleep(50);

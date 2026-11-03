@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Line annotations created from the PDF toolbar or Command Palette use two
 // page clicks. A crosshair and live line preview expose the mode; page-margin
 // clicks and Esc cancel without creating an annotation.
@@ -13,7 +14,6 @@ import {
   getClientRect,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   MK_SHIFT,
   VK_ESCAPE,
@@ -99,9 +99,9 @@ function toolbarButtonRect(dump: string, command: string): { x: number; y: numbe
   return { x, y, dx: +m[3]! - x, dy: +m[4]! - y };
 }
 
-function moveMouse(canvas: number, point: Point, key = 0): void {
+async function moveMouse(canvas: number, point: Point, key = 0): Promise<void> {
   const screen = clientToScreen(canvas, point.x, point.y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   sendMessage(canvas, WM_MOUSEMOVE, key, packCoords(point.x, point.y));
 }
 
@@ -184,7 +184,7 @@ export async function testit(): Promise<void> {
     // after the move resets the cross cursor: move again until it sticks
     const cursorDeadline = Date.now() + 2_000 * SLOW_BUILD_FACTOR;
     for (;;) {
-      moveMouse(canvas, center);
+      await moveMouse(canvas, center);
       state = await placementState(client);
       if (state.cursor || Date.now() > cursorDeadline) break;
       await sleep(40);
@@ -217,9 +217,8 @@ export async function testit(): Promise<void> {
     await client.setNotificationsEnabled(false);
     const before = IS_MAC ? null : captureWindowPixels(canvas);
     const blueBefore = countPreviewBlue(before, start, end);
-    // SetCursorPos queues a WM_MOUSEMOVE with no Shift, which can land after the
-    // synthetic one and undo the snap. Resend until the 45-degree preview sticks.
-    moveMouse(canvas, end, MK_SHIFT);
+    // Resend Shift until the 45-degree preview settles.
+    await moveMouse(canvas, end, MK_SHIFT);
     let snapped: RegExpExecArray | null = null;
     for (let i = 0; i < 4; i++) {
       sendMessage(canvas, WM_MOUSEMOVE, MK_SHIFT, packCoords(end.x, end.y));
@@ -234,7 +233,7 @@ export async function testit(): Promise<void> {
       throw new Error(`line-annotation-placement: Shift did not snap preview to 45 degrees\n${state.raw}`);
     }
 
-    moveMouse(canvas, end);
+    await moveMouse(canvas, end);
     // Queued cursor moves can overwrite the synthetic Shift-release move too.
     const pointerDeadline = Date.now() + 2_000 * SLOW_BUILD_FACTOR;
     const pointerEnd = `end=${end.x},${end.y}`;
@@ -273,7 +272,7 @@ export async function testit(): Promise<void> {
       throw new Error(`line-annotation-placement: palette did not start placement mode\n${state.raw}`);
     }
     await clickAt(canvas, start.x, start.y, 0);
-    moveMouse(canvas, end, MK_SHIFT);
+    await moveMouse(canvas, end, MK_SHIFT);
     await clickAt(canvas, end.x, end.y, 0, MK_SHIFT);
     state = await waitForPlacement(client, false);
     if (state.notification || state.annotations !== 1) {

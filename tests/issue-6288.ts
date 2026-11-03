@@ -1,8 +1,9 @@
+import { moveTestCursor } from "./win-automation.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { assemblePdf, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
-import { clientToScreen, packCoords, sendMessage, setCursorPos, sleep, WM_MOUSEMOVE } from "./winapi.ts";
+import { clientToScreen, packCoords, sendMessage, sleep, WM_MOUSEMOVE } from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 const dates = ["2026-01-15T23:30:00Z", "2026-07-15T23:30:00Z"];
@@ -58,7 +59,7 @@ export async function testit(): Promise<void> {
       const x = +square[1]! + Math.floor(+square[3]! / 2);
       const y = +square[2]! + Math.floor(+square[4]! / 2);
       const screen = clientToScreen(canvas, x, y);
-      setCursorPos(screen.x, screen.y);
+      await moveTestCursor(screen.x, screen.y);
       sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
       const expected = localDate(dates[i]!);
       const deadline = Date.now() + 5_000;

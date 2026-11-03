@@ -60,6 +60,7 @@ import {
   clientToScreen,
   getCursorPos,
   setCursorPos,
+  setProcessDpiAware,
   sendCopyDataW,
   getPopupMenuHandle,
   readMenuTree,
@@ -83,6 +84,22 @@ type SharedControlledSession = {
 
 let sharedSessionRequested = false;
 let sharedSession: SharedControlledSession | null = null;
+let cursorClient: ControlClient | null = null;
+
+export async function moveTestCursor(x: number, y: number, client = cursorClient): Promise<void> {
+  if (IS_MAC || USE_NG) {
+    if (!setCursorPos(x, y)) throw new Error("could not move cursor");
+    return;
+  }
+  if (!client) throw new Error("moveTestCursor needs a controlled app");
+  const res = await client.request(ControlCommand.TestCursorPosition, [x, y]);
+  if (res[0] !== x || res[1] !== y) throw new Error(`test cursor: ${res}`);
+}
+
+export async function clearTestCursor(): Promise<void> {
+  if (!cursorClient || IS_MAC || USE_NG) return;
+  await cursorClient.request(ControlCommand.TestCursorPosition);
+}
 
 // keep drain promises alive: `void new Response().text()` can be GC'd, the
 // pipe fills, ASan's next stderr write kills the process, tests see EPIPE
@@ -192,6 +209,8 @@ export async function launchControlled(
   args: string[],
   opts?: { defaultWindowPos?: boolean; saveSettings?: boolean; env?: Record<string, string> },
 ): Promise<{ proc: Bun.Subprocess; client: ControlClient; frame: number }> {
+  // Cross-process mouse messages must use the app's physical pixel coordinates.
+  setProcessDpiAware();
   // many tests post keys and clicks directly; a held modifier would chord them
   await ensureModifierKeysUp();
   if (sharedSession) {
@@ -211,7 +230,9 @@ export async function launchControlled(
       throw new Error("could not open the next document in the shared SumatraPDF process");
     }
     const client = await ControlClient.connect(sharedSession.pipe);
+    await client.request(ControlCommand.TestCursorPosition);
     await client.waitForRenderIdle();
+    cursorClient = client;
     return { proc: sharedSession.proc, client, frame: sharedSession.frame };
   }
   const pipe = uniquePipeName();
@@ -238,6 +259,7 @@ export async function launchControlled(
     if (sharedSessionRequested) {
       sharedSession = { proc, pipe, frame };
     }
+    cursorClient = client;
     return { proc, client, frame };
   } catch (e) {
     await killAndWaitProcess(proc);
@@ -351,9 +373,7 @@ export async function waitForFormEditor(canvas: number, timeoutMs = 1500): Promi
 // Left-click at client (x,y) of hwnd. Sent synchronously, so the click is fully
 // handled before returning, then we wait settleMs for any re-render.
 //
-// The cursor is moved to the click first: SetCapture (from a drag start) injects
-// WM_MOUSEMOVE at the real cursor, and if that is far from (x,y) the app treats
-// the click as a drag (ClickEdgeToTurnPage and similar then no-op).
+// Give app cursor reads the click point before sending the button messages.
 export async function clickAt(hwnd: number, x: number, y: number, settleMs = 350, extraMk = 0): Promise<void> {
   if (IS_MAC) {
     macClick(x, y, extraMk);
@@ -364,7 +384,7 @@ export async function clickAt(hwnd: number, x: number, y: number, settleMs = 350
   // turns a plain click into Ctrl+click
   await ensureModifierKeysUp();
   const screen = clientToScreen(hwnd, x, y);
-  setCursorPos(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y);
   // ng: one click, as on macOS, so no real move lands between down and up
   const target = ngInputTarget(hwnd);
   if (target) {
@@ -375,16 +395,6 @@ export async function clickAt(hwnd: number, x: number, y: number, settleMs = 350
     sendMessage(hwnd, WM_LBUTTONUP, extraMk, lp);
   }
 
-  // someone moving the real mouse (e.g. over RDP) mid-click turns it into a drag.
-  // macOS has no GetCursorPos; the click coordinates went out as TestInput.
-  if (!IS_MAC) {
-    const at = getCursorPos();
-    if (at.x !== screen.x || at.y !== screen.y) {
-      console.log(
-        `⚠ clickAt: real mouse moved during the click (to ${at.x},${at.y}, click at ${screen.x},${screen.y})`,
-      );
-    }
-  }
   await sleep(settleMs);
 }
 
@@ -400,10 +410,8 @@ function rectHasPoint(r: ScreenRect, x: number, y: number): boolean {
   return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
 }
 
-// Moves the real cursor off `avoid` (default: where test windows open), so real
-// mouse moves can't hover the app, e.g. open a toolbar drop-down. SetCursorPos
-// clamps to the screen, so try each side and keep the one that landed outside.
-export function parkCursorAway(avoid?: ScreenRect[]): boolean {
+// Keep the app's cursor reads outside test windows, so hover cannot open a menu.
+export async function parkCursorAway(avoid?: ScreenRect[]): Promise<boolean> {
   if (!avoid) {
     const p = testWindowPos();
     avoid = [{ left: p.x, top: p.y, right: p.x + p.dx, bottom: p.y + p.dy }];
@@ -416,13 +424,9 @@ export function parkCursorAway(avoid?: ScreenRect[]): boolean {
     { x: fr.left + 100, y: fr.top - 40 },
   ];
   for (const p of candidates) {
-    if (!setCursorPos(p.x, p.y)) {
-      continue;
-    }
-    const c = getCursorPos();
-    if (!avoid.some((r) => rectHasPoint(r, c.x, c.y))) {
-      return true;
-    }
+    await moveTestCursor(p.x, p.y);
+    const at = IS_MAC || USE_NG ? getCursorPos() : p;
+    if (!avoid.some((r) => rectHasPoint(r, at.x, at.y))) return true;
   }
   return false;
 }

@@ -337,8 +337,7 @@ void PropertiesWnd::ViewCertificate(VirtMouseEvent*) {
         AppendMenuW(menu, MF_STRING, id, CWStrTemp(c->label));
         id++;
     }
-    POINT pt{};
-    GetCursorPos(&pt);
+    Point pt = GetCursorPosition();
     int chosen = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd, nullptr);
     DestroyMenu(menu);
     if (chosen >= 1) {

@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // Two things about editing a selected free text annotation in Edit PDF mode:
 // resizing only moves the outline (the annotation is rewritten once, on mouse
 // up, because re-laying out its text on every mouse move is slow), and the
@@ -12,7 +13,6 @@ import {
   findTopWindow,
   packCoords,
   sendMessage,
-  setCursorPos,
   sleep,
   MK_LBUTTON,
   WM_COMMAND,
@@ -134,7 +134,7 @@ export async function testit(): Promise<void> {
     const endX = hx + 60;
     const endY = hy + 40;
     const end = clientToScreen(canvas, endX, endY);
-    setCursorPos(end.x, end.y);
+    await moveTestCursor(end.x, end.y);
     sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(endX, endY));
     sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(hx, hy));
     sendMessage(canvas, WM_MOUSEMOVE, MK_LBUTTON, packCoords(endX, endY));

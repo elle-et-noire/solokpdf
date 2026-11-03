@@ -1,5 +1,5 @@
-// Crash 2026-09-09-15-43-0ee0: the home page layout was cached in one global,
-// but every window has its own home chrome laid out and painted from it.
+import { moveTestCursor } from "./win-automation.ts";
+// Crash 2026-09-09-15-43-0ee0: the home page layout was cached in one global, // but every window has its own home chrome laid out and painted from it.
 // Opening a second window rebuilt the cache for that window, and the first one
 // then painted with the second window's geometry (and pointers into the
 // rebuilt, freed thumbs vector).
@@ -17,9 +17,8 @@ import {
   moveWindow,
   type Rect,
   repaintWindow,
-  setCursorPos,
   sleep,
-} from "./winapi";
+} from "./winapi.ts";
 import { CANVAS_CLASS, findCanvas, FRAME_CLASS, killAndWait, launchControlled, sendCommand } from "./win-automation";
 import type { ControlClient } from "./control.ts";
 
@@ -102,9 +101,9 @@ const same = (a: number[], b: number[]) => a.length === b.length && a.every((v, 
 
 export async function testit(): Promise<void> {
   // a cursor over the thumbnails keeps changing the hover selection
-  setCursorPos(0, 0);
   const dir = makeAppDir();
   const { proc, client, frame } = await launchControlled(["-appdata", dir]);
+  await moveTestCursor(0, 0);
   try {
     // the control commands report the first window, so this is its layout
     const first = await searchRect(client, 0);

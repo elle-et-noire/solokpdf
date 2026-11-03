@@ -367,7 +367,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 - B58 sizes thumbnail tests explicitly, compares tab widths within the same
   layout and keeps click-away points within the canvas. The narrow-window tab
-  check is in `ad-hoc-b58-window-size`. `issue-6464`'s `+` click remains B59.
+  check is in `ad-hoc-b58-window-size`. B59 gives controlled tests a process-local
+  cursor position; message-driven tests no longer move the system pointer.
+  OLE drag and drop and foreground-dependent popup tests still need an unlocked
+  desktop. See [testing.md](testing.md).
 - Run 3 failed `toolbar-hover-dropdown` and `issue-6113` on both engines.
   Locally, toolbar clicks report the real cursor moving to `(0,0)`, and the
   RTL notification capture hangs on the locked desktop. Neither test can

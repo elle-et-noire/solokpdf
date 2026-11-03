@@ -1,3 +1,4 @@
+import { moveTestCursor } from "./win-automation.ts";
 // issue #6148: on the IE backend (Windows 7 has no WebView2) neither the mouse
 // wheel nor the arrow keys scrolled a CHM or markdown document; only the
 // browser's own scrollbars worked.
@@ -19,7 +20,7 @@ import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { findCanvas, launchControlled, killAndWait, ensureModifierKeysUp } from "./win-automation.ts";
-import { clientToScreen, getClientRect, packCoords, sendMessage, setCursorPos, sleep } from "./winapi.ts";
+import { clientToScreen, getClientRect, packCoords, sendMessage, sleep } from "./winapi.ts";
 
 const WM_MOUSEWHEEL = 0x020a;
 const WM_KEYDOWN = 0x0100;
@@ -89,7 +90,7 @@ export async function testit(): Promise<void> {
     await ensureModifierKeysUp();
     const cr = getClientRect(canvas);
     const mid = clientToScreen(canvas, Math.floor(cr.right / 2), Math.floor(cr.bottom / 2));
-    setCursorPos(mid.x, mid.y);
+    await moveTestCursor(mid.x, mid.y);
     const lp = packCoords(mid.x, mid.y);
     const wp = (-WHEEL_DELTA << 16) >>> 0;
 
