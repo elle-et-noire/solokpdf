@@ -72,6 +72,7 @@ export async function testit(): Promise<void> {
   const key = async (stroke: string) => state("key", stroke);
   try {
     await client.waitForRenderIdle();
+    await client.request(ControlCommand.TestFocusState, ["activate"]);
     if (!/mode=1/.test(await state())) throw new Error("VimKeys setting was not loaded");
     for (const [stroke, expected] of [
       ["n", "CmdFindNext"],
@@ -254,6 +255,7 @@ export async function testit(): Promise<void> {
   const reopened = await launchControlled(["-appdata", appdata, markedPath], { saveSettings: true });
   try {
     await reopened.client.waitForRenderIdle();
+    await reopened.client.request(ControlCommand.TestFocusState, ["activate"]);
     await pressKey(reopened.frame, 0x23);
     await reopened.client.request(ControlCommand.TestVimKeys, ["key", "'"]);
     await pressKey(reopened.frame, 0x41);
@@ -269,6 +271,7 @@ export async function testit(): Promise<void> {
   const empty = await launchControlled(["-appdata", appdata, noLinks]);
   try {
     await empty.client.waitForRenderIdle();
+    await empty.client.request(ControlCommand.TestFocusState, ["activate"]);
     await pressKey(empty.frame, 0x23);
     await pressKey(empty.frame, 0x46);
     await pressKey(empty.frame, 0x47);

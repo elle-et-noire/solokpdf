@@ -1,5 +1,52 @@
 # SolokPDF test setup
 
+## Local Windows runs
+
+Run every local test that can launch an app through the hidden-desktop runner,
+outside the Codex sandbox. The runner creates or opens `WinSta0\SolokPDFTests`,
+starts the test process there, and never switches desktops. Descendant app
+windows stay off the owner's screen. It forwards output and exit status; a
+timeout or Ctrl+C ends the process tree.
+
+```powershell
+. ./tools/solokpdf/env.ps1
+bun cmd/solok-build.ts -quick
+bun tools/solokpdf/run-hidden.ts -- bun tests/issue-1914.ts --no-build
+```
+
+`--timeout-ms=N` before `--` changes the default ten-minute limit. Run the
+test process itself through the runner, so any Bun child it launches inherits
+the desktop. Keep `-for-testing` on ad-hoc app launches. Hosted CI still uses
+its own invisible desktop.
+
+The B69 probe (`tests/ad-hoc-b69-hidden-desktop.ts`) creates a visible window
+and checks its desktop name against the input desktop. Run it first when
+checking the runner. Local app tests must never run on the owner's desktop.
+
+### Desktop-dependent checks
+
+| Check                                                | Hidden-desktop behavior                                                                                    |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `ad-hoc-b68-window` foreground and z-order assertion | Skips when the never-shown desktop has no foreground window.                                               |
+| `issue-6269` foreground branch                       | Skips locally without CI or `SOLOKPDF_REAL_DESKTOP=1`; its background Copy branch runs.                    |
+| Direct screen capture                                | Has no displayed hidden-desktop surface to sample reliably; use window-local `PrintWindow` checks instead. |
+| System clipboard                                     | Shared by desktops in `WinSta0`; hidden windows do not isolate it. B67 tracks test-local clipboard work.   |
+
+The two skipped foreground branches need a visible input desktop for their
+foreground assertions. Do not opt in to them during local hidden runs. DPI
+awareness remains per process; window geometry and `PrintWindow` passed in the
+hidden SolokPDF CI set (`issue-6113`, `ad-hoc-pdfium-window-bg`, thumbnail and
+theme captures). Markdown WebView2 scrolling (`issue-6142`) and HTML loading
+and thumbnail capture (`issue-6448`) also passed there. The older
+`ad-hoc-md-find` probe fails at its find-bar locator: it expects `Edit` and
+`Static` children, while the current bar uses a combo box and virtual status.
+That failure is not established as desktop-specific.
+
+The first hidden SolokPDF CI run passed 52/54 tests. `ad-hoc-vim-keys` and
+`ad-hoc-count-prefix` had no focused frame and failed keyboard assertions;
+both passed individually after activating their own frames. The full set was
+run once, before those test changes.
+
 Controlled Win32 tests send window messages and set an app-local cursor through
 `-dbg-control` `TestCursorPosition` (155). Use `moveTestCursor()` in
 `tests/win-automation.ts` before mouse messages; `clickAt()` does this for

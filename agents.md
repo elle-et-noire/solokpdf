@@ -2,6 +2,8 @@ The original SumatraPDF is a Windows-only C++ program using Win32. Its old
 macOS/Linux ports were removed. SumatraPDF ng in `src/ng/` targets macOS,
 Linux and WebAssembly; its Windows build is for testing and comparison.
 
+For local SolokPDF GUI tests, follow `docs/solokpdf/testing.md`.
+
 We don't use STL but our own string / helper / container functions implemented in src\base directory
 
 Assume that Visual Studio command-line tools are available in the PATH environment variable (cl.exe, msbuild.exe etc.)

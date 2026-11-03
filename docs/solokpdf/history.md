@@ -1417,7 +1417,7 @@ the per-page lightweight query; the profiling code was removed.
 
 ## Completed backlog
 
-Rows of [backlog.md](backlog.md) completed by 2026-11-03. Sources: an audit of every
+Rows of [backlog.md](backlog.md) completed by 2026-11-04. Sources: an audit of every
 MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 `AsEngineMupdf` helpers), the known limitations and the upstream full suite.
 
@@ -1500,6 +1500,7 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 | B64 | Docs cleanup after B54–B63                                                                                                                                                                                                                                                                     | docs                         | done — Update docs for test and UI changes (B64)                                     |
 | B66 | Drive issue-6269 and attachment tab drag-out without the real pointer; limit explicit foreground activation to CI or opt-in                                                                                                                                                                    | tests                        | done — Drive pointer-dependent tests by messages (B66); Fix review findings for B66  |
 | B68 | Open test windows behind other windows without activation; lint desktop input calls                                                                                                                                                                                                            | app, tests                   | done — Open test windows behind, unactivated (B68)                                   |
+| B69 | Run local tests on a separate, invisible Windows desktop                                                                                                                                                                                                                                       | tests                        | done — Run local tests on a hidden desktop (B69)                                     |
 
 ### C. Coexistence with SumatraPDF
 

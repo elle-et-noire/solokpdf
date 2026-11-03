@@ -12,14 +12,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { cmdId, runStandalone, tmpPath } from "./util.ts";
-import {
-  launchSumatra,
-  waitForFrame,
-  sendCommand,
-  findCanvas,
-  killAndWait,
-  killProcessesNamed,
-} from "./win-automation.ts";
+import { launchSumatra, waitForFrame, sendCommand, findCanvas, killAndWait } from "./win-automation.ts";
 import {
   sleep,
   enumWindows,
@@ -82,7 +75,6 @@ export async function testit(): Promise<void> {
   const md = join(dir, "find-test.md");
   writeFileSync(md, "# Find test\n\nzebra one\n\nsome ze**br**a bold\n\nlast Zebra here\n\nnothing else\n");
 
-  await killProcessesNamed("SumatraPDF.exe");
   const proc = launchSumatra([md]);
   try {
     const frame = await waitForFrame(proc.pid!);
