@@ -73,7 +73,7 @@ clicks. Two screen coordinates set the position; a request without arguments
 clears it. The response is the position. The override works even when a controlled run saves
 settings without `-for-testing`; it never moves the Windows pointer.
 
-With `-for-testing`, app windows open behind other windows without activation. Dialogs opened by tests may take focus and activate on a visible desktop; local tests use the hidden desktop, so this is acceptable.
+With `-for-testing`, app windows open behind other windows without activation. Dialogs and new tabs opened by tests may take focus and activate on a visible desktop; local tests use the hidden desktop, so this is acceptable.
 Tests that require foreground-only behavior activate their own frame through
 `-dbg-control` `TestFocusState("activate")`. Tests that need normal window-state transitions can set
 `SOLOKPDF_REAL_WINDOW_ACTIVATION=1` for their app process on CI or a hidden

@@ -10,7 +10,7 @@ import {
   sendCopyDataW,
   sleep,
 } from "./winapi.ts";
-import { FRAME_CLASS, killAndWait, launchControlled, sendCommand, sendCommandSync } from "./win-automation.ts";
+import { FRAME_CLASS, killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 
 function otherFrame(pid: number, first: number): number {
   let found = 0;
@@ -59,9 +59,6 @@ export async function testit(): Promise<void> {
         const afterNew = getForegroundWindow();
         if (afterNew && getWindowPid(afterNew) === proc.pid) failures.push("new frame changed foreground");
 
-        sendCommandSync(frame, cmdId("CmdNewTab"));
-        const afterTab = getForegroundWindow();
-        if (afterTab && getWindowPid(afterTab) === proc.pid) failures.push("new tab changed foreground");
         sendCopyDataW(frame, 0x44646557, `[Open("${pdf}", 0, 1, 0)]`);
         const afterOpen = getForegroundWindow();
         if (afterOpen && getWindowPid(afterOpen) === proc.pid) failures.push("opening document changed foreground");

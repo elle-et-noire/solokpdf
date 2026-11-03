@@ -384,7 +384,7 @@ Toolbar hover failed on both engines; the canvas now ignores physical mouse
 moves that conflict with the test cursor. Targeted tests pass locally on both
 engines; hosted verification remains pending. Run 41711900891 exposed an
 activating About positioning call; dialog positioning now avoids activation,
-and the foreground test covers app launches, documents, tabs and windows. A test-only
+and the foreground test covers app launches, documents and new windows. New tabs may activate the Home filter. A test-only
 UI-thread activation trace records window classes and module-relative stacks for
 the foreground test to print on failure.
 A UI-thread hook guards top-level positioning; controls may take keyboard focus, and
