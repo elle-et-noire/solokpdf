@@ -73,7 +73,9 @@ settings without `-for-testing`; it never moves the Windows pointer.
 
 With `-for-testing`, app windows open behind other windows without activation.
 Tests that require foreground-only behavior activate their own frame through
-`-dbg-control` `TestFocusState("activate")`.
+`-dbg-control` `TestFocusState("activate")`. Tests that need normal window-state transitions can set
+`SOLOKPDF_REAL_WINDOW_ACTIVATION=1` for their app process on CI or a hidden
+desktop; this allows activation.
 
 Loading `tests/winapi.ts` makes the test process per-monitor-v2 DPI aware.
 Coordinates and captures therefore use physical pixels on scaled displays.

@@ -19,7 +19,8 @@ import { IS_MAC } from "./host.ts";
 import { SETTINGS_FILE, ROOT, cmdId, tmpPath } from "./util.ts";
 import {
   launchControlled,
-  launchSumatra,
+  activateTestFrame,
+  canActivateTestFrame,
   sendCommandSync,
   waitForExit,
   waitForFrame,
@@ -125,7 +126,11 @@ export async function testit(): Promise<void> {
     return;
   }
 
-  const proc = launchSumatra(["-appdata", appDataDir, PDF], { defaultWindowPos: true });
+  if (!canActivateTestFrame()) throw new Error("issue-1106 requires an isolated test desktop");
+  const { proc, client } = await launchControlled(["-appdata", appDataDir, PDF], {
+    defaultWindowPos: true,
+    env: { SOLOKPDF_REAL_WINDOW_ACTIVATION: "1" },
+  });
   let frame = 0;
   try {
     frame = await waitForFrame(proc.pid!);
@@ -139,6 +144,7 @@ export async function testit(): Promise<void> {
     if (!isZoomed(frame)) {
       throw new Error("expected window to start maximized (WindowState = 2)");
     }
+    await activateTestFrame(client);
     // WM_SIZE reports the maximized state before the frame has been resized to
     // the work area, so sampling right away can capture the pre-maximize
     // WindowPos size and make the comparisons below meaningless
@@ -193,6 +199,7 @@ export async function testit(): Promise<void> {
       postMessage(frame, WM_CLOSE, 0, 0);
       await waitForExit(proc, 5000);
     }
+    client.close();
     await killAndWait(proc);
     rmSync(appDataDir, { recursive: true, force: true });
   }

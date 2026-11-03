@@ -33,7 +33,11 @@ static const WStr kControlClassName = L"SumatraWgControlClass";
 
 HWND AppWindowZOrder(HWND hwnd, HWND normal) {
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-    if (gForTesting && !HwndIsWindowStyleSet(hwnd, WS_CHILD) &&
+    WCHAR realActivation[2];
+    bool allowActivation =
+        GetEnvironmentVariableW(L"SOLOKPDF_REAL_WINDOW_ACTIVATION", realActivation, dimof(realActivation)) == 1 &&
+        realActivation[0] == L'1';
+    if (gForTesting && !allowActivation && !HwndIsWindowStyleSet(hwnd, WS_CHILD) &&
         !(GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_NOACTIVATE)) {
         return HWND_BOTTOM;
     }

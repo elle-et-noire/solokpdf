@@ -523,6 +523,7 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["issue-1106", issue1106],
   ["form-js-no-stderr", formJsNoStderr],
   ["issue-5989", issue5989],
   ["issue-6280", issue6280],
@@ -867,7 +868,6 @@ export const tests: NamedTest[] = [
   ["annot-filter-close-window", annotFilterCloseWindow],
   ["issue-6136", issue6136],
   ["issue-1930", issue1930],
-  ["issue-1106", issue1106],
   ["issue-814", issue814],
   ["issue-1422", issue1422],
   ["issue-1438", issue1438],
