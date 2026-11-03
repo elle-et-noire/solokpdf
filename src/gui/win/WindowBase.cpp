@@ -5,6 +5,7 @@
 #include "base/AutoWin.h"
 #include "base/UITask.h"
 #include "base/Win.h"
+#include "shared/SumatraConfig.h"
 #include "gui/Dpi.h"
 
 #include "gui/UIModels.h"
@@ -29,6 +30,18 @@ static const WStr kDefaultClassName = L"SumatraWgDefaultWinClass";
 // its own class name, so a WindowBase custom window and a ControlBase custom
 // window can be told apart in a debugger / spy tool
 static const WStr kControlClassName = L"SumatraWgControlClass";
+
+static bool ShowBehindForTest(HWND hwnd) {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (gForTesting && !HwndIsWindowStyleSet(hwnd, WS_CHILD) &&
+        !(GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_NOACTIVATE)) {
+        ::ShowWindow(hwnd, SW_SHOWNA);
+        ::SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        return true;
+    }
+#endif
+    return false;
+}
 
 TempStr WinMsgNameTemp(UINT msg) {
     return fmt("0x%x", (int)msg);
@@ -407,8 +420,14 @@ HWND HwndBase::CreateCustomHwnd(const CreateCustomArgs& args, WStr defaultClassN
     void* createParams = this;
     WCHAR* titleW = CWStrTemp(args.title);
 
-    HWND hwndTmp =
-        ::CreateWindowExW(exStyle, className.s, titleW, style, x, y, dx, dy, parentOrOwner, m, inst, createParams);
+    DWORD createStyle = style;
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (gForTesting && !(style & WS_CHILD) && !(exStyle & WS_EX_NOACTIVATE)) {
+        createStyle &= ~WS_VISIBLE;
+    }
+#endif
+    HWND hwndTmp = ::CreateWindowExW(exStyle, className.s, titleW, createStyle, x, y, dx, dy, parentOrOwner, m, inst,
+                                     createParams);
 
     ReportIf(!hwndTmp);
     // hwnd should be assigned in WM_NCCREATE
@@ -430,12 +449,14 @@ HWND HwndBase::CreateCustomHwnd(const CreateCustomArgs& args, WStr defaultClassN
         }
     }
     if (style & WS_VISIBLE) {
-        if (style & WS_MAXIMIZE)
-            ::ShowWindow(hwnd, SW_MAXIMIZE);
-        else if (style & WS_MINIMIZE)
-            ::ShowWindow(hwnd, SW_MINIMIZE);
-        else
-            ::ShowWindow(hwnd, SW_SHOWNORMAL);
+        if (!ShowBehindForTest(hwnd)) {
+            if (style & WS_MAXIMIZE)
+                ::ShowWindow(hwnd, SW_MAXIMIZE);
+            else if (style & WS_MINIMIZE)
+                ::ShowWindow(hwnd, SW_MINIMIZE);
+            else
+                ::ShowWindow(hwnd, SW_SHOWNORMAL);
+        }
     }
     return hwnd;
 }
@@ -546,7 +567,9 @@ void WindowBase::SetVisibility(Visibility newVisibility) {
     // GWLP_HWNDPARENT, like the keyboard help) GetParent() returns the owner,
     // and just flipping WS_VISIBLE on a top-level window doesn't show it
     if (!HwndIsWindowStyleSet(hwnd, WS_CHILD)) {
-        ::ShowWindow(hwnd, isVisible ? SW_SHOW : SW_HIDE);
+        if (!isVisible || !ShowBehindForTest(hwnd)) {
+            ::ShowWindow(hwnd, isVisible ? SW_SHOW : SW_HIDE);
+        }
     } else {
         BOOL bIsVisible = toBOOL(isVisible);
         HwndSetWindowStyle(hwnd, WS_VISIBLE, bIsVisible);

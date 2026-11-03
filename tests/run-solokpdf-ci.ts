@@ -50,8 +50,12 @@ import { testit as issue6269 } from "./issue-6269.ts";
 import { testit as lastTabState } from "./ad-hoc-b65-last-tab.ts";
 import { testit as menuOwner } from "./ad-hoc-b65-menu-owner.ts";
 import { testit as rtlToast } from "./issue-6113.ts";
+import { testit as windowBehind } from "./ad-hoc-b68-window.ts";
+import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
 
 const tests: NamedTest[] = [
+  ["lint-desktop-input", lintDesktopInput],
+  ["ad-hoc-b68-window", windowBehind],
   ["issue-6113", rtlToast],
   ["ad-hoc-b59-cursor", testCursor],
   ["issue-6269", issue6269],

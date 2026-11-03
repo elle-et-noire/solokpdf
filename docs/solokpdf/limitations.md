@@ -393,6 +393,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   clipboard untouched. `issue-3472`, `issue-6045`, and `ad-hoc-4600-*`
   still set foreground. Ng/mac `moveTestCursor()` still moves the real pointer.
   See [testing.md](testing.md).
+- B68 opens `-for-testing` windows behind other windows without activation.
+  A foreground check covers three launches; static lint limits tests that move
+  the system pointer or activate a window. The B59 cursor test no longer
+  compares the real pointer during clicks or override clearing.
 - `toolbar-hover-dropdown` passes on both engines, locally and in hosted CI
   (runs 41627802937, 41627807442), so the full suite runs it again.
   With the original PDF fixture, both engines display upright RTL toast text.

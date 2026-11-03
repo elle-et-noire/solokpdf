@@ -7,6 +7,10 @@ clicks. Two screen coordinates set the position; a request without arguments
 clears it. The response is the position. The override works even when a controlled run saves
 settings without `-for-testing`; it never moves the Windows pointer.
 
+With `-for-testing`, app windows open behind other windows without activation.
+Tests that require foreground-only behavior activate their own frame through
+`-dbg-control` `TestFocusState("activate")`.
+
 Loading `tests/winapi.ts` makes the test process per-monitor-v2 DPI aware.
 Coordinates and captures therefore use physical pixels on scaled displays.
 The cursor override cancels Windows mouse-leave tracking; send `WM_MOUSELEAVE`
@@ -19,7 +23,7 @@ helpers use `testWindowPos()` unless a test supplies its own position.
 
 Original-app message-driven hover, clicks, selection and tab drag-out use the
 test cursor without moving the real pointer. `issue-6269` opens a second
-controlled app window to leave the first frame in the background; it does not
+controlled app window to test the first frame in the background; it does not
 call a foreground API on the local default run. It queries the UI thread's
 `GetFocus()` and `GetActiveWindow()` before and after Copy mouse-down/up.
 In CI or with `SOLOKPDF_REAL_DESKTOP=1`, it activates its test frame and

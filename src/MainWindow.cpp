@@ -23,6 +23,7 @@
 #include "gui/win/FrameRateWnd.h"
 
 #include "Settings.h"
+#include "SumatraConfig.h"
 #include "DisplayMode.h"
 #include "DocController.h"
 #include "EngineBase.h"
@@ -430,6 +431,9 @@ static HWND FindModalOwnedBy(HWND hwndParent) {
 }
 
 void MainWindow::Focus() const {
+    if (gForTesting) {
+        return;
+    }
     HwndToForeground(hwndFrame);
     // set focus to an owned modal dialog if there is one
     HWND hwnd = FindModalOwnedBy(hwndFrame);

@@ -843,7 +843,10 @@ void ShowAboutWindow(MainWindow* win) {
     MoveWindow(gHwndAbout, wRc.x, wRc.y, wRc.dx, wRc.dy, FALSE);
 
     HwndPositionInCenterOf(gHwndAbout, win->hwndFrame);
-    ShowWindow(gHwndAbout, SW_SHOW);
+    ShowWindow(gHwndAbout, gForTesting ? SW_SHOWNOACTIVATE : SW_SHOW);
+    if (gForTesting) {
+        SetWindowPos(gHwndAbout, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
 }
 
 static void ShowFrequentlyRead(VirtMouseEvent* ev) {

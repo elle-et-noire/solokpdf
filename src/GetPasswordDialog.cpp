@@ -240,7 +240,9 @@ bool ShowPasswordDialog(const PasswordDialogArgs& args, PasswordDialogResult* re
 
     if (parent && IsWindow(parent)) {
         EnableWindow(parent, TRUE);
-        SetForegroundWindow(parent);
+        if (!gForTesting) {
+            SetForegroundWindow(parent);
+        }
     }
 
     result->accepted = wnd->accepted;

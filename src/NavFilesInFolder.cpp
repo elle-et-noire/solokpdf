@@ -739,7 +739,7 @@ void NavFilesInFolderWnd::ExecuteCurrentSelection(bool inNewTab) {
         WindowTab* existing = FindTabByFilePath(path);
         if (existing) {
             SelectTabInWindow(existing);
-            if (existing->win) {
+            if (existing->win && !gForTesting) {
                 SetForegroundWindow(existing->win->hwndFrame);
             }
             return;
@@ -768,8 +768,10 @@ void NavFilesInFolderWnd::ExecuteCurrentSelection(bool inNewTab) {
     // but that only helps if the frame is the foreground window by then - this
     // window is still on top otherwise, and arrow keys keep driving the list.
     // The window stays open so browsing can continue; it just isn't focused.
-    SetForegroundWindow(mainWin->hwndFrame);
-    HwndSetFocus(mainWin->hwndFrame);
+    if (!gForTesting) {
+        SetForegroundWindow(mainWin->hwndFrame);
+        HwndSetFocus(mainWin->hwndFrame);
+    }
 }
 
 // Del on a file moves it to the recycle bin (issue #5877), without a
@@ -1323,13 +1325,19 @@ void ShowNavFilesInFolder(MainWindow* win, Str selectPath, bool skipHistory) {
                 // on the home page with no selection keep whatever dir is open
                 gNavFilesWnd->RefreshList();
             }
-            ShowWindow(gNavFilesWnd->hwnd, SW_SHOW);
-            SetForegroundWindow(gNavFilesWnd->hwnd);
-            gNavFilesWnd->skipHistory = skipHistory;
-            if (gNavFilesWnd->listBox) {
-                gNavFilesWnd->SetFocusTo(gNavFilesWnd->listBox);
+            ShowWindow(gNavFilesWnd->hwnd, gForTesting ? SW_SHOWNOACTIVATE : SW_SHOW);
+            if (gForTesting) {
+                SetWindowPos(gNavFilesWnd->hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             } else {
-                HwndSetFocus(gNavFilesWnd->hwnd);
+                SetForegroundWindow(gNavFilesWnd->hwnd);
+            }
+            gNavFilesWnd->skipHistory = skipHistory;
+            if (!gForTesting) {
+                if (gNavFilesWnd->listBox) {
+                    gNavFilesWnd->SetFocusTo(gNavFilesWnd->listBox);
+                } else {
+                    HwndSetFocus(gNavFilesWnd->hwnd);
+                }
             }
             return;
         }

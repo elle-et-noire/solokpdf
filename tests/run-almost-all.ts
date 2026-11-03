@@ -20,6 +20,7 @@ import { runNamedTests, runSuiteMain, startSuiteProgress, type NamedTest, type S
 import { setTestWindowLayout } from "./winapi.ts";
 import { beginSharedControlledSession, endSharedControlledSession } from "./win-automation.ts";
 import { testit as lintCommandIds } from "./lint-command-ids.ts";
+import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
 import { testit as jbig2ResizeOverflow } from "./jbig2-resize-overflow.ts";
 import { testit as issue6468 } from "./issue-6468.ts";
 import { testit as jpegXlPdf } from "./jpeg-xl-pdf.ts";
@@ -688,6 +689,7 @@ export const tests: NamedTest[] = [
 
   // --- no Sumatra process -------------------------------------------------
   ["lint-command-ids", lintCommandIds],
+  ["lint-desktop-input", lintDesktopInput],
   ["build-cli", buildCli],
   ["parse-tip-brackets", parseTipBrackets],
   ["combining-mark-first", combiningMarkFirst],

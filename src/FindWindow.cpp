@@ -17,6 +17,7 @@
 #include "gui/VirtCtrl.h"
 
 #include "Settings.h"
+#include "SumatraConfig.h"
 #include "AppSettings.h"
 #include "DocController.h"
 #include "EngineBase.h"
@@ -1062,8 +1063,12 @@ void ShowFindWindow(MainWindow* win) {
     Rect wr = HwndWindowRect(w->hwnd);
     w->UpdateDpi(DpiGetForPoint(wr.x + (wr.dx / 2), wr.y + (wr.dy / 2)));
     w->Layout();
-    ShowWindow(w->hwnd, SW_SHOW);
-    win->findEdit->SetFocus();
+    ShowWindow(w->hwnd, gForTesting ? SW_SHOWNOACTIVATE : SW_SHOW);
+    if (gForTesting) {
+        SetWindowPos(w->hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    } else {
+        win->findEdit->SetFocus();
+    }
     CbEditSelectAll(win->findEdit);
     // populate the results list: show what's cached, and (re)run the search for
     // the current term so snippets get built now that the window is visible

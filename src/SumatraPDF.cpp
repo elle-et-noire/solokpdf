@@ -657,7 +657,9 @@ Str HwndPasswordUI::GetPassword(Str path, u8* fileDigest, u8 decryptionKeyOut[32
         hwnd = GetForegroundWindow();
     }
     // make sure that the password dialog is visible
-    HwndToForeground(hwnd);
+    if (!gForTesting) {
+        HwndToForeground(hwnd);
+    }
 
     // remembering the password requires saving per-document state
     bool canRememberPwd = SettingsRememberOpenedFiles() && gSettings->rememberStatePerDocument;
@@ -2240,7 +2242,10 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
             HwndMoveWindow(win->hwndFrame, &rect);
         }
         if (args->showWin) {
-            ShowWindow(win->hwndFrame, showType);
+            ShowWindow(win->hwndFrame, gForTesting ? SW_SHOWNA : showType);
+            if (gForTesting) {
+                SetWindowPos(win->hwndFrame, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
         }
 
         // Fire deferred SWP_FRAMECHANGED for custom caption so the
@@ -2248,6 +2253,9 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
         // ShowMainWindow normally does this, but this code path bypasses it.
         if (args->showWin && args->isNewWindow && win->tabsInTitlebar) {
             uint swpFlags = SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE;
+            if (gForTesting) {
+                swpFlags |= SWP_NOACTIVATE;
+            }
             SetWindowPos(win->hwndFrame, nullptr, 0, 0, 0, 0, swpFlags);
         }
 
@@ -2823,6 +2831,9 @@ static MainWindow* CreateMainWindow() {
     WStr clsName = WStr(kFrameClassName);
     WStr title = WStrL(L"" kAppName);
     DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
+    if (gForTesting && !fixedPos && gSettings->windowState == WIN_STATE_MAXIMIZED) {
+        style |= WS_MAXIMIZE;
+    }
     int x = windowPos.x;
     int y = windowPos.y;
     int dx = windowPos.dx;
@@ -2962,7 +2973,10 @@ static MainWindow* CreateMainWindow() {
 void ShowMainWindow(MainWindow* win, int windowState) {
     // fullscreen enters from the normal window: exiting fullscreen returns to
     // the state it was entered from, which a saved session doesn't record
-    if (WIN_STATE_MAXIMIZED == windowState) {
+    if (gForTesting) {
+        ShowWindow(win->hwndFrame, SW_SHOWNA);
+        SetWindowPos(win->hwndFrame, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    } else if (WIN_STATE_MAXIMIZED == windowState) {
         ShowWindow(win->hwndFrame, SW_MAXIMIZE);
     } else {
         ShowWindow(win->hwndFrame, SW_SHOW);
@@ -2982,6 +2996,9 @@ void ShowMainWindow(MainWindow* win, int windowState) {
     // creates the taskbar button before we remove the standard frame.
     if (win->tabsInTitlebar) {
         uint flags = SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE;
+        if (gForTesting) {
+            flags |= SWP_NOACTIVATE;
+        }
         SetWindowPos(win->hwndFrame, nullptr, 0, 0, 0, 0, flags);
     }
 
@@ -3002,7 +3019,7 @@ void ShowMainWindow(MainWindow* win, int windowState) {
 
     // the `true ||` is deliberate (always foreground); silence /analyze C6286/C6240
 #pragma warning(suppress : 6286 6240)
-    if (len(gWindows) == 1 && (true || IsDebuggerPresent())) {
+    if (!gForTesting && len(gWindows) == 1 && (true || IsDebuggerPresent())) {
         HwndToForeground(win->hwndFrame);
     }
 
@@ -3017,6 +3034,9 @@ void ShowMainWindow(MainWindow* win, int windowState) {
         if (win->tabsCtrl && win->tabsCtrl->IsVisible()) {
             RedrawWindow(win->tabsCtrl->hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW);
         }
+    }
+    if (gForTesting) {
+        SetWindowPos(win->hwndFrame, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
 }
 
@@ -10181,11 +10201,15 @@ void LaunchDocumentation(Str docURI) {
             gManualBrowserWindow->webView->resourceProvider = ManualResourceProvider();
             gManualBrowserWindow->webView->Navigate(localUrl);
             HWND hwnd = gManualBrowserWindow->hwnd;
-            ShowWindow(hwnd, SW_SHOW);
-            if (IsIconic(hwnd)) {
+            ShowWindow(hwnd, gForTesting ? SW_SHOWNOACTIVATE : SW_SHOW);
+            if (gForTesting) {
+                SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            } else if (IsIconic(hwnd)) {
                 ShowWindow(hwnd, SW_RESTORE);
             }
-            SetForegroundWindow(hwnd);
+            if (!gForTesting) {
+                SetForegroundWindow(hwnd);
+            }
             return;
         }
 
@@ -11606,7 +11630,9 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
         case CmdPdfShowInfo: {
             if (tab && tab->filePath && CouldBePDFDoc(tab)) {
                 if (tab->hwndPDFInfo && IsWindow(tab->hwndPDFInfo)) {
-                    SetForegroundWindow(tab->hwndPDFInfo);
+                    if (!gForTesting) {
+                        SetForegroundWindow(tab->hwndPDFInfo);
+                    }
                 } else {
                     TempStr info = EngineMupdfGetPdfInfo(tab->filePath, Str(PdfToolPasswordTemp(win, tab->filePath)));
                     if (info) {
@@ -11631,7 +11657,9 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
         case CmdDocumentShowOutline: {
             if (tab && tab->ctrl && tab->ctrl->HasToc()) {
                 if (tab->hwndPDFOutline && IsWindow(tab->hwndPDFOutline)) {
-                    SetForegroundWindow(tab->hwndPDFOutline);
+                    if (!gForTesting) {
+                        SetForegroundWindow(tab->hwndPDFOutline);
+                    }
                 } else if (tab->filePath && CouldBePDFDoc(tab)) {
                     TempStr outline = EngineMupdfGetPdfOutline(tab->filePath);
                     if (outline) {

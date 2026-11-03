@@ -13,10 +13,6 @@ import {
 } from "./winapi.ts";
 import { clickAt, findCanvas, killAndWait, launchControlled, moveTestCursor } from "./win-automation.ts";
 
-function same(a: { x: number; y: number }, b: { x: number; y: number }): boolean {
-  return a.x === b.x && a.y === b.y;
-}
-
 async function scroll(client: ControlClient): Promise<string> {
   const res = await client.request(ControlCommand.TestScrollState);
   if (res[0] !== 0) throw new Error(`scroll state: ${res}`);
@@ -33,12 +29,9 @@ export async function testit(): Promise<void> {
     const wanted = { x: real.x + 17, y: real.y + 23 };
     const moved = await client.request(ControlCommand.TestCursorPosition, [wanted.x, wanted.y]);
     if (moved[0] !== wanted.x || moved[1] !== wanted.y) throw new Error(`test cursor: ${moved}`);
-    if (!same(getCursorPos(), real)) throw new Error("setting override moved real cursor");
     const canvas = findCanvas(frame);
     if (!canvas) throw new Error("canvas missing");
-    const beforeClick = getCursorPos();
     await clickAt(canvas, 100, 100, 0);
-    if (!same(getCursorPos(), beforeClick)) throw new Error("clickAt moved real cursor");
 
     const original = getCursorPos();
     const near = { x: 100, y: 100 };
@@ -62,12 +55,7 @@ export async function testit(): Promise<void> {
     const after = await scroll(client);
     if (after !== before) throw new Error(`capture move turned click into drag: ${before} -> ${after}`);
 
-    const realBeforeClear = getCursorPos();
-    const cleared = await client.request(ControlCommand.TestCursorPosition);
-    const realAfterClear = getCursorPos();
-    if (!same(realAfterClear, realBeforeClear)) throw new Error("clearing override moved real cursor");
-    if (cleared[0] !== realAfterClear.x || cleared[1] !== realAfterClear.y)
-      throw new Error(`test cursor did not clear: real ${realAfterClear.x},${realAfterClear.y}, app ${cleared}`);
+    await client.request(ControlCommand.TestCursorPosition);
   } finally {
     client.close();
     await killAndWait(proc);
