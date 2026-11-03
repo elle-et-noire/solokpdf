@@ -12,6 +12,10 @@ import {
   captureWindowToPng,
   clientToScreen,
   getClientRect,
+  getCursorPos,
+  getWindowRect,
+  windowFromPoint,
+  getClassName,
   MK_CONTROL,
   packCoords,
   sendMessage,
@@ -128,7 +132,11 @@ async function moveAndWaitForHover(
       return state;
     }
     if (Date.now() > deadline) {
-      throw new Error(`pdf-edit-toolbar-interaction: hover did not become ${expected} (${JSON.stringify(state)})`);
+      const target = clientToScreen(canvas, x, y);
+      const under = windowFromPoint(target.x, target.y);
+      throw new Error(
+        `pdf-edit-toolbar-interaction: hover did not become ${expected} (${JSON.stringify(state)}); target=${JSON.stringify(target)} canvas=${JSON.stringify(getWindowRect(canvas))} cursor=${JSON.stringify(getCursorPos())} under=${under}/${getClassName(under)}`,
+      );
     }
   }
 }

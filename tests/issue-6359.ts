@@ -8,7 +8,14 @@ import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
 import { runStandalone, tmpPath } from "./util.ts";
 import { killAndWait, launchControlled, touchSwipe } from "./win-automation.ts";
-import { setProcessDpiAware, sleep } from "./winapi.ts";
+import {
+  getClassName,
+  getForegroundWindow,
+  getWindowPid,
+  setProcessDpiAware,
+  sleep,
+  windowFromPoint,
+} from "./winapi.ts";
 
 const SRC_PDF = join(import.meta.dir, "issue-3219.pdf");
 // enough files that the list scrolls
@@ -63,7 +70,8 @@ export async function testit(): Promise<void> {
     const [x, y, dx, dy] = m.slice(1, 5).map(Number) as [number, number, number, number];
     // finger up the middle of the list (away from the scrollbar on the right)
     const cx = x + Math.round(dx / 3);
-    if (!(await touchSwipe(cx, y + Math.round(dy * 0.8), y + Math.round(dy * 0.2)))) {
+    const injection: boolean[] = [];
+    if (!(await touchSwipe(cx, y + Math.round(dy * 0.8), y + Math.round(dy * 0.2), 20, injection))) {
       console.log("issue-6359: touch injection not available here, skipping");
       return;
     }
@@ -71,7 +79,11 @@ export async function testit(): Promise<void> {
     const after = scrollY(await nav(client));
     console.log(`issue-6359: scrollY ${before} -> ${after}`);
     if (after <= before) {
-      throw new Error(`issue-6359: swiping up did not scroll the list (scrollY ${before} -> ${after})`);
+      const under = windowFromPoint(cx, y + Math.round(dy * 0.8));
+      const foreground = getForegroundWindow();
+      throw new Error(
+        `issue-6359: swiping up did not scroll the list (scrollY ${before} -> ${after}); injection=${injection.map(Number).join("")} rect=${rect} state=${await nav(client)} under=${under}/${getClassName(under)}/${getWindowPid(under)} foreground=${foreground}/${getClassName(foreground)}/${getWindowPid(foreground)}`,
+      );
     }
   } finally {
     client.close();

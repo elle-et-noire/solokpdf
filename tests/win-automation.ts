@@ -529,15 +529,20 @@ export function sendCommand(hwnd: number, cmdId: number): void {
 
 // A one-finger vertical swipe from (x, y0) to (x, y1), in screen pixels: a
 // touch pan, which Windows delivers as WM_GESTURE GID_PAN.
-export async function touchSwipe(x: number, y0: number, y1: number, steps = 20): Promise<boolean> {
+export async function touchSwipe(x: number, y0: number, y1: number, steps = 20, results?: boolean[]): Promise<boolean> {
   if (!injectTouch(x, y0, POINTER_FLAG_DOWN)) {
+    results?.push(false);
     return false;
   }
+  results?.push(true);
   for (let i = 1; i <= steps; i++) {
     await sleep(16);
-    injectTouch(x, Math.round(y0 + ((y1 - y0) * i) / steps), POINTER_FLAG_UPDATE);
+    const ok = injectTouch(x, Math.round(y0 + ((y1 - y0) * i) / steps), POINTER_FLAG_UPDATE);
+    results?.push(ok);
   }
-  return injectTouch(x, y1, POINTER_FLAG_UP);
+  const ok = injectTouch(x, y1, POINTER_FLAG_UP);
+  results?.push(ok);
+  return ok;
 }
 
 // A dense pixel sample of the top `dy` rows of a window, straight from its

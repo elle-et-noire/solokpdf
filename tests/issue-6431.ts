@@ -7,7 +7,22 @@
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control";
 import { EXE, extractPageText, makeZip, runStandalone, tmpPath, USE_NG, type ZipEntry } from "./util";
-import { MK_LBUTTON, packCoords, sendMessage, sleep, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE } from "./winapi";
+import {
+  clientToScreen,
+  getClassName,
+  getCursorPos,
+  getForegroundWindow,
+  getWindowPid,
+  getWindowRect,
+  MK_LBUTTON,
+  packCoords,
+  sendMessage,
+  sleep,
+  windowFromPoint,
+  WM_LBUTTONDOWN,
+  WM_LBUTTONUP,
+  WM_MOUSEMOVE,
+} from "./winapi";
 import { findCanvas, FRAME_CLASS, ngInput } from "./win-automation";
 import { waitForTopWindow } from "./winapi";
 
@@ -93,7 +108,17 @@ export async function testit(): Promise<void> {
         // under the cursor); off the link, it must not cancel the popup
         sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(5, 5));
       }
-      await popupVisible(client);
+      try {
+        await popupVisible(client);
+      } catch (e) {
+        const cursor = getCursorPos();
+        const target = clientToScreen(canvas, +m[1]!, +m[2]!);
+        const under = windowFromPoint(target.x, target.y);
+        const foreground = getForegroundWindow();
+        throw new Error(
+          `${e}\nnoteref=${raw} canvas=${JSON.stringify(getWindowRect(canvas))} target=${JSON.stringify(target)} cursor=${JSON.stringify(cursor)} under=${under}/${getClassName(under)}/${getWindowPid(under)} foreground=${foreground}/${getClassName(foreground)}/${getWindowPid(foreground)}`,
+        );
+      }
     },
     [epub],
   );
