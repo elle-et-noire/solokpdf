@@ -60,7 +60,6 @@ import {
   clientToScreen,
   getCursorPos,
   setCursorPos,
-  setProcessDpiAware,
   sendCopyDataW,
   getPopupMenuHandle,
   readMenuTree,
@@ -209,8 +208,6 @@ export async function launchControlled(
   args: string[],
   opts?: { defaultWindowPos?: boolean; saveSettings?: boolean; env?: Record<string, string> },
 ): Promise<{ proc: Bun.Subprocess; client: ControlClient; frame: number }> {
-  // Cross-process mouse messages must use the app's physical pixel coordinates.
-  setProcessDpiAware();
   // many tests post keys and clicks directly; a held modifier would chord them
   await ensureModifierKeysUp();
   if (sharedSession) {

@@ -1650,14 +1650,18 @@ export function getSystemMetrics(index: number): number {
 // when reading a DPI-aware window like SumatraPDF's on a scaled display (see
 // project memory dpi-aware-probe-trick). No-op at 100% scaling.
 //
-// This is process-wide and cannot be undone. launchControlled() calls it so
-// message coordinates and the app's cursor override use the same pixels.
+// This is process-wide and cannot be undone. Set it when the Win32 helpers
+// load so every launch path uses the app's physical pixel coordinates.
 export function setProcessDpiAware(): boolean {
   if (!IS_WIN) {
     return false;
   }
   // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == (HANDLE)-4
   return user32.symbols.SetProcessDpiAwarenessContext(-4n as unknown as number);
+}
+
+if (IS_WIN && !setProcessDpiAware()) {
+  throw new Error("test process could not enable per-monitor DPI awareness");
 }
 
 // Touch injection: unlike SendInput mouse/keyboard, it reaches the app on this

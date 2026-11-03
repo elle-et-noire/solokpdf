@@ -12,19 +12,14 @@ there.
 | ID  | Item                                             | Status                                                        |
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
 | B37 | Cursor and RTL capture tests (full-suite run 3)  | blocked — locked desktop prevents cursor and capture checks   |
-| B60 | Test fixes: DPI clicks, TOC prefix, 6355 check   | todo                                                          |
 | B61 | PDFium: push-button links in keyboard following  | todo                                                          |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
 
 B37 needs a rerun on an unlocked, interactive desktop.
 
-B60: tests launched without `launchControlled` aren't DPI aware, so at
-125% scaling Windows scales their clicks (issue-6431, sig-validation,
-issue-1914's click). ad-hoc-toc-palette-sync types the old `*` TOC prefix
-(now `%`). issue-6355's caption check fails when another app's window
-covers the spot. B61: since B51 a PDFium page with a navigating push button
-gives keyboard link following no links (issue-1914).
+Since B51 a PDFium page with a navigating push button gives keyboard link
+following no links (issue-1914).
 
 ## Dropped
 

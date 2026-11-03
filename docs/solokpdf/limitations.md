@@ -370,6 +370,9 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   check is in `ad-hoc-b58-window-size`. B59 gives controlled tests a process-local
   cursor position; message-driven tests no longer move the system pointer.
   Its control response reports app-owned mouse-leave tracking for the B59 test.
+  B60 makes all Win32 test launches DPI aware, updates the TOC palette prefix
+  to `%`, and checks the browser caption button against app layout rather than
+  desktop window occlusion.
   OLE drag and drop and foreground-dependent popup tests still need an unlocked
   desktop. See [testing.md](testing.md).
 - Run 3 failed `toolbar-hover-dropdown` and `issue-6113` on both engines.

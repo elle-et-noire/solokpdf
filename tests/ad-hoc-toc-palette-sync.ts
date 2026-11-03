@@ -1,5 +1,5 @@
 // Ad-hoc regression test for issue #5716: navigating to a bookmark via the
-// Command Palette (the "*" / TOC mode) must move the selection in the Bookmarks
+// Command Palette (the "%" / TOC mode) must move the selection in the Bookmarks
 // (table-of-contents) panel too. Before the fix the page navigated but the tree
 // selection stayed on the previous item.
 //
@@ -13,8 +13,8 @@
 import { writeFileSync } from "node:fs";
 import { cmdId, runStandalone, tmpPath } from "./util.ts";
 import {
-  launchSumatra,
-  waitForFrame,
+  launchControlled,
+  paletteState,
   findChildByClass,
   sendCommand,
   pressEnter,
@@ -84,12 +84,8 @@ export async function testit(): Promise<void> {
   const pdfPath = tmpPath("issue-5716-bookmarks.pdf");
   writeFileSync(pdfPath, makeBookmarkedPdf());
 
-  const proc = launchSumatra([pdfPath]);
+  const { proc, client, frame } = await launchControlled([pdfPath]);
   try {
-    const frame = await waitForFrame(proc.pid);
-    if (!frame) {
-      throw new Error("SumatraPDF frame window didn't appear");
-    }
     moveWindow(frame, 40, 20, 900, 700);
     await sleep(1200);
 
@@ -99,7 +95,7 @@ export async function testit(): Promise<void> {
     }
     const sel0 = treeGetSelection(tree); // Chapter One (page 1)
 
-    // open the palette in TOC ("*") mode, filter to Chapter Four, navigate to it
+    // open the palette in TOC ("%") mode, filter to Chapter Four, navigate to it
     const before = new Set(topWindows(proc.pid));
     sendCommand(frame, CmdNavigateTableOfContents);
     await sleep(700);
@@ -108,8 +104,12 @@ export async function testit(): Promise<void> {
       throw new Error("Command Palette window didn't open");
     }
     const edit = findChildWindow(palette, "Edit");
-    sendText(edit, "*Four"); // keep the "*" TOC prefix; filter to "Chapter Four"
+    sendText(edit, "%Four");
     await sleep(400);
+    const state = await paletteState(client);
+    if (state.sel < 0 || state.selText !== "Chapter Four") {
+      throw new Error(`issue #5716: palette selected '${state.selText}' (row ${state.sel}), expected Chapter Four`);
+    }
     await pressEnter(edit); // navigate to the selected (Chapter Four) bookmark
     await sleep(600);
 
@@ -118,6 +118,7 @@ export async function testit(): Promise<void> {
       throw new Error("issue #5716: Bookmarks panel selection did not move after navigating via the Command Palette");
     }
   } finally {
+    client.close();
     await killAndWait(proc);
   }
 }
