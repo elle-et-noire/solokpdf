@@ -12,14 +12,10 @@ there.
 | ID  | Item                                             | Status                                                        |
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
 | B37 | Cursor and RTL capture tests (full-suite run 3)  | blocked — locked desktop prevents cursor and capture checks   |
-| B61 | PDFium: push-button links in keyboard following  | todo                                                          |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
 
 B37 needs a rerun on an unlocked, interactive desktop.
-
-Since B51 a PDFium page with a navigating push button gives keyboard link
-following no links (issue-1914).
 
 ## Dropped
 

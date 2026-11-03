@@ -24,6 +24,7 @@ import { testit as tools } from "./ad-hoc-pdfium-tools.ts";
 import { testit as textExtraction } from "./ad-hoc-pdfium-text.ts";
 import { testit as dehyphen } from "./ad-hoc-pdfium-dehyphen.ts";
 import { testit as links } from "./ad-hoc-pdfium-links.ts";
+import { testit as pushButtonLinks } from "./issue-1914.ts";
 import { testit as images } from "./ad-hoc-pdfium-images.ts";
 import { testit as fitContent } from "./ad-hoc-pdfium-fit-content.ts";
 import { testit as pageBoxes } from "./ad-hoc-pdfium-page-boxes.ts";
@@ -65,6 +66,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-text", textExtraction],
   ["ad-hoc-pdfium-dehyphen", dehyphen],
   ["ad-hoc-pdfium-links", links],
+  ["issue-1914", pushButtonLinks],
   ["ad-hoc-pdfium-images", images],
   ["ad-hoc-pdfium-fit-content", fitContent],
   ["ad-hoc-pdfium-page-boxes", pageBoxes],

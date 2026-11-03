@@ -128,11 +128,14 @@ struct PdfPageGeometry {
     int rotation = 0;
 };
 bool PdfPageGeometryMupdf(Str path, Str data, Str password, int pageCount, Vec<PdfPageGeometry>& out);
-// a link EnginePdfium can't fully read: a Named page jump (targetPage) or a GoToR's named /D (remoteDest)
+// a link EnginePdfium can't fully read: a Named page jump, GoToR named /D, or widget action
 struct PdfLinkMupdf {
     RectF rect;
+    RectF destRect;
     int targetPage = 0;
+    bool hasDestRect = false;
     Str remoteDest; // owned, free with str::Free
+    Str uri;        // owned, free with str::Free
 };
 void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupdf>& links);
 TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password);

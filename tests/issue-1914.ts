@@ -122,6 +122,12 @@ export async function testit(): Promise<void> {
       if (st.count !== 1 || st.rects.length !== 1) {
         throw new Error(`the pushbutton should be a followable link\n${dump}`);
       }
+      if (process.env.SOLOKPDF_ENGINE !== "mupdf") {
+        const editor = await client.request(ControlCommand.TestCurrentPdf, ["editor"]);
+        if (editor[0] !== 0 || editor[1] !== "editor=none") {
+          throw new Error(`keyboard link following loaded the hidden editor: ${editor[1]}`);
+        }
+      }
       const r = st.rects[0]!;
 
       // leave the mode and click the button like a user would

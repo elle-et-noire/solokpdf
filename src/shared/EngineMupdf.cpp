@@ -5931,8 +5931,7 @@ static int NamedActionTarget(fz_context* ctx, pdf_obj* action, int pageIdx, int 
     return -1;
 }
 
-// Link annotations of page pageNo with First/Last/Prev/NextPage actions (1-based targetPage) or a GoToR
-// to a named destination (remoteDest), with rects in page space as EngineMupdf's links.
+// Links PDFium can't fully read, including navigating push-button widgets.
 void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupdf>& links) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
@@ -5940,7 +5939,9 @@ void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupd
     }
     pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
     pdf_page* page = nullptr;
+    fz_link* widgetLinks = nullptr;
     fz_var(page);
+    fz_var(widgetLinks);
     fz_try(ctx) {
         int pageCount = doc ? pdf_count_pages(ctx, doc) : 0;
         if (pageNo >= 1 && pageNo <= pageCount) {
@@ -5974,9 +5975,23 @@ void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupd
                 link.rect = RectF(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
                 VecAppend(links, link);
             }
+            widgetLinks = MakePushButtonWidgetLinks(ctx, doc, page, pageNo);
+            for (fz_link* widget = widgetLinks; widget; widget = widget->next) {
+                PdfLinkMupdf link;
+                link.targetPage =
+                    ResolveLink(ctx, &doc->super, Str(widget->uri), nullptr, nullptr, nullptr, &link.destRect);
+                if (link.targetPage > 0) {
+                    link.hasDestRect = true;
+                } else {
+                    link.uri = str::Dup(Str(widget->uri));
+                }
+                link.rect = ToRectF(widget->rect);
+                VecAppend(links, link);
+            }
         }
     }
     fz_always(ctx) {
+        fz_drop_link(ctx, widgetLinks);
         fz_drop_page(ctx, (fz_page*)page);
         pdf_drop_document(ctx, doc);
     }

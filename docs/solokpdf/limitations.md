@@ -195,12 +195,13 @@ are in [history.md](history.md).
   both engines; `tests/issue-6227.ts` checks the command on demand.
 - Plain-text URLs, e-mails and DOIs become links through MuPDF's shared
   linkifier, honoring `DisableAutoLinks`. PDFium uses the lazy MuPDF page
-  elements for unsupported actions, other annotations and navigating push
-  buttons; a form field's `/TU` tooltip comes from PDFium. Wrapped URLs join
-  from PDFium's page text without loading the editor. JavaScript menus and
-  button navigation still use MuPDF. `tests/ad-hoc-pdfium-links.ts` checks both
-  engines. PDFium text still differs on some plain URLs (4 of 95 sampled
-  pages).
+  elements for unsupported actions and other annotations. Navigating push
+  buttons enter PDFium's link list through a lightweight MuPDF path-and-data
+  query, without loading the hidden editor (B61); `issue-1914` checks keyboard
+  following on both engines. A form field's `/TU` tooltip comes from PDFium.
+  Wrapped URLs join from PDFium's page text without loading the editor.
+  JavaScript menus still use MuPDF. `tests/ad-hoc-pdfium-links.ts` checks both
+  engines. PDFium text still differs on some plain URLs (4 of 95 sampled pages).
 - PDFium tabs create a SyncTeX synchronizer when a sidecar exists. Command-line
   and DDE forward search and inverse lookup use the same page coordinates as
   MuPDF. The synchronizer needs only page count for `.synctex` and page media

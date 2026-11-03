@@ -1334,17 +1334,41 @@ class EnginePdfium : public EngineBase {
                 str::Free(link.remoteDest);
                 continue;
             }
-            if (!Page(link.targetPage)) {
-                continue;
+            IPageDestination* dest = nullptr;
+            if (link.uri.s) {
+                Str uri = link.uri;
+                if (str::TrimPrefix(uri, StrL("file:"))) {
+                    for (int i = 0; i < 3; i++) {
+                        str::TrimPrefix(uri, StrL("/"));
+                    }
+                    Str fragment = str::SliceFromChar(uri, '#');
+                    if (fragment) {
+                        uri = Str(uri.s, (int)(fragment.s - uri.s));
+                        fragment = Str(fragment.s + 1);
+                    }
+                    TempStr file = path::ToOSTemp(url::DecodeTemp(uri));
+                    if (len(file) > 0) {
+                        dest = new PageDestinationFile(file, url::DecodeTemp(fragment));
+                    }
+                } else {
+                    dest = new PageDestinationURL(uri);
+                }
+            } else if (Page(link.targetPage)) {
+                auto* page = new PdfiumDest();
+                page->pageNo = link.targetPage;
+                page->rect = link.hasDestRect
+                                 ? link.destRect
+                                 : RectF(kDestUseDefault, kDestUseDefault, kDestUseDefault, kDestUseDefault);
+                page->kind = kindDestinationScrollTo;
+                dest = page;
             }
-            auto* dest = new PdfiumDest();
-            dest->pageNo = link.targetPage;
-            dest->rect = RectF(kDestUseDefault, kDestUseDefault, kDestUseDefault, kDestUseDefault);
-            dest->kind = kindDestinationScrollTo;
-            auto* element = new PageElementDestination(dest);
-            element->pageNo = pageNo;
-            element->rect = link.rect;
-            VecAppend(info->links, (IPageElement*)element);
+            if (dest) {
+                auto* element = new PageElementDestination(dest);
+                element->pageNo = pageNo;
+                element->rect = link.rect;
+                VecAppend(info->links, (IPageElement*)element);
+            }
+            str::Free(link.uri);
         }
     }
 
@@ -1392,6 +1416,7 @@ class EnginePdfium : public EngineBase {
             CollectImageElements(page, pageNo, info);
         }
         int annotCount = gPdfium.FPDFPage_GetAnnotCount(page);
+        bool widgetLinks = false;
         for (int i = 0; i < annotCount; i++) {
             FPDF_ANNOTATION annot = gPdfium.FPDFPage_GetAnnot(page, i);
             if (!annot) {
@@ -1399,16 +1424,22 @@ class EnginePdfium : public EngineBase {
             }
             auto subtype = gPdfium.FPDFAnnot_GetSubtype(annot);
             bool isAttachment = subtype == FPDF_ANNOT_FILEATTACHMENT;
-            if (subtype == FPDF_ANNOT_WIDGET && !WidgetIsLink(annot)) {
-                AddWidgetTip(page, pageNo, info, annot);
+            if (subtype == FPDF_ANNOT_WIDGET) {
+                if (WidgetIsLink(annot)) {
+                    widgetLinks = true;
+                } else {
+                    AddWidgetTip(page, pageNo, info, annot);
+                }
             } else if (subtype != FPDF_ANNOT_LINK) {
                 info->useMupdfElements = true;
             }
             gPdfium.FPDFPage_CloseAnnot(annot);
             if (isAttachment) {
                 info->hasFileAttachments = true;
-                break;
             }
+        }
+        if (widgetLinks && !needsMupdf) {
+            AddMupdfLinks(pageNo, info);
         }
         gPdfium.FPDF_ClosePage(page);
         info->linksLoaded = true;
