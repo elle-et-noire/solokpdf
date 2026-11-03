@@ -7,7 +7,13 @@ import { copyFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
 import { runStandalone, tmpPath } from "./util.ts";
-import { killAndWait, launchControlled, touchSwipe } from "./win-automation.ts";
+import {
+  activateTestFrame,
+  canActivateTestFrame,
+  killAndWait,
+  launchControlled,
+  touchSwipe,
+} from "./win-automation.ts";
 import {
   getClassName,
   getForegroundWindow,
@@ -48,6 +54,7 @@ async function waitListed(client: ControlClient): Promise<void> {
 }
 
 export async function testit(): Promise<void> {
+  if (!canActivateTestFrame()) throw new Error("issue-6359 requires CI or the hidden desktop");
   setProcessDpiAware();
   const dir = tmpPath("issue-6359");
   rmSync(dir, { recursive: true, force: true });
@@ -56,8 +63,11 @@ export async function testit(): Promise<void> {
     copyFileSync(SRC_PDF, join(dir, `f${String(i).padStart(3, "0")}.pdf`));
   }
 
-  const { proc, client } = await launchControlled([join(dir, "f000.pdf")]);
+  const { proc, client } = await launchControlled([join(dir, "f000.pdf")], {
+    env: { SOLOKPDF_REAL_WINDOW_ACTIVATION: "1" },
+  });
   try {
+    await activateTestFrame(client);
     await client.request(ControlCommand.TestInvokeCommand, ["CmdNavigateFilesInFolder"]);
     await waitListed(client);
     const before = scrollY(await nav(client));
@@ -70,6 +80,10 @@ export async function testit(): Promise<void> {
     const [x, y, dx, dy] = m.slice(1, 5).map(Number) as [number, number, number, number];
     // finger up the middle of the list (away from the scrollbar on the right)
     const cx = x + Math.round(dx / 3);
+    const under = windowFromPoint(cx, y + Math.round(dy * 0.8));
+    if (getWindowPid(under) !== proc.pid) {
+      throw new Error(`issue-6359: swipe target is covered: ${under}/${getClassName(under)}/${getWindowPid(under)}`);
+    }
     const injection: boolean[] = [];
     if (!(await touchSwipe(cx, y + Math.round(dy * 0.8), y + Math.round(dy * 0.2), 20, injection))) {
       console.log("issue-6359: touch injection not available here, skipping");
