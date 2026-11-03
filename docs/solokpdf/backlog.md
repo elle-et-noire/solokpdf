@@ -4,19 +4,24 @@ Open work. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [limitations.md](limitations.md). New items take the next free ID in their
-group (B64, C2, D7, E6, F2). A1–E5 landed 2026-10-29 – 11-01 and are listed
+group (B65, C2, D7, E6, F2). A1–E5 landed 2026-10-29 – 11-01 and are listed
 there.
 
 ## Open
 
 | ID  | Item                                             | Status                                                        |
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| B37 | Cursor and RTL capture tests (full-suite run 3)  | blocked — locked desktop prevents cursor and capture checks   |
-| B62 | Widget action query gate                         | blocked — PDFium does not expose widget `/S`                  |
+| B37 | Cursor and RTL capture tests (full-suite run 3)  | todo                                                          |
+| B62 | Widget action query gate                         | todo — PDFium does not expose widget `/S`; look for a way     |
+| B64 | Docs cleanup after B54–B63                       | todo                                                          |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
 
-B37 needs a rerun on an unlocked, interactive desktop.
+B37: on an unlocked desktop (2026-11-03) `toolbar-hover-dropdown` passes
+on both engines; `issue-6113` fails on PDFium every run ("notification
+text is mirrored in RTL (bar mid=92.5 w=157 y=2 dx=17)") and passes on
+MuPDF. B64: AGENTS.md and docs/solokpdf still describe the old test
+setup (quarter window, no interactive desktop, real-cursor tests).
 
 ## Dropped
 
