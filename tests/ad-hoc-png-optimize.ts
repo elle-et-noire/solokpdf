@@ -1,22 +1,22 @@
 // Ad-hoc test for background PNG optimization (ext/a-zopfli) of saved PNGs.
 //
 // CmdPasteClipboardImage saves the clipboard image as clipboard*.png in the
-// Downloads folder, then OptimizePngFileAsync() recompresses it in place on a
+// data directory, then OptimizePngFileAsync() recompresses it in place on a
 // background thread. This test puts a large gradient bitmap on the clipboard
 // (big enough that zopfli takes a couple of seconds, so we can observe the
 // initial file before it's swapped), runs the command, and verifies the file
 // shrinks and still decodes to the same dimensions.
 //
-// Touches the system clipboard and the real Downloads folder, so it's an
+// Touches the system clipboard, so it's an
 // ad-hoc test (not in run-almost-all.ts). Cleans up the file it creates.
 //
 // Run:  bun tests/ad-hoc-png-optimize.ts
 
-import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { cmdId, runStandalone } from "./util.ts";
+import { cmdId, runStandalone, tmpPath } from "./util.ts";
 import { canUseRealClipboard } from "./test-clipboard.ts";
-import { launchSumatra, waitForFrame, sendCommand, killAndWait, killProcessesNamed } from "./win-automation.ts";
+import { launchSumatra, waitForFrame, sendCommand, killAndWait } from "./win-automation.ts";
 import { sleep } from "./winapi.ts";
 
 const IMG_W = 1200;
@@ -33,10 +33,6 @@ function ps(cmd: string, sta = false): string {
     throw new Error(`powershell failed: ${r.stderr.toString()}`);
   }
   return r.stdout.toString().trim();
-}
-
-function downloadsDir(): string {
-  return ps("(New-Object -ComObject Shell.Application).Namespace('shell:Downloads').Self.Path");
 }
 
 function clipboardPngs(dir: string): Set<string> {
@@ -74,13 +70,14 @@ function pngDims(path: string): string {
 
 export async function testit(): Promise<void> {
   if (!canUseRealClipboard("ad-hoc-png-optimize")) return;
-  const dlDir = downloadsDir();
-  const before = clipboardPngs(dlDir);
+  const dataDir = tmpPath("ad-hoc-png-optimize");
+  rmSync(dataDir, { recursive: true, force: true });
+  mkdirSync(dataDir, { recursive: true });
+  const before = clipboardPngs(dataDir);
 
   setClipboardImage();
 
-  await killProcessesNamed("SumatraPDF.exe");
-  const proc = launchSumatra([], { env: { SOLOKPDF_REAL_CLIPBOARD: "1" } });
+  const proc = launchSumatra(["-appdata", dataDir], { env: { SOLOKPDF_REAL_CLIPBOARD: "1" } });
   let newFile = "";
   try {
     const frame = await waitForFrame(proc.pid!);
@@ -90,9 +87,9 @@ export async function testit(): Promise<void> {
 
     // wait for the new clipboard*.png to appear
     for (let i = 0; i < 100 && !newFile; i++) {
-      for (const f of clipboardPngs(dlDir)) {
+      for (const f of clipboardPngs(dataDir)) {
         if (!before.has(f)) {
-          newFile = join(dlDir, f);
+          newFile = join(dataDir, f);
           break;
         }
       }
@@ -101,7 +98,7 @@ export async function testit(): Promise<void> {
       }
     }
     if (!newFile) {
-      throw new Error("clipboard*.png did not appear in Downloads");
+      throw new Error("clipboard*.png did not appear in the data directory");
     }
     const sizeOrig = statSync(newFile).size;
     console.log(`saved: ${newFile}, ${sizeOrig} bytes`);
@@ -142,9 +139,7 @@ export async function testit(): Promise<void> {
     console.log("PASS: saved png was optimized in place, has the marker chunk and still decodes");
   } finally {
     await killAndWait(proc);
-    if (newFile) {
-      rmSync(newFile, { force: true });
-    }
+    rmSync(dataDir, { recursive: true, force: true });
   }
 }
 
