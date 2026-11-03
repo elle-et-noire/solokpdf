@@ -379,6 +379,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 ## Tests and CI
 
+B71 remains open: several B65–B69 regressions require hosted diagnosis.
+Local fixes cover screenshot focus, fullscreen test activation and test process
+cleanup; hosted verification is pending. See [backlog.md](backlog.md).
+
 - B65 saves each tab's view state when a window close is accepted. Targeted
   hidden-desktop runs pass on both engines, including `issue-4788`,
   `issue-6252`, the toolbar interaction and both menu tests. The CI runner

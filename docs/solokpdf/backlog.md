@@ -4,16 +4,23 @@ Open work. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [limitations.md](limitations.md). New items take the next free ID in their
-group (B71, C2, D7, E6, F2). A1–E5 landed 2026-10-29 – 11-01 and are listed
+group (B72, C2, D7, E6, F2). A1–E5 landed 2026-10-29 – 11-01 and are listed
 there.
 
 ## Open
 
-| ID  | Item                                             | Status                                                        |
-| --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| B65 | Full-suite regressions after B54–B64             | blocked: hosted 100% DPI verification needs orchestrator      |
-| D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
-| F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
+| ID  | Item                                             | Status                                                           |
+| --- | ------------------------------------------------ | ---------------------------------------------------------------- |
+| B71 | CI regressions after B65–B69                     | blocked: hosted failures and remaining causes need investigation |
+| B65 | Full-suite regressions after B54–B64             | blocked: hosted 100% DPI verification needs orchestrator         |
+| D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off    |
+| F1  | Physical printer, print dialog and spooler check | needs the owner                                                  |
+
+B71: `issue-5989`, `issue-1106` and four process cleanup failures were
+fixed locally. Hosted foreground, WebView2, toolbar, noteref, touch, PNG
+clipboard and MuPDF placement failures remain unverified. `issue-6184` still
+fails because the test shell launch is blocked. Run the targeted hosted checks
+after pushing; do not run real clipboard or shell launches on the owner desktop.
 
 B65: full-suite runs 41639619890 (PDFium) and 41639624912 (MuPDF) at
 ff43c356c fail `issue-4788` (also locally), `favorites-menu`,
