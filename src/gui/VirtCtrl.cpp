@@ -1157,7 +1157,7 @@ static bool BeginVirtPress(VirtRoot* root, VirtCtrl* target, Point ptWindow, Poi
         // focus, so a child Edit (Contents, filter) would keep them
         // after this click unless we take them back (issue #6033).
         if (hwnd && HwndTakesFocus(hwnd) && ::GetFocus() != hwnd) {
-            ::SetFocus(hwnd);
+            HwndSetFocus(hwnd);
         }
         root->SetFocus(target);
     }

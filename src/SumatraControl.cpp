@@ -98,6 +98,10 @@ static unsigned gActivationCount;
 static LRESULT CALLBACK ActivationHook(int code, WPARAM wp, LPARAM lp) {
     if (code >= 0) {
         auto* msg = (CWPSTRUCT*)lp;
+        if (gTestFocusGuard && !gTestActivating && msg->message == WM_WINDOWPOSCHANGING &&
+            !(GetWindowLongPtrW(msg->hwnd, GWL_STYLE) & WS_CHILD)) {
+            ((WINDOWPOS*)msg->lParam)->flags |= SWP_NOACTIVATE;
+        }
         if (((msg->message == WM_ACTIVATE && LOWORD(msg->wParam) != WA_INACTIVE) ||
              (msg->message == WM_NCACTIVATE && msg->wParam)) &&
             !(GetWindowLongPtrW(msg->hwnd, GWL_STYLE) & WS_CHILD)) {
@@ -111,6 +115,11 @@ static LRESULT CALLBACK ActivationHook(int code, WPARAM wp, LPARAM lp) {
 }
 
 void StartActivationTrace() {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    WCHAR allow[2];
+    gTestFocusGuard =
+        !(GetEnvironmentVariableW(L"SOLOKPDF_REAL_WINDOW_ACTIVATION", allow, dimof(allow)) == 1 && allow[0] == L'1');
+#endif
     SetWindowsHookExW(WH_CALLWNDPROC, ActivationHook, nullptr, GetCurrentThreadId());
 }
 
@@ -2674,6 +2683,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             if (win && win->pageEdit && str::Eq(action, StrL("page-edit"))) SetFocus(win->pageEdit->hwnd);
             if (win && str::Eq(action, StrL("activate"))) {
+                gTestActivating = true;
                 HWND fg = GetForegroundWindow();
                 DWORD fgThread = fg ? GetWindowThreadProcessId(fg, nullptr) : 0;
                 DWORD uiThread = GetCurrentThreadId();
@@ -2684,6 +2694,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 if (attached) {
                     AttachThreadInput(uiThread, fgThread, FALSE);
                 }
+                gTestActivating = false;
             }
             AppendTestResult(
                 req, 0,

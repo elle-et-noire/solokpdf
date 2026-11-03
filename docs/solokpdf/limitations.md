@@ -388,8 +388,10 @@ and the foreground test covers additional windows. Settings creation and repeat
 invocation avoid activation in test mode; the focus test checks both. A test-only
 UI-thread activation trace records window classes and module-relative stacks for
 the foreground test to print on failure.
-Hosted verification remains
-pending. The tab-view test compares settings changes against a normal tab
+A UI-thread hook guards top-level positioning and focus helpers preserve the active window;
+explicit test activation remains available. The hook also covers raw About, thumbnail,
+scrollbar, resize, reference and screenshot windows outside WindowBase. Hosted foreground
+verification remains pending. The tab-view test compares settings changes against a normal tab
 switch and checks the switch preserves the scroll within one point. Hosted
 verification at 100% DPI remains pending. The external viewer, PNG,
 screenshot focus, fullscreen activation, MuPDF placement and process cleanup

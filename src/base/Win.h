@@ -68,6 +68,9 @@ bool HwndIsMouseOverRect(HWND hwnd, const Rect& r);
 
 //--- HWND: focus / visibility / Z-order
 
+extern bool gTestFocusGuard;
+extern bool gTestActivating;
+bool HwndCanTestFocus(HWND hwnd);
 HWND HwndSetFocus(HWND hwnd);
 HWND HwndThreadFocus();
 bool IsThreadInMenuMode();

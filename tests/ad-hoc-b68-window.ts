@@ -53,13 +53,14 @@ export async function testit(): Promise<void> {
     "latin1",
   );
 
+  const failures: string[] = [];
   for (let i = 0; i < 3; i++) {
     const { proc, client, frame } = await launchControlled([pdf]);
     try {
       const after = getForegroundWindow();
       if (after && getWindowPid(after) === proc.pid)
-        throw new Error(`launch ${i + 1} changed foreground: ${foreground} -> ${after} (frame ${frame})`);
-      if (after && !isBehind(frame, after)) throw new Error(`launch ${i + 1} frame is not behind foreground`);
+        failures.push(`launch ${i + 1} changed foreground: ${foreground} -> ${after} (frame ${frame})`);
+      if (after && !isBehind(frame, after)) failures.push(`launch ${i + 1} frame is not behind foreground`);
 
       if (i === 0) {
         sendCommand(frame, cmdId("CmdNewWindow"));
@@ -72,8 +73,8 @@ export async function testit(): Promise<void> {
         if (!second) throw new Error("new frame did not appear");
         await sleep(100);
         const afterNew = getForegroundWindow();
-        if (afterNew && getWindowPid(afterNew) === proc.pid) throw new Error("new frame changed foreground");
-        if (afterNew && !isBehind(second, afterNew)) throw new Error("new frame is not behind foreground");
+        if (afterNew && getWindowPid(afterNew) === proc.pid) failures.push("new frame changed foreground");
+        if (afterNew && !isBehind(second, afterNew)) failures.push("new frame is not behind foreground");
 
         for (const command of [
           "CmdHelpAbout",
@@ -103,12 +104,15 @@ export async function testit(): Promise<void> {
             });
             if (!opened) await sleep(50);
           }
-          if (!opened) throw new Error(`${command} did not open a window`);
+          if (!opened) {
+            failures.push(`${command} did not open a window`);
+            continue;
+          }
           for (let attempt = 0; attempt < 2; attempt++) {
             if (attempt && command !== "CmdToggleKeyboardHelp") sendCommandSync(frame, cmdId(command));
             const after = getForegroundWindow();
             if (after && getWindowPid(after) === proc.pid)
-              throw new Error(
+              failures.push(
                 `${command} changed foreground: ${describeWindow(foreground)} -> ${describeWindow(after)}; frame=${describeWindow(frame)}`,
               );
           }
@@ -117,16 +121,18 @@ export async function testit(): Promise<void> {
         }
         sendCommandSync(frame, cmdId("CmdFindFirst"));
         const afterFind = getForegroundWindow();
-        if (afterFind && getWindowPid(afterFind) === proc.pid) throw new Error("CmdFindFirst changed foreground");
+        if (afterFind && getWindowPid(afterFind) === proc.pid) failures.push("CmdFindFirst changed foreground");
       }
-    } catch (err) {
-      const trace = await client.request(ControlCommand.TestActivationTrace, []).catch(() => ["trace unavailable"]);
-      throw new Error(`${err}\nactivation trace:\n${trace[1] ?? trace[0]}`);
+      if (failures.length) {
+        const trace = await client.request(ControlCommand.TestActivationTrace, []).catch(() => ["trace unavailable"]);
+        failures.push(`activation trace:\n${trace[1] ?? trace[0]}`);
+      }
     } finally {
       client.close();
       await killAndWait(proc);
     }
   }
+  if (failures.length) throw new Error(failures.join("\n"));
 }
 
 if (import.meta.main) await runStandalone(testit);
