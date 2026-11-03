@@ -103,8 +103,11 @@ and no PDF after the simulated Convert click).
 The locked desktop prevented the foreground/click checks in `issue-6269`,
 `issue-6385`, `issue-6464` and `sig-validation` on both engines. `issue-5918`
 did not switch to the next Markdown file; `issue-6380` saw no WebView resource
-requests. These need an unlocked desktop rerun. Network-dependent EU Trusted
-List and revocation probes and the large external RTF corpus were skipped.
+requests. Network-dependent EU Trusted List and revocation probes and the large
+external RTF corpus were skipped.
+
+Later test-cursor and DPI fixes removed the general cursor-input constraint;
+foreground popups still need an unlocked desktop.
 
 Follow-up commits `c97ca137f` restored the upstream vs2022 projects, and
 `0522b0580` passed PDFium tabs' passwords to PDF Info and extraction after

@@ -11,12 +11,8 @@ there.
 
 | ID  | Item                                             | Status                                                        |
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| B64 | Docs cleanup after B54–B63                       | todo                                                          |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
-
-B64: AGENTS.md and docs/solokpdf still describe the old test
-setup (quarter window, no interactive desktop, real-cursor tests).
 
 ## Dropped
 

@@ -243,7 +243,6 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   links take priority over overlapping comments. The markup diagnostic reads all
   pages. `issue-5329` passes on both engines after seeding the active settings
   file; annotation tooltips include authors when enabled (B26, B63).
-  Cursor-driven annotation checks need an unlocked Windows session.
 - Applying redactions on a PDFium tab rewrites pages in the already loaded
   MuPDF editor and, as on MuPDF tabs, leaves the file unsaved and the step
   undoable. Until Save reloads the tab, PDFium draws, extracts text and lists
@@ -394,8 +393,8 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   its stray bars triggered the PDFium failure. B37 paints toast content for
   `WM_PRINTCLIENT`, and standard `PrintWindow` capture passes locally on both
   engines without reading displayed pixels. Hosted CI remains unverified.
-- `shape-annotation-placement` passes on both engines in hosted CI run
-  41349548951 (B39); local locked-desktop drag attempts remain unreliable.
+- `shape-annotation-placement` passed on both engines in hosted CI run
+  41349548951 (B39).
 - The baseline clipboard test failure was fixed with per-read opens and
   retries; the unit suite passed 11 consecutive runs.
 - GitHub Actions CI builds SolokPDF debug on pushes and PRs to `solokpdf-dev`.
@@ -407,7 +406,7 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   PDFium and MuPDF jobs; manual runs still accept an engine and test filter
   (D4). `run-github-ci.ts` skips the by-design PDFium gaps (`issue-5937`,
   `issue-6361`, `issue-3731`; unless `SOLOKPDF_ENGINE=mupdf`) and the
-  hosted-desktop cursor/capture tests (`toolbar-hover-dropdown`,
-  `issue-6113`), so a red weekly run means a regression (B50). The suite takes
+  foreground-dependent `toolbar-hover-dropdown` test, so a red weekly run
+  means a regression (B50, B37). The suite takes
   ~25 min once a hung test is cut off by the per-test timeout; sharding is
   deferred (D3). Both engines passed in run 41349548951.

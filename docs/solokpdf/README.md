@@ -26,8 +26,9 @@ for the area at hand. When an item lands, move its backlog row to
 ## Status
 
 PDFium pages work in the original UI, with MuPDF as fallback and hidden
-editor. Completed work through D6 is in `history.md`; open items need an
-unlocked desktop or a physical printer. Known gaps are in `limitations.md`.
+editor. Completed work is in `history.md`; the remaining test work is suite
+sharding and a physical printer check. Known gaps are in
+`limitations.md`; test setup is in [testing.md](testing.md).
 
 ## Documents
 
@@ -41,6 +42,7 @@ unlocked desktop or a physical printer. Known gaps are in `limitations.md`.
 - [annotations.md](annotations.md): annotation editing on PDFium tabs through
   the hidden MuPDF editor.
 - [forms.md](forms.md): document JavaScript, forms and signing on PDFium tabs.
+- [testing.md](testing.md): test cursor, DPI, window layouts and desktop requirements.
 - [upstream-merges.md](upstream-merges.md): upstream merge assessment and
   results (2026-10-29, 2026-10-31, 2026-11-02).
 - `data/`: condensed measurement JSON cited by `history.md`.

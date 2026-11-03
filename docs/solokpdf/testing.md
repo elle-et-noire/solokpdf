@@ -1,16 +1,28 @@
-# Test cursor
+# SolokPDF test setup
 
-`-dbg-control` command 155 sets a process-local cursor position with two screen
-coordinates and clears it with no arguments. App cursor queries use it until
-cleared or the process exits. It is available in controlled runs that save
-settings without `-for-testing`. It does not move the Windows pointer.
-The response returns the cursor coordinates and the number of live virtual
-roots tracking mouse leave.
+Controlled Win32 tests send window messages and set an app-local cursor through
+`-dbg-control` `TestCursorPosition` (155). Use `moveTestCursor()` in
+`tests/win-automation.ts` before mouse messages; `clickAt()` does this for
+clicks. Two screen coordinates set the position; a request without arguments
+clears it. The response includes the position and the number of virtual roots
+tracking mouse leave. The override works even when a controlled run saves
+settings without `-for-testing`; it never moves the Windows pointer.
 
-Use `moveTestCursor()` in `tests/win-automation.ts` before sending mouse
-messages. It needs a controlled app. `clickAt()` does this automatically.
-Controlled tests use physical pixel coordinates so cross-process mouse messages
-reach the same point at non-100% DPI.
-Windows mouse-leave tracking is canceled when the override is set; send
-`WM_MOUSELEAVE` when a test needs one. OLE drag and drop still needs the real
-pointer.
+Loading `tests/winapi.ts` makes the test process per-monitor-v2 DPI aware.
+Coordinates and captures therefore use physical pixels on scaled displays.
+The cursor override cancels Windows mouse-leave tracking; send `WM_MOUSELEAVE`
+when the test needs that transition.
+
+`setTestWindowLayout()` defaults to `"rightHalf"`: the right half of the work
+area, three quarters of its height. `run-almost-all.ts` selects it explicitly.
+`run-github-ci.ts` selects `"workArea"` for the whole work area. App launch
+helpers use `testWindowPos()` unless a test supplies its own position.
+
+Message-driven hover, clicks and selection use the test cursor without an
+interactive desktop. OLE drag and drop still needs the real pointer;
+foreground-dependent popups need an unlocked desktop.
+
+Run app-launching tests outside the Codex sandbox or any similarly restricted
+runner. Inside it, WebView2 crashes with an
+`msedgewebview2.exe - アプリケーション エラー` dialog and tests report
+`browser not ready`.

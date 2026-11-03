@@ -9,8 +9,7 @@
 // PrintWindow (captureWindowToPng) also works for occluded/background windows,
 // which a screen grab does not.
 //
-// These are for *ad-hoc* tests (not checked in). Put reusable helpers here, not
-// in the individual ad-hoc scripts.
+// Keep reusable actions here rather than declaring them in each test.
 
 import { IS_MAC } from "./host.ts";
 import { macClick } from "./mac-control.ts";
@@ -172,7 +171,7 @@ export let FRAME_CLASS = USE_NG
     : "SUMATRA_PDF_FRAME";
 export const CANVAS_CLASS = "SUMATRA_PDF_CANVAS";
 
-// -window-pos for the right half of the screen (see testWindowPos)
+// -window-pos for the selected work-area layout (see testWindowPos)
 export function windowPosArgs(): string[] {
   const p = testWindowPos();
   return ["-window-pos", `${p.dx}x${p.dy}@${p.x}x${p.y}`];
@@ -183,8 +182,7 @@ export function windowPosArgs(): string[] {
 // (only opens files passed on the cmd-line) and doesn't save settings. Use
 // proc.pid with waitForFrame() to get the window.
 //
-// The window opens on the right half of the screen, which is a good deal
-// faster to render and to capture than a full-screen one. Pass { defaultWindowPos: true } in a test that is
+// By default the window opens on the right half of the work area. Pass { defaultWindowPos: true } in a test that is
 // about the window's own size or state - fullscreen, maximized, minimized,
 // restoring a remembered position - so the app picks the position itself.
 export function launchSumatra(args: string[], opts?: { defaultWindowPos?: boolean }): Bun.Subprocess {
@@ -519,7 +517,7 @@ export async function touchSwipe(x: number, y0: number, y1: number, steps = 20):
 // window DC (so it covers the non-client caption row as well as the tab bar and
 // toolbar children). Use it to assert that chrome repainted: capture once in a
 // known-good state, again after the action, and compare — see tests/issue-5866.ts.
-// Call setProcessDpiAware() first on scaled displays.
+// winapi.ts enables DPI awareness when loaded.
 export function topChromePixels(hwnd: number, dy: number): number[] {
   const r = getWindowRect(hwnd);
   const w = r.right - r.left;
@@ -556,7 +554,7 @@ export function countDifferingPixels(a: number[], b: number[]): number {
 //
 // A drawn scrollbar has at least a track color and a thumb color, so >= 2. An
 // unpainted one is a flat strip of a single color (issue #5850), which is how a
-// missing WM_NCPAINT shows up. Call setProcessDpiAware() first on scaled displays.
+// missing WM_NCPAINT shows up. winapi.ts enables DPI awareness when loaded.
 export function vScrollbarColorCount(canvas: number): number {
   const r = getWindowRect(canvas);
   const w = r.right - r.left;
