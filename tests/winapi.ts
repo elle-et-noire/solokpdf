@@ -2052,7 +2052,7 @@ function ensureGdiplus(): void {
 // Capture a window (by its full bounds) to a PNG file via PrintWindow. Works
 // for occluded / non-foreground / background windows -- the main reason to use
 // this over a screen grab. Returns true on success.
-export function captureWindowToPng(hwnd: number, outPath: string): boolean {
+export function captureWindowToPng(hwnd: number, outPath: string, flags = PW_RENDERFULLCONTENT): boolean {
   ensureGdiplus();
   const r = getWindowRect(hwnd);
   const w = r.right - r.left;
@@ -2064,7 +2064,7 @@ export function captureWindowToPng(hwnd: number, outPath: string): boolean {
   const memDC = gdi32.symbols.CreateCompatibleDC(winDC);
   const bmp = gdi32.symbols.CreateCompatibleBitmap(winDC, w, h);
   const oldObj = gdi32.symbols.SelectObject(memDC, bmp);
-  user32.symbols.PrintWindow(hwnd, memDC, PW_RENDERFULLCONTENT);
+  user32.symbols.PrintWindow(hwnd, memDC, flags);
   gdi32.symbols.SelectObject(memDC, oldObj);
 
   const gpBmp = new BigUint64Array(1);

@@ -89,6 +89,7 @@ struct NotificationWnd : WindowBase {
     HWND Create(const NotificationCreateArgs& args);
 
     void OnPaint(WindowBase::PaintEvent* ev);
+    void OnWndProc(WindowBase::WndProcEvent* ev);
     void OnTimer(WindowBase::TimerEvent* ev);
 
     void UpdateMessage(Str msg, int timeoutMs = 0, bool highlight = false);
@@ -419,6 +420,7 @@ HWND NotificationWnd::Create(const NotificationCreateArgs& args) {
     richMsg = args.content ? nullptr : args.richMsg;
 
     onPaint = MkMethod1<NotificationWnd, WindowBase::PaintEvent*, &NotificationWnd::OnPaint>(this);
+    onWndProc = MkMethod1<NotificationWnd, WindowBase::WndProcEvent*, &NotificationWnd::OnWndProc>(this);
     onTimer = MkMethod1<NotificationWnd, WindowBase::TimerEvent*, &NotificationWnd::OnTimer>(this);
 
     CreateCustomArgs cargs;
@@ -593,6 +595,19 @@ void NotificationWnd::OnPaint(WindowBase::PaintEvent* ev) {
         vroot->Paint(gfx, rc);
     }
     delete gfx;
+}
+
+void NotificationWnd::OnWndProc(WindowBase::WndProcEvent* ev) {
+    if (ev->msg != WM_PRINTCLIENT || !ev->wparam) {
+        return;
+    }
+
+    // PrintWindow needs the same toast content as WM_PAINT.
+    WindowBase::PaintEvent paint;
+    paint.w = this;
+    paint.hdc = (HDC)ev->wparam;
+    OnPaint(&paint);
+    ev->didHandle = true;
 }
 
 //--- the VirtCtrl controls making up a notification

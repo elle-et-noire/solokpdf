@@ -1390,8 +1390,16 @@ The paired run at `e7de6e7ac` reached 462 eligible tests per engine: 122
 distinct failures (S80, P30, R5, E5, M2). Settings-path fixes (`9653c39a3`,
 E5) and test repairs resolved S; PDFium work including B14–B29 and B48
 addressed P. B50 skips by-design gaps on hosted CI. Both engines passed run
-41349548951; B37's unlocked-desktop checks passed after correcting the RTL
-toast capture test.
+41349548951; B37's unlocked-desktop checks passed after correcting RTL toast
+printing. Hosted CI has not yet run the changed test.
+
+On the original `zlib.3.pdf`, the RTL toast had style `0x500008` on both
+engines. Its window-DC Z bar was upright at x=43, y=27. PrintWindow with
+`PW_RENDERFULLCONTENT` instead captured a clipped strip at y=2; its longest
+bar was at x=84 on PDFium and x=33 on MuPDF. The former tripped the old
+left-half assertion even though both displayed toasts were upright. The app
+now paints the toast for `WM_PRINTCLIENT`, and the test uses standard
+PrintWindow, which does not need displayed pixels.
 
 ## Completed backlog
 
@@ -1449,7 +1457,7 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 | B34 | Condensed header spacing                                                                                                                                                                                                                                                                       | Run 3: issue-5871            | done — Keep PDFium condensed word spaces (fixes #5871)                               |
 | B35 | External PDF viewers                                                                                                                                                                                                                                                                           | Run 3: issue-6184            | done — Open PDFium tabs in known PDF viewers (fixes #6184)                           |
 | B36 | Hosted window geometry                                                                                                                                                                                                                                                                         | Run 3: window tests          | done — Size test windows within the work area                                        |
-| B37 | Cursor and RTL capture tests (full-suite run 3)                                                                                                                                                                                                                                                | Run 3: toolbar, issue-6113   | done — Fix RTL toast capture test (B37)                                              |
+| B37 | Cursor and RTL capture tests (full-suite run 3)                                                                                                                                                                                                                                                | Run 3: toolbar, issue-6113   | done — Fix review findings for B37                                                   |
 | B38 | PDF catalog layout                                                                                                                                                                                                                                                                             | Run 3: issue-2022            | done — Honor PDF catalog layout (fixes #2022)                                        |
 | B39 | MuPDF shape placement                                                                                                                                                                                                                                                                          | Run 3: shape placement       | done — Passes on hosted CI run 41349548951                                           |
 | B40 | HTML next-file navigation                                                                                                                                                                                                                                                                      | Run 3: issue-5918            | done — Wait out WebView2 cold start in issue-5918 test (B40)                         |

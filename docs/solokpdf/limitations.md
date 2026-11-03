@@ -387,9 +387,11 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   OLE drag and drop and foreground-dependent popup tests still need an unlocked
   desktop. See [testing.md](testing.md).
 - On an unlocked desktop, `toolbar-hover-dropdown` passes on both engines.
-  `issue-6113` passes on PDFium and MuPDF after B37 changed the test to read
-  the toast's displayed window pixels. `PrintWindow` clipped and reflected
-  its RTL repaint on PDFium even though the displayed text was upright.
+  With the original PDF fixture, both engines display upright RTL toast text.
+  `PrintWindow` with `PW_RENDERFULLCONTENT` captured a clipped strip on both;
+  its stray bars triggered the PDFium failure. B37 paints toast content for
+  `WM_PRINTCLIENT`, and standard `PrintWindow` capture passes locally on both
+  engines without reading displayed pixels. Hosted CI remains unverified.
 - `shape-annotation-placement` passes on both engines in hosted CI run
   41349548951 (B39); local locked-desktop drag attempts remain unreliable.
 - The baseline clipboard test failure was fixed with per-read opens and

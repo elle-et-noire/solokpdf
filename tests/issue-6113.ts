@@ -4,21 +4,16 @@
 //
 // Run: bun tests/issue-6113.ts [--no-build]
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
-import { USE_NG, cmdId, makeBlankPdf, runStandalone, tmpPath } from "./util.ts";
+import { join } from "node:path";
+import { ROOT, USE_NG, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import {
-  captureWindowDCToPng,
-  enumChildWindows,
-  getClassName,
-  getWindowText,
-  isWindowVisible,
-  sleep,
-} from "./winapi.ts";
+import { captureWindowToPng, enumChildWindows, getClassName, getWindowText, isWindowVisible, sleep } from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 const NOTIF_CLASS = "SumatraWgDefaultWinClass";
+const PRINT_WINDOW_DEFAULT = 0;
 
 type Shot = { w: number; h: number; data: Uint8Array };
 
@@ -190,16 +185,11 @@ function hasInk(shot: Shot): boolean {
   return longestBarDx(shot) >= MIN_BAR_DX;
 }
 
-function mirrorShot(shot: Shot): Shot {
-  const data = new Uint8Array(shot.data.length);
-  for (let y = 0; y < shot.h; y++) {
-    for (let x = 0; x < shot.w; x++) {
-      const src = (y * shot.w + x) * 4;
-      const dst = (y * shot.w + shot.w - x - 1) * 4;
-      data.set(shot.data.subarray(src, src + 4), dst);
-    }
+function assertUpright(shot: Shot, label: string): void {
+  const bar = longestBarMid(shot);
+  if (bar.mid > shot.w / 2) {
+    throw new Error(`issue-6113: ${label} text is mirrored (bar mid=${bar.mid} w=${shot.w} y=${bar.y} dx=${bar.dx})`);
   }
-  return { ...shot, data };
 }
 
 async function grabZoomToast(
@@ -214,7 +204,7 @@ async function grabZoomToast(
   const png = tmpPath(`6113-${label}.png`);
   const deadline = Date.now() + TOAST_PAINT_TIMEOUT_MS;
   for (;;) {
-    if (!captureWindowDCToPng(hwnd, png)) {
+    if (!captureWindowToPng(hwnd, png, PRINT_WINDOW_DEFAULT)) {
       throw new Error(`issue-6113: capture failed (${label})`);
     }
     const shot = loadPng(png);
@@ -276,8 +266,18 @@ async function testNg(client: ControlClient, frame: number): Promise<void> {
 }
 
 export async function testit(): Promise<void> {
-  const pdf = tmpPath("6113.pdf");
-  writeFileSync(pdf, makeBlankPdf(1));
+  // Independently rendered and mirrored "Zoom: 150%" sample.
+  const mirrored = loadPng(join(ROOT, "tests", "issue-6113.mirrored.png"));
+  try {
+    assertUpright(mirrored, "known mirrored");
+    throw new Error("issue-6113: known mirrored toast escaped the RTL check");
+  } catch (e) {
+    if (!String(e).includes("known mirrored text is mirrored")) {
+      throw e;
+    }
+  }
+
+  const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
   const { proc, client, frame } = await launchControlled([pdf]);
   try {
     await client.waitForRenderIdle();
@@ -292,10 +292,7 @@ export async function testit(): Promise<void> {
     }
 
     const ltrShot = await grabZoomToast(frame, canvas, "CmdZoom125", "Zoom: 125%", "ltr");
-    const ltr = longestBarMid(ltrShot);
-    if (ltr.mid > ltrShot.w / 2) {
-      throw new Error(`issue-6113: LTR Z-bar should be on the left (mid=${ltr.mid} w=${ltrShot.w})`);
-    }
+    assertUpright(ltrShot, "LTR");
 
     await client.setNotificationsEnabled(false);
     await waitNotif(canvas, false);
@@ -305,16 +302,7 @@ export async function testit(): Promise<void> {
     await client.waitForRenderIdle();
 
     const rtlShot = await grabZoomToast(frame, canvas, "CmdZoom150", "Zoom: 150%", "rtl");
-    const rtl = longestBarMid(rtlShot);
-    if (rtl.mid > rtlShot.w / 2) {
-      throw new Error(
-        `issue-6113: notification text is mirrored in RTL (bar mid=${rtl.mid} w=${rtlShot.w} y=${rtl.y} dx=${rtl.dx})`,
-      );
-    }
-    const mirrored = longestBarMid(mirrorShot(rtlShot));
-    if (mirrored.mid <= rtlShot.w / 2) {
-      throw new Error("issue-6113: mirrored toast escaped the RTL check");
-    }
+    assertUpright(rtlShot, "RTL notification");
   } finally {
     await client.quit();
     await killAndWait(proc);
