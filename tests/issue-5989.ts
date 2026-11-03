@@ -13,7 +13,7 @@ import {
   waitForTopWindow,
   WM_KEYDOWN,
 } from "./winapi.ts";
-import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
+import { activateTestFrame, killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 
 const SCREENSHOT_OVERLAY_CLASS = "SumatraScreenshotOverlay";
 
@@ -53,6 +53,7 @@ export async function testit(): Promise<void> {
 
   const { proc, client, frame } = await launchControlled(["-appdata", appData]);
   try {
+    await activateTestFrame(client);
     await waitForDocumentFocus(frame);
 
     sendCommand(frame, cmdId("CmdScreenshot"));
