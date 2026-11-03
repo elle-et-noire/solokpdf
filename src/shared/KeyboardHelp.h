@@ -27,5 +27,6 @@ void ToggleKeyboardHelp(const KeyboardHelpArgs&);
 void ToggleKeyboardHelp(MainWindow*);
 void CloseKeyboardHelp();
 bool IsKeyboardHelpVisible();
+bool IsHelpListedCmd(int cmdId);
 bool KeyboardHelpOnKeyDown(int vk);
 gpui::El* KeyboardHelpBuild(MainWindow* win, gpui::Ctx* cx);

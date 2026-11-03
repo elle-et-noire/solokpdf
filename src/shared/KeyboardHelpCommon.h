@@ -53,6 +53,9 @@ static const int kSecAnnot[] = {
 
 static const int kSecIface[] = {
     CmdCommandPalette, CmdToggleBookmarks, CmdToggleToolbar, CmdToggleCaption, CmdToggleMenuBar,
+#if !defined(SUMATRA_NG)
+    CmdOptions,
+#endif
     CmdVimCommandLine, CmdToggleVimKeys,
     CmdToggleCursorPosition, CmdTogglePageInfo,
     CmdNextTheme, CmdPrevTheme,
@@ -72,7 +75,6 @@ static const KbSectionDef kSections[] = {
     {"Document", kSecDoc, 1},      {"Find & Select", kSecFind, 0}, {"Tabs", kSecTabs, 1},
     {"Annotations", kSecAnnot, 1},
 };
-bool IsHelpListedCmd(int cmdId);
 TempStr RegisteredHotkeyTemp(int cmdId);
 // fallback shortcuts for platforms without an accelerator table (the Windows
 // data source looks up the real bindings instead). {id, ""} means "no default".

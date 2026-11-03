@@ -25,6 +25,7 @@
 #include "SumatraConfig.h"
 #include "SumatraPDF.h"
 #include "PdfToolsCommon.h"
+#include "KeyboardHelp.h"
 #include "SumatraDialogs.h"
 
 static Shortcut* CopyShortcut(const Shortcut* from) {
@@ -502,6 +503,11 @@ void ShowShortcutsDialog(MainWindow* win) {
 TempStr ShortcutsDialogTestTemp(Str action, Str command, Str key, Str arg, int* exitCodeOut) {
     if (exitCodeOut) {
         *exitCodeOut = 1;
+    }
+    if (str::Eq(action, StrL("help"))) {
+        int cmdId = GetCommandIdByName(command);
+        if (exitCodeOut) *exitCodeOut = 0;
+        return fmt("listed=%d keys=%s", (int)IsHelpListedCmd(cmdId), ShortcutsForCmdTemp(cmdId, 2));
     }
     if (str::Eq(action, StrL("press")) || str::Eq(action, StrL("resolve"))) {
         KeyShortcut shortcut;
