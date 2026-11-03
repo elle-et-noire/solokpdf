@@ -1437,6 +1437,9 @@ class EnginePdfium : public EngineBase {
                 }
             } else if (subtype != FPDF_ANNOT_LINK) {
                 info->useMupdfElements = true;
+                if (!isAttachment && subtype != FPDF_ANNOT_POPUP) {
+                    AddAnnotTip(page, pageNo, info, annot, subtype);
+                }
             }
             gPdfium.FPDFPage_CloseAnnot(annot);
             if (isAttachment) {
@@ -1495,6 +1498,48 @@ class EnginePdfium : public EngineBase {
         tip->pageNo = pageNo;
         tip->rect = rect;
         VecAppend(info->links, (IPageElement*)tip);
+    }
+
+    TempStr AnnotString(FPDF_ANNOTATION annot, const char* key) {
+        unsigned long bytes = gPdfium.FPDFAnnot_GetStringValue(annot, key, nullptr, 0);
+        constexpr unsigned long kMaxTipBytes = 64 * 1024;
+        if (bytes <= sizeof(WCHAR) || bytes > kMaxTipBytes || bytes % sizeof(WCHAR) != 0) {
+            return {};
+        }
+        WCHAR* buf = AllocArrayTemp<WCHAR>((int)(bytes / sizeof(WCHAR)));
+        if (gPdfium.FPDFAnnot_GetStringValue(annot, key, (FPDF_WCHAR*)buf, bytes) != bytes) {
+            return {};
+        }
+        return ToUtf8Temp(WStr(buf, (int)(bytes / sizeof(WCHAR)) - 1));
+    }
+
+    void AddAnnotTip(FPDF_PAGE page, int pageNo, PdfiumPage* info, FPDF_ANNOTATION annot,
+                     FPDF_ANNOTATION_SUBTYPE subtype) {
+        Str contents = subtype == FPDF_ANNOT_FREETEXT ? Str{} : AnnotString(annot, "Contents");
+        Str author = AnnotAuthorInTooltip() ? AnnotString(annot, "T") : Str{};
+        if (str::IsEmptyOrWhiteSpace(contents)) {
+            contents = {};
+        }
+        if (str::IsEmptyOrWhiteSpace(author)) {
+            author = {};
+        }
+        Str tip = contents;
+        if (author) {
+            TempStr authorLine = fmt("Author: %s", author);
+            tip = contents ? str::JoinTemp(contents, StrL("\n"), authorLine) : authorLine;
+        }
+        FS_RECTF r{};
+        if (len(tip) == 0 || !gPdfium.FPDFAnnot_GetRect(annot, &r)) {
+            return;
+        }
+        RectF rect = ToPageRect(page, info, r.left, r.bottom, r.right, r.top);
+        if (rect.IsEmpty()) {
+            return;
+        }
+        auto* element = new PageElementComment(tip);
+        element->pageNo = pageNo;
+        element->rect = rect;
+        VecAppend(info->links, (IPageElement*)element);
     }
 
     TocItem* ReadBookmarks(FPDF_BOOKMARK first, TocItem* parent, int depth, int& budget, int& id) {
@@ -2700,18 +2745,19 @@ class EnginePdfium : public EngineBase {
 
     IPageElement* GetElementAtPos(int pageNo, PointF point) override {
         Vec<IPageElement*> links;
-        bool complete = false;
-        if (!RedactedEditor(pageNo)) {
-            // skip while a render owns the lock
-            if (!gPdfiumLock.TryLock()) {
-                return nullptr;
-            }
-            bool useMupdf = false;
-            complete = ElementsLocked(pageNo, links, &useMupdf);
-            gPdfiumLock.Unlock();
+        if (EngineBase* redacted = RedactedEditor(pageNo)) {
+            return redacted->GetElementAtPos(pageNo, point);
         }
-        if (!complete) {
-            links = GetElements(pageNo);
+        // Hover reads PDFium's cached links and comments without opening the editor.
+        if (!gPdfiumLock.TryLock()) {
+            return nullptr;
+        }
+        bool useMupdf = false;
+        ElementsLocked(pageNo, links, &useMupdf);
+        gPdfiumLock.Unlock();
+        EngineBase* source = useMupdf ? AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
+        if (source && source->BenchLoadPage(pageNo)) {
+            return source->GetElementAtPos(pageNo, point);
         }
         for (int i = len(links) - 1; i >= 0; i--) {
             if (links[i]->rect.Contains(point)) {

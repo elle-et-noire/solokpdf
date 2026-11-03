@@ -267,6 +267,7 @@ enum class AnnotAuthorVisibility {
     Show
 };
 void EngineMupdfSetAnnotAuthorInTooltip(AnnotAuthorVisibility);
+bool AnnotAuthorInTooltip();
 void EngineMupdfToggleCadEnhance(EngineBase* engine);
 bool EngineMupdfCadEnhanceActive(EngineBase* engine);
 void EngineMupdfInvalidateDarkMode(EngineBase* engine);

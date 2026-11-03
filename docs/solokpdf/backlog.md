@@ -13,16 +13,10 @@ there.
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
 | B37 | Cursor and RTL capture tests (full-suite run 3)  | blocked — locked desktop prevents cursor and capture checks   |
 | B62 | Widget action query gate                         | blocked — PDFium does not expose widget `/S`                  |
-| B63 | CI failures since B59                            | todo                                                          |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
 
 B37 needs a rerun on an unlocked, interactive desktop.
-
-B63: on CI, ad-hoc-pdfium-annotations finds the hidden editor loaded
-before any annotation query (the test now sets its test cursor after
-launch instead of parking the real pointer; hover may load the editor),
-and ad-hoc-b59-cursor can't arm mouse-leave tracking on the runner.
 
 ## Dropped
 

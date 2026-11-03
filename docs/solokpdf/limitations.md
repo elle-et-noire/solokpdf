@@ -38,10 +38,10 @@ are in [history.md](history.md).
   producers can overwrite them while open and the document reloads
   (`tests/ad-hoc-pdfium.ts` covers small and 33 MiB files). PDFium Save As
   after rename/delete reads that handle (`tests/ad-hoc-pdfium-saveas.ts`).
-  Hover scans PDFium's page annotation subtypes before loading the hidden
-  MuPDF editor; plain pages keep their files renameable, while annotated pages
-  retain annotation hover (`tests/ad-hoc-pdfium-hover.ts`). MuPDF's large-file
-  handle blocks rename/delete on Windows once its editor is loaded.
+  Hover reads annotation comments through PDFium without loading the hidden
+  MuPDF editor; annotated pages also keep their files renameable
+  (`tests/ad-hoc-pdfium-hover.ts`). MuPDF's large-file handle blocks
+  rename/delete on Windows once its editor is loaded.
 - `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
   API for it, so MuPDF reads it when the byte scan finds a catalog key. Release
   cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB
@@ -233,11 +233,11 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   MuPDF document of the same file, which draws them over PDFium's pages once
   loaded, including redaction marks. PDFium's own incremental save, used
   before, wrote every parsed object: one annotation added up to 35 MB.
-- PDFium loads the editor when an annotated page needs comment elements and
-  before the first annotation journal operation. Plain-page render and hover
-  leave it unloaded. The markup diagnostic now reads annotations from all
+- PDFium loads the editor for explicit comment queries and before the first
+  annotation journal operation. Page render and hover leave it unloaded;
+  PDFium supplies hover comments and authors. The markup diagnostic reads all
   pages. `issue-5329` passes on both engines after seeding the active settings
-  file; annotation tooltips include authors when enabled (B26).
+  file; annotation tooltips include authors when enabled (B26, B63).
   Cursor-driven annotation checks need an unlocked Windows session.
 - Applying redactions on a PDFium tab rewrites pages in the already loaded
   MuPDF editor and, as on MuPDF tabs, leaves the file unsaved and the step
@@ -378,6 +378,9 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   B60 makes all Win32 test launches DPI aware, updates the TOC palette prefix
   to `%`, and checks every visible caption button against the app's child-window
   stacking rather than desktop window occlusion.
+  B63 opens the annotation fixture after setting that cursor, keeps PDFium
+  hover off the editor, and skips the mouse-leave transition when tracking
+  cannot be armed on a hosted desktop.
   OLE drag and drop and foreground-dependent popup tests still need an unlocked
   desktop. See [testing.md](testing.md).
 - Run 3 failed `toolbar-hover-dropdown` and `issue-6113` on both engines.

@@ -125,6 +125,10 @@ void EngineMupdfSetAnnotAuthorInTooltip(AnnotAuthorVisibility visibility) {
     gShowAnnotAuthorInTooltip = visibility == AnnotAuthorVisibility::Show;
 }
 
+bool AnnotAuthorInTooltip() {
+    return gShowAnnotAuthorInTooltip;
+}
+
 EngineMupdf* AsEngineMupdf(EngineBase* engine) {
     if (!engine || !IsOfKind(engine, kindEngineMupdf)) {
         return nullptr;

@@ -1394,7 +1394,7 @@ addressed P. B50 skips by-design gaps on hosted CI. Both engines passed run
 
 ## Completed backlog
 
-Rows of [backlog.md](backlog.md) completed by 2026-11-02. Sources: an audit of every
+Rows of [backlog.md](backlog.md) completed by 2026-11-03. Sources: an audit of every
 MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 `AsEngineMupdf` helpers), the known limitations and the upstream full suite.
 
@@ -1472,6 +1472,7 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 | B59 | Tests drive a test-only cursor position instead of the real cursor                                                                                                                                                                                                                             | tests                        | done — Drive tests with a test cursor position (B59)                                 |
 | B60 | Test fixes: DPI clicks, TOC prefix, 6355 check                                                                                                                                                                                                                                                 | tests                        | done — Fix DPI clicks and stale test inputs (B60)                                    |
 | B61 | PDFium: push-button links in keyboard following                                                                                                                                                                                                                                                | issue-1914                   | done — Read PDFium push-button links without editor (B61)                            |
+| B63 | CI failures since B59                                                                                                                                                                                                                                                                          | tests                        | done — Fix CI failures since B59 (B63)                                               |
 
 ### C. Coexistence with SumatraPDF
 

@@ -37,7 +37,7 @@ async function check(annotation: boolean): Promise<void> {
       postMessage(canvas, WM_MOUSEMOVE, 0, packCoords((rect.right - rect.left) >> 1, (rect.bottom - rect.top) >> 1));
       await client.waitForRenderIdle();
       const result = await client.request(ControlCommand.TestCurrentPdf, ["editor"]);
-      const want = annotation ? "editor=loaded" : "editor=none";
+      const want = "editor=none";
       if (result[0] !== 0 || result[1] !== want) throw new Error(`${want}: ${result[1]}`);
       if (!annotation) renameSync(source, join(dir, "moved.pdf"));
     },

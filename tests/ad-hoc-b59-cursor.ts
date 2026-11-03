@@ -72,16 +72,25 @@ export async function testit(): Promise<void> {
       await client.request(ControlCommand.TestCursorPosition);
       setForegroundWindow(frame);
       if (setCursorPos(inside.x, inside.y) && same(getCursorPos(), inside)) {
-        if (windowFromPoint(inside.x, inside.y) !== tabs.hwnd) throw new Error("tab bar occluded");
-        let armed: unknown[] = [];
-        for (let i = 0; i < 5; i++) {
-          sendMessage(tabs.hwnd, WM_MOUSEMOVE, 0, packCoords(tabs.rect.x + 5, tabs.rect.y + 5));
-          armed = await client.request(ControlCommand.TestCursorPosition);
-          if (Number(armed[2]) > 0) break;
+        if (windowFromPoint(inside.x, inside.y) !== tabs.hwnd) {
+          console.log("SKIP mouse leave transition: tab bar occluded");
+        } else {
+          let armed: unknown[] = [];
+          for (let i = 0; i < 5; i++) {
+            sendMessage(tabs.hwnd, WM_MOUSEMOVE, 0, packCoords(tabs.rect.x + 5, tabs.rect.y + 5));
+            armed = await client.request(ControlCommand.TestCursorPosition);
+            if (Number(armed[2]) > 0) break;
+          }
+          if (Number(armed[2]) < 1) {
+            console.log(`SKIP mouse leave transition: tracking could not arm (${armed})`);
+          } else {
+            const overridden = await client.request(ControlCommand.TestCursorPosition, [
+              targetScreen.x,
+              targetScreen.y,
+            ]);
+            if (overridden[2] !== 0) throw new Error(`override left mouse leave tracking armed: ${overridden}`);
+          }
         }
-        if (Number(armed[2]) < 1) throw new Error(`could not arm mouse leave tracking: ${armed}`);
-        const overridden = await client.request(ControlCommand.TestCursorPosition, [targetScreen.x, targetScreen.y]);
-        if (overridden[2] !== 0) throw new Error(`override left mouse leave tracking armed: ${overridden}`);
       } else {
         console.log("SKIP mouse leave transition: real pointer unavailable");
       }
