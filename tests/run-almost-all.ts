@@ -523,6 +523,10 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["issue-5989", issue5989],
+  ["issue-6280", issue6280],
+  ["issue-6340", issue6340],
+  ["issue-6412", issue6412],
   ["issue-6464", issue6464],
   ["issue-6355", issue6355],
   ["issue-6113", issue6113],
@@ -688,7 +692,6 @@ export const tests: NamedTest[] = [
   ["issue-6348", issue6348],
   ["issue-5964", issue5964],
   ["issue-6013", issue6013],
-  ["issue-5989", issue5989],
 
   // --- no Sumatra process -------------------------------------------------
   ["lint-command-ids", lintCommandIds],
@@ -842,7 +845,6 @@ export const tests: NamedTest[] = [
   ["issue-6359", issue6359],
   ["issue-6361", issue6361],
   ["issue-6362", issue6362],
-  ["issue-6280", issue6280],
   ["issue-6322", issue6322],
   ["issue-6324", issue6324],
   ["issue-6323", issue6323],
@@ -918,7 +920,6 @@ export const tests: NamedTest[] = [
   ["command-palette-settings", commandPaletteSettings],
   ["settings-restore-default", settingsRestoreDefault],
   ["issue-6287", issue6287],
-  ["issue-6340", issue6340],
   ["issue-6341", issue6341],
   ["issue-6337", issue6337],
   ["issue-6367", issue6367],
@@ -951,7 +952,6 @@ export const tests: NamedTest[] = [
   ["issue-6406", issue6406],
   ["issue-6409", issue6409],
   ["issue-6411", issue6411],
-  ["issue-6412", issue6412],
   ["issue-6420", issue6420],
   ["issue-6424", issue6424],
   ["issue-6421", issue6421],

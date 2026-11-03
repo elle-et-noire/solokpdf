@@ -88,11 +88,8 @@ async function searchOnce(pdf: string, term: string, viaCmdLine: boolean): Promi
       }
       await waitForMatch(client, term);
     } finally {
-      try {
-        await client.quit();
-      } catch {
-        await killAndWait(proc);
-      }
+      client.close();
+      await killAndWait(proc);
     }
   }
 }

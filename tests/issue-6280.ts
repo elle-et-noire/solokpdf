@@ -8,6 +8,7 @@ import { writeFileSync } from "node:fs";
 import { ControlCommand, type ControlClient } from "./control.ts";
 import { assemblePdf, cmdId, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
 import {
+  killAndWait,
   launchControlled,
   ngFind,
   pressKey,
@@ -82,7 +83,7 @@ export async function testit(): Promise<void> {
   const pdf = tmpPath("issue-6280.pdf");
   writeFileSync(pdf, makeSearchPdf(), "latin1");
 
-  const { client, frame } = await launchControlled([pdf]);
+  const { proc, client, frame } = await launchControlled([pdf]);
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
@@ -132,7 +133,8 @@ export async function testit(): Promise<void> {
     await pressKey(edit2, VK_RETURN);
     await expectSettled(client, "second Enter", { hitPage: kSecondHitPage, page: kSecondHitPage });
   } finally {
-    await client.quit();
+    client.close();
+    await killAndWait(proc);
   }
 }
 

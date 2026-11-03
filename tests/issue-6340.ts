@@ -17,7 +17,7 @@ import {
   SWP_NOACTIVATE,
   SWP_NOZORDER,
 } from "./winapi.ts";
-import { clickAt, launchControlled } from "./win-automation.ts";
+import { clickAt, killAndWait, launchControlled } from "./win-automation.ts";
 
 const FLOAT_CLASS = "SUMATRA_ANNOT_FILTER_WND";
 const NOTE = "The reviewer asked for a shorter sentence here. ".repeat(20);
@@ -128,7 +128,7 @@ export async function testit(): Promise<void> {
     console.log("issue-6340: OK");
   } finally {
     client.close();
-    proc.kill();
+    await killAndWait(proc);
   }
 }
 
