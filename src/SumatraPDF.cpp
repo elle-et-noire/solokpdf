@@ -5435,7 +5435,6 @@ void CloseTab(WindowTab* tab, bool quitIfLast) {
     int tabCount = win->TabCount();
     if (tabCount == 1 || (tabCount == 0 && quitIfLast)) {
         if (CanCloseWindow(win)) {
-            UpdateTabFileDisplayStateForTab(tab);
             CloseWindow(win, quitIfLast, false);
             return;
         }
@@ -5596,6 +5595,10 @@ void CloseWindow(MainWindow* win, bool quitIfLast, bool forceClose) {
             }
         }
         return;
+    }
+
+    for (auto& tab : win->Tabs()) {
+        UpdateTabFileDisplayStateForTab(tab);
     }
 
     // Stop eventual TTS reading

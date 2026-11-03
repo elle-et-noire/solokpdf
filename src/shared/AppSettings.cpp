@@ -729,6 +729,9 @@ static bool SaveSettings(bool force) {
     // we snapshot the list because SaveSettings() can be called re-entrantly
     // (e.g. from LoadDocumentFinish while other documents are still loading/closing)
     for (MainWindow* win : gWindows) {
+        if (win->isBeingClosed) {
+            continue;
+        }
         Vec<WindowTab*> tabs = win->Tabs();
         for (WindowTab* tab : tabs) {
             UpdateTabFileDisplayStateForTab(tab);
