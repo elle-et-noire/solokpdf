@@ -374,6 +374,11 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 ## Tests and CI
 
+- B65 saves each tab's view state when a window close is accepted. Targeted
+  hidden-desktop runs pass on both engines, including `issue-4788`,
+  `issue-6252`, the toolbar interaction and both menu tests. The CI runner
+  reports app processes left by each test. The toolbar fixture still needs a
+  hosted 100% DPI run.
 - B58 sizes thumbnail tests explicitly, compares tab widths within the same
   layout and keeps click-away points within the canvas. The narrow-window tab
   check is `issue-6464`'s tab layout test. B59 gives controlled tests a

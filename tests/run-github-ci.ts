@@ -22,7 +22,7 @@
 
 import { existsSync } from "node:fs";
 import { EXE, formatDuration, resetTestTimes, runTest, type NamedTest } from "./util.ts";
-import { getWorkArea, setTestWindowLayout, testWindowPos } from "./winapi.ts";
+import { getWorkArea, listPidsByExeName, setTestWindowLayout, testWindowPos } from "./winapi.ts";
 import { tests as allTests } from "./run-all.ts";
 
 // Tests that need something a hosted runner doesn't have. Keep the reason with
@@ -71,6 +71,10 @@ type Failure = { name: string; msg: string };
 const kTestTimeoutMs = 5 * 60 * 1000;
 const kAppImages = ["SumatraPDF.exe", "SumatraPDF-static.exe", "SolokPDF.exe"];
 
+function appPids(): Set<number> {
+  return new Set(kAppImages.flatMap(listPidsByExeName));
+}
+
 async function withTestTimeout(name: string, run: Promise<void>): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -108,12 +112,19 @@ export async function testit(tests: NamedTest[] = ciTests()): Promise<void> {
   const t0 = performance.now();
   for (const [name, fn] of tests) {
     console.log(`\n========== ${name} ==========`);
+    const before = appPids();
+    let error: unknown;
     try {
       await withTestTimeout(name, runTest(name, fn));
     } catch (e) {
-      // runTest already timed and recorded it; keep going so one broken test
-      // doesn't hide the state of everything after it
-      const msg = (e as Error)?.message ?? String(e);
+      error = e;
+    }
+    const leaked = [...appPids()].filter((pid) => !before.has(pid));
+    if (leaked.length > 0) {
+      error = new Error(`${(error as Error)?.message ?? ""} ${name} left app process(es): ${leaked.join(", ")}`.trim());
+    }
+    if (error) {
+      const msg = (error as Error)?.message ?? String(error);
       console.error(`❌ ${msg}`);
       failures.push({ name, msg });
     }
