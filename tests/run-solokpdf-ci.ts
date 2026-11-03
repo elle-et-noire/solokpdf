@@ -56,9 +56,11 @@ import { testit as hiddenDesktop } from "./ad-hoc-b69-hidden-desktop.ts";
 import { testit as shellLaunch } from "./ad-hoc-b69-shell-launch.ts";
 import { testit as localClipboard } from "./ad-hoc-b67-clipboard.ts";
 import { testit as settingsB70 } from "./ad-hoc-b70-settings.ts";
+import { testit as tabViewB70 } from "./ad-hoc-b70-tab-view.ts";
 import { testit as lintSystemClipboard } from "./lint-system-clipboard.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-b70-tab-view", tabViewB70],
   ["ad-hoc-b70-settings", settingsB70],
   ["ad-hoc-b67-clipboard", localClipboard],
   ["lint-system-clipboard", lintSystemClipboard],
