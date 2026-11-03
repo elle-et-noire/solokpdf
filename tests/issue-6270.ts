@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // #6270: Book view. Clicking the right-hand page of a spread shows that
 // spread, but the thumbnail highlight followed the row's first page.
 // A second click was what made the clicked thumbnail stick.
@@ -10,7 +9,7 @@ import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { cmdId, makePdf, pollUntil, runStandalone, tmpPath, writeAppdata } from "./util.ts";
 import { clientToScreen, MK_LBUTTON, packCoords, sendMessage, WM_LBUTTONDOWN, WM_LBUTTONUP } from "./winapi.ts";
-import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import { moveTestCursor, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 type Rect = { x: number; y: number; dx: number; dy: number };
 

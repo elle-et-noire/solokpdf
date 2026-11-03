@@ -88,7 +88,7 @@ async function queryPage(client: ControlClient): Promise<number> {
   }
 }
 
-async function clickCanvasEdge(pid: number, side: "left" | "right" | "middle"): Promise<void> {
+async function clickCanvasEdge(client: ControlClient, pid: number, side: "left" | "right" | "middle"): Promise<void> {
   const frame = await waitForFrame(pid);
   if (!frame) {
     throw new Error("issue-1203: no frame");
@@ -110,7 +110,7 @@ async function clickCanvasEdge(pid: number, side: "left" | "right" | "middle"): 
   } else if (side === "right") {
     x = dx - Math.max(4, Math.floor(dx / 10));
   }
-  await clickAt(canvas, x, y, 0);
+  await clickAt(canvas, x, y, 0, 0, client);
 }
 
 async function clickEdgeUntilPage(
@@ -122,7 +122,7 @@ async function clickEdgeUntilPage(
 ): Promise<void> {
   let last = 0;
   for (let i = 0; i < 3; i++) {
-    await clickCanvasEdge(pid, side);
+    await clickCanvasEdge(client, pid, side);
     last = await waitForPage(client, want, 1500 * SLOW_BUILD_FACTOR);
     if (last === want) {
       return;
@@ -153,7 +153,7 @@ export async function testit(): Promise<void> {
       }
       await clickEdgeUntilPage(client, proc.pid!, "right", 2, "issue-1203 on");
       await clickEdgeUntilPage(client, proc.pid!, "left", 1, "issue-1203 on");
-      await clickCanvasEdge(proc.pid!, "middle");
+      await clickCanvasEdge(client, proc.pid!, "middle");
       if ((await queryPage(client)) !== 1) {
         throw new Error("issue-1203 on: middle click should stay on page 1");
       }
@@ -177,7 +177,7 @@ export async function testit(): Promise<void> {
           throw new Error(`issue-1203 off: expected to start on page 1, got ${page}`);
         }
       }
-      await clickCanvasEdge(proc.pid!, "right");
+      await clickCanvasEdge(client, proc.pid!, "right");
       if ((await queryPage(client)) !== 1) {
         throw new Error("issue-1203 off: right-edge click should not turn the page");
       }

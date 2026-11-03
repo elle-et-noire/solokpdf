@@ -1,10 +1,9 @@
-import { moveTestCursor } from "./win-automation.ts";
 // #6247: removing a home page entry of a file with favorites (it is only hidden, // not removed from history) left the entry on screen until the next relayout.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SETTINGS_FILE, ROOT, runStandalone, tmpPath } from "./util";
 import { sendMessage, sleep } from "./winapi.ts";
-import { findCanvas, launchControlled, killAndWait } from "./win-automation";
+import { moveTestCursor, findCanvas, launchControlled, killAndWait } from "./win-automation";
 import type { ControlClient, HomeSelection } from "./control.ts";
 
 const WM_KEYDOWN = 0x0100;

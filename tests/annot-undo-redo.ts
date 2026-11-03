@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Undo / redo of PDF edits (MuPDF's journal). Checks that a change can be
 // stepped back and forward, that Undo / Redo are only offered when there is
 // something to step to, and that one gesture is one step: a paste writes the
@@ -26,7 +25,14 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { clickAt, findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import {
+  moveTestCursor,
+  clickAt,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  sendCommandSync,
+} from "./win-automation.ts";
 
 type Square = { x: number; y: number; dx: number; dy: number };
 type State = {

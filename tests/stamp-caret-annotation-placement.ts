@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Stamp, caret, and file-attachment annotations from the PDF toolbar or
 // Command Palette enter a placement mode. A ghost of the annotation follows
 // the cursor; canvas-margin clicks do nothing; a page click creates it; Esc
@@ -19,6 +18,7 @@ import {
   WM_MOUSEMOVE,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findChildByClass,
   findCanvas,

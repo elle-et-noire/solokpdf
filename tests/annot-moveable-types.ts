@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Which annotations can be moved and resized follows the PDF spec and mupdf:
 // /Rect is required on every annotation, and mupdf's rect_subtypes (what
 // pdf_annot_has_rect() answers yes to) is the set whose position is theirs to
@@ -17,7 +16,15 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { clickAt, findCanvas, killAndWait, launchControlled, pressEscape, sendCommandSync } from "./win-automation.ts";
+import {
+  moveTestCursor,
+  clickAt,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  pressEscape,
+  sendCommandSync,
+} from "./win-automation.ts";
 
 type Sel = { rect: { x: number; y: number; dx: number; dy: number }; canResize: boolean; raw: string };
 

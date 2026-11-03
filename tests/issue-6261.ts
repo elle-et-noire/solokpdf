@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // The app icon at the left of the caption (tabs in the title bar) moves the
 // window when dragged, like in 3.2 - 3.6.1: a steady, big enough target for
 // touch. A click without a drag still opens the system menu.
@@ -20,7 +19,7 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { killAndWait, launchControlled, waitForContextMenu } from "./win-automation.ts";
+import { moveTestCursor, killAndWait, launchControlled, waitForContextMenu } from "./win-automation.ts";
 
 async function waitFor(what: string, f: () => boolean | Promise<boolean>, timeoutMs = 3000) {
   const deadline = Date.now() + timeoutMs;

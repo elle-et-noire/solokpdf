@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Editing an annotation while the background annotation-loading thread walks
 // the document's pages used to be a use-after-free: loading a page has MuPDF
 // generate every annotation's appearance stream, reading the same pdf objects
@@ -25,7 +24,7 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { findCanvas, killAndWait, sendCommandSync, waitForFrame } from "./win-automation.ts";
+import { moveTestCursor, findCanvas, killAndWait, sendCommandSync, waitForFrame } from "./win-automation.ts";
 
 const N_PAGES = 400;
 const ROUNDS = 4;

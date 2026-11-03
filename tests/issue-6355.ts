@@ -1,11 +1,10 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Hiding the caption preserves tab navigation and session restoration.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { IS_MAC } from "./host.ts";
 import { ControlClient, ControlCommand, type LayoutInfo } from "./control.ts";
 import { SETTINGS_FILE, makeBlankPdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG } from "./util.ts";
-import { killAndWait, launchControlled, waitForExit } from "./win-automation.ts";
+import { moveTestCursor, killAndWait, launchControlled, waitForExit } from "./win-automation.ts";
 import { clientToScreen, findChildWindow, getClassName, isWindowVisible, sleep, windowFromPoint } from "./winapi.ts";
 
 async function invoke(client: ControlClient, command: string): Promise<void> {

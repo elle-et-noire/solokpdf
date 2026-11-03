@@ -221,6 +221,8 @@ export async function launchControlled(
     if (!path || path.startsWith("-")) {
       throw new Error("shared controlled session needs a document path as its last argument");
     }
+    const client = await ControlClient.connect(sharedSession.pipe);
+    await client.request(ControlCommand.TestCursorPosition);
     // Cancel a gesture left by the prior test, or the next click only resets it.
     sendMessage(sharedSession.frame, WM_KEYDOWN, VK_ESCAPE, 0);
     sendMessage(sharedSession.frame, WM_COMMAND, cmdId("CmdDiscardChanges"), 0);
@@ -229,8 +231,6 @@ export async function launchControlled(
     if (!sendCopyDataW(sharedSession.frame, 0x44646557, command)) {
       throw new Error("could not open the next document in the shared SumatraPDF process");
     }
-    const client = await ControlClient.connect(sharedSession.pipe);
-    await client.request(ControlCommand.TestCursorPosition);
     await client.waitForRenderIdle();
     cursorClient = client;
     return { proc: sharedSession.proc, client, frame: sharedSession.frame };
@@ -374,7 +374,14 @@ export async function waitForFormEditor(canvas: number, timeoutMs = 1500): Promi
 // handled before returning, then we wait settleMs for any re-render.
 //
 // Give app cursor reads the click point before sending the button messages.
-export async function clickAt(hwnd: number, x: number, y: number, settleMs = 350, extraMk = 0): Promise<void> {
+export async function clickAt(
+  hwnd: number,
+  x: number,
+  y: number,
+  settleMs = 350,
+  extraMk = 0,
+  client = cursorClient,
+): Promise<void> {
   if (IS_MAC) {
     macClick(x, y, extraMk);
     await sleep(settleMs);
@@ -384,7 +391,7 @@ export async function clickAt(hwnd: number, x: number, y: number, settleMs = 350
   // turns a plain click into Ctrl+click
   await ensureModifierKeysUp();
   const screen = clientToScreen(hwnd, x, y);
-  await moveTestCursor(screen.x, screen.y);
+  await moveTestCursor(screen.x, screen.y, client);
   // ng: one click, as on macOS, so no real move lands between down and up
   const target = ngInputTarget(hwnd);
   if (target) {

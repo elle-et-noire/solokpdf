@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // The ink button's drop-down picks the color of the next stroke and how thick
 // it is: a preview of the stroke and a Thickness slider below the colors. The
 // slider is Annotations.InkBorderWidth, and the stroke drawn after it is set
@@ -34,6 +33,7 @@ import {
   WM_RBUTTONUP,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findCanvas,
   findChildByClass,

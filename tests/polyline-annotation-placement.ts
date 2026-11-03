@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Polyline annotations from the PDF toolbar and Command Palette collect page
 // vertices with a live preview. Double-click, right-click, Enter, and Space
 // finish the path; off-page clicks and Esc cancel it.
@@ -31,6 +30,7 @@ import {
   WM_RBUTTONUP,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findChildByClass,
   findCanvas,

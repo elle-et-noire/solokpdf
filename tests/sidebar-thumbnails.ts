@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // The sidebar's panels and its Thumbnails view: which panel a command opens a
 // view in, a view icon switching (or swapping) panel views, a click going to a
 // page and a drag not moving pages (that is Merge PDF's job). Each page of the
@@ -31,7 +30,7 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { killAndWait, launchControlled, sendCommand, sendCommandSync } from "./win-automation.ts";
+import { moveTestCursor, killAndWait, launchControlled, sendCommand, sendCommandSync } from "./win-automation.ts";
 
 type Rect = { x: number; y: number; dx: number; dy: number };
 type View = "bookmarks" | "thumbnails" | "favorites";

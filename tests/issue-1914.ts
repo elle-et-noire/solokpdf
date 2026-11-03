@@ -126,7 +126,7 @@ export async function testit(): Promise<void> {
 
       // leave the mode and click the button like a user would
       sendCommandSync(frame, cmdId("CmdToggleKeyboardLinkFollowing"));
-      await clickAt(canvas, r.x + r.dx / 2, r.y + r.dy / 2, 200);
+      await clickAt(canvas, r.x + r.dx / 2, r.y + r.dy / 2, 200, 0, client);
       const deadline2 = Date.now() + 4000 * SLOW_BUILD_FACTOR;
       while (Date.now() < deadline2) {
         ({ st, dump } = await getLinkState(client));

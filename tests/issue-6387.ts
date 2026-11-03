@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // With one free text selected in Edit PDF, double-clicking another free text
 // edits it in place. The first click only deselected and the double-click was
 // dropped, so the edit opened only on a second double-click.
@@ -26,7 +25,7 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import { moveTestCursor, findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 type Rect = { x: number; y: number; dx: number; dy: number };
 

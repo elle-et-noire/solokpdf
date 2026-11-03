@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Merge PDF (CmdMergePDF): the dialog's grid of pages. A page's corner button
 // removes it, dragging moves it, a rubber band selects pages and Delete removes
 // (then restores) them, another PDF's pages are added where the Add PDF
@@ -37,7 +36,7 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { ensureModifierKeysUp, killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
+import { moveTestCursor, ensureModifierKeysUp, killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 
 type Rect = { x: number; y: number; dx: number; dy: number };
 type Merge = {

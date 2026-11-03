@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // An ink annotation's bounds (hover mark, hit area, selection box) hug the
 // stroke: the points' extent plus the line width. mupdf pads /Rect by
 // width + 6pt on each side, which made the box much bigger than the ink.
@@ -20,7 +19,14 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { findCanvas, killAndWait, launchControlled, pressEscape, sendCommandSync } from "./win-automation.ts";
+import {
+  moveTestCursor,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  pressEscape,
+  sendCommandSync,
+} from "./win-automation.ts";
 
 type Point = { x: number; y: number };
 type RectF = { x: number; y: number; dx: number; dy: number };

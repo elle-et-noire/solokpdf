@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // #1136: keyboard navigation of the home page file list.
 //  - arrows move a selection, drawn with a light blue outline
 //  - Enter opens the selected file
@@ -14,6 +13,7 @@ import { type ControlClient, waitForHome } from "./control.ts";
 import { SETTINGS_FILE, ROOT, USE_NG, cmdId, runStandalone, tmpPath } from "./util";
 import { sendMessage } from "./winapi.ts";
 import {
+  moveTestCursor,
   findCanvas,
   findChildByClass,
   launchControlled,

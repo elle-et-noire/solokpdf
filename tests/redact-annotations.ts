@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Redact marks selected text or a dragged rectangle; Apply Redactions
 // permanently removes the marked content from the file. Its toolbar button is
 // only there while something is marked.
@@ -22,6 +21,7 @@ import {
   sleep,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   findCanvas,
   killAndWait,
   launchControlled,

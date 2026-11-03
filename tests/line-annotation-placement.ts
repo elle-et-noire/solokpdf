@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Line annotations created from the PDF toolbar or Command Palette use two
 // page clicks. A crosshair and live line preview expose the mode; page-margin
 // clicks and Esc cancel without creating an annotation.
@@ -21,6 +20,7 @@ import {
   WM_MOUSEMOVE,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findChildByClass,
   findCanvas,

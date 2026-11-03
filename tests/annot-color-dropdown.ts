@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // The color chips of a selected annotation open the same color drop-down the
 // Edit PDF toolbar's markup buttons have, and the color they apply carries its
 // own opacity, so an annotation with a color chip has no opacity chip.
@@ -36,6 +35,7 @@ import {
   WM_RBUTTONUP,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findCanvas,
   findChildByClass,

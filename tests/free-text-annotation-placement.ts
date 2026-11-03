@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Free text annotations from the PDF toolbar or Command Palette enter a
 // placement mode: a preview box the size of the annotation follows the cursor, // canvas-margin clicks do nothing, a page click creates it exactly where the
 // preview was, and Esc cancels.
@@ -9,6 +8,7 @@ import { ControlClient, ControlCommand } from "./control.ts";
 import { cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, USE_NG, makeBlankPdf, SETTINGS_FILE } from "./util.ts";
 import { clientToScreen, getClientRect, packCoords, sendMessage, sleep, WM_COMMAND, WM_MOUSEMOVE } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findChildByClass,
   findCanvas,

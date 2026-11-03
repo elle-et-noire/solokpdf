@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Rectangle and circle annotations from the PDF toolbar and Command Palette
 // can be dragged out or placed with two opposite-corner clicks. Shift
 // constrains the preview and annotation to equal width and height.
@@ -23,6 +22,7 @@ import {
   WM_MOUSEMOVE,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findChildByClass,
   findCanvas,

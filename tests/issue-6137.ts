@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // The highlighter is a mode that highlights text: every text selection finished
 // while it's on becomes a highlight annotation, text already selected when it's
 // picked is highlighted at once, and Esc leaves it. Ink paints the way the old
@@ -29,7 +28,7 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import { moveTestCursor, findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 type Point = { x: number; y: number };
 

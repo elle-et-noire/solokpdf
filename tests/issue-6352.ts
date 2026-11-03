@@ -1,10 +1,9 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Cached Home thumbnails keep their aspect ratio when loaded after layout.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { waitForHome } from "./control.ts";
 import { ROOT, makePng, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
-import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
+import { moveTestCursor, findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
 import { repaintWindow } from "./winapi.ts";
 
 const FRAME = { width: 150, height: 212 };

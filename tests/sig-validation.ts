@@ -459,7 +459,7 @@ async function testUi(): Promise<void> {
 
       sendCommand(await waitForFrame(proc.pid!), cmdId("CmdShowSignatures"));
       await waitForState(client, (st) => st.panel && st.listFocused, "the command doesn't focus the list");
-      await clickAt(findCanvas(await waitForFrame(proc.pid!)), 5, 5);
+      await clickAt(findCanvas(await waitForFrame(proc.pid!)), 5, 5, 350, 0, client);
       await waitForState(client, (st) => !st.listFocused, "a click on the document leaves the list focused");
       s = await uiState(client, "panel");
       if (!s.panel) {

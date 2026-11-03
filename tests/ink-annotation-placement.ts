@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Ink annotations from the PDF toolbar and Command Palette: each stroke
 // commits on release and the tool stays on. Esc or an empty click leaves it.
 
@@ -31,6 +30,7 @@ import {
   WM_MOUSEMOVE,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findChildByClass,
   findCanvas,

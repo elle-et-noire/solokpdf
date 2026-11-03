@@ -120,7 +120,7 @@ export async function testit(): Promise<void> {
         raw = await markup(client);
         sq = squareScreen(raw) ?? sq;
         const pt = hitPoint(canvas, sq);
-        await clickAt(canvas, pt.x, pt.y, 0);
+        await clickAt(canvas, pt.x, pt.y, 0, 0, client);
         await sleep(50);
       }
 

@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // issue #6144: in a comic (single page, page taller than the window), wheeling
 // at the bottom before the next page has rendered queued many GoToNextPage
 // calls and skipped 5–10 pages. A burst of wheel-down at the bottom of page 1
@@ -8,7 +7,14 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { runStandalone, tmpPath, crc32, makePng, SETTINGS_FILE } from "./util.ts";
-import { findCanvas, launchControlled, killAndWait, ensureModifierKeysUp, ngInput } from "./win-automation.ts";
+import {
+  moveTestCursor,
+  findCanvas,
+  launchControlled,
+  killAndWait,
+  ensureModifierKeysUp,
+  ngInput,
+} from "./win-automation.ts";
 import { clientToScreen, getClientRect, ngInputTarget, packCoords, sendMessage, sleep } from "./winapi.ts";
 
 const WM_MOUSEWHEEL = 0x020a;

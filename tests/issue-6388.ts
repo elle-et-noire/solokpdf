@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Dragging an annotation's slider (Thickness, Border Width, Text Size) updates
 // the annotation while the mouse is still down, not only when it is let go.
 //
@@ -24,7 +23,14 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { clickAt, findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import {
+  moveTestCursor,
+  clickAt,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  sendCommandSync,
+} from "./win-automation.ts";
 
 const ANNOT_TOOLBAR_CLASS = "SumatraAnnotEditToolbar";
 const POPUP_CLASS = "SumatraAnnotColorPopup";

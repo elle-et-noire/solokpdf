@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Edit PDF mode: Ctrl+X (CmdCutAnnotation) copies an annotation and marks it
 // for deletion; the original goes away when the copy is pasted, so the cut
 // annotation moves instead of being duplicated (issue #5222). A second paste
@@ -25,6 +24,7 @@ import {
   type MenuItem,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findCanvas,
   killAndWait,

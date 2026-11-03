@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Two things about editing a selected free text annotation in Edit PDF mode:
 // resizing only moves the outline (the annotation is rewritten once, on mouse
 // up, because re-laying out its text on every mouse move is slow), and the
@@ -20,7 +19,14 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { clickAt, findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import {
+  moveTestCursor,
+  clickAt,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  sendCommandSync,
+} from "./win-automation.ts";
 
 type Rect = { x: number; y: number; dx: number; dy: number };
 

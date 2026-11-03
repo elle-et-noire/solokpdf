@@ -647,6 +647,19 @@ void VirtCtrl::SetRoot(VirtRoot* r) {
 
 static Vec<VirtRoot*> gLiveVirtRoots;
 
+void CancelTestMouseLeaveTracking() {
+    for (VirtRoot* root : gLiveVirtRoots) {
+        if (!root->trackingMouseLeave || !root->hwnd) {
+            continue;
+        }
+        TRACKMOUSEEVENT tme{sizeof(TRACKMOUSEEVENT)};
+        tme.dwFlags = TME_CANCEL | TME_LEAVE;
+        tme.hwndTrack = root->hwnd;
+        TrackMouseEvent(&tme);
+        root->trackingMouseLeave = false;
+    }
+}
+
 VirtRoot::VirtRoot(HWND hwnd) {
     this->hwnd = hwnd;
     VecAppend(gLiveVirtRoots, this);

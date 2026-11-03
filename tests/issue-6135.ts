@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // A pen's eraser end removes whole InkList strokes while the ink tool stays active.
 // Finish/cancel via -dbg-control: a posted Enter does not reach the ink tool.
 
@@ -17,7 +16,7 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { findCanvas, killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
+import { moveTestCursor, findCanvas, killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 
 type Point = { x: number; y: number };
 

@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // #5978: hovering a home-page thumbnail that has scrolled under the search
 // field must not draw the selection outline on top of the search field.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -6,7 +5,7 @@ import { join } from "node:path";
 import { IS_MAC } from "./host";
 import { SETTINGS_FILE, ROOT, runStandalone, tmpPath } from "./util";
 import { postMessage, sleep } from "./winapi.ts";
-import { findCanvas, launchControlled, killAndWait, ensureModifierKeysUp } from "./win-automation";
+import { moveTestCursor, findCanvas, launchControlled, killAndWait, ensureModifierKeysUp } from "./win-automation";
 import { ControlCommand, type HomeSelection, waitForHome } from "./control.ts";
 
 const WM_MOUSEWHEEL = 0x020a;

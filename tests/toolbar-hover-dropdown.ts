@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Resting the mouse on a toolbar button can open a drop-down, after the delay a
 // tooltip takes, and the tooltip gives way to it. Right-click opens it at once
 // if it is not already shown, and does not run the button's command. The Edit
@@ -37,6 +36,7 @@ import {
   WM_RBUTTONUP,
 } from "./winapi.ts";
 import {
+  moveTestCursor,
   clickAt,
   findChildByClass,
   killAndWait,

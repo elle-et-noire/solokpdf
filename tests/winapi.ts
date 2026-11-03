@@ -125,6 +125,7 @@ const user32 = loadDll("user32.dll", {
   InitializeTouchInjection: { args: [FFIType.u32, FFIType.u32], returns: FFIType.bool },
   InjectTouchInput: { args: [FFIType.u32, FFIType.ptr], returns: FFIType.bool },
   GetCursorPos: { args: [FFIType.ptr], returns: FFIType.bool },
+  TrackMouseEvent: { args: [FFIType.ptr], returns: FFIType.bool },
   GetGUIThreadInfo: { args: [FFIType.u32, FFIType.ptr], returns: FFIType.bool },
   GetGuiResources: { args: [FFIType.u64, FFIType.u32], returns: FFIType.u32 },
   GetCursorInfo: { args: [FFIType.ptr], returns: FFIType.bool },
@@ -1701,6 +1702,16 @@ export function getCursorPos(): { x: number; y: number } {
     return { x: 0, y: 0 };
   }
   return { x: buf[0]!, y: buf[1]! };
+}
+
+export function trackMouseLeave(hwnd: number): boolean {
+  const buf = new Uint8Array(24);
+  const view = new DataView(buf.buffer);
+  view.setUint32(0, buf.byteLength, true);
+  view.setUint32(4, 0x40000000, true);
+  view.setBigUint64(8, BigInt(hwnd), true);
+  if (!user32.symbols.TrackMouseEvent(ptr(buf))) return false;
+  return (view.getUint32(4, true) & 0x00000002) !== 0;
 }
 
 // True when this session can actually move the pointer. A locked screen or a

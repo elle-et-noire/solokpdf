@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Crash 2026-09-09-15-43-0ee0: the home page layout was cached in one global, // but every window has its own home chrome laid out and painted from it.
 // Opening a second window rebuilt the cache for that window, and the first one
 // then painted with the second window's geometry (and pointers into the
@@ -19,7 +18,15 @@ import {
   repaintWindow,
   sleep,
 } from "./winapi.ts";
-import { CANVAS_CLASS, findCanvas, FRAME_CLASS, killAndWait, launchControlled, sendCommand } from "./win-automation";
+import {
+  moveTestCursor,
+  CANVAS_CLASS,
+  findCanvas,
+  FRAME_CLASS,
+  killAndWait,
+  launchControlled,
+  sendCommand,
+} from "./win-automation";
 import type { ControlClient } from "./control.ts";
 
 const nFiles = 6;

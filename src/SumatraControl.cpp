@@ -2479,6 +2479,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
             i32 y = 0;
             if (IntArg(req, 0, x) && IntArg(req, 1, y)) {
                 SetTestCursorPosition(Point{x, y});
+                CancelTestMouseLeaveTracking();
             } else {
                 ClearTestCursorPosition();
             }

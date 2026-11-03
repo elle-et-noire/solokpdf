@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Edit PDF mode makes annotations directly interactive: hover outlines them, // Ctrl+click enters Edit PDF mode and selects the annotation, and a click
 // on a selected annot shows a compact property row. Text markup (highlight
 // and friends) still needs Ctrl+click so a drag on the marked text can
@@ -19,7 +18,7 @@ import {
   sleep,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { clickAt, findCanvas, killAndWait, launchControlled } from "./win-automation";
+import { moveTestCursor, clickAt, findCanvas, killAndWait, launchControlled } from "./win-automation";
 
 type AnnotState = {
   screen: { x: number; y: number; dx: number; dy: number };

@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // A free text annotation is edited where it sits on the page: double-clicking
 // it (or the property row's Contents button) puts an edit box over it in the
 // annotation's font and size, the box grows with what is typed, Enter makes a
@@ -29,7 +28,14 @@ import {
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
 } from "./winapi.ts";
-import { clickAt, findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import {
+  moveTestCursor,
+  clickAt,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  sendCommandSync,
+} from "./win-automation.ts";
 
 type Rect = { x: number; y: number; dx: number; dy: number };
 type EditState = { active: boolean; rect: Rect; text: string; raw: string };

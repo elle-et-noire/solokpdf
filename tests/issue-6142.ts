@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // issue #6142: mouse wheel did not scroll a document taller than the window;
 // dragging the scrollbar still worked. Two surfaces:
 //   - fixed-page (PDF): wheel on the canvas must move the vertical scrollbar
@@ -12,7 +11,7 @@ import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
 import { runStandalone, tmpPath, makeTopBottomPdf, SETTINGS_FILE } from "./util.ts";
-import { findCanvas, launchControlled, killAndWait, ensureModifierKeysUp } from "./win-automation.ts";
+import { moveTestCursor, findCanvas, launchControlled, killAndWait, ensureModifierKeysUp } from "./win-automation.ts";
 import { clientToScreen, getClientRect, getScrollInfo, packCoords, sendMessage, sleep } from "./winapi.ts";
 
 const WM_MOUSEWHEEL = 0x020a;

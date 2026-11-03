@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // #5933: a newly created annotation is selected (resize handles up). A click
 // on empty page must leave that edit-size mode. Mouse-up used to re-select
 // whatever annotationUnderCursor last saw, so a click away after creating a
@@ -24,7 +23,7 @@ import {
   WM_RBUTTONDOWN,
   WM_RBUTTONUP,
 } from "./winapi.ts";
-import { findCanvas, killAndWait, launchControlled } from "./win-automation";
+import { moveTestCursor, findCanvas, killAndWait, launchControlled } from "./win-automation";
 
 function hover(canvas: number, x: number, y: number) {
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));

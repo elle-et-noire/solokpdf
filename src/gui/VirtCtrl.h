@@ -288,6 +288,7 @@ bool VirtHostOnMessage(HWND, VirtRoot*, UINT, WPARAM, LPARAM, LRESULT&, Color bg
 // the single entry point for input: mouse, cursor, tooltips and keyboard, with
 // RTL mouse coordinates unmirrored
 bool VirtTreeOnMessage(HWND, VirtRoot*, UINT, WPARAM, LPARAM, LRESULT&);
+void CancelTestMouseLeaveTracking();
 
 // The virtual controls of one HWND: the window paints them and hands them its
 // input. They are the top-level virtual nodes of the window's layout tree, so

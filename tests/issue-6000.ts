@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // Dark theme: combo corners, combo drop-down list + scrollbar, and tooltips
 // must not stay white (issue #6000). darkmodelib themes ComboLBox; tooltips
 // strip visual styles so TTM_SETTIP* colors apply.
@@ -27,7 +26,14 @@ import {
   sleep,
   WM_CLOSE,
 } from "./winapi.ts";
-import { killAndWait, launchControlled, pressEnter, sendCommand, sendCommandSync } from "./win-automation.ts";
+import {
+  moveTestCursor,
+  killAndWait,
+  launchControlled,
+  pressEnter,
+  sendCommand,
+  sendCommandSync,
+} from "./win-automation.ts";
 
 const CB_SHOWDROPDOWN = 0x014f;
 const PDF = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");

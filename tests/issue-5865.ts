@@ -1,4 +1,3 @@
-import { moveTestCursor } from "./win-automation.ts";
 // #5865: after quitting while in fullscreen with session restore on, mouse-wheel
 // scrolling did nothing in the auto-restored document (keyboard scrolling still
 // worked). The hidden tab bar kept regenerating WM_PAINT, which starved the
@@ -13,6 +12,7 @@ import { join } from "node:path";
 import { ROOT, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util";
 import { clientToScreen, getClientRect, getScrollInfo, packCoords, postMessage, sendMessage, sleep } from "./winapi.ts";
 import {
+  moveTestCursor,
   findCanvas,
   launchControlled,
   sendCommand,
