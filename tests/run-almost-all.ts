@@ -520,6 +520,11 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["issue-6464", issue6464],
+  ["issue-6355", issue6355],
+  ["issue-6113", issue6113],
+  ["issue-1914", issue1914],
+  ["issue-6431", issue6431],
   ["issue-3755", issue3755],
   ["issue-5956", issue5956],
   ["issue-6062", issue6062],
@@ -537,14 +542,12 @@ export const tests: NamedTest[] = [
   ["issue-5819", issue5819],
   ["issue-6252", issue6252],
   ["ng-embedded", ngEmbedded],
-  ["issue-6431", issue6431],
   ["issue-5924", issue5924],
   ["issue-6388", issue6388],
   ["pdf-script", pdfScript],
   ["annotation clipboard tests", annotationClipboardTests],
   ["issue-6352", issue6352],
   ["issue-6354", issue6354],
-  ["issue-6355", issue6355],
   ["line-annotation-placement", lineAnnotationPlacement],
   ["polyline-annotation-placement", polylineAnnotationPlacement],
   ["shape-annotation-placement", shapeAnnotationPlacement],
@@ -591,7 +594,6 @@ export const tests: NamedTest[] = [
   ["toolbar-hover-dropdown", toolbarHoverDropdown],
   ["session-restore-tab-state", sessionRestoreTabState],
   ["exit-edit-pdf-deselects", exitEditPdfDeselects],
-  ["issue-6113", issue6113],
   ["issue-5933", issue5933],
   ["issue-6117", issue6117],
   ["custom-zoom-dialog", customZoomDialog],
@@ -736,7 +738,6 @@ export const tests: NamedTest[] = [
   ["issue-6302", issue6302],
   ["issue-5922", issue5922],
   ["issue-5926", issue5926],
-  ["issue-1914", issue1914],
   ["issue-1198", issue1198],
   ["issue-2568", issue2568],
   ["issue-6190", issue6190],
@@ -1001,7 +1002,6 @@ export const tests: NamedTest[] = [
   ["issue-6455", issue6455],
   ["issue-6459", issue6459],
   ["issue-6467", issue6467],
-  ["issue-6464", issue6464],
 ];
 
 export async function testit(opts?: SuiteOptions): Promise<void> {
