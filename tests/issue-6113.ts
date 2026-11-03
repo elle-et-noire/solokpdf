@@ -4,12 +4,18 @@
 //
 // Run: bun tests/issue-6113.ts [--no-build]
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
-import { ROOT, USE_NG, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { USE_NG, cmdId, makeBlankPdf, runStandalone, tmpPath } from "./util.ts";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { captureWindowToPng, enumChildWindows, getClassName, getWindowText, isWindowVisible, sleep } from "./winapi.ts";
+import {
+  captureWindowDCToPng,
+  enumChildWindows,
+  getClassName,
+  getWindowText,
+  isWindowVisible,
+  sleep,
+} from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
 const NOTIF_CLASS = "SumatraWgDefaultWinClass";
@@ -60,7 +66,6 @@ function paeth(a: number, b: number, c: number): number {
   return c;
 }
 
-// PrintWindow into an LTR DIB misses the RTL blit; captureWindowToPng does not.
 function loadPng(path: string): Shot {
   const buf = readFileSync(path);
   let off = 8;
@@ -177,13 +182,24 @@ function longestBarMid(shot: Shot): { y: number; x: number; dx: number; mid: num
   return { ...bar, mid: bar.x + bar.dx / 2 };
 }
 
-// a capture can land before the toast painted its text (blank 122x35 shot with
-// no ink): re-capture until a bar shows up
+// A capture can land before the toast paints its text; retry until ink appears.
 const TOAST_PAINT_TIMEOUT_MS = 3000;
 const MIN_BAR_DX = 6;
 
 function hasInk(shot: Shot): boolean {
   return longestBarDx(shot) >= MIN_BAR_DX;
+}
+
+function mirrorShot(shot: Shot): Shot {
+  const data = new Uint8Array(shot.data.length);
+  for (let y = 0; y < shot.h; y++) {
+    for (let x = 0; x < shot.w; x++) {
+      const src = (y * shot.w + x) * 4;
+      const dst = (y * shot.w + shot.w - x - 1) * 4;
+      data.set(shot.data.subarray(src, src + 4), dst);
+    }
+  }
+  return { ...shot, data };
 }
 
 async function grabZoomToast(
@@ -198,7 +214,7 @@ async function grabZoomToast(
   const png = tmpPath(`6113-${label}.png`);
   const deadline = Date.now() + TOAST_PAINT_TIMEOUT_MS;
   for (;;) {
-    if (!captureWindowToPng(hwnd, png)) {
+    if (!captureWindowDCToPng(hwnd, png)) {
       throw new Error(`issue-6113: capture failed (${label})`);
     }
     const shot = loadPng(png);
@@ -260,7 +276,8 @@ async function testNg(client: ControlClient, frame: number): Promise<void> {
 }
 
 export async function testit(): Promise<void> {
-  const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
+  const pdf = tmpPath("6113.pdf");
+  writeFileSync(pdf, makeBlankPdf(1));
   const { proc, client, frame } = await launchControlled([pdf]);
   try {
     await client.waitForRenderIdle();
@@ -293,6 +310,10 @@ export async function testit(): Promise<void> {
       throw new Error(
         `issue-6113: notification text is mirrored in RTL (bar mid=${rtl.mid} w=${rtlShot.w} y=${rtl.y} dx=${rtl.dx})`,
       );
+    }
+    const mirrored = longestBarMid(mirrorShot(rtlShot));
+    if (mirrored.mid <= rtlShot.w / 2) {
+      throw new Error("issue-6113: mirrored toast escaped the RTL check");
     }
   } finally {
     await client.quit();

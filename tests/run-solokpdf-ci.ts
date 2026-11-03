@@ -47,8 +47,10 @@ import { testCtrlTShortcut, testNoHomeDefault } from "./issue-6464.ts";
 import { testit as selectionOutlines } from "./ad-hoc-selection-outlines.ts";
 import { testit as windowSize } from "./ad-hoc-b58-window-size.ts";
 import { testit as testCursor } from "./ad-hoc-b59-cursor.ts";
+import { testit as rtlToast } from "./ad-hoc-b37-rtl-toast.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-b37-rtl-toast", rtlToast],
   ["ad-hoc-b59-cursor", testCursor],
   ["ad-hoc-b58-window-size", windowSize],
   ["issue-6464-ctrl-t", testCtrlTShortcut],

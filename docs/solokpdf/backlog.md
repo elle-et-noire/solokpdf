@@ -11,16 +11,12 @@ there.
 
 | ID  | Item                                             | Status                                                        |
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| B37 | Cursor and RTL capture tests (full-suite run 3)  | todo                                                          |
 | B62 | Widget action query gate                         | todo — PDFium does not expose widget `/S`; look for a way     |
 | B64 | Docs cleanup after B54–B63                       | todo                                                          |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
 
-B37: on an unlocked desktop (2026-11-03) `toolbar-hover-dropdown` passes
-on both engines; `issue-6113` fails on PDFium every run ("notification
-text is mirrored in RTL (bar mid=92.5 w=157 y=2 dx=17)") and passes on
-MuPDF. B64: AGENTS.md and docs/solokpdf still describe the old test
+B64: AGENTS.md and docs/solokpdf still describe the old test
 setup (quarter window, no interactive desktop, real-cursor tests).
 
 ## Dropped

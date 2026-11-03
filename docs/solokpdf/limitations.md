@@ -386,11 +386,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   cannot be armed on a hosted desktop.
   OLE drag and drop and foreground-dependent popup tests still need an unlocked
   desktop. See [testing.md](testing.md).
-- Run 3 failed `toolbar-hover-dropdown` and `issue-6113` on both engines.
-  Locally, toolbar clicks report the real cursor moving to `(0,0)`, and the
-  RTL notification capture hangs on the locked desktop. Neither test can
-  establish an app regression in this session; B37 is blocked until an
-  interactive desktop can run the targeted tests.
+- On an unlocked desktop, `toolbar-hover-dropdown` passes on both engines.
+  `issue-6113` passes on PDFium and MuPDF after B37 changed the test to read
+  the toast's displayed window pixels. `PrintWindow` clipped and reflected
+  its RTL repaint on PDFium even though the displayed text was upright.
 - `shape-annotation-placement` passes on both engines in hosted CI run
   41349548951 (B39); local locked-desktop drag attempts remain unreliable.
 - The baseline clipboard test failure was fixed with per-read opens and
