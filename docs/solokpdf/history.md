@@ -1401,6 +1401,20 @@ left-half assertion even though both displayed toasts were upright. The app
 now paints the toast for `WM_PRINTCLIENT`, and the test uses standard
 PrintWindow, which does not need displayed pixels.
 
+## B62 widget action query gate (dropped, 2026-11-03)
+
+Pinned PDFium 158.0.8111.0 exposes a widget's `/A` only as a dictionary type.
+Its public headers provide no widget action handle or nested `/S` value;
+`FPDFAnnot_GetLink` accepts only `/Link` annotations. Form JavaScript getters
+cover keystroke, format, validate and calculate, not a button's click action.
+
+Temporary profiling around `PdfLinksMupdf` in a Debug build measured 101
+JavaScript-only button queries. Median: 1.214 ms on a 1,296-byte form and
+2.512 ms on the same form with a 35 MiB unreferenced stream (36,701,538
+bytes). A document-wide query would still pay this cost on the first
+JavaScript-only button and scan pages that were not requested. B62 remains
+the per-page lightweight query; the profiling code was removed.
+
 ## Completed backlog
 
 Rows of [backlog.md](backlog.md) completed by 2026-11-03. Sources: an audit of every

@@ -200,8 +200,10 @@ are in [history.md](history.md).
   query, without loading the hidden editor (B61); `issue-1914` checks keyboard
   following and destination zoom on both engines. PDFium excludes hidden,
   no-view and invisible buttons; MuPDF tabs keep their existing link behavior.
-  PDFium cannot inspect a widget action's nested `/S` through its annotation
-  API, so a button with an `/A` or `/AA` dictionary still triggers that query.
+  PDFium cannot inspect a widget action's nested `/S` through its public API,
+  so a non-navigating button with an `/A` or `/AA` dictionary still triggers
+  that query (B62 dropped: 1.2 ms on a small form, 2.5 ms on a generated
+  35 MiB form). A document-wide scan would delay the first link request.
   A form field's `/TU` tooltip comes from PDFium.
   Wrapped URLs join from PDFium's page text without loading the editor.
   JavaScript menus still use MuPDF. `tests/ad-hoc-pdfium-links.ts` checks both

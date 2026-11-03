@@ -11,7 +11,6 @@ there.
 
 | ID  | Item                                             | Status                                                        |
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| B62 | Widget action query gate                         | todo — PDFium does not expose widget `/S`; look for a way     |
 | B64 | Docs cleanup after B54–B63                       | todo                                                          |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
@@ -21,13 +20,14 @@ setup (quarter window, no interactive desktop, real-cursor tests).
 
 ## Dropped
 
-| ID  | Item                                                | Reason                                                                    |
-| --- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| B21 | PDFium CAD enhance                                  | PDFium has no render control for it; the command is hidden on PDFium tabs |
-| B27 | PDFium external images                              | PDFium has no external-stream loader; such PDFs are rare                  |
-| D2  | Compile cache (sccache) for CI builds               | gains uncertain (no PCH or `/MP` caching); CI takes ~20 min               |
-| E3  | ASan build of the app with PDFium for the fuzz test | prebuilt PDFium isn't ASan                                                |
-| E4  | Transparent-page compositing parity                 | rare documents                                                            |
+| ID  | Item                                                | Reason                                                                          |
+| --- | --------------------------------------------------- | ------------------------------------------------------------------------------- |
+| B21 | PDFium CAD enhance                                  | PDFium has no render control for it; the command is hidden on PDFium tabs       |
+| B27 | PDFium external images                              | PDFium has no external-stream loader; such PDFs are rare                        |
+| B62 | Widget action query gate                            | PDFium cannot read widget `/S`; MuPDF query median: 1.2 ms small, 2.5 ms 35 MiB |
+| D2  | Compile cache (sccache) for CI builds               | gains uncertain (no PCH or `/MP` caching); CI takes ~20 min                     |
+| E3  | ASan build of the app with PDFium for the fuzz test | prebuilt PDFium isn't ASan                                                      |
+| E4  | Transparent-page compositing parity                 | rare documents                                                                  |
 
 ## Not planned
 
