@@ -379,10 +379,13 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 ## Tests and CI
 
-B71 remains open: About activation and toolbar hover need diagnosis, and the
-noteref and touch test changes need hosted verification. The external viewer
-and PNG checks passed hosted runs. Screenshot focus, fullscreen activation,
-MuPDF placement and process cleanup also passed. See [backlog.md](backlog.md).
+B71: hosted runs 41711900811 and 41711906015 passed the noteref and touch tests.
+Toolbar hover failed on both engines; the canvas now ignores physical mouse
+moves that conflict with the test cursor. Targeted tests pass locally on both
+engines; hosted verification remains pending, as does the About window check
+in run 41711900891. The external viewer, PNG,
+screenshot focus, fullscreen activation, MuPDF placement and process cleanup
+checks also passed hosted runs.
 
 - B65 saves each tab's view state when a window close is accepted. Targeted
   hidden-desktop runs pass on both engines, including `issue-4788`,

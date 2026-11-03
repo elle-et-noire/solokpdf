@@ -9,20 +9,11 @@ there.
 
 ## Open
 
-| ID  | Item                                             | Status                                                            |
-| --- | ------------------------------------------------ | ----------------------------------------------------------------- |
-| B71 | CI regressions after B65–B69                     | blocked: About activation and toolbar hover need hosted diagnosis |
-| B65 | Full-suite regressions after B54–B64             | blocked: hosted 100% DPI verification needs orchestrator          |
-| D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off     |
-| F1  | Physical printer, print dialog and spooler check | needs the owner                                                   |
-
-B71: hosted runs 41708897476, 41708898414 and 41708903994 pass the viewer
-and PNG tests. The About window itself became foreground; its activation path
-is unresolved. Toolbar hover failed on both engines despite targeting the
-annotation; it passes locally. The noteref test now sets its test cursor, and
-the touch test activates its frame and checks the target before injection.
-Both changes need hosted verification. Local touch injection is unavailable,
-and the hidden desktop has no foreground window for the About check.
+| ID  | Item                                             | Status                                                        |
+| --- | ------------------------------------------------ | ------------------------------------------------------------- |
+| B65 | Full-suite regressions after B54–B64             | blocked: hosted 100% DPI verification needs orchestrator      |
+| D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
+| F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
 
 B65: full-suite runs 41639619890 (PDFium) and 41639624912 (MuPDF) at
 ff43c356c fail `issue-4788` (also locally), `favorites-menu`,

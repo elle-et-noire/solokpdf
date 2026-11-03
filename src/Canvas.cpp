@@ -4346,8 +4346,8 @@ static LRESULT WndProcCanvasFixedPageUI(MainWindow* win, HWND hwnd, UINT msg, WP
             return 0;
 
         case WM_MOUSEMOVE:
-            // SetCapture can post a move at the physical pointer during a synthetic click.
-            if (HasTestCursorPosition() && GetCapture() == hwnd && (wp & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) == 0 &&
+            // Windows can post a move at the physical pointer during a test.
+            if (HasTestCursorPosition() && (wp & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) == 0 &&
                 !HwndGetCursorPos(hwnd).Eq(x, y)) {
                 return 0;
             }

@@ -58,8 +58,10 @@ import { testit as localClipboard } from "./ad-hoc-b67-clipboard.ts";
 import { testit as settingsB70 } from "./ad-hoc-b70-settings.ts";
 import { testit as tabViewB70 } from "./ad-hoc-b70-tab-view.ts";
 import { testit as lintSystemClipboard } from "./lint-system-clipboard.ts";
+import { testit as hoverB71 } from "./ad-hoc-b71-hover.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-b71-hover", hoverB71],
   ["ad-hoc-b70-tab-view", tabViewB70],
   ["ad-hoc-b70-settings", settingsB70],
   ["ad-hoc-b67-clipboard", localClipboard],
