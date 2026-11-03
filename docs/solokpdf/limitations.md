@@ -386,9 +386,13 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   hover off the editor. The B59 test's mouse-leave check, which needed the
   real pointer over the window and never ran in CI, was removed.
   `issue-6269` and `drag-out-attachment-tab` now use the test cursor and
-  window messages; neither moves the real pointer or calls a foreground API.
-  Native dialog tests still set foreground, and ng/mac automation can move the
-  real pointer. See [testing.md](testing.md).
+  window messages; neither moves the real pointer. `issue-6269` checks the
+  UI thread's focus and active window around Copy in the background. In CI or
+  with `SOLOKPDF_REAL_DESKTOP=1`, it activates only its test frame and probes
+  the WA_INACTIVE popup path. Its process-local Copy sink leaves the owner's
+  clipboard untouched. `issue-3472`, `issue-6045`, and `ad-hoc-4600-*`
+  still set foreground. Ng/mac `moveTestCursor()` still moves the real pointer.
+  See [testing.md](testing.md).
 - `toolbar-hover-dropdown` passes on both engines, locally and in hosted CI
   (runs 41627802937, 41627807442), so the full suite runs it again.
   With the original PDF fixture, both engines display upright RTL toast text.

@@ -334,6 +334,8 @@ void RestoreDCState(SavedDCState* state);
 bool OpenClipboardForUpdate();
 void CloseClipboardAfterUpdate();
 bool CopyTextToClipboard(Str s);
+void EnableTestClipboardTextSink();
+Str GetTestClipboardText();
 bool AppendTextToClipboard(Str s);
 bool CopyImageToClipboard(HBITMAP hbmp, bool appendOnly);
 

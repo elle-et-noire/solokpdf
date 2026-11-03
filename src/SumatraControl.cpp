@@ -696,6 +696,8 @@ enum class ControlCmd : u16 {
     // every command's visibility on a surface, one "CmdName vis" line each
     TestAllCommandVisibility = 154,
     TestCursorPosition = 155,
+    TestClipboardText = 156,
+    TestFocusState = 157,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -769,6 +771,24 @@ bool ParseArg(PacketReader& r, ControlArg** argOut) {
     }
     *argOut = arg;
     return true;
+}
+
+static Str FocusWindowName(HWND hwnd, MainWindow* win) {
+    if (!hwnd) {
+        return StrL("none");
+    }
+    if (win && hwnd == win->hwndFrame) {
+        return StrL("frame");
+    }
+    if (win && hwnd == win->hwndCanvas) {
+        return StrL("canvas");
+    }
+    char cls[64]{};
+    GetClassNameA(hwnd, cls, (int)len(cls));
+    if (str::Eq(Str(cls), StrL("SUMATRA_ABOUT_HOVER"))) {
+        return StrL("about");
+    }
+    return StrL("other");
 }
 
 static void ExecuteControlRequest(ControlRequest* req) {
@@ -2519,6 +2539,32 @@ static void ExecuteControlRequest(ControlRequest* req) {
             AppendArgInt(req->results, pt.x);
             AppendArgInt(req->results, pt.y);
             AppendArgEnd(req->results);
+            break;
+        }
+
+        case ControlCmd::TestClipboardText: {
+            if (str::Eq(StringArg(req, 0), StrL("enable"))) {
+                EnableTestClipboardTextSink();
+            }
+            AppendTestResult(req, 0, GetTestClipboardText());
+            break;
+        }
+
+        case ControlCmd::TestFocusState: {
+            MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+            if (win && str::Eq(StringArg(req, 0), StrL("activate"))) {
+                HWND fg = GetForegroundWindow();
+                DWORD fgThread = fg ? GetWindowThreadProcessId(fg, nullptr) : 0;
+                DWORD uiThread = GetCurrentThreadId();
+                bool attached = fgThread && fgThread != uiThread && AttachThreadInput(uiThread, fgThread, TRUE);
+                SetForegroundWindow(win->hwndFrame);
+                if (attached) {
+                    AttachThreadInput(uiThread, fgThread, FALSE);
+                }
+            }
+            AppendTestResult(
+                req, 0,
+                fmt("focus=%s active=%s", FocusWindowName(GetFocus(), win), FocusWindowName(GetActiveWindow(), win)));
             break;
         }
 

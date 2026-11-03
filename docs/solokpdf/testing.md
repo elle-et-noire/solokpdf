@@ -20,10 +20,17 @@ helpers use `testWindowPos()` unless a test supplies its own position.
 Original-app message-driven hover, clicks, selection and tab drag-out use the
 test cursor without moving the real pointer. `issue-6269` opens a second
 controlled app window to leave the first frame in the background; it does not
-call `SetForegroundWindow`. The test still changes the system clipboard briefly
-for Copy, saving and restoring its text. Other tests that exercise native
-dialogs still call `SetForegroundWindow`; ng/mac automation can move the real
-pointer. An unlocked desktop is needed for those native paths.
+call a foreground API on the local default run. It queries the UI thread's
+`GetFocus()` and `GetActiveWindow()` before and after Copy mouse-down/up.
+In CI or with `SOLOKPDF_REAL_DESKTOP=1`, it activates its test frame and
+sends `WA_INACTIVE` to check the popup's activation guard. The Copy test uses a
+process-local text sink, leaving the system clipboard untouched.
+Copy is not a focusable virtual control, so its message-driven mouse-down
+does not exercise the separate `SetFocus` guard.
+`issue-3472`, `issue-6045`, and the
+`ad-hoc-4600-*` tests still call `SetForegroundWindow`. Ng/mac
+`moveTestCursor()` still moves the real pointer. An unlocked desktop is needed
+for those native paths.
 
 Run app-launching tests outside the Codex sandbox or any similarly restricted
 runner. Inside it, WebView2 crashes with an

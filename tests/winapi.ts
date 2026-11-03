@@ -5,7 +5,7 @@
 // Injected mouse-button input is dropped on the test machine, but PostMessage,
 // MoveWindow and cross-process GetScrollInfo all work (see the project memory
 // env-gui-automation). Message-driven tests use moveTestCursor() in
-// win-automation.ts; SetCursorPos remains for native and ng automation.
+// win-automation.ts; ng/mac automation can still move the real pointer.
 // These helpers wrap
 // the handful of user32 calls those tests need so individual test files don't
 // each re-declare the FFI.
@@ -416,6 +416,8 @@ export const WM_KEYDOWN = 0x0100;
 export const WM_KEYUP = 0x0101;
 export const WM_CHAR = 0x0102;
 export const WM_MOUSEMOVE = 0x0200;
+export const WM_ACTIVATE = 0x0006;
+export const WA_INACTIVE = 0;
 export const WM_MOUSELEAVE = 0x02a3;
 export const WM_LBUTTONDOWN = 0x0201;
 export const WM_LBUTTONUP = 0x0202;
@@ -1717,23 +1719,13 @@ export function getCursorPos(): { x: number; y: number } {
   return { x: buf[0]!, y: buf[1]! };
 }
 
-// True when this session can actually move the pointer. A locked screen or a
-// disconnected RDP session cannot: SetCursorPos returns FALSE and the cursor
-// stays at 0,0, so anything the app reads back with GetCursorPos() (hover,
-// tooltips, WM_SETCURSOR handlers) cannot be driven from a test. Reconnect to
-// the console -- `tscon <id> /dest:console` hands an RDP session back to it --
-// and unlock before running those.
-//
-// Ask SetCursorPos itself, with a move to where the cursor already is. Poking
-// at the input desktop is not equivalent: an elevated process opens Winlogon's
-// desktop happily, and a disconnected session still names "Default" as the
-// input desktop while refusing to move the pointer.
+// The suite needs an accessible cursor on the input desktop. This read never
+// moves the owner's pointer, including when it changes during the probe.
 export function hasInteractiveDesktop(): boolean {
   if (!IS_WIN) {
     return true;
   }
-  const at = getCursorPos();
-  return user32.symbols.SetCursorPos(at.x, at.y);
+  return user32.symbols.GetCursorPos(ptr(new Int32Array(2)));
 }
 
 // Taskbar auto-hide, via SHAppBarMessage. Takes effect immediately (no Explorer

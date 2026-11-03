@@ -11,7 +11,6 @@ there.
 
 | ID  | Item                                             | Status                                                        |
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| B66 | No test moves the real pointer                   | doing — review fixes; issue-6269 needs a background check     |
 | B67 | Tests don't touch the system clipboard           | todo                                                          |
 | B65 | Full-suite regressions after B54–B64             | todo                                                          |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
@@ -22,8 +21,7 @@ ff43c356c fail `issue-4788` (also locally), `favorites-menu`,
 `recent-files-menu`, `pdf-edit-toolbar-interaction` and, on PDFium,
 `issue-6252`; the last four pass alone locally.
 
-B66: with the app in the background, `issue-6269` passes even with the
-old `SetFocus` bug restored. B67: about 30 tests copy into or write the
+B67: about 30 tests copy into or write the
 system clipboard (app Copy/Cut, `setClipboardText`) and overwrite the
 owner's clipboard. Use B66's process-local copy sink for test-launched
 apps by default (copy and paste), set it through `-dbg-control` instead

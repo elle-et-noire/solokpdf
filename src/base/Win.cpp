@@ -1347,7 +1347,23 @@ static bool CopyOrAppendTextToClipboard(WStr text, bool appendOnly) {
     return true;
 }
 
+static bool testClipboardTextSink = false;
+static Str testClipboardText;
+
+void EnableTestClipboardTextSink() {
+    testClipboardTextSink = true;
+    str::ReplaceWithCopy(&testClipboardText, {});
+}
+
+Str GetTestClipboardText() {
+    return testClipboardText;
+}
+
 bool CopyTextToClipboard(Str s) {
+    if (testClipboardTextSink) {
+        str::ReplaceWithCopy(&testClipboardText, s);
+        return true;
+    }
     return CopyOrAppendTextToClipboard(ToWStrTemp(s), false);
 }
 

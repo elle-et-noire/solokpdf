@@ -165,6 +165,8 @@ export enum ControlCommand {
   TestFetchRevocation = 147,
   TestSignatureStatus = 148,
   TestCursorPosition = 155,
+  TestClipboardText = 156,
+  TestFocusState = 157,
 }
 
 export type ControlArg = number | string | Uint8Array | ControlArg[];
