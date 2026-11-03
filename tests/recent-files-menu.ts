@@ -49,7 +49,7 @@ async function fileMenuIds(
     return ids;
   }
   postMessage(frame, WM_COMMAND, kMenuBarCmdFirst, 0);
-  const popup = await waitForContextMenu();
+  const popup = await waitForContextMenu(1500, frame);
   const menu = getPopupMenuHandle(popup);
   const ids = new Array(names.length).fill(0);
   for (let i = 0; i < getMenuItemCount(menu); i++) {

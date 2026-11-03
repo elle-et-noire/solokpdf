@@ -47,12 +47,14 @@ import { testCtrlTShortcut, testNoHomeDefault, testTabLayout } from "./issue-646
 import { testit as selectionOutlines } from "./ad-hoc-selection-outlines.ts";
 import { testit as testCursor } from "./ad-hoc-b59-cursor.ts";
 import { testit as lastTabState } from "./ad-hoc-b65-last-tab.ts";
+import { testit as menuOwner } from "./ad-hoc-b65-menu-owner.ts";
 import { testit as rtlToast } from "./issue-6113.ts";
 
 const tests: NamedTest[] = [
   ["issue-6113", rtlToast],
   ["ad-hoc-b59-cursor", testCursor],
   ["ad-hoc-b65-last-tab", lastTabState],
+  ["ad-hoc-b65-menu-owner", menuOwner],
   ["issue-6464-tab-layout", testTabLayout],
   ["issue-6464-ctrl-t", testCtrlTShortcut],
   ["issue-6464-no-home-default", testNoHomeDefault],

@@ -77,7 +77,7 @@ async function favoritesMenuIds(
     return ids;
   }
   postMessage(frame, WM_COMMAND, kMenuBarCmdFirst + kFavoritesMenuIdx, 0);
-  const popup = await waitForContextMenu();
+  const popup = await waitForContextMenu(1500, frame);
   const ids = new Array(names.length).fill(0);
   collectIds(getPopupMenuHandle(popup), names, ids);
   await pressKey(frame, VK_ESCAPE, 0);
