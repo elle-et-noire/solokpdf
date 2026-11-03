@@ -523,6 +523,7 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["form-js-no-stderr", formJsNoStderr],
   ["issue-5989", issue5989],
   ["issue-6280", issue6280],
   ["issue-6340", issue6340],
@@ -592,7 +593,6 @@ export const tests: NamedTest[] = [
   ["palette-prefix-keys", palettePrefixKeys],
   ["sign-certify", signCertify],
   ["issue-6271", issue6271],
-  ["form-js-no-stderr", formJsNoStderr],
   ["issue-4291", issue4291],
   ["issue-6279", issue6279],
   ["issue-2423", issue2423],

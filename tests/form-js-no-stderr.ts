@@ -10,6 +10,7 @@ import { ControlClient, ControlCommand, uniquePipeName } from "./control.ts";
 import { IS_WIN } from "./host.ts";
 import { EXE, runStandalone, tmpPath } from "./util.ts";
 import { testWindowPos } from "./winapi.ts";
+import { killAndWait, waitForExit } from "./win-automation.ts";
 
 const enc = (s: string) => Buffer.from(s, "latin1");
 
@@ -58,7 +59,10 @@ export async function testit(): Promise<void> {
   const p = testWindowPos();
   const winPos = `${p.dx}x${p.dy}@${p.x}x${p.y}`;
   const args = ["-for-testing", "-window-pos", winPos, "-dbg-control", pipeName, pdf];
-  Bun.spawn(["cmd.exe", "/c", "start", "", EXE, ...args], { stdout: "ignore", stderr: "ignore" });
+  const launcher = Bun.spawn(["cmd.exe", "/c", "start", "/wait", "", EXE, ...args], {
+    stdout: "ignore",
+    stderr: "ignore",
+  });
 
   // the control pipe opens after the document loads, so a crash on the first
   // paint shows up as a failed connect
@@ -67,11 +71,16 @@ export async function testit(): Promise<void> {
     client = await ControlClient.connect(pipeName);
     await client.waitForRenderIdle();
     await client.request(ControlCommand.Ping);
+    await client.quit();
+    if (!(await waitForExit(launcher))) throw new Error("app did not exit");
   } catch (e) {
     throw new Error(`form-js-no-stderr: app died rendering a form with failing JavaScript: ${e}`);
+  } finally {
+    if (launcher.exitCode === null) {
+      Bun.spawnSync(["taskkill", "/F", "/T", "/PID", String(launcher.pid)]);
+      await killAndWait(launcher);
+    }
   }
-  await client.quit();
-  client.close();
 }
 
 if (import.meta.main) {
