@@ -43,16 +43,15 @@ import { testit as countPrefix } from "./ad-hoc-count-prefix.ts";
 import { testit as noUpdateCheck } from "./ad-hoc-no-update-check.ts";
 import { testit as trimMargins } from "./issue-trim-margins.ts";
 import { testit as sigStatus } from "./ad-hoc-pdfium-sig-status.ts";
-import { testCtrlTShortcut, testNoHomeDefault } from "./issue-6464.ts";
+import { testCtrlTShortcut, testNoHomeDefault, testTabLayout } from "./issue-6464.ts";
 import { testit as selectionOutlines } from "./ad-hoc-selection-outlines.ts";
-import { testit as windowSize } from "./ad-hoc-b58-window-size.ts";
 import { testit as testCursor } from "./ad-hoc-b59-cursor.ts";
-import { testit as rtlToast } from "./ad-hoc-b37-rtl-toast.ts";
+import { testit as rtlToast } from "./issue-6113.ts";
 
 const tests: NamedTest[] = [
-  ["ad-hoc-b37-rtl-toast", rtlToast],
+  ["issue-6113", rtlToast],
   ["ad-hoc-b59-cursor", testCursor],
-  ["ad-hoc-b58-window-size", windowSize],
+  ["issue-6464-tab-layout", testTabLayout],
   ["issue-6464-ctrl-t", testCtrlTShortcut],
   ["issue-6464-no-home-default", testNoHomeDefault],
   ["ad-hoc-selection-outlines", selectionOutlines],

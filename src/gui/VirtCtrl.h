@@ -289,7 +289,6 @@ bool VirtHostOnMessage(HWND, VirtRoot*, UINT, WPARAM, LPARAM, LRESULT&, Color bg
 // RTL mouse coordinates unmirrored
 bool VirtTreeOnMessage(HWND, VirtRoot*, UINT, WPARAM, LPARAM, LRESULT&);
 void CancelTestMouseLeaveTracking();
-int TestMouseLeaveTrackingCount();
 
 // The virtual controls of one HWND: the window paints them and hands them its
 // input. They are the top-level virtual nodes of the window's layout tree, so

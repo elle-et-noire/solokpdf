@@ -321,6 +321,13 @@ async function testNotRestored(pdf: string, appdata: string): Promise<void> {
   }
 }
 
+export async function testTabLayout(): Promise<void> {
+  const pdf = tmpPath("issue-6464-layout.pdf");
+  writeFileSync(pdf, makeTextPdf("home tab width"));
+  const settings = "RestoreSession = false\nCheckForUpdates = false\nNoHomeTab = false\n";
+  await testLayoutAndPlus(pdf, writeAppdata("issue-6464-layout", settings));
+}
+
 export async function testit(): Promise<void> {
   const pdf = tmpPath("issue-6464.pdf");
   writeFileSync(pdf, makeTextPdf("home tab width"));

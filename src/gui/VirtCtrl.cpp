@@ -647,16 +647,6 @@ void VirtCtrl::SetRoot(VirtRoot* r) {
 
 static Vec<VirtRoot*> gLiveVirtRoots;
 
-int TestMouseLeaveTrackingCount() {
-    int count = 0;
-    for (VirtRoot* root : gLiveVirtRoots) {
-        if (root->trackingMouseLeave && root->hwnd) {
-            count++;
-        }
-    }
-    return count;
-}
-
 void CancelTestMouseLeaveTracking() {
     for (VirtRoot* root : gLiveVirtRoots) {
         if (!root->trackingMouseLeave || !root->hwnd) {

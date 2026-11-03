@@ -7,8 +7,6 @@ import {
   packCoords,
   sendMessage,
   setCursorPos,
-  setForegroundWindow,
-  windowFromPoint,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
@@ -35,7 +33,7 @@ export async function testit(): Promise<void> {
     const real = getCursorPos();
     const wanted = { x: real.x + 17, y: real.y + 23 };
     const moved = await client.request(ControlCommand.TestCursorPosition, [wanted.x, wanted.y]);
-    if (moved[0] !== wanted.x || moved[1] !== wanted.y || moved[2] !== 0) throw new Error(`test cursor: ${moved}`);
+    if (moved[0] !== wanted.x || moved[1] !== wanted.y) throw new Error(`test cursor: ${moved}`);
     if (!same(getCursorPos(), real)) throw new Error("setting override moved real cursor");
     const canvas = findCanvas(frame);
     if (!canvas) throw new Error("canvas missing");
@@ -65,35 +63,6 @@ export async function testit(): Promise<void> {
       sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(target.x, target.y));
       const after = await scroll(client);
       if (after !== before) throw new Error(`capture move turned click into drag: ${before} -> ${after}`);
-
-      const tabs = (await client.virtTree()).find((c) => c.kind === "tabs");
-      if (!tabs) throw new Error("tab bar missing");
-      const inside = clientToScreen(tabs.hwnd, tabs.rect.x + 5, tabs.rect.y + 5);
-      await client.request(ControlCommand.TestCursorPosition);
-      setForegroundWindow(frame);
-      if (setCursorPos(inside.x, inside.y) && same(getCursorPos(), inside)) {
-        if (windowFromPoint(inside.x, inside.y) !== tabs.hwnd) {
-          console.log("SKIP mouse leave transition: tab bar occluded");
-        } else {
-          let armed: unknown[] = [];
-          for (let i = 0; i < 5; i++) {
-            sendMessage(tabs.hwnd, WM_MOUSEMOVE, 0, packCoords(tabs.rect.x + 5, tabs.rect.y + 5));
-            armed = await client.request(ControlCommand.TestCursorPosition);
-            if (Number(armed[2]) > 0) break;
-          }
-          if (Number(armed[2]) < 1) {
-            console.log(`SKIP mouse leave transition: tracking could not arm (${armed})`);
-          } else {
-            const overridden = await client.request(ControlCommand.TestCursorPosition, [
-              targetScreen.x,
-              targetScreen.y,
-            ]);
-            if (overridden[2] !== 0) throw new Error(`override left mouse leave tracking armed: ${overridden}`);
-          }
-        }
-      } else {
-        console.log("SKIP mouse leave transition: real pointer unavailable");
-      }
     } finally {
       setCursorPos(original.x, original.y);
     }

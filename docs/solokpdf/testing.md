@@ -4,8 +4,7 @@ Controlled Win32 tests send window messages and set an app-local cursor through
 `-dbg-control` `TestCursorPosition` (155). Use `moveTestCursor()` in
 `tests/win-automation.ts` before mouse messages; `clickAt()` does this for
 clicks. Two screen coordinates set the position; a request without arguments
-clears it. The response includes the position and the number of virtual roots
-tracking mouse leave. The override works even when a controlled run saves
+clears it. The response is the position. The override works even when a controlled run saves
 settings without `-for-testing`; it never moves the Windows pointer.
 
 Loading `tests/winapi.ts` makes the test process per-monitor-v2 DPI aware.

@@ -376,15 +376,15 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 - B58 sizes thumbnail tests explicitly, compares tab widths within the same
   layout and keeps click-away points within the canvas. The narrow-window tab
-  check is in `ad-hoc-b58-window-size`. B59 gives controlled tests a process-local
-  cursor position; message-driven tests no longer move the system pointer.
-  Its control response reports app-owned mouse-leave tracking for the B59 test.
+  check is `issue-6464`'s tab layout test. B59 gives controlled tests a
+  process-local cursor position; message-driven tests no longer move the
+  system pointer.
   B60 makes all Win32 test launches DPI aware, updates the TOC palette prefix
   to `%`, and checks every visible caption button against the app's child-window
   stacking rather than desktop window occlusion.
   B63 opens the annotation fixture after setting that cursor, keeps PDFium
-  hover off the editor, and skips the mouse-leave transition when tracking
-  cannot be armed on a hosted desktop.
+  hover off the editor. The B59 test's mouse-leave check, which needed the
+  real pointer over the window and never ran in CI, was removed.
   OLE drag and drop and foreground-dependent popup tests still need an unlocked
   desktop. See [testing.md](testing.md).
 - `toolbar-hover-dropdown` passes on both engines, locally and in hosted CI
