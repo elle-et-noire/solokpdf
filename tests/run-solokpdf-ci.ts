@@ -46,11 +46,13 @@ import { testit as sigStatus } from "./ad-hoc-pdfium-sig-status.ts";
 import { testCtrlTShortcut, testNoHomeDefault, testTabLayout } from "./issue-6464.ts";
 import { testit as selectionOutlines } from "./ad-hoc-selection-outlines.ts";
 import { testit as testCursor } from "./ad-hoc-b59-cursor.ts";
+import { testit as lastTabState } from "./ad-hoc-b65-last-tab.ts";
 import { testit as rtlToast } from "./issue-6113.ts";
 
 const tests: NamedTest[] = [
   ["issue-6113", rtlToast],
   ["ad-hoc-b59-cursor", testCursor],
+  ["ad-hoc-b65-last-tab", lastTabState],
   ["issue-6464-tab-layout", testTabLayout],
   ["issue-6464-ctrl-t", testCtrlTShortcut],
   ["issue-6464-no-home-default", testNoHomeDefault],

@@ -5421,6 +5421,7 @@ void CloseTab(WindowTab* tab, bool quitIfLast) {
     int tabCount = win->TabCount();
     if (tabCount == 1 || (tabCount == 0 && quitIfLast)) {
         if (CanCloseWindow(win)) {
+            UpdateTabFileDisplayStateForTab(tab);
             CloseWindow(win, quitIfLast, false);
             return;
         }
