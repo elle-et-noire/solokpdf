@@ -813,7 +813,7 @@ class HW_IDocHostUIHandler : public IDocHostUIHandler {
     // IDocHostUIHandler
     STDMETHODIMP ShowContextMenu(__unused DWORD dwID, __unused POINT* ppt, __unused IUnknown* pcmdtReserved,
                                  __unused IDispatch* pdispReserved) override {
-        return S_FALSE;
+        return IsTestClipboardMode() ? S_OK : S_FALSE;
     }
     STDMETHODIMP GetHostInfo(DOCHOSTUIINFO* pInfo) override;
     STDMETHODIMP ShowUI(__unused DWORD dwID, __unused IOleInPlaceActiveObject* pActiveObject,
@@ -830,7 +830,16 @@ class HW_IDocHostUIHandler : public IDocHostUIHandler {
                               __unused BOOL fRameWindow) override {
         return E_NOTIMPL;
     }
-    STDMETHODIMP TranslateAccelerator(__unused LPMSG lpMsg, __unused const GUID* pguidCmdGroup, __unused DWORD nCmdID) {
+    STDMETHODIMP TranslateAccelerator(LPMSG lpMsg, __unused const GUID* pguidCmdGroup, __unused DWORD nCmdID) {
+        if (IsTestClipboardMode() && lpMsg && lpMsg->message == WM_KEYDOWN && (GetKeyState(VK_CONTROL) & 0x8000)) {
+            if (lpMsg->wParam == 'C') {
+                fs->htmlWindow->CopySelection();
+                return S_OK;
+            }
+            if (lpMsg->wParam == 'X' || lpMsg->wParam == 'V') {
+                return S_OK;
+            }
+        }
         return S_FALSE;
     }
     STDMETHODIMP GetOptionKeyPath(__unused LPOLESTR* pchKey, __unused DWORD dw) override { return S_FALSE; }
@@ -1535,6 +1544,24 @@ void HtmlWindow::SelectAll() {
 }
 
 void HtmlWindow::CopySelection() {
+    if (IsTestClipboardMode()) {
+        AutoReleaseComPtr<IDispatch> docDispatch;
+        if (FAILED(webBrowser->get_Document(&docDispatch)) || !docDispatch) return;
+        AutoReleaseComQIPtr<IHTMLDocument2> doc(docDispatch);
+        if (!doc) return;
+        AutoReleaseComPtr<IHTMLSelectionObject> selection;
+        if (FAILED(doc->get_selection(&selection)) || !selection) return;
+        AutoReleaseComPtr<IDispatch> rangeDispatch;
+        if (FAILED(selection->createRange(&rangeDispatch)) || !rangeDispatch) return;
+        AutoReleaseComQIPtr<IHTMLTxtRange> range(rangeDispatch);
+        if (!range) return;
+        BSTR text = nullptr;
+        if (SUCCEEDED(range->get_text(&text)) && text) {
+            CopyTextToClipboard(ToUtf8Temp(WStr(text, SysStringLen(text))));
+        }
+        SysFreeString(text);
+        return;
+    }
     webBrowser->ExecWB(OLECMDID_COPY, OLECMDEXECOPT_DODEFAULT, nullptr, nullptr);
 }
 

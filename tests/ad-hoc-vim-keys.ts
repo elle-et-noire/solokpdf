@@ -74,7 +74,7 @@ export async function testit(): Promise<void> {
     ["-appdata", appdata, "-zoom", "200", "-view", "continuous", pdf, pdf2],
     { saveSettings: true },
   );
-  if (!process.env.SOLOKPDF_REAL_CLIPBOARD) await client.request(ControlCommand.TestClipboardText, ["enable"]);
+  if (process.env.SOLOKPDF_REAL_CLIPBOARD !== "1") await client.request(ControlCommand.TestClipboardText, ["enable"]);
   let markedPath = "";
   const state = async (action = "state", key = "") => {
     const res = await client.request(ControlCommand.TestVimKeys, [action, key]);

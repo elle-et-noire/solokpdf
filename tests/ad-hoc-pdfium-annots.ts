@@ -112,7 +112,8 @@ async function launch(dir: string, pdf: string, engine: string) {
     saveSettings: true,
     env: { SOLOKPDF_ENGINE: engine },
   });
-  if (!process.env.SOLOKPDF_REAL_CLIPBOARD) await app.client.request(ControlCommand.TestClipboardText, ["enable"]);
+  if (process.env.SOLOKPDF_REAL_CLIPBOARD !== "1")
+    await app.client.request(ControlCommand.TestClipboardText, ["enable"]);
   return app;
 }
 

@@ -10,7 +10,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { cmdId, makePdf, runStandalone, tmpPath, USE_NG } from "./util.ts";
-import { canTestClipboard, setTestClipboardData } from "./test-clipboard.ts";
+import { canTestClipboard, clearTestClipboard, setTestClipboardData } from "./test-clipboard.ts";
 import { sleep } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
 
@@ -101,7 +101,7 @@ export async function testit(): Promise<void> {
     await merge(client, "rotate", "5", 90);
 
     // copied after the pages: the file is pasted
-    if (USE_NG) {
+    if (USE_NG || process.env.SOLOKPDF_REAL_CLIPBOARD === "1") {
       copyFileToClipboard(other);
     } else {
       const names = Buffer.from(`${other}\0\0`, "utf16le");
@@ -109,7 +109,10 @@ export async function testit(): Promise<void> {
       drop.writeUInt32LE(20, 0);
       drop.writeUInt32LE(1, 16);
       names.copy(drop, 20);
+      await clearTestClipboard(client);
       await setTestClipboardData(client, 15, drop);
+      const formats = await client.request(ControlCommand.TestClipboardFormat, ["list"]);
+      if (String(formats[1] ?? "") !== "15") throw new Error(`issue-5890: external copy formats: ${formats[1]}`);
     }
     raw = await merge(client, "paste", "0");
     expectItems(raw, "0:2,1:1s,1:2s,0:3,0:4,0:1,0:2,0:1@90", "paste a file");

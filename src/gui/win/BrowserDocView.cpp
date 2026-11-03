@@ -55,6 +55,21 @@ constexpr const char* kFindNotifyJs = R"JS(window.__sumatraFindNotify = function
   window.__sumatra__.notify.apply(window.__sumatra__, arguments);
 };)JS";
 
+constexpr const char* kTestClipboardJs = R"JS((function(){
+  if (window.__sumatraTestClipboard) return;
+  window.__sumatraTestClipboard = true;
+  document.addEventListener('copy', function(event) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    var text = window.getSelection().toString();
+    window.chrome.webview.postMessage(JSON.stringify({__sumatraNotify:1,method:'testCopy',params:JSON.stringify([text])}));
+  }, true);
+  for (var type of ['cut', 'paste']) document.addEventListener(type, function(event) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+})();)JS";
+
 // WebView2 host for the scroll-position and find-result notifications sent by
 // kReportScrollJs / kFindInPageJs through the JS bridge.
 struct BrowserWebviewWnd : WebviewWnd {
@@ -112,6 +127,10 @@ void BrowserWebviewWnd::OnJsNotifyCb(void* ctx, Str method, Str paramsJson) {
         int x = std::max(0, st.Int(0));
         int y = std::max(0, st.Int(1));
         self->webviewScrollPos = Point(x, y);
+        return;
+    }
+    if (str::Eq(method, StrL("testCopy")) && IsTestClipboardMode()) {
+        CopyTextToClipboard(st.Text(0));
         return;
     }
     if (!self->cb) {
@@ -175,6 +194,9 @@ void BrowserDocView::NavigationCompleted(void* ctx, Str url, bool success) {
     // document, and hash navigation often never fires a 'scroll' event
     if (view->wv) {
         view->wv->Eval(Str(kReportScrollJs));
+        if (IsTestClipboardMode()) {
+            view->wv->Eval(Str(kTestClipboardJs));
+        }
     }
 }
 
@@ -367,6 +389,9 @@ bool BrowserDocView::CreateWebView2() {
     wv->Init(Str(kReportScrollJs));
     wv->Init(Str(kFindInPageJs));
     wv->Init(Str(kFindNotifyJs));
+    if (IsTestClipboardMode()) {
+        wv->Init(Str(kTestClipboardJs));
+    }
 
     backend = Backend::WebView2;
     return true;
@@ -629,7 +654,13 @@ bool BrowserDocView::CapturePng(const Func1<Str>& done) {
 
 void BrowserDocView::CopySelection() {
     if (backend == Backend::WebView2 && wv) {
-        wv->Eval(StrL("document.execCommand('copy', false, null)"));
+        if (IsTestClipboardMode()) {
+            wv->Eval(
+                StrL("window.chrome.webview.postMessage(JSON.stringify({__sumatraNotify:1,method:'testCopy',"
+                     "params:JSON.stringify([window.getSelection().toString()])}))"));
+        } else {
+            wv->Eval(StrL("document.execCommand('copy', false, null)"));
+        }
         return;
     }
     if (backend == Backend::IE && ie) {

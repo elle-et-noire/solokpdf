@@ -17,6 +17,7 @@ const allowed: Record<string, { reason: string; calls: string[] }> = {
       "clipboardSeqNo",
       "holdClipboard",
       "getClipboardDibInfo",
+      "getClipboardFormats",
       "pbpaste",
     ],
   },
@@ -27,7 +28,7 @@ const allowed: Record<string, { reason: string; calls: string[] }> = {
   "ad-hoc-b67-clipboard.ts": { reason: "read-only system sequence proof", calls: ["clipboardSeqNo"] },
   "issue-6360.ts": {
     reason: "CF_DIB interoperability and clipboard contention; CI or opt-in only",
-    calls: ["clipboardSeqNo", "emptyClipboard", "holdClipboard", "getClipboardDibInfo"],
+    calls: ["clipboardSeqNo", "emptyClipboard", "holdClipboard", "getClipboardDibInfo", "getClipboardFormats"],
   },
   "issue-5890.ts": { reason: "ng file-drop fallback; CI or opt-in only", calls: ["Set-Clipboard"] },
   "ad-hoc-paste-image-annot.ts": {
@@ -41,7 +42,7 @@ const allowed: Record<string, { reason: string; calls: string[] }> = {
 };
 
 const systemClipboard =
-  /\b(?:OpenClipboard|CloseClipboard|EmptyClipboard|SetClipboardData|GetClipboardData|GetClipboardSequenceNumber|setClipboardText|getClipboardText|emptyClipboard|clipboardSeqNo|holdClipboard|getClipboardDibInfo|pbcopy|pbpaste)\b|Get-Clipboard|Set-Clipboard|System\.Windows\.Forms\.Clipboard/g;
+  /\b(?:OpenClipboard|CloseClipboard|EmptyClipboard|SetClipboardData|GetClipboardData|GetClipboardSequenceNumber|setClipboardText|getClipboardText|emptyClipboard|clipboardSeqNo|holdClipboard|getClipboardDibInfo|getClipboardFormats|pbcopy|pbpaste)\b|Get-Clipboard|Set-Clipboard|System\.Windows\.Forms\.Clipboard/g;
 
 export async function testit(): Promise<void> {
   const violations: string[] = [];

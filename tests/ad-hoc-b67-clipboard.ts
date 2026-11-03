@@ -1,6 +1,7 @@
+import { writeFileSync } from "node:fs";
 import { ControlCommand } from "./control.ts";
-import { runStandalone, USE_NG } from "./util.ts";
-import { clipboardSeqNo } from "./winapi.ts";
+import { runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { clipboardSeqNo, sleep } from "./winapi.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
 
 export async function testit(): Promise<void> {
@@ -9,7 +10,10 @@ export async function testit(): Promise<void> {
     return;
   }
   const before = clipboardSeqNo();
-  const { proc, client } = await launchControlled([]);
+  const markdown = tmpPath("b67-copy.md");
+  const selection = "B67 Markdown browser copy";
+  writeFileSync(markdown, `# ${selection}\n`);
+  const { proc, client } = await launchControlled([markdown], { env: { SOLOKPDF_REAL_CLIPBOARD: "0" } });
   try {
     const value = "B67 process-local clipboard";
     const set = await client.request(ControlCommand.TestClipboardText, ["set", value]);
@@ -51,6 +55,27 @@ export async function testit(): Promise<void> {
       !copiedBitmap.subarray(40, 43).equals(dib.subarray(40, 43))
     )
       throw new Error("test bitmap changed");
+    const deadline = Date.now() + 10000;
+    let ready = false;
+    while (Date.now() < deadline) {
+      const res = await client.request(ControlCommand.TestMarkdownTocNavigate, [0, 0]);
+      if (res[0] === 0 && String(res[1] ?? "").startsWith("OK scrollX=")) {
+        ready = true;
+        break;
+      }
+      await sleep(100);
+    }
+    if (!ready) throw new Error("Markdown browser not ready");
+    await client.request(ControlCommand.TestInvokeCommand, ["CmdSelectAll"]);
+    await client.request(ControlCommand.TestInvokeCommand, ["CmdCopySelection"]);
+    let copied = "";
+    while (Date.now() < deadline) {
+      const get = await client.request(ControlCommand.TestClipboardText, ["get"]);
+      copied = String(get[1] ?? "");
+      if (copied.includes(selection)) break;
+      await sleep(100);
+    }
+    if (!copied.includes(selection)) throw new Error(`Markdown Copy did not reach local clipboard: ${copied}`);
   } finally {
     client.close();
     await killAndWait(proc);

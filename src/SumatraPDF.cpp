@@ -16642,7 +16642,9 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     gForTesting = flags.forTesting;
     if (gForTesting) {
         SetEnvironmentVariableW(L"SOLOKPDF_BLOCK_SHELL_LAUNCH", L"1");
-        if (GetEnvironmentVariableW(L"SOLOKPDF_REAL_CLIPBOARD", nullptr, 0) == 0) {
+        WCHAR realClipboard[2]{};
+        if (GetEnvironmentVariableW(L"SOLOKPDF_REAL_CLIPBOARD", realClipboard, dimof(realClipboard)) != 1 ||
+            realClipboard[0] != L'1') {
             SetTestClipboardMode();
         }
     }
@@ -16835,7 +16837,9 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
 
 #if IS_DEBUG
     if (flags.unitTests) {
-        if (GetEnvironmentVariableW(L"SOLOKPDF_REAL_CLIPBOARD", nullptr, 0) == 0) {
+        WCHAR realClipboard[2]{};
+        if (GetEnvironmentVariableW(L"SOLOKPDF_REAL_CLIPBOARD", realClipboard, dimof(realClipboard)) != 1 ||
+            realClipboard[0] != L'1') {
             SetTestClipboardMode();
         }
         CreateSumatraAcceleratorTable();

@@ -55,7 +55,8 @@ Processes launched outside the runner's job need separate review.
 `-for-testing` stores text, bitmap, DIB, file-drop, and registered formats in
 the app process. `-dbg-control` `TestClipboardText` sets and reads text;
 `TestClipboardFormat` registers names, sets and reads format bytes, lists formats,
-and reports the local sequence. Tests needing Windows clipboard synthesis or contention
+and reports the local sequence. Browser Copy stores selected text there; browser
+Cut and Paste are blocked. Tests needing Windows clipboard synthesis or contention
 run only in CI or with `SOLOKPDF_REAL_CLIPBOARD=1`.
 
 The first hidden SolokPDF CI run passed 52/54 tests. `ad-hoc-vim-keys` and

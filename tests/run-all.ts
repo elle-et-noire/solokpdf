@@ -44,6 +44,8 @@ import { testit as annotFilterToolbar } from "./annot-filter-toolbar.ts";
 import { testit as dviOpen } from "./dvi-open.ts";
 import { testit as fontCacheShutdown } from "./font-cache-shutdown.ts";
 import { testit as smartScrollbarsAutohide } from "./smart-scrollbars-autohide.ts";
+import { testit as pasteImageAnnot } from "./ad-hoc-paste-image-annot.ts";
+import { testit as pngOptimize } from "./ad-hoc-png-optimize.ts";
 
 // The slowest of the regular tests. They still run here and in the daily CI
 // suite, just not in run-pre-release: a couple of seconds each is nothing on
@@ -64,6 +66,8 @@ export const notInPreReleaseTests: NamedTest[] = [
 ];
 
 export const slowTests: NamedTest[] = [
+  ["ad-hoc-paste-image-annot", pasteImageAnnot],
+  ["ad-hoc-png-optimize", pngOptimize],
   ["sig-validation", sigValidation],
   // WebView TOC
   ["issue-5842", issue5842],
