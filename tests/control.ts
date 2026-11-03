@@ -503,7 +503,7 @@ export class ControlClient {
     socket.on("error", swallowSocketError);
   }
 
-  static async connect(pipeName: string, timeoutMs = 10000 * SLOW_BUILD_FACTOR): Promise<ControlClient> {
+  static async connect(pipeName: string, timeoutMs = 30_000 * SLOW_BUILD_FACTOR): Promise<ControlClient> {
     const path = pipePath(pipeName);
     const deadline = Date.now() + timeoutMs;
     let lastErr: unknown;
@@ -984,11 +984,11 @@ export async function withControlledSumatra<T>(
   let fnErr: unknown;
   let fnOk = false;
   try {
-    client = await ControlClient.connect(pipeName, options.connectTimeoutMs ?? 10_000 * SLOW_BUILD_FACTOR);
+    client = await ControlClient.connect(pipeName, options.connectTimeoutMs);
     result = await fn(client, proc);
     fnOk = true;
   } catch (e) {
-    fnErr = e;
+    fnErr = !client && proc.exitCode !== null ? new Error(`SumatraPDF exited with code ${proc.exitCode}: ${e}`) : e;
   } finally {
     if (client) {
       try {

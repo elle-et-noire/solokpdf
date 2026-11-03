@@ -379,6 +379,8 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 ## Tests and CI
 
+Control connections allow 30 seconds, scaled for ASan. Startup exit diagnostics were added; hosted verification is needed to determine whether the MuPDF timeouts were delays or exits.
+
 The palette test helper locates its edit through control state when the frame is behind another window; hosted verification remains pending.
 
 B71: hosted runs 41711900811 and 41711906015 passed the noteref and touch tests.

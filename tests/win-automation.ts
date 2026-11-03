@@ -283,7 +283,9 @@ export async function launchControlled(
     cursorClient = client;
     return { proc, client, frame };
   } catch (e) {
+    const exitCode = proc.exitCode;
     await killAndWaitProcess(proc);
+    if (exitCode !== null) throw new Error(`SumatraPDF exited with code ${exitCode}: ${e}`);
     throw e;
   }
 }

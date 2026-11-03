@@ -1446,6 +1446,7 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 | B12 | Test comparing every command's visibility/enabled state between engines on the same PDF                                                                                      | `TestCommandVisibility`                                                                          | done — Compare command visibility across engines (B12)                                            |
 | B7  | Triage upstream full-suite failures                                                                                                                                          | full-suite run                                                                                   | done — Triage complete paired full-suite logs (B7); 462 reached per engine, 122 distinct failures |
 
+B71 follow-up: Allow more time for control startup. On November 1, MuPDF issue-5978 and issue-6140 took 3.5 s and 8.3 s; on November 3 their control connections timed out after 10 s. The logs do not distinguish slow startup from process exit.
 B71 follow-up: Locate the palette edit without focus.
 B71 follow-up: Wait for issue-6355 browser readiness.
 B71 follow-up: Restore test keyboard focus (B71).

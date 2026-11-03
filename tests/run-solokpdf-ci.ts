@@ -63,7 +63,10 @@ import { testit as hoverB71 } from "./ad-hoc-b71-hover.ts";
 import { testit as positionB71 } from "./ad-hoc-b71-window-position.ts";
 import { testit as activationTraceB71 } from "./ad-hoc-b71-activation-trace.ts";
 
+import { testit as controlStartB71 } from "./ad-hoc-b71-control-start.ts";
+
 const tests: NamedTest[] = [
+  ["ad-hoc-b71-control-start", controlStartB71],
   ["ad-hoc-b71-activation-trace", activationTraceB71],
   ["ad-hoc-b71-window-position", positionB71],
   ["ad-hoc-b71-hover", hoverB71],

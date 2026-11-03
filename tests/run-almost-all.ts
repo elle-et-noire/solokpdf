@@ -523,6 +523,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["issue-6140", issue6140],
+  ["issue-6355", issue6355],
   ["free-text-annotation-placement", freeTextAnnotationPlacement],
   ["pdf-edit-toolbar-interaction", pdfEditToolbarInteraction],
   ["issue-1106", issue1106],
@@ -532,7 +534,6 @@ export const tests: NamedTest[] = [
   ["issue-6340", issue6340],
   ["issue-6412", issue6412],
   ["issue-6464", issue6464],
-  ["issue-6355", issue6355],
   ["issue-6113", issue6113],
   ["issue-1914", issue1914],
   ["issue-6431", issue6431],
@@ -644,7 +645,6 @@ export const tests: NamedTest[] = [
   ["image-only-palette-items", imageOnlyPaletteItems],
   ["issue-6151", issue6151],
   ["issue-6161", issue6161],
-  ["issue-6140", issue6140],
   ["ad-hoc-md-missing-file", mdMissingFile],
   ["issue-6142", issue6142],
   ["issue-6419", issue6419],
