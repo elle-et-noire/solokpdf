@@ -121,6 +121,34 @@ static CommonEdit CommonEditFor(Str name) {
     return CommonEdit::None;
 }
 
+static Str CommonLayoutLabel(int i) {
+    Str labels[] = {
+        Tr("Automatic"),         Tr("Single Page"),          Tr("Facing"),     Tr("Book View"), Tr("Continuous"),
+        Tr("Continuous Facing"), Tr("Continuous Book View"), Tr("Page Aspect")};
+    return labels[i];
+}
+
+static TempStr CommonValueTemp(SettingItem* item, Str detected) {
+    CommonEdit edit = CommonEditFor(item->name);
+    if (edit == CommonEdit::Layout) {
+        for (int i = 0; i < 8; i++) {
+            Str value = i == 7 ? StrL("page aspect") : DisplayModeToString((DisplayMode)i);
+            if (str::EqI(item->strVal, value)) return CommonLayoutLabel(i);
+        }
+    }
+    if (edit == CommonEdit::Zoom) return ZoomLevelStrExact(ZoomFromString(item->strVal, kZoomActualSize));
+    if (edit == CommonEdit::Inverse && len(item->strVal) == 0 && !item->changed) return detected;
+    return FormatSettingValueTemp(item);
+}
+
+static int CommonLabelWidth() {
+    int width = 0;
+    for (const char* name : kCommonNames) {
+        width = std::max(width, GfxMeasureText(UiFont(kAdvTextFontPx), CommonNameTemp(Str(name))).dx);
+    }
+    return width;
+}
+
 struct ListBoxModelSettings : ListBoxModel {
     Vec<SettingItem*>* items = nullptr;       // not owned
     Vec<SettingSection*>* sections = nullptr; // not owned
@@ -214,6 +242,7 @@ struct AdvancedSettingsWnd : WindowBase {
     int totalRows = 0;
     Vec<float> zoomLevels;
     StrVec commonChoices;
+    StrVec detectedEditors;
     CommonEdit commonEdit = CommonEdit::None;
 
     bool Create(MainWindow* win);
@@ -389,7 +418,7 @@ void AdvancedSettingsWnd::OnSelectionChanged() {
 // Split a list-item row into non-overlapping name (left) and value (right)
 // columns so long names and long values (e.g. InverseSearchCmdLine) don't
 // draw on top of each other (#5804).
-static void AdvSettingsItemColumns(const Rect& rc, Rect& rcName, Rect& rcVal) {
+static void AdvSettingsItemColumns(const Rect& rc, Rect& rcName, Rect& rcVal, bool common = false) {
     int pad = DpiScale(kAdvInsetDx);
     int gap = DpiScale(10);
     int totalW = rc.dx - (2 * pad);
@@ -403,6 +432,7 @@ static void AdvSettingsItemColumns(const Rect& rc, Rect& rcName, Rect& rcVal) {
     int minVal = DpiScale(100);
     int valW = std::max(totalW * 45 / 100, minVal);
     valW = std::min(valW, totalW * 3 / 5);
+    if (common) valW = std::min(valW, std::max(1, totalW - gap - CommonLabelWidth()));
     int nameW = totalW - valW - gap;
     if (nameW < DpiScale(72)) {
         nameW = (totalW / 2) - (gap / 2);
@@ -476,7 +506,7 @@ void AdvancedSettingsWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
         return;
     }
     SettingItem* item = (*m->items)[row.itemIdx];
-    if (row.sectionIdx == m->commonSectionIdx && !CommonItemEnabled(item, *m->items)) {
+    if (!CommonItemEnabled(item, *m->items)) {
         colText = colMuted;
     }
     if (ev->selected) {
@@ -487,7 +517,8 @@ void AdvancedSettingsWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
     PlatformFont* font = lb->font;
     Rect rcName{};
     Rect rcVal{};
-    AdvSettingsItemColumns(rc, rcName, rcVal);
+    bool common = row.sectionIdx == m->commonSectionIdx;
+    AdvSettingsItemColumns(rc, rcName, rcVal, common);
 
     // yellow/accent underlays on matched filter tokens (same as command palette)
     u32 nameFmt = gfxTextEllipsis | gfxTextVCenter;
@@ -503,7 +534,8 @@ void AdvancedSettingsWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
 
     // the value: muted when it is the default, the text color when not. A
     // color setting gets a swatch, an unsaved edit a yellow dot, before it
-    TempStr val = FormatSettingValueTemp(item);
+    Str detected = len(detectedEditors) > 0 ? detectedEditors[0] : Str{};
+    TempStr val = common ? CommonValueTemp(item, detected) : FormatSettingValueTemp(item);
     Color valCol = SettingDiffersFromDefault(item) ? colText : colMuted;
     int valDx = std::min(gfx->MeasureText(val, font).dx, rcVal.dx);
     Rect r = rcVal;
@@ -552,7 +584,7 @@ Rect AdvancedSettingsWnd::ValueRectForItem(int idx) {
     }
     Rect rcName{};
     Rect rcVal{};
-    AdvSettingsItemColumns(rc, rcName, rcVal);
+    AdvSettingsItemColumns(rc, rcName, rcVal, model->rows[lbIdx].sectionIdx == commonSectionIdx);
     return rcVal;
 }
 
@@ -656,13 +688,10 @@ void AdvancedSettingsWnd::BeginEditEnum(int idx) {
     int currSel = -1;
     commonChoices.Reset();
     if (commonEdit == CommonEdit::Layout) {
-        Str labels[] = {
-            Tr("Automatic"),         Tr("Single Page"),          Tr("Facing"),     Tr("Book View"), Tr("Continuous"),
-            Tr("Continuous Facing"), Tr("Continuous Book View"), Tr("Page Aspect")};
-        for (int i = 0; i < dimofi(labels); i++) {
-            Str value = i == dimofi(labels) - 1 ? StrL("page aspect") : DisplayModeToString((DisplayMode)i);
+        for (int i = 0; i < 8; i++) {
+            Str value = i == 7 ? StrL("page aspect") : DisplayModeToString((DisplayMode)i);
             commonChoices.Append(value);
-            vals.Append(labels[i]);
+            vals.Append(CommonLayoutLabel(i));
             if (str::EqI(item->strVal, value)) currSel = i;
         }
     } else if (commonEdit == CommonEdit::Zoom) {
@@ -673,7 +702,9 @@ void AdvancedSettingsWnd::BeginEditEnum(int idx) {
             if (zoomLevels[i] == start) currSel = i;
         }
     } else if (commonEdit == CommonEdit::Inverse) {
-        CollectInverseSearchCommands(vals, item->strVal);
+        for (Str editor : detectedEditors) vals.Append(editor);
+        if (len(item->strVal) > 0 && vals.Find(item->strVal) < 0) vals.Append(item->strVal);
+        if (len(item->strVal) == 0 && !item->changed && len(vals) > 0) currSel = 0;
     } else {
         for (int i = 0; item->enumValues[i]; i++) {
             vals.Append(Str(item->enumValues[i]));
@@ -682,7 +713,7 @@ void AdvancedSettingsWnd::BeginEditEnum(int idx) {
     }
     c->SetItems(vals);
     if (currSel >= 0) CbSetCurrentSelection(c, currSel);
-    if (commonEdit == CommonEdit::Inverse) c->SetText(item->strVal);
+    if (commonEdit == CommonEdit::Inverse && currSel < 0) c->SetText(item->strVal);
     if (commonEdit == CommonEdit::Zoom && currSel < 0)
         c->SetText(ZoomLevelStrExact(ZoomFromString(item->strVal, kZoomActualSize)));
     c->onSelectionChanged = MkMethod0<AdvancedSettingsWnd, &AdvancedSettingsWnd::OnEnumSelectionChanged>(this);
@@ -887,7 +918,7 @@ void AdvancedSettingsWnd::ActivateItem(int lbIdx) {
     if (!item) {
         return;
     }
-    if (model->rows[lbIdx].sectionIdx == commonSectionIdx && !CommonItemEnabled(item, items)) return;
+    if (!CommonItemEnabled(item, items)) return;
     if (item->type == SettingType::Bool) {
         item->boolVal = !item->boolVal;
         NoteItemEdited(item);
@@ -919,10 +950,8 @@ void AdvancedSettingsWnd::ApplyChangesAndSave() {
     if (texEnabled && CanAccessDisk()) {
         for (SettingItem* item : items) {
             if (!str::Eq(item->name, StrL("InverseSearchCmdLine")) || len(item->strVal) > 0 || item->changed) continue;
-            StrVec choices;
-            CollectInverseSearchCommands(choices, item->strVal);
-            if (len(choices) > 0) {
-                str::ReplaceWithCopy(&item->strVal, choices[0]);
+            if (len(detectedEditors) > 0) {
+                str::ReplaceWithCopy(&item->strVal, detectedEditors[0]);
                 NoteItemEdited(item);
             }
         }
@@ -980,6 +1009,7 @@ void AdvancedSettingsWnd::ApplyChangesAndSave() {
     ForceReloadSettings();
     // apply changes that a reload doesn't pick up on its own (menu bar, tabs,
     // anti-alias ...) and re-layout the open windows
+    before.useTabs = gSettings->useTabs;
     ApplyChangedSettingsAndRelayout(before);
     MaybeRedrawHomePage();
 }
@@ -1076,6 +1106,7 @@ bool AdvancedSettingsWnd::RestoreSelectedDefault(bool isEditingValue, bool isEdi
     if (!item) {
         return false;
     }
+    if (!CommonItemEnabled(item, items)) return false;
     if (isEditingEnum) {
         CloseEnumEdit(false);
     }
@@ -1177,7 +1208,7 @@ void AdvancedSettingsWnd::OnGetMinMaxInfo(WindowBase::GetMinMaxInfoEvent* ev) {
     if (!ev->mmi) {
         return;
     }
-    int minClient = DpiScale(kAdvSettingsMinClientDx);
+    int minClient = std::max(DpiScale(kAdvSettingsMinClientDx), CommonLabelWidth() + DpiScale(180));
     int chromeX = 0;
     if (hwnd) {
         Rect wr = HwndWindowRect(hwnd);
@@ -1272,6 +1303,7 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
     // OnSize repositions in-place editors after DoLayout; skip the generic path
     autoLayout = false;
     CollectSettings(items, sections);
+    if (CanAccessDisk()) CollectInverseSearchCommands(detectedEditors, {});
     auto* common = new SettingSection();
     common->name = str::Dup(Tr("Commonly used"));
     commonSectionIdx = len(sections);
@@ -1459,7 +1491,7 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
     // Default is wide enough that long setting names (e.g. InverseSearchCmdLine)
     // and long values don't crowd each other; reuse last size if the user
     // resized earlier this session (#5804), but never below kAdvSettingsMinClientDx.
-    int minDx = DpiScale(kAdvSettingsMinClientDx);
+    int minDx = std::max(DpiScale(kAdvSettingsMinClientDx), CommonLabelWidth() + DpiScale(180));
     int dy = gAdvSettingsLastClientDy > 0 ? gAdvSettingsLastClientDy : limitValue(rc.dy - 72, 480, 900);
     int dx = gAdvSettingsLastClientDx > 0 ? gAdvSettingsLastClientDx : limitValue(rc.dx - 128, 760, 1100);
     dx = std::max(dx, minDx);
@@ -1565,6 +1597,33 @@ TempStr AdvSettingsRowsResultTemp(Str action, int arg, int* exitCodeOut) {
         }
         return finish(0);
     }
+    if (str::Eq(action, StrL("common-values"))) {
+        Str detected = len(wnd->detectedEditors) > 0 ? wnd->detectedEditors[0] : Str{};
+        for (const SettingRow& row : wnd->model->rows) {
+            if (row.itemIdx < 0 || row.sectionIdx != wnd->commonSectionIdx) continue;
+            SettingItem* item = wnd->items[row.itemIdx];
+            out.Append(fmt("%s=%s\n", item->name, CommonValueTemp(item, detected)));
+        }
+        return finish(0);
+    }
+    if (str::Eq(action, StrL("test-editor"))) {
+        wnd->detectedEditors.Reset();
+        wnd->detectedEditors.Append(StrL("test-detected-editor %f:%l"));
+        return finish(0);
+    }
+    if (str::Eq(action, StrL("common-width"))) {
+        for (int i = 0; i < len(wnd->model->rows); i++) {
+            const SettingRow& row = wnd->model->rows[i];
+            if (row.itemIdx < 0 || row.sectionIdx != wnd->commonSectionIdx) continue;
+            wnd->listBox->EnsureVisible(i);
+            Rect name, value;
+            AdvSettingsItemColumns(wnd->listBox->ItemRect(i), name, value, true);
+            Str label = CommonNameTemp(wnd->items[row.itemIdx]->name);
+            out.Append(fmt("%s %d %d\n", wnd->items[row.itemIdx]->name, GfxMeasureText(wnd->listBox->font, label).dx,
+                           name.dx));
+        }
+        return finish(0);
+    }
     if (str::Eq(action, StrL("visible"))) {
         for (const SettingRow& row : wnd->model->rows) {
             if (row.itemIdx < 0) continue;
@@ -1588,6 +1647,19 @@ TempStr AdvSettingsRowsResultTemp(Str action, int arg, int* exitCodeOut) {
             return finish(0);
         }
         return finish(1);
+    }
+    if (str::Eq(action, StrL("disabled-paths"))) {
+        if (arg < 0 || arg >= dimofi(kCommonNames)) return finish(1);
+        for (int i = 0; i < len(wnd->model->rows); i++) {
+            const SettingRow& row = wnd->model->rows[i];
+            if (row.itemIdx < 0 || !str::Eq(wnd->items[row.itemIdx]->name, Str(kCommonNames[arg]))) continue;
+            SettingItem* item = wnd->items[row.itemIdx];
+            wnd->listBox->SetCurrentSelection(i);
+            wnd->ActivateItem(i);
+            bool restored = wnd->RestoreSelectedDefault(false, false);
+            out.Append(fmt("%s=%s restored=%d\n", item->name, FormatSettingValueTemp(item), (int)restored));
+        }
+        return finish(0);
     }
     if (str::Eq(action, StrL("choices"))) {
         if (arg < 0 || arg >= dimofi(kCommonNames)) return finish(1);
@@ -1643,6 +1715,24 @@ TempStr AdvSettingsRowsResultTemp(Str action, int arg, int* exitCodeOut) {
             }
             wnd->CloseEnumEdit(true);
             out.Append(fmt("%s=%s\n", item->name, FormatSettingValueTemp(item)));
+            return finish(0);
+        }
+        return finish(1);
+    }
+    if (str::Eq(action, StrL("type-zoom"))) {
+        for (int i = 0; i < len(wnd->model->rows); i++) {
+            const SettingRow& row = wnd->model->rows[i];
+            if (row.itemIdx < 0 || row.sectionIdx != wnd->commonSectionIdx ||
+                !str::Eq(wnd->items[row.itemIdx]->name, StrL("DefaultZoom")))
+                continue;
+            wnd->listBox->SetCurrentSelection(i);
+            wnd->listBox->EnsureVisible(i);
+            wnd->BeginEditEnum(row.itemIdx);
+            if (!wnd->dropDownValue) return finish(1);
+            CbSetCurrentSelection(wnd->dropDownValue, -1);
+            wnd->dropDownValue->SetText(arg == 0 ? StrL("invalid") : fmt("%d", arg));
+            wnd->CloseEnumEdit(true);
+            out.Append(fmt("DefaultZoom=%s\n", FormatSettingValueTemp(wnd->items[row.itemIdx])));
             return finish(0);
         }
         return finish(1);
@@ -1726,6 +1816,11 @@ TempStr AdvSettingsRowsResultTemp(Str action, int arg, int* exitCodeOut) {
     if (str::Eq(action, StrL("save"))) {
         wnd->OnSave(nullptr);
         out.Append(StrL("saved=1\n"));
+        return finish(0);
+    }
+    if (str::Eq(action, StrL("cancel"))) {
+        wnd->OnCancel(nullptr);
+        out.Append(StrL("closed=1\n"));
         return finish(0);
     }
     if (str::Eq(action, StrL("state"))) {
