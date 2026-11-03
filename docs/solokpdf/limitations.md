@@ -384,7 +384,9 @@ Toolbar hover failed on both engines; the canvas now ignores physical mouse
 moves that conflict with the test cursor. Targeted tests pass locally on both
 engines; hosted verification remains pending. Run 41711900891 exposed an
 activating About positioning call; dialog positioning now avoids activation,
-and the foreground test covers additional windows. Hosted verification remains
+and the foreground test covers additional windows. The settings filter avoids
+activating its test-mode window; `ad-hoc-b71-window-focus` checks focus.
+Hosted verification remains
 pending. The external viewer, PNG,
 screenshot focus, fullscreen activation, MuPDF placement and process cleanup
 checks also passed hosted runs.

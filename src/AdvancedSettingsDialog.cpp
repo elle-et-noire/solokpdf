@@ -1503,7 +1503,9 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
     PositionDialog(hwnd, win->hwndFrame);
 
     SetIsVisible(true);
-    EditSetFocus(editFilter);
+    if (AppWindowZOrder(hwnd, nullptr) != HWND_BOTTOM || GetActiveWindow() == hwnd) {
+        EditSetFocus(editFilter);
+    }
     return true;
 }
 
