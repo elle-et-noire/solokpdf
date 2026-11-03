@@ -129,7 +129,7 @@ static void PositionDialog(HWND hwnd, HWND hwndRelative) {
     // last word on staying fully on screen, e.g. a main window taller than the
     // work area, or dragged partly off it
     Rect r2 = ShiftRectToWorkArea(r, hwndRelative, true);
-    SetWindowPos(hwnd, nullptr, r2.x, r2.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(hwnd, nullptr, r2.x, r2.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 void ChangeThemeWnd::PreviewDocumentColors() {

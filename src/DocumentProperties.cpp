@@ -668,7 +668,7 @@ void ShowProperties(HWND parent, DocController* ctrl) {
 
     Point savedPos = gSettings->propWinPos;
     if (!savedPos.IsEmpty()) {
-        SetWindowPos(wnd->hwnd, nullptr, savedPos.x, savedPos.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+        SetWindowPos(wnd->hwnd, nullptr, savedPos.x, savedPos.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
         wnd->DoLayout();
     } else {
         HwndCenterDialog(wnd->hwnd, parent);

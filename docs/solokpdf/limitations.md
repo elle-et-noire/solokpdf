@@ -382,8 +382,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 B71: hosted runs 41711900811 and 41711906015 passed the noteref and touch tests.
 Toolbar hover failed on both engines; the canvas now ignores physical mouse
 moves that conflict with the test cursor. Targeted tests pass locally on both
-engines; hosted verification remains pending, as does the About window check
-in run 41711900891. The external viewer, PNG,
+engines; hosted verification remains pending. Run 41711900891 exposed an
+activating About positioning call; dialog positioning now avoids activation,
+and the foreground test covers additional windows. Hosted verification remains
+pending. The external viewer, PNG,
 screenshot focus, fullscreen activation, MuPDF placement and process cleanup
 checks also passed hosted runs.
 

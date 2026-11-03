@@ -90,7 +90,7 @@ bool TextViewWnd::Create(Str title, Str text) {
 
     int winW = DpiScale(800);
     int winH = DpiScale(600);
-    SetWindowPos(hwnd, nullptr, 0, 0, winW, winH, SWP_NOMOVE | SWP_NOZORDER);
+    SetWindowPos(hwnd, nullptr, 0, 0, winW, winH, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     DoLayout();
     UpdateTheme();
     SetIsVisible(true);

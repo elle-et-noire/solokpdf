@@ -366,7 +366,8 @@ void PDFScriptWnd::OnExamples(VirtMouseEvent*) {
     examplesLine->SetVisibility(v);
     Rect rect = HwndWindowRect(hwnd);
     int extra = DpiScale(kScriptListDx + 2 * kScriptListInsetDx) + examplesLine->thickness;
-    SetWindowPos(hwnd, nullptr, 0, 0, rect.dx + (show ? extra : -extra), rect.dy, SWP_NOMOVE | SWP_NOZORDER);
+    SetWindowPos(hwnd, nullptr, 0, 0, rect.dx + (show ? extra : -extra), rect.dy,
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     HwndEnsureOnScreen(hwnd);
     DoLayout();
     InvalidateRect(hwnd, nullptr, TRUE);

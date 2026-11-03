@@ -1291,7 +1291,7 @@ static void PositionDialog(HWND hwnd, HWND hwndRelative) {
     int y = rRelative.y + (rRelative.dy / 2) - (r.dy / 2);
     r = {x, y, r.dx, r.dy};
     Rect r2 = ShiftRectToWorkArea(r, hwndRelative, true);
-    SetWindowPos(hwnd, nullptr, r2.x, r2.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(hwnd, nullptr, r2.x, r2.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 static void PaintUnsavedDot(VirtCustom*, VirtPaintCtx* ctx) {

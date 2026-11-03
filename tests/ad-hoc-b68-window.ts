@@ -1,4 +1,5 @@
-import { cmdId, runStandalone } from "./util.ts";
+import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { writeFileSync } from "node:fs";
 import {
   enumWindows,
   getClassName,
@@ -7,6 +8,8 @@ import {
   getWindowPid,
   getWindowText,
   isWindowVisible,
+  postMessage,
+  WM_CLOSE,
   GW_HWNDNEXT,
   sleep,
 } from "./winapi.ts";
@@ -36,13 +39,21 @@ function isBehind(hwnd: number, foreground: number): boolean {
 
 export async function testit(): Promise<void> {
   const foreground = getForegroundWindow();
-  if (!foreground) {
-    console.log("SKIP B68: no foreground window");
-    return;
-  }
+  if (!foreground) console.log("B68: foreground and z-order checks unavailable on this desktop");
+
+  const pdf = tmpPath("ad-hoc-b68-window.pdf");
+  writeFileSync(
+    pdf,
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+    ]),
+    "latin1",
+  );
 
   for (let i = 0; i < 3; i++) {
-    const { proc, client, frame } = await launchControlled([]);
+    const { proc, client, frame } = await launchControlled([pdf]);
     try {
       const after = getForegroundWindow();
       if (after && getWindowPid(after) === proc.pid)
@@ -63,15 +74,49 @@ export async function testit(): Promise<void> {
         if (afterNew && getWindowPid(afterNew) === proc.pid) throw new Error("new frame changed foreground");
         if (afterNew && !isBehind(second, afterNew)) throw new Error("new frame is not behind foreground");
 
-        for (const command of ["CmdHelpAbout", "CmdAdvancedSettings"]) {
+        for (const command of [
+          "CmdHelpAbout",
+          "CmdAdvancedSettings",
+          "CmdChangeTheme",
+          "CmdCustomizeShortcuts",
+          "CmdToggleKeyboardHelp",
+          "CmdProperties",
+          "CmdMergePDF",
+          "CmdTabGroupSave",
+          "CmdTabGroupRestore",
+          "CmdSignDocument",
+        ]) {
+          console.log(`B68: ${command}`);
+          const before = new Set<number>();
+          enumWindows((hwnd) => {
+            if (getWindowPid(hwnd) === proc.pid) before.add(hwnd);
+            return true;
+          });
           sendCommandSync(frame, cmdId(command));
-          sendCommandSync(frame, cmdId(command));
-          const after = getForegroundWindow();
-          if (after && getWindowPid(after) === proc.pid)
-            throw new Error(
-              `${command} changed foreground: ${describeWindow(foreground)} -> ${describeWindow(after)}; frame=${describeWindow(frame)}`,
-            );
+          let opened = 0;
+          const deadline = Date.now() + 3000;
+          while (!opened && Date.now() < deadline) {
+            enumWindows((hwnd) => {
+              if (!before.has(hwnd) && getWindowPid(hwnd) === proc.pid && isWindowVisible(hwnd)) opened = hwnd;
+              return true;
+            });
+            if (!opened) await sleep(50);
+          }
+          if (!opened) throw new Error(`${command} did not open a window`);
+          for (let attempt = 0; attempt < 2; attempt++) {
+            if (attempt && command !== "CmdToggleKeyboardHelp") sendCommandSync(frame, cmdId(command));
+            const after = getForegroundWindow();
+            if (after && getWindowPid(after) === proc.pid)
+              throw new Error(
+                `${command} changed foreground: ${describeWindow(foreground)} -> ${describeWindow(after)}; frame=${describeWindow(frame)}`,
+              );
+          }
+          postMessage(opened, WM_CLOSE, 0, 0);
+          await sleep(50);
         }
+        sendCommandSync(frame, cmdId("CmdFindFirst"));
+        const afterFind = getForegroundWindow();
+        if (afterFind && getWindowPid(afterFind) === proc.pid) throw new Error("CmdFindFirst changed foreground");
       }
     } finally {
       client.close();

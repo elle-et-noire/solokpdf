@@ -1131,7 +1131,7 @@ static void PositionNavFilesWnd(HWND hwnd, HWND hwndMain, bool docked, bool plac
         y = main.y + DpiScale(kNavFallbackYOffset);
     }
     Rect r2 = ShiftRectToWorkArea({x, y, r.dx, r.dy}, hwndMain, true);
-    SetWindowPos(hwnd, nullptr, r2.x, r2.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(hwnd, nullptr, r2.x, r2.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 // Start directory when no document is open (home page). The file-open dialog

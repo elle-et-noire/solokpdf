@@ -1446,6 +1446,8 @@ MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 | B12 | Test comparing every command's visibility/enabled state between engines on the same PDF                                                                                      | `TestCommandVisibility`                                                                          | done — Compare command visibility across engines (B12)                                            |
 | B7  | Triage upstream full-suite failures                                                                                                                                          | full-suite run                                                                                   | done — Triage complete paired full-suite logs (B7); 462 reached per engine, 122 distinct failures |
 
+B71 follow-up: Prevent test dialog activation (B71).
+
 #### B7 follow-ups
 
 | ID  | Item                                                                                                                                                                                                                                                                                           | Evidence                     | Status                                                                               |

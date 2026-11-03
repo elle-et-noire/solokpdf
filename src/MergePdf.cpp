@@ -2093,7 +2093,7 @@ bool MergePdfWnd::Create(MainWindow* w, WindowTab* tab) {
     Rect work = GetWorkAreaRect(HwndWindowRect(w->hwndFrame), w->hwndFrame);
     int dx = std::min(work.dx, DpiScaleByDpi(GetDpi(), kDialogDx));
     int dy = work.dy * 85 / 100;
-    SetWindowPos(hwnd, nullptr, 0, 0, dx, dy, SWP_NOMOVE | SWP_NOZORDER);
+    SetWindowPos(hwnd, nullptr, 0, 0, dx, dy, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     DoLayout();
     HwndCenterDialog(hwnd, w->hwndFrame);
     HwndEnsureOnScreen(hwnd);

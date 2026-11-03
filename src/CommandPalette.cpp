@@ -1789,7 +1789,7 @@ void PositionCommandPalette(HWND hwnd, HWND hwndRelative) {
     r = {x, y, r.dx, r.dy};
     Rect r2 = ShiftRectToWorkArea(r, hwndRelative, true);
     r2.y = rRelative.y + 42;
-    SetWindowPos(hwnd, nullptr, r2.x, r2.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(hwnd, nullptr, r2.x, r2.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 void CommandPaletteWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {

@@ -306,7 +306,8 @@ bool TabGroupsWnd::Create(MainWindow* winIn, TabGroupDialogMode modeIn) {
     vbox->AddChild(NewDlgFooter(btnCancel, btnOk, btnDelete));
     layout = vbox;
 
-    SetWindowPos(hwnd, nullptr, 0, 0, DpiScale(kTabGroupsDlgDx), DpiScale(kTabGroupsDlgDy), SWP_NOMOVE | SWP_NOZORDER);
+    SetWindowPos(hwnd, nullptr, 0, 0, DpiScale(kTabGroupsDlgDx), DpiScale(kTabGroupsDlgDy),
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     DoLayout();
     HwndCenterDialog(hwnd, hwndParent);
     HwndEnsureOnScreen(hwnd);

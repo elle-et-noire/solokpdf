@@ -769,7 +769,7 @@ static void GrowWindowIfNeeded(ImageEditWindow* ew, DragEdge edge) {
         }
     }
 
-    SetWindowPos(ew->hwnd, nullptr, newX, newY, newWinW, newWinH, SWP_NOZORDER);
+    SetWindowPos(ew->hwnd, nullptr, newX, newY, newWinW, newWinH, SWP_NOZORDER | SWP_NOACTIVATE);
     // recalc layout after window resize
     CalcImageLayout(ew);
 }

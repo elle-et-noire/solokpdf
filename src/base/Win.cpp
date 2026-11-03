@@ -78,7 +78,7 @@ void HwndCenterDialog(HWND hDlg, HWND hParent) {
     // ensure that the dialog is fully visible on one monitor
     rcDialog = ShiftRectToWorkArea(rcDialog, hParent, true);
 
-    SetWindowPos(hDlg, nullptr, rcDialog.x, rcDialog.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(hDlg, nullptr, rcDialog.x, rcDialog.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 // change size of the window to have a given client size
@@ -105,7 +105,7 @@ void HwndPositionInCenterOf(HWND hwnd, HWND hwndRelative) {
 
     Rect r2 = {x, y, r.dx, r.dy};
     r = ShiftRectToWorkArea(r2, hwndRelative, true);
-    SetWindowPos(hwnd, nullptr, r.x, r.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(hwnd, nullptr, r.x, r.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 void ResizeHwndToClientArea(HWND hwnd, int dx, int dy, bool hasMenu) {
@@ -3989,7 +3989,7 @@ void ResizeWindow(HWND hwnd, int dx, int dy) {
     if (dy == -1) {
         dy = rc.dy;
     }
-    SetWindowPos(hwnd, nullptr, 0, 0, dx, dy, SWP_NOMOVE | SWP_NOZORDER);
+    SetWindowPos(hwnd, nullptr, 0, 0, dx, dy, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void MessageBoxNYI(HWND hwnd) {
@@ -4012,7 +4012,7 @@ void HwndPositionToTheRightOf(HWND hwnd, HWND hwndRelative) {
         rHwnd.y += dyDiff / 2;
     }
     Rect r = ShiftRectToWorkArea(rHwnd, hwndRelative, true);
-    SetWindowPos(hwnd, nullptr, r.x, r.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetWindowPos(hwnd, nullptr, r.x, r.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 bool DestroyIconSafe(HICON* h) {
