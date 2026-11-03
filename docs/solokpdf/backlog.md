@@ -16,11 +16,13 @@ there.
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off    |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                                  |
 
-B71: `issue-5989`, `issue-1106` and four process cleanup failures were
-fixed locally. Hosted foreground, WebView2, toolbar, noteref, touch, PNG
-clipboard and MuPDF placement failures remain unverified. `issue-6184` still
-fails because the test shell launch is blocked. Run the targeted hosted checks
-after pushing; do not run real clipboard or shell launches on the owner desktop.
+B71: hosted runs at `5a9e0852b` pass `issue-5989`, `issue-1106`, MuPDF
+free-text placement and the four process cleanup checks. They still fail the
+foreground, noteref, toolbar hover, external viewer, touch and PNG tests.
+Locally, noteref and toolbar hover pass; touch injection and real clipboard
+checks skip. The external viewer fails with the test shell-launch gate. The PNG
+test looks in Downloads although the app saves to its data directory. The other
+hosted failures still need isolation and fixes.
 
 B65: full-suite runs 41639619890 (PDFium) and 41639624912 (MuPDF) at
 ff43c356c fail `issue-4788` (also locally), `favorites-menu`,
