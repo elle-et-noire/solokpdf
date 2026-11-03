@@ -1838,6 +1838,34 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             Str query = StringArg(req, 0);
+            if (str::Eq(query, StrL("element")) || str::Eq(query, StrL("follow-element"))) {
+                i32 pageNo = 0;
+                i32 x = 0;
+                i32 y = 0;
+                IntArg(req, 1, pageNo);
+                IntArg(req, 2, x);
+                IntArg(req, 3, y);
+                if (pageNo < 1 || pageNo > engine->PageCount()) {
+                    AppendTestResult(req, 1, StrL("invalid page"));
+                    break;
+                }
+                IPageElement* el = engine->GetElementAtPos(pageNo, PointF((float)x, (float)y));
+                IPageDestination* dest = el ? el->AsLink() : nullptr;
+                if (str::Eq(query, StrL("follow-element"))) {
+                    bool followed = dest && dm->HandleLink(dest, gWindows[0]->linkHandler);
+                    AppendTestResult(req, followed ? 0 : 1, followed ? StrL("followed") : StrL("no destination"));
+                    break;
+                }
+                Str kind = !el                              ? StrL("none")
+                           : el->Is(kindPageElementDest)    ? StrL("link")
+                           : el->Is(kindPageElementComment) ? StrL("comment")
+                                                            : StrL("other");
+                Str target = !dest                                              ? StrL("none")
+                             : dest->GetKind() == kindDestinationLaunchEmbedded ? StrL("embedded")
+                                                                                : StrL("other");
+                AppendTestResult(req, 0, fmt("kind=%s target=%s value=%s", kind, target, el ? el->GetValue() : Str{}));
+                break;
+            }
             if (str::Eq(query, StrL("widget-cursor")) || str::Eq(query, StrL("widget-hit"))) {
                 // form field at a page point, as canvas hover (cursor) or a click (hit) finds it
                 i32 pageNo = 0;

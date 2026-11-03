@@ -161,6 +161,7 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
                                 X(FPDF_FFLDraw) X(FPDF_GetSignatureObject) X(FPDFSignatureObj_GetContents)
 
 Kind kindEnginePdfium = "enginePdfium";
+constexpr int kUnresolvedAttachment = -1;
 
 // PDFium forbids concurrent calls even for different documents.
 static Mutex gPdfiumLock;
@@ -1429,6 +1430,23 @@ class EnginePdfium : public EngineBase {
             }
             auto subtype = gPdfium.FPDFAnnot_GetSubtype(annot);
             bool isAttachment = subtype == FPDF_ANNOT_FILEATTACHMENT;
+            if (isAttachment) {
+                FS_RECTF r{};
+                if (gPdfium.FPDFAnnot_GetRect(annot, &r)) {
+                    RectF rect = ToPageRect(page, info, r.left, r.bottom, r.right, r.top);
+                    if (!rect.IsEmpty()) {
+                        auto* dest = new PageDestination();
+                        dest->kind = kindDestinationLaunchEmbedded;
+                        dest->pageNo = pageNo;
+                        dest->rect = rect;
+                        dest->embedObjNum = kUnresolvedAttachment;
+                        auto* element = new PageElementDestination(dest);
+                        element->pageNo = pageNo;
+                        element->rect = rect;
+                        VecAppend(info->links, (IPageElement*)element);
+                    }
+                }
+            }
             if (subtype == FPDF_ANNOT_WIDGET) {
                 if (WidgetIsLink(annot)) {
                     widgetLinks = true;
@@ -1515,7 +1533,8 @@ class EnginePdfium : public EngineBase {
 
     void AddAnnotTip(FPDF_PAGE page, int pageNo, PdfiumPage* info, FPDF_ANNOTATION annot,
                      FPDF_ANNOTATION_SUBTYPE subtype) {
-        Str contents = subtype == FPDF_ANNOT_FREETEXT ? Str{} : AnnotString(annot, "Contents");
+        Str contents =
+            subtype == FPDF_ANNOT_FREETEXT ? Str{} : NormalizeCommentNewlinesTemp(AnnotString(annot, "Contents"));
         Str author = AnnotAuthorInTooltip() ? AnnotString(annot, "T") : Str{};
         if (str::IsEmptyOrWhiteSpace(contents)) {
             contents = {};
@@ -2709,8 +2728,8 @@ class EnginePdfium : public EngineBase {
         return !info->useMupdfElements && (!info->hasFileAttachments || info->attachmentLinksLoaded);
     }
 
-    // Paint's link outlines and link recompute skip a page while its render owns the lock. They
-    // never load the editor: PDFium's elements have every link but attachment ones until it is.
+    // Paint's link outlines and link recompute skip a page while its render owns the lock.
+    // Attachment targets resolve only when followed.
     bool TryGetElements(int pageNo, Vec<IPageElement*>* out) override {
         if (EngineBase* redacted = RedactedEditor(pageNo)) {
             return redacted->TryGetElements(pageNo, out);
@@ -2755,16 +2774,25 @@ class EnginePdfium : public EngineBase {
         bool useMupdf = false;
         ElementsLocked(pageNo, links, &useMupdf);
         gPdfiumLock.Unlock();
-        EngineBase* source = useMupdf ? AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
-        if (source && source->BenchLoadPage(pageNo)) {
-            return source->GetElementAtPos(pageNo, point);
-        }
-        for (int i = len(links) - 1; i >= 0; i--) {
-            if (links[i]->rect.Contains(point)) {
-                return links[i];
+        EngineBase* source = AnnotationEditor(EditorLoad::IfLoaded);
+        if (source) {
+            IPageElement* edited = source->GetElementAtPos(pageNo, point);
+            if (edited) {
+                return edited;
             }
         }
-        return nullptr;
+        IPageElement* fallback = nullptr;
+        for (int i = len(links) - 1; i >= 0; i--) {
+            if (links[i]->rect.Contains(point)) {
+                if (links[i]->Is(kindPageElementDest)) {
+                    return links[i];
+                }
+                if (!fallback) {
+                    fallback = links[i];
+                }
+            }
+        }
+        return fallback;
     }
 
     // Image IDs differ between engines, so match page bounds before MuPDF extracts the bytes.
@@ -2824,6 +2852,26 @@ class EnginePdfium : public EngineBase {
     bool HandleLink(IPageDestination* dest, ILinkHandler* handler) override {
         if (!dest || !handler) {
             return false;
+        }
+        if (dest->GetKind() == kindDestinationLaunchEmbedded &&
+            ((PageDestination*)dest)->embedObjNum == kUnresolvedAttachment) {
+            Vec<IPageElement*> links;
+            EngineMupdfAttachmentLinks(this, dest->pageNo, links);
+            for (IPageElement* link : links) {
+                RectF overlap = link->rect.Intersect(dest->rect);
+                IPageDestination* found = overlap.dx > 0 && overlap.dy > 0 ? link->AsLink() : nullptr;
+                if (found && found->GetKind() == kindDestinationLaunchEmbedded) {
+                    auto* target = (PageDestination*)found;
+                    auto* placeholder = (PageDestination*)dest;
+                    placeholder->embedObjNum = target->embedObjNum;
+                    placeholder->value = str::Dup(target->GetValue());
+                    break;
+                }
+            }
+            DeleteVecMembers(links);
+            if (((PageDestination*)dest)->embedObjNum == kUnresolvedAttachment) {
+                return false;
+            }
         }
         if (dest->GetKind() == kindDestinationMupdf) {
             EngineBase* source = AnnotationEditor(EditorLoad::IfLoaded);

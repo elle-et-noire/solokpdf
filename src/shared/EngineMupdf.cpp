@@ -6082,7 +6082,7 @@ static IPageElement* NewFzComment(Str comment, int pageNo, RectF rect) {
 // (one LF each): that is PDF's own line separator, where "\r\r" really is a
 // blank line. Trailing blank lines are dropped either way -- they only make the
 // hover tip taller.
-static Str NormalizeCommentNewlinesTemp(Str s) {
+Str NormalizeCommentNewlinesTemp(Str s) {
     if (!str::ContainsChar(s, '\r')) {
         Str res = str::DupTemp(s);
         str::TrimWSInPlace(res, str::TrimOpt::Right);

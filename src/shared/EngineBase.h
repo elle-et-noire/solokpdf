@@ -121,6 +121,7 @@ struct PageText {
 };
 
 void FreePageText(PageText*);
+Str NormalizeCommentNewlinesTemp(Str s);
 void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects);
 int PdfOpenActionPageMupdf(Str path, Str data, Str password, PageLayout* layout);
 struct PdfPageGeometry {

@@ -33,6 +33,7 @@ import { testit as bookmarks } from "./ad-hoc-pdfium-bookmarks.ts";
 import { testit as xmp } from "./ad-hoc-pdfium-xmp.ts";
 import { testit as commentAuthors } from "./ad-hoc-pdfium-comment-authors.ts";
 import { testit as annotations } from "./ad-hoc-pdfium-annotations.ts";
+import { testit as review } from "./ad-hoc-pdfium-review.ts";
 import { testit as redactionUndo } from "./ad-hoc-pdfium-redaction-undo.ts";
 import { testit as tryReads } from "./ad-hoc-pdfium-try-reads.ts";
 import { testit as unsupported } from "./ad-hoc-pdfium-unsupported.ts";
@@ -76,6 +77,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-xmp", xmp],
   ["ad-hoc-pdfium-comment-authors", commentAuthors],
   ["ad-hoc-pdfium-annotations", annotations],
+  ["ad-hoc-pdfium-review", review],
   ["ad-hoc-pdfium-redaction-undo", redactionUndo],
   ["ad-hoc-pdfium-try-reads", tryReads],
   ["ad-hoc-pdfium-outline", outline],

@@ -235,7 +235,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   before, wrote every parsed object: one annotation added up to 35 MB.
 - PDFium loads the editor for explicit comment queries and before the first
   annotation journal operation. Page render and hover leave it unloaded;
-  PDFium supplies hover comments and authors. The markup diagnostic reads all
+  PDFium supplies hover comments and authors, with MuPDF's line-break cleanup.
+  Once an edited page is loaded, hover reads its new comments without blocking.
+  File attachment hits use PDFium until a click resolves the embedded file;
+  links take priority over overlapping comments. The markup diagnostic reads all
   pages. `issue-5329` passes on both engines after seeding the active settings
   file; annotation tooltips include authors when enabled (B26, B63).
   Cursor-driven annotation checks need an unlocked Windows session.
