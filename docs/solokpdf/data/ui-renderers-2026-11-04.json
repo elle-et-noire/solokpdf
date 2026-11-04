@@ -1,0 +1,268 @@
+{
+  "date": "2026-11-04",
+  "conditions": "Windows x64, one host, Release, hidden desktop, fresh settings, 900x1000, PDFium, no warm-up, 3 runs per scenario, executable debug directory removed. No background CPU gate; timings are exploratory. PDFium DLLs identical.",
+  "executables": {
+    "direct2d": "6864782308f4f1d6c21a3411d16e1ed8c245427decdfa57ade0df74c754d9b1c",
+    "software": "316077425c01a9014335c6217cebd9a5910afdeb0940731a9e31cdb0391b0a8c",
+    "gdiplus": "1558175b1ef3b52b97812b703bd9a3f978e7497fefd1d06f817e1604b5112c61"
+  },
+  "empty": {
+    "direct2d": {
+      "workingSetMiB": 94.3,
+      "privateMiB": 75.2
+    },
+    "software": {
+      "workingSetMiB": 70.3,
+      "privateMiB": 44
+    },
+    "gdiplus": {
+      "workingSetMiB": 60.4,
+      "privateMiB": 41
+    }
+  },
+  "documents": [
+    {
+      "comparison": "software",
+      "input": 0,
+      "source": "attention-1706.03762v7.pdf",
+      "sourceSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "tabs": 1,
+      "before": {
+        "afterTabsPrivateMiB": 89.1,
+        "sampledPeakPrivateMiB": 140
+      },
+      "after": {
+        "afterTabsPrivateMiB": 57,
+        "sampledPeakPrivateMiB": 98.8
+      }
+    },
+    {
+      "comparison": "software",
+      "input": 0,
+      "source": "attention-1706.03762v7.pdf",
+      "sourceSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "tabs": 4,
+      "before": {
+        "afterTabsPrivateMiB": 103.9,
+        "sampledPeakPrivateMiB": 147.5
+      },
+      "after": {
+        "afterTabsPrivateMiB": 71.8,
+        "sampledPeakPrivateMiB": 111.5
+      }
+    },
+    {
+      "comparison": "software",
+      "input": 1,
+      "source": "attention-vector-300.pdf",
+      "sourceSha256": "cd9eee188e4235880c0f11446d2718f4018029577ac8d07aa9b3eed3e3e72310",
+      "tabs": 1,
+      "before": {
+        "afterTabsPrivateMiB": 99,
+        "sampledPeakPrivateMiB": 150.4
+      },
+      "after": {
+        "afterTabsPrivateMiB": 65.7,
+        "sampledPeakPrivateMiB": 110.1
+      }
+    },
+    {
+      "comparison": "software",
+      "input": 1,
+      "source": "attention-vector-300.pdf",
+      "sourceSha256": "cd9eee188e4235880c0f11446d2718f4018029577ac8d07aa9b3eed3e3e72310",
+      "tabs": 4,
+      "before": {
+        "afterTabsPrivateMiB": 129.4,
+        "sampledPeakPrivateMiB": 171.7
+      },
+      "after": {
+        "afterTabsPrivateMiB": 97.4,
+        "sampledPeakPrivateMiB": 133.9
+      }
+    },
+    {
+      "comparison": "software",
+      "input": 2,
+      "source": "attention-raster-15.pdf",
+      "sourceSha256": "aead3c8ad9554b38028c5cec2339eac052ca5947501cabe7e8bab679df6bce5d",
+      "tabs": 1,
+      "before": {
+        "afterTabsPrivateMiB": 85.4,
+        "sampledPeakPrivateMiB": 126
+      },
+      "after": {
+        "afterTabsPrivateMiB": 53.1,
+        "sampledPeakPrivateMiB": 89.2
+      }
+    },
+    {
+      "comparison": "software",
+      "input": 2,
+      "source": "attention-raster-15.pdf",
+      "sourceSha256": "aead3c8ad9554b38028c5cec2339eac052ca5947501cabe7e8bab679df6bce5d",
+      "tabs": 4,
+      "before": {
+        "afterTabsPrivateMiB": 115.6,
+        "sampledPeakPrivateMiB": 131.7
+      },
+      "after": {
+        "afterTabsPrivateMiB": 82.5,
+        "sampledPeakPrivateMiB": 103.8
+      }
+    },
+    {
+      "comparison": "gdiplus",
+      "input": 0,
+      "source": "attention-1706.03762v7.pdf",
+      "sourceSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "tabs": 1,
+      "before": {
+        "afterTabsPrivateMiB": 89.1,
+        "sampledPeakPrivateMiB": 126.3
+      },
+      "after": {
+        "afterTabsPrivateMiB": 54,
+        "sampledPeakPrivateMiB": 92.4
+      }
+    },
+    {
+      "comparison": "gdiplus",
+      "input": 0,
+      "source": "attention-1706.03762v7.pdf",
+      "sourceSha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "tabs": 4,
+      "before": {
+        "afterTabsPrivateMiB": 103.7,
+        "sampledPeakPrivateMiB": 142.8
+      },
+      "after": {
+        "afterTabsPrivateMiB": 69,
+        "sampledPeakPrivateMiB": 107.4
+      }
+    },
+    {
+      "comparison": "gdiplus",
+      "input": 1,
+      "source": "attention-vector-300.pdf",
+      "sourceSha256": "cd9eee188e4235880c0f11446d2718f4018029577ac8d07aa9b3eed3e3e72310",
+      "tabs": 1,
+      "before": {
+        "afterTabsPrivateMiB": 98.1,
+        "sampledPeakPrivateMiB": 140.1
+      },
+      "after": {
+        "afterTabsPrivateMiB": 62.4,
+        "sampledPeakPrivateMiB": 105.7
+      }
+    },
+    {
+      "comparison": "gdiplus",
+      "input": 1,
+      "source": "attention-vector-300.pdf",
+      "sourceSha256": "cd9eee188e4235880c0f11446d2718f4018029577ac8d07aa9b3eed3e3e72310",
+      "tabs": 4,
+      "before": {
+        "afterTabsPrivateMiB": 129.3,
+        "sampledPeakPrivateMiB": 167.7
+      },
+      "after": {
+        "afterTabsPrivateMiB": 94.6,
+        "sampledPeakPrivateMiB": 129.6
+      }
+    },
+    {
+      "comparison": "gdiplus",
+      "input": 2,
+      "source": "attention-raster-15.pdf",
+      "sourceSha256": "aead3c8ad9554b38028c5cec2339eac052ca5947501cabe7e8bab679df6bce5d",
+      "tabs": 1,
+      "before": {
+        "afterTabsPrivateMiB": 85.4,
+        "sampledPeakPrivateMiB": 121.3
+      },
+      "after": {
+        "afterTabsPrivateMiB": 50.2,
+        "sampledPeakPrivateMiB": 82.7
+      }
+    },
+    {
+      "comparison": "gdiplus",
+      "input": 2,
+      "source": "attention-raster-15.pdf",
+      "sourceSha256": "aead3c8ad9554b38028c5cec2339eac052ca5947501cabe7e8bab679df6bce5d",
+      "tabs": 4,
+      "before": {
+        "afterTabsPrivateMiB": 115,
+        "sampledPeakPrivateMiB": 130.7
+      },
+      "after": {
+        "afterTabsPrivateMiB": 80.5,
+        "sampledPeakPrivateMiB": 96.6
+      }
+    }
+  ],
+  "interactions": {
+    "direct2d": {
+      "tab-switch": {
+        "count": 20,
+        "elapsedMs": 357.6,
+        "cpuMs": 406.25
+      },
+      "resize": {
+        "count": 10,
+        "elapsedMs": 214.2,
+        "cpuMs": 328.125
+      },
+      "scroll": {
+        "count": 30,
+        "elapsedMs": 573.3,
+        "cpuMs": 109.375
+      }
+    },
+    "software": {
+      "tab-switch": {
+        "count": 20,
+        "elapsedMs": 280,
+        "cpuMs": 484.375
+      },
+      "resize": {
+        "count": 10,
+        "elapsedMs": 198.5,
+        "cpuMs": 281.25
+      },
+      "scroll": {
+        "count": 30,
+        "elapsedMs": 602.5,
+        "cpuMs": 62.5
+      }
+    },
+    "gdiplus": {
+      "tab-switch": {
+        "count": 20,
+        "elapsedMs": 268.8,
+        "cpuMs": 453.125
+      },
+      "resize": {
+        "count": 10,
+        "elapsedMs": 174.9,
+        "cpuMs": 250
+      },
+      "scroll": {
+        "count": 30,
+        "elapsedMs": 584,
+        "cpuMs": 78.125
+      }
+    }
+  },
+  "screenshots": {
+    "canvasPerPair": 24,
+    "changedPixels": 0,
+    "selectionPageRegionChangedPixels": 0,
+    "uiChangedPixels": {
+      "software": 112,
+      "gdiplus": 4743
+    },
+    "note": "Full-frame UI differences include non-UI pixels and were not attributed; selection screenshot is one PDF. Empty Home includes random tips."
+  }
+}

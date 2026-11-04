@@ -8,6 +8,7 @@ are in [history.md](history.md).
 
 - Settings and Advanced Settings open one screen on either engine. Ctrl+, opens
   it; commonly used settings appear above the full list (B70).
+- SolokPDF uses GDI+ for UI drawing by default. PDF pages use the configured engine.
 
 ## Opening files
 

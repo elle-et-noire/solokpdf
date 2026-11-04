@@ -350,7 +350,11 @@ bool GfxHdc::SetMirrored(bool mirror) {
     return (prev & LAYOUT_RTL) != 0;
 }
 
+#if defined(SOLOKPDF_PDFIUM)
+bool gUseDirect2D = false;
+#else
 bool gUseDirect2D = true;
+#endif
 
 // The two implementations that draw the same way (anti-aliased shapes, their
 // own text layout), so that flipping gUseDirect2D swaps the backend under

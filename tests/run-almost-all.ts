@@ -231,6 +231,7 @@ import { testit as murunEmbeddedFiles } from "./murun-embedded-files.ts";
 import { testit as murunGetArrayIndex } from "./murun-get-array-index.ts";
 import { testit as dragOutAttachmentTab } from "./drag-out-attachment-tab.ts";
 import { testit as ttsEngineCrashRecovery } from "./tts-engine-crash-recovery.ts";
+import { testit as solokLazyStartup } from "./solok-lazy-startup.ts";
 import { testit as readAloudCloseDuringSpeak } from "./read-aloud-close-during-speak.ts";
 import { testit as readAloudRestyleStalePage } from "./read-aloud-restyle-stale-page.ts";
 import { testit as readAloudLazyChapters } from "./read-aloud-lazy-chapters.ts";
@@ -662,6 +663,7 @@ export const tests: NamedTest[] = [
   ["murun-get-array-index", murunGetArrayIndex],
   ["drag-out-attachment-tab", dragOutAttachmentTab],
   ["tts-engine-crash-recovery", ttsEngineCrashRecovery],
+  ["solok-lazy-startup", solokLazyStartup],
   ["read-aloud-close-during-speak", readAloudCloseDuringSpeak],
   ["read-aloud-restyle-stale-page", readAloudRestyleStalePage],
   ["lazy-tab-state-after-save", lazyTabStateAfterSave],

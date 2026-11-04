@@ -1415,6 +1415,60 @@ bytes). A document-wide query would still pay this cost on the first
 JavaScript-only button and scan pages that were not requested. B62 remains
 the per-page lightweight query; the profiling code was removed.
 
+## Empty-window Direct2D memory (2026-11-04)
+
+An earlier software Direct2D comparison was invalid: the experiment build reused
+the GDI+ object from the preceding test. The original executable also loaded
+local symbols, adding about 22 MiB to its empty-window working set. The corrected
+software build recompiles both Gfx files. Comparison copies have their executable
+debug directories removed; their PDFium and engine DLLs match.
+
+On one Windows host, three alternating Release launches per variant used fresh
+settings, a 900x1000 window, a hidden desktop and no PDFium warm-up. At eight
+seconds, median working set / Private Bytes were 94.3 / 75.2 MiB for default
+Direct2D, 70.3 / 44.0 MiB for software Direct2D, and 60.4 / 41.0 MiB for
+GDI+. Three PDFs with one and four tabs also used less private memory with
+either alternative. Both alternatives matched the default canvas in all 24
+captured page/zoom/scroll conditions; one captured text selection also matched
+in the document region. Full-frame UI pixels differed; random Home tips prevent
+attributing all empty-window differences to rendering.
+
+Three short runs of tab switches, resize and scroll completed for each mode.
+These timings have no background-load gate, and fixed waits affect zoom/scroll;
+they cannot establish a performance ranking. Long-term stability, broader UI
+coverage and other graphics drivers remain untested. GDI+ was then made the
+SolokPDF default. Measurements and hashes:
+`data/ui-renderers-2026-11-04.json`.
+
+Three paired empty-window runs on the same host compared 3.6.1 with the GDI+
+trial, using fresh settings, a 900x1000 window and executable symbols removed
+from the trial. Median working set / Private Bytes were 41.8 / 15.0 MiB for
+3.6.1 and 62.0 / 41.4 MiB for the trial with PDFium warm-up. Disabling warm-up
+gave 60.4 / 41.0 MiB; forcing SAPI as well gave 53.1 / 40.2 MiB. Forcing SAPI
+changes voice availability, so it is not an optimization decision. These are
+process-wide counters, not heap ownership. A separate three-run QueryWorkingSet
+probe counted non-shareable resident pages: 5.5 MiB for 3.6.1, 17.5 MiB for
+the warmed GDI+ trial, 17.1 MiB without warm-up and 16.3 MiB with SAPI. These
+are diagnostic page counts, not a claim of exact Task Manager equivalence.
+Different app versions also have different UI and features. No further memory
+change was made. See `data/gdi-startup-2026-11-04.json`.
+
+## Deferred startup initialization (2026-11-04)
+
+The crash handler now initializes symbols for a debug report instead of at
+startup; crashes still write minidumps. Read-aloud voice selection is applied
+on first use, while speed is retained at startup. Invalid saved voices are
+cleared on first use, and settings reloads still update an active voice.
+
+Three alternating empty-window Release runs on one Windows host used GDI+,
+PDFium warm-up, a hidden desktop, fresh settings and a 900x1000 window. The
+old executable's debug directory was removed; the new executable kept its PDB
+available. At eight seconds, median working set / Private Bytes went from
+62.0 / 41.5 MiB to 40.9 / 14.4 MiB. Non-shareable resident pages went from
+17.5 to 9.1 MiB. No background CPU gate was used; these figures do not prove
+first-open speed or general performance. A local intentional crash produced a
+minidump with the crash comment. Results: `data/lazy-startup-2026-11-04.json`.
+
 ## Completed backlog
 
 Rows of [backlog.md](backlog.md) completed by 2026-11-04. Sources: an audit of every

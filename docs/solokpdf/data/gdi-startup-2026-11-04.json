@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-04",
+  "conditions": "One Windows host; original 3.6.1 and GDI+ trial; Release; 900x1000; fresh settings; hidden desktop; 8 seconds; 3 alternating rounds; trial executable debug directory removed; no CPU load gate; process-wide memory, not an allocation trace.",
+  "variants": {
+    "original36": {
+      "workingSetMiB": 41.8,
+      "privateBytesMiB": 15,
+      "privateRegionWorkingSetMiB": 3.4,
+      "mappedWorkingSetMiB": 7.8,
+      "imageWorkingSetMiB": 30.6,
+      "nonshareableWorkingSetMiB": 5.5
+    },
+    "gdi-warm": {
+      "workingSetMiB": 62,
+      "privateBytesMiB": 41.4,
+      "privateRegionWorkingSetMiB": 15.2,
+      "mappedWorkingSetMiB": 13.7,
+      "imageWorkingSetMiB": 33,
+      "nonshareableWorkingSetMiB": 17.5
+    },
+    "gdi-cold": {
+      "workingSetMiB": 60.4,
+      "privateBytesMiB": 41,
+      "privateRegionWorkingSetMiB": 14.8,
+      "mappedWorkingSetMiB": 13.6,
+      "imageWorkingSetMiB": 31.9,
+      "nonshareableWorkingSetMiB": 17.1
+    },
+    "gdi-sapi": {
+      "workingSetMiB": 53.1,
+      "privateBytesMiB": 40.2,
+      "privateRegionWorkingSetMiB": 14.1,
+      "mappedWorkingSetMiB": 9.1,
+      "imageWorkingSetMiB": 29.9,
+      "nonshareableWorkingSetMiB": 16.3
+    }
+  }
+}

@@ -499,6 +499,13 @@ SpeakChunkResult ReadAloudSpeakChunk(WindowTab* tab, Str errMsg) {
         return SpeakChunkResult::Failed;
     }
 
+#if !defined(SUMATRA_NG)
+    EnsureReadAloudVoice();
+    if (!IsWindowTabValid(tab)) {
+        return SpeakChunkResult::TabGone;
+    }
+#endif
+
     int start = tab->readAloudChunkEnd;
     int textLen = tab->readAloudText.len;
     int end = ReadAloudFindChunkEnd(tab->readAloudText, start, kReadAloudMaxChunkLen);

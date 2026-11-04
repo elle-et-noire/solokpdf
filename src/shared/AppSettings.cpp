@@ -100,13 +100,12 @@ static void RememberLastSavedPrefs(Str s) {
 }
 
 #if !defined(SUMATRA_NG)
+static bool gReadAloudVoiceReady = false;
+
 static bool ApplyReadAloudVoiceFromSettings() {
     if (!gSettings) {
         return false;
     }
-
-    float speed = gSettings->readAloudSpeed;
-    TtsSetSpeed(speed > 0 ? speed : 1.0f);
 
     Str voiceId = gSettings->readAloudVoiceId;
     if (len(voiceId) == 0) {
@@ -121,6 +120,16 @@ static bool ApplyReadAloudVoiceFromSettings() {
         return true;
     }
     return false;
+}
+
+void EnsureReadAloudVoice() {
+    if (gReadAloudVoiceReady || !gSettings) {
+        return;
+    }
+    gReadAloudVoiceReady = true;
+    if (ApplyReadAloudVoiceFromSettings()) {
+        ScheduleSaveSettings();
+    }
 }
 #endif
 
@@ -1008,7 +1017,9 @@ bool LoadSettings() {
 
     SetCurrentThemeFromSettings();
     ApplySettingsToOpenWindows();
-    bool readAloudVoiceCleared = ApplyReadAloudVoiceFromSettings();
+    float speed = gSettings->readAloudSpeed;
+    TtsSetSpeed(speed > 0 ? speed : 1.0f);
+    bool readAloudVoiceCleared = gReadAloudVoiceReady && ApplyReadAloudVoiceFromSettings();
 
     bool needsSave = !file::Exists(settingsPath) || readAloudVoiceCleared || settingsMigrated;
     if (needsSave) {

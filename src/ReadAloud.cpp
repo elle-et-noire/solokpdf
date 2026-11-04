@@ -486,6 +486,7 @@ TempStr ReadAloudPlaybackBarStateTemp(int* exitCodeOut) {
         return ToStrTemp(out);
     };
 
+    EnsureReadAloudVoice();
     Vec<TtsVoiceInfo> voices = TtsGetVoices();
     int nVoices = len(voices);
     TtsFreeVoices(voices);
@@ -618,6 +619,7 @@ static void BuildReadAloudVoiceMenuItems(HMENU voiceMenu) {
         return;
     }
 
+    EnsureReadAloudVoice();
     Str currentVoiceId = TtsGetVoiceId();
 
     UINT defaultFlags = MF_STRING;

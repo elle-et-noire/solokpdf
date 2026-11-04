@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-04",
+  "conditions": "One Windows host; Release; GDI+; PDFium warm-up enabled; before executable debug directory removed, after executable has PDB available; fresh settings; hidden desktop; 900x1000; eight seconds; three alternating runs; no CPU load gate. Non-shareable working-set pages are a diagnostic approximation, not Task Manager equivalence.",
+  "sha256": {
+    "before": "1558175b1ef3b52b97812b703bd9a3f978e7497fefd1d06f817e1604b5112c61",
+    "after": "6943bd99aac9f486b4a895e5efda56841217f47996064b38bc3f3f7c2251c94b"
+  },
+  "variants": {
+    "before": {
+      "workingSetMiB": 62,
+      "privateBytesMiB": 41.5,
+      "nonshareableWorkingSetMiB": 17.5
+    },
+    "after": {
+      "workingSetMiB": 40.9,
+      "privateBytesMiB": 14.4,
+      "nonshareableWorkingSetMiB": 9.1
+    }
+  }
+}

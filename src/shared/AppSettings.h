@@ -21,6 +21,7 @@ TempStr GetSettingsPathTemp();
 TempStr GetSettingsFileNameTemp();
 
 bool LoadSettings();
+void EnsureReadAloudVoice();
 void OpenSettingsFile();
 void ScheduleSaveSettings();
 void FlushScheduledSaveSettings();

@@ -150,6 +150,8 @@ Str CrashHandlerDumpPath() {
     return gDumpPath;
 }
 
+static bool InitializeDbgHelp();
+
 // The report text is the app's to write; we only say when and give it the
 // arena to write into. Every report builds its text before writing its .dmp,
 // so this is where the .dmp gets its name: the text can then say where it is.
@@ -157,6 +159,9 @@ static Str BuildCrashComment(Str condStr, Str fileLine, bool isCrash) {
     gDumpPath = UniqueDumpPath();
     if (!gCfg.getCrashComment) {
         return {};
+    }
+    if (!isCrash) {
+        InitializeDbgHelp();
     }
     return gCfg.getCrashComment(gCrashHandlerArena, condStr, fileLine, isCrash);
 }
@@ -730,9 +735,6 @@ void InstallCrashHandler(const CrashHandlerConfig& cfg) {
     AtomicBoolSet(&gCrashHandlerStarted, false);
 
     BuildSystemInfo();
-    // do it now so that a crash doesn't have to load dbghelp and its symbols
-    InitializeDbgHelp();
-
     gDumpEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     if (!gDumpEvent) {
         log(StrL("InstallCrashHandler: skipping because !gDumpEvent\n"));
