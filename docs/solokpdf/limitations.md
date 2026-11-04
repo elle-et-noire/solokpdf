@@ -383,22 +383,11 @@ Control connections allow 30 seconds, scaled for ASan. Startup exit diagnostics 
 
 The palette test helper locates its edit through control state when the frame is behind another window; hosted verification remains pending.
 
-B71: hosted runs 41711900811 and 41711906015 passed the noteref and touch tests.
-Toolbar hover failed on both engines; the canvas now ignores physical mouse
-moves that conflict with the test cursor. Targeted tests pass locally on both
-engines; hosted verification remains pending. Run 41711900891 exposed an
-activating About positioning call; dialog positioning now avoids activation,
-and the foreground test covers app launches, documents and new windows. New tabs may activate the Home filter. A test-only
-UI-thread activation trace records window classes and module-relative stacks for
-the foreground test to print on failure.
-A UI-thread hook guards top-level positioning; controls may take keyboard focus, and
-explicit test activation remains available. The hook also covers raw About, thumbnail,
-scrollbar, resize, reference and screenshot windows outside WindowBase. Hosted foreground
-verification remains pending. The tab-view test compares settings changes against a normal tab
-switch and checks the switch preserves the scroll within one point. Hosted
-verification at 100% DPI remains pending. After restoring focus, the tab-view test
-passes locally on both engines; issue-6412 on PDFium and issue-6355 and
-issue-6252 on MuPDF also pass locally. The issue-6355 browser readiness wait allows 30 seconds and checks the navigation result; hosted verification remains pending.
+B71: hosted runs 41741589090 and 41741592927 passed the full suites on
+PDFium (499/499) and MuPDF (502/502). Run 41741590075 passed the other
+SolokPDF checks; the tab-view check sampled smooth scrolling before it settled.
+It now waits for a stable view and checks tab switches within one point.
+Hosted verification of that change remains pending.
 The external viewer, PNG,
 screenshot focus, fullscreen activation, MuPDF placement and process cleanup
 checks also passed hosted runs.
