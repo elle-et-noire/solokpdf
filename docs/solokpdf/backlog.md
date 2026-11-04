@@ -11,15 +11,8 @@ there.
 
 | ID  | Item                                             | Status                                                        |
 | --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| B65 | Full-suite regressions after B54–B64             | blocked: hosted 100% DPI verification needs orchestrator      |
 | D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
 | F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
-
-B65: full-suite runs 41639619890 (PDFium) and 41639624912 (MuPDF) at
-ff43c356c fail `issue-4788` (also locally), `favorites-menu`,
-`recent-files-menu`, `pdf-edit-toolbar-interaction` and, on PDFium,
-`issue-6252`. Local hidden-desktop runs pass the targeted sequence on both
-engines; the toolbar fixture change still needs hosted 100% DPI verification.
 
 ## Dropped
 
