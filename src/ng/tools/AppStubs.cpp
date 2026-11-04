@@ -234,3 +234,9 @@ void ExplorerQuickLookApplyFromSettings() {}
 bool ApplyReadAloudVoiceFromSettings() {
     return false;
 }
+
+void TtsSetSpeed(float) {}
+
+bool OverlayScrollbarsTakeRoom() {
+    return false;
+}

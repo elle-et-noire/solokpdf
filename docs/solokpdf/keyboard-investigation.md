@@ -54,7 +54,7 @@ IME は各コントロールの処理を維持する。Vim コマンド欄の変
 
 Ctrl+F の模擬リピートを同期せずに試したときは、読み取りが投稿メッセージの処理に先行していた。アプリ側キューを同期したテストは3回通過した。実キーによるリピートは未検証。
 
-Win32 Debug ビルドと上記テスト、`ad-hoc-shortcuts-dialog`、`issue-1841`、`issue-5751`、`issue-5867`、`issue-5971`、`issue-6280`、`issue-6378` は通過した。ng の `test_util` は未変更の `src/shared/AppSettings.cpp` で `gReadAloudVoiceReady` が未定義となり、ビルドできなかった。
+Win32 Debug ビルドと上記テスト、`ad-hoc-shortcuts-dialog`、`issue-1841`、`issue-5751`、`issue-5867`、`issue-5971`、`issue-6280`、`issue-6378` は通過した。ng の `test_util` は既存のビルドエラーと設定テストの基準値を修正後、通過した。
 
 ## 残る検証
 

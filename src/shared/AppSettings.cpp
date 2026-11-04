@@ -1019,7 +1019,11 @@ bool LoadSettings() {
     ApplySettingsToOpenWindows();
     float speed = gSettings->readAloudSpeed;
     TtsSetSpeed(speed > 0 ? speed : 1.0f);
+#if defined(SUMATRA_NG)
+    bool readAloudVoiceCleared = ApplyReadAloudVoiceFromSettings();
+#else
     bool readAloudVoiceCleared = gReadAloudVoiceReady && ApplyReadAloudVoiceFromSettings();
+#endif
 
     bool needsSave = !file::Exists(settingsPath) || readAloudVoiceCleared || settingsMigrated;
     if (needsSave) {
