@@ -288,6 +288,11 @@ inline bool IsPrinterDC(HDC hdc) {
 
 //--- double-buffer / deferred window positioning
 
+enum class DoubleBufferKind {
+    Dib,
+    Compatible
+};
+
 struct DoubleBuffer {
     HWND hTarget = nullptr;
     HDC hdcCanvas = nullptr;
@@ -295,7 +300,7 @@ struct DoubleBuffer {
     HBITMAP doubleBuffer = nullptr;
     Rect rect;
 
-    DoubleBuffer(HWND hwnd, Rect rect);
+    DoubleBuffer(HWND hwnd, Rect rect, DoubleBufferKind kind = DoubleBufferKind::Dib);
     DoubleBuffer(const DoubleBuffer&) = delete;
     DoubleBuffer& operator=(const DoubleBuffer&) = delete;
     ~DoubleBuffer();

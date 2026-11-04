@@ -524,10 +524,33 @@ static void GrayDibCancelTest() {
     }
 }
 
+static void DoubleBufferTest() {
+    HWND hwnd = CreateWindowExW(0, L"STATIC", L"", WS_POPUP, 0, 0, 64, 64, nullptr, nullptr, GetModuleHandleW(nullptr),
+                                nullptr);
+    utassert(hwnd != nullptr);
+    if (!hwnd) {
+        return;
+    }
+
+    DWORD gdi = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
+    for (auto kind : {DoubleBufferKind::Dib, DoubleBufferKind::Compatible}) {
+        DoubleBuffer buffer(hwnd, {0, 0, 64, 64}, kind);
+        DIBSECTION info{};
+        int size = GetObjectW(buffer.doubleBuffer, sizeof(info), &info);
+        utassert(size == (kind == DoubleBufferKind::Dib ? sizeof(DIBSECTION) : sizeof(BITMAP)));
+        COLORREF color = RGB(31, 103, 161);
+        utassert(SetPixel(buffer.GetDC(), 5, 7, color) != CLR_INVALID);
+        utassert(GetPixel(buffer.GetDC(), 5, 7) == color);
+    }
+    utassert(GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS) == gdi);
+    DestroyWindow(hwnd);
+}
+
 void WinUtilTest() {
     ScopedCom comScope;
 
     QuoteCmdLineArgTest();
+    DoubleBufferTest();
     RecolorLinkAaTest();
     RecolorLinkNoiseTest();
     PixmapFromHICONAlphaTest();

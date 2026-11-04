@@ -1,6 +1,6 @@
 {
   "date": "2026-11-04",
-  "conditions": "One Windows host; original 3.6.1 and GDI+ trial; Release; 900x1000; fresh settings; hidden desktop; 8 seconds; 3 alternating rounds; trial executable debug directory removed; no CPU load gate; process-wide memory, not an allocation trace.",
+  "conditions": "One Windows host; original 3.6.1 and GDI+ trial; Release; requested 900x1000, but 3.6.1 ignored -window-pos, so actual frame sizes were not matched; fresh settings; hidden desktop; 8 seconds; 3 alternating rounds; trial executable debug directory removed; no CPU load gate; process-wide memory, not an allocation trace.",
   "variants": {
     "original36": {
       "workingSetMiB": 41.8,

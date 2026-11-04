@@ -1441,8 +1441,9 @@ SolokPDF default. Measurements and hashes:
 `data/ui-renderers-2026-11-04.json`.
 
 Three paired empty-window runs on the same host compared 3.6.1 with the GDI+
-trial, using fresh settings, a 900x1000 window and executable symbols removed
-from the trial. Median working set / Private Bytes were 41.8 / 15.0 MiB for
+trial, using fresh settings and executable symbols removed from the trial.
+Both requested a 900x1000 window, but 3.6.1 ignored `-window-pos`, so their
+actual sizes were not matched. Median working set / Private Bytes were 41.8 / 15.0 MiB for
 3.6.1 and 62.0 / 41.4 MiB for the trial with PDFium warm-up. Disabling warm-up
 gave 60.4 / 41.0 MiB; forcing SAPI as well gave 53.1 / 40.2 MiB. Forcing SAPI
 changes voice availability, so it is not an optimization decision. These are
@@ -1468,6 +1469,46 @@ available. At eight seconds, median working set / Private Bytes went from
 17.5 to 9.1 MiB. No background CPU gate was used; these figures do not prove
 first-open speed or general performance. A local intentional crash produced a
 minidump with the crash comment. Results: `data/lazy-startup-2026-11-04.json`.
+
+## GDI+ UI font scaling (2026-11-04)
+
+GDI+ now uses the HFONT's pixel height for UI drawing, matching Direct2D's
+size without applying display scaling twice. Tests cover 96, 120 and 144 DPI
+with Latin and Japanese text. At 120 DPI the Home logo text matched the
+Direct2D capture's height and differed by one pixel in width.
+
+## Empty-window bitmap memory (2026-11-04)
+
+Three alternating runs on one Windows host compared fresh Release processes
+on a hidden desktop. Both frames were resized with `MoveWindow` and measured
+three seconds later. Median non-shareable working set for 3.6.1 was 5.32 MiB
+at 600x500 and 5.33 MiB at 1600x1000; SolokPDF used 6.89 and 11.76 MiB.
+These counters approximate private resident pages, not Task Manager's exact
+metric. No continuous host-load gate was applied.
+
+Both versions buffer the canvas, but 3.6.1 uses `CreateCompatibleBitmap` and
+SolokPDF uses a 32-bit DIB for Direct2D compatibility. An isolated GDI probe
+painted a 1600x1000 bitmap: its non-shareable working set grew 6.11 MiB for a
+DIB and did not change for a compatible bitmap. This supports the DIB as a
+major contributor, but does not measure kernel or GPU allocations. The
+subsequent change needs validation on other systems.
+See `data/window-bitmap-memory-2026-11-04.json`.
+
+## GDI+ canvas buffer (2026-11-04)
+
+The GDI+ canvas now uses a compatible bitmap; Direct2D retains the 32-bit
+DIB. On one Windows host, three alternating Release runs at 1600x1000 reduced
+median non-shareable resident memory from 11.82 to 6.39 MiB with no PDF and
+from 12.64 to 7.16 MiB with a PDF. The PDF canvas captures were pixel-identical
+at 600x500 and 1600x1000. These process counters exclude kernel and GPU memory.
+See `data/canvas-buffer-memory-2026-11-04.json`.
+
+With that change, the same-size empty-window comparison at 1600x1000 measured
+5.34 MiB for 3.6.1 and 6.35 MiB for SolokPDF in non-shareable resident pages
+(three-run medians, one host). Instrumenting the other Gfx buffers in a debug
+build found two live DIBs totaling 433,632 bytes at this size, both with and
+without a PDF. This covers the initial UI, not every dialog or sidebar state.
+See `data/ui-buffer-review-2026-11-04.json`.
 
 ## Completed backlog
 

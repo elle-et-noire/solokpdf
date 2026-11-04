@@ -1170,13 +1170,14 @@ HBITMAP CreateMemoryBitmap(Size size, HANDLE* hDataMapping) {
 
 //--- double-buffer / deferred window positioning
 
-DoubleBuffer::DoubleBuffer(HWND hwnd, Rect rect) : hTarget(hwnd), hdcCanvas(::GetDC(hwnd)), rect(rect) {
+DoubleBuffer::DoubleBuffer(HWND hwnd, Rect rect, DoubleBufferKind kind)
+    : hTarget(hwnd), hdcCanvas(::GetDC(hwnd)), rect(rect) {
     if (rect.IsEmpty()) {
         return;
     }
 
-    // 32-bit DIB so Direct2D can BindDC this memory DC (a 24-bit DDB fails)
-    doubleBuffer = CreateMemoryBitmap({rect.dx, rect.dy});
+    doubleBuffer = kind == DoubleBufferKind::Dib ? CreateMemoryBitmap({rect.dx, rect.dy})
+                                                 : CreateCompatibleBitmap(hdcCanvas, rect.dx, rect.dy);
     if (!doubleBuffer) {
         return;
     }

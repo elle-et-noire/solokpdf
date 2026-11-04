@@ -3,6 +3,7 @@
 
 #include "base/Base.h"
 
+#include "base/GdiPlusUtil.h"
 #include "gui/UIModels.h"
 #include "gui/Layout.h"
 #include "gui/PlatformFont.h"
@@ -280,7 +281,53 @@ static void Slider_HaloFitsTest() {
     delete s;
 }
 
+static void GdiFontDpiTest() {
+    Gdiplus::Bitmap bmp96(32, 32, PixelFormat32bppARGB);
+    Gdiplus::Bitmap bmp120(32, 32, PixelFormat32bppARGB);
+    Gdiplus::Bitmap bmp144(32, 32, PixelFormat32bppARGB);
+    bmp96.SetResolution(96, 96);
+    bmp120.SetResolution(120, 120);
+    bmp144.SetResolution(144, 144);
+    Gdiplus::Graphics graphics96(&bmp96);
+    Gdiplus::Graphics graphics120(&bmp120);
+    Gdiplus::Graphics graphics144(&bmp144);
+    InitGraphicsMode(&graphics96);
+    InitGraphicsMode(&graphics120);
+    InitGraphicsMode(&graphics144);
+    GfxGdiplus gfx96(&graphics96);
+    GfxGdiplus gfx120(&graphics120);
+    GfxGdiplus gfx144(&graphics144);
+
+    PlatformFont* fonts[] = {GetUserGuiFont(StrL("Segoe UI"), 20),
+                             GetPlatformFont(StrL("Segoe UI"), 15.f, PlatformFontStyle::Regular)};
+    for (PlatformFont* font : fonts) {
+        utassert(font != nullptr);
+        if (!font) {
+            continue;
+        }
+        LOGFONTW lf{};
+        utassert(GetObjectW(font->GetHFont(), sizeof(lf), &lf) != 0);
+        bool owned = false;
+        Gdiplus::Font* gdiFont = gfx96.GetGdiplusFont(font, &owned);
+        utassert(gdiFont && gdiFont->GetUnit() == Gdiplus::UnitPixel);
+        utassert(gdiFont && gdiFont->GetSize() == (float)abs(lf.lfHeight));
+        if (owned) {
+            delete gdiFont;
+        }
+        Str texts[] = {StrL("SolokPDF"), StrL("設定と文字")};
+        for (Str text : texts) {
+            Size a = gfx96.MeasureText(text, font);
+            Size b = gfx120.MeasureText(text, font);
+            Size c = gfx144.MeasureText(text, font);
+            utassert(a.dx > 0 && a.dy > 0);
+            utassert(abs(a.dx - b.dx) <= 1 && abs(a.dy - b.dy) <= 1);
+            utassert(abs(a.dx - c.dx) <= 1 && abs(a.dy - c.dy) <= 1);
+        }
+    }
+}
+
 void VirtCtrl_UnitTests() {
+    GdiFontDpiTest();
     Slider_HaloFitsTest();
     TipLinkUnderlines_Test();
     Table_TestGrid();

@@ -253,13 +253,32 @@ static void InitStringFormat(StringFormat& sf, u32 flags) {
     sf.SetLineAlignment(vcenter ? Gdiplus::StringAlignmentCenter : Gdiplus::StringAlignmentNear);
 }
 
+static Mutex gUiFontMutex;
+
 // Prefer the interned gdiplus font. Adopted HFONTs get one at intern time
 // from the family name; Font(hdc, HFONT) is only the last resort (and is
 // then cached on the PlatformFont). Sets *owned when the caller must free.
 Gdiplus::Font* GfxGdiplus::GetGdiplusFont(PlatformFont* font, bool* owned) {
+    ScopedMutex lock(&gUiFontMutex);
     *owned = false;
+    if (font && font->uiGdiFont) {
+        return font->uiGdiFont;
+    }
     Gdiplus::Font* f = font ? font->GetGdiplusFont() : nullptr;
     if (f) {
+        // LOGFONT already includes DPI scaling; keep GDI+ from scaling it again.
+        LOGFONTW lf{};
+        HFONT hf = font->GetHFont();
+        Gdiplus::FontFamily family;
+        if (hf && GetObjectW(hf, sizeof(lf), &lf) && lf.lfHeight != 0 && f->GetFamily(&family) == Gdiplus::Ok) {
+            float size = (float)abs(lf.lfHeight);
+            auto* uiFont = new Gdiplus::Font(&family, size, f->GetStyle(), Gdiplus::UnitPixel);
+            if (uiFont->GetLastStatus() == Gdiplus::Ok) {
+                font->uiGdiFont = uiFont;
+                return uiFont;
+            }
+            delete uiFont;
+        }
         return f;
     }
     // no font (or one adopted from an HFONT): fall back to what the dc has

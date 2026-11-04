@@ -10,7 +10,15 @@ import {
   writeAppdata,
 } from "./util.ts";
 import { ControlCommand } from "./control.ts";
-import { findCanvas, killAndWait, launchControlled, pressKey, sendCommandSync } from "./win-automation.ts";
+import {
+  activateTestFrame,
+  canActivateTestFrame,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  pressKey,
+  sendCommandSync,
+} from "./win-automation.ts";
 import { getScrollPos, sendMessage } from "./winapi.ts";
 
 const WM_MOUSEWHEEL = 0x020a;
@@ -27,6 +35,8 @@ export async function testit(): Promise<void> {
   const { proc, client, frame } = await launchControlled(["-appdata", dir, "-zoom", "200", "-view", "continuous", pdf]);
   try {
     await client.waitForRenderIdle();
+    const canActivate = canActivateTestFrame();
+    if (canActivate) await activateTestFrame(client);
     const canvas = findCanvas(frame);
     const dpi = parseDpiFields(await dpiRequest(client, "state")).frame;
     const expectedKeyStep = Math.round((100 * dpi) / 96);
@@ -35,20 +45,21 @@ export async function testit(): Promise<void> {
     const afterKey = getScrollPos(canvas);
     const keyStep = afterKey - start;
 
-    await pressKey(frame, 0x33);
-    await pressKey(frame, 0x4a);
-    const afterCount = getScrollPos(canvas);
-    const countStep = afterCount - afterKey;
+    let afterCount = afterKey;
+    if (canActivate) {
+      await pressKey(frame, 0x33);
+      await pressKey(frame, 0x4a);
+      afterCount = getScrollPos(canvas);
+      const countStep = afterCount - afterKey;
+      if (Math.abs(countStep - 3 * keyStep) > 3) throw new Error(`key step=${keyStep}, 3j=${countStep}`);
+    } else {
+      console.log("SKIP 3j: hidden desktop, CI, or SOLOKPDF_REAL_DESKTOP=1 required");
+    }
 
     sendMessage(canvas, WM_MOUSEWHEEL, WHEEL_DOWN, 0n);
     const wheelStep = getScrollPos(canvas) - afterCount;
-    if (
-      Math.abs(keyStep - expectedKeyStep) > 3 ||
-      Math.abs(countStep - 3 * keyStep) > 3 ||
-      wheelStep <= 0 ||
-      wheelStep >= keyStep
-    ) {
-      throw new Error(`key step=${keyStep} (want ${expectedKeyStep}), 3j=${countStep}, wheel notch=${wheelStep}`);
+    if (Math.abs(keyStep - expectedKeyStep) > 3 || wheelStep <= 0 || wheelStep >= keyStep) {
+      throw new Error(`key step=${keyStep} (want ${expectedKeyStep}), wheel notch=${wheelStep}`);
     }
 
     sendCommandSync(frame, cmdId("CmdAdvancedSettings"));

@@ -36,6 +36,7 @@ struct PlatformFont {
 #if OS_WIN
     // created from the description, or from an adopted HFONT's family name
     Gdiplus::Font* gdiFont = nullptr;
+    Gdiplus::Font* uiGdiFont = nullptr;
     // for gdiFont, created lazily by GetHFont(); set upfront when adopted
     HFONT hfont = nullptr;
 #else

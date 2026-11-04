@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-04",
+  "conditions": "Windows x64, one host, Release, hidden desktop, isolated settings, no PDF, three rounds alternating order, frames resized with MoveWindow and checked, three seconds after resizing; no continuous host-load gate. QueryWorkingSet non-shareable resident pages approximate but do not prove Task Manager equivalence.",
+  "hashes": {
+    "original36": "1eee71cccd2ea6e94d5bcea54ee2f759844da3e1a0ee2f6045035b1d17b94381",
+    "solok": "91e295108c9b706ca9f842f8c81dbd793ddf1e740b296e15173fe5889de526bf"
+  },
+  "samples": [
+    {
+      "size": "600x500",
+      "variant": "original36",
+      "nonsharedMiB": 5.32,
+      "workingSetMiB": 40.41,
+      "privateBytesMiB": 14.8
+    },
+    {
+      "size": "600x500",
+      "variant": "solok",
+      "nonsharedMiB": 6.89,
+      "workingSetMiB": 38.79,
+      "privateBytesMiB": 12.25
+    },
+    {
+      "size": "1600x1000",
+      "variant": "original36",
+      "nonsharedMiB": 5.33,
+      "workingSetMiB": 40.42,
+      "privateBytesMiB": 14.84
+    },
+    {
+      "size": "1600x1000",
+      "variant": "solok",
+      "nonsharedMiB": 11.76,
+      "workingSetMiB": 43.57,
+      "privateBytesMiB": 17.15
+    }
+  ],
+  "bitmapProbe": {
+    "size": "1600x1000",
+    "dibNonsharedMiB": 6.11,
+    "compatibleNonsharedMiB": 0,
+    "note": "One isolated GDI probe, after filling bitmap. Private process counters omit kernel and GPU allocations."
+  }
+}

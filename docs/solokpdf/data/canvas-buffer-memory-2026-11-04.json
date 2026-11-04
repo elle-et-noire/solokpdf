@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-04",
+  "conditions": "Windows x64, Release, hidden desktop, isolated settings, PDFium, three alternating rounds; frame resized with MoveWindow and checked, sampled 2.5 seconds later. Median process counters; no continuous host-load gate. Non-shareable resident pages do not establish Task Manager equivalence. Kernel and GPU allocation is not measured.",
+  "hashes": {
+    "before": "91e295108c9b706ca9f842f8c81dbd793ddf1e740b296e15173fe5889de526bf",
+    "after": "6a99b5a6e9406b5c01d6039a25d76ebc2a0d841d3594e6703d6e4a0158967506"
+  },
+  "pdf": "ext/a-zlib/zlib.3.pdf",
+  "samples": [
+    {
+      "document": "empty",
+      "size": "600x500",
+      "variant": "before",
+      "nonsharedMiB": 6.96,
+      "privateBytesMiB": 12.33,
+      "workingSetMiB": 39.67
+    },
+    {
+      "document": "empty",
+      "size": "600x500",
+      "variant": "after",
+      "nonsharedMiB": 6.09,
+      "privateBytesMiB": 11.45,
+      "workingSetMiB": 37.94
+    },
+    {
+      "document": "empty",
+      "size": "1600x1000",
+      "variant": "before",
+      "nonsharedMiB": 11.82,
+      "privateBytesMiB": 17.2,
+      "workingSetMiB": 44.79
+    },
+    {
+      "document": "empty",
+      "size": "1600x1000",
+      "variant": "after",
+      "nonsharedMiB": 6.39,
+      "privateBytesMiB": 11.77,
+      "workingSetMiB": 38.26
+    },
+    {
+      "document": "pdf",
+      "size": "600x500",
+      "variant": "before",
+      "nonsharedMiB": 7.78,
+      "privateBytesMiB": 11.89,
+      "workingSetMiB": 41.23
+    },
+    {
+      "document": "pdf",
+      "size": "600x500",
+      "variant": "after",
+      "nonsharedMiB": 6.86,
+      "privateBytesMiB": 10.96,
+      "workingSetMiB": 39.72
+    },
+    {
+      "document": "pdf",
+      "size": "1600x1000",
+      "variant": "before",
+      "nonsharedMiB": 12.64,
+      "privateBytesMiB": 16.76,
+      "workingSetMiB": 47.07
+    },
+    {
+      "document": "pdf",
+      "size": "1600x1000",
+      "variant": "after",
+      "nonsharedMiB": 7.16,
+      "privateBytesMiB": 11.27,
+      "workingSetMiB": 40.98
+    }
+  ],
+  "capture": "PDF canvas pixels were identical at both sizes. Empty canvas differed in random tip text."
+}

@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-04",
+  "conditions": "Windows x64, Release, hidden desktop, isolated settings, no PDF, three alternating rounds per size, frames resized with MoveWindow and checked, three seconds after resizing. No continuous host-load gate. Non-shareable resident pages approximate but do not prove Task Manager equivalence; kernel and GPU allocations are excluded.",
+  "hashes": {
+    "original36": "1eee71cccd2ea6e94d5bcea54ee2f759844da3e1a0ee2f6045035b1d17b94381",
+    "solok": "6a99b5a6e9406b5c01d6039a25d76ebc2a0d841d3594e6703d6e4a0158967506"
+  },
+  "samples": [
+    {
+      "size": "600x500",
+      "variant": "original36",
+      "nonsharedMiB": 5.33,
+      "privateBytesMiB": 14.8,
+      "workingSetMiB": 40.43
+    },
+    {
+      "size": "600x500",
+      "variant": "solok",
+      "nonsharedMiB": 6.06,
+      "privateBytesMiB": 11.42,
+      "workingSetMiB": 37.91
+    },
+    {
+      "size": "1600x1000",
+      "variant": "original36",
+      "nonsharedMiB": 5.34,
+      "privateBytesMiB": 14.85,
+      "workingSetMiB": 40.45
+    },
+    {
+      "size": "1600x1000",
+      "variant": "solok",
+      "nonsharedMiB": 6.35,
+      "privateBytesMiB": 11.72,
+      "workingSetMiB": 38.2
+    }
+  ],
+  "gfxBufferProbe": {
+    "build": "Debug, temporary allocation instrumentation",
+    "sizes": [
+      {
+        "frame": "600x500",
+        "allocations": [
+          [314, 32],
+          [580, 42]
+        ],
+        "bytes": 137632
+      },
+      {
+        "frame": "1600x1000",
+        "allocations": [
+          [1314, 32],
+          [1580, 42]
+        ],
+        "bytes": 433632
+      }
+    ],
+    "note": "Same allocations with a PDF and without; allocated DIB pixel bytes, not resident pages. Does not cover every UI state."
+  }
+}

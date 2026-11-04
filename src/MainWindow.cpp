@@ -341,7 +341,8 @@ void MainWindow::UpdateCanvasSize() {
     // create a new output buffer and notify the model
     // about the change of the canvas size
     delete buffer;
-    buffer = new DoubleBuffer(hwndCanvas, canvasRc);
+    auto kind = gUseDirect2D ? DoubleBufferKind::Dib : DoubleBufferKind::Compatible;
+    buffer = new DoubleBuffer(hwndCanvas, canvasRc, kind);
 
     if (IsDocLoaded()) {
         // the display model needs to know the full size (including scroll bars)
