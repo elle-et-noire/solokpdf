@@ -272,7 +272,7 @@ static LRESULT CALLBACK VimCommandProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
             RunVimCommand(win, input);
             return 0;
         }
-        if (wp == VK_UP || wp == VK_DOWN) {
+        if ((wp == VK_UP || wp == VK_DOWN) && !win->vimCmdComposing) {
             int n = len(win->vimCmdHistory);
             if (wp == VK_UP && win->vimCmdHistoryPos > 0) {
                 win->vimCmdHistoryPos--;
@@ -513,6 +513,7 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
         return true;
     }
     if (vk == 'N') {
+        ClearKeyCount(win);
         if (!HasFindText(win)) {
             MaybeDelayedWarningNotification(StrL("No previous search"));
             return true;
@@ -522,6 +523,7 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
         return true;
     }
     if (vk == 'F' && !shift) {
+        ClearKeyCount(win);
         win->vimLinkHints = !win->linkFollowActive;
         ToggleKeyboardLinkFollowing(win);
         return true;

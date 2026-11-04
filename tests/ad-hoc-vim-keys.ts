@@ -19,7 +19,7 @@ import {
   waitToolWindow,
 } from "./win-automation.ts";
 import { ControlCommand } from "./control.ts";
-import { getScrollPos, sendMessage, sendText, sleep } from "./winapi.ts";
+import { getControlText, getScrollPos, sendMessage, sendText, sleep } from "./winapi.ts";
 import { canTestClipboard, clearTestClipboard, getTestClipboardText } from "./test-clipboard.ts";
 
 const WM_IME_STARTCOMPOSITION = 0x010d;
@@ -89,6 +89,18 @@ export async function testit(): Promise<void> {
     await client.waitForRenderIdle();
     await activateTestFrame(client);
     if (!/mode=1/.test(await state())) throw new Error("VimKeys setting was not loaded");
+    await pressKey(frame, 0x33);
+    if (!/count=3/.test(await state())) throw new Error("count prefix was not recorded");
+    await key("N");
+    if (!/count=0/.test(await state())) throw new Error("n left an unused count prefix");
+    await pressKey(frame, 0x33);
+    await key("F");
+    if (!/count=0/.test(await state())) throw new Error("f left an unused count prefix");
+    await pressKey(frame, 0x1b);
+    await pressKey(frame, 0x33);
+    await client.request(ControlCommand.TestFocusState, ["page-edit"]);
+    if (!/focus=0.*count=0/.test(await state())) throw new Error("focus change left a count prefix");
+    await activateTestFrame(client);
     for (const [stroke, expected] of [
       ["n", "CmdFindNext"],
       ["shift-n", "CmdFindPrev"],
@@ -216,12 +228,19 @@ export async function testit(): Promise<void> {
 
     await key(":");
     const imeEdit = Number(/edit=(\d+)/.exec(await state())?.[1] ?? 0);
+    sendText(imeEdit, ":composing");
     sendMessage(imeEdit, WM_IME_STARTCOMPOSITION, 0, 0);
+    await pressKey(imeEdit, 0x26);
+    if (getControlText(imeEdit) !== ":composing") throw new Error("IME Up changed the Vim command history");
+    await pressKey(imeEdit, 0x28);
+    if (getControlText(imeEdit) !== ":composing") throw new Error("IME Down changed the Vim command history");
     await pressKey(imeEdit, 0x1b);
     if (!/edit=[1-9]/.test(await state())) throw new Error("IME Escape closed the Vim command line");
     await pressKey(imeEdit, 0x0d);
     if (!/edit=[1-9]/.test(await state())) throw new Error("IME Enter submitted the Vim command line");
     sendMessage(imeEdit, WM_IME_ENDCOMPOSITION, 0, 0);
+    await pressKey(imeEdit, 0x26);
+    if (getControlText(imeEdit) !== ":3") throw new Error("Up did not recall command history after IME composition");
     await pressKey(imeEdit, 0x1b);
 
     for (const ch of [":", "'", "`"]) {
@@ -296,6 +315,29 @@ export async function testit(): Promise<void> {
   } finally {
     await empty.client.quit().catch(() => {});
     await killAndWait(empty.proc);
+  }
+
+  const customDir = writeAppdata(
+    "vim-keys-custom-appdata",
+    "VimKeys = true\nRestoreSession = false\nShortcuts [\n [\n  Cmd = CmdGoToNextPage\n  Key = g\n ]\n [\n  Cmd = CmdGoToNextPage\n  Key = 3\n ]\n]\n",
+  );
+  const custom = await launchControlled(["-appdata", customDir, pdf]);
+  try {
+    await custom.client.waitForRenderIdle();
+    await activateTestFrame(custom.client);
+    for (const [vk, expected] of [
+      [0x33, 2],
+      [0x47, 3],
+    ]) {
+      await pressKey(custom.frame, vk);
+      const result = String((await custom.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+      if (!result.includes(`page=${expected} `) || !/count=0 prefix=-/.test(result)) {
+        throw new Error(`custom shortcut ${vk} lost to Vim keys: ${result}`);
+      }
+    }
+  } finally {
+    await custom.client.quit().catch(() => {});
+    await killAndWait(custom.proc);
   }
 }
 

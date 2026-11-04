@@ -1510,6 +1510,19 @@ build found two live DIBs totaling 433,632 bytes at this size, both with and
 without a PDF. This covers the initial UI, not every dialog or sidebar state.
 See `data/ui-buffer-review-2026-11-04.json`.
 
+## Keyboard input review (2026-11-04)
+
+Vim prefixes and counts run before the accelerator table. The frame and canvas
+use the main table; edit controls use a reduced table and the bookmarks tree
+uses its own navigation rules. Custom bindings take priority over Vim keys.
+Counts are cleared on focus loss, tab changes, Escape and unhandled keydowns.
+
+Vim search and link hints now clear an unused count. During IME composition,
+the Vim command line leaves Up and Down to the edit control instead of replacing
+its contents with history. Tests simulate IME messages; a real IME session was
+not exercised. Keyboard tests post window messages on a hidden desktop and do
+not establish physical keyboard behavior across all input methods.
+
 ## Completed backlog
 
 Rows of [backlog.md](backlog.md) completed by 2026-11-04. Sources: an audit of every
