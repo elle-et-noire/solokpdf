@@ -4,8 +4,14 @@
 
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { ROOT, cmdId, runStandalone, writeAppdata } from "./util.ts";
-import { killAndWait, launchControlled, sendCommand } from "./win-automation.ts";
+import { ROOT, USE_NG, cmdId, runStandalone, writeAppdata } from "./util.ts";
+import {
+  activateTestFrame,
+  canActivateTestFrame,
+  killAndWait,
+  launchControlled,
+  sendCommand,
+} from "./win-automation.ts";
 import { postMessage, sleep, VK_DOWN, VK_ESCAPE, VK_SPACE, WM_KEYDOWN, WM_KEYUP } from "./winapi.ts";
 
 type BarState = {
@@ -99,6 +105,34 @@ export async function testit(): Promise<void> {
     postKey(frame, VK_DOWN);
     st = await waitBar(client, (s) => s.visible && s.speed > speedBefore, "Down did not increase speed");
     console.log(`  Down: ${speedBefore} -> ${st.speed} px/s ✓`);
+
+    if (!USE_NG && canActivateTestFrame()) {
+      await activateTestFrame(client);
+      postKey(frame, 0x30);
+      await waitBar(client, (s) => s.speed === 8, "0 did not set minimum speed");
+      postKey(frame, 0x33);
+      await waitBar(client, (s) => s.speed === 24, "3 did not set scrolling speed");
+      let vimState = String((await client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+      if (!/count=0 prefix=-/.test(vimState)) throw new Error(`scroll speed key left a count: ${vimState}`);
+
+      await client.request(ControlCommand.TestInvokeCommand, ["CmdToggleVimKeys"]);
+      vimState = String((await client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+      if (!/mode=1/.test(vimState)) throw new Error(`Vim mode did not turn on: ${vimState}`);
+      postKey(frame, 0x30);
+      await waitBar(client, (s) => s.speed === 8, "Vim 0 did not set minimum speed");
+      postKey(frame, 0x33);
+      await waitBar(client, (s) => s.speed === 24, "Vim 3 did not set scrolling speed");
+      vimState = String((await client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+      if (!/count=0 prefix=-/.test(vimState)) throw new Error(`Vim speed key left a count: ${vimState}`);
+
+      await client.request(ControlCommand.TestFindUiState, ["show-all"]);
+      await activateTestFrame(client);
+      postKey(frame, 0x33);
+      vimState = String((await client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+      if (!/count=3 prefix=-/.test(vimState)) throw new Error(`find UI did not preserve count input: ${vimState}`);
+      await client.request(ControlCommand.TestFocusState, ["page-edit"]);
+      await client.request(ControlCommand.TestFindUiState, ["hide-first"]);
+    }
 
     sendCommand(frame, cmdId("CmdPrevTab"));
     st = await waitBar(client, (s) => !s.visible, "bar still shown on Home");

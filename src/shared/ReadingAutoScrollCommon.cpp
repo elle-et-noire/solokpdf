@@ -159,6 +159,10 @@ bool ReadingAutoScrollIsOn(MainWindow* win) {
     return ActiveTab(win) != nullptr;
 }
 
+bool ReadingAutoScrollAcceptsKeys(MainWindow* win) {
+    return ActiveTab(win) && !IsFindUIVisible(win);
+}
+
 void ReadingAutoScrollForgetTab(WindowTab* tab) {
     if (!tab) {
         return;
@@ -322,16 +326,13 @@ void ReadingAutoScrollSyncToTab(WindowTab* tab) {
 }
 
 bool ReadingAutoScrollOnKey(MainWindow* win, int key, bool ctrl, bool shift, bool alt) {
-    WindowTab* tab = ActiveTab(win);
-    if (!tab) {
+    if (!ReadingAutoScrollAcceptsKeys(win)) {
         return false;
     }
     if (ctrl || shift || alt) {
         return false;
     }
-    if (IsFindUIVisible(win)) {
-        return false;
-    }
+    WindowTab* tab = ActiveTab(win);
 
     if (key == VK_ESCAPE) {
         ReadingAutoScrollStop(win);

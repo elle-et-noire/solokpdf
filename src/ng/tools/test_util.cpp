@@ -63,6 +63,7 @@ bool GumboHtmlParser_UnitTest();
 bool DisplayMode_UnitTestZoom();
 bool Translations_UnitTestUnescape();
 extern bool Accelerators_UnitTestFolderNavIsSafe();
+extern bool AccelTestCustomScope();
 extern bool NavFiles_UnitTestHidden();
 #if !OS_WIN
 extern bool MeasurementSystem_UnitTests();
@@ -195,6 +196,7 @@ int main(int argc, char** argv) {
 #if IS_DEBUG
     utassert(PdfDarkModeImageStats_UnitTest());
     utassert(Accelerators_UnitTestFolderNavIsSafe());
+    utassert(AccelTestCustomScope());
     utassert(EbookDoc_UnitTestLoading());
     utassert(GumboHtmlParser_UnitTest());
     utassert(DisplayMode_UnitTestZoom());

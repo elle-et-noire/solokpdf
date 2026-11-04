@@ -3,8 +3,14 @@
 
 #include "base/Base.h"
 #include "base/Win.h"
+#include <imm.h>
 #include "gui/Dpi.h"
 #include "gui/UIModels.h"
+#include "gui/Layout.h"
+#include "gui/PlatformFont.h"
+#include "gui/Gfx.h"
+#include "gui/VirtCtrl.h"
+#include "gui/win/WinGui.h"
 #include "Settings.h"
 #include "DisplayMode.h"
 #include "DocProperties.h"
@@ -21,12 +27,15 @@
 #include "CommandPalette.h"
 #include "Canvas.h"
 #include "LinkFollow.h"
+#include "ReadingAutoScroll.h"
 #include "SearchAndDDECommon.h"
 #include "SumatraConfig.h"
 #include "Tabs.h"
 #include "SumatraPDF.h"
 #include "VimKeys.h"
 #include "SumatraLog.h"
+
+#pragma comment(lib, "imm32.lib")
 
 static Kind kNotifCountPrefix = "countPrefix";
 static constexpr int kVimCommandHeight = 30;
@@ -552,12 +561,74 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
     return false;
 }
 
+static HWND gTestImeEdit = nullptr;
+static bool gTestImeWasOpen = false;
+
+static TempStr TestImeTemp(MainWindow* win, Str action, int* exitCode) {
+    if (!gForTesting) {
+        *exitCode = 1;
+        return StrL("ERROR testing-required");
+    }
+    if (str::Eq(action, StrL("ime-start")) && gTestImeEdit && IsWindow(gTestImeEdit)) {
+        *exitCode = 1;
+        return StrL("ERROR ime-test-active");
+    }
+    HWND edit = str::Eq(action, StrL("ime-start")) ? GetFocus() : gTestImeEdit;
+    HWND findEdit = win->findEdit ? CbEditHwnd(win->findEdit->hwnd) : nullptr;
+    if (!edit || (edit != win->vimCmdEdit && edit != findEdit) || !IsWindow(edit)) {
+        *exitCode = 1;
+        return StrL("ERROR no-focused-edit");
+    }
+    HKL layout = GetKeyboardLayout(0);
+    HIMC context = ImmGetContext(edit);
+    if (!context || LOWORD((uintptr_t)layout) != MAKELANGID(LANG_JAPANESE, SUBLANG_DEFAULT) || !ImmIsIME(layout) ||
+        !(ImmGetProperty(layout, IGP_SETCOMPSTR) & SCS_CAP_COMPSTR)) {
+        if (context) {
+            ImmReleaseContext(edit, context);
+        }
+        *exitCode = 2;
+        return StrL("UNAVAILABLE no-japanese-ime");
+    }
+    bool ok = true;
+    if (str::Eq(action, StrL("ime-start"))) {
+        gTestImeEdit = edit;
+        gTestImeWasOpen = ImmGetOpenStatus(context) != 0;
+        ok = ImmSetOpenStatus(context, TRUE) != 0;
+        WStr text = WStrL(L"かな");
+        ok = ok && ImmSetCompositionStringW(context, SCS_SETSTR, text.s, len(text) * sizeof(WCHAR), nullptr, 0);
+        if (!ok) {
+            ImmSetOpenStatus(context, gTestImeWasOpen);
+            gTestImeEdit = nullptr;
+        }
+    } else if (str::Eq(action, StrL("ime-commit"))) {
+        ok = ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_COMPLETE, 0) != 0;
+    } else if (str::Eq(action, StrL("ime-cancel"))) {
+        ok = ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0) != 0;
+    } else if (str::Eq(action, StrL("ime-close"))) {
+        ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
+        ok = ImmSetOpenStatus(context, gTestImeWasOpen) != 0;
+        gTestImeEdit = nullptr;
+    } else if (!str::Eq(action, StrL("ime-state"))) {
+        ok = false;
+    }
+    WCHAR buf[128]{};
+    LONG size = ImmGetCompositionStringW(context, GCS_COMPSTR, buf, sizeof(buf));
+    TempStr composition = size > 0 ? ToUtf8Temp(WStr(buf, size / sizeof(WCHAR))) : StrL("");
+    int composing = win->vimCmdComposing ? 1 : 0;
+    ImmReleaseContext(edit, context);
+    *exitCode = ok ? 0 : 1;
+    return fmt("ok=%d composing=%d bytes=%d text=%s", ok ? 1 : 0, composing, (int)size, composition);
+}
+
 TempStr VimKeysTestResultTemp(Str action, Str key, int* exitCode) {
     if (len(gWindows) == 0 || !gWindows[0]) {
         *exitCode = 2;
         return StrL("NOTREADY no-window");
     }
     MainWindow* win = gWindows[0];
+    if (str::StartsWith(action, StrL("ime-"))) {
+        return TestImeTemp(win, action, exitCode);
+    }
     if (str::Eq(action, StrL("jis-hint"))) {
         HKL layout = LoadKeyboardLayoutW(L"00000411", KLF_NOTELLSHELL);
         if (!layout || !str::Eq(key, StrL(";"))) {
@@ -648,7 +719,7 @@ bool VimKeysPreTranslate(MainWindow* countWin, MSG& msg) {
         return true;
     }
     if (IsDocKeyInput(countWin, msg) && !countWin->pendingKeyPrefix && msg.wParam >= '0' && msg.wParam <= '9' &&
-        !IsCtrlPressed() && !IsAltPressed() && !IsShiftPressed()) {
+        !IsCtrlPressed() && !IsAltPressed() && !IsShiftPressed() && !ReadingAutoScrollAcceptsKeys(countWin)) {
         if (!HasDigitShortcut((u16)msg.wParam) && (msg.wParam != '0' || countWin->pendingKeyCount)) {
             constexpr int kMaxKeyCount = 9999;
             countWin->pendingKeyCount =

@@ -22,6 +22,7 @@ void ReadingAutoScrollTick(MainWindow*);
 void ReadingAutoScrollTick(MainWindow*, int elapsedMs);
 bool ReadingAutoScrollOnKey(MainWindow*, int key, bool ctrl, bool shift, bool alt);
 bool ReadingAutoScrollIsOn(MainWindow*);
+bool ReadingAutoScrollAcceptsKeys(MainWindow*);
 void ReadingAutoScrollHideBar(MainWindow*);
 void ReadingAutoScrollSyncToTab(WindowTab*);
 void ReadingAutoScrollForgetTab(WindowTab*);

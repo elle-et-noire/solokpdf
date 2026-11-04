@@ -22,6 +22,7 @@ import { beginSharedControlledSession, endSharedControlledSession } from "./win-
 import { testit as lintCommandIds } from "./lint-command-ids.ts";
 import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
 import { testit as lintSystemClipboard } from "./lint-system-clipboard.ts";
+import { testit as keyboardIme } from "./keyboard-ime.ts";
 import { testit as b67Clipboard } from "./ad-hoc-b67-clipboard.ts";
 import { testit as jbig2ResizeOverflow } from "./jbig2-resize-overflow.ts";
 import { testit as issue6468 } from "./issue-6468.ts";
@@ -524,6 +525,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["issue-6169", issue6169],
+  ["keyboard-ime", keyboardIme],
   ["issue-6140", issue6140],
   ["issue-6355", issue6355],
   ["free-text-annotation-placement", freeTextAnnotationPlacement],
@@ -725,7 +728,6 @@ export const tests: NamedTest[] = [
   ["issue-6198", issue6198],
   ["create-annot-enters-edit-mode", createAnnotEntersEditMode],
   ["issue-6166", issue6166],
-  ["issue-6169", issue6169],
   ["issue-5771", issue5771],
   ["issue-6111", issue6111],
   ["annot-list-placement", annotListPlacement],

@@ -558,12 +558,17 @@ bool HasCustomShortcut(const KeyShortcut& key) {
     return false;
 }
 
+// Global and screenshot keys are registered with the OS.
+static bool IsLocalShortcut(CustomCommand* cmd) {
+    return cmd->id > 0 && !str::IsEmptyOrWhiteSpace(cmd->key) && !IsGlobalShortcut(cmd->key) &&
+           cmd->origId != CmdScreenshot;
+}
+
 // custom commands that define a shortcut; an upper bound for the tables
 static int CountCustomShortcuts() {
     int n = 0;
     for (auto* curr = gFirstCustomCommand; curr; curr = curr->next) {
-        if ((curr->id > 0) && !str::IsEmptyOrWhiteSpace(curr->key) && !IsGlobalShortcut(curr->key) &&
-            curr->origId != CmdScreenshot) {
+        if (IsLocalShortcut(curr)) {
             n++;
         }
     }
@@ -572,11 +577,7 @@ static int CountCustomShortcuts() {
 
 static void AddCustomShortcuts(AccelTablesBuilder& b) {
     for (auto* curr = gFirstCustomCommand; curr; curr = curr->next) {
-        if ((curr->id <= 0) || str::IsEmptyOrWhiteSpace(curr->key)) {
-            continue;
-        }
-        // global shortcuts are registered with the OS, not accelerators
-        if (IsGlobalShortcut(curr->key) || curr->origId == CmdScreenshot) {
+        if (!IsLocalShortcut(curr)) {
             continue;
         }
         Accel accel{};
@@ -844,6 +845,42 @@ HACCEL* GetAcceleratorTables() {
 #endif
 
 #if IS_DEBUG
+bool AccelTestCustomScope() {
+    CustomCommand global{};
+    CustomCommand screenshot{};
+    CustomCommand invalid{};
+    CustomCommand local{};
+    global.next = &screenshot;
+    global.id = 1;
+    global.origId = CmdGoToNextPage;
+    global.key = StrL("Global Ctrl+G");
+    screenshot.next = &invalid;
+    screenshot.id = 2;
+    screenshot.origId = CmdScreenshot;
+    screenshot.key = StrL("Ctrl+H");
+    invalid.next = &local;
+    invalid.key = StrL("Ctrl+L");
+    local.id = 3;
+    local.origId = CmdGoToNextPage;
+    local.key = StrL("Ctrl+J");
+
+    CustomCommand* saved = gFirstCustomCommand;
+    gFirstCustomCommand = &global;
+    Accel accels[4]{};
+    AccelTablesBuilder builder;
+    builder.accels = accels;
+    AddCustomShortcuts(builder);
+    KeyShortcut globalKey{};
+    KeyShortcut screenshotKey{};
+    KeyShortcut invalidKey{};
+    bool parsed = ParseShortcutString(StrL("Ctrl+G"), globalKey) &&
+                  ParseShortcutString(StrL("Ctrl+H"), screenshotKey) && ParseShortcutString(StrL("Ctrl+L"), invalidKey);
+    bool ok = parsed && CountCustomShortcuts() == 1 && builder.nAccels == 1 && accels[0].cmd == local.id &&
+              HasCustomShortcut(globalKey) && HasCustomShortcut(screenshotKey) && HasCustomShortcut(invalidKey);
+    gFirstCustomCommand = saved;
+    return ok;
+}
+
 // Folder browsing has to keep working when focus is inside the document (the
 // WebView2 that shows .md / .html) or the bookmarks tree (issue #6089)
 bool Accelerators_UnitTestFolderNavIsSafe() {
