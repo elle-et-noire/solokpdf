@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   assemblePdf,
+  cmdId,
   dpiRequest,
   parseDpiFields,
   runStandalone,
@@ -12,18 +13,44 @@ import {
 import {
   activateTestFrame,
   canActivateTestFrame,
+  clickAt,
   findCanvas,
   killAndWait,
   launchControlled,
+  moveTestCursor,
   pressKey,
+  sendCommand,
+  sendCommandSync,
+  waitForFocusClass,
   waitToolWindow,
 } from "./win-automation.ts";
 import { ControlCommand } from "./control.ts";
-import { getControlText, getScrollPos, sendMessage, sendText, sleep } from "./winapi.ts";
+import { makeBookmarkedPdf } from "./toc-tree-sent-click.ts";
+import {
+  clientToScreen,
+  findVisibleChildWindow,
+  getControlText,
+  getFocusedHwnd,
+  getScrollPos,
+  MK_LBUTTON,
+  packCoords,
+  postMessage,
+  sendMessage,
+  sendText,
+  sleep,
+  treeGetItemHeight,
+  treeGetSelection,
+  WM_KEYDOWN,
+  WM_KEYUP,
+  WM_LBUTTONDOWN,
+  WM_LBUTTONUP,
+} from "./winapi.ts";
 import { canTestClipboard, clearTestClipboard, getTestClipboardText } from "./test-clipboard.ts";
 
 const WM_IME_STARTCOMPOSITION = 0x010d;
 const WM_IME_ENDCOMPOSITION = 0x010e;
+const WM_ACTIVATE = 0x0006;
+const WA_INACTIVE = 0;
 
 function makePdf(links: "links" | "no-links" = "links"): string {
   const pages = Array.from({ length: 8 }, (_, i) => `${3 + i} 0 R`);
@@ -61,6 +88,29 @@ export async function testit(): Promise<void> {
       const res = await off.client.request(ControlCommand.TestShortcutsDialog, ["resolve", "", key]);
       if (res[1] !== expected) throw new Error(`mode off ${key}: ${res[1]}`);
     }
+    await activateTestFrame(off.client);
+    await off.client.request(ControlCommand.TestFocusState, ["ctrl-down"]);
+    postMessage(off.frame, WM_KEYDOWN, 0x46, 1);
+    await off.client.request(ControlCommand.TestFocusState, []);
+    await off.client.request(ControlCommand.TestFocusState, ["ctrl-up"]);
+    const findEdit = await waitForFocusClass(off.frame, "Edit");
+    sendText(findEdit, "");
+    postMessage(findEdit, WM_KEYDOWN, 0x46, (1 << 30) | 1);
+    await off.client.request(ControlCommand.TestFocusState, []);
+    await sleep(400);
+    if (getControlText(findEdit) !== "") throw new Error("repeated shortcut typed in find edit");
+    postMessage(findEdit, WM_KEYUP, 0x46, 0xc0000001);
+    await off.client.request(ControlCommand.TestFocusState, []);
+    // Probe the release independently of the new-key path, which also clears suppression.
+    postMessage(findEdit, WM_KEYDOWN, 0x46, (1 << 30) | 1);
+    await off.client.request(ControlCommand.TestFocusState, []);
+    await sleep(400);
+    if (getControlText(findEdit) !== "f") throw new Error("key release did not clear repeat suppression");
+    postMessage(findEdit, WM_KEYDOWN, 0x46, 1);
+    await off.client.request(ControlCommand.TestFocusState, []);
+    await sleep(400);
+    const typed = getControlText(findEdit);
+    if (typed !== "ff") throw new Error(`find edit after key release: ${JSON.stringify(typed)}`);
   } finally {
     await off.client.quit().catch(() => {});
     await killAndWait(off.proc);
@@ -89,17 +139,58 @@ export async function testit(): Promise<void> {
     await client.waitForRenderIdle();
     await activateTestFrame(client);
     if (!/mode=1/.test(await state())) throw new Error("VimKeys setting was not loaded");
+    await pressKey(frame, 0x30);
+    if (!/count=0 prefix=-/.test(await state())) throw new Error("leading zero started a count");
+    await pressKey(frame, 0x31);
+    await pressKey(frame, 0x30);
+    if (!/count=10 prefix=-/.test(await state())) throw new Error("zero did not extend a count");
+    await pressKey(frame, 0x1b);
     await pressKey(frame, 0x33);
     if (!/count=3/.test(await state())) throw new Error("count prefix was not recorded");
-    await key("N");
+    await pressKey(frame, 0x4e);
     if (!/count=0/.test(await state())) throw new Error("n left an unused count prefix");
     await pressKey(frame, 0x33);
-    await key("F");
+    await pressKey(frame, 0x46);
     if (!/count=0/.test(await state())) throw new Error("f left an unused count prefix");
     await pressKey(frame, 0x1b);
     await pressKey(frame, 0x33);
     await client.request(ControlCommand.TestFocusState, ["page-edit"]);
     if (!/focus=0.*count=0/.test(await state())) throw new Error("focus change left a count prefix");
+    await pressKey(frame, 0x33);
+    if (!/focus=0.*count=0/.test(await state())) throw new Error("unfocused frame accepted a count");
+    await activateTestFrame(client);
+    await pressKey(frame, 0x47);
+    if (!/prefix=g/.test(await state())) throw new Error("g did not start a prefix");
+    await client.request(ControlCommand.TestFocusState, ["page-edit"]);
+    if (!/focus=0.*count=0 prefix=-/.test(await state())) throw new Error("focus change left a key prefix");
+    await activateTestFrame(client);
+    await pressKey(frame, 0x33);
+    await pressKey(frame, 0x87);
+    if (!/count=0 prefix=-/.test(await state())) throw new Error("unbound key left a count prefix");
+    const initialTab = await path();
+    await pressKey(frame, 0x47);
+    await client.request(ControlCommand.TestInvokeCommand, ["CmdNextTab"]);
+    if ((await path()) === initialTab || !/count=0 prefix=-/.test(await state())) {
+      throw new Error("tab change left a key prefix");
+    }
+    await client.request(ControlCommand.TestInvokeCommand, ["CmdNextTab"]);
+    if ((await path()) !== initialTab) throw new Error("could not restore initial tab");
+    await activateTestFrame(client);
+    const clickCanvas = findCanvas(frame);
+    const clickPoint = clientToScreen(clickCanvas, 10, 10);
+    await moveTestCursor(clickPoint.x, clickPoint.y, client);
+    await pressKey(frame, 0x33);
+    await pressKey(frame, 0x47);
+    if (!/count=3 prefix=g/.test(await state())) throw new Error("counted prefix was not recorded");
+    postMessage(clickCanvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(10, 10));
+    postMessage(clickCanvas, WM_LBUTTONUP, 0, packCoords(10, 10));
+    if (!/count=0 prefix=-/.test(await state())) throw new Error("mouse click left a counted prefix");
+    await activateTestFrame(client);
+    await pressKey(frame, 0x33);
+    await pressKey(frame, 0x47);
+    if (!/count=3 prefix=g/.test(await state())) throw new Error("counted prefix was not recorded before deactivation");
+    sendMessage(frame, WM_ACTIVATE, WA_INACTIVE, 0);
+    if (!/count=0 prefix=-/.test(await state())) throw new Error("deactivation left a counted prefix");
     await activateTestFrame(client);
     for (const [stroke, expected] of [
       ["n", "CmdFindNext"],
@@ -319,7 +410,7 @@ export async function testit(): Promise<void> {
 
   const customDir = writeAppdata(
     "vim-keys-custom-appdata",
-    "VimKeys = true\nRestoreSession = false\nShortcuts [\n [\n  Cmd = CmdGoToNextPage\n  Key = g\n ]\n [\n  Cmd = CmdGoToNextPage\n  Key = 3\n ]\n]\n",
+    "UiLanguage = en\nVimKeys = true\nRestoreSession = false\nShortcuts [\n [\n  Cmd = CmdGoToNextPage\n  Key = g\n ]\n [\n  Cmd = CmdGoToNextPage\n  Key = 3\n ]\n [\n  Cmd = CmdGoToNextPage\n  Key = Ctrl+K\n ]\n]\n",
   );
   const custom = await launchControlled(["-appdata", customDir, pdf]);
   try {
@@ -335,9 +426,89 @@ export async function testit(): Promise<void> {
         throw new Error(`custom shortcut ${vk} lost to Vim keys: ${result}`);
       }
     }
+    await pressKey(custom.frame, 0x34);
+    let result = String((await custom.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+    if (!/count=4 prefix=-/.test(result)) throw new Error(`count did not start: ${result}`);
+    await pressKey(custom.frame, 0x47);
+    result = String((await custom.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+    if (!result.includes("page=4 ") || !/count=0 prefix=-/.test(result)) {
+      throw new Error(`custom shortcut did not discard count: ${result}`);
+    }
+    await pressKey(custom.frame, 0x5a);
+    result = String((await custom.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+    if (!/count=0 prefix=z/.test(result)) throw new Error(`prefix did not start: ${result}`);
+    await pressKey(custom.frame, 0x47);
+    result = String((await custom.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+    if (!result.includes("page=5 ") || !/count=0 prefix=-/.test(result)) {
+      throw new Error(`custom shortcut did not discard prefix: ${result}`);
+    }
+    sendCommandSync(custom.frame, cmdId("CmdFindFirst"));
+    const findEdit = await waitForFocusClass(custom.frame, "Edit");
+    sendText(findEdit, "");
+    await pressKey(findEdit, 0x47);
+    await pressKey(findEdit, 0x33);
+    await pressKey(findEdit, 0x25);
+    await pressKey(findEdit, 0x34);
+    const text = getControlText(findEdit);
+    result = String((await custom.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+    if (text !== "g43" || !result.includes("page=5 ") || !/count=0 prefix=-/.test(result)) {
+      throw new Error(`find edit lost input to custom shortcuts: text=${text}, ${result}`);
+    }
+    await custom.client.request(ControlCommand.TestFocusState, ["ctrl-down"]);
+    postMessage(findEdit, WM_KEYDOWN, 0x4b, 1);
+    await custom.client.request(ControlCommand.TestFocusState, []);
+    await custom.client.request(ControlCommand.TestFocusState, ["ctrl-up"]);
+    postMessage(findEdit, WM_KEYUP, 0x4b, 0xc0000001);
+    await custom.client.request(ControlCommand.TestFocusState, []);
+    result = String((await custom.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+    if (getControlText(findEdit) !== "g43" || !result.includes("page=6 ") || !/count=0 prefix=-/.test(result)) {
+      throw new Error(`find edit lost modified shortcut: ${result}`);
+    }
+    await activateTestFrame(custom.client);
+    sendCommand(custom.frame, cmdId("CmdZoomCustom"));
+    const dialog = await waitToolWindow(custom.client, custom.proc.pid!, "customzoom", { title: "Zoom" });
+    if (!dialog) throw new Error("custom zoom dialog did not open");
+    const zoomEdit = await waitForFocusClass(custom.frame, "Edit");
+    await pressKey(zoomEdit, 0x33);
+    if (getControlText(zoomEdit) !== "3") throw new Error("custom shortcut stole dialog input");
+    await pressKey(zoomEdit, 0x1b);
+    result = String((await custom.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+    if (!result.includes("page=6 ") || !/count=0 prefix=-/.test(result)) {
+      throw new Error(`dialog input changed document key state: ${result}`);
+    }
   } finally {
     await custom.client.quit().catch(() => {});
     await killAndWait(custom.proc);
+  }
+
+  const outline = tmpPath("vim-keys-outline.pdf");
+  writeFileSync(outline, makeBookmarkedPdf());
+  for (const vim of [false, true]) {
+    const dir = writeAppdata(
+      `vim-keys-tree-${vim}`,
+      `VimKeys = ${vim}\nRestoreSession = false\nShortcuts [\n [\n  Cmd = CmdGoToNextPage\n  Key = g\n ]\n]\n`,
+    );
+    const treeApp = await launchControlled(["-appdata", dir, outline]);
+    try {
+      await treeApp.client.waitForRenderIdle();
+      await activateTestFrame(treeApp.client);
+      const tree = findVisibleChildWindow(treeApp.frame, "SysTreeView32");
+      if (!tree) throw new Error("bookmarks tree not found");
+      await clickAt(tree, 40, Math.floor(treeGetItemHeight(tree) / 2));
+      if (getFocusedHwnd(treeApp.frame) !== tree) throw new Error("bookmarks tree did not receive focus");
+      const before = treeGetSelection(tree);
+      await pressKey(tree, 0x28);
+      if (!before || treeGetSelection(tree) === before)
+        throw new Error(`tree Down did not move selection (Vim=${vim})`);
+      await pressKey(tree, 0x47);
+      const result = String((await treeApp.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+      if (!result.includes("page=3 ") || !/count=0 prefix=-/.test(result)) {
+        throw new Error(`tree custom shortcut did not run (Vim=${vim}): ${result}`);
+      }
+    } finally {
+      await treeApp.client.quit().catch(() => {});
+      await killAndWait(treeApp.proc);
+    }
   }
 }
 

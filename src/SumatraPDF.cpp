@@ -14962,7 +14962,7 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
     // canvas / frame: the in-place text editor keeps its caret keys
     if (msg.message == WM_KEYDOWN && !IsCtrlPressed() && !IsAltPressed()) {
         MainWindow* win = FindMainWindowByHwnd(msg.hwnd);
-        bool isFrameOrCanvas = win && (msg.hwnd == win->hwndFrame || msg.hwnd == win->hwndCanvas);
+        bool isFrameOrCanvas = IsDocKeyTarget(win, msg.hwnd);
         if (isFrameOrCanvas && NudgeSelectedAnnotation(win, msg.wParam)) {
             return true;
         }
@@ -14994,7 +14994,7 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
             MainWindow* win = FindMainWindowByHwnd(msg.hwnd);
             // only for the frame / canvas: the search box needs its own arrows
             // for caret movement (it handles Down itself, to enter the list)
-            bool isFrameOrCanvas = win && (msg.hwnd == win->hwndFrame || msg.hwnd == win->hwndCanvas);
+            bool isFrameOrCanvas = IsDocKeyTarget(win, msg.hwnd);
             if (isFrameOrCanvas && win->IsCurrentTabAbout() && win->hwndCanvas) {
                 msg.hwnd = win->hwndCanvas;
                 return false;
@@ -15007,7 +15007,7 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
     // accelerators flip pages, so let FrameOnKeydown forward them (#6419).
     if (msg.message == WM_KEYDOWN && !IsCtrlPressed() && !IsShiftPressed() && !IsAltPressed()) {
         MainWindow* win = FindMainWindowByHwnd(msg.hwnd);
-        bool isFrameOrCanvas = win && (msg.hwnd == win->hwndFrame || msg.hwnd == win->hwndCanvas);
+        bool isFrameOrCanvas = IsDocKeyTarget(win, msg.hwnd);
         if (isFrameOrCanvas && IsBrowserDocController(win->ctrl) && IsBrowserScrollKey(msg.wParam)) {
             return false;
         }
@@ -15042,9 +15042,7 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
         (msg.message == WM_SYSKEYDOWN || msg.message == WM_SYSKEYUP || msg.message == WM_SYSCHAR)) {
         msg.hwnd = hwndAccel;
     }
-    if (countWin && msg.message == WM_KEYDOWN) {
-        ClearKeyCount(countWin);
-    }
+    VimKeysUntranslated(countWin, msg);
     return false;
 }
 

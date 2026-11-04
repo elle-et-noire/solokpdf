@@ -8,7 +8,7 @@ import {
   launchControlled,
   pressKey,
 } from "./win-automation.ts";
-import { getScrollPos } from "./winapi.ts";
+import { getScrollPos, postMessage, sleep, WM_KEYDOWN } from "./winapi.ts";
 
 function makePdf(): string {
   const pages = Array.from({ length: 20 }, (_, i) => `${3 + i * 2} 0 R`);
@@ -66,6 +66,11 @@ export async function testit(): Promise<void> {
     if (one <= 0 || Math.abs(three - 3 * one) > 5 || Math.abs(afterEsc - one) > 3) {
       throw new Error(`count scroll: one=${one}, three=${three}, after Esc=${afterEsc}`);
     }
+    const beforeRepeat = getScrollPos(canvas);
+    postMessage(frame, WM_KEYDOWN, 0x4a, 1 << 30);
+    await sleep(250);
+    const repeated = getScrollPos(canvas) - beforeRepeat;
+    if (Math.abs(repeated - one) > 3) throw new Error(`repeat scroll: ${repeated}, want ${one}`);
   } finally {
     await client.quit().catch(() => {});
     await killAndWait(proc);

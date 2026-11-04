@@ -931,3 +931,7 @@ HWND GetHwndForNotification() {
     }
     return gWindows[0]->hwndCanvas;
 }
+
+bool IsDocKeyTarget(MainWindow* win, HWND hwnd) {
+    return win && (hwnd == win->hwndFrame || hwnd == win->hwndCanvas);
+}

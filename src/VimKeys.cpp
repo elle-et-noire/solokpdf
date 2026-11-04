@@ -41,6 +41,17 @@ void ClearKeyCount(MainWindow* win) {
     RemoveNotificationsForGroup(win, kNotifCountPrefix);
 }
 
+struct PendingKeys {
+    int count;
+    char prefix;
+};
+
+static PendingKeys TakePendingKeys(MainWindow* win) {
+    PendingKeys keys{win->pendingKeyCount, win->pendingKeyPrefix};
+    ClearKeyCount(win);
+    return keys;
+}
+
 static void ShowPendingKeys(MainWindow* win) {
     NotificationCreateArgs args;
     args.win = win;
@@ -54,6 +65,11 @@ static void ShowPendingKeys(MainWindow* win) {
     }
     args.corner = NotifCorner::BottomRight;
     ShowNotification(args);
+}
+
+static void SetKeyPrefix(MainWindow* win, char prefix) {
+    win->pendingKeyPrefix = prefix;
+    ShowPendingKeys(win);
 }
 
 static VimMark CurrentVimMark(MainWindow* win) {
@@ -321,7 +337,7 @@ int TakeVimKeyCount(MainWindow* win, int cmdId) {
     if (!count) {
         return 1;
     }
-    ClearKeyCount(win);
+    count = TakePendingKeys(win).count;
     bool repeatable = cmdId == CmdScrollUp || cmdId == CmdScrollDown || cmdId == CmdScrollUpHalfPage ||
                       cmdId == CmdScrollDownHalfPage || cmdId == CmdScrollUpPage || cmdId == CmdScrollDownPage ||
                       cmdId == CmdGoToPrevPage || cmdId == CmdGoToNextPage || cmdId == CmdScrollLeft ||
@@ -341,8 +357,7 @@ void RunVimKeyCommand(MainWindow* win, int cmdId) {
     }
     if (cmdId == CmdVimPrefixG || cmdId == CmdVimSetMark || cmdId == CmdVimJumpMark) {
         if (gSettings->vimKeys) {
-            win->pendingKeyPrefix = cmdId == CmdVimPrefixG ? 'g' : cmdId == CmdVimSetMark ? 'm' : '\'';
-            ShowPendingKeys(win);
+            SetKeyPrefix(win, cmdId == CmdVimPrefixG ? 'g' : cmdId == CmdVimSetMark ? 'm' : '\'');
         }
         return;
     }
@@ -371,13 +386,7 @@ static bool HasUserKey(int vk, bool shift, bool ctrl) {
     KeyShortcut key(
         (u8)(KeyShortcut::kVirtKey | (shift ? KeyShortcut::kShiftKey : 0) | (ctrl ? KeyShortcut::kCtrlKey : 0)),
         (u16)vk);
-    for (CustomCommand* cmd = gFirstCustomCommand; cmd; cmd = cmd->next) {
-        KeyShortcut custom;
-        if (len(cmd->key) && ParseShortcutString(cmd->key, custom) && custom.SameKey(key)) {
-            return true;
-        }
-    }
-    return false;
+    return HasCustomShortcut(key);
 }
 
 constexpr int kVimShift = 1;
@@ -411,19 +420,16 @@ static bool HasUserChar(int ch) {
         return false;
     }
     KeyShortcut key(0, (u16)ch);
-    for (CustomCommand* cmd = gFirstCustomCommand; cmd; cmd = cmd->next) {
-        KeyShortcut custom;
-        if (len(cmd->key) && ParseShortcutString(cmd->key, custom) && custom.SameKey(key)) {
-            return true;
-        }
-    }
-    return false;
+    return HasCustomShortcut(key);
+}
+
+static bool IsDocKeyInput(MainWindow* win, MSG& msg) {
+    return msg.message == WM_KEYDOWN && win && win->IsDocLoaded() && IsDocKeyTarget(win, msg.hwnd) &&
+           IsDocKeyTarget(win, GetFocus());
 }
 
 static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
-    if (!gSettings->vimKeys || !win || !win->IsDocLoaded() || msg.message != WM_KEYDOWN ||
-        (msg.hwnd != win->hwndFrame && msg.hwnd != win->hwndCanvas) ||
-        (GetFocus() != win->hwndFrame && GetFocus() != win->hwndCanvas)) {
+    if (!gSettings->vimKeys || !IsDocKeyInput(win, msg)) {
         return false;
     }
 
@@ -444,8 +450,7 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
             return true;
         }
         int line = vk == 'E' ? SB_LINEDOWN : vk == 'Y' ? SB_LINEUP : 0;
-        int count = win->pendingKeyCount;
-        ClearKeyCount(win);
+        int count = TakePendingKeys(win).count;
         if (!line) {
             return false;
         }
@@ -461,7 +466,9 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
     int count = win->pendingKeyCount;
     char prefix = win->pendingKeyPrefix;
     if (prefix) {
-        ClearKeyCount(win);
+        PendingKeys keys = TakePendingKeys(win);
+        count = keys.count;
+        prefix = keys.prefix;
         if (prefix == 'z' && (ch == 'z' || ch == 't' || ch == 'b')) {
             VimAlignPage(win, (char)ch);
             return true;
@@ -503,13 +510,12 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
     }
 
     if (shift && vk == 'G') {
-        ClearKeyCount(win);
+        count = TakePendingKeys(win).count;
         VimGoPage(win, count ? count : win->ctrl->PageCount());
         return true;
     }
     if (vk == 'G' || (!shift && vk == 'M') || ch == '\'' || ch == '`' || ch == 'z' || ch == 'y') {
-        win->pendingKeyPrefix = vk == 'G' ? 'g' : vk == 'M' ? 'm' : (char)ch;
-        ShowPendingKeys(win);
+        SetKeyPrefix(win, vk == 'G' ? 'g' : vk == 'M' ? 'm' : (char)ch);
         return true;
     }
     if (vk == 'N') {
@@ -624,7 +630,7 @@ TempStr VimKeysTestResultTemp(Str action, Str key, int* exitCode) {
     *exitCode = 0;
     int page = win->ctrl ? win->ctrl->CurrentPageNo() : 0;
     return fmt("mode=%d page=%d focus=%d count=%d prefix=%c hints=%d edit=%lld", gSettings->vimKeys ? 1 : 0, page,
-               (GetFocus() == win->hwndFrame || GetFocus() == win->hwndCanvas) ? 1 : 0, win->pendingKeyCount,
+               IsDocKeyTarget(win, GetFocus()) ? 1 : 0, win->pendingKeyCount,
                win->pendingKeyPrefix ? win->pendingKeyPrefix : '-', win->linkFollowActive ? 1 : 0,
                (i64)win->vimCmdEdit);
 }
@@ -633,7 +639,7 @@ bool VimKeysPreTranslate(MainWindow* countWin, MSG& msg) {
     if (countWin && (countWin->pendingKeyCount || countWin->pendingKeyPrefix) &&
         (msg.message == WM_LBUTTONDOWN || msg.message == WM_RBUTTONDOWN || msg.message == WM_MBUTTONDOWN ||
          (msg.message == WM_KEYDOWN && msg.wParam == VK_ESCAPE) ||
-         (msg.message == WM_KEYDOWN && msg.hwnd != countWin->hwndFrame && msg.hwnd != countWin->hwndCanvas))) {
+         (msg.message == WM_KEYDOWN && !IsDocKeyTarget(countWin, msg.hwnd)))) {
         ClearKeyCount(countWin);
     }
     if (countWin && countWin->vimLinkHints && msg.message == WM_KEYDOWN && !IsCtrlPressed() && !IsAltPressed() &&
@@ -641,22 +647,9 @@ bool VimKeysPreTranslate(MainWindow* countWin, MSG& msg) {
         StopKeyboardLinkFollowing(countWin);
         return true;
     }
-    if (countWin && !countWin->pendingKeyPrefix && msg.message == WM_KEYDOWN && msg.wParam >= '0' &&
-        msg.wParam <= '9' && !IsCtrlPressed() && !IsAltPressed() && !IsShiftPressed() &&
-        (msg.hwnd == countWin->hwndFrame || msg.hwnd == countWin->hwndCanvas) &&
-        (GetFocus() == countWin->hwndFrame || GetFocus() == countWin->hwndCanvas) && countWin->IsDocLoaded()) {
-        int n = 0;
-        const Accel* accels = GetAcceleratorTable(n);
-        KeyShortcut digit(KeyShortcut::kVirtKey, (u16)msg.wParam);
-        bool bound = false;
-        for (int i = 0; i < n; i++) {
-            if (accels[i].sc.SameKey(digit) ||
-                (!accels[i].sc.isVirt && accels[i].sc.vk == msg.wParam && accels[i].sc.Mods() == 0)) {
-                bound = true;
-                break;
-            }
-        }
-        if (!bound && (msg.wParam != '0' || countWin->pendingKeyCount)) {
+    if (IsDocKeyInput(countWin, msg) && !countWin->pendingKeyPrefix && msg.wParam >= '0' && msg.wParam <= '9' &&
+        !IsCtrlPressed() && !IsAltPressed() && !IsShiftPressed()) {
+        if (!HasDigitShortcut((u16)msg.wParam) && (msg.wParam != '0' || countWin->pendingKeyCount)) {
             constexpr int kMaxKeyCount = 9999;
             countWin->pendingKeyCount =
                 std::min(kMaxKeyCount, countWin->pendingKeyCount * 10 + (int)(msg.wParam - '0'));
@@ -672,6 +665,12 @@ bool VimKeysPreTranslate(MainWindow* countWin, MSG& msg) {
     }
 
     return false;
+}
+
+void VimKeysUntranslated(MainWindow* win, MSG& msg) {
+    if (win && msg.message == WM_KEYDOWN) {
+        ClearKeyCount(win);
+    }
 }
 
 bool VimLinkHintsCapture(MSG& msg) {

@@ -839,6 +839,7 @@ MainWindow* FindMainWindowByTab(WindowTab*);
 #if OS_WIN
 HWND MainWindowHwnd(MainWindow*);
 MainWindow* FindMainWindowByHwnd(HWND);
+bool IsDocKeyTarget(MainWindow*, HWND);
 #endif
 bool IsMainWindowValid(MainWindow*);
 bool IsMainWindowValidAndNotClosing(MainWindow*);

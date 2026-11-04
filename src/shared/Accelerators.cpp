@@ -543,6 +543,21 @@ void AccelTablesBuilder::Add(Accel accel) {
     accels[nAccels++] = accel;
 }
 
+static bool ParseCustomKey(CustomCommand* cmd, KeyShortcut& key) {
+    return len(cmd->key) && ParseShortcutString(cmd->key, key);
+}
+
+// Vim checks all parsed definitions, including keys excluded from the table.
+bool HasCustomShortcut(const KeyShortcut& key) {
+    for (CustomCommand* cmd = gFirstCustomCommand; cmd; cmd = cmd->next) {
+        KeyShortcut custom;
+        if (ParseCustomKey(cmd, custom) && custom.SameKey(key)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // custom commands that define a shortcut; an upper bound for the tables
 static int CountCustomShortcuts() {
     int n = 0;
@@ -566,7 +581,7 @@ static void AddCustomShortcuts(AccelTablesBuilder& b) {
         }
         Accel accel{};
         accel.cmd = curr->id;
-        if (ParseShortcutString(curr->key, accel.sc)) {
+        if (ParseCustomKey(curr, accel.sc)) {
             b.Add(accel);
         }
     }
@@ -789,6 +804,20 @@ const Accel* GetAcceleratorTable(int& nOut) {
     }
     nOut = gAccelsCount;
     return gAccels;
+}
+
+// A digit binding can be a virtual-key or character accelerator.
+bool HasDigitShortcut(u16 digit) {
+    int n = 0;
+    const Accel* accels = GetAcceleratorTable(n);
+    KeyShortcut key(KeyShortcut::kVirtKey, digit);
+    for (int i = 0; i < n; i++) {
+        const KeyShortcut& sc = accels[i].sc;
+        if (sc.SameKey(key) || (!sc.isVirt && sc.vk == digit && sc.Mods() == 0)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 const AccelStroke* GetAcceleratorStrokes(int& nOut) {
