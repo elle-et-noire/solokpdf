@@ -5829,27 +5829,27 @@ static pdf_document* OpenPdfForQuery(fz_context* ctx, Str path, Str data, Str pa
 struct ThemePdfOutput {
     fz_buffer* buffer;
     i64 position;
-    const PdfThemeSource* source;
+    const PdfRenderSource* source;
 };
 
 struct ThemePdfColors {
     const DarkModeProfile* profile;
-    const PdfThemeSource* source;
+    const PdfRenderSource* source;
 };
 
-static void ThemePdfCheck(fz_context* ctx, const PdfThemeSource* source) {
+static void CheckPdfCancel(fz_context* ctx, const PdfRenderSource* source) {
     if (source->isCanceled && source->isCanceled(source->cancelData)) {
         fz_throw(ctx, FZ_ERROR_ABORT, "themed PDF rendering canceled");
     }
 }
 
-struct ThemePdfInput {
-    const PdfThemeSource* source;
+struct PdfStreamInput {
+    const PdfRenderSource* source;
     u8 buffer[4096];
 };
 
-static int ThemePdfNext(fz_context* ctx, fz_stream* stream, size_t) {
-    auto* input = (ThemePdfInput*)stream->state;
+static int PdfStreamNext(fz_context* ctx, fz_stream* stream, size_t) {
+    auto* input = (PdfStreamInput*)stream->state;
     if (input->source->isCanceled && input->source->isCanceled(input->source->cancelData)) {
         fz_throw(ctx, FZ_ERROR_TRYLATER, "themed PDF rendering canceled");
     }
@@ -5867,8 +5867,8 @@ static int ThemePdfNext(fz_context* ctx, fz_stream* stream, size_t) {
     return *stream->rp++;
 }
 
-static void ThemePdfSeek(fz_context* ctx, fz_stream* stream, int64_t offset, int whence) {
-    auto* input = (ThemePdfInput*)stream->state;
+static void PdfStreamSeek(fz_context* ctx, fz_stream* stream, int64_t offset, int whence) {
+    auto* input = (PdfStreamInput*)stream->state;
     if (whence == SEEK_END) {
         if (offset < -(i64)input->source->size || offset > INT64_MAX - input->source->size) {
             fz_throw(ctx, FZ_ERROR_ARGUMENT, "invalid PDF source offset");
@@ -5883,7 +5883,7 @@ static void ThemePdfSeek(fz_context* ctx, fz_stream* stream, int64_t offset, int
 
 static void ThemePdfWrite(fz_context* ctx, void* state, const void* data, size_t size) {
     auto* output = (ThemePdfOutput*)state;
-    ThemePdfCheck(ctx, output->source);
+    CheckPdfCancel(ctx, output->source);
     size_t current = fz_buffer_storage(ctx, output->buffer, nullptr);
     if (size > INT_MAX || current > (size_t)INT_MAX - size || (u64)output->position > UINT32_MAX - size) {
         fz_throw(ctx, FZ_ERROR_LIMIT, "themed PDF exceeds supported size");
@@ -5894,6 +5894,577 @@ static void ThemePdfWrite(fz_context* ctx, void* state, const void* data, size_t
 
 static int64_t ThemePdfTell(fz_context*, void* state) {
     return ((ThemePdfOutput*)state)->position;
+}
+
+struct PdfStrokeState {
+    PdfStrokeState* next;
+    bool uncoloredStroke;
+    pdf_pattern* strokePattern;
+    pdf_pattern* fillPattern;
+    pdf_obj* mask;
+    bool maskChecked;
+    pdf_font_desc* font;
+    int textMode;
+};
+
+struct PdfStrokeProbe {
+    pdf_processor super;
+    pdf_document* doc;
+    const PdfRenderSource* source;
+    PdfStrokeState* state;
+    pdf_cycle_list* cycle;
+    bool found;
+    int depth;
+};
+
+constexpr int kMaxProbeDepth = 64;
+constexpr int kTilingPattern = 1;
+constexpr int kUncoloredPattern = 2;
+constexpr int kTextClipMode = 4;
+constexpr int kTextFillMode = 0;
+constexpr int kTextStrokeMode = 1;
+constexpr int kTextFillStrokeMode = 2;
+constexpr int kTextInvisibleMode = 3;
+
+static void ProbeSave(fz_context* ctx, pdf_processor* proc) {
+    auto* probe = (PdfStrokeProbe*)proc;
+    CheckPdfCancel(ctx, probe->source);
+    auto* state = fz_malloc_struct(ctx, PdfStrokeState);
+    state->next = probe->state;
+    state->uncoloredStroke = probe->state && probe->state->uncoloredStroke;
+    if (probe->state) {
+        state->font = pdf_keep_font(ctx, probe->state->font);
+        state->strokePattern = pdf_keep_pattern(ctx, probe->state->strokePattern);
+        state->fillPattern = pdf_keep_pattern(ctx, probe->state->fillPattern);
+        state->mask = pdf_keep_obj(ctx, probe->state->mask);
+        state->maskChecked = probe->state->maskChecked;
+        state->textMode = probe->state->textMode;
+    }
+    probe->state = state;
+}
+
+static void ProbeRestore(fz_context* ctx, pdf_processor* proc) {
+    auto* probe = (PdfStrokeProbe*)proc;
+    auto* state = probe->state;
+    if (state && state->next) {
+        probe->state = state->next;
+        pdf_drop_font(ctx, state->font);
+        pdf_drop_pattern(ctx, state->strokePattern);
+        pdf_drop_pattern(ctx, state->fillPattern);
+        pdf_drop_obj(ctx, state->mask);
+        fz_free(ctx, state);
+    }
+}
+
+static void ProbeTick(fz_context* ctx, pdf_processor* proc) {
+    CheckPdfCancel(ctx, ((PdfStrokeProbe*)proc)->source);
+}
+
+static void ProbeRunPattern(fz_context* ctx, pdf_processor* proc, pdf_pattern* pattern);
+static void ProbeMask(fz_context* ctx, pdf_processor* proc);
+
+static bool ProbeBeforePaint(fz_context* ctx, pdf_processor* proc) {
+    ProbeTick(ctx, proc);
+    if (proc->hidden) {
+        return false;
+    }
+    ProbeMask(ctx, proc);
+    return true;
+}
+
+static void ProbePaintFill(fz_context* ctx, pdf_processor* proc) {
+    if (ProbeBeforePaint(ctx, proc)) {
+        ProbeRunPattern(ctx, proc, ((PdfStrokeProbe*)proc)->state->fillPattern);
+    }
+}
+
+static void ProbeStroke(fz_context* ctx, pdf_processor* proc) {
+    auto* probe = (PdfStrokeProbe*)proc;
+    if (!ProbeBeforePaint(ctx, proc)) {
+        return;
+    }
+    if (probe->state->uncoloredStroke) {
+        probe->found = true;
+        fz_throw(ctx, FZ_ERROR_ABORT, "uncolored pattern stroke detected");
+    }
+    ProbeRunPattern(ctx, proc, probe->state->strokePattern);
+}
+
+static void ProbePaintBoth(fz_context* ctx, pdf_processor* proc) {
+    ProbeStroke(ctx, proc);
+    ProbePaintFill(ctx, proc);
+}
+
+static void ProbeStrokePattern(fz_context* ctx, pdf_processor* proc, const char*, pdf_pattern* pattern, int n, float*) {
+    ProbeTick(ctx, proc);
+    auto* state = ((PdfStrokeProbe*)proc)->state;
+    state->uncoloredStroke = n > 0;
+    pdf_keep_pattern(ctx, pattern);
+    pdf_drop_pattern(ctx, state->strokePattern);
+    state->strokePattern = pattern;
+    state->maskChecked = false;
+}
+
+static void ProbeStrokeSpace(fz_context* ctx, pdf_processor* proc, const char*, fz_colorspace*) {
+    ProbeTick(ctx, proc);
+    auto* state = ((PdfStrokeProbe*)proc)->state;
+    state->uncoloredStroke = false;
+    pdf_drop_pattern(ctx, state->strokePattern);
+    state->strokePattern = nullptr;
+    state->maskChecked = false;
+}
+
+static void ProbeFillSpace(fz_context* ctx, pdf_processor* proc, const char*, fz_colorspace*) {
+    ProbeTick(ctx, proc);
+    auto* state = ((PdfStrokeProbe*)proc)->state;
+    pdf_drop_pattern(ctx, state->fillPattern);
+    state->fillPattern = nullptr;
+    state->maskChecked = false;
+}
+
+static void ProbeFillGray(fz_context* ctx, pdf_processor* proc, float) {
+    ProbeFillSpace(ctx, proc, nullptr, nullptr);
+}
+
+static void ProbeFillRgb(fz_context* ctx, pdf_processor* proc, float, float, float) {
+    ProbeFillSpace(ctx, proc, nullptr, nullptr);
+}
+
+static void ProbeFillCmyk(fz_context* ctx, pdf_processor* proc, float, float, float, float) {
+    ProbeFillSpace(ctx, proc, nullptr, nullptr);
+}
+
+static void ProbeFillColor(fz_context* ctx, pdf_processor* proc, int, float*) {
+    ProbeFillSpace(ctx, proc, nullptr, nullptr);
+}
+
+static void ProbeFillShade(fz_context* ctx, pdf_processor* proc, const char*, fz_shade*) {
+    ProbeFillSpace(ctx, proc, nullptr, nullptr);
+}
+
+static void ProbeStrokeGray(fz_context* ctx, pdf_processor* proc, float) {
+    ProbeStrokeSpace(ctx, proc, nullptr, nullptr);
+}
+
+static void ProbeStrokeRgb(fz_context* ctx, pdf_processor* proc, float, float, float) {
+    ProbeStrokeSpace(ctx, proc, nullptr, nullptr);
+}
+
+static void ProbeStrokeCmyk(fz_context* ctx, pdf_processor* proc, float, float, float, float) {
+    ProbeStrokeSpace(ctx, proc, nullptr, nullptr);
+}
+
+static void ProbeStrokeColor(fz_context* ctx, pdf_processor* proc, int, float*) {
+    ProbeStrokeSpace(ctx, proc, nullptr, nullptr);
+}
+
+static void ProbeStrokeShade(fz_context* ctx, pdf_processor* proc, const char*, fz_shade*) {
+    ProbeStrokeSpace(ctx, proc, nullptr, nullptr);
+}
+
+enum class ProbeScope {
+    Inherit,
+    Pattern,
+    WithoutMask,
+};
+
+static void ProbeStream(fz_context* ctx, pdf_processor* proc, pdf_obj* resources, pdf_obj* contents, ProbeScope scope) {
+    auto* probe = (PdfStrokeProbe*)proc;
+    pdf_cycle_list cycle;
+    if (pdf_cycle(ctx, &cycle, probe->cycle, contents)) {
+        return;
+    }
+    if (probe->depth >= kMaxProbeDepth) {
+        fz_throw(ctx, FZ_ERROR_LIMIT, "pattern probe nesting limit");
+    }
+    auto* savedCycle = probe->cycle;
+    if (!resources && proc->rstack) {
+        resources = proc->rstack->resources;
+    }
+    ProbeSave(ctx, proc);
+    if (scope != ProbeScope::Inherit) {
+        pdf_drop_obj(ctx, probe->state->mask);
+        probe->state->mask = nullptr;
+    }
+    if (scope == ProbeScope::Pattern) {
+        ProbeStrokeSpace(ctx, proc, nullptr, nullptr);
+        ProbeFillSpace(ctx, proc, nullptr, nullptr);
+    }
+    probe->cycle = &cycle;
+    probe->depth++;
+    fz_try(ctx) {
+        pdf_process_contents(ctx, proc, probe->doc, resources, contents, nullptr, nullptr);
+    }
+    fz_always(ctx) {
+        probe->depth--;
+        probe->cycle = savedCycle;
+        ProbeRestore(ctx, proc);
+    }
+    fz_catch(ctx) {
+        fz_rethrow(ctx);
+    }
+}
+
+static void ProbeForm(fz_context* ctx, pdf_processor* proc, const char*, pdf_obj* form) {
+    bool group = pdf_name_eq(ctx, pdf_dict_get(ctx, pdf_dict_get(ctx, form, PDF_NAME(Group)), PDF_NAME(S)),
+                             PDF_NAME(Transparency));
+    if (group && !ProbeBeforePaint(ctx, proc)) {
+        return;
+    }
+    ProbeScope scope = group ? ProbeScope::WithoutMask : ProbeScope::Inherit;
+    ProbeStream(ctx, proc, pdf_dict_get(ctx, form, PDF_NAME(Resources)), form, scope);
+}
+
+static void ProbeMask(fz_context* ctx, pdf_processor* proc) {
+    auto* state = ((PdfStrokeProbe*)proc)->state;
+    if (state->mask && !state->maskChecked) {
+        state->maskChecked = true;
+        ProbeStream(ctx, proc, pdf_dict_get(ctx, state->mask, PDF_NAME(Resources)), state->mask,
+                    ProbeScope::WithoutMask);
+    }
+}
+
+static void ProbeSetMask(fz_context* ctx, pdf_processor* proc, pdf_obj* mask, fz_colorspace*, float*, int, pdf_obj*) {
+    auto* state = ((PdfStrokeProbe*)proc)->state;
+    pdf_keep_obj(ctx, mask);
+    pdf_drop_obj(ctx, state->mask);
+    state->mask = mask;
+    state->maskChecked = false;
+}
+
+static void ProbeImage(fz_context* ctx, pdf_processor* proc, const char* name, fz_image*) {
+    if (!ProbeBeforePaint(ctx, proc)) {
+        return;
+    }
+    pdf_obj* image = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(XObject), name);
+    if (pdf_dict_get_bool(ctx, image, PDF_NAME(ImageMask))) {
+        ProbePaintFill(ctx, proc);
+    }
+}
+
+static void ProbeInlineImage(fz_context* ctx, pdf_processor* proc, fz_image* image, const char*) {
+    if (image && image->imagemask) {
+        ProbePaintFill(ctx, proc);
+    } else {
+        ProbeBeforePaint(ctx, proc);
+    }
+}
+
+static void ProbeShade(fz_context* ctx, pdf_processor* proc, const char*, fz_shade*) {
+    ProbeBeforePaint(ctx, proc);
+}
+
+static void ProbeRunPattern(fz_context* ctx, pdf_processor* proc, pdf_pattern* pattern) {
+    if (pattern) {
+        ProbeStream(ctx, proc, pattern->resources, pattern->contents, ProbeScope::Pattern);
+    }
+}
+
+static void ProbeFillPattern(fz_context* ctx, pdf_processor* proc, const char*, pdf_pattern* pattern, int, float*) {
+    auto* state = ((PdfStrokeProbe*)proc)->state;
+    pdf_keep_pattern(ctx, pattern);
+    pdf_drop_pattern(ctx, state->fillPattern);
+    state->fillPattern = pattern;
+    state->maskChecked = false;
+}
+
+static void ProbeFont(fz_context* ctx, pdf_processor* proc, const char*, pdf_font_desc* font, float) {
+    auto* state = ((PdfStrokeProbe*)proc)->state;
+    pdf_keep_font(ctx, font);
+    pdf_drop_font(ctx, state->font);
+    state->font = font;
+    state->maskChecked = false;
+}
+
+static void ProbeTextMode(fz_context*, pdf_processor* proc, int mode) {
+    ((PdfStrokeProbe*)proc)->state->textMode = mode % kTextClipMode;
+    ((PdfStrokeProbe*)proc)->state->maskChecked = false;
+}
+
+static void ProbeText(fz_context* ctx, pdf_processor* proc, char* text, size_t size) {
+    auto* probe = (PdfStrokeProbe*)proc;
+    ProbeTick(ctx, proc);
+    if (proc->hidden) {
+        return;
+    }
+    int mode = probe->state->textMode;
+    if (mode == kTextFillMode || mode == kTextFillStrokeMode) {
+        ProbePaintFill(ctx, proc);
+    }
+    if (mode == kTextStrokeMode || mode == kTextFillStrokeMode) {
+        ProbeStroke(ctx, proc);
+    }
+    pdf_font_desc* font = probe->state->font;
+    if (mode == kTextInvisibleMode || !font || !font->font->t3procs) {
+        return;
+    }
+    if (probe->depth >= kMaxProbeDepth) {
+        fz_throw(ctx, FZ_ERROR_LIMIT, "pattern probe glyph nesting limit");
+    }
+    auto* at = (unsigned char*)text;
+    auto* end = at + size;
+    while (at < end) {
+        unsigned int code;
+        int n = pdf_decode_cmap(font->encoding, at, end, &code);
+        if (n <= 0) {
+            break;
+        }
+        at += n;
+        int cid = pdf_lookup_cmap(font->encoding, code);
+        int gid = cid < 0 ? -1 : pdf_font_cid_to_gid(ctx, font, cid);
+        constexpr int kType3GlyphCount = 256;
+        if (gid < 0 || gid >= kType3GlyphCount || !font->font->t3procs[gid]) {
+            continue;
+        }
+        ProbeSave(ctx, proc);
+        probe->depth++;
+        fz_try(ctx) {
+            pdf_process_glyph(ctx, proc, probe->doc, (pdf_obj*)font->font->t3resources, font->font->t3procs[gid]);
+        }
+        fz_always(ctx) {
+            probe->depth--;
+            ProbeRestore(ctx, proc);
+        }
+        fz_catch(ctx) {
+            fz_rethrow(ctx);
+        }
+    }
+}
+
+static void ProbeTextArray(fz_context* ctx, pdf_processor* proc, pdf_obj* array) {
+    for (int i = 0; i < pdf_array_len(ctx, array); i++) {
+        pdf_obj* text = pdf_array_get(ctx, array, i);
+        if (pdf_is_string(ctx, text)) {
+            ProbeText(ctx, proc, pdf_to_str_buf(ctx, text), pdf_to_str_len(ctx, text));
+        }
+    }
+}
+
+static void ProbeTextQuote(fz_context* ctx, pdf_processor* proc, float, float, char* text, size_t size) {
+    ProbeText(ctx, proc, text, size);
+}
+
+static void DropStrokeProbe(fz_context* ctx, pdf_processor* proc) {
+    auto* probe = (PdfStrokeProbe*)proc;
+    while (probe->state) {
+        auto* state = probe->state;
+        probe->state = state->next;
+        pdf_drop_font(ctx, state->font);
+        pdf_drop_pattern(ctx, state->strokePattern);
+        pdf_drop_pattern(ctx, state->fillPattern);
+        pdf_drop_obj(ctx, state->mask);
+        fz_free(ctx, state);
+    }
+}
+
+static void ResetProbeState(fz_context* ctx, PdfStrokeProbe* probe) {
+    ProbeStrokeSpace(ctx, &probe->super, nullptr, nullptr);
+    ProbeFillSpace(ctx, &probe->super, nullptr, nullptr);
+    probe->state->textMode = kTextFillMode;
+    pdf_drop_font(ctx, probe->state->font);
+    probe->state->font = nullptr;
+    pdf_drop_obj(ctx, probe->state->mask);
+    probe->state->mask = nullptr;
+}
+
+struct PdfRenderProbe {
+    PdfRenderSource source;
+    PdfStreamInput input;
+    fz_context* ctx = nullptr;
+    fz_stream* stream = nullptr;
+    pdf_document* doc = nullptr;
+};
+
+void DeletePdfRenderProbe(PdfRenderProbe* probe) {
+    if (!probe) {
+        return;
+    }
+    if (probe->ctx) {
+        pdf_drop_document(probe->ctx, probe->doc);
+        fz_drop_stream(probe->ctx, probe->stream);
+        fz_drop_context(probe->ctx);
+    }
+    delete probe;
+}
+
+PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password) {
+    auto* probe = new PdfRenderProbe();
+    probe->source = source;
+    probe->input.source = &probe->source;
+    probe->ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = probe->ctx;
+    if (!ctx) {
+        delete probe;
+        return nullptr;
+    }
+    install_load_windows_font_funcs(ctx);
+    InstallEmbeddedFontLoader();
+    fz_try(ctx) {
+        probe->stream = fz_new_stream(ctx, &probe->input, PdfStreamNext, nullptr);
+        probe->stream->seek = PdfStreamSeek;
+        probe->doc = pdf_open_document_with_stream(ctx, probe->stream);
+        if (pdf_needs_password(ctx, probe->doc) && !pdf_authenticate_password(ctx, probe->doc, CStrTemp(password))) {
+            fz_throw(ctx, FZ_ERROR_ARGUMENT, "wrong password");
+        }
+        CheckPdfCancel(ctx, &source);
+    }
+    fz_catch(ctx) {
+        if (source.isCanceled && source.isCanceled(source.cancelData)) {
+            fz_ignore_error(ctx);
+        } else {
+            fz_report_error(ctx);
+        }
+        DeletePdfRenderProbe(probe);
+        return nullptr;
+    }
+    probe->source.isCanceled = nullptr;
+    probe->source.cancelData = nullptr;
+    return probe;
+}
+
+static bool HasStrokePattern(fz_context* ctx, pdf_obj* resources, const PdfRenderSource& source,
+                             pdf_cycle_list* parent = nullptr, int depth = 0) {
+    CheckPdfCancel(ctx, &source);
+    pdf_cycle_list cycle;
+    if (!resources || pdf_cycle(ctx, &cycle, parent, resources)) {
+        return false;
+    }
+    if (depth >= kMaxProbeDepth) {
+        fz_throw(ctx, FZ_ERROR_LIMIT, "pattern resource nesting limit");
+    }
+    pdf_obj* patterns = pdf_dict_get(ctx, resources, PDF_NAME(Pattern));
+    for (int i = 0; i < pdf_dict_len(ctx, patterns); i++) {
+        pdf_obj* pattern = pdf_dict_get_val(ctx, patterns, i);
+        if (pdf_dict_get_int(ctx, pattern, PDF_NAME(PatternType)) == kTilingPattern &&
+            pdf_dict_get_int(ctx, pattern, PDF_NAME(PaintType)) == kUncoloredPattern) {
+            return true;
+        }
+        if (HasStrokePattern(ctx, pdf_dict_get(ctx, pattern, PDF_NAME(Resources)), source, &cycle, depth + 1)) {
+            return true;
+        }
+    }
+    pdf_obj* objects = pdf_dict_get(ctx, resources, PDF_NAME(XObject));
+    for (int i = 0; i < pdf_dict_len(ctx, objects); i++) {
+        pdf_obj* object = pdf_dict_get_val(ctx, objects, i);
+        if (pdf_name_eq(ctx, pdf_dict_get(ctx, object, PDF_NAME(Subtype)), PDF_NAME(Form)) &&
+            HasStrokePattern(ctx, pdf_dict_get(ctx, object, PDF_NAME(Resources)), source, &cycle, depth + 1)) {
+            return true;
+        }
+    }
+    pdf_obj* fonts = pdf_dict_get(ctx, resources, PDF_NAME(Font));
+    for (int i = 0; i < pdf_dict_len(ctx, fonts); i++) {
+        if (HasStrokePattern(ctx, pdf_dict_get(ctx, pdf_dict_get_val(ctx, fonts, i), PDF_NAME(Resources)), source,
+                             &cycle, depth + 1)) {
+            return true;
+        }
+    }
+    pdf_obj* states = pdf_dict_get(ctx, resources, PDF_NAME(ExtGState));
+    for (int i = 0; i < pdf_dict_len(ctx, states); i++) {
+        pdf_obj* state = pdf_dict_get_val(ctx, states, i);
+        pdf_obj* mask = pdf_dict_get(ctx, pdf_dict_get(ctx, state, PDF_NAME(SMask)), PDF_NAME(G));
+        pdf_obj* font = pdf_array_get(ctx, pdf_dict_get(ctx, state, PDF_NAME(Font)), 0);
+        if (HasStrokePattern(ctx, pdf_dict_get(ctx, mask, PDF_NAME(Resources)), source, &cycle, depth + 1) ||
+            HasStrokePattern(ctx, pdf_dict_get(ctx, font, PDF_NAME(Resources)), source, &cycle, depth + 1)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Reuse the parsed document; pages without pattern resources need no content scan.
+PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* state, const PdfRenderSource& source, int pageNo) {
+    if (!state) {
+        return {};
+    }
+    state->source = source;
+    fz_context* ctx = state->ctx;
+    pdf_document* doc = state->doc;
+    pdf_page* page = nullptr;
+    PdfStrokeProbe* probe = nullptr;
+    PdfRenderCheck result;
+    fz_var(page);
+    fz_var(probe);
+    fz_var(result);
+    fz_try(ctx) {
+        page = pdf_load_page(ctx, doc, pageNo - 1);
+        probe = (PdfStrokeProbe*)pdf_new_processor(ctx, sizeof(PdfStrokeProbe));
+        probe->doc = doc;
+        probe->source = &source;
+        probe->super.drop_processor = DropStrokeProbe;
+        probe->super.op_q = ProbeSave;
+        probe->super.op_Q = ProbeRestore;
+        ProbeSave(ctx, &probe->super);
+        probe->super.op_SC_pattern = ProbeStrokePattern;
+        probe->super.op_sc_pattern = ProbeFillPattern;
+        probe->super.op_CS = ProbeStrokeSpace;
+        probe->super.op_cs = ProbeFillSpace;
+        probe->super.op_g = ProbeFillGray;
+        probe->super.op_rg = ProbeFillRgb;
+        probe->super.op_k = ProbeFillCmyk;
+        probe->super.op_sc_color = ProbeFillColor;
+        probe->super.op_sc_shade = ProbeFillShade;
+        probe->super.op_G = ProbeStrokeGray;
+        probe->super.op_RG = ProbeStrokeRgb;
+        probe->super.op_K = ProbeStrokeCmyk;
+        probe->super.op_SC_color = ProbeStrokeColor;
+        probe->super.op_SC_shade = ProbeStrokeShade;
+        probe->super.op_Do_form = ProbeForm;
+        probe->super.op_Do_image = ProbeImage;
+        probe->super.op_BI = ProbeInlineImage;
+        probe->super.op_sh = ProbeShade;
+        probe->super.op_gs_SMask = ProbeSetMask;
+        probe->super.op_Tf = ProbeFont;
+        probe->super.op_Tr = ProbeTextMode;
+        probe->super.op_Tj = probe->super.op_squote = ProbeText;
+        probe->super.op_TJ = ProbeTextArray;
+        probe->super.op_dquote = ProbeTextQuote;
+        probe->super.op_S = probe->super.op_s = ProbeStroke;
+        probe->super.op_B = probe->super.op_Bstar = ProbePaintBoth;
+        probe->super.op_b = probe->super.op_bstar = ProbePaintBoth;
+        probe->super.op_f = probe->super.op_F = probe->super.op_fstar = ProbePaintFill;
+        pdf_obj* resources = pdf_page_resources(ctx, page);
+        if (HasStrokePattern(ctx, resources, source)) {
+            result.scannedContents = true;
+            pdf_process_contents(ctx, &probe->super, doc, resources, pdf_page_contents(ctx, page), nullptr, nullptr);
+        }
+        for (pdf_annot* annot = pdf_first_annot(ctx, page); annot; annot = pdf_next_annot(ctx, annot)) {
+            ResetProbeState(ctx, probe);
+            if (HasStrokePattern(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, annot), PDF_NAME(Resources)), source)) {
+                result.scannedContents = true;
+                pdf_process_annot(ctx, &probe->super, annot, nullptr);
+            }
+        }
+        for (pdf_annot* widget = pdf_first_widget(ctx, page); widget; widget = pdf_next_widget(ctx, widget)) {
+            ResetProbeState(ctx, probe);
+            if (HasStrokePattern(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, widget), PDF_NAME(Resources)), source)) {
+                result.scannedContents = true;
+                pdf_process_annot(ctx, &probe->super, widget, nullptr);
+            }
+        }
+        CheckPdfCancel(ctx, &source);
+        pdf_close_processor(ctx, &probe->super);
+        result.route = PdfRenderRoute::Pdfium;
+    }
+    fz_catch(ctx) {
+        if (probe && probe->found) {
+            fz_ignore_error(ctx);
+            result.route = PdfRenderRoute::Mupdf;
+        } else if (source.isCanceled && source.isCanceled(source.cancelData)) {
+            fz_ignore_error(ctx);
+            result.route = PdfRenderRoute::Unchecked;
+        } else if (fz_caught(ctx) == FZ_ERROR_LIMIT) {
+            fz_ignore_error(ctx);
+            result.route = PdfRenderRoute::Mupdf;
+        } else {
+            fz_report_error(ctx);
+        }
+    }
+    pdf_close_processor(ctx, probe ? &probe->super : nullptr);
+    pdf_drop_processor(ctx, probe ? &probe->super : nullptr);
+    fz_drop_page(ctx, (fz_page*)page);
+    state->source.isCanceled = nullptr;
+    state->source.cancelData = nullptr;
+    return result;
 }
 
 static void ThemePdfMapRgb(const DarkModeProfile& profile, const float* input, float* output) {
@@ -5907,7 +6478,7 @@ static void ThemePdfMapRgb(const DarkModeProfile& profile, const float* input, f
 
 static void ThemePdfColor(fz_context* ctx, void* opaque, pdf_obj** cs, int* n, float color[FZ_MAX_COLORS]) {
     auto* colors = (ThemePdfColors*)opaque;
-    ThemePdfCheck(ctx, colors->source);
+    CheckPdfCancel(ctx, colors->source);
     auto& profile = *colors->profile;
     int patternType = pdf_dict_get_int(ctx, *cs, PDF_NAME(PatternType));
     if (patternType == 1 && *n == 3) {
@@ -5937,7 +6508,7 @@ static void ThemePdfColor(fz_context* ctx, void* opaque, pdf_obj** cs, int* n, f
 static void ThemePdfVertex(fz_context* ctx, void* opaque, fz_colorspace*, float* output, fz_colorspace* source,
                            const float* color) {
     auto* colors = (ThemePdfColors*)opaque;
-    ThemePdfCheck(ctx, colors->source);
+    CheckPdfCancel(ctx, colors->source);
     float rgb[3]{};
     fz_convert_color(ctx, source, color, fz_device_rgb(ctx), rgb, nullptr, fz_default_color_params);
     ThemePdfMapRgb(*colors->profile, rgb, output);
@@ -6030,7 +6601,7 @@ static void ThemePdfWidget(fz_context* ctx, pdf_document* doc, pdf_annot* widget
     }
 }
 
-PdfThemeSnapshot PdfThemePageMupdf(const PdfThemeSource& source, Str password, int pageNo,
+PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, int pageNo,
                                    const DarkModeProfile& profile) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
@@ -6041,7 +6612,7 @@ PdfThemeSnapshot PdfThemePageMupdf(const PdfThemeSource& source, Str password, i
     pdf_page* page = nullptr;
     fz_buffer* buffer = nullptr;
     fz_output* writer = nullptr;
-    ThemePdfInput input{&source};
+    PdfStreamInput input{&source};
     ThemePdfOutput output{};
     ThemePdfColors colorContext{&profile, &source};
     PdfThemeSnapshot result;
@@ -6052,8 +6623,8 @@ PdfThemeSnapshot PdfThemePageMupdf(const PdfThemeSource& source, Str password, i
     fz_var(writer);
     fz_var(result);
     fz_try(ctx) {
-        stream = fz_new_stream(ctx, &input, ThemePdfNext, nullptr);
-        stream->seek = ThemePdfSeek;
+        stream = fz_new_stream(ctx, &input, PdfStreamNext, nullptr);
+        stream->seek = PdfStreamSeek;
         doc = pdf_open_document_with_stream(ctx, stream);
         if (pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, CStrTemp(password))) {
             fz_throw(ctx, FZ_ERROR_ARGUMENT, "wrong password");
@@ -7375,8 +7946,9 @@ static void ClearRenderedPagePixmap(fz_context* ctx, fz_pixmap* pix, const Rende
     }
 }
 
-struct ThemeDrawDevice {
+struct PdfDrawDevice {
     fz_device super;
+    bool recolor;
     Color text;
     Color background;
     Color link;
@@ -7384,26 +7956,36 @@ struct ThemeDrawDevice {
     fz_irect bounds;
     int maskDepth;
     int imageClipDepth;
-#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-    const PdfThemeSource* cancelSource;
-#endif
+    const PdfRenderSource* cancelSource;
 };
 
-static void ThemeCheckCancel([[maybe_unused]] fz_context* ctx, [[maybe_unused]] fz_device* dev) {
+static void CheckDrawCancel([[maybe_unused]] fz_context* ctx, [[maybe_unused]] fz_device* dev) {
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-    auto* theme = (ThemeDrawDevice*)dev;
+    auto* theme = (PdfDrawDevice*)dev;
     if (theme->cancelSource) {
-        ThemePdfCheck(ctx, theme->cancelSource);
+        CheckPdfCancel(ctx, theme->cancelSource);
     }
 #endif
 }
 
-static bool ThemeInMask(fz_device* dev) {
-    auto* theme = (ThemeDrawDevice*)dev;
-    return theme->maskDepth || theme->imageClipDepth;
+static bool KeepDrawColor(fz_device* dev) {
+    auto* theme = (PdfDrawDevice*)dev;
+    return !theme->recolor || theme->maskDepth || theme->imageClipDepth;
 }
 
-static void ThemeDrawColor(fz_context* ctx, ThemeDrawDevice* dev, fz_colorspace* cs, const float* color,
+static void PdfFillImage(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix m, float alpha,
+                         fz_color_params params) {
+    CheckDrawCancel(ctx, dev);
+    fz_fill_image(ctx, dev->passthrough, image, m, alpha, params);
+}
+
+static void PdfFillImageMask(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix m, fz_colorspace* cs,
+                             const float* color, float alpha, fz_color_params params) {
+    CheckDrawCancel(ctx, dev);
+    fz_fill_image_mask(ctx, dev->passthrough, image, m, cs, color, alpha, params);
+}
+
+static void ThemeDrawColor(fz_context* ctx, PdfDrawDevice* dev, fz_colorspace* cs, const float* color,
                            fz_color_params params, float* result) {
     float rgb[3] = {};
     if (cs && color) {
@@ -7418,37 +8000,37 @@ static void ThemeDrawColor(fz_context* ctx, ThemeDrawDevice* dev, fz_colorspace*
 
 static void ThemeFillPath(fz_context* ctx, fz_device* d, const fz_path* path, int evenOdd, fz_matrix m,
                           fz_colorspace* cs, const float* color, float alpha, fz_color_params params) {
-    ThemeCheckCancel(ctx, d);
-    if (ThemeInMask(d)) {
+    CheckDrawCancel(ctx, d);
+    if (KeepDrawColor(d)) {
         fz_fill_path(ctx, d->passthrough, path, evenOdd, m, cs, color, alpha, params);
         return;
     }
     float rgb[3];
-    ThemeDrawColor(ctx, (ThemeDrawDevice*)d, cs, color, params, rgb);
+    ThemeDrawColor(ctx, (PdfDrawDevice*)d, cs, color, params, rgb);
     fz_fill_path(ctx, d->passthrough, path, evenOdd, m, fz_device_rgb(ctx), rgb, alpha, params);
 }
 
 static void ThemeStrokePath(fz_context* ctx, fz_device* d, const fz_path* path, const fz_stroke_state* stroke,
                             fz_matrix m, fz_colorspace* cs, const float* color, float alpha, fz_color_params params) {
-    ThemeCheckCancel(ctx, d);
-    if (ThemeInMask(d)) {
+    CheckDrawCancel(ctx, d);
+    if (KeepDrawColor(d)) {
         fz_stroke_path(ctx, d->passthrough, path, stroke, m, cs, color, alpha, params);
         return;
     }
     float rgb[3];
-    ThemeDrawColor(ctx, (ThemeDrawDevice*)d, cs, color, params, rgb);
+    ThemeDrawColor(ctx, (PdfDrawDevice*)d, cs, color, params, rgb);
     fz_stroke_path(ctx, d->passthrough, path, stroke, m, fz_device_rgb(ctx), rgb, alpha, params);
 }
 
 static void ThemeFillText(fz_context* ctx, fz_device* d, const fz_text* text, fz_matrix m, fz_colorspace* cs,
                           const float* color, float alpha, fz_color_params params) {
-    ThemeCheckCancel(ctx, d);
-    if (ThemeInMask(d)) {
+    CheckDrawCancel(ctx, d);
+    if (KeepDrawColor(d)) {
         fz_fill_text(ctx, d->passthrough, text, m, cs, color, alpha, params);
         return;
     }
     float rgb[3];
-    ThemeDrawColor(ctx, (ThemeDrawDevice*)d, cs, color, params, rgb);
+    ThemeDrawColor(ctx, (PdfDrawDevice*)d, cs, color, params, rgb);
     bool hasType3 = false;
     for (fz_text_span* span = text->head; span; span = span->next) {
         if (span->font->t3procs && span->font->t3flags) {
@@ -7501,21 +8083,21 @@ static void ThemeFillText(fz_context* ctx, fz_device* d, const fz_text* text, fz
 
 static void ThemeStrokeText(fz_context* ctx, fz_device* d, const fz_text* text, const fz_stroke_state* stroke,
                             fz_matrix m, fz_colorspace* cs, const float* color, float alpha, fz_color_params params) {
-    ThemeCheckCancel(ctx, d);
-    if (ThemeInMask(d)) {
+    CheckDrawCancel(ctx, d);
+    if (KeepDrawColor(d)) {
         fz_stroke_text(ctx, d->passthrough, text, stroke, m, cs, color, alpha, params);
         return;
     }
     float rgb[3];
-    ThemeDrawColor(ctx, (ThemeDrawDevice*)d, cs, color, params, rgb);
+    ThemeDrawColor(ctx, (PdfDrawDevice*)d, cs, color, params, rgb);
     fz_stroke_text(ctx, d->passthrough, text, stroke, m, fz_device_rgb(ctx), rgb, alpha, params);
 }
 
 static void ThemeFillShade(fz_context* ctx, fz_device* d, fz_shade* shade, fz_matrix m, float alpha,
                            fz_color_params params) {
-    ThemeCheckCancel(ctx, d);
-    auto* theme = (ThemeDrawDevice*)d;
-    if (ThemeInMask(d)) {
+    CheckDrawCancel(ctx, d);
+    auto* theme = (PdfDrawDevice*)d;
+    if (KeepDrawColor(d)) {
         fz_fill_shade(ctx, d->passthrough, shade, m, alpha, params);
         return;
     }
@@ -7585,12 +8167,12 @@ static void ThemeFillShade(fz_context* ctx, fz_device* d, fz_shade* shade, fz_ma
 
 static void ThemeBeginMask(fz_context* ctx, fz_device* d, fz_rect area, int luminosity, fz_colorspace* cs,
                            const float* color, fz_color_params params) {
-    ((ThemeDrawDevice*)d)->maskDepth++;
+    ((PdfDrawDevice*)d)->maskDepth++;
     fz_begin_mask(ctx, d->passthrough, area, luminosity, cs, color, params);
 }
 
 static void ThemeEndMask(fz_context* ctx, fz_device* d, fz_function* fn) {
-    auto* theme = (ThemeDrawDevice*)d;
+    auto* theme = (PdfDrawDevice*)d;
     if (theme->imageClipDepth) {
         theme->imageClipDepth++;
     }
@@ -7599,7 +8181,7 @@ static void ThemeEndMask(fz_context* ctx, fz_device* d, fz_function* fn) {
 }
 
 static void ThemePushClip(fz_device* d) {
-    auto* theme = (ThemeDrawDevice*)d;
+    auto* theme = (PdfDrawDevice*)d;
     if (theme->imageClipDepth) {
         theme->imageClipDepth++;
     }
@@ -7607,12 +8189,14 @@ static void ThemePushClip(fz_device* d) {
 
 static void ThemeClipPath(fz_context* ctx, fz_device* d, const fz_path* path, int evenOdd, fz_matrix m,
                           fz_rect scissor) {
+    CheckDrawCancel(ctx, d);
     ThemePushClip(d);
     fz_clip_path(ctx, d->passthrough, path, evenOdd, m, scissor);
 }
 
 static void ThemeClipStrokePath(fz_context* ctx, fz_device* d, const fz_path* path, const fz_stroke_state* stroke,
                                 fz_matrix m, fz_rect scissor) {
+    CheckDrawCancel(ctx, d);
     ThemePushClip(d);
     fz_clip_stroke_path(ctx, d->passthrough, path, stroke, m, scissor);
 }
@@ -7629,12 +8213,12 @@ static void ThemeClipStrokeText(fz_context* ctx, fz_device* d, const fz_text* te
 }
 
 static void ThemeClipImageMask(fz_context* ctx, fz_device* d, fz_image* image, fz_matrix m, fz_rect scissor) {
-    ((ThemeDrawDevice*)d)->imageClipDepth++;
+    ((PdfDrawDevice*)d)->imageClipDepth++;
     fz_clip_image_mask(ctx, d->passthrough, image, m, scissor);
 }
 
 static void ThemePopClip(fz_context* ctx, fz_device* d) {
-    auto* theme = (ThemeDrawDevice*)d;
+    auto* theme = (PdfDrawDevice*)d;
     if (theme->imageClipDepth) {
         theme->imageClipDepth--;
     }
@@ -7642,19 +8226,26 @@ static void ThemePopClip(fz_context* ctx, fz_device* d) {
 }
 
 static int ThemeBeginTile(fz_context* ctx, fz_device* d, fz_rect area, fz_rect view, float xstep, float ystep,
-                          fz_matrix m, int, int docId) {
-    return fz_begin_tile_tid(ctx, d->passthrough, area, view, xstep, ystep, m, 0, docId);
+                          fz_matrix m, int id, int docId) {
+    CheckDrawCancel(ctx, d);
+    int tileId = ((PdfDrawDevice*)d)->recolor ? 0 : id;
+    return fz_begin_tile_tid(ctx, d->passthrough, area, view, xstep, ystep, m, tileId, docId);
 }
 
-static fz_device* ThemeDrawWrap(fz_context* ctx, fz_device* target, const DarkModeProfile* profile, fz_matrix view,
-                                fz_irect bounds) {
-    if (!profile || profile->mode != PageColorMode::PreserveImages) {
+static fz_device* PdfDrawWrap(fz_context* ctx, fz_device* target, const DarkModeProfile* profile, fz_matrix view,
+                              fz_irect bounds, const PdfRenderSource* source = nullptr) {
+    bool recolor = profile && profile->mode == PageColorMode::PreserveImages;
+    if (!recolor && !source) {
         return target;
     }
-    auto* dev = fz_new_derived_passthrough_device(ctx, target, ThemeDrawDevice);
-    dev->text = profile->foreground;
-    dev->background = profile->pageBackground;
-    dev->link = profile->linkColor;
+    auto* dev = fz_new_derived_passthrough_device(ctx, target, PdfDrawDevice);
+    dev->recolor = recolor;
+    dev->cancelSource = source;
+    if (recolor) {
+        dev->text = profile->foreground;
+        dev->background = profile->pageBackground;
+        dev->link = profile->linkColor;
+    }
     dev->view = view;
     dev->bounds = bounds;
     dev->super.fill_path = ThemeFillPath;
@@ -7662,6 +8253,8 @@ static fz_device* ThemeDrawWrap(fz_context* ctx, fz_device* target, const DarkMo
     dev->super.fill_text = ThemeFillText;
     dev->super.stroke_text = ThemeStrokeText;
     dev->super.fill_shade = ThemeFillShade;
+    dev->super.fill_image = PdfFillImage;
+    dev->super.fill_image_mask = PdfFillImageMask;
     dev->super.begin_mask = ThemeBeginMask;
     dev->super.end_mask = ThemeEndMask;
     dev->super.clip_path = ThemeClipPath;
@@ -7702,9 +8295,9 @@ static void UnhookAbortedDevices(fz_device* drawDev, fz_device* outer) {
 }
 
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-bool PdfThemeRenderMupdf(const PdfThemeSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
-                         const DarkModeProfile& profile, PdfThemeParts parts, RenderTarget target,
-                         PdfThemeAntialias antialias) {
+bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
+                    const DarkModeProfile* profile, PdfRenderParts parts, RenderTarget target,
+                    PdfRenderAntialias antialias) {
     if (!pixmap || pixmap->format != PixmapFormat::BGRA8) {
         return false;
     }
@@ -7714,8 +8307,8 @@ bool PdfThemeRenderMupdf(const PdfThemeSource& source, Str password, int pageNo,
     }
     install_load_windows_font_funcs(ctx);
     InstallEmbeddedFontLoader();
-    fz_set_aa_level(ctx, antialias == PdfThemeAntialias::Disabled || target == RenderTarget::Print ? 0 : 8);
-    ThemePdfInput input{&source};
+    fz_set_aa_level(ctx, antialias == PdfRenderAntialias::Disabled || target == RenderTarget::Print ? 0 : 8);
+    PdfStreamInput input{&source};
     fz_stream* stream = nullptr;
     pdf_document* doc = nullptr;
     pdf_page* page = nullptr;
@@ -7731,8 +8324,8 @@ bool PdfThemeRenderMupdf(const PdfThemeSource& source, Str password, int pageNo,
     fz_var(drawDev);
     fz_var(ok);
     fz_try(ctx) {
-        stream = fz_new_stream(ctx, &input, ThemePdfNext, nullptr);
-        stream->seek = ThemePdfSeek;
+        stream = fz_new_stream(ctx, &input, PdfStreamNext, nullptr);
+        stream->seek = PdfStreamSeek;
         doc = pdf_open_document_with_stream(ctx, stream);
         if (pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, CStrTemp(password))) {
             fz_throw(ctx, FZ_ERROR_ARGUMENT, "wrong password");
@@ -7741,19 +8334,18 @@ bool PdfThemeRenderMupdf(const PdfThemeSource& source, Str password, int pageNo,
         pix = fz_new_pixmap_with_data(ctx, fz_device_bgr(ctx), pixmap->width, pixmap->height, nullptr, 1,
                                       pixmap->stride, pixmap->data);
         drawDev = dev = fz_new_draw_device(ctx, fz_identity, pix);
-        if (antialias == PdfThemeAntialias::Disabled) {
+        if (antialias == PdfRenderAntialias::Disabled) {
             fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
         }
-        dev = ThemeDrawWrap(ctx, dev, &profile, fz_identity, fz_make_irect(0, 0, pixmap->width, pixmap->height));
-        ((ThemeDrawDevice*)dev)->cancelSource = &source;
+        dev = PdfDrawWrap(ctx, dev, profile, fz_identity, fz_make_irect(0, 0, pixmap->width, pixmap->height), &source);
         fz_matrix ctm = fz_make_matrix(m[0], m[1], m[2], m[3], m[4], m[5]);
         const char* usage = target == RenderTarget::Print ? "Print" : "View";
-        if (parts == PdfThemeParts::ContentsAndAnnotations) {
+        if (parts == PdfRenderParts::ContentsAndAnnotations) {
             pdf_run_page_with_usage(ctx, page, dev, ctm, usage, nullptr);
         } else {
             pdf_run_page_contents_with_usage(ctx, page, dev, ctm, usage, nullptr);
         }
-        ThemePdfCheck(ctx, &source);
+        CheckPdfCancel(ctx, &source);
         fz_close_device(ctx, dev);
         ok = true;
     }
@@ -7770,6 +8362,8 @@ bool PdfThemeRenderMupdf(const PdfThemeSource& source, Str password, int pageNo,
     fz_catch(ctx) {
         if (!source.isCanceled || !source.isCanceled(source.cancelData)) {
             fz_report_error(ctx);
+        } else {
+            fz_ignore_error(ctx);
         }
     }
     fz_drop_context(ctx);
@@ -7876,7 +8470,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             if (CadEnhanceActive()) {
                 dev = PdfCadEnhanceWrapDevice(ctx, dev);
             }
-            dev = ThemeDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
+            dev = PdfDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
             fz_run_display_list(ctx, keptList, dev, fz_identity, pRect, fzcookie);
             if (RenderAborted(fzcookie)) {
                 UnhookAbortedDevices(drawDev, dev);
@@ -7932,7 +8526,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             if (disableAntiAlias) {
                 fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
             }
-            dev = ThemeDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
+            dev = PdfDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
             if (hideAnnotations) {
                 pdf_run_page_contents_with_usage(ctx, pdfpage, dev, fz_identity, usageZ, fzcookie);
                 pdf_run_page_widgets_with_usage(ctx, pdfpage, dev, fz_identity, usageZ, fzcookie);
@@ -7968,7 +8562,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             pix = fz_new_pixmap_with_bbox(ctx, csRgb, ibounds, nullptr, 1);
             ClearRenderedPagePixmap(ctx, pix, args);
             dev = fz_new_draw_device(ctx, ctm, pix);
-            dev = ThemeDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
+            dev = PdfDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
             if (disableAntiAlias) {
                 fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
             }
@@ -8021,7 +8615,7 @@ bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6]
         pix = fz_new_pixmap_with_data(ctx, fz_device_bgr(ctx), pixmap->width, pixmap->height, nullptr, 1,
                                       pixmap->stride, pixmap->data);
         dev = fz_new_draw_device(ctx, fz_identity, pix);
-        dev = ThemeDrawWrap(ctx, dev, profile, fz_identity, fz_make_irect(0, 0, pixmap->width, pixmap->height));
+        dev = PdfDrawWrap(ctx, dev, profile, fz_identity, fz_make_irect(0, 0, pixmap->width, pixmap->height));
         fz_matrix ctm = fz_make_matrix(m[0], m[1], m[2], m[3], m[4], m[5]);
         if (page) {
             pdf_run_page_annots_with_usage(ctx, page, dev, ctm, usage, nullptr);

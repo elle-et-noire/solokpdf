@@ -10,6 +10,9 @@ import { captureWindowToPng, setProcessDpiAware } from "./winapi.ts";
 const kZooms = ["237.3", "313.7", "451.9", "666.6", "1234.5"];
 // pixels darker than this belong to a line
 const kInk = 200;
+const kPatternInk = 240;
+const kMaxPatternSpread = 1.25;
+const kBandGap = 3;
 // a line's center moves the same amount on every row; a tile off by a pixel breaks that
 const kMaxStepError = 0.5;
 // the canvas edge holds scrollbars and the page border; scan the middle only
@@ -17,14 +20,17 @@ const kMargin = 0.1;
 
 // 45-degree hairlines (one device pixel wide at any zoom, so a shift shows on a single row) every 12 pt
 function diagonalPdf(): string {
-  const ops = ["0 w"];
+  const patterns = process.env.SOLOKPDF_TEST_PATTERN_STROKES === "1";
+  const ops = [patterns ? "/PCS CS .3 /P SCN 0 w" : "0 w"];
+  const pattern = "0 0 10 10 re f";
   for (let x = -792; x <= 612; x += 12) ops.push(`${x} 0 m ${x + 792} 792 l S`);
   const content = ops.join("\n");
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>",
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R ${patterns ? "/Resources << /ColorSpace << /PCS [/Pattern /DeviceGray] >> /Pattern << /P 5 0 R >> >>" : ""} >>`,
     `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    `<< /Type /Pattern /PatternType 1 /PaintType 2 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >> /Length ${pattern.length} >>\nstream\n${pattern}\nendstream`,
   ]);
 }
 
@@ -38,7 +44,7 @@ RestoreSession = false
 RememberOpenedFiles = true
 RememberStatePerDocument = true
 ShowStartPage = false
-${process.env.SOLOKPDF_TEST_THEME_FALLBACK ? "Theme = Light Gray\nDocumentColorsFollowTheme = smart\n" : ""}
+${process.env.SOLOKPDF_TEST_PATTERN_STROKES ? "Theme = Light\nDocumentColorsFollowTheme = off\n" : process.env.SOLOKPDF_TEST_THEME_FALLBACK ? "Theme = Light Gray\nDocumentColorsFollowTheme = smart\n" : ""}
 FileStates [
   [
     FilePath = ${pdf}
@@ -57,7 +63,11 @@ FileStates [
 
 // ink-weighted centers of the lines crossing row y, skipping runs cut by the scan edges
 function lineCenters(img: PngImage, y: number, x0: number, x1: number): number[] {
-  const ink = process.env.SOLOKPDF_TEST_THEME_FALLBACK ? 220 : kInk;
+  const ink = process.env.SOLOKPDF_TEST_PATTERN_STROKES
+    ? kPatternInk
+    : process.env.SOLOKPDF_TEST_THEME_FALLBACK
+      ? 220
+      : kInk;
   const centers: number[] = [];
   let sum = 0;
   let weight = 0;
@@ -86,6 +96,24 @@ function findBreaks(png: string): { rows: number; breaks: number[] } {
   const y0 = Math.floor(img.h * kMargin);
   const rows: number[][] = [];
   for (let y = y0; y < img.h - y0; y++) rows.push(lineCenters(img, y, x0, x1));
+  const lineRows = rows.filter((row) => row.length > 0).length;
+  if (lineRows < rows.length / 2) throw new Error(`diagonal lines missing: ${lineRows}/${rows.length} rows`);
+
+  // Rasterized pattern masks jitter between rows; a tile shift widens the whole line.
+  if (process.env.SOLOKPDF_TEST_PATTERN_STROKES) {
+    const intercepts = rows.flatMap((row, i) => row.map((x) => x + y0 + i)).sort((a, b) => a - b);
+    const breaks: number[] = [];
+    let start = 0;
+    let band = 0;
+    for (let i = 1; i <= intercepts.length; i++) {
+      if (i < intercepts.length && intercepts[i]! - intercepts[i - 1]! <= kBandGap) continue;
+      if (intercepts[i - 1]! - intercepts[start]! > kMaxPatternSpread) breaks.push(band);
+      band++;
+      start = i;
+    }
+    if (band < 2) throw new Error("too few pattern lines to check tile alignment");
+    return { rows: rows.length, breaks };
+  }
 
   // per row pair, each center's move from its nearest predecessor; the median is the line slope
   const moves: { y: number; d: number }[] = [];

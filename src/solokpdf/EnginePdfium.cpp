@@ -267,6 +267,7 @@ struct PdfiumWidget {
 
 struct PdfiumPage {
     SizeF size;
+    PdfRenderRoute renderRoute = PdfRenderRoute::Unchecked;
     bool annotationsChecked = false;
     bool hasAnnotations = false;
     bool linksLoaded = false;
@@ -679,6 +680,7 @@ class EnginePdfium : public EngineBase {
     Mutex editorLock;
     Mutex fileLock;
     Mutex themeLock;
+    PdfRenderProbe* renderProbe = nullptr;
     struct ThemeEntry {
         PdfThemeSnapshot snapshot;
         int pageNo = 0;
@@ -759,7 +761,7 @@ class EnginePdfium : public EngineBase {
             }
         }
         ClearTheme(*oldest);
-        PdfThemeSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
+        PdfRenderSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
         PdfThemeSnapshot snapshot;
         WCHAR failTheme[2]{};
         bool forceFallback =
@@ -1728,6 +1730,7 @@ class EnginePdfium : public EngineBase {
             gPdfium.FPDF_CloseDocument(doc);
         }
         profile.Mark(StrL("document"));
+        DeletePdfRenderProbe(renderProbe);
         if (file != INVALID_HANDLE_VALUE) {
             CloseHandle(file);
         }
@@ -2387,16 +2390,59 @@ class EnginePdfium : public EngineBase {
         }
     }
 
+    PdfRenderRoute PrepareRenderRoute(int pageNo, PdfiumCookie* cookie, PdfiumProfile& profile) {
+        PdfiumPage* info = nullptr;
+        {
+            ScopedMutex lock(&gPdfiumLock);
+            info = Page(pageNo);
+            if (!info) {
+                return PdfRenderRoute::Failed;
+            }
+            if (info->renderRoute != PdfRenderRoute::Unchecked) {
+                return info->renderRoute;
+            }
+        }
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            return PdfRenderRoute::Unchecked;
+        }
+        PdfRenderSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
+        if (!renderProbe) {
+            renderProbe = NewPdfRenderProbe(source, password);
+            if (renderProbe && profile.enabled) {
+                logf("PDFium render probe: opened\n");
+            }
+        }
+        PdfRenderCheck check = PdfPageRenderRouteMupdf(renderProbe, source, pageNo);
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            if (renderProbe && profile.enabled) {
+                logf("PDFium render probe: canceled\n");
+            }
+            DeletePdfRenderProbe(renderProbe);
+            renderProbe = nullptr;
+            return PdfRenderRoute::Unchecked;
+        }
+        info->renderRoute = check.route;
+        if (profile.enabled) {
+            Str backend = check.route == PdfRenderRoute::Mupdf ? StrL("mupdf") : StrL("pdfium");
+            logf("PDFium render check: page=%d probe=%d backend=%s\n", pageNo, (int)check.scannedContents, backend);
+        }
+        return check.route;
+    }
+
     // Only this part needs the lock; pixel post-processing runs while other pages draw.
     int DrawPage(RenderPageArgs& args, Pixmap* pixmap, double x, double y, RectF full, bool drawAnnots,
-                 PdfiumCookie* cookie, PdfiumProfile& profile, bool& themeFallback) {
+                 PdfiumCookie* cookie, PdfiumProfile& profile, bool& useMupdf) {
         ScopedMutex themeScope(&themeLock);
+        if (PrepareRenderRoute(args.pageNo, cookie, profile) == PdfRenderRoute::Mupdf) {
+            useMupdf = true;
+            return FPDF_RENDER_FAILED;
+        }
         ThemeEntry* theme = nullptr;
         if (KeepsImageColors(args) && !PdfiumCookie::IsCanceled(cookie)) {
             theme = PrepareTheme(args.pageNo, *args.darkProfile, cookie, profile);
         }
         if (theme && theme->snapshot.status == PdfThemeStatus::Failed) {
-            themeFallback = true;
+            useMupdf = true;
             return FPDF_RENDER_FAILED;
         }
         ScopedMutex lock(&gPdfiumLock);
@@ -2430,7 +2476,7 @@ class EnginePdfium : public EngineBase {
                 themed.form = gPdfium.FPDFDOC_InitFormFillEnvironment(themed.doc, &formInfo);
             }
             if (!themed.doc || (form && drawAnnots && !themed.form)) {
-                themeFallback = true;
+                useMupdf = true;
                 return FPDF_RENDER_FAILED;
             }
             if (themed.doc) {
@@ -2440,7 +2486,7 @@ class EnginePdfium : public EngineBase {
         }
         FPDF_PAGE page = gPdfium.FPDF_LoadPage(drawDoc, args.pageNo - 1);
         if (!page) {
-            themeFallback = themed.doc != nullptr;
+            useMupdf = themed.doc != nullptr;
             return FPDF_RENDER_FAILED;
         }
         profile.Mark(StrL("page"));
@@ -2558,17 +2604,19 @@ class EnginePdfium : public EngineBase {
         // read once: a tile must not get annotations from both engines
         EngineBase* annotEditor = AnnotationEditor(EditorLoad::IfLoaded);
         bool drawAnnots = !hideAnnotations && !annotEditor;
-        bool themeFallback = false;
-        int status = DrawPage(args, pixmap, x, y, full, drawAnnots, cookie, profile, themeFallback);
+        bool useMupdf = false;
+        int status = DrawPage(args, pixmap, x, y, full, drawAnnots, cookie, profile, useMupdf);
         bool fallbackDrawn = false;
-        if (themeFallback && !PdfiumCookie::IsCanceled(cookie)) {
+        if (useMupdf && !PdfiumCookie::IsCanceled(cookie)) {
             float m[6];
             TileMatrix(args.pageNo, args.zoom, args.rotation, x, y, full, m);
-            PdfThemeSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
-            PdfThemeParts parts = drawAnnots ? PdfThemeParts::ContentsAndAnnotations : PdfThemeParts::Contents;
-            PdfThemeAntialias antialias = disableAntiAlias ? PdfThemeAntialias::Disabled : PdfThemeAntialias::Enabled;
-            fallbackDrawn = PdfThemeRenderMupdf(source, password, args.pageNo, m, pixmap, *args.darkProfile, parts,
-                                                args.target, antialias);
+            PdfRenderSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
+            PdfRenderParts parts = drawAnnots ? PdfRenderParts::ContentsAndAnnotations : PdfRenderParts::Contents;
+            PdfRenderAntialias antialias =
+                disableAntiAlias ? PdfRenderAntialias::Disabled : PdfRenderAntialias::Enabled;
+            profile.Mark(StrL("mupdf-start"));
+            fallbackDrawn = PdfRenderMupdf(source, password, args.pageNo, m, pixmap, args.darkProfile, parts,
+                                           args.target, antialias);
             status = fallbackDrawn ? FPDF_RENDER_DONE : FPDF_RENDER_FAILED;
         }
         if (status != FPDF_RENDER_DONE || AtomicIntGet(&cookie->aborted)) {

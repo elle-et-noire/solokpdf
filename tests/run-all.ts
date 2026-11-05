@@ -53,6 +53,8 @@ import { testit as themePdfiumCache } from "./theme-pdfium-cache.ts";
 import { testit as themePdfiumFallback } from "./theme-pdfium-fallback.ts";
 import { testit as themeRenderCancel } from "./theme-render-cancel.ts";
 import { testit as themeTransparentFallback } from "./theme-transparent-fallback.ts";
+import { testit as pdfiumPatternStrokes } from "./pdfium-pattern-strokes.ts";
+import { testit as pdfiumPatternRendering } from "./pdfium-pattern-rendering.ts";
 
 // The slowest of the regular tests. They still run here and in the daily CI
 // suite, just not in run-pre-release: a couple of seconds each is nothing on
@@ -73,6 +75,8 @@ export const notInPreReleaseTests: NamedTest[] = [
 ];
 
 export const slowTests: NamedTest[] = [
+  ["pdfium-pattern-strokes", pdfiumPatternStrokes],
+  ["pdfium-pattern-rendering", pdfiumPatternRendering],
   ["theme-large-pdf", themeLargePdf],
   ["theme-fallback-tiles", themeFallbackTiles],
   ["theme-fallback-geometry", themeFallbackGeometry],

@@ -183,6 +183,10 @@ including where text overlaps images. PDFium uses a temporary per-page snapshot
 for this; see [limitations](limitations.md) for its fallback. Home and page
 thumbnails use cached image bounding rectangles during recoloring.
 
+Pages with uncolored pattern strokes use MuPDF in every color mode, so `off`
+also retains their original colors. Renderer selection is cached independently
+of theme colors and zoom.
+
 F12 page thumbnails use the same page colors as the view. Home saves neutral PNGs
 with a versioned sidecar containing the engine class and image rectangles. Both
 recolor cached bitmaps, so text or transparent areas inside an image rectangle

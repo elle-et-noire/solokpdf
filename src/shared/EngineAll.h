@@ -11,13 +11,30 @@ struct PropValue;
 struct djvu_text_zone;
 struct DarkModeProfile;
 
-struct PdfThemeSource {
+struct PdfRenderSource {
     void* user;
     u32 size;
     int (*read)(void* user, u32 offset, u8* data, u32 count);
     void* cancelData;
     bool (*isCanceled)(void* user);
 };
+
+enum class PdfRenderRoute {
+    Unchecked,
+    Pdfium,
+    Mupdf,
+    Failed,
+};
+
+struct PdfRenderProbe;
+struct PdfRenderCheck {
+    PdfRenderRoute route = PdfRenderRoute::Failed;
+    bool scannedContents = false;
+};
+
+PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password);
+void DeletePdfRenderProbe(PdfRenderProbe* probe);
+PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, int pageNo);
 
 enum class PdfThemeLayout {
     Incremental,
@@ -36,22 +53,22 @@ struct PdfThemeSnapshot {
     PdfThemeStatus status = PdfThemeStatus::Failed;
 };
 
-PdfThemeSnapshot PdfThemePageMupdf(const PdfThemeSource& source, Str password, int pageNo,
+PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, int pageNo,
                                    const DarkModeProfile& profile);
 
-enum class PdfThemeParts {
+enum class PdfRenderParts {
     Contents,
     ContentsAndAnnotations,
 };
 
-enum class PdfThemeAntialias {
+enum class PdfRenderAntialias {
     Enabled,
     Disabled,
 };
 
-bool PdfThemeRenderMupdf(const PdfThemeSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
-                         const DarkModeProfile& profile, PdfThemeParts parts, RenderTarget target,
-                         PdfThemeAntialias antialias);
+bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
+                    const DarkModeProfile* profile, PdfRenderParts parts, RenderTarget target,
+                    PdfRenderAntialias antialias);
 
 bool IsEngineDjVuSupportedFileType(FileType kind);
 EngineBase* CreateEngineDjvuDecFromFile(Str path);

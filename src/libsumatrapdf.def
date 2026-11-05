@@ -2145,3 +2145,13 @@ EXPORTS
 	pdf_filter_annot_contents
 	pdf_new_color_filter
 	pdf_write_snapshot_suffix
+	pdf_new_processor
+	pdf_process_contents
+	pdf_process_annot
+	pdf_cycle
+	pdf_close_processor
+	pdf_drop_processor
+	pdf_page_contents
+	pdf_process_glyph
+	pdf_lookup_resource
+	pdf_dict_get_bool

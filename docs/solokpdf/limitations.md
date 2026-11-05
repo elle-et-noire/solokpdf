@@ -102,9 +102,12 @@ are in [history.md](history.md).
 - In `smart` mode, PDFium uses a temporary per-page color-filtered PDF
   snapshot. Repaired PDFs require a full in-memory rewrite. If a snapshot
   cannot be created, MuPDF renders that page with theme colors instead.
-  Forms that inherit painting colors and uncolored pattern strokes also use this fallback.
-- With theme colors off, PDFium draws uncolored tiling pattern strokes in black
-  regardless of their tint. `smart` uses MuPDF for these pages.
+  Forms that inherit painting colors also use this fallback.
+- Pages with uncolored tiling pattern strokes use MuPDF rendering in every color
+  mode, including strokes in forms, annotations, text and Type 3 glyphs. `off`
+  retains original colors; `smart` applies theme colors while preserving images;
+  `legacy` applies the usual bitmap color conversion after rendering.
+  Extremely deep form nesting can still exceed MuPDF's interpreter limits.
 - PDFium draws colored Type 3 glyphs at full opacity even when the surrounding
   text is partially transparent. This also occurs with theme colors off.
 - PDF page surrounds use the theme background in both PDFium and MuPDF.
