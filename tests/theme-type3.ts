@@ -63,15 +63,8 @@ async function check(alpha: number, mask: boolean): Promise<void> {
               : alpha === 1
                 ? [131, 148, 150]
                 : [66, 96, 102];
-          const pdfiumOpaque =
-            !USE_NG && engine === "pdfium" && alpha !== 1 && !process.env.SOLOKPDF_TEST_THEME_FALLBACK;
-          const imageColor = pdfiumOpaque
-            ? [255, 0, 0]
-            : theme === "Light" && alpha !== 1
-              ? [249, 121, 121]
-              : alpha === 1
-                ? [255, 0, 0]
-                : [128, 22, 27];
+          const imageColor =
+            theme === "Light" && alpha !== 1 ? [249, 121, 121] : alpha === 1 ? [255, 0, 0] : [128, 22, 27];
           let themed = 0,
             red = 0,
             left = img.w,
@@ -105,13 +98,11 @@ async function check(alpha: number, mask: boolean): Promise<void> {
                 [left - Math.floor(width / 2), centerY],
                 [right + Math.floor(width / 2), centerY],
               ];
-          for (const [index, [x, y]] of samples.entries()) {
+          for (const [x, y] of samples) {
             if (x! < 0 || x! >= img.w || y! < 0 || y! >= img.h) throw new Error(`sample outside canvas: ${x},${y}`);
             const offset = (y! * img.w + x!) * img.nComp;
             const actual = Array.from(img.data.subarray(offset, offset + 3));
-            const expected =
-              pdfiumOpaque && index === 0 ? (theme === "Light" ? [0, 0, 0] : [131, 148, 150]) : themedColor;
-            if (actual.some((v, c) => Math.abs(v - expected[c]!) >= 8))
+            if (actual.some((v, c) => Math.abs(v - themedColor[c]!) >= 8))
               throw new Error(`page ${page}: glyph at ${x},${y} is ${actual}`);
           }
         }
@@ -128,6 +119,7 @@ async function check(alpha: number, mask: boolean): Promise<void> {
   }
 }
 
+// colored Type 3 glyphs keep the surrounding fill alpha with theme colors off
 async function checkPdfiumOpacity(mask: boolean): Promise<void> {
   const dir = tmpPath(`theme-type3-pdfium-original-${mask}`);
   mkdirSync(dir, { recursive: true });
@@ -147,9 +139,8 @@ async function checkPdfiumOpacity(mask: boolean): Promise<void> {
     if (!captureWindowToPng(findCanvas(frame), path)) throw new Error("capture failed");
     const img = loadPng(path);
     const expected = [
-      [0, 0, 0],
-      [255, 0, 0],
       [127, 127, 127],
+      [255, 127, 127],
     ];
     const counts = expected.map(() => 0);
     for (let i = 0; i < img.w * img.h; i++) {
@@ -158,7 +149,7 @@ async function checkPdfiumOpacity(mask: boolean): Promise<void> {
         if (rgb.every((value, c) => Math.abs(img.data[p + c]! - value) < 8)) counts[index]!++;
       }
     }
-    if (counts.some((count) => count < 500)) throw new Error(`original PDFium Type 3 opacity: ${counts}`);
+    if (counts.some((count) => count < 500)) throw new Error(`PDFium Type 3 opacity: ${counts}`);
     await client.quit();
     await proc.exited;
   } finally {

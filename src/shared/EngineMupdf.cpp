@@ -5905,6 +5905,7 @@ struct PdfStrokeState {
     bool maskChecked;
     pdf_font_desc* font;
     int textMode;
+    bool translucentFill;
 };
 
 struct PdfStrokeProbe {
@@ -5939,6 +5940,7 @@ static void ProbeSave(fz_context* ctx, pdf_processor* proc) {
         state->mask = pdf_keep_obj(ctx, probe->state->mask);
         state->maskChecked = probe->state->maskChecked;
         state->textMode = probe->state->textMode;
+        state->translucentFill = probe->state->translucentFill;
     }
     probe->state = state;
 }
@@ -6085,6 +6087,7 @@ static void ProbeStream(fz_context* ctx, pdf_processor* proc, pdf_obj* resources
     if (scope != ProbeScope::Inherit) {
         pdf_drop_obj(ctx, probe->state->mask);
         probe->state->mask = nullptr;
+        probe->state->translucentFill = false;
     }
     if (scope == ProbeScope::Pattern) {
         ProbeStrokeSpace(ctx, proc, nullptr, nullptr);
@@ -6216,6 +6219,11 @@ static void ProbeText(fz_context* ctx, pdf_processor* proc, char* text, size_t s
         if (gid < 0 || gid >= kType3GlyphCount || !font->font->t3procs[gid]) {
             continue;
         }
+        // PDFium paints colored (d0) glyphs opaque, ignoring the fill alpha around them
+        if (probe->state->translucentFill && (font->font->t3flags[gid] & FZ_DEVFLAG_COLOR)) {
+            probe->found = true;
+            fz_throw(ctx, FZ_ERROR_ABORT, "translucent colored Type 3 glyph detected");
+        }
         ProbeSave(ctx, proc);
         probe->depth++;
         fz_try(ctx) {
@@ -6229,6 +6237,11 @@ static void ProbeText(fz_context* ctx, pdf_processor* proc, char* text, size_t s
             fz_rethrow(ctx);
         }
     }
+}
+
+static void ProbeFillAlpha(fz_context* ctx, pdf_processor* proc, float alpha) {
+    ProbeTick(ctx, proc);
+    ((PdfStrokeProbe*)proc)->state->translucentFill = alpha < 1;
 }
 
 static void ProbeTextArray(fz_context* ctx, pdf_processor* proc, pdf_obj* array) {
@@ -6265,6 +6278,7 @@ static void ResetProbeState(fz_context* ctx, PdfStrokeProbe* probe) {
     probe->state->font = nullptr;
     pdf_drop_obj(ctx, probe->state->mask);
     probe->state->mask = nullptr;
+    probe->state->translucentFill = false;
 }
 
 struct PdfRenderProbe {
@@ -6322,12 +6336,24 @@ PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password) {
     return probe;
 }
 
-static bool HasStrokePattern(fz_context* ctx, pdf_obj* resources, const PdfRenderSource& source,
-                             pdf_cycle_list* parent = nullptr, int depth = 0) {
+// Resources that may hit a PDFium rendering gap; only then are contents scanned.
+struct RouteHints {
+    bool strokePattern = false;
+    bool type3Font = false;
+    bool fillAlpha = false;
+    bool NeedsScan() const { return strokePattern || (type3Font && fillAlpha); }
+};
+
+static bool IsType3Font(fz_context* ctx, pdf_obj* font) {
+    return pdf_name_eq(ctx, pdf_dict_get(ctx, font, PDF_NAME(Subtype)), PDF_NAME(Type3));
+}
+
+static void FindRouteHints(fz_context* ctx, pdf_obj* resources, const PdfRenderSource& source, RouteHints& hints,
+                           pdf_cycle_list* parent = nullptr, int depth = 0) {
     CheckPdfCancel(ctx, &source);
     pdf_cycle_list cycle;
-    if (!resources || pdf_cycle(ctx, &cycle, parent, resources)) {
-        return false;
+    if (!resources || hints.NeedsScan() || pdf_cycle(ctx, &cycle, parent, resources)) {
+        return;
     }
     if (depth >= kMaxProbeDepth) {
         fz_throw(ctx, FZ_ERROR_LIMIT, "pattern resource nesting limit");
@@ -6337,41 +6363,44 @@ static bool HasStrokePattern(fz_context* ctx, pdf_obj* resources, const PdfRende
         pdf_obj* pattern = pdf_dict_get_val(ctx, patterns, i);
         if (pdf_dict_get_int(ctx, pattern, PDF_NAME(PatternType)) == kTilingPattern &&
             pdf_dict_get_int(ctx, pattern, PDF_NAME(PaintType)) == kUncoloredPattern) {
-            return true;
+            hints.strokePattern = true;
+            return;
         }
-        if (HasStrokePattern(ctx, pdf_dict_get(ctx, pattern, PDF_NAME(Resources)), source, &cycle, depth + 1)) {
-            return true;
-        }
+        FindRouteHints(ctx, pdf_dict_get(ctx, pattern, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
     }
     pdf_obj* objects = pdf_dict_get(ctx, resources, PDF_NAME(XObject));
     for (int i = 0; i < pdf_dict_len(ctx, objects); i++) {
         pdf_obj* object = pdf_dict_get_val(ctx, objects, i);
-        if (pdf_name_eq(ctx, pdf_dict_get(ctx, object, PDF_NAME(Subtype)), PDF_NAME(Form)) &&
-            HasStrokePattern(ctx, pdf_dict_get(ctx, object, PDF_NAME(Resources)), source, &cycle, depth + 1)) {
-            return true;
+        if (pdf_name_eq(ctx, pdf_dict_get(ctx, object, PDF_NAME(Subtype)), PDF_NAME(Form))) {
+            FindRouteHints(ctx, pdf_dict_get(ctx, object, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
         }
     }
     pdf_obj* fonts = pdf_dict_get(ctx, resources, PDF_NAME(Font));
     for (int i = 0; i < pdf_dict_len(ctx, fonts); i++) {
-        if (HasStrokePattern(ctx, pdf_dict_get(ctx, pdf_dict_get_val(ctx, fonts, i), PDF_NAME(Resources)), source,
-                             &cycle, depth + 1)) {
-            return true;
-        }
+        pdf_obj* font = pdf_dict_get_val(ctx, fonts, i);
+        hints.type3Font |= IsType3Font(ctx, font);
+        FindRouteHints(ctx, pdf_dict_get(ctx, font, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
     }
     pdf_obj* states = pdf_dict_get(ctx, resources, PDF_NAME(ExtGState));
     for (int i = 0; i < pdf_dict_len(ctx, states); i++) {
         pdf_obj* state = pdf_dict_get_val(ctx, states, i);
+        pdf_obj* alpha = pdf_dict_get(ctx, state, PDF_NAME(ca));
+        hints.fillAlpha |= pdf_is_number(ctx, alpha) && pdf_to_real(ctx, alpha) < 1;
         pdf_obj* mask = pdf_dict_get(ctx, pdf_dict_get(ctx, state, PDF_NAME(SMask)), PDF_NAME(G));
         pdf_obj* font = pdf_array_get(ctx, pdf_dict_get(ctx, state, PDF_NAME(Font)), 0);
-        if (HasStrokePattern(ctx, pdf_dict_get(ctx, mask, PDF_NAME(Resources)), source, &cycle, depth + 1) ||
-            HasStrokePattern(ctx, pdf_dict_get(ctx, font, PDF_NAME(Resources)), source, &cycle, depth + 1)) {
-            return true;
-        }
+        hints.type3Font |= IsType3Font(ctx, font);
+        FindRouteHints(ctx, pdf_dict_get(ctx, mask, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
+        FindRouteHints(ctx, pdf_dict_get(ctx, font, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
     }
-    return false;
 }
 
-// Reuse the parsed document; pages without pattern resources need no content scan.
+static bool NeedsRouteScan(fz_context* ctx, pdf_obj* resources, const PdfRenderSource& source) {
+    RouteHints hints;
+    FindRouteHints(ctx, resources, source, hints);
+    return hints.NeedsScan();
+}
+
+// Reuse the parsed document; pages without route hints in their resources need no content scan.
 PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* state, const PdfRenderSource& source, int pageNo) {
     if (!state) {
         return {};
@@ -6413,6 +6442,7 @@ PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* state, const PdfRenderSou
         probe->super.op_BI = ProbeInlineImage;
         probe->super.op_sh = ProbeShade;
         probe->super.op_gs_SMask = ProbeSetMask;
+        probe->super.op_gs_ca = ProbeFillAlpha;
         probe->super.op_Tf = ProbeFont;
         probe->super.op_Tr = ProbeTextMode;
         probe->super.op_Tj = probe->super.op_squote = ProbeText;
@@ -6423,20 +6453,20 @@ PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* state, const PdfRenderSou
         probe->super.op_b = probe->super.op_bstar = ProbePaintBoth;
         probe->super.op_f = probe->super.op_F = probe->super.op_fstar = ProbePaintFill;
         pdf_obj* resources = pdf_page_resources(ctx, page);
-        if (HasStrokePattern(ctx, resources, source)) {
+        if (NeedsRouteScan(ctx, resources, source)) {
             result.scannedContents = true;
             pdf_process_contents(ctx, &probe->super, doc, resources, pdf_page_contents(ctx, page), nullptr, nullptr);
         }
         for (pdf_annot* annot = pdf_first_annot(ctx, page); annot; annot = pdf_next_annot(ctx, annot)) {
             ResetProbeState(ctx, probe);
-            if (HasStrokePattern(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, annot), PDF_NAME(Resources)), source)) {
+            if (NeedsRouteScan(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, annot), PDF_NAME(Resources)), source)) {
                 result.scannedContents = true;
                 pdf_process_annot(ctx, &probe->super, annot, nullptr);
             }
         }
         for (pdf_annot* widget = pdf_first_widget(ctx, page); widget; widget = pdf_next_widget(ctx, widget)) {
             ResetProbeState(ctx, probe);
-            if (HasStrokePattern(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, widget), PDF_NAME(Resources)), source)) {
+            if (NeedsRouteScan(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, widget), PDF_NAME(Resources)), source)) {
                 result.scannedContents = true;
                 pdf_process_annot(ctx, &probe->super, widget, nullptr);
             }

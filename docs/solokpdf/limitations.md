@@ -108,8 +108,16 @@ are in [history.md](history.md).
   retains original colors; `smart` applies theme colors while preserving images;
   `legacy` applies the usual bitmap color conversion after rendering.
   Extremely deep form nesting can still exceed MuPDF's interpreter limits.
-- PDFium draws colored Type 3 glyphs at full opacity even when the surrounding
-  text is partially transparent. This also occurs with theme colors off.
+- Render-route checks keep a MuPDF parse of each PDFium document open. Its
+  object table cost about 7 MiB of private memory on the 113,083-object, 41 MB
+  vector benchmark file. First-render and navigation times did not change
+  measurably. A check canceled mid-analysis discards the parse; the next check
+  reparses the document.
+- PDFium draws colored Type 3 glyphs at full opacity under a fill alpha below
+  1, set on the page or inherited by a form. Such pages use MuPDF in every
+  color mode. Pages with a Type 3 font and a translucent ExtGState get a
+  content scan; soft masks, transparency groups and annotations without a
+  fill alpha stay on PDFium, which draws them correctly.
 - PDF page surrounds use the theme background in both PDFium and MuPDF.
 - PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a
   render-device pass to vector strokes, text and narrow fills, adjusts minimum
