@@ -660,6 +660,10 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         return CommandVisibility::Hide;
     }
 
+    if (cmdId == CmdChangeBackgroundColor && ctx.isPdf) {
+        return CommandVisibility::Hide;
+    }
+
     if (!ctx.isPdf) {
         if (cmdId == CmdPdfShowInfo || cmdId == CmdPdfBake || cmdId == CmdPdfCompress || cmdId == CmdPdfDecompress ||
             cmdId == CmdPdfEncrypt || cmdId == CmdPdfDecrypt || cmdId == CmdPdfDeletePages ||

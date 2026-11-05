@@ -8,7 +8,7 @@
 // into gSettings, not a pointer: a settings reload (file watcher, Save)
 // frees and re-creates gSettings while the dialog stays open
 struct SettingItem {
-    Str name;    // dotted path, e.g. "FixedPageUI.TextColor", owned
+    Str name;    // dotted path, e.g. "ImageUI.WindowBgCol", owned
     Str comment; // doc comment describing the setting, owned
     SettingType type = SettingType::Bool;
     int fieldOffset = 0;

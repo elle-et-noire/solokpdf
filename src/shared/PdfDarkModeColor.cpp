@@ -9,8 +9,6 @@
 
 #include "PdfDarkMode.h"
 
-static bool gPreservePdfImagesInDarkMode = true;
-
 // Accept current names and pre-3.7 DocumentColorMode aliases.
 DocumentColorsFollowTheme DocumentColorsFollowThemeFromString(Str v) {
     if (str::EqI(v, StrL("smart")) || str::EqI(v, StrL("auto"))) {
@@ -28,13 +26,12 @@ static Str DocumentColorModeName(DocumentColorsFollowTheme mode) {
                                                        : StrL("off");
 }
 
-// PDF dark mode runtime options (not stored in settings file)
 bool GetPreservePdfImagesInDarkMode() {
-    return gPreservePdfImagesInDarkMode;
+    return GetDocumentColorsFollowTheme() != DocumentColorsFollowTheme::Legacy;
 }
 
 void SetPreservePdfImagesInDarkMode(bool preserve) {
-    gPreservePdfImagesInDarkMode = preserve;
+    SetDocumentColorsFollowTheme(preserve ? DocumentColorsFollowTheme::Smart : DocumentColorsFollowTheme::Legacy);
 }
 
 bool DocumentColorsFollowThemeEnabled() {

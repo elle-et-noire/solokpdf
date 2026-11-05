@@ -314,6 +314,8 @@ typedef struct
 	create a new instance of each XObject Form that is used, filtered
 	individually.
 
+	preserve_soft_masks: Leave soft mask groups unchanged.
+
 	ascii: If true, escape all binary data in the output.
 
 	no_update: If true, do not update the document at the end.
@@ -345,6 +347,8 @@ struct pdf_filter_options
 
 	pdf_filter_factory *filters;
 	int newlines;
+	int preserve_soft_masks;
+	int is_form; /* Internal: colors may be inherited from the caller. */
 };
 
 typedef enum
@@ -469,10 +473,13 @@ typedef struct
 	void (*image_rewrite)(fz_context *ctx, void *opaque, fz_image **image, fz_matrix ctm, pdf_obj *obj);
 	pdf_shade_recolorer *shade_rewrite;
 	int repeated_image_rewrite;
+	int preserve_image_masks;
+	int reject_uncolored_strokes;
 } pdf_color_filter_options;
 
 pdf_processor *
 pdf_new_color_filter(fz_context *ctx, pdf_document *doc, pdf_processor *chain, int struct_parents, fz_matrix transform, pdf_filter_options *options, void *copts);
+int pdf_color_filter_is_mask_pattern(fz_context *ctx, pdf_processor *proc, const char *name);
 
 /*
 	Functions to actually process annotations, glyphs and general stream objects.

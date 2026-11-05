@@ -100,6 +100,7 @@ void FreePixmapNativeBitmap(Pixmap* p);
 // remaps a rendered page bitmap onto a text / background / link color ramp
 // (dark mode). ng: portable, orig declares it in the win32 half
 void RecolorPixmap(Pixmap* px, Color textColor, Color bgColor, Color linkColor = 0, Vec<Rect>* skipRects = nullptr);
+Color RecolorPageColor(Color color, Color textColor, Color bgColor, Color linkColor);
 
 // 0 for Native: those pixels can only be read through GDI
 inline int PixmapBytesPerPixel(PixmapFormat fmt) {

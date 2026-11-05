@@ -33,13 +33,12 @@ TrN("Charcoal")
 
 // Optional colors (DisabledTextColor … NotificationHighlightTextColor) fix
 // muddy derived hues when TextColor is not neutral gray (e.g. Dracula #f8f8f2).
-// Empty optional fields still fall back to AccentColor / blend of the four base colors.
+// Built-in control backgrounds follow the canvas; custom themes specify their own.
 static Str themesTxt = StrL(R"(Themes [
     [
         Name = Light
         TextColor = #000000
         BackgroundColor = #f2f2f2
-        ControlBackgroundColor = #ffffff
         InactiveTabBackgroundColor = #e6e6e6
         LinkColor = #0020a0
         DisabledTextColor = #808080
@@ -58,7 +57,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Dark
         TextColor = #F9FAFB
         BackgroundColor = #000000
-        ControlBackgroundColor = #000000
         InactiveTabBackgroundColor = #191919
         LinkColor = #6B7280
         DisabledTextColor = #6B7280
@@ -77,7 +75,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Light Warm
         TextColor = #333333
         BackgroundColor = #ebe6da
-        ControlBackgroundColor = #f5f1e8
         InactiveTabBackgroundColor = #cbc4b3
         LinkColor = #0020a0
         DisabledTextColor = #8a8578
@@ -96,7 +93,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Light Gray
         TextColor = #000000
         BackgroundColor = #eaeaea
-        ControlBackgroundColor = #eaeaea
         InactiveTabBackgroundColor = #d8d8d8
         LinkColor = #0020a0
         DisabledTextColor = #808080
@@ -115,7 +111,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Dark from 3.5
         TextColor = #bac9d0
         BackgroundColor = #263238
-        ControlBackgroundColor = #263238
         InactiveTabBackgroundColor = #152026
         LinkColor = #8aa3b0
         DisabledTextColor = #6b7c85
@@ -134,7 +129,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Charcoal
         TextColor = #ffffff
         BackgroundColor = #2d2d30
-        ControlBackgroundColor = #2d2d30
         InactiveTabBackgroundColor = #1b1b1e
         LinkColor = #9999a0
         DisabledTextColor = #808088
@@ -153,7 +147,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Solarized Light
         TextColor = #212323
         BackgroundColor = #fdf6e3
-        ControlBackgroundColor = #eee8d5
         InactiveTabBackgroundColor = #e0d5b1
         LinkColor = #268bd2
         DisabledTextColor = #93a1a1
@@ -172,7 +165,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Solarized Dark
         TextColor = #839496
         BackgroundColor = #002b36
-        ControlBackgroundColor = #073642
         InactiveTabBackgroundColor = #00232f
         LinkColor = #268bd2
         DisabledTextColor = #586e75
@@ -191,7 +183,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Dracula
         TextColor = #f8f8f2
         BackgroundColor = #282a36
-        ControlBackgroundColor = #44475a
         InactiveTabBackgroundColor = #343746
         LinkColor = #8be9fd
         DisabledTextColor = #6272a4
@@ -210,7 +201,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Nebula
         TextColor = #CBE3E7
         BackgroundColor = #100E23
-        ControlBackgroundColor = #1E1C31
         InactiveTabBackgroundColor = #312e51
         LinkColor = #91DDFF
         DisabledTextColor = #6b6b8a
@@ -229,7 +219,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Greeny
         TextColor = #FDD085
         BackgroundColor = #4F6232
-        ControlBackgroundColor = #1E3304
         InactiveTabBackgroundColor = #394c22
         LinkColor = #A2E53B
         DisabledTextColor = #8a9a60
@@ -248,7 +237,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Choco
         TextColor = #D7AD62
         BackgroundColor = #2A1104
-        ControlBackgroundColor = #351f14
         InactiveTabBackgroundColor = #1c0802
         LinkColor = #E8CD12
         DisabledTextColor = #8a7040
@@ -267,7 +255,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Choco Navy
         TextColor = #D7AD62
         BackgroundColor = #0a1a28
-        ControlBackgroundColor = #172736
         InactiveTabBackgroundColor = #03111f
         LinkColor = #E8CD12
         DisabledTextColor = #8a7040
@@ -286,7 +273,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Purpy
         TextColor = #E2C3C3
         BackgroundColor = #2c1b30
-        ControlBackgroundColor = #1E0126
         InactiveTabBackgroundColor = #301d35
         LinkColor = #EFF0B8
         DisabledTextColor = #8a7088
@@ -305,7 +291,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Purpy Slate
         TextColor = #E2C3C3
         BackgroundColor = #20222A
-        ControlBackgroundColor = #0e1019
         InactiveTabBackgroundColor = #282a35
         LinkColor = #EFF0B8
         DisabledTextColor = #8a7088
@@ -324,7 +309,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = One Dark
         TextColor = #abb2bf
         BackgroundColor = #282c34
-        ControlBackgroundColor = #21252b
         InactiveTabBackgroundColor = #0b0e14
         LinkColor = #61afef
         DisabledTextColor = #5c6370
@@ -343,7 +327,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Monokai
         TextColor = #f8f8f2
         BackgroundColor = #272822
-        ControlBackgroundColor = #3e3d32
         InactiveTabBackgroundColor = #272822
         LinkColor = #66d9ef
         DisabledTextColor = #75715e
@@ -362,7 +345,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Nord
         TextColor = #d8dee9
         BackgroundColor = #2e3440
-        ControlBackgroundColor = #3b4252
         InactiveTabBackgroundColor = #2e3440
         LinkColor = #88c0d0
         DisabledTextColor = #4c566a
@@ -381,7 +363,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = GitHub Dark
         TextColor = #e6edf3
         BackgroundColor = #0d1117
-        ControlBackgroundColor = #161b22
         InactiveTabBackgroundColor = #30363d
         LinkColor = #2f81f7
         DisabledTextColor = #6e7681
@@ -400,7 +381,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Catppuccin Mocha
         TextColor = #cdd6f4
         BackgroundColor = #1e1e2e
-        ControlBackgroundColor = #181825
         InactiveTabBackgroundColor = #313244
         LinkColor = #89b4fa
         DisabledTextColor = #6c7086
@@ -419,7 +399,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Tokyo Night
         TextColor = #c0caf5
         BackgroundColor = #1a1b26
-        ControlBackgroundColor = #16161e
         InactiveTabBackgroundColor = #24283b
         LinkColor = #7aa2f7
         DisabledTextColor = #565f89
@@ -438,7 +417,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Gruvbox
         TextColor = #ebdbb2
         BackgroundColor = #282828
-        ControlBackgroundColor = #3c3836
         InactiveTabBackgroundColor = #282828
         LinkColor = #83a598
         DisabledTextColor = #928374
@@ -457,7 +435,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Night Owl
         TextColor = #d6deeb
         BackgroundColor = #011627
-        ControlBackgroundColor = #0b2942
         InactiveTabBackgroundColor = #011627
         LinkColor = #82aaff
         DisabledTextColor = #5f7e97
@@ -476,7 +453,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Ayu
         TextColor = #bfbdb6
         BackgroundColor = #0b0e14
-        ControlBackgroundColor = #0d1017
         InactiveTabBackgroundColor = #1b2733
         LinkColor = #59c2ff
         DisabledTextColor = #565b66
@@ -495,7 +471,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Palenight
         TextColor = #a6accd
         BackgroundColor = #292d3e
-        ControlBackgroundColor = #1b1e2b
         InactiveTabBackgroundColor = #292d3e
         LinkColor = #82aaff
         DisabledTextColor = #676e95
@@ -514,7 +489,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Catppuccin Latte
         TextColor = #4c4f69
         BackgroundColor = #eff1f5
-        ControlBackgroundColor = #e6e9ef
         InactiveTabBackgroundColor = #ccd0da
         LinkColor = #1e66f5
         DisabledTextColor = #9ca0b0
@@ -533,7 +507,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Catppuccin Frappe
         TextColor = #c6d0f5
         BackgroundColor = #303446
-        ControlBackgroundColor = #292c3c
         InactiveTabBackgroundColor = #171928
         LinkColor = #8caaee
         DisabledTextColor = #737994
@@ -552,7 +525,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Catppuccin Macchiato
         TextColor = #cad3f5
         BackgroundColor = #24273a
-        ControlBackgroundColor = #1e2030
         InactiveTabBackgroundColor = #363a4f
         LinkColor = #8aadf4
         DisabledTextColor = #6e738d
@@ -571,7 +543,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Gruvbox Light
         TextColor = #3c3836
         BackgroundColor = #fbf1c7
-        ControlBackgroundColor = #f2e5bc
         InactiveTabBackgroundColor = #d5c4a1
         LinkColor = #076678
         DisabledTextColor = #928374
@@ -590,7 +561,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Everforest Light
         TextColor = #5c6a72
         BackgroundColor = #fdf6e3
-        ControlBackgroundColor = #f4f0d9
         InactiveTabBackgroundColor = #dcd8c2
         LinkColor = #3a94c5
         DisabledTextColor = #a6b0a0
@@ -609,7 +579,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Rose Pine Dawn
         TextColor = #575279
         BackgroundColor = #faf4ed
-        ControlBackgroundColor = #fffaf3
         InactiveTabBackgroundColor = #dfdad9
         LinkColor = #286983
         DisabledTextColor = #9893a5
@@ -628,7 +597,6 @@ static Str themesTxt = StrL(R"(Themes [
         Name = Sepia
         TextColor = #433422
         BackgroundColor = #f4ecd8
-        ControlBackgroundColor = #ece2c8
         InactiveTabBackgroundColor = #cdbf9f
         LinkColor = #2f5d8a
         DisabledTextColor = #9c8e74
@@ -670,17 +638,12 @@ bool IsCurrentThemeDefault() {
     return gCurrThemeIndex == 0;
 }
 
-// Windows high contrast mode. The user picked a system-wide palette because
-// they need it to read the screen, so an app is expected to use those colors
-// instead of its own. We only do that for the default theme: choosing any
-// other theme is an explicit decision about colors and it wins (issue #2124).
+// Windows high contrast mode uses the system palette.
 static bool gIsHighContrast = false;
 
 // true when the UI colors have to come from the system palette instead of the
 // theme. Every color accessor tests this, so it's computed once by
-// RecalcUseHighContrast() instead of on every call. Page rendering deliberately
-// does not consult it: recoloring the document is not part of high contrast
-// mode and inverting images was the original complaint in #2124.
+// RecalcUseHighContrast() instead of on every call.
 static bool gUseHighContrast = false;
 
 static void DetectHighContrastMode() {
@@ -700,7 +663,7 @@ static void DetectHighContrastMode() {
 
 // call whenever the OS high contrast setting or the current theme changes
 static void RecalcUseHighContrast() {
-    gUseHighContrast = gIsHighContrast && HasCurrentTheme() && IsCurrentThemeDefault();
+    gUseHighContrast = gIsHighContrast && HasCurrentTheme();
 }
 
 // exported so the few places that hardcode a color for the default theme (a
@@ -874,13 +837,6 @@ static int GetThemeByName(Str name) {
     return -1;
 }
 
-// this is the default aggressive yellow that we suppress
-constexpr Color kMainWinBgColDefault = (MkRgb(0xff, 0xf2, 0) - 0x80000000);
-
-static bool IsDefaultMainWinColor(ParsedColor* col) {
-    return col->parsedOk && col->col == kMainWinBgColDefault;
-}
-
 // true if Windows "choose your default app mode" is set to dark
 static bool OsAppsUseDarkMode() {
 #if OS_WIN
@@ -989,8 +945,6 @@ void UpdateThemeAfterHighContrastChange() {
     DetectHighContrastMode();
     RecalcUseHighContrast();
     if (wasUsingHighContrast == gUseHighContrast) {
-        // also the common case of toggling it while a custom theme is current,
-        // which changes nothing we draw
         return;
     }
     logf("UpdateThemeAfterHighContrastChange: using high contrast colors: %d\n", (int)gUseHighContrast);
@@ -1002,59 +956,16 @@ void UpdateThemeAfterHighContrastChange() {
 // call after loading settings
 void SetCurrentThemeFromSettings() {
     SetTheme(gSettings->theme);
-    ParsedColor* bgParsed = GetPrefsColor(gSettings->mainWindowBackground);
-    bool isDefault = IsDefaultMainWinColor(bgParsed);
-    if (isDefault) {
-        gThemeLight->colorizeControls = false;
-        gThemeLight->controlBackgroundColor.wasParsed = true;
-        gThemeLight->controlBackgroundColor.parsedOk = true;
-        gThemeLight->controlBackgroundColor.col = kColWhite;
-    } else if (bgParsed->parsedOk) {
-        gThemeLight->colorizeControls = true;
-        gThemeLight->controlBackgroundColor.wasParsed = true;
-        gThemeLight->controlBackgroundColor.parsedOk = true;
-        gThemeLight->controlBackgroundColor.col = bgParsed->col;
-    }
-    // SetTheme() above ran before we adjusted the Light theme, so re-push
-    UpdatePlatformColors();
 }
 
 #define GetThemeCol(name, def) GetParsedColor(name, def)
 
-// canvas/window background color around the document pages
-// not affected by FixedPageUI.TextColor/BackgroundColor (those affect page rendering)
 Color ThemeDocumentColors(Color& bg) {
     bg = ThemeMainWindowBackgroundColor();
-
-    if (!DocumentColorsFollowThemeEnabled()) {
-        return ThemeWindowTextColor();
-    }
-
-    Color text = ThemeWindowTextColor();
-    bg = ThemeMainWindowBackgroundColor();
-
-    // Light keeps white paper (ThemePageRenderColors); the canvas matches it
-    ParsedColor* mainBg = GetPrefsColor(gSettings->mainWindowBackground);
-    bool customMainBg = mainBg->parsedOk && !IsDefaultMainWinColor(mainBg);
-    if (IsCurrentThemeDefault() && !gUseHighContrast && !customMainBg) {
-        bg = kColWhite;
-        return text;
-    }
-
-    // the system palette is exact: tinting it away from COLOR_WINDOW is the
-    // kind of "close enough" color high contrast mode exists to avoid
-    if (gCurrThemeIndex < 3 && !gUseHighContrast) {
-        bg = AccentColor(bg, 8);
-    }
-    return text;
+    return ThemeWindowTextColor();
 }
 
-// CmdInvertColors: session-only, not a setting. Before 3.7 it swapped the page
-// colors outright and had nothing to do with theming; 37f920ff0 reduced it to a
-// DocumentColorsFollowTheme toggle, which does nothing at all when the page
-// colors don't come from the theme - custom FixedPageUI colors, for instance,
-// are used as-is in every mode, so pressing it only repainted the same pixels
-// (issue #5887). Swapping the effective page colors works whatever they are.
+// CmdInvertColors swaps the effective page colors for this session.
 static bool gInvertPageColors = false;
 
 bool GetInvertPageColors() {
@@ -1072,54 +983,16 @@ static Color ThemePageRenderColorsNoInvert(Color& bg) {
     bg = kColWhite;
 
     // Headless harnesses such as -extract-text run before LoadSettings.
-    if (!gSettings) {
+    if (!gSettings || !HasCurrentTheme()) {
         return text;
-    }
-
-    ParsedColor* parsedCol;
-    parsedCol = GetPrefsColor(gSettings->fixedPageUI.textColor);
-    if (parsedCol->parsedOk) {
-        text = parsedCol->col;
-    }
-
-    parsedCol = GetPrefsColor(gSettings->fixedPageUI.backgroundColor);
-    if (parsedCol->parsedOk) {
-        bg = parsedCol->col;
     }
 
     if (!DocumentColorsFollowThemeEnabled()) {
         return text;
     }
 
-    // Custom FixedPageUI colors: use them as recolor targets (no invert).
-    // DocumentColorsFollowTheme means "match the UI theme", not "swap black/white"
-    // — the old InvertColors path swapped here and forced white-on-black for the
-    // Light theme (#5821).
-    bool userDidChange = text != kColBlack || bg != kColWhite;
-    if (userDidChange) {
-        return text;
-    }
-
-    if (gUseHighContrast) {
-        // High contrast mode is about the app's own UI. Recoloring the document
-        // is not part of it - that's what made images come out inverted for no
-        // reason (#2124) - so the page keeps its black-on-white default.
-        return text;
-    }
-
-    // Light keeps white paper; Light Gray is the gray-page variant
-    if (IsCurrentThemeDefault()) {
-        return text;
-    }
-
-    // Defaults: page colors follow the window theme (light theme → dark text on
-    // light paper; dark theme → light text on dark paper).
     text = ThemeWindowTextColor();
     bg = ThemeMainWindowBackgroundColor();
-
-    if (gCurrThemeIndex < 3) {
-        bg = AccentColor(bg, 8);
-    }
     return text;
 }
 
@@ -1132,23 +1005,74 @@ Color ThemePageRenderColors(Color& bg) {
     return text;
 }
 
+#if IS_DEBUG
+bool ThemeHighContrast_UnitTest() {
+    Settings* oldSettings = gSettings;
+    Theme* oldTheme = gCurrentTheme;
+    int oldIndex = gCurrThemeIndex;
+    bool oldHighContrast = gIsHighContrast;
+    bool oldUseHighContrast = gUseHighContrast;
+    bool oldInvert = gInvertPageColors;
+
+    gSettings = NewSettings({});
+    Theme theme{};
+    gCurrentTheme = &theme;
+    gIsHighContrast = true;
+    gInvertPageColors = false;
+    bool ok = true;
+    for (int index = 0; index < 2; index++) {
+        gCurrThemeIndex = index;
+        RecalcUseHighContrast();
+        Color bg;
+        ok &= ThemeUsesHighContrastColors();
+        ok &= ThemeMainWindowBackgroundColor() == SysWindowBgColor();
+        ok &= ThemeControlBackgroundColor() == SysWindowBgColor();
+        ok &= ThemeWindowBackgroundColor() == SysWindowBgColor();
+        ok &= ThemeWindowTextColor() == SysWindowTextColor();
+        ok &= ThemeDocumentColors(bg) == SysWindowTextColor() && bg == SysWindowBgColor();
+        SetDocumentColorsFollowTheme(DocumentColorsFollowTheme::Smart);
+        ok &= ThemePageRenderColors(bg) == SysWindowTextColor() && bg == SysWindowBgColor();
+        SetInvertPageColors(true);
+        ok &= ThemePageRenderColors(bg) == SysWindowBgColor() && bg == SysWindowTextColor();
+        SetInvertPageColors(false);
+        SetDocumentColorsFollowTheme(DocumentColorsFollowTheme::Legacy);
+        ok &= ThemePageRenderColors(bg) == SysWindowTextColor() && bg == SysWindowBgColor();
+        SetInvertPageColors(true);
+        ok &= ThemePageRenderColors(bg) == SysWindowBgColor() && bg == SysWindowTextColor();
+        SetInvertPageColors(false);
+        SetDocumentColorsFollowTheme(DocumentColorsFollowTheme::Off);
+        ok &= ThemePageRenderColors(bg) == kColBlack && bg == kColWhite;
+        SetInvertPageColors(true);
+        ok &= ThemePageRenderColors(bg) == kColWhite && bg == kColBlack;
+        SetInvertPageColors(false);
+    }
+    DeleteSettings(gSettings);
+    gSettings = oldSettings;
+    gCurrentTheme = oldTheme;
+    gCurrThemeIndex = oldIndex;
+    gIsHighContrast = oldHighContrast;
+    gUseHighContrast = oldUseHighContrast;
+    gInvertPageColors = oldInvert;
+    return ok;
+}
+#endif
+
 Color ThemeControlBackgroundColor() {
-    return gUseHighContrast ? SysWindowBgColor() : GetThemeCol(gCurrentTheme->controlBackgroundColor, kColRed);
+    if (gUseHighContrast) {
+        return SysWindowBgColor();
+    }
+    Color fallback = kColRed;
+    if (gParsedThemes && gCurrThemeIndex < len(*gParsedThemes->themes)) {
+        fallback = ThemeCanvasColor();
+    }
+    return GetThemeCol(gCurrentTheme->controlBackgroundColor, fallback);
 }
 
 Color ThemeMainWindowBackgroundColor() {
     if (gUseHighContrast) {
         return SysWindowBgColor();
     }
-    Color bgColor = GetThemeCol(gCurrentTheme->backgroundColor, kColRed);
-    if (gCurrThemeIndex == 0) {
-        // Special behavior for light theme.
-        ParsedColor* bgParsed = GetPrefsColor(gSettings->mainWindowBackground);
-        if (bgParsed->parsedOk && !IsDefaultMainWinColor(bgParsed)) {
-            bgColor = bgParsed->col;
-        }
-    }
-    return bgColor;
+    return GetThemeCol(gCurrentTheme->backgroundColor, kColRed);
 }
 
 Color ThemeWindowBackgroundColor() {

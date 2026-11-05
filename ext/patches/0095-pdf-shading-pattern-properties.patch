@@ -1,0 +1,76 @@
+pdf: retain shading pattern properties
+
+Copy pattern dictionaries and cache by pattern, preserving their transforms.
+
+diff --git a/source/pdf/pdf-op-color.c b/source/pdf/pdf-op-color.c
+index 8f9c48740..3277f4d06 100644
+--- a/source/pdf/pdf-op-color.c
++++ b/source/pdf/pdf-op-color.c
+@@ -818,6 +818,7 @@ static void
+ pdf_color_SC_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_shade *shade)
+ {
+ 	pdf_color_processor *p = (pdf_color_processor*)proc;
++	pdf_obj *pattern = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Pattern), name);
+ 	pdf_obj *orig;
+ 	pdf_obj *dict = NULL;
+ 	pdf_obj *dict2 = NULL;
+@@ -839,10 +840,9 @@ pdf_color_SC_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
+ 		return;
+ 	}
+ 
+-	orig = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Pattern), name);
+-	orig = pdf_dict_get(ctx, orig, PDF_NAME(Shading));
++	orig = pdf_dict_get(ctx, pattern, PDF_NAME(Shading));
+ 
+-	new_shade = find_rewritten_shade(ctx, p, orig, new_name);
++	new_shade = find_rewritten_shade(ctx, p, pattern, new_name);
+ 	if (new_shade)
+ 	{
+ 		/* Must copy shading over to new resources dict. */
+@@ -865,8 +865,7 @@ pdf_color_SC_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
+ 
+ 	fz_try(ctx)
+ 	{
+-		dict = pdf_new_dict(ctx, p->doc, 1);
+-		pdf_dict_put_int(ctx, dict, PDF_NAME(PatternType), 2);
++		dict = pdf_copy_dict(ctx, pattern);
+ 		pdf_dict_put(ctx, dict, PDF_NAME(Shading), rewritten);
+ 		dict2 = pdf_add_object(ctx, p->doc, dict);
+ 		make_resource_instance(ctx, p, PDF_NAME(Pattern), "Pa", new_name, sizeof(new_name), dict2);
+@@ -874,7 +873,7 @@ pdf_color_SC_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
+ 		new_shade = pdf_load_shading(ctx, p->doc, rewritten);
+ 
+ 		/* Remember that we've done this one before. */
+-		push_rewritten_shade(ctx, p, orig, new_shade, new_name);
++		push_rewritten_shade(ctx, p, pattern, new_shade, new_name);
+ 
+ 		if (p->super.chain->op_sh)
+ 			p->super.chain->op_SC_shade(ctx, p->super.chain, new_name, new_shade);
+@@ -926,7 +925,7 @@ pdf_color_sc_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
+ 
+ 	orig = pdf_dict_get(ctx, pattern, PDF_NAME(Shading));
+ 
+-	new_shade = find_rewritten_shade(ctx, p, orig, new_name);
++	new_shade = find_rewritten_shade(ctx, p, pattern, new_name);
+ 	if (new_shade)
+ 	{
+ 		if (p->super.chain->op_sc_shade)
+@@ -942,8 +941,7 @@ pdf_color_sc_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
+ 
+ 	fz_try(ctx)
+ 	{
+-		dict = pdf_new_dict(ctx, p->doc, 1);
+-		pdf_dict_put_int(ctx, dict, PDF_NAME(PatternType), 2);
++		dict = pdf_copy_dict(ctx, pattern);
+ 		pdf_dict_put(ctx, dict, PDF_NAME(Shading), rewritten);
+ 		dict2 = pdf_add_object(ctx, p->doc, dict);
+ 		make_resource_instance(ctx, p, PDF_NAME(Pattern), "Pa", new_name, sizeof(new_name), dict2);
+@@ -951,7 +949,7 @@ pdf_color_sc_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
+ 		new_shade = pdf_load_shading(ctx, p->doc, rewritten);
+ 
+ 		/* Remember that we've done this one before. */
+-		push_rewritten_shade(ctx, p, orig, new_shade, new_name);
++		push_rewritten_shade(ctx, p, pattern, new_shade, new_name);
+ 
+ 		if (p->super.chain->op_sh)
+ 			p->super.chain->op_sc_shade(ctx, p->super.chain, new_name, new_shade);

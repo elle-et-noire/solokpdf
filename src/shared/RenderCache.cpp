@@ -193,6 +193,10 @@ Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions
     bmp = ApplyViewPageAdjust(bmp, options);
 
     ViewEngineClass engineClass = ClassifyViewEngine(engine);
+    if ((engineClass == ViewEngineClass::Mupdf || engineClass == ViewEngineClass::Pdfium) &&
+        profile.mode == PageColorMode::PreserveImages) {
+        return bmp;
+    }
     bool recolor = DarkModeProfileUsesLegacyPostProcess(&profile);
     if (profile.mode == PageColorMode::Normal) {
         recolor = engineClass == ViewEngineClass::Pdfium || engineClass == ViewEngineClass::Mupdf ||

@@ -35,6 +35,9 @@ typedef struct gstate_stack
 	struct gstate_stack *next;
 	pdf_obj *cs_stroke;
 	pdf_obj *cs_fill;
+	pdf_obj *pattern_base;
+	float original_fill[FZ_MAX_COLORS];
+	int original_fill_n;
 	int unmarked;
 	fz_matrix ctm;
 } gstate_stack;
@@ -86,6 +89,8 @@ typedef struct
 	gstate_stack *gstate;
 	cs_color *stroke;
 	cs_color *fill;
+	int preserve_mask_color;
+	pdf_obj *mask_patterns;
 	rewritten_images images;
 	rewritten_shades shades;
 } pdf_color_processor;
@@ -283,7 +288,14 @@ rewrite_cs(fz_context *ctx, pdf_color_processor *p, pdf_obj *cs_obj, int n, floa
 		}
 		/* Now, do any rewriting. This might drop the reference to cs_obj and
 		 * return with a different one. */
-		if (p->options->color_rewrite)
+		if (!stroking && !p->preserve_mask_color && n > 0)
+		{
+			p->gstate->original_fill_n = n;
+			memcpy(p->gstate->original_fill, color, n * sizeof(float));
+		}
+		else if (!stroking && !p->preserve_mask_color && pdf_dict_get_int(ctx, cs_obj, PDF_NAME(PatternType)) == 1)
+			p->gstate->original_fill_n = -1;
+		if (p->options->color_rewrite && !p->preserve_mask_color)
 			p->options->color_rewrite(ctx, p->options->opaque, &cs_obj, &n, color);
 
 		/* If we've rewritten it to be a simple name, great! */
@@ -384,7 +396,13 @@ rewrite_cs(fz_context *ctx, pdf_color_processor *p, pdf_obj *cs_obj, int n, floa
 			fz_throw(ctx, FZ_ERROR_FORMAT, "Bad PatternType");
 
 		/* Make a new entry (or find an existing one), and send that. */
-		make_resource_instance(ctx, p, PDF_NAME(Pattern), "Pa", new_name, sizeof(new_name), cs_obj);
+		make_resource_instance(ctx, p, PDF_NAME(Pattern), p->preserve_mask_color ? "MaskPa" : "Pa", new_name, sizeof(new_name), cs_obj);
+		if (p->preserve_mask_color && type == 1)
+		{
+			if (!p->mask_patterns)
+				p->mask_patterns = pdf_new_dict(ctx, p->doc, 4);
+			pdf_dict_puts(ctx, p->mask_patterns, new_name, PDF_TRUE);
+		}
 
 		if (type == 1)
 		{
@@ -423,6 +441,8 @@ mark_stroke(fz_context *ctx, pdf_color_processor *p)
 {
 	float zero[FZ_MAX_COLORS] = { 0 };
 
+	if (p->global_options->is_form && p->options->preserve_image_masks)
+		fz_throw(ctx, FZ_ERROR_UNSUPPORTED, "cannot rewrite inherited form stroke color");
 	rewrite_cs(ctx, p, PDF_NAME(DeviceGray), 1, zero, 1);
 
 	p->gstate->unmarked &= ~UNMARKED_STROKE;
@@ -433,6 +453,8 @@ mark_fill(fz_context *ctx, pdf_color_processor *p)
 {
 	float zero[FZ_MAX_COLORS] = { 0 };
 
+	if (p->global_options->is_form && p->options->preserve_image_masks)
+		fz_throw(ctx, FZ_ERROR_UNSUPPORTED, "cannot rewrite inherited form fill color");
 	rewrite_cs(ctx, p, PDF_NAME(DeviceGray), 1, zero, 0);
 
 	p->gstate->unmarked &= ~UNMARKED_FILL;
@@ -449,8 +471,11 @@ pdf_color_q(fz_context *ctx, pdf_processor *proc)
 	gs->next = p->gstate;
 	gs->cs_fill = pdf_keep_obj(ctx, p->gstate->cs_fill);
 	gs->cs_stroke = pdf_keep_obj(ctx, p->gstate->cs_stroke);
+	gs->pattern_base = pdf_keep_obj(ctx, p->gstate->pattern_base);
 	gs->unmarked = p->gstate->unmarked;
 	gs->ctm = p->gstate->ctm;
+	gs->original_fill_n = p->gstate->original_fill_n;
+	memcpy(gs->original_fill, p->gstate->original_fill, sizeof(gs->original_fill));
 	p->gstate = gs;
 
 	if (p->super.chain->op_q)
@@ -497,8 +522,8 @@ pdf_color_s(fz_context *ctx, pdf_processor *proc)
 {
 	pdf_color_processor *p = (pdf_color_processor*)proc;
 
-	if (p->gstate->unmarked & UNMARKED_FILL)
-		mark_fill(ctx, p);
+	if (p->gstate->unmarked & UNMARKED_STROKE)
+		mark_stroke(ctx, p);
 
 	if (p->super.chain->op_s)
 		p->super.chain->op_s(ctx, p->super.chain);
@@ -605,6 +630,7 @@ pdf_color_Q(fz_context *ctx, pdf_processor *proc)
 	p->gstate = gs->next;
 	pdf_drop_obj(ctx, gs->cs_fill);
 	pdf_drop_obj(ctx, gs->cs_stroke);
+	pdf_drop_obj(ctx, gs->pattern_base);
 
 	fz_try(ctx)
 		if (p->super.chain->op_Q)
@@ -708,11 +734,32 @@ pdf_color_cs(fz_context *ctx, pdf_processor *proc, const char *name, fz_colorspa
 	float color[FZ_MAX_COLORS] = { 1 };
 
 	fz_try(ctx)
+	{
+		if (p->options->preserve_image_masks)
+		{
+			pdf_obj *resolved = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(ColorSpace), name);
+			pdf_drop_obj(ctx, p->gstate->pattern_base);
+			p->gstate->pattern_base = NULL;
+			if (pdf_is_array(ctx, resolved) && pdf_name_eq(ctx, pdf_array_get(ctx, resolved, 0), PDF_NAME(Pattern)))
+				p->gstate->pattern_base = pdf_keep_obj(ctx, resolved);
+		}
 		rewrite_cs(ctx, p, cs_obj, 0, color, 0);
+	}
 	fz_always(ctx)
 		pdf_drop_obj(ctx, cs_obj);
 	fz_catch(ctx)
 		fz_rethrow(ctx);
+	if (p->options->preserve_image_masks)
+	{
+		int i, n = cs ? fz_colorspace_n(ctx, cs) : 0;
+		p->gstate->original_fill_n = n <= FZ_MAX_COLORS ? n : 0;
+		memset(p->gstate->original_fill, 0, sizeof(p->gstate->original_fill));
+		if (n > 3 && n <= FZ_MAX_COLORS)
+			p->gstate->original_fill[3] = 1;
+		if (cs && pdf_is_tint_colorspace(ctx, cs))
+			for (i = 0; i < p->gstate->original_fill_n; i++)
+				p->gstate->original_fill[i] = 1;
+	}
 }
 
 static void
@@ -722,6 +769,8 @@ pdf_color_SC_pattern(fz_context *ctx, pdf_processor *proc, const char *name, pdf
 	float local_color[FZ_MAX_COLORS] = { 0 };
 	pdf_obj *cs_obj = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Pattern), name);
 
+	if (n > 0 && p->options->reject_uncolored_strokes)
+		fz_throw(ctx, FZ_ERROR_UNSUPPORTED, "uncolored pattern stroke requires a different renderer");
 	memcpy(local_color, color, sizeof(float) * n);
 	rewrite_cs(ctx, p, cs_obj, n, local_color, 1);
 }
@@ -734,6 +783,40 @@ pdf_color_sc_pattern(fz_context *ctx, pdf_processor *proc, const char *name, pdf
 	pdf_obj *cs_obj = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Pattern), name);
 
 	memcpy(local_color, color, sizeof(float) * n);
+	if (n > 0 && p->gstate->pattern_base)
+	{
+		char cs_name[MAX_REWRITTEN_NAME];
+		float rgb[FZ_MAX_COLORS] = { 0 };
+		fz_colorspace *base = NULL;
+		fz_colorspace *space = NULL;
+		pdf_obj *rgb_pattern = NULL;
+		fz_var(base);
+		fz_var(space);
+		fz_var(rgb_pattern);
+		fz_try(ctx)
+		{
+			base = pdf_load_colorspace(ctx, pdf_array_get(ctx, p->gstate->pattern_base, 1));
+			fz_convert_color(ctx, base, color, fz_device_rgb(ctx), rgb, NULL, fz_default_color_params);
+			rgb_pattern = pdf_new_array(ctx, p->doc, 2);
+			pdf_array_push(ctx, rgb_pattern, PDF_NAME(Pattern));
+			pdf_array_push(ctx, rgb_pattern, PDF_NAME(DeviceRGB));
+			make_resource_instance(ctx, p, PDF_NAME(ColorSpace), "CS", cs_name, sizeof(cs_name), rgb_pattern);
+			space = pdf_load_colorspace(ctx, rgb_pattern);
+			p->super.chain->op_cs(ctx, p->super.chain, cs_name, space);
+			rewrite_cs(ctx, p, cs_obj, 3, rgb, 0);
+			p->gstate->original_fill_n = n;
+			memcpy(p->gstate->original_fill, color, sizeof(float) * n);
+		}
+		fz_always(ctx)
+		{
+			fz_drop_colorspace(ctx, base);
+			fz_drop_colorspace(ctx, space);
+			pdf_drop_obj(ctx, rgb_pattern);
+		}
+		fz_catch(ctx)
+			fz_rethrow(ctx);
+		return;
+	}
 	rewrite_cs(ctx, p, cs_obj, n, local_color, 0);
 }
 
@@ -741,6 +824,7 @@ static void
 pdf_color_SC_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_shade *shade)
 {
 	pdf_color_processor *p = (pdf_color_processor*)proc;
+	pdf_obj *pattern = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Pattern), name);
 	pdf_obj *orig;
 	pdf_obj *dict = NULL;
 	pdf_obj *dict2 = NULL;
@@ -750,22 +834,19 @@ pdf_color_SC_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
 
 	if (p->options->shade_rewrite == NULL)
 	{
-		/* Must copy shading over to new resources dict. */
-		pdf_obj *old_obj = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Shading), name);
-		pdf_obj *new_shading_dict = pdf_dict_get(ctx, p->new_rstack->resources, PDF_NAME(Shading));
-		if (new_shading_dict == NULL)
-			pdf_dict_put_drop(ctx, p->new_rstack->resources, PDF_NAME(Shading), new_shading_dict = pdf_new_dict(ctx, p->doc, 4));
-		pdf_dict_puts(ctx, new_shading_dict, name, old_obj);
+		pdf_obj *patterns = pdf_dict_get(ctx, p->new_rstack->resources, PDF_NAME(Pattern));
+		if (patterns == NULL)
+			pdf_dict_put_drop(ctx, p->new_rstack->resources, PDF_NAME(Pattern), patterns = pdf_new_dict(ctx, p->doc, 4));
+		pdf_dict_puts(ctx, patterns, name, pattern);
 
 		if (p->super.chain->op_SC_shade)
 			p->super.chain->op_SC_shade(ctx, p->super.chain, name, shade);
 		return;
 	}
 
-	orig = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Pattern), name);
-	orig = pdf_dict_get(ctx, orig, PDF_NAME(Shading));
+	orig = pdf_dict_get(ctx, pattern, PDF_NAME(Shading));
 
-	new_shade = find_rewritten_shade(ctx, p, orig, new_name);
+	new_shade = find_rewritten_shade(ctx, p, pattern, new_name);
 	if (new_shade)
 	{
 		/* Must copy shading over to new resources dict. */
@@ -788,8 +869,7 @@ pdf_color_SC_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
 
 	fz_try(ctx)
 	{
-		dict = pdf_new_dict(ctx, p->doc, 1);
-		pdf_dict_put_int(ctx, dict, PDF_NAME(PatternType), 2);
+		dict = pdf_copy_dict(ctx, pattern);
 		pdf_dict_put(ctx, dict, PDF_NAME(Shading), rewritten);
 		dict2 = pdf_add_object(ctx, p->doc, dict);
 		make_resource_instance(ctx, p, PDF_NAME(Pattern), "Pa", new_name, sizeof(new_name), dict2);
@@ -797,7 +877,7 @@ pdf_color_SC_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
 		new_shade = pdf_load_shading(ctx, p->doc, rewritten);
 
 		/* Remember that we've done this one before. */
-		push_rewritten_shade(ctx, p, orig, new_shade, new_name);
+		push_rewritten_shade(ctx, p, pattern, new_shade, new_name);
 
 		if (p->super.chain->op_sh)
 			p->super.chain->op_SC_shade(ctx, p->super.chain, new_name, new_shade);
@@ -817,6 +897,7 @@ static void
 pdf_color_sc_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_shade *shade)
 {
 	pdf_color_processor *p = (pdf_color_processor*)proc;
+	pdf_obj *pattern = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Pattern), name);
 	pdf_obj *orig;
 	pdf_obj *dict = NULL;
 	pdf_obj *dict2 = NULL;
@@ -824,24 +905,29 @@ pdf_color_sc_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
 	pdf_obj *rewritten;
 	fz_shade *new_shade = NULL;
 
+	if (p->options->preserve_image_masks)
+	{
+		pdf_keep_obj(ctx, pattern);
+		pdf_drop_obj(ctx, p->gstate->cs_fill);
+		p->gstate->cs_fill = pattern;
+		p->gstate->original_fill_n = -1;
+	}
+
 	if (p->options->shade_rewrite == NULL)
 	{
-		/* Must copy shading over to new resources dict. */
-		pdf_obj *old_obj = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Shading), name);
-		pdf_obj *new_shading_dict = pdf_dict_get(ctx, p->new_rstack->resources, PDF_NAME(Shading));
-		if (new_shading_dict == NULL)
-			pdf_dict_put_drop(ctx, p->new_rstack->resources, PDF_NAME(Shading), new_shading_dict = pdf_new_dict(ctx, p->doc, 4));
-		pdf_dict_puts(ctx, new_shading_dict, name, old_obj);
+		pdf_obj *patterns = pdf_dict_get(ctx, p->new_rstack->resources, PDF_NAME(Pattern));
+		if (patterns == NULL)
+			pdf_dict_put_drop(ctx, p->new_rstack->resources, PDF_NAME(Pattern), patterns = pdf_new_dict(ctx, p->doc, 4));
+		pdf_dict_puts(ctx, patterns, name, pattern);
 
 		if (p->super.chain->op_sc_shade)
 			p->super.chain->op_sc_shade(ctx, p->super.chain, name, shade);
 		return;
 	}
 
-	orig = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Pattern), name);
-	orig = pdf_dict_get(ctx, orig, PDF_NAME(Shading));
+	orig = pdf_dict_get(ctx, pattern, PDF_NAME(Shading));
 
-	new_shade = find_rewritten_shade(ctx, p, orig, new_name);
+	new_shade = find_rewritten_shade(ctx, p, pattern, new_name);
 	if (new_shade)
 	{
 		if (p->super.chain->op_sc_shade)
@@ -857,8 +943,7 @@ pdf_color_sc_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
 
 	fz_try(ctx)
 	{
-		dict = pdf_new_dict(ctx, p->doc, 1);
-		pdf_dict_put_int(ctx, dict, PDF_NAME(PatternType), 2);
+		dict = pdf_copy_dict(ctx, pattern);
 		pdf_dict_put(ctx, dict, PDF_NAME(Shading), rewritten);
 		dict2 = pdf_add_object(ctx, p->doc, dict);
 		make_resource_instance(ctx, p, PDF_NAME(Pattern), "Pa", new_name, sizeof(new_name), dict2);
@@ -866,7 +951,7 @@ pdf_color_sc_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
 		new_shade = pdf_load_shading(ctx, p->doc, rewritten);
 
 		/* Remember that we've done this one before. */
-		push_rewritten_shade(ctx, p, orig, new_shade, new_name);
+		push_rewritten_shade(ctx, p, pattern, new_shade, new_name);
 
 		if (p->super.chain->op_sh)
 			p->super.chain->op_sc_shade(ctx, p->super.chain, new_name, new_shade);
@@ -961,6 +1046,42 @@ pdf_color_k(fz_context *ctx, pdf_processor *proc, float c, float m, float y, flo
 
 /* shadings, images, xobjects */
 
+static int
+pdf_color_begin_image_mask(fz_context *ctx, pdf_color_processor *p, fz_image *image)
+{
+	float original[FZ_MAX_COLORS];
+	if (!p->options->preserve_image_masks || !image->imagemask || p->gstate->original_fill_n == 0)
+		return 0;
+	memcpy(original, p->gstate->original_fill, sizeof(original));
+	p->super.chain->op_q(ctx, p->super.chain);
+	p->preserve_mask_color = 1;
+	fz_try(ctx)
+	{
+		if (p->gstate->pattern_base && p->gstate->original_fill_n > 0)
+		{
+			char name[MAX_REWRITTEN_NAME];
+			fz_colorspace *space = NULL;
+			fz_var(space);
+			fz_try(ctx)
+			{
+				make_resource_instance(ctx, p, PDF_NAME(ColorSpace), "CS", name, sizeof(name), p->gstate->pattern_base);
+				space = pdf_load_colorspace(ctx, p->gstate->pattern_base);
+				p->super.chain->op_cs(ctx, p->super.chain, name, space);
+			}
+			fz_always(ctx)
+				fz_drop_colorspace(ctx, space);
+			fz_catch(ctx)
+				fz_rethrow(ctx);
+		}
+		rewrite_cs(ctx, p, p->gstate->cs_fill, p->gstate->original_fill_n < 0 ? 0 : p->gstate->original_fill_n, original, 0);
+	}
+	fz_always(ctx)
+		p->preserve_mask_color = 0;
+	fz_catch(ctx)
+		fz_rethrow(ctx);
+	return 1;
+}
+
 static void
 pdf_color_BI(fz_context *ctx, pdf_processor *proc, fz_image *image, const char *colorspace)
 {
@@ -980,7 +1101,12 @@ pdf_color_BI(fz_context *ctx, pdf_processor *proc, fz_image *image, const char *
 			p->options->image_rewrite(ctx, p->options->opaque, &image, p->gstate->ctm, NULL);
 
 		if (p->super.chain->op_BI)
+		{
+			int saved = pdf_color_begin_image_mask(ctx, p, image);
 			p->super.chain->op_BI(ctx, p->super.chain, image, colorspace);
+			if (saved)
+				p->super.chain->op_Q(ctx, p->super.chain);
+		}
 	}
 	fz_always(ctx)
 		fz_drop_image(ctx, image);
@@ -1061,7 +1187,12 @@ pdf_color_Do_image(fz_context *ctx, pdf_processor *proc, const char *name, fz_im
 		if (image)
 		{
 			if (p->super.chain->op_Do_image)
+			{
+				int saved = pdf_color_begin_image_mask(ctx, p, image);
 				p->super.chain->op_Do_image(ctx, p->super.chain, new_name, image);
+				if (saved)
+					p->super.chain->op_Q(ctx, p->super.chain);
+			}
 			return;
 		}
 	}
@@ -1100,7 +1231,12 @@ pdf_color_Do_image(fz_context *ctx, pdf_processor *proc, const char *name, fz_im
 		}
 
 		if (p->super.chain->op_Do_image)
+		{
+			int saved = pdf_color_begin_image_mask(ctx, p, image);
 			p->super.chain->op_Do_image(ctx, p->super.chain, new_name, image);
+			if (saved)
+				p->super.chain->op_Q(ctx, p->super.chain);
+		}
 	}
 	fz_always(ctx)
 	{
@@ -1176,6 +1312,7 @@ pdf_drop_color_processor(fz_context *ctx, pdf_processor *proc)
 
 		pdf_drop_obj(ctx, gs->cs_fill);
 		pdf_drop_obj(ctx, gs->cs_stroke);
+		pdf_drop_obj(ctx, gs->pattern_base);
 		fz_free(ctx, gs);
 		gs = gs_next;
 	}
@@ -1190,8 +1327,19 @@ pdf_drop_color_processor(fz_context *ctx, pdf_processor *proc)
 
 	drop_rewritten_images(ctx, p);
 	drop_rewritten_shades(ctx, p);
+	pdf_drop_obj(ctx, p->mask_patterns);
 
 	pdf_drop_document(ctx, p->doc);
+}
+
+int
+pdf_color_filter_is_mask_pattern(fz_context *ctx, pdf_processor *proc, const char *name)
+{
+	pdf_color_processor *p;
+	if (!proc || proc->drop_processor != pdf_drop_color_processor)
+		return 0;
+	p = (pdf_color_processor*)proc;
+	return pdf_dict_gets(ctx, p->mask_patterns, name) != NULL;
 }
 
 static void

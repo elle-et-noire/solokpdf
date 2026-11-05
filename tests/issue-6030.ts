@@ -1,6 +1,5 @@
 // Regression test for issue #6030: CHM in the PDF-style view
-// (ChmUI.UseFixedPageUI) must be recolored with FixedPageUI.TextColor /
-// BackgroundColor. Recolor was narrowed to MuPDF+DjVu, so CHM pages stayed white.
+// (ChmUI.UseFixedPageUI) must be recolored with theme colors.
 //
 // Reuses the small tests/issue-2737.chm fixture.
 //
@@ -49,11 +48,14 @@ export async function testit(): Promise<void> {
       "UiLanguage = en",
       "CheckForUpdates = false",
       "RestoreSession = false",
-      "Theme = Light",
-      "DocumentColorsFollowTheme = off",
-      "FixedPageUI [",
+      "Theme = CHM Test",
+      "DocumentColorsFollowTheme = smart",
+      "Themes [",
+      " [",
+      "\tName = CHM Test",
       "\tTextColor = #e8e0d0",
       "\tBackgroundColor = #1a3a5c",
+      " ]",
       "]",
       "ChmUI [",
       "\tUseFixedPageUI = true",
@@ -80,7 +82,7 @@ export async function testit(): Promise<void> {
       const white = countNear(cap.data, 255, 255, 255, 8);
       if (dark < 200) {
         throw new Error(
-          `issue-6030: CHM page not recolored to FixedPageUI.BackgroundColor (dark=${dark} white=${white} ${cap.w}x${cap.h})`,
+          `issue-6030: CHM page not recolored to theme background (dark=${dark} white=${white} ${cap.w}x${cap.h})`,
         );
       }
       console.log(`  chm recolor: dark=${dark} white=${white} ${cap.w}x${cap.h} ✓`);

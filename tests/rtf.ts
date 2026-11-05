@@ -21,7 +21,10 @@ async function testCenteredTable(dir: string): Promise<void> {
   }
   const rtf = join(dir, "centered.rtf");
   writeFileSync(rtf, kCenteredRtf, "latin1");
-  const appdata = writeAppdata("rtf-center", "Theme = Light\nMainWindowBackground = #ffcc00\n");
+  const appdata = writeAppdata(
+    "rtf-center",
+    "Theme = Rtf Test\nDocumentColorsFollowTheme = off\nThemes [\n [\n Name = Rtf Test\n BackgroundColor = #ffcc00\n ]\n]\n",
+  );
   const { proc, client, frame } = await launchControlled([
     "-appdata",
     appdata,

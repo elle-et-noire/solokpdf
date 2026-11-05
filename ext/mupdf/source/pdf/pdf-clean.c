@@ -33,7 +33,20 @@ static void
 pdf_filter_type3(fz_context *ctx, pdf_document *doc, pdf_obj *obj, pdf_obj *page_res, pdf_filter_options *options, pdf_cycle_list *cycle_up);
 
 static void
-pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_obj *res, pdf_filter_options *options, pdf_cycle_list *cycle_up)
+pdf_filter_resource_copy(fz_context *ctx, pdf_document *doc, pdf_obj *dict, int index, pdf_obj *page_res, pdf_filter_options *options, pdf_cycle_list *cycle)
+{
+	pdf_obj *value = pdf_dict_get_val(ctx, dict, index);
+	if (options->no_update)
+	{
+		pdf_filter_xobject(ctx, doc, value, page_res, options, cycle);
+		return;
+	}
+	pdf_obj *filtered = pdf_filter_xobject_instance(ctx, value, page_res, fz_identity, options, cycle);
+	pdf_dict_put_drop(ctx, dict, pdf_dict_get_key(ctx, dict, index), filtered);
+}
+
+static void
+pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_obj *res, pdf_filter_options *options, pdf_cycle_list *cycle_up, pdf_processor **filters, int num_filters)
 {
 	pdf_cycle_list cycle;
 	pdf_obj *obj;
@@ -56,7 +69,7 @@ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_ob
 			if (smask)
 			{
 				pdf_obj *g = pdf_dict_get(ctx, smask, PDF_NAME(G));
-				if (g)
+				if (g && !options->preserve_soft_masks)
 				{
 					/* Transparency group XObject */
 					pdf_filter_xobject(ctx, doc, g, in_res, options, &cycle);
@@ -73,9 +86,14 @@ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_ob
 		for (i = 0; i < n; i++)
 		{
 			pdf_obj *pat = pdf_dict_get_val(ctx, obj, i);
-			if (pat && pdf_dict_get_int(ctx, pat, PDF_NAME(PatternType)) == 1)
+			const char *name = pdf_to_name(ctx, pdf_dict_get_key(ctx, obj, i));
+			int j, is_mask = 0;
+			for (j = 0; j < num_filters; j++)
+				if (pdf_color_filter_is_mask_pattern(ctx, filters[j], name))
+					is_mask = 1;
+			if (pat && !is_mask && pdf_dict_get_int(ctx, pat, PDF_NAME(PatternType)) == 1)
 			{
-				pdf_filter_xobject(ctx, doc, pat, in_res, options, &cycle);
+				pdf_filter_resource_copy(ctx, doc, obj, i, in_res, options, &cycle);
 			}
 		}
 	}
@@ -92,7 +110,7 @@ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_ob
 				pdf_obj *xobj = pdf_dict_get_val(ctx, obj, i);
 				if (xobj && pdf_dict_get(ctx, xobj, PDF_NAME(Subtype)) == PDF_NAME(Form))
 				{
-					pdf_filter_xobject(ctx, doc, xobj, in_res, options, &cycle);
+					pdf_filter_resource_copy(ctx, doc, obj, i, in_res, options, &cycle);
 				}
 			}
 		}
@@ -108,7 +126,19 @@ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_ob
 			pdf_obj *font = pdf_dict_get_val(ctx, obj, i);
 			if (font && pdf_dict_get(ctx, font, PDF_NAME(Subtype)) == PDF_NAME(Type3))
 			{
-				pdf_filter_type3(ctx, doc, font, in_res, options, &cycle);
+				pdf_obj *copy = pdf_copy_dict(ctx, font);
+				fz_try(ctx)
+				{
+					pdf_obj *charprocs = pdf_dict_get(ctx, font, PDF_NAME(CharProcs));
+					if (pdf_is_dict(ctx, charprocs))
+						pdf_dict_put_drop(ctx, copy, PDF_NAME(CharProcs), pdf_copy_dict(ctx, charprocs));
+					pdf_filter_type3(ctx, doc, copy, in_res, options, &cycle);
+					pdf_dict_put(ctx, obj, pdf_dict_get_key(ctx, obj, i), copy);
+				}
+				fz_always(ctx)
+					pdf_drop_obj(ctx, copy);
+				fz_catch(ctx)
+					fz_rethrow(ctx);
 			}
 		}
 	}
@@ -143,10 +173,12 @@ pdf_filter_content_stream(
 	pdf_processor *proc_buffer = NULL;
 	pdf_processor *top = NULL;
 	pdf_processor **list = NULL;
+	pdf_obj *empty_res = NULL;
 	int num_filters = 0;
 	int i;
 
 	fz_var(proc_buffer);
+	fz_var(empty_res);
 
 	*out_buf = NULL;
 	*out_res = NULL;
@@ -159,6 +191,11 @@ pdf_filter_content_stream(
 
 	fz_try(ctx)
 	{
+		if (!in_res)
+		{
+			empty_res = pdf_new_dict(ctx, doc, 0);
+			in_res = empty_res;
+		}
 		*out_buf = fz_new_buffer(ctx, 1024);
 		top = proc_buffer = pdf_new_buffer_processor(ctx, *out_buf, options->ascii, options->newlines);
 		if (num_filters > 0)
@@ -170,13 +207,14 @@ pdf_filter_content_stream(
 		pdf_process_contents(ctx, top, doc, in_res, in_stm, NULL, out_res);
 		pdf_close_processor(ctx, top);
 
-		pdf_filter_resources(ctx, doc, in_res, *out_res, options, cycle_up);
+		pdf_filter_resources(ctx, doc, in_res, *out_res, options, cycle_up, list, num_filters);
 	}
 	fz_always(ctx)
 	{
 		for (i = 0; i < num_filters; i++)
 			pdf_drop_processor(ctx, list[i]);
 		pdf_drop_processor(ctx, proc_buffer);
+		pdf_drop_obj(ctx, empty_res);
 		fz_free(ctx, list);
 	}
 	fz_catch(ctx)
@@ -270,7 +308,21 @@ pdf_filter_type3(fz_context *ctx, pdf_document *doc, pdf_obj *obj, pdf_obj *page
 			if (!options->no_update)
 			{
 				new_buf = fz_clone_buffer(ctx, buffer);
-				pdf_update_stream(ctx, doc, val, new_buf, 0);
+				pdf_obj *dict = pdf_copy_dict(ctx, val);
+				pdf_obj *copy = NULL;
+				fz_var(copy);
+				fz_try(ctx)
+				{
+					copy = pdf_add_stream(ctx, doc, new_buf, dict, 0);
+					pdf_dict_put(ctx, charprocs, pdf_dict_get_key(ctx, charprocs, i), copy);
+				}
+				fz_always(ctx)
+				{
+					pdf_drop_obj(ctx, dict);
+					pdf_drop_obj(ctx, copy);
+				}
+				fz_catch(ctx)
+					fz_rethrow(ctx);
 				fz_drop_buffer(ctx, new_buf);
 				new_buf = NULL;
 			}
@@ -299,6 +351,7 @@ static void
 pdf_filter_xobject(fz_context *ctx, pdf_document *doc, pdf_obj *stm, pdf_obj *page_res, pdf_filter_options *options, pdf_cycle_list *cycle_up)
 {
 	pdf_cycle_list cycle;
+	pdf_filter_options local_options = *options;
 	int struct_parents;
 	pdf_obj *new_res = NULL;
 	fz_buffer *new_buf = NULL;
@@ -320,9 +373,10 @@ pdf_filter_xobject(fz_context *ctx, pdf_document *doc, pdf_obj *stm, pdf_obj *pa
 	/* Avoid recursive cycles! */
 	if (pdf_cycle(ctx, &cycle, cycle_up, stm))
 		return;
+	local_options.is_form = pdf_name_eq(ctx, pdf_dict_get(ctx, stm, PDF_NAME(Subtype)), PDF_NAME(Form));
 	fz_try(ctx)
 	{
-		pdf_filter_content_stream(ctx, doc, stm, old_res, fz_identity, options, struct_parents, &new_buf, &new_res, &cycle);
+		pdf_filter_content_stream(ctx, doc, stm, old_res, fz_identity, &local_options, struct_parents, &new_buf, &new_res, &cycle);
 		if (!options->no_update)
 		{
 			pdf_update_stream(ctx, doc, stm, new_buf, 0);
@@ -342,6 +396,7 @@ pdf_obj *
 pdf_filter_xobject_instance(fz_context *ctx, pdf_obj *old_xobj, pdf_obj *page_res, fz_matrix transform, pdf_filter_options *options, pdf_cycle_list *cycle_up)
 {
 	pdf_cycle_list cycle;
+	pdf_filter_options local_options = *options;
 	pdf_document *doc = pdf_get_bound_document(ctx, old_xobj);
 	pdf_obj *new_xobj = NULL;
 	pdf_obj *new_res = NULL, *old_res;
@@ -367,11 +422,12 @@ pdf_filter_xobject_instance(fz_context *ctx, pdf_obj *old_xobj, pdf_obj *page_re
 
 	matrix = pdf_dict_get_matrix(ctx, old_xobj, PDF_NAME(Matrix));
 	transform = fz_concat(matrix, transform);
+	local_options.is_form = pdf_name_eq(ctx, pdf_dict_get(ctx, old_xobj, PDF_NAME(Subtype)), PDF_NAME(Form));
 
 	fz_try(ctx)
 	{
 		new_xobj = pdf_add_object_drop(ctx, doc, pdf_copy_dict(ctx, old_xobj));
-		pdf_filter_content_stream(ctx, doc, old_xobj, old_res, transform, options, struct_parents, &new_buf, &new_res, &cycle);
+		pdf_filter_content_stream(ctx, doc, old_xobj, old_res, transform, &local_options, struct_parents, &new_buf, &new_res, &cycle);
 		if (!options->no_update)
 		{
 			pdf_update_stream(ctx, doc, new_xobj, new_buf, 0);
@@ -435,15 +491,43 @@ void pdf_filter_annot_contents(fz_context *ctx, pdf_document *doc, pdf_annot *an
 	pdf_obj *ap = pdf_dict_get(ctx, annot->obj, PDF_NAME(AP));
 	if (pdf_is_dict(ctx, ap))
 	{
-		int i, n = pdf_dict_len(ctx, ap);
-		for (i = 0; i < n; i++)
+		pdf_obj *copy = pdf_copy_dict(ctx, ap);
+		fz_try(ctx)
 		{
-			pdf_obj *stm = pdf_dict_get_val(ctx, ap, i);
-			if (pdf_is_stream(ctx, stm))
+			int i, n = pdf_dict_len(ctx, copy);
+			for (i = 0; i < n; i++)
 			{
-				pdf_filter_xobject(ctx, doc, stm, NULL, options, NULL);
+				pdf_obj *value = pdf_dict_get_val(ctx, copy, i);
+				if (pdf_is_stream(ctx, value))
+				{
+					pdf_filter_resource_copy(ctx, doc, copy, i, NULL, options, NULL);
+				}
+				else if (pdf_is_dict(ctx, value))
+				{
+					pdf_obj *states = pdf_copy_dict(ctx, value);
+					fz_try(ctx)
+					{
+						int j, count = pdf_dict_len(ctx, states);
+						for (j = 0; j < count; j++)
+						{
+							if (pdf_is_stream(ctx, pdf_dict_get_val(ctx, states, j)))
+								pdf_filter_resource_copy(ctx, doc, states, j, NULL, options, NULL);
+						}
+						pdf_dict_put(ctx, copy, pdf_dict_get_key(ctx, copy, i), states);
+					}
+					fz_always(ctx)
+						pdf_drop_obj(ctx, states);
+					fz_catch(ctx)
+						fz_rethrow(ctx);
+				}
 			}
+			if (!options->no_update)
+				pdf_dict_put(ctx, annot->obj, PDF_NAME(AP), copy);
 		}
+		fz_always(ctx)
+			pdf_drop_obj(ctx, copy);
+		fz_catch(ctx)
+			fz_rethrow(ctx);
 	}
 }
 

@@ -99,9 +99,15 @@ are in [history.md](history.md).
   not established (E4 dropped: rare documents).
 - Theme colors apply to PDFium pages; see
   [Theme page colors](features.md#theme-page-colors).
-- `FixedPageUI.WindowBgCol` colors the page surround on PDFium tabs as on
-  MuPDF tabs (`tests/ad-hoc-pdfium-window-bg.ts`). The Change Color dialog
-  already uses the fixed-page color for PDFium.
+- In `smart` mode, PDFium uses a temporary per-page color-filtered PDF
+  snapshot. Repaired PDFs require a full in-memory rewrite. If a snapshot
+  cannot be created, MuPDF renders that page with theme colors instead.
+  Forms that inherit painting colors and uncolored pattern strokes also use this fallback.
+- With theme colors off, PDFium draws uncolored tiling pattern strokes in black
+  regardless of their tint. `smart` uses MuPDF for these pages.
+- PDFium draws colored Type 3 glyphs at full opacity even when the surrounding
+  text is partially transparent. This also occurs with theme colors off.
+- PDF page surrounds use the theme background in both PDFium and MuPDF.
 - PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a
   render-device pass to vector strokes, text and narrow fills, adjusts minimum
   line width, and darkens raster drawings; PDFium has no equivalent per-render

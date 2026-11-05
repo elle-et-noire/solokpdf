@@ -1,0 +1,26 @@
+pdf: reset mask paint on colorspace changes
+
+Track the colorspace's default paint for preserved image masks.
+
+diff --git a/source/pdf/pdf-op-color.c b/source/pdf/pdf-op-color.c
+index b83ac7222..42b29afbc 100644
+--- a/source/pdf/pdf-op-color.c
++++ b/source/pdf/pdf-op-color.c
+@@ -723,6 +723,17 @@ pdf_color_cs(fz_context *ctx, pdf_processor *proc, const char *name, fz_colorspa
+ 		pdf_drop_obj(ctx, cs_obj);
+ 	fz_catch(ctx)
+ 		fz_rethrow(ctx);
++	if (p->options->preserve_image_masks)
++	{
++		int i, n = cs ? fz_colorspace_n(ctx, cs) : 0;
++		p->gstate->original_fill_n = n <= FZ_MAX_COLORS ? n : 0;
++		memset(p->gstate->original_fill, 0, sizeof(p->gstate->original_fill));
++		if (n > 3 && n <= FZ_MAX_COLORS)
++			p->gstate->original_fill[3] = 1;
++		if (cs && pdf_is_tint_colorspace(ctx, cs))
++			for (i = 0; i < p->gstate->original_fill_n; i++)
++				p->gstate->original_fill[i] = 1;
++	}
+ }
+ 
+ static void

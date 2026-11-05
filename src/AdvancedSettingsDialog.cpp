@@ -259,6 +259,7 @@ struct AdvancedSettingsWnd : WindowBase {
     int CountChangedSettings() const;
     void UpdateUnsavedRow();
     void UpdateHints();
+    void RefreshPreviewColors(Color oldBg);
     void NoteItemEdited(SettingItem* item);
     void DrawListBoxItem(VirtListBox::DrawItemEvent* ev);
     void ActivateItem(int lbIdx);
@@ -806,6 +807,7 @@ void AdvancedSettingsWnd::OnEnumSelectionChanged() {
     SettingItem* item = items[editItemIdx];
     int sel = CbGetCurrentSelection(dropDownValue);
     if (sel >= 0) {
+        Color oldBg = ThemeWindowControlBackgroundColor();
         if (commonEdit == CommonEdit::Layout) {
             str::ReplaceWithCopy(&item->strVal, commonChoices[sel]);
         } else if (commonEdit == CommonEdit::Zoom) {
@@ -819,6 +821,7 @@ void AdvancedSettingsWnd::OnEnumSelectionChanged() {
         NoteItemEdited(item);
         // browsing the list with the arrow keys previews each value in turn
         PreviewSettingChange(item);
+        RefreshPreviewColors(oldBg);
         listBox->Invalidate();
     }
     KeepFocus();
@@ -856,6 +859,7 @@ void AdvancedSettingsWnd::CloseEnumEdit(bool keepValue) {
     if (!dropDownValue) {
         return;
     }
+    Color oldBg = ThemeWindowControlBackgroundColor();
     auto* tmp = dropDownValue;
     dropDownValue = nullptr;
     SettingItem* item = items[editItemIdx];
@@ -875,6 +879,7 @@ void AdvancedSettingsWnd::CloseEnumEdit(bool keepValue) {
     editItemIdx = -1;
     commonEdit = CommonEdit::None;
     delete tmp;
+    RefreshPreviewColors(oldBg);
     listBox->Invalidate();
     UpdateHints();
     KeepFocus();
@@ -905,8 +910,10 @@ void AdvancedSettingsWnd::CommitEditValue() {
             break;
     }
     NoteItemEdited(item);
+    Color oldBg = ThemeWindowControlBackgroundColor();
     PreviewSettingChange(item);
     CancelEditValue();
+    RefreshPreviewColors(oldBg);
     listBox->Invalidate();
 }
 
@@ -1110,7 +1117,9 @@ bool AdvancedSettingsWnd::RestoreSelectedDefault(bool isEditingValue, bool isEdi
     if (isEditingEnum) {
         CloseEnumEdit(false);
     }
+    Color oldBg = ThemeWindowControlBackgroundColor();
     RestoreSettingDefault(item);
+    RefreshPreviewColors(oldBg);
     NoteItemEdited(item);
     listBox->Invalidate();
     return true;
@@ -1276,6 +1285,25 @@ void AdvancedSettingsWnd::UpdateHints() {
         DoLayout();
         HwndInvalidate(hwnd);
     }
+}
+
+void AdvancedSettingsWnd::RefreshPreviewColors(Color oldBg) {
+    Color bg = ThemeWindowControlBackgroundColor();
+    if (oldBg == bg) {
+        return;
+    }
+    UpdateTheme();
+    listBox->SetColor(kColListBg, bg);
+    commentText->SetColor(kColRichBg, bg);
+    if (editValue) {
+        editValue->SetColors(ThemeWindowTextColor(), ThemeSelectedColorOn(bg));
+    }
+    SetDlgButtonColors(btnOpenSettingsFile, DlgButtonStyle::Ghost);
+    SetDlgButtonColors(btnHelp, DlgButtonStyle::Ghost);
+    SetDlgButtonColors(btnCancel, DlgButtonStyle::Outline);
+    SetDlgButtonColors(btnSave, DlgButtonStyle::Filled);
+    hintState = -1;
+    UpdateHints();
 }
 
 void AdvancedSettingsWnd::NoteItemEdited(SettingItem* item) {

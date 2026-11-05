@@ -172,29 +172,24 @@ keys go.
 
 Added 2026-10-27.
 
-With `DocumentColorsFollowTheme = smart`, PDFium pages take the theme's text and
-background colors, as MuPDF's do; `EngineUsesDocumentColorsFollowTheme` used to
-exclude PDFium, so its pages stayed white under every theme. Photos keep their
-colors on dark and light themes; MuPDF keeps them on dark themes only.
+Home and the area around PDF pages use the theme's `BackgroundColor`. With
+`DocumentColorsFollowTheme = off`, pages retain document colors. With `smart`,
+pages use theme text and background colors while embedded images retain their
+colors. With `legacy`, images are recolored too. Shift+I swaps page colors for
+the current session.
 
-- The recolor is `RenderCache`'s shared bitmap pass. `EnginePdfium`
-  `GetBitmapRecolorSkipRects` reports image rects from PDFium's page objects,
-  including images in form XObjects, collected on a page's first themed render.
-- Each image is decoded once (`FPDFImageObj_GetBitmap`) for MuPDF's classifier,
-  now shared as `PdfDarkModeShouldPreserveImagePixels`: scans, layout panels and
-  figures on a flat light backdrop (#6088) recolor with the page, as do 1-bit
-  images and thin strips.
-- Tiles showing a photo skip gray storage: a gray tile's palette recolor can't
-  spare it. `off` renders as before; `legacy` recolors everything.
-- `RenderCache` no longer keeps only a tile's largest skip rect; MuPDF already
-  returns at most one.
+PDFium and MuPDF recolor text, paths and gradients while keeping image colors,
+including where text overlaps images. PDFium uses a temporary per-page snapshot
+for this; see [limitations](limitations.md) for its fallback. Home and page
+thumbnails use cached image bounding rectangles during recoloring.
 
-F12 page thumbnails use the same page colors and photo exclusions as the view.
-Changing the theme or `DocumentColorsFollowTheme` replaces their cached renders.
-Home saves neutral PNGs with a versioned sidecar containing the engine class and
-photo rectangles. It colors a copy for the current theme, so switching themes
-updates Home without reopening a file. Old PNGs color without photo exclusions
-until that file is next opened. Covers and image files keep their pixels.
+F12 page thumbnails use the same page colors as the view. Home saves neutral PNGs
+with a versioned sidecar containing the engine class and image rectangles. Both
+recolor cached bitmaps, so text or transparent areas inside an image rectangle
+can retain their original colors. Changing the theme or
+`DocumentColorsFollowTheme` refreshes the cached renders. Old PNGs color without
+image exclusions until that file is next opened. Covers and image files keep
+their pixels.
 
 New themes: Catppuccin Latte/Frappe/Macchiato, Gruvbox Light, Everforest Light,
 Rose Pine Dawn, Sepia.

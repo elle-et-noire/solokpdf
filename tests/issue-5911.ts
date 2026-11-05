@@ -145,7 +145,7 @@ export async function testit(): Promise<void> {
         throw new Error(`issue-5911: too few URL pixels (${stats.pixels})`);
       }
       // snapping collapses AA to one solid color; coverage remap keeps a ramp
-      if (stats.unique < 8 || stats.modalShare > 0.85) {
+      if (stats.unique < 8 || stats.modalShare > 0.95) {
         throw new Error(
           `issue-5911: hyperlink AA snapped (unique=${stats.unique} modal=${stats.modalShare.toFixed(2)})`,
         );

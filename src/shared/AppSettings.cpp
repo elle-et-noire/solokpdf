@@ -189,19 +189,7 @@ static bool MigrateDocumentColorsFollowThemeSetting(Str prefsData) {
         return true;
     }
     if (hadInvertColors) {
-        // InvertColors meant "swap FixedPageUI TextColor and BackgroundColor",
-        // so swap them: that's still what those two settings do, it doesn't
-        // depend on the theme, and it's what the user was looking at in 3.6.
-        //
-        // This used to map to DocumentColorsFollowTheme::Smart, which inverted
-        // back when the mapping was written. 37f920ff0 then redefined smart as
-        // "match the UI theme, don't swap black/white", which quietly turned
-        // this migration into "light pages" for anyone on a light theme.
-        Color text = ParseColor(gSettings->fixedPageUI.textColor.s, kColBlackDefault);
-        Color bg = ParseColor(gSettings->fixedPageUI.backgroundColor.s, kColWhiteDefault);
-        SetColorText(gSettings->fixedPageUI.textColor, SerializeColorTemp(bg));
-        SetColorText(gSettings->fixedPageUI.backgroundColor, SerializeColorTemp(text));
-        SetDocumentColorsFollowTheme(DocumentColorsFollowTheme::Off);
+        SetDocumentColorsFollowTheme(DocumentColorsFollowTheme::Smart);
         return true;
     }
     return false;

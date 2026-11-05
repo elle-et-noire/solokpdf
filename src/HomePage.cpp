@@ -1042,13 +1042,12 @@ struct HomeLogoRow : VirtCtrl {
 
 struct HomeEntryCtrl;
 
-// the pin icon of a list-view row. It is drawn by DrawHomeListRow, so this is a
-// hit target only (the row's ✕ is a VirtCloseButton, which draws itself)
 struct HomeListIconCtrl : VirtCtrl {
-    bool isPin = true;
+    bool onThumbnail = false;
 
     HomeListIconCtrl();
     void OnGetTooltip(VirtTooltipEvent*);
+    void Paint(VirtPaintCtx&) override;
 };
 
 // one file entry (a thumbnail or a list row): hit-testing, hover, clicks and
@@ -2036,18 +2035,6 @@ static void DrawHomeListRow(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filt
             gfx->DrawText(progress, thumb.rcListProgress, progFmt, fontText, ThemeWindowTextColor());
         }
     }
-
-    if (fs->isPinned) {
-        gfx->FillRect(thumb.rcListPin, ThemeControlBackgroundColor());
-    }
-    {
-        int pinDx = thumb.rcListPin.dx > 0 ? thumb.rcListPin.dx : DpiScale(16);
-        int pinDy = thumb.rcListPin.dy > 0 ? thumb.rcListPin.dy : pinDx;
-        Pixmap* pin = GetCachedPixmapForSvg(Str(gIconPin), pinDx, pinDy);
-        if (pin) {
-            gfx->DrawPixmap(pin, thumb.rcListPin);
-        }
-    }
 }
 
 // a soft shadow under the page: three translucent layers, each a little
@@ -2370,6 +2357,12 @@ static Rect HomeCloseBtnRectForThumb(const Rect& thumb) {
     return {bx, by, sz, sz};
 }
 
+static Rect HomePinRectForThumb(const Rect& thumb) {
+    Rect r = HomeCloseBtnRectForThumb(thumb);
+    r.x = IsUIRtl() ? thumb.x + thumb.dx - r.dx - DpiScale(5) : thumb.x + DpiScale(5);
+    return r;
+}
+
 // the ✕ of a thumbnail / list row: forget the file it belongs to
 static void HomeForgetEntryClicked(MainWindow* win, VirtMouseEvent* ev) {
     auto* entry = (HomeEntryCtrl*)ev->target->parent;
@@ -2382,6 +2375,7 @@ static void HomeForgetEntryClicked(MainWindow* win, VirtMouseEvent* ev) {
 static void HomePinEntryClicked(MainWindow* win, VirtMouseEvent* ev) {
     auto* entry = (HomeEntryCtrl*)ev->target->parent;
     TempStr path = str::DupTemp(entry->filePath);
+    Point pt = ev->ptWindow;
     if (len(path) == 0) {
         return;
     }
@@ -2393,6 +2387,7 @@ static void HomePinEntryClicked(MainWindow* win, VirtMouseEvent* ev) {
     ScheduleSaveSettings();
     win->DeleteToolTip();
     HomePageRelayout(win);
+    HomePageOnHover(win, pt.x, pt.y);
     win->RedrawAll(true);
 }
 
@@ -2445,6 +2440,22 @@ void HomeListIconCtrl::OnGetTooltip(VirtTooltipEvent* ev) {
     FileState* fs = FileHistoryFindByPath(entry->filePath);
     bool pinned = fs && fs->isPinned;
     ev->tip = str::DupTemp(pinned ? Tr("Unpin") : Tr("Pin"));
+}
+
+void HomeListIconCtrl::Paint(VirtPaintCtx& ctx) {
+    Rect r = ctx.bounds;
+    Color fg = ThemeWindowTextColor();
+    if (onThumbnail) {
+        Color bg = gColsCloseBtn[kColCloseCircle];
+        ctx.gfx->FillEllipse(r, bg);
+        fg = ThemeInkOn(bg);
+        int pad = DpiScale(2);
+        r.Inflate(-pad, -pad);
+    }
+    Pixmap* pin = GetCachedPixmapForSvg(Str(gIconPin), r.dx, r.dy, fg);
+    if (pin) {
+        ctx.gfx->DrawPixmap(pin, r);
+    }
 }
 
 HomeEntryCtrl::~HomeEntryCtrl() {
@@ -2535,7 +2546,6 @@ void HomeEntriesCtrl::SetEntryCount(int n) {
     }
 }
 
-// the ✕ shows on the entry the mouse is on, and only in thumbnail view
 void HomeEntriesCtrl::UpdateCloseBtnVisibility() {
     bool canShow = CanAccessDisk() && !HomePageIsListView();
     int n = ChildCount();
@@ -2543,6 +2553,9 @@ void HomeEntriesCtrl::UpdateCloseBtnVisibility() {
         HomeEntryCtrl* e = EntryAt(i);
         bool show = canShow && (i == activeIdx);
         e->closeBtn->visibility = show ? Visibility::Visible : Visibility::Collapse;
+        FileState* fs = FileHistoryFindByPath(e->filePath);
+        bool showPin = CanAccessDisk() && ((fs && fs->isPinned) || i == activeIdx);
+        e->pinBtn->visibility = showPin ? Visibility::Visible : Visibility::Collapse;
     }
 }
 
@@ -2942,11 +2955,12 @@ static void HomePageSyncChrome(HomePageLayout& l) {
         if (listView) {
             e->removeBtn->visibility = Visibility::Visible;
             e->removeBtn->SetBounds(t.rcListRemove);
-            e->pinBtn->visibility = Visibility::Visible;
+            e->pinBtn->onThumbnail = false;
             e->pinBtn->SetBounds(t.rcListPin);
         } else {
             e->removeBtn->visibility = Visibility::Collapse;
-            e->pinBtn->visibility = Visibility::Collapse;
+            e->pinBtn->onThumbnail = true;
+            e->pinBtn->SetBounds(HomePinRectForThumb(rc.Intersect(l.rcThumbsArea)));
             // relative to the on-screen part of the entry, so the ✕ stays
             // visible on a thumbnail scrolled half-way out of the band
             e->closeBtn->SetBounds(HomeCloseBtnRectForThumb(rc.Intersect(l.rcThumbsArea)));

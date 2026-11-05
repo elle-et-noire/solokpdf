@@ -8,7 +8,6 @@ EnableTeXEnhancements = false
 EscToExit = false
 FullPathInTitle = false
 LazyLoading = false
-MainWindowBackground = #80fff200
 NoHomeTab = false
 NoCaj2pdfConverterDownload = false
 HomePageSortByFrequentlyRead = false
@@ -101,8 +100,6 @@ ZoomIncrement = 0
 
 FixedPageUI [
 	Grayscale = false
-	TextColor = #000000
-	BackgroundColor = #ffffff
 	SelectionColor = #ffff00
 	WindowMargin = 2 4 2 4
 	PageSpacing = 4 4

@@ -1050,6 +1050,7 @@ void OnAboutContextMenu(MainWindow* win, int x, int y) {
     if (CmdPinSelectedDocument == cmd) {
         fs->isPinned = !fs->isPinned;
         win->DeleteToolTip();
+        HomePageRelayout(win);
         win->RedrawAll(true);
         return;
     }

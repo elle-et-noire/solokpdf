@@ -800,6 +800,7 @@ typedef struct
 	int compression_effort; /* 0 for default. 100 = max, 1 = min. */
 	int do_labels; /* Add labels to each object showing how it can be reached from the Root. */
 	int reproducible; /* Attempt to make operations 'reproducible'. For example, avoid writing MuPDF version number. */
+	int do_snapshot_suffix; /* Internal; use pdf_write_snapshot_suffix. */
 } pdf_write_options;
 
 FZ_DATA extern const pdf_write_options pdf_default_write_options;
@@ -849,6 +850,9 @@ void pdf_save_snapshot(fz_context *ctx, pdf_document *doc, const char *filename)
 	remains (essentially) unchanged.
 */
 void pdf_write_snapshot(fz_context *ctx, pdf_document *doc, fz_output *out);
+
+/* Write only a snapshot's incremental suffix. The output position must be the original file size. */
+void pdf_write_snapshot_suffix(fz_context *ctx, pdf_document *doc, fz_output *out);
 
 char *pdf_format_write_options(fz_context *ctx, char *buffer, size_t buffer_len, const pdf_write_options *opts);
 

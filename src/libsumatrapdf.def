@@ -2136,3 +2136,12 @@ EXPORTS
 
 	deskey
 	des
+
+	fz_append_data
+	fz_append_printf
+	pdf_dict_put_string
+	pdf_dict_getl
+	pdf_filter_page_contents
+	pdf_filter_annot_contents
+	pdf_new_color_filter
+	pdf_write_snapshot_suffix

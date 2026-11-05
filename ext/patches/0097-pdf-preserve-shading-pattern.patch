@@ -1,0 +1,38 @@
+diff --git a/source/pdf/pdf-op-color.c b/source/pdf/pdf-op-color.c
+index 3277f4d06..4ab090738 100644
+--- a/source/pdf/pdf-op-color.c
++++ b/source/pdf/pdf-op-color.c
+@@ -828,12 +828,10 @@ pdf_color_SC_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
+ 
+ 	if (p->options->shade_rewrite == NULL)
+ 	{
+-		/* Must copy shading over to new resources dict. */
+-		pdf_obj *old_obj = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Shading), name);
+-		pdf_obj *new_shading_dict = pdf_dict_get(ctx, p->new_rstack->resources, PDF_NAME(Shading));
+-		if (new_shading_dict == NULL)
+-			pdf_dict_put_drop(ctx, p->new_rstack->resources, PDF_NAME(Shading), new_shading_dict = pdf_new_dict(ctx, p->doc, 4));
+-		pdf_dict_puts(ctx, new_shading_dict, name, old_obj);
++		pdf_obj *patterns = pdf_dict_get(ctx, p->new_rstack->resources, PDF_NAME(Pattern));
++		if (patterns == NULL)
++			pdf_dict_put_drop(ctx, p->new_rstack->resources, PDF_NAME(Pattern), patterns = pdf_new_dict(ctx, p->doc, 4));
++		pdf_dict_puts(ctx, patterns, name, pattern);
+ 
+ 		if (p->super.chain->op_SC_shade)
+ 			p->super.chain->op_SC_shade(ctx, p->super.chain, name, shade);
+@@ -911,12 +909,10 @@ pdf_color_sc_shade(fz_context *ctx, pdf_processor *proc, const char *name, fz_sh
+ 
+ 	if (p->options->shade_rewrite == NULL)
+ 	{
+-		/* Must copy shading over to new resources dict. */
+-		pdf_obj *old_obj = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Shading), name);
+-		pdf_obj *new_shading_dict = pdf_dict_get(ctx, p->new_rstack->resources, PDF_NAME(Shading));
+-		if (new_shading_dict == NULL)
+-			pdf_dict_put_drop(ctx, p->new_rstack->resources, PDF_NAME(Shading), new_shading_dict = pdf_new_dict(ctx, p->doc, 4));
+-		pdf_dict_puts(ctx, new_shading_dict, name, old_obj);
++		pdf_obj *patterns = pdf_dict_get(ctx, p->new_rstack->resources, PDF_NAME(Pattern));
++		if (patterns == NULL)
++			pdf_dict_put_drop(ctx, p->new_rstack->resources, PDF_NAME(Pattern), patterns = pdf_new_dict(ctx, p->doc, 4));
++		pdf_dict_puts(ctx, patterns, name, pattern);
+ 
+ 		if (p->super.chain->op_sc_shade)
+ 			p->super.chain->op_sc_shade(ctx, p->super.chain, name, shade);

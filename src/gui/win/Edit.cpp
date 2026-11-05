@@ -54,7 +54,11 @@ bool EditIsModified(Edit* e) {
 }
 
 void EditSetCueText(Edit* e, Str s) {
-    EditSetCueText(HwndOf(e), s);
+    if (!e) {
+        return;
+    }
+    str::ReplaceWithCopy(&e->cueText, s);
+    EditSetCueText(HwndOf(e), e->cueText);
 }
 
 void EditSetMargins(Edit* e, int left, int right) {
@@ -117,6 +121,7 @@ Edit::Edit() {
 }
 
 Edit::~Edit() {
+    str::Free(cueText);
     // DeleteObject(bgBrush);
 }
 
@@ -125,6 +130,44 @@ Edit::~Edit() {
 // process, so one edit would change the cursor of all the others
 void Edit::SetCursorId(LPWSTR id) {
     cursorId = id;
+}
+
+void Edit::SetCueColor(Color col) {
+    cueColor = col;
+    HwndInvalidate(hwnd);
+}
+
+// Native cue banners ignore the edit's text color.
+void Edit::PaintCue(HDC dc) {
+    if (!dc || cueColor == kColorUnset || len(cueText) == 0 || HwndIsFocused(hwnd) || GetWindowTextLengthW(hwnd) > 0) {
+        return;
+    }
+    HBRUSH bg = BackgroundBrush();
+    if (!bg) {
+        return;
+    }
+    int saved = SaveDC(dc);
+    RECT client{};
+    GetClientRect(hwnd, &client);
+    FillRect(dc, &client, bg);
+    RECT textRc{};
+    SendMessageW(hwnd, EM_GETRECT, 0, (LPARAM)&textRc);
+    SelectObject(dc, GetHFont());
+    SetTextColor(dc, cueColor);
+    SetBkMode(dc, TRANSPARENT);
+    WStr text = ToWStrTemp(cueText);
+    UINT flags = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX;
+    LONG style = GetWindowLongW(hwnd, GWL_STYLE);
+    if (style & ES_RIGHT) {
+        flags |= DT_RIGHT;
+    } else if (style & ES_CENTER) {
+        flags |= DT_CENTER;
+    }
+    if (HwndIsRtl(hwnd)) {
+        flags |= DT_RTLREADING;
+    }
+    DrawTextW(dc, text.s, len(text), &textRc, flags);
+    RestoreDC(dc, saved);
 }
 
 // preferred GetIdealSize width ≈ nChars average character widths (0 clears)
@@ -236,7 +279,7 @@ HWND Edit::Create(const CreateArgs& args) {
     }
 
     if (args.cueText) {
-        EditSetCueText(hwnd, args.cueText);
+        EditSetCueText(this, args.cueText);
     }
     if (args.text) {
         SetText(args.text);
@@ -334,6 +377,27 @@ void Edit::WndProc(ControlBase::WndProcEvent* ev) {
     WPARAM wp = ev->wparam;
     LPARAM lp = ev->lparam;
     switch (msg) {
+        case WM_PAINT: {
+            if (cueColor == kColorUnset || len(cueText) == 0) {
+                break;
+            }
+            ev->result = WndProcDefault(hwnd, msg, wp, lp);
+            HDC dc = GetDC(hwnd);
+            PaintCue(dc);
+            ReleaseDC(hwnd, dc);
+            ev->didHandle = true;
+            return;
+        }
+
+        case WM_PRINTCLIENT: {
+            if (cueColor == kColorUnset || len(cueText) == 0) {
+                break;
+            }
+            ev->result = WndProcDefault(hwnd, msg, wp, lp);
+            PaintCue((HDC)wp);
+            ev->didHandle = true;
+            return;
+        }
         case WM_COPY:
         case WM_CUT: {
             if (HandleTestEditClipboard(hwnd, msg)) {

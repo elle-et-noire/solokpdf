@@ -216,7 +216,7 @@ static Str StructCommentAtPath(const StructInfo* info, Str prefix, Str path) {
     return {};
 }
 
-// "FixedPageUI.TextColor" => "TextColor"
+// "ImageUI.WindowBgCol" => "WindowBgCol"
 Str SettingLeafName(Str path) {
     int n = str::LastIndexOfChar(path, '.') + 1;
     return Str(path.s + n, len(path) - n);

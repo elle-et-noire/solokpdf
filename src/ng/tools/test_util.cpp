@@ -37,6 +37,9 @@ extern void TextSelection_UnitTests();
 extern void PagePosition_UnitTests();
 extern void CommandPaletteModel_UnitTests();
 extern void SumatraPDF_UnitTests();
+#if IS_DEBUG
+extern bool ThemeHighContrast_UnitTest();
+#endif
 extern void DocumentLayout_UnitTests();
 extern void RenderScale_UnitTests();
 extern void CommandAvailability_UnitTests();
@@ -128,10 +131,18 @@ static void SetupForAi() {
 
 int main(int argc, char** argv) {
     bool forAi = false;
+#if IS_DEBUG
+    bool themeHighContrastOnly = false;
+#endif
     for (int i = 1; i < argc; i++) {
         if (str::Eq(Str(argv[i]), StrL("-for-ai"))) {
             forAi = true;
         }
+#if IS_DEBUG
+        if (str::Eq(Str(argv[i]), StrL("-test-theme-high-contrast"))) {
+            themeHighContrastOnly = true;
+        }
+#endif
     }
     if (forAi) {
         setvbuf(stdout, nullptr, _IONBF, 0);
@@ -144,6 +155,15 @@ int main(int argc, char** argv) {
 #if OS_WIN
     if (forAi) {
         SetupForAi();
+    }
+#endif
+
+#if IS_DEBUG
+    if (themeHighContrastOnly) {
+        utassert(ThemeHighContrast_UnitTest());
+        int res = utassert_print_results();
+        DestroyTempArena();
+        return res;
     }
 #endif
 

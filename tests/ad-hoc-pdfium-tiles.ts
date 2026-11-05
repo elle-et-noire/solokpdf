@@ -38,6 +38,7 @@ RestoreSession = false
 RememberOpenedFiles = true
 RememberStatePerDocument = true
 ShowStartPage = false
+${process.env.SOLOKPDF_TEST_THEME_FALLBACK ? "Theme = Light Gray\nDocumentColorsFollowTheme = smart\n" : ""}
 FileStates [
   [
     FilePath = ${pdf}
@@ -56,13 +57,14 @@ FileStates [
 
 // ink-weighted centers of the lines crossing row y, skipping runs cut by the scan edges
 function lineCenters(img: PngImage, y: number, x0: number, x1: number): number[] {
+  const ink = process.env.SOLOKPDF_TEST_THEME_FALLBACK ? 220 : kInk;
   const centers: number[] = [];
   let sum = 0;
   let weight = 0;
   let start = -1;
   for (let x = x0; x < x1; x++) {
     const v = img.data[(y * img.w + x) * img.nComp]!;
-    if (v < kInk) {
+    if (v < ink) {
       if (start < 0) start = x;
       sum += x * (255 - v);
       weight += 255 - v;

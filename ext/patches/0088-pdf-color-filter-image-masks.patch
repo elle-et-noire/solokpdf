@@ -1,0 +1,124 @@
+pdf: preserve image mask paint colors
+
+Allow a color filter to keep the original paint on image masks.
+
+diff --git a/include/mupdf/pdf/interpret.h b/include/mupdf/pdf/interpret.h
+index d643a453a..99a77dfe6 100644
+--- a/include/mupdf/pdf/interpret.h
++++ b/include/mupdf/pdf/interpret.h
+@@ -469,6 +469,7 @@ typedef struct
+ 	void (*image_rewrite)(fz_context *ctx, void *opaque, fz_image **image, fz_matrix ctm, pdf_obj *obj);
+ 	pdf_shade_recolorer *shade_rewrite;
+ 	int repeated_image_rewrite;
++	int preserve_image_masks;
+ } pdf_color_filter_options;
+ 
+ pdf_processor *
+diff --git a/source/pdf/pdf-op-color.c b/source/pdf/pdf-op-color.c
+index f7f2a0349..b83ac7222 100644
+--- a/source/pdf/pdf-op-color.c
++++ b/source/pdf/pdf-op-color.c
+@@ -35,6 +35,8 @@ typedef struct gstate_stack
+ 	struct gstate_stack *next;
+ 	pdf_obj *cs_stroke;
+ 	pdf_obj *cs_fill;
++	float original_fill[FZ_MAX_COLORS];
++	int original_fill_n;
+ 	int unmarked;
+ 	fz_matrix ctm;
+ } gstate_stack;
+@@ -86,6 +88,7 @@ typedef struct
+ 	gstate_stack *gstate;
+ 	cs_color *stroke;
+ 	cs_color *fill;
++	int preserve_mask_color;
+ 	rewritten_images images;
+ 	rewritten_shades shades;
+ } pdf_color_processor;
+@@ -283,7 +286,12 @@ rewrite_cs(fz_context *ctx, pdf_color_processor *p, pdf_obj *cs_obj, int n, floa
+ 		}
+ 		/* Now, do any rewriting. This might drop the reference to cs_obj and
+ 		 * return with a different one. */
+-		if (p->options->color_rewrite)
++		if (!stroking && !p->preserve_mask_color && n > 0)
++		{
++			p->gstate->original_fill_n = n;
++			memcpy(p->gstate->original_fill, color, n * sizeof(float));
++		}
++		if (p->options->color_rewrite && !p->preserve_mask_color)
+ 			p->options->color_rewrite(ctx, p->options->opaque, &cs_obj, &n, color);
+ 
+ 		/* If we've rewritten it to be a simple name, great! */
+@@ -451,6 +459,8 @@ pdf_color_q(fz_context *ctx, pdf_processor *proc)
+ 	gs->cs_stroke = pdf_keep_obj(ctx, p->gstate->cs_stroke);
+ 	gs->unmarked = p->gstate->unmarked;
+ 	gs->ctm = p->gstate->ctm;
++	gs->original_fill_n = p->gstate->original_fill_n;
++	memcpy(gs->original_fill, p->gstate->original_fill, sizeof(gs->original_fill));
+ 	p->gstate = gs;
+ 
+ 	if (p->super.chain->op_q)
+@@ -961,6 +971,24 @@ pdf_color_k(fz_context *ctx, pdf_processor *proc, float c, float m, float y, flo
+ 
+ /* shadings, images, xobjects */
+ 
++static int
++pdf_color_begin_image_mask(fz_context *ctx, pdf_color_processor *p, fz_image *image)
++{
++	float original[FZ_MAX_COLORS];
++	if (!p->options->preserve_image_masks || !image->imagemask || p->gstate->original_fill_n <= 0)
++		return 0;
++	memcpy(original, p->gstate->original_fill, sizeof(original));
++	p->super.chain->op_q(ctx, p->super.chain);
++	p->preserve_mask_color = 1;
++	fz_try(ctx)
++		rewrite_cs(ctx, p, p->gstate->cs_fill, p->gstate->original_fill_n, original, 0);
++	fz_always(ctx)
++		p->preserve_mask_color = 0;
++	fz_catch(ctx)
++		fz_rethrow(ctx);
++	return 1;
++}
++
+ static void
+ pdf_color_BI(fz_context *ctx, pdf_processor *proc, fz_image *image, const char *colorspace)
+ {
+@@ -980,7 +1008,12 @@ pdf_color_BI(fz_context *ctx, pdf_processor *proc, fz_image *image, const char *
+ 			p->options->image_rewrite(ctx, p->options->opaque, &image, p->gstate->ctm, NULL);
+ 
+ 		if (p->super.chain->op_BI)
++		{
++			int saved = pdf_color_begin_image_mask(ctx, p, image);
+ 			p->super.chain->op_BI(ctx, p->super.chain, image, colorspace);
++			if (saved)
++				p->super.chain->op_Q(ctx, p->super.chain);
++		}
+ 	}
+ 	fz_always(ctx)
+ 		fz_drop_image(ctx, image);
+@@ -1061,7 +1094,12 @@ pdf_color_Do_image(fz_context *ctx, pdf_processor *proc, const char *name, fz_im
+ 		if (image)
+ 		{
+ 			if (p->super.chain->op_Do_image)
++			{
++				int saved = pdf_color_begin_image_mask(ctx, p, image);
+ 				p->super.chain->op_Do_image(ctx, p->super.chain, new_name, image);
++				if (saved)
++					p->super.chain->op_Q(ctx, p->super.chain);
++			}
+ 			return;
+ 		}
+ 	}
+@@ -1100,7 +1138,12 @@ pdf_color_Do_image(fz_context *ctx, pdf_processor *proc, const char *name, fz_im
+ 		}
+ 
+ 		if (p->super.chain->op_Do_image)
++		{
++			int saved = pdf_color_begin_image_mask(ctx, p, image);
+ 			p->super.chain->op_Do_image(ctx, p->super.chain, new_name, image);
++			if (saved)
++				p->super.chain->op_Q(ctx, p->super.chain);
++		}
+ 	}
+ 	fz_always(ctx)
+ 	{

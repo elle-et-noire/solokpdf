@@ -2819,18 +2819,13 @@ static bool DrawDocument(MainWindow* win, HDC hdc, Rect rcArea) {
         if (bgOverride->parsedOk) {
             colDocBg = bgOverride->col;
         }
-    } else if (isPdf) {
-        ParsedColor* bgOverride = GetPrefsColor(gSettings->fixedPageUI.windowBgCol);
-        if (bgOverride->parsedOk) {
-            colDocBg = bgOverride->col;
-        }
     }
 
     // per-document background color from FileState overrides everything
     WindowTab* curTab = win->CurrentTab();
-    if (curTab && curTab->bgColorCheckered) {
+    if (!isPdf && curTab && curTab->bgColorCheckered) {
         colDocBg = kColorUnset;
-    } else if (curTab && curTab->bgColor != kColorUnset) {
+    } else if (!isPdf && curTab && curTab->bgColor != kColorUnset) {
         colDocBg = curTab->bgColor;
     }
 
@@ -2852,7 +2847,7 @@ static bool DrawDocument(MainWindow* win, HDC hdc, Rect rcArea) {
 
     bool shouldPaint = false;
     auto* gcols = gSettings->fixedPageUI.gradientColors;
-    auto nGCols = len(*gcols);
+    auto nGCols = isPdf ? 0 : len(*gcols);
     auto paintBgOrCheckerboard = [&](Color col, Rect rc) {
         if (col == kColorUnset) {
             HdcPaintCheckerboard(hdc, rc.x, rc.y, rc.dx, rc.dy);

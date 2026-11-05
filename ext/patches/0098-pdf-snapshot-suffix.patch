@@ -1,0 +1,62 @@
+diff --git a/include/mupdf/pdf/document.h b/include/mupdf/pdf/document.h
+index e368ccd55..ac2336cd8 100644
+--- a/include/mupdf/pdf/document.h
++++ b/include/mupdf/pdf/document.h
+@@ -800,6 +800,7 @@ typedef struct
+ 	int compression_effort; /* 0 for default. 100 = max, 1 = min. */
+ 	int do_labels; /* Add labels to each object showing how it can be reached from the Root. */
+ 	int reproducible; /* Attempt to make operations 'reproducible'. For example, avoid writing MuPDF version number. */
++	int do_snapshot_suffix; /* Internal; use pdf_write_snapshot_suffix. */
+ } pdf_write_options;
+ 
+ FZ_DATA extern const pdf_write_options pdf_default_write_options;
+@@ -850,6 +851,9 @@ void pdf_save_snapshot(fz_context *ctx, pdf_document *doc, const char *filename)
+ */
+ void pdf_write_snapshot(fz_context *ctx, pdf_document *doc, fz_output *out);
+ 
++/* Write only a snapshot's incremental suffix. The output position must be the original file size. */
++void pdf_write_snapshot_suffix(fz_context *ctx, pdf_document *doc, fz_output *out);
++
+ char *pdf_format_write_options(fz_context *ctx, char *buffer, size_t buffer_len, const pdf_write_options *opts);
+ 
+ /*
+diff --git a/source/pdf/pdf-write.c b/source/pdf/pdf-write.c
+index 1b05d5583..686408dcb 100644
+--- a/source/pdf/pdf-write.c
++++ b/source/pdf/pdf-write.c
+@@ -2623,9 +2623,18 @@ do_pdf_save_document(fz_context *ctx, pdf_document *doc, pdf_write_state *opts,
+ 	int changed;
+ 	int64_t current_offset;
+ 
++	if (in_opts->do_snapshot_suffix && !in_opts->do_snapshot)
++		fz_throw(ctx, FZ_ERROR_ARGUMENT, "suffix output requires a snapshot");
++
+ 	if (in_opts->do_incremental)
+ 	{
+-		ensure_initial_incremental_contents(ctx, doc->file, opts->out, doc->file_size);
++		if (in_opts->do_snapshot_suffix)
++		{
++			if (fz_tell_output(ctx, opts->out) != doc->file_size)
++				fz_throw(ctx, FZ_ERROR_ARGUMENT, "snapshot suffix output position must equal original file size");
++		}
++		else
++			ensure_initial_incremental_contents(ctx, doc->file, opts->out, doc->file_size);
+ 
+ 		/* If no changes, nothing more to write */
+ 		if (!pdf_has_unsaved_changes(ctx, doc))
+@@ -3054,6 +3063,15 @@ void pdf_write_snapshot(fz_context *ctx, pdf_document *doc, fz_output *out)
+ 	pdf_write_document(ctx, doc, out, &pdf_snapshot_write_options);
+ }
+ 
++void pdf_write_snapshot_suffix(fz_context *ctx, pdf_document *doc, fz_output *out)
++{
++	pdf_write_options options = pdf_snapshot_write_options;
++	if (!doc || !out || fz_tell_output(ctx, out) != doc->file_size)
++		fz_throw(ctx, FZ_ERROR_ARGUMENT, "snapshot suffix output position must equal original file size");
++	options.do_snapshot_suffix = 1;
++	pdf_write_document(ctx, doc, out, &options);
++}
++
+ char *
+ pdf_format_write_options(fz_context *ctx, char *buffer, size_t buffer_len, const pdf_write_options *opts)
+ {

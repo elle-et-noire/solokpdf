@@ -2802,10 +2802,8 @@ void LogConsole(Str s) {
     if (StdoutRedirected()) {
         if (gOriginalStdout != INVALID_HANDLE_VALUE) {
             DWORD written;
-            BOOL ok = WriteFile(gOriginalStdout, s.s, s.len, &written, nullptr);
-            if (!ok) {
-                logf("error: %s\n", GetLastErrorAsStr(GetTempArena()));
-            }
+            // log() holds its mutex here, so a failed write cannot call logf().
+            WriteFile(gOriginalStdout, s.s, s.len, &written, nullptr);
         }
         return;
     }

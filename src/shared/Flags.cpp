@@ -42,15 +42,14 @@ enum class Arg {
     StressTest = 52, N = 53, Max = 54, MaxFiles = 55,
     Render = 56, ExtractText = 57, Bench = 58, Dir = 59,
     InstallDir = 60, Lang = 61, UpdateSelfTo = 62, ArgDeleteFile = 63,
-    BgCol = 64, BgCol2 = 65, FwdSearchOffset = 66, FwdSearchWidth = 67,
-    FwdSearchColor = 68, FwdSearchPermanent = 69, MangaMode = 70, Search = 71,
-    AllUsers = 72, AllUsers2 = 73, RunInstallNow = 74, Adobe = 75,
-    DDE = 76, Pwd = 77, EngineDump = 78, SetColorRange = 79,
-    UpgradeFrom = 80, ForTesting = 81, QuickLook = 82, QuickLookAgent = 83,
-    WindowPos = 84, DumpExif = 85, DumpChm = 86, Control = 87,
-    UnitTests = 88, ForAi = 89, NewWindowTabs = 90, HtmlBackend = 91,
-    InstallRegRoot = 92, NoDesktopShortcut = 93, StartPerfLog = 94, LogPerfFile = 95,
-    ConfigureRestrictedUse = 96, WithThumbnails = 97,
+    FwdSearchOffset = 64, FwdSearchWidth = 65, FwdSearchColor = 66, FwdSearchPermanent = 67,
+    MangaMode = 68, Search = 69, AllUsers = 70, AllUsers2 = 71,
+    RunInstallNow = 72, Adobe = 73, DDE = 74, Pwd = 75,
+    EngineDump = 76, UpgradeFrom = 77, ForTesting = 78, QuickLook = 79,
+    QuickLookAgent = 80, WindowPos = 81, DumpExif = 82, DumpChm = 83,
+    Control = 84, UnitTests = 85, ForAi = 86, NewWindowTabs = 87,
+    HtmlBackend = 88, InstallRegRoot = 89, NoDesktopShortcut = 90, StartPerfLog = 91,
+    LogPerfFile = 92, ConfigureRestrictedUse = 93, WithThumbnails = 94,
 };
 
 static SeqStrings gArgNames =
@@ -70,15 +69,14 @@ static SeqStrings gArgNames =
     "stress-test\0" "n\0" "max\0" "max-files\0"
     "render\0" "extract-text\0" "bench\0" "d\0"
     "install-dir\0" "lang\0" "update-self-to\0" "delete-file\0"
-    "bgcolor\0" "bg-color\0" "fwdsearch-offset\0" "fwdsearch-width\0"
-    "fwdsearch-color\0" "fwdsearch-permanent\0" "manga-mode\0" "search\0"
-    "all-users\0" "allusers\0" "run-install-now\0" "a\0"
-    "dde\0" "pwd\0" "engine-dump\0" "set-color-range\0"
-    "upgrade-from\0" "for-testing\0" "quicklook\0" "quicklook-agent\0"
-    "window-pos\0" "dump-exif\0" "dump-chm\0" "dbg-control\0"
-    "unit-tests\0" "for-ai\0" "new-window-tabs\0" "html-backend\0"
-    "install-reg-root\0" "no-desktop-shortcut\0" "start-perf-log\0" "log-perf-file\0"
-    "configure-restricted-use\0" "with-thumbnails\0";
+    "fwdsearch-offset\0" "fwdsearch-width\0" "fwdsearch-color\0" "fwdsearch-permanent\0"
+    "manga-mode\0" "search\0" "all-users\0" "allusers\0"
+    "run-install-now\0" "a\0" "dde\0" "pwd\0"
+    "engine-dump\0" "upgrade-from\0" "for-testing\0" "quicklook\0"
+    "quicklook-agent\0" "window-pos\0" "dump-exif\0" "dump-chm\0"
+    "dbg-control\0" "unit-tests\0" "for-ai\0" "new-window-tabs\0"
+    "html-backend\0" "install-reg-root\0" "no-desktop-shortcut\0" "start-perf-log\0"
+    "log-perf-file\0" "configure-restricted-use\0" "with-thumbnails\0";
 // clang-format on
 // @gen-end flags
 
@@ -884,16 +882,10 @@ static void ParseFlagNodes(Arena* a, StrNode* firstArg, Flags& i, Str toolNames)
             // TODO: annotAttObjNum and attachmentNo?
             continue;
         }
-        if (arg == Arg::BgCol || arg == Arg::BgCol2 || arg == Arg::FwdSearchOffset || arg == Arg::FwdSearchWidth ||
-            arg == Arg::FwdSearchColor || arg == Arg::FwdSearchPermanent || arg == Arg::MangaMode) {
+        if (arg == Arg::FwdSearchOffset || arg == Arg::FwdSearchWidth || arg == Arg::FwdSearchColor ||
+            arg == Arg::FwdSearchPermanent || arg == Arg::MangaMode) {
             i.globalPrefArgs.Append(argName);
             i.globalPrefArgs.Append(param);
-            continue;
-        }
-        if (arg == Arg::SetColorRange && AdditionalParam(nextArg)) {
-            i.globalPrefArgs.Append(argName);
-            i.globalPrefArgs.Append(param);
-            i.globalPrefArgs.Append(EatParam(nextArg));
             continue;
         }
         // again, argName is any of the known args, so assume it's a file starting with '-'

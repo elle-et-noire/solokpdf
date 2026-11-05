@@ -864,6 +864,7 @@ void UpdateControlsColors(MainWindow* win) {
 
         if (win->tocFilterEdit) {
             win->tocFilterEdit->SetColors(txtCol, editBgCol);
+            win->tocFilterEdit->SetCueColor(txtCol);
         }
         UpdateSidebarColors(win);
     }
@@ -875,6 +876,7 @@ void UpdateControlsColors(MainWindow* win) {
         favTreeView->SetColors(txtCol, bgCol);
         if (win->favFilterEdit) {
             win->favFilterEdit->SetColors(txtCol, editBgCol);
+            win->favFilterEdit->SetCueColor(txtCol);
         }
     }
 }

@@ -1,0 +1,38 @@
+pdf: preserve soft masks during color filtering
+
+Allow filters to leave opacity and luminosity masks unchanged.
+
+diff --git a/include/mupdf/pdf/interpret.h b/include/mupdf/pdf/interpret.h
+index 6e1603bec..38bb3f14e 100644
+--- a/include/mupdf/pdf/interpret.h
++++ b/include/mupdf/pdf/interpret.h
+@@ -314,6 +314,8 @@ typedef struct
+ 	create a new instance of each XObject Form that is used, filtered
+ 	individually.
+ 
++	preserve_soft_masks: Leave soft mask groups unchanged.
++
+ 	ascii: If true, escape all binary data in the output.
+ 
+ 	no_update: If true, do not update the document at the end.
+@@ -345,6 +347,7 @@ struct pdf_filter_options
+ 
+ 	pdf_filter_factory *filters;
+ 	int newlines;
++	int preserve_soft_masks;
+ };
+ 
+ typedef enum
+diff --git a/source/pdf/pdf-clean.c b/source/pdf/pdf-clean.c
+index 35d861ac8..fdace1ab8 100644
+--- a/source/pdf/pdf-clean.c
++++ b/source/pdf/pdf-clean.c
+@@ -69,7 +69,7 @@ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_ob
+ 			if (smask)
+ 			{
+ 				pdf_obj *g = pdf_dict_get(ctx, smask, PDF_NAME(G));
+-				if (g)
++				if (g && !options->preserve_soft_masks)
+ 				{
+ 					/* Transparency group XObject */
+ 					pdf_filter_xobject(ctx, doc, g, in_res, options, &cycle);

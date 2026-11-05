@@ -1904,8 +1904,7 @@ static fz_pixmap* NewBgrPixmap(fz_context* ctx, fz_pixmap* pixmap) {
 }
 
 #if OS_WIN
-// preserveAlpha: palettizing drops the alpha channel, so skip it when the
-// caller needs transparent holes to composite over the canvas (issue #1809).
+// Palette recoloring cannot preserve selected image regions or alpha.
 static RenderedBitmap* NewRenderedFzPixmap(fz_context* ctx, fz_pixmap* pixmap, bool preserveAlpha = false) {
     if (!pixmap) {
         return nullptr;
@@ -2428,55 +2427,6 @@ static void FzCollectImagesFromPageContent(fz_context* ctx, int pageNo, FzPageIn
     fz_catch(ctx) {
         fz_report_error(ctx);
     }
-}
-
-static fz_image* FzFindImageByRect(fz_context* ctx, FzPageInfo* pageInfo, fz_rect target) {
-    fz_stext_page* stext = FzLoadImageTextPage(ctx, pageInfo);
-    if (!stext) {
-        return nullptr;
-    }
-    float bestOverlap = 0.f;
-    fz_image* best = nullptr;
-    fz_stext_block* block = stext->first_block;
-    while (block) {
-        if (block->type != FZ_STEXT_BLOCK_IMAGE) {
-            block = block->next;
-            continue;
-        }
-        fz_image* image = block->u.i.image;
-        if (!image) {
-            block = block->next;
-            continue;
-        }
-        float overlap = FzRectOverlap(block->bbox, target);
-        if (overlap > bestOverlap) {
-            if (best) {
-                fz_drop_image(ctx, best);
-            }
-            bestOverlap = overlap;
-            best = fz_keep_image(ctx, image);
-        }
-        block = block->next;
-    }
-    fz_drop_stext_page(ctx, stext);
-    if (bestOverlap < 0.45f) {
-        if (best) {
-            fz_drop_image(ctx, best);
-            best = nullptr;
-        }
-    }
-    return best;
-}
-
-static fz_image* FzGetKeptPageImage(fz_context* ctx, FzPageInfo* pageInfo, int idx) {
-    if (!pageInfo || idx < 0 || idx >= len(pageInfo->images)) {
-        return nullptr;
-    }
-    FitzPageImageInfo* info = pageInfo->images[idx];
-    if (info->image) {
-        return fz_keep_image(ctx, info->image);
-    }
-    return FzFindImageByRect(ctx, pageInfo, info->rect);
 }
 
 // --- end dark-mode image preservation helpers ---
@@ -5875,6 +5825,307 @@ static pdf_document* OpenPdfForQuery(fz_context* ctx, Str path, Str data, Str pa
     return doc;
 }
 
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+struct ThemePdfOutput {
+    fz_buffer* buffer;
+    i64 position;
+    const PdfThemeSource* source;
+};
+
+struct ThemePdfColors {
+    const DarkModeProfile* profile;
+    const PdfThemeSource* source;
+};
+
+static void ThemePdfCheck(fz_context* ctx, const PdfThemeSource* source) {
+    if (source->isCanceled && source->isCanceled(source->cancelData)) {
+        fz_throw(ctx, FZ_ERROR_ABORT, "themed PDF rendering canceled");
+    }
+}
+
+struct ThemePdfInput {
+    const PdfThemeSource* source;
+    u8 buffer[4096];
+};
+
+static int ThemePdfNext(fz_context* ctx, fz_stream* stream, size_t) {
+    auto* input = (ThemePdfInput*)stream->state;
+    if (input->source->isCanceled && input->source->isCanceled(input->source->cancelData)) {
+        fz_throw(ctx, FZ_ERROR_TRYLATER, "themed PDF rendering canceled");
+    }
+    if ((u64)stream->pos >= input->source->size) {
+        return EOF;
+    }
+    u32 remaining = input->source->size - (u32)stream->pos;
+    u32 size = remaining < sizeof(input->buffer) ? remaining : sizeof(input->buffer);
+    if (!input->source->read(input->source->user, (u32)stream->pos, input->buffer, size)) {
+        fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot read PDF source");
+    }
+    stream->rp = input->buffer;
+    stream->wp = input->buffer + size;
+    stream->pos += size;
+    return *stream->rp++;
+}
+
+static void ThemePdfSeek(fz_context* ctx, fz_stream* stream, int64_t offset, int whence) {
+    auto* input = (ThemePdfInput*)stream->state;
+    if (whence == SEEK_END) {
+        if (offset < -(i64)input->source->size || offset > INT64_MAX - input->source->size) {
+            fz_throw(ctx, FZ_ERROR_ARGUMENT, "invalid PDF source offset");
+        }
+        offset += input->source->size;
+    } else if (whence != SEEK_SET || offset < 0) {
+        fz_throw(ctx, FZ_ERROR_ARGUMENT, "invalid PDF source offset");
+    }
+    stream->pos = offset;
+    stream->rp = stream->wp = input->buffer;
+}
+
+static void ThemePdfWrite(fz_context* ctx, void* state, const void* data, size_t size) {
+    auto* output = (ThemePdfOutput*)state;
+    ThemePdfCheck(ctx, output->source);
+    size_t current = fz_buffer_storage(ctx, output->buffer, nullptr);
+    if (size > INT_MAX || current > (size_t)INT_MAX - size || (u64)output->position > UINT32_MAX - size) {
+        fz_throw(ctx, FZ_ERROR_LIMIT, "themed PDF exceeds supported size");
+    }
+    fz_append_data(ctx, output->buffer, data, size);
+    output->position += (i64)size;
+}
+
+static int64_t ThemePdfTell(fz_context*, void* state) {
+    return ((ThemePdfOutput*)state)->position;
+}
+
+static void ThemePdfMapRgb(const DarkModeProfile& profile, const float* input, float* output) {
+    Color color = MkRgb((u8)(fz_clamp(input[0], 0.f, 1.f) * 255.f), (u8)(fz_clamp(input[1], 0.f, 1.f) * 255.f),
+                        (u8)(fz_clamp(input[2], 0.f, 1.f) * 255.f));
+    Color mapped = RecolorPageColor(color, profile.foreground, profile.pageBackground, profile.linkColor);
+    output[0] = GetRed(mapped) / 255.f;
+    output[1] = GetGreen(mapped) / 255.f;
+    output[2] = GetBlue(mapped) / 255.f;
+}
+
+static void ThemePdfColor(fz_context* ctx, void* opaque, pdf_obj** cs, int* n, float color[FZ_MAX_COLORS]) {
+    auto* colors = (ThemePdfColors*)opaque;
+    ThemePdfCheck(ctx, colors->source);
+    auto& profile = *colors->profile;
+    int patternType = pdf_dict_get_int(ctx, *cs, PDF_NAME(PatternType));
+    if (patternType == 1 && *n == 3) {
+        ThemePdfMapRgb(profile, color, color);
+        return;
+    }
+    if (!*n || pdf_name_eq(ctx, *cs, PDF_NAME(Pattern)) || patternType != 0) {
+        return;
+    }
+    fz_colorspace* source = pdf_load_colorspace(ctx, *cs);
+    float rgb[3]{};
+    fz_try(ctx) {
+        fz_convert_color(ctx, source, color, fz_device_rgb(ctx), rgb, nullptr, fz_default_color_params);
+    }
+    fz_always(ctx) {
+        fz_drop_colorspace(ctx, source);
+    }
+    fz_catch(ctx) {
+        fz_rethrow(ctx);
+    }
+    ThemePdfMapRgb(profile, rgb, color);
+    *n = 3;
+    pdf_drop_obj(ctx, *cs);
+    *cs = pdf_keep_obj(ctx, PDF_NAME(DeviceRGB));
+}
+
+static void ThemePdfVertex(fz_context* ctx, void* opaque, fz_colorspace*, float* output, fz_colorspace* source,
+                           const float* color) {
+    auto* colors = (ThemePdfColors*)opaque;
+    ThemePdfCheck(ctx, colors->source);
+    float rgb[3]{};
+    fz_convert_color(ctx, source, color, fz_device_rgb(ctx), rgb, nullptr, fz_default_color_params);
+    ThemePdfMapRgb(*colors->profile, rgb, output);
+}
+
+static pdf_recolor_vertex* ThemePdfShade(fz_context* ctx, void*, fz_colorspace*, fz_colorspace** target) {
+    *target = fz_device_rgb(ctx);
+    return ThemePdfVertex;
+}
+
+static void ThemePdfWidget(fz_context* ctx, pdf_document* doc, pdf_annot* widget, const DarkModeProfile& profile) {
+    pdf_obj* object = pdf_annot_obj(ctx, widget);
+    pdf_obj* appearance = pdf_dict_get(ctx, object, PDF_NAME(AP));
+    if (pdf_dict_get(ctx, appearance, PDF_NAME(N))) {
+        return;
+    }
+    pdf_obj* da = pdf_dict_get_inheritable(ctx, object, PDF_NAME(DA));
+    if (!da) {
+        da = pdf_dict_getl(ctx, pdf_trailer(ctx, doc), PDF_NAME(Root), PDF_NAME(AcroForm), PDF_NAME(DA), nullptr);
+    }
+    if (!pdf_is_string(ctx, da)) {
+        return;
+    }
+    const char* source = pdf_to_str_buf(ctx, da);
+    size_t length = pdf_to_str_len(ctx, da);
+    fz_stream* stream = nullptr;
+    fz_buffer* result = nullptr;
+    pdf_lexbuf lex{};
+    pdf_lexbuf_init(ctx, &lex, PDF_LEXBUF_SMALL);
+    fz_var(stream);
+    fz_var(result);
+    fz_try(ctx) {
+        stream = fz_open_memory(ctx, (const u8*)source, length);
+        result = fz_new_buffer(ctx, length + 64);
+        size_t copied = 0;
+        size_t first = 0;
+        int numbers = 0;
+        int components = 1;
+        float values[4]{};
+        float color[4]{};
+        for (;;) {
+            size_t start = (size_t)fz_tell(ctx, stream);
+            pdf_token token = pdf_lex(ctx, stream, &lex);
+            size_t end = (size_t)fz_tell(ctx, stream);
+            if (token == PDF_TOK_EOF) {
+                break;
+            }
+            if (token == PDF_TOK_INT || token == PDF_TOK_REAL) {
+                if (!numbers) {
+                    first = start;
+                }
+                if (numbers < dimofi(values)) {
+                    values[numbers] = token == PDF_TOK_INT ? (float)lex.i : lex.f;
+                }
+                numbers++;
+                continue;
+            }
+            int expected = token != PDF_TOK_KEYWORD         ? 0
+                           : strcmp(lex.scratch, "g") == 0  ? 1
+                           : strcmp(lex.scratch, "rg") == 0 ? 3
+                           : strcmp(lex.scratch, "k") == 0  ? 4
+                                                            : 0;
+            if (expected && numbers == expected) {
+                components = expected;
+                memcpy(color, values, components * sizeof(float));
+                fz_append_data(ctx, result, source + copied, first - copied);
+                copied = end;
+            }
+            numbers = 0;
+        }
+        fz_append_data(ctx, result, source + copied, length - copied);
+        fz_colorspace* space = components == 1   ? fz_device_gray(ctx)
+                               : components == 3 ? fz_device_rgb(ctx)
+                                                 : fz_device_cmyk(ctx);
+        float rgb[3]{};
+        fz_convert_color(ctx, space, color, fz_device_rgb(ctx), rgb, nullptr, fz_default_color_params);
+        ThemePdfMapRgb(profile, rgb, rgb);
+        fz_append_printf(ctx, result, "\n%g %g %g rg\n", rgb[0], rgb[1], rgb[2]);
+        unsigned char* bytes = nullptr;
+        size_t size = fz_buffer_storage(ctx, result, &bytes);
+        pdf_dict_put_string(ctx, object, PDF_NAME(DA), (char*)bytes, size);
+    }
+    fz_always(ctx) {
+        fz_drop_stream(ctx, stream);
+        fz_drop_buffer(ctx, result);
+        pdf_lexbuf_fin(ctx, &lex);
+    }
+    fz_catch(ctx) {
+        fz_rethrow(ctx);
+    }
+}
+
+PdfThemeSnapshot PdfThemePageMupdf(const PdfThemeSource& source, Str password, int pageNo,
+                                   const DarkModeProfile& profile) {
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    if (!ctx) {
+        return {};
+    }
+    pdf_document* doc = nullptr;
+    fz_stream* stream = nullptr;
+    pdf_page* page = nullptr;
+    fz_buffer* buffer = nullptr;
+    fz_output* writer = nullptr;
+    ThemePdfInput input{&source};
+    ThemePdfOutput output{};
+    ThemePdfColors colorContext{&profile, &source};
+    PdfThemeSnapshot result;
+    fz_var(page);
+    fz_var(doc);
+    fz_var(stream);
+    fz_var(buffer);
+    fz_var(writer);
+    fz_var(result);
+    fz_try(ctx) {
+        stream = fz_new_stream(ctx, &input, ThemePdfNext, nullptr);
+        stream->seek = ThemePdfSeek;
+        doc = pdf_open_document_with_stream(ctx, stream);
+        if (pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, CStrTemp(password))) {
+            fz_throw(ctx, FZ_ERROR_ARGUMENT, "wrong password");
+        }
+        if (pageNo < 1 || pageNo > pdf_count_pages(ctx, doc) || doc->file_size != source.size) {
+            fz_throw(ctx, FZ_ERROR_GENERIC, "cannot create themed PDF snapshot");
+        }
+        bool incremental = pdf_can_be_saved_incrementally(ctx, doc);
+        page = pdf_load_page(ctx, doc, pageNo - 1);
+        pdf_color_filter_options colors{};
+        colors.opaque = &colorContext;
+        colors.color_rewrite = ThemePdfColor;
+        colors.shade_rewrite = ThemePdfShade;
+        colors.preserve_image_masks = 1;
+        // PDFium loses the tint of uncolored pattern strokes.
+        colors.reject_uncolored_strokes = 1;
+        pdf_filter_factory filters[2]{};
+        filters[0].filter = pdf_new_color_filter;
+        filters[0].options = &colors;
+        pdf_filter_options options{};
+        options.filters = filters;
+        options.recurse = 1;
+        options.preserve_soft_masks = 1;
+        pdf_filter_page_contents(ctx, doc, page, &options);
+        for (pdf_annot* annot = pdf_first_annot(ctx, page); annot; annot = pdf_next_annot(ctx, annot)) {
+            pdf_filter_annot_contents(ctx, doc, annot, &options);
+        }
+        for (pdf_annot* widget = pdf_first_widget(ctx, page); widget; widget = pdf_next_widget(ctx, widget)) {
+            ThemePdfWidget(ctx, doc, widget, profile);
+            pdf_filter_annot_contents(ctx, doc, widget, &options);
+        }
+        buffer = fz_new_buffer(ctx, 0);
+        output = {buffer, incremental ? doc->file_size : 0, &source};
+        writer = fz_new_output(ctx, 0, &output, ThemePdfWrite, nullptr, nullptr);
+        writer->tell = ThemePdfTell;
+        if (incremental) {
+            pdf_write_snapshot_suffix(ctx, doc, writer);
+        } else {
+            pdf_write_options write{};
+            write.do_encrypt = PDF_ENCRYPT_KEEP;
+            write.dont_regenerate_id = 1;
+            write.permissions = -1;
+            pdf_write_document(ctx, doc, writer, &write);
+        }
+        fz_close_output(ctx, writer);
+        unsigned char* bytes = nullptr;
+        size_t size = fz_buffer_storage(ctx, buffer, &bytes);
+        if (size) {
+            result.data = str::Dup(Str((char*)bytes, (int)size));
+            result.layout = incremental ? PdfThemeLayout::Incremental : PdfThemeLayout::Rewritten;
+            result.status = result.data.s ? PdfThemeStatus::Ready : PdfThemeStatus::Failed;
+        } else {
+            result.status = PdfThemeStatus::Empty;
+        }
+    }
+    fz_always(ctx) {
+        fz_drop_output(ctx, writer);
+        fz_drop_buffer(ctx, buffer);
+        fz_drop_page(ctx, (fz_page*)page);
+        pdf_drop_document(ctx, doc);
+        fz_drop_stream(ctx, stream);
+    }
+    fz_catch(ctx) {
+        if ((!source.isCanceled || !source.isCanceled(source.cancelData)) && fz_caught(ctx) != FZ_ERROR_ABORT) {
+            fz_report_error(ctx);
+        }
+    }
+    fz_drop_context(ctx);
+    return result;
+}
+#endif
+
 bool PdfViewerPrintPrefsMupdf(Str path, Str data, Str password, PdfViewerPrintPrefs& prefs) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
@@ -6967,108 +7218,11 @@ static u32 DarkLegacySkipHash(FzPageInfo* pageInfo, float zoom, int rotation) {
     u32 h = PdfDarkModeComputeOptionsHash();
     h = (h * 31) + (u32)(zoom * 1000.f);
     h = (h * 31) + (u32)rotation;
-    h = (h * 31) + (u32)kPreservePdfImagesMinSize;
     h = (h * 31) + (u32)GetPreservePdfImagesInDarkMode();
     h = (h * 31) + (u32)(pageInfo ? len(pageInfo->images) : 0);
     return h;
 }
 
-static int DarkLegacyTileFindRoot(Vec<int>& parent, int i) {
-    while (parent[i] != i) {
-        parent[i] = parent[parent[i]];
-        i = parent[i];
-    }
-    return i;
-}
-
-// Some PDFs slice a single illustration into a grid of image tiles. Judged one
-// at a time each tile is just a small picture: the page-dominance rule never
-// fires, the decorative-strip rule throws away the thin edge pieces, and
-// PdfDarkModeKeepLargestRect keeps only one tile of the set. Group tiles
-// that touch into one region and let the rest of the code treat that region as
-// the image.
-//
-// A group only counts as a tiling if its tiles actually fill its bounding box.
-// Without that check, scattered figures on a busy page would chain together
-// into one huge region covering unrelated page content.
-//
-// Fills groupOf (one entry per rect, indexing groupRect) and groupRect. Rects
-// that don't group land in a group of their own, so callers see no difference
-// from the ungrouped case.
-static void DarkLegacyGroupImageTiles(const Vec<RectF>& rects, float tol, Vec<int>& groupOf, Vec<RectF>& groupRect) {
-    VecClear(groupOf);
-    VecClear(groupRect);
-    int n = len(rects);
-    Vec<int> parent;
-    for (int i = 0; i < n; i++) {
-        VecAppend(parent, i);
-    }
-    for (int i = 0; i < n; i++) {
-        if (rects[i].IsEmpty()) {
-            continue;
-        }
-        RectF grown = rects[i];
-        grown.Inflate(tol, tol);
-        for (int j = i + 1; j < n; j++) {
-            if (rects[j].IsEmpty() || grown.Intersect(rects[j]).IsEmpty()) {
-                continue;
-            }
-            int ri = DarkLegacyTileFindRoot(parent, i);
-            int rj = DarkLegacyTileFindRoot(parent, j);
-            if (ri != rj) {
-                parent[ri] = rj;
-            }
-        }
-    }
-
-    Vec<RectF> bbox;
-    Vec<float> tileArea;
-    Vec<int> nTiles;
-    for (int i = 0; i < n; i++) {
-        VecAppend(bbox, RectF());
-        VecAppend(tileArea, 0.f);
-        VecAppend(nTiles, 0);
-    }
-    for (int i = 0; i < n; i++) {
-        if (rects[i].IsEmpty()) {
-            continue;
-        }
-        int r = DarkLegacyTileFindRoot(parent, i);
-        bbox[r] = nTiles[r] == 0 ? rects[i] : bbox[r].Union(rects[i]);
-        tileArea[r] += rects[i].dx * rects[i].dy;
-        nTiles[r]++;
-    }
-    for (int i = 0; i < n; i++) {
-        if (nTiles[i] < 2) {
-            continue;
-        }
-        float bboxArea = bbox[i].dx * bbox[i].dy;
-        if (bboxArea <= 0.f || tileArea[i] < bboxArea * 0.85f) {
-            nTiles[i] = 0; // scattered images, not a tiling - dissolve the group
-        }
-    }
-
-    Vec<int> rootToGroup;
-    for (int i = 0; i < n; i++) {
-        VecAppend(rootToGroup, -1);
-    }
-    for (int i = 0; i < n; i++) {
-        int r = DarkLegacyTileFindRoot(parent, i);
-        if (rects[i].IsEmpty() || nTiles[r] < 2) {
-            VecAppend(groupOf, len(groupRect));
-            VecAppend(groupRect, rects[i]);
-            continue;
-        }
-        if (rootToGroup[r] < 0) {
-            rootToGroup[r] = len(groupRect);
-            VecAppend(groupRect, bbox[r]);
-        }
-        VecAppend(groupOf, rootToGroup[r]);
-    }
-}
-
-// find the images on the page whose colors the dark-mode bitmap recolor
-// should preserve (photos, artwork) and cache their absolute device rects
 static void BuildPageDarkLegacySkipRects(EngineMupdf* engine, FzPageInfo* pageInfo, float zoom, int rotation,
                                          u32 hash) {
     VecClear(pageInfo->darkLegacySkipDevAbs);
@@ -7083,102 +7237,17 @@ static void BuildPageDarkLegacySkipRects(EngineMupdf* engine, FzPageInfo* pageIn
     fz_context* ctx = engine->Ctx();
     fz_page* page = pageInfo->page;
     fz_matrix ctm = engine->viewctm(page, zoom, rotation);
-    int minDx = kPreservePdfImagesMinSize;
-    int minDy = minDx;
-
     RectF pageBounds = pageInfo->mediabox;
     if (pageBounds.IsEmpty()) {
         pageBounds = ToRectF(fz_bound_page(ctx, page));
     }
-    float pageArea = pageBounds.dx * pageBounds.dy;
-    if (pageArea <= 0.f) {
-        pageArea = 1.f;
-    }
-
-    int nImages = len(pageInfo->images);
-    Vec<RectF> imgPageRects;
-    Vec<RectF> imgOnPageRects;
-    for (int imgIdx = 0; imgIdx < nImages; imgIdx++) {
-        RectF imgPage = ToRectF(pageInfo->images[imgIdx]->rect);
-        fz_image* image = FzGetKeptPageImage(ctx, pageInfo, imgIdx);
-        if (image && image->w > 0 && image->h > 0) {
-            imgPage = PdfDarkModeClampImagePageRect(imgPage, image->w, image->h);
-        } else {
-            imgPage = PdfDarkModeCapUnknownImagePageRect(imgPage, pageBounds.dy);
-        }
-        if (image) {
-            fz_drop_image(ctx, image);
-        }
-        VecAppend(imgPageRects, imgPage);
-        VecAppend(imgOnPageRects, imgPage.Intersect(pageBounds));
-    }
-    // tiles of one sliced illustration are judged as the region they form
-    float tileTol = std::max(1.0f, std::min(pageBounds.dx, pageBounds.dy) * 0.005f);
-    Vec<int> groupOf;
-    Vec<RectF> groupRect;
-    DarkLegacyGroupImageTiles(imgOnPageRects, tileTol, groupOf, groupRect);
-    Vec<int> groupAppended;
-    for (int i = 0; i < len(groupRect); i++) {
-        VecAppend(groupAppended, 0);
-    }
-
-    for (int imgIdx = 0; imgIdx < nImages; imgIdx++) {
-        RectF imgPage = imgPageRects[imgIdx];
-        int groupIdx = groupOf[imgIdx];
-        RectF imgOnPage = groupRect[groupIdx];
-        fz_image* image = FzGetKeptPageImage(ctx, pageInfo, imgIdx);
-        float coverage = (imgOnPage.dx * imgOnPage.dy) / pageArea;
-        if (PdfDarkModePageDominantImageRecolors(ctx, image, coverage)) {
-            // full-bleed backgrounds / scans recolor with the page; artwork
-            // that happens to fill the page does not
-            if (image) {
-                fz_drop_image(ctx, image);
-            }
-            continue;
-        }
-        if (PdfDarkModeIsDecorativeStripImage(imgOnPage, pageBounds)) {
-            if (image) {
-                fz_drop_image(ctx, image);
-            }
-            continue;
-        }
-        fz_irect fullDev = fz_round_rect(fz_transform_rect(ToFzRect(imgPage), ctm));
-        int fullDx = fullDev.x1 - fullDev.x0;
-        int fullDy = fullDev.y1 - fullDev.y0;
-        if (fullDx < minDx || fullDy < minDy) {
-            if (image) {
-                fz_drop_image(ctx, image);
-            }
-            continue;
-        }
-        if (!image) {
-            continue;
-        }
-        if (!PdfDarkModeShouldPreserveEmbeddedImageRect(ctx, image, coverage, fullDx, fullDy)) {
-            fz_drop_image(ctx, image);
-            continue;
-        }
-        // Wide bboxes often span a layout column; only preserve if clearly a dark painting.
-        if (imgOnPage.dx > pageBounds.dx * 0.44f && !PdfDarkModeImageLooksLikeDarkArtwork(ctx, image, coverage)) {
-            fz_drop_image(ctx, image);
-            continue;
-        }
-        fz_irect dev = fz_round_rect(fz_transform_rect(ToFzRect(imgOnPage), ctm));
+    for (auto* image : pageInfo->images) {
+        RectF bounds = ToRectF(image->rect).Intersect(pageBounds);
+        fz_irect dev = fz_round_rect(fz_transform_rect(ToFzRect(bounds), ctm));
         Rect r(dev.x0, dev.y0, dev.x1 - dev.x0, dev.y1 - dev.y0);
-        // tiles of one sliced illustration share a region - append it once
-        if (!r.IsEmpty() && !groupAppended[groupIdx]) {
-            groupAppended[groupIdx] = 1;
+        if (!r.IsEmpty()) {
             VecAppend(pageInfo->darkLegacySkipDevAbs, r);
-            float bottom = imgOnPage.y + imgOnPage.dy;
-            pageInfo->darkLegacyArtworkPageBottom = std::max(bottom, pageInfo->darkLegacyArtworkPageBottom);
         }
-        if (image) {
-            fz_drop_image(ctx, image);
-        }
-    }
-    // Keep the main artwork so smaller ornaments do not leave recolored gaps.
-    if (PdfDarkModeKeepLargestRect(pageInfo->darkLegacySkipDevAbs)) {
-        pageInfo->darkLegacyArtworkPageBottom = 0.f;
     }
 }
 
@@ -7188,8 +7257,7 @@ void EngineMupdf::GetBitmapRecolorSkipRects(int pageNo, float zoom, int rotation
     if (renderPageRect.IsEmpty() || bmpSize.dx <= 0 || bmpSize.dy <= 0) {
         return;
     }
-    // Everything below runs pages through mupdf (FzCollectImagesFromPageContent
-    // and, via FzGetKeptPageImage, stext) and mutates shared FzPageInfo state,
+    // Everything below runs pages through mupdf and mutates shared FzPageInfo state,
     // so it must hold the same locks as every other page-running path. Several
     // render threads render tiles of the same document at once; without this,
     // two of them ran fz_run_page on one fz_document concurrently and corrupted
@@ -7222,11 +7290,6 @@ void EngineMupdf::GetBitmapRecolorSkipRects(int pageNo, float zoom, int rotation
         BuildPageDarkLegacySkipRects(this, pageInfo, zoom, rotation, hash);
     }
 
-    // Text/layout tiles below the artwork band always recolor uniformly.
-    if (pageInfo->darkLegacyArtworkPageBottom > 0.f && renderPageRect.y >= pageInfo->darkLegacyArtworkPageBottom) {
-        return;
-    }
-
     fz_page* page = pageInfo->page;
     fz_rect pRect = ToFzRect(renderPageRect);
     fz_matrix ctm = viewctm(page, zoom, rotation);
@@ -7239,7 +7302,6 @@ void EngineMupdf::GetBitmapRecolorSkipRects(int pageNo, float zoom, int rotation
             continue;
         }
         Rect local(clipped.x - ibounds.x0, clipped.y - ibounds.y0, clipped.dx, clipped.dy);
-        local.Inflate(3, 3);
         local = local.Intersect(Rect(0, 0, bmpSize.dx, bmpSize.dy));
         if (!local.IsEmpty()) {
             VecAppend(skipRects, local);
@@ -7297,7 +7359,320 @@ static void ClearRenderedPagePixmap(fz_context* ctx, fz_pixmap* pix, const Rende
         fz_clear_pixmap(ctx, pix);
         return;
     }
-    fz_clear_pixmap_with_value(ctx, pix, 0xff);
+    if (args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages) {
+        Color bg = args.darkProfile->pageBackground;
+        for (int y = 0; y < pix->h; y++) {
+            u8* row = pix->samples + y * pix->stride;
+            for (int x = 0; x < pix->w; x++) {
+                row[x * pix->n] = GetRed(bg);
+                row[x * pix->n + 1] = GetGreen(bg);
+                row[x * pix->n + 2] = GetBlue(bg);
+                row[x * pix->n + 3] = 255;
+            }
+        }
+    } else {
+        fz_clear_pixmap_with_value(ctx, pix, 0xff);
+    }
+}
+
+struct ThemeDrawDevice {
+    fz_device super;
+    Color text;
+    Color background;
+    Color link;
+    fz_matrix view;
+    fz_irect bounds;
+    int maskDepth;
+    int imageClipDepth;
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    const PdfThemeSource* cancelSource;
+#endif
+};
+
+static void ThemeCheckCancel([[maybe_unused]] fz_context* ctx, [[maybe_unused]] fz_device* dev) {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    auto* theme = (ThemeDrawDevice*)dev;
+    if (theme->cancelSource) {
+        ThemePdfCheck(ctx, theme->cancelSource);
+    }
+#endif
+}
+
+static bool ThemeInMask(fz_device* dev) {
+    auto* theme = (ThemeDrawDevice*)dev;
+    return theme->maskDepth || theme->imageClipDepth;
+}
+
+static void ThemeDrawColor(fz_context* ctx, ThemeDrawDevice* dev, fz_colorspace* cs, const float* color,
+                           fz_color_params params, float* result) {
+    float rgb[3] = {};
+    if (cs && color) {
+        fz_convert_color(ctx, cs, color, fz_device_rgb(ctx), rgb, nullptr, params);
+    }
+    Color input = MkRgb((u8)(rgb[0] * 255.f), (u8)(rgb[1] * 255.f), (u8)(rgb[2] * 255.f));
+    Color mapped = RecolorPageColor(input, dev->text, dev->background, dev->link);
+    result[0] = GetRed(mapped) / 255.f;
+    result[1] = GetGreen(mapped) / 255.f;
+    result[2] = GetBlue(mapped) / 255.f;
+}
+
+static void ThemeFillPath(fz_context* ctx, fz_device* d, const fz_path* path, int evenOdd, fz_matrix m,
+                          fz_colorspace* cs, const float* color, float alpha, fz_color_params params) {
+    ThemeCheckCancel(ctx, d);
+    if (ThemeInMask(d)) {
+        fz_fill_path(ctx, d->passthrough, path, evenOdd, m, cs, color, alpha, params);
+        return;
+    }
+    float rgb[3];
+    ThemeDrawColor(ctx, (ThemeDrawDevice*)d, cs, color, params, rgb);
+    fz_fill_path(ctx, d->passthrough, path, evenOdd, m, fz_device_rgb(ctx), rgb, alpha, params);
+}
+
+static void ThemeStrokePath(fz_context* ctx, fz_device* d, const fz_path* path, const fz_stroke_state* stroke,
+                            fz_matrix m, fz_colorspace* cs, const float* color, float alpha, fz_color_params params) {
+    ThemeCheckCancel(ctx, d);
+    if (ThemeInMask(d)) {
+        fz_stroke_path(ctx, d->passthrough, path, stroke, m, cs, color, alpha, params);
+        return;
+    }
+    float rgb[3];
+    ThemeDrawColor(ctx, (ThemeDrawDevice*)d, cs, color, params, rgb);
+    fz_stroke_path(ctx, d->passthrough, path, stroke, m, fz_device_rgb(ctx), rgb, alpha, params);
+}
+
+static void ThemeFillText(fz_context* ctx, fz_device* d, const fz_text* text, fz_matrix m, fz_colorspace* cs,
+                          const float* color, float alpha, fz_color_params params) {
+    ThemeCheckCancel(ctx, d);
+    if (ThemeInMask(d)) {
+        fz_fill_text(ctx, d->passthrough, text, m, cs, color, alpha, params);
+        return;
+    }
+    float rgb[3];
+    ThemeDrawColor(ctx, (ThemeDrawDevice*)d, cs, color, params, rgb);
+    bool hasType3 = false;
+    for (fz_text_span* span = text->head; span; span = span->next) {
+        if (span->font->t3procs && span->font->t3flags) {
+            hasType3 = true;
+            break;
+        }
+    }
+    if (!hasType3) {
+        fz_fill_text(ctx, d->passthrough, text, m, fz_device_rgb(ctx), rgb, alpha, params);
+        return;
+    }
+    constexpr int kType3GlyphCount = 256;
+    for (fz_text_span* span = text->head; span; span = span->next) {
+        fz_text_span singleSpan = *span;
+        singleSpan.next = nullptr;
+        fz_text singleText{};
+        singleText.head = singleText.tail = &singleSpan;
+        fz_font* font = span->font;
+        if (!font->t3procs || !font->t3flags) {
+            fz_fill_text(ctx, d->passthrough, &singleText, m, fz_device_rgb(ctx), rgb, alpha, params);
+            continue;
+        }
+        for (int i = 0; i < span->len; i++) {
+            fz_text_item* item = &span->items[i];
+            int gid = item->gid;
+            if (gid < 0) {
+                continue;
+            }
+            if (gid >= kType3GlyphCount || gid >= font->glyph_count || !(font->t3flags[gid] & FZ_DEVFLAG_COLOR)) {
+                singleSpan.items = item;
+                singleSpan.len = 1;
+                fz_fill_text(ctx, d->passthrough, &singleText, m, fz_device_rgb(ctx), rgb, alpha, params);
+                continue;
+            }
+            fz_matrix tm = span->trm;
+            tm.e = item->x;
+            tm.f = item->y;
+            tm = fz_concat(tm, m);
+            if (alpha < 1) {
+                fz_rect bounds = fz_bound_glyph(ctx, font, gid, tm);
+                fz_begin_group(ctx, d->passthrough, bounds, nullptr, 1, 0, FZ_BLEND_NORMAL, alpha);
+            }
+            fz_run_t3_glyph(ctx, font, gid, tm, d);
+            if (alpha < 1) {
+                fz_end_group(ctx, d->passthrough);
+            }
+        }
+    }
+}
+
+static void ThemeStrokeText(fz_context* ctx, fz_device* d, const fz_text* text, const fz_stroke_state* stroke,
+                            fz_matrix m, fz_colorspace* cs, const float* color, float alpha, fz_color_params params) {
+    ThemeCheckCancel(ctx, d);
+    if (ThemeInMask(d)) {
+        fz_stroke_text(ctx, d->passthrough, text, stroke, m, cs, color, alpha, params);
+        return;
+    }
+    float rgb[3];
+    ThemeDrawColor(ctx, (ThemeDrawDevice*)d, cs, color, params, rgb);
+    fz_stroke_text(ctx, d->passthrough, text, stroke, m, fz_device_rgb(ctx), rgb, alpha, params);
+}
+
+static void ThemeFillShade(fz_context* ctx, fz_device* d, fz_shade* shade, fz_matrix m, float alpha,
+                           fz_color_params params) {
+    ThemeCheckCancel(ctx, d);
+    auto* theme = (ThemeDrawDevice*)d;
+    if (ThemeInMask(d)) {
+        fz_fill_shade(ctx, d->passthrough, shade, m, alpha, params);
+        return;
+    }
+    fz_rect rect = fz_bound_shade(ctx, shade, fz_concat(m, theme->view));
+    rect = fz_intersect_rect(rect, fz_rect_from_irect(theme->bounds));
+    if (fz_is_empty_rect(rect)) {
+        return;
+    }
+    fz_irect bounds = fz_round_rect(rect);
+    fz_pixmap* pix = nullptr;
+    fz_device* draw = nullptr;
+    fz_image* image = nullptr;
+    fz_var(pix);
+    fz_var(draw);
+    fz_var(image);
+    fz_try(ctx) {
+        pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), bounds, nullptr, 1);
+        fz_clear_pixmap(ctx, pix);
+        draw = fz_new_draw_device(ctx, theme->view, pix);
+        fz_fill_shade(ctx, draw, shade, m, 1.f, params);
+        fz_close_device(ctx, draw);
+        for (int y = 0; y < pix->h; y++) {
+            u8* pixel = pix->samples + y * pix->stride;
+            for (int x = 0; x < pix->w; x++, pixel += pix->n) {
+                int a = pixel[3];
+                if (!a) {
+                    continue;
+                }
+                u8 r = (u8)((pixel[0] * 255 + a / 2) / a);
+                pixel[0] = (u8)((pixel[2] * 255 + a / 2) / a);
+                pixel[1] = (u8)((pixel[1] * 255 + a / 2) / a);
+                pixel[2] = r;
+            }
+        }
+        Pixmap view;
+        view.width = pix->w;
+        view.height = pix->h;
+        view.stride = pix->stride;
+        view.format = PixmapFormat::BGRA8;
+        view.data = pix->samples;
+        RecolorPixmap(&view, theme->text, theme->background, theme->link);
+        for (int y = 0; y < pix->h; y++) {
+            u8* pixel = pix->samples + y * pix->stride;
+            for (int x = 0; x < pix->w; x++, pixel += pix->n) {
+                int a = pixel[3];
+                u8 r = (u8)((pixel[2] * a + 127) / 255);
+                pixel[2] = (u8)((pixel[0] * a + 127) / 255);
+                pixel[1] = (u8)((pixel[1] * a + 127) / 255);
+                pixel[0] = r;
+            }
+        }
+        image = fz_new_image_from_pixmap(ctx, pix, nullptr);
+        fz_matrix imageMatrix =
+            fz_concat(fz_scale((float)pix->w, (float)pix->h), fz_translate((float)pix->x, (float)pix->y));
+        imageMatrix = fz_concat(imageMatrix, fz_invert_matrix(theme->view));
+        fz_fill_image(ctx, d->passthrough, image, imageMatrix, alpha, params);
+    }
+    fz_always(ctx) {
+        fz_drop_image(ctx, image);
+        fz_drop_device(ctx, draw);
+        fz_drop_pixmap(ctx, pix);
+    }
+    fz_catch(ctx) {
+        fz_rethrow(ctx);
+    }
+}
+
+static void ThemeBeginMask(fz_context* ctx, fz_device* d, fz_rect area, int luminosity, fz_colorspace* cs,
+                           const float* color, fz_color_params params) {
+    ((ThemeDrawDevice*)d)->maskDepth++;
+    fz_begin_mask(ctx, d->passthrough, area, luminosity, cs, color, params);
+}
+
+static void ThemeEndMask(fz_context* ctx, fz_device* d, fz_function* fn) {
+    auto* theme = (ThemeDrawDevice*)d;
+    if (theme->imageClipDepth) {
+        theme->imageClipDepth++;
+    }
+    fz_end_mask_tr(ctx, d->passthrough, fn);
+    theme->maskDepth--;
+}
+
+static void ThemePushClip(fz_device* d) {
+    auto* theme = (ThemeDrawDevice*)d;
+    if (theme->imageClipDepth) {
+        theme->imageClipDepth++;
+    }
+}
+
+static void ThemeClipPath(fz_context* ctx, fz_device* d, const fz_path* path, int evenOdd, fz_matrix m,
+                          fz_rect scissor) {
+    ThemePushClip(d);
+    fz_clip_path(ctx, d->passthrough, path, evenOdd, m, scissor);
+}
+
+static void ThemeClipStrokePath(fz_context* ctx, fz_device* d, const fz_path* path, const fz_stroke_state* stroke,
+                                fz_matrix m, fz_rect scissor) {
+    ThemePushClip(d);
+    fz_clip_stroke_path(ctx, d->passthrough, path, stroke, m, scissor);
+}
+
+static void ThemeClipText(fz_context* ctx, fz_device* d, const fz_text* text, fz_matrix m, fz_rect scissor) {
+    ThemePushClip(d);
+    fz_clip_text(ctx, d->passthrough, text, m, scissor);
+}
+
+static void ThemeClipStrokeText(fz_context* ctx, fz_device* d, const fz_text* text, const fz_stroke_state* stroke,
+                                fz_matrix m, fz_rect scissor) {
+    ThemePushClip(d);
+    fz_clip_stroke_text(ctx, d->passthrough, text, stroke, m, scissor);
+}
+
+static void ThemeClipImageMask(fz_context* ctx, fz_device* d, fz_image* image, fz_matrix m, fz_rect scissor) {
+    ((ThemeDrawDevice*)d)->imageClipDepth++;
+    fz_clip_image_mask(ctx, d->passthrough, image, m, scissor);
+}
+
+static void ThemePopClip(fz_context* ctx, fz_device* d) {
+    auto* theme = (ThemeDrawDevice*)d;
+    if (theme->imageClipDepth) {
+        theme->imageClipDepth--;
+    }
+    fz_pop_clip(ctx, d->passthrough);
+}
+
+static int ThemeBeginTile(fz_context* ctx, fz_device* d, fz_rect area, fz_rect view, float xstep, float ystep,
+                          fz_matrix m, int, int docId) {
+    return fz_begin_tile_tid(ctx, d->passthrough, area, view, xstep, ystep, m, 0, docId);
+}
+
+static fz_device* ThemeDrawWrap(fz_context* ctx, fz_device* target, const DarkModeProfile* profile, fz_matrix view,
+                                fz_irect bounds) {
+    if (!profile || profile->mode != PageColorMode::PreserveImages) {
+        return target;
+    }
+    auto* dev = fz_new_derived_passthrough_device(ctx, target, ThemeDrawDevice);
+    dev->text = profile->foreground;
+    dev->background = profile->pageBackground;
+    dev->link = profile->linkColor;
+    dev->view = view;
+    dev->bounds = bounds;
+    dev->super.fill_path = ThemeFillPath;
+    dev->super.stroke_path = ThemeStrokePath;
+    dev->super.fill_text = ThemeFillText;
+    dev->super.stroke_text = ThemeStrokeText;
+    dev->super.fill_shade = ThemeFillShade;
+    dev->super.begin_mask = ThemeBeginMask;
+    dev->super.end_mask = ThemeEndMask;
+    dev->super.clip_path = ThemeClipPath;
+    dev->super.clip_stroke_path = ThemeClipStrokePath;
+    dev->super.clip_text = ThemeClipText;
+    dev->super.clip_stroke_text = ThemeClipStrokeText;
+    dev->super.clip_image_mask = ThemeClipImageMask;
+    dev->super.pop_clip = ThemePopClip;
+    dev->super.begin_tile = ThemeBeginTile;
+    fz_drop_device(ctx, target);
+    return &dev->super;
 }
 
 static void MarkTransparentBackdropPixmap(Pixmap* pixmap, bool transparentBackdrop) {
@@ -7318,13 +7693,89 @@ static bool RenderAborted(fz_cookie* cookie) {
 // can't be closed ("items left on stack"). Unhook close on it and on the
 // wrappers that forward to it, so dropping them doesn't warn either.
 static void UnhookAbortedDevices(fz_device* drawDev, fz_device* outer) {
-    fz_device* devs[] = {drawDev, outer};
-    for (fz_device* d : devs) {
-        if (d) {
-            d->close_device = nullptr;
-        }
+    for (fz_device* d = outer; d; d = d->passthrough) {
+        d->close_device = nullptr;
+    }
+    if (drawDev) {
+        drawDev->close_device = nullptr;
     }
 }
+
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+bool PdfThemeRenderMupdf(const PdfThemeSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
+                         const DarkModeProfile& profile, PdfThemeParts parts, RenderTarget target,
+                         PdfThemeAntialias antialias) {
+    if (!pixmap || pixmap->format != PixmapFormat::BGRA8) {
+        return false;
+    }
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    if (!ctx) {
+        return false;
+    }
+    install_load_windows_font_funcs(ctx);
+    InstallEmbeddedFontLoader();
+    fz_set_aa_level(ctx, antialias == PdfThemeAntialias::Disabled || target == RenderTarget::Print ? 0 : 8);
+    ThemePdfInput input{&source};
+    fz_stream* stream = nullptr;
+    pdf_document* doc = nullptr;
+    pdf_page* page = nullptr;
+    fz_pixmap* pix = nullptr;
+    fz_device* dev = nullptr;
+    fz_device* drawDev = nullptr;
+    bool ok = false;
+    fz_var(stream);
+    fz_var(doc);
+    fz_var(page);
+    fz_var(pix);
+    fz_var(dev);
+    fz_var(drawDev);
+    fz_var(ok);
+    fz_try(ctx) {
+        stream = fz_new_stream(ctx, &input, ThemePdfNext, nullptr);
+        stream->seek = ThemePdfSeek;
+        doc = pdf_open_document_with_stream(ctx, stream);
+        if (pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, CStrTemp(password))) {
+            fz_throw(ctx, FZ_ERROR_ARGUMENT, "wrong password");
+        }
+        page = pdf_load_page(ctx, doc, pageNo - 1);
+        pix = fz_new_pixmap_with_data(ctx, fz_device_bgr(ctx), pixmap->width, pixmap->height, nullptr, 1,
+                                      pixmap->stride, pixmap->data);
+        drawDev = dev = fz_new_draw_device(ctx, fz_identity, pix);
+        if (antialias == PdfThemeAntialias::Disabled) {
+            fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
+        }
+        dev = ThemeDrawWrap(ctx, dev, &profile, fz_identity, fz_make_irect(0, 0, pixmap->width, pixmap->height));
+        ((ThemeDrawDevice*)dev)->cancelSource = &source;
+        fz_matrix ctm = fz_make_matrix(m[0], m[1], m[2], m[3], m[4], m[5]);
+        const char* usage = target == RenderTarget::Print ? "Print" : "View";
+        if (parts == PdfThemeParts::ContentsAndAnnotations) {
+            pdf_run_page_with_usage(ctx, page, dev, ctm, usage, nullptr);
+        } else {
+            pdf_run_page_contents_with_usage(ctx, page, dev, ctm, usage, nullptr);
+        }
+        ThemePdfCheck(ctx, &source);
+        fz_close_device(ctx, dev);
+        ok = true;
+    }
+    fz_always(ctx) {
+        if (!ok && source.isCanceled && source.isCanceled(source.cancelData)) {
+            UnhookAbortedDevices(drawDev, dev);
+        }
+        fz_drop_device(ctx, dev);
+        fz_drop_pixmap(ctx, pix);
+        fz_drop_page(ctx, (fz_page*)page);
+        pdf_drop_document(ctx, doc);
+        fz_drop_stream(ctx, stream);
+    }
+    fz_catch(ctx) {
+        if (!source.isCanceled || !source.isCanceled(source.cancelData)) {
+            fz_report_error(ctx);
+        }
+    }
+    fz_drop_context(ctx);
+    return ok;
+}
+#endif
 
 Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
     auto* ctx = Ctx();
@@ -7425,6 +7876,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             if (CadEnhanceActive()) {
                 dev = PdfCadEnhanceWrapDevice(ctx, dev);
             }
+            dev = ThemeDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
             fz_run_display_list(ctx, keptList, dev, fz_identity, pRect, fzcookie);
             if (RenderAborted(fzcookie)) {
                 UnhookAbortedDevices(drawDev, dev);
@@ -7433,7 +7885,9 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
                 if (CadEnhanceActive() && cadRasterDominant) {
                     PdfCadEnhancePixmap(ctx, pix, zoom, true);
                 }
-                pixmap = NewPixmapFromFzPixmap(ctx, pix, args.transparentBackdrop);
+                bool skipPalette = args.transparentBackdrop ||
+                                   (args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages);
+                pixmap = NewPixmapFromFzPixmap(ctx, pix, skipPalette);
                 MarkTransparentBackdropPixmap(pixmap, args.transparentBackdrop);
             }
         }
@@ -7478,6 +7932,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             if (disableAntiAlias) {
                 fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
             }
+            dev = ThemeDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
             if (hideAnnotations) {
                 pdf_run_page_contents_with_usage(ctx, pdfpage, dev, fz_identity, usageZ, fzcookie);
                 pdf_run_page_widgets_with_usage(ctx, pdfpage, dev, fz_identity, usageZ, fzcookie);
@@ -7491,7 +7946,9 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
                 if (CadEnhanceActive() && cadRasterDominant) {
                     PdfCadEnhancePixmap(ctx, pix, zoom, true);
                 }
-                pixmap = NewPixmapFromFzPixmap(ctx, pix, args.transparentBackdrop);
+                bool skipPalette = args.transparentBackdrop ||
+                                   (args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages);
+                pixmap = NewPixmapFromFzPixmap(ctx, pix, skipPalette);
                 MarkTransparentBackdropPixmap(pixmap, args.transparentBackdrop);
             }
         }
@@ -7511,13 +7968,16 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             pix = fz_new_pixmap_with_bbox(ctx, csRgb, ibounds, nullptr, 1);
             ClearRenderedPagePixmap(ctx, pix, args);
             dev = fz_new_draw_device(ctx, ctm, pix);
+            dev = ThemeDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
             if (disableAntiAlias) {
                 fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
             }
             fz_run_page_contents(ctx, page, dev, fz_identity, nullptr);
             fz_close_device(ctx, dev);
             fz_drop_device(ctx, dev);
-            pixmap = NewPixmapFromFzPixmap(ctx, pix, args.transparentBackdrop);
+            bool skipPalette = args.transparentBackdrop ||
+                               (args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages);
+            pixmap = NewPixmapFromFzPixmap(ctx, pix, skipPalette);
             MarkTransparentBackdropPixmap(pixmap, args.transparentBackdrop);
         }
         fz_always(ctx) {
@@ -7535,7 +7995,8 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
 
 // Draws the page's annotations over pixels another engine (EnginePdfium) rendered. m (a b c d e f)
 // maps page space to them; pixmap is BGRA, premultiplied if it has alpha.
-bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target) {
+bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target,
+                                const DarkModeProfile* profile) {
     EngineMupdf* e = AsEngineMupdf(engine);
     if (!e || !e->pdfdoc || !pixmap || pixmap->format != PixmapFormat::BGRA8) {
         return false;
@@ -7560,6 +8021,7 @@ bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6]
         pix = fz_new_pixmap_with_data(ctx, fz_device_bgr(ctx), pixmap->width, pixmap->height, nullptr, 1,
                                       pixmap->stride, pixmap->data);
         dev = fz_new_draw_device(ctx, fz_identity, pix);
+        dev = ThemeDrawWrap(ctx, dev, profile, fz_identity, fz_make_irect(0, 0, pixmap->width, pixmap->height));
         fz_matrix ctm = fz_make_matrix(m[0], m[1], m[2], m[3], m[4], m[5]);
         if (page) {
             pdf_run_page_annots_with_usage(ctx, page, dev, ctm, usage, nullptr);

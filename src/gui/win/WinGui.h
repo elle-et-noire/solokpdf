@@ -774,6 +774,8 @@ struct Edit : ControlBase {
     int ncCenterTop = 0;
     bool selectAllOnFocus = false;
     bool delaySelectAll = false;
+    Str cueText;
+    Color cueColor = kColorUnset;
     // when set, shown instead of the edit's own I-beam (see SetCursorId)
     LPWSTR cursorId = nullptr;
 
@@ -796,6 +798,8 @@ struct Edit : ControlBase {
     int GetLeftTextMargin();
 
     void SetCursorId(LPWSTR);
+    void SetCueColor(Color);
+    void PaintCue(HDC);
     bool HasBorder();
     void ApplyTextPadding();
 };

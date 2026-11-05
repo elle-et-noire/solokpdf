@@ -9,6 +9,49 @@ struct FileArgs;
 struct AnnotCreateArgs;
 struct PropValue;
 struct djvu_text_zone;
+struct DarkModeProfile;
+
+struct PdfThemeSource {
+    void* user;
+    u32 size;
+    int (*read)(void* user, u32 offset, u8* data, u32 count);
+    void* cancelData;
+    bool (*isCanceled)(void* user);
+};
+
+enum class PdfThemeLayout {
+    Incremental,
+    Rewritten,
+};
+
+enum class PdfThemeStatus {
+    Failed,
+    Empty,
+    Ready,
+};
+
+struct PdfThemeSnapshot {
+    Str data;
+    PdfThemeLayout layout = PdfThemeLayout::Incremental;
+    PdfThemeStatus status = PdfThemeStatus::Failed;
+};
+
+PdfThemeSnapshot PdfThemePageMupdf(const PdfThemeSource& source, Str password, int pageNo,
+                                   const DarkModeProfile& profile);
+
+enum class PdfThemeParts {
+    Contents,
+    ContentsAndAnnotations,
+};
+
+enum class PdfThemeAntialias {
+    Enabled,
+    Disabled,
+};
+
+bool PdfThemeRenderMupdf(const PdfThemeSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
+                         const DarkModeProfile& profile, PdfThemeParts parts, RenderTarget target,
+                         PdfThemeAntialias antialias);
 
 bool IsEngineDjVuSupportedFileType(FileType kind);
 EngineBase* CreateEngineDjvuDecFromFile(Str path);
@@ -101,7 +144,8 @@ bool IsEngineMupdfSupportedFileType(FileType);
 int EngineMupdfCount();
 EngineBase* CreateEngineMupdfFromFile(Str path, FileType kind, int displayDPI, PasswordUI* pwdUI = nullptr);
 EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI);
-bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target);
+bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target,
+                                const DarkModeProfile* profile);
 Str LoadEmbeddedPDFFile(Str path);
 TempStr ParseEmbeddedStreamNumber(Str path, int* streamNoOut);
 Annotation* EngineMupdfCreateAnnotation(EngineBase*, int pageNo, PointF pos, AnnotCreateArgs* args);

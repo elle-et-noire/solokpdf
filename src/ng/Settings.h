@@ -719,10 +719,6 @@ struct FixedPageUI {
     // if true, render document pages in grayscale. Toggle with
     // CmdToggleGrayscale
     bool grayscale;
-    // color used instead of black for the document's text
-    ParsedColor textColor;
-    // color used instead of white for the document's page background
-    ParsedColor backgroundColor;
     // color value for the text selection rectangle (also used to highlight
     // found text). Use an #aarrggbb value to control opacity: a smaller
     // alpha (e.g. #40ffff00) makes the selection more transparent so the
@@ -740,8 +736,6 @@ struct FixedPageUI {
     // to give a subconscious sense of reading progress. Suggested values:
     // #2828aa #28aa28 #aa2828
     Vec<Str>* gradientColors;
-    // if given, sets the canvas background color for PDF files
-    ParsedColor windowBgCol;
     // measurement grid overlay (View > Page Grid). Spacing, slant and
     // style are saved; showing the grid is session-only. Drag a grid line
     // while Configure Page Grid is open, or Alt+drag, to resize cells with
@@ -981,11 +975,11 @@ struct Settings {
     // it
     Str helpTheme;
     // how MuPDF-rendered documents (PDF, XPS, DjVu, EPUB, MOBI, FB2, CBZ,
-    // images, etc.) use UI / FixedPageUI colors for the page. Values: off
-    // (document's own colors; default); smart (recolor text and page
-    // background, keep photos/images as-is — best for dark reading);
-    // legacy (also recolor images; pre-3.7 invert-style). Does not change
-    // menus/toolbars — use Theme for UI chrome. Settings / Theme and the
+    // images, etc.) use theme colors for the page. Values: off (document's
+    // own colors; default); smart (recolor text and page background, keep
+    // photos/images as-is — best for dark reading); legacy (also recolor
+    // images; pre-3.7 invert-style). Does not change menus/toolbars — use
+    // Theme for UI chrome. Settings / Theme and the
     // CmdSetDocumentColorsFollowTheme command set all three values.
     // Shift+I (Invert Colors) is separate: it swaps the page colors for
     // the session whatever this is set to
@@ -1024,11 +1018,6 @@ struct Settings {
     // customization options for CHM UI. UseFixedPageUI switches to the
     // PDF-style view; FontName applies to that view
     ChmUI chmUI;
-    // background color of the area around the document, traditionally
-    // yellow. Only applies to the Light theme; the default #80fff200 is a
-    // marker meaning "use the theme's color", so setting any other value
-    // also colorizes the toolbar and sidebars
-    ParsedColor mainWindowBackground;
     // which dialog Print (Ctrl+P) opens: empty or auto (the Windows 11
     // dialog with print preview where it's available, the classic one
     // everywhere else), modern (the Windows 11 dialog), or classic (the

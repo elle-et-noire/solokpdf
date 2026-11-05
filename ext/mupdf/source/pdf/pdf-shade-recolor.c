@@ -890,6 +890,8 @@ pdf_recolor_shade(fz_context *ctx, pdf_obj *shade, pdf_shade_recolorer *reshade,
 	pdf_obj *background, *new_bg = NULL;
 	pdf_obj *function;
 	pdf_obj *rewritten = NULL;
+	pdf_obj *source_copy = NULL;
+	fz_buffer *source_stream = NULL;
 	pdf_obj *obj;
 	int type, i;
 	pdf_function *func[FZ_MAX_COLORS] = { NULL };
@@ -900,6 +902,8 @@ pdf_recolor_shade(fz_context *ctx, pdf_obj *shade, pdf_shade_recolorer *reshade,
 	src_cs = pdf_load_colorspace(ctx, pdf_dict_get(ctx, shade, PDF_NAME(ColorSpace)));
 
 	fz_var(rewritten);
+	fz_var(source_copy);
+	fz_var(source_stream);
 	fz_var(func);
 
 	rd.funcs = 0;
@@ -913,7 +917,14 @@ pdf_recolor_shade(fz_context *ctx, pdf_obj *shade, pdf_shade_recolorer *reshade,
 		rd.src_cs = src_cs;
 		rd.opaque = opaque;
 
-		rewritten = pdf_deep_copy_obj(ctx, shade);
+		source_copy = pdf_deep_copy_obj(ctx, pdf_resolve_indirect(ctx, shade));
+		if (pdf_is_stream(ctx, shade))
+		{
+			source_stream = pdf_load_raw_stream(ctx, shade);
+			rewritten = pdf_add_stream(ctx, doc, source_stream, source_copy, 1);
+		}
+		else
+			rewritten = pdf_keep_obj(ctx, source_copy);
 
 		type = pdf_dict_get_int(ctx, shade, PDF_NAME(ShadingType));
 
@@ -1040,6 +1051,8 @@ pdf_recolor_shade(fz_context *ctx, pdf_obj *shade, pdf_shade_recolorer *reshade,
 	}
 	fz_always(ctx)
 	{
+		pdf_drop_obj(ctx, source_copy);
+		fz_drop_buffer(ctx, source_stream);
 		for (i = 0; i < rd.funcs; i++)
 			pdf_drop_function(ctx, func[i]);
 		fz_drop_colorspace(ctx, src_cs);

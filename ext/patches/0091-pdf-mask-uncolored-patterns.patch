@@ -1,0 +1,125 @@
+pdf: preserve uncolored pattern mask paints
+
+Restore the original pattern colorspace when painting image masks.
+
+diff --git a/source/pdf/pdf-op-color.c b/source/pdf/pdf-op-color.c
+index 3b756dced..e568ba703 100644
+--- a/source/pdf/pdf-op-color.c
++++ b/source/pdf/pdf-op-color.c
+@@ -35,6 +35,7 @@ typedef struct gstate_stack
+ 	struct gstate_stack *next;
+ 	pdf_obj *cs_stroke;
+ 	pdf_obj *cs_fill;
++	pdf_obj *pattern_base;
+ 	float original_fill[FZ_MAX_COLORS];
+ 	int original_fill_n;
+ 	int unmarked;
+@@ -466,6 +467,7 @@ pdf_color_q(fz_context *ctx, pdf_processor *proc)
+ 	gs->next = p->gstate;
+ 	gs->cs_fill = pdf_keep_obj(ctx, p->gstate->cs_fill);
+ 	gs->cs_stroke = pdf_keep_obj(ctx, p->gstate->cs_stroke);
++	gs->pattern_base = pdf_keep_obj(ctx, p->gstate->pattern_base);
+ 	gs->unmarked = p->gstate->unmarked;
+ 	gs->ctm = p->gstate->ctm;
+ 	gs->original_fill_n = p->gstate->original_fill_n;
+@@ -624,6 +626,7 @@ pdf_color_Q(fz_context *ctx, pdf_processor *proc)
+ 	p->gstate = gs->next;
+ 	pdf_drop_obj(ctx, gs->cs_fill);
+ 	pdf_drop_obj(ctx, gs->cs_stroke);
++	pdf_drop_obj(ctx, gs->pattern_base);
+ 
+ 	fz_try(ctx)
+ 		if (p->super.chain->op_Q)
+@@ -727,7 +730,17 @@ pdf_color_cs(fz_context *ctx, pdf_processor *proc, const char *name, fz_colorspa
+ 	float color[FZ_MAX_COLORS] = { 1 };
+ 
+ 	fz_try(ctx)
++	{
++		if (p->options->preserve_image_masks)
++		{
++			pdf_obj *resolved = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(ColorSpace), name);
++			pdf_drop_obj(ctx, p->gstate->pattern_base);
++			p->gstate->pattern_base = NULL;
++			if (pdf_is_array(ctx, resolved) && pdf_name_eq(ctx, pdf_array_get(ctx, resolved, 0), PDF_NAME(Pattern)))
++				p->gstate->pattern_base = pdf_keep_obj(ctx, resolved);
++		}
+ 		rewrite_cs(ctx, p, cs_obj, 0, color, 0);
++	}
+ 	fz_always(ctx)
+ 		pdf_drop_obj(ctx, cs_obj);
+ 	fz_catch(ctx)
+@@ -764,6 +777,40 @@ pdf_color_sc_pattern(fz_context *ctx, pdf_processor *proc, const char *name, pdf
+ 	pdf_obj *cs_obj = pdf_lookup_resource(ctx, proc->rstack, PDF_NAME(Pattern), name);
+ 
+ 	memcpy(local_color, color, sizeof(float) * n);
++	if (n > 0 && p->gstate->pattern_base)
++	{
++		char cs_name[MAX_REWRITTEN_NAME];
++		float rgb[FZ_MAX_COLORS] = { 0 };
++		fz_colorspace *base = NULL;
++		fz_colorspace *space = NULL;
++		pdf_obj *rgb_pattern = NULL;
++		fz_var(base);
++		fz_var(space);
++		fz_var(rgb_pattern);
++		fz_try(ctx)
++		{
++			base = pdf_load_colorspace(ctx, pdf_array_get(ctx, p->gstate->pattern_base, 1));
++			fz_convert_color(ctx, base, color, fz_device_rgb(ctx), rgb, NULL, fz_default_color_params);
++			rgb_pattern = pdf_new_array(ctx, p->doc, 2);
++			pdf_array_push(ctx, rgb_pattern, PDF_NAME(Pattern));
++			pdf_array_push(ctx, rgb_pattern, PDF_NAME(DeviceRGB));
++			make_resource_instance(ctx, p, PDF_NAME(ColorSpace), "CS", cs_name, sizeof(cs_name), rgb_pattern);
++			space = pdf_load_colorspace(ctx, rgb_pattern);
++			p->super.chain->op_cs(ctx, p->super.chain, cs_name, space);
++			rewrite_cs(ctx, p, cs_obj, 3, rgb, 0);
++			p->gstate->original_fill_n = n;
++			memcpy(p->gstate->original_fill, color, sizeof(float) * n);
++		}
++		fz_always(ctx)
++		{
++			fz_drop_colorspace(ctx, base);
++			fz_drop_colorspace(ctx, space);
++			pdf_drop_obj(ctx, rgb_pattern);
++		}
++		fz_catch(ctx)
++			fz_rethrow(ctx);
++		return;
++	}
+ 	rewrite_cs(ctx, p, cs_obj, n, local_color, 0);
+ }
+ 
+@@ -1001,7 +1048,25 @@ pdf_color_begin_image_mask(fz_context *ctx, pdf_color_processor *p, fz_image *im
+ 	p->super.chain->op_q(ctx, p->super.chain);
+ 	p->preserve_mask_color = 1;
+ 	fz_try(ctx)
++	{
++		if (p->gstate->pattern_base && p->gstate->original_fill_n > 0)
++		{
++			char name[MAX_REWRITTEN_NAME];
++			fz_colorspace *space = NULL;
++			fz_var(space);
++			fz_try(ctx)
++			{
++				make_resource_instance(ctx, p, PDF_NAME(ColorSpace), "CS", name, sizeof(name), p->gstate->pattern_base);
++				space = pdf_load_colorspace(ctx, p->gstate->pattern_base);
++				p->super.chain->op_cs(ctx, p->super.chain, name, space);
++			}
++			fz_always(ctx)
++				fz_drop_colorspace(ctx, space);
++			fz_catch(ctx)
++				fz_rethrow(ctx);
++		}
+ 		rewrite_cs(ctx, p, p->gstate->cs_fill, p->gstate->original_fill_n < 0 ? 0 : p->gstate->original_fill_n, original, 0);
++	}
+ 	fz_always(ctx)
+ 		p->preserve_mask_color = 0;
+ 	fz_catch(ctx)
+@@ -1239,6 +1304,7 @@ pdf_drop_color_processor(fz_context *ctx, pdf_processor *proc)
+ 
+ 		pdf_drop_obj(ctx, gs->cs_fill);
+ 		pdf_drop_obj(ctx, gs->cs_stroke);
++		pdf_drop_obj(ctx, gs->pattern_base);
+ 		fz_free(ctx, gs);
+ 		gs = gs_next;
+ 	}

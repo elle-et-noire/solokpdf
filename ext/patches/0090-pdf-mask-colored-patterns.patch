@@ -1,0 +1,123 @@
+pdf: preserve colored patterns on image masks
+
+Track mask patterns separately while filtering other pattern uses.
+
+diff --git a/include/mupdf/pdf/interpret.h b/include/mupdf/pdf/interpret.h
+index 99a77dfe6..6e1603bec 100644
+--- a/include/mupdf/pdf/interpret.h
++++ b/include/mupdf/pdf/interpret.h
+@@ -474,6 +474,7 @@ typedef struct
+ 
+ pdf_processor *
+ pdf_new_color_filter(fz_context *ctx, pdf_document *doc, pdf_processor *chain, int struct_parents, fz_matrix transform, pdf_filter_options *options, void *copts);
++int pdf_color_filter_is_mask_pattern(fz_context *ctx, pdf_processor *proc, const char *name);
+ 
+ /*
+ 	Functions to actually process annotations, glyphs and general stream objects.
+diff --git a/source/pdf/pdf-op-color.c b/source/pdf/pdf-op-color.c
+index 42b29afbc..3b756dced 100644
+--- a/source/pdf/pdf-op-color.c
++++ b/source/pdf/pdf-op-color.c
+@@ -89,6 +89,7 @@ typedef struct
+ 	cs_color *stroke;
+ 	cs_color *fill;
+ 	int preserve_mask_color;
++	pdf_obj *mask_patterns;
+ 	rewritten_images images;
+ 	rewritten_shades shades;
+ } pdf_color_processor;
+@@ -291,6 +292,8 @@ rewrite_cs(fz_context *ctx, pdf_color_processor *p, pdf_obj *cs_obj, int n, floa
+ 			p->gstate->original_fill_n = n;
+ 			memcpy(p->gstate->original_fill, color, n * sizeof(float));
+ 		}
++		else if (!stroking && !p->preserve_mask_color && pdf_dict_get_int(ctx, cs_obj, PDF_NAME(PatternType)) == 1)
++			p->gstate->original_fill_n = -1;
+ 		if (p->options->color_rewrite && !p->preserve_mask_color)
+ 			p->options->color_rewrite(ctx, p->options->opaque, &cs_obj, &n, color);
+ 
+@@ -392,7 +395,13 @@ rewrite_cs(fz_context *ctx, pdf_color_processor *p, pdf_obj *cs_obj, int n, floa
+ 			fz_throw(ctx, FZ_ERROR_FORMAT, "Bad PatternType");
+ 
+ 		/* Make a new entry (or find an existing one), and send that. */
+-		make_resource_instance(ctx, p, PDF_NAME(Pattern), "Pa", new_name, sizeof(new_name), cs_obj);
++		make_resource_instance(ctx, p, PDF_NAME(Pattern), p->preserve_mask_color ? "MaskPa" : "Pa", new_name, sizeof(new_name), cs_obj);
++		if (p->preserve_mask_color && type == 1)
++		{
++			if (!p->mask_patterns)
++				p->mask_patterns = pdf_new_dict(ctx, p->doc, 4);
++			pdf_dict_puts(ctx, p->mask_patterns, new_name, PDF_TRUE);
++		}
+ 
+ 		if (type == 1)
+ 		{
+@@ -986,13 +995,13 @@ static int
+ pdf_color_begin_image_mask(fz_context *ctx, pdf_color_processor *p, fz_image *image)
+ {
+ 	float original[FZ_MAX_COLORS];
+-	if (!p->options->preserve_image_masks || !image->imagemask || p->gstate->original_fill_n <= 0)
++	if (!p->options->preserve_image_masks || !image->imagemask || p->gstate->original_fill_n == 0)
+ 		return 0;
+ 	memcpy(original, p->gstate->original_fill, sizeof(original));
+ 	p->super.chain->op_q(ctx, p->super.chain);
+ 	p->preserve_mask_color = 1;
+ 	fz_try(ctx)
+-		rewrite_cs(ctx, p, p->gstate->cs_fill, p->gstate->original_fill_n, original, 0);
++		rewrite_cs(ctx, p, p->gstate->cs_fill, p->gstate->original_fill_n < 0 ? 0 : p->gstate->original_fill_n, original, 0);
+ 	fz_always(ctx)
+ 		p->preserve_mask_color = 0;
+ 	fz_catch(ctx)
+@@ -1244,10 +1253,18 @@ pdf_drop_color_processor(fz_context *ctx, pdf_processor *proc)
+ 
+ 	drop_rewritten_images(ctx, p);
+ 	drop_rewritten_shades(ctx, p);
++	pdf_drop_obj(ctx, p->mask_patterns);
+ 
+ 	pdf_drop_document(ctx, p->doc);
+ }
+ 
++int
++pdf_color_filter_is_mask_pattern(fz_context *ctx, pdf_processor *proc, const char *name)
++{
++	pdf_color_processor *p = (pdf_color_processor*)proc;
++	return pdf_dict_gets(ctx, p->mask_patterns, name) != NULL;
++}
++
+ static void
+ pdf_color_push_resources(fz_context *ctx, pdf_processor *proc, pdf_obj *res)
+ {
+diff --git a/source/pdf/pdf-clean.c b/source/pdf/pdf-clean.c
+index a22863d4d..35d861ac8 100644
+--- a/source/pdf/pdf-clean.c
++++ b/source/pdf/pdf-clean.c
+@@ -46,7 +46,7 @@ pdf_filter_resource_copy(fz_context *ctx, pdf_document *doc, pdf_obj *dict, int
+ }
+ 
+ static void
+-pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_obj *res, pdf_filter_options *options, pdf_cycle_list *cycle_up)
++pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_obj *res, pdf_filter_options *options, pdf_cycle_list *cycle_up, pdf_processor **filters, int num_filters)
+ {
+ 	pdf_cycle_list cycle;
+ 	pdf_obj *obj;
+@@ -86,7 +86,12 @@ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_ob
+ 		for (i = 0; i < n; i++)
+ 		{
+ 			pdf_obj *pat = pdf_dict_get_val(ctx, obj, i);
+-			if (pat && pdf_dict_get_int(ctx, pat, PDF_NAME(PatternType)) == 1)
++			const char *name = pdf_to_name(ctx, pdf_dict_get_key(ctx, obj, i));
++			int j, is_mask = 0;
++			for (j = 0; j < num_filters; j++)
++				if (options->filters[j].filter == pdf_new_color_filter && pdf_color_filter_is_mask_pattern(ctx, filters[j], name))
++					is_mask = 1;
++			if (pat && !is_mask && pdf_dict_get_int(ctx, pat, PDF_NAME(PatternType)) == 1)
+ 			{
+ 				pdf_filter_resource_copy(ctx, doc, obj, i, in_res, options, &cycle);
+ 			}
+@@ -202,7 +207,7 @@ pdf_filter_content_stream(
+ 		pdf_process_contents(ctx, top, doc, in_res, in_stm, NULL, out_res);
+ 		pdf_close_processor(ctx, top);
+ 
+-		pdf_filter_resources(ctx, doc, in_res, *out_res, options, cycle_up);
++		pdf_filter_resources(ctx, doc, in_res, *out_res, options, cycle_up, list, num_filters);
+ 	}
+ 	fz_always(ctx)
+ 	{

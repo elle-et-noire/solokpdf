@@ -263,7 +263,12 @@ const ebookUI: Field[] = [
 const theme: Field[] = [
   field("Name", Str, "", "name of the theme, as shown in the Settings / Theme menu"),
   field("TextColor", Color, "", "color of text in menus, toolbar, tabs and sidebars"),
-  field("BackgroundColor", Color, "", "background color of the window around the document, the toolbar, the sidebar, the active tab and the scrollbars"),
+  field(
+    "BackgroundColor",
+    Color,
+    "",
+    "background color of the window around the document, the toolbar, the sidebar, the active tab and the scrollbars",
+  ),
   field("ControlBackgroundColor", Color, "", "background color of dialogs and search fields"),
   field(
     "ActiveTabBackgroundColor",
@@ -511,13 +516,6 @@ const fixedPageUI: Field[] = [
   field("Grayscale", Bool, false, "if true, render document pages in grayscale. Toggle with CmdToggleGrayscale").ver(
     "3.7",
   ),
-  field("TextColor", Color, rgb(0x00, 0x00, 0x00), "color used instead of black for the document's text"),
-  field(
-    "BackgroundColor",
-    Color,
-    rgb(0xff, 0xff, 0xff),
-    "color used instead of white for the document's page background",
-  ),
   field(
     "SelectionColor",
     Color,
@@ -545,7 +543,6 @@ const fixedPageUI: Field[] = [
       "background is meant to give a subconscious sense of reading progress. " +
       "Suggested values: #2828aa #28aa28 #aa2828",
   ),
-  field("WindowBgCol", Color, "", "if given, sets the canvas background color for PDF files").ver("3.7"),
   struct(
     "PageGrid",
     pageGrid,
@@ -1441,14 +1438,6 @@ const globalPrefs: Field[] = [
     false,
     "if true, restoring a session delays loading each document until its tab is selected",
   ).ver("3.6"),
-  field(
-    "MainWindowBackground",
-    Color,
-    rgba(0xff, 0xf2, 0x00, 0x80),
-    "background color of the area around the document, traditionally yellow. Only applies to the " +
-      'Light theme; the default #80fff200 is a marker meaning "use the theme\'s color", so setting ' +
-      "any other value also colorizes the toolbar and sidebars",
-  ),
   field("NoHomeTab", Bool, true, "if true, doesn't open Home tab"),
   field(
     "NoCaj2pdfConverterDownload",
@@ -1957,7 +1946,7 @@ const globalPrefs: Field[] = [
     Str,
     "smart",
     "how MuPDF-rendered documents (PDF, XPS, DjVu, EPUB, MOBI, FB2, CBZ, images, etc.) " +
-      "use UI / FixedPageUI colors for the page. Values: off (document's own colors); " +
+      "use theme colors for the page. Values: off (document's own colors); " +
       "smart (recolor text and page background, keep photos/images as-is — best for dark reading; default); " +
       "legacy (also recolor images; pre-3.7 invert-style). Does not change menus/toolbars — use Theme " +
       "for UI chrome. Settings / Theme and the CmdSetDocumentColorsFollowTheme command set " +
@@ -2352,7 +2341,6 @@ const globalPrefsLayout = [
   "UiLanguage",
   "VersionToSkip",
   "ChmUI",
-  "MainWindowBackground",
   "PrinterUI",
   "PrinterDefaults",
   "ForwardSearch",

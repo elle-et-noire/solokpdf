@@ -1,0 +1,41 @@
+pdf: initialize filters without page resources
+
+Use an empty resource dictionary so filters still process default colors.
+
+diff --git a/source/pdf/pdf-clean.c b/source/pdf/pdf-clean.c
+index c257e1258..559d47e5b 100644
+--- a/source/pdf/pdf-clean.c
++++ b/source/pdf/pdf-clean.c
+@@ -143,10 +143,12 @@ pdf_filter_content_stream(
+ 	pdf_processor *proc_buffer = NULL;
+ 	pdf_processor *top = NULL;
+ 	pdf_processor **list = NULL;
++	pdf_obj *empty_res = NULL;
+ 	int num_filters = 0;
+ 	int i;
+ 
+ 	fz_var(proc_buffer);
++	fz_var(empty_res);
+ 
+ 	*out_buf = NULL;
+ 	*out_res = NULL;
+@@ -159,6 +161,11 @@ pdf_filter_content_stream(
+ 
+ 	fz_try(ctx)
+ 	{
++		if (!in_res)
++		{
++			empty_res = pdf_new_dict(ctx, doc, 0);
++			in_res = empty_res;
++		}
+ 		*out_buf = fz_new_buffer(ctx, 1024);
+ 		top = proc_buffer = pdf_new_buffer_processor(ctx, *out_buf, options->ascii, options->newlines);
+ 		if (num_filters > 0)
+@@ -177,6 +184,7 @@ pdf_filter_content_stream(
+ 		for (i = 0; i < num_filters; i++)
+ 			pdf_drop_processor(ctx, list[i]);
+ 		pdf_drop_processor(ctx, proc_buffer);
++		pdf_drop_obj(ctx, empty_res);
+ 		fz_free(ctx, list);
+ 	}
+ 	fz_catch(ctx)

@@ -876,6 +876,12 @@ static void RecolorPixels(u8* data, int w, int h, size_t stride, int bpp, Color 
     }
 }
 
+Color RecolorPageColor(Color color, Color textColor, Color bgColor, Color linkColor) {
+    u8 pixel[] = {GetBlue(color), GetGreen(color), GetRed(color)};
+    RecolorPixels(pixel, 1, 1, sizeof(pixel), sizeof(pixel), textColor, bgColor, linkColor, nullptr);
+    return MkRgb(pixel[2], pixel[1], pixel[0]);
+}
+
 // same, for an HBITMAP: in place for mapped 24/32-bit DIBs, via the palette
 // for 8-bit ones, else through GetDIBits/SetDIBits
 #if OS_WIN

@@ -37,6 +37,7 @@
 #include "AppUnitTests.h"
 #include "PDFScript.h"
 #include "RegistryPreview.h"
+#include "Theme.h"
 
 // must be last to over-write assert()
 #include "base/tests/UtAssert.h"
@@ -151,7 +152,7 @@ static void PaletteRowColorTest() {
 
     ItemDataCP typed;
     typed.settingType = SettingType::Color;
-    typed.settingPath = StrL("FixedPageUI.TextColor");
+    typed.settingPath = StrL("FixedPageUI.SelectionColor");
     utassert(PaletteRowColor(&typed, StrL("#ff0000"), &col));
     utassert(col == kColRed);
     utassert(!PaletteRowColor(&typed, StrL("not a color"), &col));
@@ -194,8 +195,8 @@ static void ParseCommandLineTest() {
 
     {
         Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -bench bar.pdf 1 -set-color-range 0x123456 #abCDef", i);
-        utassert(len(i.globalPrefArgs) == 3);
+        ParseFlags(GetPermArena(), L"SumatraPDF.exe -bench bar.pdf 1 -fwdsearch-color #abCDef", i);
+        utassert(len(i.globalPrefArgs) == 2);
         utassert(2 == len(i.pathsToBenchmark));
         utassert(str::Eq(StrL("bar.pdf"), i.pathsToBenchmark[0]));
         utassert(str::Eq(StrL("1"), i.pathsToBenchmark[1]));
@@ -213,7 +214,7 @@ static void ParseCommandLineTest() {
 
     {
         Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -presentation -bgcolor 0xaa0c13 foo.pdf -invert-colors bar.pdf", i);
+        ParseFlags(GetPermArena(), L"SumatraPDF.exe -presentation foo.pdf -invert-colors bar.pdf", i);
         utassert(true == i.enterPresentation);
         utassert(true == i.invertColors);
         utassert(2 == len(i.fileNames));
@@ -223,7 +224,7 @@ static void ParseCommandLineTest() {
 
     {
         Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -bg-color 0xaa0c13 -invertcolors rosanna.pdf", i);
+        ParseFlags(GetPermArena(), L"SumatraPDF.exe -invertcolors rosanna.pdf", i);
         utassert(true == i.invertColors);
         utassert(1 == len(i.fileNames));
         utassert(0 == i.fileNames.Find(StrL("rosanna.pdf")));
@@ -399,6 +400,7 @@ static void OnlineURLAllowedTest() {
 }
 
 static void SumatraPDF_UnitTests() {
+    utassert(ThemeHighContrast_UnitTest());
     OnlineURLAllowedTest();
     RestrictedUseConfigTest();
     ControlFrameActionTest();

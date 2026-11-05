@@ -1,12 +1,7 @@
 // Test for https://github.com/sumatrapdfreader/sumatrapdf/issues/6088
 //
-// Dark theme + DocumentColorsFollowTheme = smart preserved figures that are
-// artwork drawn on a uniform light backdrop, so the backdrop stayed a bright
-// block on an otherwise dark page. Such an image is a figure on paper, not a
-// photo: it has to recolor with the page.
-//
-// The fixture is one 256x256 image: a saturated green disc on flat 0xcc gray.
-// The gray must not survive on screen in dark theme.
+// A figure on a light backdrop keeps its colors in smart mode; legacy mode
+// recolors the entire image. Both modes must still render the figure.
 //
 // Run: bun tests/issue-6088.ts [--no-build]   (or via tests/run-almost-all.ts)
 
@@ -123,7 +118,6 @@ function countMidtone(data: Uint8Array): number {
 }
 
 export async function testit(): Promise<void> {
-  // Smart recolor of the painted figure. An engine render keeps the light backdrop.
   if (IS_MAC) {
     console.log("SKIP issue-6088: the check reads canvas pixels with GetWindowDC");
     return;
@@ -133,48 +127,48 @@ export async function testit(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const pdfPath = join(dir, "issue-6088.pdf");
   writeFileSync(pdfPath, pdfWithImage());
-  const appData = join(dir, "appdata");
-  mkdirSync(appData);
-  writeFileSync(
-    join(appData, SETTINGS_FILE),
-    [
-      "UiLanguage = en",
-      "CheckForUpdates = false",
-      "RestoreSession = false",
-      "Theme = Dark",
-      "DocumentColorsFollowTheme = smart",
-      "",
-    ].join("\n"),
-  );
+  for (const mode of ["smart", "legacy"] as const) {
+    const appData = join(dir, mode);
+    mkdirSync(appData);
+    writeFileSync(
+      join(appData, SETTINGS_FILE),
+      [
+        "UiLanguage = en",
+        "CheckForUpdates = false",
+        "RestoreSession = false",
+        "Theme = Dark",
+        `DocumentColorsFollowTheme = ${mode}`,
+        "",
+      ].join("\n"),
+    );
 
-  await withControlledSumatra(
-    EXE,
-    async (client, proc) => {
-      const frame = await waitForFrame(proc.pid!);
-      await client.waitForRenderIdle(30000);
-      await client.setNotificationsEnabled(false);
-      const canvas = findCanvas(frame);
-      if (!canvas) {
-        throw new Error("issue-6088: no canvas");
-      }
-      const cap = captureWindowPixels(canvas);
-      if (!cap) {
-        throw new Error("issue-6088: capture failed");
-      }
-      const midtone = countMidtone(cap.data);
-      if (midtone < 5000) {
-        throw new Error(`issue-6088: figure not rendered (midtone=${midtone} ${cap.w}x${cap.h})`);
-      }
-      const backdrop = countBackdrop(cap.data);
-      if (backdrop > 500) {
-        throw new Error(
-          `issue-6088: light backdrop kept in dark theme (backdrop=${backdrop} midtone=${midtone} ${cap.w}x${cap.h})`,
-        );
-      }
-      console.log(`  backdrop=${backdrop} midtone=${midtone} ${cap.w}x${cap.h} ✓`);
-    },
-    ["-appdata", appData, "-view", "single page", "-zoom", "fit page", pdfPath],
-  );
+    await withControlledSumatra(
+      EXE,
+      async (client, proc) => {
+        const frame = await waitForFrame(proc.pid!);
+        await client.waitForRenderIdle(30000);
+        await client.setNotificationsEnabled(false);
+        const canvas = findCanvas(frame);
+        if (!canvas) {
+          throw new Error("issue-6088: no canvas");
+        }
+        const cap = captureWindowPixels(canvas);
+        if (!cap) {
+          throw new Error("issue-6088: capture failed");
+        }
+        const midtone = countMidtone(cap.data);
+        if (midtone < 5000) {
+          throw new Error(`issue-6088: figure not rendered (midtone=${midtone} ${cap.w}x${cap.h})`);
+        }
+        const backdrop = countBackdrop(cap.data);
+        if ((mode === "smart" && backdrop < 5000) || (mode === "legacy" && backdrop > 500)) {
+          throw new Error(`issue-6088: ${mode} backdrop=${backdrop} midtone=${midtone} ${cap.w}x${cap.h}`);
+        }
+        console.log(`  ${mode}: backdrop=${backdrop} midtone=${midtone} ${cap.w}x${cap.h} ✓`);
+      },
+      ["-appdata", appData, "-view", "single page", "-zoom", "fit page", pdfPath],
+    );
+  }
 }
 
 if (import.meta.main) {

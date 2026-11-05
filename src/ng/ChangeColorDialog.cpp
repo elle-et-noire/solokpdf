@@ -231,8 +231,6 @@ static void LoadCurrentColor() {
         bgOverride = GetPrefsColor(gSettings->imageUI.windowBgCol);
     } else if (gColor.isEbook) {
         bgOverride = GetPrefsColor(gSettings->eBookUI.windowBgCol);
-    } else {
-        bgOverride = GetPrefsColor(gSettings->fixedPageUI.windowBgCol);
     }
     if (bgOverride && bgOverride->parsedOk) {
         gColor.currentColor = bgOverride->col;
@@ -273,8 +271,6 @@ static void ApplyBackground() {
             SetColorText(gSettings->imageUI.windowBgCol, colorStr);
         } else if (gColor.isEbook) {
             SetColorText(gSettings->eBookUI.windowBgCol, colorStr);
-        } else {
-            SetColorText(gSettings->fixedPageUI.windowBgCol, colorStr);
         }
         FileState* fs = FileHistoryFindByPath(t->filePath);
         if (fs) {
@@ -401,6 +397,9 @@ static void OpenColorDialog(MainWindow* win, bool reuse) {
 
 void ShowChangeBackgroundColorDialog(MainWindow* win) {
     if (!IsMainWindowValidAndNotClosing(win) || !win->CurrentTab() || !win->CurrentTab()->ctrl) {
+        return;
+    }
+    if (IsPdfDoc(win->CurrentTab())) {
         return;
     }
     bool reuse = RetargetColorWindow(win);
@@ -815,7 +814,7 @@ gp::El* ChangeColorDialogBuild(MainWindow* win, gp::Ctx* cx) {
     col->Child(picker);
 
     // this file or every file of its kind (the background only)
-    if (!gColor.colorsArgs) {
+    if (!gColor.colorsArgs && (gColor.isCbx || gColor.isImage || gColor.isEbook)) {
         col->Child(DlgHairline(cx));
         gp::El* target = DlgSection(cx);
         target->Child(DlgFieldRow(cx)

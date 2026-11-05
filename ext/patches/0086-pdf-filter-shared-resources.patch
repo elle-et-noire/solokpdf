@@ -1,0 +1,46 @@
+pdf: filter shared forms and patterns separately
+
+Avoid rewriting a resource shared with other pages.
+
+diff --git a/source/pdf/pdf-clean.c b/source/pdf/pdf-clean.c
+index 5b8aca888..19b6e0950 100644
+--- a/source/pdf/pdf-clean.c
++++ b/source/pdf/pdf-clean.c
+@@ -32,6 +32,19 @@ pdf_filter_xobject(fz_context *ctx, pdf_document *doc, pdf_obj *xobj, pdf_obj *p
+ static void
+ pdf_filter_type3(fz_context *ctx, pdf_document *doc, pdf_obj *obj, pdf_obj *page_res, pdf_filter_options *options, pdf_cycle_list *cycle_up);
+ 
++static void
++pdf_filter_resource_copy(fz_context *ctx, pdf_document *doc, pdf_obj *dict, int index, pdf_obj *page_res, pdf_filter_options *options, pdf_cycle_list *cycle)
++{
++	pdf_obj *value = pdf_dict_get_val(ctx, dict, index);
++	if (options->no_update)
++	{
++		pdf_filter_xobject(ctx, doc, value, page_res, options, cycle);
++		return;
++	}
++	pdf_obj *filtered = pdf_filter_xobject_instance(ctx, value, page_res, fz_identity, options, cycle);
++	pdf_dict_put_drop(ctx, dict, pdf_dict_get_key(ctx, dict, index), filtered);
++}
++
+ static void
+ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_obj *res, pdf_filter_options *options, pdf_cycle_list *cycle_up)
+ {
+@@ -75,7 +88,7 @@ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_ob
+ 			pdf_obj *pat = pdf_dict_get_val(ctx, obj, i);
+ 			if (pat && pdf_dict_get_int(ctx, pat, PDF_NAME(PatternType)) == 1)
+ 			{
+-				pdf_filter_xobject(ctx, doc, pat, in_res, options, &cycle);
++				pdf_filter_resource_copy(ctx, doc, obj, i, in_res, options, &cycle);
+ 			}
+ 		}
+ 	}
+@@ -92,7 +105,7 @@ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_ob
+ 				pdf_obj *xobj = pdf_dict_get_val(ctx, obj, i);
+ 				if (xobj && pdf_dict_get(ctx, xobj, PDF_NAME(Subtype)) == PDF_NAME(Form))
+ 				{
+-					pdf_filter_xobject(ctx, doc, xobj, in_res, options, &cycle);
++					pdf_filter_resource_copy(ctx, doc, obj, i, in_res, options, &cycle);
+ 				}
+ 			}
+ 		}

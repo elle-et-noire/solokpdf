@@ -1,0 +1,18 @@
+pdf: avoid caching a pattern base twice
+
+The indirect base colorspace is already cached by its own loader.
+
+diff --git a/source/pdf/pdf-colorspace.c b/source/pdf/pdf-colorspace.c
+index 7fc5d8fc8..eaffd10d1 100644
+--- a/source/pdf/pdf-colorspace.c
++++ b/source/pdf/pdf-colorspace.c
+@@ -489,6 +489,9 @@ pdf_load_colorspace_imp(fz_context *ctx, pdf_obj *obj, pdf_cycle_list *cycle_up)
+ 				else
+ 					fz_throw(ctx, FZ_ERROR_SYNTAX, "unknown colorspace %s", pdf_to_name(ctx, name));
+ 
++				if (pdf_name_eq(ctx, name, PDF_NAME(Pattern)) && !pdf_is_indirect(ctx, obj) && pdf_is_indirect(ctx, sub))
++					return cs;
++
+ 				if (pdf_is_indirect(ctx, obj))
+ 					pdf_store_item(ctx, obj, cs, 1000);
+ 				else if (pdf_is_indirect(ctx, sub))

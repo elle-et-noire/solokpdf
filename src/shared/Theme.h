@@ -14,6 +14,9 @@ void SumatraUpdateTheme();
 void UpdateThemeAfterSystemColorChange();
 void UpdateThemeAfterHighContrastChange();
 bool ThemeUsesHighContrastColors();
+#if IS_DEBUG
+bool ThemeHighContrast_UnitTest();
+#endif
 void CreateThemeCommands();
 
 Color ThemeDocumentColors(Color&);

@@ -2190,16 +2190,6 @@ void UpdateSettings(const Flags& i) {
         arg = i.globalPrefArgs[n];
         if (str::EqI(arg, StrL("-esc-to-exit"))) {
             gSettings->escToExit = true;
-        } else if (str::EqI(arg, StrL("-bgcolor")) || str::EqI(arg, StrL("-bg-color"))) {
-            // -bgcolor is for backwards compat (was used pre-1.3)
-            // -bg-color is for consistency
-            param = i.globalPrefArgs[++n];
-            ReplaceColor(gSettings->mainWindowBackground, param);
-        } else if (str::EqI(arg, StrL("-set-color-range"))) {
-            param = i.globalPrefArgs[++n];
-            ReplaceColor(gSettings->fixedPageUI.textColor, param);
-            param = i.globalPrefArgs[++n];
-            ReplaceColor(gSettings->fixedPageUI.backgroundColor, param);
         } else if (str::EqI(arg, StrL("-fwdsearch-offset"))) {
             param = i.globalPrefArgs[++n];
             gSettings->forwardSearch.highlightOffset = ParseInt(param);

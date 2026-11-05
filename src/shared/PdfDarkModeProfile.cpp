@@ -57,10 +57,6 @@ void BuildViewDarkModeProfile(ViewEngineClass engineClass, DarkModeProfile* prof
     }
     *profile = DarkModeProfile{};
 
-    // unlike the fork's themes, master's themes never touch page colors:
-    // dark pages come from DocumentColorsFollowTheme or custom dark
-    // FixedPageUI colors, so key the dark modes off the effective page
-    // background rather than the window chrome
     Color bgCol;
     Color textCol = ThemePageRenderColors(bgCol);
     bool pagesDark = !IsLightColor(bgCol);
@@ -69,13 +65,7 @@ void BuildViewDarkModeProfile(ViewEngineClass engineClass, DarkModeProfile* prof
     profile->linkColor = pagesDark ? ThemeWindowLinkColor() : 0;
     profile->preservePdfImages = GetPreservePdfImagesInDarkMode();
 
-    bool recolorPages = pagesDark;
-#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-    // PDFium pages keep photo colors on light themes (Solarized Light) too
-    if (engineClass == ViewEngineClass::Pdfium) {
-        recolorPages = (textCol & 0xffffff) != kColBlack || (bgCol & 0xffffff) != kColWhite;
-    }
-#endif
+    bool recolorPages = (textCol & 0xffffff) != kColBlack || (bgCol & 0xffffff) != kColWhite;
 
     // Reflowable documents get theme colors through CSS; bitmap recoloring would invert their images.
     bool recolorable = engineClass == ViewEngineClass::Pdfium || engineClass == ViewEngineClass::Mupdf ||

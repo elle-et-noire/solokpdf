@@ -46,6 +46,13 @@ import { testit as fontCacheShutdown } from "./font-cache-shutdown.ts";
 import { testit as smartScrollbarsAutohide } from "./smart-scrollbars-autohide.ts";
 import { testit as pasteImageAnnot } from "./ad-hoc-paste-image-annot.ts";
 import { testit as pngOptimize } from "./ad-hoc-png-optimize.ts";
+import { testit as themeLargePdf } from "./theme-large-pdf.ts";
+import { testit as themeFallbackTiles } from "./theme-fallback-tiles.ts";
+import { testit as themeFallbackGeometry } from "./theme-fallback-geometry.ts";
+import { testit as themePdfiumCache } from "./theme-pdfium-cache.ts";
+import { testit as themePdfiumFallback } from "./theme-pdfium-fallback.ts";
+import { testit as themeRenderCancel } from "./theme-render-cancel.ts";
+import { testit as themeTransparentFallback } from "./theme-transparent-fallback.ts";
 
 // The slowest of the regular tests. They still run here and in the daily CI
 // suite, just not in run-pre-release: a couple of seconds each is nothing on
@@ -66,6 +73,13 @@ export const notInPreReleaseTests: NamedTest[] = [
 ];
 
 export const slowTests: NamedTest[] = [
+  ["theme-large-pdf", themeLargePdf],
+  ["theme-fallback-tiles", themeFallbackTiles],
+  ["theme-fallback-geometry", themeFallbackGeometry],
+  ["theme-pdfium-cache", themePdfiumCache],
+  ["theme-pdfium-fallback", themePdfiumFallback],
+  ["theme-render-cancel", themeRenderCancel],
+  ["theme-transparent-fallback", themeTransparentFallback],
   ["ad-hoc-paste-image-annot", pasteImageAnnot],
   ["ad-hoc-png-optimize", pngOptimize],
   ["sig-validation", sigValidation],

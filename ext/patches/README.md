@@ -83,6 +83,26 @@ relative to `ext/mupdf`, so `-p1` from inside that directory.
 | `0080-bidi-skip-ltr-only-text` | no bidi resolve passes for text with no RTL or explicit types |
 | `0081-html-pre-wraps` | `pre` defaults to `pre-wrap`: pages can't scroll, a book made from a text file lost most of each line |
 | `0082-html-table-margin-auto` | `margin-left` and `margin-right` `auto` center a table; RTF's `\trqc` needs it |
+| `0083-pdf-color-filter-closed-stroke` | recolor the default stroke of closed paths |
+| `0084-pdf-filter-empty-resources` | run content filters when a page has no resource dictionary |
+| `0085-pdf-filter-type3-shared` | keep shared Type 3 fonts unchanged while filtering pages |
+| `0086-pdf-filter-shared-resources` | filter shared forms and patterns without changing the originals |
+| `0087-pdf-filter-appearance-states` | filter each annotation appearance state without changing shared streams |
+| `0088-pdf-color-filter-image-masks` | preserve image-mask paint colors during color filtering |
+| `0089-pdf-mask-default-colors` | preserve the default image-mask paint after a colorspace change |
+| `0090-pdf-mask-colored-patterns` | preserve colored patterns used to paint image masks |
+| `0091-pdf-mask-uncolored-patterns` | preserve uncolored pattern paints used by image masks |
+| `0092-pdf-pattern-colorspace-cache` | avoid caching an indirect pattern base colorspace twice |
+| `0093-pdf-mask-shading-patterns` | preserve shading patterns used by image masks |
+| `0094-pdf-recolor-shade-copy` | copy shared shading data before recoloring |
+| `0095-pdf-shading-pattern-properties` | retain shading pattern properties during color filtering |
+| `0096-pdf-filter-preserve-soft-masks` | preserve soft masks during color filtering |
+| `0097-pdf-preserve-shading-pattern` | retain shading patterns when shade recoloring is disabled |
+| `0098-pdf-snapshot-suffix` | write incremental snapshot changes without copying the original PDF |
+| `0099-pdf-incremental-output-bias` | retain PDF prefix offsets when writing incremental output streams |
+| `0100-pdf-mask-filter-identity` | recognize color filters across DLL boundaries |
+| `0101-pdf-pattern-stroke-colors` | let callers reject uncolored pattern strokes unsupported by their renderer |
+| `0102-pdf-color-form-inheritance` | reject isolated color filtering when a Form inherits painting colors |
 
 That is the whole list: `ext/mupdf` is byte-for-byte `1.28.5` plus these
 patches, and nothing else.

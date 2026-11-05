@@ -22,6 +22,7 @@ import { beginSharedControlledSession, endSharedControlledSession } from "./win-
 import { testit as lintCommandIds } from "./lint-command-ids.ts";
 import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
 import { testit as lintSystemClipboard } from "./lint-system-clipboard.ts";
+import { testit as closedStdout } from "./closed-stdout.ts";
 import { testit as keyboardIme } from "./keyboard-ime.ts";
 import { testit as b67Clipboard } from "./ad-hoc-b67-clipboard.ts";
 import { testit as jbig2ResizeOverflow } from "./jbig2-resize-overflow.ts";
@@ -473,6 +474,16 @@ import { testit as tocShowOnOpen } from "./toc-show-on-open.ts";
 import { testit as tocSelectionVisible } from "./toc-selection-visible.ts";
 import { testit as tocHoverColors } from "./toc-hover-colors.ts";
 import { testit as sidebarThemeColors } from "./sidebar-theme-colors.ts";
+import { testit as themeControlBackground } from "./theme-control-background.ts";
+import { testit as themeBlendGradient } from "./theme-blend-gradient.ts";
+import { testit as themeDocumentBackground } from "./theme-document-background.ts";
+import { testit as themeDynamicWidget } from "./theme-dynamic-widget.ts";
+import { testit as themeEncrypted } from "./theme-encrypted.ts";
+import { testit as themeRepairedPdf } from "./theme-repaired-pdf.ts";
+import { testit as themeStateWidget } from "./theme-state-widget.ts";
+import { testit as themeType3 } from "./theme-type3.ts";
+import { testit as themePatternColors } from "./theme-pattern-colors.ts";
+import { testit as themeBackgroundCommand } from "./theme-background-command.ts";
 import { testit as tocTreeSentClick } from "./toc-tree-sent-click.ts";
 import { testit as issue6132 } from "./issue-6132.ts";
 import { testit as issue6133 } from "./issue-6133.ts";
@@ -525,6 +536,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["closed-stdout", closedStdout],
+  ["issue-5911", issue5911],
   ["issue-6169", issue6169],
   ["keyboard-ime", keyboardIme],
   ["issue-6140", issue6140],
@@ -854,7 +867,6 @@ export const tests: NamedTest[] = [
   ["issue-6324", issue6324],
   ["issue-6323", issue6323],
   ["issue-6270", issue6270],
-  ["issue-5911", issue5911],
   ["issue-6088", issue6088],
   ["issue-6137-contents", issue6137Contents],
   ["issue-6093", issue6093],
@@ -988,6 +1000,16 @@ export const tests: NamedTest[] = [
   ["toc-selection-visible", tocSelectionVisible],
   ["toc-hover-colors", tocHoverColors],
   ["sidebar-theme-colors", sidebarThemeColors],
+  ["theme-control-background", themeControlBackground],
+  ["theme-blend-gradient", themeBlendGradient],
+  ["theme-document-background", themeDocumentBackground],
+  ["theme-dynamic-widget", themeDynamicWidget],
+  ["theme-encrypted", themeEncrypted],
+  ["theme-repaired-pdf", themeRepairedPdf],
+  ["theme-state-widget", themeStateWidget],
+  ["theme-type3", themeType3],
+  ["theme-pattern-colors", themePatternColors],
+  ["theme-background-command", themeBackgroundCommand],
   ["issue-6132", issue6132],
   ["toolbar-tab-switch-pos", toolbarTabSwitchPos],
   ["facing-fit-tiny-viewport", facingFitTinyViewport],

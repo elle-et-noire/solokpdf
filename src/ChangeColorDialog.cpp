@@ -630,8 +630,6 @@ void ChangeColorWnd::ApplyBackground() {
             SetColorText(gSettings->imageUI.windowBgCol, colorStr);
         } else if (isEbook) {
             SetColorText(gSettings->eBookUI.windowBgCol, colorStr);
-        } else {
-            SetColorText(gSettings->fixedPageUI.windowBgCol, colorStr);
         }
         FileState* fs = FileHistoryFindByPath(t->filePath);
         if (fs) {
@@ -724,8 +722,6 @@ void ChangeColorWnd::LoadCurrentColor() {
         bgOverride = GetPrefsColor(gSettings->imageUI.windowBgCol);
     } else if (isEbook) {
         bgOverride = GetPrefsColor(gSettings->eBookUI.windowBgCol);
-    } else {
-        bgOverride = GetPrefsColor(gSettings->fixedPageUI.windowBgCol);
     }
     if (bgOverride && bgOverride->parsedOk) {
         currentColor = bgOverride->col;
@@ -747,7 +743,10 @@ void ChangeColorWnd::Relayout() {
 }
 
 void ChangeColorWnd::RelayoutRadios() {
-    bool show = !colorsArgs;
+    bool show = !colorsArgs && (isCbx || isImage || isEbook);
+    if (!show && radioAllFiles) {
+        radioAllFiles->SetIsChecked(false);
+    }
     Visibility vis = show ? Visibility::Visible : Visibility::Collapse;
     if (radioThisFile) {
         radioThisFile->SetVisibility(vis);
@@ -994,6 +993,9 @@ bool ChangeColorWnd::Create(MainWindow* mainWin) {
 
 void ShowChangeBackgroundColorDialog(MainWindow* win) {
     if (!IsMainWindowValidAndNotClosing(win) || !win->CurrentTab() || !win->CurrentTab()->ctrl) {
+        return;
+    }
+    if (IsPdfDoc(win->CurrentTab())) {
         return;
     }
     if (gChangeColorWnd) {

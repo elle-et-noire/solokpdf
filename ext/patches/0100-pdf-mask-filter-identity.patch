@@ -1,0 +1,29 @@
+diff --git a/source/pdf/pdf-clean.c b/source/pdf/pdf-clean.c
+index fdace1ab8..ddb28c1e3 100644
+--- a/source/pdf/pdf-clean.c
++++ b/source/pdf/pdf-clean.c
+@@ -89,7 +89,7 @@ pdf_filter_resources(fz_context *ctx, pdf_document *doc, pdf_obj *in_res, pdf_ob
+ 			const char *name = pdf_to_name(ctx, pdf_dict_get_key(ctx, obj, i));
+ 			int j, is_mask = 0;
+ 			for (j = 0; j < num_filters; j++)
+-				if (options->filters[j].filter == pdf_new_color_filter && pdf_color_filter_is_mask_pattern(ctx, filters[j], name))
++				if (pdf_color_filter_is_mask_pattern(ctx, filters[j], name))
+ 					is_mask = 1;
+ 			if (pat && !is_mask && pdf_dict_get_int(ctx, pat, PDF_NAME(PatternType)) == 1)
+ 			{
+diff --git a/source/pdf/pdf-op-color.c b/source/pdf/pdf-op-color.c
+index 4ab090738..d46d202c2 100644
+--- a/source/pdf/pdf-op-color.c
++++ b/source/pdf/pdf-op-color.c
+@@ -1329,7 +1329,10 @@ pdf_drop_color_processor(fz_context *ctx, pdf_processor *proc)
+ int
+ pdf_color_filter_is_mask_pattern(fz_context *ctx, pdf_processor *proc, const char *name)
+ {
+-	pdf_color_processor *p = (pdf_color_processor*)proc;
++	pdf_color_processor *p;
++	if (!proc || proc->drop_processor != pdf_drop_color_processor)
++		return 0;
++	p = (pdf_color_processor*)proc;
+ 	return pdf_dict_gets(ctx, p->mask_patterns, name) != NULL;
+ }
+ 

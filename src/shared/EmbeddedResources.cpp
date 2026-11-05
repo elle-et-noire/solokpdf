@@ -274,5 +274,9 @@ static const u8* LoadEmbeddedFont(const char* fileName, int* size) {
 }
 
 void InstallEmbeddedFontLoader() {
-    fz_set_builtin_font_loader(LoadEmbeddedFont);
+    static const bool installed = [] {
+        fz_set_builtin_font_loader(LoadEmbeddedFont);
+        return true;
+    }();
+    (void)installed;
 }

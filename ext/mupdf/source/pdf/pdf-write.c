@@ -2623,9 +2623,18 @@ do_pdf_save_document(fz_context *ctx, pdf_document *doc, pdf_write_state *opts, 
 	int changed;
 	int64_t current_offset;
 
+	if (in_opts->do_snapshot_suffix && !in_opts->do_snapshot)
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "suffix output requires a snapshot");
+
 	if (in_opts->do_incremental)
 	{
-		ensure_initial_incremental_contents(ctx, doc->file, opts->out, doc->file_size);
+		if (in_opts->do_snapshot_suffix)
+		{
+			if (fz_tell_output(ctx, opts->out) != doc->file_size)
+				fz_throw(ctx, FZ_ERROR_ARGUMENT, "snapshot suffix output position must equal original file size");
+		}
+		else
+			ensure_initial_incremental_contents(ctx, doc->file, opts->out, doc->file_size);
 
 		/* If no changes, nothing more to write */
 		if (!pdf_has_unsaved_changes(ctx, doc))
@@ -2945,6 +2954,8 @@ void pdf_write_document(fz_context *ctx, pdf_document *doc, fz_output *out, cons
 	prepare_for_save(ctx, doc, in_opts);
 
 	opts.out = out;
+	if (in_opts->do_incremental)
+		opts.bias = doc->bias;
 
 	do_pdf_save_document(ctx, doc, &opts, in_opts);
 }
@@ -3052,6 +3063,15 @@ void pdf_save_snapshot(fz_context *ctx, pdf_document *doc, const char *filename)
 void pdf_write_snapshot(fz_context *ctx, pdf_document *doc, fz_output *out)
 {
 	pdf_write_document(ctx, doc, out, &pdf_snapshot_write_options);
+}
+
+void pdf_write_snapshot_suffix(fz_context *ctx, pdf_document *doc, fz_output *out)
+{
+	pdf_write_options options = pdf_snapshot_write_options;
+	if (!doc || !out || fz_tell_output(ctx, out) != doc->file_size)
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "snapshot suffix output position must equal original file size");
+	options.do_snapshot_suffix = 1;
+	pdf_write_document(ctx, doc, out, &options);
 }
 
 char *

@@ -1,0 +1,19 @@
+pdf: recolor the default stroke of closed paths
+
+The s operator strokes a closed path, so initialize its stroke color.
+
+diff --git a/source/pdf/pdf-op-color.c b/source/pdf/pdf-op-color.c
+index f50e7193b..f7f2a0349 100644
+--- a/source/pdf/pdf-op-color.c
++++ b/source/pdf/pdf-op-color.c
+@@ -497,8 +497,8 @@ pdf_color_s(fz_context *ctx, pdf_processor *proc)
+ {
+ 	pdf_color_processor *p = (pdf_color_processor*)proc;
+ 
+-	if (p->gstate->unmarked & UNMARKED_FILL)
+-		mark_fill(ctx, p);
++	if (p->gstate->unmarked & UNMARKED_STROKE)
++		mark_stroke(ctx, p);
+ 
+ 	if (p->super.chain->op_s)
+ 		p->super.chain->op_s(ctx, p->super.chain);

@@ -74,7 +74,7 @@ struct FieldInfo;
 // an editable leaf of gSettings, addressed by offset: a settings reload
 // re-creates gSettings, so a pointer into it would dangle
 struct SettingField {
-    Str path;    // dotted, e.g. "FixedPageUI.TextColor"; temp-allocated
+    Str path;    // dotted, e.g. "ImageUI.WindowBgCol"; temp-allocated
     Str comment; // doc comment from the settings metadata
     const FieldInfo* field = nullptr;
     int offset = 0;
