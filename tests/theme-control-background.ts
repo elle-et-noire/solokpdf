@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control";
-import { assemblePdf, loadPng, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util";
+import { assemblePdf, loadPng, ROOT, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util";
 import {
   activateTestFrame,
   clickAt,
@@ -14,6 +14,7 @@ import {
   captureWindowDCRegionToPng,
   captureWindowToPng,
   clientToScreen,
+  enableWindow,
   enumChildWindows,
   enumWindows,
   findChildWindow,
@@ -87,6 +88,129 @@ function maxCueContrast(hwnd: number, path: string, bg: string, startX = 5): num
     }
   }
   return max;
+}
+
+type Rgb = [number, number, number];
+
+function contrast(a: Rgb, b: Rgb): number {
+  const channel = (v: number) => ((v /= 255), v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const lum = (c: Rgb) => 0.2126 * channel(c[0]) + 0.7152 * channel(c[1]) + 0.0722 * channel(c[2]);
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// Background of an edit, its strongest text contrast, and with a selection the text contrast on the highlight.
+function editColors(hwnd: number, path: string): { bg: string; text: number; selection: number } {
+  if (!captureWindowToPng(hwnd, path)) throw new Error(`capture failed: ${path}`);
+  const img = loadPng(path);
+  const at = (x: number, y: number): Rgb => {
+    const p = (y * img.w + x) * img.nComp;
+    return [img.data[p]!, img.data[p + 1]!, img.data[p + 2]!];
+  };
+  const key = (c: Rgb) => c.map((v) => v.toString(16).padStart(2, "0")).join("");
+  const rgb = (k: string) => k.match(/../g)!.map((h) => parseInt(h, 16)) as Rgb;
+  const counts = new Map<string, number>();
+  for (let y = 2; y < img.h - 2; y++) {
+    for (let x = 2; x < img.w - 2; x++) counts.set(key(at(x, y)), (counts.get(key(at(x, y))) ?? 0) + 1);
+  }
+  const [bg, highlight] = [...counts].sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ k, n }));
+  const minSelectionPixels = 50;
+  const sel = highlight && highlight.n >= minSelectionPixels ? highlight.k : "";
+  let [left, right] = [img.w, -1];
+  for (let y = 2; y < img.h - 2 && sel; y++) {
+    for (let x = 2; x < img.w - 2; x++) {
+      if (key(at(x, y)) === sel) [left, right] = [Math.min(left, x), Math.max(right, x)];
+    }
+  }
+  const bgRgb = rgb(bg!.k);
+  const selRgb = sel ? rgb(sel) : bgRgb;
+  // the caret is drawn by inverting what is under it
+  const caret = new Set([bgRgb, selRgb].map((c) => key(c.map((v) => 255 - v) as Rgb)));
+  let [text, selection] = [1, 1];
+  for (let y = 2; y < img.h - 2; y++) {
+    for (let x = 2; x < img.w - 2; x++) {
+      if (caret.has(key(at(x, y)))) continue;
+      const inside = x >= left && x <= right;
+      if (inside) selection = Math.max(selection, contrast(at(x, y), selRgb));
+      else text = Math.max(text, contrast(at(x, y), bgRgb));
+    }
+  }
+  return { bg: bg!.k, text, selection: sel ? selection : 0 };
+}
+
+// The chapter box keeps the control background while focused, selected or disabled.
+async function checkChapterEdit(): Promise<void> {
+  const dir = tmpPath("theme-control-background-chapter");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, SETTINGS_FILE),
+    `UiLanguage = en
+Theme = Light
+ShowChaptersInEbooks = true
+RestoreSession = false
+ShowStartPage = false
+` +
+      `CheckForUpdates = false
+Themes [
+ [
+ Name = Custom Test
+ TextColor = #ffffff
+ BackgroundColor = #193247
+` +
+      ` ControlBackgroundColor = #52739b
+ LinkColor = #ffffff
+ ColorizeControls = true
+ ]
+]
+`,
+  );
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, join(ROOT, "tests", "issue-6095.epub")]);
+  try {
+    await client.waitForRenderIdle();
+    for (const theme of ["Light", "Dracula", "Solarized Dark", "Custom Test"]) {
+      const res = await client.request(ControlCommand.TestInvokeCommand, [`CmdSetTheme ${theme}`]);
+      if (res[0] !== 0) throw new Error(`chapter theme change failed: ${theme}: ${res[1]}`);
+      await sleep(300);
+      const boxes: number[] = [];
+      enumChildWindows(frame, (hwnd) => {
+        const toolbar = getClassName(getParentWindow(hwnd)) === "SUMATRA_VIRT_TOOLBAR";
+        if (getClassName(hwnd) === "Edit" && isWindowVisible(hwnd) && toolbar) boxes.push(hwnd);
+        return true;
+      });
+      if (boxes.length !== 2) throw new Error(`${theme}: expected chapter and page boxes, got ${boxes.length}`);
+      const [chapter, page] = boxes.sort((a, b) => getWindowRect(a).left - getWindowRect(b).left) as [number, number];
+      const want = theme === "Custom Test" ? "52739b" : editColors(page, join(dir, "page.png")).bg;
+      const expect = (state: string, minText: number, minSelection = 0) => {
+        const c = editColors(chapter, join(dir, `chapter-${state}.png`));
+        const failed = c.bg !== want || c.text < minText || c.selection < minSelection;
+        const got = `bg=${c.bg} text=${c.text.toFixed(2)} selection=${c.selection.toFixed(2)}`;
+        if (failed) throw new Error(`${theme} chapter ${state}: ${got}, expected bg=${want}`);
+        console.log(`${theme} chapter ${state}: ${got}`);
+      };
+      const minContrast = 3;
+      expect("normal", minContrast);
+      await activateTestFrame(client);
+      await clickAt(chapter, 4, Math.floor(getClientRect(chapter).bottom / 2));
+      if (getFocusedHwnd(frame) !== chapter) throw new Error(`${theme}: chapter box did not receive focus`);
+      const EM_SETSEL = 0xb1;
+      sendMessage(chapter, EM_SETSEL, 9, 9);
+      await sleep(100);
+      expect("focused", minContrast);
+      sendMessage(chapter, EM_SETSEL, 0, -1);
+      await sleep(100);
+      expect("selected", 0, minContrast);
+      // the app disables only an empty box; the native edit grays disabled text
+      sendMessage(chapter, EM_SETSEL, 9, 9);
+      enableWindow(chapter, false);
+      await sleep(100);
+      expect("disabled", 0);
+      enableWindow(chapter, true);
+      await activateTestFrame(client);
+    }
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
 }
 
 function edits(frame: number): number[] {
@@ -262,6 +386,7 @@ export async function testit(): Promise<void> {
     client.close();
     await killAndWait(proc);
   }
+  await checkChapterEdit();
 }
 
 if (import.meta.main) {

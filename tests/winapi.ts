@@ -111,6 +111,7 @@ const user32 = loadDll("user32.dll", {
   GetWindowRect: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.bool },
   IsWindowVisible: { args: [FFIType.ptr], returns: FFIType.bool },
   IsWindowEnabled: { args: [FFIType.ptr], returns: FFIType.bool },
+  EnableWindow: { args: [FFIType.ptr, FFIType.bool], returns: FFIType.bool },
   WindowFromPoint: { args: [FFIType.i64], returns: FFIType.u64 },
   GetAncestor: { args: [FFIType.ptr, FFIType.u32], returns: FFIType.u64 },
   SetForegroundWindow: { args: [FFIType.ptr], returns: FFIType.bool }, // desktop-input: ffi-foreground
@@ -1575,6 +1576,10 @@ export function isWindowVisible(hwnd: number): boolean {
 
 export function isWindowEnabled(hwnd: number): boolean {
   return user32.symbols.IsWindowEnabled(hwnd);
+}
+
+export function enableWindow(hwnd: number, enable: boolean): void {
+  user32.symbols.EnableWindow(hwnd, enable);
 }
 
 export const GW_HWNDFIRST = 0;
