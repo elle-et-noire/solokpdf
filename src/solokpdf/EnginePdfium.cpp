@@ -2412,6 +2412,7 @@ class EnginePdfium : public EngineBase {
                 logf("PDFium render probe: opened\n");
             }
         }
+        TimeStamp checkStart = TimeGet();
         PdfRenderCheck check = PdfPageRenderRouteMupdf(renderProbe, source, pageNo);
         if (PdfiumCookie::IsCanceled(cookie)) {
             if (renderProbe && profile.enabled) {
@@ -2424,7 +2425,8 @@ class EnginePdfium : public EngineBase {
         info->renderRoute = check.route;
         if (profile.enabled) {
             Str backend = check.route == PdfRenderRoute::Mupdf ? StrL("mupdf") : StrL("pdfium");
-            logf("PDFium render check: page=%d probe=%d backend=%s\n", pageNo, (int)check.scannedContents, backend);
+            logf("PDFium render check: page=%d probe=%d backend=%s ms=%.3f\n", pageNo, (int)check.fullScan, backend,
+                 TimeSinceInMs(checkStart));
         }
         return check.route;
     }

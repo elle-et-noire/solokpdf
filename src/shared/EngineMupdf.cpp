@@ -5906,6 +5906,8 @@ struct PdfStrokeState {
     pdf_font_desc* font;
     int textMode;
     bool translucentFill;
+    bool fillReset;
+    bool strokeReset;
 };
 
 struct PdfStrokeProbe {
@@ -5941,6 +5943,8 @@ static void ProbeSave(fz_context* ctx, pdf_processor* proc) {
         state->maskChecked = probe->state->maskChecked;
         state->textMode = probe->state->textMode;
         state->translucentFill = probe->state->translucentFill;
+        state->fillReset = probe->state->fillReset;
+        state->strokeReset = probe->state->strokeReset;
     }
     probe->state = state;
 }
@@ -5974,9 +5978,19 @@ static bool ProbeBeforePaint(fz_context* ctx, pdf_processor* proc) {
     return true;
 }
 
+// `cs`/`CS` reset the color to the space's initial value; PDFium keeps painting with the previous color
+static void ProbeColorReset(fz_context* ctx, PdfStrokeProbe* probe, bool reset) {
+    if (reset) {
+        probe->found = true;
+        fz_throw(ctx, FZ_ERROR_ABORT, "paint with a reset color detected");
+    }
+}
+
 static void ProbePaintFill(fz_context* ctx, pdf_processor* proc) {
+    auto* probe = (PdfStrokeProbe*)proc;
     if (ProbeBeforePaint(ctx, proc)) {
-        ProbeRunPattern(ctx, proc, ((PdfStrokeProbe*)proc)->state->fillPattern);
+        ProbeColorReset(ctx, probe, probe->state->fillReset);
+        ProbeRunPattern(ctx, proc, probe->state->fillPattern);
     }
 }
 
@@ -5989,6 +6003,7 @@ static void ProbeStroke(fz_context* ctx, pdf_processor* proc) {
         probe->found = true;
         fz_throw(ctx, FZ_ERROR_ABORT, "uncolored pattern stroke detected");
     }
+    ProbeColorReset(ctx, probe, probe->state->strokeReset);
     ProbeRunPattern(ctx, proc, probe->state->strokePattern);
 }
 
@@ -6001,6 +6016,7 @@ static void ProbeStrokePattern(fz_context* ctx, pdf_processor* proc, const char*
     ProbeTick(ctx, proc);
     auto* state = ((PdfStrokeProbe*)proc)->state;
     state->uncoloredStroke = n > 0;
+    state->strokeReset = false;
     pdf_keep_pattern(ctx, pattern);
     pdf_drop_pattern(ctx, state->strokePattern);
     state->strokePattern = pattern;
@@ -6011,6 +6027,7 @@ static void ProbeStrokeSpace(fz_context* ctx, pdf_processor* proc, const char*, 
     ProbeTick(ctx, proc);
     auto* state = ((PdfStrokeProbe*)proc)->state;
     state->uncoloredStroke = false;
+    state->strokeReset = false;
     pdf_drop_pattern(ctx, state->strokePattern);
     state->strokePattern = nullptr;
     state->maskChecked = false;
@@ -6019,9 +6036,21 @@ static void ProbeStrokeSpace(fz_context* ctx, pdf_processor* proc, const char*, 
 static void ProbeFillSpace(fz_context* ctx, pdf_processor* proc, const char*, fz_colorspace*) {
     ProbeTick(ctx, proc);
     auto* state = ((PdfStrokeProbe*)proc)->state;
+    state->fillReset = false;
     pdf_drop_pattern(ctx, state->fillPattern);
     state->fillPattern = nullptr;
     state->maskChecked = false;
+}
+
+// a null space is Pattern, whose color comes from `scn`
+static void ProbeSetStrokeSpace(fz_context* ctx, pdf_processor* proc, const char* name, fz_colorspace* cs) {
+    ProbeStrokeSpace(ctx, proc, name, cs);
+    ((PdfStrokeProbe*)proc)->state->strokeReset = cs != nullptr;
+}
+
+static void ProbeSetFillSpace(fz_context* ctx, pdf_processor* proc, const char* name, fz_colorspace* cs) {
+    ProbeFillSpace(ctx, proc, name, cs);
+    ((PdfStrokeProbe*)proc)->state->fillReset = cs != nullptr;
 }
 
 static void ProbeFillGray(fz_context* ctx, pdf_processor* proc, float) {
@@ -6165,6 +6194,7 @@ static void ProbeRunPattern(fz_context* ctx, pdf_processor* proc, pdf_pattern* p
 
 static void ProbeFillPattern(fz_context* ctx, pdf_processor* proc, const char*, pdf_pattern* pattern, int, float*) {
     auto* state = ((PdfStrokeProbe*)proc)->state;
+    state->fillReset = false;
     pdf_keep_pattern(ctx, pattern);
     pdf_drop_pattern(ctx, state->fillPattern);
     state->fillPattern = pattern;
@@ -6400,7 +6430,16 @@ static bool NeedsRouteScan(fz_context* ctx, pdf_obj* resources, const PdfRenderS
     return hints.NeedsScan();
 }
 
-// Reuse the parsed document; pages without route hints in their resources need no content scan.
+// Fonts and shadings matter only to resource-hinted checks; otherwise only color state is tracked.
+static void SetProbeScan(PdfStrokeProbe* probe, bool full) {
+    probe->super.op_Tf = full ? ProbeFont : nullptr;
+    probe->super.op_sh = full ? ProbeShade : nullptr;
+    probe->super.op_sc_shade = full ? ProbeFillShade : nullptr;
+    probe->super.op_SC_shade = full ? ProbeStrokeShade : nullptr;
+}
+
+// Reuse the parsed document. Contents are always scanned for color resets; only pages whose
+// resources hint at other PDFium gaps load fonts and shadings for a full scan.
 PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* state, const PdfRenderSource& source, int pageNo) {
     if (!state) {
         return {};
@@ -6425,8 +6464,8 @@ PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* state, const PdfRenderSou
         ProbeSave(ctx, &probe->super);
         probe->super.op_SC_pattern = ProbeStrokePattern;
         probe->super.op_sc_pattern = ProbeFillPattern;
-        probe->super.op_CS = ProbeStrokeSpace;
-        probe->super.op_cs = ProbeFillSpace;
+        probe->super.op_CS = ProbeSetStrokeSpace;
+        probe->super.op_cs = ProbeSetFillSpace;
         probe->super.op_g = ProbeFillGray;
         probe->super.op_rg = ProbeFillRgb;
         probe->super.op_k = ProbeFillCmyk;
@@ -6453,23 +6492,23 @@ PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* state, const PdfRenderSou
         probe->super.op_b = probe->super.op_bstar = ProbePaintBoth;
         probe->super.op_f = probe->super.op_F = probe->super.op_fstar = ProbePaintFill;
         pdf_obj* resources = pdf_page_resources(ctx, page);
-        if (NeedsRouteScan(ctx, resources, source)) {
-            result.scannedContents = true;
-            pdf_process_contents(ctx, &probe->super, doc, resources, pdf_page_contents(ctx, page), nullptr, nullptr);
-        }
+        bool full = NeedsRouteScan(ctx, resources, source);
+        result.fullScan |= full;
+        SetProbeScan(probe, full);
+        pdf_process_contents(ctx, &probe->super, doc, resources, pdf_page_contents(ctx, page), nullptr, nullptr);
         for (pdf_annot* annot = pdf_first_annot(ctx, page); annot; annot = pdf_next_annot(ctx, annot)) {
             ResetProbeState(ctx, probe);
-            if (NeedsRouteScan(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, annot), PDF_NAME(Resources)), source)) {
-                result.scannedContents = true;
-                pdf_process_annot(ctx, &probe->super, annot, nullptr);
-            }
+            full = NeedsRouteScan(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, annot), PDF_NAME(Resources)), source);
+            result.fullScan |= full;
+            SetProbeScan(probe, full);
+            pdf_process_annot(ctx, &probe->super, annot, nullptr);
         }
         for (pdf_annot* widget = pdf_first_widget(ctx, page); widget; widget = pdf_next_widget(ctx, widget)) {
             ResetProbeState(ctx, probe);
-            if (NeedsRouteScan(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, widget), PDF_NAME(Resources)), source)) {
-                result.scannedContents = true;
-                pdf_process_annot(ctx, &probe->super, widget, nullptr);
-            }
+            full = NeedsRouteScan(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, widget), PDF_NAME(Resources)), source);
+            result.fullScan |= full;
+            SetProbeScan(probe, full);
+            pdf_process_annot(ctx, &probe->super, widget, nullptr);
         }
         CheckPdfCancel(ctx, &source);
         pdf_close_processor(ctx, &probe->super);

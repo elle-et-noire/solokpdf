@@ -29,7 +29,7 @@ enum class PdfRenderRoute {
 struct PdfRenderProbe;
 struct PdfRenderCheck {
     PdfRenderRoute route = PdfRenderRoute::Failed;
-    bool scannedContents = false;
+    bool fullScan = false;
 };
 
 PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password);
