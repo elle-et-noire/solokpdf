@@ -11,7 +11,9 @@ import {
   waitToolWindow,
 } from "./win-automation";
 import {
+  captureWindowDCRegionToPng,
   captureWindowToPng,
+  clientToScreen,
   enumChildWindows,
   enumWindows,
   findChildWindow,
@@ -45,8 +47,17 @@ function makePdf(): string {
   ]);
 }
 
+// PrintWindow may paint dialogs in the OS theme: read their client area from the window DC
+function captureDialog(hwnd: number, path: string): boolean {
+  const win = getWindowRect(hwnd);
+  const origin = clientToScreen(hwnd, 0, 0);
+  const rc = getClientRect(hwnd);
+  return captureWindowDCRegionToPng(hwnd, origin.x - win.left, origin.y - win.top, rc.right, rc.bottom, path);
+}
+
 function pixel(hwnd: number, path: string, kind: "dialog" | "list" | "edit" = "edit"): string {
-  if (!captureWindowToPng(hwnd, path)) throw new Error(`capture failed: ${path}`);
+  const capture = kind === "edit" ? captureWindowToPng : captureDialog;
+  if (!capture(hwnd, path)) throw new Error(`capture failed: ${path}`);
   const img = loadPng(path);
   const x = kind === "dialog" ? 10 : kind === "list" ? 20 : img.w - 5;
   const y = kind === "dialog" ? img.h - 10 : Math.floor(img.h / 2);

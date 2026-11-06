@@ -59,7 +59,9 @@ postMessage(frame, 0x0010 /*WM_CLOSE*/, 0, 0);
   Across runs it can come out fully dark, fully light, or mixed, so it proves
   nothing about theming. For any color/theme assertion on a dialog use
   `captureWindowDCToPng` (BitBlts the window's real surface); PrintWindow is
-  fine for layout/text content.
+  fine for layout/text content. A dialog's invisible resize borders come back
+  as whatever the screen shows there, even on the hidden test desktop: crop to
+  the client area (`captureDialog` in `tests/theme-control-background.ts`).
 
 - All WindowBase dialogs share one window class, `SumatraWgDefaultWinClass`,
   and a hidden find-bar strip of that class exists from startup — finding a
