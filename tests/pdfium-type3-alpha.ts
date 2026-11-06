@@ -14,7 +14,9 @@ type Fixture = {
   resources?: string;
   objects?: string[];
   glyph?: string;
+  fontResources?: string;
   annot?: boolean;
+  acroForm?: boolean;
 };
 
 const colored = "1000 0 d0 .8 .2 .1 rg 0 0 1000 1000 re f";
@@ -51,6 +53,30 @@ const fixtures: Fixture[] = [
     resources: "/ExtGState << /Half 7 0 R /Masked 8 0 R >>",
   },
   {
+    // the outer glyph is opaque; its procedure sets the alpha and shows a colored inner Type 3 glyph
+    name: "nested",
+    route: "mupdf",
+    page: text,
+    glyph: "1000 0 d0 /Half gs BT /G 1000 Tf 0 0 Td (A) Tj ET",
+    fontResources: "/Font << /G 9 0 R >> /ExtGState << /Half 7 0 R >>",
+    objects: [
+      form("", ""),
+      "<< /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [.001 0 0 .001 0 0] /CharProcs << /A 10 0 R >> /Encoding << /Type /Encoding /Differences [65 /A] >> /FirstChar 65 /LastChar 65 /Widths [1000] /Resources << >> >>",
+      stream("", colored),
+    ],
+  },
+  {
+    name: "widget-alpha",
+    route: "mupdf",
+    page: "",
+    annot: true,
+    acroForm: true,
+    objects: [
+      form("", `/Half gs ${text}`),
+      "<< /Type /Annot /Subtype /Widget /FT /Btn /Ff 65536 /T (b) /Rect [0 0 600 600] /F 4 /AP << /N 8 0 R >> >>",
+    ],
+  },
+  {
     name: "annot-alpha",
     route: "mupdf",
     page: "",
@@ -66,12 +92,13 @@ function makePdf(fixture: Fixture): string {
   const resources = fixture.resources ?? "/ExtGState << /Half 7 0 R >>";
   const glyph = fixture.glyph ?? colored;
   const annots = fixture.annot ? "/Annots [9 0 R]" : "";
+  const acroForm = fixture.acroForm ? "/AcroForm << /Fields [9 0 R] >>" : "";
   return assemblePdf([
-    "<< /Type /Catalog /Pages 2 0 R >>",
+    `<< /Type /Catalog /Pages 2 0 R ${acroForm} >>`,
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 600] /Resources << /Font << /F 5 0 R >> /XObject << /Fm 8 0 R >> ${resources} >> /Contents 4 0 R ${annots} >>`,
     stream("", fixture.page),
-    "<< /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [.001 0 0 .001 0 0] /CharProcs << /A 6 0 R >> /Encoding << /Type /Encoding /Differences [65 /A] >> /FirstChar 65 /LastChar 65 /Widths [1000] /Resources << >> >>",
+    `<< /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [.001 0 0 .001 0 0] /CharProcs << /A 6 0 R >> /Encoding << /Type /Encoding /Differences [65 /A] >> /FirstChar 65 /LastChar 65 /Widths [1000] /Resources << ${fixture.fontResources ?? ""} >> >>`,
     stream("", glyph),
     "<< /Type /ExtGState /ca .5 >>",
     ...(fixture.objects ?? [form("", "")]),
