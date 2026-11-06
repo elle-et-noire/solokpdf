@@ -121,23 +121,18 @@ are in [history.md](history.md).
 - PDFium draws colored Type 3 glyphs at full opacity under a fill alpha below
   1, set on the page or inherited by a form. Such pages use MuPDF in every
   color mode. Pages with a Type 3 font and a translucent ExtGState get a
-  full content scan that loads fonts; soft masks, transparency groups and
-  annotations without a fill alpha stay on PDFium, which draws them correctly.
-- `cs`/`CS` reset the color to the space's initial value (black, or a
-  Separation's full tint). PDFium keeps painting with the previous color until
-  the next color operator; in `smart`, paint left at the initial black stays
-  unthemed. Pages that paint with a reset color, in contents, forms,
-  annotations or widgets, use MuPDF in every color mode
-  (`tests/pdfium-color-reset.ts`). The first render
-  of every PDFium page now scans its contents and appearance streams for this;
-  without other route hints the scan loads no fonts or shadings. Release
-  medians on the B72 corpus were 0.4–1.0 ms per page against 3.5–9 ms median
-  draws. The figure pages of the 41 MB vector file took up to 13 ms (90th
-  percentile) and 25 ms (maximum) wall time, against a 5 ms median draw;
-  debug private memory stayed within 2 MB of the previous build.
+  content scan; soft masks, transparency groups and annotations without a
+  fill alpha stay on PDFium, which draws them correctly.
 - B72 compared PDFium and MuPDF captures of the corpus and the test PDFs (711
-  page pairs in `off`, `smart` and `legacy`). Besides the color reset, the
-  remaining differences are not routed:
+  page pairs in `off`, `smart` and `legacy`). These differences are not
+  routed to MuPDF:
+  - `cs`/`CS` reset the color to the space's initial value (black, or a
+    Separation's full tint). PDFium keeps painting with the previous color
+    until the next color operator; in `smart`, paint left at the initial black
+    stays unthemed. Only the synthetic `theme-color-mask-default` and
+    `-tint` fixtures showed it; no corpus page did. Detecting it needs a
+    content scan of every page on first render (up to 25 ms on heavy pages),
+    so the route was reverted.
   - Strokes thinner than a device pixel: PDFium draws at least 1 px, MuPDF
     partial coverage. Hairlines and table rules look darker on PDFium, and
     Word's synthesized bold (text filled and stroked at about 0.3 pt) looks
