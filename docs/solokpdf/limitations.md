@@ -9,6 +9,11 @@ are in [history.md](history.md).
 - Settings and Advanced Settings open one screen on either engine. Ctrl+, opens
   it; commonly used settings appear above the full list (B70).
 - SolokPDF uses GDI+ for UI drawing by default. PDF pages use the configured engine.
+- The toolbar's chapter and page boxes keep `ControlBackgroundColor` when
+  normal, focused, selected and disabled (`theme-control-background`).
+  Selections use the system highlight. A disabled native edit draws its text
+  in the system gray (1.09:1 on a `#52739b` custom background), but the app
+  disables these boxes only while they are empty (E8).
 
 ## Opening files
 
@@ -116,8 +121,31 @@ are in [history.md](history.md).
 - PDFium draws colored Type 3 glyphs at full opacity under a fill alpha below
   1, set on the page or inherited by a form. Such pages use MuPDF in every
   color mode. Pages with a Type 3 font and a translucent ExtGState get a
-  content scan; soft masks, transparency groups and annotations without a
-  fill alpha stay on PDFium, which draws them correctly.
+  full content scan that loads fonts; soft masks, transparency groups and
+  annotations without a fill alpha stay on PDFium, which draws them correctly.
+- `cs`/`CS` reset the color to the space's initial value (black, or a
+  Separation's full tint). PDFium keeps painting with the previous color until
+  the next color operator; in `smart`, paint left at the initial black stays
+  unthemed. Pages that paint with a reset color, in contents, forms,
+  annotations or widgets, use MuPDF in every color mode
+  (`tests/pdfium-color-reset.ts`). The first render
+  of every PDFium page now scans its contents and appearance streams for this;
+  without other route hints the scan loads no fonts or shadings. Release
+  medians on the B72 corpus were 0.4–1.0 ms per page against 3.5–9 ms median
+  draws. The figure pages of the 41 MB vector file took up to 13 ms (90th
+  percentile) and 25 ms (maximum) wall time, against a 5 ms median draw;
+  debug private memory stayed within 2 MB of the previous build.
+- B72 compared PDFium and MuPDF captures of the corpus and the test PDFs (711
+  page pairs in `off`, `smart` and `legacy`). Besides the color reset, the
+  remaining differences are not routed:
+  - Strokes thinner than a device pixel: PDFium draws at least 1 px, MuPDF
+    partial coverage. Hairlines and table rules look darker on PDFium, and
+    Word's synthesized bold (text filled and stroked at about 0.3 pt) looks
+    bolder at fit-page zoom (the IPA corpus file, 103 of 192 page captures).
+  - Non-embedded fonts: PDFium substitutes Windows fonts, MuPDF its built-in
+    ones; `issue-4655`'s Symbol bracket pieces differ in shape.
+  - Widget rectangles round up to 2 px differently (`xmp-visagesoft`).
+  - `NeedAppearances` text fields (see the forms section below).
 - PDF page surrounds use the theme background in both PDFium and MuPDF.
 - PDFium tabs hide Engineering Drawing Enhancement. MuPDF applies a
   render-device pass to vector strokes, text and narrow fills, adjusts minimum
@@ -305,7 +333,11 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   an AcroForm now get a form handle and `FPDF_FFLDraw` after each render
   (`ad-hoc-pdfium`: 9600 widget pixels on screen and in print, as MuPDF). For
   fields without an appearance (`NeedAppearances`) PDFium builds its own, as in
-  Chrome: its checkmark glyph and a combo box arrow differ from MuPDF's. Fields
+  Chrome: its checkmark glyph and a combo box arrow differ from MuPDF's. When
+  the field's default-resources font has no `/Encoding`, PDFium drops the
+  accents of Latin-1 letters such as Í and Ý (`issue-5404`); with
+  `/WinAnsiEncoding` they render. Such pages are not routed to MuPDF, since
+  widgets keep PDFium's appearances until the editor loads (B72). Fields
   can be filled through the hidden MuPDF editor, which loads on the first
   click on a field or edit only when PDFium reports an AcroForm.
   `HighlightFormFields` and the hover cursor (I-beam or hand, by MuPDF's
