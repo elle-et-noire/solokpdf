@@ -27,6 +27,9 @@
 #include "Translations.h"
 #include "Theme.h"
 #include "AnnotPlacement.h"
+#if defined(SOLOKPDF_PDFIUM)
+#include "solokpdf/EnginePdfium.h"
+#endif
 #include "MeasurementToolbar.h"
 
 // The Measure window: pick a tool, then click points on the page. Points are
@@ -544,6 +547,17 @@ static double ScreenToPageDist(DisplayModel* dm, int pageNo, Point pt, int px) {
     return Dist(a, b);
 }
 
+// the points a measurement snaps to; a PDFium tab reads its own page's paths
+static void PagePathPoints(EngineBase* engine, int pageNo, Vec<PointF>& out) {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (engine->kind == kindEnginePdfium) {
+        EnginePdfiumPagePathPoints(engine, pageNo, out);
+        return;
+    }
+#endif
+    EngineMupdfPagePathPoints(engine, pageNo, out);
+}
+
 // pt (on the screen) as a page point, moved to the nearest line end in reach
 static PointF SnappedPoint(MeasurementToolbar* bar, DisplayModel* dm, int pageNo, Point pt) {
     PointF p = dm->CvtFromScreen(pt, pageNo);
@@ -552,7 +566,7 @@ static PointF SnappedPoint(MeasurementToolbar* bar, DisplayModel* dm, int pageNo
     }
     if (bar->snapPageNo != pageNo) {
         bar->snapPageNo = pageNo;
-        EngineMupdfPagePathPoints(dm->GetEngine(), pageNo, bar->snapPts);
+        PagePathPoints(dm->GetEngine(), pageNo, bar->snapPts);
     }
     double reach = ScreenToPageDist(dm, pageNo, pt, DpiScale(kSnapPx));
     double best = reach * reach;

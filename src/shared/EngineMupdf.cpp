@@ -732,7 +732,8 @@ static bool PointInLinkQuad(PointF pt, const QuadF& q) {
     return PointInPolygon(pt, acrobatOrder, 4) || PointInPolygon(pt, polygonOrder, 4);
 }
 
-static bool LinkContainsPoint(IPageElement* el, PointF pt) {
+// also hit-tests EnginePdfium's links
+bool LinkContainsPoint(IPageElement* el, PointF pt) {
     if (!el->GetRect().Contains(pt)) {
         return false;
     }

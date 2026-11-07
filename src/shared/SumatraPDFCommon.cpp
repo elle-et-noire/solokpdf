@@ -573,7 +573,7 @@ static void AppendBarPart(str::Builder& out, Str part) {
 // "PDF 1.7", "EPUB", "Folder"
 static TempStr FileFormatNameTemp(DocController* ctrl, EngineBase* engine) {
     Str path = ctrl->GetFilePath();
-    if (engine && engine->kind == kindEngineMupdf) {
+    if (engine && IsPdfPageEngine(engine->kind)) {
         TempStr ver = engine->GetPropertyTemp(DocProp::PdfVersion);
         if (len(ver) > 0) {
             return fmt("PDF %s", ver);
@@ -615,11 +615,14 @@ static TempStr PageInfoBarLeftTemp(DocController* ctrl) {
     if (!isImage && !isEbook) {
         AppendBarPart(out, fmt(Tr("%d pages").s, engine->PageCount()));
     }
-    if (engine->kind == kindEngineMupdf) {
-        if (EngineMupdfIsEncrypted(engine)) {
+    if (IsPdfPageEngine(engine->kind)) {
+        // a PDFium tab answers from PDFium, without loading its editor
+        if (engine->isPasswordProtected || EngineMupdfIsEncrypted(engine)) {
             AppendBarPart(out, Tr("Encrypted"));
         }
-        if (EngineMupdfCountSignedSignatures(engine) > 0) {
+        bool isSigned =
+            engine->HasAnnotationEditor() ? engine->HasSignatures() : EngineMupdfCountSignedSignatures(engine) > 0;
+        if (isSigned) {
             AppendBarPart(out, Tr("Signed"));
         }
         if (EngineMupdfHasLayers(engine)) {

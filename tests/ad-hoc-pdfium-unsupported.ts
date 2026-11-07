@@ -84,9 +84,9 @@ export async function testit(): Promise<void> {
   const cases: [string, string, string, string, string, string][] = [
     ["plain", plainPdf(), "pdfium", "", "show", ""],
     ["plain", plainPdf(), "mupdf", "", "show", ""],
-    ["features", featuresPdf(false), "pdfium", "", "show", "a.txt|page=1"],
-    ["features", featuresPdf(false), "mupdf", "", "show", "a.txt|page=1"],
-    ["xfa", featuresPdf(true), "pdfium", "XFA", "show", "a.txt|page=1"],
+    ["features", featuresPdf(false), "pdfium", "", "show", "a.txt|page=-1|attachment=1"],
+    ["features", featuresPdf(false), "mupdf", "", "show", "a.txt|page=-1|attachment=1"],
+    ["xfa", featuresPdf(true), "pdfium", "XFA", "show", "a.txt|page=-1|attachment=1"],
   ];
   const failures: string[] = [];
   for (const [name, pdf, engine, wantUnsupported, wantSign, wantToc] of cases) {

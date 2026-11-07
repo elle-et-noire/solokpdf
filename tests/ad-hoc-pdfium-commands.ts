@@ -11,6 +11,8 @@ const surfaces = ["menu", "palette"] as const;
 // "<fixture>|<surface>|<command>" (fixture and surface may be "*") -> reason
 const allowed: Record<string, string> = {
   "*|*|CmdToggleEngineeringDrawingEnhance": "CAD enhance is MuPDF rendering; hidden on PDFium (B5)",
+  "*|*|CmdReplaceImage": "PDFium draws pages from the file, not a replaced image; hidden on PDFium (D7)",
+  "*|*|CmdEditImageExternally": "PDFium draws pages from the file, not a replaced image; hidden on PDFium (D7)",
 };
 
 const page =

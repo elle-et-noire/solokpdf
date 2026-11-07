@@ -8,7 +8,10 @@
 
 import { writeFileSync } from "node:fs";
 import { ControlCommand, withControlledSumatra, type ControlClient } from "./control.ts";
-import { EXE, runStandalone, tmpPath } from "./util.ts";
+import { EXE, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
+
+// SolokPDF hides Layers on PDFium tabs: PDFium draws only the default layer states
+const PDFIUM = SETTINGS_FILE === "SolokPDF-settings.txt" && process.env.SOLOKPDF_ENGINE !== "mupdf";
 
 function buildLayersPdf(): Uint8Array {
   const content = [
@@ -87,6 +90,13 @@ export async function testit(): Promise<void> {
 
       let st = await layers(client, "colors");
       console.log(`issue-6486: initial ${JSON.stringify(st)}`);
+      if (PDFIUM) {
+        expectEq("rows on a PDFium tab", st.rows, []);
+        if (st.red <= 0 || st.blue !== 0) {
+          throw new Error(`issue-6486: PDFium: want red shown and blue hidden, got red=${st.red} blue=${st.blue}`);
+        }
+        return;
+      }
       const initialRows = [
         "0 label 0 Shapes",
         "1 checkbox 1 Red",

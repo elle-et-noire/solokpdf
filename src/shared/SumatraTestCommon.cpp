@@ -856,7 +856,12 @@ static void AppendTocItems(str::Builder& out, TocItem* item, int depth = 0) {
             for (int i = 0; i < depth; i++) {
                 out.Append(StrL("  "));
             }
-            out.Append(fmt("%s|page=%d\n", item->title, item->pageNo));
+            out.Append(fmt("%s|page=%d", item->title, item->pageNo));
+            IPageDestination* dest = item->dest;
+            if (dest && dest->GetKind() == kindDestinationAttachment) {
+                out.Append(fmt("|attachment=%d", ((PageDestination*)dest)->attachmentNo));
+            }
+            out.Append(StrL("\n"));
         }
         AppendTocItems(out, item->child, depth + 1);
     }

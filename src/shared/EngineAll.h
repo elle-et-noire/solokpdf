@@ -417,6 +417,7 @@ TempStr MaybeAutoCopyTemporaryFile(Str path);
 
 bool EngineSupportsAnnotations(EngineBase*);
 bool IsPdfPageEngine(Kind kind);
+bool LinkContainsPoint(IPageElement* el, PointF pt);
 bool EngineGetAnnotations(EngineBase*, Vec<Annotation*>&);
 bool EngineHasUnsavedAnnotations(EngineBase*);
 bool EngineHasRedactMarks(EngineBase*);

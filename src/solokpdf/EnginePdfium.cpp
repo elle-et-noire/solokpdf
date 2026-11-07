@@ -80,6 +80,7 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDF_GetDocPermissions)                                                                                    \
     X(FPDF_GetDocUserPermissions)                                                                                \
     X(FPDF_GetSecurityHandlerRevision)                                                                           \
+    X(FPDF_GetFileVersion)                                                                                       \
     X(FPDF_GetPageSizeByIndexF)                                                                                  \
     X(FPDF_LoadPage)                                                                                             \
     X(FPDF_ClosePage)                                                                                            \
@@ -96,6 +97,9 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDFClipPath_CountPathSegments)                                                                            \
     X(FPDFClipPath_GetPathSegment)                                                                               \
     X(FPDFPathSegment_GetPoint)                                                                                  \
+    X(FPDFPathSegment_GetType)                                                                                   \
+    X(FPDFPath_CountSegments)                                                                                    \
+    X(FPDFPath_GetPathSegment)                                                                                   \
     X(FPDFPage_GetMediaBox)                                                                                      \
     X(FPDFPage_GetCropBox)                                                                                       \
     X(FPDFPage_GetBleedBox)                                                                                      \
@@ -138,6 +142,8 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDFLink_GetDest)                                                                                          \
     X(FPDFLink_GetAction)                                                                                        \
     X(FPDFLink_GetAnnot)                                                                                         \
+    X(FPDFLink_CountQuadPoints)                                                                                  \
+    X(FPDFLink_GetQuadPoints)                                                                                    \
     X(FPDFAnnot_GetStringValue)                                                                                  \
     X(FPDFPage_GetAnnotCount)                                                                                    \
     X(FPDFPage_GetAnnot)                                                                                         \
@@ -1228,6 +1234,34 @@ class EnginePdfium : public EngineBase {
                (_strnicmp(family, "Academy", 7) == 0 && (family[7] == 0 || family[7] == '-'));
     }
 
+    // The order to read a text page's chars in. A glyph whose unicode is several chars (a
+    // lam-alef ligature) or a letter with its marks share one origin; PDFium reverses a
+    // right-to-left run with such a cluster in it, so its chars are put back (#6483, #6485).
+    static void RtlClusterOrder(FPDF_TEXTPAGE textPage, int count, Vec<int>& order) {
+        for (int i = 0; i < count; i++) {
+            VecAppend(order, i);
+        }
+        int start = 0;
+        bool rtl = false;
+        double sx = 0, sy = 0;
+        for (int i = 0; i <= count; i++) {
+            double x = 0, y = 0;
+            bool isRtl = i < count && IsRtlCodepoint((int)gPdfium.FPDFText_GetUnicode(textPage, i));
+            bool hasOrigin = (isRtl || rtl) && i < count && gPdfium.FPDFText_GetCharOrigin(textPage, i, &x, &y);
+            constexpr double kSameOrigin = 0.01;
+            if (i > start && rtl && isRtl && hasOrigin && fabs(x - sx) < kSameOrigin && fabs(y - sy) < kSameOrigin) {
+                continue;
+            }
+            for (int a = start, b = i - 1; rtl && a < b; a++, b--) {
+                std::swap(order[a], order[b]);
+            }
+            start = i;
+            rtl = isRtl;
+            sx = x;
+            sy = y;
+        }
+    }
+
     PageText ReadPageText(FPDF_PAGE page, PdfiumPage* info, bool* missingUnicode = nullptr) {
         constexpr UINT kCyrillicCodePage = 1251;
         constexpr double kMinWordGapEm = 0.1;
@@ -1249,7 +1283,11 @@ class EnginePdfium : public EngineBase {
             bool cp1251Font = false;
             unsigned int prevCode = 0;
             double prevRight = 0, prevBottom = 0, prevTop = 0;
-            for (int i = 0; i < count; i++) {
+            Vec<int> order;
+            RtlClusterOrder(textPage, count, order);
+            for (int k = 0; k < count; k++) {
+                int i = order[k];
+                int next = k + 1 < count ? order[k + 1] : -1;
                 unsigned int code = gPdfium.FPDFText_GetUnicode(textPage, i);
                 if (code == 2 && gPdfium.FPDFText_IsHyphen(textPage, i) == 1) {
                     continue;
@@ -1257,7 +1295,7 @@ class EnginePdfium : public EngineBase {
                 if (!code && missingUnicode && gPdfium.FPDFText_IsGenerated(textPage, i) == 0) {
                     *missingUnicode = true;
                 }
-                unsigned int nextCode = i + 1 < count ? gPdfium.FPDFText_GetUnicode(textPage, i + 1) : 0;
+                unsigned int nextCode = next >= 0 ? gPdfium.FPDFText_GetUnicode(textPage, next) : 0;
                 if ((code == '\r' && nextCode == '\n') || (code == ' ' && (nextCode == '\r' || nextCode == '\n'))) {
                     continue;
                 }
@@ -1315,10 +1353,12 @@ class EnginePdfium : public EngineBase {
                 bool sameLine = prevTop > bottom && top > prevBottom;
                 double gap = wordLeft - prevRight;
                 double em = std::max(prevTop - prevBottom, top - bottom);
-                if (code == ' ' && sameLine && i + 1 < count) {
-                    FS_RECTF next{};
-                    if (gPdfium.FPDFText_GetLooseCharBox(textPage, i + 1, &next) &&
-                        next.left - prevRight < kMinWordGapEm * em) {
+                // a tracking space is a left-to-right problem: before right-to-left text the
+                // next letter is to the left, so every word space would look like one (#6483)
+                if (code == ' ' && sameLine && next >= 0 && !IsRtlCodepoint((int)nextCode)) {
+                    FS_RECTF nextBox{};
+                    if (gPdfium.FPDFText_GetLooseCharBox(textPage, next, &nextBox) &&
+                        nextBox.left - prevRight < kMinWordGapEm * em) {
                         continue;
                     }
                 }
@@ -1454,6 +1494,20 @@ class EnginePdfium : public EngineBase {
         }
     }
 
+    // A link's /QuadPoints are its clickable areas within /Rect, like EngineMupdf's (#6472).
+    void AddLinkQuads(FPDF_PAGE page, PdfiumPage* info, FPDF_LINK link, PageElementDestination* element) {
+        int n = gPdfium.FPDFLink_CountQuadPoints(link);
+        for (int i = 0; i < n; i++) {
+            FS_QUADPOINTSF q{};
+            if (!gPdfium.FPDFLink_GetQuadPoints(link, i, &q)) {
+                VecReset(element->quads);
+                return;
+            }
+            VecAppend(element->quads, QuadF{ToPage(page, info, q.x1, q.y1), ToPage(page, info, q.x2, q.y2),
+                                            ToPage(page, info, q.x3, q.y3), ToPage(page, info, q.x4, q.y4)});
+        }
+    }
+
     void LoadLinks(int pageNo, PdfiumPage* info) {
         if (info->linksLoaded) {
             return;
@@ -1485,6 +1539,7 @@ class EnginePdfium : public EngineBase {
             auto* element = new PageElementDestination(dest);
             element->pageNo = pageNo;
             element->rect = ToPageRect(page, info, box.left, box.bottom, box.right, box.top);
+            AddLinkQuads(page, info, link, element);
             VecAppend(info->links, (IPageElement*)element);
         }
         if (needsMupdf) {
@@ -1694,6 +1749,68 @@ class EnginePdfium : public EngineBase {
 
   public:
     bool IsDataBacked() const { return dataBacked; }
+
+    // The end and corner points of the page's vector paths, in page coordinates, as
+    // EngineMupdfPagePathPoints() reads them: the measuring tool snaps to them.
+    bool PagePathPoints(int pageNo, Vec<PointF>& out) {
+        VecReset(out);
+        ScopedMutex lock(&gPdfiumLock);
+        PdfiumPage* info = Page(pageNo);
+        FPDF_PAGE page = info ? gPdfium.FPDF_LoadPage(doc, pageNo - 1) : nullptr;
+        if (!page) {
+            return false;
+        }
+        FS_MATRIX identity{1, 0, 0, 1, 0, 0};
+        int n = gPdfium.FPDFPage_CountObjects(page);
+        for (int i = 0; i < n; i++) {
+            AddPathPoints(page, info, gPdfium.FPDFPage_GetObject(page, i), identity, 0, out);
+        }
+        gPdfium.FPDF_ClosePage(page);
+        return true;
+    }
+
+    // Caller holds gPdfiumLock. A curve adds only its end point: its control points are off it.
+    void AddPathPoints(FPDF_PAGE page, PdfiumPage* info, FPDF_PAGEOBJECT obj, const FS_MATRIX& parent, int depth,
+                       Vec<PointF>& out) {
+        constexpr int kMaxFormDepth = 16;
+        // a CAD page can have millions; as in EngineMupdf, the rest are ignored
+        constexpr int kMaxPathPoints = 500000;
+        FS_MATRIX m{};
+        if (!obj || !gPdfium.FPDFPageObj_GetMatrix(obj, &m)) {
+            return;
+        }
+        m = ConcatMatrix(m, parent);
+        int type = gPdfium.FPDFPageObj_GetType(obj);
+        if (type == FPDF_PAGEOBJ_FORM && depth < kMaxFormDepth) {
+            int n = gPdfium.FPDFFormObj_CountObjects(obj);
+            for (int i = 0; i < n; i++) {
+                AddPathPoints(page, info, gPdfium.FPDFFormObj_GetObject(obj, (unsigned long)i), m, depth + 1, out);
+            }
+            return;
+        }
+        if (type != FPDF_PAGEOBJ_PATH) {
+            return;
+        }
+        int n = gPdfium.FPDFPath_CountSegments(obj);
+        // a curve is three BEZIERTO segments: two control points, then its end
+        int bezierPos = 0;
+        for (int i = 0; i < n && len(out) < kMaxPathPoints; i++) {
+            FPDF_PATHSEGMENT segment = gPdfium.FPDFPath_GetPathSegment(obj, i);
+            float x = 0, y = 0;
+            if (!segment || !gPdfium.FPDFPathSegment_GetPoint(segment, &x, &y)) {
+                continue;
+            }
+            if (gPdfium.FPDFPathSegment_GetType(segment) == FPDF_SEGMENT_BEZIERTO) {
+                bezierPos = (bezierPos + 1) % 3;
+                if (bezierPos != 0) {
+                    continue;
+                }
+            } else {
+                bezierPos = 0;
+            }
+            VecAppend(out, ToPage(page, info, m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f));
+        }
+    }
 
     EnginePdfium() {
         kind = kindEnginePdfium;
@@ -2958,7 +3075,7 @@ class EnginePdfium : public EngineBase {
         }
         IPageElement* fallback = nullptr;
         for (int i = len(links) - 1; i >= 0; i--) {
-            if (links[i]->rect.Contains(point)) {
+            if (LinkContainsPoint(links[i], point)) {
                 if (links[i]->Is(kindPageElementDest)) {
                     return links[i];
                 }
@@ -3115,6 +3232,7 @@ class EnginePdfium : public EngineBase {
             dest->name = str::Dup(sourceDest->GetName());
             dest->value = str::Dup(sourceDest->GetValue());
             dest->pageNo = sourceDest->pageNo;
+            dest->attachmentNo = ((PageDestination*)sourceDest)->attachmentNo;
             auto* item = AllocTocItem(arena, source->title, dest->pageNo);
             item->id = ++id;
             item->parent = root;
@@ -3144,9 +3262,27 @@ class EnginePdfium : public EngineBase {
         return JoinTemp(&features, StrL(", "));
     }
 
+    // "1.7", with the Adobe Extension Level of AES-256 encryption, as EngineMupdf says it
+    TempStr PdfVersionTemp() {
+        ScopedMutex lock(&gPdfiumLock);
+        int version = 0;
+        if (!gPdfium.FPDF_GetFileVersion(doc, &version) || version <= 0) {
+            return {};
+        }
+        int major = version / 10, minor = version % 10;
+        int revision = gPdfium.FPDF_GetSecurityHandlerRevision(doc);
+        if (major == 1 && minor == 7 && (revision == 5 || revision == 6)) {
+            return fmt("%d.%d Adobe Extension Level %d", major, minor, revision == 5 ? 3 : 8);
+        }
+        return fmt("%d.%d", major, minor);
+    }
+
     TempStr GetPropertyTemp(DocProp prop) override {
         if (prop == DocProp::UnsupportedFeatures) {
             return UnsupportedFeaturesTemp();
+        }
+        if (prop == DocProp::PdfVersion) {
+            return PdfVersionTemp();
         }
         const char* key = nullptr;
         switch (prop) {
@@ -3399,6 +3535,11 @@ EngineBase* CreateEnginePdfiumFromData(Str data, PasswordUI* pwdUI, TempStr* err
     logf("PDFium: %s (memory document)\n", *errorOut);
     engine->Release();
     return nullptr;
+}
+
+bool EnginePdfiumPagePathPoints(EngineBase* engine, int pageNo, Vec<PointF>& out) {
+    auto* pdfium = engine && engine->kind == kindEnginePdfium ? (EnginePdfium*)engine : nullptr;
+    return pdfium && pdfium->PagePathPoints(pageNo, out);
 }
 
 bool EnginePdfiumIsDataBacked(EngineBase* engine) {

@@ -15,3 +15,4 @@ EngineBase* CreateEnginePdfium(Str path, PasswordUI* pwdUI, TempStr* errorOut, P
 EngineBase* CreateEnginePdfiumFromData(Str data, PasswordUI* pwdUI, TempStr* errorOut,
                                        PdfiumFailure* failureOut = nullptr);
 bool EnginePdfiumIsDataBacked(EngineBase* engine);
+bool EnginePdfiumPagePathPoints(EngineBase* engine, int pageNo, Vec<PointF>& out);

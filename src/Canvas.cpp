@@ -150,9 +150,19 @@ static void StartTextDragDrop(MainWindow* win) {
 constexpr int kDragImageThumbnailSize = 220;
 
 // page elements are freed when the page content changes (redaction, image
-// replace): a pointer kept across that must not be used
+// replace): a pointer kept across that must not be used. A PDFium tab hands out
+// its editor's elements too, which the editor frees
 static int ElementsGen(DisplayModel* dm) {
-    return dm ? AtomicIntGet(&dm->GetEngine()->elementsGeneration) : 0;
+    if (!dm) {
+        return 0;
+    }
+    EngineBase* engine = dm->GetEngine();
+    int gen = AtomicIntGet(&engine->elementsGeneration);
+    EngineBase* editor = engine->HasAnnotationEditor() ? engine->AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
+    if (editor && editor != engine) {
+        gen += AtomicIntGet(&editor->elementsGeneration);
+    }
+    return gen;
 }
 
 static void StartImageDragDrop(MainWindow* win) {

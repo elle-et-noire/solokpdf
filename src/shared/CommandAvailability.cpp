@@ -867,6 +867,12 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         if (surface == CommandSurface::Palette || !ctx.isPdf) {
             return CommandVisibility::Hide;
         }
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+        // PDFium draws the page from the file, so an image replaced in its editor wouldn't show
+        if (ctx.engineKind == kindEnginePdfium) {
+            return CommandVisibility::Hide;
+        }
+#endif
 #endif
     }
 
