@@ -607,6 +607,8 @@ void PageThumbnailsCtrl::OpenSelectedPage() {
 // The dotted ring is for the keyboard, as in win32: a click that gave the
 // sidebar the focus hides it, the keys bring it back (issue #6469)
 void PageThumbnailsCtrl::ShowFocusRing(bool show) {
+    // SolokPDF lists draw no dotted ring: the selection shows the focus
+    show = false;
     if (host != ThumbnailsHost::Sidebar || showFocusRing == show) {
         return;
     }

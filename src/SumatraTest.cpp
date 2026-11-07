@@ -1320,6 +1320,7 @@ TempStr SidebarThumbnailsResultTemp(int* exitCodeOut) {
                   (int)thumbs->IsVisible(), thumbs->pageCount, thumbs->selectedPage, thumbs->RenderedCount()));
     // the focus ring is drawn while the thumbnails have the (virtual) focus
     sb.Append(fmt(" ring=%d", (int)thumbs->HasFlag(vwfFocused)));
+    sb.Append(fmt(" dotted=%d", (int)thumbs->showFocusRing));
     // e.g. top=1234,1,thumbnails,110,010:2,2,22,22;26,2,22,22;50,2,22,22
     // (enabled icons, selected icon, icon rects in order B, T, F)
     SidebarPanel* panels[] = {win->sidebarTop, win->sidebarMiddle, win->sidebarBottom};

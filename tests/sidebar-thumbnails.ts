@@ -84,7 +84,7 @@ async function sidebar(client: ControlClient): Promise<Sidebar> {
   const res = await client.request(ControlCommand.TestSidebarThumbnails, []);
   const raw = String(res[1] ?? "");
   const m =
-    /hwnd=(\d+) thumbnails=(\d) count=\d+ current=(\d+) rendered=(\d+) ring=\d top=(\S+)(?: middle=(\S+))? bottom=(\S+) rects=(\S*)/.exec(
+    /hwnd=(\d+) thumbnails=(\d) count=\d+ current=(\d+) rendered=(\d+) ring=\d(?: dotted=\d)? top=(\S+)(?: middle=(\S+))? bottom=(\S+) rects=(\S*)/.exec(
       raw,
     );
   if (res[0] !== 0 || !m) {

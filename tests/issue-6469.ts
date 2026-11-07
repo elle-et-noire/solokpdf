@@ -53,8 +53,13 @@ async function checkThumbnailsFocusRing(client: ControlClient, frame: number): P
   const hwnd = +/hwnd=(\d+)/.exec(shown)![1]!;
   // SolokPDF draws no dotted focus outline on lists: the selection shows the focus
   if (SETTINGS_FILE === "SolokPDF-settings.txt") {
-    const n = ringPixels(hwnd);
-    if (n > MAX_NO_RING_PIXELS) throw new Error(`issue-6469: SolokPDF drew a focus ring (${n} pixels)`);
+    if (!/ dotted=0/.test(shown)) throw new Error(`issue-6469: SolokPDF showed a focus ring: ${shown}`);
+    const page = +/current=(\d+)/.exec(shown)![1]!;
+    postMessage(hwnd, WM_KEYDOWN, VK_DOWN, 0);
+    const moved = await pollUntil(state, (s) => +/current=(\d+)/.exec(s)![1]! > page, {
+      error: (s) => `issue-6469: Down didn't move the thumbnails: ${s}`,
+    });
+    if (!/ dotted=0/.test(moved)) throw new Error(`issue-6469: Down showed a focus ring: ${moved}`);
     return;
   }
   await pollUntil(
