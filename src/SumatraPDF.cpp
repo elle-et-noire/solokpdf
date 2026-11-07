@@ -6089,7 +6089,8 @@ static void MaybeShowSignatureStatus(MainWindow* win, WindowTab* tab) {
         return;
     }
     EngineBase* engine = tab->AsFixed()->GetEngine();
-    bool isPdf = IsPdfPageEngine(engine->kind);
+    // OFD, XPS and SVG are kindEngineMupdf too; only EnginePdfium has an editor
+    bool isPdf = EngineMupdfIsPdf(engine) || engine->HasAnnotationEditor();
     bool hasSignatures = false;
     if (!isPdf) {
         hasSignatures = EngineMupdfHasOfdSignatures(engine);
