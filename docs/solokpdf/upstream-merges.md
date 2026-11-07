@@ -172,9 +172,17 @@ then gained the two hidden image commands as intended differences and passed,
 and `ad-hoc-selection-outlines` passed four reruns. 61 merge-touched upstream
 and SolokPDF tests ran on PDFium and 56 on MuPDF (step-4 features, tabs, TOC,
 thumbnails, auto-scroll, mouse buttons, tab groups, keyboard, IME, theme keys):
-all pass except `issue-4788` on both engines (its expected grays predate
-SolokPDF's theme page colors: 0.4 and 0.6 gray now render as 96 and 144 on a
-240 page) and `overlay-scrollbar-theme` on PDFium (screen capture needs a
+all pass except `issue-4788` on both engines (fixed after the merge: it
+now measures with `DocumentColorsFollowTheme = off`, since smart colors tint
+the page with Light's #f2f2f2) and `overlay-scrollbar-theme` on PDFium (screen capture needs a
 visible desktop). Not done: the full suites, a dark/light screenshot check of
 the new UI, and byte verification of the MuPDF patch ledger (no pristine
 1.28.5 checkout here).
+
+Review fixes: signed OFD files lost their signature bar because the merge
+took every EngineMupdf document for a PDF (`issue-1909`); upstream's
+keyboard focus ring returned to the thumbnails sidebar and is off again
+(`issue-6469` now checks the ring's state after Down); a PDFium tab no
+longer clears layer states a MuPDF tab saved. Left: Read Columns centers a
+column on the whole viewport, not the page area beside an overlay scrollbar
+(B74); `issue-6221` checks Mirror only with Windows scrollbars (B75).

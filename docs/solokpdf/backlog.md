@@ -4,15 +4,17 @@ Open work. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [limitations.md](limitations.md). New items take the next free ID in their
-group (B74, C2, D8, E10, F2). A1–E5 landed 2026-10-29 – 11-01 and are listed
+group (B76, C2, D8, E10, F2). A1–E5 landed 2026-10-29 – 11-01 and are listed
 there.
 
 ## Open
 
-| ID  | Item                                             | Status                                                        |
-| --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
-| F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
+| ID  | Item                                                                                                           | Status                                                        |
+| --- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| D3  | Shard the full suite across runners                                                                            | deferred: the suite takes ~25 min once a hung test is cut off |
+| F1  | Physical printer, print dialog and spooler check                                                               | needs the owner                                               |
+| B74 | Read Columns: center columns on the page area beside an overlay scrollbar (`ColumnViewX`, `FitColumnToWindow`) | todo                                                          |
+| B75 | `issue-6221`: check Mirror with overlay scrollbars against the page rect                                       | todo                                                          |
 
 ## Dropped
 
