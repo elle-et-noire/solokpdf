@@ -635,6 +635,11 @@ void ShowProperties(HWND parent, DocController* ctrl) {
     if (EngineMupdfIsPdf(engine) || (engine && engine->HasAnnotationEditor())) {
         EutlRegisterLookup();
     }
+    EngineBase* sigEngine =
+        engine && engine->HasAnnotationEditor() ? engine->AnnotationEditor(EditorLoad::IfLoaded) : engine;
+    if (EngineMupdfIsPdf(sigEngine)) {
+        wnd->certs = EngineMupdfGetSignatureCerts(sigEngine);
+    }
     if (wnd->certs && !gForTesting && HasPermission(Perm::InternetAccess)) {
         // both only refresh what the text says: it's there already
         auto* job = new EutlUpdateJob;
@@ -645,11 +650,6 @@ void ShowProperties(HWND parent, DocController* ctrl) {
         RunAsync(MkFunc0<EutlUpdateJob>(EutlUpdateThread, job), StrL("SigOnlineChecks"));
     }
     GetPropsText(ctrl, wnd->propsText);
-    EngineBase* sigEngine =
-        engine && engine->HasAnnotationEditor() ? engine->AnnotationEditor(EditorLoad::IfLoaded) : engine;
-    if (EngineMupdfIsPdf(sigEngine)) {
-        wnd->certs = EngineMupdfGetSignatureCerts(sigEngine);
-    }
     AppendCertsText(wnd->propsText, wnd->certs);
     AlignPropertiesText(wnd->propsText);
     EndWithSingleNewline(wnd->propsText);
