@@ -69,7 +69,8 @@ document. `ActiveTabBackgroundColor` now defaults to it; the built-in themes no
 longer set it. Greeny's and Light Warm's `InactiveTabBackgroundColor` now sit
 1.3 to 1.4 from the canvas, as the other themes' do (were 2.55 and 1.72). Every tab shows its close
 button (upstream: the selected one only); non-selected tabs narrower than 100
-DIP hide it. Hovered, the ✕ steps toward the text color instead of turning
+DIP hide it, and the pinned Home tab has none. Hovered, the ✕ steps toward
+the text color instead of turning
 white on a red circle. Minimize, maximize and close are 46 DIP wide, as Windows
 11 draws them (upstream: square, as tall as the caption).
 
@@ -81,7 +82,8 @@ The sidebar, splitters included, takes the canvas color, as the toolbar does
 (`ThemeSidebarColor`); its search fields take `ControlBackgroundColor`, and they and
 the Bookmarks and Favorites trees a 6×4 DIP margin (upstream: flush with the
 panel's edges). A hovered bookmark or favorite fills its row with the hover
-color below (upstream: the Explorer theme's own hot face).
+color below (upstream: the Explorer theme's own hot face). The Signatures and
+Layers lists take the canvas color too (upstream: `ControlBackgroundColor`).
 
 A hovered toolbar or sidebar button is filled halfway from its surface to the
 selection color (`ThemeHoverColorOn`), so hover and toggled-on read as two

@@ -4,7 +4,7 @@ Open work. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [limitations.md](limitations.md). New items take the next free ID in their
-group (B74, C2, D7, E10, F2). A1–E5 landed 2026-10-29 – 11-01 and are listed
+group (B74, C2, D8, E10, F2). A1–E5 landed 2026-10-29 – 11-01 and are listed
 there.
 
 ## Open

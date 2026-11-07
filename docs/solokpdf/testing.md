@@ -67,7 +67,7 @@ both passed individually after activating their own frames. The full set was
 run once, before those test changes.
 
 Controlled Win32 tests send window messages and set an app-local cursor through
-`-dbg-control` `TestCursorPosition` (155). Use `moveTestCursor()` in
+`-dbg-control` `TestCursorPosition` (169). Use `moveTestCursor()` in
 `tests/win-automation.ts` before mouse messages; `clickAt()` does this for
 clicks. Two screen coordinates set the position; a request without arguments
 clears it. The response is the position. The override works even when a controlled run saves

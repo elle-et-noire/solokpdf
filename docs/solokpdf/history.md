@@ -1641,6 +1641,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)       |
 | D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | done — Merge upstream f45967f87 (D5)         |
 | D6  | Merge upstream/master at 254c2ae7c into solokpdf-dev                             | done — Merge upstream/master 254c2ae7c (D6)  |
+| D7  | Merge upstream/master at 8b716234f into solokpdf-dev                             | done — Merge upstream/master 8b716234f (D7)  |
 
 ### E. Quality
 

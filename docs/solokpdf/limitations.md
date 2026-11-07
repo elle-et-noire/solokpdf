@@ -186,6 +186,13 @@ are in [history.md](history.md).
   filter rejected the condensed font's word gap; the same 0.1 em threshold
   used for MuPDF now keeps it. `issue-5871` fails before and passes after on
   PDFium (B34).
+- PDFium keeps a space before right-to-left letters, which its 0.1 em tracking
+  filter dropped, and puts back the chars of a lam-alef ligature or a letter
+  with its marks (one origin), which PDFium reverses with the right-to-left run
+  around them. `issue-6483` fails before and passes after on PDFium (D7).
+  Words a LibreOffice PDF writes letter by letter as ActualText stay in visual
+  order on PDFium; MuPDF reads them in logical order. `issue-6485` checks only
+  its ligature lines on PDFium.
 - Rotated text selects along glyph quads, as with MuPDF (`issue-4839`, which
   failed with PDFium before). PDFium reports only axis-aligned boxes, so quads
   are built from each glyph's matrix, origin, advance and the font's
@@ -212,6 +219,22 @@ are in [history.md](history.md).
   orientation and CMYK JPEG/TIFF data without changing PDFium rendering.
   `tests/ad-hoc-pdfium-images.ts` checks extraction and orientation;
   `tests/issue-6360.ts` checks the context menu and clipboard.
+
+- Measure snaps to PDFium's path points: segment ends and curve end points,
+  through form XObjects, in the same page coordinates as MuPDF's
+  (`issue-750`, D7). Mirror Pages, Trim Pages To Selection, Read Columns, Count
+  Words and Show Selected Text work from PDFium's text and page geometry
+  (`issue-6221`, `issue-3585`, `read-columns`, `issue-6489`, `issue-6496`).
+  Read Columns takes the middle of the page area, which the overlay
+  scrollbars' room moves left of the window's middle.
+- Replace Image and Edit Image in Another App are hidden on PDFium tabs:
+  PDFium draws the page from the file, so an image replaced in the editor
+  would not show. MuPDF tabs keep both.
+- Layers (optional content): the Layers view, `CmdToggleLayers` and the page
+  info bar's "Has layers" are absent on PDFium tabs, which draw the default
+  layer states. PDFium has no API to change them; routing such documents to
+  MuPDF rendering was judged too invasive (D7). Open the PDF with MuPDF to
+  toggle layers (`issue-6486` checks both).
 
 ## Links, outline and navigation
 
@@ -252,7 +275,9 @@ are in [history.md](history.md).
   35 MiB form). A document-wide scan would delay the first link request.
   A form field's `/TU` tooltip comes from PDFium.
   Wrapped URLs join from PDFium's page text without loading the editor.
-  JavaScript menus still use MuPDF. `tests/ad-hoc-pdfium-links.ts` checks both
+  JavaScript menus, KiCad's too (#6503), still use MuPDF. Link `/QuadPoints`
+  limit clicks and hover to the quads, as on MuPDF tabs (#6472, D7).
+  `tests/ad-hoc-pdfium-links.ts` checks both
   engines. PDFium text still differs on some plain URLs (4 of 95 sampled pages).
 - PDFium tabs create a SyncTeX synchronizer when a sidecar exists. Command-line
   and DDE forward search and inverse lookup use the same page coordinates as
@@ -368,8 +393,14 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   whole-document save. A page-link query checks PDFium annotation subtypes and
   reads FileAttachment links from that editor only when the page has one. The
   editor's quick page load avoids text extraction.
-  `tests/ad-hoc-pdfium-unsupported.ts` checks the list against MuPDF;
+  The copied entries keep MuPDF's attachment numbers, which Open/Save
+  Attachment use (they were -1 after upstream moved them out of the page
+  number). `tests/ad-hoc-pdfium-unsupported.ts` checks the list against MuPDF;
   `tests/embedded-image-attachment.ts` opens a page attachment in both engines.
+- Document Properties and the page info bar read the PDF version from PDFium
+  (`FPDF_GetFileVersion`, with MuPDF's AES-256 extension levels); the bar's
+  Encrypted and Signed come from PDFium's password and signature checks,
+  without the editor (`issue-6494`).
 - Document Properties parses PDFium's `CreationDate` and `ModDate` as PDF
   dates, including their time zones, matching MuPDF
   (`tests/ad-hoc-pdfium-dates.ts`). Missing Info properties fall back to the

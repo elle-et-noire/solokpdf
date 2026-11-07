@@ -112,3 +112,69 @@ foreground popups still need an unlocked desktop.
 Follow-up commits `c97ca137f` restored the upstream vs2022 projects, and
 `0522b0580` passed PDFium tabs' passwords to PDF Info and extraction after
 review.
+
+## Merge result (2026-11-08)
+
+Merged `upstream/master` at `8b716234f`, 207 commits after `254c2ae7c`, into
+`solokpdf-dev` (D7). Upstream brought PDF layers, the measuring tool, Replace
+Image, Mirror Pages, Trim Pages To Selection, Read Columns, Count Words, Show
+Selected Text, the page info bar, tab groups, Ctrl+Shift+T window reopen,
+toolbar wrapping, auto-scroll timer, `InvertMouseWheel`, `FitWidthPercent`,
+`TabsEqualWidth`, `TocWrapText`, mouse side-button and media-key shortcuts,
+Previous/Next Chapter, Open from URL, OFD documents, link `/QuadPoints`, KiCad
+JavaScript menus, Arabic copy fixes, markdown-it, MuPDF patches `0083`–`0085`
+and a refactor moving duplicated orig/ng functions into `src/shared/*Common.cpp`.
+
+Conflicts (48 files):
+
+| File                                                        | Resolution                                                                                                                                                             |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build.yml`, `linux-daily.yml`, `.gitignore`                | Workflows stay deleted; `.gitignore` is the union.                                                                                                                     |
+| `cmd/gen-commands.ts`, settings generators, generated files | Upstream's entries first, SolokPDF's after; regenerated, SolokPDF defaults kept. Both added Ctrl+T → CmdNewTab; one kept. No other default shortcut collides.          |
+| `SumatraControl.cpp`, `tests/control.ts`                    | Upstream ids to 162 (161–162 ng only); SolokPDF's 163–173. `lint-control-ids` passes.                                                                                  |
+| `ext/patches/README.md`                                     | SolokPDF's patches renamed `solok-0001`–`solok-0020` in their own table, applied after upstream's numbered ones; none shares a MuPDF file with `0083`–`0085`.          |
+| Moved to `*Common.cpp`                                      | SolokPDF's edits re-applied there: thumbnail colors and pending flag, PDFium encryption in the command context, editor routing for signatures and attachments, probes. |
+| `Canvas.cpp`, `WindowBase.cpp`, `Win.cpp`, `MainWindow.cpp` | Kept key-scroll amounts, test activation and clipboard helpers with upstream's lifetime checks; upstream's removed unused helpers stay removed.                        |
+| Theme UI, tabs, TOC, palette, settings dialogs              | Kept SolokPDF colors, every-tab ✕ and single settings screen; the pinned Home tab has no ✕; wrapped TOC rows draw with SolokPDF's hover.                               |
+| `EngineBase.cpp`, `RenderCache.cpp`, `EngineMupdf.cpp`      | Upstream's retired page-text list; SolokPDF's `RenderViewPage` with upstream's `RenderWasDropped`; OFD signatures/attachments with PDFium editor routing.              |
+| Tests                                                       | Upstream tests write `SETTINGS_FILE` and use the test cursor; SolokPDF's test order stays first in `run-almost-all.ts`.                                                |
+
+Follow-ups for PDFium tabs and SolokPDF defaults:
+
+| Feature                                               | PDFium status                                                                                       |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Link `/QuadPoints` (#6472)                            | Read with `FPDFLink_GetQuadPoints`; hit test shared with MuPDF.                                     |
+| JavaScript menu links (#6503)                         | Already from the editor's links; passes.                                                            |
+| Attachment numbers                                    | Copied to PDFium's TOC entries (were -1).                                                           |
+| `elementsGeneration`                                  | PDFium frees no elements; the canvas adds the editor's generation, whose elements PDFium hands out. |
+| Layers (#6486)                                        | Hidden: PDFium draws default states and can't change them.                                          |
+| Measure snapping (#750)                               | PDFium path points.                                                                                 |
+| Replace Image / Edit Image in Another App             | Hidden: PDFium wouldn't show the replaced image.                                                    |
+| Mirror, Trim To Selection, Count Words, Selected Text | Work unchanged.                                                                                     |
+| Read Columns                                          | Fixed for overlay scrollbars on both engines.                                                       |
+| Arabic copy (#6483, #6485, #6488)                     | Spaces and ligatures fixed; ActualText words stay in visual order.                                  |
+| Page info bar                                         | PDF version, Encrypted and Signed from PDFium.                                                      |
+| Theme colors                                          | Page info bar takes the toolbar's canvas color; Layers and Signatures lists the sidebar's.          |
+
+Upstream tests assume upstream defaults: `issue-6476` now keeps the Home
+tab, `issue-6221` uses Windows scrollbars, `issue-6469` expects no list
+focus ring (SolokPDF dropped it), and on PDFium `issue-6486` and
+`replace-image` check that the features are hidden and `issue-6485` checks its
+ligature lines. `replace-image` saves the edited image again until the file
+watcher, which starts on its own thread, sees it. The ng settings golden file
+gains `FavoritesManualOrder`, which upstream added without updating it.
+
+Tests: SolokPDF and ng Windows debug builds passed; `lint-command-ids`, `lint-control-ids`,
+`lint-desktop-input`, `lint-system-clipboard` and `lint-posted-tasks` passed.
+The debug unit runner passed 105092 tests and ng `test_util` 106830. The
+SolokPDF CI set passed 62/64 after the last change; `ad-hoc-pdfium-commands`
+then gained the two hidden image commands as intended differences and passed,
+and `ad-hoc-selection-outlines` passed four reruns. 61 merge-touched upstream
+and SolokPDF tests ran on PDFium and 56 on MuPDF (step-4 features, tabs, TOC,
+thumbnails, auto-scroll, mouse buttons, tab groups, keyboard, IME, theme keys):
+all pass except `issue-4788` on both engines (its expected grays predate
+SolokPDF's theme page colors: 0.4 and 0.6 gray now render as 96 and 144 on a
+240 page) and `overlay-scrollbar-theme` on PDFium (screen capture needs a
+visible desktop). Not done: the full suites, a dark/light screenshot check of
+the new UI, and byte verification of the MuPDF patch ledger (no pristine
+1.28.5 checkout here).
