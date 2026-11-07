@@ -51,7 +51,8 @@ async function run(equalWidth: boolean): Promise<void> {
   });
   const appdata = writeAppdata(
     `issue-6476-appdata-${equalWidth}`,
-    `TabsEqualWidth = ${equalWidth}\nTabWidth = ${TAB_WIDTH}\nCheckForUpdates = false\n`,
+    // the tab counts include the pinned Home tab, which SolokPDF leaves out by default
+    `NoHomeTab = false\nTabsEqualWidth = ${equalWidth}\nTabWidth = ${TAB_WIDTH}\nCheckForUpdates = false\n`,
   );
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, ...files]);
   try {

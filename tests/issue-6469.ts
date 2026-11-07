@@ -10,7 +10,7 @@
 
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { cmdId, makePdf, pollUntil, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { cmdId, makePdf, pollUntil, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
 import { findChildByClass, killAndWait, launchControlled, moveTestCursor, sendCommand } from "./win-automation.ts";
 import {
   clientToScreen,
@@ -51,6 +51,12 @@ async function checkThumbnailsFocusRing(client: ControlClient, frame: number): P
     error: (s) => `issue-6469: the thumbnails didn't show: ${s}`,
   });
   const hwnd = +/hwnd=(\d+)/.exec(shown)![1]!;
+  // SolokPDF draws no dotted focus outline on lists: the selection shows the focus
+  if (SETTINGS_FILE === "SolokPDF-settings.txt") {
+    const n = ringPixels(hwnd);
+    if (n > MAX_NO_RING_PIXELS) throw new Error(`issue-6469: SolokPDF drew a focus ring (${n} pixels)`);
+    return;
+  }
   await pollUntil(
     () => ringPixels(hwnd),
     (n) => n >= MIN_RING_PIXELS,

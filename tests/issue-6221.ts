@@ -59,7 +59,9 @@ export async function testit(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "issue-6221.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
-  writeFileSync(join(dir, SETTINGS_FILE), "RestoreSession = false\nShowToc = false\n");
+  // SolokPDF's default overlay scrollbars take room on the right, which moves the
+  // page off the canvas's middle that the mirrored position is measured against
+  writeFileSync(join(dir, SETTINGS_FILE), "RestoreSession = false\nShowToc = false\nScrollbars = windows\n");
 
   // single page, fit page: the page is centered in the canvas
   const { proc, client, frame } = await launchControlled([

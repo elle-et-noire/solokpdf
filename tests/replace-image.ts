@@ -11,7 +11,7 @@
 import { copyFileSync, writeFileSync } from "node:fs";
 import { ControlCommand, type ControlClient } from "./control.ts";
 import { IS_WIN } from "./host.ts";
-import { assemblePdf, makePng, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { assemblePdf, makePng, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
 import {
   findCanvas,
   findSubMenu,
@@ -97,6 +97,13 @@ export async function testit(): Promise<void> {
     const menu = await readContextMenuTree(findCanvas(frame));
     const imageMenu = findSubMenu(menu, "Selected Image");
     const labels = (imageMenu?.items ?? []).map((it) => it.text);
+    // SolokPDF hides both on PDFium tabs: PDFium draws the page from the file
+    if (SETTINGS_FILE === "SolokPDF-settings.txt" && process.env.SOLOKPDF_ENGINE !== "mupdf") {
+      if (labels.includes("Replace Image...") || labels.includes("Edit Image in Another App")) {
+        throw new Error(`replace-image: PDFium tab offers image replacement: ${JSON.stringify(labels)}`);
+      }
+      return;
+    }
     for (const want of ["Replace Image...", "Edit Image in Another App"]) {
       if (!labels.includes(want)) {
         throw new Error(`replace-image: "${want}" missing from the image menu: ${JSON.stringify(labels)}`);
@@ -115,7 +122,16 @@ export async function testit(): Promise<void> {
     if (!tmp) {
       throw new Error(`replace-image: no temporary file to edit: ${edit}`);
     }
-    writeFileSync(tmp, makePng(4, 4, [0, 255, 0]));
+    // the watch starts on the watcher thread, so a save right after "edit" can come
+    // before it; a person saving from Paint never does. Save again until it's seen
+    for (let i = 0; i < 5; i++) {
+      writeFileSync(tmp, makePng(4, 4, [0, 255, 0]));
+      await sleep(1000);
+      await client.waitForRenderIdle();
+      if (dominantColor(frame) === "green") {
+        break;
+      }
+    }
     await waitColor(client, frame, "green", "after the other app saved");
 
     await client.request(ControlCommand.TestInvokeCommand, ["CmdUndo"]);
