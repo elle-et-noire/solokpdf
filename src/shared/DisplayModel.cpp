@@ -532,9 +532,10 @@ bool DisplayModel::ReadsColumnsNow() const {
     return readColumns && !columnsWholePage && modeOk && NormalizeRotation(rotation) == 0;
 }
 
-// the column the middle of the window is in
+// the column the middle of the window is in. The middle of the page area: the
+// margins differ when overlay scrollbars take room on the right (SolokPDF)
 bool DisplayModel::CurrentColumn(int* pageNo, int* col) {
-    Point mid{viewPort.dx / 2, viewPort.dy / 2};
+    Point mid{(windowMargin.left + viewPort.dx - windowMargin.right) / 2, viewPort.dy / 2};
     int page = GetPageNoByPoint(mid);
     if (!ValidPageNo(page)) {
         page = GetPageNextToPoint(mid);

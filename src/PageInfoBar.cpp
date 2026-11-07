@@ -77,7 +77,8 @@ HWND PageInfoBarEnsure(MainWindow* win) {
     args.parent = win->hwndFrame;
     args.className = WStrL(L"SumatraPageInfoBar");
     args.initialSize = {100, PageInfoBarDy(win)};
-    args.bgColor = ThemeControlBackgroundColor();
+    // the toolbar's color: SolokPDF gives it the canvas color
+    args.bgColor = ThemeCanvasColor();
     args.isRtl = IsUIRtl();
     args.visible = false;
     args.noActivate = true;
@@ -135,7 +136,7 @@ void PageInfoBarUpdate(MainWindow* win) {
     TempStr right;
     PageInfoBarTextTemp(win, &left, &right);
     int dpi = DpiGetForHwnd(win->hwndFrame);
-    Color bg = ThemeControlBackgroundColor();
+    Color bg = ThemeCanvasColor();
     Color txt = ThemeWindowTextColor();
     bool same = str::Eq(bar->builtLeft, left) && str::Eq(bar->builtRight, right) && bar->builtDpi == dpi &&
                 bar->builtBg == bg && bar->builtText == txt;

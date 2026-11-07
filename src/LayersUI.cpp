@@ -179,7 +179,8 @@ void LayersCtrlColorsAndDpi(MainWindow* win, int dpi) {
     c->dpi = dpi;
     c->itemDy = DpiScaleByDpi(dpi, kLayerRowDy);
     c->SetColor(kColListText, ThemeWindowTextColor());
-    c->SetColor(kColListBg, ThemeControlBackgroundColor());
+    // the sidebar takes the canvas color, as its thumbnails do
+    c->SetColor(kColListBg, ThemeSidebarColor());
     c->Invalidate();
 }
 
