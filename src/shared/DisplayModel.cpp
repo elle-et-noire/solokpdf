@@ -981,7 +981,10 @@ void DisplayModel::GetDisplayState(FileState* fs) {
     fs->mirror = mirror;
     fs->brightness = brightness;
     fs->contrast = contrast;
-    str::ReplaceWithCopy(&fs->layerStates, EngineMupdfChangedLayerStatesTemp(engine));
+    // a PDFium tab hides layers: keep states saved by a MuPDF tab
+    if (EngineMupdfHasLayers(engine)) {
+        str::ReplaceWithCopy(&fs->layerStates, EngineMupdfChangedLayerStatesTemp(engine));
+    }
 
     str::Free(fs->decryptionKey);
     fs->decryptionKey = engine->decryptionKey ? str::Dup(engine->decryptionKey) : Str();
