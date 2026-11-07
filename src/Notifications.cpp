@@ -317,12 +317,6 @@ static void NotifsRemoveNotification(NotificationWnd* wnd) {
     delete wnd;
 }
 
-__unused static int GetWndX(NotificationWnd* wnd) {
-    Rect rect = HwndWindowRect(wnd->hwnd);
-    rect = HwndMapRectToWindow(rect, HWND_DESKTOP, GetParent(wnd->hwnd));
-    return rect.x;
-}
-
 NotificationWnd::~NotificationWnd() {
     if (delayTimerId != 0) {
         KillTimer(hwnd, delayTimerId);
@@ -689,6 +683,10 @@ bool UpdateNotificationProgress(NotificationWnd* wnd, Str msg, int perc) {
 }
 
 static void NotifRemove(NotificationWnd* wnd) {
+    // already removed (and freed) between ScheduleRemove and now
+    if (NotificationIndexOf(wnd) < 0) {
+        return;
+    }
     if (!wnd->closedCb.IsValid()) {
         NotifsRemoveNotification(wnd);
         return;
@@ -900,6 +898,15 @@ TempStr NotificationGetMessageTemp(NotificationWnd* wnd) {
         return {};
     }
     return HwndGetTextTemp(wnd->hwnd);
+}
+
+// paints it now, without running the message loop: the UI thread is busy, e.g.
+// downloading a font mupdf asked for
+void RepaintNotificationNow(NotificationWnd* wnd) {
+    if (NotificationIndexOf(wnd) < 0 || !wnd->hwnd) {
+        return;
+    }
+    RedrawWindow(wnd->hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
 }
 
 void RemoveNotification(NotificationWnd* wnd) {

@@ -73,6 +73,7 @@ bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, con
 bool IsEngineDjVuSupportedFileType(FileType kind);
 EngineBase* CreateEngineDjvuDecFromFile(Str path);
 EngineBase* CreateEngineDjvuDecFromData(Str data);
+int EngineDjvuDecPageDpi(EngineBase* engine, int pageNo);
 PageText DjvuZonesToPageText(djvu_text_zone* root, float dpiF);
 extern bool gMemoryMapLargeFiles;
 
@@ -258,6 +259,9 @@ constexpr int kPdfCertifyFormsSigningAndAnnots = 3;
 
 void EngineMupdfGetUnsignedSignatureFields(EngineBase*, StrVec& names, Vec<int>& pageNos);
 int EngineMupdfCountSignedSignatures(EngineBase*);
+bool EngineMupdfHasOfdSignatures(EngineBase*);
+bool EngineMupdfIsOfd(EngineBase*);
+bool EngineMupdfSaveAsPdf(EngineBase*, Str destPath);
 bool IsUnsignedSignatureWidget(Annotation*, TempStr* fieldNameOut);
 bool EngineMupdfSignDocument(EngineBase*, const PdfSignArgs&, Str* errOut);
 void ListWindowsSigningCertificates(StrVec& thumbprints, StrVec& labels);
@@ -302,7 +306,7 @@ struct PdfSigResult {
 struct EutlLookup;
 void SetEutlLookup(const EutlLookup* lookup);
 void EngineMupdfFetchRevocation(EngineBase* engine);
-PdfSigResult* EngineMupdfCheckSignatures(EngineBase* engine);
+PdfSigResult* EngineMupdfCheckSignatures(EngineBase* engine, const Vec<Str>* trustedCerts = nullptr);
 struct PdfSigCert {
     PdfSigCert* next = nullptr;
     Str label;
@@ -332,6 +336,30 @@ bool AnnotAuthorInTooltip();
 void EngineMupdfToggleCadEnhance(EngineBase* engine);
 bool EngineMupdfCadEnhanceActive(EngineBase* engine);
 void EngineMupdfInvalidateDarkMode(EngineBase* engine);
+
+// a row in the Layers sidebar view: a layer (optional content group) to turn on
+// or off, or a label grouping the layers under it
+enum class PdfLayerKind : u8 {
+    Label,
+    Checkbox,
+    Radio
+};
+struct PdfLayerRow {
+    Str text; // owned
+    int depth = 0;
+    PdfLayerKind kind = PdfLayerKind::Checkbox;
+    bool on = false;
+    bool locked = false;
+    ~PdfLayerRow() { str::Free(text); }
+};
+bool EngineMupdfHasLayers(EngineBase*);
+void EngineMupdfGetLayerRows(EngineBase*, Vec<PdfLayerRow*>& out);
+bool EngineMupdfToggleLayerRow(EngineBase*, int row);
+TempStr EngineMupdfChangedLayerStatesTemp(EngineBase*);
+bool EngineMupdfPagePathPoints(EngineBase*, int pageNo, Vec<PointF>& out);
+Str EngineMupdfImageAsPng(EngineBase*, int pageNo, int imageIdx);
+bool EngineMupdfReplaceImage(EngineBase*, int pageNo, int imageIdx, Str imageData);
+void EngineMupdfSetLayerStates(EngineBase*, Str states);
 Str EngineMupdfLoadAttachment(EngineBase*, int attachmentNo);
 TocTree* EngineMupdfAttachmentToc(EngineBase*);
 void EngineMupdfAttachmentLinks(EngineBase*, int pageNo, Vec<IPageElement*>& out);

@@ -1093,9 +1093,24 @@ static Color BlendTextAndBgHalfway() {
     return MkRgb(r, g, b);
 }
 
+// WCAG minimums: 4.5 for text, 3 for disabled (WCAG exempts it, users don't)
+constexpr float kMinSecondaryTextContrast = 4.5f;
+constexpr float kMinDisabledTextContrast = 3.f;
+
+// a theme's muted color lifted to `minRatio` against the dialog background, but
+// never past the theme's own text (Solarized Dark's text is only 4.1)
+static Color WithMinContrast(Color col, float minRatio) {
+    Color bg = ThemeWindowControlBackgroundColor();
+    float textRatio = ContrastRatio(ThemeWindowTextColor(), bg);
+    return EnsureContrastRatio(col, bg, std::min(minRatio, textRatio));
+}
+
 Color ThemeWindowTextDisabledColor() {
-    return gUseHighContrast ? SysDisabledTextColor()
-                            : GetThemeCol(gCurrentTheme->disabledTextColor, BlendTextAndBgHalfway());
+    if (gUseHighContrast) {
+        return SysDisabledTextColor();
+    }
+    Color col = GetThemeCol(gCurrentTheme->disabledTextColor, BlendTextAndBgHalfway());
+    return WithMinContrast(col, kMinDisabledTextContrast);
 }
 
 Color ThemeWindowDarkerTextColor() {
@@ -1105,7 +1120,8 @@ Color ThemeWindowDarkerTextColor() {
     }
     // fallback: slightly muted primary text (not as flat as disabled)
     Color fallback = AccentColor(ThemeWindowTextColor(), 40);
-    return GetThemeCol(gCurrentTheme->darkerTextColor, fallback);
+    Color col = GetThemeCol(gCurrentTheme->darkerTextColor, fallback);
+    return WithMinContrast(col, kMinSecondaryTextContrast);
 }
 
 Color ThemeWindowControlBackgroundColor() {
@@ -1153,13 +1169,6 @@ static float RelLuminance(Color c) {
         return x <= 0.03928f ? x / 12.92f : powf((x + 0.055f) / 1.055f, 2.4f);
     };
     return (0.2126f * lin(GetRed(c))) + (0.7152f * lin(GetGreen(c))) + (0.0722f * lin(GetBlue(c)));
-}
-
-// WCAG contrast ratio, 1..21
-static float ContrastRatio(Color a, Color b) {
-    float la = RelLuminance(a);
-    float lb = RelLuminance(b);
-    return (std::max(la, lb) + 0.05f) / (std::min(la, lb) + 0.05f);
 }
 
 // which side of the background PickPaletteColor looks on

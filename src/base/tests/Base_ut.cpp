@@ -2,6 +2,7 @@
    License: Simplified BSD (see COPYING.BSD) */
 
 #include "base/Base.h"
+#include "base/Pixmap.h"
 
 // must be last due to assert() over-write
 #include "base/tests/UtAssert.h"
@@ -313,6 +314,64 @@ static void ArenaChainedBlockSizeTest() {
     ArenaDelete(a);
 }
 
+#if IS_DEBUG
+static void OtherThreadSeesLock(Mutex* m) {
+    utassert(!m->IsHeldByCurrentThread());
+}
+
+// debug builds track the holder, so "caller holds X" can be asserted
+static void MutexOwnerTest() {
+    Mutex m;
+    utassert(!m.IsHeldByCurrentThread());
+    m.Lock();
+    utassert(m.IsHeldByCurrentThread());
+#if !OS_WASM
+    ThreadHandle t = StartThread(MkFunc0(OtherThreadSeesLock, &m), StrL("MutexOwnerTest"));
+    JoinThread(&t, -1);
+#endif
+    m.Unlock();
+    utassert(!m.IsHeldByCurrentThread());
+    utassert(m.TryLock());
+    utassert(m.IsHeldByCurrentThread());
+    m.Unlock();
+
+    RecursiveMutex rm;
+    rm.Lock();
+    rm.Lock();
+    rm.Unlock();
+    utassert(rm.IsHeldByCurrentThread());
+    rm.Unlock();
+    utassert(!rm.IsHeldByCurrentThread());
+}
+#endif
+
+// ReportIf() evaluates to its condition, once, so callers can bail out in release
+static void ReportIfReturnsCondTest() {
+    int n = 0;
+    bool reported = ReportIf(++n > 5);
+    utassert(!reported);
+    utassert(n == 1);
+    if (ReportDebugIf(n == 2)) {
+        utassert(false);
+    }
+    int* p = &n;
+    utassert(!ReportIf(!p));
+}
+
+// A size that wraps pos + size (e.g. a negative int cast to u64) must fail,
+// not move pos backwards over live allocations.
+static void ArenaPushOverflowTest() {
+    Arena* a = ArenaNew();
+    utassert(a != nullptr);
+    utassert(a->Push(64, 8, false) != nullptr);
+    u64 pos = a->current->pos;
+
+    utassert(a->Push((u64)-16, 8, false) == nullptr);
+    utassert(a->Push((u64)(int)-1, 1, true) == nullptr);
+    utassert(a->current->pos == pos);
+    ArenaDelete(a);
+}
+
 static void ArenaPtrCompressTest() {
     // Single-block round-trip
     {
@@ -441,12 +500,45 @@ static void WaitThreadTest() {
     AtomicBoolSet(&gWaitThreadFinished, false);
     thread = StartThread(MkFunc0Void(WaitThreadWorker), StrL("wait-thread-test"));
     utassert(SafeCloseThreadHandle(&thread));
-    SleepInMs(150);
+    // poll, a loaded CI runner can take long
+    for (int i = 0; i < 500 && !AtomicBoolGet(&gWaitThreadFinished); i++) {
+        SleepInMs(10);
+    }
     utassert(AtomicBoolGet(&gWaitThreadFinished));
 }
 #endif
 
+// CmdToggleMirror prints through FlipPixmapHorizontally: 3 and 4 byte pixels,
+// odd widths (the middle pixel stays), padded rows
+static void FlipPixmapTest() {
+    PixmapFormat formats[] = {PixmapFormat::BGR8, PixmapFormat::BGRA8};
+    for (PixmapFormat fmt : formats) {
+        constexpr int kDx = 3;
+        constexpr int kDy = 2;
+        Pixmap* p = AllocPixmap(kDx, kDy, fmt);
+        int bpp = PixmapBytesPerPixel(fmt);
+        for (int y = 0; y < kDy; y++) {
+            for (int x = 0; x < kDx; x++) {
+                for (int b = 0; b < bpp; b++) {
+                    p->data[(y * p->stride) + (x * bpp) + b] = (u8)((y * 100) + (x * 10) + b);
+                }
+            }
+        }
+        FlipPixmapHorizontally(p);
+        for (int y = 0; y < kDy; y++) {
+            for (int x = 0; x < kDx; x++) {
+                for (int b = 0; b < bpp; b++) {
+                    u8 want = (u8)((y * 100) + ((kDx - 1 - x) * 10) + b);
+                    utassert(p->data[(y * p->stride) + (x * bpp) + b] == want);
+                }
+            }
+        }
+        FreePixmap(p);
+    }
+}
+
 void BaseUtilTest() {
+    FlipPixmapTest();
 #if !OS_WASM
     WaitThreadTest();
 #endif
@@ -456,7 +548,12 @@ void BaseUtilTest() {
     Func1FromFunc0Test();
     Func1ListTest();
     ColorTest();
+    ReportIfReturnsCondTest();
+#if IS_DEBUG
+    MutexOwnerTest();
+#endif
     ArenaChainedBlockSizeTest();
+    ArenaPushOverflowTest();
     ArenaPtrCompressTest();
 #if OS_POSIX && !OS_WASM
     TimedJoinTest();

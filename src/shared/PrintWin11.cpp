@@ -53,6 +53,8 @@
 
 #include "PrintWin11.h"
 
+void PrintCurrentFileDeferred(MainWindow* win);
+
 using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
 using Microsoft::WRL::MakeAndInitialize;
@@ -83,8 +85,6 @@ using PrintRequestedHandler =
 // on the classic dialog for the rest of the session.
 static bool gWin11PrintUnavailable = false;
 
-static void RetryWithClassicDialog(MainWindow* win);
-
 using OptionChangedHandler =
     Foundation::ITypedEventHandler<OptDetails::PrintTaskOptionDetails*, OptDetails::PrintTaskOptionChangedEventArgs*>;
 
@@ -93,6 +93,7 @@ using OptionChangedHandler =
 static const WCHAR* kOptCenterHorizontally = L"sumatraCenterHorizontally";
 static const WCHAR* kOptExtraRotation = L"sumatraExtraRotation";
 static const WCHAR* kOptPageScaling = L"sumatraPageScaling";
+static const WCHAR* kOptAutoRotate = L"sumatraAutoRotate";
 
 // item ids of the rotation option, which is also how its value comes back
 static const WCHAR* kRotationItems[] = {L"0", L"90", L"180", L"270"};
@@ -560,6 +561,10 @@ class PrintDocumentSource final
         if (SUCCEEDED(GetOptionValue(details.Get(), kOptPageScaling, value))) {
             advanced.scale = UnboxScale(value.Get(), advanced.scale);
         }
+        value.Reset();
+        if (SUCCEEDED(GetOptionValue(details.Get(), kOptAutoRotate, value))) {
+            advanced.autoRotate = UnboxBool(value.Get(), advanced.autoRotate);
+        }
     }
 
     void ReadPageRanges(IInspectable* options) {
@@ -705,6 +710,7 @@ class PrintDocumentSource final
         engine->AddRef();
         this->currentPage = currentPage;
         advanced = Print_Advanced_Data(PrintRangeAdv::All, scale);
+        advanced.autoRotate = gSettings->printerDefaults.autoRotate;
         this->previewDpi = previewDpi;
         UseAllPages();
         return S_OK;
@@ -897,9 +903,9 @@ class Win11PrintSession {
     // pane as custom options; PrintDocumentSource reads them back when it lays
     // the pages out. The printer's own settings are standard options the dialog
     // already knows how to show; ShowAdvancedOptions says which (kStdOptions).
-    // The rest of Print_Advanced_Data has no equivalent here: autoRotate is on
-    // in both paths and settable in neither, and the two paper-size options
-    // work by rewriting a DEVMODE, which the system owns in this path.
+    // The rest of Print_Advanced_Data has no equivalent here: the two
+    // paper-size options work by rewriting a DEVMODE, which the system owns
+    // in this path.
     HRESULT AddAdvancedOptions(Printing::IPrintTaskOptionsCore* options) {
         ComPtr<OptDetails::IPrintTaskOptionDetails> details;
         HRESULT hr = GetOptionDetails(options, details);
@@ -918,6 +924,16 @@ class Win11PrintSession {
         }
         if (SUCCEEDED(hr)) {
             SetOptionBool(centerOption.Get(), advanced.centerHorizontally);
+        }
+
+        ComPtr<OptDetails::IPrintOptionDetails> autoRotateOption;
+        if (SUCCEEDED(hr)) {
+            ScopedHStr id(kOptAutoRotate);
+            ScopedHStr name(OptionLabelTemp(Tr("Rotate &wide pages to fit the paper")).s);
+            hr = details2->CreateToggleOption(id.h, name.h, &autoRotateOption);
+        }
+        if (SUCCEEDED(hr)) {
+            SetOptionBool(autoRotateOption.Get(), advanced.autoRotate);
         }
 
         ComPtr<OptDetails::IPrintOptionDetails> rotateOption;
@@ -1020,6 +1036,8 @@ class Win11PrintSession {
         }
         ScopedHStr center(kOptCenterHorizontally);
         displayed->Append(center.h);
+        ScopedHStr autoRotate(kOptAutoRotate);
+        displayed->Append(autoRotate.h);
         ScopedHStr rotate(kOptExtraRotation);
         displayed->Append(rotate.h);
         ScopedHStr scale(kOptPageScaling);
@@ -1180,7 +1198,7 @@ class Win11PrintSession {
                     return S_OK;
                 }
                 gWin11PrintUnavailable = true;
-                uitask::Post(MkFunc0(RetryWithClassicDialog, win), "Win11PrintFallback");
+                PostForWindow(win, PrintCurrentFileDeferred, "Win11PrintFallback");
                 return S_OK;
             });
         if (!completed) {
@@ -1259,14 +1277,6 @@ bool TryPrintCurrentFileWin11(MainWindow* win, HWND hwndFrame, PrintScaleAdv def
         return false;
     }
     return true;
-}
-
-// the modern dialog gave up without printing anything, so show the classic one
-static void RetryWithClassicDialog(MainWindow* win) {
-    if (!IsMainWindowValidAndNotClosing(win)) {
-        return;
-    }
-    PrintCurrentFile(win);
 }
 
 void ShutdownWin11Printing() {

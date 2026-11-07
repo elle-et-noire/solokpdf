@@ -4,6 +4,7 @@
 #include "base/Base.h"
 #include "base/File.h"
 #include "base/GuessFileType.h"
+#include "base/UITask.h"
 
 #include "gui/UIModels.h"
 
@@ -46,6 +47,10 @@ void CollectTipsFromString(Str src, StrVec* out) {
     for (int i = 0; i < len(lines); i++) {
         Str line = lines[i];
         if (str::IsEmptyOrWhiteSpace(line)) {
+            continue;
+        }
+        // a browser tab has no LaTeX integration
+        if (OS_WASM && str::Contains(line, StrL("(Help/LaTeX-integration)"))) {
             continue;
         }
         out->Append(line);
@@ -99,6 +104,27 @@ TempStr TrimGitTemp(Str s) {
         return str::DupTemp(Str(s.s, sLen - gitLen - 7));
     }
     return s;
+}
+
+// how many digits of the commit the About box shows
+constexpr int kAboutCommitDigits = 6;
+
+// The About box's "source" row: the commit the build is made from ("a1b2c3"),
+// linking to it on GitHub. Local builds aren't given one.
+void AboutSourceRow(Str* text, Str* url) {
+    static Str gText;
+    static Str gUrl;
+    if (str::IsNull(gText)) {
+        if (len(gitCommidId) > 0) {
+            gText = str::Dup(Str(gitCommidId.s, std::min(len(gitCommidId), kAboutCommitDigits)));
+            gUrl = str::Dup(fmt("https://github.com/sumatrapdfreader/sumatrapdf/commit/%s", gitCommidId));
+        } else {
+            gText = str::Dup(StrL("local build"));
+            gUrl = str::Dup(StrL("https://github.com/sumatrapdfreader/sumatrapdf"));
+        }
+    }
+    *text = gText;
+    *url = gUrl;
 }
 
 // Home-list entries with a path (same set as thumbnails when search is empty).
@@ -198,6 +224,84 @@ TempStr HomeThumbnailMetaTemp(FileState* fs, float* progressOut) {
     return fmt(Tr("%d pages").s, fs->pageCount);
 }
 
+// Sizes of files whose lookup can block, found on a thread: a file on a share
+// that's away waits out a network timeout (#6474). UI thread only
+struct HomeFileSizeEntry {
+    Str path;
+    i64 size = kHomeFileSizePending;
+    u64 lookedUpMs = 0;
+    bool lookingUp = false;
+};
+static Vec<HomeFileSizeEntry> gHomeFileSizes;
+// re-looked up after this, so a file that changed shows its new size
+constexpr u64 kHomeFileSizeTtlMs = 60 * 1000;
+
+struct HomeFileSizeLookup {
+    Str path;
+    i64 size = -1;
+};
+
+static HomeFileSizeEntry* FindHomeFileSize(Str path) {
+    for (HomeFileSizeEntry& e : gHomeFileSizes) {
+        if (str::Eq(e.path, path)) {
+            return &e;
+        }
+    }
+    return nullptr;
+}
+
+static void HomeFileSizeDone(HomeFileSizeLookup* res) {
+    HomeFileSizeEntry* e = FindHomeFileSize(res->path);
+    if (e) {
+        e->size = res->size;
+        e->lookedUpMs = GetTickCount64();
+        e->lookingUp = false;
+    }
+    str::Free(res->path);
+    delete res;
+    MaybeRedrawHomePage();
+}
+
+static void HomeFileSizeThread(HomeFileSizeLookup* res) {
+    res->size = file::GetSize(res->path);
+    uitask::Post(MkFunc0<HomeFileSizeLookup>(HomeFileSizeDone, res), "HomeFileSizeDone");
+}
+
+static bool SizeLookupMayBlock(Str path) {
+#if OS_WIN
+    // decided from the path shape and a cached drive type, without I/O
+    return path::IsOnNetworkDrive(path);
+#elif OS_WASM
+    (void)path;
+    return false;
+#else
+    // telling a network mount apart takes statfs, which a dead mount blocks too
+    (void)path;
+    return true;
+#endif
+}
+
+// size of a file the Home page lists: -1 if unknown, kHomeFileSizePending while
+// being looked up
+i64 GetHomeFileSize(Str path) {
+    if (!SizeLookupMayBlock(path)) {
+        return file::GetSize(path);
+    }
+    HomeFileSizeEntry* e = FindHomeFileSize(path);
+    if (!e) {
+        e = VecAppendBlanks(gHomeFileSizes, 1);
+        e->path = str::Dup(path);
+        e->size = kHomeFileSizePending;
+    }
+    bool stale = e->size == kHomeFileSizePending || GetTickCount64() - e->lookedUpMs > kHomeFileSizeTtlMs;
+    if (stale && !e->lookingUp) {
+        e->lookingUp = true;
+        auto* res = new HomeFileSizeLookup{str::Dup(path), -1};
+        RunAsync(MkFunc0<HomeFileSizeLookup>(HomeFileSizeThread, res), StrL("HomeFileSize"));
+    }
+    return e->size;
+}
+
 // one tip per line; cmd/trans-dl.ts extracts each line for translation
 Str sumatraTips = StrL(R"tips(You can [customize scrollbar](CmdChangeScrollbar).
 You can [customize keyboard shortcuts](Help/Customize-keyboard-shortcuts).
@@ -236,3 +340,14 @@ You can [zoom to fit the page content](Help/Scrolling-and-zooming#fit-the-page-c
 You can [paste an image from the clipboard](Help/Add-an-image-to-a-PDF#insert-an-image-from-the-clipboard).
 You can [translate selected text](Help/Customize-search-translation-services#search-or-translate-the-selection).
 )tips");
+
+// the line under the rows that says this isn't a release build
+Str AboutNoteText() {
+#if defined(PRE_RELEASE_VER)
+    return StrL("pre-release build");
+#elif IS_DEBUG
+    return StrL("debug build, for testing only");
+#else
+    return {};
+#endif
+}

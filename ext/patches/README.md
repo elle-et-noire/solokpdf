@@ -83,29 +83,39 @@ relative to `ext/mupdf`, so `-p1` from inside that directory.
 | `0080-bidi-skip-ltr-only-text` | no bidi resolve passes for text with no RTL or explicit types |
 | `0081-html-pre-wraps` | `pre` defaults to `pre-wrap`: pages can't scroll, a book made from a text file lost most of each line |
 | `0082-html-table-margin-auto` | `margin-left` and `margin-right` `auto` center a table; RTF's `\trqc` needs it |
-| `0083-pdf-color-filter-closed-stroke` | recolor the default stroke of closed paths |
-| `0084-pdf-filter-empty-resources` | run content filters when a page has no resource dictionary |
-| `0085-pdf-filter-type3-shared` | keep shared Type 3 fonts unchanged while filtering pages |
-| `0086-pdf-filter-shared-resources` | filter shared forms and patterns without changing the originals |
-| `0087-pdf-filter-appearance-states` | filter each annotation appearance state without changing shared streams |
-| `0088-pdf-color-filter-image-masks` | preserve image-mask paint colors during color filtering |
-| `0089-pdf-mask-default-colors` | preserve the default image-mask paint after a colorspace change |
-| `0090-pdf-mask-colored-patterns` | preserve colored patterns used to paint image masks |
-| `0091-pdf-mask-uncolored-patterns` | preserve uncolored pattern paints used by image masks |
-| `0092-pdf-pattern-colorspace-cache` | avoid caching an indirect pattern base colorspace twice |
-| `0093-pdf-mask-shading-patterns` | preserve shading patterns used by image masks |
-| `0094-pdf-recolor-shade-copy` | copy shared shading data before recoloring |
-| `0095-pdf-shading-pattern-properties` | retain shading pattern properties during color filtering |
-| `0096-pdf-filter-preserve-soft-masks` | preserve soft masks during color filtering |
-| `0097-pdf-preserve-shading-pattern` | retain shading patterns when shade recoloring is disabled |
-| `0098-pdf-snapshot-suffix` | write incremental snapshot changes without copying the original PDF |
-| `0099-pdf-incremental-output-bias` | retain PDF prefix offsets when writing incremental output streams |
-| `0100-pdf-mask-filter-identity` | recognize color filters across DLL boundaries |
-| `0101-pdf-pattern-stroke-colors` | let callers reject uncolored pattern strokes unsupported by their renderer |
-| `0102-pdf-color-form-inheritance` | reject isolated color filtering when a Form inherits painting colors |
+| `0083-pdf-appearance-rtl-plain-text` | free text / form text lines get `dir="auto"`, so Persian, Arabic and Hebrew lines run right to left |
+| `0084-stext-rtl-clusters` | copied Arabic keeps diacritics and ligatures in logical order: RTL clusters survive the bidi run reversal (#6485) |
+| `0085-html-cjk-generic-font-and-justify` | CJK text in a generic font family uses the system CJK font for the whole run, so its punctuation is full width; justified CJK lines are spread between the chars (#6500) |
 
-That is the whole list: `ext/mupdf` is byte-for-byte `1.28.5` plus these
-patches, and nothing else.
+## SolokPDF patches
+
+SolokPDF patches apply after upstream's numbered ones, in this order.
+
+| Patch | What |
+| --- | --- |
+| `solok-0001-pdf-color-filter-closed-stroke` | recolor the default stroke of closed paths |
+| `solok-0002-pdf-filter-empty-resources` | run content filters when a page has no resource dictionary |
+| `solok-0003-pdf-filter-type3-shared` | keep shared Type 3 fonts unchanged while filtering pages |
+| `solok-0004-pdf-filter-shared-resources` | filter shared forms and patterns without changing the originals |
+| `solok-0005-pdf-filter-appearance-states` | filter each annotation appearance state without changing shared streams |
+| `solok-0006-pdf-color-filter-image-masks` | preserve image-mask paint colors during color filtering |
+| `solok-0007-pdf-mask-default-colors` | preserve the default image-mask paint after a colorspace change |
+| `solok-0008-pdf-mask-colored-patterns` | preserve colored patterns used to paint image masks |
+| `solok-0009-pdf-mask-uncolored-patterns` | preserve uncolored pattern paints used by image masks |
+| `solok-0010-pdf-pattern-colorspace-cache` | avoid caching an indirect pattern base colorspace twice |
+| `solok-0011-pdf-mask-shading-patterns` | preserve shading patterns used by image masks |
+| `solok-0012-pdf-recolor-shade-copy` | copy shared shading data before recoloring |
+| `solok-0013-pdf-shading-pattern-properties` | retain shading pattern properties during color filtering |
+| `solok-0014-pdf-filter-preserve-soft-masks` | preserve soft masks during color filtering |
+| `solok-0015-pdf-preserve-shading-pattern` | retain shading patterns when shade recoloring is disabled |
+| `solok-0016-pdf-snapshot-suffix` | write incremental snapshot changes without copying the original PDF |
+| `solok-0017-pdf-incremental-output-bias` | retain PDF prefix offsets when writing incremental output streams |
+| `solok-0018-pdf-mask-filter-identity` | recognize color filters across DLL boundaries |
+| `solok-0019-pdf-pattern-stroke-colors` | let callers reject uncolored pattern strokes unsupported by their renderer |
+| `solok-0020-pdf-color-form-inheritance` | reject isolated color filtering when a Form inherits painting colors |
+
+That is the whole list: `ext/mupdf` is byte-for-byte `1.28.5` plus the
+patches in both tables, and nothing else.
 
 ## Backports
 
@@ -129,7 +139,7 @@ own regex engine).
 git -C ~/src/mupdf worktree add /tmp/mupdf-new <new-tag>
 cd /tmp/mupdf-new
 git config core.autocrlf false   # else git apply writes CRLF on Windows
-for p in ~/src/sumatrapdf/ext/patches/0*.patch; do
+for p in ~/src/sumatrapdf/ext/patches/0*.patch ~/src/sumatrapdf/ext/patches/solok-*.patch; do
     git apply --3way "$p" || echo "needs hand-merging: $p"
 done
 ```

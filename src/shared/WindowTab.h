@@ -22,6 +22,7 @@ enum class SidebarContent {
     Bookmarks,
     Thumbnails,
     Favorites,
+    Layers,
 };
 #else
 struct PdfSigResult;
@@ -32,20 +33,34 @@ enum class SidebarView {
     Thumbnails,
     Favorites,
     Signatures,
+    Layers,
 };
-constexpr int kSidebarViewCount = 4;
+constexpr int kSidebarViewCount = 5;
+static_assert(kSidebarViewCount == (int)SidebarView::Layers + 1);
 
 SidebarView SidebarViewFromStr(Str s, SidebarView def);
 Str SidebarViewToStr(SidebarView);
 #endif
 
+// why a started auto-scroll isn't moving; one reason at a time
+enum class AutoScrollStop {
+    None, // scrolling
+    User,
+    AtEnd,     // reached the end in the scroll direction
+    TimeUp,    // ReadingAutoScrollMinutes ran out
+    Minimized, // resumes on restore
+};
+
 struct AutoScroll {
     bool on = false;
-    bool paused = false;
-    bool atEnd = false;
+    AutoScrollStop stop = AutoScrollStop::None;
     int dir = 1;
     float accum = 0;
     i64 lastQpc = 0;
+    // seconds scrolled since start, for ReadingAutoScrollMinutes
+    float runSec = 0;
+
+    bool IsStopped() const { return stop != AutoScrollStop::None; }
 };
 
 struct ReadingBarTab {
@@ -67,6 +82,8 @@ struct AIChatTabState {
     Str sessionId;
     str::Builder chatLog;
     void* process = nullptr;
+    // the running turn, 0 if none: its updates are routed by this
+    int turnId = 0;
 };
 
 /* Data related to a single document loaded into a tab/window */
@@ -113,7 +130,7 @@ struct WindowTab {
     u64 autoReloadStartMs = 0;
     FILETIME autoReloadModTime{};
 #if defined(SUMATRA_NG)
-    int autoReloadLeftMs = 0;
+    Countdown autoReload;
 #endif
     ReadAloudHighlightMap* readAloudHighlight = nullptr;
     Str filePath;

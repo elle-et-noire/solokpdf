@@ -46,22 +46,22 @@
 // the page has loaded by then
 constexpr int kAutoSelectDelayMs = 500;
 
-// marked.min.js, unpacked once (orig reads it out of IDR_EMBEDDED_PAK)
-static u8* gMarkedJs = nullptr;
-static int gMarkedJsLen = 0;
+// markdown-it.min.js, unpacked once (orig reads it out of IDR_EMBEDDED_PAK)
+static u8* gMarkdownJs = nullptr;
+static int gMarkdownJsLen = 0;
 
-static void EnsureMarkedLoaded() {
-    if (gMarkedJs) {
+static void EnsureMarkdownJsLoaded() {
+    if (gMarkdownJs) {
         return;
     }
-    gMarkedJs = GetEmbeddedFileData(StrL("marked.min.js"), &gMarkedJsLen);
+    gMarkdownJs = GetEmbeddedFileData(StrL("markdown-it.min.js"), &gMarkdownJsLen);
 }
 
 // --- the panel --------------------------------------------------------------
 
 struct AIChatPanel;
 
-// serves the chat page and marked.min.js from the provider's virtual host
+// serves the chat page and markdown-it.min.js from the provider's virtual host
 struct AIChatResources : BrowserViewCallback {
     AIChatPanel* panel = nullptr;
 
@@ -85,8 +85,8 @@ struct AIChatPanel {
     DialogSelect optionSel;
     gp::InputState* input = nullptr;
     bool flagChecked = false;
-    // ms left of orig's kTimerAutoSelectSession; < 0 means not armed
-    int autoSelectMs = -1;
+    // orig's kTimerAutoSelectSession
+    Countdown autoSelect;
     // the selects are polled once a frame (see DialogSelect::PollChanged)
     bool initialized = false;
 };
@@ -114,10 +114,10 @@ Str AIChatResources::GetDataForUrl(Str url) {
     if (AIChatPathIs(url, StrL("index.html")) || len(url) == 0) {
         return panel->html;
     }
-    if (AIChatPathIs(url, StrL("marked.min.js"))) {
-        EnsureMarkedLoaded();
-        if (gMarkedJs && gMarkedJsLen > 0) {
-            return Str((char*)gMarkedJs, gMarkedJsLen);
+    if (AIChatPathIs(url, StrL("markdown-it.min.js"))) {
+        EnsureMarkdownJsLoaded();
+        if (gMarkdownJs && gMarkdownJsLen > 0) {
+            return Str((char*)gMarkdownJs, gMarkdownJsLen);
         }
     }
     return {};
@@ -201,7 +201,7 @@ static void EnsureWebViewReady(MainWindow* win) {
     if (!BrowserViewAvailable()) {
         return;
     }
-    EnsureMarkedLoaded();
+    EnsureMarkdownJsLoaded();
     MakeChatPage(p, provider);
     p->res.panel = p;
     p->view = BrowserViewCreate(win, nullptr, &p->res, provider->virtualHost);
@@ -650,6 +650,8 @@ static void SendAIChatMessage(MainWindow* win) {
     ctx->stream.win = win;
     ctx->stream.providerId = win->aiChatProvider;
     ctx->stream.sessionId = str::Dup(st->sessionId ? st->sessionId : kAIChatPendingSessionId());
+    st->turnId = AIChatNewTurnId();
+    ctx->stream.turnId = st->turnId;
     RunAsync(MkFunc0(AIChatReadThread, ctx), StrL("AIChatReadThread"));
 }
 
@@ -775,7 +777,7 @@ void OnAIChatToggle(MainWindow* win, int providerId) {
         PopulateSessionCombo(win);
         // defer auto-select so the page has time to load
         AIChatPanel* panel = PanelOf(win);
-        panel->autoSelectMs = kAutoSelectDelayMs;
+        panel->autoSelect.Arm(kAutoSelectDelayMs);
     }
     logf("OnAIChatToggle:\n%s", AIChatPanelStateTemp(win));
     AppShellInvalidate(win);
@@ -940,14 +942,9 @@ int AIChatPanelDx(MainWindow* win) {
 // the deferred auto-select orig runs off kTimerAutoSelectSession
 void AIChatTick(MainWindow* win, int elapsedMs) {
     AIChatPanel* p = PanelOf(win);
-    if (!p || p->autoSelectMs < 0) {
+    if (!p || !p->autoSelect.Tick(elapsedMs)) {
         return;
     }
-    p->autoSelectMs -= elapsedMs;
-    if (p->autoSelectMs > 0) {
-        return;
-    }
-    p->autoSelectMs = -1;
     AutoSelectRecentSession(win);
     PopulateSessionCombo(win);
     AppShellInvalidate(win);

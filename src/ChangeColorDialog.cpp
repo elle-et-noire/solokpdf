@@ -599,14 +599,7 @@ void ChangeColorWnd::OnCancel(VirtMouseEvent*) {
 }
 
 WindowTab* ChangeColorWnd::TargetTab() {
-    if (!IsMainWindowValidAndNotClosing(win)) {
-        return nullptr;
-    }
-    WindowTab* t = FindTabByFilePath(filePath);
-    if (!t || t->win != win) {
-        return nullptr;
-    }
-    return t;
+    return FindTabInWindow(filePath, win);
 }
 
 void ChangeColorWnd::ApplyBackground() {
@@ -854,7 +847,7 @@ bool ChangeColorWnd::Create(MainWindow* mainWin) {
     win = mainWin;
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowTextDisabledColor();
+    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     SetFont(fontText);
     bool isRtl = IsUIRtl();

@@ -167,15 +167,6 @@ TempStr GetAppDataDirTemp() {
     return gAppDataDir;
 }
 
-// Generate full path for a file or directory for storing data
-TempStr GetPathInAppDataDirTemp(Str name) {
-    if (len(name) == 0) {
-        return {};
-    }
-    TempStr dir = GetAppDataDirTemp();
-    return path::JoinTemp(dir, name);
-}
-
 // List of rules used to detect TeX editors.
 
 #define kRegCurrentVer "Software\\Microsoft\\Windows\\CurrentVersion"
@@ -456,16 +447,6 @@ Rect GetDefaultWindowPos() {
     return r;
 }
 
-void SaveCallstackLogs() {
-    Str s = dbghelp::GetCallstacks();
-    if (len(s) == 0) {
-        return;
-    }
-    TempStr filePath = GetPathInAppDataDirTemp(StrL("callstacks.txt"));
-    file::WriteFile(filePath, s);
-    str::Free(s);
-}
-
 // cache because calculating sha1 of the whole executable
 // might be relatively expensive
 // sha1 is 20 bytes => 40 hex chars + null terminator
@@ -513,6 +494,15 @@ TempStr GetWebViewDataDirTemp() {
 }
 
 #endif // OS_WIN
+
+// Generate full path for a file or directory for storing data
+TempStr GetPathInAppDataDirTemp(Str name) {
+    if (len(name) == 0) {
+        return {};
+    }
+    TempStr dir = GetAppDataDirTemp();
+    return path::JoinTemp(dir, name);
+}
 
 // Portable helpers shared with AppTools_posix.cpp.
 
@@ -619,3 +609,11 @@ int CurrentProcessId() {
 }
 
 #endif // OS_WIN
+
+TempStr PathForDisplayTemp(Str path) {
+#if OS_WASM
+    return path::GetBaseNameTemp(path);
+#else
+    return str::DupTemp(path);
+#endif
+}

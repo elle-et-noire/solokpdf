@@ -78,7 +78,7 @@ bool TabsAreVisible(MainWindow* win) {
         return false;
     }
     // orig's showTabsBar: fullscreen and presentation hide the strip
-    if (win->isFullScreen || win->InPresentation()) {
+    if (win->IsFullScreenOrPresentation()) {
         return false;
     }
     int nTabs = win->TabCount();
@@ -98,9 +98,9 @@ static NO_INLINE void VerifyWindowTab(MainWindow* win, WindowTab* tdata) {
         return;
     }
     bool expectedTocVisibility = tdata->showToc; // if not in presentation mode
-    if (PM_DISABLED != win->presentation) {
-        expectedTocVisibility = false; // PM_BLACK_SCREEN, PM_WHITE_SCREEN
-        if (PM_ENABLED == win->presentation) {
+    if (win->InPresentation()) {
+        expectedTocVisibility = false; // WindowMode::PresentationBlack, WindowMode::PresentationWhite
+        if (win->windowMode == WindowMode::Presentation) {
             expectedTocVisibility = tdata->showTocPresentation;
         }
     }
@@ -357,6 +357,8 @@ void MaybeMigrateTab(WindowTab* tab, MainWindow* newWin) {
     Str displayName = str::Dup(tab->displayName);
     TabState* state = NewTabStateFromTab(tab);
     RemoveTab(tab);
+    // the new tab takes the file: don't let ~WindowTab delete an open-cache copy
+    str::FreePtr(&tab->filePath);
     delete tab;
 
     if (!newWin) {
@@ -387,11 +389,10 @@ void MaybeMigrateTab(WindowTab* tab, MainWindow* newWin) {
         }
 #endif
     }
+    // the tab is already gone: if no window could be made, reopen the document
+    // where it was rather than lose it
     if (!newWin) {
-        DeleteTabState(state);
-        str::Free(path);
-        str::Free(displayName);
-        return;
+        newWin = oldWin;
     }
     logf("MaybeMigrateTab: '%s' -> window 0x%p\n", path, newWin);
     // orig re-opens the document in the new window rather than sliding the
@@ -557,6 +558,9 @@ void TabContextMenuCommand(MainWindow* win, WindowTab* tabUnderMouse, int cmdId)
             return;
         case CmdDuplicateInNewWindow:
             DuplicateTabInNewWindow(tabUnderMouse);
+            return;
+        case CmdDuplicateInNewTab:
+            DuplicateTabInNewTab(tabUnderMouse);
             return;
         case CmdSetTabColor:
             ShowSetTabColorDialog(win, tabUnderMouse);

@@ -152,7 +152,6 @@ struct VirtCtrl : ILayout {
 
     Color GetColor(int idx) const;
     void SetColor(int idx, Color);
-    void ResetColors();
 
     // ILayout
     int MinIntrinsicHeight(int width) override;
@@ -217,7 +216,6 @@ struct VirtCtrl : ILayout {
     bool IsEnabled() const;
 
     HWND GetHwnd() const;
-    bool IsPaintable() const;
     bool IsHitTestable() const;
     void SetFlag(u32 f, bool on);
     bool HasFlag(u32 f) const;
@@ -327,6 +325,7 @@ struct VirtRoot {
     // the tops found in a layout tree; not owned
     void SetTops(const Vec<VirtCtrl*>&);
     void ForgetTops();
+    void DropStaleInputState();
     void SetBounds(Rect);
     void LayoutIfNeeded();
     void RequestLayout();
@@ -375,7 +374,6 @@ struct VirtScroll : VirtCtrl {
     void OnMouseWheel(VirtMouseEvent*);
     void OnPan(VirtMouseEvent*);
 
-    void SetContentDy(int);
     int MaxScrollY() const;
     bool ScrollTo(int y);
     bool ScrollBy(int dy);
@@ -468,6 +466,8 @@ struct VirtListBox : VirtCtrl {
     bool multiSelect = false;
     // the dashed outline while the list has the keys; off: the selection shows it
     bool showFocusRing = false;
+    // false: rows cut by the viewport's edges are shown too
+    bool wholeRows = true;
 
     VirtListBox();
     ~VirtListBox() override;
@@ -503,7 +503,7 @@ struct VirtListBox : VirtCtrl {
     Rect ItemRect(int idx);
     void EnsureVisible(int idx);
     int ViewportDy();
-    // ViewportDy() rounded down to whole rows
+    // ViewportDy() rounded down to whole rows, if wholeRows
     int UsableDy();
     int MaxScrollY();
     bool ScrollTo(int y);
@@ -661,7 +661,6 @@ struct VirtText : VirtCtrl {
     Size Layout(Constraints bc) override;
     Size GetIdealSize() override;
 
-    Size MinIntrinsicSize(int width, int height);
     Size GetIdealSize(bool onlyIfEmpty);
     void SetText(Str);
 
@@ -869,8 +868,6 @@ struct VirtSlider : VirtCtrl {
     Point ThumbCenterLocal() const;
     void ApplyFromEvent(const VirtMouseEvent&, bool commit);
 };
-
-VirtSlider* AsVirtSlider(ILayout*);
 
 struct VirtSpacer : VirtCtrl {
     Size idealSize;

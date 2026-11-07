@@ -12,6 +12,7 @@ struct PlatformFont;
 enum class VirtButtonStyle;
 
 void ShowAddFavoriteDialog(MainWindow* win, Str filePath, int pageNo, Str pageLabel, Str name);
+void ShowEditFavoritesDialog(MainWindow* win);
 void ShowAdvancedSettingsDialog(MainWindow* win);
 void ShowShortcutsDialog(MainWindow* win);
 TempStr ShortcutsDialogTestTemp(Str action, Str command, Str key, Str argument, int* exitCodeOut);
@@ -58,7 +59,7 @@ void ShowEbookSettingsDialog(MainWindow* win);
 Str ShowGetPasswordDialog(HWND hwndParent, Str fileName, bool* rememberPassword, bool* showPassword);
 void ShowGoToPageDialog(MainWindow* win);
 void ShowInverseSearchDialog(MainWindow* win);
-void ShowSumatraOnlineDialog(MainWindow* win);
+void ShowSumatraPDFWebDialog(MainWindow* win);
 
 enum class PrintRangeAdv {
     All = 0,
@@ -113,7 +114,6 @@ struct Print_Advanced_Data {
           extraRotation(extraRotation) {}
 };
 
-HPROPSHEETPAGE CreatePrintAdvancedPropSheet(Print_Advanced_Data* data);
 void ShowPDFScriptDialog(MainWindow* win);
 TempStr PDFScriptTestTemp(Str action, int idx, int* exitCodeOut);
 

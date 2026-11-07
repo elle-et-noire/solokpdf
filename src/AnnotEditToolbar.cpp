@@ -76,7 +76,6 @@ struct AnnotEditChip : VirtCustom {
 static void StartContentsEdit(AnnotEditToolbar*);
 static void EndContentsEdit(AnnotEditToolbar*, bool accept);
 static void DestroyContentsEditor(AnnotEditToolbar*);
-static void PostedStartContentsEdit(MainWindow*);
 static void PostedDeleteSelectedAnnotation(MainWindow*);
 static bool FreeTextInPlaceEditJustEnded();
 
@@ -1196,7 +1195,7 @@ static bool GetAnnotScreenBounds(MainWindow* win, Annotation* annot, Rect& out) 
 // popup is TOPMOST (issue #6111)
 static HWND ToolbarZ(AnnotEditToolbar* tb) {
     MainWindow* win = tb ? tb->win : nullptr;
-    if (win && (win->isFullScreen || win->presentation)) {
+    if (win && (win->IsFullScreenOrPresentation())) {
         return HWND_TOPMOST;
     }
     return HWND_TOP;
@@ -1328,15 +1327,16 @@ static void EndContentsEdit(AnnotEditToolbar* tb, bool accept) {
     }
 }
 
+// posted tasks outlive the window that posted them: check it's still there
 static void PostedAcceptContents(MainWindow* win) {
-    if (!win || !win->annotEditToolbar) {
+    if (!IsMainWindowValid(win) || !win->annotEditToolbar) {
         return;
     }
     EndContentsEdit(win->annotEditToolbar, true);
 }
 
 static void PostedCancelContents(MainWindow* win) {
-    if (!win || !win->annotEditToolbar) {
+    if (!IsMainWindowValid(win) || !win->annotEditToolbar) {
         return;
     }
     EndContentsEdit(win->annotEditToolbar, false);
@@ -1385,7 +1385,7 @@ static bool KeepContentsEditOnKillFocus(AnnotEditToolbar* tb, HWND next) {
 }
 
 static void PostedRefocusContents(MainWindow* win) {
-    AnnotEditToolbar* tb = win ? win->annotEditToolbar : nullptr;
+    AnnotEditToolbar* tb = IsMainWindowValidAndNotClosing(win) ? win->annotEditToolbar : nullptr;
     if (!tb || tb->contentsEditClosing || !tb->editingContents || !tb->contentsEdit) {
         return;
     }
@@ -1582,12 +1582,8 @@ void StartSelectedAnnotContentsEdit(MainWindow* win) {
     StartContentsEdit(tb);
 }
 
-static void PostedStartContentsEdit(MainWindow* win) {
-    StartSelectedAnnotContentsEdit(win);
-}
-
 static void PostedDeleteSelectedAnnotation(MainWindow* win) {
-    AnnotEditToolbar* tb = win ? win->annotEditToolbar : nullptr;
+    AnnotEditToolbar* tb = IsMainWindowValidAndNotClosing(win) ? win->annotEditToolbar : nullptr;
     Annotation* annot = LiveToolbarAnnot(tb);
     if (annot) {
         DeleteAnnotationAndUpdateUI(tb->tab, annot);
@@ -2308,7 +2304,7 @@ void DrawAnnotationListRow(Gfx* gfx, PlatformFont* font, Rect rc, Annotation* an
                 gfx->PushClip(rcContents);
                 DrawMaybeHighlightedText(gfx, rcContents, oneLine, filterWords, hlScratch, colBg, false, false,
                                          gfxTextEllipsis | gfxTextVCenter | gfxTextLeft, font,
-                                         EnsureContrast(ThemeWindowTextDisabledColor(), colBg));
+                                         EnsureContrast(ThemeWindowDarkerTextColor(), colBg));
                 gfx->PopClip();
             }
         }
@@ -2386,7 +2382,7 @@ static void BuildAnnotationHoverOverlay(AnnotationHoverOverlay* overlay, Annotat
     CollectAnnotationHoverRows(annot, rows);
 
     Color textColor = AnnotationHoverText();
-    Color labelColor = ThemeWindowTextDisabledColor();
+    Color labelColor = ThemeWindowDarkerTextColor();
     auto* title = NewVirtText({
         .s = AnnotationReadableNameTemp(Type(annot)),
         .font = GetBoldPlatformFont(overlay->font),

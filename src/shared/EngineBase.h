@@ -249,6 +249,7 @@ struct PageDestination : IPageDestination {
     Str value;
     Str name;
     int embedObjNum = 0; // PDF object number for embedded file attachment annotations
+    int attachmentNo = -1; // index of a kindDestinationAttachment, see PdfLoadAttachments
 
     ~PageDestination() override;
 
@@ -262,6 +263,8 @@ Str ExtractJsCallName(Str js);
 // JavaScript app.popUpMenu items (Altium schematic PDFs, issue #1198).
 struct PageDestinationJsMenu : IPageDestination {
     StrVec items;
+    // what picking each item returns (KiCad, issue #6503); empty when unknown
+    StrVec returns;
     Str tooltip;
 
     PageDestinationJsMenu();
@@ -269,6 +272,15 @@ struct PageDestinationJsMenu : IPageDestination {
 
     Str GetValue() override;
 };
+
+bool ParseJsMenuCallItems(Str js, StrVec& items, StrVec& returns);
+bool JsDefinesMenuFunction(Str js, Str name);
+
+struct JsMenuAction {
+    Str url;
+    int pageNo = 0;
+};
+JsMenuAction GetJsMenuAction(PageDestinationJsMenu*, int i);
 
 IPageDestination* NewSimpleDest(int pageNo, RectF rect, float zoom = 0.f, Str value = {});
 IPageDestination* NewSimpleDest(Arena* arena, int pageNo, RectF rect, float zoom = 0.f, Str value = {});
@@ -327,6 +339,9 @@ struct PageElementComment : IPageElement {
 struct PageElementDestination : IPageElement {
     IPageDestination* dest;
     bool destOwned = true; // false if dest is engine-owned (GetNamedDest)
+    // a PDF link's /QuadPoints, in page coordinates: when there are any, only
+    // these areas within rect are the link (a link broken over two lines)
+    Vec<QuadF> quads;
 
     PageElementDestination(IPageDestination* d, bool owned = true) {
         kind = kindPageElementDest;
@@ -506,6 +521,9 @@ class EngineBase {
     Str decryptionKey;
     Str protectedPassword;
     bool hasPageLabels = false;
+    // bumped when IPageElement objects handed out by GetElements() are freed
+    // (e.g. after a content edit); holders compare it before using a pointer
+    AtomicInt elementsGeneration = 0;
     int logicalPageCount = 0;
     bool hideAnnotations = false;
     bool disableAntiAlias = false;

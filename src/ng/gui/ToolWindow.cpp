@@ -92,6 +92,17 @@ static bool IsLive(ToolWindow* tw) {
     return tw && VecContains(gToolWindows, tw);
 }
 
+// placing one can run code that opens or closes another
+template <class Fn>
+static void FollowOwned(MainWindow* win, Fn followOne) {
+    Vec<ToolWindow*> wins = gToolWindows;
+    for (ToolWindow* tw : wins) {
+        if (tw->owner == win && IsLive(tw)) {
+            followOne(tw);
+        }
+    }
+}
+
 ToolWindow* ToolWindowFind(Str name) {
     for (ToolWindow* tw : gToolWindows) {
         if (!tw->closing && str::Eq(Str(tw->desc.name), name)) {
@@ -378,13 +389,7 @@ static void FollowOne(ToolWindow* tw) {
 }
 
 void ToolWindowsFollow(MainWindow* win) {
-    // placing one can run code that opens or closes another
-    Vec<ToolWindow*> wins = gToolWindows;
-    for (ToolWindow* tw : wins) {
-        if (tw->owner == win && IsLive(tw)) {
-            FollowOne(tw);
-        }
-    }
+    FollowOwned(win, FollowOne);
 }
 
 Rect ToolWindowDockedBarRect(MainWindow* owner, int marginDip, float barDyDip) {
@@ -416,17 +421,6 @@ Point ToolWindowOffsetInOwner(ToolWindow* tw) {
     MapWindowPoints(tw->hwnd, hwndOwner, &pt, 1);
     int dpi = OwnerDpi(tw->owner);
     return Point{MulDiv(pt.x, 96, dpi), MulDiv(pt.y, 96, dpi)};
-}
-
-// ng: gpui has stopped tracking the mouse by the time the move loop ends
-// (it never sees the button go up), so the press is handed to the system
-// after the click that started it was dispatched
-void ToolWindowDragMove(ToolWindow* tw) {
-    if (!IsLive(tw) || !tw->hwnd) {
-        return;
-    }
-    ReleaseCapture();
-    PostMessageW(tw->hwnd, WM_SYSCOMMAND, SC_MOVE | HTCAPTION, 0);
 }
 
 // orig's DarkModeApplyToTitleBar: the caption follows the theme, not the system
@@ -971,12 +965,7 @@ static void FollowOne(ToolWindow* tw) {
 }
 
 void ToolWindowsFollow(MainWindow* win) {
-    Vec<ToolWindow*> wins = gToolWindows;
-    for (ToolWindow* tw : wins) {
-        if (tw->owner == win && IsLive(tw)) {
-            FollowOne(tw);
-        }
-    }
+    FollowOwned(win, FollowOne);
 }
 
 Rect ToolWindowDockedBarRect(MainWindow* owner, int marginDip, float barDyDip) {

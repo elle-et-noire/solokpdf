@@ -72,6 +72,8 @@ struct BitmapCacheEntry {
     // ng: the platform image the canvas draws (a gpui RenderImage), built from
     // `bitmap` the first time the tile is painted and dropped with the entry
     void* renderImage = nullptr;
+    // the same, flipped left to right, for CmdToggleMirror
+    void* renderImageMirrored = nullptr;
     bool outOfDate = false;
     int refs = 1;
     // RenderCache::darkModeEpoch at render time; entries from an older epoch
@@ -261,7 +263,6 @@ struct RenderCache {
     bool DropCacheEntryIfNotUsed(BitmapCacheEntry* entry);
     bool IsCached(BitmapCacheEntry* entry);
     void FreePage(DisplayModel* dm, int pageNo, TilePosition* tile = nullptr);
-    void FreeNotVisible();
 
 #if OS_WIN
     int PaintTile(HDC hdc, Rect bounds, DisplayModel* dm, int pageNo, TilePosition tile, Rect tileOnScreen,

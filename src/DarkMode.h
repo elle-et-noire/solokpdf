@@ -13,8 +13,6 @@ struct MainWindow;
 bool DarkModeIsActive();
 // native scrollbars are drawn with the dark Explorer theme
 bool DarkModeScrollBarsAreDark();
-// background for a dialog we create ourselves
-Color DarkModeDialogBgColor();
 
 void DarkModeInit();
 // push the current theme's palette into darkmodelib
@@ -25,8 +23,6 @@ void DarkModeRememberTreeViewStyle();
 void DarkModeApplyToWindow(HWND);
 // ... and have it erase its own background, which stops the flicker
 void DarkModeApplyToWindowAndEraseBg(HWND);
-// ... for a window that also wants owner-draw notifications
-void DarkModeApplyToNotifyWindowAndEraseBg(HWND);
 // only the title bar, for a window that themes its children itself
 void DarkModeApplyToTitleBar(HWND);
 // a popup window, once its children exist

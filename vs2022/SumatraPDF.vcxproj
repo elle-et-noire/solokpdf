@@ -1416,11 +1416,14 @@
     <ClInclude Include="..\src\FindWindow.h" />
     <ClInclude Include="..\src\ImageSaveCropResize.h" />
     <ClInclude Include="..\src\Installer.h" />
+    <ClInclude Include="..\src\LayersUI.h" />
     <ClInclude Include="..\src\MainWindow.h" />
+    <ClInclude Include="..\src\MeasurementToolbar.h" />
     <ClInclude Include="..\src\Menu.h" />
     <ClInclude Include="..\src\MergePdf.h" />
     <ClInclude Include="..\src\Notifications.h" />
     <ClInclude Include="..\src\OverlayScrollbar.h" />
+    <ClInclude Include="..\src\PageInfoBar.h" />
     <ClInclude Include="..\src\PageThumbnails.h" />
     <ClInclude Include="..\src\RegistryPreview.h" />
     <ClInclude Include="..\src\RegistrySearchFilter.h" />
@@ -1535,6 +1538,7 @@
     <ClInclude Include="..\src\shared\NavFilesInFolderCommon.h" />
     <ClInclude Include="..\src\shared\NotificationsCommon.h" />
     <ClInclude Include="..\src\shared\OleDragDropCommon.h" />
+    <ClInclude Include="..\src\shared\OpenFromUrlCommon.h" />
     <ClInclude Include="..\src\shared\OverlayScrollbarCommon.h" />
     <ClInclude Include="..\src\shared\PDFScript.h" />
     <ClInclude Include="..\src\shared\PageGridDialogCommon.h" />
@@ -1685,15 +1689,19 @@
     <ClCompile Include="..\src\InstallerCommon.cpp" />
     <ClCompile Include="..\src\InverseSearchDialog.cpp" />
     <ClCompile Include="..\src\KeyboardHelp.cpp" />
+    <ClCompile Include="..\src\LayersUI.cpp" />
     <ClCompile Include="..\src\MainWindow.cpp" />
+    <ClCompile Include="..\src\MeasurementToolbar.cpp" />
     <ClCompile Include="..\src\Menu.cpp" />
     <ClCompile Include="..\src\MergePdf.cpp" />
     <ClCompile Include="..\src\MuPDF_Exports.cpp" />
     <ClCompile Include="..\src\NavFilesInFolder.cpp" />
     <ClCompile Include="..\src\Notifications.cpp" />
+    <ClCompile Include="..\src\OpenFromUrlDialog.cpp" />
     <ClCompile Include="..\src\OverlayScrollbar.cpp" />
     <ClCompile Include="..\src\PDFScriptDialog.cpp" />
     <ClCompile Include="..\src\PageGridDialog.cpp" />
+    <ClCompile Include="..\src\PageInfoBar.cpp" />
     <ClCompile Include="..\src\PageThumbnails.cpp" />
     <ClCompile Include="..\src\PdfTools.cpp" />
     <ClCompile Include="..\src\ReadAloud.cpp" />
@@ -1717,8 +1725,8 @@
     <ClCompile Include="..\src\SimpleBrowserWindow.cpp" />
     <ClCompile Include="..\src\SumatraControl.cpp" />
     <ClCompile Include="..\src\SumatraDialogs.cpp" />
-    <ClCompile Include="..\src\SumatraOnlineDialog.cpp" />
     <ClCompile Include="..\src\SumatraPDF.cpp" />
+    <ClCompile Include="..\src\SumatraPDFWebDialog.cpp" />
     <ClCompile Include="..\src\SumatraTest.cpp" />
     <ClCompile Include="..\src\TabGroupsManage.cpp" />
     <ClCompile Include="..\src\TableOfContents.cpp" />
@@ -2229,6 +2237,7 @@
     <ClCompile Include="..\src\shared\NotificationsCommon.cpp" />
     <ClCompile Include="..\src\shared\OleDragDropCommon_win.cpp" />
     <ClCompile Include="..\src\shared\OpenFileFilters_win.cpp" />
+    <ClCompile Include="..\src\shared\OpenFromUrlCommon.cpp" />
     <ClCompile Include="..\src\shared\OverlayScrollbarCommon.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>

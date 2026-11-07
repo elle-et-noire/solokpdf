@@ -148,6 +148,25 @@ Size TabCtrl::GetIdealSize() {
     return idealSize;
 }
 
+// Close glyph grows with tab height (taller UI fonts / tab bar) so it
+// stays usable on touch; floor 16 DIP, cap 28 DIP (issue #5220).
+static int CloseGlyphDx(int tabDy) {
+    int closeDy = limitValue(tabDy - DpiScale(6), DpiScale(16), DpiScale(28));
+    return std::min(closeDy, tabDy);
+}
+
+// Padding between circle and tab edge; grow with the button.
+static int CloseGlyphPad(int closeDx) {
+    return std::max(DpiScale(6), closeDx / 2);
+}
+
+// what the ✕ takes from a tab sized to its label: the glyph, its padding and
+// the gap before the label
+static int CloseRoomDx(int tabDy) {
+    int closeDx = CloseGlyphDx(tabDy);
+    return closeDx + CloseGlyphPad(closeDx) + DpiScale(4);
+}
+
 // the ✕ is inset from the tab's edge, but its hit area is the whole gutter
 // (~40 DIP, full height) so it stays easy to hit
 void TabCtrl::SetBounds(Rect r) {
@@ -156,19 +175,9 @@ void TabCtrl::SetBounds(Rect r) {
     int dx = r.dx;
     int dy = r.dy;
 
-    // Close glyph grows with tab height (taller UI fonts / tab bar) so it
-    // stays usable on touch; floor 16 DIP, cap 28 DIP (issue #5220).
-    int closeMin = DpiScale(16);
-    int closeMax = DpiScale(28);
-    int closeDy = dy - DpiScale(6);
-    closeDy = limitValue(closeDy, closeMin, closeMax);
-    if (closeDy > dy) {
-        closeDy = dy;
-    }
-    int closeDx = closeDy;
-
-    // Padding between circle and tab edge; grow with the button.
-    int closePad = std::max(DpiScale(6), closeDx / 2);
+    int closeDx = CloseGlyphDx(dy);
+    int closeDy = closeDx;
+    int closePad = CloseGlyphPad(closeDx);
     // Keep the glyph inside the tab when tabs are very narrow.
     if (closeDx + closePad > dx && dx > 0) {
         closeDx = std::min(closeDx, std::max(DpiScale(12), dx - 2));
@@ -206,9 +215,10 @@ void TabCtrl::SetBounds(Rect r) {
 }
 
 // like Chrome: every tab shows its ✕, except narrow non-selected ones, where
-// it would leave no room for the title
+// it would leave no room for the title. The pinned Home tab has no room for one
 bool TabCtrl::CloseVisible() {
-    if (!ti->canClose || ti->fitToLabel) {
+    bool hasRoom = !ti->fitToLabel || !ti->isPinned;
+    if (!ti->canClose || !hasRoom) {
         return false;
     }
     return IsSelected() || bounds.dx >= DpiScale(kCloseMinTabDx);
@@ -276,8 +286,16 @@ void TabCtrl::Paint(VirtPaintCtx& ctx) {
 
     u32 fmt = gfxTextEllipsis | gfxTextVCenter | (isRtl ? gfxTextRight : gfxTextLeft);
     if (ti->fitToLabel) {
-        // the margins are the tab's own: see FitToLabelDx()
+        // the margins are the tab's own: see FitToLabelDx(). The label keeps its
+        // place whether the ✕ shows or not
         rFile = r;
+        if (!ti->isPinned) {
+            int room = CloseRoomDx(r.dy);
+            rFile.dx = std::max(0, rFile.dx - room);
+            if (isRtl) {
+                rFile.x += room;
+            }
+        }
         fmt = gfxTextEllipsis | gfxTextVCenter | gfxTextCenter;
     }
     gfx->DrawText(ti->text, rFile, fmt, font, textColor);
@@ -510,15 +528,47 @@ void TabsCtrl::RebuildTabCtrls() {
     AddChild(plusBtn);
 }
 
-// label plus 1rem (the font's size in pixels) on each side
-static int FitToLabelDx(TabsCtrl* tabs, TabInfo* ti) {
+// label plus 1rem (the font's size in pixels) on each side, and room for the
+// ✕ unless it's the pinned Home tab (#6469)
+static int FitToLabelDx(TabsCtrl* tabs, TabInfo* ti, int tabDy) {
     PlatformFont* font = tabs->GetFont();
     if (!font) {
         return tabs->tabDefaultDx;
     }
     constexpr float kPxPerPt = 96.f / 72.f;
     int rem = DpiScale((int)(font->GetSize() * kPxPerPt + 0.5f));
-    return PlatformFontMeasureText(font, ti->text).dx + (2 * rem);
+    int dx = PlatformFontMeasureText(font, ti->text).dx + (2 * rem);
+    if (!ti->isPinned) {
+        dx += CloseRoomDx(tabDy);
+    }
+    return dx;
+}
+
+// a document tab sized to its file name (TabsEqualWidth = false): the margins
+// TabCtrl::Paint() uses, so the name isn't ellipsized. Room for the ✕ is kept
+// when it's hidden, so selecting a tab doesn't resize it
+static int FitToNameDx(TabsCtrl* tabs, TabInfo* ti, int tabDy) {
+    PlatformFont* font = tabs->GetFont();
+    if (!font) {
+        return tabs->tabDefaultDx;
+    }
+    int dx = DpiScale(8) + PlatformFontMeasureText(font, ti->text).dx + 1;
+    if (len(ti->pageText) > 0) {
+        PlatformFont* pageFont = GetScaledPlatformFont(font, 85);
+        dx += PlatformFontMeasureText(pageFont ? pageFont : font, ti->pageText).dx;
+    }
+    if (ti->isDirty) {
+        dx += DpiScale(9); // the red dot
+    }
+    dx += CloseRoomDx(tabDy);
+    return std::min(dx, tabs->tabDefaultDx);
+}
+
+int TabsCtrl::TabDx(int idx) {
+    if (idx < 0 || idx >= len(tabCtrls)) {
+        return 0;
+    }
+    return tabCtrls[idx]->idealSize.dx;
 }
 
 // Calculates the size of a tab and lays the children out.
@@ -546,22 +596,36 @@ void TabsCtrl::LayoutTabs() {
             nRest++;
             continue;
         }
-        int fitDx = std::min(FitToLabelDx(this, tabs[i]), availDx / nTabs);
+        int fitDx = std::min(FitToLabelDx(this, tabs[i], dy), availDx / nTabs);
         tabCtrls[i]->idealSize = {fitDx, dy};
         restDx -= fitDx;
+    }
+    // TabsEqualWidth = false: as wide as the name, shrunk like equal-width
+    // tabs when they don't fit, but never wider than the name needs
+    Vec<int> nameDx;
+    if (!equalWidth) {
+        for (int i = 0; i < nTabs; i++) {
+            if (!tabs[i]->fitToLabel) {
+                VecAppend(nameDx, FitToNameDx(this, tabs[i], dy));
+            }
+        }
     }
     int dx;
     if (tabWidthFrozen && frozenTabDx > 0) {
         dx = frozenTabDx;
-    } else {
+    } else if (equalWidth) {
         dx = std::min(tabDefaultDx, nRest > 0 ? restDx / nRest : restDx);
+    } else {
+        dx = FairShareCap(nameDx, restDx);
     }
     tabSize = {dx, dy};
 
     int totalW = 0;
+    int nameIdx = 0;
     for (int i = 0; i < nTabs; i++) {
         if (!tabs[i]->fitToLabel) {
-            tabCtrls[i]->idealSize = tabSize;
+            int tabDx = equalWidth ? dx : std::min(dx, nameDx[nameIdx++]);
+            tabCtrls[i]->idealSize = {tabDx, dy};
         }
         totalW += tabCtrls[i]->idealSize.dx;
     }
@@ -1020,6 +1084,12 @@ LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
 
         case WM_LBUTTONUP: {
+            // end the drag before ReleaseCapture() so WM_CAPTURECHANGED doesn't cancel it
+            bool droppingTab = draggingTab;
+            if (draggingTab) {
+                draggingTab = false;
+                ImageList_EndDrag();
+            }
             bool isDragging = (GetCapture() == hwnd);
             if (isDragging) {
                 ReleaseCapture();
@@ -1036,15 +1106,13 @@ LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             // update the hover state
             UpdateHover(tabUnderMouse);
 
-            if (!draggingTab) {
+            if (!droppingTab) {
                 LRESULT res = 0;
                 if (vroot) {
                     vroot->OnMessage(msg, wp, lp, res);
                 }
                 return 0;
             }
-            draggingTab = false;
-            ImageList_EndDrag();
             int selectedTab = selectedIdx;
             if (tabUnderMouse < 0) {
                 // migrate to new/different window
@@ -1066,6 +1134,16 @@ LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             UpdateAfterDrag(this, selectedTab, dstIdx);
             ScheduleRepaint();
             return 0;
+        }
+
+        case WM_CAPTURECHANGED: {
+            // capture lost mid-drag (Alt+Tab, a dialog): cancel it, or the next
+            // button-up on the strip would drop the tab
+            if (draggingTab) {
+                draggingTab = false;
+                ImageList_EndDrag();
+            }
+            break;
         }
 
         case WM_MBUTTONDOWN: {
@@ -1144,6 +1222,7 @@ HWND TabsCtrl::Create(TabsCtrl::CreateArgs& args) {
     RegisterTabsCtrlClass();
     withToolTips = args.withToolTips;
     tabDefaultDx = args.tabDefaultDx;
+    equalWidth = args.equalWidth;
     font = args.font;
     ctrlID = args.ctrlID;
 
@@ -1201,6 +1280,9 @@ void TabsCtrl::SetPageText(int idx, Str page) {
         return;
     }
     str::ReplaceWithCopy(&tab->pageText, page);
+    if (!equalWidth) {
+        LayoutTabs();
+    }
     ScheduleRepaint();
 }
 
@@ -1257,6 +1339,11 @@ UINT_PTR TabsCtrl::RemoveTab(int idx) {
         selectedIdx = -1;
     }
     LayoutTabs();
+    // the rebuilt tabs only show once painted; a close not from a tab's X (a
+    // command, the context menu) has nothing else repaint the strip (#6469)
+    if (TabCount() > 0) {
+        ScheduleRepaint();
+    }
     TabsCtrlUpdateAfterChangingTabsCount(this);
     return userData;
 }

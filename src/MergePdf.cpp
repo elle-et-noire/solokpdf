@@ -106,8 +106,7 @@ struct MergeSources {
     Vec<MergeSource*> all;
     // null once the dialog is gone
     MergeGrid* grid = nullptr;
-    AtomicInt cancel = 0;
-    bool workerRunning = false;
+    BgJob job;
 };
 
 struct MergeItem {
@@ -314,7 +313,7 @@ static void FreeThumb(Pixmap* thumb) {
 }
 
 static void DeleteMergeSources(MergeSources* sources) {
-    ReportIf(sources->workerRunning);
+    ReportIf(sources->job.IsRunning());
     for (MergeSource* src : sources->all) {
         for (Pixmap* thumb : src->thumbs) {
             FreeThumb(thumb);
@@ -343,8 +342,7 @@ static void FinishThumb(MergeThumbTask* task) {
 }
 
 static void FinishRenderBatch(MergeSources* sources) {
-    sources->workerRunning = false;
-    if (!sources->grid) {
+    if (sources->job.Finish()) {
         DeleteMergeSources(sources);
         return;
     }
@@ -355,7 +353,7 @@ static void FinishRenderBatch(MergeSources* sources) {
 static void RenderBatchAsync(MergeRenderBatch* batch) {
     MergeSources* sources = batch->sources;
     for (int i = 0; i < len(batch->pageNos); i++) {
-        if (AtomicIntGet(&sources->cancel) != 0) {
+        if (sources->job.IsCanceled()) {
             break;
         }
         auto* task = new MergeThumbTask;
@@ -558,7 +556,7 @@ void MergeGrid::DrawCell(Gfx* gfx, int idx) {
     r.Offset(origin.x, origin.y);
     Color colBg = GetColor(kColListBg);
     Color colTxt = ThemeWindowTextColor();
-    Color colMuted = ThemeWindowTextDisabledColor();
+    Color colMuted = ThemeWindowDarkerTextColor();
     bool isFocused = HasFlag(vwfFocused);
     int labelDy = DpiScaleByDpi(dpi, kLabelDy);
 
@@ -1224,7 +1222,7 @@ void MergeGrid::ShowContextMenu() {
 // those far from them
 void MergeGrid::StartRendering() {
     int n = len(items);
-    if (sources->workerRunning || n == 0 || ViewportDy() <= 0) {
+    if (sources->job.IsRunning() || n == 0 || ViewportDy() <= 0) {
         return;
     }
     int firstVisible = FirstVisibleIdx();
@@ -1283,8 +1281,7 @@ void MergeGrid::StartRendering() {
     batch->sources = sources;
     batch->thumbDx = thumbDx;
     batch->thumbDy = thumbDy;
-    AtomicIntSet(&sources->cancel, 0);
-    sources->workerRunning = true;
+    sources->job.Start();
     RunAsync(MkFunc0<MergeRenderBatch>(RenderBatchAsync, batch), StrL("MergePdfThumbnails"));
 }
 
@@ -1434,8 +1431,7 @@ static void TeardownMergeWnd(MergePdfWnd* w) {
     sources->grid = nullptr;
     w->grid->sources = nullptr;
     w->grid->wnd = nullptr;
-    AtomicIntSet(&sources->cancel, 1);
-    if (!sources->workerRunning) {
+    if (sources->job.Detach()) {
         DeleteMergeSources(sources);
     }
     w->sources = nullptr;
@@ -1691,7 +1687,7 @@ bool InsertPosWnd::Create(HWND owner, Str what, int n, int afterPage) {
     onClose = MkFunc1Void(OnInsertPosClose);
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
-    colMuted = ThemeWindowTextDisabledColor();
+    colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontQuery = DlgUiFont(kToolDlgQueryFontPx);
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     PlatformFont* fontMeta = DlgUiFont(kToolDlgMetaFontPx);
@@ -2018,7 +2014,7 @@ bool MergePdfWnd::Create(MainWindow* w, WindowTab* tab) {
 
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
-    colMuted = ThemeWindowTextDisabledColor();
+    colMuted = ThemeWindowDarkerTextColor();
     fontText = DlgUiFont(kToolDlgTextFontPx);
     fontMeta = DlgUiFont(kToolDlgMetaFontPx);
     SetFont(fontText);

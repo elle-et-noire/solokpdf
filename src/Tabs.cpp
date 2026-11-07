@@ -63,6 +63,11 @@ static void UpdateTabTitle(WindowTab* tab) {
         dirty = EngineHasUnsavedAnnotations(tab->AsFixed()->GetEngine());
     }
     TempStr tooltip = MakeTabTooltipTemp(tab->filePath, dirty);
+    // a "+" Home tab a document was opened in is sized like the other documents
+    TabInfo* ti = win->tabsCtrl->GetTab(idx);
+    if (ti) {
+        ti->fitToLabel = tab->IsAboutTab();
+    }
     win->tabsCtrl->SetTextAndTooltip(idx, title, tooltip);
     UpdateTabPageText(tab);
 }
@@ -103,6 +108,7 @@ void UpdateTabWidth(MainWindow* win) {
     if (win->tabsCtrl) {
         HWND hwnd = win->tabsCtrl->hwnd ? win->tabsCtrl->hwnd : win->hwndFrame;
         win->tabsCtrl->tabDefaultDx = DpiScale(gSettings->tabWidth);
+        win->tabsCtrl->equalWidth = gSettings->tabsEqualWidth;
     }
     // Lay out only when the bar stays visible. Hiding it right after
     // TabCtrl_SetItemSize invalidated the control leaves a pending WM_PAINT for
@@ -269,9 +275,15 @@ static void MaybeMigrateTab(WindowTab* tab, MainWindow* newWin, Point releasePt)
     args.forceReuse = true;
     args.noSavePrefs = true;
     LoadDocument(&args);
+    // newTab owns the file now: don't let ~WindowTab delete an open-cache copy
+    str::FreePtr(&tab->filePath);
     delete tab;
 
     CloseWindowIfNoDocuments(oldWin);
+}
+
+void MaybeMigrateTab(WindowTab* tab, MainWindow* newWin) {
+    MaybeMigrateTab(tab, newWin, Point{});
 }
 
 // Selects the given tab (0-based index)
@@ -389,10 +401,16 @@ static void TabsContextMenu(TabsCtrl* tabsCtrl, VirtMouseEvent* ev) {
         RemoveBadMenuSeparators(popup);
     }
     MarkMenuOwnerDraw(popup);
+    // handled: the menu loop can close the window and free tabsCtrl, so the
+    // event must not bubble up to it
+    ev->didHandle = true;
     uint flags = TPM_RETURNCMD | TPM_RIGHTBUTTON;
     int cmdId = TrackPopupMenu(popup, flags, pt.x, pt.y, 0, win->hwndFrame, nullptr);
     FreeMenuOwnerDrawInfoData(popup);
     DestroyMenu(popup);
+    if (!IsMainWindowValidAndNotClosing(win)) {
+        return;
+    }
     switch (cmdId) {
         case CmdClose: {
             CloseTab(tabUnderMouse, false);
@@ -425,6 +443,10 @@ static void TabsContextMenu(TabsCtrl* tabsCtrl, VirtMouseEvent* ev) {
         }
         case CmdDuplicateInNewWindow: {
             DuplicateTabInNewWindow(tabUnderMouse);
+            return;
+        }
+        case CmdDuplicateInNewTab: {
+            DuplicateTabInNewTab(tabUnderMouse);
             return;
         }
         case CmdProperties: {
@@ -499,6 +521,7 @@ void CreateTabbar(MainWindow* win) {
     args.font = GetAppFont();
     // logical TabWidth → physical (see UpdateTabWidth / issue #3850)
     args.tabDefaultDx = DpiScale(gSettings->tabWidth);
+    args.equalWidth = gSettings->tabsEqualWidth;
     args.isRtl = false; // LTR hwnd; RTL tab order follows parent frame (see UpdateWindowRtlLayout)
 
     TabsCtrl* tabsCtrl = new TabsCtrl();
@@ -532,9 +555,9 @@ static NO_INLINE void VerifyWindowTab(MainWindow* win, WindowTab* tdata) {
     }
 #endif
     bool expectedTocVisibility = tdata->showToc; // if not in presentation mode
-    if (PM_DISABLED != win->presentation) {
-        expectedTocVisibility = false; // PM_BLACK_SCREEN, PM_WHITE_SCREEN
-        if (PM_ENABLED == win->presentation) {
+    if (win->InPresentation()) {
+        expectedTocVisibility = false; // WindowMode::PresentationBlack, WindowMode::PresentationWhite
+        if (win->windowMode == WindowMode::Presentation) {
             expectedTocVisibility = tdata->showTocPresentation;
         }
     }
@@ -596,7 +619,8 @@ static WindowTab* InsertHomeTab(MainWindow* win, int idx, HomeTabKind kind, bool
     newTab->tooltip = {};
     newTab->isPinned = isPinned;
     newTab->canClose = true;
-    newTab->fitToLabel = isPinned;
+    // every Home tab is sized to its label; the extra ones keep room for a ✕ (#6469)
+    newTab->fitToLabel = true;
     newTab->userData = (UINT_PTR)homeTab;
     int insertedIdx = win->tabsCtrl->InsertTab(idx, newTab, !deferUpdate);
     ReportIf(insertedIdx != idx);

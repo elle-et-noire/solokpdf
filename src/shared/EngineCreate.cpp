@@ -399,7 +399,8 @@ static EngineBase* CreateEngineForKind(FileType kind, FileType contentHintKind, 
 #endif
     // markdown has no native SumatraPDF engine; always use mupdf (cmark-gfm),
     // regardless of gEnableEpubWithPdfEngine.
-    if (kind == FileType::PDF || kind == FileType::Xps || kind == FileType::Markdown || IsOfficeFileType(kind)) {
+    if (kind == FileType::PDF || kind == FileType::Xps || kind == FileType::Ofd || kind == FileType::Markdown ||
+        IsOfficeFileType(kind)) {
         return CreateEngineMupdfFromFile(path, kind, dpi, pwdUI);
     }
     if (IsEngineDjVuSupportedFileType(kind)) {
@@ -524,6 +525,10 @@ EngineBase* CreateEngineFromFile(Str path, PasswordUI* pwdUI, bool enableChmEngi
     FileType contentHint = FileType::Unknown;
     if (IsEngineCbxSupportedFileType(kind)) {
         contentHint = GuessFileTypeFromFile(path);
+        // OFD images are resources, not comic-book pages.
+        if (contentHint == FileType::Ofd) {
+            kind = contentHint;
+        }
     }
 
     EngineBase* engine = CreateEngineForKind(kind, contentHint, path, pwdUI, enableChmEngine);
@@ -548,6 +553,10 @@ EngineBase* CreateEngineFromFile(Str path, PasswordUI* pwdUI, bool enableChmEngi
 static EngineBase* CreateEngineForKindFromData(FileType kind, Str data, Str nameHint, PasswordUI* pwdUI) {
     if (kind == FileType::Unknown || len(data) == 0) {
         return nullptr;
+    }
+    if (kind == FileType::Ofd) {
+        // a .zip name would give MuPDF's comic handler priority
+        return CreateEngineMupdfFromData(data, StrL("file.ofd"), pwdUI);
     }
     if (kind == FileType::PDF || kind == FileType::Xps || kind == FileType::Markdown || IsOfficeFileType(kind)) {
         if (kind == FileType::PDF) {
@@ -595,6 +604,11 @@ EngineBase* CreateEngineFromData(Str data, Str nameHint, PasswordUI* pwdUI) {
         return nullptr;
     }
     FileType kind = GuessFileTypeFromName(nameHint, true);
+    // OFD images are resources, not comic-book pages
+    bool maybeZip = kind == FileType::Ofd || IsEngineCbxSupportedFileType(kind) || kind == FileType::Unknown;
+    if (maybeZip && GuessFileTypeFromData(data) == FileType::Zip && GuessFileTypeFromZipData(data) == FileType::Ofd) {
+        kind = FileType::Ofd;
+    }
     EngineBase* engine = CreateEngineForKindFromData(kind, data, nameHint, pwdUI);
     if (!engine) {
         FileType contentKind = GuessFileTypeFromData(data);

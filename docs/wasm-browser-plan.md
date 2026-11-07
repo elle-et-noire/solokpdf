@@ -11,7 +11,58 @@ Base: `ed228d347`. Findings are marked by how they were checked:
 - **Code**: read in the code, not run.
 - **Suspected**: not confirmed.
 
-Already done: a second window no longer crashes (`ed228d347`). Fonts download on
+## Status
+
+Done: phases 1-4, 5.1, 5.3, 7.1 and 7.2, checked by `tests/ad-hoc-wasm-host.ts`
+and `tests/ad-hoc-wasm-commands.ts`. Where the work differs from the plan:
+
+- 2.2: the page asks the app about every key gpui leaves with the browser
+  (`sumatra_wasm_key_wanted`); the browser's keys are one list in C++
+  (`IsBrowserReservedShortcut`), which also keeps them out of menus and help.
+- 3.3: desktop-only settings are a list in `cmd/ng-gen-settings.ts`, not a tag
+  on each field.
+- 4.5: POST-VIA-BROWSER works: the form opens in a new tab from a blob URL.
+  `Customize-search-translation-services.md` isn't in this repo, so the CORS
+  limit of plain POST is only in the error message.
+- 5.1: a document's bytes are read when it's first opened (a lazy
+  `node.contents`), so opening stays synchronous. They aren't dropped when its
+  last tab closes.
+- 7.2: there's no notification when a font download fails.
+- 5.2, search and thumbnails: done, checked by `tests/ad-hoc-wasm-slices.ts`
+  (the page doesn't stall more than about 100 ms on a 2000-page PDF). Before
+  this, search froze the page for good: the inline "thread" waited for its own
+  handle. `TextSearch` stops between pages once a slice's time is used up
+  (`sliceMs`) and `Resume()` carries on. The find and count jobs get a handle
+  of their own (`NewSlicedJobHandle`), so a slice can tell its job was aborted.
+  The thumbnail workers render pages until the slice is used up. Wakes for
+  `uitask::Post` are coalesced (`WakeForUiTasks`): with a drain queued per
+  post, one frame ran slice after slice.
+
+- 6, Firefox and Safari: checked by `tests/ad-hoc-wasm-browsers.ts` in
+  Chrome, Firefox 157 and WebKit 27.2 (Playwright's builds; WebKit on Windows
+  isn't Safari, and nothing here ran on a Mac or iPhone). Firefox works as
+  Chrome does: storage, search, zoom, file input, downloads. Found and fixed:
+  - Safari before 26 has no `createWritable`. Files are then written from a
+    worker with a sync access handle (Safari 15.2+), in `WasmShell.js` and in
+    the site's `src/opfswrite.ts`. Tested in Chrome with `createWritable`
+    removed.
+  - WebKit on Windows takes OPFS writes and keeps an empty file. Every write
+    now checks the file's size, so a failed save is reported instead of a
+    document seeming saved. WebKit in a private window has no OPFS at all; the
+    app says changes won't be saved.
+  - Safari reports a trackpad pinch as gesture events and zooms the page. They
+    become Ctrl+wheel, which zooms the document. Ctrl+wheel was already right
+    in every browser.
+  - Without `navigator.share` (Firefox, Chrome on Linux), Send by email put the
+    internal path in a mailto body. It now downloads the file and opens a
+    mailto with its name.
+
+Open: 5.2 for ebook layout and the PDF tools (no "working" overlay yet).
+Phase 6: touch (decide whether to support it; gpui has no touch input on wasm,
+so on phones and tablets a drag doesn't scroll the document), and a run on real
+Safari, macOS and iOS.
+
+Already done before this plan: a second window no longer crashes (`ed228d347`). Fonts download on
 any origin thanks to a CORS rule on the R2 bucket `files`. That rule exists only
 in the Cloudflare dashboard, so step 7.2 adds a check for it.
 
@@ -118,7 +169,7 @@ still counts as a user gesture so popup blockers allow it.
 
 | Command                                                                                  | What happens today                                                   |
 | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `CmdSumatraOnline`                                                                       | File menu; says "Sumatra Online is not in this build yet"            |
+| `CmdSumatraPDFWeb`                                                                       | File menu; says "SumatraPDF Web is not in this build yet"            |
 | `CmdCheckUpdate`, `CmdInstallPrereleaseUpdate`                                           | Error dialog "Couldn't download update information"                  |
 | `CmdSetScreenshotHotkey`                                                                 | Dialog for a global hotkey a page can't register                     |
 | `CmdSetInverseSearch`, `CmdInvokeInverseSearch`, `CmdToggleInverseSearch`                | Set opens a dialog; the others do nothing. Needs an editor to launch |

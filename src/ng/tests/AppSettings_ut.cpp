@@ -24,26 +24,49 @@ void AppSettingsTest() {
     utassert(len(golden) > 0);
     AutoCall freeGolden((void (*)(Str))str::Free, golden);
 
-    // Account for settings added after the golden file was created.
-    TempStr expect = str::ReplaceTemp(golden, StrL("Scrollbars = windows"), StrL("Scrollbars = smart"));
-    expect = str::ReplaceTemp(expect, StrL("EscToExit = false"), StrL("EscToExit = false\r\nVimKeys = false"));
-    expect = str::ReplaceTemp(expect, StrL("ScrollLineAmount = 16"),
-                              StrL("ScrollLineAmount = 16\r\nKeyScrollLineAmount = 48"));
-    TempStr defaultExpect = str::ReplaceTemp(expect, StrL("NoHomeTab = false"), StrL("NoHomeTab = true"));
+    // ng has no Windows scrollbars, so that orig default becomes smart; the
+    // golden file predates SolokPDF's VimKeys and KeyScrollLineAmount
+    TempStr expectLoaded = str::ReplaceTemp(golden, StrL("Scrollbars = windows"), StrL("Scrollbars = smart"));
+    expectLoaded =
+        str::ReplaceTemp(expectLoaded, StrL("EscToExit = false"), StrL("EscToExit = false\r\nVimKeys = false"));
+    expectLoaded = str::ReplaceTemp(expectLoaded, StrL("ScrollLineAmount = 16"),
+                                    StrL("ScrollLineAmount = 16\r\nKeyScrollLineAmount = 48"));
+    // ng also sizes tabs to their names by default
+    TempStr expect = str::ReplaceTemp(expectLoaded, StrL("TabsEqualWidth = true"), StrL("TabsEqualWidth = false"));
+    expect = str::ReplaceTemp(expect, StrL("NoHomeTab = false"), StrL("NoHomeTab = true"));
 
-    // The defaults use the current NoHomeTab value.
+    // the defaults serialize to the golden file, with those substitutions
     Settings* def = NewSettings({});
     utassert(def != nullptr);
     Str serialized = SerializeSettings(def, {});
-    utassert(str::Eq(serialized, defaultExpect));
+    utassert(str::Eq(serialized, expect));
     str::Free(serialized);
     DeleteSettings(def);
 
-    // Loading the golden file preserves its NoHomeTab value.
+    // and a load + save of it keeps its NoHomeTab and TabsEqualWidth values
     Settings* loaded = NewSettings(golden);
     utassert(loaded != nullptr);
     Str out = SerializeSettings(loaded, golden);
-    utassert(str::Eq(out, expect));
+    utassert(str::Eq(out, expectLoaded));
+    str::Free(out);
+    DeleteSettings(loaded);
+
+    // ng on Windows shares orig's settings file, and array elements don't keep
+    // unknown keys: a save must not drop what orig wrote into a FileState
+    Str withFile = StrL(
+        "FileStates [\n"
+        "\t[\n"
+        "\t\tFilePath = C:\\doc.pdf\n"
+        "\t\tPageNo = 3\n"
+        "\t\tMeasurementScale = 2.5\n"
+        "\t\tMeasurementUnit = mm\n"
+        "\t]\n"
+        "]\n");
+    loaded = NewSettings(withFile);
+    utassert(loaded != nullptr);
+    out = SerializeSettings(loaded, withFile);
+    utassert(str::Contains(out, StrL("MeasurementScale = 2.5")));
+    utassert(str::Contains(out, StrL("MeasurementUnit = mm")));
     str::Free(out);
     DeleteSettings(loaded);
 }

@@ -70,15 +70,18 @@
 #include "EngineAll.h"
 #include "EutlTrust.h"
 #include "SignatureUI.h"
+#include "LayersUI.h"
 #include "CommandPalette.h"
 #include "PdfTools.h"
 #include "MergePdf.h"
 #include "ReadAloud.h"
 #include "ReadingAutoScroll.h"
 #include "ReadingBar.h"
+#include "MeasurementToolbar.h"
 #include "NavFilesInFolder.h"
 #include "PerfLog.h"
 #include "BrightnessContrastDialogCommon.h"
+#include "OpenFromUrlCommon.h"
 #include "SumatraControl.h"
 #include "SumatraControlCommon.h"
 
@@ -303,14 +306,6 @@ static TempStr SidebarLayoutResultTemp(int* exitCodeOut) {
                   0);
 }
 
-static LayoutProbeState gLayoutProbe;
-
-static void LayoutProbeAfterLayout(MainWindow* win) {
-    if (gLayoutProbe.active && gLayoutProbe.win == win) {
-        gLayoutProbe.count++;
-    }
-}
-
 static void AppendHwndLayoutRect(str::Builder& out, MainWindow* win, Str name, HWND hwnd) {
     Rect rect;
     if (hwnd) {
@@ -354,7 +349,7 @@ static TempStr LayoutInfoResultTemp(Str action, int* exitCodeOut) {
         gLayoutProbe.win = win;
         gLayoutProbe.count = 0;
         gLayoutProbe.active = true;
-        gAfterLayout = MkFunc1Void(LayoutProbeAfterLayout);
+        gAfterLayout = MkFunc1Void(LayoutProbeNote);
     } else if (str::EqI(action, StrL("stop"))) {
         if (gLayoutProbe.active) {
             gAfterLayout = {};
@@ -751,18 +746,46 @@ enum class ControlCmd : u16 {
     TestFetchRevocation = 147,
     // [action]: the state of the signature bar, panel, marks and dialog
     TestSignatureStatus = 148,
-    TestShortcutsDialog = 149,
-    TestVimKeys = 150,
-    TestSetFormField = 151,
-    TestDocumentJsOpen = 152,
-    TestCurrentPdf = 153,
+    // the first window's tab widths, one "dx=<n> text=<title>" line per tab
+    TestTabWidths = 149,
+    // [url, dir]: Open from URL as the dialog's Download starts it
+    TestOpenFromUrl = 150,
+    // [srcWin, tabIdx, dstWin]: move a tab as a drag does (-1 = new window);
+    // tabIdx < 0 only lists every window's tabs
+    TestMigrateTab = 151,
+    // [action]: "toggle <row>" or "show", then the Layers view's rows
+    TestLayers = 152,
+    // [word]: drag-select it from edge to edge, then the selected text
+    TestSelectWordEdges = 153,
+    // the word count notification's text
+    TestWordCount = 154,
+    // the page info tip's text
+    TestPageInfoText = 155,
+    // the page info bar: where it is, the canvas, its text
+    TestPageInfoBar = 156,
+    // the Show Selected Text notification's text
+    TestSelectedText = 157,
+    // the bookmarks tree's visible rows and their heights
+    TestTocRows = 158,
+    // [action, pageNo, x, y, ...]: drives the Measure tool
+    TestMeasurement = 159,
+    // [action, pageNo, imageIdx, path]: replace / edit an image embedded in the PDF
+    TestImageReplace = 160,
+    // 161, 162: ng only (TestPerfStats, TestOverlayState); tests/lint-control-ids.ts
+    // checks ids mean the same command in both apps and tests/control.ts
+    // SolokPDF (orig only)
+    TestShortcutsDialog = 163,
+    TestVimKeys = 164,
+    TestSetFormField = 165,
+    TestDocumentJsOpen = 166,
+    TestCurrentPdf = 167,
     // every command's visibility on a surface, one "CmdName vis" line each
-    TestAllCommandVisibility = 154,
-    TestCursorPosition = 155,
-    TestClipboardText = 156,
-    TestFocusState = 157,
-    TestClipboardFormat = 158,
-    TestActivationTrace = 159,
+    TestAllCommandVisibility = 168,
+    TestCursorPosition = 169,
+    TestClipboardText = 170,
+    TestFocusState = 171,
+    TestClipboardFormat = 172,
+    TestActivationTrace = 173,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1121,9 +1144,51 @@ static void ExecuteControlRequest(ControlRequest* req) {
             break;
         }
 
+        case ControlCmd::TestOpenFromUrl: {
+            MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+            bool ok = win && StartOpenFromUrl(win, StringArg(req, 0), StringArg(req, 1));
+            AppendTestResult(req, ok ? 0 : 1, ok ? StrL("OK") : StrL("FAIL"));
+            break;
+        }
+
+        case ControlCmd::TestMigrateTab: {
+            i32 srcWin = 0;
+            i32 tabIdx = 0;
+            i32 dstWin = 0;
+            if (!IntArg(req, 0, srcWin) || !IntArg(req, 1, tabIdx) || !IntArg(req, 2, dstWin)) {
+                AppendError(req, StrL("TestMigrateTab expects int srcWin, int tabIdx, int dstWin"));
+                break;
+            }
+            int exitCode = 0;
+            Str res = MigrateTabResultTemp(srcWin, tabIdx, dstWin, &exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestTabWidths: {
+            MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+            TabsCtrl* tabs = win ? win->tabsCtrl : nullptr;
+            if (!tabs) {
+                AppendTestResult(req, 2, StrL("NOTREADY no-tabs"));
+                break;
+            }
+            str::Builder out;
+            for (int i = 0; i < tabs->TabCount(); i++) {
+                out.Append(fmt("dx=%d text=%s\n", tabs->TabDx(i), tabs->GetTab(i)->text));
+            }
+            AppendTestResult(req, 0, ToStrTemp(out));
+            break;
+        }
+
         case ControlCmd::TestSignatureStatus: {
             MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
             AppendTestResult(req, 0, win ? SignatureUiStateTemp(win, StringArg(req, 0)) : TempStr{});
+            break;
+        }
+
+        case ControlCmd::TestLayers: {
+            MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+            AppendTestResult(req, 0, win ? LayersStateTemp(win, StringArg(req, 0)) : TempStr{});
             break;
         }
 
@@ -1258,8 +1323,13 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendError(req, StrL("TestPageLinks expects string path, int pageNo"));
                 break;
             }
+            // optional int x, y: also report the element at that page point
+            i32 hitX = 0;
+            i32 hitY = 0;
+            bool hasHit = IntArg(req, 2, hitX) && IntArg(req, 3, hitY);
+            PointF hit{(float)hitX, (float)hitY};
             int exitCode = 0;
-            Str res = PageLinksResultTemp(path, pageNo, &exitCode);
+            Str res = PageLinksResultTemp(path, pageNo, &exitCode, hasHit ? &hit : nullptr);
             AppendTestResult(req, exitCode, res);
             break;
         }
@@ -1445,6 +1515,41 @@ static void ExecuteControlRequest(ControlRequest* req) {
             break;
         }
 
+        case ControlCmd::TestTocRows: {
+            int exitCode = 0;
+            Str res = TocRowsResultTemp(&exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestSelectedText: {
+            int exitCode = 0;
+            Str res = SelectedTextResultTemp(&exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestPageInfoBar: {
+            int exitCode = 0;
+            Str res = PageInfoBarResultTemp(&exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestPageInfoText: {
+            int exitCode = 0;
+            Str res = PageInfoTextResultTemp(&exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestWordCount: {
+            int exitCode = 0;
+            Str res = WordCountResultTemp(&exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
         case ControlCmd::TestDisplayMode: {
             Str action = StringArg(req, 0);
             int exitCode = 0;
@@ -1574,6 +1679,13 @@ static void ExecuteControlRequest(ControlRequest* req) {
         case ControlCmd::TestReadAloudPlaybackBar: {
             int exitCode = 0;
             Str res = ReadAloudPlaybackBarStateTemp(&exitCode);
+            AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestSelectWordEdges: {
+            int exitCode = 0;
+            Str res = SelectWordEdgesResultTemp(StringArg(req, 0), &exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }
@@ -2303,6 +2415,27 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 }
             }
             AppendTestResult(req, 0, PageGridStateTemp());
+            break;
+        }
+
+        case ControlCmd::TestImageReplace: {
+            i32 pageNo = 0, imageIdx = 0;
+            IntArg(req, 1, pageNo);
+            IntArg(req, 2, imageIdx);
+            MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+            AppendTestResult(req, 0, TestImageReplace(win, StringArg(req, 0), pageNo, imageIdx, StringArg(req, 3)));
+            break;
+        }
+
+        case ControlCmd::TestMeasurement: {
+            i32 pageNo = 0, x = 0, y = 0;
+            IntArg(req, 1, pageNo);
+            IntArg(req, 2, x);
+            IntArg(req, 3, y);
+            MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+            Str res = TestMeasurement(win, StringArg(req, 0), pageNo, PointF((float)x, (float)y), StringArg(req, 1),
+                                      StringArg(req, 2));
+            AppendTestResult(req, 0, res);
             break;
         }
 

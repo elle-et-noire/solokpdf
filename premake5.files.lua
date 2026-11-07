@@ -273,6 +273,7 @@ function sumatrapdf_files()
     "AvifReader.*",
     "DarkMode.*",
     "AddFavoriteDialog.*",
+    "OpenFromUrlDialog.*",
     "AdvancedSettingsDialog.*",
     "ShortcutsDialog.*",
     "PDFScriptDialog.*",
@@ -297,13 +298,14 @@ function sumatrapdf_files()
     "GetPasswordDialog.*",
     "GoToPageDialog.*",
     "InverseSearchDialog.*",
-    "SumatraOnlineDialog.*",
+    "SumatraPDFWebDialog.*",
     "SettingsDialog.*",
     "AppSettings.*",
     "PagePosition.*",
     "AppDecisions.cpp",
     "AppTools.*",
     "Canvas.*",
+    "MeasurementToolbar.*",
     "CanvasCommon.*",
     "LaserPointerCursor.h",
     "LaserPointerCursor_win.cpp",
@@ -313,6 +315,8 @@ function sumatrapdf_files()
     "WebViewCapture_win.cpp",
     "PageThumbnails.*",
     "SignatureUI.*",
+    "LayersUI.*",
+    "PageInfoBar.*",
     "MergePdf.*",
     "AnnotPlacement.*",
     "AnnotPlacementCursors_win.*",
@@ -374,6 +378,7 @@ function sumatrapdf_files()
     "HangDetector.*",
     "HomePage.*",
     "HomePageCommon.*",
+    "OpenFromUrlCommon.*",
     "AppHelpersCommon.*",
     "BrowserViewCommon.*",
     "Installer.*",
@@ -689,6 +694,7 @@ function mupdf_files()
   -- our additions to mupdf (not patches): see src/mupdf/README.md
   files {
     "src/shared/mupdf/fonts_map.c",
+    "src/shared/mupdf/font_common.h",
     "src/shared/mupdf/mupdf_load_system_font.c",
     "src/shared/mupdf/noto_sumatra.c",
     "src/shared/mupdf/noto_sumatra.h",
@@ -696,6 +702,14 @@ function mupdf_files()
     "src/shared/mupdf/pkcs7-windows.h",
     "src/shared/mupdf/load-jxl.cpp",
     "src/shared/mupdf/load-jxl.h",
+    "src/shared/mupdf/ofd.c",
+    "src/shared/mupdf/ofd-crypto.c",
+    "src/shared/mupdf/ofd-crypto.h",
+    "src/shared/mupdf/ofd-decrypt.c",
+    "src/shared/mupdf/ofd-decrypt.h",
+    "src/shared/mupdf/ofd.h",
+    "src/shared/mupdf/ofd-seal.c",
+    "src/shared/mupdf/ofd-seal.h",
   }
 
   files_in_dir("ext/mupdf/source/cbz", {
@@ -1572,12 +1586,15 @@ function test_engines_files()
     "src/shared/gui/UIModels.cpp",
     "src/shared/gui/UIModels.h",
     "src/tools/test_engines.cpp",
+    "src/shared/tools/TestEnginesCommon.cpp",
+    "src/shared/tools/ToolLog.cpp",
   }
 end
 
 function bench_image_files()
   files {
     "src/tools/bench_image.cpp",
+    "src/shared/tools/ToolLog.cpp",
   }
 end
 
@@ -1590,6 +1607,7 @@ end
 function plugin_test_files()
   files {
     "src/shared/tools/plugin-test.cpp",
+    "src/shared/tools/ToolLog.cpp",
   }
 end
 

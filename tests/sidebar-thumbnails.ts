@@ -35,8 +35,9 @@ import { moveTestCursor, killAndWait, launchControlled, sendCommand, sendCommand
 type Rect = { x: number; y: number; dx: number; dy: number };
 type View = "bookmarks" | "thumbnails" | "favorites";
 const views: View[] = ["bookmarks", "thumbnails", "favorites"];
-// orig's fourth view icon, Signatures, is off: the test document isn't signed
-const NO_SIG = USE_NG ? "" : "0";
+// orig's fourth and fifth view icons, Signatures and Layers, are off: the test
+// document isn't signed and has no layers
+const NO_SIG = USE_NG ? "" : "00";
 const WINDOW_POS = "900x700@20x0";
 type Panel = {
   hwnd: number;

@@ -128,20 +128,6 @@ void StartDirTraverseAsync(StrQueue* queue, Str dir, bool recurse) {
     RunAsync(fn, StrL("DirTraverseThread"));
 }
 
-// Find entry by name in a DirEntries
-// Directory utilities (paths are UTF-8)
-DirEntry* FindEntryByName(DirEntries* dv, Str name) {
-    if (!dv) return nullptr;
-    for (int i = 0; i < dv->len; i++) {
-        // Skip entries still being scanned
-        if (dv->els[i].dv == kStillScanningDir) continue;
-        if (str::Eq(dv->els[i].name, name)) {
-            return &dv->els[i];
-        }
-    }
-    return nullptr;
-}
-
 // Allocate a DirEntries with fullDir set
 DirEntries* AllocDirEntries(Arena* arena, Str fullDir) {
     DirEntries* dv = (DirEntries*)Alloc(arena, sizeof(DirEntries));
@@ -205,6 +191,7 @@ static void DirScanWorkerThread(DirScanWorker* w);
 // subdirectories could otherwise start a thread after teardown has collected
 // the worker list, and that thread would outlive the context.
 static DirScanWorker* FindOrCreateWorker(DirScanCtx* ctx, Str dir) {
+    ReportDebugIf(!ctx->cs.IsHeldByCurrentThread());
     if (AtomicBoolGet(&ctx->shouldExit)) {
         return nullptr;
     }
@@ -232,6 +219,7 @@ static DirScanWorker* FindOrCreateWorker(DirScanCtx* ctx, Str dir) {
 
 // Must hold w->cs. Starts the clock if this is the first work in a while.
 static void WorkerNoteBusy(DirScanWorker* w) {
+    ReportDebugIf(!w->cs.IsHeldByCurrentThread());
     if (w->busySinceMs == 0) {
         w->busySinceMs = GetTickCount64();
     }
@@ -239,47 +227,11 @@ static void WorkerNoteBusy(DirScanWorker* w) {
 
 // Must hold w->cs. Banks the time spent in this stretch of scanning.
 static void WorkerNoteIdle(DirScanWorker* w) {
+    ReportDebugIf(!w->cs.IsHeldByCurrentThread());
     if (w->busySinceMs != 0) {
         w->scannedForMs += GetTickCount64() - w->busySinceMs;
         w->busySinceMs = 0;
     }
-}
-
-// Create and initialize directory reader context
-DirScanCtx* CreateDirScanCtx(Arena* arena, OnScannedDirCallback callback, void* userData) {
-    DirScanCtx* ctx = new DirScanCtx();
-    ctx->a = arena;
-    ctx->onScannedDir = callback;
-    ctx->userData = userData;
-    ctx->shouldExit = 0;
-    ctx->workers = nullptr;
-    return ctx;
-}
-
-// Signal all worker threads to exit and wait for them
-void AskDirScanThreadToQuit(DirScanCtx* ctx) {
-    if (!ctx) return;
-
-    AtomicBoolSet(&ctx->shouldExit, true);
-
-    ctx->cs.Lock();
-    DirScanWorker* workers = ctx->workers;
-    ctx->workers = nullptr;
-    ctx->cs.Unlock();
-
-    DirScanWorker* w = workers;
-    while (w) {
-        w->cs.Lock();
-        w->hasWork.WakeAll();
-        while (!w->threadExited) {
-            w->hasWork.Wait(&w->cs);
-        }
-        w->cs.Unlock();
-        DirScanWorker* next = w->next;
-        delete w;
-        w = next;
-    }
-    delete ctx;
 }
 
 // Appends node to a singly linked list kept with a tail pointer.
@@ -364,6 +316,7 @@ void QueueDirScan(DirScanCtx* ctx, DirEntries* dv, bool nonRecursive) {
 // Must hold w->cs. Re-sorts everything queued by walking into the ones under
 // dir and the ones that aren't, keeping the relative order within each.
 static void RepartitionWorkerQueues(DirScanWorker* w, Str dir) {
+    ReportDebugIf(!w->cs.IsHeldByCurrentThread());
     DirEntriesNode* nodes = w->preferredDirs;
     if (nodes) {
         w->preferredDirsLast->next = w->dirsToVisit;
@@ -407,51 +360,6 @@ void SetDirScanPriorityDir(DirScanCtx* ctx, Str dir) {
         w->cs.Unlock();
     }
     ctx->cs.Unlock();
-}
-
-// Request a refresh of a directory (non-recursive scan).
-// A rescan is something the caller just asked for, so it goes on the priority
-// list like any other request: behind a recursive scan's queue it would be
-// tens of thousands of directories away.
-void RequestDirRescan(DirScanCtx* ctx, DirEntries* dv) {
-    RequestDirScan(ctx, dv->fullDir, true);
-}
-
-// true when no worker has anything left to do
-bool DirScanIsIdle(DirScanCtx* ctx) {
-    if (!ctx) return true;
-    bool idle = true;
-    ctx->cs.Lock();
-    for (DirScanWorker* w = ctx->workers; w && idle; w = w->next) {
-        w->cs.Lock();
-        idle = !w->priorityDirs && !w->preferredDirs && !w->dirsToVisit && w->inFlightCount == 0;
-        w->cs.Unlock();
-    }
-    ctx->cs.Unlock();
-    return idle;
-}
-
-// Fills up to maxOut entries, one per worker, and returns how many were filled.
-int GetDirScanProgress(DirScanCtx* ctx, DirScanProgress* out, int maxOut) {
-    if (!ctx) return 0;
-    int n = 0;
-    ctx->cs.Lock();
-    for (DirScanWorker* w = ctx->workers; w && n < maxOut; w = w->next) {
-        w->cs.Lock();
-        DirScanProgress* p = &out[n++];
-        p->drive = w->drive;
-        p->nFiles = w->nFiles;
-        p->nDirs = w->nDirs;
-        p->totalSize = w->totalSize;
-        p->scanning = w->busySinceMs != 0;
-        p->scanningForMs = w->scannedForMs;
-        if (p->scanning) {
-            p->scanningForMs += GetTickCount64() - w->busySinceMs;
-        }
-        w->cs.Unlock();
-    }
-    ctx->cs.Unlock();
-    return n;
 }
 
 static void DirScanWorkerThread(DirScanWorker* w) {

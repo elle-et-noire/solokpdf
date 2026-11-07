@@ -105,7 +105,12 @@ struct DocCanvasUI {
     // OnWindowContextMenu), and the popup that shows it
     MenuModel* ctxMenu = nullptr;
     gp::Entity<gp::PopupMenuState> ctxPopup;
+    // a copy of the clicked JavaScript menu link (Altium, KiCad) the popup shows
+    PageDestinationJsMenu* jsMenu = nullptr;
 };
+
+// a JavaScript menu item's command id: past every command, custom ones included
+constexpr int kJsMenuItemCmdFirst = 0x40000000;
 
 static DocCanvasUI* Ui(MainWindow* win) {
     if (!win->docCanvas) {
@@ -117,6 +122,7 @@ static DocCanvasUI* Ui(MainWindow* win) {
 void DocCanvasDelete(MainWindow* win) {
     if (win->docCanvas) {
         DeleteMenuModel(win->docCanvas->ctxMenu);
+        delete win->docCanvas->jsMenu;
     }
     delete win->docCanvas;
     win->docCanvas = nullptr;
@@ -239,7 +245,7 @@ double CanvasFirstPaintMs() {
     return gFirstTilePaintMs;
 }
 
-bool CanvasDrawTile(gp::PaintCtx* ctx, BitmapCacheEntry* entry, Rect target, Rect source) {
+bool CanvasDrawTile(gp::PaintCtx* ctx, BitmapCacheEntry* entry, Rect target, Rect source, bool mirrored) {
     if (!ctx || !entry || !entry->bitmap) {
         return false;
     }
@@ -256,6 +262,18 @@ bool CanvasDrawTile(gp::PaintCtx* ctx, BitmapCacheEntry* entry, Rect target, Rec
              entry->renderImage ? StrL("ok") : StrL("FAILED"), TimeSinceInMs(timeStart), gBmpWrapCount, gBmpWrapMs);
     }
     auto* img = (gp::RenderImage*)entry->renderImage;
+    Size bmpSize = Size(entry->bitmap->width, entry->bitmap->height);
+    // CmdToggleMirror: a flipped copy of the tile, where source is mirrored too
+    if (mirrored && img) {
+        if (!entry->renderImageMirrored) {
+            Pixmap* flipped = ClonePixmap(entry->bitmap);
+            FlipPixmapHorizontally(flipped);
+            entry->renderImageMirrored = flipped ? RenderImageFromPixmap(ctx->pa, flipped) : nullptr;
+            FreePixmap(flipped);
+        }
+        img = (gp::RenderImage*)entry->renderImageMirrored;
+        source.x = bmpSize.dx - (source.x + source.dx);
+    }
     if (!img || source.dx <= 0 || source.dy <= 0 || target.dx <= 0 || target.dy <= 0) {
         return false;
     }
@@ -264,7 +282,6 @@ bool CanvasDrawTile(gp::PaintCtx* ctx, BitmapCacheEntry* entry, Rect target, Rec
     // that source lands on target and clip to target.
     float sx = (float)target.dx / (float)source.dx;
     float sy = (float)target.dy / (float)source.dy;
-    Size bmpSize = Size(entry->bitmap->width, entry->bitmap->height);
     gp::Bounds clip = ToCanvas(target);
     gp::Bounds image;
     image.x = clip.x - ((float)source.x * sx * gFrame.k);
@@ -429,6 +446,23 @@ void CanvasSetKeyModifiers(bool shift, bool ctrl, bool platform) {
 // WM_CAPTURECHANGED, which gpui turns into a synthetic mouse-up.
 void CanvasSetCapture(MainWindow*, bool) {}
 
+// ng: the smooth-scroll tick runs off the render loop (see DocCanvasAutoScrollTick)
+void CanvasStartTimer(MainWindow*, int, int) {}
+
+void CanvasKillTimer(MainWindow*, int) {}
+
+// ng: gpui reports the leave itself
+void CanvasTrackMouseLeave(MainWindow*) {}
+
+// ng: the auto-scroll bar is a gpui view that lays itself out
+void CanvasRelayoutAutoScroll(MainWindow*) {}
+
+// ng: gpui does not report a window's screen position; canvas coordinates
+bool CanvasClientToScreen(MainWindow*, Rect r, Rect& out) {
+    out = r;
+    return true;
+}
+
 void CanvasSetClipboardText(MainWindow* win, Str s) {
     if (win && win->gpuiWin) {
         gp::ClipboardSetText(win->gpuiWin, ToGpui(s));
@@ -485,7 +519,19 @@ static void ReleaseRenderImage(gp::RenderImage* img) {
 // render worker. A RenderImage owns D2D / D3D resources belonging to the paint
 // thread, so the release goes back to it.
 void CanvasFreeTileImage(BitmapCacheEntry* entry) {
-    if (!entry || !entry->renderImage) {
+    if (!entry) {
+        return;
+    }
+    if (entry->renderImageMirrored) {
+        auto* mirroredImg = (gp::RenderImage*)entry->renderImageMirrored;
+        entry->renderImageMirrored = nullptr;
+        if (GetCurrentThreadId() == gUiThread) {
+            gp::RenderImageRelease(mirroredImg);
+        } else {
+            uitask::Post(MkFunc0(ReleaseRenderImage, mirroredImg), "ReleaseRenderImage");
+        }
+    }
+    if (!entry->renderImage) {
         return;
     }
     auto* img = (gp::RenderImage*)entry->renderImage;
@@ -821,7 +867,7 @@ static bool DrawDocument(MainWindow* win, gp::PaintCtx* ctx, Rect rcArea) {
         colPlaceholder = colDocBg;
     }
 
-    bool paintOnBlackWithoutShadow = win->presentation || isImage;
+    bool paintOnBlackWithoutShadow = win->InPresentation() || isImage;
     bool shouldPaint = false;
     auto* gcols = gSettings->fixedPageUI.gradientColors;
     auto nGCols = isPdf ? 0 : len(*gcols);
@@ -901,8 +947,7 @@ static bool DrawDocument(MainWindow* win, gp::PaintCtx* ctx, Rect rcArea) {
                 PaintCheckerboard(ctx, bounds);
             } else {
                 Rect r = pi->pageOnScreen;
-                auto presMode = win->presentation;
-                PaintPageFrameAndShadow(ctx, bounds, r, presMode != PM_DISABLED, colPlaceholder);
+                PaintPageFrameAndShadow(ctx, bounds, r, win->InPresentation(), colPlaceholder);
             }
         }
 
@@ -959,13 +1004,6 @@ static bool DrawDocument(MainWindow* win, gp::PaintCtx* ctx, Rect rcArea) {
 }
 
 // --- scrollbars -------------------------------------------------------------
-
-static void MakeFullScrollbar(CanvasScrollInfo& si) {
-    si.nPos = 0;
-    si.nMin = 0;
-    si.nMax = 99;
-    si.nPage = 100;
-}
 
 // orig's ControllerCallbackHandler::UpdateScrollbars: the range the window
 // scrollbars get. Here it also feeds the overlay bars the canvas draws.
@@ -1213,6 +1251,40 @@ void CanvasOnVScroll(MainWindow* win, ScrollMsg msg, int nTrackPos, int lineAmou
         return;
     }
 
+    // Read Columns (orig's OnVScroll): line and page steps go column by column;
+    // the thumb still drags anywhere
+    if (dm->ReadsColumnsNow()) {
+        int page = (int)si.nPage;
+        int step = 0;
+        switch (msg) {
+            case ScrollMsg::LineUp:
+                step = -lineHeight;
+                break;
+            case ScrollMsg::LineDown:
+                step = lineHeight;
+                break;
+            case ScrollMsg::PageUp:
+                step = -page;
+                break;
+            case ScrollMsg::PageDown:
+                step = page;
+                break;
+            case ScrollMsg::HalfPageUp:
+                step = -page / 2;
+                break;
+            case ScrollMsg::HalfPageDown:
+                step = page / 2;
+                break;
+            default:
+                break;
+        }
+        if (step != 0) {
+            dm->ScrollYBy(step, true);
+            OnDocumentVerticalScrollIntent(win, step > 0);
+            return;
+        }
+    }
+
     // Page Up/Down follow the rotated stack. Arrow keys stay on this scrollbar.
     if (dm->ScrollFollowsRotation() && msg != ScrollMsg::LineUp && msg != ScrollMsg::LineDown &&
         msg != ScrollMsg::ThumbTrack) {
@@ -1399,21 +1471,6 @@ static int WheelPageTurnDelta(MainWindow* win, int delta) {
     return std::max(kWheelDelta, lines * perLine);
 }
 
-// accumulates wheel travel; 1 to turn to the previous page, -1 to the next, 0 to stay
-static int WheelPageTurnDir(MainWindow* win, int delta) {
-    win->wheelAccumDelta += delta;
-    int turnDelta = WheelPageTurnDelta(win, delta);
-    if (win->wheelAccumDelta >= turnDelta) {
-        win->wheelAccumDelta -= turnDelta;
-        return 1;
-    }
-    if (win->wheelAccumDelta <= -turnDelta) {
-        win->wheelAccumDelta += turnDelta;
-        return -1;
-    }
-    return 0;
-}
-
 static void WheelTurnPage(MainWindow* win, int dir) {
     if (dir > 0) {
         win->ctrl->GoToPrevPage();
@@ -1545,6 +1602,10 @@ static void CanvasOnMouseWheel(MainWindow* win, int delta, bool isCtrl, bool isS
         ZoomByMouseWheel(win, delta, pt);
         return;
     }
+    // InvertMouseWheel (#6493): scroll and turn pages the other way
+    if (gSettings->invertMouseWheel) {
+        delta = -delta;
+    }
 
     bool hScroll = isShift;
     bool vScroll = !hScroll;
@@ -1576,13 +1637,13 @@ static void CanvasOnMouseWheel(MainWindow* win, int delta, bool isCtrl, bool isS
     // MouseWheelTurnsPage: a wheel notch is a page turn, not a scroll, even
     // when the page is zoomed past the window. Alt + wheel still scrolls
     if (vScroll && !isAlt && gSettings->mouseWheelTurnsPage) {
-        WheelTurnPage(win, WheelPageTurnDir(win, delta));
+        WheelTurnPage(win, WheelPageTurnDir(win, delta, WheelPageTurnDelta(win, delta)));
         return;
     }
 
     // fit content: flip page on wheel, regardless of scrollbar state
     if (vScroll && dm && FitContentWheelFlipsPage(dm) && IsSingle(dm->GetDisplayMode())) {
-        WheelTurnPage(win, WheelPageTurnDir(win, delta));
+        WheelTurnPage(win, WheelPageTurnDir(win, delta, WheelPageTurnDelta(win, delta)));
         return;
     }
 
@@ -1591,7 +1652,7 @@ static void CanvasOnMouseWheel(MainWindow* win, int delta, bool isCtrl, bool isS
 
     // in SinglePage mode a document that fits the viewport pages instead
     if (isSinglePageMode && vScroll && (!dm || !dm->NeedVScroll())) {
-        WheelTurnPage(win, WheelPageTurnDir(win, delta));
+        WheelTurnPage(win, WheelPageTurnDir(win, delta, WheelPageTurnDelta(win, delta)));
         return;
     }
 
@@ -1605,7 +1666,7 @@ static void CanvasOnMouseWheel(MainWindow* win, int delta, bool isCtrl, bool isS
             flipPage = true;
         }
         if (flipPage) {
-            WheelTurnPage(win, WheelPageTurnDir(win, delta));
+            WheelTurnPage(win, WheelPageTurnDir(win, delta, WheelPageTurnDelta(win, delta)));
             return;
         }
     }
@@ -1886,7 +1947,7 @@ static bool SetLaserPointerCursor(MainWindow* win) {
     if (!gLaserPointer) {
         return false;
     }
-    if (PM_BLACK_SCREEN == win->presentation || PM_WHITE_SCREEN == win->presentation) {
+    if (win->InBlankPresentation()) {
         // the presenter blanked the screen on purpose, don't put a dot on it
         return false;
     }
@@ -2206,7 +2267,7 @@ static void FinishAnnotationNudge(MainWindow* win) {
     }
     win->annotationNudgeTab = nullptr;
     win->annotationNudgePageNo = 0;
-    win->annotationNudgeLeftMs = 0;
+    win->annotationNudge.Cancel();
     if (!IsWindowTabValid(tab)) {
         return;
     }
@@ -2266,7 +2327,7 @@ bool NudgeSelectedAnnotation(MainWindow* win, int vkey, bool shift) {
     }
     win->annotationNudgeTab = tab;
     win->annotationNudgePageNo = pageNo;
-    win->annotationNudgeLeftMs = kAnnotationNudgeDelayMs;
+    win->annotationNudge.Arm(kAnnotationNudgeDelayMs);
     return true;
 }
 
@@ -2274,8 +2335,7 @@ void AnnotationNudgeTick(MainWindow* win, int elapsedMs) {
     if (!win || !win->annotationNudgeTab) {
         return;
     }
-    win->annotationNudgeLeftMs -= elapsedMs;
-    if (win->annotationNudgeLeftMs <= 0) {
+    if (win->annotationNudge.Tick(elapsedMs)) {
         FinishAnnotationNudge(win);
     }
 }
@@ -2285,19 +2345,14 @@ void AnnotationNudgeTick(MainWindow* win, int elapsedMs) {
 constexpr int kAnnotationResizeRerenderDelayMs = 125;
 
 void AnnotationResizeRerenderTick(MainWindow* win, int elapsedMs) {
-    if (!win || win->annotationResizeRerenderLeftMs <= 0) {
+    if (!win || !win->annotationResizeRerender.Tick(elapsedMs)) {
         return;
     }
-    win->annotationResizeRerenderLeftMs -= elapsedMs;
-    if (win->annotationResizeRerenderLeftMs > 0) {
-        return;
-    }
-    win->annotationResizeRerenderLeftMs = 0;
     MainWindowRerender(win);
 }
 
 static void StartAnnotationResize(MainWindow* win, Annotation* annot, Point pt, ResizeHandle handle) {
-    win->annotationResizeRerenderLeftMs = 0;
+    win->annotationResizeRerender.Cancel();
     // the drag rewrites the annotation on every mouse move; one undo step
     BeginPdfEditOperation(win, "Resize annotation");
     // a finished right-click leaves dragRightClick set; this is a left drag
@@ -2350,7 +2405,7 @@ static bool StopAnnotationResize(MainWindow* win, bool aborted) {
     win->annotationBeingResized = false;
     win->annotationResizeOutlineOnly = false;
     win->annotationBeingDragged = nullptr;
-    win->annotationResizeRerenderLeftMs = 0;
+    win->annotationResizeRerender.Cancel();
     CanvasSetCursor(win, kCurArrow);
 
     if (aborted || !annot) {
@@ -2429,7 +2484,7 @@ static void UpdateAnnotationResize(MainWindow* win, int x, int y, bool isShift) 
         RectF newRect = CalculateResizedRect(win, x, y);
         SetRect(annot, newRect);
         win->annotationResizePreviewRect = newRect;
-        win->annotationResizeRerenderLeftMs = kAnnotationResizeRerenderDelayMs;
+        win->annotationResizeRerender.Arm(kAnnotationResizeRerenderDelayMs);
     }
     AppShellInvalidate(win);
 }
@@ -2752,6 +2807,7 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y) {
     IPageElement* pageEl = dm->GetElementAtPos(pt, nullptr);
     if (pageEl && pageEl->Is(kindPageElementDest) && !gSettings->disableLinks) {
         win->linkOnLastButtonDown = pageEl;
+        win->linkOnLastButtonDownGen = AtomicIntGet(&dm->GetEngine()->elementsGeneration);
     }
 
     win->dragStartPending = true;
@@ -2820,6 +2876,7 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y) {
         if (imageEl && imageEl->Is(kindPageElementImage) && !IsFullPageImage(dm, imageEl, elPageNo)) {
             win->imageDragPending = true;
             win->imageDragElement = imageEl;
+            win->imageDragElementGen = AtomicIntGet(&dm->GetEngine()->elementsGeneration);
             win->imageDragPageNo = elPageNo;
             win->linkOnLastButtonDown = nullptr;
             CanvasSetCapture(win, true);
@@ -2898,7 +2955,7 @@ static bool OnMouseLeftButtonDblClk(MainWindow* win, int x, int y) {
     Point mousePos = Point(x, y);
     bool isOverText = dm->IsOverText(mousePos);
 
-    if (win->presentation || win->isFullScreen) {
+    if (win->IsFullScreenOrPresentation()) {
         // in fullscreen we allow to exit by tapping in upper right corner
         constexpr int kCornerSize = 64;
         Rect r = dm->GetViewPort();
@@ -2952,9 +3009,57 @@ static bool OnMouseLeftButtonDblClk(MainWindow* win, int x, int y) {
     return true;
 }
 
+// orig's LinkHandler::GotoLink shows a JavaScript menu link's items in a popup
+// at the cursor; picking one runs RunJsMenuItem()
+static void OpenJsMenuPopup(MainWindow* win, gp::Ctx* cx, int x, int y, PageDestinationJsMenu* dest) {
+    DocCanvasUI* ui = Ui(win);
+    delete ui->jsMenu;
+    ui->jsMenu = new PageDestinationJsMenu();
+    ui->jsMenu->items = dest->items;
+    ui->jsMenu->returns = dest->returns;
+
+    DeleteMenuModel(ui->ctxMenu);
+    auto* model = new MenuModel();
+    for (int i = 0; i < len(dest->items); i++) {
+        MenuItemModel it;
+        Str item = dest->items[i];
+        if (str::Eq(item, StrL("-"))) {
+            it.separator = true;
+        } else {
+            // && keeps a & from becoming an access-key marker
+            it.title = str::Dup(str::ReplaceTemp(item, StrL("&"), StrL("&&")));
+            it.titleOwned = true;
+            it.cmdId = kJsMenuItemCmdFirst + i;
+        }
+        VecAppend(model->items, it);
+    }
+    ui->ctxMenu = model;
+    AppShellInvalidate(win);
+    float k = CanvasScale(win);
+    OpenPopupMenuAt(cx, ui->ctxPopup, (float)x * k, (float)y * k);
+}
+
+// item cmdId - kJsMenuItemCmdFirst of the JavaScript menu was picked: launch its
+// URL or go to its page. false for any other command
+static bool RunJsMenuItem(MainWindow* win, int cmdId) {
+    PageDestinationJsMenu* menu = Ui(win)->jsMenu;
+    int i = cmdId - kJsMenuItemCmdFirst;
+    if (!menu || i < 0 || i >= len(menu->items)) {
+        return false;
+    }
+    JsMenuAction action = GetJsMenuAction(menu, i);
+    if (len(action.url) > 0) {
+        win->linkHandler->LaunchURL(action.url);
+    } else if (action.pageNo > 0 && win->ctrl && win->ctrl->ValidPageNo(action.pageNo)) {
+        win->ctrl->GoToPage(action.pageNo, true);
+    }
+    return true;
+}
+
 // orig's OnMouseLeftButtonUp, minus the annotation, touch, presentation and
-// forward-search branches
-static void OnMouseLeftButtonUp(MainWindow* win, int x, int y) {
+// forward-search branches. cx is null for a click from -dbg-control, which then
+// can't show a JavaScript menu
+static void OnMouseLeftButtonUp(MainWindow* win, gp::Ctx* cx, int x, int y) {
     if (ReadingBarOnLeftUp(win)) {
         return;
     }
@@ -3056,6 +3161,10 @@ static void OnMouseLeftButtonUp(MainWindow* win, int x, int y) {
     PointF ptPage = dm->CvtFromScreen(pt, pageNo);
 
     IPageElement* link = win->linkOnLastButtonDown;
+    // page elements are freed when the page content changes (redaction, image replace)
+    if (win->linkOnLastButtonDownGen != AtomicIntGet(&dm->GetEngine()->elementsGeneration)) {
+        link = nullptr;
+    }
     win->linkOnLastButtonDown = nullptr;
 
     WindowTab* tab = win->CurrentTab();
@@ -3063,9 +3172,9 @@ static void OnMouseLeftButtonUp(MainWindow* win, int x, int y) {
         return;
     }
 
-    if (PM_BLACK_SCREEN == win->presentation || PM_WHITE_SCREEN == win->presentation) {
+    if (win->InBlankPresentation()) {
         /* return from white/black screens in presentation mode */
-        win->ChangePresentationMode(PM_ENABLED);
+        win->ChangePresentationMode(WindowMode::Presentation);
         return;
     }
 
@@ -3153,6 +3262,14 @@ static void OnMouseLeftButtonUp(MainWindow* win, int x, int y) {
             return;
         }
 
+        if (kindDestinationJsMenu == kind) {
+            auto* menu = (PageDestinationJsMenu*)dest;
+            if (cx && len(menu->items) > 0) {
+                OpenJsMenuPopup(win, cx, x, y, menu);
+            }
+            return;
+        }
+
         win->ctrl->HandleLink(dest, win->linkHandler);
         AppShellInvalidate(win);
         return;
@@ -3176,7 +3293,7 @@ static void OnMouseLeftButtonUp(MainWindow* win, int x, int y) {
     // Click the left/right fifth of the canvas to turn the page (issue #1203).
     // Presentation mode has its own click-to-turn below. Manga (R2L) reverses
     // the sides so left still advances.
-    if (gSettings->clickEdgeToTurnPage && tab && tab->ctrl && PM_ENABLED != win->presentation) {
+    if (gSettings->clickEdgeToTurnPage && tab && tab->ctrl && win->windowMode != WindowMode::Presentation) {
         int canvasDx = dm->GetViewPort().dx;
         if (canvasDx > 0) {
             int edgeDx = canvasDx / 5;
@@ -3198,7 +3315,7 @@ static void OnMouseLeftButtonUp(MainWindow* win, int x, int y) {
         }
     }
 
-    if (PM_ENABLED == win->presentation && tab && tab->ctrl) {
+    if (win->windowMode == WindowMode::Presentation && tab && tab->ctrl) {
         /* in presentation mode, change pages on left/right-clicks */
         if (CanvasShiftPressed()) {
             tab->ctrl->GoToPrevPage();
@@ -3219,7 +3336,7 @@ void DocCanvasMouseUp(MainWindow* win, int x, int y) {
     if (!IsMainWindowValid(win) || !win->AsFixed()) {
         return;
     }
-    OnMouseLeftButtonUp(win, x, y);
+    OnMouseLeftButtonUp(win, nullptr, x, y);
 }
 
 // a click in canvas pixels: down and up at the same point, so it is not a drag
@@ -3282,7 +3399,7 @@ static void OnMouseMove(MainWindow* win, int x, int y) {
     // orig's presentation branch: the cursor comes back when the mouse moves
     // and hides itself again shortly after it stops
     if (win->InPresentation()) {
-        if (PM_BLACK_SCREEN == win->presentation || PM_WHITE_SCREEN == win->presentation) {
+        if (win->InBlankPresentation()) {
             // the presenter blanked the screen on purpose
             AppShellShowCursor(win, false);
             return;
@@ -3290,7 +3407,7 @@ static void OnMouseMove(MainWindow* win, int x, int y) {
         if (!win->dragPrevPos.Eq(x, y)) {
             AppShellShowCursor(win, true);
             // hack: hide the cursor immediately the first time (EnterFullScreen)
-            win->presCursorHideLeftMs = win->dragPrevPos.Eq(-2, -3) ? 1 : kHideCursorDelayInMs;
+            win->presCursorHide.Arm(win->dragPrevPos.Eq(-2, -3) ? 1 : kHideCursorDelayInMs);
         }
     }
     if (gLaserPointer && !kLaserPointerIsCursor) {
@@ -3418,21 +3535,13 @@ void DocCanvasMouseMove(MainWindow* win, int x, int y) {
 // orig's kHideCursorTimerID. A laser pointer that disappears when you stop
 // moving it would be useless, so it opts out of the hiding.
 void CanvasTickPresentation(MainWindow* win, int elapsedMs) {
-    if (win->presCursorHideLeftMs < 0) {
+    if (!win->presCursorHide.Tick(elapsedMs)) {
         return;
     }
-    win->presCursorHideLeftMs -= elapsedMs;
-    if (win->presCursorHideLeftMs > 0) {
-        return;
-    }
-    win->presCursorHideLeftMs = -1;
     if (win->InPresentation() && !IsLaserPointerActive()) {
         AppShellShowCursor(win, false);
     }
 }
-
-// orig's kSelectSmoothScrollTimerID period
-constexpr int kSelectSmoothScrollDelayInMs = 20;
 
 // the auto-scroll tick: xScrollSpeed / yScrollSpeed are pixels per 20 ms
 void DocCanvasAutoScrollTick(MainWindow* win, int elapsedMs) {
@@ -3530,8 +3639,8 @@ void DocCanvasView::OnPaint(gp::PaintCtx* ctx, gp::El* e, void* user) {
     gp::CanvasPushClip(ctx, b.x, b.y, b.w, b.h);
     Size vp = win->AsFixed()->GetViewPort().Size();
     // presentation mode's blank screen: nothing else is on it
-    if (PM_BLACK_SCREEN == win->presentation || PM_WHITE_SCREEN == win->presentation) {
-        Color col = PM_BLACK_SCREEN == win->presentation ? kColBlack : kColWhite;
+    if (win->InBlankPresentation()) {
+        Color col = win->windowMode == WindowMode::PresentationBlack ? kColBlack : kColWhite;
         FillRect(ctx, Rect(0, 0, vp.dx, vp.dy), col);
         gp::CanvasPopClip(ctx);
         gFrame.ctx = nullptr;
@@ -3707,7 +3816,7 @@ static void OnMouseRightButtonUp(MainWindow* win, gp::Ctx* cx, int x, int y, boo
 
     if (didDragMouse) {
         /* pass */;
-    } else if (PM_ENABLED == win->presentation) {
+    } else if (win->windowMode == WindowMode::Presentation) {
         if (isCtrl) {
             OnWindowContextMenu(win, cx, x, y);
         } else if (isShift) {
@@ -3718,8 +3827,8 @@ static void OnMouseRightButtonUp(MainWindow* win, gp::Ctx* cx, int x, int y, boo
         ReadAloudOnUserViewChanged(win);
     }
     /* return from white/black screens in presentation mode */
-    else if (PM_BLACK_SCREEN == win->presentation || PM_WHITE_SCREEN == win->presentation) {
-        win->ChangePresentationMode(PM_ENABLED);
+    else if (win->InBlankPresentation()) {
+        win->ChangePresentationMode(WindowMode::Presentation);
     } else {
         OnWindowContextMenu(win, cx, x, y);
     }
@@ -3743,7 +3852,7 @@ void DocCanvasView::OnDown(DocCanvasView* self, gp::Ctx* cx, const gp::MouseDown
         // counts in presentation mode, where two quick right clicks turn two
         // pages
         bool isDblClick = ev->clickCount > 0 && (ev->clickCount % 2) == 0;
-        if (isDblClick && !(win->presentation && !ev->modifiers.Modified())) {
+        if (isDblClick && !(win->InPresentation() && !ev->modifiers.Modified())) {
             return;
         }
         OnMouseRightButtonDown(win, pt.x, pt.y);
@@ -3817,7 +3926,7 @@ void DocCanvasView::OnUp(DocCanvasView* self, gp::Ctx* cx, const gp::MouseUpEven
     } else if (IsContextClick(ev->button, ev->modifiers)) {
         OnMouseRightButtonUp(win, cx, pt.x, pt.y, ev->modifiers.control, ev->modifiers.shift);
     } else if (ev->button == gp::MouseButton::Left) {
-        OnMouseLeftButtonUp(win, pt.x, pt.y);
+        OnMouseLeftButtonUp(win, cx, pt.x, pt.y);
     }
     gp::Notify(cx);
 }
@@ -3998,7 +4107,7 @@ struct CanvasMenuCmd {
 };
 
 static void RunCanvasMenuCmd(CanvasMenuCmd* c) {
-    if (IsMainWindowValidAndNotClosing(c->win)) {
+    if (IsMainWindowValidAndNotClosing(c->win) && !RunJsMenuItem(c->win, c->cmdId)) {
         WindowContextMenuCommand(c->win, c->cmdId);
     }
     delete c;
@@ -4107,7 +4216,7 @@ gp::El* DocCanvasBuild(MainWindow* win, gp::Ctx* cx) {
     // orig's DrawCanvasKeyboardFocusIfNeeded: a focus ring on the canvas when
     // the document has the keyboard focus, gated by ShowDocumentFocusIndicator
     // (default off; #4644)
-    bool showFocus = gSettings->showDocumentFocusIndicator && !win->presentation && !win->isFullScreen &&
+    bool showFocus = gSettings->showDocumentFocusIndicator && !win->IsFullScreenOrPresentation() &&
                      AppShellIsFrameFocused(win) && gp::WindowIsActive(cx);
     if (showFocus) {
         // inset so the dashed rect is fully inside the client area

@@ -100,6 +100,10 @@ const user32 = loadDll("user32.dll", {
   InvalidateRect: { args: [FFIType.ptr, FFIType.ptr, FFIType.bool], returns: FFIType.bool },
   UpdateWindow: { args: [FFIType.ptr], returns: FFIType.bool },
   IsZoomed: { args: [FFIType.ptr], returns: FFIType.bool },
+  IsIconic: { args: [FFIType.ptr], returns: FFIType.bool },
+  AttachThreadInput: { args: [FFIType.u32, FFIType.u32, FFIType.bool], returns: FFIType.bool },
+  GetKeyboardState: { args: [FFIType.ptr], returns: FFIType.bool },
+  SetKeyboardState: { args: [FFIType.ptr], returns: FFIType.bool },
   GetClientRect: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.bool },
   GetScrollInfo: { args: [FFIType.ptr, FFIType.i32, FFIType.ptr], returns: FFIType.bool },
   SetCursorPos: { args: [FFIType.i32, FFIType.i32], returns: FFIType.bool }, // desktop-input: ffi-cursor
@@ -298,6 +302,7 @@ const gdiplus = loadDll("gdiplus.dll", {
 });
 
 const kernel32 = loadDll("kernel32.dll", {
+  GetCurrentThreadId: { args: [], returns: FFIType.u32 },
   CreateProcessW: {
     args: [
       FFIType.ptr,
@@ -469,6 +474,8 @@ export const PW_RENDERFULLCONTENT = 0x00000002;
 export const SRCCOPY = 0x00cc0020;
 export const COLORONCOLOR = 3; // StretchBlt mode: no smoothing
 // ShowWindow commands
+export const SW_SHOWMINNOACTIVE = 7;
+export const SW_SHOWNOACTIVATE = 4;
 export const SW_RESTORE = 9;
 export const SW_MAXIMIZE = 3;
 // GetSystemMetrics indices
@@ -939,6 +946,13 @@ export async function postChar(hwnd: number, ch: string): Promise<boolean> {
 // target window to finish handling the message before reading state. Returns the
 // LRESULT as a bigint -- TreeView messages return HTREEITEM pointers that can
 // exceed 2^53, so they must not be coerced to a JS number.
+const WM_NULL = 0x0000;
+
+// whether hwnd's thread answers a WM_NULL within timeoutMs: false while it's busy
+export function windowResponds(hwnd: number, timeoutMs: number): boolean {
+  return user32.symbols.SendMessageTimeoutW(hwnd, WM_NULL, 0n, 0n, 0, timeoutMs, null) !== 0n;
+}
+
 export function sendMessage(hwnd: number, msg: number, wParam: number | bigint, lParam: number | bigint): bigint {
   if (ngInput(hwnd, msg, wParam, lParam, false)) {
     return 0n;
@@ -1171,6 +1185,42 @@ export function isKeyDownAsync(vk: number): boolean {
 }
 
 const KEYEVENTF_KEYUP = 0x0002;
+
+export function isIconic(hwnd: number): boolean {
+  return user32.symbols.IsIconic(hwnd);
+}
+
+const kKeyDown = 0x80;
+
+// Posts WM_KEYDOWN vk to hwnd with Shift held, for a Shift shortcut. Injected
+// input is dropped here and a posted key carries no modifier, so share the app
+// thread's key state (AttachThreadInput) and mark Shift down in it: that is what
+// GetKeyState and TranslateAccelerator read. Call the returned function once the
+// app handled the key, to release Shift and detach.
+export function postKeyWithShift(hwnd: number, vk: number): () => void {
+  return postKeyWithModifier(hwnd, vk, VK_SHIFT);
+}
+
+// postKeyWithShift for any modifier (VK_CONTROL for a Ctrl shortcut)
+export function postKeyWithModifier(hwnd: number, vk: number, modVk: number): () => void {
+  const appThread = user32.symbols.GetWindowThreadProcessId(hwnd, null);
+  const ourThread = kernel32.symbols.GetCurrentThreadId();
+  if (!user32.symbols.AttachThreadInput(ourThread, appThread, true)) {
+    throw new Error("postKeyWithModifier: AttachThreadInput failed");
+  }
+  const keys = new Uint8Array(256);
+  const setMod = (down: boolean) => {
+    user32.symbols.GetKeyboardState(ptr(keys));
+    keys[modVk] = down ? kKeyDown : 0;
+    user32.symbols.SetKeyboardState(ptr(keys));
+  };
+  setMod(true);
+  user32.symbols.PostMessageW(hwnd, WM_KEYDOWN, vk, 1);
+  return () => {
+    setMod(false);
+    user32.symbols.AttachThreadInput(ourThread, appThread, false);
+  };
+}
 
 // inject a key-up for vk, clearing a key the system thinks is still held
 export function injectKeyUp(vk: number): void {

@@ -266,19 +266,7 @@ bool ConvertImageCollectionToPdf(EngineBase* engine, Str destPath) {
 
     TempStr producer = fmt("SumatraPDF %s", currentVersion);
     PdfCreator::SetProducerName(producer);
-    // Formats PDF cannot re-wrap (WebP, JXL, HEIC, AVIF, TGA, …): decode via
-    // the same codecs we use for viewing, then PNG + zopfli before embed.
-    auto toOptimizedPng = [](Str data) -> Str {
-        Pixmap* px = PixmapFromData(data);
-        if (!px) {
-            logf("ConvertToPdf: decode-to-pixmap failed (%d bytes)\n", len(data));
-            return {};
-        }
-        Str png = EncodeAndOptimizePngFromPixmap(px);
-        FreePixmap(px);
-        return png;
-    };
-    return PdfCreator::SaveImageCollectionAsPdf(destPath, engine, toOptimizedPng);
+    return PdfCreator::SaveImageCollectionAsPdf(destPath, engine);
 }
 
 // 0 if not a usable font size
@@ -350,7 +338,9 @@ TempStr ConvertImageCollectionToPdfResultTemp(Str srcPath, Str destPath, int* ex
     if (!engine) {
         return finish(1, str::DupTemp(StrL("ERROR engine-create-failed")));
     }
-    bool ok = ConvertImageCollectionToPdf(engine, destPath);
+    // as the Convert to PDF dialog: OFD as vector pages
+    bool ok = EngineMupdfIsOfd(engine) ? EngineMupdfSaveAsPdf(engine, destPath)
+                                       : ConvertImageCollectionToPdf(engine, destPath);
     SafeEngineRelease(&engine);
     if (!ok) {
         return finish(1, str::DupTemp(StrL("ERROR convert-failed")));

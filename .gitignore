@@ -45,6 +45,7 @@ tests/tmp/
 /mcps/tasks/tools
 /bin/resvg.exe
 /scratch.txt
+/.DS_Store
 
 # Native compiler intermediates, including ad-hoc local builds.
 *.obj

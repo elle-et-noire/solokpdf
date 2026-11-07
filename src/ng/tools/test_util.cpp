@@ -62,6 +62,8 @@ extern bool MarkdownToc_UnitTestHighlightWikilinks();
 #if IS_DEBUG
 extern bool PdfDarkModeImageStats_UnitTest();
 extern bool EbookDoc_UnitTestLoading();
+extern bool EbookDoc_UnitTestLinearNo();
+extern bool EbookDoc_UnitTestUtf16BeTwice();
 bool GumboHtmlParser_UnitTest();
 bool DisplayMode_UnitTestZoom();
 bool Translations_UnitTestUnescape();
@@ -102,13 +104,6 @@ TempStr TestDocPathTemp(Str relPath) {
 }
 
 #if OS_WIN
-static void PrintStdout(Str s) {
-    if (str::IsNull(s)) {
-        return;
-    }
-    printf("%.*s", s.len, s.s);
-}
-
 static LONG WINAPI ForAiCrashHandler(EXCEPTION_POINTERS* exceptionInfo) {
     printf("test_util crash\n");
     str::Builder s;
@@ -218,6 +213,8 @@ int main(int argc, char** argv) {
     utassert(Accelerators_UnitTestFolderNavIsSafe());
     utassert(AccelTestCustomScope());
     utassert(EbookDoc_UnitTestLoading());
+    utassert(EbookDoc_UnitTestLinearNo());
+    utassert(EbookDoc_UnitTestUtf16BeTwice());
     utassert(GumboHtmlParser_UnitTest());
     utassert(DisplayMode_UnitTestZoom());
     utassert(Translations_UnitTestUnescape());

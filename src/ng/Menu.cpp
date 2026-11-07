@@ -82,6 +82,14 @@ static MenuDef menuDefSelection[] = {
         CmdZoomToSelection,
     },
     {
+        TrN("Count &Words"),
+        CmdCountWords,
+    },
+    {
+        TrN("Show Selected Te&xt"),
+        CmdShowSelectedText,
+    },
+    {
         StrL(kMenuSeparator),
         kMenuSeparatorID,
     },
@@ -684,6 +692,11 @@ static void SetMenuChecks(MenuModel* menu, MainWindow* win) {
             it.checked = gSettings && gSettings->comicBookUI.autoRotateWidePages;
             continue;
         }
+        if (it.cmdId == CmdToggleMirror) {
+            DisplayModel* dmMirror = win->AsFixed();
+            it.checked = dmMirror && dmMirror->GetMirror();
+            continue;
+        }
         if (it.cmdId == CmdTogglePageGrid) {
             it.checked = ShowPageGrid();
             continue;
@@ -925,7 +938,7 @@ MenuModel* BuildWindowContextMenu(MainWindow* win, Point cursorPos) {
     MenuModel* popup = BuildMenuFromDef(menuDefContext, ctx);
 
     // in fullscreen, add "Menu" as first item containing the full menu bar
-    bool isFullScreen = win->isFullScreen || win->presentation;
+    bool isFullScreen = win->IsFullScreenOrPresentation();
     if (isFullScreen) {
         MenuModel* bar = BuildMenuFromDef(menuDefMenubar, ctx);
         SetMenuChecks(bar, win);
@@ -988,6 +1001,7 @@ MenuModel* BuildWindowContextMenu(MainWindow* win, Point cursorPos) {
     MenuSetChecked(popup, CmdToggleThumbnails, SidebarContentVisible(win, SidebarContent::Thumbnails));
 
     MenuSetEnabled(popup, CmdFavoriteToggle, HasFavorites());
+    MenuSetEnabled(popup, CmdEditFavorites, HasFavorites());
     MenuSetChecked(popup, CmdFavoriteToggle, SidebarContentVisible(win, SidebarContent::Favorites));
 
     Str filePath = win->ctrl->GetFilePath();
@@ -1274,7 +1288,7 @@ void ToggleMenuBar(MainWindow* win, bool showTemporarily) {
     if (showTemporarily) {
         return;
     }
-    if (win->isFullScreen) {
+    if (win->IsFullScreen()) {
         gSettings->fullscreen.showMenubar = !gSettings->fullscreen.showMenubar;
         win->isMenuBarVisible = gSettings->fullscreen.showMenubar;
     } else {

@@ -149,6 +149,18 @@ static MenuDef menuDefSelection[] = {
         CmdZoomToSelection,
     },
     {
+        TrN("&Trim Pages To Selection"),
+        CmdTrimPagesToSelection,
+    },
+    {
+        TrN("Count &Words"),
+        CmdCountWords,
+    },
+    {
+        TrN("Show Selected Te&xt"),
+        CmdShowSelectedText,
+    },
+    {
         StrL(kMenuSeparator),
         kMenuSeparatorID,
     },
@@ -531,7 +543,6 @@ HMENU BuildMenuFromDef(MenuDef* menuDef, HMENU menu, BuildMenuCtx* ctx) {
             Str path = tab ? tab->filePath : Str{};
             AppendExternalViewersToMenu(menu, path);
             addExternalViewersNext = false;
-            continue;
         }
 
         int cmdId = (int)md.idOrSubmenu;
@@ -874,6 +885,11 @@ static void MenuUpdateDisplayMode(MainWindow* win) {
         MenuSetEnabled(win->menu, CmdToggleUniformPageWidth, true);
         MenuSetChecked(win->menu, CmdToggleTrimEmptyMargins, dm->GetTrimEmptyMargins());
         MenuSetEnabled(win->menu, CmdToggleTrimEmptyMargins, true);
+        MenuSetChecked(win->menu, CmdToggleMirror, dm->GetMirror());
+        MenuSetEnabled(win->menu, CmdShowWholePages, !dm->GetUserCrop().IsEmpty());
+        MenuSetChecked(win->menu, CmdToggleReadColumns, dm->GetReadColumns());
+        MenuSetEnabled(win->menu, CmdToggleColumnsWholePage, dm->GetReadColumns());
+        MenuSetChecked(win->menu, CmdToggleColumnsWholePage, dm->ShowsColumnsWholePage());
     }
 }
 
@@ -902,7 +918,8 @@ static void MenuUpdateStateForWindow(MainWindow* win) {
     MenuSetChecked(win->menu, CmdFavoriteShowInTab, FindFavoritesTab(win) != nullptr);
     {
         // checked when mode is not "hide" (show or overlay)
-        bool toolbarOn = win->isFullScreen ? FullscreenToolbarModeFromPrefs() != kToolbarHide : !ToolbarModeIsHidden();
+        bool toolbarOn =
+            win->IsFullScreen() ? FullscreenToolbarModeFromPrefs() != kToolbarHide : !ToolbarModeIsHidden();
         MenuSetChecked(win->menu, CmdToggleToolbar, toolbarOn);
     }
     MenuSetChecked(win->menu, CmdToggleMenuBar, gSettings->showMenubar);
@@ -950,6 +967,7 @@ static void MenuUpdateStateForWindow(MainWindow* win) {
     MenuSetChecked(win->menu, CmdToggleHighlightFormFields, gSettings->highlightFormFields);
     MenuSetChecked(win->menu, CmdToggleTransparencyGrid, ShowTransparencyGrid());
     MenuSetChecked(win->menu, CmdTogglePageGrid, ShowPageGrid());
+    MenuSetChecked(win->menu, CmdMeasure, win->measurementToolbar != nullptr);
     MenuSetChecked(win->menu, CmdToggleImages, ShowImageOutlines());
     MenuSetChecked(win->menu, CmdDebugShowFitContentArea, ShowFitContentArea());
     MenuSetEnabled(win->menu, CmdTabGroupSave, HasOpenedDocuments(win));
@@ -1105,7 +1123,7 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
     HMENU popup = BuildMenuFromDef(menuDefContext, CreatePopupMenu(), ctx);
 
     // in fullscreen, add "Menu" as first item containing the full menu bar
-    bool isFullScreen = win->isFullScreen || win->presentation;
+    bool isFullScreen = win->IsFullScreenOrPresentation();
     if (isFullScreen) {
         HMENU menuBarCopy = BuildMenuFromDef(menuDefMenubar, CreatePopupMenu(), ctx);
         WCHAR* menuLabel = CWStrTemp(Tr("Menu"));
@@ -1175,6 +1193,10 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
         if (!onImage) {
             MenuRemove(popup, CmdSaveImage);
         }
+        if (!pageEl || !pageEl->Is(kindPageElementImage)) {
+            MenuRemove(popup, CmdReplaceImage);
+            MenuRemove(popup, CmdEditImageExternally);
+        }
         if (!isImageEngine && !onImage) {
             MenuRemove(popup, CmdCropImage);
             MenuRemove(popup, CmdResizeImage);
@@ -1212,6 +1234,7 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
     MenuSetEnabled(popup, CmdFavoriteToggle, HasFavorites());
     MenuSetChecked(popup, CmdFavoriteToggle, IsSidebarViewShown(win, SidebarView::Favorites));
     MenuSetEnabled(popup, CmdFavoriteShowInTab, HasFavorites() && SettingsUseTabs());
+    MenuSetEnabled(popup, CmdEditFavorites, HasFavorites());
     MenuSetChecked(popup, CmdFavoriteShowInTab, FindFavoritesTab(win) != nullptr);
 
     Str filePath = win->ctrl->GetFilePath();
@@ -1269,7 +1292,8 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
     // TrackPopupMenu runs a nested message loop; during that time the window
     // can be force-closed (e.g. by a plugin host destroying the parent).
     // If that happened, all our cached pointers (win, dm, pageEl, etc.) are dangling.
-    if (!IsMainWindowValidAndNotClosing(win)) {
+    // DDE or a reload can also replace the document while the window lives on.
+    if (!IsMainWindowValidAndNotClosing(win) || win->AsFixed() != dm || win->CurrentTab() != tab) {
         return;
     }
 
@@ -1306,6 +1330,12 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
             return;
         case CmdSearchGoogleLensImage:
             SearchGoogleLensImage(tab, pageEl);
+            return;
+        case CmdReplaceImage:
+            ReplaceImageFromFile(win, pageEl);
+            return;
+        case CmdEditImageExternally:
+            EditImageExternally(win, pageEl);
             return;
         case CmdSaveImage:
         case CmdCropImage:
@@ -1806,7 +1836,7 @@ void UpdateAppMenu(MainWindow* win, HMENU m) {
 void ToggleMenuBar(MainWindow* win, bool showTemporarily) {
     ReportIf(!win->menu);
 
-    if (win->presentation) {
+    if (win->InPresentation()) {
         return;
     }
 
@@ -1821,7 +1851,7 @@ void ToggleMenuBar(MainWindow* win, bool showTemporarily) {
         return;
     }
 
-    if (win->isFullScreen) {
+    if (win->IsFullScreen()) {
         gSettings->fullscreen.showMenubar = !gSettings->fullscreen.showMenubar;
         if (gSettings->fullscreen.showMenubar) {
             // use rebar-based menu bar (WS_CAPTION is stripped in fullscreen, so SetMenu won't work)
@@ -2236,7 +2266,7 @@ bool IsShowingMenuBarRebar(MainWindow* win) {
     if (gMyWindowWasEmbedded) {
         return false;
     }
-    if (win->presentation || win->isQuickLook) {
+    if (win->InPresentation() || win->isQuickLook) {
         return false;
     }
     return true;

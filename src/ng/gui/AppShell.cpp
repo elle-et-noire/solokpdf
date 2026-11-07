@@ -91,6 +91,9 @@
 #include "AIChatPanel.h"
 #include "gui/DialogWidgets.h"
 #include "StressTesting.h"
+#include "SumatraConfig.h"
+
+#include "SumatraLog.h"
 
 // every command goes through one gpui action, with the command id as its
 // argument. The bindings carry a key context so a menu row does not pick up
@@ -122,8 +125,6 @@ struct ShellView {
     int menuKey = 0;
     int menuArmedIdx = -1;
     bool menuBarTemp = false;
-    // a click that armed the bar is still being dispatched
-    bool menuArmedByClick = false;
     // a dialog, the palette or the annotation list was built last frame: orig
     // gives each a window of its own, which has the keyboard while it is up
     bool overlayUp = false;
@@ -250,7 +251,7 @@ void SetTabsInTitlebar(MainWindow* win, bool inTitleBar) {
         return;
     }
     win->tabsInTitlebar = inTitleBar;
-    if (!win->isFullScreen && !win->presentation) {
+    if (!win->IsFullScreenOrPresentation()) {
         AppShellSetClientTitleBar(win, inTitleBar);
         AppShellFrameChanged(win);
     }
@@ -258,7 +259,7 @@ void SetTabsInTitlebar(MainWindow* win, bool inTitleBar) {
 }
 
 static bool ShowCaption(MainWindow* win) {
-    return win->tabsInTitlebar && !win->presentation && !win->isFullScreen;
+    return win->tabsInTitlebar && !win->IsFullScreenOrPresentation();
 }
 
 // orig's SyncCaptionLayout sizes: the window buttons span the padding above
@@ -800,7 +801,7 @@ TempStr AppShellUiStateTemp(MainWindow* win) {
                    view ? view->menuArmedIdx : -1, win->isMenuBarVisible ? 1 : 0, view && view->menuBarTemp ? 1 : 0));
     out.Append(fmt(" page=%d findUI=%d selection=%d annotSel=%d presentation=%d fullscreen=%d mouseAction=%d",
                    win->ctrl ? win->ctrl->CurrentPageNo() : 0, IsFindUIVisible(win) ? 1 : 0, win->showSelection ? 1 : 0,
-                   tab && tab->selectedAnnotation ? 1 : 0, (int)win->presentation, win->isFullScreen ? 1 : 0,
+                   tab && tab->selectedAnnotation ? 1 : 0, (int)win->InPresentation(), win->IsFullScreen() ? 1 : 0,
                    (int)win->mouseAction));
     int tocItems = 0;
     if (win->ctrl) {
@@ -879,6 +880,12 @@ void AppShellSuppressAltMenu(MainWindow* win) {
 void AppShellActivateWindow(MainWindow* win) {
     if (win && win->gpuiWin) {
         gp::AppActivate(win->gpuiWin);
+    }
+}
+
+void AppShellMinimizeWindow(MainWindow* win) {
+    if (win && win->gpuiWin) {
+        gp::AppMinimize(win->gpuiWin);
     }
 }
 
@@ -1231,13 +1238,133 @@ TempStr AppShellPromptForFolderTemp(MainWindow* win, Str title) {
 }
 
 #if OS_WASM
-// WasmShell.js calls this. gpui leaves Ctrl+K / Cmd+K with the browser, so
-// the accelerator never runs.
-extern "C" EMSCRIPTEN_KEEPALIVE void sumatra_wasm_command_palette() {
-    if (len(gWindows) == 0) {
+// WasmShell.js calls the sumatra_wasm_* functions below. A browser tab has
+// one canvas, so one MainWindow.
+static MainWindow* WasmMainWindow() {
+    if (len(gWindows) == 0 || !IsMainWindowValidAndNotClosing(gWindows[0])) {
+        return nullptr;
+    }
+    return gWindows[0];
+}
+
+// Ctrl+arrows, Ctrl+Backspace and the like move or delete by word in a text
+// field, and gpui leaves every Ctrl chord but A/C/X/Y/Z with the browser
+static bool IsTextEditKey(int vk) {
+    return vk == VK_LEFT || vk == VK_RIGHT || vk == VK_UP || vk == VK_DOWN || vk == VK_HOME || vk == VK_END ||
+           vk == VK_BACK || vk == VK_DELETE;
+}
+
+// gpui left the key with the browser. 1 if the app should get it instead: a
+// command is bound to it, or a focused text field uses it.
+extern "C" EMSCRIPTEN_KEEPALIVE int sumatra_wasm_key_wanted(int vk, int ch, int shift, int ctrl, int alt) {
+    MainWindow* win = WasmMainWindow();
+    if (!win || !win->gpuiWin) {
+        return 0;
+    }
+    KeyShortcut sc;
+    sc.vk = (u16)vk;
+    sc.shift = shift != 0;
+    sc.ctrl = ctrl != 0;
+    sc.alt = alt != 0;
+    sc.isVirt = true;
+    if (IsBrowserReservedShortcut(sc)) {
+        return 0;
+    }
+    gp::Window* gw = win->gpuiWin;
+    bool inTextField = gw->input && gp::FocusHandleIsFocused(gw, gw->input->focus);
+    if (inTextField && ctrl && !alt && IsTextEditKey(vk)) {
+        return 1;
+    }
+    return WasmAcceleratorCmd((u16)vk, (u32)ch, ctrl != 0, shift != 0, alt != 0) != 0 ? 1 : 0;
+}
+
+// the key the page took from the browser, delivered the way gpui delivers keys
+extern "C" EMSCRIPTEN_KEEPALIVE void sumatra_wasm_key(int vk, int shift, int ctrl, int alt, int down, int repeat) {
+    MainWindow* win = WasmMainWindow();
+    if (!win || !win->gpuiWin) {
         return;
     }
-    ExecuteCmd(gWindows[0], CmdCommandPalette);
+    if (!down) {
+        gp::WindowKeyUp(win->gpuiWin, vk, shift != 0, ctrl != 0, alt != 0);
+        return;
+    }
+    gp::KeyDownFlags flags;
+    flags.held = repeat != 0;
+    gp::WindowKeyDown(win->gpuiWin, vk, shift != 0, ctrl != 0, alt != 0, false, false, flags);
+}
+
+// files dropped on the page, stored by WasmShell.js
+extern "C" EMSCRIPTEN_KEEPALIVE void sumatra_wasm_open_dropped() {
+    Vec<Str> paths;
+    WasmTakeDroppedPathsTemp(paths);
+    MainWindow* win = WasmMainWindow();
+    if (!win || paths.len == 0) {
+        return;
+    }
+    OpenDroppedFiles(win, paths.els, paths.len);
+}
+
+// the browser left fullscreen by itself, e.g. on Esc, which the page never
+// sees. A no-op when the app left it, as it exits its mode first.
+extern "C" EMSCRIPTEN_KEEPALIVE void sumatra_wasm_fullscreen_left() {
+    for (MainWindow* win : gWindows) {
+        if (win->IsFullScreenOrPresentation()) {
+            ExitFullScreen(win);
+        }
+    }
+}
+
+// the version and git commit, for a crash report (WasmShell.js asks at startup)
+extern "C" EMSCRIPTEN_KEEPALIVE const char* sumatra_wasm_build_info() {
+    static char* info = nullptr;
+    if (!info) {
+        info = str::Dup(fmt("%s %s", currentVersion, gitCommidId)).s;
+    }
+    return info;
+}
+
+// The log, for a crash report. WasmShell.js reads them right after a trap, when
+// the module's state can't be trusted: they only read globals (no lock, no
+// allocation, no stack).
+extern "C" EMSCRIPTEN_KEEPALIVE const char* sumatra_wasm_log_data() {
+    return gLogBuf ? gLogBuf->els : nullptr;
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE int sumatra_wasm_log_len() {
+    return gLogBuf ? (int)gLogBuf->len : 0;
+}
+
+// a save to OPFS failed: the document or setting is only in this tab
+extern "C" EMSCRIPTEN_KEEPALIVE void sumatra_wasm_storage_error() {
+    MainWindow* win = WasmMainWindow();
+    if (!win) {
+        return;
+    }
+    TempStr msg = fmt("%s: %s", Tr("Couldn't save to the browser's storage, changes are lost when the tab is closed"),
+                      WasmStorageErrorTemp());
+    ShowPlainWarningNotification(win, msg, kNotifNoTimeout);
+}
+
+// the page is being hidden and may be discarded: put the settings and the
+// session into MEMFS now, WasmShell.js then copies them to OPFS
+extern "C" EMSCRIPTEN_KEEPALIVE void sumatra_wasm_flush() {
+    if (!WasmMainWindow()) {
+        return;
+    }
+    SaveSettingsNow();
+}
+
+// for the page's "leave site?" prompt
+extern "C" EMSCRIPTEN_KEEPALIVE int sumatra_wasm_has_unsaved() {
+    for (MainWindow* win : gWindows) {
+        for (WindowTab* tab : win->Tabs()) {
+            DisplayModel* dm = tab->AsFixed();
+            if (dm && EngineHasUnsavedAnnotations(dm->GetEngine())) {
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
 // the browser's file input answers on a later event-loop turn, so the document
@@ -1457,18 +1584,6 @@ void AppShellSyncMenu(MainWindow* win) {
     gMenuDirty = false;
     gMenuOwner = win;
     gMenuVis = true;
-}
-
-// Windows underlines the access keys always or only once Alt was pressed
-// ("Underline access keys when available", off by default)
-static bool MenuCuesAlways() {
-#if OS_WIN
-    BOOL on = FALSE;
-    SystemParametersInfoW(SPI_GETKEYBOARDCUES, 0, &on, 0);
-    return on != FALSE;
-#else
-    return false;
-#endif
 }
 
 // the label with orig's '&' letter underlined
@@ -1886,7 +2001,7 @@ static bool HasNotificationsFor(MainWindow* win);
 // SidebarAutoHide (#5819): a shown sidebar floats over the canvas instead of
 // taking a column. Not in presentation.
 bool AppShellSidebarFloats(MainWindow* win) {
-    if (!gSettings->sidebarAutoHide || win->presentation) {
+    if (!gSettings->sidebarAutoHide || win->InPresentation()) {
         return false;
     }
     return win->uiState.tocVisible || win->uiState.favVisible;
@@ -1954,6 +2069,8 @@ static void AddSidebarOverlay(ShellView* self, gp::Ctx* cx, gp::El* canvasCol, g
     canvasCol->Child(el);
 }
 
+static gp::El* BuildPageInfoBar(MainWindow* win, gp::Ctx* cx);
+
 // the sidebar, the splitter and the canvas; orig's RelayoutFrame puts the same
 // three side by side with a SplitterCtrl between them
 static gp::El* BuildBody(ShellView* self, gp::Ctx* cx, bool overlayUp) {
@@ -1965,6 +2082,11 @@ static gp::El* BuildBody(ShellView* self, gp::Ctx* cx, bool overlayUp) {
     if (HasNotificationsFor(win)) {
         gp::El* box = gp::Div(cx->a)->FlexCol()->Flex1()->W(gp::kFill)->MinH(0)->Child(canvas);
         BuildNotifications(win, cx, box);
+        canvas = box;
+    }
+    if (PageInfoBarOverlays(win)) {
+        gp::El* box = gp::Div(cx->a)->FlexCol()->Flex1()->W(gp::kFill)->MinH(0)->Child(canvas);
+        box->Child(gp::Div(cx->a)->Absolute()->Left(0)->Right(0)->Bottom(0)->Child(BuildPageInfoBar(win, cx)));
         canvas = box;
     }
     gp::El* sidebar = SidebarBuild(win, cx);
@@ -2422,16 +2544,21 @@ void ShellView::OnMouseDown(ShellView* self, gp::Ctx* cx, const gp::MouseDownEve
     // (a click on the bar itself opens a menu)
     bool onMenuBar =
         (self->win->isMenuBarVisible || self->menuBarTemp) && !gp::AppHasMenuBar() && ev->y < (float)kMenuBarDy;
-    if (self->menuArmedIdx >= 0 && !onMenuBar && !self->menuArmedByClick) {
+    if (self->menuArmedIdx >= 0 && !onMenuBar) {
         self->menuArmedIdx = -1;
         gp::Notify(cx);
     }
-    self->menuArmedByClick = false;
     // orig's WM_APPCOMMAND: the mouse's back / forward buttons, anywhere in
-    // the frame
+    // the frame. A Shortcut can rebind them ("Ctrl + XButton1").
     if (ev->button == gp::MouseButton::NavigateBack || ev->button == gp::MouseButton::NavigateForward) {
         if (IsMainWindowValidAndNotClosing(self->win)) {
-            ExecuteCmd(self->win, ev->button == gp::MouseButton::NavigateBack ? CmdNavigateBack : CmdNavigateForward);
+            bool isBack = ev->button == gp::MouseButton::NavigateBack;
+            const gp::Modifiers& m = ev->modifiers;
+            int cmd = AcceleratorCmd(isBack ? VK_XBUTTON1 : VK_XBUTTON2, m.control, m.shift, m.alt, m.platform);
+            if (!cmd) {
+                cmd = isBack ? CmdNavigateBack : CmdNavigateForward;
+            }
+            ExecuteCmd(self->win, cmd);
             gp::Notify(cx);
         }
         return;
@@ -2727,17 +2854,21 @@ void ShellView::OnKeyDown(ShellView* self, gp::Ctx* cx, const gp::KeyEvent* ev) 
     }
     // orig's FrameOnKeydown / FrameOnChar: a black or white presentation screen
     // swallows a key that is not an accelerator and goes back to the slide
-    if (PM_BLACK_SCREEN == win->presentation || PM_WHITE_SCREEN == win->presentation) {
+    if (win->InBlankPresentation()) {
         if (SafeAcceleratorCmd((u16)ev->vk, ev->ctrl, ev->shift, ev->alt, ev->platform) == 0) {
             if (ev->vk == VK_ESCAPE || (ev->vk == 0 && ev->ch != 0)) {
-                win->ChangePresentationMode(PM_ENABLED);
+                win->ChangePresentationMode(WindowMode::Presentation);
             }
             mut->propagate = false;
             gp::Notify(cx);
             return;
         }
     }
-    if (ev->vk == VK_ESCAPE) {
+    // orig translates accelerators before its Esc handling, so a Shift + Esc
+    // shortcut (e.g. CmdMinimizeWindow, #6491) runs instead
+    bool escShortcut = (ev->shift || ev->ctrl || ev->alt) &&
+                       SafeAcceleratorCmd((u16)ev->vk, ev->ctrl, ev->shift, ev->alt, ev->platform) != 0;
+    if (ev->vk == VK_ESCAPE && !escShortcut) {
         if (IsFormFieldEditActive()) {
             CommitFormFieldEdit(false);
         } else if (IsEditingFreeTextInPlace(win)) {
@@ -2789,7 +2920,7 @@ void ShellView::OnKeyDown(ShellView* self, gp::Ctx* cx, const gp::KeyEvent* ev) 
                 DeleteOldSelectionInfo(win, true);
                 ClearSearchResult(win); // repaints; also drops any find-match highlights
                 ToolbarUpdateStateForWindow(win, false);
-            } else if (win->InPresentation() || win->isFullScreen) {
+            } else if (win->IsFullScreenOrPresentation()) {
                 // orig's OnFrameKeyEsc: Escape leaves the mode it put us in
                 ToggleFullScreen(win, win->InPresentation());
             } else if (!win->pdfAnnotationsToolbarEnabled && gSettings->escToExit) {
@@ -3056,6 +3187,16 @@ void ShellView::OnTick(ShellView* self, gp::Ctx* cx, const gp::TickEvent* ev) {
             gp::Notify(cx);
         }
     }
+    // orig pauses auto-scroll from WM_SIZE; ng has no minimize event, so watch for one
+    bool minimized = false;
+#if OS_WIN
+    HWND hwnd = AppShellNativeHwnd(win);
+    minimized = hwnd && IsIconic(hwnd);
+#endif
+    if (minimized != win->wasMinimized) {
+        win->wasMinimized = minimized;
+        ReadingAutoScrollOnMinimize(win, minimized);
+    }
     ToolbarTick(win, ms);
     AutoReloadTick(win, ms);
     DocCanvasAutoScrollTick(win, ms);
@@ -3083,6 +3224,63 @@ void ShellView::OnTick(ShellView* self, gp::Ctx* cx, const gp::TickEvent* ev) {
 }
 
 // Document area under the caption, menu, tabs and toolbar.
+// At most one drain queued: every uitask::Post wakes, and a second drain in
+// the same batch runs what the first one posted. A job that runs in slices
+// (see kUiSliceMs) then runs slice after slice without the browser getting a
+// turn, and each slice's posts queue more drains.
+static AtomicBool gUiDrainQueued = 0;
+
+static void DrainUiTasks() {
+    AtomicBoolSet(&gUiDrainQueued, false);
+    uitask::DrainQueue();
+}
+
+static void WakeForUiTasks() {
+    if (!AtomicBoolSwap(&gUiDrainQueued, true)) {
+        gp::ExecPost(gp::MkFunc0Void(DrainUiTasks));
+    }
+}
+
+// the page info bar (#6494): a row under everything, or over the canvas
+constexpr int kPageInfoBarDy = 22;
+
+static gp::El* BuildPageInfoBar(MainWindow* win, gp::Ctx* cx) {
+    TempStr left;
+    TempStr right;
+    PageInfoBarTextTemp(win, &left, &right);
+    const gp::Theme& th = gp::ThemeNow(cx->app);
+    gp::Rgba fg = ToGpui(ThemeWindowTextColor());
+    return gp::Div(cx->a)
+        ->FlexRow()
+        ->ItemsCenter()
+        ->W(gp::kFill)
+        ->H((float)kPageInfoBarDy)
+        ->Shrink0()
+        ->PadX(8)
+        ->Gap(16)
+        ->Bg(ToGpui(ThemeControlBackgroundColor()))
+        ->BorderT(1, th.border)
+        ->Child(gp::TextEl(cx->a, GpuiDup(cx->a, left))->Font(12)->Fg(fg)->Flex1()->MinW(0)->Truncate())
+        ->Child(gp::TextEl(cx->a, GpuiDup(cx->a, right))->Font(12)->Fg(fg)->Shrink0());
+}
+
+static Rect CanvasRcForFrame(MainWindow* win, int frameDx, int frameDy, bool menuBarShown, bool tabsVisible);
+
+TempStr PageInfoBarGeometryTemp(MainWindow* win) {
+    Rect c = win->canvasRc;
+    TempStr canvas = fmt("canvas=%d,%d,%d,%d", c.x, c.y, c.dx, c.dy);
+    Rect b;
+    if (PageInfoBarTakesRow(win)) {
+        int border = AppShellFrameBorder(win);
+        b = Rect{border, win->frameRc.dy - border - kPageInfoBarDy, win->frameRc.dx - 2 * border, kPageInfoBarDy};
+    } else if (PageInfoBarOverlays(win)) {
+        b = Rect{c.x, c.y + c.dy - kPageInfoBarDy, c.dx, kPageInfoBarDy};
+    } else {
+        return fmt("%s bar=none", canvas);
+    }
+    return fmt("%s bar=%d,%d,%d,%d", canvas, b.x, b.y, b.dx, b.dy);
+}
+
 static Rect CanvasRcForFrame(MainWindow* win, int frameDx, int frameDy, bool menuBarShown, bool tabsVisible) {
     int chromeDy;
     if (ShowCaption(win)) {
@@ -3101,6 +3299,9 @@ static Rect CanvasRcForFrame(MainWindow* win, int frameDx, int frameDy, bool men
         sidebarDx = win->sidebarDx + kSplitterDx;
     }
     int bodyDy = frameDy - 2 * border - chromeDy - (tbAtBottom ? toolbarDy : 0);
+    if (PageInfoBarTakesRow(win)) {
+        bodyDy -= kPageInfoBarDy;
+    }
     int aiChatDx = AIChatPanelDx(win);
     int navFilesDx = NavFilesPanelDx(win);
     int bodyDx = frameDx - 2 * border;
@@ -3155,7 +3356,7 @@ Rect AppShellPredictCanvasRc(MainWindow* win, CanvasPredict predict) {
         return {};
     }
     bool tabsVisible = TabsAreVisible(win);
-    if (predict == CanvasPredict::DocumentTab && SettingsUseTabs() && !win->isQuickLook && !win->isFullScreen &&
+    if (predict == CanvasPredict::DocumentTab && SettingsUseTabs() && !win->isQuickLook && !win->IsFullScreen() &&
         !win->InPresentation()) {
         tabsVisible = true;
     }
@@ -3303,6 +3504,9 @@ gp::El* ShellView::Render(ShellView* self, gp::Ctx* cx) {
     if (toolbar && !win->isToolbarOverlay && tbAtBottom) {
         root->Child(toolbar);
     }
+    if (PageInfoBarTakesRow(win)) {
+        root->Child(BuildPageInfoBar(win, cx));
+    }
 
     // in overlay mode the toolbar floats over the canvas, and its drop-down
     // floats over both
@@ -3359,7 +3563,7 @@ static bool OnWindowShouldClose(void* data, gp::Window*) {
     }
     if (!win->isClosePending) {
         win->isClosePending = true;
-        uitask::Post(MkFunc0(RunWindowCloseRequest, win), "WindowCloseRequest");
+        PostForWindow(win, RunWindowCloseRequest, "WindowCloseRequest");
     }
     return false;
 }
@@ -3399,7 +3603,7 @@ MainWindow* AppShellCreateWindow(gp::App* app, int dipW, int dipH) {
         BindKeys();
         // uitask::Post from a worker wakes the main loop; the interval is the
         // fallback that also expires notifications
-        uitask::SetWakeupFn([] { gp::ExecPost(gp::MkFunc0Void(uitask::DrainQueue)); });
+        uitask::SetWakeupFn(WakeForUiTasks);
     }
     RebuildMenuBar(win);
     CreateToolbar(win);

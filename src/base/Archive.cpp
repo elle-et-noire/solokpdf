@@ -427,7 +427,9 @@ Archive::FileInfo* Archive::GetFileDataById(int fileId) {
     if (fileId < 0) {
         return nullptr;
     }
-    ReportIf(fileId >= len(fileInfos_));
+    if (ReportIf(fileId >= len(fileInfos_))) {
+        return {};
+    }
     auto* fi = fileInfos_[fileId];
     ReportIf(fi->fileId != fileId);
     if (fi->data || fi->failed) {
@@ -446,7 +448,9 @@ Str Archive::GetFileDataPartById(int fileId, int sizeHint) {
     if (fileId < 0) {
         return {};
     }
-    ReportIf(fileId >= len(fileInfos_));
+    if (ReportIf(fileId >= len(fileInfos_))) {
+        return {};
+    }
     auto* fi = fileInfos_[fileId];
     int n = std::min(fi->fileSizeUncompressed, sizeHint);
     // if full data is cached, return a copy of the prefix
@@ -735,17 +739,5 @@ bool Archive::OpenUnrarFallback(Str, bool, const ArchiveExtractProgressCb&) {
 #endif
 
 #if OS_WIN
-FILETIME Archive::FileInfo::GetWinFileTime() const {
-    FILETIME ft = {(DWORD)-1, (DWORD)-1};
-    LocalFileTimeToFileTime((FILETIME*)&fileTime, &ft);
-    return ft;
-}
 #else
-FILETIME Archive::FileInfo::GetWinFileTime() const {
-    if (fileTime < 0) {
-        return {(DWORD)-1, (DWORD)-1};
-    }
-    u64 ticks = kFileTimeUnixEpoch + (u64)fileTime * kFileTimeTicksPerSec;
-    return FileTimeFromU64(ticks);
-}
 #endif

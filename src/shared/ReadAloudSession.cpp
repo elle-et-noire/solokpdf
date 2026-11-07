@@ -460,17 +460,10 @@ bool ReadAloudHasMoreChunks(WindowTab* tab) {
     return tab->readAloudChunkEnd < tab->readAloudText.len;
 }
 
-void ReadAloudFinishSession(WindowTab* tab, MainWindow* win) {
-    if (!tab) {
-        return;
-    }
-
-    dbgtts("finish-session\n");
-    if (tab->win) {
-        ReadAloudHighlightTimerStop(tab->win);
-        tab->win->RedrawCanvas();
-        ReadAloudPlaybackBarHide(tab->win);
-    }
+// Drops the tab's session: text, position, highlight map, and it stops being
+// the session tab. The one place that knows every per-tab read-aloud field,
+// so finishing and resetting can't drift apart.
+static void ClearTabReadAloudSession(WindowTab* tab) {
     str::Free(tab->readAloudText);
     tab->readAloudText = {};
     tab->readAloudResumePos = -1;
@@ -485,10 +478,24 @@ void ReadAloudFinishSession(WindowTab* tab, MainWindow* win) {
     tab->readAloudHighlightBase = 0;
     tab->readAloudAutoScroll = false;
     tab->readAloudScope = 0;
-    ReadAloudClearSourceTab();
     if (gReadAloudSessionTab == tab) {
         gReadAloudSessionTab = nullptr;
     }
+}
+
+void ReadAloudFinishSession(WindowTab* tab, MainWindow* win) {
+    if (!tab) {
+        return;
+    }
+
+    dbgtts("finish-session\n");
+    if (tab->win) {
+        ReadAloudHighlightTimerStop(tab->win);
+        tab->win->RedrawCanvas();
+        ReadAloudPlaybackBarHide(tab->win);
+    }
+    ClearTabReadAloudSession(tab);
+    ReadAloudClearSourceTab();
     if (win) {
         ToolbarUpdateStateForWindow(win, true);
     }
@@ -693,26 +700,10 @@ void ResetReadAloudStateForTab(WindowTab* tab) {
         return;
     }
     StopReadAloudIfSourceTab(tab);
-    str::Free(tab->readAloudText);
-    tab->readAloudText = {};
-    tab->readAloudResumePos = -1;
     if (tab->win) {
         ReadAloudHighlightTimerStop(tab->win);
     }
-    if (tab->readAloudHighlight) {
-        ReadAloudHighlightFree(tab->readAloudHighlight);
-        delete tab->readAloudHighlight;
-        tab->readAloudHighlight = nullptr;
-    }
-    tab->readAloudHighlightBase = 0;
-    tab->readAloudChunkStart = 0;
-    tab->readAloudChunkEnd = 0;
-    tab->readAloudQueuedEnd = 0;
-    tab->readAloudAutoScroll = false;
-    tab->readAloudScope = 0;
-    if (gReadAloudSessionTab == tab) {
-        gReadAloudSessionTab = nullptr;
-    }
+    ClearTabReadAloudSession(tab);
     if (tab->win) {
         ReadAloudPlaybackBarHide(tab->win);
     }
@@ -804,12 +795,6 @@ int ReadAloudClosestSpeedIdx() {
 // dir is +1 (next speed) or -1 (previous speed), wraps around
 void ReadAloudSetSpeedIdx(int idx) {
     ReadAloudSetSpeed(ReadAloudSpeedAt(idx));
-}
-
-void ReadAloudPlaybackCycleSpeed(int dir) {
-    int n = dimofi(kReadAloudSpeeds);
-    int idx = (ReadAloudClosestSpeedIdx() + dir + n) % n;
-    ReadAloudSetSpeed(kReadAloudSpeeds[idx]);
 }
 
 void ReadAloudPlaybackStop() {
@@ -1312,4 +1297,60 @@ void ReadAloudOnTtsEvent(MainWindow* win) {
         }
     }
     ReadAloudFinishSession(tab, win);
+}
+
+bool ApplyReadAloudVoiceFromSettings() {
+    if (!gSettings) {
+        return false;
+    }
+
+    float speed = gSettings->readAloudSpeed;
+    TtsSetSpeed(speed > 0 ? speed : 1.0f);
+
+    Str voiceId = gSettings->readAloudVoiceId;
+    if (len(voiceId) == 0) {
+        TtsSetVoiceById(StrL(""));
+        return false;
+    }
+
+    if (!TtsSetVoiceById(voiceId)) {
+        logf("ApplyReadAloudVoiceFromSettings: voice '%s' not available, using system default\n", voiceId);
+        str::ReplaceWithCopy(&gSettings->readAloudVoiceId, Str{});
+        TtsSetVoiceById(StrL(""));
+        return true;
+    }
+    return false;
+}
+
+static Str TtsVoiceLangForSort(const TtsVoiceInfo& voice) {
+    return len(voice.lang) == 0 ? StrL("ffff") : voice.lang;
+}
+
+static bool TtsVoiceLess(const TtsVoiceInfo& a, const TtsVoiceInfo& b) {
+    int langCmp = str::CmpI(TtsVoiceLangForSort(a), TtsVoiceLangForSort(b));
+    if (langCmp != 0) {
+        return langCmp < 0;
+    }
+    return str::CmpI(a.name ? a.name : StrL(""), b.name ? b.name : StrL("")) < 0;
+}
+
+void TtsFreeVoices(Vec<TtsVoiceInfo>& voices) {
+    for (TtsVoiceInfo& voice : voices) {
+        str::Free(voice.id);
+        str::Free(voice.name);
+        str::Free(voice.lang);
+    }
+    VecReset(voices);
+}
+
+void TtsSortVoicesByLanguage(Vec<TtsVoiceInfo>& voices) {
+    for (int i = 1; i < len(voices); i++) {
+        TtsVoiceInfo value = voices[i];
+        int j = i - 1;
+        while (j >= 0 && TtsVoiceLess(value, voices[j])) {
+            voices[j + 1] = voices[j];
+            j--;
+        }
+        voices[j + 1] = value;
+    }
 }

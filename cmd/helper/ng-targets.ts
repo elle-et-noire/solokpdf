@@ -635,6 +635,7 @@ const appSources = [
   "src/ng/NavFilesInFolder.cpp",
   "src/ng/NavFilesInFolderCommon.cpp",
   "src/ng/PagePosition.cpp",
+  "src/ng/ScrollbarPrefs.cpp",
   "src/ng/RefHoverDetect.cpp",
   "src/RefHoverInternal.cpp",
   "src/RefHoverText.cpp",
@@ -978,7 +979,7 @@ export const targets: Target[] = [
       "HAVE_WEBP=1",
       "SHARE_JPEG",
       // built-in fonts come from the loader (embedded pak, then cache, then
-      // fonts_map.c). Source Han is not packed: skip its table entries
+      // fonts_map.c). Droid Sans Fallback for CJK; noto_sumatra.c adds Source Han per language
       "TOFU_CJK_LANG",
       "FZ_ENABLE_PDF=1",
       "FZ_ENABLE_SVG=1",
@@ -1243,9 +1244,11 @@ export const targets: Target[] = [
   },
   {
     // synctex: TeX source <-> PDF position mapping (orig compiles it into the
-    // app; a static lib keeps the warning relaxation out of our sources)
+    // app; a static lib keeps the warning relaxation out of our sources).
+    // Not on wasm: a browser tab has no LaTeX integration (PdfSync.cpp)
     name: "synctex",
     kind: "staticlib",
+    platforms: ["win", "linux", "mac"],
     sources: ["ext/synctex/synctex_parser.c", "ext/synctex/synctex_parser_utils.c"],
     includes: ["ext/synctex", "ext/a-zlib"],
     deps: ["a-zlib"],
@@ -1405,7 +1408,7 @@ export const targets: Target[] = [
     // minimal host for SumatraPDF -plugin mode (orig src/tools/plugin-test.cpp)
     name: "plugin-test",
     kind: "app",
-    sources: ["src/ng/tools/plugin-test.cpp"],
+    sources: ["src/ng/tools/plugin-test.cpp", "src/ng/tools/ToolLog.cpp"],
     includes: ["src/ng"],
     deps: ["base"],
     platforms: ["win"],
@@ -1462,6 +1465,8 @@ export const targets: Target[] = [
     kind: "console",
     sources: [
       "src/ng/tools/test_engines.cpp",
+      "src/ng/tools/TestEnginesCommon.cpp",
+      "src/ng/tools/ToolLog.cpp",
       "src/ng/tools/AppStubs.cpp",
       "src/ng/gui/BrowserViewNoOp.cpp",
       "src/ng/CrashHandlerNoOp.cpp",
@@ -1604,6 +1609,8 @@ export const targets: Target[] = [
       "src/ng/DocumentPropertiesCommon.cpp",
       "src/ng/HomePage.cpp",
       "src/ng/HomePageCommon.cpp",
+      "src/ng/OpenFromUrlCommon.cpp",
+      "src/ng/OpenFromUrlDialog.cpp",
       "src/ng/AppHelpersCommon.cpp",
       "src/ng/AddFavoriteDialog.cpp",
       "src/ng/Favorites.cpp",

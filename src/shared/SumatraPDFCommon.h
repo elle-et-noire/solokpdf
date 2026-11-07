@@ -20,7 +20,21 @@ void RestrictPolicies(Perm revokePermission);
 extern bool gForceRtl;
 bool ShouldSaveThumbnail(FileState* ds);
 TempStr BuildZoomString(float zoomLevel);
-void UpdatePageInfoHelper(DocController* ctrl, NotificationWnd* wnd, int pageNo);
+void UpdatePageInfoHelper(MainWindow* win, NotificationWnd* wnd, int pageNo);
+
+// PageInfoLocation
+enum class PageInfoBarMode {
+    Notification,
+    Bottom,
+    BottomOverlay,
+};
+PageInfoBarMode GetPageInfoBarMode();
+bool PageInfoBarShown(MainWindow* win);
+void PageInfoBarTextTemp(MainWindow* win, TempStr* leftOut, TempStr* rightOut);
+// implemented by each app: the bar was shown, hidden or its text changed
+void PageInfoBarChanged(MainWindow* win);
+// implemented by each app: "canvas=x,y,dx,dy bar=x,y,dx,dy" (or bar=none), for tests
+TempStr PageInfoBarGeometryTemp(MainWindow* win);
 bool ShouldUseBrowserView(FileType kind);
 struct CustomCommand;
 void ToggleCaption(CustomCommand* cmd);
@@ -64,6 +78,12 @@ void ClearPendingNextPrevNav();
 bool IsAtDocumentBottom(MainWindow* win);
 void OnNextFileHintClosed(NotificationClosedEvent* ev);
 void ToggleMangaMode(MainWindow* win);
+void ToggleFacingStepOne(MainWindow* win);
+void ToggleMirror(MainWindow* win);
+void CountWordsInDoc(MainWindow* win);
+TempStr WordCountNotifMsgTemp(MainWindow* win);
+void ShowSelectedText(MainWindow* win);
+TempStr SelectedTextNotifMsgTemp(MainWindow* win);
 void ToggleAutoRotateWidePages();
 void OnMenuZoom(MainWindow* win, int menuId);
 void TogglePresentationMode(MainWindow* win);
@@ -92,6 +112,9 @@ void ToggleContinuousView(MainWindow* win);
 void ShowZoomNotification(MainWindow* win, float zoomLevel);
 void ShowViewModeNotification(MainWindow* win, int cmdId);
 void ZoomToSelection(MainWindow* win);
+void TrimPagesToSelection(MainWindow* win);
+void ShowWholePages(MainWindow* win);
+void ToggleReadColumns(MainWindow* win);
 bool IsManualDocHtmlPage(Str path);
 Str ManualInjectThemeCss(Str html);
 TempStr DocURIToWebUrlTemp(Str docURI);
@@ -117,13 +140,16 @@ void RemoveFailedFiles(StrVec& files);
 
 TempStr PeekNextFileInFolderTemp(MainWindow* win, int* outN = nullptr, int* outM = nullptr);
 
+enum class ViewEngineClass : u32;
+
 struct CreateThumbnailFromFileData {
     Str filePath;
     // when set, render from this clone of the open document instead of loading
     // the file again (owned)
     EngineBase* engine = nullptr;
     Pixmap* bmp = nullptr;
-    ViewEngineClass colorClass = ViewEngineClass::Image;
+    // value-initialized: ViewEngineClass::Image
+    ViewEngineClass colorClass{};
     Vec<Rect> skipRects;
     // see LoadDocumentAsyncData: the thumbnail is rendered off the UI thread,
     // so the per-document ebook settings have to come along as a copy (#4600)
@@ -143,6 +169,7 @@ bool TextSelectExtendFromVk(int key, TextSelectUnit& unit, int& delta);
 
 void NotifyUrlSelectionTruncated(WindowTab* tab);
 void ReopenLastClosedFile(MainWindow* win);
+void RememberClosedWindow(MainWindow* win);
 
 bool SendOpenFileToExistingInstance(HWND targetHwnd, Str fullPath, u32 newWindow);
 bool SendOpenFilesToExistingInstance(HWND targetHwnd, StrVec& paths, u32 newWindow);
@@ -173,6 +200,8 @@ bool SetupPluginMode(Flags& i);
 void OnFrameKeyB(MainWindow* win, bool isShift);
 EngineBase* CreateEngineForThumbnail(Str path);
 void CreateThumbnailFromFileFinish(CreateThumbnailFromFileData* d);
+bool ShouldUsePageAspect(Str path);
+void OnTemporaryFileNotifClosed(NotificationClosedEvent* ev);
 
 // Cap how many extension links we put in the bar
 constexpr int kMaxDefaultAppLinks = 8;

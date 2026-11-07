@@ -122,7 +122,10 @@ void SetState(OverlayScrollbar* sb, State newState) {
     if (!IsVisible(sb)) {
         sb->mouseOverThumb = false;
     }
-    sb->hideLeftMs = (newState == State::SmartThin) ? sb->showAfterScrollMs : 0;
+    sb->autoHide.Cancel();
+    if (newState == State::SmartThin) {
+        sb->autoHide.Arm(sb->showAfterScrollMs);
+    }
     PaintScrollbar(sb);
 }
 
@@ -142,7 +145,7 @@ void RestartSmartThinAutoHide(OverlayScrollbar* sb) {
     if (sb->state != State::SmartThin) {
         return;
     }
-    sb->hideLeftMs = sb->showAfterScrollMs;
+    sb->autoHide.Arm(sb->showAfterScrollMs);
 }
 
 OverlayScrollbar* OverlayScrollbarCreate(MainWindow* win, OverlayScrollbar::Type type, OverlayScrollbar::Mode mode,
@@ -159,7 +162,9 @@ OverlayScrollbar* OverlayScrollbarCreate(MainWindow* win, OverlayScrollbar::Type
         sb->thickWidth = sysWidth;
     }
     sb->state = IsAlwaysThickMode(sb) ? State::AlwaysThick : State::SmartThin;
-    sb->hideLeftMs = (sb->state == State::SmartThin) ? sb->showAfterScrollMs : 0;
+    if (sb->state == State::SmartThin) {
+        sb->autoHide.Arm(sb->showAfterScrollMs);
+    }
     VecAppend(gAllScrollbars, sb);
     return sb;
 }
@@ -214,7 +219,7 @@ void OverlayScrollbarOnMouse(OverlayScrollbar* sb, bool overOwner, bool overScro
         }
         // Reset the auto-hide timer since mouse is moving
         if (sb->state == State::SmartThin) {
-            sb->hideLeftMs = sb->hideAfterMouseStopMs;
+            sb->autoHide.Arm(sb->hideAfterMouseStopMs);
         }
         return;
     }
@@ -244,13 +249,13 @@ static int RepeatDelayMs(bool initial) {
 static void StartRepeat(OverlayScrollbar* sb, ScrollMsg code) {
     sb->repeatScrollCode = code;
     sb->repeatIsInitial = true;
-    sb->repeatLeftMs = RepeatDelayMs(true);
+    sb->repeat.Arm(RepeatDelayMs(true));
     gCapture = sb;
 }
 
 static void StopRepeat(OverlayScrollbar* sb) {
     sb->repeatScrollCode = ScrollMsg::None;
-    sb->repeatLeftMs = 0;
+    sb->repeat.Cancel();
 }
 
 // ng: a window's own scrollbar stops paging once the thumb is under the
@@ -280,30 +285,21 @@ bool OverlayScrollbarTick(OverlayScrollbar* sb, int elapsedMs, bool ownerActive)
     }
     State was = sb->state;
     // orig's kTimerRepeatScroll
-    if (sb->repeatScrollCode != ScrollMsg::None) {
-        sb->repeatLeftMs -= elapsedMs;
-        if (sb->repeatLeftMs <= 0) {
-            if (!ThumbReachedClick(sb)) {
-                SendScrollMsg(sb, sb->repeatScrollCode);
-            }
-            // switch from initial delay to repeat rate
-            sb->repeatIsInitial = false;
-            sb->repeatLeftMs = RepeatDelayMs(false);
+    if (sb->repeatScrollCode != ScrollMsg::None && sb->repeat.Tick(elapsedMs)) {
+        if (!ThumbReachedClick(sb)) {
+            SendScrollMsg(sb, sb->repeatScrollCode);
         }
+        // switch from initial delay to repeat rate
+        sb->repeatIsInitial = false;
+        sb->repeat.Arm(RepeatDelayMs(false));
     }
     // orig's poll: only scrollbars whose owner is in the active window show
     if (!ownerActive && IsActive(sb) && IsVisible(sb) && !sb->isDragging) {
         HideScrollbarWindow(sb);
     }
     // orig's kTimerAutoHide
-    if (sb->hideLeftMs > 0) {
-        sb->hideLeftMs -= elapsedMs;
-        if (sb->hideLeftMs <= 0) {
-            sb->hideLeftMs = 0;
-            if (!sb->isDragging) {
-                HideScrollbarWindow(sb);
-            }
-        }
+    if (sb->autoHide.Tick(elapsedMs) && !sb->isDragging) {
+        HideScrollbarWindow(sb);
     }
     return was != sb->state;
 }
@@ -515,8 +511,6 @@ struct ScrollbarView {
     static void OnMove(ScrollbarView*, gp::Ctx* cx, const gp::MouseMoveEvent* ev, int64_t arg);
     static void OnHover(ScrollbarView*, gp::Ctx* cx, const gp::HoverEvent* ev, int64_t arg);
     static void OnMenu(ScrollbarView*, gp::Ctx* cx, const gp::ClickEvent* ev, int64_t arg);
-    static void OnWinMove(ScrollbarView*, gp::Ctx* cx, const gp::MouseMoveEvent* ev);
-    static void OnWinUp(ScrollbarView*, gp::Ctx* cx, const gp::MouseUpEvent* ev);
     static void OnWinExit(ScrollbarView*, gp::Ctx* cx, const gp::MouseExitEvent* ev);
 };
 
@@ -645,14 +639,6 @@ void OverlayScrollbarOnWindowUp(gp::Window* gw, gp::MouseButton button) {
         return;
     }
     OnLeftButtonUp(sb);
-}
-
-void ScrollbarView::OnWinMove(ScrollbarView*, gp::Ctx* cx, const gp::MouseMoveEvent* ev) {
-    OverlayScrollbarOnWindowMove(cx->win, ev->x, ev->y);
-}
-
-void ScrollbarView::OnWinUp(ScrollbarView*, gp::Ctx* cx, const gp::MouseUpEvent* ev) {
-    OverlayScrollbarOnWindowUp(cx->win, ev->button);
 }
 
 // ng: a gpui menu item's action is dispatched from the focused element, which

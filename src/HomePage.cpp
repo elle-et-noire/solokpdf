@@ -104,7 +104,7 @@ static Str sumatraPromos;
 static Str sumatraPromos = StrL(R"promos(Try [Edna](https://edna.arslexis.io): a note taking web app for power users.
 Try [MarkLexis](https://marklexis.arslexis.io): a bookmarking web application.
 Try [Sumatra File Manager](https://sumatrafilemanager.com): file manager with super powers.
-Try [Sumatra File Manager Online](https://online.sumatrafilemanager.com): file manager for S3, Dropbox and more.
+Try [Sumatra File Manager Web](https://web.sumatrafilemanager.com): file manager for S3, Dropbox and more.
 )promos");
 #endif
 
@@ -196,29 +196,17 @@ static AboutRow gAboutRows[] = {
     {StrL("forums"), StrL("SumatraPDF forums"), StrL("https://github.com/sumatrapdfreader/sumatrapdf/discussions")},
     {StrL("licenses"), StrL("Various Open Source"),
      StrL("https://github.com/sumatrapdfreader/sumatrapdf/blob/master/AUTHORS")},
-#ifdef GIT_COMMIT_ID_STR
-    {StrL("last change"), StrL("git commit " GIT_COMMIT_ID_STR),
-     StrL("https://github.com/sumatrapdfreader/sumatrapdf/commit/" GIT_COMMIT_ID_STR)},
-#endif
+    // filled in by AboutSourceRow()
+    {StrL("source"), {}, {}},
     {StrL("more software by me"), StrL("Sumatra File Manager"), StrL("https://sumatrafilemanager.com")},
-    {{}, StrL("Sumatra File Manager Online"), StrL("https://online.sumatrafilemanager.com")},
+    {{}, StrL("Sumatra File Manager Web"), StrL("https://web.sumatrafilemanager.com")},
     {{}, {}, {}}};
 #endif
 
 // the rows from kAboutSoftwareRow on are the other software, in the footer
 constexpr int kAboutSoftwareEnd = dimofi(gAboutRows) - 1;
 constexpr int kAboutSoftwareRow = kAboutSoftwareEnd - 2;
-
-// the line under the rows that says this isn't a release build
-static Str AboutNoteText() {
-#if defined(PRE_RELEASE_VER)
-    return StrL("pre-release build");
-#elif IS_DEBUG
-    return StrL("debug build, for testing only");
-#else
-    return {};
-#endif
-}
+constexpr int kAboutSourceRow = kAboutSoftwareRow - 1;
 
 // The About box, the same in the About window, the home page's dropdown and
 // the About page: the brand over the version line, label / link rows, the
@@ -425,6 +413,8 @@ void AboutCtrl::Sync() {
     int n = kAboutSoftwareRow;
     bool canAccessDisk = CanAccessDisk();
     if (len(labels) == 0) {
+        AboutRow* source = &gAboutRows[kAboutSourceRow];
+        AboutSourceRow(&source->rightTxt, &source->url);
         for (int i = 0; i < n; i++) {
             AboutRow* el = &gAboutRows[i];
             auto* label = new VirtText(el->leftTxt);
@@ -445,7 +435,7 @@ void AboutCtrl::Sync() {
     PlatformFont* fontText = HomePageFont(kAboutTextFontSize);
     PlatformFont* fontMeta = HomePageFont(kAboutMetaFontSize);
     Color colText = ThemeWindowTextColor();
-    Color colMuted = ThemeWindowTextDisabledColor();
+    Color colMuted = ThemeWindowDarkerTextColor();
 
     version->SetText(AboutVersionLineTemp());
     version->font = fontMeta;
@@ -937,6 +927,20 @@ struct ThumbnailLayout {
 };
 
 static TempStr FileSizeForHomeListTemp(i64 size);
+
+// size of t's file, kSizeFetchFail if unknown or still being looked up
+static i64 HomeFileSize(ThumbnailLayout& t) {
+    if (t.fileSize != kSizeNotFetched) {
+        return t.fileSize;
+    }
+    i64 size = GetHomeFileSize(t.fs->filePath);
+    // not cached in t while pending, so the repaint after the lookup sees it
+    if (size == kHomeFileSizePending) {
+        return kSizeFetchFail;
+    }
+    t.fileSize = size < 0 ? kSizeFetchFail : size;
+    return t.fileSize;
+}
 
 // true if r overlaps the visible thumbs band (optionally with a small margin)
 static bool IsHomeThumbOnScreen(const Rect& r, const Rect& thumbsArea, int marginY = 0) {
@@ -2013,17 +2017,13 @@ static void DrawHomeListRow(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filt
         TempStr dirPath = path::GetDirTemp(path);
         u32 pathFmt = gfxTextVCenter | gfxTextPathEllipsis | (isRtl ? gfxTextLeft : gfxTextRight);
         Rect pathRect = thumb.rcListPath;
-        gfx->DrawText(dirPath, pathRect, pathFmt, fontText, ThemeWindowTextDisabledColor());
+        gfx->DrawText(dirPath, pathRect, pathFmt, fontText, ThemeWindowDarkerTextColor());
     }
 
     // file::GetSize once per row, then cache on ThumbnailLayout (scroll reuses
     // it). kSizeNotFetched = not tried; kSizeFetchFail = GetSize failed; >= 0
     // is a real size (including empty files).
-    if (thumb.fileSize == kSizeNotFetched) {
-        i64 sz = file::GetSize(path);
-        thumb.fileSize = (sz < 0) ? kSizeFetchFail : sz;
-    }
-    TempStr fileSize = FileSizeForHomeListTemp(thumb.fileSize);
+    TempStr fileSize = FileSizeForHomeListTemp(HomeFileSize(thumb));
     u32 sizeFmt = gfxTextVCenter | gfxTextEllipsis | (isRtl ? gfxTextLeft : gfxTextRight);
     Rect sizeRect = thumb.rcListSize;
     gfx->DrawText(fileSize, sizeRect, sizeFmt, fontText, ThemeWindowTextColor());
@@ -2089,7 +2089,7 @@ static void DrawHomeThumbnail(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& fi
                              fontText, ThemeWindowTextColor());
     if (len(meta) > 0) {
         Rect rcMeta(rcName.x, rcName.y + rcName.dy, rcName.dx, thumb.rcText.dy - rcName.dy);
-        gfx->DrawText(meta, rcMeta, fmt, HomePageFont(12), ThemeWindowTextDisabledColor());
+        gfx->DrawText(meta, rcMeta, fmt, HomePageFont(12), ThemeWindowDarkerTextColor());
     }
 }
 
@@ -3352,7 +3352,7 @@ static void HomePageShowSelectionTooltip(MainWindow* win) {
 
     // Same text as hover: path + size (size looked up only when shown)
     TempStr tip = str::DupTemp(fs->filePath);
-    i64 size = file::GetSize(fs->filePath);
+    i64 size = HomeFileSize(t);
     if (size >= 0) {
         tip = fmt("%s  %s", tip, str::FormatSizeShortTemp(size, nullptr));
     }

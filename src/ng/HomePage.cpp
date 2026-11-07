@@ -60,7 +60,7 @@
 static Str sumatraPromos = StrL(R"promos(Try [Edna](https://edna.arslexis.io): a note taking web app for power users.
 Try [MarkLexis](https://marklexis.arslexis.io): a bookmarking web application.
 Try [Sumatra File Manager](https://sumatrafilemanager.com): file manager with super powers.
-Try [Sumatra File Manager Online](https://online.sumatrafilemanager.com): file manager for S3, Dropbox and more.
+Try [Sumatra File Manager Web](https://web.sumatrafilemanager.com): file manager for S3, Dropbox and more.
 )promos");
 
 static Str promoFromServer;
@@ -120,13 +120,16 @@ static AboutRow gAboutRows[] = {
     {StrL("forums"), StrL("SumatraPDF forums"), StrL("https://github.com/sumatrapdfreader/sumatrapdf/discussions")},
     {StrL("licenses"), StrL("Various Open Source"),
      StrL("https://github.com/sumatrapdfreader/sumatrapdf/blob/master/AUTHORS")},
+    // filled in by AboutSourceRow()
+    {StrL("source"), {}, {}},
     {StrL("more software by me"), StrL("Sumatra File Manager"), StrL("https://sumatrafilemanager.com")},
-    {{}, StrL("Sumatra File Manager Online"), StrL("https://online.sumatrafilemanager.com")},
+    {{}, StrL("Sumatra File Manager Web"), StrL("https://web.sumatrafilemanager.com")},
     {{}, {}, {}}};
 
 // the rows from kAboutSoftwareRow on are the other software, in the footer
 constexpr int kAboutSoftwareEnd = dimofi(gAboutRows) - 1;
 constexpr int kAboutSoftwareRow = kAboutSoftwareEnd - 2;
+constexpr int kAboutSourceRow = kAboutSoftwareRow - 1;
 
 // the About box (orig's): the brand over the version, the link rows, a note,
 // then a hairline over the copy link and the other software. Every row has a
@@ -150,17 +153,6 @@ constexpr int kAboutNoteMarkDy = 3;
 constexpr int kAboutNoteGap = 8;
 constexpr int kAboutTextFontPx = 13;
 constexpr int kAboutMetaFontPx = 12;
-
-// the line under the rows that says this isn't a release build
-static Str AboutNoteText() {
-#if defined(PRE_RELEASE_VER)
-    return StrL("pre-release build");
-#elif IS_DEBUG
-    return StrL("debug build, for testing only");
-#else
-    return {};
-#endif
-}
 
 static TempStr GetAppVersionTemp() {
     TempStr s = str::JoinTemp(StrL("v"), currentVersion);
@@ -626,8 +618,8 @@ void HomeView::OnEntryHover(HomeView* self, gp::Ctx* cx, const gp::HoverEvent* e
     }
     // Same text as the keyboard selection's: path + size (size looked up only
     // when shown)
-    TempStr tip = str::DupTemp(fs->filePath);
-    i64 size = file::GetSize(fs->filePath);
+    TempStr tip = PathForDisplayTemp(fs->filePath);
+    i64 size = GetHomeFileSize(fs->filePath);
     if (size >= 0) {
         tip = fmt("%s  %s", tip, str::FormatSizeShortTemp(size, nullptr));
     }
@@ -1006,6 +998,8 @@ static gp::El* AboutBoxEl(MainWindow* win, gp::Ctx* cx, bool withBorder) {
     // the rows: muted labels, right-aligned, then the links
     gp::El* labels = gp::Div(cx->a)->FlexCol()->ItemsEnd()->Gap((float)kAboutRowGap)->Shrink0();
     gp::El* values = gp::Div(cx->a)->FlexCol()->ItemsStart()->Gap((float)kAboutRowGap)->Flex1()->MinW(0);
+    AboutRow* source = &gAboutRows[kAboutSourceRow];
+    AboutSourceRow(&source->rightTxt, &source->url);
     for (int i = 0; i < kAboutSoftwareRow; i++) {
         AboutRow* el = &gAboutRows[i];
         labels->Child(gp::TextEl(cx->a, GpuiDup(cx->a, el->leftTxt))
@@ -1463,14 +1457,16 @@ static gp::El* HomeListRowEl(MainWindow* win, gp::Ctx* cx, int idx, bool isSelec
     row->Child(
         FilterHighlightText(cx, path::GetBaseNameTemp(fs->filePath), filterWords, ToGpui(colText), kHomeTextFontPx)
             ->Shrink0());
-    row->Child(gp::TextEl(cx->a, GpuiDup(cx->a, path::GetDirTemp(fs->filePath)))
+    // the wasm build's directories are the page's own (/uploads)
+    TempStr dir = OS_WASM ? TempStr{} : path::GetDirTemp(fs->filePath);
+    row->Child(gp::TextEl(cx->a, GpuiDup(cx->a, dir))
                    ->Font(12)
                    ->Fg(ToGpui(colDim))
                    ->Flex1()
                    ->MinW(0)
                    ->Truncate()
                    ->BoundsOut(&Ui(win)->listPathBounds[idx]));
-    i64 size = file::GetSize(fs->filePath);
+    i64 size = GetHomeFileSize(fs->filePath);
     if (size >= 0) {
         row->Child(gp::TextEl(cx->a, GpuiDup(cx->a, str::FormatSizeShortTemp(size)))
                        ->Font(12)
@@ -1987,7 +1983,11 @@ TempStr HomeListRowsResultTemp(int* exitCodeOut) {
         return finish(2);
     }
     for (int i = 0; i < n; i++) {
-        i64 size = file::GetSize(h->files[i]->filePath);
+        i64 size = GetHomeFileSize(h->files[i]->filePath);
+        if (size == kHomeFileSizePending) {
+            out.Append(StrL("NOTREADY size-pending\n"));
+            return finish(2);
+        }
         gpui::Bounds& b = h->listSizeBounds[i];
         if (size >= 0 && (b.w <= 0 || b.h <= 0)) {
             out.Append(StrL("NOTREADY no-layout\n"));
@@ -1997,7 +1997,7 @@ TempStr HomeListRowsResultTemp(int* exitCodeOut) {
     out.Append(fmt("OK rows=%d\n", n));
     for (int i = 0; i < n; i++) {
         FileState* fs = h->files[i];
-        i64 size = file::GetSize(fs->filePath);
+        i64 size = GetHomeFileSize(fs->filePath);
         TempStr sizeText = size < 0 ? str::DupTemp(StrL("")) : str::FormatSizeShortTemp(size);
         Rect r = size < 0 ? Rect{} : BoundsRect(h->listSizeBounds[i]);
         TempStr progress;

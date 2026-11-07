@@ -241,7 +241,7 @@ struct RenderThreadData {
 // running between pages. Slot 0 of curReqs is the pump's, as a thread's would
 // be. `active` is cleared when the cache goes away, so a pump still in the
 // queue finds nothing to touch.
-constexpr int kPumpSliceMs = 20;
+constexpr int kPumpSliceMs = kUiSliceMs;
 
 struct RenderCachePump {
     AtomicInt refs = 1;
@@ -441,6 +441,10 @@ static bool FreeIfFull(RenderCache* rc, const PageRenderRequest& req) {
     }
 
     DisplayModel* dm = req.dm;
+    // runs on the render thread: BuildPagesInfo() on the UI thread must not
+    // free pagesInfo while the page accessors below read it
+    ScopedMutex pagesScope(&dm->pagesInfoLock);
+
     // free an invisible page of the same DisplayModel ...
     for (int i = 0; i < n; i++) {
         auto* entry = rc->cache[i];
@@ -665,22 +669,6 @@ void RenderCache::FreeForDisplayModel(DisplayModel* dm) {
     for (int i = cacheCount - 1; i >= 0; i--) {
         BitmapCacheEntry* entry = cache[i];
         if (entry->dm == dm) {
-            DropCacheEntryIfNotUsed(entry);
-        }
-    }
-}
-
-void RenderCache::FreeNotVisible() {
-    ScopedRecursiveMutex scope(&cacheAccess);
-    // must go from end because freeing changes the cache
-    for (int i = cacheCount - 1; i >= 0; i--) {
-        BitmapCacheEntry* entry = cache[i];
-        // all invisible pages resp. page tiles
-        bool shouldFree = !entry->dm->PageVisibleNearby(entry->pageNo);
-        if (!shouldFree && entry->tile.res > 1) {
-            shouldFree = !IsTileVisible(entry->dm, entry->pageNo, entry->tile, 2.0);
-        }
-        if (shouldFree) {
             DropCacheEntryIfNotUsed(entry);
         }
     }
@@ -1068,7 +1056,10 @@ bool RenderCache::Render(DisplayModel* dm, int pageNo, int rotation, float zoom,
     PageRenderRequest* newRequest;
 
     /* add request to the queue */
-    if (requestCount == kMaxPageRequests) {
+    // startRendering counts queued requests: one that replaces the oldest
+    // in a full queue doesn't add one
+    bool queueWasFull = requestCount == kMaxPageRequests;
+    if (queueWasFull) {
         /* queue is full -> remove the oldest items on the queue */
         if (requests[0].renderFinishedCb.IsValid()) {
             requests[0].abort = true;
@@ -1118,7 +1109,9 @@ bool RenderCache::Render(DisplayModel* dm, int pageNo, int rotation, float zoom,
     }
     newRequest->renderFinishedCb = renderFinishedCb;
 
-    startRendering.Signal();
+    if (!queueWasFull) {
+        startRendering.Signal();
+    }
 
     // Lazy thread spawn: if no thread is currently waiting and we're below
     // the cap, start a new one. Existing busy threads will pick up the work
@@ -1429,6 +1422,16 @@ void RenderCache::AbortCurrentRequest(int threadIdx) {
     UpdateRenderInfo();
 }
 
+// AbortCurrentRequest sets req.abort from another thread, under requestAccess
+static bool RenderWasDropped(RenderCache* cache, PageRenderRequest& req) {
+    bool aborted;
+    {
+        ScopedRecursiveMutex scope(&cache->requestAccess);
+        aborted = req.abort;
+    }
+    return aborted || req.darkModeEpoch != cache->darkModeEpoch;
+}
+
 // Renders one queued request into the cache. Returns false when the queue was
 // empty; a request that turns out to be stale still counts as taken.
 static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderRequest& req) {
@@ -1468,7 +1471,7 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
     options.brightness = req.brightness;
     options.contrast = req.contrast;
     Pixmap* bmp = RenderViewPage(engine, args, options);
-    if (req.abort || req.darkModeEpoch != cache->darkModeEpoch) {
+    if (RenderWasDropped(cache, req)) {
         // aborted or colors changed mid-render - discard result
         FreePixmap(bmp);
         return true;
@@ -1483,7 +1486,7 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
     req.errorCode = bmp ? 0 : 1;
 
     if (bmp) {
-        if (req.abort || req.darkModeEpoch != cache->darkModeEpoch) {
+        if (RenderWasDropped(cache, req)) {
             // colors changed while recoloring - discard result
             FreePixmap(bmp);
             req.bmp = nullptr;
@@ -1627,7 +1630,14 @@ int RenderCache::PaintTile(
         source.dy = (int)((float)bounds.dy * factor);
     }
 #if defined(SUMATRA_NG)
-    CanvasDrawTile(ctx, entry, target, source);
+    // CmdToggleMirror: Paint() chose the tiles for the mirrored area; each goes
+    // to its mirrored place, drawn flipped
+    if (dm->GetMirror()) {
+        PageInfo* pi = dm->GetPageInfo(pageNo);
+        Rect page = pi ? pi->pageOnScreen : Rect{};
+        target.x = (2 * page.x) + page.dx - (target.x + target.dx);
+    }
+    CanvasDrawTile(ctx, entry, target, source, dm->GetMirror());
     if (gShowTileLayout) {
         CanvasDrawTileOutline(ctx, bounds);
     }
@@ -1709,6 +1719,13 @@ int RenderCache::Paint(
 
     int rotation = dm->PageRotation(pageNo);
     float zoom = dm->GetZoomReal(pageNo);
+#if defined(SUMATRA_NG)
+    // CmdToggleMirror: what shows in bounds is the mirrored part of the page
+    if (dm->GetMirror()) {
+        Rect page = pi->pageOnScreen;
+        bounds.x = (2 * page.x) + page.dx - (bounds.x + bounds.dx);
+    }
+#endif
     u16 targetRes = GetTileRes(dm, pageNo);
     u16 maxRes = GetMaxTileRes(dm, pageNo, rotation);
     maxRes = std::max(maxRes, targetRes);
@@ -1813,10 +1830,7 @@ void DebugTextWnd::ApplyDarkMode() {
 
 void DebugTextWnd::UpdateTheme() {
     WindowBase::UpdateTheme();
-    // Re-apply monospaced font after darkmode child theming (may reset font).
-    if (edit && monoFont) {
-        edit->SetFont(monoFont);
-    }
+    ReapplyEditFont(edit, monoFont);
 }
 
 void DebugTextWnd::SetTextContent(Str text) {

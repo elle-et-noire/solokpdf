@@ -50,15 +50,13 @@ struct PageThumbnailsCache {
     Vec<u8> stale;
     PageThumbnailsCtrl* ctrl = nullptr;
     EngineBase* renderEngine = nullptr;
-    AtomicInt cancelRendering = 0;
+    BgJob job;
     int rotation = 0;
     int thumbDx = 0;
     int thumbDy = 0;
     // render with the document's own engine, so unsaved page edits show;
     // else with a copy loaded from the file, which doesn't compete with the view
     bool liveEngine = false;
-    bool workerRunning = false;
-    bool deleteWhenWorkerFinishes = false;
 };
 
 struct ThumbnailRowsModel : ListBoxModel {
@@ -98,7 +96,7 @@ static Pixmap* ThumbnailToDraw(PageThumbnailsCache* cache, int idx) {
 }
 
 static void FreeThumbnailRenderEngine(PageThumbnailsCache* cache) {
-    ReportIf(cache->workerRunning);
+    ReportIf(cache->job.IsRunning());
     if (cache->renderEngine) {
         cache->renderEngine->Release();
         cache->renderEngine = nullptr;
@@ -120,12 +118,9 @@ static void DetachThumbnailCache(PageThumbnailsCache* cache) {
         return;
     }
     cache->ctrl = nullptr;
-    AtomicIntSet(&cache->cancelRendering, 1);
-    if (cache->workerRunning) {
-        cache->deleteWhenWorkerFinishes = true;
-        return;
+    if (cache->job.Detach()) {
+        DeleteThumbnailCache(cache);
     }
-    DeleteThumbnailCache(cache);
 }
 
 Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int rotation, int thumbDx, int thumbDy,
@@ -159,7 +154,7 @@ Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int ro
 static void FinishThumbnailRender(ThumbnailRenderTask* task) {
     PageThumbnailsCache* cache = task->cache;
     int idx = task->pageNo - 1;
-    bool isValid = !cache->deleteWhenWorkerFinishes && idx >= 0 && idx < len(cache->thumbnails);
+    bool isValid = !cache->job.IsDetached() && idx >= 0 && idx < len(cache->thumbnails);
     if (isValid) {
         cache->stale[idx] = 0;
         if (task->bitmap) {
@@ -178,8 +173,7 @@ static void FinishThumbnailRender(ThumbnailRenderTask* task) {
 }
 
 static void FinishThumbnailWorker(PageThumbnailsCache* cache) {
-    cache->workerRunning = false;
-    if (cache->deleteWhenWorkerFinishes) {
+    if (cache->job.Finish()) {
         DeleteThumbnailCache(cache);
         return;
     }
@@ -216,7 +210,7 @@ static void RenderThumbnailsInBackground(ThumbnailRenderWorker* worker) {
     if (engine) {
         int n = len(worker->pages);
         for (int i = 0; i < n; i++) {
-            if (AtomicIntGet(&cache->cancelRendering) != 0) {
+            if (cache->job.IsCanceled()) {
                 break;
             }
             Location loc = i < len(worker->locs) ? worker->locs[i] : kInvalidLocation;
@@ -243,6 +237,9 @@ PageThumbnailsCtrl::PageThumbnailsCtrl(MainWindow* win, PlatformFont* font, int 
     this->dpi = dpi;
     // the palette's edit box keeps the keyboard focus; the sidebar takes it
     SetFlag(vwfFocusable, host == ThumbnailsHost::Sidebar);
+    // the sidebar shows a cut-off last row: more pages are below (#6469).
+    // The palette spreads whole rows over its height
+    wholeRows = host == ThumbnailsHost::Palette;
     SetColor(kColListText, ThemeWindowTextColor());
     // the sidebar takes the canvas color (UpdateControlsColors)
     Color bg = host == ThumbnailsHost::Sidebar ? ThemeSidebarColor() : ThemeWindowControlBackgroundColor();
@@ -607,7 +604,18 @@ void PageThumbnailsCtrl::OpenSelectedPage() {
     onPageOpened.Call();
 }
 
+// The dotted ring is for the keyboard, as in win32: a click that gave the
+// sidebar the focus hides it, the keys bring it back (issue #6469)
+void PageThumbnailsCtrl::ShowFocusRing(bool show) {
+    if (host != ThumbnailsHost::Sidebar || showFocusRing == show) {
+        return;
+    }
+    showFocusRing = show;
+    Invalidate();
+}
+
 void PageThumbnailsCtrl::OnThumbMouseDown(VirtMouseEvent* ev) {
+    ShowFocusRing(false);
     int pageNo = PageAtPoint(ev->pt);
     if (pageNo > 0 && host == ThumbnailsHost::Palette) {
         SelectPage(pageNo);
@@ -732,6 +740,7 @@ void PageThumbnailsCtrl::OnThumbKeyDown(VirtKeyEvent* ev) {
     if (ev->vkey != VK_UP && ev->vkey != VK_DOWN) {
         return;
     }
+    ShowFocusRing(true);
     int pageNo = PageForKey(this, ev->vkey);
     SelectPage(pageNo);
     OpenSelectedPage();
@@ -743,7 +752,7 @@ void PageThumbnailsCtrl::Activate() {
         return;
     }
     active = true;
-    AtomicIntSet(&cache->cancelRendering, 0);
+    cache->job.ClearCancel();
     EnsureVisible((selectedPage - 1) / cols);
     StartRendering();
     Invalidate();
@@ -754,8 +763,8 @@ void PageThumbnailsCtrl::Deactivate() {
         return;
     }
     active = false;
-    AtomicIntSet(&cache->cancelRendering, 1);
-    if (!cache->workerRunning) {
+    cache->job.Cancel();
+    if (!cache->job.IsRunning()) {
         FreeThumbnailRenderEngine(cache);
     }
 }
@@ -771,7 +780,7 @@ int PageThumbnailsCtrl::RenderedCount() const {
 }
 
 void PageThumbnailsCtrl::StartRendering() {
-    if (!active || cache->workerRunning || pageCount <= 0) {
+    if (!active || cache->job.IsRunning() || pageCount <= 0) {
         return;
     }
     DisplayModel* dm = CurrentDoc(this);
@@ -786,8 +795,11 @@ void PageThumbnailsCtrl::StartRendering() {
         return;
     }
 
-    int visibleRows = std::max(1, UsableDy() / itemDy);
-    int firstVisible = ((scrollY / itemDy) * cols) + 1;
+    // rows cut by the top and bottom edges count as visible
+    int firstRow = scrollY / itemDy;
+    int lastRow = (scrollY + std::max(1, UsableDy()) - 1) / itemDy;
+    int visibleRows = lastRow - firstRow + 1;
+    int firstVisible = (firstRow * cols) + 1;
     int perScreen = std::max(1, visibleRows * cols);
     int lastVisible = std::min(pageCount, firstVisible + perScreen - 1);
     int firstPage = std::max(1, firstVisible - (kThumbnailRenderScreens * perScreen));
@@ -837,7 +849,6 @@ void PageThumbnailsCtrl::StartRendering() {
         worker->sourceEngine = engine;
         engine->AddRef();
     }
-    AtomicIntSet(&cache->cancelRendering, 0);
-    cache->workerRunning = true;
+    cache->job.Start();
     RunAsync(MkFunc0<ThumbnailRenderWorker>(RenderThumbnailsInBackground, worker), StrL("PageThumbnailsRender"));
 }

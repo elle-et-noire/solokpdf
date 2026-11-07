@@ -217,7 +217,7 @@ bool PdfToolDialog::CreateToolDialog(MainWindow* w, WindowTab* tab, Str title) {
     srcPath = str::Dup(tab->filePath);
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
-    colMuted = ThemeWindowTextDisabledColor();
+    colMuted = ThemeWindowDarkerTextColor();
     closeOnEsc = true;
     onClose = MkFunc1Void(PdfToolDialogOnClose);
 
@@ -247,13 +247,8 @@ bool PdfToolDialog::CreateToolDialog(MainWindow* w, WindowTab* tab, Str title) {
     return true;
 }
 
-// a row with its content centered and the dialog's gap between the controls
 HBox* PdfToolDialog::NewRow() {
-    auto* row = new HBox();
-    row->alignCross = CrossAxisAlign::CrossCenter;
-    row->rtl = IsUIRtl();
-    row->gap = DpiScale(kToolDlgGapDx);
-    return row;
+    return NewDlgRow();
 }
 
 // `dy`: the label pads itself to that height, and so sets its row's;
@@ -1149,13 +1144,15 @@ void ConvertToPdfDialog::DoIt(VirtMouseEvent*) {
     }
     DisplayModel* dm = win->AsFixed();
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
-    if (!engine || !engine->isImageCollection) {
+    bool isOfd = EngineMupdfIsOfd(engine);
+    if (!engine || !(engine->isImageCollection || isOfd)) {
         MessageBoxWarning(hwnd, Tr("Failed to save a file"), Tr("Convert to PDF"));
         return;
     }
 
     logf("ConvertToPdf: converting '%s' to '%s'\n", srcPath, destPath);
-    bool ok = ConvertImageCollectionToPdf(engine, destPath);
+    // OFD keeps its text and vector paths; image collections become one image per page
+    bool ok = isOfd ? EngineMupdfSaveAsPdf(engine, destPath) : ConvertImageCollectionToPdf(engine, destPath);
     if (ok) {
         logf("ConvertToPdf: converted successfully\n");
         MainWindow* w = win;
@@ -1188,7 +1185,7 @@ void ShowConvertToPdfDialog(MainWindow* win) {
         return;
     }
     EngineBase* engine = tab->GetEngine();
-    if (!engine || !engine->isImageCollection) {
+    if (!engine || !(engine->isImageCollection || EngineMupdfIsOfd(engine))) {
         return;
     }
     if (!engine->AllowsPrinting()) {
@@ -1735,7 +1732,7 @@ void ShowConvertPdfToImagesDialog(MainWindow* win) {
     if (!tab || len(tab->filePath) == 0) {
         return;
     }
-    if (!IsPdfDoc(tab)) {
+    if (!IsPdfDoc(tab) && !EngineMupdfIsOfd(tab->GetEngine())) {
         return;
     }
     logf("ShowConvertPdfToImagesDialog: opening for '%s'\n", tab->filePath);

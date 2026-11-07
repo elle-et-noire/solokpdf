@@ -18,6 +18,7 @@
 #include "gui/Layout.h"
 #include "gui/PlatformFont.h"
 #include "gui/Gfx.h"
+#include "gui/GuiColors.h"
 #include "gui/VirtCtrl.h"
 
 #include "AppTools.h"
@@ -27,6 +28,7 @@
 #include "EngineBase.h"
 #include "EngineAll.h"
 #include "AppSettings.h"
+#include "WindowTab.h"
 #include "Flags.h"
 #include "Commands.h"
 #include "Annotation.h"
@@ -35,6 +37,7 @@
 #include "CommandPaletteCommon.h"
 #include "SvgIcons.h"
 #include "AppUnitTests.h"
+#include "Theme.h"
 #include "PDFScript.h"
 #include "RegistryPreview.h"
 #include "Theme.h"
@@ -106,6 +109,8 @@ bool MarkdownToc_UnitTestHighlightWikilinks();
 bool MarkdownToc_TestLineBreaks();
 bool EbookDoc_UnitTestNormalizeURL();
 bool EbookDoc_UnitTestLoading();
+bool EbookDoc_UnitTestLinearNo();
+bool EbookDoc_UnitTestUtf16BeTwice();
 bool GumboHtmlParser_UnitTest();
 bool DisplayMode_UnitTestZoom();
 bool ExternalViewers_UnitTestPDFXChangePaths();
@@ -115,6 +120,7 @@ bool EngineMupdf_UnitTestEbookFontFamilyCss();
 bool EngineMupdf_UnitTestEbookMarginCss();
 bool EngineMupdf_UnitTestMergeEBookUI();
 bool EngineMupdf_UnitTestPageLabels();
+bool EngineBase_UnitTestTextOutlivesInvalidate();
 bool EngineMupdf_UnitTestDoi();
 bool Accelerators_UnitTestFolderNavIsSafe();
 bool AccelTestCustomScope();
@@ -127,8 +133,25 @@ void ReadAloudHighlight_UnitTests();
 bool RenderCache_UnitTestCookieUnlocked();
 bool RenderCache_UnitTestFullOfOneVisiblePage();
 bool RenderCache_UnitTestFullOfOldZoom();
+bool DocController_UnitTestDestroyHook();
+bool Commands_UnitTestIdLimit();
 
 // a color setting's row gets a swatch of its value, or of the value being typed
+// every SidebarView the app saves must survive loading; the settings enum used
+// to drop signatures / layers, which came back as bookmarks
+static void SidebarViewSettingTest() {
+    for (int i = 0; i < kSidebarViewCount; i++) {
+        SidebarView v = (SidebarView)i;
+        TempStr data =
+            fmt("FileStates [\n\t[\n\t\tFilePath = C:\\a.pdf\n\t\tSidebarView = %s\n\t]\n]\n", SidebarViewToStr(v));
+        Settings* settings = NewSettings(data);
+        utassert(settings && settings->fileStates && len(*settings->fileStates) == 1);
+        Str got = (*settings->fileStates)[0]->sidebarView;
+        utassert(SidebarViewFromStr(got, SidebarView::Bookmarks) == v);
+        DeleteSettings(settings);
+    }
+}
+
 static void PaletteRowColorTest() {
     Settings* prevSettings = gSettings;
     if (!gSettings) {
@@ -158,6 +181,45 @@ static void PaletteRowColorTest() {
     utassert(!PaletteRowColor(&typed, StrL("not a color"), &col));
 
     if (!prevSettings) {
+        DeleteSettings(gSettings);
+        gSettings = nullptr;
+    }
+}
+
+// a disabled ghost button (Merge PDF's Remove) must look different from an
+// enabled one in every built-in theme (#6478)
+static void GhostButtonDisabledTest() {
+    Settings* prevSettings = gSettings;
+    if (!gSettings) {
+        gSettings = NewSettings({});
+    }
+    CreateThemeCommands();
+
+    int nBuiltIn = ThemeGetCount() - len(*gSettings->themes);
+    for (int i = 0; i < nBuiltIn; i++) {
+        SetThemeByIndex(i);
+        VirtButton b(StrL("Remove"), nullptr);
+        SetVirtButtonStyle(&b, VirtButtonStyle::Ghost);
+        Color bg = b.GetColor(kColBtnBg);
+        Color enabled = b.TextColor(bg);
+        b.SetFlag(vwfEnabled, false);
+        Color disabled = b.TextColor(bg);
+        // Solarized Dark's own text and disabled colors are only ~24 apart
+        float delta = GetLightness(enabled) - GetLightness(disabled);
+        utassert(delta > 20 || delta < -20);
+
+        // secondary text (dialog labels, hints) and disabled text stay readable;
+        // neither has to beat the theme's own text (Solarized Dark's is 4.1)
+        Color ctlBg = ThemeWindowControlBackgroundColor();
+        float textRatio = ContrastRatio(ThemeWindowTextColor(), ctlBg);
+        utassert(ContrastRatio(ThemeWindowDarkerTextColor(), ctlBg) >= std::min(4.5f, textRatio) - 0.05f);
+        utassert(ContrastRatio(ThemeWindowTextDisabledColor(), ctlBg) >= std::min(3.f, textRatio) - 0.05f);
+    }
+    utassert(ContrastRatio(kColBlack, kColWhite) > 20.9f);
+
+    SetThemeByIndex(0);
+    if (!prevSettings) {
+        FreeThemes();
         DeleteSettings(gSettings);
         gSettings = nullptr;
     }
@@ -386,17 +448,17 @@ Exit:
 }
 
 static void OnlineURLAllowedTest() {
-    utassert(OnlineURLAllowed(StrL("https://online.sumatrapdfreader.org/api/files")));
-    utassert(OnlineURLAllowed(StrL("http://localhost:9332/desktop")));
+    utassert(OnlineURLAllowed(StrL("https://web.sumatrapdfreader.org/api/files")));
+    utassert(OnlineURLAllowed(StrL("http://localhost:9332/desktop-link")));
     utassert(OnlineURLAllowed(StrL("http://127.0.0.1:9332/api/files")));
-    utassert(OnlineURLAllowed(StrL("https://online.sumatrapdfreader.org")));
+    utassert(OnlineURLAllowed(StrL("https://web.sumatrapdfreader.org")));
     utassert(OnlineURLAllowed(StrL("http://localhost:9332")));
     utassert(OnlineURLAllowed(StrL("http://127.0.0.1:9332")));
-    utassert(OnlineURLAllowed(StrL("https://online.sumatrapdfreader.org:443/api/files")));
-    utassert(!OnlineURLAllowed(StrL("https://online.sumatrapdfreader.org.evil.example/api/files")));
+    utassert(OnlineURLAllowed(StrL("https://web.sumatrapdfreader.org:443/api/files")));
+    utassert(!OnlineURLAllowed(StrL("https://web.sumatrapdfreader.org.evil.example/api/files")));
     utassert(!OnlineURLAllowed(StrL("http://localhost")));
     utassert(!OnlineURLAllowed(StrL("http://localhost:80")));
-    utassert(!OnlineURLAllowed(StrL("https://user@online.sumatrapdfreader.org/api/files")));
+    utassert(!OnlineURLAllowed(StrL("https://user@web.sumatrapdfreader.org/api/files")));
 }
 
 static void SumatraPDF_UnitTests() {
@@ -409,6 +471,8 @@ static void SumatraPDF_UnitTests() {
     CachedObjects_UnitTests();
     CommandPaletteModel_UnitTests();
     PaletteRowColorTest();
+    SidebarViewSettingTest();
+    GhostButtonDisabledTest();
     DocPropertiesTest();
     parseCommandsTest();
     colorTest();
@@ -692,6 +756,8 @@ int RunAppUnitTests(bool forAi) {
     utassert(MarkdownToc_TestLineBreaks());
     utassert(EbookDoc_UnitTestNormalizeURL());
     utassert(EbookDoc_UnitTestLoading());
+    utassert(EbookDoc_UnitTestLinearNo());
+    utassert(EbookDoc_UnitTestUtf16BeTwice());
     utassert(GumboHtmlParser_UnitTest());
     utassert(DisplayMode_UnitTestZoom());
     utassert(ExternalViewers_UnitTestPDFXChangePaths());
@@ -701,6 +767,7 @@ int RunAppUnitTests(bool forAi) {
     utassert(EngineMupdf_UnitTestEbookMarginCss());
     utassert(EngineMupdf_UnitTestMergeEBookUI());
     utassert(EngineMupdf_UnitTestPageLabels());
+    utassert(EngineBase_UnitTestTextOutlivesInvalidate());
     utassert(EngineMupdf_UnitTestDoi());
     utassert(Accelerators_UnitTestFolderNavIsSafe());
     utassert(AccelTestCustomScope());
@@ -712,6 +779,8 @@ int RunAppUnitTests(bool forAi) {
     utassert(RenderCache_UnitTestCookieUnlocked());
     utassert(RenderCache_UnitTestFullOfOneVisiblePage());
     utassert(RenderCache_UnitTestFullOfOldZoom());
+    utassert(DocController_UnitTestDestroyHook());
+    utassert(Commands_UnitTestIdLimit());
     ReadAloudHighlight_UnitTests();
 #endif
     return utassert_print_results();

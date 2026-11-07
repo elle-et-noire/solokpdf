@@ -780,10 +780,6 @@ void BrowserViewSetVisible(BrowserView* bv, bool visible) {
     }
 }
 
-bool BrowserViewIsVisible(BrowserView* bv) {
-    return bv && bv->view->IsVisible();
-}
-
 void BrowserViewRefreshSurface(BrowserView* bv) {
     if (bv) {
         bv->view->RefreshControllerSurface();

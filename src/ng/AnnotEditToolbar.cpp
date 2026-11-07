@@ -969,7 +969,7 @@ static void OnChipClick(AnnotEditToolbar* tb, int chipIdx) {
             break;
         }
         case AnnotEditKind::Contents:
-            uitask::Post(MkFunc0(StartSelectedAnnotContentsEdit, tb->win), "StartAnnotContentsEdit");
+            uitask::Post(MkFunc0(PostedStartContentsEdit, tb->win), "StartAnnotContentsEdit");
             break;
         case AnnotEditKind::Delete:
             // deleting takes the whole row (and this chip) down with it
@@ -2178,7 +2178,7 @@ Rect CanvasToFramePx(MainWindow* win, Rect r) {
 
 // selected annotation and loaded-annot count (issue-5933, issue-6023)
 bool AnnotResizeRerenderPending(MainWindow* win) {
-    return win->annotationResizeRerenderLeftMs != 0;
+    return win->annotationResizeRerender.IsArmed();
 }
 
 // --- the hover card of the annotation under the cursor (Edit PDF) -----------

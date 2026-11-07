@@ -5,6 +5,7 @@
 
 struct Annotation;
 enum class AnnotationChange;
+enum class FileType : u8;
 
 struct FitzPageImageInfo {
     fz_rect rect = fz_unit_rect;
@@ -281,11 +282,19 @@ class EngineMupdf : public EngineBase {
     bool cadHairlineVector = false;
     CadEnhanceOverride cadEnhanceOverride = CadEnhanceOverride::Unset;
 
+    // optional content groups (layers): how many, and their on/off state ("1" /
+    // "0" per group) as loaded and now. The UI thread reads layerStates
+    // without waiting for a render to let go of docLock
+    int layerCount = 0;
+    Str layerStatesAtLoad;
+    Str layerStates;
+
     bool CadEnhanceActive() const;
     void RunCadDetection();
     void ToggleCadEnhanceOverride();
 
     bool Load(Str filePath, PasswordUI* pwdUI = nullptr);
+    bool Load(Str filePath, PasswordUI* pwdUI, FileType kindHint);
     bool LoadFromStream(fz_stream* stm, Str nameHint, PasswordUI* pwdUI = nullptr);
     bool FinishLoading();
     RenderedBitmap* GetPageImage(int pageNo, RectF rect, int imageIdx);

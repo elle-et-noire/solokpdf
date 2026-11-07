@@ -135,7 +135,13 @@
     <ClInclude Include="..\src\Installer.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\LayersUI.h">
+      <Filter>src</Filter>
+    </ClInclude>
     <ClInclude Include="..\src\MainWindow.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\MeasurementToolbar.h">
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="..\src\Menu.h">
@@ -148,6 +154,9 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="..\src\OverlayScrollbar.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\PageInfoBar.h">
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="..\src\PageThumbnails.h">
@@ -490,6 +499,9 @@
       <Filter>src\shared</Filter>
     </ClInclude>
     <ClInclude Include="..\src\shared\OleDragDropCommon.h">
+      <Filter>src\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\shared\OpenFromUrlCommon.h">
       <Filter>src\shared</Filter>
     </ClInclude>
     <ClInclude Include="..\src\shared\OverlayScrollbarCommon.h">
@@ -854,7 +866,13 @@
     <ClCompile Include="..\src\KeyboardHelp.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\LayersUI.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\MainWindow.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\MeasurementToolbar.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\Menu.cpp">
@@ -872,6 +890,9 @@
     <ClCompile Include="..\src\Notifications.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\OpenFromUrlDialog.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\OverlayScrollbar.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -879,6 +900,9 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\PageGridDialog.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\PageInfoBar.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\PageThumbnails.cpp">
@@ -950,10 +974,10 @@
     <ClCompile Include="..\src\SumatraDialogs.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\SumatraOnlineDialog.cpp">
+    <ClCompile Include="..\src\SumatraPDF.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\SumatraPDF.cpp">
+    <ClCompile Include="..\src\SumatraPDFWebDialog.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\SumatraTest.cpp">
@@ -1398,6 +1422,9 @@
       <Filter>src\shared</Filter>
     </ClCompile>
     <ClCompile Include="..\src\shared\OpenFileFilters_win.cpp">
+      <Filter>src\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\shared\OpenFromUrlCommon.cpp">
       <Filter>src\shared</Filter>
     </ClCompile>
     <ClCompile Include="..\src\shared\OverlayScrollbarCommon.cpp">

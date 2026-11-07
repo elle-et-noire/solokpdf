@@ -737,7 +737,7 @@ void ScheduleShowSelectedAnnotationView(WindowTab* tab) {
         return;
     }
     tab->pendingShowSelectedAnnotation = true;
-    uitask::Post(MkFunc0(ShowSelectedAnnotationView, tab), "ShowSelectedAnnot");
+    PostForTab(tab, ShowSelectedAnnotationView, "ShowSelectedAnnot");
 }
 
 static void AddAnnotPage(Vec<int>& pages, int pageNo, int pageCount) {
@@ -859,22 +859,13 @@ void DeleteAnnotationAndUpdateUI(WindowTab* tab, Annotation* annot) {
 // arrows in the annot list can keep moving the caret (issue #6009). Find
 // uses ScheduleRepaint, not MainWindowRerender, for the same reason.
 void ShowSelectedAnnotationView(WindowTab* tab) {
-    if (!tab) {
+    // the tab may have been closed (and freed) before this posted task ran
+    MainWindow* win = FindMainWindowByTab(tab);
+    if (!win) {
         return;
     }
     tab->pendingShowSelectedAnnotation = false;
-    if (!IsMainWindowValidAndNotClosing(tab->win)) {
-        return;
-    }
-    MainWindow* win = tab->win;
-    bool tabOpen = false;
-    for (WindowTab* t : win->Tabs()) {
-        if (t == tab) {
-            tabOpen = true;
-            break;
-        }
-    }
-    if (!tabOpen) {
+    if (!IsMainWindowValidAndNotClosing(win)) {
         return;
     }
     Annotation* annot = tab->selectedAnnotation;
@@ -1035,4 +1026,12 @@ void ChipColorPicked(AnnotEditToolbarBase* tb, Color col) {
             return;
     }
     AnnotChanged(tab);
+}
+
+void PostedStartContentsEdit(MainWindow* win) {
+    // the window may have been closed since this was posted
+    if (!IsMainWindowValidAndNotClosing(win)) {
+        return;
+    }
+    StartSelectedAnnotContentsEdit(win);
 }

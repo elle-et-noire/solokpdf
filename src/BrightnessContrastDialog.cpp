@@ -72,14 +72,7 @@ static void ClearBrightnessContrastWnd() {
 }
 
 WindowTab* BrightnessContrastWnd::TargetTab() {
-    if (!IsMainWindowValidAndNotClosing(win)) {
-        return nullptr;
-    }
-    WindowTab* t = FindTabByFilePath(filePath);
-    if (!t || t->win != win) {
-        return nullptr;
-    }
-    return t;
+    return FindTabInWindow(filePath, win);
 }
 
 void BrightnessContrastWnd::UpdateValues() {
@@ -142,7 +135,7 @@ bool BrightnessContrastWnd::Create(MainWindow* mainWin) {
 
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowTextDisabledColor();
+    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     SetFont(fontText);
     bool isRtl = IsUIRtl();

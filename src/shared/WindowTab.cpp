@@ -21,9 +21,7 @@
 #include "DisplayModel.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
-#if !defined(SUMATRA_NG)
 #include "Selection.h"
-#endif
 #include "ReadAloud.h"
 #include "Translations.h"
 #if !defined(SUMATRA_NG)
@@ -37,12 +35,28 @@ WindowTab::WindowTab(MainWindow* win) {
     this->win = win;
 }
 
+// our open-cache copy goes when its last tab does: a moved or duplicated tab
+// shows the same copy (issue #6481)
+static void DeleteOpenCacheCopyOf(WindowTab* self, Str path) {
+    if (!IsOpenCachePath(path)) {
+        return;
+    }
+    for (MainWindow* win : gWindows) {
+        for (WindowTab* tab : win->Tabs()) {
+            if (tab != self && path::IsSame(tab->filePath, path)) {
+                return;
+            }
+        }
+    }
+    DeleteOpenCacheCopy(path);
+}
+
 void WindowTab::SetFilePath(Str path) {
     type = Type::Document;
     isExtraHome = false;
     bool changed = filePath && !path::IsSame(filePath, path);
     if (changed) {
-        DeleteOpenCacheCopy(filePath);
+        DeleteOpenCacheCopyOf(this, filePath);
         temporaryFileNotified = false;
     }
     if (changed) {
@@ -67,7 +81,9 @@ bool WindowTab::IsAboutTab() const {
 
 #if !defined(SUMATRA_NG)
 // the SidebarView / SidebarBottomView settings
-static const char* kSidebarViewNames[kSidebarViewCount] = {"bookmarks", "thumbnails", "favorites", "signatures"};
+static const char* kSidebarViewNames[] = {"bookmarks", "thumbnails", "favorites", "signatures", "layers"};
+
+static_assert(dimof(kSidebarViewNames) == kSidebarViewCount);
 
 SidebarView SidebarViewFromStr(Str s, SidebarView def) {
     for (int i = 0; i < kSidebarViewCount; i++) {
@@ -79,6 +95,9 @@ SidebarView SidebarViewFromStr(Str s, SidebarView def) {
 }
 
 Str SidebarViewToStr(SidebarView v) {
+    if (ReportIf((int)v < 0 || (int)v >= kSidebarViewCount)) {
+        return {};
+    }
     return Str(kSidebarViewNames[(int)v]);
 }
 
@@ -160,7 +179,7 @@ WindowTab::~WindowTab() {
     }
     delete pendingLoadArgs;
 #endif
-    DeleteOpenCacheCopy(filePath);
+    DeleteOpenCacheCopyOf(this, filePath);
     str::Free(filePath);
     filePath = {};
     str::Free(displayName);

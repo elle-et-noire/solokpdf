@@ -93,6 +93,29 @@ static void StrReplaceTest() {
     }
 }
 
+static void CountWordsOne(Str s, int words, int chars) {
+    WordCount wc;
+    CountWords(s, wc);
+    utassert(wc.words == words);
+    utassert(wc.chars == chars);
+}
+
+static void CountWordsTest() {
+    CountWordsOne({}, 0, 0);
+    CountWordsOne(StrL("  \n\t "), 0, 0);
+    CountWordsOne(StrL("Hello, world!"), 2, 12);
+    CountWordsOne(StrL("don't e.g. - 42"), 3, 12);
+    // "a — b": an em dash alone isn't a word
+    CountWordsOne(StrL("a \xe2\x80\x94 b"), 2, 3);
+    CountWordsOne(StrL("line one\nline\ttwo"), 4, 14);
+    // "zażółć gęślą" (NBSP between): Polish letters, non-breaking space
+    CountWordsOne(StrL("za\xc5\xbc\xc3\xb3\xc5\x82\xc4\x87\xc2\xa0g\xc4\x99\xc5\x9bl\xc4\x85"), 2, 11);
+    // "日本語abc": 3 ideographs + 1 Latin word
+    CountWordsOne(StrL("\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e"
+                       "abc"),
+                  4, 6);
+}
+
 static void StrSeqNumTest() {
     str::Builder b;
     SeqStrNumAppend(&b, StrL("foo"), 10);
@@ -516,6 +539,32 @@ static void StrCutTest() {
     // multi-char separator, only first occurrence splits
     utassert(str::Cut(StrL("a::b::c"), StrL("::"), &before, &after));
     utassert(str::Eq(before, StrL("a")) && str::Eq(after, StrL("b::c")));
+}
+
+// must not depend on sizeof(WCHAR), which is 4 on Linux and macOS
+static void Utf16ToUtf8Test() {
+    // "Aé€😀" plus an unpaired high surrogate
+    Str le = Str("A\0\xE9\0\xAC\x20\x3D\xD8\x00\xDE\x00\xD8", 12);
+    Str be = Str("\0A\0\xE9\x20\xAC\xD8\x3D\xDE\x00\xD8\x00", 12);
+    Str want = StrL("A\xC3\xA9\xE2\x82\xAC\xF0\x9F\x98\x80\xEF\xBF\xBD");
+    utassert(str::Eq(strconv::Utf16ToUtf8Temp(le, strconv::ByteOrder::LittleEndian), want));
+    utassert(str::Eq(strconv::Utf16ToUtf8Temp(be, strconv::ByteOrder::BigEndian), want));
+    utassert(len(strconv::Utf16ToUtf8Temp(Str("A", 1), strconv::ByteOrder::LittleEndian)) == 0);
+}
+
+// a view into a larger string: nothing to normalize must not write s.s[len]
+static void StrNormalizeNewlinesViewTest() {
+    char buf[] = "abcXYZ";
+    Str view(buf, 3);
+    str::NormalizeNewlinesToLFInPlace(view);
+    utassert(len(view) == 3);
+    utassert(buf[3] == 'X');
+
+    char buf2[] = "a\r\nbXYZ";
+    Str view2(buf2, 4);
+    str::NormalizeNewlinesToLFInPlace(view2);
+    utassert(str::Eq(view2, StrL("a\nb")));
+    utassert(buf2[4] == 'X');
 }
 
 static void StrNormalizeNewlinesToLFInPlaceTest() {
@@ -1168,6 +1217,7 @@ void StrTest() {
         setlocale(LC_CTYPE, CStrTemp(saved));
     }
 
+    CountWordsTest();
     strStrTest();
     wstrBuilderTest();
     StrIsDigitTest();
@@ -1180,6 +1230,8 @@ void StrTest() {
     StrNextLineTest();
     StrTrimWsTest();
     StrNormalizeNewlinesToLFInPlaceTest();
+    StrNormalizeNewlinesViewTest();
+    Utf16ToUtf8Test();
     StrLFToCRLFTempTest();
     StrStartsWithTest();
     // ParseUntilTest();

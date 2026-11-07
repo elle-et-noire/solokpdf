@@ -224,9 +224,7 @@ struct MergeThumb {
 struct MergeThumbCache {
     Vec<MergeThumb> thumbs;
     MainWindow* win = nullptr;
-    AtomicInt cancel = 0;
-    bool workerRunning = false;
-    bool deleteWhenWorkerFinishes = false;
+    BgJob job;
 };
 
 struct MergeSourceDlg {
@@ -529,13 +527,6 @@ static Str ToolActionText() {
     }
 }
 
-static TempStr InputTextTemp(gp::InputState* s) {
-    if (!s) {
-        return {};
-    }
-    return str::DupTemp(FromGpui(gp::InputValue(s)));
-}
-
 static TempStr DestPathTemp() {
     return InputTextTemp(gTool.destEdit);
 }
@@ -605,10 +596,7 @@ static void DetachMergeThumbs() {
     if (!cache) {
         return;
     }
-    AtomicIntSet(&cache->cancel, 1);
-    if (cache->workerRunning) {
-        cache->deleteWhenWorkerFinishes = true;
-    } else {
+    if (cache->job.Detach()) {
         DeleteMergeThumbs(cache);
     }
 }
@@ -1177,7 +1165,7 @@ static Pixmap* RenderMergeThumb(EngineBase* engine, int pageNo, int rotation) {
 
 static void FinishMergeThumb(MergeThumbResult* result) {
     MergeThumbCache* cache = result->cache;
-    if (!cache->deleteWhenWorkerFinishes && result->thumbIdx >= 0 && result->thumbIdx < len(cache->thumbs)) {
+    if (!cache->job.IsDetached() && result->thumbIdx >= 0 && result->thumbIdx < len(cache->thumbs)) {
         MergeThumb& thumb = cache->thumbs[result->thumbIdx];
         thumb.bitmap = result->bitmap;
         result->bitmap = nullptr;
@@ -1191,8 +1179,7 @@ static void FinishMergeThumb(MergeThumbResult* result) {
 static void StartMergeThumbs();
 
 static void FinishMergeThumbWorker(MergeThumbCache* cache) {
-    cache->workerRunning = false;
-    if (cache->deleteWhenWorkerFinishes) {
+    if (cache->job.Finish()) {
         DeleteMergeThumbs(cache);
         return;
     }
@@ -1208,7 +1195,7 @@ static void RenderMergeThumbs(MergeThumbWorker* worker) {
         engine->Release();
     }
     for (const MergeThumbWorkItem& item : worker->items) {
-        if (AtomicIntGet(&worker->cache->cancel) != 0) {
+        if (worker->cache->job.IsCanceled()) {
             break;
         }
         auto* result = new MergeThumbResult;
@@ -1227,7 +1214,7 @@ static void RenderMergeThumbs(MergeThumbWorker* worker) {
 
 static void StartMergeThumbs() {
     MergeThumbCache* cache = gTool.mergeThumbs;
-    if (!cache || cache->workerRunning) {
+    if (!cache || cache->job.IsRunning()) {
         return;
     }
     auto* worker = new MergeThumbWorker;
@@ -1251,7 +1238,7 @@ static void StartMergeThumbs() {
         delete worker;
         return;
     }
-    cache->workerRunning = true;
+    cache->job.Start();
     RunAsync(MkFunc0<MergeThumbWorker>(RenderMergeThumbs, worker), StrL("MergeThumbnailRender"));
 }
 

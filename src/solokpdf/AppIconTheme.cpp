@@ -26,13 +26,15 @@ constexpr float kMinSeamPx = 1.0f;
 
 static void AddLoops(Gdiplus::GraphicsPath& path, const float* pts, const int* loops, int nLoops, float scale) {
     for (int i = 0; i < nLoops; i++) {
-        Vec<Gdiplus::PointF> v;
+        // Gdiplus::PointF isn't trivially copyable, so it can't live in a Vec
+        auto* v = new Gdiplus::PointF[loops[i]];
         for (int j = 0; j < loops[i]; j++) {
-            VecAppend(v, Gdiplus::PointF(pts[j * 2] * scale, pts[j * 2 + 1] * scale));
+            v[j] = Gdiplus::PointF(pts[j * 2] * scale, pts[j * 2 + 1] * scale);
         }
         path.StartFigure();
-        path.AddBeziers(v.els, len(v));
+        path.AddBeziers(v, loops[i]);
         path.CloseFigure();
+        delete[] v;
         pts += loops[i] * 2;
     }
 }

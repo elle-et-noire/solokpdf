@@ -32,6 +32,7 @@ struct AppCommandCtx {
     bool isCbx = false;
     bool isImageCollection = false;
     bool isEpub = false;
+    bool isOfd = false;
     // reflowable document (epub, mobi, fb2, ...): the ebook settings apply
     bool isReflowable = false;
     bool isFixedPage = false;
@@ -65,6 +66,7 @@ struct AppCommandCtx {
     bool clipboardReadAsync = false;
     // checked and found signatures; only the Windows app checks
     bool hasSignatures = false;
+    bool hasLayers = false;
 
     int nTabs = 0;
     bool hasDocTabs = false;

@@ -270,11 +270,11 @@ static void OnSigBarPanel(MainWindow* win) {
 
 // posted: both change what the bar's tree holds, and a click comes from inside it
 static void OnSigBarCloseClick(MainWindow* win, VirtMouseEvent*) {
-    uitask::Post(MkFunc0<MainWindow>(OnSigBarClose, win), "SigBarClose");
+    PostForWindow(win, OnSigBarClose, "SigBarClose");
 }
 
 static void OnSigBarPanelClick(MainWindow* win, VirtMouseEvent*) {
-    uitask::Post(MkFunc0<MainWindow>(OnSigBarPanel, win), "SigBarPanel");
+    PostForWindow(win, OnSigBarPanel, "SigBarPanel");
 }
 
 bool SigBarWanted(MainWindow* win) {
@@ -282,7 +282,7 @@ bool SigBarWanted(MainWindow* win) {
     if (!res || res->sum.nSigned == 0 || res->barDismissed || !gSettings->showSignatureStatus) {
         return false;
     }
-    return !win->isFullScreen && win->presentation == PM_DISABLED;
+    return !win->IsFullScreenOrPresentation();
 }
 
 int SigBarDy(MainWindow* win) {
@@ -392,16 +392,18 @@ struct SignatureWnd : WindowBase {
 
 static SignatureWnd* gSignatureWnd = nullptr;
 
-static void OnSignatureWndClose(WindowBase::CloseEvent*) {
+static void ScheduleSignatureDelete() {
     if (gSignatureWnd) {
         gSignatureWnd->ScheduleDelete();
     }
 }
 
+static void OnSignatureWndClose(WindowBase::CloseEvent*) {
+    ScheduleSignatureDelete();
+}
+
 static void OnSignatureWndDestroy(WindowBase::DestroyEvent*) {
-    if (gSignatureWnd) {
-        gSignatureWnd->ScheduleDelete();
-    }
+    ScheduleSignatureDelete();
 }
 
 static void ClearSignatureWnd() {
