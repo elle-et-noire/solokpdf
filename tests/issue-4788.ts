@@ -8,9 +8,10 @@
 //
 // Run: bun tests/issue-4788.ts [--no-build]
 
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { assemblePdf, cmdId, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
 import {
   captureWindowPixels,
@@ -116,7 +117,12 @@ export async function testit(): Promise<void> {
   const pdf = tmpPath("issue-4788.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
 
-  const { proc, client, frame } = await launchControlled([pdf]);
+  // measure the document's own grays: theme page colors would tint them
+  const dir = tmpPath("issue-4788-appdata");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, SETTINGS_FILE), "DocumentColorsFollowTheme = off\n");
+
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   try {
     await client.setNotificationsEnabled(false);
     sendMessage(frame, WM_COMMAND, BigInt(cmdId("CmdZoomFitPage")), 0n);
