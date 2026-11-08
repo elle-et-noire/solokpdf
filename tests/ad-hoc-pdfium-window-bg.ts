@@ -27,7 +27,10 @@ async function sample(engine: string): Promise<number> {
       `FileStates [\n [\n FilePath = ${pdf}\n BgCol = #aa22cc\n ]\n]\n`,
   );
 
-  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf], { env: { SOLOKPDF_ENGINE: engine } });
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf], {
+    env: { SOLOKPDF_ENGINE: engine },
+    startupDiagnosticsDir: join(dir, "startup"),
+  });
   try {
     await client.setNotificationsEnabled(false);
     await client.waitForRenderIdle();
@@ -63,13 +66,10 @@ async function checkNonPdfBackground(kind: "image" | "ebook", perFile: boolean):
       `${kind === "image" ? "ImageUI" : "EBookUI"} [\n WindowBgCol = #3167a1\n]\n` +
       (perFile ? `FileStates [\n [\n FilePath = ${path}\n BgCol = #aa22cc\n ]\n]\n` : ""),
   );
-  const { proc, client, frame } = await launchControlled([
-    "-appdata",
-    dir,
-    "-zoom",
-    kind === "image" ? "100" : "fit page",
-    path,
-  ]);
+  const { proc, client, frame } = await launchControlled(
+    ["-appdata", dir, "-zoom", kind === "image" ? "100" : "fit page", path],
+    { startupDiagnosticsDir: join(dir, "startup") },
+  );
   try {
     await client.setNotificationsEnabled(false);
     await client.waitForRenderIdle();

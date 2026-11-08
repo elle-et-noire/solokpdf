@@ -6,6 +6,7 @@
 // (print-to-PDF, LaTeX, a measured wait, high-zoom tile settle, a huge
 // fixture, or copying the exe next to restrict.ini). Those go in `slowTests`.
 
+import { testit as startupDiagnostics } from "./ad-hoc-startup-diagnostics.ts";
 import { testit as sigValidation } from "./sig-validation.ts";
 import {
   formatDuration,
@@ -77,6 +78,7 @@ export const notInPreReleaseTests: NamedTest[] = [
 ];
 
 export const slowTests: NamedTest[] = [
+  ["ad-hoc-startup-diagnostics", startupDiagnostics],
   ["pdfium-pattern-strokes", pdfiumPatternStrokes],
   ["pdfium-pattern-rendering", pdfiumPatternRendering],
   ["pdfium-type3-alpha", pdfiumType3Alpha],

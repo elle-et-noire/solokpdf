@@ -25,6 +25,14 @@ The B69 probe (`tests/ad-hoc-b69-hidden-desktop.ts`) creates a visible window
 and checks its desktop name against the input desktop. Run it first when
 checking the runner. Local app tests must never run on the owner's desktop.
 
+### Startup timeout diagnostics
+
+`ad-hoc-pdfium-window-bg` writes a separate startup log for each app launch.
+If the control pipe times out, it captures the live process before ending it:
+window details, stderr, a thread dump and (when cdb is available) stacks.
+CI also saves the matching executable and PDBs in the failure artifact.
+Verify the capture locally with `bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-startup-diagnostics.ts --no-build`.
+
 ### Desktop-dependent checks
 
 | Check                                    | Hidden-desktop behavior                                                                                                                      |

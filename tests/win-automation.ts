@@ -11,7 +11,10 @@
 //
 // Keep reusable actions here rather than declaring them in each test.
 
-import { IS_MAC } from "./host.ts";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { IS_MAC, IS_WIN } from "./host.ts";
+import { captureStartupFailure } from "./startup-diagnostics.ts";
 import { macClick } from "./mac-control.ts";
 import { cmdId, drainProcStderr, EXE, SETTINGS_FILE, SLOW_BUILD_FACTOR, setFailureContext, USE_NG } from "./util.ts";
 import {
@@ -230,7 +233,13 @@ export function launchSumatra(
 // the test has to read back the settings file. env: extra environment variables.
 export async function launchControlled(
   args: string[],
-  opts?: { defaultWindowPos?: boolean; saveSettings?: boolean; env?: Record<string, string> },
+  opts?: {
+    defaultWindowPos?: boolean;
+    saveSettings?: boolean;
+    env?: Record<string, string>;
+    startupDiagnosticsDir?: string;
+    controlTimeoutMs?: number;
+  },
 ): Promise<{ proc: Bun.Subprocess; client: ControlClient; frame: number }> {
   // many tests post keys and clicks directly; a held modifier would chord them
   await ensureModifierKeysUp();
@@ -259,9 +268,12 @@ export async function launchControlled(
   const pipe = uniquePipeName();
   const posArgs = opts?.defaultWindowPos || args.includes("-window-pos") ? [] : windowPosArgs();
   const testing = opts?.saveSettings ? [] : ["-for-testing"];
+  const diagDir = IS_WIN ? opts?.startupDiagnosticsDir : undefined;
+  if (diagDir) mkdirSync(diagDir, { recursive: true });
+  const logArgs = diagDir ? ["-log-to-file", join(diagDir, `${pipe}.log`)] : [];
   // drain stderr: ASan writes reports there, and with stderr:"ignore" those
   // writes hit a closed pipe and kill the process (EPIPE in the test client)
-  const proc = Bun.spawn([EXE, ...testing, ...posArgs, "-dbg-control", pipe, ...args], {
+  const proc = Bun.spawn([EXE, ...testing, ...posArgs, "-dbg-control", pipe, ...logArgs, ...args], {
     stdout: "ignore",
     stderr: "pipe",
     env: opts?.env ? { ...process.env, ...opts.env } : undefined,
@@ -269,7 +281,7 @@ export async function launchControlled(
   drainStderr(proc);
   gLastProc = proc;
   try {
-    const client = await ControlClient.connect(pipe);
+    const client = await ControlClient.connect(pipe, opts?.controlTimeoutMs);
     // macOS has no HWND. The control socket is the ready signal; 1 stands in
     // for the frame so callers that only check it is non-zero keep going.
     const frame = IS_MAC ? 1 : await waitForFrame(proc.pid!);
@@ -284,7 +296,21 @@ export async function launchControlled(
     return { proc, client, frame };
   } catch (e) {
     const exitCode = proc.exitCode;
+    if (diagDir && exitCode === null) {
+      try {
+        await captureStartupFailure(proc.pid, pipe, diagDir);
+      } catch (error) {
+        console.error(`startup diagnostics failed: ${error}`);
+      }
+    }
     await killAndWaitProcess(proc);
+    if (diagDir) {
+      try {
+        writeFileSync(join(diagDir, "stderr.txt"), await takeStderr(proc));
+      } catch (error) {
+        console.error(`saving startup stderr failed: ${error}`);
+      }
+    }
     if (exitCode !== null) throw new Error(`SumatraPDF exited with code ${exitCode}: ${e}`);
     throw e;
   }
