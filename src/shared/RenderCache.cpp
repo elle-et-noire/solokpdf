@@ -737,14 +737,15 @@ void RenderCache::CancelSelection(DisplayModel* dm, u64 keepGroup, int replacePa
     }
 }
 
-bool RenderCache::PaintSelection(Gfx* gfx, DisplayModel* dm, int pageNo, RectF pageRect, Rect screenRect,
-                                 const Vec<Rect>& clips, const SelectionRenderArgs& selection) {
+RenderCache::SelectionPaint RenderCache::PaintSelection(Gfx* gfx, DisplayModel* dm, int pageNo, RectF pageRect,
+                                                        Rect screenRect, const Vec<Rect>& clips,
+                                                        const SelectionRenderArgs& selection) {
 #if defined(SOLOKPDF_PDFIUM)
     if (dm->GetEngine()->kind != kindEnginePdfium && dm->GetEngine()->kind != kindEngineMupdf) {
-        return false;
+        return SelectionPaint::Unsupported;
     }
 #else
-    return false;
+    return SelectionPaint::Unsupported;
 #endif
     int rotation = NormalizeRotation(dm->PageRotation(pageNo));
     float zoom = dm->GetRenderZoom(pageNo);
@@ -768,14 +769,14 @@ bool RenderCache::PaintSelection(Gfx* gfx, DisplayModel* dm, int pageNo, RectF p
                 entry.lastUsed = GetTickCount64();
                 if (entry.bitmap) {
                     if (entry.bitmap->width != screenRect.dx || entry.bitmap->height != screenRect.dy) {
-                        return false;
+                        return SelectionPaint::Unsupported;
                     }
                     for (Rect clip : clips) {
                         gfx->PushClip(clip);
                         gfx->DrawPixmap(entry.bitmap, screenRect);
                         gfx->PopClip();
                     }
-                    return true;
+                    return SelectionPaint::Painted;
                 }
                 if (entry.budgetLimited && PruneSelections(this, entry.bytes)) {
                     for (int j = len(selections) - 1; j >= 0; j--) {
@@ -786,7 +787,7 @@ bool RenderCache::PaintSelection(Gfx* gfx, DisplayModel* dm, int pageNo, RectF p
                     }
                     break;
                 }
-                return false;
+                return entry.budgetLimited ? SelectionPaint::Pending : SelectionPaint::Unsupported;
             }
         }
     }
@@ -797,14 +798,14 @@ bool RenderCache::PaintSelection(Gfx* gfx, DisplayModel* dm, int pageNo, RectF p
             if (req && !req->abort && req->selectionRequest && req->dm == dm && req->pageNo == pageNo &&
                 req->rotation == rotation && req->zoom == zoom && req->selectionGeneration == generation &&
                 SameRect(req->pageRect, pageRect) && SameSelection(req->selection, selection)) {
-                return false;
+                return SelectionPaint::Pending;
             }
         }
     }
     CancelSelection(dm, selection.group, pageNo);
     auto cb = MkMethod1<DisplayModel, PageRenderRequest*, &DisplayModel::RenderFinishedAsync>(dm);
-    Render(dm, pageNo, rotation, zoom, nullptr, &pageRect, cb, nullptr, &selection);
-    return false;
+    bool queued = Render(dm, pageNo, rotation, zoom, nullptr, &pageRect, cb, nullptr, &selection);
+    return queued ? SelectionPaint::Pending : SelectionPaint::Unsupported;
 }
 #endif
 

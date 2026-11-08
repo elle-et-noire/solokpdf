@@ -61,6 +61,7 @@ struct PdfThemeSnapshot {
 
 PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, int pageNo,
                                    const DarkModeProfile& profile);
+PdfThemeSnapshot PdfSplitPageMupdf(const PdfRenderSource& source, Str password, int pageNo);
 
 enum class PdfRenderParts {
     Contents,

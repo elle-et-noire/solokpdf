@@ -6936,6 +6936,273 @@ static void ThemePdfWidget(fz_context* ctx, pdf_document* doc, pdf_annot* widget
     }
 }
 
+constexpr int kMaxSplitGlyphs = 100000;
+constexpr size_t kMaxSplitBytes = 64ULL * 1024 * 1024;
+
+struct SplitTextProcessor {
+    pdf_processor super;
+    pdf_document* doc;
+    const PdfRenderSource* source;
+    pdf_font_desc* font;
+    pdf_font_desc* stack[64];
+    int depth;
+    int glyph;
+    int run;
+};
+
+static void SplitTextDrop(fz_context* ctx, pdf_processor* proc) {
+    auto* p = (SplitTextProcessor*)proc;
+    pdf_drop_font(ctx, p->font);
+    for (int i = 0; i < p->depth; i++) {
+        pdf_drop_font(ctx, p->stack[i]);
+    }
+}
+
+static void SplitTextClose(fz_context* ctx, pdf_processor* proc) {
+    auto* p = (SplitTextProcessor*)proc;
+    if (p->depth != 0) {
+        fz_throw(ctx, FZ_ERROR_GENERIC, "unbalanced selection graphics stack");
+    }
+    pdf_close_processor(ctx, proc->chain);
+}
+
+static void SplitTextSave(fz_context* ctx, pdf_processor* proc) {
+    auto* p = (SplitTextProcessor*)proc;
+    CheckPdfCancel(ctx, p->source);
+    if (p->depth == dimof(p->stack)) {
+        fz_throw(ctx, FZ_ERROR_GENERIC, "selection graphics stack too deep");
+    }
+    p->stack[p->depth++] = p->font ? pdf_keep_font(ctx, p->font) : nullptr;
+    proc->chain->op_q(ctx, proc->chain);
+}
+
+static void SplitTextRestore(fz_context* ctx, pdf_processor* proc) {
+    auto* p = (SplitTextProcessor*)proc;
+    CheckPdfCancel(ctx, p->source);
+    if (!p->depth) {
+        fz_throw(ctx, FZ_ERROR_GENERIC, "unbalanced selection graphics stack");
+    }
+    pdf_drop_font(ctx, p->font);
+    p->font = p->stack[--p->depth];
+    proc->chain->op_Q(ctx, proc->chain);
+}
+
+static void SplitTextFont(fz_context* ctx, pdf_processor* proc, const char* name, pdf_font_desc* font, float size) {
+    auto* p = (SplitTextProcessor*)proc;
+    CheckPdfCancel(ctx, p->source);
+    pdf_font_desc* kept = font ? pdf_keep_font(ctx, font) : nullptr;
+    pdf_drop_font(ctx, p->font);
+    p->font = kept;
+    proc->chain->op_Tf(ctx, proc->chain, name, font, size);
+}
+
+static void SplitTextString(fz_context* ctx, SplitTextProcessor* p, char* str, size_t len) {
+    if (!p->font || !p->font->font || p->font->font->t3procs || !p->font->encoding || p->font->wmode) {
+        fz_throw(ctx, FZ_ERROR_GENERIC, "unsupported selection font");
+    }
+    auto* pos = (unsigned char*)str;
+    auto* end = pos + len;
+    while (pos < end) {
+        if (p->source->isCanceled && p->source->isCanceled(p->source->cancelData)) {
+            fz_throw(ctx, FZ_ERROR_ABORT, "selection canceled");
+        }
+        unsigned int code = 0;
+        int n = pdf_decode_cmap(p->font->encoding, pos, end, &code);
+        if (n <= 0 || pos + n > end) {
+            fz_throw(ctx, FZ_ERROR_GENERIC, "invalid selection character code");
+        }
+        bool valid = false;
+        pdf_cmap* cmap = p->font->encoding;
+        unsigned int rawCode = 0;
+        for (int i = 0; i < n; i++) {
+            rawCode = (rawCode << 8) | pos[i];
+        }
+        for (int i = 0; i < cmap->codespace_len; i++) {
+            auto& range = cmap->codespace[i];
+            valid |= range.n == n && rawCode == code && code >= range.low && code <= range.high;
+        }
+        if (!valid || pdf_lookup_cmap(cmap, code) < 0 || p->glyph >= kMaxSplitGlyphs) {
+            fz_throw(ctx, FZ_ERROR_GENERIC, "unsupported selection character code");
+        }
+        pdf_obj* mark = pdf_new_dict(ctx, p->doc, 3);
+        fz_try(ctx) {
+            pdf_dict_puts_drop(ctx, mark, "SolokGlyphID", pdf_new_int(ctx, p->glyph++));
+            pdf_dict_puts_drop(ctx, mark, "SolokRunID", pdf_new_int(ctx, p->run));
+            pdf_dict_puts_drop(ctx, mark, "SolokCharCode", pdf_new_int(ctx, code));
+            pdf_processor* chain = p->super.chain;
+            chain->op_BDC(ctx, chain, "SolokSelectionGlyph", mark, mark);
+            chain->op_Tj(ctx, chain, (char*)pos, n);
+            chain->op_EMC(ctx, chain);
+        }
+        fz_always(ctx) {
+            pdf_drop_obj(ctx, mark);
+        }
+        fz_catch(ctx) {
+            fz_rethrow(ctx);
+        }
+        pos += n;
+    }
+}
+
+static void SplitTextTj(fz_context* ctx, pdf_processor* proc, char* str, size_t len) {
+    auto* p = (SplitTextProcessor*)proc;
+    CheckPdfCancel(ctx, p->source);
+    if (p->run == INT_MAX) {
+        fz_throw(ctx, FZ_ERROR_LIMIT, "too many selection text runs");
+    }
+    p->run++;
+    SplitTextString(ctx, p, str, len);
+}
+
+static void SplitTextTJ(fz_context* ctx, pdf_processor* proc, pdf_obj* array) {
+    auto* p = (SplitTextProcessor*)proc;
+    CheckPdfCancel(ctx, p->source);
+    if (p->run == INT_MAX || !pdf_is_array(ctx, array)) {
+        fz_throw(ctx, FZ_ERROR_GENERIC, "invalid selection text array");
+    }
+    p->run++;
+    int count = pdf_array_len(ctx, array);
+    for (int i = 0; i < count; i++) {
+        CheckPdfCancel(ctx, p->source);
+        pdf_obj* item = pdf_array_get(ctx, array, i);
+        if (pdf_is_string(ctx, item)) {
+            SplitTextString(ctx, p, pdf_to_str_buf(ctx, item), pdf_to_str_len(ctx, item));
+        } else if (pdf_is_number(ctx, item)) {
+            pdf_obj* one = pdf_new_array(ctx, p->doc, 1);
+            fz_try(ctx) {
+                pdf_array_push(ctx, one, item);
+                proc->chain->op_TJ(ctx, proc->chain, one);
+            }
+            fz_always(ctx) {
+                pdf_drop_obj(ctx, one);
+            }
+            fz_catch(ctx) {
+                fz_rethrow(ctx);
+            }
+        } else {
+            fz_throw(ctx, FZ_ERROR_GENERIC, "invalid selection text adjustment");
+        }
+    }
+}
+
+static void SplitTextQuote(fz_context* ctx, pdf_processor* proc, char* str, size_t len) {
+    proc->chain->op_Tstar(ctx, proc->chain);
+    SplitTextTj(ctx, proc, str, len);
+}
+
+static void SplitTextDoubleQuote(fz_context* ctx, pdf_processor* proc, float wordSpace, float charSpace, char* str,
+                                 size_t len) {
+    proc->chain->op_Tw(ctx, proc->chain, wordSpace);
+    proc->chain->op_Tc(ctx, proc->chain, charSpace);
+    proc->chain->op_Tstar(ctx, proc->chain);
+    SplitTextTj(ctx, proc, str, len);
+}
+
+static pdf_processor* NewSplitTextFilter(fz_context* ctx, pdf_document* doc, pdf_processor* chain, int, fz_matrix,
+                                         pdf_filter_options*, void* opaque) {
+    auto* p = (SplitTextProcessor*)pdf_new_processor(ctx, sizeof(SplitTextProcessor));
+    p->super.chain = chain;
+    p->super.close_processor = SplitTextClose;
+    p->super.drop_processor = SplitTextDrop;
+    p->super.op_q = SplitTextSave;
+    p->super.op_Q = SplitTextRestore;
+    p->super.op_Tf = SplitTextFont;
+    p->super.op_Tj = SplitTextTj;
+    p->super.op_TJ = SplitTextTJ;
+    p->super.op_squote = SplitTextQuote;
+    p->super.op_dquote = SplitTextDoubleQuote;
+    p->doc = doc;
+    p->source = (const PdfRenderSource*)opaque;
+    return &p->super;
+}
+
+static void SplitPdfWrite(fz_context* ctx, void* state, const void* data, size_t size) {
+    auto* output = (ThemePdfOutput*)state;
+    size_t current = fz_buffer_storage(ctx, output->buffer, nullptr);
+    if (size > kMaxSplitBytes || current > kMaxSplitBytes - size) {
+        fz_throw(ctx, FZ_ERROR_LIMIT, "selection snapshot too large");
+    }
+    ThemePdfWrite(ctx, state, data, size);
+}
+
+PdfThemeSnapshot PdfSplitPageMupdf(const PdfRenderSource& source, Str password, int pageNo) {
+    if (!source.read || source.size > kMaxSplitBytes) {
+        return {};
+    }
+    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    if (!ctx) {
+        return {};
+    }
+    pdf_document* doc = nullptr;
+    fz_stream* stream = nullptr;
+    pdf_page* page = nullptr;
+    fz_buffer* buffer = nullptr;
+    fz_output* writer = nullptr;
+    PdfStreamInput input{&source};
+    ThemePdfOutput output{};
+    PdfThemeSnapshot result;
+    fz_var(doc);
+    fz_var(stream);
+    fz_var(page);
+    fz_var(buffer);
+    fz_var(writer);
+    fz_var(result);
+    fz_try(ctx) {
+        stream = fz_new_stream(ctx, &input, PdfStreamNext, nullptr);
+        stream->seek = PdfStreamSeek;
+        doc = pdf_open_document_with_stream(ctx, stream);
+        if ((pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, CStrTemp(password))) || pageNo < 1 ||
+            pageNo > pdf_count_pages(ctx, doc) || doc->file_size != source.size) {
+            fz_throw(ctx, FZ_ERROR_GENERIC, "cannot split selection page");
+        }
+        bool incremental = pdf_can_be_saved_incrementally(ctx, doc);
+        page = pdf_load_page(ctx, doc, pageNo - 1);
+        pdf_filter_factory filters[2]{};
+        filters[0].filter = NewSplitTextFilter;
+        filters[0].options = (void*)&source;
+        pdf_filter_options options{};
+        options.filters = filters;
+        pdf_filter_page_contents(ctx, doc, page, &options);
+        CheckPdfCancel(ctx, &source);
+        buffer = fz_new_buffer(ctx, 0);
+        output = {buffer, incremental ? doc->file_size : 0, &source};
+        writer = fz_new_output(ctx, 0, &output, SplitPdfWrite, nullptr, nullptr);
+        writer->tell = ThemePdfTell;
+        if (incremental) {
+            pdf_write_snapshot_suffix(ctx, doc, writer);
+        } else {
+            pdf_write_options write{};
+            write.do_encrypt = PDF_ENCRYPT_KEEP;
+            write.dont_regenerate_id = 1;
+            write.permissions = -1;
+            pdf_write_document(ctx, doc, writer, &write);
+        }
+        fz_close_output(ctx, writer);
+        CheckPdfCancel(ctx, &source);
+        unsigned char* bytes = nullptr;
+        size_t size = fz_buffer_storage(ctx, buffer, &bytes);
+        if (size && size <= INT_MAX) {
+            result.data = str::Dup(Str((char*)bytes, (int)size));
+            result.layout = incremental ? PdfThemeLayout::Incremental : PdfThemeLayout::Rewritten;
+            result.status = result.data.s ? PdfThemeStatus::Ready : PdfThemeStatus::Failed;
+        }
+    }
+    fz_always(ctx) {
+        fz_drop_output(ctx, writer);
+        fz_drop_buffer(ctx, buffer);
+        fz_drop_page(ctx, (fz_page*)page);
+        pdf_drop_document(ctx, doc);
+        fz_drop_stream(ctx, stream);
+    }
+    fz_catch(ctx) {
+        str::Free(result.data);
+        result = {};
+        fz_ignore_error(ctx);
+    }
+    fz_drop_context(ctx);
+    return result;
+}
+
 PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, int pageNo,
                                    const DarkModeProfile& profile) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);

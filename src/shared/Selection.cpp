@@ -728,13 +728,26 @@ void PaintSelection(MainWindow* win, Gfx* gfx) {
     }
 
     ParsedColor* parsedCol = GetPrefsColor(gSettings->fixedPageUI.selectionColor);
-#if !defined(SUMATRA_NG)
+#if !defined(SUMATRA_NG) && defined(SOLOKPDF_PDFIUM)
     DisplayModel* dm = win->AsFixed();
     TextSelection* textSelection = dm->textSelection;
     Vec<SelectionOnPage>* selected = win->CurrentTab()->selectionOnPage;
-    if (parsedCol->col == kDefaultSelectionColor && win->mouseAction != MouseAction::Selecting && textSelection &&
-        selected && len(*selected) == len(textSelection->result) && len(win->findMatches) == 0 &&
-        (!dm->textSearch || len(dm->textSearch->result) == 0) && win->contextMenuHighlightPageNo == 0) {
+    bool textSelectionFrame = parsedCol->col == kDefaultSelectionColor && win->mouseAction != MouseAction::Selecting &&
+                              textSelection && selected && !dm->GetEngine()->isImageCollection && len(*selected) > 0 &&
+                              len(*selected) == len(textSelection->result);
+    if (textSelectionFrame) {
+        for (int i = 0; i < len(*selected); i++) {
+            SelectionOnPage& part = (*selected)[i];
+            TextSel& text = textSelection->result[i];
+            QuadF a = part.quad, b = text.quad;
+            if (part.pageNo != text.pageNo || part.rect != ToRectF(text.rect) || a.ul != b.ul || a.ur != b.ur ||
+                a.ll != b.ll || a.lr != b.lr) {
+                textSelectionFrame = false;
+                break;
+            }
+        }
+    }
+    if (textSelectionFrame) {
         int firstPage, firstGlyph, lastPage, lastGlyph;
         textSelection->GetGlyphRange(&firstPage, &firstGlyph, &lastPage, &lastGlyph);
         constexpr u64 kHashSeed = 14695981039346656037ULL;
@@ -774,7 +787,10 @@ void PaintSelection(MainWindow* win, Gfx* gfx) {
                     VecAppend(clips, clip);
                 }
             }
-            if (supported && len(clips) > 0 && !dm->GetMirror() &&
+            bool noOtherHighlights = len(win->findMatches) == 0 &&
+                                     (!dm->textSearch || len(dm->textSearch->result) == 0) &&
+                                     win->contextMenuHighlightPageNo == 0;
+            if (supported && noOtherHighlights && len(clips) > 0 && !dm->GetMirror() &&
                 dm->GetRenderZoom(item.pageNo) == dm->GetZoomReal(item.pageNo)) {
                 Color page;
                 ThemePageRenderColors(page);
@@ -802,7 +818,8 @@ void PaintSelection(MainWindow* win, Gfx* gfx) {
                 Rect pixelRect = onScreen;
                 pixelRect.Offset(pagePixels.x - pageInfo->pageOnScreen.x, pagePixels.y - pageInfo->pageOnScreen.y);
                 RectF area = dm->GetEngine()->Transform(ToRectF(pixelRect), item.pageNo, zoom, rotation, true);
-                if (gRenderCache->PaintSelection(gfx, dm, item.pageNo, area, onScreen, clips, args)) {
+                auto paint = gRenderCache->PaintSelection(gfx, dm, item.pageNo, area, onScreen, clips, args);
+                if (paint == RenderCache::SelectionPaint::Painted) {
                     for (int j = i; j < len(*selected); j++) {
                         SelectionOnPage& part = (*selected)[j];
                         if (part.pageNo == item.pageNo) {
@@ -818,6 +835,22 @@ void PaintSelection(MainWindow* win, Gfx* gfx) {
                 }
             }
         }
+        Color page;
+        ThemePageRenderColors(page);
+        Color frame = ThemeInkOn(page);
+        gfx->PushClip(win->canvasRc);
+        for (Rect rect : rects) {
+            rect.Inflate(1, 1);
+            gfx->DrawRect(rect, frame);
+        }
+        for (int i = 0; i + 3 < len(quadPts); i += 4) {
+            for (int j = 0; j < 4; j++) {
+                gfx->DrawLineAA(quadPts[i + j], quadPts[i + (j + 1) % 4], frame, 1, 255);
+            }
+        }
+        gfx->PopClip();
+        VecReset(rects);
+        VecReset(quadPts);
     }
 #endif
     // honor the alpha channel of SelectionColor (#aarrggbb): a smaller alpha makes

@@ -160,16 +160,20 @@ are in [history.md](history.md).
 
 ## Text, search and selection
 
-- Page selection foreground colors use a conservative glyph match. Both engines
-  use the overlay for ActualText replacement text. PDFium falls back for Type3 fonts, clipping, non-fill
-  text, transparency, blend modes, soft masks, rotated glyphs, forms or
-  ambiguous bounds; ordinary MCID tags are supported. Partial selections,
-  including adjacent text, use the overlay when selected and unselected
-  glyphs cannot be safely separated at antialiased edges.
+- Page selection foreground colors use a conservative glyph match. PDFium
+  splits ordinary text runs into tagged glyphs in a temporary PDF, then checks
+  that its rendered pixels match the original before applying selection colors.
+  Whole ligatures are supported; selecting part of one uses an outline. Both
+  engines use an outline for ActualText replacement text. PDFium also falls
+  back for Type3 fonts, clipping, non-fill text, transparency, blend modes,
+  soft masks, rotated glyphs, selected text in forms or ambiguous matches. Disabling anti-aliasing
+  prevents glyph splitting; the older object-level path may still work. The
+  split is limited to 100,000 glyphs and 64 MiB input PDFs and snapshots.
   MuPDF falls back for unsupported drawing operations, including non-text
   drawing after selected text, even outside the selected area. Legacy page
-  recoloring, grayscale and brightness/contrast adjustments use the overlay.
-  Color contrast over an image depends on its pixels.
+  recoloring, grayscale and brightness/contrast adjustments use the outline.
+  The outline may touch nearby pixels as a selection decoration; image contrast
+  depends on the image itself.
 - PDFium extracts routine page text through its own text API. Character gaps,
   loose glyph boxes, line breaks and a CP-1251 font mapping preserve spacing,
   Unicode and selection bounds. A page with unmapped glyphs, or a shown widget

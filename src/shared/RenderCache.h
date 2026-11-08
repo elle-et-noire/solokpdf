@@ -236,8 +236,13 @@ struct RenderCache {
     void RequestRendering(DisplayModel* dm, int pageNo);
     void Render(DisplayModel* dm, int pageNo, int rotation, float zoom, RectF pageRect,
                 const Func1<PageRenderRequest*>& callback);
-    bool PaintSelection(Gfx* gfx, DisplayModel* dm, int pageNo, RectF pageRect, Rect screenRect, const Vec<Rect>& clips,
-                        const SelectionRenderArgs& selection);
+    enum class SelectionPaint {
+        Painted,
+        Pending,
+        Unsupported
+    };
+    SelectionPaint PaintSelection(Gfx* gfx, DisplayModel* dm, int pageNo, RectF pageRect, Rect screenRect,
+                                  const Vec<Rect>& clips, const SelectionRenderArgs& selection);
     void CancelSelection(DisplayModel* dm, u64 keepGroup = 0, int replacePage = -1);
     void CancelRenderingBlocking(DisplayModel* dm);
     void AbortRendering(DisplayModel* dm);

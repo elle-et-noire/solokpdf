@@ -163,13 +163,14 @@ system pair. Page text selection uses the pair where the engine can identify
 the original glyphs safely. Its background is blended to reach the theme color
 on a flat page; on an image it blends with the image. Text keeps its original
 font and placement. The background alpha increases when needed to reach the
-specified color and may become opaque. PDFium renders the selected area twice
-to verify that unselected glyphs are unchanged. Visible pages render
-asynchronously into a separate cache capped at 64 MiB.
+specified color and may become opaque. PDFium identifies glyphs in a temporary
+copy and verifies its pixels against the original page before recoloring them.
+Visible pages render asynchronously into a separate cache capped at 64 MiB.
 
 When `FixedPageUI.SelectionColor` differs from the default `#ffff00`, its
-existing color and alpha take precedence. Rectangle selections, scans and text
-the engine cannot safely recolor retain the transparent overlay. Search matches,
+existing color and alpha take precedence. While text selection renders, and
+when glyphs cannot be safely recolored, a thin outline marks the range without
+filling it. Rectangle selections and scans keep their existing overlay. Search matches,
 touch handles, native edits, HTML, CHM and the manual use their existing
 selection paths.
 

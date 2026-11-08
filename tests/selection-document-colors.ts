@@ -199,6 +199,7 @@ export async function testit(): Promise<void> {
     ["single", () => check("single")],
     ["multiple", () => check("multiple")],
     ["tagged", () => check("tagged")],
+    ["visible-space", checkVisibleSpace],
     ["unsafe-effects", checkActualText],
     ["many", () => checkManyLines(false)],
     ["partial-many-spaced", () => checkManyLines(true, true)],
@@ -207,6 +208,68 @@ export async function testit(): Promise<void> {
     console.log(`selection-document-colors: ${name} start`);
     await run();
     console.log(`selection-document-colors: ${name} passed`);
+  }
+}
+
+async function checkVisibleSpace(): Promise<void> {
+  const dir = tmpPath("selection-document-visible-space");
+  mkdirSync(dir, { recursive: true });
+  const content = "BT /F1 24 Tf 8 Tc 72 700 Td (A A X) Tj ET";
+  const cmap =
+    "/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def /CMapName /SelectionTest def /CMapType 2 def 1 begincodespacerange <00> <ff> endcodespacerange 3 beginbfchar <20> <0020> <41> <0041> <58> <0058> endbfchar endcmap CMapName currentdict /CMap defineresource pop end end";
+  const pdf = join(dir, "space.pdf");
+  writeFileSync(
+    pdf,
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [32 /A] >> /ToUnicode 6 0 R >>",
+      `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+      `<< /Length ${cmap.length} >>\nstream\n${cmap}\nendstream`,
+    ]),
+    "latin1",
+  );
+  writeFileSync(
+    join(dir, SETTINGS_FILE),
+    "Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\nDocumentColorsFollowTheme = off\nThemes [\n [\n Name = Selection Test\n TextColor = #000000\n BackgroundColor = #ffffff\n SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n ]\n]\n",
+  );
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    const canvas = findCanvas(frame),
+      shot = join(dir, "canvas.png");
+    await client.seedTextSelection(1, 0, 3);
+    const selection = String((await client.request(ControlCommand.TestSelectionVars, ["${selection}"]))[1] ?? "");
+    if (!/^expanded=A A$/m.test(selection)) throw new Error(`unexpected visible-space selection: ${selection}`);
+    repaintWindow(canvas);
+    const deadline = Date.now() + 6000 * SLOW_BUILD_FACTOR;
+    let bands = 0;
+    while (Date.now() < deadline) {
+      if (!captureWindowToPng(canvas, shot)) throw new Error("cannot capture visible space");
+      const image = loadPng(shot);
+      let previous = false;
+      bands = 0;
+      for (let x = 0; x < image.w; x++) {
+        let red = false;
+        for (let y = 0; y < image.h; y++) {
+          const [r, g, b] = pngPixel(image, x, y);
+          if (r > 180 && g < 80 && b < 80) {
+            red = true;
+            break;
+          }
+        }
+        if (red && !previous) bands++;
+        previous = red;
+      }
+      if (bands >= 3) return;
+      await sleep(50);
+    }
+    throw new Error(`visible-space selection has only ${bands} red glyph bands`);
+  } finally {
+    client.close();
+    await killAndWait(proc);
   }
 }
 
@@ -323,19 +386,35 @@ async function checkActualText(): Promise<void> {
       repaintWindow(canvas);
       if (!captureWindowToPng(canvas, shot)) throw new Error("cannot capture selection");
       const after = loadPng(shot);
+      const position = String(
+        (await client.request(ControlCommand.TestSelectionVars, ["${selectionPosition}"]))[1] ?? "",
+      );
+      const match = /^expanded=(-?\d+),(-?\d+),(\d+),(\d+)$/m.exec(position);
+      if (!match) throw new Error(`missing selection position: ${position}`);
+      const win = getWindowRect(canvas),
+        x0 = +match[1]! - win.left,
+        y0 = +match[2]! - win.top;
+      const x1 = x0 + +match[3]!,
+        y1 = y0 + +match[4]!;
       let red = 0,
         blue = 0,
-        changed = 0;
+        changed = 0,
+        inside = 0;
       for (let y = 0; y < after.h; y++)
         for (let x = 0; x < after.w; x++) {
           const a = pngPixel(before, x, y),
             b = pngPixel(after, x, y);
           if (b[0] > 180 && b[1] < 80 && b[2] < 80) red++;
           if (b[0] < 15 && b[1] >= 90 && b[1] <= 115 && b[2] >= 195 && b[2] <= 215) blue++;
-          if (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2]) changed++;
+          if (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2]) {
+            changed++;
+            if (x >= x0 && x < x1 && y >= y0 && y < y1) inside++;
+          }
         }
-      if (red || blue || !changed)
-        throw new Error(`${kind}: expected overlay fallback, red=${red} blue=${blue} changed=${changed}`);
+      if (red || blue || changed < 10 || inside)
+        throw new Error(
+          `${kind}: expected outline fallback, red=${red} blue=${blue} changed=${changed} inside=${inside}`,
+        );
     } finally {
       client.close();
       await killAndWait(proc);
@@ -427,7 +506,7 @@ async function checkManyLines(partial: boolean, spaced = false): Promise<void> {
           lastRed = y;
         }
       }
-      if (bands >= expected || (partial && !spaced && overlay > 20)) {
+      if (bands >= expected) {
         if (partial && bands < expected) console.log("selection-document-colors: partial-many overlay fallback");
         if (partial) {
           const raw = String(
