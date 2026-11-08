@@ -57,7 +57,8 @@ export async function testit(): Promise<void> {
             if (pixels[i] === 0x77 && pixels[i + 1] === 0x33 && pixels[i + 2] === 0xa1) track++;
             if (pixels[i] === 0x56 && pixels[i + 1] === 0xbe && pixels[i + 2] === 0x34) thumb++;
           }
-        if (track < 20 || thumb < 5) throw new Error(`${name} scrollbar: track=${track}, thumb=${thumb}`);
+        if (track >= 20 || thumb >= 5)
+          throw new Error(`${name} scrollbar was painted with the custom theme: track=${track}, thumb=${thumb}`);
       }
     }
     checkColors();

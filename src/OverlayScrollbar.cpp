@@ -544,69 +544,6 @@ Pixmap* PaintThemedBar(Size size, const ThemedBarLook& look, int progress) {
     return px;
 }
 
-static void PaintNativeBar(HWND hwnd, HDC target, LONG objectId) {
-    SCROLLBARINFO info{};
-    info.cbSize = sizeof(info);
-    if (!GetScrollBarInfo(hwnd, objectId, &info) || (info.rgstate[0] & STATE_SYSTEM_INVISIBLE)) {
-        return;
-    }
-    RECT windowRc{};
-    GetWindowRect(hwnd, &windowRc);
-    Rect rc = ToRect(info.rcScrollBar);
-    rc.x -= windowRc.left;
-    rc.y -= windowRc.top;
-    if (rc.dx <= 0 || rc.dy <= 0) {
-        return;
-    }
-    bool vert = objectId == OBJID_VSCROLL;
-    int length = vert ? rc.dy : rc.dx;
-    int breadth = vert ? rc.dx : rc.dy;
-    int edge = info.dxyLineButton;
-    auto rect = [vert, breadth](int start, int end) -> Rect {
-        return vert ? Rect{0, start, breadth, end - start} : Rect{start, 0, end - start, breadth};
-    };
-    ThemedBarLook look{};
-    look.track = rect(edge, length - edge);
-    look.arrowStart = rect(0, edge);
-    look.arrowEnd = rect(length - edge, length);
-    look.thumb = rect(info.xyThumbTop, info.xyThumbBottom);
-    look.hover = (info.rgstate[0] & (STATE_SYSTEM_HOTTRACKED | STATE_SYSTEM_PRESSED)) != 0;
-    look.thumbHot = (info.rgstate[3] & STATE_SYSTEM_HOTTRACKED) != 0;
-    look.pressed = (info.rgstate[3] & STATE_SYSTEM_PRESSED) != 0;
-
-    HTHEME theme = OpenBarTheme();
-    if (!theme) {
-        return;
-    }
-    Pixmap* px = AllocPixmapDIB(rc.dx, rc.dy);
-    HDC hdc = px ? CreateCompatibleDC(target) : nullptr;
-    if (hdc) {
-        HGDIOBJ prev = SelectObject(hdc, px->hbmp);
-        auto* pixels = (DWORD*)px->data;
-        ScrollbarTint tint = GetScrollbarTint(vert, theme, hdc, breadth);
-        DrawLookParts(theme, tint, hdc, pixels, rc.dx * rc.dy, look, vert, look.hover);
-        FinishLook(tint, pixels, rc.dx * rc.dy);
-        SelectObject(hdc, prev);
-        DeleteDC(hdc);
-        BlitPixmap(px, target, rc);
-    }
-    FreePixmap(px);
-    CloseThemeData(theme);
-}
-
-void PaintNativeScrollbars(HWND hwnd) {
-    if (!hwnd || !IsWindowVisible(hwnd) || !ThemeTintsScrollbars()) {
-        return;
-    }
-    HDC hdc = GetWindowDC(hwnd);
-    if (!hdc) {
-        return;
-    }
-    PaintNativeBar(hwnd, hdc, OBJID_HSCROLL);
-    PaintNativeBar(hwnd, hdc, OBJID_VSCROLL);
-    ReleaseDC(hwnd, hdc);
-}
-
 // Our own look: a thin bar, thick with arrows while the mouse is over it
 static void PaintCustomScrollbar(OverlayScrollbar* sb, HDC hdcMem, void* bits, int w, int h) {
     bool thick = IsThick(sb);
