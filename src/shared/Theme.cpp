@@ -677,7 +677,17 @@ void FreeThemes() {
     gThemes = nullptr;
     FreeParsedThemes(gParsedThemes);
     gParsedThemes = nullptr;
+    gCurrentTheme = nullptr;
+    gThemeLight = nullptr;
+    gThemeCount = 0;
+    RecalcUseHighContrast();
 }
+
+#if IS_DEBUG
+bool ThemeFree_UnitTest() {
+    return !gCurrentTheme && !gThemeLight && !gThemes && !gParsedThemes && gThemeCount == 0 && !gUseHighContrast;
+}
+#endif
 
 void CreateThemeCommands() {
     FreeThemes();
@@ -1029,6 +1039,8 @@ bool ThemeHighContrast_UnitTest() {
         ok &= ThemeControlBackgroundColor() == SysWindowBgColor();
         ok &= ThemeWindowBackgroundColor() == SysWindowBgColor();
         ok &= ThemeWindowTextColor() == SysWindowTextColor();
+        ok &= ThemeSelectionBg(kColWhite) == SysHighlightBgColor();
+        ok &= ThemeSelectionText(kColWhite, kColBlack) == SysHighlightTextColor();
         ok &= ThemeDocumentColors(bg) == SysWindowTextColor() && bg == SysWindowBgColor();
         SetDocumentColorsFollowTheme(DocumentColorsFollowTheme::Smart);
         ok &= ThemePageRenderColors(bg) == SysWindowTextColor() && bg == SysWindowBgColor();
@@ -1046,6 +1058,22 @@ bool ThemeHighContrast_UnitTest() {
         ok &= ThemePageRenderColors(bg) == kColWhite && bg == kColBlack;
         SetInvertPageColors(false);
     }
+    gUseHighContrast = false;
+    SetColorText(theme.selectionBackgroundColor, StrL("#ffffff"));
+    Color selectedBg = ThemeSelectionBg(kColBlack);
+    ok &= selectedBg == kColWhite;
+    ok &= ThemeSelectionBg(kColWhite) == kColWhite;
+    ok &= ContrastRatio(ThemeSelectionText(selectedBg, kColWhite), selectedBg) >= 4.5f;
+    SetColorText(theme.selectionTextColor, StrL("#ffffff"));
+    ok &= ThemeSelectionText(selectedBg, kColBlack) == kColWhite;
+    FreeColorText(theme.selectionBackgroundColor);
+    ok &= ThemeSelectionText(ThemeSelectionBg(kColWhite), kColBlack) == kColWhite;
+    FreeColorText(theme.selectionTextColor);
+    SetColorText(theme.textColor, StrL("#ffffff"));
+    ok &= ContrastRatio(ThemeSelectionBg(kColWhite), kColWhite) >= 1.35f;
+    SetColorText(theme.textColor, StrL("#000000"));
+    ok &= ContrastRatio(ThemeSelectionBg(kColBlack), kColBlack) >= 1.35f;
+    FreeColorText(theme.textColor);
     DeleteSettings(gSettings);
     gSettings = oldSettings;
     gCurrentTheme = oldTheme;
@@ -1236,6 +1264,31 @@ Color ThemeSelectedColorOn(Color bg) {
         }
     }
     return MixColors(bg, text, 0.5f);
+}
+
+Color ThemeSelectionBg(Color bg) {
+    if (gUseHighContrast) {
+        return SysHighlightBgColor();
+    }
+    Color specified = GetThemeCol(gCurrentTheme->selectionBackgroundColor, kColorUnset);
+    if (!IsSpecialColor(specified)) {
+        return specified;
+    }
+    return EnsureContrastRatio(ThemeSelectedColorOn(bg), bg, kSelectedContrast);
+}
+
+Color ThemeSelectionText(Color bg, Color text) {
+    if (gUseHighContrast) {
+        return SysHighlightTextColor();
+    }
+    Color specified = GetThemeCol(gCurrentTheme->selectionTextColor, kColorUnset);
+    if (!IsSpecialColor(specified)) {
+        return specified;
+    }
+    if (ContrastRatio(text, bg) >= kMinSecondaryTextContrast) {
+        return text;
+    }
+    return ContrastRatio(kColBlack, bg) > ContrastRatio(kColWhite, bg) ? kColBlack : kColWhite;
 }
 
 // toggled-on buttons (toolbar, sidebar views), the selected bookmark and text

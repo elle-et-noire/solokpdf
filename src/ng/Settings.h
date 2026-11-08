@@ -156,6 +156,10 @@ struct Theme {
     ParsedColor inactiveTabBackgroundColor;
     // color of clickable links in the UI
     ParsedColor linkColor;
+    // background color of selected items; empty derives from the theme
+    ParsedColor selectionBackgroundColor;
+    // text color of selected items; empty derives from the theme
+    ParsedColor selectionTextColor;
     // color of disabled (grayed out) text; if empty, derived from the
     // colors above
     ParsedColor disabledTextColor;

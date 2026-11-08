@@ -152,8 +152,9 @@ void ThemeApplyPlatformColors() {
     gColsListBox[kColListText] = text;
     gColsListBox[kColListBg] = ctlBg;
     // the selection on the list's background, focused or not
-    gColsListBox[kColListSel] = ThemeSelectedColorOn(ctlBg);
-    gColsListBox[kColListSelFocused] = ThemeSelectedColorOn(ctlBg);
+    gColsListBox[kColListSel] = ThemeSelectionBg(ctlBg);
+    gColsListBox[kColListSelFocused] = ThemeSelectionBg(ctlBg);
+    gColsListBox[kColListSelText] = ThemeSelectionText(gColsListBox[kColListSel], text);
     gColsListBox[kColListScrollbar] = ThemeScrollbarThumbColor();
 
     gColsSplitter[kColSplitterBg] = ctlBg;

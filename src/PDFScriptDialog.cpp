@@ -348,14 +348,17 @@ void PDFScriptWnd::DrawExample(VirtListBox::DrawItemEvent* ev) {
     Gfx* gfx = ev->gfx;
     Rect rc = ev->itemRect;
     gfx->FillRect(rc, colBg);
+    Color text = colTxt;
     if (ev->selected) {
-        gfx->FillRoundedRect(rc, DpiScale(kScriptListRadius), ThemeSelectedColorOn(colBg));
+        Color bg = ThemeSelectionBg(colBg);
+        text = ThemeSelectionText(bg, text);
+        gfx->FillRoundedRect(rc, DpiScale(kScriptListRadius), bg);
     }
     int inset = DpiScale(kScriptListInsetDx);
     Rect rcText{rc.x + inset, rc.y, rc.dx - 2 * inset, rc.dy};
     u32 fmt = gfxTextEllipsis | gfxTextVCenter;
     fmt |= IsUIRtl() ? (gfxTextRight | gfxTextRtl) : gfxTextLeft;
-    gfx->DrawText(PDFScriptName(ev->itemIndex), rcText, fmt, fontText, colTxt);
+    gfx->DrawText(PDFScriptName(ev->itemIndex), rcText, fmt, fontText, text);
 }
 
 // the list beside the editor; the window grows and shrinks with it

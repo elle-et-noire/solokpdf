@@ -102,6 +102,7 @@ void GuiSetDefaultColorsFromSystem() {
     gColsListBox[kColListBg] = winBg;
     gColsListBox[kColListSel] = AccentColor(winBg, 25);
     gColsListBox[kColListSelFocused] = AccentColor(winBg, 45);
+    gColsListBox[kColListSelText] = winText;
     gColsListBox[kColListScrollbar] = AccentColor(winBg, 60);
 
     gColsSplitter[kColSplitterBg] = ctlBg;

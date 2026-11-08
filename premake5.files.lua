@@ -1580,6 +1580,7 @@ function test_engines_files()
     "src/PdfDarkModeNoOp.cpp",
     "src/shared/TextSearch.cpp",
     "src/shared/TextSearch.h",
+    "src/shared/SelectionGeometry.h",
     "src/shared/TextSelection.cpp",
     "src/shared/TextSelection.h",
     "src/shared/WebpReader.cpp",

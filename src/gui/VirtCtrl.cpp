@@ -2258,7 +2258,8 @@ void VirtListBox::Paint(VirtPaintCtx& ctx) {
                 }
                 Rect rt = r;
                 rt.SubLR(DpiScaleByDpi(GetDpi(), 4), 0);
-                ctx.gfx->DrawText(model->Item(i), rt, gfxTextEllipsis | gfxTextVCenter, font, GetColor(kColListText));
+                Color text = GetColor(isSel ? kColListSelText : kColListText);
+                ctx.gfx->DrawText(model->Item(i), rt, gfxTextEllipsis | gfxTextVCenter, font, text);
             }
         }
         ctx.gfx->PopClip();
@@ -3137,6 +3138,9 @@ void VirtIconButton::Paint(VirtPaintCtx& ctx) {
         ctx.gfx->FillRoundedRect(hi, highlightRadius, bgHover);
     }
     Pixmap* px = (!enabled && pixmapDisabled) ? pixmapDisabled : pixmap;
+    if (showsSelected && pixmapSelected) {
+        px = pixmapSelected;
+    }
     Rect r = ctx.content;
     if (px) {
         // pixmap size, not GetIdealSize(): that includes padding and a stretched

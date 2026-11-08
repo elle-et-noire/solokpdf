@@ -248,7 +248,7 @@ struct PageDestinationFile : IPageDestination {
 struct PageDestination : IPageDestination {
     Str value;
     Str name;
-    int embedObjNum = 0; // PDF object number for embedded file attachment annotations
+    int embedObjNum = 0;   // PDF object number for embedded file attachment annotations
     int attachmentNo = -1; // index of a kindDestinationAttachment, see PdfLoadAttachments
 
     ~PageDestination() override;
@@ -455,6 +455,15 @@ class AbortCookie {
 
 struct DarkModeProfile;
 
+struct SelectionRenderArgs {
+    u64 group = 0;
+    int startGlyph = 0;
+    int endGlyph = 0;
+    Color background = 0;
+    Color foreground = 0;
+    u8 alpha = 0;
+};
+
 struct RenderPageArgs {
     int pageNo = 0;
     // chapter-aware equivalent of pageNo; invalid until resolved
@@ -476,6 +485,7 @@ struct RenderPageArgs {
     // dark/recolor rendering profile for View renders (see PdfDarkMode.h);
     // owned by the caller, only valid for the duration of RenderPage()
     const DarkModeProfile* darkProfile = nullptr;
+    const SelectionRenderArgs* selection = nullptr;
 
     RenderPageArgs(int pageNo, float zoom, int rotation, RectF* pageRect = nullptr,
                    RenderTarget target = RenderTarget::View, AbortCookie** cookie_out = nullptr);

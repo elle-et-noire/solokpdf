@@ -10,6 +10,7 @@
 #include "DocProperties.h"
 #include "EngineBase.h"
 #include "EngineAll.h"
+#include "SelectionGeometry.h"
 #include "Annotation.h"
 #include "Settings.h"
 #include "SumatraConfig.h"
@@ -89,9 +90,20 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     X(FPDF_PageToDevice)                                                                                         \
     X(FPDFPage_CountObjects)                                                                                     \
     X(FPDFPage_GetObject)                                                                                        \
+    X(FPDFPage_InsertObjectAtIndex)                                                                              \
+    X(FPDFPageObj_CreateNewRect)                                                                                 \
+    X(FPDFPageObj_Destroy)                                                                                       \
+    X(FPDFPageObj_SetFillColor)                                                                                  \
+    X(FPDFPageObj_GetFillColor)                                                                                  \
+    X(FPDFPath_SetDrawMode)                                                                                      \
+    X(FPDFTextObj_GetTextRenderMode)                                                                              \
     X(FPDFPageObj_GetType)                                                                                       \
     X(FPDFPageObj_GetMatrix)                                                                                     \
     X(FPDFPageObj_GetBounds)                                                                                     \
+    X(FPDFPageObj_CountMarks)                                                                                    \
+    X(FPDFPageObj_GetMark)                                                                                       \
+    X(FPDFPageObjMark_CountParams)                                                                               \
+    X(FPDFPageObjMark_GetParamKey)                                                                               \
     X(FPDFPageObj_GetClipPath)                                                                                   \
     X(FPDFClipPath_CountPaths)                                                                                   \
     X(FPDFClipPath_CountPathSegments)                                                                            \
@@ -1262,7 +1274,8 @@ class EnginePdfium : public EngineBase {
         }
     }
 
-    PageText ReadPageText(FPDF_PAGE page, PdfiumPage* info, bool* missingUnicode = nullptr) {
+    PageText ReadPageText(FPDF_PAGE page, PdfiumPage* info, bool* missingUnicode = nullptr,
+                          Vec<int>* sourceIndices = nullptr, PdfiumCookie* cookie = nullptr) {
         constexpr UINT kCyrillicCodePage = 1251;
         constexpr double kMinWordGapEm = 0.1;
         constexpr double kMaxWordGapEm = 1.5;
@@ -1286,6 +1299,10 @@ class EnginePdfium : public EngineBase {
             Vec<int> order;
             RtlClusterOrder(textPage, count, order);
             for (int k = 0; k < count; k++) {
+                if (cookie && PdfiumCookie::IsCanceled(cookie)) {
+                    gPdfium.FPDFText_ClosePage(textPage);
+                    return {};
+                }
                 int i = order[k];
                 int next = k + 1 < count ? order[k + 1] : -1;
                 unsigned int code = gPdfium.FPDFText_GetUnicode(textPage, i);
@@ -1366,12 +1383,18 @@ class EnginePdfium : public EngineBase {
                     text.Append(StrL(" "));
                     VecAppend(coords, Rect());
                     VecAppend(quads, QuadF());
+                    if (sourceIndices) {
+                        VecAppend(*sourceIndices, -1);
+                    }
                 }
                 char buf[8]{};
                 int bytes = 0;
                 str::Utf8Encode(buf, bytes, (int)code);
                 text.Append(Str(buf, bytes));
                 VecAppend(coords, box);
+                if (sourceIndices) {
+                    VecAppend(*sourceIndices, i);
+                }
 
                 // rotated glyphs select along their quads (#4839), upright ones use their box
                 float x0 = (float)box.x, y0 = (float)box.y, x1 = (float)(box.x + box.dx), y1 = (float)(box.y + box.dy);
@@ -2546,20 +2569,338 @@ class EnginePdfium : public EngineBase {
         return check.route;
     }
 
+    struct SelectionObject {
+        FPDF_PAGEOBJECT object = nullptr;
+        FS_RECTF bounds{};
+        int position = -1;
+        unsigned int alpha = 0;
+    };
+
+    bool HasActualText(FPDF_PAGEOBJECT object) {
+        constexpr unsigned long kMaxKeyBytes = 4096;
+        int count = gPdfium.FPDFPageObj_CountMarks(object);
+        if (count < 0) {
+            return true;
+        }
+        for (int i = 0; i < count; i++) {
+            FPDF_PAGEOBJECTMARK mark = gPdfium.FPDFPageObj_GetMark(object, i);
+            int params = mark ? gPdfium.FPDFPageObjMark_CountParams(mark) : -1;
+            if (params < 0) {
+                return true;
+            }
+            for (int j = 0; j < params; j++) {
+                unsigned long bytes = 0;
+                if (!gPdfium.FPDFPageObjMark_GetParamKey(mark, j, nullptr, 0, &bytes) || bytes < sizeof(WCHAR) ||
+                    bytes > kMaxKeyBytes || bytes % sizeof(WCHAR)) {
+                    return true;
+                }
+                WCHAR* key = AllocArrayTemp<WCHAR>(bytes / sizeof(WCHAR));
+                unsigned long actual = 0;
+                if (!key || !gPdfium.FPDFPageObjMark_GetParamKey(mark, j, (FPDF_WCHAR*)key, bytes, &actual) ||
+                    actual != bytes || key[bytes / sizeof(WCHAR) - 1] != 0 ||
+                    wstr::Eq(WStr(key, (int)(bytes / sizeof(WCHAR) - 1)), WStrL(L"ActualText"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool PrepareSelection(FPDF_PAGE page, int pageNo, RectF pageRect, float zoom, const SelectionRenderArgs& sel,
+                          Vec<SelectionObject>& objects, Vec<FS_RECTF>& chosen, Vec<FS_RECTF>& others,
+                          Vec<RectF>& clips, PdfiumCookie* cookie) {
+        PdfiumPage* info = Page(pageNo);
+        if (!info || sel.startGlyph < 0 || sel.endGlyph <= sel.startGlyph) {
+            return false;
+        }
+        bool needsEditor = false;
+        PageText original = TextLocked(pageNo, &needsEditor);
+        Vec<int> indices;
+        PageText extracted = ReadPageText(page, info, nullptr, &indices, cookie);
+        bool same = !needsEditor && str::Eq(original.text, extracted.text) && len(indices) == extracted.nCodepoints;
+        if (same && original.nCodepoints == extracted.nCodepoints) {
+            for (int i = 0; i < original.nCodepoints; i++) {
+                if (original.coords[i] != extracted.coords[i]) {
+                    same = false;
+                    break;
+                }
+            }
+        } else {
+            same = false;
+        }
+        if (same && sel.endGlyph <= original.nCodepoints) {
+            Vec<TextSel> parts;
+            Rect media = RectF(0, 0, info->size.dx, info->size.dy).Round();
+            FillSelectionRects(&parts, pageNo, original.coords, original.nCodepoints, sel.startGlyph,
+                               sel.endGlyph - sel.startGlyph, media, original.quads);
+            for (TextSel& part : parts) {
+                if (!part.quad.IsEmpty()) {
+                    same = false;
+                    break;
+                }
+                VecAppend(clips, ToRectF(part.rect));
+            }
+        }
+        FreePageText(&original);
+        FreePageText(&extracted);
+        if (!same || sel.endGlyph > len(indices)) {
+            return false;
+        }
+
+        FPDF_TEXTPAGE text = gPdfium.FPDFText_LoadPage(page);
+        if (!text) {
+            return false;
+        }
+        Vec<u8> picked;
+        int countChars = gPdfium.FPDFText_CountChars(text);
+        if (countChars <= 0 || !VecResize(picked, countChars)) {
+            gPdfium.FPDFText_ClosePage(text);
+            return false;
+        }
+        memset(picked.els, 0, len(picked));
+        bool ok = true;
+        for (int i = sel.startGlyph; i < sel.endGlyph && ok; i++) {
+            if (PdfiumCookie::IsCanceled(cookie)) {
+                ok = false;
+                break;
+            }
+            int index = indices[i];
+            if (index < 0) {
+                continue;
+            }
+            if (index >= countChars) {
+                ok = false;
+                break;
+            }
+            if (gPdfium.FPDFText_IsGenerated(text, index) == 1) {
+                continue;
+            }
+            FPDF_PAGEOBJECT current = gPdfium.FPDFText_GetTextObject(text, index);
+            FS_RECTF box{};
+            FS_MATRIX matrix{};
+            double left, right, bottom, top;
+            if (!current || !gPdfium.FPDFText_GetLooseCharBox(text, index, &box) ||
+                !gPdfium.FPDFText_GetMatrix(text, index, &matrix) || matrix.b != 0 || matrix.c != 0 ||
+                !gPdfium.FPDFText_GetCharBox(text, index, &left, &right, &bottom, &top)) {
+                ok = false;
+                break;
+            }
+            RectF ink = ToPageRect(page, info, left, bottom, right, top);
+            FS_RECTF inkBox{};
+            inkBox.left = (float)left;
+            inkBox.right = (float)right;
+            inkBox.bottom = (float)bottom;
+            inkBox.top = (float)top;
+            VecAppend(chosen, inkBox);
+            picked[index] = 1;
+            if (ink.Intersect(pageRect).IsEmpty()) {
+                continue;
+            }
+            bool contained = false;
+            float margin = 1.0f / zoom;
+            for (RectF clip : clips) {
+                clip.Inflate(margin, margin);
+                contained |= ink.x >= clip.x && ink.y >= clip.y && ink.x + ink.dx <= clip.x + clip.dx &&
+                             ink.y + ink.dy <= clip.y + clip.dy;
+            }
+            if (!contained) {
+                ok = false;
+                break;
+            }
+            SelectionObject* entry = nullptr;
+            for (SelectionObject& candidate : objects) {
+                if (candidate.object == current && candidate.bounds.bottom < box.top &&
+                    box.bottom < candidate.bounds.top) {
+                    entry = &candidate;
+                    break;
+                }
+            }
+            if (!entry) {
+                SelectionObject added;
+                added.object = current;
+                added.bounds = box;
+                VecAppend(objects, added);
+            } else {
+                entry->bounds.left = std::min(entry->bounds.left, box.left);
+                entry->bounds.right = std::max(entry->bounds.right, box.right);
+                entry->bounds.bottom = std::min(entry->bounds.bottom, box.bottom);
+                entry->bounds.top = std::max(entry->bounds.top, box.top);
+            }
+        }
+        for (int index = 0; index < countChars && ok; index++) {
+            if (PdfiumCookie::IsCanceled(cookie)) {
+                ok = false;
+                break;
+            }
+            if (picked[index]) {
+                continue;
+            }
+            FPDF_PAGEOBJECT current = gPdfium.FPDFText_GetTextObject(text, index);
+            bool selectedObject = false;
+            for (SelectionObject& candidate : objects) {
+                selectedObject |= candidate.object == current;
+            }
+            if (selectedObject) {
+                double left, right, bottom, top;
+                if (!gPdfium.FPDFText_GetCharBox(text, index, &left, &right, &bottom, &top)) {
+                    ok = false;
+                    break;
+                }
+                FS_RECTF box{};
+                box.left = (float)left;
+                box.right = (float)right;
+                box.bottom = (float)bottom;
+                box.top = (float)top;
+                VecAppend(others, box);
+            }
+        }
+        gPdfium.FPDFText_ClosePage(text);
+        if (!ok || len(objects) == 0) {
+            return false;
+        }
+        int count = gPdfium.FPDFPage_CountObjects(page);
+        for (SelectionObject& entry : objects) {
+            FPDF_CLIPPATH clip = gPdfium.FPDFPageObj_GetClipPath(entry.object);
+            if (HasActualText(entry.object) || (clip && gPdfium.FPDFClipPath_CountPaths(clip) > 0) ||
+                gPdfium.FPDFTextObj_GetTextRenderMode(entry.object) != FPDF_TEXTRENDERMODE_FILL) {
+                return false;
+            }
+            for (int i = 0; i < count; i++) {
+                if (gPdfium.FPDFPage_GetObject(page, i) == entry.object) {
+                    entry.position = i;
+                    break;
+                }
+            }
+            unsigned int r, g, b;
+            if (entry.position < 0 || !gPdfium.FPDFPageObj_GetFillColor(entry.object, &r, &g, &b, &entry.alpha) ||
+                entry.alpha != 255) {
+                return false;
+            }
+        }
+        for (int i = 0; i < len(objects); i++) {
+            for (int j = i + 1; j < len(objects); j++) {
+                FS_RECTF a = objects[i].bounds, b = objects[j].bounds;
+                if (a.left < b.right && b.left < a.right && a.bottom < b.top && b.bottom < a.top) {
+                    return false;
+                }
+                if (objects[i].position < objects[j].position) {
+                    SelectionObject tmp = objects[i];
+                    objects[i] = objects[j];
+                    objects[j] = tmp;
+                }
+            }
+        }
+        for (SelectionObject& entry : objects) {
+            FS_RECTF box = entry.bounds;
+            FPDF_PAGEOBJECT rect =
+                gPdfium.FPDFPageObj_CreateNewRect(box.left, box.bottom, box.right - box.left, box.top - box.bottom);
+            if (!rect) {
+                return false;
+            }
+            ok = gPdfium.FPDFPageObj_SetFillColor(rect, GetRed(sel.background), GetGreen(sel.background),
+                                                  GetBlue(sel.background), sel.alpha) &&
+                 gPdfium.FPDFPath_SetDrawMode(rect, FPDF_FILLMODE_WINDING, 0);
+            if (!ok || !gPdfium.FPDFPage_InsertObjectAtIndex(page, rect, entry.position)) {
+                gPdfium.FPDFPageObj_Destroy(rect);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool GlyphPixelRect(FPDF_PAGE page, FS_RECTF box, int x, int y, int dx, int dy, int rotation, Rect& out) {
+        constexpr int kAntialiasMargin = 1;
+        int left, bottom, right, top;
+        if (!gPdfium.FPDF_PageToDevice(page, x, y, dx, dy, rotation, box.left, box.bottom, &left, &bottom) ||
+            !gPdfium.FPDF_PageToDevice(page, x, y, dx, dy, rotation, box.right, box.top, &right, &top)) {
+            return false;
+        }
+        out = Rect::FromXY(std::min(left, right) - kAntialiasMargin, std::min(top, bottom) - kAntialiasMargin,
+                           std::max(left, right) + kAntialiasMargin + 1, std::max(top, bottom) + kAntialiasMargin + 1);
+        return true;
+    }
+
+    bool SameSelectionPixels(FPDF_PAGE page, Pixmap* original, Pixmap* colored, Vec<FS_RECTF>& chosen,
+                             Vec<FS_RECTF>& others, const Vec<Rect>& clips, int x, int y, int dx, int dy, int rotation,
+                             PdfiumCookie* cookie) {
+        Vec<Rect> selectedRects;
+        for (FS_RECTF& box : chosen) {
+            if (PdfiumCookie::IsCanceled(cookie)) {
+                return false;
+            }
+            Rect r;
+            if (!GlyphPixelRect(page, box, x, y, dx, dy, rotation, r)) {
+                return false;
+            }
+            VecAppend(selectedRects, r);
+        }
+        Rect bitmapBounds(0, 0, original->width, original->height);
+        for (FS_RECTF& box : others) {
+            if (PdfiumCookie::IsCanceled(cookie)) {
+                return false;
+            }
+            Rect bounds;
+            if (!GlyphPixelRect(page, box, x, y, dx, dy, rotation, bounds)) {
+                return false;
+            }
+            bounds = bounds.Intersect(bitmapBounds);
+            if (bounds.IsEmpty()) {
+                continue;
+            }
+            for (Rect clip : clips) {
+                Rect overlap = bounds.Intersect(clip);
+                if (overlap.IsEmpty()) {
+                    continue;
+                }
+                for (int row = overlap.y; row < overlap.Bottom(); row++) {
+                    if (PdfiumCookie::IsCanceled(cookie)) {
+                        return false;
+                    }
+                    u8* before = original->data + (size_t)row * original->stride + overlap.x * 4;
+                    u8* after = colored->data + (size_t)row * colored->stride + overlap.x * 4;
+                    for (int col = 0; col < overlap.dx; col++, before += 4, after += 4) {
+                        if (memcmp(before, after, 4) != 0) {
+                            Point pixel(overlap.x + col, row);
+                            for (Rect selected : selectedRects) {
+                                if (selected.Contains(pixel)) {
+                                    return false;
+                                }
+                            }
+                            memcpy(after, before, 4);
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
     // Only this part needs the lock; pixel post-processing runs while other pages draw.
     int DrawPage(RenderPageArgs& args, Pixmap* pixmap, double x, double y, RectF full, bool drawAnnots,
                  PdfiumCookie* cookie, PdfiumProfile& profile, bool& useMupdf) {
         ScopedMutex themeScope(&themeLock);
-        if (PrepareRenderRoute(args.pageNo, cookie, profile) == PdfRenderRoute::Mupdf) {
-            useMupdf = true;
+        if (args.selection && form) {
             return FPDF_RENDER_FAILED;
+        }
+        if (PrepareRenderRoute(args.pageNo, cookie, profile) == PdfRenderRoute::Mupdf) {
+            useMupdf = !args.selection;
+            return FPDF_RENDER_FAILED;
+        }
+        if (args.selection) {
+            PdfRenderSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
+            if (!renderProbe) {
+                renderProbe = NewPdfRenderProbe(source, password);
+            }
+            if (PdfPageSelectionSafetyMupdf(renderProbe, source, args.pageNo) != PdfSelectionSafety::Safe) {
+                return FPDF_RENDER_FAILED;
+            }
         }
         ThemeEntry* theme = nullptr;
         if (KeepsImageColors(args) && !PdfiumCookie::IsCanceled(cookie)) {
             theme = PrepareTheme(args.pageNo, *args.darkProfile, cookie, profile);
         }
         if (theme && theme->snapshot.status == PdfThemeStatus::Failed) {
-            useMupdf = true;
+            useMupdf = !args.selection;
             return FPDF_RENDER_FAILED;
         }
         ScopedMutex lock(&gPdfiumLock);
@@ -2593,7 +2934,7 @@ class EnginePdfium : public EngineBase {
                 themed.form = gPdfium.FPDFDOC_InitFormFillEnvironment(themed.doc, &formInfo);
             }
             if (!themed.doc || (form && drawAnnots && !themed.form)) {
-                useMupdf = true;
+                useMupdf = !args.selection;
                 return FPDF_RENDER_FAILED;
             }
             if (themed.doc) {
@@ -2601,9 +2942,27 @@ class EnginePdfium : public EngineBase {
                 drawForm = themed.form;
             }
         }
+        if (args.selection && !themed.doc) {
+            themed.doc = gPdfium.FPDF_LoadCustomDocument(&access, CStrTemp(password));
+            if (!themed.doc || form) {
+                return FPDF_RENDER_FAILED;
+            }
+            drawDoc = themed.doc;
+            drawForm = nullptr;
+        }
         FPDF_PAGE page = gPdfium.FPDF_LoadPage(drawDoc, args.pageNo - 1);
         if (!page) {
-            useMupdf = themed.doc != nullptr;
+            useMupdf = themed.doc != nullptr && !args.selection;
+            return FPDF_RENDER_FAILED;
+        }
+        Vec<SelectionObject> selectedObjects;
+        Vec<FS_RECTF> selectedGlyphs;
+        Vec<FS_RECTF> otherGlyphs;
+        Vec<RectF> selectionClips;
+        if (args.selection && (!args.pageRect || !PrepareSelection(page, args.pageNo, *args.pageRect, args.zoom,
+                                                                   *args.selection, selectedObjects, selectedGlyphs,
+                                                                   otherGlyphs, selectionClips, cookie))) {
+            gPdfium.FPDF_ClosePage(page);
             return FPDF_RENDER_FAILED;
         }
         profile.Mark(StrL("page"));
@@ -2632,6 +2991,37 @@ class EnginePdfium : public EngineBase {
             }
             int rotation = NormalizeRotation(args.rotation) / 90;
             int dx = (int)ceil(full.dx), dy = (int)ceil(full.dy);
+            Pixmap* baseline = nullptr;
+            if (args.selection) {
+                baseline = AllocPixmap(pixmap->width, pixmap->height);
+                if (baseline) {
+                    memcpy(baseline->data, pixmap->data, (size_t)pixmap->stride * pixmap->height);
+                    FPDF_BITMAP original = gPdfium.FPDFBitmap_CreateEx(
+                        baseline->width, baseline->height, FPDFBitmap_BGRA, baseline->data, baseline->stride);
+                    if (original) {
+                        status = gPdfium.FPDF_RenderPageBitmap_Start(original, page, -(int)x, -(int)y, dx, dy, rotation,
+                                                                     flags, &cookie->pause);
+                        while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
+                            status = gPdfium.FPDF_RenderPage_Continue(page, &cookie->pause);
+                        }
+                        gPdfium.FPDF_RenderPage_Close(page);
+                        gPdfium.FPDFBitmap_Destroy(original);
+                    }
+                }
+                bool colorsSet = true;
+                for (SelectionObject& entry : selectedObjects) {
+                    colorsSet &=
+                        gPdfium.FPDFPageObj_SetFillColor(entry.object, GetRed(args.selection->foreground),
+                                                         GetGreen(args.selection->foreground),
+                                                         GetBlue(args.selection->foreground), entry.alpha) != 0;
+                }
+                if (!baseline || status != FPDF_RENDER_DONE || !colorsSet) {
+                    FreePixmap(baseline);
+                    gPdfium.FPDFBitmap_Destroy(bmp);
+                    gPdfium.FPDF_ClosePage(page);
+                    return FPDF_RENDER_FAILED;
+                }
+            }
             status = gPdfium.FPDF_RenderPageBitmap_Start(bmp, page, -(int)x, -(int)y, dx, dy, rotation, flags,
                                                          &cookie->pause);
             while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
@@ -2645,6 +3035,26 @@ class EnginePdfium : public EngineBase {
                 profile.Mark(StrL("widgets"));
             }
             gPdfium.FPDF_RenderPage_Close(page);
+            Vec<Rect> pixelClips;
+            if (baseline) {
+                SizeF pageSize = Page(args.pageNo)->size;
+                for (RectF clip : selectionClips) {
+                    PointF a =
+                        TransformPagePoint(clip.TL(), pageSize, args.zoom, args.rotation, TransformDir::ToScreen);
+                    PointF b =
+                        TransformPagePoint(clip.BR(), pageSize, args.zoom, args.rotation, TransformDir::ToScreen);
+                    Rect r = RectF::FromXY(a, b).Round();
+                    r.Offset(-(int)x, -(int)y);
+                    r.Inflate(1, 1);
+                    VecAppend(pixelClips, r);
+                }
+            }
+            if (baseline && status == FPDF_RENDER_DONE &&
+                !SameSelectionPixels(page, baseline, pixmap, selectedGlyphs, otherGlyphs, pixelClips, -(int)x, -(int)y,
+                                     dx, dy, rotation, cookie)) {
+                status = FPDF_RENDER_FAILED;
+            }
+            FreePixmap(baseline);
             gPdfium.FPDFBitmap_Destroy(bmp);
         }
         if (drawForm) {
@@ -2663,6 +3073,9 @@ class EnginePdfium : public EngineBase {
 
     Pixmap* RenderPage(RenderPageArgs& args) override {
         if (EngineBase* redacted = RedactedEditor(args.pageNo)) {
+            if (args.selection) {
+                return nullptr;
+            }
             return redacted->RenderPage(args);
         }
         PdfiumProfile profile(StrL("render"), args.pageNo);
@@ -2720,6 +3133,10 @@ class EnginePdfium : public EngineBase {
 
         // read once: a tile must not get annotations from both engines
         EngineBase* annotEditor = AnnotationEditor(EditorLoad::IfLoaded);
+        if (args.selection && annotEditor) {
+            FreePixmap(pixmap);
+            return nullptr;
+        }
         bool drawAnnots = !hideAnnotations && !annotEditor;
         bool useMupdf = false;
         int status = DrawPage(args, pixmap, x, y, full, drawAnnots, cookie, profile, useMupdf);

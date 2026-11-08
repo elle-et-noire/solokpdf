@@ -22,6 +22,7 @@ constexpr int kRenderCacheAllPages = -1;
 
 struct PageInfo;
 struct Pixmap;
+struct Gfx;
 
 namespace gpui {
 struct PaintCtx;
@@ -111,6 +112,9 @@ struct PageRenderRequest {
     // DisplayModel::brightness / contrast when the render started
     int brightness = 0;
     int contrast = 0;
+    bool selectionRequest = false;
+    SelectionRenderArgs selection;
+    int selectionGeneration = 0;
     u64 timestamp = 0;
 
     // set by render thread before calling renderFinishedCb
@@ -155,6 +159,24 @@ struct FinishedRequestInfo {
 };
 
 struct RenderCache {
+    struct SelectionEntry {
+        DisplayModel* dm = nullptr;
+        int pageNo = 0;
+        int rotation = 0;
+        float zoom = 0;
+        RectF pageRect;
+        SelectionRenderArgs selection;
+        int generation = 0;
+        u32 epoch = 0;
+        int brightness = 0;
+        int contrast = 0;
+        bool grayscale = false;
+        bool budgetLimited = false;
+        u64 bytes = 0;
+        u64 lastUsed = 0;
+        Pixmap* bitmap = nullptr;
+    };
+    Vec<SelectionEntry> selections;
     BitmapCacheEntry* cache[kMaxBitmapsCached]{};
     int cacheCount = 0;
     // make sure to never ask for requestAccess in a cacheAccess
@@ -214,6 +236,9 @@ struct RenderCache {
     void RequestRendering(DisplayModel* dm, int pageNo);
     void Render(DisplayModel* dm, int pageNo, int rotation, float zoom, RectF pageRect,
                 const Func1<PageRenderRequest*>& callback);
+    bool PaintSelection(Gfx* gfx, DisplayModel* dm, int pageNo, RectF pageRect, Rect screenRect, const Vec<Rect>& clips,
+                        const SelectionRenderArgs& selection);
+    void CancelSelection(DisplayModel* dm, u64 keepGroup = 0, int replacePage = -1);
     void CancelRenderingBlocking(DisplayModel* dm);
     void AbortRendering(DisplayModel* dm);
     bool IsRenderingFor(DisplayModel* dm);
@@ -253,7 +278,8 @@ struct RenderCache {
                           const PredictiveChain* chain = nullptr);
     void RequestPredictiveRendering(DisplayModel* dm, int originPageNo, const int* pages, int nPages);
     bool Render(DisplayModel* dm, int pageNo, int rotation, float zoom, TilePosition* tile, RectF* pageRect,
-                const Func1<PageRenderRequest*>& renderFinishedCb, const PredictiveChain* chain = nullptr);
+                const Func1<PageRenderRequest*>& renderFinishedCb, const PredictiveChain* chain = nullptr,
+                const SelectionRenderArgs* selection = nullptr);
     void ClearQueueForDisplayModel(DisplayModel* dm, int pageNo = kRenderCacheAllPages, TilePosition* tile = nullptr);
     void AbortCurrentRequest(int threadIdx);
 

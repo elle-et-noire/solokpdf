@@ -2264,7 +2264,8 @@ void DrawAnnotationListRow(Gfx* gfx, PlatformFont* font, Rect rc, Annotation* an
         colText = GetSysColor(COLOR_WINDOWTEXT);
     }
     if (selected) {
-        colBg = ThemeSelectedColorOn(colBg);
+        colBg = ThemeSelectionBg(colBg);
+        colText = ThemeSelectionText(colBg, colText);
     }
     gfx->FillRect(rc, colBg);
 
@@ -2304,7 +2305,7 @@ void DrawAnnotationListRow(Gfx* gfx, PlatformFont* font, Rect rc, Annotation* an
                 gfx->PushClip(rcContents);
                 DrawMaybeHighlightedText(gfx, rcContents, oneLine, filterWords, hlScratch, colBg, false, false,
                                          gfxTextEllipsis | gfxTextVCenter | gfxTextLeft, font,
-                                         EnsureContrast(ThemeWindowDarkerTextColor(), colBg));
+                                         selected ? colText : EnsureContrast(ThemeWindowDarkerTextColor(), colBg));
                 gfx->PopClip();
             }
         }

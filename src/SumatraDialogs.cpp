@@ -292,16 +292,21 @@ constexpr int kDlgListRadius = 4;
 // muted at the other end
 void DrawDlgListItem(VirtListBox* lb, Gfx* gfx, Rect rc, bool selected, Str text, Str meta) {
     Color colBg = lb->GetColor(kColListBg);
+    Color colText = lb->GetColor(kColListText);
     gfx->FillRect(rc, colBg);
     if (selected) {
-        gfx->FillRoundedRect(rc, DpiScaleByDpi(lb->dpi, kDlgListRadius), ThemeSelectedColorOn(colBg));
+        colBg = ThemeSelectionBg(colBg);
+        colText = ThemeSelectionText(colBg, colText);
+        gfx->FillRoundedRect(rc, DpiScaleByDpi(lb->dpi, kDlgListRadius), colBg);
     }
     int inset = DpiScaleByDpi(lb->dpi, kDlgListInsetDx);
     Rect rcText{rc.x + inset, rc.y, rc.dx - (2 * inset), rc.dy};
     bool isRtl = IsUIRtl();
     if (len(meta) > 0) {
         u32 fmtMeta = gfxTextVCenter | (isRtl ? (gfxTextLeft | gfxTextRtl) : gfxTextRight);
-        gfx->DrawText(meta, rcText, fmtMeta, lb->font, ThemeWindowDarkerTextColor());
+        Color colMeta =
+            selected ? ThemeSelectionText(colBg, ThemeWindowDarkerTextColor()) : ThemeWindowDarkerTextColor();
+        gfx->DrawText(meta, rcText, fmtMeta, lb->font, colMeta);
         int metaDx = gfx->MeasureText(meta, lb->font).dx + DpiScaleByDpi(lb->dpi, kToolDlgGapDx);
         rcText.dx -= metaDx;
         if (isRtl) {
@@ -310,7 +315,7 @@ void DrawDlgListItem(VirtListBox* lb, Gfx* gfx, Rect rc, bool selected, Str text
     }
     u32 fmt = gfxTextEllipsis | gfxTextVCenter;
     fmt |= isRtl ? (gfxTextRight | gfxTextRtl) : gfxTextLeft;
-    gfx->DrawText(text, rcText, fmt, lb->font, lb->GetColor(kColListText));
+    gfx->DrawText(text, rcText, fmt, lb->font, colText);
 }
 
 static void DrawDlgListRow(VirtListBox::DrawItemEvent* ev) {

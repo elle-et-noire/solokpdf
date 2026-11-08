@@ -507,7 +507,8 @@ void AdvancedSettingsWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
         colText = colMuted;
     }
     if (ev->selected) {
-        colBg = ThemeSelectedColorOn(colBg);
+        colBg = ThemeSelectionBg(colBg);
+        colText = ThemeSelectionText(colBg, colText);
         gfx->FillRoundedRect(rc, DpiScale(kAdvRadius), colBg);
     }
 
@@ -533,7 +534,7 @@ void AdvancedSettingsWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
     // color setting gets a swatch, an unsaved edit a yellow dot, before it
     Str detected = len(detectedEditors) > 0 ? detectedEditors[0] : Str{};
     TempStr val = common ? CommonValueTemp(item, detected) : FormatSettingValueTemp(item);
-    Color valCol = SettingDiffersFromDefault(item) ? colText : colMuted;
+    Color valCol = ev->selected || SettingDiffersFromDefault(item) ? colText : colMuted;
     int valDx = std::min(gfx->MeasureText(val, font).dx, rcVal.dx);
     Rect r = rcVal;
     r.dx = valDx;
@@ -2026,7 +2027,8 @@ void RestrictedUseWnd::DrawItem(VirtListBox::DrawItemEvent* ev) {
         text = GetSysColor(COLOR_WINDOWTEXT);
     }
     if (ev->selected) {
-        bg = ThemeSelectedColorOn(bg);
+        bg = ThemeSelectionBg(bg);
+        text = ThemeSelectionText(bg, text);
     }
     gfx->FillRect(row, bg);
 

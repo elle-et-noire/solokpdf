@@ -4732,18 +4732,24 @@ void UpdateDocumentColors() {
     // cache colors; a change must invalidate cached renders the same way
     static bool s_lastPreservePdfImages = false;
     static int s_lastDocumentColorsFollowTheme = -1;
+    static Color s_lastSelectionBg = kColorUnset;
+    static Color s_lastSelectionText = kColorUnset;
+    Color selectionBg = ThemeSelectionBg(bg);
+    Color selectionText = ThemeSelectionText(selectionBg, text);
     bool preservePdfImages = pagesDark && GetPreservePdfImagesInDarkMode();
     int documentColorsFollowTheme = (int)GetDocumentColorsFollowTheme();
     bool grayscale = gSettings->fixedPageUI.grayscale;
 
     if ((text == gRenderCache->textColor) && (bg == gRenderCache->backgroundColor) &&
         (link == gRenderCache->linkColor) && preservePdfImages == s_lastPreservePdfImages &&
-        documentColorsFollowTheme == s_lastDocumentColorsFollowTheme &&
-        grayscale == AtomicBoolGet(&gRenderCache->grayscalePageColors)) {
+        documentColorsFollowTheme == s_lastDocumentColorsFollowTheme && selectionBg == s_lastSelectionBg &&
+        selectionText == s_lastSelectionText && grayscale == AtomicBoolGet(&gRenderCache->grayscalePageColors)) {
         return; // colors didn't change
     }
     s_lastPreservePdfImages = preservePdfImages;
     s_lastDocumentColorsFollowTheme = documentColorsFollowTheme;
+    s_lastSelectionBg = selectionBg;
+    s_lastSelectionText = selectionText;
 
     AtomicBoolSet(&gRenderCache->grayscalePageColors, grayscale);
     gRenderCache->textColor = text;

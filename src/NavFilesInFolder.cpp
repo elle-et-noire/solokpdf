@@ -977,7 +977,8 @@ void NavFilesInFolderWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
     }
 
     if (ev->selected) {
-        colBg = ThemeSelectedColorOn(colBg);
+        colBg = ThemeSelectionBg(colBg);
+        colText = ThemeSelectionText(colBg, colText);
     }
 
     gfx->FillRect(rc, colBg);
@@ -1027,7 +1028,7 @@ void NavFilesInFolderWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
             rcRight.dx = rightDx;
             drawFmt |= gfxTextRight;
         }
-        gfx->DrawText(sizeStr, rcRight, drawFmt, lb->font, AccentColor(colText, 80));
+        gfx->DrawText(sizeStr, rcRight, drawFmt, lb->font, ev->selected ? colText : AccentColor(colText, 80));
     }
 
     if (isRtl) {

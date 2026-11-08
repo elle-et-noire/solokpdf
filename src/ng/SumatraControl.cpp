@@ -214,7 +214,7 @@ TempStr TocNavigateResultTemp(int destNo, int* exitCodeOut) {
 }
 
 // Select the text of one page so a test can turn it into a highlight.
-TempStr SeedTextSelectionResultTemp(int pageNo, int* exitCodeOut) {
+TempStr SeedTextSelectionResultTemp(int pageNo, int* exitCodeOut, int start, int end) {
     str::Builder out;
     auto fail = [&](Str msg, int code) -> TempStr {
         out.Append(msg);
@@ -247,9 +247,15 @@ TempStr SeedTextSelectionResultTemp(int pageNo, int* exitCodeOut) {
         return fail(fmt("ERROR no-text pageNo=%d", pageNo), 1);
     }
 
+    if (end < 0) {
+        end = textLen - 1;
+    }
+    if (start < 0 || end <= start || end > textLen) {
+        return fail(StrL("ERROR invalid-range"), 1);
+    }
     DeleteOldSelectionInfo(win, true);
-    dm->textSelection->StartAt(pageNo, 0);
-    dm->textSelection->SelectUpTo(pageNo, textLen - 1);
+    dm->textSelection->StartAt(pageNo, start);
+    dm->textSelection->SelectUpTo(pageNo, end);
     tab->selectionOnPage = SelectionOnPage::FromTextSelect(&dm->textSelection->result);
     win->showSelection = tab->selectionOnPage != nullptr;
     if (!tab->selectionOnPage) {
@@ -1940,7 +1946,10 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             int exitCode = 0;
-            Str res = SeedTextSelectionResultTemp(pageNo, &exitCode);
+            i32 start = 0, end = -1;
+            IntArg(req, 1, start);
+            IntArg(req, 2, end);
+            Str res = SeedTextSelectionResultTemp(pageNo, &exitCode, start, end);
             AppendTestResult(req, exitCode, res);
             break;
         }

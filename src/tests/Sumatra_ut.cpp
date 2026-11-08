@@ -103,6 +103,7 @@ bool TableOfContents_UnitTestSnapshotNamedDest();
 bool Translations_UnitTestUnescape();
 bool MarkdownModel_UnitTestBrowserNavigationUrl();
 bool MarkdownToc_UnitTestHtmlLinks();
+bool MarkdownSelectionCss_UnitTest();
 bool MarkdownToc_UnitTestHtmlHeadings();
 bool MarkdownToc_UnitTestMermaid();
 bool MarkdownToc_UnitTestHighlightWikilinks();
@@ -212,6 +213,10 @@ static void GhostButtonDisabledTest() {
         // neither has to beat the theme's own text (Solarized Dark's is 4.1)
         Color ctlBg = ThemeWindowControlBackgroundColor();
         float textRatio = ContrastRatio(ThemeWindowTextColor(), ctlBg);
+        Color selectionBg = ThemeSelectionBg(ctlBg);
+        Color selectionText = ThemeSelectionText(selectionBg, ThemeWindowTextColor());
+        utassert(ContrastRatio(selectionText, selectionBg) >= 4.5f);
+        utassert(MarkdownSelectionCss_UnitTest());
         utassert(ContrastRatio(ThemeWindowDarkerTextColor(), ctlBg) >= std::min(4.5f, textRatio) - 0.05f);
         utassert(ContrastRatio(ThemeWindowTextDisabledColor(), ctlBg) >= std::min(3.f, textRatio) - 0.05f);
     }
@@ -220,6 +225,7 @@ static void GhostButtonDisabledTest() {
     SetThemeByIndex(0);
     if (!prevSettings) {
         FreeThemes();
+        utassert(ThemeFree_UnitTest());
         DeleteSettings(gSettings);
         gSettings = nullptr;
     }

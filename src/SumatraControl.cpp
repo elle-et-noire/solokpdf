@@ -2699,7 +2699,10 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             int exitCode = 0;
-            Str res = SeedTextSelectionResultTemp(pageNo, &exitCode);
+            i32 start = 0, end = -1;
+            IntArg(req, 1, start);
+            IntArg(req, 2, end);
+            Str res = SeedTextSelectionResultTemp(pageNo, &exitCode, start, end);
             AppendTestResult(req, exitCode, res);
             break;
         }

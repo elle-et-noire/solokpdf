@@ -516,10 +516,13 @@ static void UpdateViewIcons(SidebarPanel* p, int dpi) {
         Str svg = Str(ViewIcon(v));
         b->pixmap = GetCachedPixmapForSvg(svg, sz, sz);
         b->pixmapDisabled = GetCachedPixmapForSvg(svg, sz, sz, ThemeWindowTextDisabledColor());
+        Color selBg = ThemeSelectionBg(ThemeSidebarColor());
+        b->pixmapSelected =
+            GetCachedPixmapForSvg(svg, sz, sz, ThemeSelectionText(selBg, ThemeWindowTextColor()), selBg);
         b->padding = Insets{pad, pad, pad, pad};
         b->isSelected = p->view == v && p->hosted;
         b->SetColor(kColIconBtnBgHover, ThemeHoverColorOn(ThemeSidebarColor()));
-        b->SetColor(kColIconBtnBgSelected, ThemeSelectedColorOn(ThemeSidebarColor()));
+        b->SetColor(kColIconBtnBgSelected, selBg);
         b->SetIsEnabled(IsSidebarViewAvailable(p->win, v));
         if (IsDocumentOnlyView(v)) {
             // only where it can be shown: other documents have no use for it

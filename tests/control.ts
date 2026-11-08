@@ -924,8 +924,12 @@ export class ControlClient {
   // Seeds a glyph-level (quad) text selection on `pageNo` of the current tab
   // and reports the flat page numbers it holds. A rectangle selection is
   // null-guarded when painted; only a quad one reaches CvtToScreen unguarded.
-  async seedTextSelection(pageNo: number): Promise<{ parts: number; quads: number; first: number; last: number }> {
-    const res = await this.request(ControlCommand.TestSeedTextSelection, [pageNo]);
+  async seedTextSelection(
+    pageNo: number,
+    start = 0,
+    end = -1,
+  ): Promise<{ parts: number; quads: number; first: number; last: number }> {
+    const res = await this.request(ControlCommand.TestSeedTextSelection, [pageNo, start, end]);
     const code = typeof res[0] === "number" ? res[0] : -1;
     const raw = String(res[1] ?? "").trim();
     if (code !== 0) {

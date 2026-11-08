@@ -288,6 +288,7 @@ static const char* kMarkdownPageCssFmt = R"(
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 16px;
   line-height: 1.5; color: var(--fg); background: var(--bg); margin: 0; padding: 2rem 3rem; max-width: 980px; }
 a { color: var(--link); text-decoration: none; }
+::selection { background: var(--selection-bg); color: var(--selection-fg); }
 a:hover { text-decoration: underline; }
 mark { background: var(--mark); color: var(--mark-fg); padding: 0 .15em; border-radius: .15em; }
 h1,h2,h3,h4,h5,h6 { margin-top: 1.5rem; margin-bottom: 1rem; font-weight: 600; line-height: 1.25; }
@@ -492,9 +493,12 @@ static TempStr MarkdownPageCssTemp() {
 
     Str markBg = dark ? StrL("#e6c229") : StrL("#fff8c5");
     Str markFg = dark ? StrL("#1f2328") : fg;
-    TempStr cssVars =
-        fmt("--bg:%s; --fg:%s; --link:%s; --muted:%s; --border:%s; --code-bg:%s; --mark:%s; --mark-fg:%s;", bg, fg,
-            link, muted, border, codeBg, markBg, markFg);
+    Color selectionBg = ThemeSelectionBg(bgCol);
+    Color selectionFg = ThemeSelectionText(selectionBg, txtCol);
+    TempStr cssVars = fmt(
+        "--bg:%s; --fg:%s; --link:%s; --muted:%s; --border:%s; --code-bg:%s; --mark:%s; --mark-fg:%s; "
+        "--selection-bg:%s; --selection-fg:%s;",
+        bg, fg, link, muted, border, codeBg, markBg, markFg, ColorToCssTemp(selectionBg), ColorToCssTemp(selectionFg));
     // code colors: GitHub's light or dark palette
     Str syntax = dark ? StrL(
                             "--syntax-comment:#8b949e; --syntax-keyword:#ff7b72; --syntax-string:#a5d6ff; "
@@ -506,6 +510,19 @@ static TempStr MarkdownPageCssTemp() {
                             "--syntax-variable:#953800; --syntax-tag:#116329;");
     return fmt(kMarkdownPageCssFmt, str::JoinTemp(cssVars, StrL(" "), syntax));
 }
+
+#if IS_DEBUG
+bool MarkdownSelectionCss_UnitTest() {
+    Color bg;
+    Color text = ThemePageRenderColors(bg);
+    Color selectionBg = ThemeSelectionBg(bg);
+    Color selectionText = ThemeSelectionText(selectionBg, text);
+    TempStr css = MarkdownPageCssTemp();
+    return str::Contains(css, StrL("::selection { background: var(--selection-bg); color: var(--selection-fg); }")) &&
+           str::Contains(css, fmt("--selection-bg:%s; --selection-fg:%s;", ColorToCssTemp(selectionBg),
+                                  ColorToCssTemp(selectionText)));
+}
+#endif
 
 // Markdown pages are exposed to WebView2 as generated .html resources. Keep
 // relative links on that virtual resource graph instead of navigating to the

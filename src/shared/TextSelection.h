@@ -1,11 +1,7 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
    License: GPLv3 */
 
-struct TextSel {
-    int pageNo = 0;
-    Rect rect;
-    QuadF quad{};
-};
+#include "SelectionGeometry.h"
 
 // Unit for keyboard/accessibility selection extension (platform-neutral).
 // Callers map input (e.g. Shift+arrow keys) to unit + signed delta.
@@ -55,6 +51,4 @@ struct TextSelection {
 uint distSq(int x, int y);
 bool isWordChar(int c);
 bool TextPosMoveBy(EngineBase*, int& page, int& glyph, TextSelectUnit unit, int dir);
-void FillSelectionRects(Vec<TextSel>* result, int pageNo, Rect* coords, int textLen, int glyph, int length,
-                        Rect mediabox, QuadF* glyphQuads = nullptr);
 int FindClosestGlyphIn(EngineBase* engine, int pageNo, Rect* coords, QuadF* quads, int textLen, double x, double y);

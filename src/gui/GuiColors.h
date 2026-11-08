@@ -75,6 +75,7 @@ enum {
     // stronger while the list has the keyboard focus, like a win32 listbox
     kColListSel,
     kColListSelFocused,
+    kColListSelText,
     // the overlay scrollbar's thumb; derived from kColListBg when unset
     kColListScrollbar,
     kColListCount,

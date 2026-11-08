@@ -7,12 +7,15 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { assemblePdf, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util";
-import { killAndWait, launchControlled } from "./win-automation";
+import { assemblePdf, cmdId, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util";
+import { ControlCommand } from "./control";
+import { killAndWait, launchControlled, sendCommandSync } from "./win-automation";
 import {
   findChildWindow,
+  findVisibleChildWindow,
   getClientRect,
   readWindowDCRow,
+  sendMessage,
   sleep,
   treeGetItemHeight,
   treeGetNextItem,
@@ -20,6 +23,8 @@ import {
   treeGetSelection,
   treeSetHot,
   TVGN_NEXT,
+  TVGN_CARET,
+  TVM_SELECTITEM,
 } from "./winapi";
 
 // Chapter two is on page 2, the others on page 1: opened on page 2, only it is selected
@@ -31,7 +36,7 @@ function makePdf(): string {
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >>",
     "<< /Type /Outlines /First 6 0 R /Last 8 0 R /Count 3 >>",
     "<< /Title (Chapter one) /Parent 5 0 R /Next 7 0 R /Dest [3 0 R /Fit] >>",
-    "<< /Title (Chapter two) /Parent 5 0 R /Prev 6 0 R /Next 8 0 R /Dest [4 0 R /Fit] >>",
+    "<< /Title (Chapter two) /Parent 5 0 R /Prev 6 0 R /Next 8 0 R /Dest [4 0 R /Fit] /C [1 0 0] >>",
     "<< /Title (Chapter three) /Parent 5 0 R /Prev 7 0 R /Dest [3 0 R /Fit] >>",
   ]);
 }
@@ -64,6 +69,23 @@ async function uniformFill(tree: number, row: number, not: number, what: string)
   throw new Error(`toc-hover-colors: ${what}: left ${hex(ends[0])}, right ${hex(ends[1])}, background ${hex(not)}`);
 }
 
+async function selectedIcon(hwnd: number): Promise<void> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const rc = getClientRect(hwnd);
+    let green = 0;
+    let blue = 0;
+    for (let y = 0; y < rc.bottom; y++) {
+      for (const pixel of readWindowDCRow(hwnd, 0, y, rc.right)) {
+        if ((pixel & 0xffffff) === 0x00996633) blue++;
+        if ((pixel & 255) < 80 && ((pixel >> 8) & 255) > 160 && ((pixel >> 16) & 255) < 80) green++;
+      }
+    }
+    if (green && blue) return;
+    await sleep(40);
+  }
+  throw new Error("toc-hover-colors: toolbar lacks selection background or icon color");
+}
+
 export async function testit(): Promise<void> {
   if (USE_NG) {
     console.log("SKIP toc-hover-colors: ng draws its own tree");
@@ -76,13 +98,19 @@ export async function testit(): Promise<void> {
   mkdirSync(appdata, { recursive: true });
   writeFileSync(
     join(appdata, SETTINGS_FILE),
-    "Theme = Solarized Dark\nShowToc = true\nShowTocPageNumbers = false\nShowFavorites = false\n" +
-      "RestoreSession = false\nCheckForUpdates = false\n",
+    "Theme = Selection Test\nShowToc = true\nShowTocPageNumbers = false\nShowFavorites = false\n" +
+      "RestoreSession = false\nCheckForUpdates = false\nThemes [\n [\n Name = Selection Test\n" +
+      " TextColor = #ffffff\n BackgroundColor = #193247\n ControlBackgroundColor = #193247\n" +
+      " LinkColor = #ffffff\n SelectionBackgroundColor = #336699\n SelectionTextColor = #00ff00\n ]\n]\n",
   );
 
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, "-page", "2", pdf]);
   try {
     await client.waitForRenderIdle();
+    sendCommandSync(frame, cmdId("CmdZoomFitPageAndSinglePage"));
+    const toolbar = findChildWindow(frame, "SUMATRA_VIRT_TOOLBAR");
+    if (!toolbar) throw new Error("toc-hover-colors: toolbar missing");
+    await selectedIcon(toolbar);
     let tree = 0;
     for (let i = 0; i < 100 && (!tree || treeGetSelection(tree) === 0n); i++) {
       tree = findChildWindow(frame, "SysTreeView32");
@@ -97,6 +125,18 @@ export async function testit(): Promise<void> {
     treeSetHot(tree, 0n);
     const bg = rowEnds(tree, 2)[0];
     const selected = await uniformFill(tree, 1, bg, "selected row");
+    if (hex(selected) !== "#336699") {
+      throw new Error(`toc-hover-colors: selected row ${hex(selected)}, want #336699`);
+    }
+    const rowHeight = treeGetItemHeight(tree);
+    const width = getClientRect(tree).right;
+    let green = 0;
+    for (let y = rowHeight; y < 2 * rowHeight; y++) {
+      for (const pixel of readWindowDCRow(tree, 0, y, width)) {
+        if ((pixel & 255) < 80 && ((pixel >> 8) & 255) > 160 && ((pixel >> 16) & 255) < 80) green++;
+      }
+    }
+    if (!green) throw new Error("toc-hover-colors: selected text is not green");
 
     treeSetHot(tree, one);
     const hover = await uniformFill(tree, 0, bg, "hovered row");
@@ -112,6 +152,37 @@ export async function testit(): Promise<void> {
   } finally {
     client.close();
     await killAndWait(proc);
+  }
+
+  const fav = await launchControlled(["-appdata", appdata, pdf]);
+  try {
+    await fav.client.waitForRenderIdle();
+    const result = await fav.client.request(ControlCommand.TestFavoriteNav, ["add", 1]);
+    if (result[0] !== 0) throw new Error("toc-hover-colors: could not add favorite");
+    sendCommandSync(fav.frame, cmdId("CmdFavoriteShowInTab"));
+    let tree = 0;
+    let root = 0n;
+    for (let i = 0; i < 100 && !root; i++) {
+      tree = findVisibleChildWindow(fav.frame, "SysTreeView32");
+      if (tree) root = treeGetRoot(tree);
+      await sleep(40);
+    }
+    if (!root) throw new Error("toc-hover-colors: favorites tree is empty");
+    sendMessage(tree, TVM_SELECTITEM, TVGN_CARET, root);
+    const selected = await uniformFill(tree, 0, 0, "selected favorite");
+    if (hex(selected) !== "#336699") {
+      throw new Error(`toc-hover-colors: selected favorite ${hex(selected)}, want #336699`);
+    }
+    let green = 0;
+    for (let y = 0; y < treeGetItemHeight(tree); y++) {
+      for (const pixel of readWindowDCRow(tree, 0, y, getClientRect(tree).right)) {
+        if ((pixel & 255) < 80 && ((pixel >> 8) & 255) > 160 && ((pixel >> 16) & 255) < 80) green++;
+      }
+    }
+    if (!green) throw new Error("toc-hover-colors: selected favorite text is not green");
+  } finally {
+    fav.client.close();
+    await killAndWait(fav.proc);
   }
 }
 

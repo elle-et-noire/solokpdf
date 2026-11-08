@@ -50,7 +50,7 @@ TempStr ImageOrientationResultTemp(Str pdfPath, int pageNo, Str bmpPath = {}, in
 TempStr ChapterInfoResultTemp(int* exitCodeOut = nullptr);
 TempStr GoToLocationResultTemp(int chapter, int page, int* exitCodeOut = nullptr);
 TempStr HiddenTabGoToPageResultTemp(int* exitCodeOut = nullptr);
-TempStr SeedTextSelectionResultTemp(int pageNo, int* exitCodeOut = nullptr);
+TempStr SeedTextSelectionResultTemp(int pageNo, int* exitCodeOut = nullptr, int start = 0, int end = -1);
 TempStr RenderSelectionsResultTemp(int* exitCodeOut = nullptr);
 TempStr ToggleFormButtonResultTemp(int pageNo, int idx, int* exitCodeOut = nullptr);
 TempStr SetFormFieldResultTemp(int pageNo, int idx, Str value, int* exitCodeOut = nullptr);

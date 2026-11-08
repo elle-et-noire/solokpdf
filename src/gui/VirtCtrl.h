@@ -737,6 +737,7 @@ struct VirtIconButton : VirtCtrl {
     Pixmap* pixmap = nullptr;
     // drawn when !IsEnabled(); if null, pixmap is used
     Pixmap* pixmapDisabled = nullptr;
+    Pixmap* pixmapSelected = nullptr;
     // a toggle button (match case, ...) draws bgColorSelected while on
     bool isSelected = false;
     // split button: a chevron on the right; click there fires onDropdown

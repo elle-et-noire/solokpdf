@@ -45,6 +45,8 @@ Color ThemeWindowLinkColor();
 Color ThemeHotBackgroundColor();
 Color ThemeSelectedBackgroundColor();
 Color ThemeSelectedColorOn(Color bg);
+Color ThemeSelectionBg(Color bg);
+Color ThemeSelectionText(Color bg, Color text);
 Color ThemeCardColorOn(Color page);
 Color ThemeTextSelectionColorOn(Color page);
 Color ThemeInkOn(Color bg);
@@ -69,6 +71,9 @@ Color ThemeScrollbarColor();
 Color ThemeScrollbarThumbColor();
 bool IsCurrentThemeDefault();
 void FreeThemes();
+#if IS_DEBUG
+bool ThemeFree_UnitTest();
+#endif
 bool MigrateRenamedThemeNames();
 bool GetInvertPageColors();
 void SetInvertPageColors(bool);

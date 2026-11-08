@@ -278,6 +278,10 @@ const theme: Field[] = [
     "background color of inactive tabs; if empty, derived from ControlBackgroundColor",
   ).ver("3.7"),
   field("LinkColor", Color, "", "color of clickable links in the UI"),
+  field("SelectionBackgroundColor", Color, "", "background color of selected items; empty derives from the theme").ver(
+    "3.7",
+  ),
+  field("SelectionTextColor", Color, "", "text color of selected items; empty derives from the theme").ver("3.7"),
   field(
     "DisabledTextColor",
     Color,

@@ -249,11 +249,14 @@ static void SetToolbarButtonImageByIdx(MainWindow* win, int idx, const char* ico
     int sz = tb ? tb->iconSize : DpiScale(gSettings->toolbarSize);
     Pixmap* px = GetCachedPixmapForSvg(Str(icon), sz, sz, TbTextColor());
     Pixmap* pxOff = GetCachedPixmapForSvg(Str(icon), sz, sz, TbDisabledColor());
-    if (ib->pixmap == px && ib->pixmapDisabled == pxOff) {
+    Color selBg = ThemeSelectionBg(TbBgColor());
+    Pixmap* pxSel = GetCachedPixmapForSvg(Str(icon), sz, sz, ThemeSelectionText(selBg, TbTextColor()), selBg);
+    if (ib->pixmap == px && ib->pixmapDisabled == pxOff && ib->pixmapSelected == pxSel) {
         return;
     }
     ib->pixmap = px;
     ib->pixmapDisabled = pxOff;
+    ib->pixmapSelected = pxSel;
     ib->Invalidate();
 }
 
@@ -778,7 +781,7 @@ void UpdateToolbarPageText(MainWindow* win, int pageCount, bool updateOnly) {
 
 static void ApplyToolbarItemColors(VirtCtrl* w) {
     Color hover = TbHoverColor();
-    Color sel = TbSelectedColor();
+    Color sel = ThemeSelectionBg(TbBgColor());
     if (auto* ib = AsVirtIconButton(w)) {
         ib->SetColor(kColIconBtnBgHover, hover);
         ib->SetColor(kColIconBtnBgSelected, sel);
@@ -833,6 +836,8 @@ static void RefreshToolbarIcons(MainWindow* win) {
     int sz = tb->iconSize;
     Color fg = TbTextColor();
     Color dis = TbDisabledColor();
+    Color selBg = ThemeSelectionBg(TbBgColor());
+    Color selText = ThemeSelectionText(selBg, fg);
     for (int i = 0; i < len(tb->items); i++) {
         VirtCtrl* w = tb->items[i];
         ApplyToolbarItemColors(w);
@@ -847,6 +852,7 @@ static void RefreshToolbarIcons(MainWindow* win) {
         Str svg = bi.svgIcon ? bi.svgIcon : Str(bi.icon);
         ib->pixmap = GetCachedPixmapForSvg(svg, sz, sz, fg, TbBgColor());
         ib->pixmapDisabled = GetCachedPixmapForSvg(svg, sz, sz, dis, TbBgColor());
+        ib->pixmapSelected = GetCachedPixmapForSvg(svg, sz, sz, selText, selBg);
     }
     for (int i = 0; i < len(tb->annotationItems); i++) {
         VirtCtrl* w = tb->annotationItems[i];
@@ -861,6 +867,7 @@ static void RefreshToolbarIcons(MainWindow* win) {
         }
         ib->pixmap = GetCachedPixmapForSvg(Str(bi.icon), sz, sz, fg, TbBgColor());
         ib->pixmapDisabled = GetCachedPixmapForSvg(Str(bi.icon), sz, sz, dis, TbBgColor());
+        ib->pixmapSelected = GetCachedPixmapForSvg(Str(bi.icon), sz, sz, selText, selBg);
     }
     if (tb->pageLabel) {
         tb->pageLabel->SetColor(kColText, TbTextColor());
@@ -2669,6 +2676,9 @@ static void BuildToolbarLayout(MainWindow* win) {
             Str svg = bi.svgIcon ? bi.svgIcon : Str(bi.icon);
             ib->pixmap = GetCachedPixmapForSvg(svg, tb->iconSize, tb->iconSize, fg, TbBgColor());
             ib->pixmapDisabled = GetCachedPixmapForSvg(svg, tb->iconSize, tb->iconSize, dis, TbBgColor());
+            Color selBg = ThemeSelectionBg(TbBgColor());
+            ib->pixmapSelected =
+                GetCachedPixmapForSvg(svg, tb->iconSize, tb->iconSize, ThemeSelectionText(selBg, fg), selBg);
             w = ib;
         }
         ApplyToolbarItemColors(w);
@@ -2699,6 +2709,9 @@ static void BuildToolbarLayout(MainWindow* win) {
             ib->padding = {cyPad, iconPad, cyPad, iconPad};
             ib->pixmap = GetCachedPixmapForSvg(Str(bi.icon), tb->iconSize, tb->iconSize, fg, TbBgColor());
             ib->pixmapDisabled = GetCachedPixmapForSvg(Str(bi.icon), tb->iconSize, tb->iconSize, dis, TbBgColor());
+            Color selBg = ThemeSelectionBg(TbBgColor());
+            ib->pixmapSelected =
+                GetCachedPixmapForSvg(Str(bi.icon), tb->iconSize, tb->iconSize, ThemeSelectionText(selBg, fg), selBg);
             w = ib;
         }
         ApplyToolbarItemColors(w);

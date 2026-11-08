@@ -127,11 +127,15 @@ The annotation editing toolbar takes the same colors. The read-aloud and
 auto-scroll bars keep the notification color but outline their buttons and
 draw their slider track in `EdgeColor` (was a fixed gray).
 
-A selection is its surface mixed toward the text color until it stands out by
-contrast 1.35 (`ThemeSelectedColorOn`): toggled-on toolbar and sidebar view
-buttons, the selected bookmark and text selected on pages on the canvas
-(`ThemeSelectedBackgroundColor`), list rows in dialogs and the command palette
-on the control background. Every theme shows it equally strong, in the
+A selection uses `SelectionBackgroundColor` and `SelectionTextColor` from the
+current theme in bookmarks, favorites, dialog lists, Markdown pages and selected
+toolbar and sidebar buttons. If unset, the background is derived from its surface
+to contrast 1.35 with it, and the text
+is adjusted to contrast 4.5 with that background. Explicit colors are respected.
+Windows high contrast mode uses its system selection colors. Native edit controls,
+HTML, CHM and the manual use their own selection colors.
+
+The fallback selection background stands out equally in every theme, in the
 surface's own hue. Upstream shifted the background's HSL lightness by 25 to 45
 units, which made saturated themes garish (Solarized Dark a bright teal, Greeny
 a bright green); picking a palette color instead mostly picked `EdgeColor`, a
@@ -154,17 +158,20 @@ but vanished, and Dark from 3.5, Light Gray, Greeny, Purpy, Purpy Slate, GitHub
 Dark, Palenight, Gruvbox Light and Sepia under 1.6; Solarized Light, Everforest
 Light and Dark had a cool gray on a warm or neutral background.
 
-The bookmark tree keeps its unfocused selection color when it has the focus
-(upstream: the system's blue highlight); high contrast mode still uses the
-system highlight. Text and rectangle selections on pages take the selection
-toolbar's color instead (the tab strip's), so the highlight and the toolbar
-over it read as one, at least contrast 1.25 from the page (pushed further,
-darker or lighter, where the strip is closer: Dark, Solarized Dark), with no
-outline: the overlay's color and alpha are solved so the page background turns
-exactly into it. This applies while `FixedPageUI.SelectionColor` is the default
-`#ffff00` and the page is on the same light/dark side as that color (otherwise, e.g. a white page under a dark theme with
-`DocumentColorsFollowTheme = off`, the selection stays yellow). The current find
-match and touch selection handles stay yellow.
+The bookmark tree uses the theme pair when focused; high contrast uses the
+system pair. Page text selection uses the pair where the engine can identify
+the original glyphs safely. Its background is blended to reach the theme color
+on a flat page; on an image it blends with the image. Text keeps its original
+font and placement. The background alpha increases when needed to reach the
+specified color and may become opaque. PDFium renders the selected area twice
+to verify that unselected glyphs are unchanged. Visible pages render
+asynchronously into a separate cache capped at 64 MiB.
+
+When `FixedPageUI.SelectionColor` differs from the default `#ffff00`, its
+existing color and alpha take precedence. Rectangle selections, scans and text
+the engine cannot safely recolor retain the transparent overlay. Search matches,
+touch handles, native edits, HTML, CHM and the manual use their existing
+selection paths.
 
 Lists (thumbnails, annotations, find results, command palette) and the
 Favorites tree draw no dotted focus outline; the selection shows where the

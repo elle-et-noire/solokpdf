@@ -412,6 +412,7 @@ export const sharedFiles = [
   "src/shared/TableOfContents.h",
   "src/shared/TextSearch.cpp",
   "src/shared/TextSearch.h",
+  "src/shared/SelectionGeometry.h",
   "src/shared/TextSelection.cpp",
   "src/shared/TextSelection.h",
   "src/shared/Theme.h",

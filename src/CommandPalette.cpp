@@ -1816,7 +1816,8 @@ void CommandPaletteWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
 
     gfx->FillRect(rc, colBg);
     if (ev->selected) {
-        colBg = ThemeSelectedColorOn(colBg);
+        colBg = ThemeSelectionBg(colBg);
+        colText = ThemeSelectionText(colBg, colText);
         gfx->FillRoundedRect(rc, DpiScale(kPaletteSelectionRadius), colBg);
     }
 
@@ -1834,6 +1835,9 @@ void CommandPaletteWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
     TempStr rightStr = PaletteRightColumnTemp(data);
     PlatformFont* rightFont = PaletteFont(kPaletteMetaFontPx);
     Color rightCol = ThemeWindowDarkerTextColor();
+    if (ev->selected) {
+        rightCol = ThemeSelectionText(colBg, rightCol);
+    }
     // a setting's value reads as part of the row; one off its default is bold
     if (IsSettingRow(data) && len(data->settingPath) == 0) {
         rightCol = colText;

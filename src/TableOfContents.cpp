@@ -883,8 +883,8 @@ static void DrawTocItemPostPaint(TreeView::CustomDrawEvent* ev, MainWindow* win)
     if (isHot) {
         bgCol = ThemeHoverColorOn(tv->bgColor);
     }
-    // Per-bookmark color from the document (when not the focused selection).
-    if (!(isTreeSelected && hasFocus) && tocItem->color != kColorUnset) {
+    // Per-bookmark color from the document applies to unselected rows.
+    if (!isSelected && tocItem->color != kColorUnset) {
         txtCol = tocItem->color;
     }
 
@@ -969,7 +969,7 @@ static void DrawTocItemPostPaint(TreeView::CustomDrawEvent* ev, MainWindow* win)
         pageRect.dx = right - pageRect.x;
         // Slightly muted vs title when not selected (keeps numbers secondary).
         Color pageCol = txtCol;
-        if (!(isTreeSelected && hasFocus)) {
+        if (!isSelected) {
             pageCol =
                 MkRgb((GetRValue(txtCol) * 2 + GetRValue(bgCol)) / 3, (GetGValue(txtCol) * 2 + GetGValue(bgCol)) / 3,
                       (GetBValue(txtCol) * 2 + GetBValue(bgCol)) / 3);
@@ -1034,9 +1034,6 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
             Color bgCol, txtCol;
             ResolveTreeFilterItemColors(cd->hdc, ToRect(cd->rc), tv->bgColor, tv->textColor, true, hasFocus, &bgCol,
                                         &txtCol);
-            if (!(isTreeSelected && hasFocus) && tocItem->color != kColorUnset) {
-                txtCol = tocItem->color;
-            }
             tvcd->clrText = txtCol;
             tvcd->clrTextBk = bgCol;
             cd->uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);

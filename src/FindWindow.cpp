@@ -513,7 +513,8 @@ void FindWindowWnd::DrawResultItem(VirtListBox::DrawItemEvent* ev) {
     }
 
     if (ev->selected) {
-        colBg = ThemeSelectedColorOn(colBg);
+        colBg = ThemeSelectionBg(colBg);
+        colText = ThemeSelectionText(colBg, colText);
     }
     gfx->FillRect(rc, colBg);
 
@@ -552,7 +553,7 @@ void FindWindowWnd::DrawResultItem(VirtListBox::DrawItemEvent* ev) {
     // repaint the page column on top in case a prior draw left stray pixels
     gfx->FillRect(rcPage, colBg);
     u32 pageFmt = gfxTextEllipsis | gfxTextVCenter | gfxTextRight;
-    gfx->DrawText(pageStr, rcPage, pageFmt, lb->font, AccentColor(colText, 80));
+    gfx->DrawText(pageStr, rcPage, pageFmt, lb->font, ev->selected ? colText : AccentColor(colText, 80));
 
     gfx->PopClip();
 }

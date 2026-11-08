@@ -1071,7 +1071,7 @@ TempStr ResolveUnsavedChangesResultTemp(Str action, Str path, int* exitCodeOut) 
     return ToStrTemp(out);
 }
 
-TempStr SeedTextSelectionResultTemp(int pageNo, int* exitCodeOut) {
+TempStr SeedTextSelectionResultTemp(int pageNo, int* exitCodeOut, int start, int end) {
     str::Builder out;
     auto fail = [&](Str msg, int code = 1) -> TempStr {
         out.Append(msg);
@@ -1105,9 +1105,15 @@ TempStr SeedTextSelectionResultTemp(int pageNo, int* exitCodeOut) {
         return fail(fmt("ERROR no-text pageNo=%d", pageNo));
     }
 
+    if (end < 0) {
+        end = textLen - 1;
+    }
+    if (start < 0 || end <= start || end > textLen) {
+        return fail(StrL("ERROR invalid-range"));
+    }
     DeleteOldSelectionInfo(win, true);
-    dm->textSelection->StartAt(pageNo, 0);
-    dm->textSelection->SelectUpTo(pageNo, textLen - 1);
+    dm->textSelection->StartAt(pageNo, start);
+    dm->textSelection->SelectUpTo(pageNo, end);
     tab->selectionOnPage = SelectionOnPage::FromTextSelect(&dm->textSelection->result);
     win->showSelection = tab->selectionOnPage != nullptr;
     if (!tab->selectionOnPage) {

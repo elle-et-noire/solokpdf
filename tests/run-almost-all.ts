@@ -504,6 +504,9 @@ import { testit as taskbarIconContrast } from "./taskbar-icon-contrast.ts";
 import { testit as keyboardSelectYankEmpty } from "./keyboard-select-yank-empty.ts";
 import { testit as selectionToolbarMove } from "./selection-toolbar-move.ts";
 import { testit as selectionFontBbox } from "./selection-font-bbox.ts";
+import { testit as selectionDocumentColors } from "./selection-document-colors.ts";
+import { testit as selectionMupdfColors } from "./selection-mupdf-colors.ts";
+import { testit as selectionNoopColors } from "./selection-noop-colors.ts";
 import { testit as issue4839 } from "./issue-4839.ts";
 import { testit as issue6023 } from "./issue-6023.ts";
 import { testit as issue6017 } from "./issue-6017.ts";
@@ -1054,6 +1057,9 @@ export const tests: NamedTest[] = [
   ["taskbar-icon-contrast", taskbarIconContrast],
   ["keyboard-select-yank-empty", keyboardSelectYankEmpty],
   ["selection-font-bbox", selectionFontBbox],
+  ["selection-document-colors", selectionDocumentColors],
+  ["selection-mupdf-colors", selectionMupdfColors],
+  ["selection-noop-colors", selectionNoopColors],
   ["issue-4839", issue4839],
   ["issue-6023", issue6023],
   ["issue-6017", issue6017],

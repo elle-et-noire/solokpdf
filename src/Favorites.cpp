@@ -430,7 +430,7 @@ static void DrawFavItemText(TreeView::CustomDrawEvent* ev, MainWindow* win) {
         HTREEITEM hItem = tv->GetHandleByTreeItem(ev->treeItem);
         isSelected = hSel && hItem && hSel == hItem;
     }
-    bool hasFocus = (GetFocus() == tv->hwnd);
+    bool hasFocus = GetFocus() == tv->hwnd && ThemeUsesHighContrastColors();
     Color bgCol, txtCol;
     ResolveTreeFilterItemColors(hdc, itemRect, tv->bgColor, tv->textColor, isSelected, hasFocus, &bgCol, &txtCol);
     GfxHdc gfx(hdc);
@@ -463,12 +463,29 @@ static void OnFavCustomDraw(TreeView::CustomDrawEvent* ev) {
         }
         // the Explorer theme's hot face isn't a palette color
         // a selected row keeps its color under the mouse
+        TreeView* tv = ev->treeView;
+        bool isSelected = (cd->uItemState & CDIS_SELECTED) != 0;
+        if (!isSelected) {
+            HTREEITEM hSel = TreeView_GetSelection(tv->hwnd);
+            HTREEITEM hItem = tv->GetHandleByTreeItem(ev->treeItem);
+            isSelected = hSel && hItem && hSel == hItem;
+        }
         bool underMouse = (cd->uItemState & CDIS_HOT) && !ThemeUsesHighContrastColors();
         if (underMouse) {
             cd->uItemState &= ~CDIS_HOT;
         }
-        if (underMouse && !(cd->uItemState & CDIS_SELECTED)) {
-            tvcd->clrTextBk = ThemeHoverColorOn(ev->treeView->bgColor);
+        if (underMouse && !isSelected) {
+            tvcd->clrTextBk = ThemeHoverColorOn(tv->bgColor);
+            res |= CDRF_NEWFONT;
+        }
+        if (isSelected) {
+            bool hasFocus = GetFocus() == tv->hwnd && ThemeUsesHighContrastColors();
+            Color bgCol, txtCol;
+            ResolveTreeFilterItemColors(cd->hdc, ToRect(cd->rc), tv->bgColor, tv->textColor, true, hasFocus, &bgCol,
+                                        &txtCol);
+            tvcd->clrText = txtCol;
+            tvcd->clrTextBk = bgCol;
+            cd->uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
             res |= CDRF_NEWFONT;
         }
         ev->result = res;
