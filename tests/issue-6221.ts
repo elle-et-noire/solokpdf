@@ -47,6 +47,16 @@ function darkCenterX(canvas: number): { x: number; y: number; n: number } {
   return n ? { x: sx / n, y: sy / n, n } : { x: 0, y: 0, n: 0 };
 }
 
+// the middle of page 1 on screen: Mirror flips the page around it
+async function pageMidX(client: ControlClient): Promise<number> {
+  const raw = (await client.layout()).raw;
+  const m = /^page n=1 shown=1 .*screen=(-?\d+),-?\d+,(\d+),\d+$/m.exec(raw);
+  if (!m) {
+    throw new Error(`issue-6221: no on-screen rect for page 1:\n${raw}`);
+  }
+  return Number(m[1]) + Number(m[2]) / 2;
+}
+
 async function currentPage(client: ControlClient): Promise<number> {
   const [, raw] = await client.request(ControlCommand.TestScrollState, []);
   const m = /page=(\d+)/.exec(String(raw ?? ""));
@@ -59,11 +69,9 @@ export async function testit(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "issue-6221.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
-  // SolokPDF's default overlay scrollbars take room on the right, which moves the
-  // page off the canvas's middle that the mirrored position is measured against
-  writeFileSync(join(dir, SETTINGS_FILE), "RestoreSession = false\nShowToc = false\nScrollbars = windows\n");
+  writeFileSync(join(dir, SETTINGS_FILE), "RestoreSession = false\nShowToc = false\n");
 
-  // single page, fit page: the page is centered in the canvas
+  // single page, fit page: the whole page in view
   const { proc, client, frame } = await launchControlled([
     "-appdata",
     dir,
@@ -77,7 +85,7 @@ export async function testit(): Promise<void> {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
     const canvas = findCanvas(frame);
-    const midX = captureWindowPixels(canvas)!.w / 2;
+    const midX = await pageMidX(client);
 
     const before = darkCenterX(canvas);
     if (before.n === 0 || before.x >= midX) {
