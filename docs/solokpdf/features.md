@@ -85,6 +85,10 @@ panel's edges). A hovered bookmark or favorite fills its row with the hover
 color below (upstream: the Explorer theme's own hot face). The Signatures and
 Layers lists take the canvas color too (upstream: `ControlBackgroundColor`).
 
+The Windows bookmark tree draws titles with TreeView. Long titles scroll horizontally;
+page numbers, title wrapping, and search-match text highlighting are not shown.
+`ShowTocPageNumbers` and `TocWrapText` do not affect the Windows tree.
+
 A hovered toolbar or sidebar button is filled halfway from its surface to the
 selection color (`ThemeHoverColorOn`), so hover and toggled-on read as two
 steps of one color; a toggled-on button keeps the selection color under the

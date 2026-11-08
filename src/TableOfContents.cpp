@@ -648,8 +648,6 @@ static void TocContextMenu(ContextMenuEvent* ev) {
 
 static void OnTocCustomDraw(TreeView::CustomDrawEvent* /*ev*/);
 
-static void OnTocMeasureLines(TreeView::MeasureLinesEvent* ev);
-
 void LoadTocTree(MainWindow* win) {
     WindowTab* tab = win->CurrentTab();
     if (!tab) {
@@ -693,8 +691,10 @@ void LoadTocTree(MainWindow* win) {
     AutoExpandTopLevelItems(tocTree->root->child);
 
     treeView->onCustomDraw = MkFunc1Void(OnTocCustomDraw);
-    treeView->onMeasureLines = MkFunc1Void(OnTocMeasureLines);
-    treeView->SetWrapText(gSettings->tocWrapText);
+    treeView->SetWrapText(false);
+    // Use version 5 sizing for PDF bookmark fonts selected during custom draw.
+    constexpr int kTreeViewFontVersion = 5;
+    SendMessageW(hwnd, CCM_SETVERSION, kTreeViewFontVersion, 0);
     treeView->SetTreeModel(tocTree);
     if (SidebarPanel* p = SidebarPanelShowing(win, SidebarView::Bookmarks)) {
         RelayoutSidebarPanel(p);
@@ -778,210 +778,6 @@ static PlatformFont* UpdateFont(HDC hdc, int fontFlags) {
     return font;
 }
 
-static void GetTocFilterWords(MainWindow* win, StrVec& wordsOut) {
-    wordsOut.Reset();
-    if (!win || !win->tocFilterEdit) {
-        return;
-    }
-    TempStr filter = win->tocFilterEdit->GetTextTemp();
-    if (filter) {
-        SplitFilterToWords(filter, wordsOut);
-    }
-}
-
-static bool HasTocFilter(MainWindow* win) {
-    StrVec words;
-    GetTocFilterWords(win, words);
-    return len(words) > 0;
-}
-
-// the row under the mouse, set at its PREPAINT: the Explorer theme's hot face
-// isn't a palette color, so POSTPAINT fills it with the hover color instead
-static DWORD_PTR gTocHotItem = 0;
-
-constexpr int kTocPageGapDx = 8;
-// titleRect.Inflate(-2, -1) in DrawTocItemPostPaint
-constexpr int kTocTitleInsetDx = 4;
-// a pathological title doesn't get an unbounded row
-constexpr int kTocMaxLines = 20;
-
-// the width the page number takes at the right of a bookmark, with its gap
-static int TocPageReserveDx(MainWindow* win, TocItem* tocItem, Gfx& gfx, PlatformFont* font) {
-    if (!gSettings->showTocPageNumbers || !win || !win->ctrl || tocItem->pageNo <= 0) {
-        return 0;
-    }
-    TempStr label = win->ctrl->GetPageLabeTemp(tocItem->pageNo);
-    if (len(label) == 0) {
-        return 0;
-    }
-    return gfx.MeasureText(label, font).dx + DpiScale(kTocPageGapDx);
-}
-
-// TocWrapText (#1139): the rows a bookmark's title wraps to, next to its page number
-static void OnTocMeasureLines(TreeView::MeasureLinesEvent* ev) {
-    TocItem* tocItem = (TocItem*)ev->treeItem;
-    TreeView* tv = ev->treeView;
-    if (!tocItem || len(tocItem->title) == 0) {
-        return;
-    }
-    MainWindow* win = FindMainWindowByHwnd(tv->hwnd);
-    HDC hdc = GetDC(tv->hwnd);
-    PlatformFont* font = tocItem->fontFlags != 0 ? UpdateFont(hdc, tocItem->fontFlags) : tv->GetFont();
-    GfxHdc gfx(hdc);
-    int dx = ev->availDx - kTocTitleInsetDx - TocPageReserveDx(win, tocItem, gfx, font);
-    int lineDy = gfx.MeasureText(StrL("Ag"), font).dy;
-    if (dx > 0 && lineDy > 0) {
-        int textDy = HdcMeasureText(hdc, tocItem->title, dx, DT_WORDBREAK | DT_NOPREFIX, font->GetHFont()).dy;
-        // rows are rowDy tall, lines lineDy; the first line is centered in its row
-        int rowDy = std::max(TreeView_GetItemHeight(tv->hwnd), 1);
-        int needDy = textDy + std::max(rowDy - lineDy, 0);
-        ev->lines = limitValue((needDy + rowDy - 1) / rowDy, 1, kTocMaxLines);
-    }
-    ReleaseDC(tv->hwnd, hdc);
-}
-
-// POSTPAINT: redraw title (optional filter highlight), optional right-aligned
-// page label, and multi-match "current page" highlight (issue #4642).
-static void DrawTocItemPostPaint(TreeView::CustomDrawEvent* ev, MainWindow* win) {
-    TocItem* tocItem = (TocItem*)ev->treeItem;
-    if (!tocItem || len(tocItem->title) == 0) {
-        return;
-    }
-
-    TreeView* tv = ev->treeView;
-    Rect labelRect{};
-    if (!tv->GetItemRect(ev->treeItem, true, labelRect)) {
-        return;
-    }
-    Rect itemRect{};
-    tv->GetItemRect(ev->treeItem, false, itemRect);
-
-    NMTVCUSTOMDRAW* tvcd = ev->nm;
-    HDC hdc = tvcd->nmcd.hdc;
-    NMCUSTOMDRAW* cd = &tvcd->nmcd;
-    if (cd->rc.right <= cd->rc.left || cd->rc.bottom <= cd->rc.top) {
-        return;
-    }
-
-    // POSTPAINT often omits CDIS_SELECTED; also check the control selection.
-    bool isTreeSelected = (cd->uItemState & CDIS_SELECTED) != 0;
-    if (!isTreeSelected) {
-        HTREEITEM hSel = TreeView_GetSelection(tv->hwnd);
-        HTREEITEM hItem = tv->GetHandleByTreeItem(ev->treeItem);
-        isTreeSelected = hSel && hItem && hSel == hItem;
-    }
-    bool isMultiMatch = TocItemIsMultiHighlight(win, tocItem);
-    // Treat multi-match rows like selected for fill/text colors so every
-    // current bookmark is visible, not only the TreeView selection.
-    bool isSelected = isTreeSelected || isMultiMatch;
-    // Focus ring / highlight-text only for the real tree selection.
-    // focus keeps the unfocused selection colors, except for high contrast's palette
-    bool hasFocus = isTreeSelected && (GetFocus() == tv->hwnd) && ThemeUsesHighContrastColors();
-    Color bgCol, txtCol;
-    ResolveTreeFilterItemColors(hdc, itemRect, tv->bgColor, tv->textColor, isSelected, hasFocus, &bgCol, &txtCol);
-    bool isHot = !isSelected && gTocHotItem != 0 && cd->dwItemSpec == gTocHotItem;
-    if (isHot) {
-        bgCol = ThemeHoverColorOn(tv->bgColor);
-    }
-    // Per-bookmark color from the document applies to unselected rows.
-    if (!isSelected && tocItem->color != kColorUnset) {
-        txtCol = tocItem->color;
-    }
-
-    // check win->ctrl directly, not IsDocLoaded(): a paint can arrive while
-    // win->ctrl and CurrentTab()->ctrl transiently disagree (tab close/switch,
-    // pending load) and IsDocLoaded() asserts on that mismatch
-    bool showPage = gSettings->showTocPageNumbers && win && win->ctrl && tocItem->pageNo > 0;
-    TempStr pageLabel{};
-    if (showPage) {
-        pageLabel = win->ctrl->GetPageLabeTemp(tocItem->pageNo);
-        if (len(pageLabel) == 0) {
-            showPage = false;
-        }
-    }
-
-    StrVec words;
-    GetTocFilterWords(win, words);
-    bool filterActive = len(words) > 0;
-
-    // Always repaint selected / multi-match rows so themed selection colors
-    // replace Explorer's light inactive-selection face (issue #5848). Also
-    // when page numbers or filter bars need drawing.
-    // a wrapped title is several rows the tree only draws the first line of
-    bool isWrapped = tv->wrapText && labelRect.dy > TreeView_GetItemHeight(tv->hwnd);
-    if (!showPage && !filterActive && !isSelected && !isHot && !isWrapped) {
-        return;
-    }
-
-    // Label area extends to the visible right edge so the page number stays
-    // right-aligned against the sidebar, not under a long title.
-    RECT drawRc = ToRECT(labelRect);
-    drawRc.right = std::min(itemRect.x + itemRect.dx, (int)cd->rc.right);
-    if (drawRc.right <= drawRc.left) {
-        return;
-    }
-
-    PlatformFont* font = tv->GetFont();
-    if (tocItem->fontFlags != 0) {
-        font = UpdateFont(hdc, tocItem->fontFlags);
-    }
-    GfxHdc gfx(hdc);
-
-    Size pageSize{};
-    int pageReserve = 0;
-    if (showPage) {
-        if (len(pageLabel) > 0) {
-            pageSize = gfx.MeasureText(pageLabel, font);
-            pageReserve = pageSize.dx + DpiScale(kTocPageGapDx);
-        } else {
-            showPage = false;
-        }
-    }
-    // the page number and a title's first line sit in the first row
-    int rowDy = isWrapped ? TreeView_GetItemHeight(tv->hwnd) : 0;
-
-    Rect drawRect = ToRect(drawRc);
-    gfx.FillRect(drawRect, bgCol);
-
-    Rect titleRect = drawRect;
-    titleRect.dx = std::max(0, titleRect.dx - pageReserve);
-    titleRect.Inflate(-2, -1);
-
-    if (isWrapped) {
-        int lineDy = gfx.MeasureText(StrL("Ag"), font).dy;
-        int pad = std::max(0, (rowDy - lineDy) / 2);
-        Rect wrapRect = {titleRect.x, drawRect.y + pad, titleRect.dx, drawRect.dy - pad};
-        gfx.DrawText(tocItem->title, wrapRect, gfxTextWrap | gfxTextEllipsis, font, txtCol);
-    } else if (filterActive) {
-        DrawTreeItemFilterHighlight(&gfx, titleRect, tocItem->title, words, bgCol, txtCol, font);
-    } else {
-        gfx.DrawText(tocItem->title, titleRect, gfxTextVCenter | gfxTextEllipsis, font, txtCol);
-    }
-
-    if (showPage && len(pageLabel) > 0) {
-        Rect pageRect = drawRect;
-        if (isWrapped) {
-            pageRect.dy = rowDy;
-        }
-        pageRect.Inflate(-2, -1);
-        int right = pageRect.x + pageRect.dx;
-        pageRect.x = std::max(pageRect.x, right - pageSize.dx);
-        pageRect.dx = right - pageRect.x;
-        // Slightly muted vs title when not selected (keeps numbers secondary).
-        Color pageCol = txtCol;
-        if (!isSelected) {
-            pageCol =
-                MkRgb((GetRValue(txtCol) * 2 + GetRValue(bgCol)) / 3, (GetGValue(txtCol) * 2 + GetGValue(bgCol)) / 3,
-                      (GetBValue(txtCol) * 2 + GetBValue(bgCol)) / 3);
-        }
-        gfx.DrawText(pageLabel, pageRect, gfxTextVCenter | gfxTextRight, font, pageCol);
-    }
-
-    if ((cd->uItemState & CDIS_FOCUS) && isTreeSelected && hasFocus) {
-        gfx.DrawFocusRect(drawRect);
-    }
-}
-
 // https://docs.microsoft.com/en-us/windows/win32/controls/about-custom-draw
 // https://docs.microsoft.com/en-us/windows/win32/api/commctrl/ns-commctrl-nmtvcustomdraw
 void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
@@ -995,9 +791,6 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
     }
 
     MainWindow* win = FindMainWindowByHwnd(ev->treeView->hwnd);
-    bool filterActive = HasTocFilter(win);
-    bool showPageNumbers = gSettings->showTocPageNumbers;
-    bool multiHighlight = gShowAllMatchingTOC && win && len(win->tocMatchingItems) > 0;
 
     if (cd->dwDrawStage == CDDS_ITEMPREPAINT) {
         TocItem* tocItem = (TocItem*)ev->treeItem;
@@ -1018,7 +811,6 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
         // the theme's hot face goes
         bool underMouse = (cd->uItemState & CDIS_HOT) && !ThemeUsesHighContrastColors();
         bool isHot = underMouse && !isSelected;
-        gTocHotItem = isHot ? cd->dwItemSpec : 0;
 
         LRESULT res = 0;
         if (underMouse) {
@@ -1036,7 +828,10 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
                                         &txtCol);
             tvcd->clrText = txtCol;
             tvcd->clrTextBk = bgCol;
-            cd->uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
+            cd->uItemState &= ~CDIS_SELECTED;
+            if (!hasFocus) {
+                cd->uItemState &= ~CDIS_FOCUS;
+            }
             res |= CDRF_NEWFONT;
         } else if (tocItem->color != kColorUnset) {
             tvcd->clrText = tocItem->color;
@@ -1045,21 +840,7 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
             UpdateFont(cd->hdc, tocItem->fontFlags);
             res |= CDRF_NEWFONT;
         }
-        // POSTPAINT: selection colors (issue #5848), page numbers, filter, multi-match.
-        bool needPost = isSelected || isHot || filterActive || (showPageNumbers && tocItem->pageNo > 0) ||
-                        (multiHighlight && isMultiMatch) || tv->wrapText;
-        if (needPost) {
-            res |= CDRF_NOTIFYPOSTPAINT;
-        }
         ev->result = res;
-        return;
-    }
-
-    if (cd->dwDrawStage == CDDS_ITEMPOSTPAINT) {
-        if (win) {
-            DrawTocItemPostPaint(ev, win);
-        }
-        ev->result = CDRF_DODEFAULT;
         return;
     }
 }

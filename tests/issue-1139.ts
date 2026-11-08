@@ -9,7 +9,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra, type ControlClient } from "./control.ts";
-import { assemblePdf, EXE, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
+import { assemblePdf, EXE, runStandalone, tmpPath, SETTINGS_FILE, USE_NG } from "./util.ts";
 import { sleep } from "./winapi.ts";
 
 const kLong =
@@ -87,6 +87,18 @@ async function withToc(name: string, wrap: boolean, fn: (r: Rows) => void, sideb
 }
 
 export async function testit(): Promise<void> {
+  if (!USE_NG) {
+    for (const wrap of [false, true]) {
+      await withToc(`native-${wrap}`, wrap, (r) => {
+        for (const [title, dy] of r.rows) {
+          if (dy !== r.rowDy) {
+            throw new Error(`issue-1139: "${title}" is ${dy}px, want one row of ${r.rowDy}`);
+          }
+        }
+      });
+    }
+    return;
+  }
   await withToc("wrap", true, (r) => {
     const long = r.rows.get(kLong)!;
     if (long < 2 * r.rowDy || long % r.rowDy !== 0) {
