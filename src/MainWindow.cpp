@@ -764,6 +764,7 @@ void UpdateControlsColors(MainWindow* win) {
     Color bgCol = ThemeSidebarColor();
     Color editBgCol = ThemeControlBackgroundColor();
     Color txtCol = ThemeWindowTextColor();
+    Color cueCol = ThemeWindowTextDisabledColor();
 
     // logf("retrieved doc colors in tree control: 0x%x 0x%x\n", treeTxtCol, treeBgCol);
 
@@ -780,7 +781,7 @@ void UpdateControlsColors(MainWindow* win) {
 
         if (win->tocFilterEdit) {
             win->tocFilterEdit->SetColors(txtCol, editBgCol);
-            win->tocFilterEdit->SetCueColor(txtCol);
+            win->tocFilterEdit->SetCueColor(cueCol);
         }
         UpdateSidebarColors(win);
     }
@@ -792,7 +793,7 @@ void UpdateControlsColors(MainWindow* win) {
         favTreeView->SetColors(txtCol, bgCol);
         if (win->favFilterEdit) {
             win->favFilterEdit->SetColors(txtCol, editBgCol);
-            win->favFilterEdit->SetCueColor(txtCol);
+            win->favFilterEdit->SetCueColor(cueCol);
         }
     }
 }
