@@ -15,17 +15,18 @@ import { tmpPath, assemblePdf, USE_NG } from "./util";
 import { launchControlled, killAndWait } from "./win-automation";
 import { captureWindowPixels, findChildWindow, isZoomed, moveWindow, showWindow, sleep, SW_RESTORE } from "./winapi";
 
-// two pages and an outline with a red bold entry and a blue one. PageMode
-// UseOutlines so the bookmarks sidebar opens with the document.
+// Select an uncolored first entry so both colored entries remain unselected.
 function makePdf(): string {
   const objs = [
-    `<< /Type /Catalog /Pages 2 0 R /Outlines 5 0 R /PageMode /UseOutlines >>`,
-    `<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>`,
+    `<< /Type /Catalog /Pages 2 0 R /Outlines 6 0 R /PageMode /UseOutlines >>`,
+    `<< /Type /Pages /Count 3 /Kids [3 0 R 4 0 R 5 0 R] >>`,
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>`,
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>`,
-    `<< /Type /Outlines /Count 2 /First 6 0 R /Last 7 0 R >>`,
-    `<< /Title (RedBoldRedBoldRedBold) /Parent 5 0 R /Next 7 0 R /Dest [3 0 R /XYZ null null null] /C [1 0 0] /F 2 >>`,
-    `<< /Title (BlueBlueBlueBlueBlue) /Parent 5 0 R /Prev 6 0 R /Dest [4 0 R /XYZ null null null] /C [0 0 1] >>`,
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>`,
+    `<< /Type /Outlines /Count 3 /First 7 0 R /Last 9 0 R >>`,
+    `<< /Title (First) /Parent 6 0 R /Next 8 0 R /Dest [3 0 R /XYZ null null null] >>`,
+    `<< /Title (RedBoldRedBoldRedBold) /Parent 6 0 R /Prev 7 0 R /Next 9 0 R /Dest [4 0 R /XYZ null null null] /C [1 0 0] /F 2 >>`,
+    `<< /Title (BlueBlueBlueBlueBlue) /Parent 6 0 R /Prev 8 0 R /Dest [5 0 R /XYZ null null null] /C [0 0 1] >>`,
   ];
   return assemblePdf(objs);
 }

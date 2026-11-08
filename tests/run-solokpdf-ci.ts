@@ -66,6 +66,7 @@ import { testit as activationTraceB71 } from "./ad-hoc-b71-activation-trace.ts";
 import { testit as controlStartB71 } from "./ad-hoc-b71-control-start.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-pdfium-bookmarks", bookmarks],
   ["ad-hoc-b71-control-start", controlStartB71],
   ["ad-hoc-b71-activation-trace", activationTraceB71],
   ["ad-hoc-b71-window-position", positionB71],
@@ -107,7 +108,6 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-page-boxes", pageBoxes],
   ["ad-hoc-pdfium-trim-margins", trimMargins],
   ["ad-hoc-pdfium-scroll", scroll],
-  ["ad-hoc-pdfium-bookmarks", bookmarks],
   ["ad-hoc-pdfium-xmp", xmp],
   ["ad-hoc-pdfium-comment-authors", commentAuthors],
   ["ad-hoc-pdfium-annotations", annotations],
