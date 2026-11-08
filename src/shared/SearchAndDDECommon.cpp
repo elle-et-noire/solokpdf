@@ -35,6 +35,7 @@
 #include "AppTools.h"
 #include "ExplorerQuickLook.h"
 #include "Selection.h"
+#include "Theme.h"
 #include "FindBar.h"
 #include "FindWindow.h"
 #include "Favorites.h"
@@ -2770,16 +2771,13 @@ void PaintCurrentFindMatch(MainWindow* win, DisplayModel* dm, TextSearch* ts, Pa
     if (!ts || len(ts->result) == 0) {
         return;
     }
-    ParsedColor* parsedCol = GetPrefsColor(gSettings->fixedPageUI.selectionColor);
-    u8 alpha = GetAlpha(parsedCol->col);
-    if (alpha == 0) {
-        alpha = kSelectionDefaultAlpha;
-    }
+    u8 alpha = kSelectionDefaultAlpha;
+    Color currentColor = ThemeCurrentSearchOverlay(alpha);
     Rect clipRc = FindPaintClipRc(win, dm);
     Vec<Rect> currentRects;
     AppendTextSelScreenRects(dm, clipRc, &ts->result, currentRects);
     if (len(currentRects) > 0) {
-        PaintTransparentRectangles(ctx, clipRc, currentRects, parsedCol->col, alpha);
+        PaintTransparentRectangles(ctx, clipRc, currentRects, currentColor, alpha);
     }
 }
 
@@ -2837,11 +2835,8 @@ void PaintAllFindMatches(MainWindow* win, PaintRef ctx) {
         currentKey = MatchKey(ts->startPage, ts->startGlyph);
     }
 
-    ParsedColor* parsedCol = GetPrefsColor(gSettings->fixedPageUI.selectionColor);
-    u8 alpha = GetAlpha(parsedCol->col);
-    if (alpha == 0) {
-        alpha = kSelectionDefaultAlpha;
-    }
+    u8 alpha = kSelectionDefaultAlpha;
+    Color currentColor = ThemeCurrentSearchOverlay(alpha);
 
     Rect clipRc = FindPaintClipRc(win, dm);
     Vec<Rect> otherRects;
@@ -2854,13 +2849,15 @@ void PaintAllFindMatches(MainWindow* win, PaintRef ctx) {
     }
 
     if (len(otherRects) > 0) {
-        PaintTransparentRectangles(ctx, clipRc, otherRects, kFindOtherMatchColor, alpha);
+        u8 otherAlpha = kSelectionDefaultAlpha;
+        Color otherColor = ThemeSearchOverlay(otherAlpha);
+        PaintTransparentRectangles(ctx, clipRc, otherRects, otherColor, otherAlpha);
     }
     if (len(currentRects) == 0 && ts && len(ts->result) > 0) {
         AppendTextSelScreenRects(dm, clipRc, &ts->result, currentRects);
     }
     if (len(currentRects) > 0) {
-        PaintTransparentRectangles(ctx, clipRc, currentRects, parsedCol->col, alpha);
+        PaintTransparentRectangles(ctx, clipRc, currentRects, currentColor, alpha);
     }
 }
 

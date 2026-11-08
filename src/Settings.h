@@ -161,6 +161,12 @@ struct Theme {
     ParsedColor selectionBackgroundColor;
     // text color of selected items; empty derives from the theme
     ParsedColor selectionTextColor;
+    // document text selection overlay, #aarrggbb; empty uses the default
+    ParsedColor textSelectionColor;
+    // search result overlay, #aarrggbb; empty uses the default
+    ParsedColor searchMatchColor;
+    // current search result overlay, #aarrggbb; empty uses the default
+    ParsedColor currentSearchMatchColor;
     // color of disabled (grayed out) text; if empty, derived from the
     // colors above
     ParsedColor disabledTextColor;
@@ -755,11 +761,6 @@ struct FixedPageUI {
     // if true, render document pages in grayscale. Toggle with
     // CmdToggleGrayscale
     bool grayscale;
-    // color value for the text selection rectangle (also used to highlight
-    // found text). Use an #aarrggbb value to control opacity: a smaller
-    // alpha (e.g. #40ffff00) makes the selection more transparent so the
-    // selected text stays crisp; #rrggbb uses the default opacity
-    ParsedColor selectionColor;
     // top, right, bottom and left margin (in that order) between window
     // and document
     WindowMargin windowMargin;

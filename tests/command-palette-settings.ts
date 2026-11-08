@@ -170,7 +170,7 @@ export async function testit(): Promise<void> {
       ["=ZoomIncrement = 25", "ZoomIncrement"],
       ["=ToolbarPosition = bottom", "ToolbarPosition"],
       ["=Units = cm", "FixedPageUI.PageGrid.Units"],
-      ["=FixedPageUI.SelectionColor = #112233", "FixedPageUI.SelectionColor"],
+      ["=Annotations.InkColor = #112233", "Annotations.InkColor"],
       ["=SmoothScroll", "SmoothScroll"],
     ]) {
       await typeQuery(client, frame, q, 1);
@@ -185,7 +185,7 @@ export async function testit(): Promise<void> {
       ZoomIncrement: "25",
       ToolbarPosition: "bottom",
       "FixedPageUI.PageGrid.Units": "cm",
-      "FixedPageUI.SelectionColor": "#112233",
+      "Annotations.InkColor": "#112233",
       SmoothScroll: "false",
     };
     const got = await nonDefaultSettings(client, frame);

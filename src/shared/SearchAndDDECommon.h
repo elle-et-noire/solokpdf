@@ -116,11 +116,6 @@ struct OpenCopyDataAsync {
 // passed since the last one (avoids flooding the UI thread for common words)
 constexpr int kFindResultsFirstBatch = 16;
 
-// Chrome-style orange for the non-active find matches. The active (current)
-// match uses the user-customizable FixedPageUI.SelectionColor instead, so it
-// stands out with the color the user finds most noticeable (issue #5740).
-constexpr Color kFindOtherMatchColor = MkRgb(0xff, 0x96, 0x32);
-
 // implemented by each app
 bool ApplyFindPageRange(MainWindow* win);
 void StartFindCount(MainWindow* win, Str text, bool matchCase, bool matchWholeWord);

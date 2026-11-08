@@ -287,6 +287,9 @@ const theme: Field[] = [
     "3.7",
   ),
   field("SelectionTextColor", Color, "", "text color of selected items; empty derives from the theme").ver("3.7"),
+  field("TextSelectionColor", Color, "", "document text selection overlay, #aarrggbb; empty uses the default"),
+  field("SearchMatchColor", Color, "", "search result overlay, #aarrggbb; empty uses the default"),
+  field("CurrentSearchMatchColor", Color, "", "current search result overlay, #aarrggbb; empty uses the default"),
   field(
     "DisabledTextColor",
     Color,
@@ -540,14 +543,6 @@ const fixedPageUI: Field[] = [
   field("Grayscale", Bool, false, "if true, render document pages in grayscale. Toggle with CmdToggleGrayscale").ver(
     "3.7",
   ),
-  field(
-    "SelectionColor",
-    Color,
-    rgb(0xff, 0xff, 0x00),
-    "color value for the text selection rectangle (also used to highlight found text). " +
-      "Use an #aarrggbb value to control opacity: a smaller alpha (e.g. #40ffff00) makes the " +
-      "selection more transparent so the selected text stays crisp; #rrggbb uses the default opacity",
-  ).ver("2.4"),
   compactStruct(
     "WindowMargin",
     windowMarginFixedPageUI,

@@ -342,9 +342,6 @@ RenderCache::~RenderCache() {
                requestCount, cacheCount);
         ReportIf(true);
     }
-    for (SelectionEntry& entry : selections) {
-        FreePixmap(entry.bitmap);
-    }
 }
 
 /* Find a bitmap for a page defined by <dm> and <pageNo> and optionally also
@@ -669,12 +666,6 @@ void RenderCache::FreePage(DisplayModel* dm, int pageNo, TilePosition* tile) {
 void RenderCache::FreeForDisplayModel(DisplayModel* dm) {
     rcLogf("RenderCache::FreeForDisplayModel: dm: 0x%p\n", dm);
     ScopedRecursiveMutex scope(&cacheAccess);
-    for (int i = len(selections) - 1; i >= 0; i--) {
-        if (selections[i].dm == dm) {
-            FreePixmap(selections[i].bitmap);
-            VecRemoveAt(selections, i);
-        }
-    }
     // must go from end because freeing changes the cache
     for (int i = cacheCount - 1; i >= 0; i--) {
         BitmapCacheEntry* entry = cache[i];
@@ -683,131 +674,6 @@ void RenderCache::FreeForDisplayModel(DisplayModel* dm) {
         }
     }
 }
-
-static bool SameSelection(const SelectionRenderArgs& a, const SelectionRenderArgs& b) {
-    return a.group == b.group && a.startGlyph == b.startGlyph && a.endGlyph == b.endGlyph &&
-           a.background == b.background && a.foreground == b.foreground && a.alpha == b.alpha;
-}
-
-static bool SameRect(RectF a, RectF b) {
-    return a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy == b.dy;
-}
-
-constexpr u64 kMaxSelectionBytes = 64ULL * 1024 * 1024;
-
-static bool PruneSelections(RenderCache* cache, u64 needed) {
-    constexpr u64 kSelectionIdleMs = 2000;
-    u64 total = needed;
-    for (const auto& entry : cache->selections) {
-        total += entry.bitmap ? (u64)PixmapByteSize(entry.bitmap) : 0;
-    }
-    for (int i = 0; i < len(cache->selections) && total > kMaxSelectionBytes;) {
-        auto& entry = cache->selections[i];
-        if (entry.dm && GetTickCount64() - entry.lastUsed >= kSelectionIdleMs) {
-            total -= entry.bitmap ? (u64)PixmapByteSize(entry.bitmap) : 0;
-            FreePixmap(entry.bitmap);
-            VecRemoveAt(cache->selections, i);
-        } else {
-            i++;
-        }
-    }
-    return total <= kMaxSelectionBytes;
-}
-
-#if !defined(SUMATRA_NG)
-void RenderCache::CancelSelection(DisplayModel* dm, u64 keepGroup, int replacePage) {
-    ScopedRecursiveMutex lock(&requestAccess);
-    int out = 0;
-    for (int i = 0; i < requestCount; i++) {
-        if (requests[i].dm == dm && requests[i].selectionRequest &&
-            (!keepGroup || requests[i].selection.group != keepGroup || requests[i].pageNo == replacePage)) {
-            continue;
-        }
-        if (out != i) {
-            requests[out] = requests[i];
-        }
-        out++;
-    }
-    requestCount = out;
-    for (int i = 0; i < nRenderThreads; i++) {
-        if (curReqs[i] && curReqs[i]->dm == dm && curReqs[i]->selectionRequest &&
-            (!keepGroup || curReqs[i]->selection.group != keepGroup || curReqs[i]->pageNo == replacePage)) {
-            AbortCurrentRequest(i);
-        }
-    }
-}
-
-RenderCache::SelectionPaint RenderCache::PaintSelection(Gfx* gfx, DisplayModel* dm, int pageNo, RectF pageRect,
-                                                        Rect screenRect, const Vec<Rect>& clips,
-                                                        const SelectionRenderArgs& selection) {
-#if defined(SOLOKPDF_PDFIUM)
-    if (dm->GetEngine()->kind != kindEnginePdfium && dm->GetEngine()->kind != kindEngineMupdf) {
-        return SelectionPaint::Unsupported;
-    }
-#else
-    return SelectionPaint::Unsupported;
-#endif
-    int rotation = NormalizeRotation(dm->PageRotation(pageNo));
-    float zoom = dm->GetRenderZoom(pageNo);
-    int generation = AtomicIntGet(&dm->GetEngine()->elementsGeneration);
-    {
-        ScopedRecursiveMutex lock(&cacheAccess);
-        for (int i = len(selections) - 1; i >= 0; i--) {
-            SelectionEntry& entry = selections[i];
-            if (entry.dm == dm && (entry.selection.group != selection.group ||
-                                   (entry.pageNo == pageNo && !SameRect(entry.pageRect, pageRect)))) {
-                FreePixmap(entry.bitmap);
-                VecRemoveAt(selections, i);
-            }
-        }
-        for (int i = 0; i < len(selections); i++) {
-            SelectionEntry& entry = selections[i];
-            if (entry.dm == dm && entry.pageNo == pageNo && entry.rotation == rotation && entry.zoom == zoom &&
-                entry.generation == generation && entry.epoch == darkModeEpoch && SameRect(entry.pageRect, pageRect) &&
-                entry.brightness == dm->brightness && entry.contrast == dm->contrast &&
-                entry.grayscale == AtomicBoolGet(&grayscalePageColors) && SameSelection(entry.selection, selection)) {
-                entry.lastUsed = GetTickCount64();
-                if (entry.bitmap) {
-                    if (entry.bitmap->width != screenRect.dx || entry.bitmap->height != screenRect.dy) {
-                        return SelectionPaint::Unsupported;
-                    }
-                    for (Rect clip : clips) {
-                        gfx->PushClip(clip);
-                        gfx->DrawPixmap(entry.bitmap, screenRect);
-                        gfx->PopClip();
-                    }
-                    return SelectionPaint::Painted;
-                }
-                if (entry.budgetLimited && PruneSelections(this, entry.bytes)) {
-                    for (int j = len(selections) - 1; j >= 0; j--) {
-                        if (selections[j].dm == dm && selections[j].pageNo == pageNo &&
-                            SameSelection(selections[j].selection, selection)) {
-                            VecRemoveAt(selections, j);
-                        }
-                    }
-                    break;
-                }
-                return entry.budgetLimited ? SelectionPaint::Pending : SelectionPaint::Unsupported;
-            }
-        }
-    }
-    {
-        ScopedRecursiveMutex lock(&requestAccess);
-        for (int i = 0; i < requestCount + nRenderThreads; i++) {
-            PageRenderRequest* req = i < requestCount ? &requests[i] : curReqs[i - requestCount];
-            if (req && !req->abort && req->selectionRequest && req->dm == dm && req->pageNo == pageNo &&
-                req->rotation == rotation && req->zoom == zoom && req->selectionGeneration == generation &&
-                SameRect(req->pageRect, pageRect) && SameSelection(req->selection, selection)) {
-                return SelectionPaint::Pending;
-            }
-        }
-    }
-    CancelSelection(dm, selection.group, pageNo);
-    auto cb = MkMethod1<DisplayModel, PageRenderRequest*, &DisplayModel::RenderFinishedAsync>(dm);
-    bool queued = Render(dm, pageNo, rotation, zoom, nullptr, &pageRect, cb, nullptr, &selection);
-    return queued ? SelectionPaint::Pending : SelectionPaint::Unsupported;
-}
-#endif
 
 // keep the cached bitmaps for visible pages to avoid flickering during a reload.
 // mark invisible pages as out-of-date to prevent inconsistencies
@@ -905,13 +771,6 @@ void RenderCache::Invalidate(DisplayModel* dm, int pageNo, RectF rect) {
     }
 
     ScopedRecursiveMutex scopeCache(&cacheAccess);
-    for (int i = len(selections) - 1; i >= 0; i--) {
-        if (selections[i].dm == dm && selections[i].pageNo == pageNo) {
-            FreePixmap(selections[i].bitmap);
-            VecRemoveAt(selections, i);
-        }
-    }
-
     RectF mediabox = dm->GetEngine()->PageMediabox(pageNo);
     for (int i = 0; i < cacheCount; i++) {
         auto* e = cache[i];
@@ -929,12 +788,6 @@ void RenderCache::InvalidateAll(DisplayModel* dm) {
     AbortRendering(dm);
 
     ScopedRecursiveMutex scopeCache(&cacheAccess);
-    for (int i = len(selections) - 1; i >= 0; i--) {
-        if (selections[i].dm == dm) {
-            FreePixmap(selections[i].bitmap);
-            VecRemoveAt(selections, i);
-        }
-    }
     for (int i = 0; i < cacheCount; i++) {
         auto* e = cache[i];
         if (e->dm == dm) {
@@ -1186,8 +1039,7 @@ void RenderCache::Render(DisplayModel* dm, int pageNo, int rotation, float zoom,
 }
 
 bool RenderCache::Render(DisplayModel* dm, int pageNo, int rotation, float zoom, TilePosition* tile, RectF* pageRect,
-                         const Func1<PageRenderRequest*>& renderFinishedCb, const PredictiveChain* chain,
-                         const SelectionRenderArgs* selection) {
+                         const Func1<PageRenderRequest*>& renderFinishedCb, const PredictiveChain* chain) {
     rcLogf("RenderCache::Render: pageNo %d\n", pageNo);
     ReportIf(!dm);
     if (!dm || dm->pauseRendering) {
@@ -1247,11 +1099,6 @@ bool RenderCache::Render(DisplayModel* dm, int pageNo, int rotation, float zoom,
     newRequest->timestamp = GetTickCount64();
     newRequest->bmp = nullptr;
     newRequest->errorCode = 0;
-    newRequest->selectionRequest = selection != nullptr;
-    if (selection) {
-        newRequest->selection = *selection;
-        newRequest->selectionGeneration = AtomicIntGet(&dm->GetEngine()->elementsGeneration);
-    }
     newRequest->predictiveOriginPageNo = 0;
     newRequest->nPredictiveRequests = 0;
     if (chain) {
@@ -1624,19 +1471,7 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
     options.grayscale = req.grayscale;
     options.brightness = req.brightness;
     options.contrast = req.contrast;
-    Pixmap* bmp = nullptr;
-    if (req.selectionRequest) {
-        DarkModeProfile profile;
-        BuildViewDarkModeProfile(engine, &profile);
-        if (!options.grayscale && !options.brightness && !options.contrast &&
-            profile.mode != PageColorMode::LegacyInvert) {
-            args.darkProfile = profile.mode == PageColorMode::Normal ? nullptr : &profile;
-            args.selection = &req.selection;
-            bmp = engine->RenderPage(args);
-        }
-    } else {
-        bmp = RenderViewPage(engine, args, options);
-    }
+    Pixmap* bmp = RenderViewPage(engine, args, options);
     if (RenderWasDropped(cache, req)) {
         // aborted or colors changed mid-render - discard result
         FreePixmap(bmp);
@@ -1650,50 +1485,6 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
 
     req.bmp = bmp;
     req.errorCode = bmp ? 0 : 1;
-
-    if (req.selectionRequest) {
-        if (req.selectionGeneration != AtomicIntGet(&engine->elementsGeneration)) {
-            FreePixmap(bmp);
-            return true;
-        }
-        {
-            ScopedRecursiveMutex lock(&cache->cacheAccess);
-            for (int i = len(cache->selections) - 1; i >= 0; i--) {
-                auto& old = cache->selections[i];
-                if (old.dm == req.dm && old.pageNo == req.pageNo && old.selection.group == req.selection.group) {
-                    FreePixmap(old.bitmap);
-                    VecRemoveAt(cache->selections, i);
-                }
-            }
-            u64 bytes = bmp ? (u64)PixmapByteSize(bmp) : 0;
-            bool budgetLimited = bmp && !PruneSelections(cache, bytes);
-            if (budgetLimited) {
-                FreePixmap(bmp);
-                bmp = nullptr;
-            }
-            RenderCache::SelectionEntry entry;
-            entry.dm = req.dm;
-            entry.pageNo = req.pageNo;
-            entry.rotation = req.rotation;
-            entry.zoom = req.zoom;
-            entry.pageRect = req.pageRect;
-            entry.selection = req.selection;
-            entry.generation = req.selectionGeneration;
-            entry.epoch = req.darkModeEpoch;
-            entry.brightness = req.brightness;
-            entry.contrast = req.contrast;
-            entry.grayscale = req.grayscale;
-            entry.budgetLimited = budgetLimited;
-            entry.bytes = bytes;
-            entry.lastUsed = GetTickCount64();
-            entry.bitmap = bmp;
-            VecAppend(cache->selections, entry);
-        }
-        req.bmp = nullptr;
-        req.renderFinishedCb.Call(&req);
-        ResetTempArena();
-        return true;
-    }
 
     if (bmp) {
         if (RenderWasDropped(cache, req)) {

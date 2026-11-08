@@ -45,7 +45,7 @@ async function checkLigature(disableAA: boolean): Promise<void> {
   writeFileSync(
     join(dir, SETTINGS_FILE),
     `DisableAntiAlias = ${disableAA}\n` +
-      "Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\nDocumentColorsFollowTheme = off\nThemes [\n [\n Name = Selection Test\n TextColor = #000000\n BackgroundColor = #ffffff\n SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n ]\n]\n",
+      "Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\nDocumentColorsFollowTheme = off\nThemes [\n [\n Name = Selection Test\n TextColor = #000000\n BackgroundColor = #ffffff\n SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n TextSelectionColor = #800066cc\n ]\n]\n",
   );
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   try {
@@ -73,7 +73,7 @@ async function checkLigature(disableAA: boolean): Promise<void> {
           if (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2]) changed++;
         }
       if (changed < 10) throw Error(`no-AA selection was not shown: red=${red} changed=${changed}`);
-      console.log(`no-AA selection: ${red ? "object coloring" : "outline"}`);
+      console.log(`no-AA selection overlay: ${changed} changed pixels`);
       return;
     }
     const deadline = Date.now() + 6000 * SLOW_BUILD_FACTOR;
@@ -85,12 +85,12 @@ async function checkLigature(disableAA: boolean): Promise<void> {
       for (let y = 0; y < image.h; y++)
         for (let x = 0; x < image.w; x++) {
           const [r, g, b] = pngPixel(image, x, y);
-          if (r > 180 && g < 80 && b < 80) red++;
+          if (Math.abs(r - 127) <= 2 && Math.abs(g - 178) <= 2 && Math.abs(b - 229) <= 2) red++;
         }
       if (red > 10) break;
       await sleep(50);
     }
-    if (red <= 10) throw new Error(`selected fi ligature has ${red} red pixels`);
+    if (red <= 10) throw new Error(`selected fi ligature has ${red} overlay pixels`);
     const position = String(
       (await client.request(ControlCommand.TestSelectionVars, ["${selectionPosition}"]))[1] ?? "",
     );
@@ -135,9 +135,9 @@ async function checkLigature(disableAA: boolean): Promise<void> {
     for (let y = 0; y < image.h; y++)
       for (let x = 0; x < image.w; x++) {
         const [r, g, b] = pngPixel(image, x, y);
-        if (r > 180 && g < 80 && b < 80) red++;
+        if (Math.abs(r - 127) <= 2 && Math.abs(g - 178) <= 2 && Math.abs(b - 229) <= 2) red++;
       }
-    if (red) throw new Error(`partial ligature unexpectedly recolored ${red} pixels`);
+    if (red <= 10) throw new Error(`partial ligature has only ${red} overlay pixels`);
     let changed = 0;
     for (let y = 0; y < baseline.h; y++)
       for (let x = 0; x < baseline.w; x++) {
@@ -145,7 +145,7 @@ async function checkLigature(disableAA: boolean): Promise<void> {
           b = pngPixel(image, x, y);
         if (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2]) changed++;
       }
-    if (changed < 10) throw Error("partial ligature outline is missing");
+    if (changed < 10) throw Error("partial ligature overlay is missing");
   } finally {
     client.close();
     await killAndWait(proc);

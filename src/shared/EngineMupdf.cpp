@@ -48,7 +48,6 @@ extern "C" {
 #include "EbookBase.h"
 #include "EbookDoc.h"
 #include "Settings.h"
-#include "SelectionGeometry.h"
 #include "EngineMupdf.h"
 
 // A5
@@ -6592,13 +6591,7 @@ struct RouteHints {
     bool strokePattern = false;
     bool type3Font = false;
     bool fillAlpha = false;
-    bool selectionRisk = false;
     bool NeedsScan() const { return strokePattern || (type3Font && fillAlpha); }
-};
-
-enum class RouteScan {
-    Render,
-    Selection
 };
 
 static bool IsType3Font(fz_context* ctx, pdf_obj* font) {
@@ -6606,60 +6599,50 @@ static bool IsType3Font(fz_context* ctx, pdf_obj* font) {
 }
 
 static void FindRouteHints(fz_context* ctx, pdf_obj* resources, const PdfRenderSource& source, RouteHints& hints,
-                           pdf_cycle_list* parent = nullptr, int depth = 0, RouteScan scan = RouteScan::Render) {
+                           pdf_cycle_list* parent = nullptr, int depth = 0) {
     CheckPdfCancel(ctx, &source);
     pdf_cycle_list cycle;
-    if (!resources || (scan == RouteScan::Render ? hints.NeedsScan() : hints.type3Font || hints.selectionRisk) ||
-        pdf_cycle(ctx, &cycle, parent, resources)) {
+    if (!resources || hints.NeedsScan() || pdf_cycle(ctx, &cycle, parent, resources)) {
         return;
     }
     if (depth >= kMaxProbeDepth) {
         fz_throw(ctx, FZ_ERROR_LIMIT, "pattern resource nesting limit");
     }
-    if (scan == RouteScan::Selection && !pdf_is_dict(ctx, resources)) {
-        fz_throw(ctx, FZ_ERROR_FORMAT, "invalid page resources");
-    }
+
     pdf_obj* patterns = pdf_dict_get(ctx, resources, PDF_NAME(Pattern));
     for (int i = 0; i < pdf_dict_len(ctx, patterns); i++) {
         pdf_obj* pattern = pdf_dict_get_val(ctx, patterns, i);
         if (pdf_dict_get_int(ctx, pattern, PDF_NAME(PatternType)) == kTilingPattern &&
             pdf_dict_get_int(ctx, pattern, PDF_NAME(PaintType)) == kUncoloredPattern) {
             hints.strokePattern = true;
-            if (scan == RouteScan::Render) {
-                return;
-            }
+            return;
         }
-        FindRouteHints(ctx, pdf_dict_get(ctx, pattern, PDF_NAME(Resources)), source, hints, &cycle, depth + 1, scan);
+        FindRouteHints(ctx, pdf_dict_get(ctx, pattern, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
     }
     pdf_obj* objects = pdf_dict_get(ctx, resources, PDF_NAME(XObject));
     for (int i = 0; i < pdf_dict_len(ctx, objects); i++) {
         pdf_obj* object = pdf_dict_get_val(ctx, objects, i);
         if (pdf_name_eq(ctx, pdf_dict_get(ctx, object, PDF_NAME(Subtype)), PDF_NAME(Form))) {
-            FindRouteHints(ctx, pdf_dict_get(ctx, object, PDF_NAME(Resources)), source, hints, &cycle, depth + 1, scan);
+            FindRouteHints(ctx, pdf_dict_get(ctx, object, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
         }
     }
     pdf_obj* fonts = pdf_dict_get(ctx, resources, PDF_NAME(Font));
     for (int i = 0; i < pdf_dict_len(ctx, fonts); i++) {
         pdf_obj* font = pdf_dict_get_val(ctx, fonts, i);
         hints.type3Font |= IsType3Font(ctx, font);
-        FindRouteHints(ctx, pdf_dict_get(ctx, font, PDF_NAME(Resources)), source, hints, &cycle, depth + 1, scan);
+        FindRouteHints(ctx, pdf_dict_get(ctx, font, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
     }
     pdf_obj* states = pdf_dict_get(ctx, resources, PDF_NAME(ExtGState));
     for (int i = 0; i < pdf_dict_len(ctx, states); i++) {
         pdf_obj* state = pdf_dict_get_val(ctx, states, i);
-        if (scan == RouteScan::Selection) {
-            pdf_obj* blend = pdf_dict_get(ctx, state, PDF_NAME(BM));
-            pdf_obj* smask = pdf_dict_get(ctx, state, PDF_NAME(SMask));
-            hints.selectionRisk |= blend && !pdf_name_eq(ctx, blend, PDF_NAME(Normal));
-            hints.selectionRisk |= smask && !pdf_name_eq(ctx, smask, PDF_NAME(None));
-        }
+
         pdf_obj* alpha = pdf_dict_get(ctx, state, PDF_NAME(ca));
         hints.fillAlpha |= pdf_is_number(ctx, alpha) && pdf_to_real(ctx, alpha) < 1;
         pdf_obj* mask = pdf_dict_get(ctx, pdf_dict_get(ctx, state, PDF_NAME(SMask)), PDF_NAME(G));
         pdf_obj* font = pdf_array_get(ctx, pdf_dict_get(ctx, state, PDF_NAME(Font)), 0);
         hints.type3Font |= IsType3Font(ctx, font);
-        FindRouteHints(ctx, pdf_dict_get(ctx, mask, PDF_NAME(Resources)), source, hints, &cycle, depth + 1, scan);
-        FindRouteHints(ctx, pdf_dict_get(ctx, font, PDF_NAME(Resources)), source, hints, &cycle, depth + 1, scan);
+        FindRouteHints(ctx, pdf_dict_get(ctx, mask, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
+        FindRouteHints(ctx, pdf_dict_get(ctx, font, PDF_NAME(Resources)), source, hints, &cycle, depth + 1);
     }
 }
 
@@ -6667,42 +6650,6 @@ static bool NeedsRouteScan(fz_context* ctx, pdf_obj* resources, const PdfRenderS
     RouteHints hints;
     FindRouteHints(ctx, resources, source, hints);
     return hints.NeedsScan();
-}
-
-PdfSelectionSafety PdfPageSelectionSafetyMupdf(PdfRenderProbe* state, const PdfRenderSource& source, int pageNo) {
-    if (!state) {
-        return PdfSelectionSafety::Unknown;
-    }
-    state->source = source;
-    fz_context* ctx = state->ctx;
-    pdf_page* page = nullptr;
-    PdfSelectionSafety result = PdfSelectionSafety::Unknown;
-    fz_var(page);
-    fz_var(result);
-    fz_try(ctx) {
-        page = pdf_load_page(ctx, state->doc, pageNo - 1);
-        RouteHints hints;
-        FindRouteHints(ctx, pdf_page_resources(ctx, page), source, hints, nullptr, 0, RouteScan::Selection);
-        for (pdf_annot* annot = pdf_first_annot(ctx, page); annot; annot = pdf_next_annot(ctx, annot)) {
-            FindRouteHints(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, annot), PDF_NAME(Resources)), source, hints,
-                           nullptr, 0, RouteScan::Selection);
-        }
-        for (pdf_annot* widget = pdf_first_widget(ctx, page); widget; widget = pdf_next_widget(ctx, widget)) {
-            FindRouteHints(ctx, pdf_dict_get(ctx, pdf_annot_ap(ctx, widget), PDF_NAME(Resources)), source, hints,
-                           nullptr, 0, RouteScan::Selection);
-        }
-        CheckPdfCancel(ctx, &source);
-        result = hints.type3Font || hints.selectionRisk ? PdfSelectionSafety::Unsupported : PdfSelectionSafety::Safe;
-    }
-    fz_always(ctx) {
-        fz_drop_page(ctx, (fz_page*)page);
-    }
-    fz_catch(ctx) {
-        fz_ignore_error(ctx);
-    }
-    state->source.isCanceled = nullptr;
-    state->source.cancelData = nullptr;
-    return result;
 }
 
 // Reuse the parsed document; pages without route hints in their resources need no content scan.
@@ -6934,273 +6881,6 @@ static void ThemePdfWidget(fz_context* ctx, pdf_document* doc, pdf_annot* widget
     fz_catch(ctx) {
         fz_rethrow(ctx);
     }
-}
-
-constexpr int kMaxSplitGlyphs = 100000;
-constexpr size_t kMaxSplitBytes = 64ULL * 1024 * 1024;
-
-struct SplitTextProcessor {
-    pdf_processor super;
-    pdf_document* doc;
-    const PdfRenderSource* source;
-    pdf_font_desc* font;
-    pdf_font_desc* stack[64];
-    int depth;
-    int glyph;
-    int run;
-};
-
-static void SplitTextDrop(fz_context* ctx, pdf_processor* proc) {
-    auto* p = (SplitTextProcessor*)proc;
-    pdf_drop_font(ctx, p->font);
-    for (int i = 0; i < p->depth; i++) {
-        pdf_drop_font(ctx, p->stack[i]);
-    }
-}
-
-static void SplitTextClose(fz_context* ctx, pdf_processor* proc) {
-    auto* p = (SplitTextProcessor*)proc;
-    if (p->depth != 0) {
-        fz_throw(ctx, FZ_ERROR_GENERIC, "unbalanced selection graphics stack");
-    }
-    pdf_close_processor(ctx, proc->chain);
-}
-
-static void SplitTextSave(fz_context* ctx, pdf_processor* proc) {
-    auto* p = (SplitTextProcessor*)proc;
-    CheckPdfCancel(ctx, p->source);
-    if (p->depth == dimof(p->stack)) {
-        fz_throw(ctx, FZ_ERROR_GENERIC, "selection graphics stack too deep");
-    }
-    p->stack[p->depth++] = p->font ? pdf_keep_font(ctx, p->font) : nullptr;
-    proc->chain->op_q(ctx, proc->chain);
-}
-
-static void SplitTextRestore(fz_context* ctx, pdf_processor* proc) {
-    auto* p = (SplitTextProcessor*)proc;
-    CheckPdfCancel(ctx, p->source);
-    if (!p->depth) {
-        fz_throw(ctx, FZ_ERROR_GENERIC, "unbalanced selection graphics stack");
-    }
-    pdf_drop_font(ctx, p->font);
-    p->font = p->stack[--p->depth];
-    proc->chain->op_Q(ctx, proc->chain);
-}
-
-static void SplitTextFont(fz_context* ctx, pdf_processor* proc, const char* name, pdf_font_desc* font, float size) {
-    auto* p = (SplitTextProcessor*)proc;
-    CheckPdfCancel(ctx, p->source);
-    pdf_font_desc* kept = font ? pdf_keep_font(ctx, font) : nullptr;
-    pdf_drop_font(ctx, p->font);
-    p->font = kept;
-    proc->chain->op_Tf(ctx, proc->chain, name, font, size);
-}
-
-static void SplitTextString(fz_context* ctx, SplitTextProcessor* p, char* str, size_t len) {
-    if (!p->font || !p->font->font || p->font->font->t3procs || !p->font->encoding || p->font->wmode) {
-        fz_throw(ctx, FZ_ERROR_GENERIC, "unsupported selection font");
-    }
-    auto* pos = (unsigned char*)str;
-    auto* end = pos + len;
-    while (pos < end) {
-        if (p->source->isCanceled && p->source->isCanceled(p->source->cancelData)) {
-            fz_throw(ctx, FZ_ERROR_ABORT, "selection canceled");
-        }
-        unsigned int code = 0;
-        int n = pdf_decode_cmap(p->font->encoding, pos, end, &code);
-        if (n <= 0 || pos + n > end) {
-            fz_throw(ctx, FZ_ERROR_GENERIC, "invalid selection character code");
-        }
-        bool valid = false;
-        pdf_cmap* cmap = p->font->encoding;
-        unsigned int rawCode = 0;
-        for (int i = 0; i < n; i++) {
-            rawCode = (rawCode << 8) | pos[i];
-        }
-        for (int i = 0; i < cmap->codespace_len; i++) {
-            auto& range = cmap->codespace[i];
-            valid |= range.n == n && rawCode == code && code >= range.low && code <= range.high;
-        }
-        if (!valid || pdf_lookup_cmap(cmap, code) < 0 || p->glyph >= kMaxSplitGlyphs) {
-            fz_throw(ctx, FZ_ERROR_GENERIC, "unsupported selection character code");
-        }
-        pdf_obj* mark = pdf_new_dict(ctx, p->doc, 3);
-        fz_try(ctx) {
-            pdf_dict_puts_drop(ctx, mark, "SolokGlyphID", pdf_new_int(ctx, p->glyph++));
-            pdf_dict_puts_drop(ctx, mark, "SolokRunID", pdf_new_int(ctx, p->run));
-            pdf_dict_puts_drop(ctx, mark, "SolokCharCode", pdf_new_int(ctx, code));
-            pdf_processor* chain = p->super.chain;
-            chain->op_BDC(ctx, chain, "SolokSelectionGlyph", mark, mark);
-            chain->op_Tj(ctx, chain, (char*)pos, n);
-            chain->op_EMC(ctx, chain);
-        }
-        fz_always(ctx) {
-            pdf_drop_obj(ctx, mark);
-        }
-        fz_catch(ctx) {
-            fz_rethrow(ctx);
-        }
-        pos += n;
-    }
-}
-
-static void SplitTextTj(fz_context* ctx, pdf_processor* proc, char* str, size_t len) {
-    auto* p = (SplitTextProcessor*)proc;
-    CheckPdfCancel(ctx, p->source);
-    if (p->run == INT_MAX) {
-        fz_throw(ctx, FZ_ERROR_LIMIT, "too many selection text runs");
-    }
-    p->run++;
-    SplitTextString(ctx, p, str, len);
-}
-
-static void SplitTextTJ(fz_context* ctx, pdf_processor* proc, pdf_obj* array) {
-    auto* p = (SplitTextProcessor*)proc;
-    CheckPdfCancel(ctx, p->source);
-    if (p->run == INT_MAX || !pdf_is_array(ctx, array)) {
-        fz_throw(ctx, FZ_ERROR_GENERIC, "invalid selection text array");
-    }
-    p->run++;
-    int count = pdf_array_len(ctx, array);
-    for (int i = 0; i < count; i++) {
-        CheckPdfCancel(ctx, p->source);
-        pdf_obj* item = pdf_array_get(ctx, array, i);
-        if (pdf_is_string(ctx, item)) {
-            SplitTextString(ctx, p, pdf_to_str_buf(ctx, item), pdf_to_str_len(ctx, item));
-        } else if (pdf_is_number(ctx, item)) {
-            pdf_obj* one = pdf_new_array(ctx, p->doc, 1);
-            fz_try(ctx) {
-                pdf_array_push(ctx, one, item);
-                proc->chain->op_TJ(ctx, proc->chain, one);
-            }
-            fz_always(ctx) {
-                pdf_drop_obj(ctx, one);
-            }
-            fz_catch(ctx) {
-                fz_rethrow(ctx);
-            }
-        } else {
-            fz_throw(ctx, FZ_ERROR_GENERIC, "invalid selection text adjustment");
-        }
-    }
-}
-
-static void SplitTextQuote(fz_context* ctx, pdf_processor* proc, char* str, size_t len) {
-    proc->chain->op_Tstar(ctx, proc->chain);
-    SplitTextTj(ctx, proc, str, len);
-}
-
-static void SplitTextDoubleQuote(fz_context* ctx, pdf_processor* proc, float wordSpace, float charSpace, char* str,
-                                 size_t len) {
-    proc->chain->op_Tw(ctx, proc->chain, wordSpace);
-    proc->chain->op_Tc(ctx, proc->chain, charSpace);
-    proc->chain->op_Tstar(ctx, proc->chain);
-    SplitTextTj(ctx, proc, str, len);
-}
-
-static pdf_processor* NewSplitTextFilter(fz_context* ctx, pdf_document* doc, pdf_processor* chain, int, fz_matrix,
-                                         pdf_filter_options*, void* opaque) {
-    auto* p = (SplitTextProcessor*)pdf_new_processor(ctx, sizeof(SplitTextProcessor));
-    p->super.chain = chain;
-    p->super.close_processor = SplitTextClose;
-    p->super.drop_processor = SplitTextDrop;
-    p->super.op_q = SplitTextSave;
-    p->super.op_Q = SplitTextRestore;
-    p->super.op_Tf = SplitTextFont;
-    p->super.op_Tj = SplitTextTj;
-    p->super.op_TJ = SplitTextTJ;
-    p->super.op_squote = SplitTextQuote;
-    p->super.op_dquote = SplitTextDoubleQuote;
-    p->doc = doc;
-    p->source = (const PdfRenderSource*)opaque;
-    return &p->super;
-}
-
-static void SplitPdfWrite(fz_context* ctx, void* state, const void* data, size_t size) {
-    auto* output = (ThemePdfOutput*)state;
-    size_t current = fz_buffer_storage(ctx, output->buffer, nullptr);
-    if (size > kMaxSplitBytes || current > kMaxSplitBytes - size) {
-        fz_throw(ctx, FZ_ERROR_LIMIT, "selection snapshot too large");
-    }
-    ThemePdfWrite(ctx, state, data, size);
-}
-
-PdfThemeSnapshot PdfSplitPageMupdf(const PdfRenderSource& source, Str password, int pageNo) {
-    if (!source.read || source.size > kMaxSplitBytes) {
-        return {};
-    }
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
-    if (!ctx) {
-        return {};
-    }
-    pdf_document* doc = nullptr;
-    fz_stream* stream = nullptr;
-    pdf_page* page = nullptr;
-    fz_buffer* buffer = nullptr;
-    fz_output* writer = nullptr;
-    PdfStreamInput input{&source};
-    ThemePdfOutput output{};
-    PdfThemeSnapshot result;
-    fz_var(doc);
-    fz_var(stream);
-    fz_var(page);
-    fz_var(buffer);
-    fz_var(writer);
-    fz_var(result);
-    fz_try(ctx) {
-        stream = fz_new_stream(ctx, &input, PdfStreamNext, nullptr);
-        stream->seek = PdfStreamSeek;
-        doc = pdf_open_document_with_stream(ctx, stream);
-        if ((pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, CStrTemp(password))) || pageNo < 1 ||
-            pageNo > pdf_count_pages(ctx, doc) || doc->file_size != source.size) {
-            fz_throw(ctx, FZ_ERROR_GENERIC, "cannot split selection page");
-        }
-        bool incremental = pdf_can_be_saved_incrementally(ctx, doc);
-        page = pdf_load_page(ctx, doc, pageNo - 1);
-        pdf_filter_factory filters[2]{};
-        filters[0].filter = NewSplitTextFilter;
-        filters[0].options = (void*)&source;
-        pdf_filter_options options{};
-        options.filters = filters;
-        pdf_filter_page_contents(ctx, doc, page, &options);
-        CheckPdfCancel(ctx, &source);
-        buffer = fz_new_buffer(ctx, 0);
-        output = {buffer, incremental ? doc->file_size : 0, &source};
-        writer = fz_new_output(ctx, 0, &output, SplitPdfWrite, nullptr, nullptr);
-        writer->tell = ThemePdfTell;
-        if (incremental) {
-            pdf_write_snapshot_suffix(ctx, doc, writer);
-        } else {
-            pdf_write_options write{};
-            write.do_encrypt = PDF_ENCRYPT_KEEP;
-            write.dont_regenerate_id = 1;
-            write.permissions = -1;
-            pdf_write_document(ctx, doc, writer, &write);
-        }
-        fz_close_output(ctx, writer);
-        CheckPdfCancel(ctx, &source);
-        unsigned char* bytes = nullptr;
-        size_t size = fz_buffer_storage(ctx, buffer, &bytes);
-        if (size && size <= INT_MAX) {
-            result.data = str::Dup(Str((char*)bytes, (int)size));
-            result.layout = incremental ? PdfThemeLayout::Incremental : PdfThemeLayout::Rewritten;
-            result.status = result.data.s ? PdfThemeStatus::Ready : PdfThemeStatus::Failed;
-        }
-    }
-    fz_always(ctx) {
-        fz_drop_output(ctx, writer);
-        fz_drop_buffer(ctx, buffer);
-        fz_drop_page(ctx, (fz_page*)page);
-        pdf_drop_document(ctx, doc);
-        fz_drop_stream(ctx, stream);
-    }
-    fz_catch(ctx) {
-        str::Free(result.data);
-        result = {};
-        fz_ignore_error(ctx);
-    }
-    fz_drop_context(ctx);
-    return result;
 }
 
 PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, int pageNo,
@@ -9006,367 +8686,6 @@ static void UnhookAbortedDevices(fz_device* drawDev, fz_device* outer) {
     }
 }
 
-struct SelectionDrawDevice {
-    fz_device super;
-    Vec<GlyphBox>* glyphs;
-    Vec<TextSel>* logical;
-    Vec<int>* selected;
-    const SelectionRenderArgs* selection;
-    fz_cookie* cookie;
-    fz_rect rect;
-    float margin;
-    int matched;
-    int textRuns;
-    bool invalid;
-};
-
-static void SelectionFillText(fz_context* ctx, fz_device* dev, const fz_text* text, fz_matrix m, fz_colorspace* cs,
-                              const float* color, float alpha, fz_color_params params) {
-    auto* d = (SelectionDrawDevice*)dev;
-    Vec<int>& selected = *d->selected;
-    VecReset(selected);
-    int itemIndex = 0;
-    for (fz_text_span* span = text->head; span; span = span->next) {
-        for (int i = 0; i < span->len; i++, itemIndex++) {
-            if (RenderAborted(d->cookie)) {
-                fz_throw(ctx, FZ_ERROR_ABORT, "selection rendering canceled");
-            }
-            fz_text_item* item = &span->items[i];
-            fz_point origin = fz_transform_point(fz_make_point(item->x, item->y), m);
-            int match = -1;
-            bool selectedSpace = false;
-            for (int j = d->selection->startGlyph; j < d->selection->endGlyph; j++) {
-                fz_stext_char* c = (*d->glyphs)[j].source;
-                if (c && c->font == span->font && c->c == item->ucs && fabsf(c->origin.x - origin.x) < 0.01f &&
-                    fabsf(c->origin.y - origin.y) < 0.01f) {
-                    if (c->c != ' ' && !fz_is_empty_rect(fz_intersect_rect(fz_rect_from_quad(c->quad), d->rect))) {
-                        if (match >= 0) {
-                            d->invalid = true;
-                        }
-                        match = j;
-                    } else if (c->c == ' ' &&
-                               !fz_is_empty_rect(fz_intersect_rect(fz_rect_from_quad(c->quad), d->rect))) {
-                        selectedSpace = true;
-                    }
-                }
-            }
-            if (match >= 0 && item->gid >= 0) {
-                for (int j = 0; j < len(*d->glyphs); j++) {
-                    fz_stext_char* c = (*d->glyphs)[j].source;
-                    if (j != match && c && c->font == span->font && c->c == item->ucs &&
-                        fabsf(c->origin.x - origin.x) < 0.01f && fabsf(c->origin.y - origin.y) < 0.01f) {
-                        d->invalid = true;
-                    }
-                }
-                fz_matrix glyph = span->trm;
-                glyph.e = item->x;
-                glyph.f = item->y;
-                fz_rect ink = fz_bound_glyph(ctx, span->font, item->gid, fz_concat(glyph, m));
-                if (fz_is_empty_rect(ink)) {
-                    continue;
-                }
-                bool contained = false;
-                for (const TextSel& row : *d->logical) {
-                    fz_rect bounds = ToFzRect(ToRectF(row.rect));
-                    contained |= ink.x0 >= bounds.x0 - d->margin && ink.y0 >= bounds.y0 - d->margin &&
-                                 ink.x1 <= bounds.x1 + d->margin && ink.y1 <= bounds.y1 + d->margin;
-                }
-                if (!contained) {
-                    d->invalid = true;
-                }
-                VecAppend(selected, itemIndex);
-                d->matched++;
-            } else if (selectedSpace && item->gid >= 0) {
-                fz_matrix glyph = span->trm;
-                glyph.e = item->x;
-                glyph.f = item->y;
-                if (!fz_is_empty_rect(fz_bound_glyph(ctx, span->font, item->gid, fz_concat(glyph, m)))) {
-                    d->invalid = true;
-                }
-            }
-        }
-    }
-    if (len(selected) == 0) {
-        fz_fill_text(ctx, dev->passthrough, text, m, cs, color, alpha, params);
-        return;
-    }
-    d->textRuns++;
-    if (alpha != 1) {
-        d->invalid = true;
-    }
-    float bg[] = {GetRed(d->selection->background) / 255.f, GetGreen(d->selection->background) / 255.f,
-                  GetBlue(d->selection->background) / 255.f};
-    float fg[] = {GetRed(d->selection->foreground) / 255.f, GetGreen(d->selection->foreground) / 255.f,
-                  GetBlue(d->selection->foreground) / 255.f};
-    if (d->textRuns == 1) {
-        fz_path* path = fz_new_path(ctx);
-        fz_try(ctx) {
-            fz_moveto(ctx, path, d->rect.x0, d->rect.y0);
-            fz_lineto(ctx, path, d->rect.x1, d->rect.y0);
-            fz_lineto(ctx, path, d->rect.x1, d->rect.y1);
-            fz_lineto(ctx, path, d->rect.x0, d->rect.y1);
-            fz_closepath(ctx, path);
-            fz_fill_path(ctx, dev->passthrough, path, 0, fz_identity, fz_device_rgb(ctx), bg,
-                         d->selection->alpha / 255.f, fz_default_color_params);
-        }
-        fz_always(ctx) {
-            fz_drop_path(ctx, path);
-        }
-        fz_catch(ctx) {
-            fz_rethrow(ctx);
-        }
-    }
-
-    itemIndex = 0;
-    int selectedIndex = 0;
-    for (fz_text_span* span = text->head; span; span = span->next) {
-        fz_text_span single = *span;
-        single.next = nullptr;
-        single.len = 1;
-        fz_text one{};
-        one.head = one.tail = &single;
-        for (int i = 0; i < span->len; i++, itemIndex++) {
-            single.items = &span->items[i];
-            bool hit = selectedIndex < len(selected) && selected[selectedIndex] == itemIndex;
-            if (hit) {
-                selectedIndex++;
-            }
-            fz_fill_text(ctx, dev->passthrough, &one, m, hit ? fz_device_rgb(ctx) : cs, hit ? fg : color, alpha,
-                         params);
-        }
-    }
-}
-
-static void SelectionClipPath(fz_context* ctx, fz_device* dev, const fz_path* path, int evenOdd, fz_matrix m,
-                              fz_rect scissor) {
-    ((SelectionDrawDevice*)dev)->invalid = true;
-    fz_clip_path(ctx, dev->passthrough, path, evenOdd, m, scissor);
-}
-
-static void SelectionFillPath(fz_context* ctx, fz_device* dev, const fz_path* path, int evenOdd, fz_matrix m,
-                              fz_colorspace* cs, const float* color, float alpha, fz_color_params params) {
-    auto* d = (SelectionDrawDevice*)dev;
-    d->invalid |= d->textRuns > 0;
-    fz_fill_path(ctx, dev->passthrough, path, evenOdd, m, cs, color, alpha, params);
-}
-
-static void SelectionStrokePath(fz_context* ctx, fz_device* dev, const fz_path* path, const fz_stroke_state* stroke,
-                                fz_matrix m, fz_colorspace* cs, const float* color, float alpha,
-                                fz_color_params params) {
-    auto* d = (SelectionDrawDevice*)dev;
-    d->invalid |= d->textRuns > 0;
-    fz_stroke_path(ctx, dev->passthrough, path, stroke, m, cs, color, alpha, params);
-}
-
-static void SelectionShade(fz_context* ctx, fz_device* dev, fz_shade* shade, fz_matrix m, float alpha,
-                           fz_color_params params) {
-    auto* d = (SelectionDrawDevice*)dev;
-    d->invalid |= d->textRuns > 0;
-    fz_fill_shade(ctx, dev->passthrough, shade, m, alpha, params);
-}
-
-static void SelectionImage(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix m, float alpha,
-                           fz_color_params params) {
-    auto* d = (SelectionDrawDevice*)dev;
-    d->invalid |= d->textRuns > 0;
-    fz_fill_image(ctx, dev->passthrough, image, m, alpha, params);
-}
-
-static void SelectionImageMask(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix m, fz_colorspace* cs,
-                               const float* color, float alpha, fz_color_params params) {
-    auto* d = (SelectionDrawDevice*)dev;
-    d->invalid |= d->textRuns > 0;
-    fz_fill_image_mask(ctx, dev->passthrough, image, m, cs, color, alpha, params);
-}
-
-static void SelectionClipText(fz_context* ctx, fz_device* dev, const fz_text* text, fz_matrix m, fz_rect scissor) {
-    ((SelectionDrawDevice*)dev)->invalid = true;
-    fz_clip_text(ctx, dev->passthrough, text, m, scissor);
-}
-
-static void SelectionClipStrokePath(fz_context* ctx, fz_device* dev, const fz_path* path, const fz_stroke_state* stroke,
-                                    fz_matrix m, fz_rect scissor) {
-    ((SelectionDrawDevice*)dev)->invalid = true;
-    fz_clip_stroke_path(ctx, dev->passthrough, path, stroke, m, scissor);
-}
-
-static void SelectionClipStrokeText(fz_context* ctx, fz_device* dev, const fz_text* text, const fz_stroke_state* stroke,
-                                    fz_matrix m, fz_rect scissor) {
-    ((SelectionDrawDevice*)dev)->invalid = true;
-    fz_clip_stroke_text(ctx, dev->passthrough, text, stroke, m, scissor);
-}
-
-static void SelectionClipImage(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix m, fz_rect scissor) {
-    ((SelectionDrawDevice*)dev)->invalid = true;
-    fz_clip_image_mask(ctx, dev->passthrough, image, m, scissor);
-}
-
-static void SelectionMask(fz_context* ctx, fz_device* dev, fz_rect area, int luminosity, fz_colorspace* cs,
-                          const float* color, fz_color_params params) {
-    ((SelectionDrawDevice*)dev)->invalid = true;
-    fz_begin_mask(ctx, dev->passthrough, area, luminosity, cs, color, params);
-}
-
-static int SelectionTile(fz_context* ctx, fz_device* dev, fz_rect area, fz_rect view, float xstep, float ystep,
-                         fz_matrix m, int id, int docId) {
-    ((SelectionDrawDevice*)dev)->invalid = true;
-    return fz_begin_tile_tid(ctx, dev->passthrough, area, view, xstep, ystep, m, id, docId);
-}
-
-static void SelectionStrokeText(fz_context* ctx, fz_device* dev, const fz_text* text, const fz_stroke_state* stroke,
-                                fz_matrix m, fz_colorspace* cs, const float* color, float alpha,
-                                fz_color_params params) {
-    ((SelectionDrawDevice*)dev)->invalid = true;
-    fz_stroke_text(ctx, dev->passthrough, text, stroke, m, cs, color, alpha, params);
-}
-
-static void SelectionGroup(fz_context* ctx, fz_device* dev, fz_rect area, fz_colorspace* cs, int isolated, int knockout,
-                           int blendmode, float alpha) {
-    ((SelectionDrawDevice*)dev)->invalid = true;
-    fz_begin_group(ctx, dev->passthrough, area, cs, isolated, knockout, blendmode, alpha);
-}
-
-static void SelectionMeta(fz_context* ctx, fz_device* dev, fz_metatext meta, const char* text) {
-    if (meta == FZ_METATEXT_ACTUALTEXT) {
-        ((SelectionDrawDevice*)dev)->invalid = true;
-    }
-    fz_begin_metatext(ctx, dev->passthrough, meta, text);
-}
-
-static Pixmap* RenderSelectionPage(EngineMupdf* engine, FzPageInfo* info, RenderPageArgs& args, fz_cookie* cookie) {
-    const SelectionRenderArgs& selection = *args.selection;
-    if (!args.pageRect || !isfinite(args.zoom) || args.zoom <= 0 || selection.startGlyph < 0 ||
-        selection.endGlyph <= selection.startGlyph || args.target != RenderTarget::View || engine->hideAnnotations) {
-        return nullptr;
-    }
-    int textLen = 0;
-    Rect* coords = nullptr;
-    QuadF* quads = nullptr;
-    Str original = engine->GetTextForPage(args.pageNo, &textLen, &coords, &quads);
-    if (!coords || selection.endGlyph > textLen) {
-        return nullptr;
-    }
-    Vec<TextSel> logical;
-    FillSelectionRects(&logical, args.pageNo, coords, textLen, selection.startGlyph,
-                       selection.endGlyph - selection.startGlyph, engine->PageMediabox(args.pageNo).Round(), quads);
-    for (const TextSel& row : logical) {
-        if (row.quad.IsRotated()) {
-            return nullptr;
-        }
-    }
-    fz_context* ctx = engine->Ctx();
-    ScopedMutex renderScope(&engine->renderLock);
-    ScopedRecursiveMutex docScope(&engine->docLock);
-    fz_page* page = info->page;
-    if (!page) {
-        return nullptr;
-    }
-    fz_stext_page* stext = nullptr;
-    fz_display_list* list = nullptr;
-    fz_pixmap* pix = nullptr;
-    fz_device* dev = nullptr;
-    Pixmap* result = nullptr;
-    Vec<GlyphBox> glyphs;
-    Vec<int> selectedItems;
-    Str extracted{};
-    fz_var(stext);
-    fz_var(list);
-    fz_var(pix);
-    fz_var(dev);
-    fz_var(result);
-    fz_try(ctx) {
-        fz_stext_options opts = NewTextPageOptions();
-        stext = NewStextPage(ctx, page, &opts, cookie, StextRun::WholePage);
-        extracted = FzTextPageToUtf8(stext, nullptr, nullptr, &glyphs);
-        if (!str::Eq(original, extracted) || selection.endGlyph > len(glyphs)) {
-            fz_throw(ctx, FZ_ERROR_GENERIC, "selection text mismatch");
-        }
-        int expected = 0;
-        fz_rect rect = ToFzRect(*args.pageRect);
-        for (int i = selection.startGlyph; i < selection.endGlyph; i++) {
-            fz_stext_char* c = glyphs[i].source;
-            if (!c || c->c == ' ' || fz_is_empty_rect(fz_intersect_rect(fz_rect_from_quad(c->quad), rect))) {
-                continue;
-            }
-            if (!c->font || c->font->t3procs || !(c->flags & FZ_STEXT_FILLED) ||
-                (c->flags & (FZ_STEXT_SYNTHETIC | FZ_STEXT_STROKED | FZ_STEXT_CLIPPED))) {
-                fz_throw(ctx, FZ_ERROR_GENERIC, "unsupported selected glyph");
-            }
-            expected++;
-        }
-        if (expected == 0) {
-            fz_throw(ctx, FZ_ERROR_GENERIC, "empty selection");
-        }
-        list = GetOrBuildPageDisplayList(info, ctx);
-        if (!list) {
-            fz_throw(ctx, FZ_ERROR_GENERIC, "missing display list");
-        }
-        fz_matrix ctm = engine->viewctm(page, args.zoom, args.rotation);
-        fz_irect bounds = fz_round_rect(fz_transform_rect(rect, ctm));
-        pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), bounds, nullptr, 1);
-        ClearRenderedPagePixmap(ctx, pix, args);
-        dev = fz_new_draw_device(ctx, ctm, pix);
-        if (engine->disableAntiAlias) {
-            fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
-        }
-        auto* selected = fz_new_derived_passthrough_device(ctx, dev, SelectionDrawDevice);
-        fz_drop_device(ctx, dev);
-        dev = &selected->super;
-        selected->glyphs = &glyphs;
-        selected->logical = &logical;
-        selected->selected = &selectedItems;
-        selected->selection = &selection;
-        selected->cookie = cookie;
-        selected->rect = rect;
-        selected->margin = 1.f / args.zoom;
-        selected->super.fill_text = SelectionFillText;
-        selected->super.fill_path = SelectionFillPath;
-        selected->super.stroke_path = SelectionStrokePath;
-        selected->super.fill_shade = SelectionShade;
-        selected->super.fill_image = SelectionImage;
-        selected->super.fill_image_mask = SelectionImageMask;
-        selected->super.clip_path = SelectionClipPath;
-        selected->super.clip_stroke_path = SelectionClipStrokePath;
-        selected->super.clip_text = SelectionClipText;
-        selected->super.clip_stroke_text = SelectionClipStrokeText;
-        selected->super.clip_image_mask = SelectionClipImage;
-        selected->super.stroke_text = SelectionStrokeText;
-        selected->super.begin_mask = SelectionMask;
-        selected->super.begin_group = SelectionGroup;
-        selected->super.begin_tile = SelectionTile;
-        selected->super.begin_metatext = SelectionMeta;
-        dev = PdfDrawWrap(ctx, dev, args.darkProfile, ctm, bounds);
-        fz_run_display_list(ctx, list, dev, fz_identity, rect, cookie);
-        if (!RenderAborted(cookie)) {
-            fz_close_device(ctx, dev);
-            if (!selected->invalid && selected->matched == expected && selected->textRuns > 0) {
-                bool skipPalette = args.transparentBackdrop ||
-                                   (args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages);
-                result = NewPixmapFromFzPixmap(ctx, pix, skipPalette);
-                MarkTransparentBackdropPixmap(result, args.transparentBackdrop);
-            }
-        } else {
-            UnhookAbortedDevices(nullptr, dev);
-        }
-    }
-    fz_always(ctx) {
-        str::Free(extracted);
-        if (RenderAborted(cookie)) {
-            UnhookAbortedDevices(nullptr, dev);
-        }
-        fz_drop_device(ctx, dev);
-        fz_drop_pixmap(ctx, pix);
-        fz_drop_display_list(ctx, list);
-        fz_drop_stext_page(ctx, stext);
-    }
-    fz_catch(ctx) {
-        fz_ignore_error(ctx);
-        FreePixmap(result);
-        result = nullptr;
-    }
-    return result;
-}
-
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
                     const DarkModeProfile* profile, PdfRenderParts parts, RenderTarget target,
@@ -9483,12 +8802,6 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
 
     // like the AA level, min line width is per-thread-context state
     CadMinLineWidthScope cadMinLineWidth(ctx, zoom, CadEnhanceActive(), cadHairlineVector);
-    if (args.selection) {
-        if (CadEnhanceActive()) {
-            return nullptr;
-        }
-        return RenderSelectionPage(this, pageInfo, args, fzcookie);
-    }
 
     // The "View" rendering (no Print, no hideAnnotations) is what
     // fz_new_display_list_from_page produces; safe to cache and re-run lock-free.

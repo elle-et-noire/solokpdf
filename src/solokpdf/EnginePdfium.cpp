@@ -10,7 +10,6 @@
 #include "DocProperties.h"
 #include "EngineBase.h"
 #include "EngineAll.h"
-#include "SelectionGeometry.h"
 #include "Annotation.h"
 #include "Settings.h"
 #include "SumatraConfig.h"
@@ -67,131 +66,132 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
     return password;
 }
 
-#define PDFIUM_API(X)                                                                                            \
-    X(FPDF_InitLibraryWithConfig)                                                                                \
-    X(FPDF_DestroyLibrary)                                                                                       \
-    X(FPDF_GetDefaultSystemFontInfo)                                                                             \
-    X(FPDF_SetSystemFontInfo)                                                                                    \
-    X(FPDF_FreeDefaultSystemFontInfo)                                                                            \
-    X(FPDF_LoadCustomDocument)                                                                                   \
-    X(FPDF_LoadMemDocument)                                                                                      \
-    X(FPDF_CloseDocument)                                                                                        \
-    X(FPDF_GetLastError)                                                                                         \
-    X(FPDF_GetPageCount)                                                                                         \
-    X(FPDF_GetDocPermissions)                                                                                    \
-    X(FPDF_GetDocUserPermissions)                                                                                \
-    X(FPDF_GetSecurityHandlerRevision)                                                                           \
-    X(FPDF_GetFileVersion)                                                                                       \
-    X(FPDF_GetPageSizeByIndexF)                                                                                  \
-    X(FPDF_LoadPage)                                                                                             \
-    X(FPDF_ClosePage)                                                                                            \
-    X(FPDFPage_GetRotation)                                                                                      \
-    X(FPDFPage_SetRotation)                                                                                      \
-    X(FPDF_PageToDevice)                                                                                         \
-    X(FPDFPage_CountObjects)                                                                                     \
-    X(FPDFPage_GetObject)                                                                                        \
-    X(FPDFPage_InsertObjectAtIndex)                                                                              \
-    X(FPDFPageObj_CreateNewRect)                                                                                 \
-    X(FPDFPageObj_Destroy)                                                                                       \
-    X(FPDFPageObj_SetFillColor)                                                                                  \
-    X(FPDFPageObj_GetFillColor)                                                                                  \
-    X(FPDFPath_SetDrawMode)                                                                                      \
-    X(FPDFTextObj_GetTextRenderMode)                                                                              \
-    X(FPDFPageObj_GetType)                                                                                       \
-    X(FPDFPageObj_GetMatrix)                                                                                     \
-    X(FPDFPageObj_GetBounds)                                                                                     \
-    X(FPDFPageObj_CountMarks)                                                                                    \
-    X(FPDFPageObj_GetMark)                                                                                       \
-    X(FPDFPageObjMark_GetName)                                                                                   \
-    X(FPDFPageObjMark_GetParamIntValue)                                                                          \
-    X(FPDFPageObjMark_CountParams)                                                                               \
-    X(FPDFPageObjMark_GetParamKey)                                                                               \
-    X(FPDFPageObj_GetClipPath)                                                                                   \
-    X(FPDFClipPath_CountPaths)                                                                                   \
-    X(FPDFClipPath_CountPathSegments)                                                                            \
-    X(FPDFClipPath_GetPathSegment)                                                                               \
-    X(FPDFPathSegment_GetPoint)                                                                                  \
-    X(FPDFPathSegment_GetType)                                                                                   \
-    X(FPDFPath_CountSegments)                                                                                    \
-    X(FPDFPath_GetPathSegment)                                                                                   \
-    X(FPDFPage_GetMediaBox)                                                                                      \
-    X(FPDFPage_GetCropBox)                                                                                       \
-    X(FPDFPage_GetBleedBox)                                                                                      \
-    X(FPDFPage_GetTrimBox)                                                                                       \
-    X(FPDFPage_GetArtBox)                                                                                        \
-    X(FPDFFormObj_CountObjects)                                                                                  \
-    X(FPDFFormObj_GetObject)                                                                                     \
-    X(FPDFImageObj_GetImageMetadata)                                                                             \
-    X(FPDFImageObj_GetImagePixelSize)                                                                            \
-    X(FPDFImageObj_GetBitmap)                                                                                    \
-    X(FPDFBitmap_GetFormat)                                                                                      \
-    X(FPDFBitmap_GetBuffer)                                                                                      \
-    X(FPDFBitmap_GetWidth)                                                                                       \
-    X(FPDFBitmap_GetHeight)                                                                                      \
-    X(FPDFBitmap_GetStride)                                                                                      \
-    X(FPDFBitmap_CreateEx)                                                                                       \
-    X(FPDFBitmap_Destroy)                                                                                        \
-    X(FPDF_RenderPageBitmap_Start)                                                                               \
-    X(FPDF_RenderPage_Continue)                                                                                  \
-    X(FPDF_RenderPage_Close)                                                                                     \
-    X(FPDFText_LoadPage)                                                                                         \
-    X(FPDFText_ClosePage)                                                                                        \
-    X(FPDFText_CountChars)                                                                                       \
-    X(FPDFText_GetUnicode)                                                                                       \
-    X(FPDFText_IsGenerated)                                                                                      \
-    X(FPDFText_IsHyphen)                                                                                         \
-    X(FPDFText_GetCharBox)                                                                                       \
-    X(FPDFText_GetLooseCharBox)                                                                                  \
-    X(FPDFText_GetMatrix)                                                                                        \
-    X(FPDFText_GetCharOrigin)                                                                                    \
-    X(FPDFText_GetFontSize)                                                                                      \
-    X(FPDFText_GetTextObject)                                                                                    \
-    X(FPDFTextObj_GetFont)                                                                                       \
-    X(FPDFTextObj_GetFontSize)                                                                                   \
-    X(FPDFFont_GetAscent)                                                                                        \
-    X(FPDFFont_GetDescent)                                                                                       \
-    X(FPDFFont_GetGlyphWidth)                                                                                    \
-    X(FPDFFont_GetBaseFontName)                                                                                  \
-    X(FPDFLink_Enumerate)                                                                                        \
-    X(FPDFLink_GetAnnotRect)                                                                                     \
-    X(FPDFLink_GetDest)                                                                                          \
-    X(FPDFLink_GetAction)                                                                                        \
-    X(FPDFLink_GetAnnot)                                                                                         \
-    X(FPDFLink_CountQuadPoints)                                                                                  \
-    X(FPDFLink_GetQuadPoints)                                                                                    \
-    X(FPDFAnnot_GetStringValue)                                                                                  \
-    X(FPDFPage_GetAnnotCount)                                                                                    \
-    X(FPDFPage_GetAnnot)                                                                                         \
-    X(FPDFAnnot_GetSubtype)                                                                                      \
-    X(FPDFAnnot_GetFlags)                                                                                        \
-    X(FPDFAnnot_GetRect)                                                                                         \
-    X(FPDFAnnot_HasKey)                                                                                          \
-    X(FPDFAnnot_GetValueType)                                                                                    \
-    X(FPDFAnnot_GetFormFieldType)                                                                                \
-    X(FPDFAnnot_GetFormFieldFlags)                                                                               \
-    X(FPDFAnnot_GetFormFieldValue)                                                                               \
-    X(FPDFAnnot_GetAP)                                                                                           \
-    X(FPDFAnnot_GetFormFieldAlternateName)                                                                       \
-    X(FPDFPage_CloseAnnot)                                                                                       \
-    X(FPDFAction_GetType)                                                                                        \
-    X(FPDFAction_GetDest)                                                                                        \
-    X(FPDFAction_GetURIPath)                                                                                     \
-    X(FPDFAction_GetFilePath)                                                                                    \
-    X(FPDFDest_GetDestPageIndex)                                                                                 \
-    X(FPDFDest_GetLocationInPage)                                                                                \
-    X(FPDFDest_GetView)                                                                                          \
-    X(FPDF_GetNamedDestByName)                                                                                   \
-    X(FPDFBookmark_GetFirstChild)                                                                                \
-    X(FPDFBookmark_GetNextSibling)                                                                               \
-    X(FPDFBookmark_GetTitle)                                                                                     \
-    X(FPDFBookmark_GetColor)                                                                                     \
-    X(FPDFBookmark_GetStyle)                                                                                     \
-    X(FPDFBookmark_GetDest)                                                                                      \
-    X(FPDFBookmark_GetAction)                                                                                    \
-    X(FPDF_GetMetaText) X(FPDF_GetPageLabel) X(FPDF_GetFormType) X(FPDFDoc_GetJavaScriptActionCount)             \
-        X(FPDF_GetSignatureCount) X(FPDFDoc_GetAttachmentCount) X(FPDFDOC_InitFormFillEnvironment)               \
-            X(FPDFDOC_ExitFormFillEnvironment) X(FORM_OnAfterLoadPage) X(FORM_OnBeforeClosePage) X(FPDF_FFLDraw) \
-                X(FPDF_GetSignatureObject) X(FPDFSignatureObj_GetContents)
+#define PDFIUM_API(X)                                                                                               \
+    X(FPDF_InitLibraryWithConfig)                                                                                   \
+    X(FPDF_DestroyLibrary)                                                                                          \
+    X(FPDF_GetDefaultSystemFontInfo)                                                                                \
+    X(FPDF_SetSystemFontInfo)                                                                                       \
+    X(FPDF_FreeDefaultSystemFontInfo)                                                                               \
+    X(FPDF_LoadCustomDocument)                                                                                      \
+    X(FPDF_LoadMemDocument)                                                                                         \
+    X(FPDF_CloseDocument)                                                                                           \
+    X(FPDF_GetLastError)                                                                                            \
+    X(FPDF_GetPageCount)                                                                                            \
+    X(FPDF_GetDocPermissions)                                                                                       \
+    X(FPDF_GetDocUserPermissions)                                                                                   \
+    X(FPDF_GetSecurityHandlerRevision)                                                                              \
+    X(FPDF_GetFileVersion)                                                                                          \
+    X(FPDF_GetPageSizeByIndexF)                                                                                     \
+    X(FPDF_LoadPage)                                                                                                \
+    X(FPDF_ClosePage)                                                                                               \
+    X(FPDFPage_GetRotation)                                                                                         \
+    X(FPDFPage_SetRotation)                                                                                         \
+    X(FPDF_PageToDevice)                                                                                            \
+    X(FPDFPage_CountObjects)                                                                                        \
+    X(FPDFPage_GetObject)                                                                                           \
+    X(FPDFPage_InsertObjectAtIndex)                                                                                 \
+    X(FPDFPageObj_CreateNewRect)                                                                                    \
+    X(FPDFPageObj_Destroy)                                                                                          \
+    X(FPDFPageObj_SetFillColor)                                                                                     \
+    X(FPDFPageObj_GetFillColor)                                                                                     \
+    X(FPDFPath_SetDrawMode)                                                                                         \
+    X(FPDFTextObj_GetTextRenderMode)                                                                                \
+    X(FPDFPageObj_GetType)                                                                                          \
+    X(FPDFPageObj_GetMatrix)                                                                                        \
+    X(FPDFPageObj_GetBounds)                                                                                        \
+    X(FPDFPageObj_CountMarks)                                                                                       \
+    X(FPDFPageObj_GetMark)                                                                                          \
+    X(FPDFPageObjMark_GetName)                                                                                      \
+    X(FPDFPageObjMark_GetParamIntValue)                                                                             \
+    X(FPDFPageObjMark_CountParams)                                                                                  \
+    X(FPDFPageObjMark_GetParamKey)                                                                                  \
+    X(FPDFPageObj_GetClipPath)                                                                                      \
+    X(FPDFClipPath_CountPaths)                                                                                      \
+    X(FPDFClipPath_CountPathSegments)                                                                               \
+    X(FPDFClipPath_GetPathSegment)                                                                                  \
+    X(FPDFPathSegment_GetPoint)                                                                                     \
+    X(FPDFPathSegment_GetType)                                                                                      \
+    X(FPDFPath_CountSegments)                                                                                       \
+    X(FPDFPath_GetPathSegment)                                                                                      \
+    X(FPDFPage_GetMediaBox)                                                                                         \
+    X(FPDFPage_GetCropBox)                                                                                          \
+    X(FPDFPage_GetBleedBox)                                                                                         \
+    X(FPDFPage_GetTrimBox)                                                                                          \
+    X(FPDFPage_GetArtBox)                                                                                           \
+    X(FPDFFormObj_CountObjects)                                                                                     \
+    X(FPDFFormObj_GetObject)                                                                                        \
+    X(FPDFImageObj_GetImageMetadata)                                                                                \
+    X(FPDFImageObj_GetImagePixelSize)                                                                               \
+    X(FPDFImageObj_GetBitmap)                                                                                       \
+    X(FPDFBitmap_GetFormat)                                                                                         \
+    X(FPDFBitmap_GetBuffer)                                                                                         \
+    X(FPDFBitmap_GetWidth)                                                                                          \
+    X(FPDFBitmap_GetHeight)                                                                                         \
+    X(FPDFBitmap_GetStride)                                                                                         \
+    X(FPDFBitmap_CreateEx)                                                                                          \
+    X(FPDFBitmap_Destroy)                                                                                           \
+    X(FPDF_RenderPageBitmap_Start)                                                                                  \
+    X(FPDF_RenderPage_Continue)                                                                                     \
+    X(FPDF_RenderPage_Close)                                                                                        \
+    X(FPDFText_LoadPage)                                                                                            \
+    X(FPDFText_ClosePage)                                                                                           \
+    X(FPDFText_CountChars)                                                                                          \
+    X(FPDFText_GetUnicode)                                                                                          \
+    X(FPDFText_IsGenerated)                                                                                         \
+    X(FPDFText_IsHyphen)                                                                                            \
+    X(FPDFText_GetCharBox)                                                                                          \
+    X(FPDFText_GetLooseCharBox)                                                                                     \
+    X(FPDFText_GetMatrix)                                                                                           \
+    X(FPDFText_GetCharOrigin)                                                                                       \
+    X(FPDFText_GetFontSize)                                                                                         \
+    X(FPDFText_GetTextObject)                                                                                       \
+    X(FPDFTextObj_GetFont)                                                                                          \
+    X(FPDFTextObj_GetFontSize)                                                                                      \
+    X(FPDFFont_GetAscent)                                                                                           \
+    X(FPDFFont_GetDescent)                                                                                          \
+    X(FPDFFont_GetGlyphWidth)                                                                                       \
+    X(FPDFFont_GetBaseFontName)                                                                                     \
+    X(FPDFLink_Enumerate)                                                                                           \
+    X(FPDFLink_GetAnnotRect)                                                                                        \
+    X(FPDFLink_GetDest)                                                                                             \
+    X(FPDFLink_GetAction)                                                                                           \
+    X(FPDFLink_GetAnnot)                                                                                            \
+    X(FPDFLink_CountQuadPoints)                                                                                     \
+    X(FPDFLink_GetQuadPoints)                                                                                       \
+    X(FPDFAnnot_GetStringValue)                                                                                     \
+    X(FPDFPage_GetAnnotCount)                                                                                       \
+    X(FPDFPage_GetAnnot)                                                                                            \
+    X(FPDFAnnot_GetSubtype)                                                                                         \
+    X(FPDFAnnot_GetFlags)                                                                                           \
+    X(FPDFAnnot_GetRect)                                                                                            \
+    X(FPDFAnnot_HasKey)                                                                                             \
+    X(FPDFAnnot_GetValueType)                                                                                       \
+    X(FPDFAnnot_GetFormFieldType)                                                                                   \
+    X(FPDFAnnot_GetFormFieldFlags)                                                                                  \
+    X(FPDFAnnot_GetFormFieldValue)                                                                                  \
+    X(FPDFAnnot_GetAP)                                                                                              \
+    X(FPDFAnnot_GetFormFieldAlternateName)                                                                          \
+    X(FPDFPage_CloseAnnot)                                                                                          \
+    X(FPDFAction_GetType)                                                                                           \
+    X(FPDFAction_GetDest)                                                                                           \
+    X(FPDFAction_GetURIPath)                                                                                        \
+    X(FPDFAction_GetFilePath)                                                                                       \
+    X(FPDFDest_GetDestPageIndex)                                                                                    \
+    X(FPDFDest_GetLocationInPage)                                                                                   \
+    X(FPDFDest_GetView)                                                                                             \
+    X(FPDF_GetNamedDestByName)                                                                                      \
+    X(FPDFBookmark_GetFirstChild)                                                                                   \
+    X(FPDFBookmark_GetNextSibling)                                                                                  \
+    X(FPDFBookmark_GetTitle)                                                                                        \
+    X(FPDFBookmark_GetColor)                                                                                        \
+    X(FPDFBookmark_GetStyle)                                                                                        \
+    X(FPDFBookmark_GetDest)                                                                                         \
+    X(FPDFBookmark_GetAction)                                                                                       \
+    X(FPDF_GetMetaText)                                                                                             \
+    X(FPDF_GetPageLabel)                                                                                            \
+    X(FPDF_GetFormType) X(FPDFDoc_GetJavaScriptActionCount) X(FPDF_GetSignatureCount) X(FPDFDoc_GetAttachmentCount) \
+        X(FPDFDOC_InitFormFillEnvironment) X(FPDFDOC_ExitFormFillEnvironment) X(FORM_OnAfterLoadPage)               \
+            X(FORM_OnBeforeClosePage) X(FPDF_FFLDraw) X(FPDF_GetSignatureObject) X(FPDFSignatureObj_GetContents)
 
 Kind kindEnginePdfium = "enginePdfium";
 constexpr int kUnresolvedAttachment = -1;
@@ -761,31 +761,6 @@ class EnginePdfium : public EngineBase {
         if (count) {
             memcpy(data, access->suffix.s + (offset - sourceSize), count);
         }
-        return 1;
-    }
-
-    static int ReadSplitSource(void* user, u32 offset, u8* data, u32 count) {
-        return ReadThemeBlock(user, offset, data, count);
-    }
-
-    struct SplitAccess {
-        ThemeAccess* source;
-        Str suffix;
-        u32 sourceSize;
-    };
-
-    static int ReadSplitBlock(void* user, unsigned long offset, unsigned char* data, unsigned long count) {
-        auto* access = (SplitAccess*)user;
-        u64 total = (u64)access->sourceSize + (u32)len(access->suffix);
-        if (offset > total || count > total - offset) return 0;
-        if (offset < access->sourceSize) {
-            u32 first = std::min((u32)count, access->sourceSize - (u32)offset);
-            if (!ReadThemeBlock(access->source, offset, data, first)) return 0;
-            offset += first;
-            data += first;
-            count -= first;
-        }
-        if (count) memcpy(data, access->suffix.s + (offset - access->sourceSize), count);
         return 1;
     }
 
@@ -2597,736 +2572,26 @@ class EnginePdfium : public EngineBase {
         return check.route;
     }
 
-    struct SelectionObject {
-        FPDF_PAGEOBJECT object = nullptr;
-        FS_RECTF bounds{};
-        int position = -1;
-        unsigned int alpha = 0;
-    };
-
-    bool HasActualText(FPDF_PAGEOBJECT object) {
-        constexpr unsigned long kMaxKeyBytes = 4096;
-        int count = gPdfium.FPDFPageObj_CountMarks(object);
-        if (count < 0) {
-            return true;
-        }
-        for (int i = 0; i < count; i++) {
-            FPDF_PAGEOBJECTMARK mark = gPdfium.FPDFPageObj_GetMark(object, i);
-            int params = mark ? gPdfium.FPDFPageObjMark_CountParams(mark) : -1;
-            if (params < 0) {
-                return true;
-            }
-            for (int j = 0; j < params; j++) {
-                unsigned long bytes = 0;
-                if (!gPdfium.FPDFPageObjMark_GetParamKey(mark, j, nullptr, 0, &bytes) || bytes < sizeof(WCHAR) ||
-                    bytes > kMaxKeyBytes || bytes % sizeof(WCHAR)) {
-                    return true;
-                }
-                WCHAR* key = AllocArrayTemp<WCHAR>(bytes / sizeof(WCHAR));
-                unsigned long actual = 0;
-                if (!key || !gPdfium.FPDFPageObjMark_GetParamKey(mark, j, (FPDF_WCHAR*)key, bytes, &actual) ||
-                    actual != bytes || key[bytes / sizeof(WCHAR) - 1] != 0 ||
-                    wstr::Eq(WStr(key, (int)(bytes / sizeof(WCHAR) - 1)), WStrL(L"ActualText"))) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    bool SplitMark(FPDF_PAGEOBJECT object, int& glyph, int& run, int* code = nullptr) {
-        int count = gPdfium.FPDFPageObj_CountMarks(object);
-        FPDF_PAGEOBJECTMARK mark = count > 0 ? gPdfium.FPDFPageObj_GetMark(object, count - 1) : nullptr;
-        WCHAR name[32]{};
-        unsigned long bytes = 0;
-        return mark && gPdfium.FPDFPageObjMark_GetName(mark, (FPDF_WCHAR*)name, sizeof(name), &bytes) &&
-               bytes == sizeof(L"SolokSelectionGlyph") && wcscmp(name, L"SolokSelectionGlyph") == 0 &&
-               gPdfium.FPDFPageObjMark_GetParamIntValue(mark, "SolokGlyphID", &glyph) &&
-               gPdfium.FPDFPageObjMark_GetParamIntValue(mark, "SolokRunID", &run) &&
-               (!code || gPdfium.FPDFPageObjMark_GetParamIntValue(mark, "SolokCharCode", code));
-    }
-
-    bool SameTextFont(FPDF_PAGEOBJECT a, FPDF_PAGEOBJECT b) {
-        FPDF_FONT af = gPdfium.FPDFTextObj_GetFont(a), bf = gPdfium.FPDFTextObj_GetFont(b);
-        char aname[256]{}, bname[256]{};
-        float asize = 0, bsize = 0;
-        size_t alen = af ? gPdfium.FPDFFont_GetBaseFontName(af, aname, sizeof(aname)) : 0;
-        size_t blen = bf ? gPdfium.FPDFFont_GetBaseFontName(bf, bname, sizeof(bname)) : 0;
-        return alen && alen == blen && alen <= sizeof(aname) && memcmp(aname, bname, alen) == 0 &&
-               gPdfium.FPDFTextObj_GetFontSize(a, &asize) && gPdfium.FPDFTextObj_GetFontSize(b, &bsize) &&
-               asize == bsize;
-    }
-
-    bool PrepareSplitSelection(FPDF_PAGE originalPage, FPDF_PAGE splitPage, int pageNo, RectF pageRect, float zoom,
-                               const SelectionRenderArgs& sel, Vec<SelectionObject>& objects, Vec<FS_RECTF>& chosen,
-                               Vec<RectF>& clips, PdfiumCookie* cookie) {
-        PdfiumPage* info = Page(pageNo);
-        if (!info || sel.startGlyph < 0 || sel.endGlyph <= sel.startGlyph) {
-            return false;
-        }
-        bool needsEditor = false;
-        PageText original = TextLocked(pageNo, &needsEditor);
-        Vec<int> indices;
-        PageText extracted = ReadPageText(originalPage, info, nullptr, &indices, cookie);
-        bool same = !needsEditor && original.nCodepoints == extracted.nCodepoints &&
-                    str::Eq(original.text, extracted.text) && len(indices) == extracted.nCodepoints &&
-                    sel.endGlyph <= original.nCodepoints;
-        if (same) {
-            for (int i = 0; i < original.nCodepoints; i++) {
-                if (original.coords[i] != extracted.coords[i]) {
-                    same = false;
-                    break;
-                }
-            }
-        }
-        if (same) {
-            Vec<TextSel> parts;
-            Rect media = RectF(0, 0, info->size.dx, info->size.dy).Round();
-            FillSelectionRects(&parts, pageNo, original.coords, original.nCodepoints, sel.startGlyph,
-                               sel.endGlyph - sel.startGlyph, media, original.quads);
-            for (TextSel& part : parts) {
-                if (!part.quad.IsEmpty()) {
-                    same = false;
-                    break;
-                }
-                VecAppend(clips, ToRectF(part.rect));
-            }
-        }
-        FreePageText(&original);
-        FreePageText(&extracted);
-        if (!same) {
-            return false;
-        }
-        FPDF_TEXTPAGE oldText = gPdfium.FPDFText_LoadPage(originalPage);
-        FPDF_TEXTPAGE newText = gPdfium.FPDFText_LoadPage(splitPage);
-        if (!oldText || !newText) {
-            if (oldText) gPdfium.FPDFText_ClosePage(oldText);
-            if (newText) gPdfium.FPDFText_ClosePage(newText);
-            return false;
-        }
-        struct Run {
-            int id;
-            int position;
-            FS_RECTF bounds;
-        };
-        Vec<Run> runs;
-        int oldCount = gPdfium.FPDFText_CountChars(oldText), newCount = gPdfium.FPDFText_CountChars(newText);
-        bool ok = oldCount > 0 && newCount > 0;
-        struct SplitGlyph {
-            FPDF_PAGEOBJECT object;
-            float x, y;
-            int glyph, run, code, position;
-            int textStart, textCount;
-        };
-        Vec<SplitGlyph> glyphs;
-        Vec<uintptr_t> originalObjects;
-        Vec<u8> pickedGlyphs;
-        Vec<u8> selectedChars;
-        int originalCount = gPdfium.FPDFPage_CountObjects(originalPage);
-        int splitCount = gPdfium.FPDFPage_CountObjects(splitPage);
-        if (splitCount <= 0 || !VecResize(pickedGlyphs, splitCount) || !VecResize(selectedChars, oldCount)) ok = false;
-        if (ok) {
-            memset(pickedGlyphs.els, 0, len(pickedGlyphs));
-            memset(selectedChars.els, 0, len(selectedChars));
-            for (int i = sel.startGlyph; i < sel.endGlyph; i++) {
-                int raw = indices[i];
-                if (raw >= 0 && raw < oldCount) selectedChars[raw] = 1;
-            }
-        }
-        for (int i = 0; i < originalCount; i++) {
-            VecAppend(originalObjects, (uintptr_t)gPdfium.FPDFPage_GetObject(originalPage, i));
-        }
-        VecSort(originalObjects, [](const uintptr_t* a, const uintptr_t* b) { return (*a > *b) - (*a < *b); });
-        for (int i = 0; i < splitCount && ok; i++) {
-            if (PdfiumCookie::IsCanceled(cookie)) {
-                ok = false;
-                break;
-            }
-            FPDF_PAGEOBJECT object = gPdfium.FPDFPage_GetObject(splitPage, i);
-            FS_MATRIX matrix{};
-            int glyph, run, code;
-            if (object && gPdfium.FPDFPageObj_GetType(object) == FPDF_PAGEOBJ_TEXT &&
-                SplitMark(object, glyph, run, &code) && gPdfium.FPDFPageObj_GetMatrix(object, &matrix)) {
-                SplitGlyph item{object, matrix.e, matrix.f, glyph, run, code, i, -1, 0};
-                VecAppend(glyphs, item);
-            }
-        }
-        VecSort(glyphs, [](const SplitGlyph* a, const SplitGlyph* b) {
-            uintptr_t x = (uintptr_t)a->object, y = (uintptr_t)b->object;
-            return (x > y) - (x < y);
-        });
-        for (int i = 0; i < newCount && ok; i++) {
-            if (PdfiumCookie::IsCanceled(cookie)) {
-                ok = false;
-                break;
-            }
-            uintptr_t object = (uintptr_t)gPdfium.FPDFText_GetTextObject(newText, i);
-            int lo = 0, hi = len(glyphs);
-            while (lo < hi) {
-                int mid = lo + (hi - lo) / 2;
-                if ((uintptr_t)glyphs[mid].object < object)
-                    lo = mid + 1;
-                else
-                    hi = mid;
-            }
-            if (lo < len(glyphs) && (uintptr_t)glyphs[lo].object == object) {
-                SplitGlyph& item = glyphs[lo];
-                if (!item.textCount) item.textStart = i;
-                if (item.textStart + item.textCount != i) item.textStart = -1;
-                item.textCount++;
-            }
-        }
-        VecSort(glyphs, [](const SplitGlyph* a, const SplitGlyph* b) { return (a->x > b->x) - (a->x < b->x); });
-        for (int i = sel.startGlyph; i < sel.endGlyph && ok; i++) {
-            if (PdfiumCookie::IsCanceled(cookie)) {
-                ok = false;
-                break;
-            }
-            int index = indices[i];
-            if (index < 0 || (index < oldCount && gPdfium.FPDFText_IsGenerated(oldText, index) == 1)) {
-                continue;
-            }
-            if (index >= oldCount) {
-                ok = false;
-                break;
-            }
-            unsigned int unicode = gPdfium.FPDFText_GetUnicode(oldText, index);
-            FPDF_PAGEOBJECT oldObj = gPdfium.FPDFText_GetTextObject(oldText, index);
-            double ox, oy, left, right, bottom, top;
-            FS_RECTF loose{};
-            FS_MATRIX matrix{};
-            int lo = 0, hi = len(originalObjects);
-            while (lo < hi) {
-                int mid = lo + (hi - lo) / 2;
-                if (originalObjects[mid] < (uintptr_t)oldObj)
-                    lo = mid + 1;
-                else
-                    hi = mid;
-            }
-            unsigned int oldR, oldG, oldB, oldAlpha;
-            FPDF_CLIPPATH oldClip = oldObj ? gPdfium.FPDFPageObj_GetClipPath(oldObj) : nullptr;
-            if (!oldObj || lo >= len(originalObjects) || originalObjects[lo] != (uintptr_t)oldObj ||
-                HasActualText(oldObj) || (oldClip && gPdfium.FPDFClipPath_CountPaths(oldClip) > 0) ||
-                gPdfium.FPDFTextObj_GetTextRenderMode(oldObj) != FPDF_TEXTRENDERMODE_FILL ||
-                !gPdfium.FPDFPageObj_GetFillColor(oldObj, &oldR, &oldG, &oldB, &oldAlpha) || oldAlpha != 255 ||
-                !gPdfium.FPDFText_GetCharOrigin(oldText, index, &ox, &oy) ||
-                !gPdfium.FPDFText_GetCharBox(oldText, index, &left, &right, &bottom, &top) ||
-                !gPdfium.FPDFText_GetLooseCharBox(oldText, index, &loose) ||
-                !gPdfium.FPDFText_GetMatrix(oldText, index, &matrix) || matrix.b != 0 || matrix.c != 0) {
-                ok = false;
-                break;
-            }
-            RectF ink = ToPageRect(originalPage, info, left, bottom, right, top);
-            RectF visibleInk = ink;
-            visibleInk.Inflate(1.0f / zoom, 1.0f / zoom);
-            if (visibleInk.Intersect(pageRect).IsEmpty()) continue;
-            auto sameCluster = [&](int other) {
-                if (other < 0 || other >= oldCount || gPdfium.FPDFText_GetTextObject(oldText, other) != oldObj)
-                    return false;
-                double x, y, l, r, b, t;
-                return gPdfium.FPDFText_GetCharOrigin(oldText, other, &x, &y) && x == ox && y == oy &&
-                       gPdfium.FPDFText_GetCharBox(oldText, other, &l, &r, &b, &t) && l == left && r == right &&
-                       b == bottom && t == top;
-            };
-            int clusterStart = index, clusterEnd = index + 1;
-            constexpr int kMaxClusterChars = 16;
-            while (clusterStart > 0 && sameCluster(clusterStart - 1) && index - clusterStart < kMaxClusterChars)
-                clusterStart--;
-            while (clusterEnd < oldCount && sameCluster(clusterEnd) && clusterEnd - clusterStart <= kMaxClusterChars)
-                clusterEnd++;
-            if (clusterEnd - clusterStart > kMaxClusterChars || (clusterStart > 0 && sameCluster(clusterStart - 1)) ||
-                (clusterEnd < oldCount && sameCluster(clusterEnd))) {
-                ok = false;
-                break;
-            }
-            for (int raw = clusterStart; raw < clusterEnd; raw++) {
-                if (!selectedChars[raw]) ok = false;
-            }
-            if (!ok) break;
-            int matches = 0, sameOrigin = 0, glyph = -1, run = -1;
-            FPDF_PAGEOBJECT match = nullptr;
-            lo = 0;
-            hi = len(glyphs);
-            while (lo < hi) {
-                int mid = lo + (hi - lo) / 2;
-                if (glyphs[mid].x < ox - 0.001)
-                    lo = mid + 1;
-                else
-                    hi = mid;
-            }
-            for (int j = lo; j < len(glyphs) && glyphs[j].x <= ox + 0.001; j++) {
-                if (PdfiumCookie::IsCanceled(cookie)) {
-                    ok = false;
-                    break;
-                }
-                SplitGlyph& item = glyphs[j];
-                if (fabs(item.y - oy) > 0.001 || !SameTextFont(oldObj, item.object)) continue;
-                sameOrigin++;
-                bool textMatches = unicode == 32 && clusterEnd - clusterStart == 1 && item.code == 32;
-                if (!textMatches && item.textStart >= 0 && item.textCount == clusterEnd - clusterStart) {
-                    textMatches = true;
-                    for (int n = 0; n < item.textCount; n++) {
-                        if (gPdfium.FPDFText_GetUnicode(newText, item.textStart + n) !=
-                            gPdfium.FPDFText_GetUnicode(oldText, clusterStart + n)) {
-                            textMatches = false;
-                            break;
-                        }
-                    }
-                }
-                if (!textMatches) continue;
-                matches++;
-                match = item.object;
-                glyph = item.glyph;
-                run = item.run;
-            }
-            if (!ok || matches != 1 || sameOrigin != 1 || glyph < 0) {
-                ok = false;
-                break;
-            }
-            if (glyph >= len(pickedGlyphs)) {
-                ok = false;
-                break;
-            }
-            if (pickedGlyphs[glyph]) {
-                if (clusterEnd - clusterStart > 1) continue;
-                ok = false;
-                break;
-            }
-            pickedGlyphs[glyph] = 1;
-            FS_RECTF inkBox{(float)left, (float)top, (float)right, (float)bottom};
-            VecAppend(chosen, inkBox);
-            bool contained = false;
-            for (RectF clip : clips) {
-                clip.Inflate(1.0f / zoom, 1.0f / zoom);
-                contained |= ink.x >= clip.x && ink.y >= clip.y && ink.x + ink.dx <= clip.x + clip.dx &&
-                             ink.y + ink.dy <= clip.y + clip.dy;
-            }
-            FPDF_CLIPPATH clip = gPdfium.FPDFPageObj_GetClipPath(match);
-            unsigned int r, g, b, alpha;
-            if (!contained || (clip && gPdfium.FPDFClipPath_CountPaths(clip) > 0) ||
-                gPdfium.FPDFTextObj_GetTextRenderMode(match) != FPDF_TEXTRENDERMODE_FILL ||
-                !gPdfium.FPDFPageObj_GetFillColor(match, &r, &g, &b, &alpha) || alpha != 255) {
-                ok = false;
-                break;
-            }
-            SelectionObject object;
-            object.object = match;
-            object.alpha = alpha;
-            VecAppend(objects, object);
-            Run* found = nullptr;
-            for (Run& item : runs)
-                if (item.id == run) {
-                    found = &item;
-                    break;
-                }
-            if (!found) {
-                constexpr int kMaxSelectionRuns = 512;
-                if (len(runs) >= kMaxSelectionRuns) {
-                    ok = false;
-                    break;
-                }
-                Run item{run, -1, loose};
-                VecAppend(runs, item);
-            } else {
-                found->bounds.left = std::min(found->bounds.left, loose.left);
-                found->bounds.right = std::max(found->bounds.right, loose.right);
-                found->bounds.top = std::max(found->bounds.top, loose.top);
-                found->bounds.bottom = std::min(found->bounds.bottom, loose.bottom);
-            }
-        }
-        gPdfium.FPDFText_ClosePage(oldText);
-        gPdfium.FPDFText_ClosePage(newText);
-        if (!ok || len(objects) == 0) return false;
-        int count = gPdfium.FPDFPage_CountObjects(splitPage);
-        for (int i = 0; i < count; i++) {
-            if (PdfiumCookie::IsCanceled(cookie)) return false;
-            FPDF_PAGEOBJECT object = gPdfium.FPDFPage_GetObject(splitPage, i);
-            int glyph, run;
-            if (!object || !SplitMark(object, glyph, run)) continue;
-            for (Run& item : runs)
-                if (item.id == run && item.position < 0) item.position = i;
-        }
-        for (int i = 0; i < len(runs); i++) {
-            if (runs[i].position < 0) return false;
-            for (int j = i + 1; j < len(runs); j++) {
-                FS_RECTF a = runs[i].bounds, b = runs[j].bounds;
-                if (a.left < b.right && b.left < a.right && a.bottom < b.top && b.bottom < a.top) return false;
-                if (runs[i].position < runs[j].position) {
-                    Run tmp = runs[i];
-                    runs[i] = runs[j];
-                    runs[j] = tmp;
-                }
-            }
-        }
-        for (Run& item : runs) {
-            FS_RECTF box = item.bounds;
-            FPDF_PAGEOBJECT rect =
-                gPdfium.FPDFPageObj_CreateNewRect(box.left, box.bottom, box.right - box.left, box.top - box.bottom);
-            if (!rect) return false;
-            ok = gPdfium.FPDFPageObj_SetFillColor(rect, GetRed(sel.background), GetGreen(sel.background),
-                                                  GetBlue(sel.background), sel.alpha) &&
-                 gPdfium.FPDFPath_SetDrawMode(rect, FPDF_FILLMODE_WINDING, 0);
-            if (!ok || !gPdfium.FPDFPage_InsertObjectAtIndex(splitPage, rect, item.position)) {
-                gPdfium.FPDFPageObj_Destroy(rect);
-                return false;
-            }
-        }
-        return true;
-    }
-
-    bool PrepareSelection(FPDF_PAGE page, int pageNo, RectF pageRect, float zoom, const SelectionRenderArgs& sel,
-                          Vec<SelectionObject>& objects, Vec<FS_RECTF>& chosen, Vec<FS_RECTF>& others,
-                          Vec<RectF>& clips, PdfiumCookie* cookie) {
-        PdfiumPage* info = Page(pageNo);
-        if (!info || sel.startGlyph < 0 || sel.endGlyph <= sel.startGlyph) {
-            return false;
-        }
-        bool needsEditor = false;
-        PageText original = TextLocked(pageNo, &needsEditor);
-        Vec<int> indices;
-        PageText extracted = ReadPageText(page, info, nullptr, &indices, cookie);
-        bool same = !needsEditor && str::Eq(original.text, extracted.text) && len(indices) == extracted.nCodepoints;
-        if (same && original.nCodepoints == extracted.nCodepoints) {
-            for (int i = 0; i < original.nCodepoints; i++) {
-                if (original.coords[i] != extracted.coords[i]) {
-                    same = false;
-                    break;
-                }
-            }
-        } else {
-            same = false;
-        }
-        if (same && sel.endGlyph <= original.nCodepoints) {
-            Vec<TextSel> parts;
-            Rect media = RectF(0, 0, info->size.dx, info->size.dy).Round();
-            FillSelectionRects(&parts, pageNo, original.coords, original.nCodepoints, sel.startGlyph,
-                               sel.endGlyph - sel.startGlyph, media, original.quads);
-            for (TextSel& part : parts) {
-                if (!part.quad.IsEmpty()) {
-                    same = false;
-                    break;
-                }
-                VecAppend(clips, ToRectF(part.rect));
-            }
-        }
-        FreePageText(&original);
-        FreePageText(&extracted);
-        if (!same || sel.endGlyph > len(indices)) {
-            return false;
-        }
-
-        FPDF_TEXTPAGE text = gPdfium.FPDFText_LoadPage(page);
-        if (!text) {
-            return false;
-        }
-        Vec<u8> picked;
-        int countChars = gPdfium.FPDFText_CountChars(text);
-        if (countChars <= 0 || !VecResize(picked, countChars)) {
-            gPdfium.FPDFText_ClosePage(text);
-            return false;
-        }
-        memset(picked.els, 0, len(picked));
-        bool ok = true;
-        for (int i = sel.startGlyph; i < sel.endGlyph && ok; i++) {
-            if (PdfiumCookie::IsCanceled(cookie)) {
-                ok = false;
-                break;
-            }
-            int index = indices[i];
-            if (index < 0) {
-                continue;
-            }
-            if (index >= countChars) {
-                ok = false;
-                break;
-            }
-            if (gPdfium.FPDFText_IsGenerated(text, index) == 1) {
-                continue;
-            }
-            FPDF_PAGEOBJECT current = gPdfium.FPDFText_GetTextObject(text, index);
-            FS_RECTF box{};
-            FS_MATRIX matrix{};
-            double left, right, bottom, top;
-            if (!current || !gPdfium.FPDFText_GetLooseCharBox(text, index, &box) ||
-                !gPdfium.FPDFText_GetMatrix(text, index, &matrix) || matrix.b != 0 || matrix.c != 0 ||
-                !gPdfium.FPDFText_GetCharBox(text, index, &left, &right, &bottom, &top)) {
-                ok = false;
-                break;
-            }
-            RectF ink = ToPageRect(page, info, left, bottom, right, top);
-            FS_RECTF inkBox{};
-            inkBox.left = (float)left;
-            inkBox.right = (float)right;
-            inkBox.bottom = (float)bottom;
-            inkBox.top = (float)top;
-            VecAppend(chosen, inkBox);
-            picked[index] = 1;
-            if (ink.Intersect(pageRect).IsEmpty()) {
-                continue;
-            }
-            bool contained = false;
-            float margin = 1.0f / zoom;
-            for (RectF clip : clips) {
-                clip.Inflate(margin, margin);
-                contained |= ink.x >= clip.x && ink.y >= clip.y && ink.x + ink.dx <= clip.x + clip.dx &&
-                             ink.y + ink.dy <= clip.y + clip.dy;
-            }
-            if (!contained) {
-                ok = false;
-                break;
-            }
-            SelectionObject* entry = nullptr;
-            for (SelectionObject& candidate : objects) {
-                if (candidate.object == current && candidate.bounds.bottom < box.top &&
-                    box.bottom < candidate.bounds.top) {
-                    entry = &candidate;
-                    break;
-                }
-            }
-            if (!entry) {
-                SelectionObject added;
-                added.object = current;
-                added.bounds = box;
-                VecAppend(objects, added);
-            } else {
-                entry->bounds.left = std::min(entry->bounds.left, box.left);
-                entry->bounds.right = std::max(entry->bounds.right, box.right);
-                entry->bounds.bottom = std::min(entry->bounds.bottom, box.bottom);
-                entry->bounds.top = std::max(entry->bounds.top, box.top);
-            }
-        }
-        for (int index = 0; index < countChars && ok; index++) {
-            if (PdfiumCookie::IsCanceled(cookie)) {
-                ok = false;
-                break;
-            }
-            if (picked[index]) {
-                continue;
-            }
-            FPDF_PAGEOBJECT current = gPdfium.FPDFText_GetTextObject(text, index);
-            bool selectedObject = false;
-            for (SelectionObject& candidate : objects) {
-                selectedObject |= candidate.object == current;
-            }
-            if (selectedObject) {
-                double left, right, bottom, top;
-                if (!gPdfium.FPDFText_GetCharBox(text, index, &left, &right, &bottom, &top)) {
-                    ok = false;
-                    break;
-                }
-                FS_RECTF box{};
-                box.left = (float)left;
-                box.right = (float)right;
-                box.bottom = (float)bottom;
-                box.top = (float)top;
-                VecAppend(others, box);
-            }
-        }
-        gPdfium.FPDFText_ClosePage(text);
-        if (!ok || len(objects) == 0) {
-            return false;
-        }
-        int count = gPdfium.FPDFPage_CountObjects(page);
-        for (SelectionObject& entry : objects) {
-            FPDF_CLIPPATH clip = gPdfium.FPDFPageObj_GetClipPath(entry.object);
-            if (HasActualText(entry.object) || (clip && gPdfium.FPDFClipPath_CountPaths(clip) > 0) ||
-                gPdfium.FPDFTextObj_GetTextRenderMode(entry.object) != FPDF_TEXTRENDERMODE_FILL) {
-                return false;
-            }
-            for (int i = 0; i < count; i++) {
-                if (gPdfium.FPDFPage_GetObject(page, i) == entry.object) {
-                    entry.position = i;
-                    break;
-                }
-            }
-            unsigned int r, g, b;
-            if (entry.position < 0 || !gPdfium.FPDFPageObj_GetFillColor(entry.object, &r, &g, &b, &entry.alpha) ||
-                entry.alpha != 255) {
-                return false;
-            }
-        }
-        for (int i = 0; i < len(objects); i++) {
-            for (int j = i + 1; j < len(objects); j++) {
-                FS_RECTF a = objects[i].bounds, b = objects[j].bounds;
-                if (a.left < b.right && b.left < a.right && a.bottom < b.top && b.bottom < a.top) {
-                    return false;
-                }
-                if (objects[i].position < objects[j].position) {
-                    SelectionObject tmp = objects[i];
-                    objects[i] = objects[j];
-                    objects[j] = tmp;
-                }
-            }
-        }
-        for (SelectionObject& entry : objects) {
-            FS_RECTF box = entry.bounds;
-            FPDF_PAGEOBJECT rect =
-                gPdfium.FPDFPageObj_CreateNewRect(box.left, box.bottom, box.right - box.left, box.top - box.bottom);
-            if (!rect) {
-                return false;
-            }
-            ok = gPdfium.FPDFPageObj_SetFillColor(rect, GetRed(sel.background), GetGreen(sel.background),
-                                                  GetBlue(sel.background), sel.alpha) &&
-                 gPdfium.FPDFPath_SetDrawMode(rect, FPDF_FILLMODE_WINDING, 0);
-            if (!ok || !gPdfium.FPDFPage_InsertObjectAtIndex(page, rect, entry.position)) {
-                gPdfium.FPDFPageObj_Destroy(rect);
-                return false;
-            }
-        }
-        return true;
-    }
-
-    bool GlyphPixelRect(FPDF_PAGE page, FS_RECTF box, int x, int y, int dx, int dy, int rotation, Rect& out) {
-        constexpr int kAntialiasMargin = 1;
-        int left, bottom, right, top;
-        if (!gPdfium.FPDF_PageToDevice(page, x, y, dx, dy, rotation, box.left, box.bottom, &left, &bottom) ||
-            !gPdfium.FPDF_PageToDevice(page, x, y, dx, dy, rotation, box.right, box.top, &right, &top)) {
-            return false;
-        }
-        out = Rect::FromXY(std::min(left, right) - kAntialiasMargin, std::min(top, bottom) - kAntialiasMargin,
-                           std::max(left, right) + kAntialiasMargin + 1, std::max(top, bottom) + kAntialiasMargin + 1);
-        return true;
-    }
-
-    bool SameSelectionPixels(FPDF_PAGE page, Pixmap* original, Pixmap* colored, Vec<FS_RECTF>& chosen,
-                             Vec<FS_RECTF>& others, const Vec<Rect>& clips, int x, int y, int dx, int dy, int rotation,
-                             PdfiumCookie* cookie) {
-        Vec<Rect> selectedRects;
-        for (FS_RECTF& box : chosen) {
-            if (PdfiumCookie::IsCanceled(cookie)) {
-                return false;
-            }
-            Rect r;
-            if (!GlyphPixelRect(page, box, x, y, dx, dy, rotation, r)) {
-                return false;
-            }
-            VecAppend(selectedRects, r);
-        }
-        Rect bitmapBounds(0, 0, original->width, original->height);
-        for (FS_RECTF& box : others) {
-            if (PdfiumCookie::IsCanceled(cookie)) {
-                return false;
-            }
-            Rect bounds;
-            if (!GlyphPixelRect(page, box, x, y, dx, dy, rotation, bounds)) {
-                return false;
-            }
-            bounds = bounds.Intersect(bitmapBounds);
-            if (bounds.IsEmpty()) {
-                continue;
-            }
-            for (Rect clip : clips) {
-                Rect overlap = bounds.Intersect(clip);
-                if (overlap.IsEmpty()) {
-                    continue;
-                }
-                for (int row = overlap.y; row < overlap.Bottom(); row++) {
-                    if (PdfiumCookie::IsCanceled(cookie)) {
-                        return false;
-                    }
-                    u8* before = original->data + (size_t)row * original->stride + overlap.x * 4;
-                    u8* after = colored->data + (size_t)row * colored->stride + overlap.x * 4;
-                    for (int col = 0; col < overlap.dx; col++, before += 4, after += 4) {
-                        if (memcmp(before, after, 4) != 0) {
-                            Point pixel(overlap.x + col, row);
-                            for (Rect selected : selectedRects) {
-                                if (selected.Contains(pixel)) {
-                                    return false;
-                                }
-                            }
-                            memcpy(after, before, 4);
-                        }
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
-    bool SameSplitPage(FPDF_PAGE original, FPDF_PAGE split, Pixmap* initial, int x, int y, int dx, int dy, int rotation,
-                       int flags, PdfiumCookie* cookie) {
-        Pixmap* a = AllocPixmap(initial->width, initial->height);
-        Pixmap* b = AllocPixmap(initial->width, initial->height);
-        bool same = false;
-        if (a && b) {
-            size_t bytes = (size_t)initial->stride * initial->height;
-            memcpy(a->data, initial->data, bytes);
-            memcpy(b->data, initial->data, bytes);
-            FPDF_BITMAP ab = gPdfium.FPDFBitmap_CreateEx(a->width, a->height, FPDFBitmap_BGRA, a->data, a->stride);
-            FPDF_BITMAP bb = gPdfium.FPDFBitmap_CreateEx(b->width, b->height, FPDFBitmap_BGRA, b->data, b->stride);
-            if (ab && bb) {
-                int status =
-                    gPdfium.FPDF_RenderPageBitmap_Start(ab, original, x, y, dx, dy, rotation, flags, &cookie->pause);
-                while (status == FPDF_RENDER_TOBECONTINUED && !PdfiumCookie::IsCanceled(cookie)) {
-                    status = gPdfium.FPDF_RenderPage_Continue(original, &cookie->pause);
-                }
-                gPdfium.FPDF_RenderPage_Close(original);
-                if (status == FPDF_RENDER_DONE && !PdfiumCookie::IsCanceled(cookie)) {
-                    status =
-                        gPdfium.FPDF_RenderPageBitmap_Start(bb, split, x, y, dx, dy, rotation, flags, &cookie->pause);
-                    while (status == FPDF_RENDER_TOBECONTINUED && !PdfiumCookie::IsCanceled(cookie)) {
-                        status = gPdfium.FPDF_RenderPage_Continue(split, &cookie->pause);
-                    }
-                    gPdfium.FPDF_RenderPage_Close(split);
-                    same = status == FPDF_RENDER_DONE && !PdfiumCookie::IsCanceled(cookie) &&
-                           memcmp(a->data, b->data, bytes) == 0;
-                }
-            }
-            if (ab) gPdfium.FPDFBitmap_Destroy(ab);
-            if (bb) gPdfium.FPDFBitmap_Destroy(bb);
-        }
-        FreePixmap(a);
-        FreePixmap(b);
-        return same;
-    }
-
     // Only this part needs the lock; pixel post-processing runs while other pages draw.
     int DrawPage(RenderPageArgs& args, Pixmap* pixmap, double x, double y, RectF full, bool drawAnnots,
                  PdfiumCookie* cookie, PdfiumProfile& profile, bool& useMupdf) {
         ScopedMutex themeScope(&themeLock);
-        if (args.selection && form) {
-            return FPDF_RENDER_FAILED;
-        }
+
         if (PrepareRenderRoute(args.pageNo, cookie, profile) == PdfRenderRoute::Mupdf) {
-            useMupdf = !args.selection;
+            useMupdf = true;
             return FPDF_RENDER_FAILED;
         }
-        if (args.selection) {
-            PdfRenderSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
-            if (!renderProbe) {
-                renderProbe = NewPdfRenderProbe(source, password);
-            }
-            if (PdfPageSelectionSafetyMupdf(renderProbe, source, args.pageNo) != PdfSelectionSafety::Safe) {
-                return FPDF_RENDER_FAILED;
-            }
-        }
+
         ThemeEntry* theme = nullptr;
         if (KeepsImageColors(args) && !PdfiumCookie::IsCanceled(cookie)) {
             theme = PrepareTheme(args.pageNo, *args.darkProfile, cookie, profile);
         }
         if (theme && theme->snapshot.status == PdfThemeStatus::Failed) {
-            useMupdf = !args.selection;
+            useMupdf = true;
             return FPDF_RENDER_FAILED;
         }
         u32 sourceSize = theme && theme->snapshot.layout == PdfThemeLayout::Incremental ? (u32)access.m_FileLen : 0;
         ThemeAccess themedAccess{this, theme ? theme->snapshot.data : Str{}, sourceSize};
-        ThemeAccess splitSource = themedAccess;
-        if (!theme || !theme->snapshot.data.s) {
-            splitSource = {this, {}, (u32)access.m_FileLen};
-        }
-        u64 splitSourceSize = (u64)splitSource.sourceSize + (u32)len(splitSource.suffix);
-        struct OwnedSplit {
-            PdfThemeSnapshot snapshot;
-            ~OwnedSplit() { str::Free(snapshot.data); }
-        } split;
-        if (args.selection && !disableAntiAlias && splitSourceSize <= UINT_MAX) {
-            PdfRenderSource source{&splitSource, (u32)splitSourceSize, ReadSplitSource, cookie,
-                                   PdfiumCookie::IsCanceled};
-            split.snapshot = PdfSplitPageMupdf(source, password, args.pageNo);
-        }
-        SplitAccess splitAccess{&splitSource, split.snapshot.data,
-                                split.snapshot.layout == PdfThemeLayout::Incremental ? (u32)splitSourceSize : 0};
-        FPDF_FILEACCESS splitFile{};
         ScopedMutex lock(&gPdfiumLock);
         profile.Mark(StrL("lock"));
         if (AtomicIntGet(&cookie->aborted)) {
@@ -3344,7 +2609,7 @@ class EnginePdfium : public EngineBase {
                     gPdfium.FPDF_CloseDocument(doc);
                 }
             }
-        } themed, splitDoc;
+        } themed;
         FPDF_DOCUMENT drawDoc = doc;
         FPDF_FORMHANDLE drawForm = form;
         if (theme && theme->snapshot.data.s) {
@@ -3356,7 +2621,7 @@ class EnginePdfium : public EngineBase {
                 themed.form = gPdfium.FPDFDOC_InitFormFillEnvironment(themed.doc, &formInfo);
             }
             if (!themed.doc || (form && drawAnnots && !themed.form)) {
-                useMupdf = !args.selection;
+                useMupdf = true;
                 return FPDF_RENDER_FAILED;
             }
             if (themed.doc) {
@@ -3364,64 +2629,10 @@ class EnginePdfium : public EngineBase {
                 drawForm = themed.form;
             }
         }
-        if (args.selection && !themed.doc) {
-            themed.doc = gPdfium.FPDF_LoadCustomDocument(&access, CStrTemp(password));
-            if (!themed.doc || form) {
-                return FPDF_RENDER_FAILED;
-            }
-            drawDoc = themed.doc;
-            drawForm = nullptr;
-        }
+
         FPDF_PAGE page = gPdfium.FPDF_LoadPage(drawDoc, args.pageNo - 1);
         if (!page) {
-            useMupdf = themed.doc != nullptr && !args.selection;
-            return FPDF_RENDER_FAILED;
-        }
-        Vec<SelectionObject> selectedObjects;
-        Vec<FS_RECTF> selectedGlyphs;
-        Vec<FS_RECTF> otherGlyphs;
-        Vec<RectF> selectionClips;
-        FPDF_PAGE splitPage = nullptr;
-        bool splitReady = split.snapshot.status == PdfThemeStatus::Ready && split.snapshot.data.s;
-        if (args.selection && splitReady && args.pageRect) {
-            u64 total = (u64)splitAccess.sourceSize + (u32)len(splitAccess.suffix);
-            if (total <= ULONG_MAX) {
-                splitFile.m_FileLen = (unsigned long)total;
-                splitFile.m_GetBlock = ReadSplitBlock;
-                splitFile.m_Param = &splitAccess;
-                splitDoc.doc = gPdfium.FPDF_LoadCustomDocument(&splitFile, CStrTemp(password));
-                if (splitDoc.doc) splitPage = gPdfium.FPDF_LoadPage(splitDoc.doc, args.pageNo - 1);
-            }
-        }
-        bool selectionReady = false;
-        if (args.selection && splitPage) {
-            int flags = (drawAnnots ? FPDF_ANNOT : 0) | FPDF_LCD_TEXT;
-            if (args.target == RenderTarget::Print) flags |= FPDF_PRINTING;
-            int rotation = NormalizeRotation(args.rotation) / 90;
-            int dx = (int)ceil(full.dx), dy = (int)ceil(full.dy);
-            if (SameSplitPage(page, splitPage, pixmap, -(int)x, -(int)y, dx, dy, rotation, flags, cookie)) {
-                selectionReady =
-                    PrepareSplitSelection(page, splitPage, args.pageNo, *args.pageRect, args.zoom, *args.selection,
-                                          selectedObjects, selectedGlyphs, selectionClips, cookie);
-            }
-            if (selectionReady) {
-                gPdfium.FPDF_ClosePage(page);
-                page = splitPage;
-                splitPage = nullptr;
-            }
-        }
-        if (splitPage) gPdfium.FPDF_ClosePage(splitPage);
-        if (args.selection && !selectionReady) {
-            VecReset(selectedObjects);
-            VecReset(selectedGlyphs);
-            VecReset(otherGlyphs);
-            VecReset(selectionClips);
-        }
-        if (args.selection && !selectionReady &&
-            (!args.pageRect ||
-             !PrepareSelection(page, args.pageNo, *args.pageRect, args.zoom, *args.selection, selectedObjects,
-                               selectedGlyphs, otherGlyphs, selectionClips, cookie))) {
-            gPdfium.FPDF_ClosePage(page);
+            useMupdf = themed.doc != nullptr;
             return FPDF_RENDER_FAILED;
         }
         profile.Mark(StrL("page"));
@@ -3450,37 +2661,6 @@ class EnginePdfium : public EngineBase {
             }
             int rotation = NormalizeRotation(args.rotation) / 90;
             int dx = (int)ceil(full.dx), dy = (int)ceil(full.dy);
-            Pixmap* baseline = nullptr;
-            if (args.selection) {
-                baseline = AllocPixmap(pixmap->width, pixmap->height);
-                if (baseline) {
-                    memcpy(baseline->data, pixmap->data, (size_t)pixmap->stride * pixmap->height);
-                    FPDF_BITMAP original = gPdfium.FPDFBitmap_CreateEx(
-                        baseline->width, baseline->height, FPDFBitmap_BGRA, baseline->data, baseline->stride);
-                    if (original) {
-                        status = gPdfium.FPDF_RenderPageBitmap_Start(original, page, -(int)x, -(int)y, dx, dy, rotation,
-                                                                     flags, &cookie->pause);
-                        while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
-                            status = gPdfium.FPDF_RenderPage_Continue(page, &cookie->pause);
-                        }
-                        gPdfium.FPDF_RenderPage_Close(page);
-                        gPdfium.FPDFBitmap_Destroy(original);
-                    }
-                }
-                bool colorsSet = true;
-                for (SelectionObject& entry : selectedObjects) {
-                    colorsSet &=
-                        gPdfium.FPDFPageObj_SetFillColor(entry.object, GetRed(args.selection->foreground),
-                                                         GetGreen(args.selection->foreground),
-                                                         GetBlue(args.selection->foreground), entry.alpha) != 0;
-                }
-                if (!baseline || status != FPDF_RENDER_DONE || !colorsSet) {
-                    FreePixmap(baseline);
-                    gPdfium.FPDFBitmap_Destroy(bmp);
-                    gPdfium.FPDF_ClosePage(page);
-                    return FPDF_RENDER_FAILED;
-                }
-            }
             status = gPdfium.FPDF_RenderPageBitmap_Start(bmp, page, -(int)x, -(int)y, dx, dy, rotation, flags,
                                                          &cookie->pause);
             while (status == FPDF_RENDER_TOBECONTINUED && !AtomicIntGet(&cookie->aborted)) {
@@ -3494,26 +2674,6 @@ class EnginePdfium : public EngineBase {
                 profile.Mark(StrL("widgets"));
             }
             gPdfium.FPDF_RenderPage_Close(page);
-            Vec<Rect> pixelClips;
-            if (baseline) {
-                SizeF pageSize = Page(args.pageNo)->size;
-                for (RectF clip : selectionClips) {
-                    PointF a =
-                        TransformPagePoint(clip.TL(), pageSize, args.zoom, args.rotation, TransformDir::ToScreen);
-                    PointF b =
-                        TransformPagePoint(clip.BR(), pageSize, args.zoom, args.rotation, TransformDir::ToScreen);
-                    Rect r = RectF::FromXY(a, b).Round();
-                    r.Offset(-(int)x, -(int)y);
-                    r.Inflate(1, 1);
-                    VecAppend(pixelClips, r);
-                }
-            }
-            if (baseline && status == FPDF_RENDER_DONE &&
-                !SameSelectionPixels(page, baseline, pixmap, selectedGlyphs, otherGlyphs, pixelClips, -(int)x, -(int)y,
-                                     dx, dy, rotation, cookie)) {
-                status = FPDF_RENDER_FAILED;
-            }
-            FreePixmap(baseline);
             gPdfium.FPDFBitmap_Destroy(bmp);
         }
         if (drawForm) {
@@ -3532,9 +2692,6 @@ class EnginePdfium : public EngineBase {
 
     Pixmap* RenderPage(RenderPageArgs& args) override {
         if (EngineBase* redacted = RedactedEditor(args.pageNo)) {
-            if (args.selection) {
-                return nullptr;
-            }
             return redacted->RenderPage(args);
         }
         PdfiumProfile profile(StrL("render"), args.pageNo);
@@ -3592,10 +2749,6 @@ class EnginePdfium : public EngineBase {
 
         // read once: a tile must not get annotations from both engines
         EngineBase* annotEditor = AnnotationEditor(EditorLoad::IfLoaded);
-        if (args.selection && annotEditor) {
-            FreePixmap(pixmap);
-            return nullptr;
-        }
         bool drawAnnots = !hideAnnotations && !annotEditor;
         bool useMupdf = false;
         int status = DrawPage(args, pixmap, x, y, full, drawAnnots, cookie, profile, useMupdf);

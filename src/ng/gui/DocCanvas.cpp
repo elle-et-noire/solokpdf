@@ -3657,6 +3657,7 @@ void DocCanvasView::OnPaint(gp::PaintCtx* ctx, gp::El* e, void* user) {
         Rect rc = dmHl->CvtToScreen(win->contextMenuHighlightPageNo, win->contextMenuHighlightRect);
         CanvasDrawRect(ctx, rc, MkRgb(0, 100, 255), 2);
     }
+    PaintAllFindMatches(win, ctx);
     if (win->showSelection) {
         PaintSelection(win, ctx);
     }
@@ -3666,7 +3667,6 @@ void DocCanvasView::OnPaint(gp::PaintCtx* ctx, gp::El* e, void* user) {
     PaintAnnotationMove(win, ctx);
     ReadingBarPaint(win, ctx);
     PaintReadAloudHighlight(win, ctx);
-    PaintAllFindMatches(win, ctx);
     if (win->fwdSearchMark.show) {
         PaintForwardSearchMark(win, ctx);
     }

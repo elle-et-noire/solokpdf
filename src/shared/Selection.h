@@ -43,7 +43,7 @@ Pixmap* RenderSelectionsAsPixmap(DisplayModel* dm, const Vec<SelectionOnPage>& s
 RenderedBitmap* RenderSelectionsAsRenderedBitmap(DisplayModel* dm, const Vec<SelectionOnPage>& selections);
 #endif
 
-// default opacity of the selection rectangle when SelectionColor has no alpha
+// Default opacity for overlays without an alpha channel.
 constexpr u8 kSelectionDefaultAlpha = 0x5f;
 
 void DeleteOldSelectionInfo(MainWindow* win, bool alsoTextSel = false);

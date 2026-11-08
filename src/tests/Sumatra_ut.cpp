@@ -176,7 +176,7 @@ static void PaletteRowColorTest() {
 
     ItemDataCP typed;
     typed.settingType = SettingType::Color;
-    typed.settingPath = StrL("FixedPageUI.SelectionColor");
+    typed.settingPath = StrL("Annotations.InkColor");
     utassert(PaletteRowColor(&typed, StrL("#ff0000"), &col));
     utassert(col == kColRed);
     utassert(!PaletteRowColor(&typed, StrL("not a color"), &col));

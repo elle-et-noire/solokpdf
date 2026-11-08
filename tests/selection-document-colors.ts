@@ -50,7 +50,7 @@ async function check(kind: "ordinary" | "single" | "multiple" | "tagged", smart 
     "Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\n" +
       `DocumentColorsFollowTheme = ${smart ? "smart" : "off"}\nThemes [\n [\n Name = Selection Test\n TextColor = ${smart ? "#ffffff" : "#000000"}\n` +
       ` BackgroundColor = ${smart ? "#193247" : "#ffffff"}\n ControlBackgroundColor = ${smart ? "#193247" : "#ffffff"}\n LinkColor = ${smart ? "#ffffff" : "#000000"}\n` +
-      " SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n ]\n]\n",
+      " SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n TextSelectionColor = #800066cc\n ]\n]\n",
   );
   const { proc, client, frame } = await launchControlled([
     "-appdata",
@@ -111,14 +111,14 @@ async function check(kind: "ordinary" | "single" | "multiple" | "tagged", smart 
       for (let y = 0; y < image.h; y++) {
         for (let x = 0; x < image.w; x++) {
           const [r, g, b] = pngPixel(image, x, y);
-          if (r! > 180 && g! < 80 && b! < 80) red++;
-          if (r! < 15 && g! >= 90 && g! <= 115 && b! >= 195 && b! <= 215) blue++;
+          if (r! < 25 && g! >= 45 && g! < 85 && b! >= 95 && b! < 135) red++;
+          if (Math.abs(r! - 127) <= 2 && Math.abs(g! - 178) <= 2 && Math.abs(b! - 229) <= 2) blue++;
         }
       }
       if (red > 10) break;
       await sleep(50);
     }
-    if (red <= 10) throw new Error(`selected text has ${red} red pixels`);
+    if (red <= 10) throw new Error(`selected text has ${red} blended ink pixels`);
     if (blue <= 10) throw new Error(`selection background has ${blue} blue pixels`);
     const position = String(
       (await client.request(ControlCommand.TestSelectionVars, ["${selectionPosition}"]))[1] ?? "",
@@ -126,7 +126,7 @@ async function check(kind: "ordinary" | "single" | "multiple" | "tagged", smart 
     const match = /^expanded=(-?\d+),(-?\d+),(\d+),(\d+)$/m.exec(position);
     if (!match) throw new Error(`selection position missing: ${position}`);
     const windowRect = getWindowRect(canvas);
-    const caretMargin = kind === "ordinary" ? 12 : 1;
+    const caretMargin = kind === "ordinary" ? 12 : 4;
     const x0 = +match[1]! - windowRect.left - caretMargin;
     const y0 = +match[2]! - windowRect.top - caretMargin;
     const x1 = x0 + +match[3]! + 2 * caretMargin;
@@ -169,7 +169,7 @@ async function check(kind: "ordinary" | "single" | "multiple" | "tagged", smart 
         for (let x = Math.max(0, x0); x < Math.min(image.w, x1); x++) {
           const [r, g, b] = pngPixel(image, x, y);
           if (kind === "ordinary") {
-            if (r! > 180 && g! < 80 && b! < 80) remaining++;
+            if (r! < 25 && g! >= 45 && g! < 85 && b! >= 95 && b! < 135) remaining++;
           } else {
             const original = pngPixel(before, x, y);
             if (r !== original[0] || g !== original[1] || b !== original[2]) remaining++;
@@ -232,7 +232,7 @@ async function checkVisibleSpace(): Promise<void> {
   );
   writeFileSync(
     join(dir, SETTINGS_FILE),
-    "Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\nDocumentColorsFollowTheme = off\nThemes [\n [\n Name = Selection Test\n TextColor = #000000\n BackgroundColor = #ffffff\n SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n ]\n]\n",
+    "Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\nDocumentColorsFollowTheme = off\nThemes [\n [\n Name = Selection Test\n TextColor = #000000\n BackgroundColor = #ffffff\n SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n TextSelectionColor = #800066cc\n ]\n]\n",
   );
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   try {
@@ -255,7 +255,7 @@ async function checkVisibleSpace(): Promise<void> {
         let red = false;
         for (let y = 0; y < image.h; y++) {
           const [r, g, b] = pngPixel(image, x, y);
-          if (r > 180 && g < 80 && b < 80) {
+          if (r < 25 && g >= 45 && g < 85 && b >= 95 && b < 135) {
             red = true;
             break;
           }
@@ -266,7 +266,7 @@ async function checkVisibleSpace(): Promise<void> {
       if (bands >= 3) return;
       await sleep(50);
     }
-    throw new Error(`visible-space selection has only ${bands} red glyph bands`);
+    throw new Error(`visible-space selection has only ${bands} blended glyph bands`);
   } finally {
     client.close();
     await killAndWait(proc);
@@ -295,7 +295,7 @@ async function checkViewport(): Promise<void> {
     "Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\n" +
       "DocumentColorsFollowTheme = off\nThemes [\n [\n Name = Selection Test\n TextColor = #000000\n" +
       " BackgroundColor = #ffffff\n ControlBackgroundColor = #ffffff\n LinkColor = #000000\n" +
-      " SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n ]\n]\n",
+      " SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n TextSelectionColor = #800066cc\n ]\n]\n",
   );
   const { proc, client, frame } = await launchControlled(["-appdata", dir, "-zoom", "200", pdf]);
   try {
@@ -320,12 +320,12 @@ async function checkViewport(): Promise<void> {
       for (let y = 0; y < image.h; y++)
         for (let x = 0; x < image.w; x++) {
           const [r, g, b] = pngPixel(image, x, y);
-          if (r > 180 && g < 80 && b < 80) red++;
+          if (r < 25 && g >= 45 && g < 85 && b >= 95 && b < 135) red++;
         }
       if (red > 10) return;
       await sleep(50);
     }
-    throw new Error("viewport-clipped selection did not turn red");
+    throw new Error("viewport-clipped selection was not painted");
   } finally {
     client.close();
     await killAndWait(proc);
@@ -370,7 +370,7 @@ async function checkActualText(): Promise<void> {
       "Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\n" +
         "DocumentColorsFollowTheme = off\nThemes [\n [\n Name = Selection Test\n TextColor = #000000\n" +
         " BackgroundColor = #ffffff\n ControlBackgroundColor = #ffffff\n LinkColor = #000000\n" +
-        " SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n ]\n]\n",
+        " SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n TextSelectionColor = #800066cc\n ]\n]\n",
     );
     const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
     try {
@@ -411,10 +411,8 @@ async function checkActualText(): Promise<void> {
             if (x >= x0 && x < x1 && y >= y0 && y < y1) inside++;
           }
         }
-      if (red || blue || changed < 10 || inside)
-        throw new Error(
-          `${kind}: expected outline fallback, red=${red} blue=${blue} changed=${changed} inside=${inside}`,
-        );
+      if (changed < 10 || inside < 10)
+        throw new Error(`${kind}: expected overlay, red=${red} blue=${blue} changed=${changed} inside=${inside}`);
     } finally {
       client.close();
       await killAndWait(proc);
@@ -449,7 +447,7 @@ async function checkManyLines(partial: boolean, spaced = false): Promise<void> {
     "Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\n" +
       "DocumentColorsFollowTheme = off\nThemes [\n [\n Name = Selection Test\n TextColor = #000000\n" +
       " BackgroundColor = #ffffff\n ControlBackgroundColor = #ffffff\n LinkColor = #000000\n" +
-      " SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n ]\n]\n",
+      " SelectionBackgroundColor = #0066cc\n SelectionTextColor = #ff0000\n TextSelectionColor = #800066cc\n ]\n]\n",
   );
   const { proc, client, frame } = await launchControlled([
     "-appdata",
@@ -496,7 +494,7 @@ async function checkManyLines(partial: boolean, spaced = false): Promise<void> {
             const prior = pngPixel(before, x, y);
             if (prior[0] !== r || prior[1] !== g || prior[2] !== b) overlay++;
           }
-          if (r > 180 && g < 80 && b < 80) {
+          if (r < 25 && g >= 45 && g < 85 && b >= 95 && b < 135) {
             rowRed = true;
             break;
           }
@@ -507,7 +505,6 @@ async function checkManyLines(partial: boolean, spaced = false): Promise<void> {
         }
       }
       if (bands >= expected) {
-        if (partial && bands < expected) console.log("selection-document-colors: partial-many overlay fallback");
         if (partial) {
           const raw = String(
             (await client.request(ControlCommand.TestSelectionVars, ["${selectionPosition}"]))[1] ?? "",
@@ -542,7 +539,7 @@ async function checkManyLines(partial: boolean, spaced = false): Promise<void> {
       }
       await sleep(50);
     }
-    throw new Error(`only ${bands} selected text bands turned red`);
+    throw new Error(`only ${bands} selected text bands were painted`);
   } finally {
     client.close();
     await killAndWait(proc);

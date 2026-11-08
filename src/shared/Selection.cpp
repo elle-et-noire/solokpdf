@@ -161,12 +161,6 @@ void DeleteOldSelectionInfo(MainWindow* win, bool alsoTextSel) {
     if (!tab) {
         return;
     }
-#if !defined(SUMATRA_NG)
-    if (alsoTextSel && tab->AsFixed()) {
-        gRenderCache->CancelSelection(tab->AsFixed());
-    }
-#endif
-
     delete tab->selectionOnPage;
     tab->selectionOnPage = nullptr;
     if (alsoTextSel && tab->AsFixed()) {
@@ -566,33 +560,6 @@ static void PaintTransparentQuads(Gfx* gfx, Rect screenRc, Vec<Point>& pts, Colo
 #endif
 }
 
-// SelectionColor's default; it means "the bookmark selection color"
-constexpr Color kDefaultSelectionColor = MkRgb(0xff, 0xff, 0x00);
-
-// Overlay that turns the page background into `want`, so a selection looks like
-// a selected bookmark: col = page + (want - page) / alpha, raising alpha from
-// `alpha` until col fits in 0..255 on every channel.
-static Color OverlayReaching(Color want, Color page, u8& alpha) {
-    u8 wantCh[3] = {GetRed(want), GetGreen(want), GetBlue(want)};
-    u8 pageCh[3] = {GetRed(page), GetGreen(page), GetBlue(page)};
-    int a = alpha;
-    for (int i = 0; i < 3; i++) {
-        int d = wantCh[i] - pageCh[i];
-        int room = d > 0 ? 255 - pageCh[i] : pageCh[i];
-        if (d != 0 && room > 0) {
-            a = std::max(a, (std::abs(d) * 255 + room - 1) / room);
-        }
-    }
-    a = std::min(a, 255);
-    alpha = (u8)a;
-    u8 res[3];
-    for (int i = 0; i < 3; i++) {
-        int c = pageCh[i] + (wantCh[i] - pageCh[i]) * 255 / a;
-        res[i] = (u8)limitValue(c, 0, 255);
-    }
-    return MkRgb(res[0], res[1], res[2]);
-}
-
 #if defined(SUMATRA_NG)
 void PaintSelection(MainWindow* win, gp::PaintCtx* ctx) {
 #else
@@ -660,8 +627,8 @@ static void PaintTouchSelHandles(MainWindow* win, Gfx* gfx) {
     if (!win->touchSelHandles || !GetTouchSelHandleRects(win, start, end)) {
         return;
     }
-    ParsedColor* parsedCol = GetPrefsColor(gSettings->fixedPageUI.selectionColor);
-    Color col = parsedCol->col;
+    u8 alpha = kSelectionDefaultAlpha;
+    Color col = ThemeTextOverlay(alpha);
     gfx->FillEllipse(start, col);
     gfx->FillEllipse(end, col);
 }
@@ -727,150 +694,9 @@ void PaintSelection(MainWindow* win, Gfx* gfx) {
         }
     }
 
-    ParsedColor* parsedCol = GetPrefsColor(gSettings->fixedPageUI.selectionColor);
-#if !defined(SUMATRA_NG) && defined(SOLOKPDF_PDFIUM)
-    DisplayModel* dm = win->AsFixed();
-    TextSelection* textSelection = dm->textSelection;
-    Vec<SelectionOnPage>* selected = win->CurrentTab()->selectionOnPage;
-    bool textSelectionFrame = parsedCol->col == kDefaultSelectionColor && win->mouseAction != MouseAction::Selecting &&
-                              textSelection && selected && !dm->GetEngine()->isImageCollection && len(*selected) > 0 &&
-                              len(*selected) == len(textSelection->result);
-    if (textSelectionFrame) {
-        for (int i = 0; i < len(*selected); i++) {
-            SelectionOnPage& part = (*selected)[i];
-            TextSel& text = textSelection->result[i];
-            QuadF a = part.quad, b = text.quad;
-            if (part.pageNo != text.pageNo || part.rect != ToRectF(text.rect) || a.ul != b.ul || a.ur != b.ur ||
-                a.ll != b.ll || a.lr != b.lr) {
-                textSelectionFrame = false;
-                break;
-            }
-        }
-    }
-    if (textSelectionFrame) {
-        int firstPage, firstGlyph, lastPage, lastGlyph;
-        textSelection->GetGlyphRange(&firstPage, &firstGlyph, &lastPage, &lastGlyph);
-        constexpr u64 kHashSeed = 14695981039346656037ULL;
-        constexpr u64 kHashPrime = 1099511628211ULL;
-        u64 group = kHashSeed;
-        int range[] = {firstPage, firstGlyph, lastPage, lastGlyph};
-        for (int n : range) {
-            group = (group ^ (u32)n) * kHashPrime;
-        }
-        for (int i = 0; i < len(*selected); i++) {
-            SelectionOnPage& item = (*selected)[i];
-            bool seen = false;
-            for (int j = 0; j < i; j++) {
-                seen |= (*selected)[j].pageNo == item.pageNo;
-            }
-            if (seen || item.pageNo < firstPage || item.pageNo > lastPage) {
-                continue;
-            }
-            Vec<Rect> clips;
-            Rect onScreen;
-            bool supported = true;
-            for (int j = i; j < len(*selected); j++) {
-                SelectionOnPage& part = (*selected)[j];
-                if (part.pageNo != item.pageNo) {
-                    continue;
-                }
-                TextSel& textItem = textSelection->result[j];
-                if (textItem.pageNo != part.pageNo || part.HasQuad() || part.rect != ToRectF(textItem.rect)) {
-                    supported = false;
-                    break;
-                }
-                Rect clip = part.GetRect(dm).Intersect(win->canvasRc);
-                if (!clip.IsEmpty()) {
-                    clip.Inflate(1, 1);
-                    clip = clip.Intersect(win->canvasRc);
-                    onScreen = len(clips) ? onScreen.Union(clip) : clip;
-                    VecAppend(clips, clip);
-                }
-            }
-            bool noOtherHighlights = len(win->findMatches) == 0 &&
-                                     (!dm->textSearch || len(dm->textSearch->result) == 0) &&
-                                     win->contextMenuHighlightPageNo == 0;
-            if (supported && noOtherHighlights && len(clips) > 0 && !dm->GetMirror() &&
-                dm->GetRenderZoom(item.pageNo) == dm->GetZoomReal(item.pageNo)) {
-                Color page;
-                ThemePageRenderColors(page);
-                SelectionRenderArgs args;
-                args.startGlyph = item.pageNo == firstPage ? firstGlyph : 0;
-                int textLen = 0;
-                dm->GetEngine()->GetTextForPage(item.pageNo, &textLen);
-                args.endGlyph = item.pageNo == lastPage ? lastGlyph : textLen;
-                Color target = ThemeSelectionBg(page);
-                args.alpha = kSelectionDefaultAlpha;
-                args.background = OverlayReaching(target, page, args.alpha);
-                args.foreground = ThemeSelectionText(target, ThemeWindowTextColor());
-                args.group = (group ^ args.background) * kHashPrime;
-                args.group = (args.group ^ args.foreground) * kHashPrime;
-                args.group = (args.group ^ args.alpha) * kHashPrime;
-                if (!args.group) {
-                    args.group = kHashSeed;
-                }
-                int rotation = dm->PageRotation(item.pageNo);
-                float zoom = dm->GetRenderZoom(item.pageNo);
-                Rect pagePixels = dm->GetEngine()
-                                      ->Transform(dm->PageMediaBoxForLayout(item.pageNo), item.pageNo, zoom, rotation)
-                                      .Round();
-                PageInfo* pageInfo = dm->GetPageInfo(item.pageNo);
-                Rect pixelRect = onScreen;
-                pixelRect.Offset(pagePixels.x - pageInfo->pageOnScreen.x, pagePixels.y - pageInfo->pageOnScreen.y);
-                RectF area = dm->GetEngine()->Transform(ToRectF(pixelRect), item.pageNo, zoom, rotation, true);
-                auto paint = gRenderCache->PaintSelection(gfx, dm, item.pageNo, area, onScreen, clips, args);
-                if (paint == RenderCache::SelectionPaint::Painted) {
-                    for (int j = i; j < len(*selected); j++) {
-                        SelectionOnPage& part = (*selected)[j];
-                        if (part.pageNo == item.pageNo) {
-                            Rect original = part.GetRect(dm);
-                            for (int k = 0; k < len(rects); k++) {
-                                if (rects[k] == original) {
-                                    VecRemoveAt(rects, k);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Color page;
-        ThemePageRenderColors(page);
-        Color frame = ThemeInkOn(page);
-        gfx->PushClip(win->canvasRc);
-        for (Rect rect : rects) {
-            rect.Inflate(1, 1);
-            gfx->DrawRect(rect, frame);
-        }
-        for (int i = 0; i + 3 < len(quadPts); i += 4) {
-            for (int j = 0; j < 4; j++) {
-                gfx->DrawLineAA(quadPts[i + j], quadPts[i + (j + 1) % 4], frame, 1, 255);
-            }
-        }
-        gfx->PopClip();
-        VecReset(rects);
-        VecReset(quadPts);
-    }
-#endif
-    // honor the alpha channel of SelectionColor (#aarrggbb): a smaller alpha makes
-    // the overlay more transparent so the selected text stays crisp (issue #3209).
-    // Fall back to the historical default when no alpha is given (e.g. #rrggbb).
-    u8 alpha = GetAlpha(parsedCol->col);
-    if (alpha == 0) {
-        alpha = kSelectionDefaultAlpha;
-    }
-    // the default yellow takes the selection toolbar's color, borderless,
-    // unless the page isn't themed (a dark shade over a white page hides text)
-    Color col = parsedCol->col;
-    bool drawBorder = true;
-    Color page;
-    ThemePageRenderColors(page);
-    Color selCol = ThemeTextSelectionColorOn(page);
-    if (col == kDefaultSelectionColor && IsLightColor(page) == IsLightColor(selCol)) {
-        col = OverlayReaching(selCol, page, alpha);
-        drawBorder = false;
-    }
+    u8 alpha = kSelectionDefaultAlpha;
+    Color col = ThemeTextOverlay(alpha);
+    bool drawBorder = false;
 #if defined(SUMATRA_NG)
     Rect canvas(Point(), win->AsFixed()->GetViewPort().Size());
 #endif

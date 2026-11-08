@@ -87,7 +87,6 @@ static_assert(dimof(gPageGridFields) == 9);
 
 static const FieldInfo gFixedPageUIFields[] = {
     {offsetof(FixedPageUI, grayscale), SettingType::Bool, false},
-    {offsetof(FixedPageUI, selectionColor), SettingType::Color, (intptr_t)"#ffff00"},
     {offsetof(FixedPageUI, windowMargin), SettingType::Compact, (intptr_t)&gWindowMarginInfo},
     {offsetof(FixedPageUI, pageSpacing), SettingType::Compact, (intptr_t)&gSizeInfo},
     {offsetof(FixedPageUI, gradientColors), SettingType::ColorArray, 0},
@@ -97,19 +96,17 @@ static const StructInfo gFixedPageUIInfo = {
     sizeof(FixedPageUI),
     (u16)dimof(gFixedPageUIFields),
     gFixedPageUIFields,
-    "Grayscale\0SelectionColor\0WindowMargin\0PageSpacing\0GradientColors\0PageGrid",
-    "if true, render document pages in grayscale. Toggle with CmdToggleGrayscale\0color value for the text selection "
-    "rectangle (also used to highlight found text). Use an #aarrggbb value to control opacity: a smaller alpha (e.g. "
-    "#40ffff00) makes the selection more transparent so the selected text stays crisp; #rrggbb uses the default "
-    "opacity\0top, right, bottom and left margin (in that order) between window and document\0horizontal and vertical "
-    "gap between pages (between columns in facing/book view, between rows in continuous view)\0experimental: instead "
-    "of a single background color, fade through these colors from the top of the document to the bottom (stops are "
-    "spread evenly, at most 3 colors). The shifting background is meant to give a subconscious sense of reading "
-    "progress. Suggested values: #2828aa #28aa28 #aa2828\0measurement grid overlay (View > Page Grid). Spacing, slant "
-    "and style are saved; showing the grid is session-only. Drag a grid line while Configure Page Grid is open, or "
-    "Alt+drag, to resize cells with equal width and height",
+    "Grayscale\0WindowMargin\0PageSpacing\0GradientColors\0PageGrid",
+    "if true, render document pages in grayscale. Toggle with CmdToggleGrayscale\0top, right, bottom and left margin "
+    "(in that order) between window and document\0horizontal and vertical gap between pages (between columns in "
+    "facing/book view, between rows in continuous view)\0experimental: instead of a single background color, fade "
+    "through these colors from the top of the document to the bottom (stops are spread evenly, at most 3 colors). The "
+    "shifting background is meant to give a subconscious sense of reading progress. Suggested values: #2828aa #28aa28 "
+    "#aa2828\0measurement grid overlay (View > Page Grid). Spacing, slant and style are saved; showing the grid is "
+    "session-only. Drag a grid line while Configure Page Grid is open, or Alt+drag, to resize cells with equal width "
+    "and height",
     false};
-static_assert(dimof(gFixedPageUIFields) == 6);
+static_assert(dimof(gFixedPageUIFields) == 5);
 
 static const char* gEnumEBookUIDefaultDisplayMode[] = {
     "",           "automatic",         "single page",          "facing",      "book view",
@@ -623,6 +620,9 @@ static const FieldInfo gThemeFields[] = {
     {offsetof(Theme, linkColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, selectionBackgroundColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, selectionTextColor), SettingType::Color, (intptr_t)""},
+    {offsetof(Theme, textSelectionColor), SettingType::Color, (intptr_t)""},
+    {offsetof(Theme, searchMatchColor), SettingType::Color, (intptr_t)""},
+    {offsetof(Theme, currentSearchMatchColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, disabledTextColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, darkerTextColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, hotBackgroundColor), SettingType::Color, (intptr_t)""},
@@ -644,31 +644,33 @@ static const StructInfo gThemeInfo = {
     (u16)dimof(gThemeFields),
     gThemeFields,
     "Name\0TextColor\0BackgroundColor\0ControlBackgroundColor\0ActiveTabBackgroundColor\0InactiveTabBackgroundColor\0Li"
-    "nkColor\0SelectionBackgroundColor\0SelectionTextColor\0DisabledTextColor\0DarkerTextColor\0HotBackgroundColor\0Edg"
-    "eColor\0HotEdgeColor\0DisabledEdgeColor\0ErrorBackgroundColor\0NotificationBackgroundColor\0NotificationHighlightC"
-    "olor\0NotificationHighlightTextColor\0HoverPreviewBackgroundColor\0HoverPreviewEdgeColor\0ScrollbarColor\0Scrollba"
-    "rThumbColor\0ColorizeControls",
+    "nkColor\0SelectionBackgroundColor\0SelectionTextColor\0TextSelectionColor\0SearchMatchColor\0CurrentSearchMatchCol"
+    "or\0DisabledTextColor\0DarkerTextColor\0HotBackgroundColor\0EdgeColor\0HotEdgeColor\0DisabledEdgeColor\0ErrorBackg"
+    "roundColor\0NotificationBackgroundColor\0NotificationHighlightColor\0NotificationHighlightTextColor\0HoverPreviewB"
+    "ackgroundColor\0HoverPreviewEdgeColor\0ScrollbarColor\0ScrollbarThumbColor\0ColorizeControls",
     "name of the theme, as shown in the Settings / Theme menu\0color of text in menus, toolbar, tabs and "
     "sidebars\0background color of the window around the document, the toolbar, the sidebar, the active tab and the "
     "scrollbars\0background color of dialogs and search fields\0background color of the active tab; if empty, the "
     "color around the document\0background color of inactive tabs and the title bar; if empty, derived from "
     "ControlBackgroundColor\0color of clickable links in the UI\0background color of selected items; empty derives "
-    "from the theme\0text color of selected items; empty derives from the theme\0color of disabled (grayed out) text; "
-    "if empty, derived from the colors above\0color of secondary / muted text like the page label; if empty, derived "
-    "from the colors above\0background color of a control the mouse is over; if empty, derived from the colors "
-    "above\0color of control borders and separators; if empty, derived from the colors above\0border color of a "
-    "control the mouse is over; if empty, derived from the colors above\0border color of a disabled control; if empty, "
-    "derived from the colors above\0background color of error messages; if empty, derived from the colors "
-    "above\0background color of notification tips; if empty, derived from the colors above\0background color of a "
-    "highlighted notification tip; if empty, derived from the colors above\0text color of a highlighted notification "
-    "tip; if empty, derived from the colors above\0background of the citation hover preview's frame; if empty, pale "
-    "yellow in light themes, HotBackgroundColor in dark ones\0border color of the citation hover preview; if empty, "
-    "uses HotEdgeColor\0background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, the color "
-    "around the document\0thumb and arrows of the overlay scrollbars and lists; if empty, EdgeColor, or "
-    "DisabledTextColor where EdgeColor is too close to ScrollbarColor\0if true, apply the theme colors to Windows "
-    "controls and window areas too",
+    "from the theme\0text color of selected items; empty derives from the theme\0document text selection overlay, "
+    "#aarrggbb; empty uses the default\0search result overlay, #aarrggbb; empty uses the default\0current search "
+    "result overlay, #aarrggbb; empty uses the default\0color of disabled (grayed out) text; if empty, derived from "
+    "the colors above\0color of secondary / muted text like the page label; if empty, derived from the colors "
+    "above\0background color of a control the mouse is over; if empty, derived from the colors above\0color of control "
+    "borders and separators; if empty, derived from the colors above\0border color of a control the mouse is over; if "
+    "empty, derived from the colors above\0border color of a disabled control; if empty, derived from the colors "
+    "above\0background color of error messages; if empty, derived from the colors above\0background color of "
+    "notification tips; if empty, derived from the colors above\0background color of a highlighted notification tip; "
+    "if empty, derived from the colors above\0text color of a highlighted notification tip; if empty, derived from the "
+    "colors above\0background of the citation hover preview's frame; if empty, pale yellow in light themes, "
+    "HotBackgroundColor in dark ones\0border color of the citation hover preview; if empty, uses "
+    "HotEdgeColor\0background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, the color around "
+    "the document\0thumb and arrows of the overlay scrollbars and lists; if empty, EdgeColor, or DisabledTextColor "
+    "where EdgeColor is too close to ScrollbarColor\0if true, apply the theme colors to Windows controls and window "
+    "areas too",
     false};
-static_assert(dimof(gThemeFields) == 24);
+static_assert(dimof(gThemeFields) == 27);
 
 static const FieldInfo gTabFileFields[] = {
     {offsetof(TabFile, path), SettingType::String, (intptr_t)""},
@@ -1484,6 +1486,9 @@ static const FieldInfo gTheme_1_Fields[] = {
     {offsetof(Theme, linkColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, selectionBackgroundColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, selectionTextColor), SettingType::Color, (intptr_t)""},
+    {offsetof(Theme, textSelectionColor), SettingType::Color, (intptr_t)""},
+    {offsetof(Theme, searchMatchColor), SettingType::Color, (intptr_t)""},
+    {offsetof(Theme, currentSearchMatchColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, disabledTextColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, darkerTextColor), SettingType::Color, (intptr_t)""},
     {offsetof(Theme, hotBackgroundColor), SettingType::Color, (intptr_t)""},
@@ -1505,31 +1510,33 @@ static const StructInfo gTheme_1_Info = {
     (u16)dimof(gTheme_1_Fields),
     gTheme_1_Fields,
     "Name\0TextColor\0BackgroundColor\0ControlBackgroundColor\0ActiveTabBackgroundColor\0InactiveTabBackgroundColor\0Li"
-    "nkColor\0SelectionBackgroundColor\0SelectionTextColor\0DisabledTextColor\0DarkerTextColor\0HotBackgroundColor\0Edg"
-    "eColor\0HotEdgeColor\0DisabledEdgeColor\0ErrorBackgroundColor\0NotificationBackgroundColor\0NotificationHighlightC"
-    "olor\0NotificationHighlightTextColor\0HoverPreviewBackgroundColor\0HoverPreviewEdgeColor\0ScrollbarColor\0Scrollba"
-    "rThumbColor\0ColorizeControls",
+    "nkColor\0SelectionBackgroundColor\0SelectionTextColor\0TextSelectionColor\0SearchMatchColor\0CurrentSearchMatchCol"
+    "or\0DisabledTextColor\0DarkerTextColor\0HotBackgroundColor\0EdgeColor\0HotEdgeColor\0DisabledEdgeColor\0ErrorBackg"
+    "roundColor\0NotificationBackgroundColor\0NotificationHighlightColor\0NotificationHighlightTextColor\0HoverPreviewB"
+    "ackgroundColor\0HoverPreviewEdgeColor\0ScrollbarColor\0ScrollbarThumbColor\0ColorizeControls",
     "name of the theme, as shown in the Settings / Theme menu\0color of text in menus, toolbar, tabs and "
     "sidebars\0background color of the window around the document, the toolbar, the sidebar, the active tab and the "
     "scrollbars\0background color of dialogs and search fields\0background color of the active tab; if empty, the "
     "color around the document\0background color of inactive tabs and the title bar; if empty, derived from "
     "ControlBackgroundColor\0color of clickable links in the UI\0background color of selected items; empty derives "
-    "from the theme\0text color of selected items; empty derives from the theme\0color of disabled (grayed out) text; "
-    "if empty, derived from the colors above\0color of secondary / muted text like the page label; if empty, derived "
-    "from the colors above\0background color of a control the mouse is over; if empty, derived from the colors "
-    "above\0color of control borders and separators; if empty, derived from the colors above\0border color of a "
-    "control the mouse is over; if empty, derived from the colors above\0border color of a disabled control; if empty, "
-    "derived from the colors above\0background color of error messages; if empty, derived from the colors "
-    "above\0background color of notification tips; if empty, derived from the colors above\0background color of a "
-    "highlighted notification tip; if empty, derived from the colors above\0text color of a highlighted notification "
-    "tip; if empty, derived from the colors above\0background of the citation hover preview's frame; if empty, pale "
-    "yellow in light themes, HotBackgroundColor in dark ones\0border color of the citation hover preview; if empty, "
-    "uses HotEdgeColor\0background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, the color "
-    "around the document\0thumb and arrows of the overlay scrollbars and lists; if empty, EdgeColor, or "
-    "DisabledTextColor where EdgeColor is too close to ScrollbarColor\0if true, apply the theme colors to Windows "
-    "controls and window areas too",
+    "from the theme\0text color of selected items; empty derives from the theme\0document text selection overlay, "
+    "#aarrggbb; empty uses the default\0search result overlay, #aarrggbb; empty uses the default\0current search "
+    "result overlay, #aarrggbb; empty uses the default\0color of disabled (grayed out) text; if empty, derived from "
+    "the colors above\0color of secondary / muted text like the page label; if empty, derived from the colors "
+    "above\0background color of a control the mouse is over; if empty, derived from the colors above\0color of control "
+    "borders and separators; if empty, derived from the colors above\0border color of a control the mouse is over; if "
+    "empty, derived from the colors above\0border color of a disabled control; if empty, derived from the colors "
+    "above\0background color of error messages; if empty, derived from the colors above\0background color of "
+    "notification tips; if empty, derived from the colors above\0background color of a highlighted notification tip; "
+    "if empty, derived from the colors above\0text color of a highlighted notification tip; if empty, derived from the "
+    "colors above\0background of the citation hover preview's frame; if empty, pale yellow in light themes, "
+    "HotBackgroundColor in dark ones\0border color of the citation hover preview; if empty, uses "
+    "HotEdgeColor\0background of the overlay scrollbars (Scrollbars = smart or overlay); if empty, the color around "
+    "the document\0thumb and arrows of the overlay scrollbars and lists; if empty, EdgeColor, or DisabledTextColor "
+    "where EdgeColor is too close to ScrollbarColor\0if true, apply the theme colors to Windows controls and window "
+    "areas too",
     false};
-static_assert(dimof(gTheme_1_Fields) == 24);
+static_assert(dimof(gTheme_1_Fields) == 27);
 
 static const FieldInfo gThemesFields[] = {
     {offsetof(Themes, themes), SettingType::Array, (intptr_t)&gTheme_1_Info},

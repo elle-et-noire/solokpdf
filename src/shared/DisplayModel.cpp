@@ -923,10 +923,6 @@ void DisplayModel::RenderFinishedAsync(PageRenderRequest* req) {
 }
 
 void DisplayModel::RenderFinished(PageRenderRequest* req) {
-    if (req->selectionRequest) {
-        RepaintDisplay();
-        return;
-    }
     if (req->errorCode != 0) {
         PageInfo* pageInfo = GetPageInfo(req->pageNo);
         if (pageInfo) {

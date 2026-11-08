@@ -507,6 +507,8 @@ import { testit as selectionFontBbox } from "./selection-font-bbox.ts";
 import { testit as selectionDocumentColors } from "./selection-document-colors.ts";
 import { testit as selectionMupdfColors } from "./selection-mupdf-colors.ts";
 import { testit as selectionNoopColors } from "./selection-noop-colors.ts";
+import { testit as selectionMouseColors } from "./selection-mouse-colors.ts";
+import { testit as selectionSearchColors } from "./selection-search-colors.ts";
 import { testit as selectionPurpyContrast } from "./selection-purpy-contrast.ts";
 import { testit as selectionLigature } from "./selection-ligature.ts";
 import { testit as issue4839 } from "./issue-4839.ts";
@@ -1062,6 +1064,8 @@ export const tests: NamedTest[] = [
   ["selection-document-colors", selectionDocumentColors],
   ["selection-mupdf-colors", selectionMupdfColors],
   ["selection-noop-colors", selectionNoopColors],
+  ["selection-mouse-colors", selectionMouseColors],
+  ["selection-search-colors", selectionSearchColors],
   ["selection-purpy-contrast", selectionPurpyContrast],
   ["selection-ligature", selectionLigature],
   ["issue-4839", issue4839],

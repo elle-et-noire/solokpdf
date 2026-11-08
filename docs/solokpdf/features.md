@@ -159,21 +159,12 @@ Dark, Palenight, Gruvbox Light and Sepia under 1.6; Solarized Light, Everforest
 Light and Dark had a cool gray on a warm or neutral background.
 
 The bookmark tree uses the theme pair when focused; high contrast uses the
-system pair. Page text selection uses the pair where the engine can identify
-the original glyphs safely. Its background is blended to reach the theme color
-on a flat page; on an image it blends with the image. Text keeps its original
-font and placement. The background alpha increases when needed to reach the
-specified color and may become opaque. PDFium identifies glyphs in a temporary
-copy and verifies its pixels against the original page before recoloring them.
-Visible pages render asynchronously into a separate cache capped at 64 MiB.
-
-When `FixedPageUI.SelectionColor` differs from the default `#ffff00`, its
-existing color and alpha take precedence. While text selection renders, and
-when glyphs cannot be safely recolored, a thin outline marks the range without
-filling it. Rectangle selections and scans keep their existing overlay. Search matches,
-touch handles, native edits, HTML, CHM and the manual use their existing
-selection paths.
-
+system pair. Document selection uses a translucent overlay without changing
+the text. `TextSelectionColor`, `SearchMatchColor`, and
+`CurrentSearchMatchColor` set overlay colors in the current theme. Use
+`#aarrggbb` to set opacity; `#rrggbb` uses the default opacity. Search is
+painted first, so overlapping selection and search colors blend. Forward
+search and link destinations retain their separate highlight setting.
 Lists (thumbnails, annotations, find results, command palette) and the
 Favorites tree draw no dotted focus outline; the selection shows where the
 keys go.

@@ -1319,26 +1319,31 @@ Color ThemeCardColorOn(Color page) {
     return strip;
 }
 
-// text selected on a page against the page
-constexpr float kMinTextSelectionContrast = 1.25f;
+static Color ThemeOverlay(ParsedColor& setting, Color fallback, u8& alpha) {
+    ParsedColor* parsed = GetParsedColor(setting);
+    if (!parsed->parsedOk || str::EqI(parsed->s, StrL("unset")) || str::EqI(parsed->s, StrL("checkered"))) {
+        return fallback;
+    }
+    TempStr value = str::DupTemp(parsed->s);
+    str::TrimWSInPlace(value, str::TrimOpt::Both);
+    if ((str::StartsWith(value, StrL("#")) && len(value) == 9) ||
+        (str::StartsWith(value, StrL("0x")) && len(value) == 10) ||
+        (!str::StartsWith(value, StrL("0x")) && !str::StartsWith(value, StrL("#")) && len(value) == 8)) {
+        alpha = GetAlpha(parsed->col);
+    }
+    return parsed->col;
+}
 
-// Text selected on a page: the selection toolbar's color (the tab strip's), so
-// the highlight and the toolbar over it read as one. Where that is too close
-// to the page to show a selection (Dark, Solarized Dark), it is pushed on in
-// the same direction, darker or lighter.
-Color ThemeTextSelectionColorOn(Color page) {
-    if (gUseHighContrast) {
-        return ThemeSelectedColorOn(page);
-    }
-    Color card = ThemeCardColorOn(page);
-    Color away = RelLuminance(card) < RelLuminance(page) ? kColBlack : kColWhite;
-    for (float t = 0; t < 1.0f; t += kSelectionMixStep) {
-        Color c = MixColors(card, away, t);
-        if (ContrastRatio(c, page) >= kMinTextSelectionContrast) {
-            return c;
-        }
-    }
-    return ThemeSelectedColorOn(page);
+Color ThemeTextOverlay(u8& alpha) {
+    return ThemeOverlay(gCurrentTheme->textSelectionColor, MkRgb(0x33, 0x99, 0xff), alpha);
+}
+
+Color ThemeSearchOverlay(u8& alpha) {
+    return ThemeOverlay(gCurrentTheme->searchMatchColor, MkRgb(0xff, 0x96, 0x32), alpha);
+}
+
+Color ThemeCurrentSearchOverlay(u8& alpha) {
+    return ThemeOverlay(gCurrentTheme->currentSearchMatchColor, MkRgb(0xff, 0xff, 0x00), alpha);
 }
 
 // non-text UI against its background (WCAG 1.4.11)

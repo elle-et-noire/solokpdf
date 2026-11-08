@@ -35,13 +35,6 @@ struct PdfRenderCheck {
 PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password);
 void DeletePdfRenderProbe(PdfRenderProbe* probe);
 PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, int pageNo);
-enum class PdfSelectionSafety {
-    Unknown,
-    Safe,
-    Unsupported
-};
-PdfSelectionSafety PdfPageSelectionSafetyMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, int pageNo);
-
 enum class PdfThemeLayout {
     Incremental,
     Rewritten,
@@ -61,8 +54,6 @@ struct PdfThemeSnapshot {
 
 PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, int pageNo,
                                    const DarkModeProfile& profile);
-PdfThemeSnapshot PdfSplitPageMupdf(const PdfRenderSource& source, Str password, int pageNo);
-
 enum class PdfRenderParts {
     Contents,
     ContentsAndAnnotations,
