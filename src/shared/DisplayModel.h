@@ -422,6 +422,7 @@ struct DisplayModel : DocController {
     float columnsZoom = 0;
     ScrollState columnsScroll;
     RectF ColumnRect(int pageNo, int col);
+    Rect ColumnArea() const;
     bool CurrentColumn(int* pageNo, int* col);
     bool ColumnScroll(int dy, bool changePage);
     void ShowColumn(int pageNo, int col, bool top);

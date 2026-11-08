@@ -550,16 +550,23 @@ bool DisplayModel::CurrentColumn(int* pageNo, int* col) {
     return true;
 }
 
-// The view's x for a column s (on screen): a column narrower than the window
+// The room for a column: the viewport less the strip overlay scrollbars take
+// on the right. Its middle is the page area's; equal margins give the viewport.
+Rect DisplayModel::ColumnArea() const {
+    int extra = windowMargin.right - windowMargin.left;
+    return {std::max(0, -extra), 0, viewPort.dx - std::abs(extra), viewPort.dy};
+}
+
+// The view's x for a column s (on screen): a column narrower than the area
 // sits against the side away from the other one, so that one stays out of view
-static int ColumnViewX(const Rect& viewPort, const Rect& s, int col, int margin) {
-    if (s.dx >= viewPort.dx - (2 * margin)) {
-        return viewPort.x + s.x - ((viewPort.dx - s.dx) / 2);
+static int ColumnViewX(const Rect& viewPort, const Rect& area, const Rect& s, int col, int margin) {
+    if (s.dx >= area.dx - (2 * margin)) {
+        return viewPort.x + s.x - area.x - ((area.dx - s.dx) / 2);
     }
     if (col == 0) {
-        return viewPort.x + s.x + s.dx + margin - viewPort.dx;
+        return viewPort.x + s.x + s.dx + margin - (area.x + area.dx);
     }
-    return viewPort.x + s.x - margin;
+    return viewPort.x + s.x - margin - area.x;
 }
 
 // scrolls so the column's top (or bottom) is at the window's.
@@ -571,7 +578,7 @@ void DisplayModel::ShowColumn(int pageNo, int col, bool top) {
     Rect s = CvtToScreen(pageNo, ColumnRect(pageNo, col));
     int margin = DpiScale(kColumnMarginPx);
     int y = top ? viewPort.y + s.y - margin : viewPort.y + s.y + s.dy + margin - viewPort.dy;
-    ScrollXTo(ColumnViewX(viewPort, s, col, margin));
+    ScrollXTo(ColumnViewX(viewPort, ColumnArea(), s, col, margin));
     ScrollYTo(y);
 }
 
@@ -648,7 +655,7 @@ void DisplayModel::FitColumnToWindow() {
     if (!CurrentColumn(&pageNo, &col)) {
         return;
     }
-    float want = (float)(viewPort.dx - (2 * DpiScale(kColumnMarginPx)));
+    float want = (float)(ColumnArea().dx - (2 * DpiScale(kColumnMarginPx)));
     // measured again after the first step: the scrollbar showing up or going
     // away changes the window's width
     for (int i = 0; i < 2; i++) {
@@ -660,10 +667,10 @@ void DisplayModel::FitColumnToWindow() {
         }
         float zoom = GetZoomVirtual(true) * (want / colDx) / real;
         SetZoomVirtual(limitValue(zoom, kZoomMin, kZoomMax), nullptr);
-        want = (float)(viewPort.dx - (2 * DpiScale(kColumnMarginPx)));
+        want = (float)(ColumnArea().dx - (2 * DpiScale(kColumnMarginPx)));
     }
     Rect s = CvtToScreen(pageNo, ColumnRect(pageNo, col));
-    ScrollXTo(ColumnViewX(viewPort, s, col, DpiScale(kColumnMarginPx)));
+    ScrollXTo(ColumnViewX(viewPort, ColumnArea(), s, col, DpiScale(kColumnMarginPx)));
 }
 
 // Shows on every page the part that rect (in page coordinates) covers on pageNo.

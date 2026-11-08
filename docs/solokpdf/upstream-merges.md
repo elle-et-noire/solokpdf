@@ -183,6 +183,6 @@ Review fixes: signed OFD files lost their signature bar because the merge
 took every EngineMupdf document for a PDF (`issue-1909`); upstream's
 keyboard focus ring returned to the thumbnails sidebar and is off again
 (`issue-6469` now checks the ring's state after Down); a PDFium tab no
-longer clears layer states a MuPDF tab saved. Left: Read Columns centers a
-column on the whole viewport, not the page area beside an overlay scrollbar
-(B74); `issue-6221` checks Mirror only with Windows scrollbars (B75).
+longer clears layer states a MuPDF tab saved. Read Columns now centers a
+column on the page area beside an overlay scrollbar (B74). Left:
+`issue-6221` checks Mirror only with Windows scrollbars (B75).

@@ -385,6 +385,17 @@ static TempStr LayoutInfoResultTemp(Str action, int* exitCodeOut) {
     DisplayModel* dm = win->AsFixed();
     if (dm) {
         out.Append(fmt("pages count=%d spacing=%d,%d\n", dm->PageCount(), dm->pageSpacing.dx, dm->pageSpacing.dy));
+        // the page area: the viewport less windowMargin (overlay scrollbars widen the right one)
+        Rect vp = dm->GetViewPort();
+        WindowMargin& wm = dm->windowMargin;
+        out.Append(
+            fmt("viewport dx=%d dy=%d margin=%d,%d,%d,%d\n", vp.dx, vp.dy, wm.left, wm.top, wm.right, wm.bottom));
+        int colPage = 0;
+        int col = 0;
+        if (dm->ReadsColumnsNow() && dm->CurrentColumn(&colPage, &col)) {
+            Rect s = dm->CvtToScreen(colPage, dm->ColumnRect(colPage, col));
+            out.Append(fmt("column page=%d col=%d screen=%d,%d,%d,%d\n", colPage, col, s.x, s.y, s.dx, s.dy));
+        }
         int n = std::min(dm->PageCount(), 8);
         for (int pageNo = 1; pageNo <= n; pageNo++) {
             PageInfo* pi = dm->GetPageInfo(pageNo);

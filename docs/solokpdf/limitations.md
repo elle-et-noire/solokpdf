@@ -225,8 +225,8 @@ are in [history.md](history.md).
   (`issue-750`, D7). Mirror Pages, Trim Pages To Selection, Read Columns, Count
   Words and Show Selected Text work from PDFium's text and page geometry
   (`issue-6221`, `issue-3585`, `read-columns`, `issue-6489`, `issue-6496`).
-  Read Columns takes the middle of the page area, which the overlay
-  scrollbars' room moves left of the window's middle.
+  Read Columns fits and centers a column on the page area, beside the room
+  the overlay scrollbars take on the right.
 - Replace Image and Edit Image in Another App are hidden on PDFium tabs:
   PDFium draws the page from the file, so an image replaced in the editor
   would not show. MuPDF tabs keep both.

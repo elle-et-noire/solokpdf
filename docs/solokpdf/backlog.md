@@ -9,12 +9,11 @@ there.
 
 ## Open
 
-| ID  | Item                                                                                                           | Status                                                        |
-| --- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| D3  | Shard the full suite across runners                                                                            | deferred: the suite takes ~25 min once a hung test is cut off |
-| F1  | Physical printer, print dialog and spooler check                                                               | needs the owner                                               |
-| B74 | Read Columns: center columns on the page area beside an overlay scrollbar (`ColumnViewX`, `FitColumnToWindow`) | todo                                                          |
-| B75 | `issue-6221`: check Mirror with overlay scrollbars against the page rect                                       | todo                                                          |
+| ID  | Item                                                                     | Status                                                        |
+| --- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| D3  | Shard the full suite across runners                                      | deferred: the suite takes ~25 min once a hung test is cut off |
+| F1  | Physical printer, print dialog and spooler check                         | needs the owner                                               |
+| B75 | `issue-6221`: check Mirror with overlay scrollbars against the page rect | todo                                                          |
 
 ## Dropped
 

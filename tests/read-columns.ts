@@ -81,6 +81,31 @@ function only(c: { red: number; blue: number }): Color | null {
   return null;
 }
 
+type ColumnPlace = { col: number; gapL: number; gapR: number };
+
+// where the current column sits in the page area: the viewport less
+// windowMargin, which overlay scrollbars widen on the right
+async function columnPlace(client: ControlClient): Promise<ColumnPlace> {
+  const raw = (await client.layout()).raw;
+  const vp = /^viewport dx=(\d+) dy=\d+ margin=(-?\d+),-?\d+,(-?\d+),-?\d+$/m.exec(raw);
+  const c = /^column page=\d+ col=(\d) screen=(-?\d+),-?\d+,(-?\d+),-?\d+$/m.exec(raw);
+  if (!vp || !c) {
+    throw new Error(`read-columns: no viewport or column in the layout probe:\n${raw}`);
+  }
+  const [dx, left, right] = vp.slice(1).map(Number);
+  const [col, x, w] = c.slice(1).map(Number);
+  return { col, gapL: x - left, gapR: dx - right - (x + w) };
+}
+
+// a column as wide as the page area (after Fit Column to Window) is centered on it
+async function expectCentered(client: ControlClient, what: string): Promise<ColumnPlace> {
+  const p = await columnPlace(client);
+  if (p.gapR < 0 || Math.abs(p.gapL - p.gapR) > 2) {
+    throw new Error(`read-columns: ${what} isn't centered in the page area: ${JSON.stringify(p)}`);
+  }
+  return p;
+}
+
 async function pageNo(client: ControlClient): Promise<number> {
   const res = await client.request(ControlCommand.TestCurrentTab, []);
   return Number(/page=(\d+)/.exec(String(res[1] ?? ""))?.[1] ?? 0);
@@ -127,8 +152,10 @@ export async function testit(): Promise<void> {
     if (start !== "red") {
       throw new Error(`read-columns: should start on the left column alone, got ${JSON.stringify(colors(frame))}`);
     }
+    await expectCentered(client, "the left column");
 
     await scrollTo(client, frame, true, "blue", 1);
+    await expectCentered(client, "the right column");
     await scrollTo(client, frame, true, "red", 2);
     await scrollTo(client, frame, false, "blue", 1);
     console.log("  page 1 left -> right -> page 2 left, and back up");
@@ -175,8 +202,14 @@ async function testSinglePageAndGutter(): Promise<void> {
     if (only(colors(frame)) !== "red") {
       throw new Error(`read-columns: should start on the left column: ${JSON.stringify(colors(frame))}`);
     }
+    const wide = await expectCentered(client, "the wider left column");
     // the gutter: red never shows in the right column, blue never in the left
     await scrollTo(client, frame, true, "blue", 1);
+    // the narrower right column keeps the wide one's gap to the page area's left
+    const narrow = await columnPlace(client);
+    if (narrow.col !== 1 || Math.abs(narrow.gapL - wide.gapL) > 2) {
+      throw new Error(`read-columns: narrow right column at ${JSON.stringify(narrow)}, want gapL ${wide.gapL}`);
+    }
     await scrollTo(client, frame, true, "red", 2);
     console.log("  single page: page 1 left -> right -> page 2 left, gutter from the text");
 
