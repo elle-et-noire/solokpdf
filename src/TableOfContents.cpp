@@ -1092,6 +1092,25 @@ TempStr TocRowsResultTemp(int* exitCodeOut) {
     return ToStrTemp(out);
 }
 
+static LRESULT CALLBACK TocScrollbarProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
+    LRESULT result = DefSubclassProc(hwnd, msg, wp, lp);
+    switch (msg) {
+        case WM_NCPAINT:
+        case WM_PAINT:
+        case WM_HSCROLL:
+        case WM_VSCROLL:
+        case WM_MOUSEWHEEL:
+        case WM_NCMOUSEMOVE:
+        case WM_NCLBUTTONUP:
+        case WM_CAPTURECHANGED:
+        case WM_SIZE:
+        case WM_THEMECHANGED:
+            PaintNativeScrollbars(hwnd);
+            break;
+    }
+    return result;
+}
+
 void CreateToc(MainWindow* win) {
     HWND parent = win->sidebarTop->hwnd;
     auto* filterEdit = new Edit();
@@ -1127,6 +1146,7 @@ void CreateToc(MainWindow* win) {
     treeView->Create(args);
     ReportIf(!treeView->hwnd);
     win->tocTreeView = treeView;
+    SetWindowSubclass(treeView->hwnd, TocScrollbarProc, NextSubclassId(), 0);
 
     // the filter edit over the tree, which takes the remaining height
     auto* vbox = new VBox();

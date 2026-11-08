@@ -532,6 +532,7 @@ import { testit as tocShowOnOpen } from "./toc-show-on-open.ts";
 import { testit as tocSelectionVisible } from "./toc-selection-visible.ts";
 import { testit as tocHoverColors } from "./toc-hover-colors.ts";
 import { testit as tocNativeScroll } from "./toc-native-scroll.ts";
+import { testit as tocScrollbarTheme } from "./toc-scrollbar-theme.ts";
 import { testit as sidebarThemeColors } from "./sidebar-theme-colors.ts";
 import { testit as themeControlBackground } from "./theme-control-background.ts";
 import { testit as themeBlendGradient } from "./theme-blend-gradient.ts";
@@ -1090,6 +1091,7 @@ export const tests: NamedTest[] = [
   ["toc-selection-visible", tocSelectionVisible],
   ["toc-hover-colors", tocHoverColors],
   ["toc-native-scroll", tocNativeScroll],
+  ["toc-scrollbar-theme", tocScrollbarTheme],
   ["sidebar-theme-colors", sidebarThemeColors],
   ["theme-control-background", themeControlBackground],
   ["theme-blend-gradient", themeBlendGradient],

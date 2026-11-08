@@ -88,6 +88,7 @@ struct ThemedBarLook {
 
 struct Pixmap;
 Pixmap* PaintThemedBar(Size, const ThemedBarLook&, int progress);
+void PaintNativeScrollbars(HWND);
 int ThemedBarHoverMs(bool hover);
 int EaseOutProgress(u64 start, int ms);
 
