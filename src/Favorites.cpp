@@ -377,20 +377,6 @@ void RememberFavTreeExpansionState(MainWindow* win) {
     }
 }
 
-static void GetFavFilterWords(MainWindow* win, StrVec& wordsOut) {
-    wordsOut.Reset();
-    TempStr filter = GetFavFilterTemp(win);
-    if (filter) {
-        SplitFilterToWords(filter, wordsOut);
-    }
-}
-
-static bool HasFavFilter(MainWindow* win) {
-    StrVec words;
-    GetFavFilterWords(win, words);
-    return len(words) > 0;
-}
-
 static void OnFavItemFont(TreeView::ItemFontEvent* ev) {
     auto* item = (FavTreeItem*)ev->treeItem;
     if (!item || item->fileNameOffset < 0 || item->fileNameLen <= 0) return;
@@ -417,112 +403,6 @@ static void OnFavItemStyle(TreeView::ItemStyleEvent* ev) {
         ev->textColor = ThemeSelectionText(ev->bgColor, text);
     } else if (ev->hot && !ThemeUsesHighContrastColors()) {
         ev->bgColor = ThemeHoverColorOn(tree->bgColor);
-    }
-}
-
-// Repaint favorite labels that contain a source file name so only that span is
-// bold. The same pass preserves multi-word search highlights when filtering.
-static void DrawFavItemText(TreeView::CustomDrawEvent* ev, MainWindow* win) {
-    FavTreeItem* fti = (FavTreeItem*)ev->treeItem;
-    if (!fti || len(fti->text) == 0) {
-        return;
-    }
-    StrVec words;
-    GetFavFilterWords(win, words);
-    bool hasFileName = fti->fileNameOffset >= 0 && fti->fileNameLen > 0;
-    if (len(words) == 0 && !hasFileName) {
-        return;
-    }
-
-    Rect labelRect;
-    TreeView* tv = ev->treeView;
-    if (!tv->GetItemRect(ev->treeItem, true, labelRect)) {
-        return;
-    }
-    Rect itemRect{};
-    tv->GetItemRect(ev->treeItem, false, itemRect);
-
-    NMTVCUSTOMDRAW* tvcd = ev->nm;
-    HDC hdc = tvcd->nmcd.hdc;
-    NMCUSTOMDRAW* cd = &tvcd->nmcd;
-    int right = std::min(itemRect.x + itemRect.dx, (int)cd->rc.right);
-    labelRect.dx = std::max(0, right - labelRect.x);
-    if (labelRect.IsEmpty()) {
-        return;
-    }
-    // POSTPAINT often omits CDIS_SELECTED; also check the control selection.
-    bool isSelected = (cd->uItemState & CDIS_SELECTED) != 0;
-    if (!isSelected) {
-        isSelected = tv->GetSelection() == ev->treeItem;
-    }
-    bool hasFocus = GetFocus() == tv->hwnd && ThemeUsesHighContrastColors();
-    Color bgCol, txtCol;
-    ResolveTreeFilterItemColors(hdc, itemRect, tv->bgColor, tv->textColor, isSelected, hasFocus, &bgCol, &txtCol);
-    GfxHdc gfx(hdc);
-    DrawTreeItemFilterHighlight(&gfx, labelRect, fti->text, words, bgCol, txtCol, tv->GetFont(), fti->fileNameOffset,
-                                fti->fileNameLen);
-}
-
-static void OnFavCustomDraw(TreeView::CustomDrawEvent* ev) {
-    ev->result = CDRF_DODEFAULT;
-    NMTVCUSTOMDRAW* tvcd = ev->nm;
-    NMCUSTOMDRAW* cd = &(tvcd->nmcd);
-
-    if (cd->dwDrawStage == CDDS_PREPAINT) {
-        ev->result = CDRF_NOTIFYITEMDRAW;
-        return;
-    }
-
-    MainWindow* win = FindMainWindowByHwnd(ev->treeView->hwnd);
-    bool filterActive = HasFavFilter(win);
-
-    if (cd->dwDrawStage == CDDS_ITEMPREPAINT) {
-        if (!ev->treeItem) {
-            return;
-        }
-        FavTreeItem* fti = (FavTreeItem*)ev->treeItem;
-        bool hasFileName = fti->fileNameOffset >= 0 && fti->fileNameLen > 0;
-        LRESULT res = 0;
-        if (filterActive || hasFileName) {
-            res |= CDRF_NOTIFYPOSTPAINT;
-        }
-        // the Explorer theme's hot face isn't a palette color
-        // a selected row keeps its color under the mouse
-        TreeView* tv = ev->treeView;
-        bool isSelected = (cd->uItemState & CDIS_SELECTED) != 0;
-        if (!isSelected) {
-            isSelected = tv->GetSelection() == ev->treeItem;
-        }
-        bool underMouse = (cd->uItemState & CDIS_HOT) && !ThemeUsesHighContrastColors();
-        if (underMouse) {
-            cd->uItemState &= ~CDIS_HOT;
-        }
-        if (underMouse && !isSelected) {
-            tvcd->clrTextBk = ThemeHoverColorOn(tv->bgColor);
-            res |= CDRF_NEWFONT;
-        }
-        if (isSelected) {
-            bool hasFocus = GetFocus() == tv->hwnd && ThemeUsesHighContrastColors();
-            Color bgCol, txtCol;
-            ResolveTreeFilterItemColors(cd->hdc, ToRect(cd->rc), tv->bgColor, tv->textColor, true, hasFocus, &bgCol,
-                                        &txtCol);
-            tvcd->clrText = txtCol;
-            tvcd->clrTextBk = bgCol;
-            cd->uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
-            res |= CDRF_NEWFONT;
-        }
-        ev->result = res;
-        return;
-    }
-
-    if (cd->dwDrawStage == CDDS_ITEMPOSTPAINT) {
-        FavTreeItem* fti = (FavTreeItem*)ev->treeItem;
-        bool hasFileName = fti->fileNameOffset >= 0 && fti->fileNameLen > 0;
-        if ((filterActive || hasFileName) && win) {
-            DrawFavItemText(ev, win);
-        }
-        ev->result = CDRF_DODEFAULT;
-        return;
     }
 }
 
@@ -659,14 +539,7 @@ void CreateFavorites(MainWindow* win) {
     filterEdit->onTextChanged = MkFunc0(OnFavFilterTextChanged, win);
     SetWindowSubclass(filterEdit->hwnd, WndProcFavFilterEdit, NextSubclassId(), (DWORD_PTR)win);
 
-    TreeView* treeView = nullptr;
-#if IS_DEBUG
-    if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_VIRTUAL_FAVORITES", nullptr, 0)) {
-        treeView = CreateVirtualSidebarTree(SidebarTreeKind::Favorites, Tr("Favorites"));
-    }
-#endif
-    bool virtualTree = treeView != nullptr;
-    if (!treeView) treeView = new TreeView();
+    TreeView* treeView = CreateVirtualSidebarTree(SidebarTreeKind::Favorites, Tr("Favorites"));
     TreeView::CreateArgs args;
     args.parent = parent;
     args.font = GetAppTreeFont();
@@ -679,7 +552,6 @@ void CreateFavorites(MainWindow* win) {
     treeView->onSelectionChanged = MkFunc1Void(FavTreeSelectionChanged);
     treeView->onKeyDown = MkFunc1Void(FavTreeKeyDown);
     treeView->onClick = MkFunc1Void(FavTreeItemClicked);
-    treeView->onCustomDraw = MkFunc1Void(OnFavCustomDraw);
     treeView->onGetItemFont = MkFunc1Void(OnFavItemFont);
     treeView->onGetItemStyle = MkFunc1Void(OnFavItemStyle);
 
@@ -693,7 +565,7 @@ void CreateFavorites(MainWindow* win) {
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
     vbox->AddChild(PadSidebarItem(filterEdit, parent));
-    vbox->AddChild(virtualTree ? PadSidebarTree(treeView, parent) : PadSidebarItem(treeView, parent), 1);
+    vbox->AddChild(PadSidebarTree(treeView, parent), 1);
     win->favViewLayout = vbox;
 
     UpdateControlsColors(win);

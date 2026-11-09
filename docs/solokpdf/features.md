@@ -85,8 +85,8 @@ panel's edges). A hovered bookmark or favorite fills its row with the hover
 color below (upstream: the Explorer theme's own hot face). The Signatures and
 Layers lists take the canvas color too (upstream: `ControlBackgroundColor`).
 
-The default Windows bookmark tree draws titles with native TreeView and uses
-Windows scrollbars regardless of the document's `Scrollbars` setting. Long titles scroll horizontally;
+The Windows bookmark tree uses the virtual sidebar control and follows the
+document's `Scrollbars` setting. Long titles scroll horizontally;
 page numbers, title wrapping, and search-match text highlighting are not shown.
 `ShowTocPageNumbers` and `TocWrapText` do not affect the Windows tree.
 
@@ -118,17 +118,18 @@ Palenight, `NotificationBackgroundColor` for Solarized Dark and Monokai,
 
 ## Virtual sidebar trees
 
-Added as a Debug-only experiment in `dff595cf0` (2026-11-09). Native bookmarks
-and favorites remain the default. With `-for-testing`, nonempty
-`SOLOKPDF_VIRTUAL_TOC` and `SOLOKPDF_VIRTUAL_FAVORITES` environment variables
-enable each virtual tree independently; use `1` to enable and unset to disable.
-Release builds ignore these switches.
+Bookmarks and favorites use virtual trees by default in Debug and Release.
+The Debug opt-in experiment began in `dff595cf0` (2026-11-09); its
+`SOLOKPDF_VIRTUAL_TOC` and `SOLOKPDF_VIRTUAL_FAVORITES` switches have been removed.
+Normal launches and `-for-testing` use the same control.
 
 The virtual trees use the existing `TreeModel` and support `Scrollbars` modes
 `windows`, `overlay`, `smart` and `hidden`, horizontal scrolling, filtering,
 keyboard navigation, UI Automation and MSAA. Titles remain single-line without
 fixed page numbers or search-match highlighting. The scroll area reaches the
 document area's bottom, with 4 DIP padding below the last row.
+Always-visible overlay bars reserve room in the tree's viewport so a revealed
+row or title stays clear of the bars.
 
 Automated checks and implementation details are in the
 [migration plan](tree-view-replacement-plan.md). Narrator, NVDA, real monitor DPI

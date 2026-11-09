@@ -27,10 +27,9 @@ checking the runner. Local app tests must never run on the owner's desktop.
 
 ### Virtual sidebar trees
 
-The tree migration is opt-in in Debug builds with `-for-testing`. Nonempty
-`SOLOKPDF_VIRTUAL_TOC` and `SOLOKPDF_VIRTUAL_FAVORITES` enable bookmarks and
-favorites independently. Unset them to test the native defaults; `0` also
-enables them because the implementation checks for a nonempty value.
+Bookmarks and favorites use virtual trees by default in Debug and Release.
+The old opt-in environment variables have no effect. The Debug control probes
+still require `-for-testing`; the displayed control matches normal launches.
 
 Build once, then run the targeted tests through the hidden desktop:
 
@@ -41,13 +40,16 @@ bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-tree-prototype.ts --no-buil
 bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-virtual-toc.ts --no-build
 bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-virtual-favorites.ts --no-build
 bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-virtual-tree-focus.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-vim-keys.ts --tree-only --no-build
 ```
 
-The document-tree tests set their own virtual-tree switches. Additional lifetime, UIA/MSAA,
-large-tree and native/virtual regression checks are listed in the
+The document-tree tests exercise the defaults without environment switches.
+Additional lifetime, UIA/MSAA, large-tree and navigation checks are listed in the
 [migration plan](tree-view-replacement-plan.md#検証). Use
-`tests/sidebar-tree.ts` when adapting native-tree tests to both implementations.
+`tests/sidebar-tree.ts` for item counts, selection and row operations.
 The new tree probes are standalone tests, not entries in `run-almost-all.ts`.
+`--tree-only` runs the existing Vim test's tree navigation and custom shortcuts
+without its document clipboard, dialog and link-hint checks.
 
 Narrator/NVDA, real monitor DPI changes, native scrollbar thumb dragging and
 real-cursor smart-bar hover remain manual checks. The owner performs these

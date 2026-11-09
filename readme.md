@@ -41,9 +41,10 @@ not been validated; use the portable build. Existing copyright and license
 terms remain, including MuPDF's AGPL obligations; see `AUTHORS` and `COPYING`.
 
 See [SolokPDF docs](docs/solokpdf/README.md) for current status, open work,
-test setup and measurements. Native sidebar trees remain the default; the
-[virtual-tree migration](docs/solokpdf/tree-view-replacement-plan.md) is Debug-only
-and opt-in while manual checks remain pending.
+test setup and measurements. Bookmarks and favorites use virtual trees in Debug
+and Release, following the document's scrollbar mode. See the
+[tree migration](docs/solokpdf/tree-view-replacement-plan.md) for validation
+results and pending physical-device checks.
 
 ## Original SumatraPDF project
 

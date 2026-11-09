@@ -1,14 +1,8 @@
+import { findSidebarTree } from "./sidebar-tree";
 import { writeFileSync } from "node:fs";
 import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG, writeAppdata } from "./util.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
-import {
-  captureWindowDCRegionPixels,
-  findVisibleChildWindow,
-  getScrollInfo,
-  getWindowRect,
-  sendMessage,
-  sleep,
-} from "./winapi.ts";
+import { captureWindowDCRegionPixels, getScrollInfo, getWindowRect, sendMessage, sleep } from "./winapi.ts";
 
 export async function testit(): Promise<void> {
   if (USE_NG) return;
@@ -31,13 +25,13 @@ export async function testit(): Promise<void> {
   writeFileSync(pdf, assemblePdf(objects), "latin1");
   const appdata = writeAppdata(
     "toc-scrollbar-theme",
-    "RestoreSession = false\nShowToc = true\nSidebarDx = 220\nTheme = Bar Test\nThemes [\n [\n Name = Bar Test\n TextColor = #ffffff\n BackgroundColor = #222222\n ControlBackgroundColor = #222222\n ScrollbarColor = #a13377\n ScrollbarThumbColor = #34be56\n ]\n]\n",
+    "RestoreSession = false\nShowToc = true\nSidebarDx = 220\nScrollbars = windows\nTheme = Bar Test\nThemes [\n [\n Name = Bar Test\n TextColor = #ffffff\n BackgroundColor = #222222\n ControlBackgroundColor = #222222\n ScrollbarColor = #a13377\n ScrollbarThumbColor = #34be56\n ]\n]\n",
   );
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {
     await client.waitForRenderIdle();
     await sleep(500);
-    const tree = findVisibleChildWindow(frame, "SysTreeView32");
+    const tree = findSidebarTree(frame, true)?.hwnd ?? 0;
     if (!tree) throw new Error("TOC tree missing");
     function checkColors(): void {
       const r = getWindowRect(tree);

@@ -2,6 +2,7 @@
 // its page label deliberately produce "Page MMMM.pdf : Page NNNN.pdf": the bold
 // source filename must come before the regular favorite text.
 
+import { findSidebarTree, sidebarItemHeight, sidebarRows, sidebarSelectRow } from "./sidebar-tree";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control";
@@ -10,14 +11,10 @@ import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } fro
 import {
   captureWindowPixels,
   captureWindowToPng,
-  findVisibleChildWindow,
   getClientRect,
   moveWindow,
   sendMessage,
   sleep,
-  treeClearSelection,
-  treeGetItemHeight,
-  treeGetRoot,
   WM_COMMAND,
 } from "./winapi";
 import { killAndWait, launchControlled } from "./win-automation";
@@ -35,12 +32,11 @@ type InkCount = { left: number; right: number; span: number; bounds: string };
 
 // Returns null while the tree isn't showing the favorite yet - the caller polls,
 // so "nothing drawn" is a retry, not a failure.
-function countLabelHalves(tree: number): InkCount | null {
+function countLabelHalves(tree: number, rowHeight: number): InkCount | null {
   const cap = captureWindowPixels(tree);
   if (!cap) {
     return null;
   }
-  const rowHeight = treeGetItemHeight(tree);
   if (rowHeight <= 0 || rowHeight > cap.h) {
     return null;
   }
@@ -203,12 +199,13 @@ async function testTheme(theme: "Light" | "Dark"): Promise<void> {
           minSpan = 18 * 6;
         }
       } else {
-        tree = findVisibleChildWindow(frame, "SysTreeView32");
-        if (tree && treeGetRoot(tree)) {
-          treeClearSelection(tree);
+        const sidebar = findSidebarTree(frame, true, "favorites");
+        tree = sidebar?.hwnd ?? 0;
+        if (sidebar && sidebarRows(sidebar) > 0) {
+          sidebarSelectRow(sidebar, -1);
           await sleep(20);
-          cur = countLabelHalves(tree);
-          minSpan = treeGetItemHeight(tree) * 6;
+          cur = countLabelHalves(tree, sidebarItemHeight(sidebar));
+          minSpan = sidebarItemHeight(sidebar) * 6;
         }
       }
       if (cur) {

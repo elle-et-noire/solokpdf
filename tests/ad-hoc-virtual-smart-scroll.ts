@@ -34,9 +34,7 @@ export async function testit(): Promise<void> {
   const pdf = tmpPath("virtual-smart-scroll.pdf");
   writeFileSync(pdf, makeTocPdf(6));
   const appdata = writeAppdata("virtual-smart-scroll-settings", "ShowToc = true\nScrollbars = smart\n");
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf], {
-    env: { SOLOKPDF_VIRTUAL_TOC: "1" },
-  });
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {
     await client.waitForRenderIdle();
     moveWindow(frame, 0, 0, 900, 200);

@@ -34,9 +34,7 @@ export async function testit(): Promise<void> {
     ]),
   );
   const appdata = writeAppdata("favorites-stale-uia-settings", "ShowToc = false\nShowFavorites = false\n");
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf], {
-    env: { SOLOKPDF_VIRTUAL_FAVORITES: "1" },
-  });
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   let probe: Bun.Subprocess<"pipe", "pipe", "pipe"> | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

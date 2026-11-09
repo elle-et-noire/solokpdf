@@ -377,10 +377,22 @@ bool VirtTree::UpdateBars() {
     };
     for (int pass = 0; pass < 3; pass++) {
         Rect rc = host->ClientRect();
-        scrollX.SetMetrics(contentDx, rc.dx);
         i64 height = (i64)len(state.rows) * rowDy;
         if (height > 0) height += bottomPad;
-        scrollY.SetMetrics((int)std::min(height, (i64)INT_MAX), rc.dy);
+        Size viewport{rc.dx, rc.dy};
+        if (mode == VirtTreeBarMode::Overlay && barX && barY) {
+            int width = OverlayScrollbarThickness(barY);
+            int heightBar = OverlayScrollbarThickness(barX);
+            bool horizontal = contentDx > rc.dx;
+            bool vertical = height > rc.dy;
+            // One permanent bar can make the other necessary.
+            if (vertical) horizontal = horizontal || contentDx > std::max(0, rc.dx - width);
+            if (horizontal) vertical = vertical || height > std::max(0, rc.dy - heightBar);
+            viewport.dx = std::max(0, rc.dx - (vertical ? width : 0));
+            viewport.dy = std::max(0, rc.dy - (horizontal ? heightBar : 0));
+        }
+        scrollX.SetMetrics(contentDx, viewport.dx);
+        scrollY.SetMetrics((int)std::min(height, (i64)INT_MAX), viewport.dy);
         for (int axis = 0; axis < 2; axis++) {
             VirtTreeScroll& scroll = axis == 0 ? scrollX : scrollY;
             SCROLLINFO si{sizeof(si), SIF_RANGE | SIF_PAGE | SIF_POS};

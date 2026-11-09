@@ -36,6 +36,10 @@ bool IsAlwaysThickMode(OverlayScrollbar* sb) {
     return sb->mode == OverlayScrollbar::Mode::Thick;
 }
 
+int OverlayScrollbarThickness(OverlayScrollbar* sb) {
+    return ScaledWidth(sb, true);
+}
+
 // the bar itself, without the corner square a themed vertical bar also covers
 Rect ClientRect(OverlayScrollbar* sb) {
     Rect rc = HwndClientRect(sb->hwnd);

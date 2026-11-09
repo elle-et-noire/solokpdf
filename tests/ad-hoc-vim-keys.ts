@@ -1,3 +1,4 @@
+import { findSidebarTree, sidebarItemHeight, sidebarSelection } from "./sidebar-tree";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -38,8 +39,6 @@ import {
   sendMessage,
   sendText,
   sleep,
-  treeGetItemHeight,
-  treeGetSelection,
   WM_KEYDOWN,
   WM_KEYUP,
   WM_LBUTTONDOWN,
@@ -67,7 +66,45 @@ function makePdf(links: "links" | "no-links" = "links"): string {
   ]);
 }
 
+async function testTreeKeys(): Promise<void> {
+  if (!canActivateTestFrame()) throw new Error("tree keys require CI or a hidden desktop");
+  const outline = tmpPath("vim-keys-outline.pdf");
+  writeFileSync(outline, makeBookmarkedPdf());
+  for (const vim of [false, true]) {
+    const dir = writeAppdata(
+      `vim-keys-tree-${vim}`,
+      `VimKeys = ${vim}\nRestoreSession = false\nShortcuts [\n [\n  Cmd = CmdGoToNextPage\n  Key = g\n ]\n]\n`,
+    );
+    const treeApp = await launchControlled(["-appdata", dir, outline]);
+    try {
+      await treeApp.client.waitForRenderIdle();
+      await activateTestFrame(treeApp.client);
+      const sidebar = findSidebarTree(treeApp.frame, true);
+      const tree = sidebar?.hwnd ?? 0;
+      if (!sidebar) throw new Error("bookmarks tree not found");
+      await clickAt(tree, 40, Math.floor(sidebarItemHeight(sidebar) / 2));
+      if (getFocusedHwnd(treeApp.frame) !== tree) throw new Error("bookmarks tree did not receive focus");
+      const before = sidebarSelection(sidebar);
+      await pressKey(tree, 0x28);
+      if (!before || sidebarSelection(sidebar) === before)
+        throw new Error(`tree Down did not move selection (Vim=${vim})`);
+      await pressKey(tree, 0x47);
+      const result = String((await treeApp.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+      if (!result.includes("page=3 ") || !/count=0 prefix=-/.test(result)) {
+        throw new Error(`tree custom shortcut did not run (Vim=${vim}): ${result}`);
+      }
+    } finally {
+      await treeApp.client.quit().catch(() => {});
+      await killAndWait(treeApp.proc);
+    }
+  }
+}
+
 export async function testit(): Promise<void> {
+  if (process.argv.includes("--tree-only")) {
+    await testTreeKeys();
+    return;
+  }
   if (!canTestClipboard("ad-hoc-vim-keys")) return;
   if (!canActivateTestFrame()) {
     console.log("SKIP ad-hoc-vim-keys: hidden desktop, CI, or SOLOKPDF_REAL_DESKTOP=1 required");
@@ -481,35 +518,7 @@ export async function testit(): Promise<void> {
     await killAndWait(custom.proc);
   }
 
-  const outline = tmpPath("vim-keys-outline.pdf");
-  writeFileSync(outline, makeBookmarkedPdf());
-  for (const vim of [false, true]) {
-    const dir = writeAppdata(
-      `vim-keys-tree-${vim}`,
-      `VimKeys = ${vim}\nRestoreSession = false\nShortcuts [\n [\n  Cmd = CmdGoToNextPage\n  Key = g\n ]\n]\n`,
-    );
-    const treeApp = await launchControlled(["-appdata", dir, outline]);
-    try {
-      await treeApp.client.waitForRenderIdle();
-      await activateTestFrame(treeApp.client);
-      const tree = findVisibleChildWindow(treeApp.frame, "SysTreeView32");
-      if (!tree) throw new Error("bookmarks tree not found");
-      await clickAt(tree, 40, Math.floor(treeGetItemHeight(tree) / 2));
-      if (getFocusedHwnd(treeApp.frame) !== tree) throw new Error("bookmarks tree did not receive focus");
-      const before = treeGetSelection(tree);
-      await pressKey(tree, 0x28);
-      if (!before || treeGetSelection(tree) === before)
-        throw new Error(`tree Down did not move selection (Vim=${vim})`);
-      await pressKey(tree, 0x47);
-      const result = String((await treeApp.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
-      if (!result.includes("page=3 ") || !/count=0 prefix=-/.test(result)) {
-        throw new Error(`tree custom shortcut did not run (Vim=${vim}): ${result}`);
-      }
-    } finally {
-      await treeApp.client.quit().catch(() => {});
-      await killAndWait(treeApp.proc);
-    }
-  }
+  await testTreeKeys();
 }
 
 if (import.meta.main) await runStandalone(testit);

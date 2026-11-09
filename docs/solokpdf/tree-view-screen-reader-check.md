@@ -1,6 +1,6 @@
 # TreeView の手動確認
 
-2026-11-09 時点で未実施（F2）。Debug の試験実装が対象であり、既定の標準ツリーは置き換わっていない。
+2026-11-09 時点で実機確認は未実施（F2）。既定化した仮想ツリーが対象。Debug・Release とも同じ部品を使う。
 自動テストの状況は [置き換え計画](tree-view-replacement-plan.md#試作の結果) を参照する。
 
 自動テストとは別に、操作する人のデスクトップで実行する。
@@ -13,16 +13,7 @@ PowerShell でリポジトリのルートから起動する。専用の PDF と�
 ```powershell
 . ./tools/solokpdf/env.ps1 -Toolset v145
 bun tools/solokpdf/tree-reader-fixture.ts
-$oldToc = $env:SOLOKPDF_VIRTUAL_TOC
-$oldFavorites = $env:SOLOKPDF_VIRTUAL_FAVORITES
-try {
-    $env:SOLOKPDF_VIRTUAL_TOC = '1'
-    $env:SOLOKPDF_VIRTUAL_FAVORITES = '1'
-    & ./out/dbg64/SumatraPDF.exe -for-testing -appdata "$PWD/.work/tree-reader-check/appdata" "$PWD/.work/tree-reader-check/tree-reader-check.pdf"
-} finally {
-    $env:SOLOKPDF_VIRTUAL_TOC = $oldToc
-    $env:SOLOKPDF_VIRTUAL_FAVORITES = $oldFavorites
-}
+& ./out/dbg64/SumatraPDF.exe -for-testing -appdata "$PWD/.work/tree-reader-check/appdata" "$PWD/.work/tree-reader-check/tree-reader-check.pdf"
 ```
 
 デバッグ版のビルドが必要な場合は、環境設定後に `bun cmd/solok-build.ts -quick` を実行する。
@@ -59,6 +50,10 @@ Narrator と NVDA を一つずつ有効にし、それぞれ以下を確認す�
 
 2026-11-09: 差分レビューを完了。Windows 操作ヘルパーは `native pipe is unavailable` で接続できず、実画面の操作は未実施。
 スクロール確認用の文書とモード別設定を、ローカルの `.work/tree-manual-review/` に準備した。
+既定表示で UIA/MSAA の名前・階層移動・展開・選択・スクロールを実クライアントから確認した。
+これは Narrator／NVDA の実際の読み上げを確認した結果ではない。
+Release の Light／Dark を非表示デスクトップで起動し、Windows／overlay モードの実描画を `PrintWindow` で確認した。
+接続ディスプレイは 1 台のため、異なる実モニター間の移動も未確認。
 
 | 項目                    | 結果   | 記録する環境                           |
 | ----------------------- | ------ | -------------------------------------- |
@@ -72,14 +67,5 @@ Narrator と NVDA を一つずつ有効にし、それぞれ以下を確認す�
 
 ```powershell
 $mode = 'windows' # windows / overlay / smart / hidden
-$oldToc = $env:SOLOKPDF_VIRTUAL_TOC
-$oldFavorites = $env:SOLOKPDF_VIRTUAL_FAVORITES
-try {
-    $env:SOLOKPDF_VIRTUAL_TOC = '1'
-    $env:SOLOKPDF_VIRTUAL_FAVORITES = '1'
-    & ./out/dbg64/SumatraPDF.exe -for-testing -appdata "$PWD/.work/tree-manual-review/$mode" "$PWD/.work/tree-manual-review/scroll-check.pdf"
-} finally {
-    $env:SOLOKPDF_VIRTUAL_TOC = $oldToc
-    $env:SOLOKPDF_VIRTUAL_FAVORITES = $oldFavorites
-}
+& ./out/dbg64/SumatraPDF.exe -for-testing -appdata "$PWD/.work/tree-manual-review/$mode" "$PWD/.work/tree-manual-review/scroll-check.pdf"
 ```

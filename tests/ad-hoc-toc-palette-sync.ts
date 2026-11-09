@@ -10,17 +10,11 @@
 // Reverting the fix (the selectInTree path in TableOfContents.cpp's GoToTocLink)
 // makes the tree selection stay put, so this throws.
 
+import { findSidebarTree, sidebarSelection } from "./sidebar-tree";
 import { writeFileSync } from "node:fs";
 import { cmdId, runStandalone, tmpPath } from "./util.ts";
-import {
-  launchControlled,
-  paletteState,
-  findChildByClass,
-  sendCommand,
-  pressEnter,
-  killAndWait,
-} from "./win-automation.ts";
-import { sleep, moveWindow, treeGetSelection, enumWindows, getWindowPid, findChildWindow, sendText } from "./winapi.ts";
+import { launchControlled, paletteState, sendCommand, pressEnter, killAndWait } from "./win-automation.ts";
+import { sleep, moveWindow, enumWindows, getWindowPid, findChildWindow, sendText } from "./winapi.ts";
 
 const CmdNavigateTableOfContents = cmdId("CmdNavigateTableOfContents");
 
@@ -89,11 +83,11 @@ export async function testit(): Promise<void> {
     moveWindow(frame, 40, 20, 900, 700);
     await sleep(1200);
 
-    const tree = findChildByClass(frame, "SysTreeView32");
+    const tree = findSidebarTree(frame);
     if (!tree) {
       throw new Error("Bookmarks (TOC) tree not found - did the outline load?");
     }
-    const sel0 = treeGetSelection(tree); // Chapter One (page 1)
+    const sel0 = sidebarSelection(tree); // Chapter One (page 1)
 
     // open the palette in TOC ("%") mode, filter to Chapter Four, navigate to it
     const before = new Set(topWindows(proc.pid));
@@ -113,7 +107,7 @@ export async function testit(): Promise<void> {
     await pressEnter(edit); // navigate to the selected (Chapter Four) bookmark
     await sleep(600);
 
-    const sel1 = treeGetSelection(tree);
+    const sel1 = sidebarSelection(tree);
     if (sel1 === sel0) {
       throw new Error("issue #5716: Bookmarks panel selection did not move after navigating via the Command Palette");
     }

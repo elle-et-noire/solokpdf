@@ -2,12 +2,13 @@
 // one document. HTML now opens as a single file (Markdown keeps folder mode).
 // Its home page thumbnail is a WebView2 picture of the page: MuPDF's render
 // lost images, so thumbnails looked blank.
+import { findSidebarTree, sidebarItemCount } from "./sidebar-tree";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
 import { IS_WIN } from "./host";
 import { cmdId, loadPng, makePng, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
-import { findChildWindow, sendMessage, sleep, treeExpandRecursively, TVE_EXPAND, TVM_GETCOUNT } from "./winapi";
+import { sleep, treeExpandRecursively, TVE_EXPAND } from "./winapi";
 import {
   killAndWait,
   launchControlled,
@@ -23,12 +24,12 @@ async function tocItemCount(frame: number, client: ControlClient | null): Promis
     const m = /tocItems=(-?\d+)/.exec(raw);
     return m ? +m[1]! : -1;
   }
-  const tree = findChildWindow(frame, "SysTreeView32");
+  const tree = findSidebarTree(frame);
   if (!tree) {
     return -1;
   }
-  treeExpandRecursively(tree, TVE_EXPAND);
-  return Number(sendMessage(tree, TVM_GETCOUNT, 0, 0));
+  if (!tree.virtual) treeExpandRecursively(tree.hwnd, TVE_EXPAND);
+  return sidebarItemCount(tree);
 }
 
 async function testSingleFile(dir: string): Promise<void> {

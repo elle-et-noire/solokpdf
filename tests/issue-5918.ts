@@ -9,22 +9,13 @@
 // here), so this covers the machinery instead: the TOC ends up complete once
 // the background build lands, and closing the document while a build is still
 // in flight doesn't take the app down with it.
+import { findSidebarTree, sidebarItemCount } from "./sidebar-tree";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
 import { IS_MAC } from "./host";
 import { cmdId, runStandalone, tmpPath, USE_NG } from "./util";
-import {
-  findChildWindow,
-  getWindowText,
-  postMessage,
-  sendMessage,
-  sleep,
-  treeExpandRecursively,
-  TVE_EXPAND,
-  TVM_GETCOUNT,
-  WM_CLOSE,
-} from "./winapi";
+import { getWindowText, postMessage, sleep, treeExpandRecursively, TVE_EXPAND, WM_CLOSE } from "./winapi";
 import {
   killAndWait,
   launchControlled,
@@ -61,11 +52,11 @@ async function tocItemCount(frame: number, client: ControlClient | null): Promis
     const m = /tocItems=(-?\d+)/.exec(raw);
     return m ? +m[1]! : -1;
   }
-  const tree = findChildWindow(frame, "SysTreeView32");
+  const tree = findSidebarTree(frame);
   if (!tree) {
     return -1;
   }
-  return Number(sendMessage(tree, TVM_GETCOUNT, 0, 0));
+  return sidebarItemCount(tree);
 }
 
 async function waitForTocCount(
@@ -78,10 +69,8 @@ async function waitForTocCount(
   let last = -1;
   while (Date.now() < deadline) {
     // Materialize lazy headings before counting the completed background TOC.
-    const tree = findChildWindow(frame, "SysTreeView32");
-    if (tree) {
-      treeExpandRecursively(tree, TVE_EXPAND);
-    }
+    const tree = findSidebarTree(frame);
+    if (tree && !tree.virtual) treeExpandRecursively(tree.hwnd, TVE_EXPAND);
     last = await tocItemCount(frame, client);
     if (last === want) {
       return last;

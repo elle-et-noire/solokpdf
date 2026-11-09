@@ -1,12 +1,13 @@
 // Run with -exe out/rel64/SumatraPDF.exe; TOC_PROFILE_LABEL names the xperf artifacts.
 // TOC_PROFILE_PDF optionally replaces the generated large TOC with a real document.
+import { findSidebarTree, sidebarItemCount } from "./sidebar-tree";
 import { strict as assert } from "node:assert";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { makeTocPdf } from "./issue-6167";
 import { cmdId, ROOT, runStandalone, tmpPath, writeAppdata } from "./util";
 import { killAndWait, launchSumatra, sendCommandSync, waitForFrame, waitForTitle } from "./win-automation";
-import { findChildWindow, getWindowText, sendMessage, TVM_GETCOUNT } from "./winapi";
+import { getWindowText } from "./winapi";
 
 const width = 20;
 const switches = 100;
@@ -44,9 +45,9 @@ export async function testit(): Promise<void> {
     for (let i = 0; i < 10; i++) {
       sendCommandSync(frame, nextTab);
     }
-    const tree = findChildWindow(frame, "SysTreeView32");
+    const tree = findSidebarTree(frame);
     assert.ok(tree, "TOC tree exists");
-    const inserted = Number(sendMessage(tree, TVM_GETCOUNT, 0, 0));
+    const inserted = sidebarItemCount(tree);
     xperf([
       "-on",
       "PROC_THREAD+LOADER+PROFILE",

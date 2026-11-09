@@ -13,6 +13,11 @@ import {
 } from "./win-automation";
 import {
   findChildWindow,
+  enumWindows,
+  getClassName,
+  getWindowPid,
+  getWindowRect,
+  isWindowVisible,
   getParentWindow,
   sendMessage,
   sendText,
@@ -25,6 +30,9 @@ import {
 
 const kCount = 2000;
 const kTestState = 0x8000 + 102;
+const kOverlayMode = 1;
+const kOverlayClass = "SUMATRA_OVERLAY_SCROLLBAR";
+const kLongTitle = "long title ".repeat(40);
 
 export async function testit(): Promise<void> {
   const pdf = tmpPath("virtual-favorites-large.pdf");
@@ -39,15 +47,14 @@ export async function testit(): Promise<void> {
   );
   const favorites = Array.from(
     { length: kCount },
-    (_, i) => `    [\n      Name = Favorite ${i + 1}\n      PageNo = ${i + 1}\n    ]`,
+    (_, i) =>
+      `    [\n      Name = Favorite ${i + 1}${i + 1 === kCount ? ` ${kLongTitle}` : ""}\n      PageNo = ${i + 1}\n    ]`,
   ).join("\n");
   const appdata = writeAppdata(
     "virtual-favorites-large-settings",
     `ShowFavorites = false\nScrollbars = windows\nFileStates [\n  [\n    FilePath = ${pdf}\n    Favorites [\n${favorites}\n    ]\n  ]\n]\n`,
   );
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf], {
-    env: { SOLOKPDF_VIRTUAL_FAVORITES: "1" },
-  });
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {
     await client.waitForRenderIdle();
     sendCommandSync(frame, cmdId("CmdFavoriteShowInTab"));
@@ -77,6 +84,27 @@ export async function testit(): Promise<void> {
       sendMessage(hwnd, WM_KEYDOWN, VK_END, 0);
       assert.equal(state(1), kCount, `mode ${expected}: End did not select the last favorite`);
       assert.ok(sidebarSelectionInView(tree, BigInt(kCount + 1)), `mode ${expected}: last favorite was not revealed`);
+      if (expected === kOverlayMode) {
+        const rect = getWindowRect(hwnd);
+        let barTop = rect.bottom;
+        enumWindows((bar) => {
+          if (getWindowPid(bar) !== proc.pid || getClassName(bar) !== kOverlayClass || !isWindowVisible(bar))
+            return true;
+          const r = getWindowRect(bar);
+          if (
+            r.right - r.left > r.bottom - r.top &&
+            r.left >= rect.left &&
+            r.right <= rect.right &&
+            r.top >= rect.top &&
+            r.bottom <= rect.bottom
+          )
+            barTop = Math.min(barTop, r.top);
+          return true;
+        });
+        assert.ok(barTop < rect.bottom, "long favorite did not create a horizontal overlay bar");
+        const lastBottom = rect.top + state(0) * state(3) - state(2);
+        assert.ok(lastBottom <= barTop, "last favorite overlaps the horizontal overlay scrollbar");
+      }
     }
     assert.ok(sidebarRowText(tree, kCount).includes(`Favorite ${kCount}`));
     const filter = findChildWindow(getParentWindow(getParentWindow(hwnd)), "Edit");

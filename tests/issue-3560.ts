@@ -8,12 +8,13 @@
 // The test builds a PDF whose first bookmark is red and bold and whose second
 // is blue, then reads the colours of the bookmarks tree straight off the screen.
 
+import { findSidebarTree } from "./sidebar-tree";
 import { writeFileSync } from "node:fs";
 import { ControlCommand } from "./control";
 import { IS_MAC } from "./host";
 import { tmpPath, assemblePdf, USE_NG } from "./util";
 import { launchControlled, killAndWait } from "./win-automation";
-import { captureWindowPixels, findChildWindow, isZoomed, moveWindow, showWindow, sleep, SW_RESTORE } from "./winapi";
+import { captureWindowPixels, isZoomed, moveWindow, showWindow, sleep, SW_RESTORE } from "./winapi";
 
 // Select an uncolored first entry so both colored entries remain unselected.
 function makePdf(): string {
@@ -118,7 +119,7 @@ export async function testit(): Promise<void> {
           }
         }
       } else {
-        tree = findChildWindow(frame, "SysTreeView32");
+        tree = findSidebarTree(frame)?.hwnd ?? 0;
         if (tree) {
           n = treeColors(tree);
           if (n.red >= 40 && n.blue >= 40) {

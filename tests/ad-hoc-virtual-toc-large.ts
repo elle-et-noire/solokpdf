@@ -40,9 +40,7 @@ export async function testit(): Promise<void> {
     "virtual-toc-large-settings",
     "ShowToc = true\nShowFavorites = false\nScrollbars = windows\n",
   );
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf], {
-    env: { SOLOKPDF_VIRTUAL_TOC: "1" },
-  });
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {
     await client.waitForRenderIdle();
     const hwnd = findChildWindow(frame, "SumatraVirtualBookmarksTree");

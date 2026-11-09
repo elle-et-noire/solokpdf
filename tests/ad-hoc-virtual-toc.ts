@@ -58,9 +58,7 @@ export async function testit(): Promise<void> {
   const appdata = tmpPath("virtual-toc-settings");
   mkdirSync(appdata, { recursive: true });
   writeFileSync(join(appdata, SETTINGS_FILE), "ShowToc = true\nShowFavorites = false\nScrollbars = windows\n");
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf], {
-    env: { SOLOKPDF_VIRTUAL_TOC: "1" },
-  });
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {
     await client.waitForRenderIdle();
     let tree = 0;
@@ -153,7 +151,7 @@ export async function testit(): Promise<void> {
       `<< /Title <FEFF${"05D005D105D2".repeat(80)}> /Parent 4 0 R /Dest [3 0 R /Fit] >>`,
     ]),
   );
-  const rtl = await launchControlled(["-appdata", appdata, rtlPdf], { env: { SOLOKPDF_VIRTUAL_TOC: "1" } });
+  const rtl = await launchControlled(["-appdata", appdata, rtlPdf]);
   try {
     await rtl.client.waitForRenderIdle();
     const tree = findChildWindow(rtl.frame, "SumatraVirtualBookmarksTree");
@@ -182,7 +180,7 @@ export async function testit(): Promise<void> {
       "<< /Title (External) /Parent 4 0 R /A << /S /URI /URI (https://example.org/) >> >>",
     ]),
   );
-  const tip = await launchControlled(["-appdata", appdata, tipPdf], { env: { SOLOKPDF_VIRTUAL_TOC: "1" } });
+  const tip = await launchControlled(["-appdata", appdata, tipPdf]);
   try {
     await tip.client.waitForRenderIdle();
     const tree = findChildWindow(tip.frame, "SumatraVirtualBookmarksTree");

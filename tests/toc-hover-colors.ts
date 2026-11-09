@@ -5,26 +5,29 @@
 //
 // Run: bun tests/toc-hover-colors.ts [--no-build]
 
+import {
+  findSidebarTree,
+  sidebarItemHeight,
+  sidebarSelection,
+  sidebarRows,
+  sidebarSelectRow,
+  type SidebarTree,
+} from "./sidebar-tree";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assemblePdf, cmdId, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util";
-import { ControlCommand } from "./control";
-import { killAndWait, launchControlled, sendCommandSync } from "./win-automation";
+import { ControlCommand, type ControlClient } from "./control";
+import { killAndWait, launchControlled, sendCommandSync, moveTestCursor } from "./win-automation";
 import {
   findChildWindow,
-  findVisibleChildWindow,
+  clientToScreen,
+  packCoords,
+  WM_MOUSEMOVE,
+  WM_MOUSELEAVE,
   getClientRect,
   readWindowDCRow,
   sendMessage,
   sleep,
-  treeGetItemHeight,
-  treeGetNextItem,
-  treeGetRoot,
-  treeGetSelection,
-  treeSetHot,
-  TVGN_NEXT,
-  TVGN_CARET,
-  TVM_SELECTITEM,
 } from "./winapi";
 
 // Chapter two is on page 2, the others on page 1: opened on page 2, only it is selected
@@ -47,17 +50,24 @@ const hex = (c: number) =>
 
 // a row's fill at its left edge (left of the title) and at its right end
 // (past the title; page numbers are off)
-function rowEnds(tree: number, row: number): [number, number] {
-  const dy = treeGetItemHeight(tree);
-  const dx = getClientRect(tree).right;
+function rowEnds(tree: SidebarTree, row: number): [number, number] {
+  const dy = sidebarItemHeight(tree);
+  const dx = getClientRect(tree.hwnd).right;
   const y = row * dy + Math.floor(dy / 2);
-  const left = readWindowDCRow(tree, 2, y, 1)[0]!;
-  const right = readWindowDCRow(tree, dx - 3, y, 1)[0]!;
+  const left = readWindowDCRow(tree.hwnd, 2, y, 1)[0]!;
+  const right = readWindowDCRow(tree.hwnd, dx - 3, y, 1)[0]!;
   return [left, right];
 }
 
+async function hoverRow(tree: SidebarTree, row: number, client: ControlClient): Promise<void> {
+  const y = row < 0 ? -10 : row * sidebarItemHeight(tree) + Math.floor(sidebarItemHeight(tree) / 2);
+  const point = clientToScreen(tree.hwnd, 10, y);
+  await moveTestCursor(point.x, point.y, client);
+  sendMessage(tree.hwnd, row < 0 ? WM_MOUSELEAVE : WM_MOUSEMOVE, 0, packCoords(10, y));
+}
+
 // polls until the row is filled in one color other than `not`; returns it
-async function uniformFill(tree: number, row: number, not: number, what: string): Promise<number> {
+async function uniformFill(tree: SidebarTree, row: number, not: number, what: string): Promise<number> {
   let ends: [number, number] = [0, 0];
   for (let i = 0; i < 50; i++) {
     ends = rowEnds(tree, row);
@@ -111,40 +121,38 @@ export async function testit(): Promise<void> {
     const toolbar = findChildWindow(frame, "SUMATRA_VIRT_TOOLBAR");
     if (!toolbar) throw new Error("toc-hover-colors: toolbar missing");
     await selectedIcon(toolbar);
-    let tree = 0;
-    for (let i = 0; i < 100 && (!tree || treeGetSelection(tree) === 0n); i++) {
-      tree = findChildWindow(frame, "SysTreeView32");
+    let tree: SidebarTree | null = null;
+    for (let i = 0; i < 100 && (!tree || sidebarSelection(tree) === 0n); i++) {
+      tree = findSidebarTree(frame);
       await sleep(40);
     }
-    const one = treeGetRoot(tree);
-    const two = treeGetNextItem(tree, TVGN_NEXT, one);
-    if (treeGetSelection(tree) !== two) {
+    if (!tree || sidebarSelection(tree) !== 2n) {
       throw new Error("toc-hover-colors: Chapter two isn't the selected bookmark");
     }
 
-    treeSetHot(tree, 0n);
+    await hoverRow(tree, -1, client);
     const bg = rowEnds(tree, 2)[0];
     const selected = await uniformFill(tree, 1, bg, "selected row");
     if (hex(selected) !== "#336699") {
       throw new Error(`toc-hover-colors: selected row ${hex(selected)}, want #336699`);
     }
-    const rowHeight = treeGetItemHeight(tree);
-    const width = getClientRect(tree).right;
+    const rowHeight = sidebarItemHeight(tree);
+    const width = getClientRect(tree.hwnd).right;
     let green = 0;
     for (let y = rowHeight; y < 2 * rowHeight; y++) {
-      for (const pixel of readWindowDCRow(tree, 0, y, width)) {
+      for (const pixel of readWindowDCRow(tree.hwnd, 0, y, width)) {
         if ((pixel & 255) < 80 && ((pixel >> 8) & 255) > 160 && ((pixel >> 16) & 255) < 80) green++;
       }
     }
     if (!green) throw new Error("toc-hover-colors: selected text is not green");
 
-    treeSetHot(tree, one);
+    await hoverRow(tree, 0, client);
     const hover = await uniformFill(tree, 0, bg, "hovered row");
     if (hover === selected) {
       throw new Error(`toc-hover-colors: hover ${hex(hover)} is the selection color`);
     }
 
-    treeSetHot(tree, two);
+    await hoverRow(tree, 1, client);
     const selectedHot = await uniformFill(tree, 1, bg, "hovered selected row");
     if (selectedHot !== selected) {
       throw new Error(`toc-hover-colors: hovered selected row ${hex(selectedHot)}, want ${hex(selected)}`);
@@ -160,22 +168,20 @@ export async function testit(): Promise<void> {
     const result = await fav.client.request(ControlCommand.TestFavoriteNav, ["add", 1]);
     if (result[0] !== 0) throw new Error("toc-hover-colors: could not add favorite");
     sendCommandSync(fav.frame, cmdId("CmdFavoriteShowInTab"));
-    let tree = 0;
-    let root = 0n;
-    for (let i = 0; i < 100 && !root; i++) {
-      tree = findVisibleChildWindow(fav.frame, "SysTreeView32");
-      if (tree) root = treeGetRoot(tree);
+    let tree: SidebarTree | null = null;
+    for (let i = 0; i < 100 && (!tree || sidebarRows(tree) === 0); i++) {
+      tree = findSidebarTree(fav.frame, true, "favorites");
       await sleep(40);
     }
-    if (!root) throw new Error("toc-hover-colors: favorites tree is empty");
-    sendMessage(tree, TVM_SELECTITEM, TVGN_CARET, root);
+    if (!tree || sidebarRows(tree) === 0) throw new Error("toc-hover-colors: favorites tree is empty");
+    sidebarSelectRow(tree, 0);
     const selected = await uniformFill(tree, 0, 0, "selected favorite");
     if (hex(selected) !== "#336699") {
       throw new Error(`toc-hover-colors: selected favorite ${hex(selected)}, want #336699`);
     }
     let green = 0;
-    for (let y = 0; y < treeGetItemHeight(tree); y++) {
-      for (const pixel of readWindowDCRow(tree, 0, y, getClientRect(tree).right)) {
+    for (let y = 0; y < sidebarItemHeight(tree); y++) {
+      for (const pixel of readWindowDCRow(tree.hwnd, 0, y, getClientRect(tree.hwnd).right)) {
         if ((pixel & 255) < 80 && ((pixel >> 8) & 255) > 160 && ((pixel >> 16) & 255) < 80) green++;
       }
     }

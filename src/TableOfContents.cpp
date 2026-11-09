@@ -195,7 +195,7 @@ void ClearTocBox(MainWindow* win) {
 // Fill win->tocMatchingItems with every entry that should look "current" for
 // bestMatch: all TOC items on the same page, plus the ancestor chain (so a
 // nested 6 / 6.1 / 6.1.1 path all highlight together). TreeView still has only
-// one selection; extras are painted in OnTocCustomDraw when gShowAllMatchingTOC.
+// one selection; extras are painted in OnTocItemStyle when gShowAllMatchingTOC.
 static void SetTocMultiHighlight(MainWindow* win, TreeView* treeView, TocItem* bestMatch) {
     Vec<TocItem*> next;
     if (gShowAllMatchingTOC && bestMatch && treeView) {
@@ -583,7 +583,6 @@ static void TocContextMenu(ContextMenuEvent* ev) {
     }
 }
 
-static void OnTocCustomDraw(TreeView::CustomDrawEvent* /*ev*/);
 static void OnTocItemFont(TreeView::ItemFontEvent*);
 static void OnTocItemStyle(TreeView::ItemStyleEvent*);
 
@@ -622,20 +621,15 @@ void LoadTocTree(MainWindow* win) {
     bool isRTL = r2l > l2r;
 
     TreeView* treeView = win->tocTreeView;
-    HWND hwnd = treeView->hwnd;
     treeView->SetDirection(isRTL ? TreeDirection::RightToLeft : TreeDirection::LeftToRight);
 
     UpdateControlsColors(win);
     SetInitialExpandState(tocTree->root, tab->tocState);
     AutoExpandTopLevelItems(tocTree->root->child);
 
-    treeView->onCustomDraw = MkFunc1Void(OnTocCustomDraw);
     treeView->onGetItemFont = MkFunc1Void(OnTocItemFont);
     treeView->onGetItemStyle = MkFunc1Void(OnTocItemStyle);
     treeView->SetWrapText(false);
-    // Use version 5 sizing for PDF bookmark fonts selected during custom draw.
-    constexpr int kTreeViewFontVersion = 5;
-    SendMessageW(hwnd, CCM_SETVERSION, kTreeViewFontVersion, 0);
     treeView->SetTreeModel(tocTree);
     if (SidebarPanel* p = SidebarPanelShowing(win, SidebarView::Bookmarks)) {
         RelayoutSidebarPanel(p);
@@ -709,16 +703,6 @@ void ReloadTocTree(WindowTab* tab) {
     UpdateTocSelection(win, currPageNo);
 }
 
-// TODO: use https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-getobject?redirectedfrom=MSDN
-// to get LOGFONT from existing font and then create a derived font
-static PlatformFont* UpdateFont(HDC hdc, int fontFlags) {
-    bool italic = bit::IsSet(fontFlags, kFontBitItalic);
-    bool bold = bit::IsSet(fontFlags, kFontBitBold);
-    PlatformFont* font = GetAppTreeFontEx(bold, italic);
-    SelectObject(hdc, font->GetHFont());
-    return font;
-}
-
 static void OnTocItemFont(TreeView::ItemFontEvent* ev) {
     auto* item = (TocItem*)ev->treeItem;
     if (!item || !item->fontFlags) return;
@@ -747,71 +731,6 @@ static void OnTocItemStyle(TreeView::ItemStyleEvent* ev) {
     }
     if (!selected && ev->hot && !ThemeUsesHighContrastColors()) {
         ev->bgColor = ThemeHoverColorOn(tree->bgColor);
-    }
-}
-
-// https://docs.microsoft.com/en-us/windows/win32/controls/about-custom-draw
-// https://docs.microsoft.com/en-us/windows/win32/api/commctrl/ns-commctrl-nmtvcustomdraw
-void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
-    ev->result = CDRF_DODEFAULT;
-    NMTVCUSTOMDRAW* tvcd = ev->nm;
-    NMCUSTOMDRAW* cd = &(tvcd->nmcd);
-
-    if (cd->dwDrawStage == CDDS_PREPAINT) {
-        ev->result = CDRF_NOTIFYITEMDRAW;
-        return;
-    }
-
-    MainWindow* win = FindMainWindowByHwnd(ev->treeView->hwnd);
-
-    if (cd->dwDrawStage == CDDS_ITEMPREPAINT) {
-        TocItem* tocItem = (TocItem*)ev->treeItem;
-        if (!tocItem) {
-            return;
-        }
-        TreeView* tv = ev->treeView;
-        bool isTreeSelected = (cd->uItemState & CDIS_SELECTED) != 0;
-        if (!isTreeSelected) {
-            isTreeSelected = tv->GetSelection() == ev->treeItem;
-        }
-        bool isMultiMatch = TocItemIsMultiHighlight(win, tocItem);
-        bool isSelected = isTreeSelected || isMultiMatch;
-        bool hasFocus = isTreeSelected && (GetFocus() == tv->hwnd) && ThemeUsesHighContrastColors();
-        // a selected row keeps the selection color under the mouse; either way
-        // the theme's hot face goes
-        bool underMouse = (cd->uItemState & CDIS_HOT) && !ThemeUsesHighContrastColors();
-        bool isHot = underMouse && !isSelected;
-
-        LRESULT res = 0;
-        if (underMouse) {
-            cd->uItemState &= ~CDIS_HOT;
-        }
-        if (isHot) {
-            tvcd->clrTextBk = ThemeHoverColorOn(tv->bgColor);
-            res |= CDRF_NEWFONT;
-        }
-        if (isSelected) {
-            // Theme-aware selection fill/text; strip CDIS_SELECTED so Explorer
-            // theme does not paint a light inactive selection over dark text.
-            Color bgCol, txtCol;
-            ResolveTreeFilterItemColors(cd->hdc, ToRect(cd->rc), tv->bgColor, tv->textColor, true, hasFocus, &bgCol,
-                                        &txtCol);
-            tvcd->clrText = txtCol;
-            tvcd->clrTextBk = bgCol;
-            cd->uItemState &= ~CDIS_SELECTED;
-            if (!hasFocus) {
-                cd->uItemState &= ~CDIS_FOCUS;
-            }
-            res |= CDRF_NEWFONT;
-        } else if (tocItem->color != kColorUnset) {
-            tvcd->clrText = tocItem->color;
-        }
-        if (tocItem->fontFlags != 0) {
-            UpdateFont(cd->hdc, tocItem->fontFlags);
-            res |= CDRF_NEWFONT;
-        }
-        ev->result = res;
-        return;
     }
 }
 
@@ -1072,14 +991,7 @@ void CreateToc(MainWindow* win) {
     filterEdit->onTextChanged = MkFunc0(OnTocFilterTextChanged, win);
     SetWindowSubclass(filterEdit->hwnd, WndProcTocFilterEdit, NextSubclassId(), (DWORD_PTR)win);
 
-    TreeView* treeView = nullptr;
-#if IS_DEBUG
-    if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_VIRTUAL_TOC", nullptr, 0)) {
-        treeView = CreateVirtualSidebarTree(SidebarTreeKind::Bookmarks, Tr("Bookmarks"));
-    }
-#endif
-    bool virtualTree = treeView != nullptr;
-    if (!treeView) treeView = new TreeView();
+    TreeView* treeView = CreateVirtualSidebarTree(SidebarTreeKind::Bookmarks, Tr("Bookmarks"));
     treeView->lazyChildren = true;
     TreeView::CreateArgs args;
     args.parent = parent;
@@ -1104,7 +1016,7 @@ void CreateToc(MainWindow* win) {
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
     vbox->AddChild(PadSidebarItem(filterEdit, parent));
-    vbox->AddChild(virtualTree ? PadSidebarTree(treeView, parent) : PadSidebarItem(treeView, parent), 1);
+    vbox->AddChild(PadSidebarTree(treeView, parent), 1);
     win->tocViewLayout = vbox;
 
     int dpi = DpiGetForHwnd(parent);

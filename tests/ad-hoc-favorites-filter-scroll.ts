@@ -30,44 +30,29 @@ export async function testit(): Promise<void> {
     { length: 400 },
     (_, i) => `    [\n      Name = Favorite ${i + 1} ${"long title ".repeat(12)}\n      PageNo = ${i + 1}\n    ]`,
   ).join("\n");
-  const savedVirtual = process.env.SOLOKPDF_VIRTUAL_FAVORITES;
+  const appdata = writeAppdata(
+    "favorites-filter-scroll",
+    `ShowFavorites = false\nScrollbars = windows\nFileStates [\n  [\n    FilePath = ${pdf}\n    Favorites [\n${favorites}\n    ]\n  ]\n]\n`,
+  );
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
   try {
-    for (const virtual of [false, true]) {
-      if (virtual) process.env.SOLOKPDF_VIRTUAL_FAVORITES = "1";
-      else delete process.env.SOLOKPDF_VIRTUAL_FAVORITES;
-      const appdata = writeAppdata(
-        `favorites-filter-scroll-${virtual}`,
-        `ShowFavorites = false\nScrollbars = windows\nFileStates [\n  [\n    FilePath = ${pdf}\n    Favorites [\n${favorites}\n    ]\n  ]\n]\n`,
-      );
-      const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf], {
-        env: { ...process.env } as Record<string, string>,
-      });
-      try {
-        await client.waitForRenderIdle();
-        sendCommandSync(frame, cmdId("CmdFavoriteShowInTab"));
-        const tree = findChildWindow(frame, virtual ? "SumatraVirtualFavoritesTree" : "SysTreeView32");
-        assert.ok(tree, "favorites tree unavailable");
-        const pos = () => (virtual ? Number(sendMessage(tree, 0x8000 + 102, 2, 0)) : getScrollInfo(tree).pos);
-        sendMessage(tree, WM_KEYDOWN, VK_END, 0);
-        assert.ok(pos() > 0, `${virtual}: initial scroll failed`);
-        if (virtual) {
-          sendMessage(tree, WM_HSCROLL, SB_RIGHT, 0);
-          assert.ok(getScrollInfo(tree, SB_HORZ).pos > 0, "horizontal scroll failed");
-        }
-        const filter = findChildWindow(getParentWindow(getParentWindow(tree)), "Edit");
-        assert.ok(filter, "favorites filter unavailable");
-        sendText(filter, "Favorite 1");
-        assert.equal(pos(), 0, `${virtual}: filter did not return to the first result`);
-        if (virtual)
-          assert.equal(getScrollInfo(tree, SB_HORZ).pos, 0, "filter did not return to the start of the title");
-      } finally {
-        client.close();
-        await killAndWait(proc);
-      }
-    }
+    await client.waitForRenderIdle();
+    sendCommandSync(frame, cmdId("CmdFavoriteShowInTab"));
+    const tree = findChildWindow(frame, "SumatraVirtualFavoritesTree");
+    assert.ok(tree, "favorites tree unavailable");
+    const pos = () => Number(sendMessage(tree, 0x8000 + 102, 2, 0));
+    sendMessage(tree, WM_KEYDOWN, VK_END, 0);
+    assert.ok(pos() > 0, "initial scroll failed");
+    sendMessage(tree, WM_HSCROLL, SB_RIGHT, 0);
+    assert.ok(getScrollInfo(tree, SB_HORZ).pos > 0, "horizontal scroll failed");
+    const filter = findChildWindow(getParentWindow(getParentWindow(tree)), "Edit");
+    assert.ok(filter, "favorites filter unavailable");
+    sendText(filter, "Favorite 1");
+    assert.equal(pos(), 0, "filter did not return to the first result");
+    assert.equal(getScrollInfo(tree, SB_HORZ).pos, 0, "filter did not return to the start of the title");
   } finally {
-    if (savedVirtual === undefined) delete process.env.SOLOKPDF_VIRTUAL_FAVORITES;
-    else process.env.SOLOKPDF_VIRTUAL_FAVORITES = savedVirtual;
+    client.close();
+    await killAndWait(proc);
   }
 }
 

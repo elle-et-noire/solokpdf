@@ -9,7 +9,8 @@ import { join } from "node:path";
 import { ControlCommand } from "./control";
 import { assemblePdf, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
 import { launchControlled, killAndWait } from "./win-automation";
-import { countVisibleTreeRows, findChildWindow, sleep } from "./winapi";
+import { sleep } from "./winapi";
+import { findSidebarTree, sidebarRows } from "./sidebar-tree";
 
 function makePdf(): string {
   const objs = [
@@ -55,9 +56,10 @@ export async function testit(): Promise<void> {
           break;
         }
       } else {
-        tree = findChildWindow(frame, "SysTreeView32");
-        if (tree) {
-          rows = countVisibleTreeRows(tree);
+        const sidebar = findSidebarTree(frame);
+        tree = sidebar?.hwnd ?? 0;
+        if (sidebar) {
+          rows = sidebarRows(sidebar);
           if (rows >= 2) {
             break;
           }

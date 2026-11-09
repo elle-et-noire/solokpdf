@@ -252,7 +252,7 @@ export async function testit(): Promise<void> {
     await expectFavs(client, "OK manual=0 -@1,-@2,-@3", "added");
 
     let tree: SidebarTree | null = null;
-    if (!USE_NG && process.env.SOLOKPDF_VIRTUAL_FAVORITES) {
+    if (!USE_NG) {
       const hwnd = findChildWindow(frame, "SumatraVirtualFavoritesTree");
       if (!hwnd) throw new Error("edit-favorites: virtual tree unavailable");
       if (!isWindowVisible(hwnd)) sendCommandSync(frame, cmdId("CmdFavoriteToggle"));

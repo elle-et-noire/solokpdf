@@ -247,9 +247,9 @@ are in [history.md](history.md).
 
 ## Links, outline and navigation
 
-- Native Win32 trees remain the default for bookmarks and favorites. The
-  [virtual-tree implementation](features.md#virtual-sidebar-trees) is Debug-only
-  and requires `-for-testing` plus opt-in environment variables. Its automated
+- Bookmarks and favorites use the [virtual-tree implementation](features.md#virtual-sidebar-trees)
+  in Debug and Release, including normal launches. Both follow `Scrollbars`.
+  Its automated
   UIA/MSAA checks do not replace the pending screen-reader and physical-display
   checks (E10, F2).
 

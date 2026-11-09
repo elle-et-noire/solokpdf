@@ -105,6 +105,7 @@ void OverlayScrollbarSetInfo(OverlayScrollbar* sb, const SCROLLINFO* si, bool re
 void OverlayScrollbarGetInfo(OverlayScrollbar* sb, SCROLLINFO* si);
 
 void OverlayScrollbarUpdatePos(OverlayScrollbar* sb);
+int OverlayScrollbarThickness(OverlayScrollbar* sb);
 
 void OverlayScrollbarShow(OverlayScrollbar* sb, bool show);
 void OverlayScrollbarRepaint(OverlayScrollbar* sb);

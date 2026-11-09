@@ -15227,7 +15227,9 @@ static HACCEL FindAcceleratorsForHwnd(HWND hwnd, HWND* hwndAccel, bool* forwardS
         }
         return editAccTable;
     }
-    if (wstr::EqI(clsName, WC_TREEVIEWW)) {
+    bool sidebarTree = (win->tocTreeView && hwnd == win->tocTreeView->FocusHwnd()) ||
+                       (win->favTreeView && hwnd == win->favTreeView->FocusHwnd());
+    if (sidebarTree || wstr::EqI(clsName, WC_TREEVIEWW)) {
         if (forwardSysKeys) {
             *forwardSysKeys = true;
         }

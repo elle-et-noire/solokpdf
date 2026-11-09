@@ -1,3 +1,4 @@
+import { findSidebarTree } from "./sidebar-tree";
 import { writeFileSync } from "node:fs";
 import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG, writeAppdata } from "./util.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
@@ -34,8 +35,9 @@ export async function testit(): Promise<void> {
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   try {
     await client.waitForRenderIdle();
-    const tree = findVisibleChildWindow(frame, "SysTreeView32");
-    const edit = tree && findVisibleChildWindow(getParentWindow(tree), "Edit");
+    const tree = findSidebarTree(frame, true);
+    const panel = tree && (tree.virtual ? getParentWindow(getParentWindow(tree.hwnd)) : getParentWindow(tree.hwnd));
+    const edit = panel && findVisibleChildWindow(panel, "Edit");
     if (!edit) throw new Error("bookmark search field not found");
     await sleep(200);
     if (!hasColor(edit, 0, 255, 0)) throw new Error("bookmark placeholder does not use the muted theme color");

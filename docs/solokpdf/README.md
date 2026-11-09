@@ -16,17 +16,17 @@ rendered output.
 
 ## Status (2026-11-09)
 
-Reviewed source through `dff595cf0` on `solokpdf-dev`. This is a documentation
-review; build and test results below remain the results recorded with each change.
+Current source on `solokpdf-dev`. Build and test results retain the dates and
+scope recorded with each change.
 
-| Area           | Current state                                                                                          | Details                                                                                                              |
-| -------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                            | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
-| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7).                                                         | [Merge results and remaining checks](upstream-merges.md#merge-result-2026-11-08)                                     |
-| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                            | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
-| Sidebar trees  | Native trees remain the default. Virtual trees are opt-in in Debug with `-for-testing`.                | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
-| Keyboard input | Context and binding checks partly shared; physical input checks remain pending.                        | [Handoff](keyboard-handoff.md), [investigation](keyboard-investigation.md)                                           |
-| Remaining work | Tree rollout, settings application in test mode, keyboard follow-up, manual checks and suite sharding. | [Backlog](backlog.md)                                                                                                |
+| Area           | Current state                                                                                                    | Details                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                      | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
+| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7).                                                                   | [Merge results and remaining checks](upstream-merges.md#merge-result-2026-11-08)                                     |
+| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                      | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
+| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; physical-device checks remain pending.     | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
+| Keyboard input | Context and binding checks partly shared; physical input checks remain pending.                                  | [Handoff](keyboard-handoff.md), [investigation](keyboard-investigation.md)                                           |
+| Remaining work | Tree acceptance checks, settings application in test mode, keyboard follow-up, manual checks and suite sharding. | [Backlog](backlog.md)                                                                                                |
 
 ## Resuming work
 

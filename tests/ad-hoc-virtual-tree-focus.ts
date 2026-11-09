@@ -51,9 +51,7 @@ export async function testit(): Promise<void> {
   writeFileSync(pdf, makeBookmarkedPdf());
   writeFileSync(other, makeBookmarkedPdf());
   const appdata = writeAppdata("virtual-tree-focus-settings", "ShowToc = true\nShowFavorites = true\n");
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf, other], {
-    env: { SOLOKPDF_VIRTUAL_TOC: "1", SOLOKPDF_VIRTUAL_FAVORITES: "1" },
-  });
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf, other]);
   try {
     await client.waitForRenderIdle();
     const add = await client.request(ControlCommand.TestFavoriteNav, ["add", 1]);

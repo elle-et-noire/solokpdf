@@ -322,6 +322,8 @@ void SidebarTree::WindowMessage(ControlBase::WndProcEvent* ev) {
 }
 
 #if IS_DEBUG
+static constexpr WPARAM kSidebarCountItems = 20;
+
 void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
     if (!gForTesting) return;
     if (ev->msg == WM_APP + 103) {
@@ -404,6 +406,10 @@ void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
                 break;
             case 14: {
                 int row = (int)ev->lp;
+                if (row == -1) {
+                    ev->res = SelectItem(TreeModel::kNullItem);
+                    break;
+                }
                 if (row < 0 || row >= len(tree.state.rows)) {
                     ev->res = 0;
                     break;
@@ -426,6 +432,9 @@ void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
                 break;
             case 19:
                 ev->res = (LRESULT)GetForegroundWindow();
+                break;
+            case kSidebarCountItems:
+                ev->res = len(tree.state.nodes);
                 break;
             default:
                 ev->res = -1;

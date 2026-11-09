@@ -2,18 +2,17 @@ import { strict as assert } from "node:assert";
 import { resolve } from "node:path";
 import "../tools/solokpdf/tree-reader-fixture";
 import { sidebarRowText } from "./sidebar-tree";
-import { cmdId, runStandalone } from "./util";
+import { cmdId, pollUntil, runStandalone } from "./util";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation";
 import { findChildWindow, isWindowVisible, sendMessage, VK_RIGHT, WM_KEYDOWN } from "./winapi";
 
 export async function testit(): Promise<void> {
   const dir = resolve(".work/tree-reader-check");
-  const { proc, client, frame } = await launchControlled(
-    ["-appdata", `${dir}/appdata`, `${dir}/tree-reader-check.pdf`],
-    {
-      env: { SOLOKPDF_VIRTUAL_TOC: "1", SOLOKPDF_VIRTUAL_FAVORITES: "1" },
-    },
-  );
+  const { proc, client, frame } = await launchControlled([
+    "-appdata",
+    `${dir}/appdata`,
+    `${dir}/tree-reader-check.pdf`,
+  ]);
   try {
     await client.waitForRenderIdle();
     const toc = findChildWindow(frame, "SumatraVirtualBookmarksTree");
@@ -38,9 +37,17 @@ export async function testit(): Promise<void> {
     assert.ok(sidebarRowText(tree, 1).includes("First favorite"));
     assert.ok(sidebarRowText(tree, 2).includes("Third favorite"));
     sendCommandSync(frame, cmdId("CmdFavoriteToggle"));
-    assert.equal(isWindowVisible(favorites), false, "favorites sidebar did not close");
+    await pollUntil(
+      () => isWindowVisible(favorites),
+      (visible) => !visible,
+      { error: "favorites sidebar did not close" },
+    );
     sendCommandSync(frame, cmdId("CmdFavoriteToggle"));
-    assert.equal(isWindowVisible(favorites), true, "favorites sidebar did not reopen");
+    await pollUntil(
+      () => isWindowVisible(favorites),
+      (visible) => visible,
+      { error: "favorites sidebar did not reopen" },
+    );
     assert.equal(Number(sendMessage(favorites, 0x8000 + 102, 0, 0)), 3, "favorites expansion was not preserved");
   } finally {
     client.close();
