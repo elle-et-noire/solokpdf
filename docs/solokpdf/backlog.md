@@ -4,7 +4,7 @@ Open work as of 2026-11-10. Status: `todo`, `doing`, `blocked` (reason), `deferr
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D14, E18, F4).
+group (B76, C2, D14, E23, F4).
 
 ## Implementation and acceptance
 
@@ -18,19 +18,36 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-The owner selected CI coverage expansion after D12. Both additions are in the
-working tree on `fb3dcc3fb`; their first hosted results are pending.
+CI coverage expansion after D12 is committed as `9083edafe`. At 2026-11-10
+03:01 JST, its regular CI was building Debug and Release; no ASan runs were
+listed. See the [hosted snapshot](history.md#hosted-snapshot-2026-11-10).
 
-| ID  | Work                                                                             | Status                                                                            |
-| --- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| D13 | Add the four existing virtual-tree checks to regular SolokPDF CI                 | doing — implemented; targeted local validation recorded; first hosted run pending |
-| E17 | Run a clean ASan build, tree lifetime and PDFium fallback checks manually/weekly | doing — clean local build and both checks passed; first hosted run pending        |
+| ID  | Work                                                                             | Status                                                                     |
+| --- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| D13 | Add the four existing virtual-tree checks to regular SolokPDF CI                 | doing — committed; local validation recorded; first hosted run in progress |
+| E17 | Run a clean ASan build, tree lifetime and PDFium fallback checks manually/weekly | doing — clean local build and both checks passed; first hosted run pending |
 
 Implementation and local results are in [history.md](history.md#ci-coverage-expansion-2026-11-10).
-After publication, record the regular CI run for D13 and a manual run of
+Record the completed regular CI run for D13 and a manual run of
 `solokpdf-asan.yml` for E17. Record revision, run URL, step results and failures;
 neither task requires a full-suite run. The weekly ASan schedule starts when
 its workflow reaches the default branch.
+
+## Design review
+
+The [refactoring plan](refactoring-plan.md) covers rendering, color policy,
+cache invalidation, read contracts and document lifetime. Record the affected
+paths and outputs first, then follow the order below. File splitting is an
+implementation choice, not a completion criterion. The [current architecture](architecture.md)
+records existing behavior separately from these proposed changes.
+
+| Order | ID  | Work                                                                      | Status                                                                |
+| ----- | --- | ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1     | E21 | Define effective color inputs, transformation stages and adjustment order | todo — after baseline; preserve current path differences              |
+| 2     | E19 | Clarify render outcomes, color state, alpha, fallback and cancellation    | todo — after E21 policy; preserve pixels and annotation ownership     |
+| 3     | E22 | Align cache dependencies, keys and invalidation with render inputs        | todo — after E19/E21; retain theme-independent data                   |
+| 4     | E18 | Clarify read results, waiting and lazy-editor side effects                | todo — after rendering contracts; inspect implementations and callers |
+| 5     | E20 | Review document state, ownership, invalidation and lock ordering          | todo — use preceding results; change identified problems              |
 
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a new code
 change, choose affected tests from [testing.md](testing.md); run full suites

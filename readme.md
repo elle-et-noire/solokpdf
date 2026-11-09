@@ -50,7 +50,9 @@ portable build. Existing copyright and license terms remain, including MuPDF's
 AGPL obligations; see `AUTHORS` and `COPYING`.
 
 See [SolokPDF docs](docs/solokpdf/README.md) for current status, open work,
-test setup and measurements. Bookmarks and favorites use virtual trees in Debug
+test setup and measurements. See the [current architecture](docs/solokpdf/architecture.md)
+and [design review plan](docs/solokpdf/refactoring-plan.md) for responsibilities and planned changes.
+Bookmarks and favorites use virtual trees in Debug
 and Release, following the document's scrollbar mode. See the
 [tree migration](docs/solokpdf/tree-view-replacement-plan.md) for validation
 results and the owner's completed physical-device checks.

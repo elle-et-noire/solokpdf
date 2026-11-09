@@ -118,8 +118,9 @@ The prebuilt PDFium DLL remains uninstrumented.
 
 GitHub requires the workflow on the default branch for
 [scheduled and manual execution](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
-The repository's default branch is `solokpdf-dev`. First hosted validation of
-these additions is pending; see [D13/E17](backlog.md#next-steps).
+The repository's default branch is `solokpdf-dev`. D13/E17 are committed as
+`9083edafe`; dated hosted status is in the [validation record](history.md#hosted-snapshot-2026-11-10),
+and remaining work is in the [backlog](backlog.md#next-steps).
 
 ### Physical tree checks
 

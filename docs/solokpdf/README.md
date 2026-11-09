@@ -16,13 +16,16 @@ rendered output.
 
 ## Status (2026-11-10)
 
-Implementation through `fc8b455e8` on `solokpdf-dev` includes E16's ASan
-build/test changes. Its [regular CI run](history.md#d12-hosted-evidence-2026-11-10)
-passed Debug/Release builds, unit tests and feature tests (D12).
+HEAD is `9083edafe` on `solokpdf-dev`. It commits four virtual-tree checks in
+regular CI (D13) and a manual/weekly ASan workflow (E17).
+At 2026-11-10 03:01 JST, [regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/42669207693)
+was building Debug and Release; no ASan runs were listed.
+The latest recorded successful regular CI tested `fc8b455e8` (D12).
 E10–E16 and D8–D12 are complete within their recorded scope.
-The working tree adds four virtual-tree checks to regular CI (D13) and a
-manual/weekly ASan workflow (E17); their first hosted runs remain pending.
-See the [backlog](backlog.md). F2 passed by owner report. F1/F3 were
+The next design review starts with color policy, render results and cache
+invalidation, then read contracts and document lifetime; see the
+[refactoring plan](refactoring-plan.md) and [backlog](backlog.md).
+F2 passed by owner report. F1/F3 were
 removed from active work by the owner on 2026-11-10, without being marked passed.
 
 | Area           | Current state                                                                                                                                     | Details                                                                                                              |
@@ -37,20 +40,18 @@ removed from active work by the owner on 2026-11-10, without being marked passed
 
 ### Validation scope
 
-Results apply only to the revisions and checks listed here. The recorded
-regular CI run predates the four added tree checks and does not run ASan.
-The new workflow's scope is in [testing.md](testing.md#asan-ci).
+Results apply only to the revisions and checks listed here. Regular CI does not
+run ASan. The ASan workflow's scope is in [testing.md](testing.md#asan-ci).
 
-| Check                    | Tested revision                 | Recorded result                                                                                                                                                                            |
-| ------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Current regular CI       | `fc8b455e8`                     | Debug/Release builds, 105117 unit tests and 65/65 feature tests passed; [D12 evidence and limits](history.md#d12-hosted-evidence-2026-11-10).                                              |
-| Recorded regular CI      | `b24b868b9`                     | Debug/Release jobs, 105055 unit tests and 65/65 feature tests passed; [record](history.md#hosted-triage).                                                                                  |
-| Scheduled full suites    | `99ba47b52`                     | PDFium 574/584, MuPDF 577/587; [eleven distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).                                                                              |
-| D9 targeted rechecks     | `b24b868b9`, `4ad4c30ae`        | All eleven targets passed three hosted runs per engine; [record](history.md#hosted-triage). No full suite rerun.                                                                           |
-| F2 physical tree checks  | Build unspecified               | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                                     |
-| E14 local validation     | Change committed as `bef32a49c` | Debug/Release builds, 15 targeted configurations, extended lifetime checks and four ASan configurations passed; [scope and results](history.md#e14-virtual-tree-encapsulation-2026-11-10). |
-| E16 local validation     | Change committed as `fc8b455e8` | ASan incremental build, Debug/Release configuration checks, tree lifetime and PDFium tests passed; [scope and results](history.md#e16-asan-build-path-2026-11-10).                         |
-| D13/E17 local validation | Working tree on `fb3dcc3fb`     | Four added tree checks, complete Debug PDFium test, clean ASan build and both ASan checks passed; [results](history.md#ci-coverage-expansion-2026-11-10).                                  |
+| Check                    | Tested revision                 | Recorded result                                                                                                                                                         |
+| ------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D13 regular CI           | `9083edafe`                     | In progress at 03:01 JST; [hosted snapshot](history.md#hosted-snapshot-2026-11-10). No pass recorded yet.                                                               |
+| Latest successful CI     | `fc8b455e8`                     | Debug/Release builds, 105117 unit tests and 65/65 feature tests passed; [D12 evidence and limits](history.md#d12-hosted-evidence-2026-11-10).                           |
+| F2 physical tree checks  | Build unspecified               | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                  |
+| D13/E17 local validation | Change committed as `9083edafe` | Four added tree checks, complete Debug PDFium test, clean ASan build and both ASan checks passed before commit; [results](history.md#ci-coverage-expansion-2026-11-10). |
+
+Earlier suite results, targeted rechecks and refactor validation remain in
+[history.md](history.md#navigation).
 
 E16 replaces the direct-project ASan workaround with `bun cmd/solok-build.ts -asan`,
 staging PDFium and the ASan runtime beside the executable. Test staging also
@@ -61,9 +62,10 @@ preserves the ASan DLL. See the [procedure](testing.md#asan-builds).
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- D13/E17 implement the selected CI coverage work. Local results and pending
-  hosted checks are in the [backlog](backlog.md#next-steps) and
-  [validation record](history.md#ci-coverage-expansion-2026-11-10).
+- Check D13/E17's hosted results against the recorded revision before closing
+  them; see the [backlog](backlog.md#next-steps).
+- For design work, read the [current architecture](architecture.md) and
+  [refactoring plan](refactoring-plan.md). E18–E22 are planned, not implemented.
 - For a code change, select the affected tests in [testing.md](testing.md).
   Run full suites only when explicitly requested.
 
@@ -71,6 +73,8 @@ Build instructions are in the root readme. All local app-launching tests use
 the [hidden-desktop runner](testing.md#local-windows-runs).
 
 ## Source map
+
+Responsibilities, state and API contracts are in [architecture.md](architecture.md).
 
 | Area           | Entry points                                                                                                                                                                                                   |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -89,6 +93,7 @@ the [hidden-desktop runner](testing.md#local-windows-runs).
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Current behavior         | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                      |
 | Work status              | [Active, deferred and excluded work](backlog.md)                                                                                          |
+| Design and planned work  | [Current architecture](architecture.md), [refactoring plan](refactoring-plan.md)                                                          |
 | Completed tree migration | [Plan and results](tree-view-replacement-plan.md), [owner's acceptance](tree-view-screen-reader-check.md)                                 |
 | Keyboard input           | [Current routing and results](keyboard-investigation.md); [historical handoff](keyboard-handoff.md)                                       |
 | Test procedures          | [Local automated tests](testing.md#local-windows-runs), [historical manual checks](testing.md#owners-manual-acceptance-f1f3)              |
@@ -100,6 +105,8 @@ the [hidden-desktop runner](testing.md#local-windows-runs).
 Keep current behavior in `features.md` and `limitations.md`, open work in
 `backlog.md`, and dated results in `history.md`. Mark completed plans with their
 implementation commit; retain their original acceptance criteria as history.
+Keep responsibilities and contracts in `architecture.md`; keep proposed changes
+and their completion criteria in `refactoring-plan.md`.
 Move completed backlog rows to [history.md](history.md#completed-backlog).
 Record upstream merges in `upstream-merges.md` and measurements in `data/`.
 Update this status when the default behavior or active work changes. Keep test

@@ -8,17 +8,17 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 
 ## Navigation
 
-| Topic                  | Records                                                                                                                                                                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Latest validation      | [D12 current regular CI](#d12-hosted-evidence-2026-11-10), [E16 local ASan checks](#e16-asan-build-path-2026-11-10), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                        |
-| Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09)                                                                                                                                                    |
-| Merge follow-ups       | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                       |
-| Recent implementation  | [E14 tree encapsulation](#e14-virtual-tree-encapsulation-2026-11-10), [tree layout](#virtual-tree-layout-boundary-2026-11-10), [PDFium runtime](#pdfium-runtime-boundary-2026-11-10), [key state](#keyboard-state-boundary-2026-11-10)    |
-| Earlier implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input targets](#e12-input-target-classification-2026-11-09), [E11 settings](#e11-settings-application-2026-11-09), [sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
-| Keyboard input         | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                     |
-| Startup and memory     | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                            |
-| Project origin         | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                            |
-| Completed work         | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                              |
+| Topic                  | Records                                                                                                                                                                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Latest validation      | [D13/E17 hosted snapshot](#hosted-snapshot-2026-11-10), [D12 successful regular CI](#d12-hosted-evidence-2026-11-10), [E16 local ASan checks](#e16-asan-build-path-2026-11-10), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09) |
+| Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09)                                                                                                                                                        |
+| Merge follow-ups       | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                           |
+| Recent implementation  | [E14 tree encapsulation](#e14-virtual-tree-encapsulation-2026-11-10), [tree layout](#virtual-tree-layout-boundary-2026-11-10), [PDFium runtime](#pdfium-runtime-boundary-2026-11-10), [key state](#keyboard-state-boundary-2026-11-10)        |
+| Earlier implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input targets](#e12-input-target-classification-2026-11-09), [E11 settings](#e11-settings-application-2026-11-09), [sidebar rollout](#virtual-sidebar-rollout-2026-11-09)     |
+| Keyboard input         | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                         |
+| Startup and memory     | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                                |
+| Project origin         | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                |
+| Completed work         | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                                  |
 
 The latest CI additions and local checks are recorded under
 [D13/E17](#ci-coverage-expansion-2026-11-10).
@@ -2014,7 +2014,7 @@ on `solokpdf-dev` and completed successfully at 2026-11-09 17:10:47 UTC
 The unit-test log reports `Passed all 105117 tests`; the feature-test log reports
 `65/65 SolokPDF tests passed in 3m 1.6s`.
 
-Regular CI does not run ASan or the standalone tree probes. E14/E16's local
+At this revision, regular CI did not run ASan or the standalone tree probes. E14/E16's local
 checks retain their recorded scope; this run does not replace them or establish
 a full-suite pass at this revision. No workflow was dispatched or test rerun
 for this documentation update. D12 is complete with no failed or missing
@@ -2022,8 +2022,9 @@ required step; F1/F3 remain outside active scope.
 
 ## CI coverage expansion (2026-11-10)
 
-Working tree on `fb3dcc3fb`; D13 and E17 implement the owner's selected next
-steps. First hosted runs are pending, tracked in [backlog.md](backlog.md#next-steps).
+Committed as `9083edafe`, based on `fb3dcc3fb`; D13 and E17 implement the owner's
+selected next steps. Local checks below preceded the commit. Hosted validation
+is tracked in [backlog.md](backlog.md#next-steps).
 
 D13 adds `ad-hoc-virtual-toc`, `ad-hoc-virtual-favorites`,
 `ad-hoc-virtual-tree-focus` and `ad-hoc-tree-lifetime` at the start of the
@@ -2063,6 +2064,16 @@ manifests in `.work/solokpdf-asan-binaries-{before,after}.txt`.
 ASan commands and workflow details are in [testing.md](testing.md#asan-ci).
 No full suite or hosted run was performed. The prebuilt PDFium DLL remains
 uninstrumented.
+
+### Hosted snapshot (2026-11-10)
+
+At 2026-11-09 18:01 UTC (2026-11-10 03:01 JST), GitHub's run API reported
+[regular CI 42669207693](https://github.com/elle-et-noire/solokpdf/actions/runs/42669207693)
+in progress for `9083edafebc72a89ad3fbc24b3d813172ab5da50`. Debug and Release
+were in their build steps; feature-test results were not yet available.
+The ASan workflow's run list returned no runs. D13/E17 remain open.
+The latest recorded successful regular CI remains [D12](#d12-hosted-evidence-2026-11-10).
+This inspection dispatched no workflows or tests.
 
 ## Completed backlog
 
