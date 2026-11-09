@@ -109,11 +109,14 @@ Mouse input is window messages. Upstream tests passing with PDFium:
 `annot-filter-syntax`, `annot-text-popup-reload`, `file-link-no-dest`,
 `ad-hoc-paste-image-annot`, `ad-hoc-annot-edit-race`.
 
-These upstream annotation tests fail on this locked local desktop because
-injected mouse input is dropped; the included tests pass in hosted CI run
+Earlier locked-desktop runs dropped injected mouse input in the tests below;
+the included tests passed in hosted CI run
 41349548951: `annot-undo-redo`, `annot-copy-paste`,
 `annot-cut-paste`, `annot-filter-toolbar`, `annot-list-placement`,
 `annot-color-dropdown`, `annot-contents-click-away`, `annot-nudge`,
 `annot-moveable-types`, `ink-thickness`, `stamp-edit-toolbar-name`, and the
 shape, ink, line, polyline, text, free text, stamp and caret placement tests.
+Later cursor and DPI changes removed the general cursor-input constraint;
+current local runs use the [hidden-desktop procedure](testing.md#local-windows-runs).
+Foreground popups still have [desktop constraints](testing.md#desktop-dependent-checks).
 `tests/ad-hoc-pdfium-redactions.ts` runs `redact-annotations` with both engines.

@@ -16,7 +16,8 @@ rendered output.
 
 ## Status (2026-11-09)
 
-Reviewed through `4ad4c30ae` on `solokpdf-dev`: E11's in-memory settings application,
+Repository reviewed at `cf2696d15` on `solokpdf-dev`; latest tested revisions
+are recorded below. E11's in-memory settings application,
 E12's shared input-target classification and E13's targeted routing checks are implemented.
 Tree acceptance (E10/F2) is complete by owner report; D8's hosted follow-ups
 are verified. D10's merged-UI review and D11's MuPDF patch comparison are
@@ -27,24 +28,32 @@ source commits, dates and scope.
 | Area           | Current state                                                                                                                                  | Details                                                                                                              |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                                    | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
-| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7).                                                                                                 | [Merge results and remaining checks](upstream-merges.md#merge-result-2026-11-08)                                     |
+| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7); recorded validation follow-ups are closed.                                                      | [Merge status](upstream-merges.md#current-status-2026-11-09)                                                         |
 | Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                                    | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
 | Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete).        | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
 | Keyboard input | E12 classification and E13 route checks implemented; special-mode counts clear and Alt+arrows operate find history. Physical input remains F3. | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                               |
 | Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                                   | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
 | Remaining work | F1 printing and F3 physical keys; suite sharding is deferred.                                                                                  | [Backlog](backlog.md)                                                                                                |
 
+### Validation scope
+
+These are existing records, not new test runs from this documentation review.
+
+| Check                   | Tested revision          | Recorded result                                                                                                  |
+| ----------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Latest regular CI       | `b24b868b9`              | Debug/Release jobs, 105055 unit tests and 65/65 feature tests passed; [record](history.md#hosted-triage).        |
+| Scheduled full suites   | `99ba47b52`              | PDFium 574/584, MuPDF 577/587; [eleven distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).    |
+| D9 targeted rechecks    | `b24b868b9`, `4ad4c30ae` | All eleven targets passed three hosted runs per engine; [record](history.md#hosted-triage). No full suite rerun. |
+| F2 physical tree checks | Build unspecified        | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).           |
+
 ## Resuming work
 
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- D9's [hosted triage](history.md#hosted-triage) closes the eleven failures
-  recorded at `99ba47b52`. No full suite was rerun.
-- D10's [Light/Dark captures](history.md#d10-merged-ui-review-2026-11-09) and
-  D11's [patch comparison](history.md#d11-mupdf-patch-verification-2026-11-09)
-  close the other merge checks.
 - F1 and F3 require the [owner's manual checks](testing.md#owners-manual-acceptance-f1f3).
+- For a code change, select the affected tests in [testing.md](testing.md).
+  Run full suites only when explicitly requested.
 
 Build instructions are in the root readme. All local app-launching tests use
 the [hidden-desktop runner](testing.md#local-windows-runs).
@@ -62,15 +71,15 @@ the [hidden-desktop runner](testing.md#local-windows-runs).
 
 ## Document map
 
-| Purpose            | Documents                                                                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Current behavior   | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                 |
-| Open work          | [backlog.md](backlog.md)                                                                                                             |
-| Tree migration     | [tree-view-replacement-plan.md](tree-view-replacement-plan.md), [tree-view-screen-reader-check.md](tree-view-screen-reader-check.md) |
-| Keyboard follow-up | [Current routing, E12/E13 results and physical checks](keyboard-investigation.md); [original handoff](keyboard-handoff.md)           |
-| Test procedures    | [Local automated tests](testing.md#local-windows-runs), [owner's manual acceptance](testing.md#owners-manual-acceptance-f1f3)        |
-| Historical results | [history.md](history.md), [upstream-merges.md](upstream-merges.md), [selection-overlay-plan.md](selection-overlay-plan.md)           |
-| Measurements       | [data/](data/), cited by `history.md`                                                                                                |
+| Purpose            | Documents                                                                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Current behavior   | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                      |
+| Open work          | [backlog.md](backlog.md)                                                                                                                  |
+| Tree migration     | [tree-view-replacement-plan.md](tree-view-replacement-plan.md), [tree-view-screen-reader-check.md](tree-view-screen-reader-check.md)      |
+| Keyboard follow-up | [Current routing, E12/E13 results and physical checks](keyboard-investigation.md); [original handoff](keyboard-handoff.md)                |
+| Test procedures    | [Local automated tests](testing.md#local-windows-runs), [owner's manual acceptance](testing.md#owners-manual-acceptance-f1f3)             |
+| Historical results | [History navigation](history.md#navigation), [upstream merges](upstream-merges.md), [completed selection plan](selection-overlay-plan.md) |
+| Measurements       | [data/](data/), cited by `history.md`                                                                                                     |
 
 ## Keeping docs current
 

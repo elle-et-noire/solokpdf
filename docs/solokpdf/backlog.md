@@ -8,24 +8,10 @@ group (B76, C2, D12, E14, F4).
 
 ## Implementation and acceptance
 
-No open implementation items. E10's [physical acceptance](tree-view-screen-reader-check.md#実施結果)
-was reported OK by the owner on 2026-11-09; E10 and F2 moved to completed history.
-
-E11, E12 and E13 are implemented; see the [settings validation](history.md#e11-settings-application-2026-11-09),
-[input-target validation](history.md#e12-input-target-classification-2026-11-09)
-and [route checks](history.md#e13-keyboard-route-checks-2026-11-09).
-
-## Recorded validation follow-ups
-
-No open merge-validation items. D9's eleven targets passed three hosted runs
-per engine; [results and tested revisions](history.md#hosted-triage).
-
-D8 is complete: all four hosted follow-ups are verified, including both
-engines at 96 DPI (100%). See the [audit](history.md#d8-hosted-validation-audit-2026-11-09).
-
-D10's [Light/Dark review](history.md#d10-merged-ui-review-2026-11-09) and D11's
-[MuPDF byte comparison](history.md#d11-mupdf-patch-verification-2026-11-09) are complete.
-D7's validation follow-ups are closed. No full suite was rerun for D9.
+No open implementation or merge-validation items. Completed E10–E13 and
+D8–D11 records are in [history.md](history.md#navigation); the
+[status overview](README.md#validation-scope) distinguishes the tested revisions
+and validation scope. F1 and F3 below remain open.
 
 ## Owner's manual checks
 

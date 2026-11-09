@@ -197,13 +197,15 @@ keyboard focus ring returned to the thumbnails sidebar and is off again
 longer clears layer states a MuPDF tab saved. Read Columns now centers a
 column on the page area beside an overlay scrollbar (B74), and `issue-6221`
 checks Mirror with overlay scrollbars against the page rect (B75). These review
-fixes are complete; the unperformed validation listed above remains unverified.
+fixes were complete at merge time; the remaining validation was tracked in D8–D11
+and completed in the follow-ups below.
 
 2026-11-09 follow-up: scheduled run
 [42522810078](https://github.com/elle-et-noire/solokpdf/actions/runs/42522810078)
 tested the post-merge source `99ba47b52`. Both engines built successfully;
-PDFium passed 574/584 tests and MuPDF 577/587. D9 in [backlog.md](backlog.md)
-tracks the [11 distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).
+PDFium passed 574/584 tests and MuPDF 577/587. D9's
+[failure record](history.md#d9-scheduled-suite-failures-2026-11-09) lists the
+11 distinct failures.
 Later 2026-11-09 follow-up: D9's eleven targets passed three hosted runs per
 engine. The merged-UI Light/Dark check (D10) and MuPDF patch-byte check (D11)
 are also complete; see the results linked at the top. No full suite was rerun.

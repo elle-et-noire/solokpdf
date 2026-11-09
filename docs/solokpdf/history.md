@@ -3,18 +3,21 @@
 Measurement and work log, oldest first. Current behavior is in
 [features.md](features.md) and [limitations.md](limitations.md); open items are in [backlog.md](backlog.md).
 Condensed measurements are in [data/](data/).
+The [current status](README.md#status-2026-11-09) distinguishes completed
+follow-ups from the failures and pending checks recorded at earlier revisions.
 
 ## Navigation
 
-| Topic                 | Records                                                                                                                                                                                                                                                                     |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Latest validation     | [D8 hosted checks](#d8-hosted-validation-audit-2026-11-09), [D9 scheduled-suite failures](#d9-scheduled-suite-failures-2026-11-09), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                                           |
-| Merge follow-ups      | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                                                         |
-| Recent implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input-target classification](#e12-input-target-classification-2026-11-09), [E11 settings application](#e11-settings-application-2026-11-09), [virtual sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
-| Keyboard input        | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                                                       |
-| Startup and memory    | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                                                              |
-| Project origin        | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                                              |
-| Completed work        | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                                                                |
+| Topic                  | Records                                                                                                                                                                                                                                                                     |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Latest validation      | [D9 hosted completion](#hosted-triage), [D8 hosted checks](#d8-hosted-validation-audit-2026-11-09), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                                                                           |
+| Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09)                                                                                                                                                                                      |
+| Merge follow-ups       | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                                                         |
+| Recent implementation  | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input-target classification](#e12-input-target-classification-2026-11-09), [E11 settings application](#e11-settings-application-2026-11-09), [virtual sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
+| Keyboard input         | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                                                       |
+| Startup and memory     | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                                                              |
+| Project origin         | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                                              |
+| Completed work         | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                                                                |
 
 ## Baseline (2026-10-24)
 
@@ -1701,9 +1704,9 @@ These are recorded failures at `99ba47b52`, not confirmed failures at current HE
 | PDFium only | `selection-document-colors`                                                                                                                                                    |
 | MuPDF only  | `issue-6360`                                                                                                                                                                   |
 
-Triage each test separately with repeated targeted runs. Do not rerun a full
-suite or assume that these failures share one cause. Failure artifacts remain
-on the run.
+Each test was triaged separately with repeated targeted runs; see
+[local triage](#local-triage) and [hosted completion](#hosted-triage).
+No full suite was rerun.
 
 ### Local triage
 
