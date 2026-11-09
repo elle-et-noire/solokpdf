@@ -58,9 +58,9 @@ The new tree probes are standalone tests, not entries in `run-almost-all.ts`.
 without its document clipboard, dialog and link-hint checks.
 
 Narrator/NVDA, real monitor DPI changes, native scrollbar thumb dragging and
-real-cursor smart-bar hover remain manual checks. The owner performs these
-on their visible desktop using the
-[screen-reader procedure](tree-view-screen-reader-check.md); automated local
+real-cursor smart-bar hover are manual checks. The owner reported all F2 checks
+OK on 2026-11-09; see the [procedure and results](tree-view-screen-reader-check.md).
+Rechecks use the owner's visible desktop; automated local
 runs continue to use the hidden desktop.
 
 ### Keyboard input (E12/E13)
@@ -104,6 +104,17 @@ If the control pipe times out, it captures the live process before ending it:
 window details, stderr, a thread dump and (when cdb is available) stacks.
 CI also saves the matching executable and PDBs in the failure artifact.
 Verify the capture locally with `bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-startup-diagnostics.ts --no-build`.
+The forced-timeout test passed on both engines in hosted run 42522810078;
+see the [D8 audit](history.md#d8-hosted-validation-audit-2026-11-09).
+
+### Hosted follow-ups (D8)
+
+`pdf-edit-toolbar-interaction` now prints `TestDpi` state before exercising
+the toolbar. Record its `frame` DPI along with the result: 96 means 100%.
+Local runs passed on both engines at 120 DPI (125%); they do not establish
+the hosted 100% result. After committing and pushing the logging change,
+use the [two filtered workflow runs](history.md#d8-hosted-validation-audit-2026-11-09)
+to complete the remaining check. No full-suite rerun is needed for D8.
 
 ### Desktop-dependent checks
 
@@ -187,3 +198,41 @@ Run app-launching tests outside the Codex sandbox or any similarly restricted
 runner. Inside it, WebView2 crashes with an
 `msedgewebview2.exe - アプリケーション エラー` dialog and tests report
 `browser not ready`.
+
+## Owner's manual acceptance (F1–F3)
+
+F2 passed by owner report on 2026-11-09; F1 and F3 remain open. The owner runs checks on the
+visible desktop with physical devices. Automated local runs follow the hidden
+desktop procedure above.
+
+Use `-for-testing` and a dedicated `-appdata` directory, as in the
+[tree procedure](tree-view-screen-reader-check.md#起動). Keep any custom test
+settings there; changes made in test mode last only for that process.
+
+| Item         | Procedure                                                              | Results                                                                               |
+| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| F1: printing | [Below](#printing-f1)                                                  | Append dated results under this section.                                              |
+| F2: trees    | [Screen readers, scrollbars and DPI](tree-view-screen-reader-check.md) | OK by owner report, 2026-11-09; [results](tree-view-screen-reader-check.md#実施結果). |
+| F3: keyboard | [Physical input checklist](keyboard-investigation.md#実機入力の確認f3) | Append dated results beside that checklist.                                           |
+
+For each result, record the date, source commit, Debug/Release, engine, Windows
+build, relevant device/software versions, settings and document used. Mark each
+check passed, failed or untested; include actual behavior for failures and a
+reason for skipped checks. Keep the backlog item open until its checks are
+complete. These instructions add no new test results.
+
+### Printing (F1)
+
+Print bitmap generation has passed; physical printing remains unverified. See
+the [existing coverage](limitations.md#printing).
+
+1. Open a representative PDF using PDFium. Open Print, check the selected
+   printer, page range and available document print defaults, then cancel.
+   Confirm that cancellation creates no spooler job.
+2. Print a small page range to the physical printer. Check the queue reaches
+   completion and the paper has the expected pages, orientation, scale and
+   readable content. Record printer model, driver and print settings.
+3. Repeat with `SOLOKPDF_ENGINE=mupdf` in the test process's environment to
+   compare the same file and settings. Restore the environment after the run.
+4. Record PDF export separately if checked. Successful bitmap generation or
+   export alone does not establish physical-printer behavior.

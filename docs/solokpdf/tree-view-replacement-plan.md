@@ -7,9 +7,9 @@
 
 下記の実装手順は移行開始時の計画。「試作の結果」は既定化前の記録。現在の仕様は
 [features.md](features.md#virtual-sidebar-trees)、既定化の実装・検証記録は
-[history.md](history.md#virtual-sidebar-rollout-2026-11-09) にまとめる。残作業は、Narrator・NVDA、
-実モニター間の DPI 移動、標準バーのつまみ、実カーソルでのスマートバーを確認すること。
-これらの受け入れ確認を [backlog.md](backlog.md) の E10・F2 で追う。
+[history.md](history.md#virtual-sidebar-rollout-2026-11-09) にまとめる。2026-11-09 に所有者が Narrator・NVDA、
+実モニター間の DPI 移動、標準バーのつまみ、実カーソルでのスマートバーをすべて OK と報告し、E10・F2 を完了した。
+環境詳細は未記録。[実機確認結果](tree-view-screen-reader-check.md#実施結果) を参照する。
 設定適用の問題 E11 は修正済み。[読み上げ確認手順](tree-view-screen-reader-check.md) と
 [ローカルテスト手順](testing.md#virtual-sidebar-trees) を参照する。
 
@@ -90,7 +90,7 @@ E11 で設定の適用と保存を分離した。`-for-testing` でも設定変�
 - 状態管理を ng と共有できる範囲と、上流変更を取り込む際の保守方法。
 
 以下の試作で UIA/MSAA、バー配置、下余白、ng との共有範囲を決め、既定表示への切り替えを終えた。
-残る受け入れ確認は冒頭の E10・F2 に従う。
+後続の受け入れ確認結果は冒頭の E10・F2 に記す。
 
 ## 試作の結果
 

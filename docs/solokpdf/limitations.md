@@ -250,9 +250,10 @@ are in [history.md](history.md).
 
 - Bookmarks and favorites use the [virtual-tree implementation](features.md#virtual-sidebar-trees)
   in Debug and Release, including normal launches. Both follow `Scrollbars`.
-  Its automated
-  UIA/MSAA checks do not replace the pending screen-reader and physical-display
-  checks (E10, F2).
+  The owner reported the screen-reader and physical-display checks OK on
+  2026-11-09 (E10/F2); [results](tree-view-screen-reader-check.md#実施結果)
+  distinguish that report from automated UIA/MSAA checks. Environment details
+  were not recorded.
 
 - All eight destination views, link `/Contents` tooltips and GoToR/Launch file
   links match MuPDF on a fixture (links and outline). PDFium reports
@@ -471,15 +472,24 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 ## Tests and CI
 
-Control connections allow 30 seconds, scaled for ASan. Startup exit diagnostics were added; hosted verification is needed to determine whether the MuPDF timeouts were delays or exits.
+Control connections allow 30 seconds, scaled for ASan. The previously timing-out
+`issue-5978` and `issue-6140` passed on both engines in hosted run 42522810078.
+The forced-timeout `ad-hoc-startup-diagnostics` also passed on both, verifying
+the report, nonempty dump and stderr capture. The old timeout cause remains unknown.
 
-The palette test helper locates its edit through control state when the frame is behind another window; hosted verification remains pending.
+The palette test helper locates its edit through control state when the frame
+is behind another window. `free-text-annotation-placement` (including the
+editor/palette distinction) and `command-palette-typing` passed on both engines
+in run 42522810078. D8's
+[audit](history.md#d8-hosted-validation-audit-2026-11-09) records the evidence.
 
 B71: hosted runs 41741589090 and 41741592927 passed the full suites on
 PDFium (499/499) and MuPDF (502/502). Run 41741590075 passed the other
 SolokPDF checks; the tab-view check sampled smooth scrolling before it settled.
 It now waits for a stable view and checks tab switches within one point.
-Hosted verification of that change remains pending.
+Run [41746574203](https://github.com/elle-et-noire/solokpdf/actions/runs/41746574203)
+at `424a7316c` passed the corrected test, which checks both engines.
+It also passed run 42604035875 at `3412a2174`.
 The external viewer, PNG,
 screenshot focus, fullscreen activation, MuPDF placement and process cleanup
 checks also passed hosted runs.
@@ -487,8 +497,10 @@ checks also passed hosted runs.
 - B65 saves each tab's view state when a window close is accepted. Targeted
   hidden-desktop runs pass on both engines, including `issue-4788`,
   `issue-6252`, the toolbar interaction and both menu tests. The CI runner
-  reports app processes left by each test. The toolbar fixture still needs a
-  hosted 100% DPI run.
+  reports app processes left by each test. `pdf-edit-toolbar-interaction` passed
+  hosted run 42522810078 on both engines, but its log does not state display
+  DPI. The test now logs `TestDpi` state; local checks passed on both at 120 DPI.
+  Explicit hosted 100% DPI evidence remains D8.
 - B58 sizes thumbnail tests explicitly, compares tab widths within the same
   layout and keeps click-away points within the canvas. The narrow-window tab
   check is `issue-6464`'s tab layout test. B59 gives controlled tests a

@@ -25,8 +25,8 @@ and test results are in [history](docs/solokpdf/history.md).
 For local test builds, `bun cmd/solok-build.ts -quick` updates
 `out/dbg64/SumatraPDF.exe` and `pdfium.dll` without staging the portable folder.
 Run app-launching tests through the [hidden-desktop runner](docs/solokpdf/testing.md).
-Keep `-for-testing` on ad-hoc launches; physical checks follow the separate
-[manual procedure](docs/solokpdf/tree-view-screen-reader-check.md).
+Keep `-for-testing` on ad-hoc launches; physical checks follow the
+[owner's manual acceptance procedure](docs/solokpdf/testing.md#owners-manual-acceptance-f1f3).
 
 PDFium is the default for PDFs in this build. Set `$env:SOLOKPDF_ENGINE='mupdf'`
 to compare using the same UI. Non-PDF formats retain their existing engines.
@@ -49,7 +49,7 @@ See [SolokPDF docs](docs/solokpdf/README.md) for current status, open work,
 test setup and measurements. Bookmarks and favorites use virtual trees in Debug
 and Release, following the document's scrollbar mode. See the
 [tree migration](docs/solokpdf/tree-view-replacement-plan.md) for validation
-results and pending physical-device checks.
+results and the owner's completed physical-device checks.
 
 ## Original SumatraPDF project
 

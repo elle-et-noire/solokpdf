@@ -1538,7 +1538,8 @@ not establish physical keyboard behavior across all input methods.
 `dff595cf0` added the opt-in prototype. `a844148bc` centralized expansion and
 lifetime handling; `3412a2174` made virtual bookmarks and favorites the default
 in Debug and Release, removing the opt-in switches and native sidebar drawing.
-E10 remains open for the F2 physical acceptance checks. Settings application
+At rollout, E10 remained open for the F2 physical acceptance checks; see the
+[later owner acceptance](#virtual-sidebar-acceptance-2026-11-09). Settings application
 under `-for-testing` was fixed separately in [E11](#e11-settings-application-2026-11-09).
 
 Expansion delegates from `SidebarTree` to `VirtTree`; depth-based node updates
@@ -1567,7 +1568,7 @@ passed on the hidden desktop.
 
 These are implementation-time results, not reruns for the documentation review.
 The [migration plan](tree-view-replacement-plan.md) retains the original scope
-and prototype results. Pending physical checks and their results belong in the
+and prototype results. Physical checks and their results belong in the
 [manual procedure](tree-view-screen-reader-check.md#実施結果).
 
 ## E11: Settings application (2026-11-09)
@@ -1611,6 +1612,8 @@ later in E13 below; physical input checks remain F3.
 
 ## E13: Keyboard route checks (2026-11-09)
 
+Implemented in `c3859f4a7`.
+
 Added posted-key checks for favorites, toolbar focus, both find UIs and their
 history lists, menu activation and special modes. Merge PDF reuses
 `issue-6372`'s message-loop Ctrl+A check. The
@@ -1637,7 +1640,67 @@ MuPDF. `ad-hoc-vim-keys` and `issue-6372` passed on both; `ad-hoc-count-prefix`,
 the hidden desktop. Desktop-input and control-ID lint, C++ formatting and
 Prettier checks passed. Full suites and ASan were not run.
 
+## Virtual sidebar acceptance (2026-11-09)
+
+After receiving the F2 procedure, the owner reported all checks OK: Narrator,
+NVDA, scrollbar operation with the real cursor and monitor DPI changes. E10
+and F2 are complete by owner report. Build and environment details were not
+provided; this is not an agent rerun. See the
+[manual results](tree-view-screen-reader-check.md#実施結果).
+
+## D8: Hosted validation audit (2026-11-09)
+
+Read the existing Actions logs; no new full suites were run.
+[42522810078](https://github.com/elle-et-noire/solokpdf/actions/runs/42522810078)
+tested `99ba47b52` on both engines. The later regular CI run
+[42604035875](https://github.com/elle-et-noire/solokpdf/actions/runs/42604035875)
+tested `3412a2174`: Debug and Release built, unit tests passed, and feature
+tests passed 64/64. These runs predate E11–E13.
+
+| D8 item                      | Evidence                                                                                                                                                                                                      | Result                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Startup timeout diagnostics  | `ad-hoc-startup-diagnostics` passed on both engines in 42522810078 (1.7 s each). It forces a timeout and checks the report, nonempty dump and stderr file. `issue-5978` and `issue-6140` also passed on both. | Hosted capture verified; the old timeout cause remains unknown. |
+| Palette lookup without focus | `free-text-annotation-placement` and `command-palette-typing` passed on both engines in 42522810078, including the editor/palette distinction added by `9afaf6da9`.                                           | Hosted regression checks verified.                              |
+| Stable tab-view sampling     | `ad-hoc-b70-tab-view` passed in 41746574203 after `424a7316c`, and again in 42604035875 (4.5 s). The test checks both engines.                                                                                | Hosted check verified.                                          |
+| Toolbar at 100% DPI          | `pdf-edit-toolbar-interaction` passed on both engines in 42522810078 (0.8/0.9 s), but did not print DPI.                                                                                                      | Actual hosted DPI still unverified.                             |
+
+Added one DPI-state log to the existing toolbar test using `dpiRequest`.
+The targeted hidden-desktop test passed on PDFium (2.3 s) and MuPDF (2.5 s),
+both reporting `frame=120 current=120` (125%). This was a logging-only test
+change; the app was not rebuilt. TypeScript formatting ran; unrelated
+formatter changes were discarded.
+
+After this change is committed and pushed, dispatch only the toolbar test:
+
+```powershell
+gh workflow run solokpdf-full-tests.yml --repo elle-et-noire/solokpdf --ref solokpdf-dev -f engine=pdfium -f tests=pdf-edit-toolbar-interaction
+gh workflow run solokpdf-full-tests.yml --repo elle-et-noire/solokpdf --ref solokpdf-dev -f engine=mupdf -f tests=pdf-edit-toolbar-interaction
+```
+
+Close D8 once both targeted runs pass and report `frame=96 current=96`.
+If the runner uses another DPI, record that result and keep the 100% check open.
+No commit, push or new workflow dispatch was performed for this audit.
+
+## D9: Scheduled-suite failures (2026-11-09)
+
+Run 42522810078 passed 574/584 tests on PDFium and 577/587 on MuPDF.
+The 11 distinct failing tests below are separate from D8's passing checks.
+These are recorded failures at `99ba47b52`, not confirmed failures at current HEAD.
+
+| Engines     | Failing tests                                                                                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Both        | `issue-6151`, `issue-6330`, `issue-1293`, `epub-first-page-image`, `css-invalid-color`, `epub-pre-wraps`, `selection-mupdf-colors`, `selection-purpy-contrast`, `toolbar-wrap` |
+| PDFium only | `selection-document-colors`                                                                                                                                                    |
+| MuPDF only  | `issue-6360`                                                                                                                                                                   |
+
+Triage each test separately with repeated targeted runs. Do not rerun a full
+suite or assume that these failures share one cause. Failure artifacts remain
+on the run.
+
 ## Completed backlog
+
+Current CI follow-ups are in the [D8 audit](#d8-hosted-validation-audit-2026-11-09)
+and [backlog](backlog.md); older pending notes below describe their original state.
 
 Rows of [backlog.md](backlog.md) completed by 2026-11-09. Sources: an audit of every
 MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
@@ -1770,6 +1833,13 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E6  | ASan run of the render-route probe (pattern strokes, Type 3 alpha, color resets)                                                                                                                                                                                                            | done — Add nested Type 3 and widget route fixtures (E6): `pdfium-type3-alpha`, `pdfium-pattern-strokes` and `pdfium-color-reset` pass on the debug ASan build, including canceled probes, nested Type 3, forms, annotations and widgets |
 | E7  | Theme tests: check dialog colors with `captureWindowDCToPng`; PrintWindow may paint dialogs in the OS theme                                                                                                                                                                                 | done — Read theme dialog colors from the window DC (E7): crops the client area; 4/4 runs passed                                                                                                                                         |
 | E8  | Chapter field colors and states in built-in and custom themes                                                                                                                                                                                                                               | done — Check chapter box theme states (E8): no defect; `issue-6095.epub` (`issue-6007.epub` has one chapter)                                                                                                                            |
+| E10 | Complete the [virtual sidebar migration](tree-view-replacement-plan.md)                                                                                                                                                                                                                     | done — Make virtual sidebar trees the default (`3412a2174`); F2 accepted by owner report, 2026-11-09; [acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                                              |
 | E11 | Apply settings without reloading stale values under `-for-testing`                                                                                                                                                                                                                          | done — Apply settings without reloading disk values (2026-11-09); [validation](#e11-settings-application-2026-11-09)                                                                                                                    |
 | E12 | Share keyboard input-target classification                                                                                                                                                                                                                                                  | done — Centralize keyboard input targets (E12); [validation](#e12-input-target-classification-2026-11-09); physical input remains F3                                                                                                    |
 | E13 | Cover keyboard routes outside E12's targeted checks                                                                                                                                                                                                                                         | done — Cover keyboard routing gaps (E13); [validation](#e13-keyboard-route-checks-2026-11-09); physical input remains F3                                                                                                                |
+
+### F. Manual acceptance
+
+| ID  | Item                                                                                    | Status                                                                                                                                            |
+| --- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F2  | Virtual-tree screen readers, monitor DPI changes, native thumb and real smart-bar hover | done — owner reported all checks OK, 2026-11-09; [results](tree-view-screen-reader-check.md#実施結果); build and environment details not provided |

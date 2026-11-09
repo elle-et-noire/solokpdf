@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
 import { IS_MAC } from "./host";
-import { assemblePdf, runStandalone, SETTINGS_FILE, SLOW_BUILD_FACTOR, tmpPath } from "./util";
+import { assemblePdf, dpiRequest, runStandalone, SETTINGS_FILE, SLOW_BUILD_FACTOR, tmpPath } from "./util";
 import {
   captureWindowToPng,
   clientToScreen,
@@ -186,6 +186,7 @@ export async function testit(): Promise<void> {
   ]);
   try {
     await client.waitForRenderIdle();
+    console.log(`pdf-edit-toolbar-interaction: DPI ${(await dpiRequest(client, "state")).trim()}`);
     const canvas = findCanvas(frame);
     let state = await annotState(client);
     const centerX = state.screen.x + Math.floor(state.screen.dx / 2);

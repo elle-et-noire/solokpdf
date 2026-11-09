@@ -4,37 +4,40 @@ Open work as of 2026-11-09. Status: `todo`, `doing`, `blocked` (reason), `deferr
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D9, E14, F4).
+group (B76, C2, D10, E14, F4).
 
 ## Implementation and acceptance
 
-| ID  | Item                                                                    | Status                                                                                                                               |
-| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| E10 | Complete the [virtual sidebar migration](tree-view-replacement-plan.md) | doing: virtual trees are now the default; native sidebar drawing and opt-in switches removed; physical acceptance checks (F2) remain |
+No open implementation items. E10's [physical acceptance](tree-view-screen-reader-check.md#実施結果)
+was reported OK by the owner on 2026-11-09; E10 and F2 moved to completed history.
 
 E11, E12 and E13 are implemented; see the [settings validation](history.md#e11-settings-application-2026-11-09),
 [input-target validation](history.md#e12-input-target-classification-2026-11-09)
 and [route checks](history.md#e13-keyboard-route-checks-2026-11-09).
-E10 stays open until F2's physical checks are recorded.
 
 ## Recorded validation follow-ups
 
-| ID  | Item                                | Status                                                                                                                                                                 |
-| --- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D8  | Record outstanding hosted CI checks | todo: startup timeout diagnostics, background palette lookup, stable tab-view sampling and toolbar checks at 100% DPI; [existing records](limitations.md#tests-and-ci) |
+| ID  | Item                                           | Status                                                                                                                                                                                                                                                                                   |
+| --- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D8  | Record outstanding hosted CI checks            | doing: startup diagnostic capture, palette lookup and stable tab-view sampling verified; toolbar passed on both engines but hosted DPI was not logged; DPI logging added and checked locally at 120 DPI; [audit and targeted CI steps](history.md#d8-hosted-validation-audit-2026-11-09) |
+| D9  | Triage the latest scheduled full-test failures | todo: run [42522810078](https://github.com/elle-et-noire/solokpdf/actions/runs/42522810078), source `99ba47b52`, failed 10 tests per engine (11 distinct); [failure list](history.md#d9-scheduled-suite-failures-2026-11-09)                                                             |
 
-D7's [merge record](upstream-merges.md#merge-result-2026-11-08) also leaves full-suite
+D7's [merge record](upstream-merges.md#merge-result-2026-11-08) left full-suite
 validation, Light/Dark checks of the merged UI and MuPDF patch-ledger byte verification
-unperformed. Use the next scheduled release/CI run for full-suite results; local changes
-continue to use targeted tests.
+unperformed. The later scheduled suite failed (D9); Light/Dark and patch-byte
+checks remain unverified. Use existing CI logs and targeted reruns for triage;
+local changes continue to use targeted tests.
 
 ## Owner's manual checks
 
-| ID  | Item                                                                                    | Status                                                                                                                                                       |
-| --- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| F1  | Physical printer, print dialog and spooler check                                        | todo: needs the owner                                                                                                                                        |
-| F2  | Virtual-tree screen readers, monitor DPI changes, native thumb and real smart-bar hover | todo: needs the owner; [manual procedure](tree-view-screen-reader-check.md); required for E10 acceptance                                                     |
-| F3  | Keyboard physical input and OS hotkey checks                                            | todo: needs the owner; AltGr, dead keys, Japanese IME, key repeat, focus changes and hotkey conflicts; [details](keyboard-investigation.md#実機入力の確認f3) |
+| ID  | Item                                             | Status                                                                                                                                                       |
+| --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F1  | Physical printer, print dialog and spooler check | todo: needs the owner; [manual procedure](testing.md#printing-f1)                                                                                            |
+| F3  | Keyboard physical input and OS hotkey checks     | todo: needs the owner; AltGr, dead keys, Japanese IME, key repeat, focus changes and hotkey conflicts; [details](keyboard-investigation.md#実機入力の確認f3) |
+
+Use the [manual acceptance procedure](testing.md#owners-manual-acceptance-f1f3)
+to record the build, environment and individual results. Partial or skipped
+checks leave the relevant item open.
 
 ## Deferred
 

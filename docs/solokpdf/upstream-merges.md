@@ -187,3 +187,10 @@ longer clears layer states a MuPDF tab saved. Read Columns now centers a
 column on the page area beside an overlay scrollbar (B74), and `issue-6221`
 checks Mirror with overlay scrollbars against the page rect (B75). These review
 fixes are complete; the unperformed validation listed above remains unverified.
+
+2026-11-09 follow-up: scheduled run
+[42522810078](https://github.com/elle-et-noire/solokpdf/actions/runs/42522810078)
+tested the post-merge source `99ba47b52`. Both engines built successfully;
+PDFium passed 574/584 tests and MuPDF 577/587. D9 in [backlog.md](backlog.md)
+tracks the [11 distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).
+The merged-UI Light/Dark and MuPDF patch-byte checks remain unverified.
