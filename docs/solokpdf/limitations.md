@@ -474,7 +474,9 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 The scheduled run at `99ba47b52` passed 574/584 tests on PDFium and 577/587
 on MuPDF. Its [11 distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09)
-remain D9; they are not confirmed failures at current HEAD. D8's startup,
+were triaged in D9; all eleven targets passed three hosted runs per engine
+across `b24b868b9` and `4ad4c30ae`. See the [results](history.md#hosted-triage).
+No full suite was rerun. D8's startup,
 palette, tab-view and 100% DPI checks are complete; dated evidence is in the
 [audit](history.md#d8-hosted-validation-audit-2026-11-09).
 

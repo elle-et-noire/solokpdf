@@ -1761,7 +1761,20 @@ width with the default page-ratio width. The wide and narrow toolbars both
 took two rows, invalidating the test's one-row baseline. The test now caps
 its wide launch at the work-area width; its row and Edit PDF assertions stay
 unchanged. That version passed three local runs per engine and moved directly
-below `issue-5978`. Only `toolbar-wrap` needs a further hosted rerun.
+below `issue-5978`. A local 1024px work-area override also passed three times
+per engine without changing the owner's display settings.
+
+The `toolbar-wrap`-only rechecks on `4ad4c30ae` passed at 96 DPI:
+
+| Engine | Run                                                                               | Result            |
+| ------ | --------------------------------------------------------------------------------- | ----------------- |
+| PDFium | [42634964249](https://github.com/elle-et-noire/solokpdf/actions/runs/42634964249) | 3/3 passed, 6.1 s |
+| MuPDF  | [42634970093](https://github.com/elle-et-noire/solokpdf/actions/runs/42634970093) | 3/3 passed, 5.6 s |
+
+Both logged client widths 1008/404px. The wide toolbar was 36px high and the
+narrow one 72px; Edit PDF added 36px to each. All eleven original targets
+have now passed three hosted runs per engine, across `b24b868b9` and
+`4ad4c30ae`. D9 is complete. No full suite was rerun.
 
 The regular push CI [42632289120](https://github.com/elle-et-noire/solokpdf/actions/runs/42632289120)
 also passed its Debug and Release jobs on `b24b868b9`, 105055 unit tests and
@@ -1920,16 +1933,17 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 
 ### D. CI
 
-| ID  | Item                                                                             | Status                                                                                                                                        |
-| --- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | Release job in parallel with debug                                               | done — Run CI release build in parallel (D1)                                                                                                  |
-| D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)                                                                                                        |
-| D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | done — Merge upstream f45967f87 (D5)                                                                                                          |
-| D6  | Merge upstream/master at 254c2ae7c into solokpdf-dev                             | done — Merge upstream/master 254c2ae7c (D6)                                                                                                   |
-| D7  | Merge upstream/master at 8b716234f into solokpdf-dev                             | done — Merge upstream/master 8b716234f (D7)                                                                                                   |
-| D8  | Record outstanding hosted CI checks                                              | done — Record hosted DPI validation results (D8); all four follow-ups verified; [results](#d8-hosted-validation-audit-2026-11-09)             |
-| D10 | Check the merged UI in Light and Dark                                            | done — Debug captures reviewed on both engines; [scope and results](#d10-merged-ui-review-2026-11-09)                                         |
-| D11 | Verify the MuPDF patch ledger byte for byte                                      | done — restored the complete signing patch; 88 patches reproduce all 1410 vendored files; [results](#d11-mupdf-patch-verification-2026-11-09) |
+| ID  | Item                                                                             | Status                                                                                                                                                                                           |
+| --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D1  | Release job in parallel with debug                                               | done — Run CI release build in parallel (D1)                                                                                                                                                     |
+| D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)                                                                                                                                                           |
+| D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | done — Merge upstream f45967f87 (D5)                                                                                                                                                             |
+| D6  | Merge upstream/master at 254c2ae7c into solokpdf-dev                             | done — Merge upstream/master 254c2ae7c (D6)                                                                                                                                                      |
+| D7  | Merge upstream/master at 8b716234f into solokpdf-dev                             | done — Merge upstream/master 8b716234f (D7)                                                                                                                                                      |
+| D8  | Record outstanding hosted CI checks                                              | done — Record hosted DPI validation results (D8); all four follow-ups verified; [results](#d8-hosted-validation-audit-2026-11-09)                                                                |
+| D9  | Triage the latest scheduled full-test failures                                   | done — Stabilize SolokPDF validation checks (`b24b868b9`); Fit toolbar test to the CI work area (`4ad4c30ae`); all eleven targets passed three hosted runs per engine; [results](#hosted-triage) |
+| D10 | Check the merged UI in Light and Dark                                            | done — Debug captures reviewed on both engines; [scope and results](#d10-merged-ui-review-2026-11-09)                                                                                            |
+| D11 | Verify the MuPDF patch ledger byte for byte                                      | done — restored the complete signing patch; 88 patches reproduce all 1410 vendored files; [results](#d11-mupdf-patch-verification-2026-11-09)                                                    |
 
 ### E. Quality
 

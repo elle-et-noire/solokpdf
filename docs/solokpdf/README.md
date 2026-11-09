@@ -16,12 +16,11 @@ rendered output.
 
 ## Status (2026-11-09)
 
-Reviewed from `6c3df5580` on `solokpdf-dev`: E11's in-memory settings application,
+Reviewed through `4ad4c30ae` on `solokpdf-dev`: E11's in-memory settings application,
 E12's shared input-target classification and E13's targeted routing checks are implemented.
 Tree acceptance (E10/F2) is complete by owner report; D8's hosted follow-ups
 are verified. D10's merged-UI review and D11's MuPDF patch comparison are
-complete. D9's ten other targets passed hosted repeats; its toolbar work-area
-fix needs a hosted rerun. F1/F3
+complete. D9's eleven targets passed three hosted runs per engine. F1/F3
 remain manual checks. See the [backlog](backlog.md). Results retain their
 source commits, dates and scope.
 
@@ -33,16 +32,15 @@ source commits, dates and scope.
 | Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete).        | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
 | Keyboard input | E12 classification and E13 route checks implemented; special-mode counts clear and Alt+arrows operate find history. Physical input remains F3. | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                               |
 | Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                                   | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
-| Remaining work | D9 targeted hosted validation, F1 printing and F3 physical keys; suite sharding is deferred.                                                   | [Backlog](backlog.md)                                                                                                |
+| Remaining work | F1 printing and F3 physical keys; suite sharding is deferred.                                                                                  | [Backlog](backlog.md)                                                                                                |
 
 ## Resuming work
 
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- For D9, use the [11-test failure list](history.md#d9-scheduled-suite-failures-2026-11-09).
-  Those failures are from `99ba47b52`; investigate each with repeated targeted
-  runs before treating it as a current regression.
+- D9's [hosted triage](history.md#hosted-triage) closes the eleven failures
+  recorded at `99ba47b52`. No full suite was rerun.
 - D10's [Light/Dark captures](history.md#d10-merged-ui-review-2026-11-09) and
   D11's [patch comparison](history.md#d11-mupdf-patch-verification-2026-11-09)
   close the other merge checks.

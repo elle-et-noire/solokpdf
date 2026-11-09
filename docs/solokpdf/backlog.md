@@ -17,20 +17,15 @@ and [route checks](history.md#e13-keyboard-route-checks-2026-11-09).
 
 ## Recorded validation follow-ups
 
-| ID  | Item                                           | Status                                                                                                                                                                           |
-| --- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D9  | Triage the latest scheduled full-test failures | doing: ten targets passed three times per engine in hosted checks; `toolbar-wrap`'s work-area fix passed locally and needs its hosted rerun; [results](history.md#hosted-triage) |
+No open merge-validation items. D9's eleven targets passed three hosted runs
+per engine; [results and tested revisions](history.md#hosted-triage).
 
 D8 is complete: all four hosted follow-ups are verified, including both
 engines at 96 DPI (100%). See the [audit](history.md#d8-hosted-validation-audit-2026-11-09).
 
 D10's [Light/Dark review](history.md#d10-merged-ui-review-2026-11-09) and D11's
 [MuPDF byte comparison](history.md#d11-mupdf-patch-verification-2026-11-09) are complete.
-D9 tracks D7's remaining validation. The original failures were at `99ba47b52`,
-not confirmed failures at current HEAD. Start with the existing logs, then
-repeat each affected test separately on the relevant engine through the
-[local runner](testing.md#local-windows-runs). Do not run a full suite for triage.
-Record each result with its source commit and engine before closing the item.
+D7's validation follow-ups are closed. No full suite was rerun for D9.
 
 ## Owner's manual checks
 
