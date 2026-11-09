@@ -8,7 +8,6 @@
 #include "Settings.h"
 #include "AppSettings.h"
 #include "DocController.h"
-#include "Theme.h"
 #include "EngineBase.h"
 #include "base/GuessFileType.h"
 #include "EngineAll.h"
@@ -58,37 +57,33 @@ ViewEngineClass ClassifyViewEngine(EngineBase* engine) {
     return EngineUsesDocumentColorsFollowTheme(engine) ? ViewEngineClass::Fixed : ViewEngineClass::Image;
 }
 
-void BuildViewDarkModeProfile(ViewEngineClass engineClass, DarkModeProfile* profile) {
+void BuildViewDarkModeProfile(ViewEngineClass engineClass, const PageColorInput& colors, DarkModeProfile* profile) {
     ReportIf(!profile);
     if (!profile) {
         return;
     }
     *profile = DarkModeProfile{};
 
-    Color bgCol;
-    Color textCol = ThemePageRenderColors(bgCol);
-    bool pagesDark = !IsLightColor(bgCol);
-    profile->foreground = textCol;
-    profile->pageBackground = bgCol;
-    profile->linkColor = pagesDark ? ThemeWindowLinkColor() : 0;
-    profile->preservePdfImages = GetPreservePdfImagesInDarkMode();
+    profile->foreground = colors.foreground;
+    profile->pageBackground = colors.pageBackground;
+    profile->linkColor = colors.linkColor;
+    profile->preservePdfImages = colors.mode != DocumentColorsFollowTheme::Legacy;
 
-    bool recolorPages = (textCol & 0xffffff) != kColBlack || (bgCol & 0xffffff) != kColWhite;
+    bool recolorPages = (colors.foreground & 0xffffff) != kColBlack || (colors.pageBackground & 0xffffff) != kColWhite;
 
     // Reflowable documents get theme colors through CSS; bitmap recoloring would invert their images.
     bool recolorable = engineClass == ViewEngineClass::Pdfium || engineClass == ViewEngineClass::Mupdf ||
                        engineClass == ViewEngineClass::Fixed;
     if (recolorPages && recolorable) {
-        bool preserve =
-            GetDocumentColorsFollowTheme() != DocumentColorsFollowTheme::Legacy && profile->preservePdfImages;
-        profile->mode = preserve ? PageColorMode::PreserveImages : PageColorMode::LegacyInvert;
+        profile->mode = profile->preservePdfImages ? PageColorMode::PreserveImages : PageColorMode::LegacyInvert;
     }
 
     profile->hash = HashDarkModeProfile(*profile);
 }
 
 void BuildViewDarkModeProfile(EngineBase* engine, DarkModeProfile* profile) {
-    BuildViewDarkModeProfile(ClassifyViewEngine(engine), profile);
+    const PageColorInput colors = CapturePageColors();
+    BuildViewDarkModeProfile(ClassifyViewEngine(engine), colors, profile);
 }
 
 bool EngineUsesDocumentColorsFollowTheme(EngineBase* engine) {

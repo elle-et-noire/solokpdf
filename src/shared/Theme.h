@@ -1,6 +1,8 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
 License: GPLv3 */
 
+enum class DocumentColorsFollowTheme;
+
 void SetTheme(Str name);
 void SetCurrentThemeFromSettings();
 void SetThemeByIndex(int themeIdx);
@@ -21,6 +23,7 @@ void CreateThemeCommands();
 
 Color ThemeDocumentColors(Color&);
 Color ThemePageRenderColors(Color&);
+Color ThemePageRenderColors(Color&, DocumentColorsFollowTheme);
 Color ThemeMainWindowBackgroundColor();
 Color ThemeCanvasColor();
 Color ThemeControlBackgroundColor();

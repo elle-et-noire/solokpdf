@@ -38,6 +38,15 @@ bool DocumentColorsFollowThemeEnabled() {
     return GetDocumentColorsFollowTheme() != DocumentColorsFollowTheme::Off;
 }
 
+// Resolve the effective mode once for both theme colors and profile decisions.
+PageColorInput CapturePageColors() {
+    PageColorInput colors;
+    colors.mode = GetDocumentColorsFollowTheme();
+    colors.foreground = ThemePageRenderColors(colors.pageBackground, colors.mode);
+    colors.linkColor = IsLightColor(colors.pageBackground) ? 0 : ThemeWindowLinkColor();
+    return colors;
+}
+
 // User CSS overlay for MuPDF reflowable documents (EPUB, HTML, FB2, MOBI, TXT).
 // Empty when the effective page colors are black-on-white (nothing to override).
 TempStr ReflowDocumentThemeCssTemp() {

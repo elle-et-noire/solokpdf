@@ -23,6 +23,7 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 The latest CI additions and local checks are recorded under
 [D13/E17](#ci-coverage-expansion-2026-11-10).
 Ongoing design work starts with [E21 color-stage selection](#e21-color-stage-policy-2026-11-10).
+Its follow-up captures [effective color inputs](#e21-effective-color-inputs-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2078,7 +2079,7 @@ This inspection dispatched no workflows or tests.
 
 ## E21: Color-stage policy (2026-11-10)
 
-Working tree on `9e1eaac3b`, which commits the design documentation and plan.
+Committed as `8bf864e18`, implemented and tested on `9e1eaac3b`, which commits the design documentation and plan.
 This is E21's first code change, not completion of E21 or the rendering review.
 
 `GetPageColorPass` now selects `None`, `Renderer` or `Bitmap` from the engine
@@ -2096,7 +2097,7 @@ rendering. Removed the unused legacy-postprocess predicate and its stub.
 Profile hashing, skip rectangles, RGB mapping, adjustment order, alpha,
 annotation composition and cache invalidation are unchanged. The enum states
 the intended stage; actual render-result state remains E19 work. Effective
-color-input capture remains E21 work.
+color-input capture remained E21 work at this stage.
 
 Validation:
 
@@ -2128,6 +2129,55 @@ Pixel differences are in `.work/e21/comparison.json`. Build logs are
 `.work/e21-after-release-build.log`.
 GUI checks used Debug; no Release GUI, ASan, ng, hosted or full-suite run was
 performed for this change. No new tests were added.
+
+## E21: Effective color inputs (2026-11-10)
+
+Implemented and tested on `8bf864e18`, following the committed color-stage selection.
+Commit subject: `Capture effective page colors`. E21 is complete within the validation scope below.
+`CapturePageColors` now reads the effective mode once and collects foreground,
+page background and link colors into `PageColorInput`. Theme-color resolution
+uses that same mode and retains session inversion and the no-settings/no-theme
+defaults. Preview precedence remains in the existing mode getter.
+
+The engine-class overload of `BuildViewDarkModeProfile` accepts those values
+instead of querying settings or theme accessors. Live rendering and cached
+thumbnails capture their input before building the profile. The engine-pointer
+overload retains its API and captures values before delegating.
+Profile hashing, mode/image-preservation rules, RGB mapping and processing
+order are unchanged. This does not make global theme reads atomic or tie
+requests to a new generation scheme; that remains E22 work. Actual render
+completion/color state remains E19 work; its existing branches are now mapped
+in the plan.
+
+Validation:
+
+- The five passing configurations from the preceding step supplied the
+  unchanged baseline. Added baseline runs of `theme-document-background` on
+  PDFium and MuPDF, covering custom themes, off/smart/legacy, session inversion,
+  Home colors and original paper colors.
+- The Debug quick build passed with zero warnings/errors. All seven
+  configurations then passed: `ad-hoc-pdfium-theme` on both engines,
+  `ad-hoc-pdfium-thumb-theme`, `issue-4788`, `epub-theme-restyle`, and the two
+  `theme-document-background` configurations.
+- `bun cmd/solok-build.ts -rel` passed with zero warnings/errors for the
+  app, tool and shell DLLs, and staged the portable ZIP.
+- Decoded-pixel comparison covered 66 PNGs: 55 were identical throughout.
+  The remaining eleven differed only in Home's random tip text, with every
+  changed pixel at Y=730–751 in a 940×762 canvas. Page and thumbnail content,
+  including F12 and neutral cached PNGs, was identical. The full comparison
+  report retains the tip differences rather than suppressing them.
+- No test failed in this step. The preceding baseline thumbnail instability
+  remains unresolved; no test code was changed.
+- Binaries stayed fixed during each test batch. Debug exe SHA-256 changed
+  from `833FD3B6FD8C1EDBCCF8D43F8621357204E06F5D9908F86A9915B90F7F71483A`
+  to `E45B71D258A735501E1351192738D2211AD431ADF7529B893EB90374CC0DC042`.
+
+Logs, binary manifests and PNGs are in `.work/e21-input/{baseline,after}/`;
+raw pixel differences are in `.work/e21-input/comparison.json`. Build logs are
+`.work/e21-input-debug-build.log` and `.work/e21-input-release-build.log`.
+No Release GUI, ASan, ng, hosted or full-suite run was performed. System
+high contrast and settings-preview UI were not exercised; preview precedence
+was checked in code. No new test was added.
 
 ## Completed backlog
 
@@ -2278,6 +2328,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E14 | Encapsulate remaining virtual-tree internals                                                                                                                                                                                                                                                | done — Encapsulate virtual-tree internals (`bef32a49c`); [implementation and validation](#e14-virtual-tree-encapsulation-2026-11-10)                                                                                                    |
 | E15 | Review the four committed refactors                                                                                                                                                                                                                                                         | done — owner confirmed completion, 2026-11-10; [record](#e15-refactor-review-2026-11-10)                                                                                                                                                |
 | E16 | Make the PDFium-enabled ASan build reproducible                                                                                                                                                                                                                                             | done — Fix SolokPDF ASan builds (E16) (`fc8b455e8`); build, configuration and GUI checks passed; [record](#e16-asan-build-path-2026-11-10)                                                                                              |
+| E21 | Centralize color stages and capture effective page colors                                                                                                                                                                                                                                   | done — Centralize page color stage selection (`8bf864e18`); Capture effective page colors; [results](#e21-effective-color-inputs-2026-11-10)                                                                                            |
 
 ### F. Manual acceptance
 

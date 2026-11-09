@@ -184,8 +184,9 @@ Pixmap* ApplyViewPageAdjust(Pixmap* bmp, ViewPageOptions options) {
 
 Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions options) {
     ViewEngineClass engineClass = ClassifyViewEngine(engine);
+    const PageColorInput colors = CapturePageColors();
     DarkModeProfile profile;
-    BuildViewDarkModeProfile(engineClass, &profile);
+    BuildViewDarkModeProfile(engineClass, colors, &profile);
     PageColorPass colorPass = GetPageColorPass(engineClass, PageColorSource::Document, profile);
     args.darkProfile = profile.mode == PageColorMode::Normal ? nullptr : &profile;
     Pixmap* bmp = engine->RenderPage(args);

@@ -22,14 +22,15 @@ At 2026-11-10 03:01 JST, [regular CI](https://github.com/elle-et-noire/solokpdf/
 was building Debug and Release; no ASan runs were listed.
 The latest recorded successful regular CI tested `fc8b455e8` (D12).
 E10–E16 and D8–D12 are complete within their recorded scope.
-The next design review starts with color policy, render results and cache
-invalidation, then read contracts and document lifetime; see the
+The next implementation step is render results, followed by cache invalidation,
+read contracts and document lifetime; see the
 [refactoring plan](refactoring-plan.md) and [backlog](backlog.md).
-Planning docs are committed as `9e1eaac3b`; the working tree starts E21's shared
-color-stage selection for live rendering and cached thumbnails.
-Debug/Release builds and five targeted Debug configurations passed;
-[E21's record](history.md#e21-color-stage-policy-2026-11-10) includes pixel comparisons
-and an unresolved baseline thumbnail-test failure.
+Planning docs are committed as `9e1eaac3b`; E21's shared color-stage selection
+is committed as `8bf864e18`. Effective-color input capture completes E21.
+The color-input change passed Debug/Release builds and seven targeted Debug
+configurations; [E21's latest record](history.md#e21-effective-color-inputs-2026-11-10)
+includes the 66-image comparison and validation scope. The earlier baseline
+thumbnail-test failure remains unresolved.
 F2 passed by owner report. F1/F3 were
 removed from active work by the owner on 2026-11-10, without being marked passed.
 
@@ -70,7 +71,8 @@ Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 - Check D13/E17's hosted results against the recorded revision before closing
   them; see the [backlog](backlog.md#next-steps).
 - For design work, read the [current architecture](architecture.md) and
-  [refactoring plan](refactoring-plan.md). E21 is in progress; E18–E20/E22 remain planned.
+  [refactoring plan](refactoring-plan.md). E21 is complete within its recorded
+  validation scope; resume at E19. E18/E20/E22 remain planned.
 - For a code change, select the affected tests in [testing.md](testing.md).
   Run full suites only when explicitly requested.
 

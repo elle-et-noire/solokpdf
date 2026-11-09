@@ -988,7 +988,7 @@ void SetInvertPageColors(bool invert) {
 
 // colors for page bitmap recoloring (render cache)
 // TextColor substitutes black, BackgroundColor substitutes white in rendered pages
-static Color ThemePageRenderColorsNoInvert(Color& bg) {
+static Color ThemePageRenderColorsNoInvert(Color& bg, DocumentColorsFollowTheme mode) {
     Color text = kColBlack;
     bg = kColWhite;
 
@@ -997,7 +997,7 @@ static Color ThemePageRenderColorsNoInvert(Color& bg) {
         return text;
     }
 
-    if (!DocumentColorsFollowThemeEnabled()) {
+    if (mode == DocumentColorsFollowTheme::Off) {
         return text;
     }
 
@@ -1007,7 +1007,11 @@ static Color ThemePageRenderColorsNoInvert(Color& bg) {
 }
 
 Color ThemePageRenderColors(Color& bg) {
-    Color text = ThemePageRenderColorsNoInvert(bg);
+    return ThemePageRenderColors(bg, GetDocumentColorsFollowTheme());
+}
+
+Color ThemePageRenderColors(Color& bg, DocumentColorsFollowTheme mode) {
+    Color text = ThemePageRenderColorsNoInvert(bg, mode);
     if (!gInvertPageColors) {
         return text;
     }

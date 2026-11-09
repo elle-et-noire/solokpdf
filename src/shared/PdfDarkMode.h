@@ -45,6 +45,13 @@ constexpr int kThumbnailImageProbeScale = 4;
 // Full-bleed backgrounds / scans at or above this threshold are recolored with the page.
 static constexpr float kMaxPreserveImagePageCoverage = 0.75f;
 
+struct PageColorInput {
+    DocumentColorsFollowTheme mode = DocumentColorsFollowTheme::Off;
+    Color foreground = kColBlack;
+    Color pageBackground = kColWhite;
+    Color linkColor = 0;
+};
+
 struct DarkModeProfile {
     PageColorMode mode = PageColorMode::Normal;
     Color foreground = 0;
@@ -59,8 +66,9 @@ void SetPreservePdfImagesInDarkMode(bool preserve);
 static constexpr int kPreservePdfImagesMinSize = 72;
 
 PageColorPass GetPageColorPass(ViewEngineClass engineClass, PageColorSource source, const DarkModeProfile& profile);
+PageColorInput CapturePageColors();
 void BuildViewDarkModeProfile(EngineBase* engine, DarkModeProfile* profile);
-void BuildViewDarkModeProfile(ViewEngineClass engineClass, DarkModeProfile* profile);
+void BuildViewDarkModeProfile(ViewEngineClass engineClass, const PageColorInput& colors, DarkModeProfile* profile);
 ViewEngineClass ClassifyViewEngine(EngineBase* engine);
 struct ViewPageOptions {
     int brightness = 0;
