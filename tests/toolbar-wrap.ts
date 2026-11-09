@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { type ControlClient, ControlCommand } from "./control.ts";
 import { ROOT, runStandalone, tmpPath, writeAppdata } from "./util.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
-import { captureWindowToPng, findChildWindow, getClientRect, sleep } from "./winapi.ts";
+import { captureWindowToPng, findChildWindow, getClientRect, getWorkArea, sleep } from "./winapi.ts";
 
 // wide enough for one row, and too narrow for it
 const kWideDx = 1400;
@@ -52,9 +52,11 @@ async function measure(dx: number, png: string): Promise<{ dy: number; editDy: n
 }
 
 export async function testit(): Promise<void> {
-  const wide = await measure(kWideDx, "toolbar-wrap-wide.png");
+  const work = getWorkArea();
+  const wideDx = Math.min(kWideDx, work.right - work.left);
+  const wide = await measure(wideDx, "toolbar-wrap-wide.png");
   const narrow = await measure(kNarrowDx, "toolbar-wrap-narrow.png");
-  console.log(`  toolbar height: ${JSON.stringify(wide)} at ${kWideDx}px, ${JSON.stringify(narrow)} at ${kNarrowDx}px`);
+  console.log(`  toolbar height: ${JSON.stringify(wide)} at ${wideDx}px, ${JSON.stringify(narrow)} at ${kNarrowDx}px`);
   const row = wide.dy;
   if (narrow.dy < row * 2) {
     throw new Error(`toolbar-wrap: a narrow window should wrap the toolbar onto more rows (${row} -> ${narrow.dy})`);

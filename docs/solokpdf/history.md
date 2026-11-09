@@ -1729,7 +1729,7 @@ per engine. Eight failed consistently; `selection-document-colors` and
   antialiased glyph edges instead of requiring solid-white glyph samples.
 - `toolbar-wrap` now uses dedicated settings and logs actual frame width
   and DPI. The old hosted failure was not reproduced locally; its cause
-  remains unconfirmed. A controlled settings-contamination probe made the
+  was identified by the hosted recheck below. A controlled settings-contamination probe made the
   original test fail three times; the isolated version passed all three.
 
 The eight consistently failing tests passed three times per outer engine
@@ -1742,14 +1742,30 @@ three local probes. This does not verify Windows' `CF_DIB` synthesis or
 clipboard contention; the original `issue-6360` needs hosted verification.
 The owner's system clipboard was not used.
 
-Targeted hosted rechecks on remote source `ee72b00a2`:
-[42630775847](https://github.com/elle-et-noire/solokpdf/actions/runs/42630775847)
-repeats `issue-6360`, `toolbar-wrap` and `selection-document-colors` three
-times each on MuPDF;
-[42630790144](https://github.com/elle-et-noire/solokpdf/actions/runs/42630790144)
-repeats the latter two three times each on PDFium. These runs do not contain
-the local test repairs. D9 remains open until the modified tests pass hosted
-targeted validation.
+### Hosted triage
+
+The initial `ee72b00a2` rechecks (42630775847 and 42630790144) were canceled
+when replaced by runs on the pushed repairs, `b24b868b9`.
+
+| Engine | Run                                                                               | Result                                                |
+| ------ | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| PDFium | [42632361034](https://github.com/elle-et-noire/solokpdf/actions/runs/42632361034) | 30/33 passed; only `toolbar-wrap` failed, three times |
+| MuPDF  | [42632366342](https://github.com/elle-et-noire/solokpdf/actions/runs/42632366342) | 30/33 passed; only `toolbar-wrap` failed, three times |
+
+The other ten targets passed three times per engine, including `issue-6360`'s
+system-clipboard and contention checks. Its earlier menu failure did not recur.
+
+The toolbar log showed a 1024x720 work area at 96 DPI, but the 1400px-wide
+launch produced a 540px client. `EnsureAreaVisibility` replaces an oversized
+width with the default page-ratio width. The wide and narrow toolbars both
+took two rows, invalidating the test's one-row baseline. The test now caps
+its wide launch at the work-area width; its row and Edit PDF assertions stay
+unchanged. That version passed three local runs per engine and moved directly
+below `issue-5978`. Only `toolbar-wrap` needs a further hosted rerun.
+
+The regular push CI [42632289120](https://github.com/elle-et-noire/solokpdf/actions/runs/42632289120)
+also passed its Debug and Release jobs on `b24b868b9`, 105055 unit tests and
+65/65 feature tests.
 
 ## D10: Merged UI review (2026-11-09)
 

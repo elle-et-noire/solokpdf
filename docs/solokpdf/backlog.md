@@ -17,9 +17,9 @@ and [route checks](history.md#e13-keyboard-route-checks-2026-11-09).
 
 ## Recorded validation follow-ups
 
-| ID  | Item                                           | Status                                                                                                                                                                                                                      |
-| --- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D9  | Triage the latest scheduled full-test failures | doing: eight consistently failing tests repaired locally; isolated selection/toolbar checks and targeted hosted follow-ups recorded in [local triage](history.md#local-triage); modified tests still need hosted validation |
+| ID  | Item                                           | Status                                                                                                                                                                           |
+| --- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D9  | Triage the latest scheduled full-test failures | doing: ten targets passed three times per engine in hosted checks; `toolbar-wrap`'s work-area fix passed locally and needs its hosted rerun; [results](history.md#hosted-triage) |
 
 D8 is complete: all four hosted follow-ups are verified, including both
 engines at 96 DPI (100%). See the [audit](history.md#d8-hosted-validation-audit-2026-11-09).

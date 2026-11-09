@@ -20,7 +20,8 @@ Reviewed from `6c3df5580` on `solokpdf-dev`: E11's in-memory settings applicatio
 E12's shared input-target classification and E13's targeted routing checks are implemented.
 Tree acceptance (E10/F2) is complete by owner report; D8's hosted follow-ups
 are verified. D10's merged-UI review and D11's MuPDF patch comparison are
-complete. D9 has local test repairs and pending hosted validation; F1/F3
+complete. D9's ten other targets passed hosted repeats; its toolbar work-area
+fix needs a hosted rerun. F1/F3
 remain manual checks. See the [backlog](backlog.md). Results retain their
 source commits, dates and scope.
 
