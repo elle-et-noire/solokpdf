@@ -4,19 +4,31 @@ Open work as of 2026-11-09. Status: `todo`, `doing`, `blocked` (reason), `deferr
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D8, E13, F4). A1–E5 landed 2026-10-29 – 11-01 and are listed
-there.
+group (B76, C2, D8, E13, F4).
 
-## Open
+## Implementation and acceptance
+
+| ID  | Item                                                                    | Status                                                                                                                               |
+| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| E10 | Complete the [virtual sidebar migration](tree-view-replacement-plan.md) | doing: virtual trees are now the default; native sidebar drawing and opt-in switches removed; physical acceptance checks (F2) remain |
+
+E11 and E12 are implemented; see the [settings validation](history.md#e11-settings-application-2026-11-09)
+and [input-target validation](history.md#e12-input-target-classification-2026-11-09).
+E10 stays open until F2's physical checks are recorded.
+
+## Owner's manual checks
 
 | ID  | Item                                                                                    | Status                                                                                                                                               |
 | --- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D3  | Shard the full suite across runners                                                     | deferred: the suite takes ~25 min once a hung test is cut off                                                                                        |
-| E10 | Complete the [virtual sidebar migration](tree-view-replacement-plan.md)                 | doing: virtual trees are now the default; native sidebar drawing and opt-in switches removed; physical acceptance checks (F2) remain                 |
-| E12 | Continue [keyboard input consolidation](keyboard-investigation.md)                      | todo: some context, binding and state handling is shared; remaining routing needs behavior checks                                                    |
 | F1  | Physical printer, print dialog and spooler check                                        | todo: needs the owner                                                                                                                                |
 | F2  | Virtual-tree screen readers, monitor DPI changes, native thumb and real smart-bar hover | todo: needs the owner; [manual procedure](tree-view-screen-reader-check.md); required for E10 acceptance                                             |
 | F3  | Keyboard physical input and OS hotkey checks                                            | todo: needs the owner; AltGr, dead keys, Japanese IME, key repeat, focus changes and hotkey conflicts; [details](keyboard-investigation.md#残る検証) |
+
+## Deferred
+
+| ID  | Item                                | Reason                                              |
+| --- | ----------------------------------- | --------------------------------------------------- |
+| D3  | Shard the full suite across runners | the suite takes ~25 min once a hung test is cut off |
 
 ## Dropped
 

@@ -63,6 +63,31 @@ on their visible desktop using the
 [screen-reader procedure](tree-view-screen-reader-check.md); automated local
 runs continue to use the hidden desktop.
 
+### Keyboard input (E12)
+
+The [implementation plan](keyboard-investigation.md#次の実装計画e12) starts with
+these baseline tests. Run them before and after changing input classification.
+
+```powershell
+. ./tools/solokpdf/env.ps1
+bun cmd/solok-build.ts -quick
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-vim-keys.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-count-prefix.ts --no-build
+```
+
+Add `keyboard-ime`, `ad-hoc-virtual-tree-focus`, `issue-5971` or
+`ad-hoc-shortcuts-dialog` only when the changed path needs them. `keyboard-ime`
+may skip when Japanese IME is unavailable; a skip does not establish IME
+behavior. Physical keys, OS hotkey conflicts and real IME operation remain F3.
+
+### Settings application (E11)
+
+For changes to application, saving or external reloads, use the existing
+`command-palette-settings`, `adv-settings-home-reload` and
+`adv-settings-external-reload` tests through the same runner. The first two
+check both `-for-testing` and normal saving with dedicated settings files.
+Recorded results are in [history.md](history.md#e11-settings-application-2026-11-09).
+
 ### Startup timeout diagnostics
 
 `ad-hoc-pdfium-window-bg` writes a separate startup log for each app launch.

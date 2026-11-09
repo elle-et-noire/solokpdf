@@ -4,6 +4,16 @@ Measurement and work log, oldest first. Current behavior is in
 [features.md](features.md) and [limitations.md](limitations.md); open items are in [backlog.md](backlog.md).
 Condensed measurements are in [data/](data/).
 
+## Navigation
+
+| Topic                 | Records                                                                                                                                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Recent implementation | [E12 input-target classification](#e12-input-target-classification-2026-11-09), [E11 settings application](#e11-settings-application-2026-11-09), [virtual sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
+| Keyboard input        | [Initial review](#keyboard-input-review-2026-11-04), [current investigation and E12 plan](keyboard-investigation.md)                                                                                             |
+| Startup and memory    | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                   |
+| Project origin        | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                   |
+| Completed work        | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                     |
+
 ## Baseline (2026-10-24)
 
 - The initial repository had no commits or files. Its `origin` remains
@@ -1529,7 +1539,7 @@ not establish physical keyboard behavior across all input methods.
 lifetime handling; `3412a2174` made virtual bookmarks and favorites the default
 in Debug and Release, removing the opt-in switches and native sidebar drawing.
 E10 remains open for the F2 physical acceptance checks. Settings application
-under `-for-testing` is the separate E11 task.
+under `-for-testing` was fixed separately in [E11](#e11-settings-application-2026-11-09).
 
 Expansion delegates from `SidebarTree` to `VirtTree`; depth-based node updates
 and visible-row rebuilding live in `VirtTreeState`. `VirtTreeGuard` shares
@@ -1579,6 +1589,21 @@ desktop. `ad-hoc-b70-settings` (PDFium and MuPDF), `reload-settings-memory-trim`
 `settings-restore-default`, `settings-persist` and `adv-settings-fresh-defaults`
 also passed. B70's translated-settings check skipped because this build has no
 embedded translations. Full suites were not run.
+
+## E12: Input-target classification (2026-11-09)
+
+`MainWindow.cpp` now classifies keyboard targets as document, input, tree or
+other. Accelerator selection and the document-input predicate share this
+classification. Other children retain the full shortcut table without gaining
+Vim/count input. Properties, Merge PDF and palette exceptions keep their order;
+message targets and actual focus remain separate.
+
+Windows x64 Debug built with no warnings or errors. The six baseline tests and
+two additional routing checks passed after the change on the hidden desktop;
+the Japanese IME API test ran without skipping. No full suites ran. See the
+[coverage and remaining routes](keyboard-investigation.md#入力先共通化の結果e122026-11-09).
+Input-target consolidation is implemented; further routing changes need checks
+for the uncovered paths listed there. Physical input checks remain F3.
 
 ## Completed backlog
 
@@ -1714,3 +1739,4 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E7  | Theme tests: check dialog colors with `captureWindowDCToPng`; PrintWindow may paint dialogs in the OS theme                                                                                                                                                                                 | done — Read theme dialog colors from the window DC (E7): crops the client area; 4/4 runs passed                                                                                                                                         |
 | E8  | Chapter field colors and states in built-in and custom themes                                                                                                                                                                                                                               | done — Check chapter box theme states (E8): no defect; `issue-6095.epub` (`issue-6007.epub` has one chapter)                                                                                                                            |
 | E11 | Apply settings without reloading stale values under `-for-testing`                                                                                                                                                                                                                          | done — Apply settings without reloading disk values (2026-11-09); [validation](#e11-settings-application-2026-11-09)                                                                                                                    |
+| E12 | Share keyboard input-target classification                                                                                                                                                                                                                                                  | done — Centralize keyboard input targets (E12); [validation](#e12-input-target-classification-2026-11-09); physical input remains F3                                                                                                    |

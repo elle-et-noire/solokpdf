@@ -862,8 +862,16 @@ void ClearMouseState(MainWindow*);
 bool IsRightDragging(MainWindow*);
 MainWindow* FindMainWindowByTab(WindowTab*);
 #if OS_WIN
+enum class KeyTarget {
+    Document,
+    Input,
+    Tree,
+    Other,
+};
+
 HWND MainWindowHwnd(MainWindow*);
 MainWindow* FindMainWindowByHwnd(HWND);
+KeyTarget GetKeyTarget(MainWindow*, HWND);
 bool IsDocKeyTarget(MainWindow*, HWND);
 #endif
 bool IsMainWindowValid(MainWindow*);

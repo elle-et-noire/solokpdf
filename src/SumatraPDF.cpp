@@ -15200,42 +15200,15 @@ static HACCEL FindAcceleratorsForHwnd(HWND hwnd, HWND* hwndAccel, bool* forwardS
         return nullptr;
     }
     *hwndAccel = win->hwndFrame;
-    // Find bar/window are owned popups, not children of the frame. Their chrome,
-    // ComboBox and inner Edit must use the edit table: F on the main table is
-    // fullscreen and steals the focus Ctrl+F just gave them.
-    if (hwnd != win->hwndFrame && !::IsChild(win->hwndFrame, hwnd)) {
-        if (forwardSysKeys) {
-            *forwardSysKeys = true;
-        }
-        return editAccTable;
-    }
-    // Edit keeps a reduced table so letters type. Tree keeps nav keys
-    // (arrows, page, home/end, Enter/Space) and takes every other shortcut.
-    // Every other child (Virt toolbar, tabs HWND, canvas, WebView host, …)
-    // uses the main table — those windows take focus on click, and returning
-    // nullptr here is why Ctrl+W stopped closing a tab after the Virt toolbar.
-    WCHAR clsName[256];
-    int n = GetClassNameW(hwnd, clsName, dimof(clsName));
-    if (n <= 0) {
+    KeyTarget target = GetKeyTarget(win, hwnd);
+    if (target != KeyTarget::Input && target != KeyTarget::Tree) {
         return accTable;
     }
-    // ComboBox / ComboLBox take the win32 focus (find field, history list).
-    // Letters on the main table would fire (F = fullscreen) instead of typing.
-    if (wstr::EqI(clsName, WC_EDITW) || wstr::EqI(clsName, WC_COMBOBOX) || wstr::EqI(clsName, L"ComboLBox")) {
-        if (forwardSysKeys) {
-            *forwardSysKeys = true;
-        }
-        return editAccTable;
+
+    if (forwardSysKeys) {
+        *forwardSysKeys = true;
     }
-    bool sidebarTree = (win->tocTreeView && hwnd == win->tocTreeView->FocusHwnd()) ||
-                       (win->favTreeView && hwnd == win->favTreeView->FocusHwnd());
-    if (sidebarTree || wstr::EqI(clsName, WC_TREEVIEWW)) {
-        if (forwardSysKeys) {
-            *forwardSysKeys = true;
-        }
-        return treeViewAccTable;
-    }
-    return accTable;
+    return target == KeyTarget::Input ? editAccTable : treeViewAccTable;
 }
 
 // After a Ctrl/Alt+key accelerator, ignore auto-repeat of that key until it is

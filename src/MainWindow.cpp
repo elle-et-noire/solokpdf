@@ -847,6 +847,37 @@ HWND GetHwndForNotification() {
     return gWindows[0]->hwndCanvas;
 }
 
+KeyTarget GetKeyTarget(MainWindow* win, HWND hwnd) {
+    if (!win) {
+        return KeyTarget::Other;
+    }
+    if (hwnd == win->hwndFrame || hwnd == win->hwndCanvas) {
+        return KeyTarget::Document;
+    }
+
+    // Owned find popups and their children keep text input, including their chrome.
+    if (!::IsChild(win->hwndFrame, hwnd)) {
+        return KeyTarget::Input;
+    }
+
+    WCHAR clsName[256];
+    int n = GetClassNameW(hwnd, clsName, dimof(clsName));
+    if (n <= 0) {
+        return KeyTarget::Other;
+    }
+    if (wstr::EqI(clsName, WC_EDITW) || wstr::EqI(clsName, WC_COMBOBOX) || wstr::EqI(clsName, L"ComboLBox")) {
+        return KeyTarget::Input;
+    }
+    bool sidebarTree = (win->tocTreeView && hwnd == win->tocTreeView->FocusHwnd()) ||
+                       (win->favTreeView && hwnd == win->favTreeView->FocusHwnd());
+    if (sidebarTree || wstr::EqI(clsName, WC_TREEVIEWW)) {
+        return KeyTarget::Tree;
+    }
+
+    // Other children use document shortcuts, but cannot start a Vim/count prefix.
+    return KeyTarget::Other;
+}
+
 bool IsDocKeyTarget(MainWindow* win, HWND hwnd) {
-    return win && (hwnd == win->hwndFrame || hwnd == win->hwndCanvas);
+    return GetKeyTarget(win, hwnd) == KeyTarget::Document;
 }

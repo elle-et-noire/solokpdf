@@ -185,5 +185,5 @@ keyboard focus ring returned to the thumbnails sidebar and is off again
 (`issue-6469` now checks the ring's state after Down); a PDFium tab no
 longer clears layer states a MuPDF tab saved. Read Columns now centers a
 column on the page area beside an overlay scrollbar (B74), and `issue-6221`
-checks Mirror with overlay scrollbars against the page rect (B75). Nothing
-is left.
+checks Mirror with overlay scrollbars against the page rect (B75). These review
+fixes are complete; the unperformed validation listed above remains unverified.
