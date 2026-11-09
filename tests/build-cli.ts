@@ -5,6 +5,7 @@ import { forPlatform, targets } from "../cmd/helper/ng-targets";
 import type { Platform } from "../cmd/helper/ng-toolchain";
 import { isShared, sharedFiles } from "../cmd/helper/ng-shared";
 import { existsSync } from "node:fs";
+import { detectVisualStudio2026 } from "../cmd/util";
 
 function run(args: string[], script = "build.ts"): { code: number; stdout: string; stderr: string } {
   const proc = Bun.spawnSync(["bun", join(ROOT, "cmd", script), ...args], { cwd: ROOT });
@@ -19,7 +20,36 @@ function check(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
 }
 
+function checkVs2026Configs(): void {
+  if (process.platform !== "win32") return;
+
+  const generate = Bun.spawnSync([join(ROOT, "bin", "premake5.exe"), "--with-pdfium", "vs2026"], { cwd: ROOT });
+  check(generate.exitCode === 0, `VS2026 generation failed:\n${generate.stderr}`);
+
+  const { msbuildPath } = detectVisualStudio2026();
+  // Validate the solution-to-project mapping without compiling the application.
+  for (const config of ["Debug", "Release"]) {
+    const validate = Bun.spawnSync(
+      [
+        msbuildPath,
+        join(ROOT, "vs2026", "SumatraPDF.slnx"),
+        "/t:SumatraPDF-static:_CheckForInvalidConfigurationAndPlatform",
+        `/p:Configuration=${config};Platform=x64_asan`,
+        "/nologo",
+        "/v:minimal",
+      ],
+      { cwd: ROOT },
+    );
+    check(
+      validate.exitCode === 0,
+      `VS2026 ${config} ASan configuration failed:\n${validate.stdout}\n${validate.stderr}`,
+    );
+  }
+}
+
 export async function testit(): Promise<void> {
+  checkVs2026Configs();
+
   const noArgs = run([]);
   check(noArgs.code === 0, `no-argument exit code: ${noArgs.code}`);
   check(noArgs.stdout.includes("Usage: bun cmd/build.ts"), "no-argument invocation did not print usage");

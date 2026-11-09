@@ -16,8 +16,11 @@ rendered output.
 
 ## Status (2026-11-10)
 
-Implementation based on `93668ab08` on `solokpdf-dev`; E14's implementation and
-local validation are complete. E11's in-memory settings application,
+Current implementation: `bef32a49c` on `solokpdf-dev`; the working tree was clean
+before this work. E16's ASan build/test changes are now in the working tree.
+The branch is five commits ahead of the local
+`origin/solokpdf-dev` tracking ref; no remote refresh was performed.
+E14's implementation and local validation are complete. E11's in-memory settings application,
 E12's shared input-target classification and E13's targeted routing checks are implemented.
 Tree acceptance (E10/F2) is complete by owner report; D8's hosted follow-ups
 are verified. D10's merged-UI review and D11's MuPDF patch comparison are
@@ -25,35 +28,43 @@ complete. D9's eleven targets passed three hosted runs per engine. F1/F3
 were removed from active work by the owner on 2026-11-10. See the [backlog](backlog.md). Results retain their
 source commits, dates and scope.
 
-| Area           | Current state                                                                                                                           | Details                                                                                                              |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                             | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
-| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7); recorded validation follow-ups are closed.                                               | [Merge status](upstream-merges.md#current-status-2026-11-09)                                                         |
-| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                             | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
-| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete). | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
-| Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                     | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                               |
-| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                            | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
-| Refactoring    | E14's virtual-tree model, colors, direction, accessibility and test access are encapsulated; no open refactoring items.                 | [Results](history.md#e14-virtual-tree-encapsulation-2026-11-10), [backlog](backlog.md)                               |
+| Area           | Current state                                                                                                                                     | Details                                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                                       | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
+| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7); recorded validation follow-ups are closed.                                                         | [Merge status](upstream-merges.md#current-status-2026-11-09)                                                         |
+| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                                       | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
+| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete).           | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
+| Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                               | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                               |
+| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                                      | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
+| Refactoring    | Tree layout/internals, PDFium runtime and pending key state are separated in four committed changes; review complete by owner confirmation (E15). | [Results](history.md#navigation), [review](history.md#e15-refactor-review-2026-11-10)                                |
 
 ### Validation scope
 
 Results are scoped to the revisions and checks listed here; earlier CI runs
 were not repeated for E14.
 
-| Check                   | Tested revision             | Recorded result                                                                                                                                                                            |
-| ----------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Latest regular CI       | `b24b868b9`                 | Debug/Release jobs, 105055 unit tests and 65/65 feature tests passed; [record](history.md#hosted-triage).                                                                                  |
-| Scheduled full suites   | `99ba47b52`                 | PDFium 574/584, MuPDF 577/587; [eleven distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).                                                                              |
-| D9 targeted rechecks    | `b24b868b9`, `4ad4c30ae`    | All eleven targets passed three hosted runs per engine; [record](history.md#hosted-triage). No full suite rerun.                                                                           |
-| F2 physical tree checks | Build unspecified           | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                                     |
-| E14 local validation    | Working tree on `93668ab08` | Debug/Release builds, 15 targeted configurations, extended lifetime checks and four ASan configurations passed; [scope and results](history.md#e14-virtual-tree-encapsulation-2026-11-10). |
+| Check                   | Tested revision                 | Recorded result                                                                                                                                                                            |
+| ----------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Recorded regular CI     | `b24b868b9`                     | Debug/Release jobs, 105055 unit tests and 65/65 feature tests passed; [record](history.md#hosted-triage).                                                                                  |
+| Scheduled full suites   | `99ba47b52`                     | PDFium 574/584, MuPDF 577/587; [eleven distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).                                                                              |
+| D9 targeted rechecks    | `b24b868b9`, `4ad4c30ae`        | All eleven targets passed three hosted runs per engine; [record](history.md#hosted-triage). No full suite rerun.                                                                           |
+| F2 physical tree checks | Build unspecified               | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                                     |
+| E14 local validation    | Change committed as `bef32a49c` | Debug/Release builds, 15 targeted configurations, extended lifetime checks and four ASan configurations passed; [scope and results](history.md#e14-virtual-tree-encapsulation-2026-11-10). |
+| E16 local validation    | Working tree on `bef32a49c`     | ASan incremental build, Debug/Release configuration checks, tree lifetime and PDFium tests passed; [scope and results](history.md#e16-asan-build-path-2026-11-10).                         |
+
+Hosted results for the four refactoring commits and E16 are not recorded here.
+E16 replaces the direct-project ASan workaround with `bun cmd/solok-build.ts -asan`,
+staging PDFium and the ASan runtime beside the executable. Test staging also
+preserves the ASan DLL. See the [procedure](testing.md#asan-builds).
 
 ## Resuming work
 
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- E14 is implemented and locally validated; independent review has not run. See its [results](history.md#e14-virtual-tree-encapsulation-2026-11-10).
+- E15's review is complete by owner confirmation; E16 is implemented and locally
+  validated. The [next step](backlog.md#next-steps) is hosted evidence for the
+  published revision (D12).
 - For a code change, select the affected tests in [testing.md](testing.md).
   Run full suites only when explicitly requested.
 
@@ -78,7 +89,7 @@ the [hidden-desktop runner](testing.md#local-windows-runs).
 | Purpose            | Documents                                                                                                                                 |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Current behavior   | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                      |
-| Open work          | [backlog.md](backlog.md)                                                                                                                  |
+| Open work          | [Ordered plan and completion criteria](backlog.md#next-steps)                                                                             |
 | Tree migration     | [tree-view-replacement-plan.md](tree-view-replacement-plan.md), [tree-view-screen-reader-check.md](tree-view-screen-reader-check.md)      |
 | Keyboard follow-up | [Current routing, E12/E13 results and physical checks](keyboard-investigation.md); [original handoff](keyboard-handoff.md)                |
 | Test procedures    | [Local automated tests](testing.md#local-windows-runs), [owner's manual acceptance](testing.md#owners-manual-acceptance-f1f3)             |

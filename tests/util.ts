@@ -122,6 +122,11 @@ export function prepareTestEnvironment(): void {
     if (existsSync(sourcePdfium)) {
       copyFileSync(sourcePdfium, join(TESTS_TMP_DIR, "pdfium.dll"));
     }
+    const asanDll = "clang_rt.asan_dynamic-x86_64.dll";
+    const sourceAsan = join(dirname(sourceExe), asanDll);
+    if (existsSync(sourceAsan)) {
+      copyFileSync(sourceAsan, join(TESTS_TMP_DIR, asanDll));
+    }
     const sourceTool = join(dirname(sourceExe), "sumatrapdf-tool.exe");
     if (existsSync(sourceTool)) {
       copyFileSync(sourceTool, join(TESTS_TMP_DIR, "sumatrapdf-tool.exe"));

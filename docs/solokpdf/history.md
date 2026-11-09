@@ -8,16 +8,17 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 
 ## Navigation
 
-| Topic                  | Records                                                                                                                                                                                                                                                                     |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Latest validation      | [D9 hosted completion](#hosted-triage), [D8 hosted checks](#d8-hosted-validation-audit-2026-11-09), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                                                                           |
-| Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09)                                                                                                                                                                                      |
-| Merge follow-ups       | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                                                         |
-| Recent implementation  | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input-target classification](#e12-input-target-classification-2026-11-09), [E11 settings application](#e11-settings-application-2026-11-09), [virtual sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
-| Keyboard input         | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                                                       |
-| Startup and memory     | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                                                              |
-| Project origin         | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                                              |
-| Completed work         | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                                                                |
+| Topic                  | Records                                                                                                                                                                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Latest validation      | [E16 ASan build path](#e16-asan-build-path-2026-11-10), [D9 hosted completion](#hosted-triage), [D8 hosted checks](#d8-hosted-validation-audit-2026-11-09), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                 |
+| Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09)                                                                                                                                                    |
+| Merge follow-ups       | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                       |
+| Recent implementation  | [E14 tree encapsulation](#e14-virtual-tree-encapsulation-2026-11-10), [tree layout](#virtual-tree-layout-boundary-2026-11-10), [PDFium runtime](#pdfium-runtime-boundary-2026-11-10), [key state](#keyboard-state-boundary-2026-11-10)    |
+| Earlier implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input targets](#e12-input-target-classification-2026-11-09), [E11 settings](#e11-settings-application-2026-11-09), [sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
+| Keyboard input         | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                     |
+| Startup and memory     | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                            |
+| Project origin         | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                            |
+| Completed work         | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                              |
 
 ## Baseline (2026-10-24)
 
@@ -1819,7 +1820,7 @@ complete. The archive, application logs and comparison results are in
 
 ## Virtual-tree layout boundary (2026-11-10)
 
-Working tree based on `07b099f65`. Moved font/DPI/padding updates, remeasurement,
+Committed as `caff25da5`, based on `07b099f65`. Moved font/DPI/padding updates, remeasurement,
 item rectangles, hit testing and visible-row enumeration from `SidebarTree`
 into `VirtTree`. The adapter keeps the sidebar's 4 DIP padding policy and
 tooltip handling; geometry arithmetic and measurement/bar-update order remain
@@ -1843,7 +1844,7 @@ No full suite, Release build or new physical-device acceptance was run.
 
 ## PDFium runtime boundary (2026-11-10)
 
-Working tree based on `caff25da5`. Moved the DLL API table, loading,
+Committed as `9c6ee8e74`, based on `caff25da5`. Moved the DLL API table, loading,
 initialization, reference count and font-cache setup from `EnginePdfium.cpp`
 to `PdfiumRuntime.{h,cpp}`. Module, user count and font-cache state are private
 to the runtime. The engine still owns document operations and warm-up work;
@@ -1863,7 +1864,7 @@ Logs are in `.work/pdfium-runtime-*.log`. No full suite or Release build was run
 
 ## Keyboard state boundary (2026-11-10)
 
-Working tree based on `9c6ee8e74`. Replaced the window's public count/prefix
+Committed as `93668ab08`, based on `9c6ee8e74`. Replaced the window's public count/prefix
 fields with `KeyInputState`, which owns digit accumulation, the leading-zero
 rule, the 9999 limit, prefix assignment and consumption of both values.
 Its state is private; readers receive a value copy. It has no window, settings
@@ -1886,11 +1887,13 @@ The accepted post-change run started after build completion and verified the
 executable hash stayed unchanged throughout. Logs are in
 `.work/key-state-baseline-*.log` and `.work/key-state-final-*.log`.
 No full suite or Release build was run. IME checks use API-driven composition;
-physical-key acceptance remains F3.
+physical-key checks were tracked as F3 and removed from active scope by the
+owner on 2026-11-10, without being marked passed.
 
 ## E14: Virtual-tree encapsulation (2026-11-10)
 
-Implemented and tested on top of `93668ab08`. `VirtTree` now owns queries for
+Committed as `bef32a49c`, implemented and tested on top of `93668ab08`.
+`VirtTree` now owns queries for
 selection, expansion, first item and generation-tagged references, color and
 direction updates, and accessible-name storage and notifications. `SidebarTree`
 keeps the `TreeView` adapter, settings policy and tooltips. Model ownership is
@@ -1901,7 +1904,9 @@ The lifetime guard is a private nested type. `SidebarTree` and `TestTree.cpp`
 use operations and copied diagnostics; Debug-only hooks retain the existing
 reentrancy and destruction probes. No mutable state getter or `friend` was added.
 The prototype's DPI handler now uses the same font update API as the sidebar.
-Local diff review is complete; no independent review was run for E14.
+At implementation, local diff review was complete; no independent review was
+recorded. The owner subsequently confirmed review completion under
+[E15](#e15-refactor-review-2026-11-10).
 
 Debug quick and Release builds passed with zero warnings and errors.
 The following 15 configurations passed before and after the refactor on the
@@ -1942,13 +1947,61 @@ Logs and executable-hash manifests are in `.work/e14-*`; the native ASan build
 logs are `.work/e14-asan-build-native.log` and `.work/e14-asan-extended-build.log`.
 No full suite was run.
 
+## E15: Refactor review (2026-11-10)
+
+The owner confirmed that review of the four refactors (`caff25da5`,
+`9c6ee8e74`, `93668ab08`, `bef32a49c`) was already complete. Removed E15
+from planned work. This confirmation adds no build or test results.
+
+## E16: ASan build path (2026-11-10)
+
+Working tree on `bef32a49c`. Regenerating PDFium-enabled VS2026 projects and
+running `cmd/build.ts -asan` with `SUMATRA_SLN=vs2026/SumatraPDF.slnx`
+reproduced E14's configuration failure. Added an existing `build-cli` test
+check that asks MSBuild to validate the project configuration without compiling
+the app; it failed on `Debug|x64_asan` before the fix.
+
+Premake's slnx generator omitted the custom platform mapping. The generation
+hook now maps each `x64_asan` solution configuration to its native project
+configuration, for example `Debug|x64_asan` to `Debug x64_asan|x64`.
+Generated files are not hand-edited. The SolokPDF wrapper accepts `-asan`,
+delegates to `cmd/build.ts`, and stages `pdfium.dll` beside the static executable
+and ASan runtime in `out/dbg64_asan/`. It does not create a portable ZIP.
+
+The first lifetime run then exited before opening its window (exit 53): test
+staging copied the executable without its ASan DLL. `prepareTestEnvironment`
+now copies that DLL too. The PDFium test's missing-DLL probe also assumed a
+dynamic MuPDF build; after observing its missing-file failure, changed the
+probe to copy the available MuPDF/ASan dependencies while omitting PDFium.
+
+Validation:
+
+- `build-cli` passed, including Debug and Release ASan configuration checks.
+  Moved it immediately after `issue-5978` for early coverage in the next suite.
+- `bun cmd/solok-build.ts -asan` passed as a native incremental build with zero
+  warnings and errors. The sandbox attempt hit MSBuild FileTracker access
+  restrictions; the accepted build ran outside the sandbox.
+- `ad-hoc-tree-lifetime` passed on the hidden desktop (14.7 s), including
+  synchronous name-change destruction.
+- `ad-hoc-pdfium` passed on the hidden desktop (31.1 s), including actual
+  PDFium rendering, font-cache pixel equality and missing-DLL MuPDF fallback.
+- The executable SHA-256 stayed unchanged across the GUI tests; staged PDFium
+  matched the pinned DLL. Hash manifests are `.work/e16-binaries-{before,after}.txt`.
+
+Commands and ASan options are in [testing.md](testing.md#asan-builds). Logs:
+`.work/e16-build-before.log`, `.work/e16-test-{before,after}.log`,
+`.work/e16-build-native.log`, `.work/e16-lifetime{,-after}.log` and
+`.work/e16-pdfium{,-after}.log`. No clean rebuild, Release ASan executable,
+full suite or hosted run was performed. The prebuilt PDFium DLL is not
+ASan-instrumented.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in
 the [D8 audit](#d8-hosted-validation-audit-2026-11-09). Older pending notes below
 describe their original state.
 
-Rows of [backlog.md](backlog.md) completed by 2026-11-09. Sources: an audit of every
+Completed rows from [backlog.md](backlog.md), with dated results. Sources: an audit of every
 MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
 `AsEngineMupdf` helpers), the known limitations, the upstream full suite
 and targeted regressions.
@@ -2085,9 +2138,11 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E8  | Chapter field colors and states in built-in and custom themes                                                                                                                                                                                                                               | done — Check chapter box theme states (E8): no defect; `issue-6095.epub` (`issue-6007.epub` has one chapter)                                                                                                                            |
 | E10 | Complete the [virtual sidebar migration](tree-view-replacement-plan.md)                                                                                                                                                                                                                     | done — Make virtual sidebar trees the default (`3412a2174`); F2 accepted by owner report, 2026-11-09; [acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                                              |
 | E11 | Apply settings without reloading stale values under `-for-testing`                                                                                                                                                                                                                          | done — Apply settings without reloading disk values (2026-11-09); [validation](#e11-settings-application-2026-11-09)                                                                                                                    |
-| E12 | Share keyboard input-target classification                                                                                                                                                                                                                                                  | done — Centralize keyboard input targets (E12); [validation](#e12-input-target-classification-2026-11-09); physical input remains F3                                                                                                    |
-| E13 | Cover keyboard routes outside E12's targeted checks                                                                                                                                                                                                                                         | done — Cover keyboard routing gaps (E13); [validation](#e13-keyboard-route-checks-2026-11-09); physical input remains F3                                                                                                                |
-| E14 | Encapsulate remaining virtual-tree internals                                                                                                                                                                                                                                                | done — Encapsulate virtual-tree internals; [implementation and validation](#e14-virtual-tree-encapsulation-2026-11-10)                                                                                                                  |
+| E12 | Share keyboard input-target classification                                                                                                                                                                                                                                                  | done — Centralize keyboard input targets (E12); [validation](#e12-input-target-classification-2026-11-09); F3 excluded, 2026-11-10                                                                                                      |
+| E13 | Cover keyboard routes outside E12's targeted checks                                                                                                                                                                                                                                         | done — Cover keyboard routing gaps (E13); [validation](#e13-keyboard-route-checks-2026-11-09); F3 excluded, 2026-11-10                                                                                                                  |
+| E14 | Encapsulate remaining virtual-tree internals                                                                                                                                                                                                                                                | done — Encapsulate virtual-tree internals (`bef32a49c`); [implementation and validation](#e14-virtual-tree-encapsulation-2026-11-10)                                                                                                    |
+| E15 | Review the four committed refactors                                                                                                                                                                                                                                                         | done — owner confirmed completion, 2026-11-10; [record](#e15-refactor-review-2026-11-10)                                                                                                                                                |
+| E16 | Make the PDFium-enabled ASan build reproducible                                                                                                                                                                                                                                             | done in working tree — build, configuration and GUI checks passed; [record](#e16-asan-build-path-2026-11-10)                                                                                                                            |
 
 ### F. Manual acceptance
 

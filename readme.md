@@ -24,6 +24,9 @@ and test results are in [history](docs/solokpdf/history.md).
 
 For local test builds, `bun cmd/solok-build.ts -quick` updates
 `out/dbg64/SumatraPDF.exe` and `pdfium.dll` without staging the portable folder.
+For ASan, `bun cmd/solok-build.ts -asan` builds `SumatraPDF-static.exe` and
+stages PDFium and the ASan runtime in `out/dbg64_asan/`; see the
+[ASan test procedure](docs/solokpdf/testing.md#asan-builds).
 Run app-launching tests through the [hidden-desktop runner](docs/solokpdf/testing.md).
 Keep `-for-testing` on ad-hoc launches; physical checks follow the
 [owner's manual acceptance procedure](docs/solokpdf/testing.md#owners-manual-acceptance-f1f3).

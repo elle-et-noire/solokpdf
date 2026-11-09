@@ -1,6 +1,6 @@
 // Opt-in backend check. Build with cmd/solok-build.ts, then run with --no-build.
 import { createHash } from "node:crypto";
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { ControlCommand, withControlledSumatra, type ControlClient } from "./control.ts";
 import { EXE, assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
@@ -663,7 +663,10 @@ export async function testit(): Promise<void> {
   mkdirSync(missingDir, { recursive: true });
   const missingExe = join(missingDir, basename(EXE));
   copyFileSync(EXE, missingExe);
-  copyFileSync(join(dirname(EXE), "libsumatrapdf.dll"), join(missingDir, "libsumatrapdf.dll"));
+  for (const dll of ["libsumatrapdf.dll", "clang_rt.asan_dynamic-x86_64.dll"]) {
+    const source = join(dirname(EXE), dll);
+    if (existsSync(source)) copyFileSync(source, join(missingDir, dll));
+  }
   const missingLog = tmpPath("pdfium/missing-dll.log");
   await withControlledSumatra(
     missingExe,

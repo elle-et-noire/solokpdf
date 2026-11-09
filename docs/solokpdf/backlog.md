@@ -4,17 +4,46 @@ Open work as of 2026-11-10. Status: `todo`, `doing`, `blocked` (reason), `deferr
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D12, E15, F4).
+group (B76, C2, D13, E17, F4).
 
 ## Implementation and acceptance
 
-No open implementation or merge-validation items. Completed E10–E14 and D8–D11
-records are in [history.md](history.md#navigation). E14 is implemented and
-locally validated on top of `93668ab08`;
+No active product implementation item remains. Completed E10–E16 and D8–D11
+records are in [history.md](history.md#navigation). E14 is committed as
+`bef32a49c` and locally validated;
 see its [results](history.md#e14-virtual-tree-encapsulation-2026-11-10).
 
 F1/F3 were removed from active work by the owner on 2026-11-10, without marking
 them passed. Their earlier procedures and pending-check records are historical.
+
+## Next steps
+
+Plan based on local HEAD `bef32a49c` with E16's build/test changes in the
+working tree. No remote checks were run.
+
+| Order | ID  | Work                                                | Status                   |
+| ----- | --- | --------------------------------------------------- | ------------------------ |
+| 1     | D12 | Record hosted validation for the published revision | todo — after publication |
+
+E15's review of the four refactors is complete by owner confirmation
+(2026-11-10); see the [record](history.md#e15-refactor-review-2026-11-10).
+E16's ASan build path is implemented and locally validated; see the
+[results](history.md#e16-asan-build-path-2026-11-10) and
+[test procedure](testing.md#asan-builds).
+
+### D12: Hosted evidence
+
+When the source revision is available on hosted CI, inspect its regular run.
+Record the run URL, revision and Debug/Release, unit and
+feature-test results. A docs-only push does not trigger regular SolokPDF CI.
+Use a targeted hosted recheck only for an unresolved path; do not dispatch a
+full suite for this plan. Later scheduled results remain scoped to their own
+revision.
+
+Done when the README links to the checked revision's hosted evidence and lists
+any failed or missing checks with their follow-up. Publication and workflow dispatch are not part of this
+documentation task. D3 remains deferred; F1/F3 and distribution remain outside
+active scope.
 
 ## Deferred
 

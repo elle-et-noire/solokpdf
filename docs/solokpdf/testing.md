@@ -62,6 +62,30 @@ maps encapsulation checks to the existing tests. `ad-hoc-tree-lifetime` includes
 `event-name`, which destroys the tree synchronously during a name-change WinEvent.
 Run startup/layout checks after builds finish; keep the executable hash fixed during each set.
 
+### ASan builds
+
+Build the PDFium-enabled static executable and stage both runtime DLLs with
+the SolokPDF wrapper. It delegates to `cmd/build.ts`; no generated project
+edits or direct MSBuild workaround are needed.
+
+```powershell
+. ./tools/solokpdf/env.ps1
+bun cmd/solok-build.ts -asan
+$env:SUMATRA_TEST_EXE = Join-Path $PWD 'out/dbg64_asan/SumatraPDF-static.exe'
+$env:ASAN_OPTIONS = 'windows_hook_legacy_allocators=0:suppressions="' + (Join-Path $PWD 'asan.supp') + '"'
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-tree-lifetime.ts --no-build
+```
+
+Run app tests outside the sandbox, on the hidden desktop. The options match
+the project's ASan debugger environment, disabling legacy-allocator hooks and
+loading the checked-in suppressions. The test runner copies the ASan DLL into
+its isolated executable directory. The wrapper does not create a portable ZIP.
+The pinned PDFium DLL is not ASan-instrumented.
+See [E16's results](history.md#e16-asan-build-path-2026-11-10) and the
+[earlier workaround](history.md#e14-virtual-tree-encapsulation-2026-11-10).
+
+### Physical tree checks
+
 Narrator/NVDA, real monitor DPI changes, native scrollbar thumb dragging and
 real-cursor smart-bar hover are manual checks. The owner reported all F2 checks
 OK on 2026-11-09; see the [procedure and results](tree-view-screen-reader-check.md).
@@ -224,8 +248,8 @@ settings there; changes made in test mode last only for that process.
 For each result, record the date, source commit, Debug/Release, engine, Windows
 build, relevant device/software versions, settings and document used. Mark each
 check passed, failed or untested; include actual behavior for failures and a
-reason for skipped checks. Keep the backlog item open until its checks are
-complete. These instructions add no new test results.
+reason for skipped checks. These historical procedures do not reopen F1/F3
+or add new test results.
 
 ### Printing (F1)
 

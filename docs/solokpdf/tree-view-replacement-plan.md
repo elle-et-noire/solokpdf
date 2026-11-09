@@ -1,6 +1,6 @@
 # 目次とお気に入りの TreeView 置き換え計画
 
-## 現状（2026-11-09）
+## 現状（2026-11-10）
 
 `3412a2174` で `dff595cf0` の試験実装を既定表示へ切り替えた。Debug・Release とも、通常起動から目次・お気に入りに仮想ツリーを使う。
 `SOLOKPDF_VIRTUAL_TOC`・`SOLOKPDF_VIRTUAL_FAVORITES` の内部切り替えと、標準 TreeView 専用の描画処理を削除した。
@@ -22,11 +22,12 @@
 この時点ではモデル状態・色・方向・アクセシビリティへの直接参照が残った。この変更はレイアウト境界に限る。
 変更前後の対象テストは [検証記録](history.md#virtual-tree-layout-boundary-2026-11-10) を参照する。
 
-## 残る内部参照の整理計画（E14、2026-11-10）
+## 内部参照の整理結果（E14、2026-11-10）
 
-基準は `93668ab08`。実装・対象検証・自己レビューは完了。独立レビューは未実施。[検証結果](history.md#e14-virtual-tree-encapsulation-2026-11-10) を参照する。
+`bef32a49c` でコミット済み（基準は `93668ab08`）。実装・対象検証は完了。レビューも所有者が完了済みと確認した（2026-11-10、[E15](history.md#e15-refactor-review-2026-11-10)）。[検証結果](history.md#e14-virtual-tree-encapsulation-2026-11-10) を参照する。
 `SidebarTree.cpp` と `testcode/TestTree.cpp` から `VirtTree` の内部状態への直接参照を取り除いた。以下は実施した計画の記録。
 既存のレイアウト整理、PDFium ランタイム分離、キー状態分離は完了済みとして扱う。
+ASan ビルド手順の整理（E16）も完了。[現行手順](testing.md#asan-builds) と [次の計画](backlog.md#next-steps) を参照する。
 
 ### 責務
 

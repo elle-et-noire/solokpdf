@@ -102,6 +102,20 @@ premake.override(premake.vstudio.vc2010.elements, "itemDefinitionGroup", functio
   return calls
 end)
 
+-- Premake's slnx generator omits the custom ASan platform's project mapping.
+if _ACTION == "vs2026" then
+  premake.override(premake.vstudio.sln2026, "projectConfigMap", function(base, prj)
+    base(prj)
+    for cfg in premake.project.eachconfig(prj) do
+      if cfg.platform == "x64_asan" then
+        local solution = cfg.buildcfg .. "|" .. premake.vstudio.solutionPlatform(cfg)
+        premake.w('<BuildType Solution="%s" Project="%s" />', solution, premake.vstudio.projectPlatform(cfg))
+        premake.w('<Platform Solution="%s" Project="%s" />', solution, premake.vstudio.archFromConfig(cfg, true))
+      end
+    end
+  end)
+end
+
 -- this is meant to make the binary win7 compatible but
 -- does't seem to work
 function winver7_defines()

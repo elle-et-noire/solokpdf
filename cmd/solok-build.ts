@@ -4,8 +4,8 @@ import { fetchPdfium } from "./solok-fetch-pdfium";
 import { detectVisualStudio2026, runLogged } from "./util";
 
 const args = process.argv.slice(2);
-if (args.length > 1 || (args.length === 1 && !["-dbg", "-rel", "-quick"].includes(args[0]))) {
-  throw new Error("usage: bun cmd/solok-build.ts [-dbg | -rel | -quick]");
+if (args.length > 1 || (args.length === 1 && !["-dbg", "-rel", "-quick", "-asan"].includes(args[0]))) {
+  throw new Error("usage: bun cmd/solok-build.ts [-dbg | -rel | -quick | -asan]");
 }
 const config = args[0] ?? "-dbg";
 const pdfium = await fetchPdfium();
@@ -29,8 +29,13 @@ const build = Bun.spawn([process.execPath, "cmd/build.ts", config], {
   stdio: ["inherit", "inherit", "inherit"],
 });
 if ((await build.exited) !== 0) throw new Error("cmd/build.ts failed");
-const out = join("out", config === "-rel" ? "rel64" : "dbg64");
+const out = join("out", config === "-asan" ? "dbg64_asan" : config === "-rel" ? "rel64" : "dbg64");
 copyFileSync(join(pdfium, "bin/pdfium.dll"), join(out, "pdfium.dll"));
+if (config === "-asan") {
+  console.log(`SolokPDF ASan build: ${out}/SumatraPDF-static.exe. Use -for-testing for ad-hoc launches.`);
+  process.exit(0);
+}
+
 const portable = join("out", config === "-rel" ? "solokpdf-portable" : "solokpdf-dev");
 const zip = join("out", config === "-rel" ? "SolokPDF-experimental-x64.zip" : "SolokPDF-experimental-debug-x64.zip");
 mkdirSync(portable, { recursive: true });
