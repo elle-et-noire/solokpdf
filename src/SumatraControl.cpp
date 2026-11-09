@@ -1960,8 +1960,26 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     break;
                 }
                 PageText text = engine->ExtractPageText(pageNo);
-                AppendTestResult(req, 0, fmt("chars=%d", text.nCodepoints));
+                AppendTestResult(req, 0, fmt("chars=%d partial=%d", text.nCodepoints, (int)text.partial));
                 FreePageText(&text);
+                break;
+            }
+            if (str::Eq(StringArg(req, 0), StrL("prefetch-text")) || str::Eq(StringArg(req, 0), StrL("cached-text"))) {
+                i32 pageNo = 0;
+                IntArg(req, 1, pageNo);
+                if (pageNo < 1 || pageNo > engine->PageCount()) {
+                    AppendTestResult(req, 1, StrL("invalid page"));
+                    break;
+                }
+                int chars = 0;
+                if (str::Eq(StringArg(req, 0), StrL("prefetch-text"))) {
+                    engine->PrefetchTextForPage(pageNo);
+                    bool ready = engine->TryGetTextForPage(pageNo, &chars);
+                    AppendTestResult(req, 0, fmt("ready=%d chars=%d", (int)ready, chars));
+                    break;
+                }
+                Str text = engine->GetTextForPage(pageNo, &chars);
+                AppendTestResult(req, 0, fmt("chars=%d text=%s", chars, text));
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("try-text")) || str::Eq(StringArg(req, 0), StrL("try-elements"))) {
@@ -1996,7 +2014,8 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, held ? 0 : 1, held ? StrL("held") : StrL("no editor"));
                 break;
             }
-            if (str::Eq(StringArg(req, 0), StrL("clone-page"))) {
+            if (str::Eq(StringArg(req, 0), StrL("clone-page")) ||
+                str::Eq(StringArg(req, 0), StrL("clone-form-highlights"))) {
                 // a page of the copy print and palette thumbnails render, printed
                 i32 pageNo = 0;
                 IntArg(req, 1, pageNo);
@@ -2007,6 +2026,15 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 EngineBase* clone = engine->Clone();
                 if (!clone) {
                     AppendTestResult(req, 1, StrL("clone failed"));
+                    break;
+                }
+                if (str::Eq(StringArg(req, 0), StrL("clone-form-highlights"))) {
+                    bool before = clone->AnnotationEditor(EditorLoad::IfLoaded) != nullptr;
+                    Vec<RectF> rects;
+                    EngineMupdfGetFormFieldHighlightRects(clone, pageNo, nullptr, rects);
+                    bool after = clone->AnnotationEditor(EditorLoad::IfLoaded) != nullptr;
+                    AppendTestResult(req, 0, fmt("before=%d after=%d rects=%d", (int)before, (int)after, len(rects)));
+                    SafeEngineRelease(&clone);
                     break;
                 }
                 RenderPageArgs args(pageNo, 1.f, 0, nullptr, RenderTarget::Print);

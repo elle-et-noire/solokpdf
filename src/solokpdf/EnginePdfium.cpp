@@ -1952,22 +1952,27 @@ class EnginePdfium : public EngineBase {
 
     // Empty fillable fields by EngineMupdfGetFormFieldHighlightRects' rules, read with PDFium's form
     // API. Once the editor is loaded it holds the edited values, so it answers instead.
-    bool FormHighlightRects(int pageNo, Vec<RectF>& out) override {
+    PageReadResult TryFormHighlightRects(int pageNo, Vec<RectF>& out) override {
         if (AnnotationEditor(EditorLoad::IfLoaded)) {
-            return false;
+            return PageReadResult::UseEditor;
         }
-        ScopedMutex lock(&gPdfiumLock);
+        if (!gPdfiumLock.TryLock()) {
+            return PageReadResult::Pending;
+        }
+        defer {
+            gPdfiumLock.Unlock();
+        };
         PdfiumPage* info = Page(pageNo);
         if (!form || !info) {
-            return true;
+            return PageReadResult::Ready;
         }
         if (!info->formRectsLoaded && !LoadFormRects(pageNo, info)) {
-            return false;
+            return PageReadResult::UseEditor;
         }
         for (RectF& r : info->formRects) {
             VecAppend(out, r);
         }
-        return true;
+        return PageReadResult::Ready;
     }
 
     // Caller holds gPdfiumLock. False when a signature's state needs MuPDF.
@@ -2085,18 +2090,18 @@ class EnginePdfium : public EngineBase {
     }
 
     // Hover skips a page while its render owns the lock.
-    bool TryFormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor) override {
+    PageReadResult TryFormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor) override {
+        found = false;
+        cursor = WidgetCursorKind::None;
         if (AnnotationEditor(EditorLoad::IfLoaded)) {
-            return false;
+            return PageReadResult::UseEditor;
         }
         if (!gPdfiumLock.TryLock()) {
-            found = false;
-            cursor = WidgetCursorKind::None;
-            return true;
+            return PageReadResult::Pending;
         }
-        bool res = FormWidgetLocked(pageNo, pos, found, cursor);
+        FormWidgetLocked(pageNo, pos, found, cursor);
         gPdfiumLock.Unlock();
-        return res;
+        return PageReadResult::Ready;
     }
 
     // Caller holds gPdfiumLock. Every widget, hidden ones too, as MuPDF lists them.
@@ -2784,7 +2789,7 @@ class EnginePdfium : public EngineBase {
                 FreePageText(&result);
                 return editor->ExtractPageText(pageNo);
             }
-            result.partial = load == EditorLoad::IfLoaded;
+            result.partial = true;
         }
         profile.Mark(StrL("characters"));
         return result;

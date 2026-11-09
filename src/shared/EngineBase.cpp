@@ -1070,18 +1070,36 @@ void EngineBase::RequestTextExtraction(int pageNo) {
     delete data;
 }
 
-// default always succeeds; EngineMupdf fails when locks are contended
+// The default blocks; PDF overrides decline on contention or unavailable full text.
 bool EngineBase::TryExtractPageText(int pageNo, PageText* out) {
     *out = ExtractPageText(pageNo);
     return true;
 }
 
-// like GetElements but returns false (and no elements) if the engine can't
-// acquire locks without blocking. Default always succeeds; EngineMupdf fails
-// when a render thread holds them
+// The default blocks; PDF overrides can return a best-effort list. Elements stay engine-owned.
 bool EngineBase::TryGetElements(int pageNo, Vec<IPageElement*>* out) {
     *out = GetElements(pageNo);
     return true;
+}
+
+// Capability only: neither editor load state nor document permissions.
+bool EngineBase::HasAnnotationEditor() {
+    return false;
+}
+
+// IfLoaded never creates or waits for an editor; Load may fail and return null.
+EngineBase* EngineBase::AnnotationEditor(EditorLoad) {
+    return nullptr;
+}
+
+// Paint may use an existing editor, but must not create one.
+PageReadResult EngineBase::TryFormHighlightRects(int, Vec<RectF>&) {
+    return PageReadResult::UseEditor;
+}
+
+// Pending suppresses this hover; only UseEditor delegates to the existing editor.
+PageReadResult EngineBase::TryFormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor) {
+    return FormWidgetAt(pageNo, pos, found, cursor) ? PageReadResult::Ready : PageReadResult::UseEditor;
 }
 
 static Str ReturnPageText(const PageText& pt, int* lenOut, Rect** coordsOut, QuadF** quadsOut) {

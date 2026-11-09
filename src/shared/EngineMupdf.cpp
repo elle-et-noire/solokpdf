@@ -9566,6 +9566,7 @@ PageText EngineMupdf::ExtractPageText(int pageNo) {
 }
 
 bool EngineMupdf::TryExtractPageText(int pageNo, PageText* out) {
+    *out = {};
     if (!pagesLock.TryLock()) {
         return false;
     }
@@ -9573,6 +9574,14 @@ bool EngineMupdf::TryExtractPageText(int pageNo, PageText* out) {
         pagesLock.Unlock();
         return false;
     }
+    if (!docLock.TryLock()) {
+        renderLock.Unlock();
+        pagesLock.Unlock();
+        return false;
+    }
+    defer {
+        docLock.Unlock();
+    };
     FzPageInfo* pageInfo = GetFzPageInfoLocked(this, LocationFromPageNo(pageNo), true, nullptr);
     if (!pageInfo) {
         renderLock.Unlock();
@@ -13680,11 +13689,10 @@ bool EngineMupdfGetPageWidgets(EngineBase* engine, int pageNo, Vec<Annotation*>&
 // Page-space rects of empty fillable fields on pageNo (issue #5966). skip is
 // the field currently being edited, if any, so its overlay isn't double-tinted.
 void EngineMupdfGetFormFieldHighlightRects(EngineBase* engine, int pageNo, Annotation* skip, Vec<RectF>& out) {
-    // EnginePdfium reads untouched fields itself, so painting doesn't load its editor
-    if (engine && engine->FormHighlightRects(pageNo, out)) {
+    if (engine && engine->TryFormHighlightRects(pageNo, out) != PageReadResult::UseEditor) {
         return;
     }
-    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!epdf) {
         return;
     }
@@ -13693,7 +13701,12 @@ void EngineMupdfGetFormFieldHighlightRects(EngineBase* engine, int pageNo, Annot
         return;
     }
     auto* ctx = epdf->Ctx();
-    ScopedRecursiveMutex cs(&epdf->docLock);
+    if (!epdf->docLock.TryLock()) {
+        return;
+    }
+    defer {
+        epdf->docLock.Unlock();
+    };
     for (Annotation* w : pi->widgets) {
         if (!w || w == skip || !w->pdfannot || w->bounds.IsEmpty()) {
             continue;

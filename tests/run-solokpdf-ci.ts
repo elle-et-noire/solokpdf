@@ -68,6 +68,7 @@ import { testit as activationTraceB71 } from "./ad-hoc-b71-activation-trace.ts";
 import { testit as controlStartB71 } from "./ad-hoc-b71-control-start.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-pdfium-try-reads", tryReads],
   ...treeTests,
   ["ad-hoc-pdfium-bookmarks", bookmarks],
   ["ad-hoc-b71-control-start", controlStartB71],
@@ -116,7 +117,6 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-annotations", annotations],
   ["ad-hoc-pdfium-review", review],
   ["ad-hoc-pdfium-redaction-undo", redactionUndo],
-  ["ad-hoc-pdfium-try-reads", tryReads],
   ["ad-hoc-pdfium-outline", outline],
   ["ad-hoc-pdfium-unsupported", unsupported],
   ["ad-hoc-pdfium-permissions", permissions],

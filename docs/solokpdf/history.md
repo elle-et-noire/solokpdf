@@ -25,6 +25,7 @@ The latest CI additions and local checks are recorded under
 Ongoing design work starts with [E21 color-stage selection](#e21-color-stage-policy-2026-11-10).
 Its follow-up captures [effective color inputs](#e21-effective-color-inputs-2026-11-10).
 Render execution and output contracts are recorded under [E19](#e19-render-results-2026-11-10).
+Read results and lazy-editor side effects are recorded under [E18](#e18-read-contracts-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2323,6 +2324,56 @@ performed. Ng callers were adapted to the shared cache API only. The earlier
 baseline thumbnail timing instability remains unresolved; this change's
 baseline, final Debug and ASan thumbnail runs passed.
 
+## E18: Read contracts (2026-11-10)
+
+Implemented on `47c0889e4` as `Clarify read and editor contracts (E18)`.
+The [API contracts](architecture.md#読み取り-api-の契約) distinguish capability,
+permissions, editor load state, partial text and best-effort element lists.
+`EngineCreate` keeps its existing explicit-operation dispatch. Non-PDF defaults
+still delegate to blocking extraction; the new result enum is limited to form UI reads.
+
+`PageReadResult` separates ready, pending and existing-editor delegation for
+form hover/highlights. Paint uses TryLock and `EditorLoad::IfLoaded`, including
+the unknown inherited-signature case. MuPDF's Try text extraction checks
+`docLock` after `pagesLock` and `renderLock`. An editor-load failure retains
+PDFium's available text with `partial=true`; search cannot store it as complete.
+Editor creation still fails once per engine, without repeated load attempts.
+
+Extended `ad-hoc-pdfium-try-reads` before each fix and observed three failures:
+
+- An inherited signature's highlight query changed a fresh clone from
+  `before=0` to `after=1` (editor loaded).
+- With the editor's document lock held for 1500 ms, Try text returned success
+  after 1510 ms instead of declining.
+- Moving a file-backed PDF before editor creation returned `chars=11 partial=0`
+  for text missing the form value. The test uses a 33 MiB header to keep PDFium
+  file-backed and needs no injected engine failure.
+
+The test also checks that hover prefetch keeps the editor unloaded and that
+blocking cached text replaces the partial result with `FIELDVALUE` included.
+It now runs first in the SolokPDF CI list. The new Debug probes use existing
+engine APIs, including releasing the isolated signature clone after its query.
+
+The final Debug build (`bun cmd/solok-build.ts -quick`) passed with zero
+warnings/errors. Build and reproduction logs are under `.work/e18-*.log`.
+Targeted validation uses the hidden desktop, `-for-testing` and `--no-build`.
+
+All nine targeted tests passed on the final executable:
+`ad-hoc-pdfium-try-reads` (three consecutive runs), `ad-hoc-pdfium-hover`,
+`ad-hoc-pdfium-form-hover`, `ad-hoc-pdfium-text`, `ad-hoc-pdfium-form-highlight`,
+`ad-hoc-pdfium-forms`, `ad-hoc-pdfium-links`, `ad-hoc-pdfium-permissions` and
+`epub-theme-restyle`. Logs are `.work/e18-complete-*.log`.
+The executable SHA-256 stayed
+`581f08648188c9272d83298aa23291a65cccca56af9606ff5e1632a606aa3247`
+before and after these runs.
+
+No rendering algorithm changed. There was no before/after pixel comparison;
+the existing form tests compare highlight rectangles and hover cursors between
+engines and check edited view/print ink counts. No full suite, local Release,
+ASan or ng build was run. Ownership and engine reference counting were retained;
+E20 remains the document-lifetime and lock-order review. The earlier thumbnail
+test instability and hosted D13/E17 follow-ups remain open.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2475,6 +2526,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E21 | Centralize color stages and capture effective page colors                                                                                                                                                                                                                                   | done — Centralize page color stage selection (`8bf864e18`); Capture effective page colors; [results](#e21-effective-color-inputs-2026-11-10)                                                                                            |
 | E19 | Clarify render outcomes, color state, alpha, fallback and cancellation                                                                                                                                                                                                                      | done — Clarify render result contracts (E19); [results](#e19-render-results-2026-11-10)                                                                                                                                                 |
 | E22 | Align cache dependencies, render inputs and invalidation                                                                                                                                                                                                                                    | done — Align render cache inputs and invalidation (E22); [results](#e22-cache-contracts-2026-11-10)                                                                                                                                     |
+| E18 | Clarify read results, waiting and lazy-editor side effects                                                                                                                                                                                                                                  | done — Clarify read and editor contracts (E18); [results](#e18-read-contracts-2026-11-10)                                                                                                                                               |
 
 ### F. Manual acceptance
 

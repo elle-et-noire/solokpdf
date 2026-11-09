@@ -2809,7 +2809,8 @@ WidgetCursorKind DisplayModel::GetWidgetCursorAtPos(Point pt) {
     PointF pos = CvtFromScreen(pt, pageNo);
     bool found = false;
     WidgetCursorKind cursor = WidgetCursorKind::None;
-    if (engine->TryFormWidgetAt(pageNo, pos, found, cursor)) {
+    PageReadResult result = engine->TryFormWidgetAt(pageNo, pos, found, cursor);
+    if (result != PageReadResult::UseEditor) {
         return cursor;
     }
     return GetWidgetCursorKind(EngineGetWidgetAtPos(engine, pageNo, pos));

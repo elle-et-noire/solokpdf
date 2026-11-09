@@ -19,6 +19,12 @@ enum class EditorLoad {
     Load,
 };
 
+enum class PageReadResult {
+    Ready,
+    Pending,
+    UseEditor,
+};
+
 #include "ChapterTable.h"
 
 struct ILinkHandler {
@@ -117,7 +123,7 @@ struct PageText {
     Rect* coords = nullptr;
     QuadF* quads = nullptr; // glyph corners; null when the engine only has AABBs
     int nCodepoints = 0;    // number of Unicode codepoints and bounding boxes in coords
-    bool partial = false;   // cheaper text for hover; a blocking read extracts the full text
+    bool partial = false;   // incomplete text; a blocking read tries full extraction
 };
 
 void FreePageText(PageText*);
@@ -644,18 +650,14 @@ class EngineBase {
     virtual int GetOpenActionPageNo() { return 0; }
     virtual bool GetViewerPrintPrefs(PdfViewerPrintPrefs&) { return false; }
 
-    // an EngineMupdf of the same file that edits the annotations of an engine that can't (EnginePdfium)
-    virtual bool HasAnnotationEditor() { return false; }
-    virtual EngineBase* AnnotationEditor(EditorLoad) { return nullptr; }
+    virtual bool HasAnnotationEditor();
+    virtual EngineBase* AnnotationEditor(EditorLoad);
     virtual bool HasAcroForm() { return false; }
     virtual bool HasSignatures() { return false; }
-    // empty fillable form fields; false: ask the annotation editor
-    virtual bool FormHighlightRects(int, Vec<RectF>&) { return false; }
+    virtual PageReadResult TryFormHighlightRects(int pageNo, Vec<RectF>& out);
     // form field at a page point and its hover cursor; false: ask the annotation editor
     virtual bool FormWidgetAt(int, PointF, bool&, WidgetCursorKind&) { return false; }
-    virtual bool TryFormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor) {
-        return FormWidgetAt(pageNo, pos, found, cursor);
-    }
+    virtual PageReadResult TryFormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor);
     virtual bool HasPageAnnotations(int) { return true; }
     virtual bool TryHasPageAnnotations(int pageNo) { return HasPageAnnotations(pageNo); }
     virtual EngineBase* HeadingTocEngine(EditorLoad) { return this; }
