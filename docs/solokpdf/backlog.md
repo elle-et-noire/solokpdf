@@ -4,7 +4,7 @@ Open work as of 2026-11-09. Status: `todo`, `doing`, `blocked` (reason), `deferr
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D10, E14, F4).
+group (B76, C2, D12, E14, F4).
 
 ## Implementation and acceptance
 
@@ -20,15 +20,17 @@ and [route checks](history.md#e13-keyboard-route-checks-2026-11-09).
 | ID  | Item                                           | Status                                                                                                                                                                                                                       |
 | --- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D9  | Triage the latest scheduled full-test failures | todo: run [42522810078](https://github.com/elle-et-noire/solokpdf/actions/runs/42522810078), source `99ba47b52`, failed 10 tests per engine (11 distinct); [failure list](history.md#d9-scheduled-suite-failures-2026-11-09) |
+| D10 | Check the merged UI in Light and Dark          | todo: review the new page-info bar, Layers and Signatures lists from [D7](upstream-merges.md#merge-result-2026-11-08); tree-only captures do not cover these areas                                                           |
+| D11 | Verify the MuPDF patch ledger byte for byte    | todo: apply the ledger to pristine MuPDF 1.28.5 and compare with `ext/mupdf`; follow [patch instructions](../../ext/patches/README.md)                                                                                       |
 
 D8 is complete: all four hosted follow-ups are verified, including both
 engines at 96 DPI (100%). See the [audit](history.md#d8-hosted-validation-audit-2026-11-09).
 
-D7's [merge record](upstream-merges.md#merge-result-2026-11-08) left full-suite
-validation, Light/Dark checks of the merged UI and MuPDF patch-ledger byte verification
-unperformed. The later scheduled suite failed (D9); Light/Dark and patch-byte
-checks remain unverified. Use existing CI logs and targeted reruns for triage;
-local changes continue to use targeted tests.
+D9–D11 track D7's remaining validation. D9 records failures at `99ba47b52`,
+not confirmed failures at current HEAD. Start with the existing logs, then
+repeat each affected test separately on the relevant engine through the
+[local runner](testing.md#local-windows-runs). Do not run a full suite for triage.
+Record each result with its source commit and engine before closing the item.
 
 ## Owner's manual checks
 

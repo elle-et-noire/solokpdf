@@ -8,6 +8,7 @@ Condensed measurements are in [data/](data/).
 
 | Topic                 | Records                                                                                                                                                                                                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Latest validation     | [D8 hosted checks](#d8-hosted-validation-audit-2026-11-09), [D9 scheduled-suite failures](#d9-scheduled-suite-failures-2026-11-09), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                                           |
 | Recent implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input-target classification](#e12-input-target-classification-2026-11-09), [E11 settings application](#e11-settings-application-2026-11-09), [virtual sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
 | Keyboard input        | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                                                       |
 | Startup and memory    | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                                                              |
@@ -1705,8 +1706,9 @@ on the run.
 
 ## Completed backlog
 
-Current CI follow-ups are in the [D8 audit](#d8-hosted-validation-audit-2026-11-09)
-and [backlog](backlog.md); older pending notes below describe their original state.
+Open validation is in [backlog.md](backlog.md); completed hosted checks are in
+the [D8 audit](#d8-hosted-validation-audit-2026-11-09). Older pending notes below
+describe their original state.
 
 Rows of [backlog.md](backlog.md) completed by 2026-11-09. Sources: an audit of every
 MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and

@@ -41,9 +41,10 @@ same file, loaded only when needed. XFA and GoToE are unsupported in both
 engines. See [limitations](docs/solokpdf/limitations.md) for remaining gaps.
 
 Settings use `SolokPDF-settings.txt`; local data uses `SolokPDF` / `SolokPDF-data`.
-Upstream binary updates are disabled. Installer and association workflows have
-not been validated; use the portable build. Existing copyright and license
-terms remain, including MuPDF's AGPL obligations; see `AUTHORS` and `COPYING`.
+Upstream binary updates are disabled. Default-app association works through
+`Applications\\SolokPDF.exe`; installer behavior remains unvalidated. Use the
+portable build. Existing copyright and license terms remain, including MuPDF's
+AGPL obligations; see `AUTHORS` and `COPYING`.
 
 See [SolokPDF docs](docs/solokpdf/README.md) for current status, open work,
 test setup and measurements. Bookmarks and favorites use virtual trees in Debug

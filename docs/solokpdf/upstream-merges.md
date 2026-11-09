@@ -1,5 +1,15 @@
 # Upstream merges
 
+## Current status (2026-11-09)
+
+Merged through `8b716234f`; see the [latest merge](#merge-result-2026-11-08).
+Its remaining validation is tracked in [backlog.md](backlog.md): D9 for the
+scheduled-suite failures, D10 for the merged UI's Light/Dark check and D11 for
+MuPDF patch-byte verification. D8's hosted follow-ups are complete.
+
+Records below are oldest first. Later results update the validation recorded
+at each merge; they do not establish that every test passes at current HEAD.
+
 ## Assessment (2026-10-29)
 
 At `ece895b27`, `upstream/master` at `a30e4d642` was 71 commits ahead of the
@@ -193,4 +203,4 @@ fixes are complete; the unperformed validation listed above remains unverified.
 tested the post-merge source `99ba47b52`. Both engines built successfully;
 PDFium passed 574/584 tests and MuPDF 577/587. D9 in [backlog.md](backlog.md)
 tracks the [11 distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).
-The merged-UI Light/Dark and MuPDF patch-byte checks remain unverified.
+The merged-UI Light/Dark (D10) and MuPDF patch-byte (D11) checks remain unverified.

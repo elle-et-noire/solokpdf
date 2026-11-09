@@ -472,37 +472,21 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 ## Tests and CI
 
-Control connections allow 30 seconds, scaled for ASan. The previously timing-out
-`issue-5978` and `issue-6140` passed on both engines in hosted run 42522810078.
-The forced-timeout `ad-hoc-startup-diagnostics` also passed on both, verifying
-the report, nonempty dump and stderr capture. The old timeout cause remains unknown.
+The scheduled run at `99ba47b52` passed 574/584 tests on PDFium and 577/587
+on MuPDF. Its [11 distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09)
+remain D9; they are not confirmed failures at current HEAD. D8's startup,
+palette, tab-view and 100% DPI checks are complete; dated evidence is in the
+[audit](history.md#d8-hosted-validation-audit-2026-11-09).
 
-The palette test helper locates its edit through control state when the frame
-is behind another window. `free-text-annotation-placement` (including the
-editor/palette distinction) and `command-palette-typing` passed on both engines
-in run 42522810078. D8's
-[audit](history.md#d8-hosted-validation-audit-2026-11-09) records the evidence.
+Control connections allow 30 seconds, scaled for ASan. Startup timeouts capture
+diagnostics; the old timeout cause remains unknown. The palette helper locates
+its edit through control state without requiring foreground focus. B71's
+tab-view check waits for a stable view before comparing tab switches within
+one point. Follow [testing.md](testing.md) for local runs and desktop constraints.
 
-B71: hosted runs 41741589090 and 41741592927 passed the full suites on
-PDFium (499/499) and MuPDF (502/502). Run 41741590075 passed the other
-SolokPDF checks; the tab-view check sampled smooth scrolling before it settled.
-It now waits for a stable view and checks tab switches within one point.
-Run [41746574203](https://github.com/elle-et-noire/solokpdf/actions/runs/41746574203)
-at `424a7316c` passed the corrected test, which checks both engines.
-It also passed run 42604035875 at `3412a2174`.
-The external viewer, PNG,
-screenshot focus, fullscreen activation, MuPDF placement and process cleanup
-checks also passed hosted runs.
-
-- B65 saves each tab's view state when a window close is accepted. Targeted
-  hidden-desktop runs pass on both engines, including `issue-4788`,
-  `issue-6252`, the toolbar interaction and both menu tests. The CI runner
-  reports app processes left by each test. `pdf-edit-toolbar-interaction` passed
-  hosted run 42522810078 on both engines, but its log does not state display
-  DPI. After adding `TestDpi` logging, targeted hosted runs
-  [42624660455](https://github.com/elle-et-noire/solokpdf/actions/runs/42624660455)
-  (PDFium) and [42624664986](https://github.com/elle-et-noire/solokpdf/actions/runs/42624664986)
-  (MuPDF) passed at `frame=96 current=96` (100%). D8 is complete.
+- B65 saves each tab's view state when a window close is accepted. The CI runner
+  reports app processes left by each test. `pdf-edit-toolbar-interaction` logs
+  its actual DPI through `TestDpi`.
 - B58 sizes thumbnail tests explicitly, compares tab widths within the same
   layout and keeps click-away points within the canvas. The narrow-window tab
   check is `issue-6464`'s tab layout test. B59 gives controlled tests a
@@ -553,7 +537,7 @@ checks also passed hosted runs.
 - The full-suite workflow runs weekly on Monday at 02:00 JST with separate
   PDFium and MuPDF jobs; manual runs still accept an engine and test filter
   (D4). `run-github-ci.ts` skips the by-design PDFium gaps (`issue-5937`,
-  `issue-6361`, `issue-3731`; unless `SOLOKPDF_ENGINE=mupdf`), so a red
-  weekly run means a regression (B50). The suite takes
+  `issue-6361`, `issue-3731`; unless `SOLOKPDF_ENGINE=mupdf`). A failing
+  run needs triage to distinguish app regressions from test or runner failures (B50). The suite takes
   ~25 min once a hung test is cut off by the per-test timeout; sharding is
   deferred (D3). Both engines passed in run 41349548951.
