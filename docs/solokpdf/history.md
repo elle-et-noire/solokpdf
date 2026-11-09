@@ -1841,6 +1841,26 @@ includes scrollbar modes, large scroll ranges, simulated DPI updates, RTL,
 tooltips and keyboard navigation. Logs are in `.work/tree-refactor-*.log`.
 No full suite, Release build or new physical-device acceptance was run.
 
+## PDFium runtime boundary (2026-11-10)
+
+Working tree based on `caff25da5`. Moved the DLL API table, loading,
+initialization, reference count and font-cache setup from `EnginePdfium.cpp`
+to `PdfiumRuntime.{h,cpp}`. Module, user count and font-cache state are private
+to the runtime. The engine still owns document operations and warm-up work;
+the application-facing startup functions keep their existing declarations.
+
+The shared `gPdfiumLock` still serializes all PDFium calls, including runtime
+acquire/release. The DLL stays loaded at zero users; the next acquire
+reinitializes the library and font cache. Warm-up still retains its reference.
+All 133 DLL API entries match the original list, including order.
+
+The Debug quick build passed with zero warnings and errors. Existing
+`ad-hoc-pdfium` checks passed before and after the change on the hidden
+desktop, both with normal warm-up and with `SOLOKPDF_WARMUP=0`. Coverage
+includes multiple documents, close/reopen, password-protected files, missing-DLL
+fallback and font-cache pixel equality when disabled, recorded and replayed.
+Logs are in `.work/pdfium-runtime-*.log`. No full suite or Release build was run.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in
