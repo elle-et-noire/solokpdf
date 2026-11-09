@@ -8,6 +8,11 @@ enum class VirtTreeBarMode {
     Hidden
 };
 
+enum class VirtTreeRect {
+    Row,
+    Text
+};
+
 struct VirtTreeSelectionChanged {
     TreeItem previous = TreeModel::kNullItem;
     TreeItem selected = TreeModel::kNullItem;
@@ -68,9 +73,15 @@ struct VirtTree {
     VirtTreeGuard* guards = nullptr;
 
     ~VirtTree();
-    bool Create(HWND parent, WStr className, TreeModel*, PlatformFont*);
+    bool Create(HWND parent, WStr className, TreeModel*, PlatformFont*, int bottomPaddingDip = 0);
     void SetBounds(Rect);
     void SetModel(TreeModel*);
+    void SetFont(PlatformFont*, int dpi, int bottomPaddingDip);
+    void Remeasure(int dpi = 0);
+    bool GetItemRect(TreeItem, VirtTreeRect, Rect&);
+    TreeItem GetItemAt(Point);
+    TreeItem FirstVisible();
+    TreeItem NextVisible(TreeItem);
     bool EnsureVisible(TreeItem);
     bool SelectItem(TreeItem);
     void FreeAccess();

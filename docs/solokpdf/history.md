@@ -1817,6 +1817,30 @@ complete. The archive, application logs and comparison results are in
 `.work/d11/`; the repeat procedure is in the
 [patch ledger](../../ext/patches/README.md#verifying-them).
 
+## Virtual-tree layout boundary (2026-11-10)
+
+Working tree based on `07b099f65`. Moved font/DPI/padding updates, remeasurement,
+item rectangles, hit testing and visible-row enumeration from `SidebarTree`
+into `VirtTree`. The adapter keeps the sidebar's 4 DIP padding policy and
+tooltip handling; geometry arithmetic and measurement/bar-update order remain
+the same. Model, theme, direction and accessibility references remain outside
+this step. See the [layout boundary](tree-view-replacement-plan.md#レイアウトの責務2026-11-10).
+
+Debug quick builds passed before and after the change; the final build had
+zero warnings and errors. The same five existing targeted tests passed on
+both versions using the hidden-desktop runner:
+
+- `ad-hoc-tree-prototype`
+- `ad-hoc-virtual-toc`
+- `ad-hoc-virtual-favorites`
+- `ad-hoc-virtual-tree-focus`
+- `ad-hoc-vim-keys --tree-only`
+
+The hidden-desktop probe also passed before the baseline tests. Coverage
+includes scrollbar modes, large scroll ranges, simulated DPI updates, RTL,
+tooltips and keyboard navigation. Logs are in `.work/tree-refactor-*.log`.
+No full suite, Release build or new physical-device acceptance was run.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in

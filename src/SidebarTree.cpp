@@ -112,12 +112,11 @@ HWND SidebarTree::Create(const CreateArgs& args) {
     if (!ControlBase::CreateCustom(outer)) return nullptr;
     WStr className = kind == SidebarTreeKind::Bookmarks ? WStrL(L"SumatraVirtualBookmarksTree")
                                                         : WStrL(L"SumatraVirtualFavoritesTree");
-    if (!tree.Create(hwnd, className, nullptr, args.font)) {
+    if (!tree.Create(hwnd, className, nullptr, args.font, kSidebarPadY)) {
         Destroy();
         return nullptr;
     }
     SetWindowTextW(tree.host->native, CWStrTemp(ToWStrTemp(name)));
-    tree.bottomPad = DpiScaleByDpi(DpiGetForHwnd(args.parent), kSidebarPadY);
     tree.rtl = args.isRtl;
     HwndSetRtl(tree.host->native, args.isRtl);
     tree.onNativeMsg = MkMethod1<SidebarTree, VirtHostNativeMsg*, &SidebarTree::TreeMessage>(this);
@@ -155,13 +154,8 @@ void SidebarTree::SetDirection(TreeDirection direction) {
 void SidebarTree::SetTreeFont(PlatformFont* treeFont, int dpi) {
     HideTip();
     font = treeFont;
-    tree.font = treeFont;
-    if (dpi <= 0) dpi = DpiGetForHwnd(tree.host->native);
-    tree.bottomPad = DpiScaleByDpi(dpi, kSidebarPadY);
     if (tooltip) tooltip->SetFont(treeFont);
-    if (!tree.Measure(dpi)) return;
-    if (!tree.UpdateBars()) return;
-    tree.host->Invalidate();
+    tree.SetFont(treeFont, dpi, kSidebarPadY);
 }
 
 void SidebarTree::SetAccessibleName(Str value) {
@@ -207,21 +201,7 @@ TreeItemExpansion SidebarTree::GetLoadedExpansion(TreeItem item) {
 }
 
 bool SidebarTree::GetItemRect(TreeItem item, bool justText, Rect& rect) {
-    int row = tree.state.FindRow(item);
-    if (row < 0 || !tree.host || tree.rowDy <= 0) return false;
-    int node = tree.state.rows[row];
-    Rect client = tree.host->ClientRect();
-    i64 y = (i64)row * tree.rowDy - tree.scrollY.pos;
-    if (y < INT_MIN || y > INT_MAX) return false;
-    rect = {0, (int)y, client.dx, tree.rowDy};
-    if (justText) {
-        i64 x = ((i64)tree.state.nodes[node].depth + 1) * tree.rowDy - tree.scrollX.pos;
-        if (tree.rtl) x = (i64)client.dx - x - tree.metrics.widths[node];
-        if (x < INT_MIN || x > INT_MAX) return false;
-        rect.x = (int)x;
-        rect.dx = tree.metrics.widths[node];
-    }
-    return true;
+    return tree.GetItemRect(item, justText ? VirtTreeRect::Text : VirtTreeRect::Row, rect);
 }
 
 TreeItem SidebarTree::GetSelection() {
@@ -264,14 +244,11 @@ TreeItem SidebarTree::FirstItem() {
 }
 
 TreeItem SidebarTree::FirstVisible() {
-    if (tree.rowDy <= 0) return TreeModel::kNullItem;
-    int row = tree.scrollY.pos / tree.rowDy;
-    return row < len(tree.state.rows) ? tree.state.nodes[tree.state.rows[row]].item : TreeModel::kNullItem;
+    return tree.FirstVisible();
 }
 
 TreeItem SidebarTree::NextVisible(TreeItem item) {
-    int row = tree.state.FindRow(item) + 1;
-    return row > 0 && row < len(tree.state.rows) ? tree.state.nodes[tree.state.rows[row]].item : TreeModel::kNullItem;
+    return tree.NextVisible(item);
 }
 
 int SidebarTree::ItemHeight() {
@@ -286,13 +263,7 @@ void SidebarTree::Clear() {
 }
 
 TreeItem SidebarTree::GetItemAt(int x, int y) {
-    if (tree.rowDy <= 0) return TreeModel::kNullItem;
-    Rect client = tree.host->ClientRect();
-    if (!client.Contains({x, y})) return TreeModel::kNullItem;
-    i64 at = (i64)y + tree.scrollY.pos;
-    if (at < 0) return TreeModel::kNullItem;
-    i64 row = at / tree.rowDy;
-    return row < len(tree.state.rows) ? tree.state.nodes[tree.state.rows[(int)row]].item : TreeModel::kNullItem;
+    return tree.GetItemAt({x, y});
 }
 
 void SidebarTree::SetTreeModel(TreeModel* model) {
@@ -304,9 +275,7 @@ void SidebarTree::SetTreeModel(TreeModel* model) {
 void SidebarTree::SetWrapText(bool) {}
 void SidebarTree::RemeasureItems() {
     HideTip();
-    if (!tree.Measure()) return;
-    if (!tree.UpdateBars()) return;
-    tree.host->Invalidate();
+    tree.Remeasure();
 }
 
 void SidebarTree::WindowMessage(ControlBase::WndProcEvent* ev) {

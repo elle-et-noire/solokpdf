@@ -50,13 +50,14 @@ VirtTree::~VirtTree() {
     if (host) host->Dispose();
 }
 
-bool VirtTree::Create(HWND parent, WStr className, TreeModel* model, PlatformFont* initialFont) {
+bool VirtTree::Create(HWND parent, WStr className, TreeModel* model, PlatformFont* initialFont, int bottomPaddingDip) {
     VirtHost::CreateArgs args;
     args.parent = parent;
     args.className = className;
     host = VirtHost::Create(args);
     if (!host) return false;
     font = initialFont;
+    bottomPad = DpiScaleByDpi(DpiGetForHwnd(parent), bottomPaddingDip);
     state.SetModel(model);
     hotItem = TreeModel::kNullItem;
     if (!Measure()) return false;
@@ -91,6 +92,59 @@ void VirtTree::SetModel(TreeModel* model) {
 void VirtTree::SetBounds(Rect bounds) {
     host->SetBounds(bounds);
     UpdateBars();
+}
+
+// Keep font, padding and scroll ranges in step across DPI changes.
+void VirtTree::SetFont(PlatformFont* newFont, int dpi, int bottomPaddingDip) {
+    font = newFont;
+    if (dpi <= 0) dpi = DpiGetForHwnd(host->native);
+    bottomPad = DpiScaleByDpi(dpi, bottomPaddingDip);
+    Remeasure(dpi);
+}
+
+void VirtTree::Remeasure(int dpi) {
+    if (!Measure(dpi)) return;
+    if (!UpdateBars()) return;
+    host->Invalidate();
+}
+
+bool VirtTree::GetItemRect(TreeItem item, VirtTreeRect part, Rect& rect) {
+    int row = state.FindRow(item);
+    if (row < 0 || !host || rowDy <= 0) return false;
+    int node = state.rows[row];
+    Rect client = host->ClientRect();
+    i64 y = (i64)row * rowDy - scrollY.pos;
+    if (y < INT_MIN || y > INT_MAX) return false;
+    rect = {0, (int)y, client.dx, rowDy};
+    if (part == VirtTreeRect::Text) {
+        i64 x = ((i64)state.nodes[node].depth + 1) * rowDy - scrollX.pos;
+        if (rtl) x = (i64)client.dx - x - metrics.widths[node];
+        if (x < INT_MIN || x > INT_MAX) return false;
+        rect.x = (int)x;
+        rect.dx = metrics.widths[node];
+    }
+    return true;
+}
+
+TreeItem VirtTree::GetItemAt(Point point) {
+    if (rowDy <= 0) return TreeModel::kNullItem;
+    Rect client = host->ClientRect();
+    if (!client.Contains(point)) return TreeModel::kNullItem;
+    i64 at = (i64)point.y + scrollY.pos;
+    if (at < 0) return TreeModel::kNullItem;
+    i64 row = at / rowDy;
+    return row < len(state.rows) ? state.nodes[state.rows[(int)row]].item : TreeModel::kNullItem;
+}
+
+TreeItem VirtTree::FirstVisible() {
+    if (rowDy <= 0) return TreeModel::kNullItem;
+    int row = scrollY.pos / rowDy;
+    return row < len(state.rows) ? state.nodes[state.rows[row]].item : TreeModel::kNullItem;
+}
+
+TreeItem VirtTree::NextVisible(TreeItem item) {
+    int row = state.FindRow(item) + 1;
+    return row > 0 && row < len(state.rows) ? state.nodes[state.rows[row]].item : TreeModel::kNullItem;
 }
 
 bool VirtTree::EnsureVisible(TreeItem item) {
