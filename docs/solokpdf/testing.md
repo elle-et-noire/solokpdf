@@ -112,9 +112,10 @@ see the [D8 audit](history.md#d8-hosted-validation-audit-2026-11-09).
 `pdf-edit-toolbar-interaction` now prints `TestDpi` state before exercising
 the toolbar. Record its `frame` DPI along with the result: 96 means 100%.
 Local runs passed on both engines at 120 DPI (125%); they do not establish
-the hosted 100% result. After committing and pushing the logging change,
-use the [two filtered workflow runs](history.md#d8-hosted-validation-audit-2026-11-09)
-to complete the remaining check. No full-suite rerun is needed for D8.
+the hosted 100% result. The two filtered hosted runs subsequently passed at
+96 DPI on `3da0b8ee1`, completing D8. See the
+[results and recheck commands](history.md#d8-hosted-validation-audit-2026-11-09).
+No new full suite was run for D8.
 
 ### Desktop-dependent checks
 

@@ -1657,12 +1657,12 @@ tested `99ba47b52` on both engines. The later regular CI run
 tested `3412a2174`: Debug and Release built, unit tests passed, and feature
 tests passed 64/64. These runs predate E11–E13.
 
-| D8 item                      | Evidence                                                                                                                                                                                                      | Result                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Startup timeout diagnostics  | `ad-hoc-startup-diagnostics` passed on both engines in 42522810078 (1.7 s each). It forces a timeout and checks the report, nonempty dump and stderr file. `issue-5978` and `issue-6140` also passed on both. | Hosted capture verified; the old timeout cause remains unknown. |
-| Palette lookup without focus | `free-text-annotation-placement` and `command-palette-typing` passed on both engines in 42522810078, including the editor/palette distinction added by `9afaf6da9`.                                           | Hosted regression checks verified.                              |
-| Stable tab-view sampling     | `ad-hoc-b70-tab-view` passed in 41746574203 after `424a7316c`, and again in 42604035875 (4.5 s). The test checks both engines.                                                                                | Hosted check verified.                                          |
-| Toolbar at 100% DPI          | `pdf-edit-toolbar-interaction` passed on both engines in 42522810078 (0.8/0.9 s), but did not print DPI.                                                                                                      | Actual hosted DPI still unverified.                             |
+| D8 item                      | Evidence                                                                                                                                                                                                                                                          | Result                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Startup timeout diagnostics  | `ad-hoc-startup-diagnostics` passed on both engines in 42522810078 (1.7 s each). It forces a timeout and checks the report, nonempty dump and stderr file. `issue-5978` and `issue-6140` also passed on both.                                                     | Hosted capture verified; the old timeout cause remains unknown. |
+| Palette lookup without focus | `free-text-annotation-placement` and `command-palette-typing` passed on both engines in 42522810078, including the editor/palette distinction added by `9afaf6da9`.                                                                                               | Hosted regression checks verified.                              |
+| Stable tab-view sampling     | `ad-hoc-b70-tab-view` passed in 41746574203 after `424a7316c`, and again in 42604035875 (4.5 s). The test checks both engines.                                                                                                                                    | Hosted check verified.                                          |
+| Toolbar at 100% DPI          | Targeted runs [42624660455](https://github.com/elle-et-noire/solokpdf/actions/runs/42624660455) (PDFium) and [42624664986](https://github.com/elle-et-noire/solokpdf/actions/runs/42624664986) (MuPDF) passed on `3da0b8ee1`, both logging `frame=96 current=96`. | Hosted 100% DPI verified.                                       |
 
 Added one DPI-state log to the existing toolbar test using `dpiRequest`.
 The targeted hidden-desktop test passed on PDFium (2.3 s) and MuPDF (2.5 s),
@@ -1670,16 +1670,22 @@ both reporting `frame=120 current=120` (125%). This was a logging-only test
 change; the app was not rebuilt. TypeScript formatting ran; unrelated
 formatter changes were discarded.
 
-After this change is committed and pushed, dispatch only the toolbar test:
+Committed and pushed as `3da0b8ee1`. PDFium passed the single targeted test in
+1.6 s and MuPDF in 1.2 s, both at 96 DPI (100%). All four D8 items are verified;
+D8 is complete. These filtered runs do not resolve D9's full-suite failures.
+
+The push CI [42624633444](https://github.com/elle-et-noire/solokpdf/actions/runs/42624633444)
+also passed its Debug build, 104954 unit tests and 65/65 feature tests,
+including `keyboard-input-targets`.
+
+To repeat only the toolbar test:
 
 ```powershell
 gh workflow run solokpdf-full-tests.yml --repo elle-et-noire/solokpdf --ref solokpdf-dev -f engine=pdfium -f tests=pdf-edit-toolbar-interaction
 gh workflow run solokpdf-full-tests.yml --repo elle-et-noire/solokpdf --ref solokpdf-dev -f engine=mupdf -f tests=pdf-edit-toolbar-interaction
 ```
 
-Close D8 once both targeted runs pass and report `frame=96 current=96`.
-If the runner uses another DPI, record that result and keep the 100% check open.
-No commit, push or new workflow dispatch was performed for this audit.
+Record the source commit, result and actual DPI when repeating these checks.
 
 ## D9: Scheduled-suite failures (2026-11-09)
 
@@ -1815,13 +1821,14 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 
 ### D. CI
 
-| ID  | Item                                                                             | Status                                       |
-| --- | -------------------------------------------------------------------------------- | -------------------------------------------- |
-| D1  | Release job in parallel with debug                                               | done — Run CI release build in parallel (D1) |
-| D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)       |
-| D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | done — Merge upstream f45967f87 (D5)         |
-| D6  | Merge upstream/master at 254c2ae7c into solokpdf-dev                             | done — Merge upstream/master 254c2ae7c (D6)  |
-| D7  | Merge upstream/master at 8b716234f into solokpdf-dev                             | done — Merge upstream/master 8b716234f (D7)  |
+| ID  | Item                                                                             | Status                                                                                                                            |
+| --- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Release job in parallel with debug                                               | done — Run CI release build in parallel (D1)                                                                                      |
+| D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)                                                                                            |
+| D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | done — Merge upstream f45967f87 (D5)                                                                                              |
+| D6  | Merge upstream/master at 254c2ae7c into solokpdf-dev                             | done — Merge upstream/master 254c2ae7c (D6)                                                                                       |
+| D7  | Merge upstream/master at 8b716234f into solokpdf-dev                             | done — Merge upstream/master 8b716234f (D7)                                                                                       |
+| D8  | Record outstanding hosted CI checks                                              | done — Record hosted DPI validation results (D8); all four follow-ups verified; [results](#d8-hosted-validation-audit-2026-11-09) |
 
 ### E. Quality
 

@@ -499,8 +499,10 @@ checks also passed hosted runs.
   `issue-6252`, the toolbar interaction and both menu tests. The CI runner
   reports app processes left by each test. `pdf-edit-toolbar-interaction` passed
   hosted run 42522810078 on both engines, but its log does not state display
-  DPI. The test now logs `TestDpi` state; local checks passed on both at 120 DPI.
-  Explicit hosted 100% DPI evidence remains D8.
+  DPI. After adding `TestDpi` logging, targeted hosted runs
+  [42624660455](https://github.com/elle-et-noire/solokpdf/actions/runs/42624660455)
+  (PDFium) and [42624664986](https://github.com/elle-et-noire/solokpdf/actions/runs/42624664986)
+  (MuPDF) passed at `frame=96 current=96` (100%). D8 is complete.
 - B58 sizes thumbnail tests explicitly, compares tab widths within the same
   layout and keeps click-away points within the canvas. The narrow-window tab
   check is `issue-6464`'s tab layout test. B59 gives controlled tests a

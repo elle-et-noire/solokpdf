@@ -17,10 +17,12 @@ and [route checks](history.md#e13-keyboard-route-checks-2026-11-09).
 
 ## Recorded validation follow-ups
 
-| ID  | Item                                           | Status                                                                                                                                                                                                                                                                                   |
-| --- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D8  | Record outstanding hosted CI checks            | doing: startup diagnostic capture, palette lookup and stable tab-view sampling verified; toolbar passed on both engines but hosted DPI was not logged; DPI logging added and checked locally at 120 DPI; [audit and targeted CI steps](history.md#d8-hosted-validation-audit-2026-11-09) |
-| D9  | Triage the latest scheduled full-test failures | todo: run [42522810078](https://github.com/elle-et-noire/solokpdf/actions/runs/42522810078), source `99ba47b52`, failed 10 tests per engine (11 distinct); [failure list](history.md#d9-scheduled-suite-failures-2026-11-09)                                                             |
+| ID  | Item                                           | Status                                                                                                                                                                                                                       |
+| --- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D9  | Triage the latest scheduled full-test failures | todo: run [42522810078](https://github.com/elle-et-noire/solokpdf/actions/runs/42522810078), source `99ba47b52`, failed 10 tests per engine (11 distinct); [failure list](history.md#d9-scheduled-suite-failures-2026-11-09) |
+
+D8 is complete: all four hosted follow-ups are verified, including both
+engines at 96 DPI (100%). See the [audit](history.md#d8-hosted-validation-audit-2026-11-09).
 
 D7's [merge record](upstream-merges.md#merge-result-2026-11-08) left full-suite
 validation, Light/Dark checks of the merged UI and MuPDF patch-ledger byte verification
