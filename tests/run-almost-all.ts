@@ -542,6 +542,7 @@ import { testit as themeDynamicWidget } from "./theme-dynamic-widget.ts";
 import { testit as themeEncrypted } from "./theme-encrypted.ts";
 import { testit as themeRepairedPdf } from "./theme-repaired-pdf.ts";
 import { testit as themeStateWidget } from "./theme-state-widget.ts";
+import { testit as themeAnnotationFailure } from "./theme-annotation-failure.ts";
 import { testit as themeType3 } from "./theme-type3.ts";
 import { testit as themePatternColors } from "./theme-pattern-colors.ts";
 import { testit as themeBackgroundCommand } from "./theme-background-command.ts";
@@ -598,6 +599,7 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["theme-annotation-failure", themeAnnotationFailure],
   ["build-cli", buildCli],
   ["toolbar-wrap", toolbarWrap],
   ["issue-6151", issue6151],

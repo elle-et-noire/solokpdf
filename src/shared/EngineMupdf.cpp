@@ -48,6 +48,7 @@ extern "C" {
 #include "EbookBase.h"
 #include "EbookDoc.h"
 #include "Settings.h"
+#include "SumatraConfig.h"
 #include "EngineMupdf.h"
 
 // A5
@@ -8667,6 +8668,20 @@ static void MarkTransparentBackdropPixmap(Pixmap* pixmap, bool transparentBackdr
     }
 }
 
+// Publish color state only with completed pixels; the caller owns the pixmap.
+static Pixmap* FinishPageRender(Pixmap* pixmap, const RenderPageArgs& args, fz_cookie* cookie) {
+    if (cookie && cookie->abort) {
+        FreePixmap(pixmap);
+        return nullptr;
+    }
+    if (pixmap && args.color_out) {
+        *args.color_out = args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages
+                              ? RenderPageColor::Themed
+                              : RenderPageColor::Original;
+    }
+    return pixmap;
+}
+
 // An aborted run stops between a clip push and its pop, so the draw device's
 // stack is unbalanced and fz_close_device throws. The pixmap is discarded
 // anyway; skip closing so nothing is reported.
@@ -8687,6 +8702,7 @@ static void UnhookAbortedDevices(fz_device* drawDev, fz_device* outer) {
 }
 
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+// Borrows a BGRA destination with its backdrop already filled; MuPDF produces premultiplied alpha.
 bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
                     const DarkModeProfile* profile, PdfRenderParts parts, RenderTarget target,
                     PdfRenderAntialias antialias) {
@@ -8759,6 +8775,9 @@ bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, con
         }
     }
     fz_drop_context(ctx);
+    if (ok) {
+        pixmap->premultiplied = pixmap->hasAlpha;
+    }
     return ok;
 }
 #endif
@@ -8890,7 +8909,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             FreePixmap(pixmap);
             return {};
         }
-        return pixmap;
+        return FinishPageRender(pixmap, args, fzcookie);
     }
 
     // Fallback: Print or hideAnnotations (each needs different content/usage,
@@ -8975,13 +8994,20 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
         }
     }
 
-    return pixmap;
+    return FinishPageRender(pixmap, args, fzcookie);
 }
 
 // Draws the page's annotations over pixels another engine (EnginePdfium) rendered. m (a b c d e f)
 // maps page space to them; pixmap is BGRA, premultiplied if it has alpha.
 bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target,
                                 const DarkModeProfile* profile) {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    WCHAR fail[2]{};
+    if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_TEST_ANNOTATION_FAILURE", fail, dimofi(fail)) == 1 &&
+        fail[0] == L'1') {
+        return false;
+    }
+#endif
     EngineMupdf* e = AsEngineMupdf(engine);
     if (!e || !e->pdfdoc || !pixmap || pixmap->format != PixmapFormat::BGRA8) {
         return false;

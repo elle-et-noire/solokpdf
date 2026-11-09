@@ -1,12 +1,13 @@
 # SolokPDF の設計とコードの見直し計画
 
-基準は `9083edafe`。Win32 版を対象とし、E21 の段階選択を `8bf864e18` で実装した計画。
+最初の基準は `9083edafe`。Win32 版を対象とする。
+E21 は `647da5a12` まで実装済み。E19 も実装・対象検証済み。
 [現行設計](architecture.md) と [作業状態](backlog.md#design-review) を併せて参照する。
 
 目的は、描画・色処理・読み取り・編集の責務と状態を明確にし、同じ判断の重複と暗黙の前提を減らすこと。
 ファイル数や行数は完了条件にしない。描画品質・色の仕様変更は、動作を保つリファクタリングと分ける。
 
-## 現状の評価
+## 基準時点の評価
 
 | 確認できた構造                                                                                   | 見直す理由                                                                       | 作業     |
 | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | -------- |
@@ -59,7 +60,7 @@
 Debug・Release ビルドと対象検証・画素比較は [実施記録](history.md#e21-color-stage-policy-2026-11-10) を参照する。
 `CapturePageColors` と `PageColorInput` に実効色の取得を集約し、
 分類別のプロファイル生成へ渡す。描画結果の実施状態は E19 に残す。
-E21 の段階選択と入力化の実装・対象検証は完了。次は E19 から再開する。
+E21 の段階選択と入力化の実装・対象検証は完了。E19 の結果契約に接続した。
 結果と検証範囲は [実効色入力の記録](history.md#e21-effective-color-inputs-2026-11-10) を参照する。
 
 対象は `PdfDarkModeProfile.cpp`、`PdfDarkModeColor.cpp`、`Theme.cpp`、`RenderViewPage`、
@@ -80,6 +81,12 @@ E21 の段階選択と入力化の実装・対象検証は完了。次は E19 �
 
 対象は `PrepareRenderRoute`、`DrawPage`、`RenderPage`、`RenderViewPage`、MuPDF 代替・注釈描画。
 
+`PageDrawResult` に完了・代替要求・中止・失敗と色状態を分離した。
+成功時の `RenderPageColor` と `Pixmap` の alpha 情報を呼び出し側へ渡し、
+エンジン種別・`fallbackDrawn` からの推定を除いた。注釈合成失敗も結果を破棄する。
+実装・対象検証は [E19 の記録](history.md#e19-render-results-2026-11-10) を参照する。
+以下は元の完了条件として残す。
+
 1. 経路判定と実行結果を区別する。既存の `PdfRenderRoute` は経路判定として使い、
    PDFium 固有の進行状態と `bool& useMupdf` は、完了・代替が必要・中止・失敗を表す結果へ整理する。
 2. 色変換の担当と実施状態を E21 の方針・描画結果で確認できるようにする。
@@ -93,15 +100,16 @@ E21 の段階選択と入力化の実装・対象検証は完了。次は E19 �
 完了条件は、成功結果の色・alpha・所有権が明確で、失敗・中止で画素バッファを返さず、
 変換・合成・解放が各分岐で過不足なく行われること。描画品質を変えるアルゴリズム変更は分ける。
 
-### 維持する現在の分岐
+### 維持した分岐と失敗時の契約
 
-`DrawPage` と `RenderPage` のコード確認に基づく。失敗を一律に MuPDF 再試行へ変えない。
+`DrawPage`・`DrawMupdf`・`RenderPage` の契約。失敗を一律に MuPDF 再試行へ変えない。
 
 | 条件                                                         | 現在の扱い                                         |
 | ------------------------------------------------------------ | -------------------------------------------------- |
 | 描画経路が MuPDF、テーマ変換失敗、一時文書・フォーム生成失敗 | 中止されていなければ MuPDF で描画する              |
 | ページ読み込み失敗                                           | テーマ用文書なら MuPDF、それ以外は失敗             |
 | ビットマップ生成失敗・PDFium 描画失敗                        | MuPDF へ再試行せず失敗                             |
+| 注釈合成失敗                                                 | 本文の画素も破棄して失敗する                       |
 | 中止                                                         | 結果を破棄する。MuPDF 代替も開始しない             |
 | PDFium で透明な背景へ描画成功                                | 呼び出し側で alpha を乗算する                      |
 | MuPDF 代替で透明な背景へ描画成功                             | 乗算済みとして扱い、再乗算しない                   |
@@ -162,6 +170,7 @@ E21 の段階選択と入力化の実装・対象検証は完了。次は E19 �
 | 色モード・画像保持・補正順         | `ad-hoc-pdfium-theme`、`ad-hoc-pdfium-theme-switch`。明度・コントラスト・グレースケールとの組合せは既存検証の範囲を確認して補う                      |
 | ページ描画代替・透明度             | `theme-transparent-fallback`、`theme-fallback-tiles`、`theme-fallback-geometry`、`ad-hoc-pdfium-tiles`                                               |
 | 描画中止                           | `theme-render-cancel`。MuPDF のパターン経路は `SOLOKPDF_TEST_PATTERN_STROKES=1` でも確認する                                                         |
+| 注釈合成失敗                       | `theme-annotation-failure`。合成失敗を注入し、本文だけを成功結果として返さないことを確認する                                                         |
 | マスク・パターン・Type 3・フォーム | `theme-pattern-colors`、`theme-type3`、`theme-state-widget`、`theme-dynamic-widget`。変換失敗時のまとめ検証は `theme-pdfium-fallback`                |
 | キャッシュ・サムネイル             | `theme-pdfium-cache`、`ad-hoc-pdfium-theme-switch`、`ad-hoc-pdfium-thumb-theme`。中立 PNG・補正値・古い要求の破棄は変更箇所ごとに既存検証を確認する  |
 | 読み取り・編集                     | `ad-hoc-pdfium-try-reads`、`ad-hoc-pdfium-hover`、`ad-hoc-pdfium-form-hover`、`ad-hoc-pdfium-text`。権限・フォームを変える場合は対応テストを追加する |

@@ -455,6 +455,11 @@ class AbortCookie {
 
 struct DarkModeProfile;
 
+enum class RenderPageColor {
+    Original,
+    Themed,
+};
+
 struct RenderPageArgs {
     int pageNo = 0;
     // chapter-aware equivalent of pageNo; invalid until resolved
@@ -476,6 +481,7 @@ struct RenderPageArgs {
     // dark/recolor rendering profile for View renders (see PdfDarkMode.h);
     // owned by the caller, only valid for the duration of RenderPage()
     const DarkModeProfile* darkProfile = nullptr;
+    RenderPageColor* color_out = nullptr; // initialize to Original; read only on success
 
     RenderPageArgs(int pageNo, float zoom, int rotation, RectF* pageRect = nullptr,
                    RenderTarget target = RenderTarget::View, AbortCookie** cookie_out = nullptr);

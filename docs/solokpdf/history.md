@@ -24,6 +24,7 @@ The latest CI additions and local checks are recorded under
 [D13/E17](#ci-coverage-expansion-2026-11-10).
 Ongoing design work starts with [E21 color-stage selection](#e21-color-stage-policy-2026-11-10).
 Its follow-up captures [effective color inputs](#e21-effective-color-inputs-2026-11-10).
+Render execution and output contracts are recorded under [E19](#e19-render-results-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2179,6 +2180,71 @@ No Release GUI, ASan, ng, hosted or full-suite run was performed. System
 high contrast and settings-preview UI were not exercised; preview precedence
 was checked in code. No new test was added.
 
+## E19: Render results (2026-11-10)
+
+Implemented on `647da5a12` (`Capture effective page colors`).
+Commit subject: `Clarify render result contracts (E19)`.
+E19 is complete within the validation scope below; E22 is next.
+`PdfRenderRoute` remains a route decision. `PageDrawResult` separates completion,
+MuPDF retry, cancellation and failure from PDFium's progressive-render status.
+`DrawMupdf` owns retry execution; bitmap/render failures still do not trigger it.
+
+PDFium and MuPDF publish `RenderPageColor` only with successful pixels.
+`RenderViewPage` uses that state to avoid a second color pass and passes local
+profile/output pointers through a copy of the render arguments. Profile inputs,
+color calculations, adjustment order, render flags and tile coordinates are unchanged.
+The prefilled BGRA destination is borrowed by both renderers. PDFium produces
+straight alpha; MuPDF marks premultiplied output. The existing `Pixmap` fields
+now control multiplication, replacing `fallbackDrawn`. Annotation source is
+selected once per tile; failed annotation composition discards the tile.
+Both PDF engines check cancellation before publishing their output.
+
+The annotation change is separate from the result-type refactor: an injected
+`EngineMupdfDrawAnnotations` failure exposed its ignored return value. The new
+`theme-annotation-failure` test first failed because the body was returned as
+successful pixels. After checking the return value, it passed three standalone
+runs. Its test-only injection requires `-for-testing`; normal composition and
+rendering before lazy-editor creation are also checked. The test is registered
+below `issue-5978` in the fast suite.
+
+Validation:
+
+- Baseline and changed Debug quick builds passed with zero warnings/errors.
+  The hidden-desktop probe and thirteen existing configurations passed before
+  and after: `ad-hoc-pdfium-theme` on both engines, transparent fallback and
+  fallback geometry with/without pattern strokes, normal/fallback tile tests,
+  `theme-pdfium-fallback`, pattern render cancellation, redaction/undo,
+  `issue-4788` and thumbnail themes. The composite fallback test includes
+  masks, gradients, Type 3, state/dynamic widgets, cancellation, encrypted,
+  repaired and large PDFs.
+- Compared 138 PNGs as decoded pixels: 133 were identical. Five Home captures
+  differed only in random Tip text at Y=730–751 in a 940×762 canvas. Difference
+  bounds and a visual before/after check confirmed identical content and
+  thumbnails, including F12 and neutral cached PNGs. Raw differences are retained.
+- The changed Debug build also passed `epub-theme-restyle`, covering the shared
+  MuPDF/View path for a non-PDF document. No new EPUB baseline was collected.
+- Release built with zero warnings/errors and staged the portable ZIP.
+  The ASan static build also passed with zero warnings/errors.
+- Six ASan configurations passed on the hidden desktop: annotation failure,
+  default/pattern render cancellation, transparent fallback with/without pattern
+  strokes, and redaction/undo. Saved logs contain no sanitizer reports. Runtime
+  options match [testing.md](testing.md#asan-builds); the prebuilt PDFium DLL is
+  not instrumented. Executable/runtime hashes stayed fixed in the recorded batch.
+- Executable/DLL hashes stayed fixed within each Debug batch. Debug exe SHA-256
+  changed from `E81E4FFC337C95D0B517A04A61C64617E9A14ACFD1031E66047A96FC79351BC1`
+  to `A8437D06849AA7A76368027D34DEE4A268F7070EBAD9EFE94CE52CD92DA65F9B`.
+
+Logs, binary manifests and PNGs are in `.work/e19/{baseline,after,asan}/`;
+the comparison is `.work/e19/comparison.json`. The expected annotation failure
+is `.work/e19-annotation-before.log`; passing retries are
+`.work/e19-annotation-after-{1,2,3}.log`. ASan's standalone annotation/cancel
+logs use `.work/e19-asan-theme-*.log`; build logs use `.work/e19-*-build.log`.
+The earlier baseline thumbnail instability remains unresolved; this change's
+baseline and changed thumbnail runs both passed. PDFium allocation/progressive
+render errors and temporary-document/form-load failures were reviewed in code,
+not fault-injected. No Release GUI, ng, hosted, full-suite or performance run was performed.
+Request generations and cache invalidation remain E22 work.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2329,6 +2395,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E15 | Review the four committed refactors                                                                                                                                                                                                                                                         | done — owner confirmed completion, 2026-11-10; [record](#e15-refactor-review-2026-11-10)                                                                                                                                                |
 | E16 | Make the PDFium-enabled ASan build reproducible                                                                                                                                                                                                                                             | done — Fix SolokPDF ASan builds (E16) (`fc8b455e8`); build, configuration and GUI checks passed; [record](#e16-asan-build-path-2026-11-10)                                                                                              |
 | E21 | Centralize color stages and capture effective page colors                                                                                                                                                                                                                                   | done — Centralize page color stage selection (`8bf864e18`); Capture effective page colors; [results](#e21-effective-color-inputs-2026-11-10)                                                                                            |
+| E19 | Clarify render outcomes, color state, alpha, fallback and cancellation                                                                                                                                                                                                                      | done — Clarify render result contracts (E19); [results](#e19-render-results-2026-11-10)                                                                                                                                                 |
 
 ### F. Manual acceptance
 

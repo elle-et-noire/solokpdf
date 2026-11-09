@@ -188,15 +188,20 @@ Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions
     DarkModeProfile profile;
     BuildViewDarkModeProfile(engineClass, colors, &profile);
     PageColorPass colorPass = GetPageColorPass(engineClass, PageColorSource::Document, profile);
-    args.darkProfile = profile.mode == PageColorMode::Normal ? nullptr : &profile;
-    Pixmap* bmp = engine->RenderPage(args);
-    args.darkProfile = nullptr;
+    RenderPageColor color = RenderPageColor::Original;
+    RenderPageArgs renderArgs = args;
+    renderArgs.darkProfile = profile.mode == PageColorMode::Normal ? nullptr : &profile;
+    renderArgs.color_out = &color;
+    Pixmap* bmp = engine->RenderPage(renderArgs);
     if (!bmp) {
         return nullptr;
     }
     bmp = ApplyViewPageAdjust(bmp, options);
 
-    if (colorPass != PageColorPass::Bitmap || bmp->hasAlpha) {
+    if (color == RenderPageColor::Themed || colorPass == PageColorPass::None || bmp->hasAlpha) {
+        if (args.color_out) {
+            *args.color_out = color;
+        }
         return bmp;
     }
 
@@ -210,6 +215,9 @@ Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions
         }
     }
     RecolorPixmap(bmp, profile.foreground, profile.pageBackground, profile.linkColor, skip);
+    if (args.color_out) {
+        *args.color_out = RenderPageColor::Themed;
+    }
     return bmp;
 }
 

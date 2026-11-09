@@ -62,6 +62,18 @@ struct PdfiumWidget {
     WidgetCursorKind cursor = WidgetCursorKind::None;
 };
 
+enum class DrawStatus {
+    Done,
+    NeedsMupdf,
+    Canceled,
+    Failed,
+};
+
+struct PageDrawResult {
+    DrawStatus status;
+    RenderPageColor color = RenderPageColor::Original;
+};
+
 struct PdfiumPage {
     SizeF size;
     PdfRenderRoute renderRoute = PdfRenderRoute::Unchecked;
@@ -2348,31 +2360,37 @@ class EnginePdfium : public EngineBase {
         return check.route;
     }
 
-    // Only this part needs the lock; pixel post-processing runs while other pages draw.
-    int DrawPage(RenderPageArgs& args, Pixmap* pixmap, double x, double y, RectF full, bool drawAnnots,
-                 PdfiumCookie* cookie, PdfiumProfile& profile, bool& useMupdf) {
+    // Borrows BGRA pixels; PDFium leaves straight alpha. Post-processing stays outside the locks.
+    PageDrawResult DrawPage(RenderPageArgs& args, Pixmap* pixmap, double x, double y, RectF full, PdfRenderParts parts,
+                            PdfiumCookie* cookie, PdfiumProfile& profile) {
         ScopedMutex themeScope(&themeLock);
 
-        if (PrepareRenderRoute(args.pageNo, cookie, profile) == PdfRenderRoute::Mupdf) {
-            useMupdf = true;
-            return FPDF_RENDER_FAILED;
+        PdfRenderRoute route = PrepareRenderRoute(args.pageNo, cookie, profile);
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            return {DrawStatus::Canceled};
+        }
+        if (route == PdfRenderRoute::Mupdf) {
+            return {DrawStatus::NeedsMupdf};
         }
 
         ThemeEntry* theme = nullptr;
-        if (KeepsImageColors(args) && !PdfiumCookie::IsCanceled(cookie)) {
+        if (KeepsImageColors(args)) {
             theme = PrepareTheme(args.pageNo, *args.darkProfile, cookie, profile);
         }
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            return {DrawStatus::Canceled};
+        }
         if (theme && theme->snapshot.status == PdfThemeStatus::Failed) {
-            useMupdf = true;
-            return FPDF_RENDER_FAILED;
+            return {DrawStatus::NeedsMupdf};
         }
         u32 sourceSize = theme && theme->snapshot.layout == PdfThemeLayout::Incremental ? (u32)access.m_FileLen : 0;
         ThemeAccess themedAccess{this, theme ? theme->snapshot.data : Str{}, sourceSize};
         ScopedMutex lock(&gPdfiumLock);
         profile.Mark(StrL("lock"));
         if (AtomicIntGet(&cookie->aborted)) {
-            return FPDF_RENDER_FAILED;
+            return {DrawStatus::Canceled};
         }
+        bool drawAnnots = parts == PdfRenderParts::ContentsAndAnnotations;
         FPDF_FILEACCESS themedFile{};
         struct ThemeDocument {
             FPDF_DOCUMENT doc = nullptr;
@@ -2397,8 +2415,7 @@ class EnginePdfium : public EngineBase {
                 themed.form = gPdfium.FPDFDOC_InitFormFillEnvironment(themed.doc, &formInfo);
             }
             if (!themed.doc || (form && drawAnnots && !themed.form)) {
-                useMupdf = true;
-                return FPDF_RENDER_FAILED;
+                return {DrawStatus::NeedsMupdf};
             }
             if (themed.doc) {
                 drawDoc = themed.doc;
@@ -2408,14 +2425,13 @@ class EnginePdfium : public EngineBase {
 
         FPDF_PAGE page = gPdfium.FPDF_LoadPage(drawDoc, args.pageNo - 1);
         if (!page) {
-            useMupdf = themed.doc != nullptr;
-            return FPDF_RENDER_FAILED;
+            return {themed.doc ? DrawStatus::NeedsMupdf : DrawStatus::Failed};
         }
         profile.Mark(StrL("page"));
         if (PdfiumCookie::IsCanceled(cookie)) {
             gPdfium.FPDF_ClosePage(page);
             profile.Mark(StrL("canceled-page"));
-            return FPDF_RENDER_FAILED;
+            return {DrawStatus::Canceled};
         }
         // the form module keeps a view per loaded page; it must drop it before the page closes
         if (drawForm) {
@@ -2457,7 +2473,35 @@ class EnginePdfium : public EngineBase {
         }
         gPdfium.FPDF_ClosePage(page);
         profile.Mark(StrL("bitmap"));
-        return status;
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            return {DrawStatus::Canceled};
+        }
+        if (status != FPDF_RENDER_DONE) {
+            return {DrawStatus::Failed};
+        }
+        pixmap->premultiplied = false;
+        return {DrawStatus::Done, theme ? RenderPageColor::Themed : RenderPageColor::Original};
+    }
+
+    PageDrawResult DrawMupdf(RenderPageArgs& args, Pixmap* pixmap, double x, double y, RectF full, PdfRenderParts parts,
+                             PdfiumCookie* cookie, PdfiumProfile& profile) {
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            return {DrawStatus::Canceled};
+        }
+        float m[6];
+        TileMatrix(args.pageNo, args.zoom, args.rotation, x, y, full, m);
+        PdfRenderSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
+        PdfRenderAntialias antialias = disableAntiAlias ? PdfRenderAntialias::Disabled : PdfRenderAntialias::Enabled;
+        profile.Mark(StrL("mupdf-start"));
+        bool drawn =
+            PdfRenderMupdf(source, password, args.pageNo, m, pixmap, args.darkProfile, parts, args.target, antialias);
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            return {DrawStatus::Canceled};
+        }
+        if (!drawn) {
+            return {DrawStatus::Failed};
+        }
+        return {DrawStatus::Done, KeepsImageColors(args) ? RenderPageColor::Themed : RenderPageColor::Original};
     }
 
     // The editor, when an applied redaction rewrote pageNo: PDFium still has the file's content.
@@ -2506,6 +2550,7 @@ class EnginePdfium : public EngineBase {
             return nullptr;
         }
         PdfiumBufferTrace bufferTrace(pixmap, profile);
+        pixmap->hasAlpha = args.transparentBackdrop;
         profile.Mark(StrL("setup"));
 
         // white or transparent backdrop, filled without the lock
@@ -2525,30 +2570,18 @@ class EnginePdfium : public EngineBase {
 
         // read once: a tile must not get annotations from both engines
         EngineBase* annotEditor = AnnotationEditor(EditorLoad::IfLoaded);
-        bool drawAnnots = !hideAnnotations && !annotEditor;
-        bool useMupdf = false;
-        int status = DrawPage(args, pixmap, x, y, full, drawAnnots, cookie, profile, useMupdf);
-        bool fallbackDrawn = false;
-        if (useMupdf && !PdfiumCookie::IsCanceled(cookie)) {
-            float m[6];
-            TileMatrix(args.pageNo, args.zoom, args.rotation, x, y, full, m);
-            PdfRenderSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
-            PdfRenderParts parts = drawAnnots ? PdfRenderParts::ContentsAndAnnotations : PdfRenderParts::Contents;
-            PdfRenderAntialias antialias =
-                disableAntiAlias ? PdfRenderAntialias::Disabled : PdfRenderAntialias::Enabled;
-            profile.Mark(StrL("mupdf-start"));
-            fallbackDrawn = PdfRenderMupdf(source, password, args.pageNo, m, pixmap, args.darkProfile, parts,
-                                           args.target, antialias);
-            status = fallbackDrawn ? FPDF_RENDER_DONE : FPDF_RENDER_FAILED;
+        PdfRenderParts parts =
+            !hideAnnotations && !annotEditor ? PdfRenderParts::ContentsAndAnnotations : PdfRenderParts::Contents;
+        PageDrawResult result = DrawPage(args, pixmap, x, y, full, parts, cookie, profile);
+        if (result.status == DrawStatus::NeedsMupdf) {
+            result = DrawMupdf(args, pixmap, x, y, full, parts, cookie, profile);
         }
-        if (status != FPDF_RENDER_DONE || AtomicIntGet(&cookie->aborted)) {
+        if (result.status != DrawStatus::Done || PdfiumCookie::IsCanceled(cookie)) {
             profile.Mark(StrL("canceled-or-failed"));
             FreePixmap(pixmap);
             return nullptr;
         }
-        if (args.transparentBackdrop) {
-            pixmap->hasAlpha = true;
-            pixmap->premultiplied = true;
+        if (pixmap->hasAlpha && !pixmap->premultiplied) {
             for (int row = 0; row < pixmap->height; row++) {
                 if (PdfiumCookie::IsCanceled(cookie)) {
                     FreePixmap(pixmap);
@@ -2557,21 +2590,24 @@ class EnginePdfium : public EngineBase {
                 }
                 u8* px = pixmap->data + (size_t)row * pixmap->stride;
                 for (int col = 0; col < pixmap->width; col++, px += 4) {
-                    if (!fallbackDrawn) {
-                        for (int c = 0; c < 3; c++) {
-                            px[c] = (u8)((px[c] * px[3] + 127) / 255);
-                        }
+                    for (int c = 0; c < 3; c++) {
+                        px[c] = (u8)((px[c] * px[3] + 127) / 255);
                     }
                 }
             }
+            pixmap->premultiplied = true;
         }
         pixmap->xres = pixmap->yres = args.zoom * fileDPI;
         profile.Mark(StrL("alpha"));
         if (annotEditor && !hideAnnotations) {
             float m[6];
             TileMatrix(args.pageNo, args.zoom, args.rotation, x, y, full, m);
-            EngineMupdfDrawAnnotations(annotEditor, args.pageNo, m, pixmap, args.target, args.darkProfile);
+            bool drawn = EngineMupdfDrawAnnotations(annotEditor, args.pageNo, m, pixmap, args.target, args.darkProfile);
             profile.Mark(StrL("annotations"));
+            if (!drawn) {
+                FreePixmap(pixmap);
+                return nullptr;
+            }
         }
         if (!pixmap->hasAlpha && args.target == RenderTarget::View) {
             PixmapGrayTimes times;
@@ -2596,11 +2632,19 @@ class EnginePdfium : public EngineBase {
                 }
             }
         }
+        if (PdfiumCookie::IsCanceled(cookie)) {
+            FreePixmap(pixmap);
+            profile.Mark(StrL("canceled-output"));
+            return nullptr;
+        }
         if (profile.enabled) {
             u64 pixels = (u64)pixmap->stride * pixmap->height;
             u64 storage = pixmap->hbmp ? pixels : (u64)_msize(pixmap->data);
             logf("PDFium output: thread=%lu pixels=%llu storage=%llu format=%d\n", GetCurrentThreadId(), pixels,
                  storage, (int)pixmap->format);
+        }
+        if (args.color_out) {
+            *args.color_out = result.color;
         }
         return pixmap;
     }

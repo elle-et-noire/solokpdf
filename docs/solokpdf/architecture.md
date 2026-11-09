@@ -1,6 +1,6 @@
 # SolokPDF の現行設計
 
-E21 の段階選択・実効色入力の実装後の Win32 版の責務と状態。設計上の見直しは
+E21 の色方針と E19 の描画結果契約を反映した Win32 版の責務と状態。設計上の見直しは
 [リファクタリング計画](refactoring-plan.md)、実装・検証履歴は [history.md](history.md) を参照する。
 
 ## PDF エンジンの役割
@@ -44,15 +44,28 @@ PDF の色空間から RGB への変換と、テーマ色への変換は別の�
 色変換の担当を `None`・`Renderer`・`Bitmap` で返す。
 [RenderViewPage](../../src/shared/RenderCache.cpp) と Home のサムネイルがこの方針を使う。
 PDF の smart は描画側、Home の中立画像はビットマップ側で変換する。
-これは予定する段階の指定であり、描画結果には変換の実施状態を表す専用情報がまだない。
-`Pixmap` は画素形式・alpha の有無・乗算済みかを持つが、PDFium の透明度処理は
-`fallbackDrawn` も使って乗算の要否を判断する。
+これは予定する段階の指定。実施状態は `RenderPageArgs::color_out` の
+`RenderPageColor::Original`・`Themed` で成功時だけ返す。呼び出し側は `Original` で初期化する。
+PDFium と MuPDF が描画時の変換を報告し、`RenderViewPage` は変換済みの画素を再着色しない。
+引数のコピーにローカルなプロファイルと出力先を渡し、呼び出し元に一時ポインターを残さない。
+
+`PrepareRenderRoute` の `PdfRenderRoute` は経路判定。
+`DrawPage`・`DrawMupdf` の `PageDrawResult` は完了・代替要求・中止・失敗と色状態を返す。
+PDFium の進行状態は `DrawPage` 内だけで扱い、代替要求だけを `DrawMupdf` で再実行する。
+ビットマップ生成・通常ページ読み込み・PDFium 描画の失敗を、一律に代替要求には変えない。
+
+描画先は背景を埋めた BGRA8 の借用バッファ。PDFium は straight alpha、MuPDF の代替は
+乗算済み alpha を生成し、`Pixmap::hasAlpha`・`premultiplied` が後処理を決める。
+透明な PDFium 出力だけを一度乗算し、その後に編集エンジンの注釈を合成する。
+不透明な View 出力は従来どおり gray DIB または BGR8 に縮める。
+成功した `Pixmap` は呼び出し側が所有し、失敗・中止・注釈合成失敗では解放して null を返す。
+MuPDF も結果公開前に中止を確認する。テーマ・PDFium ロックの範囲と画素後処理の並列性は維持する。
 
 キャッシュの依存も複数箇所で管理する。`UpdateDocumentColors` は実効色・設定を比較してタイル世代を進め、
 PDFium はページと色でテーマ変換結果を再利用する。
 [Home のサムネイル](../../src/shared/FileThumbnailsCommon.cpp) はプロファイルと補正値の hash を使う。
 ページ描画経路や画像矩形など、テーマ非依存の情報もあるため、無効化は一律ではない。
-処理順と再利用条件の見直しは [計画](refactoring-plan.md) の E21・E19・E22 で扱う。
+再利用条件の見直しは [計画](refactoring-plan.md) の E22 で扱う。
 
 ## 所有権と同期
 
