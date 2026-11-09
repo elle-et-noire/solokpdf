@@ -1,5 +1,17 @@
 # 目次とお気に入りの TreeView 置き換え計画
 
+## 現状（2026-11-09）
+
+`dff595cf0` で実文書の目次・お気に入りに接続する試験実装が入った。既定は引き続き Win32 TreeView。
+Debug ビルドで `-for-testing` を指定し、`SOLOKPDF_VIRTUAL_TOC=1` と
+`SOLOKPDF_VIRTUAL_FAVORITES=1` で個別に有効にする。Release では切り替わらない。
+
+下記の実装手順は移行全体の計画。「試作の結果」が実施済みの範囲を示す。残作業は、Narrator・NVDA、
+実モニター間の DPI 移動、標準バーのつまみ、実カーソルでのスマートバーを確認し、既定表示へ切り替え、
+旧部品と内部切り替えを整理すること。[backlog.md](backlog.md) の E10・F2 で追う。
+設定適用の問題は独立した E11。[読み上げ確認手順](tree-view-screen-reader-check.md) と
+[ローカルテスト手順](testing.md#virtual-sidebar-trees) を参照する。
+
 ## 目的と範囲
 
 Windows 版 SolokPDF の目次とお気に入りを、Win32 TreeView から共通の仮想ツリーへ移行する。項目の表示とスクロールバーを同じ描画経路にまとめ、本文とテーマやスクロールバー設定を揃える。データモデル、文書エンジン、設定形式、既存の操作は維持する。ng 版の UI は対象外とする。

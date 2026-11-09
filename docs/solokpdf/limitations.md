@@ -9,6 +9,9 @@ are in [history.md](history.md).
 - Settings and Advanced Settings open one screen on either engine. Ctrl+, opens
   it; commonly used settings appear above the full list (B70).
 - SolokPDF uses GDI+ for UI drawing by default. PDF pages use the configured engine.
+- The tree migration plan records settings changes reverting under `-for-testing`
+  when existing settings are reloaded without saving (E11). See its
+  [separate settings task](tree-view-replacement-plan.md#独立した設定の修正).
 - The toolbar's chapter and page boxes keep `ControlBackgroundColor` when
   normal, focused, selected and disabled (`theme-control-background`).
   Selections use the system highlight. A disabled native edit draws its text
@@ -160,20 +163,12 @@ are in [history.md](history.md).
 
 ## Text, search and selection
 
-- Page selection foreground colors use a conservative glyph match. PDFium
-  splits ordinary text runs into tagged glyphs in a temporary PDF, then checks
-  that its rendered pixels match the original before applying selection colors.
-  Whole ligatures are supported; selecting part of one uses an outline. Both
-  engines use an outline for ActualText replacement text. PDFium also falls
-  back for Type3 fonts, clipping, non-fill text, transparency, blend modes,
-  soft masks, rotated glyphs, selected text in forms or ambiguous matches. Disabling anti-aliasing
-  prevents glyph splitting; the older object-level path may still work. The
-  split is limited to 100,000 glyphs and 64 MiB input PDFs and snapshots.
-  MuPDF falls back for unsupported drawing operations, including non-text
-  drawing after selected text, even outside the selected area. Legacy page
-  recoloring, grayscale and brightness/contrast adjustments use the outline.
-  The outline may touch nearby pixels as a selection decoration; image contrast
-  depends on the image itself.
+- Both engines show document selection with a translucent overlay, preserving
+  the original text drawing. Theme fields `TextSelectionColor`, `SearchMatchColor`
+  and `CurrentSearchMatchColor` control selection and search overlays; overlapping
+  colors blend. The selection-only glyph rendering and its outline fallbacks
+  were removed in `8cd54d631`. `FixedPageUI.SelectionColor` was removed without
+  migration. See [selection colors](features.md#selection-colors).
 - PDFium extracts routine page text through its own text API. Character gaps,
   loose glyph boxes, line breaks and a CP-1251 font mapping preserve spacing,
   Unicode and selection bounds. A page with unmapped glyphs, or a shown widget
@@ -251,6 +246,12 @@ are in [history.md](history.md).
   toggle layers (`issue-6486` checks both).
 
 ## Links, outline and navigation
+
+- Native Win32 trees remain the default for bookmarks and favorites. The
+  [virtual-tree implementation](features.md#virtual-sidebar-trees) is Debug-only
+  and requires `-for-testing` plus opt-in environment variables. Its automated
+  UIA/MSAA checks do not replace the pending screen-reader and physical-display
+  checks (E10, F2).
 
 - All eight destination views, link `/Contents` tooltips and GoToR/Launch file
   links match MuPDF on a fixture (links and outline). PDFium reports

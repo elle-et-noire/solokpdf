@@ -25,6 +25,36 @@ The B69 probe (`tests/ad-hoc-b69-hidden-desktop.ts`) creates a visible window
 and checks its desktop name against the input desktop. Run it first when
 checking the runner. Local app tests must never run on the owner's desktop.
 
+### Virtual sidebar trees
+
+The tree migration is opt-in in Debug builds with `-for-testing`. Nonempty
+`SOLOKPDF_VIRTUAL_TOC` and `SOLOKPDF_VIRTUAL_FAVORITES` enable bookmarks and
+favorites independently. Unset them to test the native defaults; `0` also
+enables them because the implementation checks for a nonempty value.
+
+Build once, then run the targeted tests through the hidden desktop:
+
+```powershell
+. ./tools/solokpdf/env.ps1
+bun cmd/solok-build.ts -quick
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-tree-prototype.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-virtual-toc.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-virtual-favorites.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-virtual-tree-focus.ts --no-build
+```
+
+The document-tree tests set their own virtual-tree switches. Additional lifetime, UIA/MSAA,
+large-tree and native/virtual regression checks are listed in the
+[migration plan](tree-view-replacement-plan.md#検証). Use
+`tests/sidebar-tree.ts` when adapting native-tree tests to both implementations.
+The new tree probes are standalone tests, not entries in `run-almost-all.ts`.
+
+Narrator/NVDA, real monitor DPI changes, native scrollbar thumb dragging and
+real-cursor smart-bar hover remain manual checks. The owner performs these
+on their visible desktop using the
+[screen-reader procedure](tree-view-screen-reader-check.md); automated local
+runs continue to use the hidden desktop.
+
 ### Startup timeout diagnostics
 
 `ad-hoc-pdfium-window-bg` writes a separate startup log for each app launch.

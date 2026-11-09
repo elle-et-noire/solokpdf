@@ -1,18 +1,23 @@
 # SolokPDF backlog
 
-Open work. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
+Open work as of 2026-11-09. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D8, E10, F2). A1–E5 landed 2026-10-29 – 11-01 and are listed
+group (B76, C2, D8, E13, F4). A1–E5 landed 2026-10-29 – 11-01 and are listed
 there.
 
 ## Open
 
-| ID  | Item                                             | Status                                                        |
-| --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| D3  | Shard the full suite across runners              | deferred: the suite takes ~25 min once a hung test is cut off |
-| F1  | Physical printer, print dialog and spooler check | needs the owner                                               |
+| ID  | Item                                                                                    | Status                                                                                                                                         |
+| --- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| D3  | Shard the full suite across runners                                                     | deferred: the suite takes ~25 min once a hung test is cut off                                                                                  |
+| E10 | Complete the [virtual sidebar migration](tree-view-replacement-plan.md)                 | doing: Debug opt-in landed in `dff595cf0`; default switch and native-tree cleanup remain                                                       |
+| E11 | Apply settings without reloading stale values under `-for-testing`                      | todo: recorded in the [tree plan](tree-view-replacement-plan.md#独立した設定の修正); verify separately                                         |
+| E12 | Continue [keyboard input consolidation](keyboard-investigation.md)                      | todo: some context, binding and state handling is shared; remaining routing needs behavior checks                                              |
+| F1  | Physical printer, print dialog and spooler check                                        | needs the owner                                                                                                                                |
+| F2  | Virtual-tree screen readers, monitor DPI changes, native thumb and real smart-bar hover | needs the owner: [reader procedure](tree-view-screen-reader-check.md); required before rollout                                                 |
+| F3  | Keyboard physical input and OS hotkey checks                                            | needs the owner: AltGr, dead keys, Japanese IME, key repeat, focus changes and hotkey conflicts; [details](keyboard-investigation.md#残る検証) |
 
 ## Dropped
 

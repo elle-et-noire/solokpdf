@@ -1,5 +1,8 @@
 # TreeView の読み上げ確認
 
+2026-11-09 時点で未実施（F2）。Debug の試験実装が対象であり、既定の標準ツリーは置き換わっていない。
+自動テストの状況は [置き換え計画](tree-view-replacement-plan.md#試作の結果) を参照する。
+
 Narrator と NVDA で、それぞれ以下を確認する。自動テストとは別に、操作する人のデスクトップで実行する。
 
 PowerShell でリポジトリのルートから起動する。専用の PDF と設定は `.work/tree-reader-check` に作られる。
@@ -20,7 +23,8 @@ try {
 }
 ```
 
-デバッグ版のビルドが必要な場合は、先に `MSBuild.exe vs2026/SumatraPDF.vcxproj '/p:Configuration=Debug;Platform=x64' /m` を実行する。`-for-testing` により既存のセッションと設定は変更されない。
+デバッグ版のビルドが必要な場合は、環境設定後に `bun cmd/solok-build.ts -quick` を実行する。
+`-for-testing` により既存のセッションと設定は変更されない。
 
 1. スクリーンリーダーを有効にし、目次にフォーカスを移す。ツリー名と `First`、`Second`、`Third` の項目名・選択状態が分かることを確認する。
 2. `Second` で右矢印を押し、展開状態と子項目 `Nested`、階層が分かることを確認する。左矢印で折り畳み、状態の変化を確認する。

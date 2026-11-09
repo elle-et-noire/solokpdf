@@ -20,8 +20,8 @@ with official Premake into the ignored `vs2026/` (toolset v145), invokes the
 original build script and stages a portable folder with license notices. Debug
 output is `out/solokpdf-dev/`; release output is `out/solokpdf-portable/`. PDBs
 are for development, not required to run.
-Debug and Release GUI integration tests passed. The verified portable Release
-archive is `out/SolokPDF-experimental-x64.zip`.
+The release wrapper creates `out/SolokPDF-experimental-x64.zip`. Recorded build
+and test results are in [history](docs/solokpdf/history.md).
 
 PDFium is the default for PDFs in this build. Set `$env:SOLOKPDF_ENGINE='mupdf'`
 to compare using the same UI. Non-PDF formats retain their existing engines.
@@ -40,7 +40,10 @@ Upstream binary updates are disabled. Installer and association workflows have
 not been validated; use the portable build. Existing copyright and license
 terms remain, including MuPDF's AGPL obligations; see `AUTHORS` and `COPYING`.
 
-See [SolokPDF docs](docs/solokpdf/README.md) for build, tests, measurements and limitations.
+See [SolokPDF docs](docs/solokpdf/README.md) for current status, open work,
+test setup and measurements. Native sidebar trees remain the default; the
+[virtual-tree migration](docs/solokpdf/tree-view-replacement-plan.md) is Debug-only
+and opt-in while manual checks remain pending.
 
 ## Original SumatraPDF project
 

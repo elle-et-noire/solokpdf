@@ -85,7 +85,8 @@ panel's edges). A hovered bookmark or favorite fills its row with the hover
 color below (upstream: the Explorer theme's own hot face). The Signatures and
 Layers lists take the canvas color too (upstream: `ControlBackgroundColor`).
 
-The Windows bookmark tree draws titles with TreeView. Long titles scroll horizontally;
+The default Windows bookmark tree draws titles with native TreeView and uses
+Windows scrollbars regardless of the document's `Scrollbars` setting. Long titles scroll horizontally;
 page numbers, title wrapping, and search-match text highlighting are not shown.
 `ShowTocPageNumbers` and `TocWrapText` do not affect the Windows tree.
 
@@ -114,6 +115,26 @@ nearest palette color instead, darker if one fits: `ControlBackgroundColor`
 for Choco, Choco Navy, Purpy, Purpy Slate, Nord, Gruvbox, Night Owl and
 Palenight, `NotificationBackgroundColor` for Solarized Dark and Monokai,
 `EdgeColor` for Light Warm.
+
+## Virtual sidebar trees
+
+Added as a Debug-only experiment in `dff595cf0` (2026-11-09). Native bookmarks
+and favorites remain the default. With `-for-testing`, nonempty
+`SOLOKPDF_VIRTUAL_TOC` and `SOLOKPDF_VIRTUAL_FAVORITES` environment variables
+enable each virtual tree independently; use `1` to enable and unset to disable.
+Release builds ignore these switches.
+
+The virtual trees use the existing `TreeModel` and support `Scrollbars` modes
+`windows`, `overlay`, `smart` and `hidden`, horizontal scrolling, filtering,
+keyboard navigation, UI Automation and MSAA. Titles remain single-line without
+fixed page numbers or search-match highlighting. The scroll area reaches the
+document area's bottom, with 4 DIP padding below the last row.
+
+Automated checks and implementation details are in the
+[migration plan](tree-view-replacement-plan.md). Narrator, NVDA, real monitor DPI
+changes, native thumb dragging and real-cursor smart-bar hover remain unverified.
+Use the [test setup](testing.md#virtual-sidebar-trees) and
+[screen-reader procedure](tree-view-screen-reader-check.md) for follow-up.
 
 ## Selection colors
 

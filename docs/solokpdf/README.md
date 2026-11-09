@@ -14,35 +14,46 @@ render resolution and color processing. Do not switch the default to MuPDF to
 meet memory/startup targets. Font-info v2 remains probe-only because it changes
 rendered output.
 
+## Status (2026-11-09)
+
+Reviewed source through `dff595cf0` on `solokpdf-dev`. This is a documentation
+review; build and test results below remain the results recorded with each change.
+
+| Area           | Current state                                                                                          | Details                                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                            | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
+| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7).                                                         | [Merge results and remaining checks](upstream-merges.md#merge-result-2026-11-08)                                     |
+| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                            | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
+| Sidebar trees  | Native trees remain the default. Virtual trees are opt-in in Debug with `-for-testing`.                | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
+| Keyboard input | Context and binding checks partly shared; physical input checks remain pending.                        | [Handoff](keyboard-handoff.md), [investigation](keyboard-investigation.md)                                           |
+| Remaining work | Tree rollout, settings application in test mode, keyboard follow-up, manual checks and suite sharding. | [Backlog](backlog.md)                                                                                                |
+
 ## Resuming work
 
-Work on branch `solokpdf-dev`. Read `AGENTS.md`, `readme.md`, this file and
-[backlog.md](backlog.md), then the parts of [limitations.md](limitations.md)
-for the area at hand. When an item lands, move its backlog row to
-[history.md](history.md#completed-backlog) and update the matching text in
-`limitations.md`; put measurements in `history.md` and condensed data in
-`data/`. Record upstream merges in [upstream-merges.md](upstream-merges.md).
+Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
+[backlog.md](backlog.md), then the current behavior and plan for the area at hand.
+Build instructions are in the root readme; local GUI tests follow
+[testing.md](testing.md). Screen-reader and physical-device checks have separate
+manual steps; automated checks do not establish those results.
 
-## Status
+## Document map
 
-PDFium pages work in the original UI, with MuPDF as fallback and hidden
-editor. Completed work is in `history.md`; the remaining test work is suite
-sharding and a physical printer check. Known gaps are in
-`limitations.md`; test setup is in [testing.md](testing.md).
+| Purpose            | Documents                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Current behavior   | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                 |
+| Open work          | [backlog.md](backlog.md)                                                                                                             |
+| Tree migration     | [tree-view-replacement-plan.md](tree-view-replacement-plan.md), [tree-view-screen-reader-check.md](tree-view-screen-reader-check.md) |
+| Keyboard follow-up | [keyboard-handoff.md](keyboard-handoff.md), [keyboard-investigation.md](keyboard-investigation.md)                                   |
+| Test procedures    | [testing.md](testing.md)                                                                                                             |
+| Historical results | [history.md](history.md), [upstream-merges.md](upstream-merges.md), [selection-overlay-plan.md](selection-overlay-plan.md)           |
+| Measurements       | [data/](data/), cited by `history.md`                                                                                                |
 
-## Documents
+## Keeping docs current
 
-- [backlog.md](backlog.md): open and dropped items.
-- [limitations.md](limitations.md): current PDFium-tab behavior and known
-  limitations by area.
-- [features.md](features.md): SolokPDF-only features (identity, theme-colored icon, Chrome-style tabs, theme page
-  colors, selection colors, overlay scrollbars, count prefix, shortcuts dialog, Vim keys).
-- [history.md](history.md): baseline, engine map, performance measurements,
-  2026-10-29 UI review, full-suite results and completed backlog.
-- [annotations.md](annotations.md): annotation editing on PDFium tabs through
-  the hidden MuPDF editor.
-- [forms.md](forms.md): document JavaScript, forms and signing on PDFium tabs.
-- [testing.md](testing.md): test cursor, DPI, window layouts and desktop requirements.
-- [upstream-merges.md](upstream-merges.md): upstream merge assessment and
-  results (2026-10-29, 2026-10-31, 2026-11-02).
-- `data/`: condensed measurement JSON cited by `history.md`.
+Keep current behavior in `features.md` and `limitations.md`, open work in
+`backlog.md`, and dated results in `history.md`. Mark completed plans with their
+implementation commit; retain their original acceptance criteria as history.
+Move completed backlog rows to [history.md](history.md#completed-backlog).
+Record upstream merges in `upstream-merges.md` and measurements in `data/`.
+Update this status when the default behavior or active work changes. Keep test
+results dated and distinguish automated checks from pending manual checks.
