@@ -13,6 +13,7 @@
 extern int TestTab(int nCmdShow);
 // in TestLayout.cpp
 extern int TestLayout(int nCmdShow);
+extern void TestTree();
 // in SumatraPDF.cpp
 extern bool IsUIRtl();
 
@@ -22,6 +23,10 @@ static void LaunchTabs() {
 
 static void LaunchLayout() {
     TestLayout(SW_SHOW);
+}
+
+static void LaunchTree() {
+    TestTree();
 }
 
 static ILayout* CreateMainLayout(HWND) {
@@ -41,6 +46,11 @@ static ILayout* CreateMainLayout(HWND) {
         b->onClick = MkFunc0Void(LaunchLayout);
         vbox->AddChild(b);
     }
+    {
+        auto* b = new VirtButton(StrL("Tree prototype"), font);
+        b->onClick = MkFunc0Void(LaunchTree);
+        vbox->AddChild(b);
+    }
 
     auto padding = new Padding(vbox, DefaultInsets());
     return padding;
@@ -53,6 +63,9 @@ static void OnDestroy(WindowBase::DestroyEvent*) {
 }
 
 void TestApp() {
+    if (GetEnvironmentVariableW(L"SOLOKPDF_TEST_TREE", nullptr, 0) > 0) {
+        TestTree();
+    }
     auto w = new TestWnd();
     auto fn = MkFunc1Void<WindowBase::DestroyEvent*>(OnDestroy);
     w->onDestroy = fn;

@@ -20,6 +20,21 @@ static Vec<WStr> gRegisteredClasses;
 
 static LRESULT CALLBACK WndProcVirtHost(HWND, UINT, WPARAM, LPARAM);
 
+struct HostDispatch {
+    VirtHost* host;
+    HostDispatch* previous;
+    explicit HostDispatch(VirtHost* h) : host(h), previous(h->dispatch) {
+        host->dispatch = this;
+        host->dispatchDepth++;
+    }
+    ~HostDispatch() {
+        if (!host) return;
+        host->dispatch = previous;
+        host->dispatchDepth--;
+        if (!host->dispatchDepth && host->disposeRequested) delete host;
+    }
+};
+
 static void RegisterHostClass(WStr className) {
     for (WStr s : gRegisteredClasses) {
         if (wstr::Eq(s, className)) {
@@ -38,7 +53,7 @@ static void RegisterHostClass(WStr className) {
     VecAppend(gRegisteredClasses, className);
 }
 
-static void PaintHost(VirtHost* host, HWND hwnd) {
+static void PaintHost(VirtHost* host, HWND hwnd, HostDispatch& dispatch) {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
     Rect rc = HwndClientRect(hwnd);
@@ -57,10 +72,10 @@ static void PaintHost(VirtHost* host, HWND hwnd) {
         } else {
             gfx->FillRect(rc, host->bgColor);
         }
-        if (host->vroot) {
+        if (dispatch.host && !host->disposeRequested && host->vroot) {
             host->vroot->Paint(gfx, rc);
         }
-        if (host->onPaint.IsValid()) {
+        if (dispatch.host && !host->disposeRequested && host->onPaint.IsValid()) {
             host->onPaint.Call(&ev);
         }
         delete gfx;
@@ -81,12 +96,14 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
     if (!host) {
         return DefWindowProcW(hwnd, msg, wp, lp);
     }
+    HostDispatch dispatch(host);
     // destroyed by Windows (e.g. with its parent): ~VirtHost must not destroy a recycled HWND
     if (msg == WM_NCDESTROY) {
         host->native = nullptr;
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
         return DefWindowProcW(hwnd, msg, wp, lp);
     }
+    if (host->disposeRequested) return 0;
 
     // the host previously relied on whatever dpi the last window left behind
     DpiScope dpiScope(hwnd);
@@ -113,7 +130,7 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             // WM_PAINT draws the whole client area into a back buffer
             return 1;
         case WM_PAINT:
-            PaintHost(host, hwnd);
+            PaintHost(host, hwnd, dispatch);
             return 0;
         case WM_TIMER:
             if (host->onTimer.IsValid()) {
@@ -131,6 +148,7 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             Point pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
             UnmirrorRtl(hwnd, pt);
             host->onMouseMove.Call(pt);
+            if (!dispatch.host || host->disposeRequested) return 0;
             break;
         }
         case WM_MOUSELEAVE:
@@ -140,6 +158,7 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 break;
             }
             host->onMouseLeave.Call();
+            if (!dispatch.host || host->disposeRequested) return 0;
             break;
     }
 
@@ -150,6 +169,7 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         ev.wp = wp;
         ev.lp = lp;
         host->onNativeMsg.Call(&ev);
+        if (!dispatch.host || host->disposeRequested || !host->native) return ev.res;
         if (ev.didHandle) {
             return ev.res;
         }
@@ -200,7 +220,20 @@ VirtHost* VirtHost::Create(const CreateArgs& args) {
     return host;
 }
 
+void VirtHost::Dispose() {
+    if (disposeRequested) return;
+    disposeRequested = true;
+    onPaintBackground = {};
+    onPaint = {};
+    onMouseMove = {};
+    onMouseLeave = {};
+    onTimer = {};
+    onNativeMsg = {};
+    if (!dispatchDepth) delete this;
+}
+
 VirtHost::~VirtHost() {
+    for (HostDispatch* guard = dispatch; guard; guard = guard->previous) guard->host = nullptr;
     HWND hwnd = native;
     // the window procedure runs while DestroyWindow() unwinds; make it fall
     // through to DefWindowProc instead of using a half-destroyed host

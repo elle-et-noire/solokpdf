@@ -7,6 +7,7 @@
 #include "gui/UIModels.h"
 
 #include "gui/Layout.h"
+#include "gui/PlatformFont.h"
 #include "gui/win/WinGui.h"
 
 //--- TreeView
@@ -258,6 +259,13 @@ bool TreeView::IsExpanded(TreeItem ti) {
     return item && bit::IsMaskSet(item->state, TVIS_EXPANDED);
 }
 
+TreeItemExpansion TreeView::GetLoadedExpansion(TreeItem ti) {
+    if (!treeModel->GetUserData(ti)) {
+        return TreeItemExpansion::Unavailable;
+    }
+    return IsExpanded(ti) ? TreeItemExpansion::Expanded : TreeItemExpansion::Collapsed;
+}
+
 // https://docs.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-treeview_getitemrect
 bool TreeView::GetItemRect(TreeItem ti, bool justText, Rect& r) {
     HTREEITEM hi = GetHandleByTreeItem(ti);
@@ -291,6 +299,95 @@ bool TreeView::SelectItem(TreeItem ti) {
     return ok == TRUE;
 }
 
+bool TreeView::EnsureVisible(TreeItem ti) {
+    HTREEITEM hi = GetHandleByTreeItem(ti);
+    if (!hi) {
+        return false;
+    }
+    TreeView_EnsureVisible(hwnd, hi);
+    return true;
+}
+
+void TreeView::ExpandItem(TreeItem ti) {
+    HTREEITEM hi = GetHandleByTreeItem(ti);
+    if (hi) {
+        TreeView_Expand(hwnd, hi, TVE_EXPAND);
+    }
+}
+
+TreeItem TreeView::FirstItem() {
+    return GetTreeItemByHandle(TreeView_GetRoot(hwnd));
+}
+
+TreeItem TreeView::FirstVisible() {
+    return GetTreeItemByHandle(TreeView_GetFirstVisible(hwnd));
+}
+
+TreeItem TreeView::NextVisible(TreeItem ti) {
+    HTREEITEM item = GetHandleByTreeItem(ti);
+    return item ? GetTreeItemByHandle(TreeView_GetNextVisible(hwnd, item)) : TreeModel::kNullItem;
+}
+
+int TreeView::ItemHeight() {
+    return TreeView_GetItemHeight(hwnd);
+}
+
+static void ExpandToDepth(HWND hwnd, HTREEITEM item, int depth, int maxDepth) {
+    while (item) {
+        if (depth < maxDepth) {
+            TreeView_Expand(hwnd, item, TVE_EXPAND);
+            HTREEITEM child = TreeView_GetChild(hwnd, item);
+            if (child) {
+                ExpandToDepth(hwnd, child, depth + 1, maxDepth);
+            }
+        }
+        item = TreeView_GetNextSibling(hwnd, item);
+    }
+}
+
+void TreeView::ExpandToLevel(int level) {
+    if (!hwnd || level < 1) {
+        return;
+    }
+    SuspendRedraw();
+    HTREEITEM root = TreeView_GetRoot(hwnd);
+    TreeViewExpandRecursively(hwnd, root, TVE_COLLAPSE, false);
+    if (level > 1) {
+        ExpandToDepth(hwnd, root, 1, level);
+    }
+    ResumeRedraw();
+}
+
+void TreeView::CollapseSiblings(TreeItem ti) {
+    HTREEITEM item = ti ? GetHandleByTreeItem(ti) : nullptr;
+    if (!item) {
+        item = TreeView_GetSelection(hwnd);
+    }
+    HTREEITEM parent = item ? TreeView_GetParent(hwnd, item) : nullptr;
+    HTREEITEM first = parent ? TreeView_GetChild(hwnd, parent) : TreeView_GetRoot(hwnd);
+    if (!first) {
+        return;
+    }
+    SuspendRedraw();
+    for (HTREEITEM sibling = first; sibling; sibling = TreeView_GetNextSibling(hwnd, sibling)) {
+        if (TreeView_GetChild(hwnd, sibling)) {
+            TreeView_Expand(hwnd, sibling, TVE_COLLAPSE);
+        }
+    }
+    ResumeRedraw();
+}
+
+void TreeView::ExpandSubtree(TreeItem ti, TreeExpansion expansion) {
+    HTREEITEM item = GetHandleByTreeItem(ti);
+    if (!item) {
+        return;
+    }
+    SuspendRedraw();
+    uint flag = expansion == TreeExpansion::Expand ? TVE_EXPAND : TVE_COLLAPSE;
+    TreeViewExpandRecursively(hwnd, item, flag, true);
+    ResumeRedraw();
+}
+
 void TreeView::SetColors(Color textCol, Color bgCol) {
     ControlBase::SetColors(textCol, bgCol);
     if (!IsSpecialColor(textCol)) {
@@ -304,6 +401,22 @@ void TreeView::SetColors(Color textCol, Color bgCol) {
         TreeView_SetBkColor(hwnd, CLR_DEFAULT);
     }
 }
+
+void TreeView::SetDirection(TreeDirection direction) {
+    HwndSetRtl(hwnd, direction == TreeDirection::RightToLeft);
+}
+
+void TreeView::SetTreeFont(PlatformFont* treeFont, int dpi) {
+    HwndSetTreeFontForDpi(hwnd, treeFont ? treeFont->GetHFont() : nullptr, dpi);
+}
+
+void TreeView::SetAccessibleName(Str) {}
+
+HWND TreeView::FocusHwnd() {
+    return hwnd;
+}
+
+void TreeView::UpdateScrollbars() {}
 
 void TreeView::ExpandAll() {
     SuspendRedraw();
@@ -631,9 +744,12 @@ void TreeView::OnNotifyReflect(ControlBase::NotifyReflectEvent* rev) {
         }
         TreeView::GetTooltipEvent ev;
         ev.treeView = w;
-        ev.info = (NMTVGETINFOTIPW*)nmtv;
-        ev.treeItem = GetTreeItemByHandle(ev.info->hItem);
+        auto* info = (NMTVGETINFOTIPW*)nmtv;
+        ev.treeItem = GetTreeItemByHandle(info->hItem);
         onGetTooltip.Call(&ev);
+        if (ev.text.s) {
+            str::BufSet(info->pszText, info->cchTextMax, ev.text);
+        }
         rev->result = 0;
         return;
     }
@@ -689,8 +805,7 @@ void TreeView::OnNotifyReflect(ControlBase::NotifyReflectEvent* rev) {
         }
         TreeView::SelectionChangedEvent ev;
         ev.treeView = w;
-        ev.nmtv = nmtv;
-        auto action = ev.nmtv->action;
+        auto action = nmtv->action;
         if (action == TVC_BYKEYBOARD) {
             ev.byKeyboard = true;
         } else if (action == TVC_BYMOUSE) {
@@ -743,7 +858,6 @@ void TreeView::OnNotifyReflect(ControlBase::NotifyReflectEvent* rev) {
         NMTVKEYDOWN* nmkd = (NMTVKEYDOWN*)nmtv;
         TreeView::KeyDownEvent ev{};
         ev.treeView = w;
-        ev.nmkd = nmkd;
         ev.keyCode = nmkd->wVKey;
         ev.flags = nmkd->flags;
         onKeyDown.Call(&ev);

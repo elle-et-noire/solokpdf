@@ -3,11 +3,10 @@
 import { writeFileSync } from "node:fs";
 import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
 import { killAndWait, launchControlled, pressKey } from "./win-automation.ts";
+import { findSidebarTree, sidebarItemHeight, sidebarRows, type SidebarTree } from "./sidebar-tree.ts";
 import {
   clientToScreen,
-  countVisibleTreeRows,
   enumWindows,
-  findChildWindow,
   getClassName,
   getWindowPid,
   packCoords,
@@ -19,7 +18,6 @@ import {
   sendMessage,
   sleep,
   treeExpand,
-  treeGetItemHeight,
   treeGetNextItem,
   treeExpandRecursively,
   treeGetRoot,
@@ -30,6 +28,8 @@ import {
   TVM_SELECTITEM,
   VK_ESCAPE,
   VK_RETURN,
+  VK_RIGHT,
+  WM_KEYDOWN,
 } from "./winapi.ts";
 
 const WM_CONTEXTMENU = 0x007b;
@@ -85,14 +85,19 @@ enum MenuOpen {
 
 // open the bookmarks context menu on the top row and pick `cmd`. The keyboard
 // form (-1, -1) used to also pop the document menu after it.
-async function runTocMenuCmd(pid: number, tree: number, cmd: string, how: MenuOpen): Promise<void> {
+async function runTocMenuCmd(pid: number, tree: SidebarTree, cmd: string, how: MenuOpen): Promise<void> {
+  const hwnd = tree.hwnd;
   if (how === MenuOpen.Keyboard) {
-    sendMessage(tree, TVM_SELECTITEM, TVGN_CARET, treeGetRoot(tree));
-    postMessage(tree, WM_CONTEXTMENU, tree, -1);
+    if (tree.virtual) {
+      sendMessage(hwnd, 0x8000 + 102, 14, 0);
+    } else {
+      sendMessage(hwnd, TVM_SELECTITEM, TVGN_CARET, treeGetRoot(hwnd));
+    }
+    postMessage(hwnd, WM_CONTEXTMENU, hwnd, -1);
   } else {
-    const h = treeGetItemHeight(tree);
-    const pt = clientToScreen(tree, 2 * h, h >> 1);
-    postMessage(tree, WM_CONTEXTMENU, tree, packCoords(pt.x, pt.y));
+    const h = sidebarItemHeight(tree);
+    const pt = clientToScreen(hwnd, 2 * h, h >> 1);
+    postMessage(hwnd, WM_CONTEXTMENU, hwnd, packCoords(pt.x, pt.y));
   }
   const popup = await waitForVisibleMenu(pid);
   if (!popup) {
@@ -119,8 +124,8 @@ async function runTocMenuCmd(pid: number, tree: number, cmd: string, how: MenuOp
   }
 }
 
-function expectRows(tree: number, want: number, what: string): void {
-  const got = countVisibleTreeRows(tree);
+function expectRows(tree: SidebarTree, want: number, what: string): void {
+  const got = sidebarRows(tree);
   if (got !== want) {
     throw new Error(`${what}: ${got} visible bookmarks, want ${want}`);
   }
@@ -136,16 +141,34 @@ export async function testit(): Promise<void> {
 
   const { proc, client, frame } = await launchControlled([pdf]);
   try {
-    const tree = findChildWindow(frame, "SysTreeView32");
+    await client.waitForRenderIdle();
+    let tree = findSidebarTree(frame, true);
+    const deadline = Date.now() + 4000;
+    while (!tree && Date.now() < deadline) {
+      await sleep(40);
+      tree = findSidebarTree(frame, true);
+    }
     if (!tree) {
       throw new Error("no bookmarks tree");
     }
-    const a = treeGetRoot(tree);
-    const b = treeGetNextItem(tree, TVGN_NEXT, a);
-    treeExpandRecursively(tree, TVE_COLLAPSE);
+    const a = tree.virtual ? 0n : treeGetRoot(tree.hwnd);
+    const b = tree.virtual ? 0n : treeGetNextItem(tree.hwnd, TVGN_NEXT, a);
+    if (tree.virtual) {
+      for (const row of [0, 1]) {
+        sendMessage(tree.hwnd, 0x8000 + 102, 14, row);
+        sendMessage(tree.hwnd, WM_KEYDOWN, 0x6f, 0); // VK_DIVIDE
+      }
+    } else {
+      treeExpandRecursively(tree.hwnd, TVE_COLLAPSE);
+    }
     expectRows(tree, 2, "all collapsed");
 
-    treeExpand(tree, TVE_EXPAND, b);
+    if (tree.virtual) {
+      sendMessage(tree.hwnd, 0x8000 + 102, 14, 1);
+      sendMessage(tree.hwnd, WM_KEYDOWN, VK_RIGHT, 0);
+    } else {
+      treeExpand(tree.hwnd, TVE_EXPAND, b);
+    }
     expectRows(tree, 3, "B expanded");
 
     await runTocMenuCmd(proc.pid, tree, "CmdTocExpandChapter", MenuOpen.Mouse);
@@ -155,7 +178,12 @@ export async function testit(): Promise<void> {
     expectRows(tree, 3, "Collapse Chapter on A (B stays expanded)");
 
     // A's children were collapsed too: expanding A one level hides A1a
-    treeExpand(tree, TVE_EXPAND, a);
+    if (tree.virtual) {
+      sendMessage(tree.hwnd, 0x8000 + 102, 14, 0);
+      sendMessage(tree.hwnd, WM_KEYDOWN, VK_RIGHT, 0);
+    } else {
+      treeExpand(tree.hwnd, TVE_EXPAND, a);
+    }
     expectRows(tree, 5, "A expanded one level after Collapse Chapter");
   } finally {
     await client.quit().catch(() => {});

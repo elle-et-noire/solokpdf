@@ -12,7 +12,8 @@ import { ControlClient, ControlCommand } from "./control.ts";
 import { makeBookmarkedPdf } from "./toc-tree-sent-click.ts";
 import { pollUntil, runStandalone, tmpPath, USE_NG } from "./util.ts";
 import { killAndWait, launchControlled, ngKey } from "./win-automation.ts";
-import { findVisibleChildWindow, postMessage, WM_KEYDOWN } from "./winapi.ts";
+import { postMessage, WM_KEYDOWN } from "./winapi.ts";
+import { findSidebarTree } from "./sidebar-tree.ts";
 
 const VK_PRIOR = 0x21;
 const VK_NEXT = 0x22;
@@ -47,7 +48,7 @@ export async function testit(): Promise<void> {
         throw new Error(`issue-1841: bookmarks tree not focused (${String(focused[1] ?? "")})`);
       }
     } else {
-      tree = findVisibleChildWindow(frame, "SysTreeView32");
+      tree = findSidebarTree(frame, true)?.hwnd ?? 0;
       if (!tree) {
         throw new Error("issue-1841: bookmarks tree not found");
       }

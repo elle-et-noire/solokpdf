@@ -703,6 +703,91 @@ static void SetTextFormatFlags(IDWriteTextFormat* format, IDWriteInlineObject* e
     }
 }
 
+static IDWriteTextLayout* CreateBoldLayout(PlatformFont* font, Str text, int start, int count, u32 flags, float dx,
+                                           float dy) {
+    if (!Direct2DAvailable() || !font || start < 0 || count <= 0 || start > len(text) || count > len(text) - start) {
+        return nullptr;
+    }
+    IDWriteInlineObject* ellipsis = nullptr;
+    IDWriteTextFormat* format = GetTextFormat(font, &ellipsis);
+    if (!format) return nullptr;
+    SetTextFormatFlags(format, ellipsis, flags);
+    TempWStr before = ToWStrTemp(Str(text.s, start));
+    TempWStr bold = ToWStrTemp(Str(text.s + start, count));
+    TempWStr whole = ToWStrTemp(text);
+    IDWriteTextLayout* layout = nullptr;
+    HRESULT hr = gDWriteFactory->CreateTextLayout(whole.s, (UINT32)len(whole), format, dx, dy, &layout);
+    if (FAILED(hr) || !layout) return nullptr;
+    DWRITE_TEXT_RANGE range{(UINT32)len(before), (UINT32)len(bold)};
+    if (FAILED(layout->SetFontWeight(DWRITE_FONT_WEIGHT_BOLD, range))) {
+        layout->Release();
+        return nullptr;
+    }
+    return layout;
+}
+
+Size D2DMeasureBoldText(PlatformFont* font, Str text, int start, int count) {
+    IDWriteTextLayout* layout = CreateBoldLayout(font, text, start, count, gfxTextSingleLine, 1e6f, 1e6f);
+    if (!layout) return {};
+    DWRITE_TEXT_METRICS metrics{};
+    HRESULT hr = layout->GetMetrics(&metrics);
+    layout->Release();
+    if (FAILED(hr)) return {};
+    return {(int)ceilf(metrics.widthIncludingTrailingWhitespace), (int)ceilf(metrics.height)};
+}
+
+bool D2DDrawBoldText(Gfx* gfx, Str text, Rect rect, Rect clip, u32 flags, PlatformFont* font, int start, int count,
+                     Color color, Color bg) {
+    IDWriteTextLayout* layout = CreateBoldLayout(font, text, start, count, flags, (float)rect.dx, (float)rect.dy);
+    if (!layout) return false;
+    DWRITE_OVERHANG_METRICS overhang{};
+    layout->GetOverhangMetrics(&overhang);
+    int extraLeft = (int)ceilf(std::clamp(overhang.left, 0.0f, (float)clip.dx));
+    int extraRight = (int)ceilf(std::clamp(overhang.right, 0.0f, (float)clip.dx));
+    i64 left = std::max((i64)rect.x - extraLeft, (i64)clip.x);
+    i64 top = std::max((i64)rect.y, (i64)clip.y);
+    i64 right = std::min((i64)rect.x + rect.dx + extraRight, (i64)clip.x + clip.dx);
+    i64 bottom = std::min((i64)rect.y + rect.dy, (i64)clip.y + clip.dy);
+    if (right <= left || bottom <= top) {
+        layout->Release();
+        return true;
+    }
+    Rect visible{(int)left, (int)top, (int)(right - left), (int)(bottom - top)};
+    Pixmap* pixmap = AllocPixmapDIB(visible.dx, visible.dy);
+    HDC dc = pixmap ? CreateCompatibleDC(nullptr) : nullptr;
+    HGDIOBJ old = dc ? SelectObject(dc, pixmap->hbmp) : nullptr;
+    bool ownsTarget = true;
+    ID2D1DCRenderTarget* target = old ? D2DAcquireDcTarget(visible.dx, visible.dy, &ownsTarget) : nullptr;
+    RECT bounds{0, 0, visible.dx, visible.dy};
+    bool ok = target && SUCCEEDED(target->BindDC(dc, &bounds));
+    ID2D1SolidColorBrush* brush = nullptr;
+    if (ok) ok = SUCCEEDED(target->CreateSolidColorBrush(ToD2DColor(color), &brush));
+    if (ok) {
+        target->BeginDraw();
+        target->Clear(ToD2DColor(bg));
+        target->DrawTextLayout(D2D1::Point2F((float)((i64)rect.x - visible.x), (float)((i64)rect.y - visible.y)),
+                               layout, brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
+        ok = SUCCEEDED(target->EndDraw());
+    }
+    if (brush) brush->Release();
+    if (target) {
+        D2DNoteBind(target, nullptr, visible.dx, visible.dy);
+        D2DReleaseDcTarget(target, ownsTarget, !ok);
+    }
+    if (old) SelectObject(dc, old);
+    if (dc) DeleteDC(dc);
+    layout->Release();
+    if (ok) {
+        for (int y = 0; y < pixmap->height; y++) {
+            u8* pixel = pixmap->data + (size_t)y * pixmap->stride;
+            for (int x = 0; x < pixmap->width; x++, pixel += 4) pixel[3] = 255;
+        }
+        gfx->DrawPixmap(pixmap, visible);
+    }
+    FreePixmap(pixmap);
+    return ok;
+}
+
 void GfxDirect2D::DrawText(Str s, const Rect& r, u32 flags, PlatformFont* font, Color col) {
     if (!target || r.IsEmpty() || len(s) == 0) {
         return;

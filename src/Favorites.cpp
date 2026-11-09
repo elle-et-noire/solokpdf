@@ -34,6 +34,8 @@
 #include "FilterHighlightDraw.h"
 #include "PagePosition.h"
 #include "SidebarPanel.h"
+#include "SidebarTree.h"
+#include "SumatraConfig.h"
 #include "Favorites.h"
 #include "MenuDefs.h"
 
@@ -194,15 +196,11 @@ static void SelectFirstFavTreeItem(MainWindow* win) {
     TreeItem first = tm->ChildAt(root, 0);
     TreeItem sel = first;
     if (tm->ChildCount(first) > 0) {
-        // ensure the first child is visible
-        HTREEITEM hFirst = tv->GetHandleByTreeItem(first);
-        if (hFirst) {
-            TreeView_Expand(tv->hwnd, hFirst, TVE_EXPAND);
-        }
+        tv->ExpandItem(first);
         sel = tm->ChildAt(first, 0);
     }
     tv->SelectItem(sel);
-    TreeView_EnsureVisible(tv->hwnd, tv->GetHandleByTreeItem(sel));
+    tv->EnsureVisible(sel);
 }
 
 static void ApplyFavFilter(MainWindow* win) {
@@ -393,6 +391,35 @@ static bool HasFavFilter(MainWindow* win) {
     return len(words) > 0;
 }
 
+static void OnFavItemFont(TreeView::ItemFontEvent* ev) {
+    auto* item = (FavTreeItem*)ev->treeItem;
+    if (!item || item->fileNameOffset < 0 || item->fileNameLen <= 0) return;
+    PlatformFont* bold = GetAppTreeFontExForDpi(ev->dpi, true, false);
+    if (item->fileNameOffset == 0 && item->fileNameLen == len(item->text)) {
+        ev->font = bold;
+    } else {
+        ev->boldStart = item->fileNameOffset;
+        ev->boldLength = item->fileNameLen;
+        ev->boldFont = bold;
+    }
+}
+
+static void OnFavItemStyle(TreeView::ItemStyleEvent* ev) {
+    TreeView* tree = ev->treeView;
+    if (ev->selected && ev->focused && ThemeUsesHighContrastColors()) {
+        ev->bgColor = GetSysColor(COLOR_HIGHLIGHT);
+        ev->textColor = GetSysColor(COLOR_HIGHLIGHTTEXT);
+        ev->focusOutline = true;
+    } else if (ev->selected) {
+        Color bg = IsSpecialColor(tree->bgColor) ? ThemeCanvasColor() : tree->bgColor;
+        Color text = IsSpecialColor(tree->textColor) ? ThemeWindowTextColor() : tree->textColor;
+        ev->bgColor = ThemeSelectionBg(bg);
+        ev->textColor = ThemeSelectionText(ev->bgColor, text);
+    } else if (ev->hot && !ThemeUsesHighContrastColors()) {
+        ev->bgColor = ThemeHoverColorOn(tree->bgColor);
+    }
+}
+
 // Repaint favorite labels that contain a source file name so only that span is
 // bold. The same pass preserves multi-word search highlights when filtering.
 static void DrawFavItemText(TreeView::CustomDrawEvent* ev, MainWindow* win) {
@@ -426,9 +453,7 @@ static void DrawFavItemText(TreeView::CustomDrawEvent* ev, MainWindow* win) {
     // POSTPAINT often omits CDIS_SELECTED; also check the control selection.
     bool isSelected = (cd->uItemState & CDIS_SELECTED) != 0;
     if (!isSelected) {
-        HTREEITEM hSel = TreeView_GetSelection(tv->hwnd);
-        HTREEITEM hItem = tv->GetHandleByTreeItem(ev->treeItem);
-        isSelected = hSel && hItem && hSel == hItem;
+        isSelected = tv->GetSelection() == ev->treeItem;
     }
     bool hasFocus = GetFocus() == tv->hwnd && ThemeUsesHighContrastColors();
     Color bgCol, txtCol;
@@ -466,9 +491,7 @@ static void OnFavCustomDraw(TreeView::CustomDrawEvent* ev) {
         TreeView* tv = ev->treeView;
         bool isSelected = (cd->uItemState & CDIS_SELECTED) != 0;
         if (!isSelected) {
-            HTREEITEM hSel = TreeView_GetSelection(tv->hwnd);
-            HTREEITEM hItem = tv->GetHandleByTreeItem(ev->treeItem);
-            isSelected = hSel && hItem && hSel == hItem;
+            isSelected = tv->GetSelection() == ev->treeItem;
         }
         bool underMouse = (cd->uItemState & CDIS_HOT) && !ThemeUsesHighContrastColors();
         if (underMouse) {
@@ -563,9 +586,7 @@ static void FavTreeKeyDown(TreeView::KeyDownEvent* ev) {
     // Up on the first top-level node: return focus to the search box
     if (ev->keyCode == VK_UP && win && win->favFilterEdit) {
         TreeItem sel = ev->treeView->GetSelection();
-        HTREEITEM hSel = sel ? ev->treeView->GetHandleByTreeItem(sel) : nullptr;
-        HTREEITEM hFirst = TreeView_GetRoot(ev->treeView->hwnd);
-        if (hSel && hFirst && hSel == hFirst) {
+        if (sel && sel == ev->treeView->FirstItem()) {
             FocusFavFilterEdit(win);
             ev->result = 1;
             return;
@@ -638,7 +659,14 @@ void CreateFavorites(MainWindow* win) {
     filterEdit->onTextChanged = MkFunc0(OnFavFilterTextChanged, win);
     SetWindowSubclass(filterEdit->hwnd, WndProcFavFilterEdit, NextSubclassId(), (DWORD_PTR)win);
 
-    auto* treeView = new TreeView();
+    TreeView* treeView = nullptr;
+#if IS_DEBUG
+    if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_VIRTUAL_FAVORITES", nullptr, 0)) {
+        treeView = CreateVirtualSidebarTree(SidebarTreeKind::Favorites, Tr("Favorites"));
+    }
+#endif
+    bool virtualTree = treeView != nullptr;
+    if (!treeView) treeView = new TreeView();
     TreeView::CreateArgs args;
     args.parent = parent;
     args.font = GetAppTreeFont();
@@ -652,6 +680,8 @@ void CreateFavorites(MainWindow* win) {
     treeView->onKeyDown = MkFunc1Void(FavTreeKeyDown);
     treeView->onClick = MkFunc1Void(FavTreeItemClicked);
     treeView->onCustomDraw = MkFunc1Void(OnFavCustomDraw);
+    treeView->onGetItemFont = MkFunc1Void(OnFavItemFont);
+    treeView->onGetItemStyle = MkFunc1Void(OnFavItemStyle);
 
     treeView->Create(args);
     ReportIf(!treeView->hwnd);
@@ -663,7 +693,7 @@ void CreateFavorites(MainWindow* win) {
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
     vbox->AddChild(PadSidebarItem(filterEdit, parent));
-    vbox->AddChild(PadSidebarItem(treeView, parent), 1);
+    vbox->AddChild(virtualTree ? PadSidebarTree(treeView, parent) : PadSidebarItem(treeView, parent), 1);
     win->favViewLayout = vbox;
 
     UpdateControlsColors(win);

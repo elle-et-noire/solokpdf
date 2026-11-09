@@ -59,12 +59,14 @@ static bool CornerHasGrip(OverlayScrollbar* sb) {
     }
     RECT rc;
     GetClientRect(root, &rc);
-    POINT br{rc.right, rc.bottom};
-    ClientToScreen(root, &br);
+    bool rtl = sb->layout == OverlayScrollbar::Layout::RightToLeft;
+    POINT corner{rtl ? rc.left : rc.right, rc.bottom};
+    ClientToScreen(root, &corner);
     // the frame draws a thin border of its own inside its client area
     int slack = DpiScale(2);
     Rect ownerRc = HwndWindowRect(sb->hwndOwner);
-    return br.x - (ownerRc.x + ownerRc.dx) <= slack && br.y - (ownerRc.y + ownerRc.dy) <= slack;
+    int dx = rtl ? ownerRc.x - corner.x : corner.x - (ownerRc.x + ownerRc.dx);
+    return dx <= slack && corner.y - (ownerRc.y + ownerRc.dy) <= slack;
 }
 
 static bool OverCornerGrip(OverlayScrollbar* sb, Point pt) {
@@ -91,6 +93,9 @@ static Rect GetThumbRect(OverlayScrollbar* sb) {
         thumbOffset = MulDiv(pos - sb->nMin, scrollableTrack, scrollableRange);
     }
     thumbOffset = setMinMax(thumbOffset, 0, scrollableTrack);
+    if (!IsVert(sb) && sb->layout == OverlayScrollbar::Layout::RightToLeft) {
+        thumbOffset = scrollableTrack - thumbOffset;
+    }
 
     if (IsVert(sb)) {
         return {track.x, track.y + thumbOffset, track.dx, thumbLen};
@@ -113,7 +118,8 @@ static Rect GetScrollbarScreenRect(OverlayScrollbar* sb) {
     Rect ownerRc = HwndWindowRect(sb->hwndOwner);
     int scrollW = ScaledWidth(sb, true);
     if (IsVert(sb)) {
-        return {ownerRc.x + ownerRc.dx - scrollW, ownerRc.y, scrollW, ownerRc.dy - sb->cornerDy};
+        bool rtl = sb->layout == OverlayScrollbar::Layout::RightToLeft;
+        return {rtl ? ownerRc.x : ownerRc.x + ownerRc.dx - scrollW, ownerRc.y, scrollW, ownerRc.dy - sb->cornerDy};
     }
     return {ownerRc.x, ownerRc.y + ownerRc.dy - scrollW, ownerRc.dx, scrollW};
 }
@@ -386,7 +392,8 @@ static void DrawThemedLook(OverlayScrollbar* sb, HTHEME theme, const ScrollbarTi
             }
         }
         if (CornerHasGrip(sb)) {
-            DrawThemePart(theme, hdc, SBP_SIZEBOX, SZB_RIGHTALIGN, corner);
+            int align = sb->layout == OverlayScrollbar::Layout::RightToLeft ? SZB_LEFTALIGN : SZB_RIGHTALIGN;
+            DrawThemePart(theme, hdc, SBP_SIZEBOX, align, corner);
         }
     }
 
@@ -861,6 +868,7 @@ static void CALLBACK MouseTrackTimerProc(HWND /*hwnd*/, UINT /*msg*/, UINT_PTR /
     gLastMousePos = pt;
 
     HWND hwndForeground = GetForegroundWindow();
+    if (!hwndForeground && HasTestCursorPosition()) hwndForeground = GetActiveWindow();
 
     for (auto* sb : gAllScrollbars) {
         if (!sb->hwnd || !sb->hwndOwner) {
@@ -1018,6 +1026,9 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
                 int scrollableRange = range - (int)sb->nPage;
 
                 int dragDelta = ptInTrack - sb->dragStartY;
+                if (!IsVert(sb) && sb->layout == OverlayScrollbar::Layout::RightToLeft) {
+                    dragDelta = -dragDelta;
+                }
                 int newPos = sb->dragStartPos;
                 if (scrollableTrack > 0 && scrollableRange > 0) {
                     newPos = sb->dragStartPos + MulDiv(dragDelta, scrollableRange, scrollableTrack);
@@ -1048,7 +1059,8 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
             if (OverCornerGrip(sb, Point(mx, my))) {
                 // the size grip resizes the frame, as a native one does
                 HWND root = GetAncestor(sb->hwndOwner, GA_ROOT);
-                PostMessageW(root, WM_SYSCOMMAND, SC_SIZE | WMSZ_BOTTOMRIGHT, 0);
+                int edge = sb->layout == OverlayScrollbar::Layout::RightToLeft ? WMSZ_BOTTOMLEFT : WMSZ_BOTTOMRIGHT;
+                PostMessageW(root, WM_SYSCOMMAND, SC_SIZE | edge, 0);
                 return 0;
             }
             SetCapture(hwnd);
@@ -1097,6 +1109,9 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
                 int clickInTrack = (IsVert(sb) ? my : mx) - (IsVert(sb) ? track.y : track.x);
                 int thumbOffset = clickInTrack - (thumbLen / 2);
                 thumbOffset = setMinMax(thumbOffset, 0, scrollableTrack);
+                if (!IsVert(sb) && sb->layout == OverlayScrollbar::Layout::RightToLeft) {
+                    thumbOffset = scrollableTrack - thumbOffset;
+                }
                 int newPos = sb->nMin;
                 if (scrollableTrack > 0 && scrollableRange > 0) {
                     newPos = sb->nMin + MulDiv(thumbOffset, scrollableRange, scrollableTrack);
@@ -1167,7 +1182,8 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
         case WM_SETCURSOR: {
             Point pt = HwndScreenToClient(hwnd, GetCursorPosition());
             if (OverCornerGrip(sb, pt)) {
-                SetCursor(GetCachedCursor(IDC_SIZENWSE));
+                auto* cursor = sb->layout == OverlayScrollbar::Layout::RightToLeft ? IDC_SIZENESW : IDC_SIZENWSE;
+                SetCursor(GetCachedCursor(cursor));
                 return TRUE;
             }
             break;
@@ -1360,13 +1376,14 @@ void OverlayScrollbarUpdatePos(OverlayScrollbar* sb) {
         siblingInset = (!IsVert(sb) && both) ? scrollW : 0;
     }
 
+    bool rtl = sb->layout == OverlayScrollbar::Layout::RightToLeft;
     if (IsVert(sb)) {
-        x = ownerRc.x + ownerRc.dx - scrollW;
+        x = rtl ? ownerRc.x : ownerRc.x + ownerRc.dx - scrollW;
         y = ownerRc.y;
         w = scrollW;
         h = ownerRc.dy - siblingInset;
     } else {
-        x = ownerRc.x;
+        x = ownerRc.x + (rtl ? siblingInset : 0);
         y = ownerRc.y + ownerRc.dy - scrollW;
         w = ownerRc.dx - siblingInset;
         h = scrollW;

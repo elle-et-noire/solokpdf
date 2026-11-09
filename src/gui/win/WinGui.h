@@ -987,6 +987,22 @@ struct Trackbar : ControlBase {
 
 struct TreeView;
 
+enum class TreeExpansion {
+    Collapse,
+    Expand
+};
+
+enum class TreeItemExpansion {
+    Unavailable,
+    Collapsed,
+    Expanded
+};
+
+enum class TreeDirection {
+    LeftToRight,
+    RightToLeft
+};
+
 struct TreeView : ControlBase {
     struct CreateArgs {
         HWND parent = nullptr;
@@ -999,14 +1015,13 @@ struct TreeView : ControlBase {
     struct GetTooltipEvent {
         TreeView* treeView = nullptr;
         TreeItem treeItem = 0;
-        NMTVGETINFOTIPW* info = nullptr;
+        Str text;
     };
 
     struct SelectionChangedEvent {
         TreeView* treeView = nullptr;
         TreeItem prevSelectedItem = 0;
         TreeItem selectedItem = 0;
-        NMTREEVIEW* nmtv = nullptr;
         bool byKeyboard = false;
         bool byMouse = false;
     };
@@ -1017,6 +1032,27 @@ struct TreeView : ControlBase {
         NMTVCUSTOMDRAW* nm = nullptr;
 
         LRESULT result = 0;
+    };
+
+    struct ItemFontEvent {
+        TreeView* treeView = nullptr;
+        TreeItem treeItem = 0;
+        PlatformFont* font = nullptr;
+        int dpi = 0;
+        int boldStart = -1;
+        int boldLength = 0;
+        PlatformFont* boldFont = nullptr;
+    };
+
+    struct ItemStyleEvent {
+        TreeView* treeView = nullptr;
+        TreeItem treeItem = 0;
+        Color textColor = kColorUnset;
+        Color bgColor = kColorUnset;
+        bool selected = false;
+        bool focused = false;
+        bool hot = false;
+        bool focusOutline = false;
     };
 
     struct ClickEvent {
@@ -1034,7 +1070,6 @@ struct TreeView : ControlBase {
 
     struct KeyDownEvent {
         TreeView* treeView = nullptr;
-        NMTVKEYDOWN* nmkd = nullptr;
         int keyCode = 0;
         u32 flags = 0;
 
@@ -1060,9 +1095,14 @@ struct TreeView : ControlBase {
     TreeView();
     ~TreeView() override;
 
-    HWND Create(const CreateArgs&);
+    virtual HWND Create(const CreateArgs&);
 
-    void SetColors(Color col, Color bgCol);
+    virtual void SetColors(Color col, Color bgCol);
+    virtual void SetDirection(TreeDirection);
+    virtual void SetTreeFont(PlatformFont*, int dpi);
+    virtual void SetAccessibleName(Str);
+    virtual HWND FocusHwnd();
+    virtual void UpdateScrollbars();
 
     void WndProc(ControlBase::WndProcEvent* ev);
     void OnNotifyReflect(ControlBase::NotifyReflectEvent* ev);
@@ -1072,22 +1112,32 @@ struct TreeView : ControlBase {
     void SetToolTipsDelayTime(int type, int timeInMs);
     HWND GetToolTipsHwnd();
 
-    bool IsExpanded(TreeItem ti);
-    bool GetItemRect(TreeItem ti, bool justText, Rect& r);
-    TreeItem GetSelection();
-    bool SelectItem(TreeItem ti);
-    void ExpandAll();
-    void Clear();
+    virtual bool IsExpanded(TreeItem ti);
+    virtual TreeItemExpansion GetLoadedExpansion(TreeItem ti);
+    virtual bool GetItemRect(TreeItem ti, bool justText, Rect& r);
+    virtual TreeItem GetSelection();
+    virtual bool SelectItem(TreeItem ti);
+    virtual bool EnsureVisible(TreeItem ti);
+    virtual void ExpandItem(TreeItem ti);
+    virtual void ExpandToLevel(int level);
+    virtual void CollapseSiblings(TreeItem ti);
+    virtual void ExpandSubtree(TreeItem ti, TreeExpansion expansion);
+    virtual TreeItem FirstItem();
+    virtual TreeItem FirstVisible();
+    virtual TreeItem NextVisible(TreeItem ti);
+    virtual int ItemHeight();
+    virtual void ExpandAll();
+    virtual void Clear();
 
     HTREEITEM GetHandleByTreeItem(TreeItem item);
     void EnsureChildrenPopulated(TreeItem item, HTREEITEM h);
-    TreeItem GetItemAt(int x, int y);
+    virtual TreeItem GetItemAt(int x, int y);
     TreeItem GetTreeItemByHandle(HTREEITEM item);
-    void SetTreeModel(TreeModel* tm);
+    virtual void SetTreeModel(TreeModel* tm);
     void SetState(TreeItem item, bool enable);
     bool GetState(TreeItem item);
-    void SetWrapText(bool wrap);
-    void RemeasureItems();
+    virtual void SetWrapText(bool wrap);
+    virtual void RemeasureItems();
     int ItemLines(TreeItem ti, int depth);
 
     bool fullRowSelect = false;
@@ -1103,6 +1153,8 @@ struct TreeView : ControlBase {
 
     // for WM_NOTIFY wiht NM_CUSTOMDRAW
     CustomDrawHandler onCustomDraw;
+    Func1<ItemFontEvent*> onGetItemFont;
+    Func1<ItemStyleEvent*> onGetItemStyle;
 
     // for WM_NOTIFY with TVN_SELCHANGED
     SelectionChangedHandler onSelectionChanged;

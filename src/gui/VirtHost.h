@@ -20,6 +20,7 @@ struct Gfx;
 struct PlatformFont;
 struct VirtHost;
 struct GfxDoubleBuffer;
+struct HostDispatch;
 
 // the platform's window handle; only the platform-specific files touch it
 using NativeWnd = HWND;
@@ -72,6 +73,9 @@ struct VirtHost {
     bool noActivate = false;
     bool isPopup = false;
     void* userData = nullptr;
+    int dispatchDepth = 0;
+    bool disposeRequested = false;
+    HostDispatch* dispatch = nullptr;
 
     // fills the background; the host fills it with bgColor when this is not set
     Func1<VirtHostPaintEvent*> onPaintBackground;
@@ -90,6 +94,7 @@ struct VirtHost {
     ~VirtHost();
 
     static VirtHost* Create(const CreateArgs&);
+    void Dispose();
 
     // takes ownership of the tree and lays it out to the host's client area
     void SetLayout(ILayout*);

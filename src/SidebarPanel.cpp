@@ -330,9 +330,9 @@ HWND SidebarPanelFocusHwnd(SidebarPanel* p) {
     MainWindow* win = p->win;
     switch (p->view) {
         case SidebarView::Bookmarks:
-            return win->tocTreeView->hwnd;
+            return win->tocTreeView->FocusHwnd();
         case SidebarView::Favorites:
-            return win->favTreeView->hwnd;
+            return win->favTreeView->FocusHwnd();
         default:
             return p->hwnd;
     }
@@ -489,13 +489,19 @@ static LRESULT CALLBACK WndProcSidebarPanel(HWND hwnd, UINT msg, WPARAM wp, LPAR
 // room around a view's search field and tree (DIP): the field reads as a
 // field, not a band across the sidebar, and rows don't touch its edges
 constexpr int kItemPadX = 6;
-constexpr int kItemPadY = 4;
 
 ILayout* PadSidebarItem(ILayout* item, HWND parent) {
     int dpi = DpiGetForHwnd(parent);
     int dx = DpiScaleByDpi(dpi, kItemPadX);
-    int dy = DpiScaleByDpi(dpi, kItemPadY);
+    int dy = DpiScaleByDpi(dpi, kSidebarPadY);
     return new Padding(item, Insets{dy, dx, dy, dx});
+}
+
+ILayout* PadSidebarTree(ILayout* item, HWND parent) {
+    int dpi = DpiGetForHwnd(parent);
+    int dx = DpiScaleByDpi(dpi, kItemPadX);
+    int dy = DpiScaleByDpi(dpi, kSidebarPadY);
+    return new Padding(item, Insets{dy, dx, 0, dx});
 }
 
 // room between a search field's border and its text (DIP), as in the home

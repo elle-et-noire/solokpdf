@@ -2830,6 +2830,12 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 keys[VK_CONTROL] = str::Eq(action, StrL("ctrl-down")) ? 0x80 : 0;
                 SetKeyboardState(keys);
             }
+            if (str::Eq(action, StrL("shift-down")) || str::Eq(action, StrL("shift-up"))) {
+                BYTE keys[256];
+                GetKeyboardState(keys);
+                keys[VK_SHIFT] = str::Eq(action, StrL("shift-down")) ? 0x80 : 0;
+                SetKeyboardState(keys);
+            }
             if (win && win->pageEdit && str::Eq(action, StrL("page-edit"))) SetFocus(win->pageEdit->hwnd);
             if (win && str::Eq(action, StrL("activate"))) {
                 gTestActivating = true;

@@ -12,19 +12,40 @@
 // visible than when fully collapsed -- and an item must be selected. Reverting
 // the fix leaves the tree collapsed with no expansion, so the test fails.
 //
-// Drives the app from Bun via FFI (tests/winapi.ts). Needs a PDF with a
-// multi-level outline; uses one from the local bugs folder and skips cleanly if
-// it isn't present (so tests/run-almost-all.ts keeps going).
+// Drives the app from Bun via FFI (tests/winapi.ts).
 
-import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control";
-import { cmdId, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
+import { assemblePdf, cmdId, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
 import { launchControlled, sendCommandSync, killAndWait } from "./win-automation";
-import { collapseTreeRoots, countVisibleTreeRows, findChildWindow, sleep, treeGetSelection } from "./winapi";
+import { findSidebarTree, sidebarRows, sidebarRowText, sidebarSelection } from "./sidebar-tree";
+import {
+  collapseTreeRoots,
+  countVisibleTreeRows,
+  findChildWindow,
+  sleep,
+  sendMessage,
+  treeGetNextItem,
+  treeGetRoot,
+  treeGetSelection,
+  TVGN_CHILD,
+  VK_LEFT,
+  WM_KEYDOWN,
+} from "./winapi";
 
-// a PDF with a nested (multi-level) table of contents
-const TOC_PDF = "C:\\Users\\kjk\\OneDrive\\!sumatra\\bugs\\bug-1352-merged_manuals-1.4.2.pdf";
+function makePdf(): string {
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R /Outlines 5 0 R >>",
+    "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+    "<< /Type /Outlines /First 6 0 R /Last 6 0 R /Count 3 >>",
+    "<< /Title (Chapter) /Parent 5 0 R /First 7 0 R /Last 7 0 R /Count 2 /Dest [3 0 R /Fit] >>",
+    "<< /Title (Section) /Parent 6 0 R /First 8 0 R /Last 8 0 R /Count 1 /Dest [3 0 R /Fit] >>",
+    "<< /Title (Last page) /Parent 7 0 R /Dest [4 0 R /Fit] >>",
+  ]);
+}
 
 // command ids, looked up by name from src/Commands.h (the numeric values shift
 // whenever commands are added/removed, so never hardcode them)
@@ -55,31 +76,21 @@ async function ngToc(client: Awaited<ReturnType<typeof launchControlled>>["clien
 
 function checkExpanded(collapsed: number, after: number, hasSelection: boolean) {
   console.log(`  collapsed rows=${collapsed}, after-expand rows=${after}, hasSelection=${hasSelection}`);
-  if (collapsed <= 0) {
-    throw new Error(`baseline collapsed tree has no rows (${collapsed}) -- test setup wrong`);
+  if (collapsed !== 1) {
+    throw new Error(`baseline collapsed tree has ${collapsed} rows, expected 1`);
   }
   if (!hasSelection) {
     throw new Error(`CmdExpandToCurrentPage did not select a TOC entry`);
   }
-  if (after <= collapsed) {
-    throw new Error(
-      `CmdExpandToCurrentPage did not expand the tree to the current page ` +
-        `(visible rows ${collapsed} -> ${after}; expected an increase)`,
-    );
+  if (after !== 3) {
+    throw new Error(`CmdExpandToCurrentPage showed ${after} rows, expected 3`);
   }
   console.log(`  expanded TOC to current page: ${collapsed} -> ${after} visible rows ✓`);
 }
 
 export async function testit(): Promise<void> {
-  if (!existsSync(TOC_PDF)) {
-    console.log(`  SKIP: TOC test PDF not found: ${TOC_PDF}`);
-    return;
-  }
-
-  // copy the PDF out of OneDrive to a local path -- opening a cloud-backed file
-  // can block/delay window creation (hydration), which breaks the automation
   const pdf = tmpPath("issue-1998.pdf");
-  copyFileSync(TOC_PDF, pdf);
+  writeFileSync(pdf, makePdf(), "latin1");
 
   const appdata = tmpPath("issue-1998-appdata");
   rmSync(appdata, { recursive: true, force: true });
@@ -119,6 +130,29 @@ export async function testit(): Promise<void> {
         await sleep(30);
       }
       checkExpanded(collapsed, after, hasSelection);
+      const sidebar = String((await client.request(ControlCommand.TestUiState, []))[1] ?? "");
+      if (!sidebar.includes("tocSel='Last page'")) {
+        throw new Error(`wrong selected bookmark: ${sidebar}`);
+      }
+      return;
+    }
+
+    const virtual = findSidebarTree(frame, true);
+    if (virtual?.virtual) {
+      sendCommandSync(frame, CmdGoToLastPage);
+      await client.waitForRenderIdle();
+      if (Number(sendMessage(virtual.hwnd, 0x8000 + 102, 14, 0)) !== 1) {
+        throw new Error("could not select root bookmark");
+      }
+      sendMessage(virtual.hwnd, WM_KEYDOWN, VK_LEFT, 0);
+      const collapsed = sidebarRows(virtual);
+      sendCommandSync(frame, CmdExpandToCurrentPage);
+      const afterDeadline = Date.now() + 3000;
+      while (Date.now() < afterDeadline && (sidebarRows(virtual) !== 3 || sidebarSelection(virtual) !== 3n)) {
+        await sleep(30);
+      }
+      checkExpanded(collapsed, sidebarRows(virtual), sidebarSelection(virtual) === 3n);
+      if (sidebarRowText(virtual, 2) !== "Last page") throw new Error("wrong bookmark selected");
       return;
     }
 
@@ -155,7 +189,9 @@ export async function testit(): Promise<void> {
       }
       await sleep(30);
     }
-    const hasSelection = treeGetSelection(tree) !== 0n;
+    const section = treeGetNextItem(tree, TVGN_CHILD, treeGetRoot(tree));
+    const lastPage = treeGetNextItem(tree, TVGN_CHILD, section);
+    const hasSelection = lastPage !== 0n && treeGetSelection(tree) === lastPage;
     checkExpanded(collapsed, after, hasSelection);
   } finally {
     client.close();

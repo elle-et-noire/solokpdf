@@ -231,6 +231,8 @@ bool Direct2DAvailable();
 Size GfxMeasureText(PlatformFont*, Str);
 Size D2DMeasureText(PlatformFont*, Str);
 Size GdiplusMeasureText(PlatformFont*, Str);
+Size D2DMeasureBoldText(PlatformFont*, Str, int start, int count);
+bool D2DDrawBoldText(Gfx*, Str, Rect, Rect clip, u32 flags, PlatformFont*, int start, int count, Color, Color bg);
 
 void GfxThinLine(Gfx*, const Rect&, Color, int thickness);
 void AddRoundedRectPath(Gdiplus::GraphicsPath&, const Rect&, int d);

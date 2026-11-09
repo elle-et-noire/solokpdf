@@ -236,10 +236,9 @@ MainWindow::~MainWindow() {
     DeleteSigBar(this);
     DeletePageInfoBar(this);
     delete tocFilteredTree;
-    if (favTreeView) {
-        delete favTreeView->treeModel;
-    }
+    TreeModel* favModel = favTreeView ? favTreeView->treeModel : nullptr;
     delete favViewLayout;
+    delete favModel;
 
     DestroyAIChatPanel(this);
 
@@ -721,10 +720,7 @@ void SelectTocItemInTree(MainWindow* win, TocItem* tocItem) {
     // prevent UpdateTocSelection from undoing the selection when the page changes
     win->tocKeepSelection = true;
     TreeView* treeView = win->tocTreeView;
-    HTREEITEM hi = treeView->GetHandleByTreeItem((TreeItem)tocItem);
-    if (hi) {
-        TreeView_EnsureVisible(treeView->hwnd, hi);
-    }
+    treeView->EnsureVisible((TreeItem)tocItem);
     treeView->SelectItem((TreeItem)tocItem);
     win->tocKeepSelection = false;
 }

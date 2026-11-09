@@ -9,7 +9,8 @@ import { join } from "node:path";
 import { ControlCommand } from "./control";
 import { assemblePdf, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util";
 import { launchControlled, killAndWait } from "./win-automation";
-import { findChildWindow, sleep, treeGetSelection, treeIsItemInView } from "./winapi";
+import { sleep } from "./winapi";
+import { findSidebarTree, sidebarSelection, sidebarSelectionInView } from "./sidebar-tree";
 
 const N_CHAPTERS = 40;
 const N_SECTIONS = 3;
@@ -70,11 +71,11 @@ async function checkOpenedAt(pdf: string, appdata: string, pageNo: number): Prom
           return;
         }
       } else {
-        const tree = findChildWindow(frame, "SysTreeView32");
-        const sel = tree ? treeGetSelection(tree) : 0n;
+        const tree = findSidebarTree(frame, true);
+        const sel = tree ? sidebarSelection(tree) : 0n;
         if (sel !== 0n) {
           state = "selected bookmark is scrolled out of view";
-          if (treeIsItemInView(tree, sel)) {
+          if (tree && sidebarSelectionInView(tree, sel)) {
             return;
           }
         }

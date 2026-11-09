@@ -10,7 +10,8 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
-import { findVisibleChildWindow, sleep, treeGetItemHeight, treeGetSelection } from "./winapi.ts";
+import { sleep } from "./winapi.ts";
+import { findSidebarTree, sidebarItemHeight, sidebarSelection } from "./sidebar-tree.ts";
 import { cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
 
 // a 4-page PDF with 4 top-level bookmarks (one per page), /UseOutlines so the
@@ -104,16 +105,16 @@ export async function testit(): Promise<void> {
   let child: Bun.Subprocess | null = null;
   try {
     await client.waitForRenderIdle();
-    const tree = findVisibleChildWindow(frame, "SysTreeView32");
+    const tree = findSidebarTree(frame, true);
     if (!tree) {
       throw new Error("toc-tree-sent-click: bookmarks tree not found");
     }
-    const sel0 = treeGetSelection(tree);
-    const h = treeGetItemHeight(tree);
+    const sel0 = sidebarSelection(tree);
+    const h = sidebarItemHeight(tree);
     const rowNo = 3; // "Chapter Three" -> page 3
     const y = Math.floor((rowNo - 1) * h + h / 2);
     const childScript = join(import.meta.dir, "toc-tree-sent-click.child.ts");
-    child = Bun.spawn(["bun", childScript, String(tree), "60", String(y)], { stdout: "ignore", stderr: "ignore" });
+    child = Bun.spawn(["bun", childScript, String(tree.hwnd), "60", String(y)], { stdout: "ignore", stderr: "ignore" });
     const t0 = Date.now();
     while (child.exitCode == null && Date.now() - t0 < CLICK_TIMEOUT_MS) {
       await sleep(50);
@@ -125,7 +126,7 @@ export async function testit(): Promise<void> {
       );
     }
     await client.waitForRenderIdle();
-    const sel1 = treeGetSelection(tree);
+    const sel1 = sidebarSelection(tree);
     const info = await client.chapterInfo();
     if (sel1 === sel0 || info.page !== rowNo) {
       throw new Error(

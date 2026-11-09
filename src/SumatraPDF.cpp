@@ -2778,6 +2778,8 @@ static void UpdateToolbarSidebarText(MainWindow* win) {
     UpdateToolbarButtonsToolTipsForWindow(win);
 
     UpdateSidebarPanelsText(win);
+    if (win->tocTreeView) win->tocTreeView->SetAccessibleName(Tr("Bookmarks"));
+    if (win->favTreeView) win->favTreeView->SetAccessibleName(Tr("Favorites"));
 }
 
 static Color DwmFrameBorderColorForCurrentTheme() {
@@ -4796,6 +4798,8 @@ void UpdateFixedPageScrollbarsVisibility() {
     for (MainWindow* w : gWindows) {
         OverlayScrollbarSetMode(w->overlayScrollV, mode);
         OverlayScrollbarSetMode(w->overlayScrollH, mode);
+        if (w->tocTreeView) w->tocTreeView->UpdateScrollbars();
+        if (w->favTreeView) w->favTreeView->UpdateScrollbars();
         // no document (about / empty window): never show bars (issue #6062)
         if (!w->AsFixed()) {
             HideCanvasScrollbars(w);
@@ -7814,10 +7818,10 @@ static void ApplySidebarDpiFonts(MainWindow* win, int dpi) {
     PlatformFont* appFont = GetAppFontForDpi(dpi);
 
     if (win->tocTreeView && win->tocTreeView->hwnd) {
-        HwndSetTreeFontForDpi(win->tocTreeView->hwnd, treeFont->GetHFont(), dpi);
+        win->tocTreeView->SetTreeFont(treeFont, dpi);
     }
     if (win->favTreeView && win->favTreeView->hwnd) {
-        HwndSetTreeFontForDpi(win->favTreeView->hwnd, treeFont->GetHFont(), dpi);
+        win->favTreeView->SetTreeFont(treeFont, dpi);
     }
     // the panel headers' icons and ✕; forces a layout even if a panel's size in
     // pixels is unchanged
@@ -14452,7 +14456,7 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
             // handled as expected)
             int x = GET_X_LPARAM(lp);
             int y = GET_Y_LPARAM(lp);
-            if (win && (x == -1) && (y == -1) && !HwndIsFocused(win->tocTreeView->hwnd)) {
+            if (win && (x == -1) && (y == -1) && !HwndIsFocused(win->tocTreeView->FocusHwnd())) {
                 return SendMessageW(win->hwndCanvas, WM_CONTEXTMENU, wp, lp);
             }
             return DefWindowProc(hwnd, msg, wp, lp);

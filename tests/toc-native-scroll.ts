@@ -1,14 +1,8 @@
 import { writeFileSync } from "node:fs";
 import { assemblePdf, runStandalone, tmpPath, USE_NG, writeAppdata } from "./util.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
-import {
-  captureWindowPixels,
-  findVisibleChildWindow,
-  getScrollInfo,
-  sendMessage,
-  sleep,
-  treeGetItemHeight,
-} from "./winapi.ts";
+import { captureWindowPixels, getScrollInfo, sendMessage, sleep } from "./winapi.ts";
+import { findSidebarTree, sidebarItemHeight } from "./sidebar-tree.ts";
 
 const title =
   "A very long bookmark title that extends beyond the sidebar and should scroll horizontally to show its ending 11111111";
@@ -30,21 +24,21 @@ async function capture(showPageNumbers: boolean, wrap: boolean, text = title): P
   );
   const dir = writeAppdata(
     `toc-native-scroll-${showPageNumbers}-${wrap}`,
-    `RestoreSession = false\nShowToc = true\nSidebarDx = 220\nShowTocPageNumbers = ${showPageNumbers}\nTocWrapText = ${wrap}\n`,
+    `RestoreSession = false\nShowToc = true\nSidebarDx = 220\nScrollbars = windows\nShowTocPageNumbers = ${showPageNumbers}\nTocWrapText = ${wrap}\n`,
   );
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   try {
     await client.waitForRenderIdle();
     await sleep(300);
-    const tree = findVisibleChildWindow(frame, "SysTreeView32");
+    const tree = findSidebarTree(frame, true);
     if (!tree) throw new Error("TOC tree missing");
-    sendMessage(tree, 0x114, 7, 0); // WM_HSCROLL, SB_RIGHT
+    sendMessage(tree.hwnd, 0x114, 7, 0); // WM_HSCROLL, SB_RIGHT
     await sleep(200);
-    const scroll = getScrollInfo(tree, 0);
+    const scroll = getScrollInfo(tree.hwnd, 0);
     if (!scroll || scroll.pos <= 0) throw new Error("TOC did not scroll horizontally");
-    const img = captureWindowPixels(tree);
+    const img = captureWindowPixels(tree.hwnd);
     if (!img) throw new Error("TOC capture failed");
-    const row = treeGetItemHeight(tree);
+    const row = sidebarItemHeight(tree);
     return img.data.slice(img.w * row * 4, img.w * row * 2 * 4);
   } finally {
     client.close();

@@ -9,6 +9,7 @@
 #include "gui/PlatformFont.h"
 #include "gui/Gfx.h"
 #include "gui/VirtCtrl.h"
+#include "gui/win/VirtTreeState.h"
 
 // must be last due to assert() over-write
 #include "base/tests/UtAssert.h"
@@ -326,7 +327,132 @@ static void GdiFontDpiTest() {
     }
 }
 
+struct TreeStateTestModel : TreeModel {
+    TreeItem Root() override { return 1; }
+    Str Text(TreeItem) override { return StrL("item"); }
+    TreeItem Parent(TreeItem item) override { return item == 2 || item == 5 ? 1 : item == 3 ? 2 : item == 4 ? 3 : 0; }
+    int ChildCount(TreeItem item) override { return item == 1 ? 2 : item == 2 || item == 3 ? 1 : 0; }
+    TreeItem ChildAt(TreeItem item, int idx) override { return item == 1 ? (idx == 0 ? 5 : 2) : item + 1; }
+    bool IsExpanded(TreeItem item) override { return item == 3; }
+    void SetUserData(TreeItem, uintptr_t) override { utassert(false); }
+    uintptr_t GetUserData(TreeItem) override {
+        utassert(false);
+        return 0;
+    }
+};
+
+struct DeepTreeTestModel : TreeModel {
+    static constexpr int kDepth = 20000;
+    TreeItem Root() override { return 1; }
+    Str Text(TreeItem) override { return StrL("item"); }
+    TreeItem Parent(TreeItem item) override { return item > 1 ? item - 1 : 0; }
+    int ChildCount(TreeItem item) override { return item <= kDepth ? 1 : 0; }
+    TreeItem ChildAt(TreeItem item, int) override { return item + 1; }
+    bool IsExpanded(TreeItem) override { return true; }
+    void SetUserData(TreeItem, uintptr_t) override { utassert(false); }
+    uintptr_t GetUserData(TreeItem) override {
+        utassert(false);
+        return 0;
+    }
+};
+
+struct BranchTreeTestModel : TreeModel {
+    TreeItem Root() override { return 1; }
+    Str Text(TreeItem) override { return StrL("item"); }
+    TreeItem Parent(TreeItem item) override { return item % 2 ? item - 1 : 1; }
+    int ChildCount(TreeItem item) override { return item == 1 ? 3 : item % 2 == 0 ? 1 : 0; }
+    TreeItem ChildAt(TreeItem item, int idx) override { return item == 1 ? 2 + idx * 2 : item + 1; }
+    bool IsExpanded(TreeItem) override { return false; }
+    void SetUserData(TreeItem, uintptr_t) override { utassert(false); }
+    uintptr_t GetUserData(TreeItem) override {
+        utassert(false);
+        return 0;
+    }
+};
+
+static void VirtTreeStateTest() {
+    TreeStateTestModel model;
+    VirtTreeState tree;
+    tree.SetModel(&model);
+    utassert(len(tree.nodes) == 4 && len(tree.rows) == 2);
+    utassert(tree.nodes[1].parent == -1 && tree.nodes[1].depth == 0 && tree.nodes[1].end == 4);
+    utassert(tree.nodes[2].parent == 1 && tree.nodes[2].depth == 1 && tree.nodes[2].end == 4);
+    utassert(tree.FindRow(2) == 1 && tree.FindRow(5) == 0 && tree.FindRow(3) == -1);
+    utassert(tree.SetExpanded(2, VirtTreeExpansion::Expand));
+    utassert(!tree.SetExpanded(2, VirtTreeExpansion::Expand));
+    utassert(len(tree.rows) == 4 && tree.FindRow(4) == 3);
+    tree.selected = 4;
+    utassert(tree.SetExpanded(2, VirtTreeExpansion::Collapse));
+    utassert(tree.selected == 2);
+    utassert(tree.SetExpanded(2, VirtTreeExpansion::Expand));
+    utassert(tree.FindRow(4) == 3);
+    tree.selected = 4;
+    utassert(tree.SetSubtree(2, VirtTreeExpansion::Collapse));
+    utassert(tree.selected == 2);
+    utassert(!tree.SetSubtree(2, VirtTreeExpansion::Collapse));
+    utassert(len(tree.rows) == 2);
+    utassert(tree.SetSubtree(2, VirtTreeExpansion::Expand));
+    utassert(tree.FindRow(4) == 3);
+    utassert(tree.SetRange(2, 4, VirtTreeExpansion::Collapse));
+    utassert(tree.nodes[1].expanded && !tree.nodes[2].expanded);
+    utassert(tree.SetRange(0, 4, VirtTreeExpansion::Expand));
+    utassert(tree.nodes[1].expanded && tree.nodes[2].expanded);
+    utassert(tree.SetRange(1, 4, VirtTreeExpansion::Collapse));
+    utassert(!tree.nodes[1].expanded && !tree.nodes[2].expanded);
+    utassert(tree.SetRange(0, 4, VirtTreeExpansion::Expand));
+    utassert(!tree.SetExpanded(4, VirtTreeExpansion::Expand));
+    utassert(tree.FindNode(99) == -1 && tree.FindRow(99) == -1);
+    VirtTreeRef ref = tree.MakeRef(4);
+    utassert(tree.FindRef(ref) == tree.FindNode(4));
+    tree.selected = 4;
+    u64 generation = tree.generation;
+    tree.SetModel(&model);
+    utassert(tree.generation != generation && tree.selected == TreeModel::kNullItem);
+    utassert(tree.FindNode(4) >= 0 && tree.FindRef(ref) == -1);
+    utassert(len(tree.rows) == 2);
+    tree.SetModel(nullptr);
+    utassert(len(tree.nodes) == 0 && len(tree.rows) == 0 && tree.FindNode(2) == -1);
+
+    BranchTreeTestModel branches;
+    tree.SetModel(&branches);
+    utassert(tree.SetRange(2, len(tree.nodes), VirtTreeExpansion::Expand));
+    utassert(!tree.nodes[0].expanded && tree.nodes[2].expanded && tree.nodes[4].expanded);
+    utassert(tree.SetRange(0, len(tree.nodes), VirtTreeExpansion::Expand));
+    utassert(len(tree.rows) == 6);
+    utassert(tree.SetRange(2, len(tree.nodes), VirtTreeExpansion::Collapse));
+    utassert(tree.nodes[0].expanded && !tree.nodes[2].expanded && !tree.nodes[4].expanded);
+    utassert(len(tree.rows) == 4);
+
+    DeepTreeTestModel deep;
+    tree.SetModel(&deep);
+    utassert(len(tree.rows) == DeepTreeTestModel::kDepth);
+    utassert(tree.FindRow(DeepTreeTestModel::kDepth + 1) == DeepTreeTestModel::kDepth - 1);
+    utassert(tree.SetSubtree(2, VirtTreeExpansion::Collapse));
+    utassert(len(tree.rows) == 1);
+
+    VirtTreeScroll scroll;
+    utassert(VirtTreeRowEnd(0, 3, 20, 5, 100) == 20);
+    utassert(VirtTreeRowEnd(2, 3, 20, 5, 100) == 65);
+    utassert(VirtTreeRowEnd(0, 0, 20, 5, 100) == 0);
+    utassert(VirtTreeRowEnd(INT_MAX - 1, INT_MAX, 20, 5, 100) == INT_MAX);
+    VirtTreeScroll narrow;
+    narrow.SetMetrics(24, 22);
+    utassert(!narrow.EnsureVisible(0, VirtTreeRowEnd(0, 1, 20, 4, narrow.viewport)));
+    scroll.SetMetrics(300000, 100);
+    utassert(scroll.EnsureVisible(200000, 200020));
+    utassert(scroll.pos == 199920);
+    utassert(!scroll.EnsureVisible(200000, 200020));
+    utassert(scroll.MoveBy(INT_MAX) && scroll.pos == 299900);
+    utassert(scroll.MoveBy(INT_MIN) && scroll.pos == 0);
+    scroll.SetPos(200000);
+    scroll.SetMetrics(500, 100);
+    utassert(scroll.pos == 400 && scroll.MaxPos() == 400);
+    scroll.SetMetrics(10, 100);
+    utassert(scroll.pos == 0 && scroll.MaxPos() == 0);
+}
+
 void VirtCtrl_UnitTests() {
+    VirtTreeStateTest();
     GdiFontDpiTest();
     Slider_HaloFitsTest();
     TipLinkUnderlines_Test();

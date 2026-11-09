@@ -18,6 +18,7 @@
 
 #include "Settings.h"
 #include "AppSettings.h"
+#include "SumatraConfig.h"
 #include "DocController.h"
 #include "EngineBase.h"
 #include "base/GuessFileType.h"
@@ -37,6 +38,7 @@
 #include "FilterHighlightDraw.h"
 #include "PageThumbnails.h"
 #include "SidebarPanel.h"
+#include "SidebarTree.h"
 #include "SignatureUI.h"
 #include "LayersUI.h"
 #include "TableOfContents.h"
@@ -48,7 +50,6 @@
 static void TocCustomizeTooltip(TreeView::GetTooltipEvent* ev) {
     auto* treeView = ev->treeView;
     auto ti = ev->treeItem;
-    auto* nm = ev->info;
     TocItem* tocItem = (TocItem*)ti;
     IPageDestination* link = tocItem->dest;
     if (!link) {
@@ -96,7 +97,7 @@ static void TocCustomizeTooltip(TreeView::GetTooltipEvent* ev) {
         infotip.Append(path);
     }
 
-    str::BufSet(nm->pszText, nm->cchTextMax, ToStr(infotip));
+    ev->text = ToStrTemp(infotip);
 }
 
 // Deferred TOC navigation must not hold raw TocItem* / IPageDestination*
@@ -162,10 +163,7 @@ void GoToTocLink(GoToTocLinkData* d) {
         }
         if (tocItem) {
             TreeView* treeView = win->tocTreeView;
-            HTREEITEM hi = treeView->GetHandleByTreeItem((TreeItem)tocItem);
-            if (hi) {
-                TreeView_EnsureVisible(treeView->hwnd, hi);
-            }
+            treeView->EnsureVisible((TreeItem)tocItem);
             treeView->SelectItem((TreeItem)tocItem);
         }
     }
@@ -313,13 +311,9 @@ void ExpandTocToCurrentPage(MainWindow* win) {
     if (!item) {
         return;
     }
-    HTREEITEM hi = treeView->GetHandleByTreeItem((TreeItem)item);
-    if (!hi) {
+    if (!treeView->EnsureVisible((TreeItem)item)) {
         return;
     }
-    // TreeView_EnsureVisible expands any collapsed ancestors and scrolls the
-    // item into view, which is exactly the "expand to current page" behavior
-    TreeView_EnsureVisible(treeView->hwnd, hi);
     treeView->SelectItem((TreeItem)item);
     SetTocMultiHighlight(win, treeView, item);
     HwndSetFocus(treeView->hwnd);
@@ -331,8 +325,9 @@ static void UpdateDocTocExpansionStateRecur(TreeView* treeView, Vec<int>& tocSta
         if (tocItem->child) {
             // Query loaded items; unloaded ones retain their saved model state.
             bool isExpanded = tocItem->IsExpanded();
-            if (tocItem->userData) {
-                isExpanded = treeView->IsExpanded((TreeItem)tocItem);
+            TreeItemExpansion expansion = treeView->GetLoadedExpansion((TreeItem)tocItem);
+            if (expansion != TreeItemExpansion::Unavailable) {
+                isExpanded = expansion == TreeItemExpansion::Expanded;
             }
             bool wasToggled = isExpanded != tocItem->isOpenDefault;
             if (wasToggled) {
@@ -398,94 +393,36 @@ static void SaveEmbeddedFile(WindowTab* tab, Str srcPath, Str fileName) {
     str::Free(data);
 }
 
-// Expand outline nodes whose depth is < maxDepth (depth 1 = top-level rows).
-// Call after a full collapse so the tree ends at exactly that level.
-static void TocExpandItemsToDepth(HWND hwnd, HTREEITEM item, int depth, int maxDepth) {
-    while (item) {
-        if (depth < maxDepth) {
-            TreeView_Expand(hwnd, item, TVE_EXPAND);
-            HTREEITEM child = TreeView_GetChild(hwnd, item);
-            if (child) {
-                TocExpandItemsToDepth(hwnd, child, depth + 1, maxDepth);
-            }
-        }
-        item = TreeView_GetNextSibling(hwnd, item);
-    }
-}
-
-// Expand outline only through `level` (1 = top-level rows collapsed, 2 = expand
-// top-level once, 3 = two levels deep). Issue #5239.
 static void TocExpandToLevel(TreeView* tv, int level) {
-    if (!tv || !tv->hwnd || level < 1) {
-        return;
+    if (tv) {
+        tv->ExpandToLevel(level);
     }
-    HWND hwnd = tv->hwnd;
-    tv->SuspendRedraw();
-    HTREEITEM root = TreeView_GetRoot(hwnd);
-    TreeViewExpandRecursively(hwnd, root, TVE_COLLAPSE, false);
-    if (level > 1) {
-        TocExpandItemsToDepth(hwnd, root, 1, level);
-    }
-    tv->ResumeRedraw();
 }
 
-// Collapse all; if there is a single top-level entry with children (typical
-// Word-export TOC), expand it one level so Collapse All is useful (#5239).
 static void TocCollapseAll(TreeView* tv) {
     if (!tv || !tv->hwnd) {
         return;
     }
-    TocExpandToLevel(tv, 1);
-    HWND hwnd = tv->hwnd;
-    HTREEITEM root = TreeView_GetRoot(hwnd);
-    if (root && !TreeView_GetNextSibling(hwnd, root) && tv->treeModel->ChildCount(tv->GetTreeItemByHandle(root)) > 0) {
-        TreeView_Expand(hwnd, root, TVE_EXPAND);
-    }
-}
-
-// Collapse every outline row that shares the parent of `ti` (same nesting level
-// / siblings). If `ti` is null, use the current selection; if still none, all
-// top-level rows. Issue #1895.
-static void TocCollapseSameLevel(TreeView* tv, TreeItem ti) {
-    if (!tv || !tv->hwnd) {
-        return;
-    }
-    HWND hwnd = tv->hwnd;
-    HTREEITEM hItem = TreeModel::kNullItem != ti ? tv->GetHandleByTreeItem(ti) : nullptr;
-    if (!hItem) {
-        hItem = TreeView_GetSelection(hwnd);
-    }
-    HTREEITEM first = nullptr;
-    if (hItem) {
-        HTREEITEM parent = TreeView_GetParent(hwnd, hItem);
-        first = parent ? TreeView_GetChild(hwnd, parent) : TreeView_GetRoot(hwnd);
-    } else {
-        first = TreeView_GetRoot(hwnd);
-    }
-    if (!first) {
-        return;
-    }
-    tv->SuspendRedraw();
-    for (HTREEITEM sibling = first; sibling; sibling = TreeView_GetNextSibling(hwnd, sibling)) {
-        if (TreeView_GetChild(hwnd, sibling)) {
-            TreeView_Expand(hwnd, sibling, TVE_COLLAPSE);
+    tv->ExpandToLevel(1);
+    TreeItem root = tv->treeModel->Root();
+    if (tv->treeModel->ChildCount(root) == 1) {
+        TreeItem first = tv->treeModel->ChildAt(root, 0);
+        if (tv->treeModel->ChildCount(first) > 0) {
+            tv->ExpandItem(first);
         }
     }
-    tv->ResumeRedraw();
 }
 
-// Expand or collapse `ti` and everything under it, leaving other chapters alone.
-static void TocSetChapterExpanded(TreeView* tv, TreeItem ti, uint flag) {
-    if (!tv || !tv->hwnd) {
-        return;
+static void TocCollapseSameLevel(TreeView* tv, TreeItem ti) {
+    if (tv && tv->hwnd) {
+        tv->CollapseSiblings(ti);
     }
-    HTREEITEM hItem = tv->GetHandleByTreeItem(ti);
-    if (!hItem) {
-        return;
+}
+
+static void TocSetChapterExpanded(TreeView* tv, TreeItem ti, TreeExpansion expansion) {
+    if (tv && tv->hwnd) {
+        tv->ExpandSubtree(ti, expansion);
     }
-    tv->SuspendRedraw();
-    TreeViewExpandRecursively(tv->hwnd, hItem, flag, true);
-    tv->ResumeRedraw();
 }
 
 static void TocContextMenu(ContextMenuEvent* ev) {
@@ -615,10 +552,10 @@ static void TocContextMenu(ContextMenuEvent* ev) {
             TocCollapseSameLevel(win->tocTreeView, ti);
             break;
         case CmdTocExpandChapter:
-            TocSetChapterExpanded(win->tocTreeView, ti, TVE_EXPAND);
+            TocSetChapterExpanded(win->tocTreeView, ti, TreeExpansion::Expand);
             break;
         case CmdTocCollapseChapter:
-            TocSetChapterExpanded(win->tocTreeView, ti, TVE_COLLAPSE);
+            TocSetChapterExpanded(win->tocTreeView, ti, TreeExpansion::Collapse);
             break;
         case CmdExpandToCurrentPage:
             ExpandTocToCurrentPage(win);
@@ -647,6 +584,8 @@ static void TocContextMenu(ContextMenuEvent* ev) {
 }
 
 static void OnTocCustomDraw(TreeView::CustomDrawEvent* /*ev*/);
+static void OnTocItemFont(TreeView::ItemFontEvent*);
+static void OnTocItemStyle(TreeView::ItemStyleEvent*);
 
 void LoadTocTree(MainWindow* win) {
     WindowTab* tab = win->CurrentTab();
@@ -684,13 +623,15 @@ void LoadTocTree(MainWindow* win) {
 
     TreeView* treeView = win->tocTreeView;
     HWND hwnd = treeView->hwnd;
-    HwndSetRtl(hwnd, isRTL);
+    treeView->SetDirection(isRTL ? TreeDirection::RightToLeft : TreeDirection::LeftToRight);
 
     UpdateControlsColors(win);
     SetInitialExpandState(tocTree->root, tab->tocState);
     AutoExpandTopLevelItems(tocTree->root->child);
 
     treeView->onCustomDraw = MkFunc1Void(OnTocCustomDraw);
+    treeView->onGetItemFont = MkFunc1Void(OnTocItemFont);
+    treeView->onGetItemStyle = MkFunc1Void(OnTocItemStyle);
     treeView->SetWrapText(false);
     // Use version 5 sizing for PDF bookmark fonts selected during custom draw.
     constexpr int kTreeViewFontVersion = 5;
@@ -778,6 +719,37 @@ static PlatformFont* UpdateFont(HDC hdc, int fontFlags) {
     return font;
 }
 
+static void OnTocItemFont(TreeView::ItemFontEvent* ev) {
+    auto* item = (TocItem*)ev->treeItem;
+    if (!item || !item->fontFlags) return;
+    bool bold = bit::IsSet(item->fontFlags, kFontBitBold);
+    bool italic = bit::IsSet(item->fontFlags, kFontBitItalic);
+    ev->font = GetAppTreeFontExForDpi(ev->dpi, bold, italic);
+}
+
+static void OnTocItemStyle(TreeView::ItemStyleEvent* ev) {
+    auto* item = (TocItem*)ev->treeItem;
+    if (!item) return;
+    TreeView* tree = ev->treeView;
+    MainWindow* win = FindMainWindowByHwnd(tree->hwnd);
+    bool selected = ev->selected || TocItemIsMultiHighlight(win, item);
+    if (selected && ev->selected && ev->focused && ThemeUsesHighContrastColors()) {
+        ev->bgColor = GetSysColor(COLOR_HIGHLIGHT);
+        ev->textColor = GetSysColor(COLOR_HIGHLIGHTTEXT);
+        ev->focusOutline = true;
+    } else if (selected) {
+        Color bg = IsSpecialColor(tree->bgColor) ? ThemeCanvasColor() : tree->bgColor;
+        Color text = IsSpecialColor(tree->textColor) ? ThemeWindowTextColor() : tree->textColor;
+        ev->bgColor = ThemeSelectionBg(bg);
+        ev->textColor = ThemeSelectionText(ev->bgColor, text);
+    } else if (item->color != kColorUnset) {
+        ev->textColor = item->color;
+    }
+    if (!selected && ev->hot && !ThemeUsesHighContrastColors()) {
+        ev->bgColor = ThemeHoverColorOn(tree->bgColor);
+    }
+}
+
 // https://docs.microsoft.com/en-us/windows/win32/controls/about-custom-draw
 // https://docs.microsoft.com/en-us/windows/win32/api/commctrl/ns-commctrl-nmtvcustomdraw
 void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
@@ -800,9 +772,7 @@ void OnTocCustomDraw(TreeView::CustomDrawEvent* ev) {
         TreeView* tv = ev->treeView;
         bool isTreeSelected = (cd->uItemState & CDIS_SELECTED) != 0;
         if (!isTreeSelected) {
-            HTREEITEM hSel = TreeView_GetSelection(tv->hwnd);
-            HTREEITEM hItem = tv->GetHandleByTreeItem(ev->treeItem);
-            isTreeSelected = hSel && hItem && hSel == hItem;
+            isTreeSelected = tv->GetSelection() == ev->treeItem;
         }
         bool isMultiMatch = TocItemIsMultiHighlight(win, tocItem);
         bool isSelected = isTreeSelected || isMultiMatch;
@@ -923,10 +893,7 @@ static void SelectFirstTocTreeItem(MainWindow* win) {
     }
     TreeItem first = tm->ChildAt(root, 0);
     tv->SelectItem(first);
-    HTREEITEM h = tv->GetHandleByTreeItem(first);
-    if (h) {
-        TreeView_EnsureVisible(tv->hwnd, h);
-    }
+    tv->EnsureVisible(first);
 }
 
 // TOC tree keyboard: Esc clears filter / focuses search; Up on first row returns
@@ -944,9 +911,7 @@ static void TocTreeKeyDown(TreeView::KeyDownEvent* ev) {
     }
     if (ev->keyCode == VK_UP && win && win->tocFilterEdit) {
         TreeItem sel = ev->treeView->GetSelection();
-        HTREEITEM hSel = sel ? ev->treeView->GetHandleByTreeItem(sel) : nullptr;
-        HTREEITEM hFirst = TreeView_GetRoot(ev->treeView->hwnd);
-        if (hSel && hFirst && hSel == hFirst) {
+        if (sel && sel == ev->treeView->FirstItem()) {
             FocusTocFilterEdit(win);
             ev->result = 1;
             return;
@@ -1081,13 +1046,12 @@ TempStr TocRowsResultTemp(int* exitCodeOut) {
     HWND hwnd = tv->hwnd;
     str::Builder out;
     int width = HwndClientRect(hwnd).dx;
-    out.Append(fmt("OK rowDy=%d width=%d wrap=%d\n", TreeView_GetItemHeight(hwnd), width, tv->wrapText ? 1 : 0));
-    for (HTREEITEM h = TreeView_GetFirstVisible(hwnd); h; h = TreeView_GetNextVisible(hwnd, h)) {
-        RECT rc{};
-        TreeView_GetItemRect(hwnd, h, &rc, FALSE);
-        TocItem* item = (TocItem*)tv->GetTreeItemByHandle(h);
-        out.Append(
-            fmt("row y=%d dy=%d title=%s\n", (int)rc.top, (int)(rc.bottom - rc.top), item ? item->title : Str{}));
+    out.Append(fmt("OK rowDy=%d width=%d wrap=%d\n", tv->ItemHeight(), width, tv->wrapText ? 1 : 0));
+    for (TreeItem ti = tv->FirstVisible(); ti; ti = tv->NextVisible(ti)) {
+        Rect rc{};
+        tv->GetItemRect(ti, false, rc);
+        TocItem* item = (TocItem*)ti;
+        out.Append(fmt("row y=%d dy=%d title=%s\n", rc.y, rc.dy, item->title));
     }
     return ToStrTemp(out);
 }
@@ -1108,7 +1072,14 @@ void CreateToc(MainWindow* win) {
     filterEdit->onTextChanged = MkFunc0(OnTocFilterTextChanged, win);
     SetWindowSubclass(filterEdit->hwnd, WndProcTocFilterEdit, NextSubclassId(), (DWORD_PTR)win);
 
-    auto* treeView = new TreeView();
+    TreeView* treeView = nullptr;
+#if IS_DEBUG
+    if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_VIRTUAL_TOC", nullptr, 0)) {
+        treeView = CreateVirtualSidebarTree(SidebarTreeKind::Bookmarks, Tr("Bookmarks"));
+    }
+#endif
+    bool virtualTree = treeView != nullptr;
+    if (!treeView) treeView = new TreeView();
     treeView->lazyChildren = true;
     TreeView::CreateArgs args;
     args.parent = parent;
@@ -1133,7 +1104,7 @@ void CreateToc(MainWindow* win) {
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
     vbox->AddChild(PadSidebarItem(filterEdit, parent));
-    vbox->AddChild(PadSidebarItem(treeView, parent), 1);
+    vbox->AddChild(virtualTree ? PadSidebarTree(treeView, parent) : PadSidebarItem(treeView, parent), 1);
     win->tocViewLayout = vbox;
 
     int dpi = DpiGetForHwnd(parent);

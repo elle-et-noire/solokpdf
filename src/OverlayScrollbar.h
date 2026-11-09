@@ -12,6 +12,11 @@ struct OverlayScrollbar {
         Horz,
     };
 
+    enum class Layout {
+        LeftToRight,
+        RightToLeft,
+    };
+
     // Smart: thin/thick transitions based on mouse proximity
     // Thick: always shown thick, no transitions
     enum class Mode {
@@ -30,6 +35,7 @@ struct OverlayScrollbar {
     HWND hwnd = nullptr;      // the scrollbar top-level window
     HWND hwndOwner = nullptr; // positioned relative to this window; receives scroll messages
     Type type = Type::Vert;
+    Layout layout = Layout::LeftToRight;
     Mode mode = Mode::Smart;
 
     // scroll state (mirrors SCROLLINFO)

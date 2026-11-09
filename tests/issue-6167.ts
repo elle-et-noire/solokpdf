@@ -4,6 +4,7 @@ import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand } from "./control";
 import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG, writeAppdata } from "./util";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation";
+import { findSidebarTree, sidebarRows, sidebarRowText, sidebarSelection } from "./sidebar-tree";
 import {
   countVisibleTreeRows,
   findChildWindow,
@@ -20,7 +21,10 @@ import {
   TVM_SELECTITEM,
   TVGN_CARET,
   VK_RETURN,
+  VK_LEFT,
+  VK_RIGHT,
   WM_KEYDOWN,
+  WM_CHAR,
 } from "./winapi";
 
 // Three levels; negative /Count keeps each branch initially collapsed.
@@ -123,6 +127,65 @@ export async function testit(): Promise<void> {
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf, other]);
   try {
     await client.waitForRenderIdle();
+    const virtual = findSidebarTree(frame, true);
+    if (virtual?.virtual) {
+      const rows = () => sidebarRows(virtual);
+      const select = (row: number) => assert.equal(Number(sendMessage(virtual.hwnd, 0x8000 + 102, 14, row)), 1);
+      const key = (vk: number) => sendMessage(virtual.hwnd, WM_KEYDOWN, vk, 0);
+      const switchBack = () => {
+        sendCommandSync(frame, cmdId("CmdNextTab"));
+        sendCommandSync(frame, cmdId("CmdNextTab"));
+      };
+      assert.equal(rows(), 3, "initially only collapsed roots are visible");
+      select(0);
+      sendMessage(virtual.hwnd, WM_CHAR, "N".charCodeAt(0), 0);
+      assert.equal(sidebarSelection(virtual), 2n, "character selects next matching item");
+      sendMessage(virtual.hwnd, WM_CHAR, "N".charCodeAt(0), 0);
+      assert.equal(sidebarSelection(virtual), 3n, "repeated character cycles matching items");
+      select(1);
+      key(VK_RETURN);
+      assert.equal(rows(), 6, "expand shows one level");
+      select(2);
+      key(VK_RIGHT);
+      assert.equal(rows(), 9, "nested expansion shows children");
+      select(1);
+      key(VK_LEFT);
+      switchBack();
+      assert.equal(rows(), 3, "tab switch keeps collapsed branches hidden");
+      switchBack();
+      assert.equal(rows(), 3, "saving expansion state keeps branches hidden");
+      select(1);
+      key(VK_RIGHT);
+      assert.equal(rows(), 9, "hidden child keeps its saved expansion");
+      assert.equal(sidebarRowText(virtual, 1), "Node 7", "wrong root was expanded");
+      assert.equal(sidebarRowText(virtual, 2), "Node 21", "wrong child was expanded");
+      assert.equal(sidebarRowText(virtual, 3), "Node 24", "wrong grandchild was restored");
+      select(2);
+      key(VK_LEFT);
+      key(VK_RIGHT);
+      assert.equal(rows(), 9, "repeated expansion does not duplicate items");
+      for (const row of [0, 13, 26]) {
+        select(row);
+        key(0x6a); // VK_MULTIPLY
+      }
+      assert.equal(rows(), 39, "expand all shows the entire outline");
+      for (const row of [0, 1, 2]) {
+        select(row);
+        key(0x6f); // VK_DIVIDE
+      }
+      switchBack();
+      assert.equal(rows(), 3, "collapse to level one survives a rebuild");
+      sendCommandSync(frame, cmdId("CmdGoToLastPage"));
+      sendCommandSync(frame, cmdId("CmdExpandToCurrentPage"));
+      assert.ok(rows() > 3, "navigation expands a collapsed destination");
+      assert.equal(
+        sidebarRowText(virtual, Number(sidebarSelection(virtual)) - 1),
+        "Node 9",
+        "wrong destination selected",
+      );
+      console.log("issue-6167: OK");
+      return;
+    }
     const tree = findChildWindow(frame, "SysTreeView32");
     assert.ok(tree, "TOC tree exists");
     const count = () => Number(sendMessage(tree, TVM_GETCOUNT, 0, 0));
@@ -131,6 +194,14 @@ export async function testit(): Promise<void> {
       sendCommandSync(frame, cmdId("CmdNextTab"));
     };
     assert.equal(count(), 3, "initially insert only collapsed roots");
+    const first = treeGetRoot(tree);
+    const second = treeGetNextItem(tree, TVGN_NEXT, first);
+    const third = treeGetNextItem(tree, TVGN_NEXT, second);
+    sendMessage(tree, TVM_SELECTITEM, TVGN_CARET, first);
+    sendMessage(tree, WM_CHAR, "N".charCodeAt(0), 0);
+    assert.equal(treeGetNextItem(tree, TVGN_CARET), second, "character selects next matching item");
+    sendMessage(tree, WM_CHAR, "N".charCodeAt(0), 0);
+    assert.equal(treeGetNextItem(tree, TVGN_CARET), third, "repeated character cycles matching items");
     let root = treeGetNextItem(tree, TVGN_NEXT, treeGetRoot(tree));
     sendMessage(tree, TVM_SELECTITEM, TVGN_CARET, root);
     sendMessage(tree, WM_KEYDOWN, VK_RETURN, 0);

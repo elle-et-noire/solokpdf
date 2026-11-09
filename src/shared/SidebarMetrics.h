@@ -5,3 +5,4 @@
 constexpr int kSidebarMinDx = 150;
 constexpr int kTocMinDy = 100;
 constexpr int kSplitterDx = 5;
+constexpr int kSidebarPadY = 4;

@@ -4,24 +4,30 @@
 //
 // Run: bun tests/edit-favorites.ts [-ng] [--no-build]
 
+import { strict as assert } from "node:assert";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
 import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
-import { killAndWait, launchControlled, pressKey, sendCommand } from "./win-automation.ts";
+import { killAndWait, launchControlled, pressKey, sendCommand, sendCommandSync } from "./win-automation.ts";
+import { sidebarRows, sidebarRowText, type SidebarTree } from "./sidebar-tree.ts";
 import {
   captureWindowToPng,
   enumChildWindows,
   enumWindows,
+  findChildWindow,
   getClassName,
   getWindowPid,
   getWindowText,
   isWindowVisible,
   packCoords,
   postMessage,
+  sendMessage,
   sendText,
   sleep,
   VK_DOWN,
+  VK_RIGHT,
+  WM_KEYDOWN,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
@@ -245,6 +251,17 @@ export async function testit(): Promise<void> {
     }
     await expectFavs(client, "OK manual=0 -@1,-@2,-@3", "added");
 
+    let tree: SidebarTree | null = null;
+    if (!USE_NG && process.env.SOLOKPDF_VIRTUAL_FAVORITES) {
+      const hwnd = findChildWindow(frame, "SumatraVirtualFavoritesTree");
+      if (!hwnd) throw new Error("edit-favorites: virtual tree unavailable");
+      if (!isWindowVisible(hwnd)) sendCommandSync(frame, cmdId("CmdFavoriteToggle"));
+      tree = { hwnd, virtual: true };
+      sendMessage(hwnd, 0x8000 + 102, 14, 0);
+      sendMessage(hwnd, WM_KEYDOWN, VK_RIGHT, 0);
+      if (sidebarRows(tree) !== 4) throw new Error("edit-favorites: favorites tree did not expand");
+    }
+
     const d = USE_NG ? ngDriver(client) : origDriver(client, frame, proc.pid, dir);
     await d.open("CmdEditFavorites", "Edit Favorites");
     if ((await d.nameFields()) !== 1) {
@@ -259,10 +276,18 @@ export async function testit(): Promise<void> {
     await d.setName("Intro");
     await d.click("Rename");
     await expectFavs(client, "OK manual=1 -@2,Intro@1,-@3", "Rename");
+    if (tree) {
+      const labels = Array.from({ length: sidebarRows(tree) }, (_, i) => sidebarRowText(tree!, i));
+      assert.deepEqual(labels, ["doc.pdf", "Page 2", "Intro (page 1)", "Page 3"], "renamed favorites tree");
+    }
 
     await d.selectRow(3);
     await d.click("Delete");
     await expectFavs(client, "OK manual=1 -@2,Intro@1", "Delete");
+    if (tree) {
+      const labels = Array.from({ length: sidebarRows(tree) }, (_, i) => sidebarRowText(tree!, i));
+      assert.deepEqual(labels, ["doc.pdf", "Page 2", "Intro (page 1)"], "favorites tree after delete");
+    }
 
     // with the manual order, a new favorite goes at the end
     await d.click("Close");
