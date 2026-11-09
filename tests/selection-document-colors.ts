@@ -98,34 +98,45 @@ async function check(kind: "ordinary" | "single" | "multiple" | "tagged", smart 
       await sleep(25);
     }
     if (!/^expanded=Selected$/m.test(selection)) throw new Error(`selection missing: ${selection}`);
-    let red = 0;
-    let blue = 0;
-    let selectedImage = before;
-    deadline = Date.now() + 4000 * SLOW_BUILD_FACTOR;
-    while (Date.now() < deadline) {
-      if (!captureWindowToPng(canvas, shot)) throw new Error("cannot capture canvas");
-      const image = loadPng(shot);
-      selectedImage = image;
-      red = 0;
-      blue = 0;
-      for (let y = 0; y < image.h; y++) {
-        for (let x = 0; x < image.w; x++) {
-          const [r, g, b] = pngPixel(image, x, y);
-          if (r! < 25 && g! >= 45 && g! < 85 && b! >= 95 && b! < 135) red++;
-          if (Math.abs(r! - 127) <= 2 && Math.abs(g! - 178) <= 2 && Math.abs(b! - 229) <= 2) blue++;
-        }
-      }
-      if (red > 10) break;
-      await sleep(50);
-    }
-    if (red <= 10) throw new Error(`selected text has ${red} blended ink pixels`);
-    if (blue <= 10) throw new Error(`selection background has ${blue} blue pixels`);
+    const overlay = [0, 102, 204];
+    const alpha = 128;
+    const blend = (source: number[]) => source.map((c, i) => (c * (255 - alpha) + overlay[i]! * alpha) / 255);
+    const pageBg = smart ? [25, 50, 71] : [255, 255, 255];
+    const matches = (pixel: number[], color: number[]) => color.every((c, i) => Math.abs(pixel[i]! - c) <= 2);
     const position = String(
       (await client.request(ControlCommand.TestSelectionVars, ["${selectionPosition}"]))[1] ?? "",
     );
     const match = /^expanded=(-?\d+),(-?\d+),(\d+),(\d+)$/m.exec(position);
     if (!match) throw new Error(`selection position missing: ${position}`);
     const windowRect = getWindowRect(canvas);
+    const left = +match[1]! - windowRect.left;
+    const top = +match[2]! - windowRect.top;
+    const right = left + +match[3]!;
+    const bottom = top + +match[4]!;
+    let inkPixels = 0;
+    let bgPixels = 0;
+    let selectedImage = before;
+    deadline = Date.now() + 4000 * SLOW_BUILD_FACTOR;
+    while (Date.now() < deadline) {
+      if (!captureWindowToPng(canvas, shot)) throw new Error("cannot capture canvas");
+      const image = loadPng(shot);
+      selectedImage = image;
+      inkPixels = 0;
+      bgPixels = 0;
+      for (let y = Math.max(0, top); y < Math.min(image.h, bottom); y++) {
+        for (let x = Math.max(0, left); x < Math.min(image.w, right); x++) {
+          const original = pngPixel(before, x, y).slice(0, 3);
+          const pixel = pngPixel(image, x, y);
+          if (matches(pixel, original) || !matches(pixel, blend(original))) continue;
+          if (matches(original, pageBg)) bgPixels++;
+          else inkPixels++;
+        }
+      }
+      if (inkPixels > 10 && bgPixels > 10) break;
+      await sleep(50);
+    }
+    if (inkPixels <= 10) throw new Error(`selected text has ${inkPixels} blended ink pixels`);
+    if (bgPixels <= 10) throw new Error(`selection background has ${bgPixels} blended background pixels`);
     const caretMargin = kind === "ordinary" ? 12 : 4;
     const x0 = +match[1]! - windowRect.left - caretMargin;
     const y0 = +match[2]! - windowRect.top - caretMargin;
@@ -169,7 +180,8 @@ async function check(kind: "ordinary" | "single" | "multiple" | "tagged", smart 
         for (let x = Math.max(0, x0); x < Math.min(image.w, x1); x++) {
           const [r, g, b] = pngPixel(image, x, y);
           if (kind === "ordinary") {
-            if (r! < 25 && g! >= 45 && g! < 85 && b! >= 95 && b! < 135) remaining++;
+            const original = pngPixel(before, x, y).slice(0, 3);
+            if (!matches([r, g, b], original) && matches([r, g, b], blend(original))) remaining++;
           } else {
             const original = pngPixel(before, x, y);
             if (r !== original[0] || g !== original[1] || b !== original[2]) remaining++;

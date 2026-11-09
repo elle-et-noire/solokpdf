@@ -5,7 +5,7 @@
 
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, makeZip, runStandalone, tmpPath, type ZipEntry } from "./util.ts";
+import { EXE, makeZip, runStandalone, tmpPath, writeAppdata, type ZipEntry } from "./util.ts";
 
 const name = "epub-pre-wraps";
 const kLines = 4;
@@ -66,24 +66,28 @@ export async function testit(): Promise<void> {
   const epub = tmpPath(`${name}.epub`);
   writeFileSync(epub, makeEpub());
 
-  await withControlledSumatra(EXE, async (client) => {
-    const long = await renderChapter(client, epub, 1);
-    if (long.right >= long.dx) {
-      throw new Error(`${name}: a long line runs off the page: ${long.raw}`);
-    }
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      const long = await renderChapter(client, epub, 1);
+      if (long.right >= long.dx) {
+        throw new Error(`${name}: a long line runs off the page: ${long.raw}`);
+      }
 
-    // newlines still break lines: taller than kLines - 1 lines of the wrapped text's line height
-    const lines = await renderChapter(client, epub, 2);
-    if (lines.textDy < (kLines - 1) * 10) {
-      throw new Error(`${name}: newlines in pre don't break lines: ${lines.raw}`);
-    }
+      // newlines still break lines: taller than kLines - 1 lines of the wrapped text's line height
+      const lines = await renderChapter(client, epub, 2);
+      if (lines.textDy < (kLines - 1) * 10) {
+        throw new Error(`${name}: newlines in pre don't break lines: ${lines.raw}`);
+      }
 
-    // an explicit nowrap is kept
-    const nowrap = await renderChapter(client, epub, 3);
-    if (nowrap.right < nowrap.dx) {
-      throw new Error(`${name}: white-space:nowrap wrapped: ${nowrap.raw}`);
-    }
-  });
+      // an explicit nowrap is kept
+      const nowrap = await renderChapter(client, epub, 3);
+      if (nowrap.right < nowrap.dx) {
+        throw new Error(`${name}: white-space:nowrap wrapped: ${nowrap.raw}`);
+      }
+    },
+    ["-appdata", writeAppdata(`${name}-settings`, "DocumentColorsFollowTheme = off\nCustomScreenDPI = 96\n")],
+  );
 }
 
 if (import.meta.main) {

@@ -26,7 +26,7 @@ const themes: Theme[] = [
   { name: "Light Warm", bg: [235, 230, 218], ink: [51, 51, 51] },
 ];
 async function check(theme: Theme, mode: string, clip: boolean, engine = "pdfium"): Promise<void> {
-  const name = `${theme.name}-${mode}-${clip ? "fallback" : "supported"}-${engine}`;
+  const name = `${theme.name}-${mode}-${clip ? "actualtext" : "plain"}-${engine}`;
   const dir = tmpPath(`selection-purpy-${name}`);
   mkdirSync(dir, { recursive: true });
   const content = `${clip ? "/Span << /ActualText (Selected X) >> BDC " : ""}BT /F1 24 Tf 1.4 Tc 72 700 Td (Selected X) Tj ET${clip ? " EMC" : ""}`;
@@ -93,25 +93,16 @@ async function check(theme: Theme, mode: string, clip: boolean, engine = "pdfium
     const contrast = ratio(bg[0].split(",").map(Number), ink[0].split(",").map(Number));
     const highlight = ratio(bg[0].split(",").map(Number), expectedBg);
     console.log(`${name}: bg=${bg} ink=${ink} contrast=${contrast.toFixed(2)} highlight=${highlight.toFixed(2)}`);
-    const minimum = Math.min(4.5, ratio(expectedBg, expectedInk)) - 0.05;
-    if (contrast < minimum) throw new Error(`${name}: selection contrast ${contrast.toFixed(2)} below ${minimum}`);
-    if (clip) {
-      const changed = new Map<string, number>();
-      let interior = 0;
-      for (let y = 0; y < before.h; y++)
-        for (let x = 0; x < before.w; x++) {
-          const a = pngPixel(before, x, y),
-            b = pngPixel(after, x, y);
-          if (a[0] === b[0] && a[1] === b[1] && a[2] === b[2]) continue;
-          if (x > x0 && x < x1 - 1 && y > y0 && y < y1 - 1) interior++;
-          const key = b.slice(0, 3).join(",");
-          changed.set(key, (changed.get(key) ?? 0) + 1);
-        }
-      const frame = common(changed);
-      if (interior || !frame || frame[1] < 10 || ratio(frame[0].split(",").map(Number), expectedBg) < 3)
-        throw new Error(`${name}: invalid outline: interior=${interior} frame=${frame}`);
-    } else if (highlight < 1.25) {
-      throw new Error(`${name}: selection background contrast ${highlight.toFixed(2)} below 1.25`);
+    const overlay = [51, 153, 255];
+    const alpha = 95;
+    for (const [label, source, sample] of [
+      ["background", expectedBg, bg],
+      ["ink", expectedInk, ink],
+    ] as const) {
+      const actual = sample[0].split(",").map(Number);
+      const expected = source.map((c, i) => (c * (255 - alpha) + overlay[i]! * alpha) / 255);
+      if (actual.some((c, i) => Math.abs(c - expected[i]!) > 3))
+        throw new Error(`${name}: ${label} is ${actual}, expected overlay ${expected}`);
     }
   } finally {
     client.close();

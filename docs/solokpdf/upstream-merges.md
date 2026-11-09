@@ -3,9 +3,10 @@
 ## Current status (2026-11-09)
 
 Merged through `8b716234f`; see the [latest merge](#merge-result-2026-11-08).
-Its remaining validation is tracked in [backlog.md](backlog.md): D9 for the
-scheduled-suite failures, D10 for the merged UI's Light/Dark check and D11 for
-MuPDF patch-byte verification. D8's hosted follow-ups are complete.
+Its remaining validation is D9's scheduled-suite triage in [backlog.md](backlog.md).
+D8's hosted follow-ups, [D10's Light/Dark review](history.md#d10-merged-ui-review-2026-11-09)
+and [D11's MuPDF patch comparison](history.md#d11-mupdf-patch-verification-2026-11-09)
+are complete.
 
 Records below are oldest first. Later results update the validation recorded
 at each merge; they do not establish that every test passes at current HEAD.
@@ -203,4 +204,5 @@ fixes are complete; the unperformed validation listed above remains unverified.
 tested the post-merge source `99ba47b52`. Both engines built successfully;
 PDFium passed 574/584 tests and MuPDF 577/587. D9 in [backlog.md](backlog.md)
 tracks the [11 distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).
-The merged-UI Light/Dark (D10) and MuPDF patch-byte (D11) checks remain unverified.
+Later 2026-11-09 follow-up: the merged-UI Light/Dark check (D10) and MuPDF
+patch-byte check (D11) are complete; see the results linked at the top.

@@ -17,16 +17,16 @@ and [route checks](history.md#e13-keyboard-route-checks-2026-11-09).
 
 ## Recorded validation follow-ups
 
-| ID  | Item                                           | Status                                                                                                                                                                                                                       |
-| --- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D9  | Triage the latest scheduled full-test failures | todo: run [42522810078](https://github.com/elle-et-noire/solokpdf/actions/runs/42522810078), source `99ba47b52`, failed 10 tests per engine (11 distinct); [failure list](history.md#d9-scheduled-suite-failures-2026-11-09) |
-| D10 | Check the merged UI in Light and Dark          | todo: review the new page-info bar, Layers and Signatures lists from [D7](upstream-merges.md#merge-result-2026-11-08); tree-only captures do not cover these areas                                                           |
-| D11 | Verify the MuPDF patch ledger byte for byte    | todo: apply the ledger to pristine MuPDF 1.28.5 and compare with `ext/mupdf`; follow [patch instructions](../../ext/patches/README.md)                                                                                       |
+| ID  | Item                                           | Status                                                                                                                                                                                                                      |
+| --- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D9  | Triage the latest scheduled full-test failures | doing: eight consistently failing tests repaired locally; isolated selection/toolbar checks and targeted hosted follow-ups recorded in [local triage](history.md#local-triage); modified tests still need hosted validation |
 
 D8 is complete: all four hosted follow-ups are verified, including both
 engines at 96 DPI (100%). See the [audit](history.md#d8-hosted-validation-audit-2026-11-09).
 
-D9–D11 track D7's remaining validation. D9 records failures at `99ba47b52`,
+D10's [Light/Dark review](history.md#d10-merged-ui-review-2026-11-09) and D11's
+[MuPDF byte comparison](history.md#d11-mupdf-patch-verification-2026-11-09) are complete.
+D9 tracks D7's remaining validation. The original failures were at `99ba47b52`,
 not confirmed failures at current HEAD. Start with the existing logs, then
 repeat each affected test separately on the relevant engine through the
 [local runner](testing.md#local-windows-runs). Do not run a full suite for triage.

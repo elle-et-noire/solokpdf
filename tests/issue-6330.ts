@@ -17,7 +17,7 @@ import { deflateSync } from "node:zlib";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, runStandalone, tmpPath, pngChunk, makeZip } from "./util.ts";
+import { EXE, runStandalone, tmpPath, pngChunk, makeZip, writeAppdata } from "./util.ts";
 
 const ZOOM_PERCENT = 200;
 const SVG_W = 300;
@@ -116,42 +116,48 @@ export async function testit(): Promise<void> {
 
   writeFileSync(epubPath, makeEpub(IMG_W, IMG_H));
 
-  await withControlledSumatra(EXE, async (client) => {
-    const page = await render(client, epubPath);
-    const [x0, y0, x1, y1] = page.box as [number, number, number, number];
-    const boxW = x1 - x0;
-    const boxH = y1 - y0;
-    console.log(`issue-6330: page ${page.w}x${page.h} box ${boxW}x${boxH} nonwhite=${page.nonWhite} gray=${page.gray}`);
-    if (Math.abs(boxW - IMG_W) > 2 || Math.abs(boxH - IMG_H) > 2) {
-      throw new Error(`issue-6330: want a ${IMG_W}x${IMG_H} image box: ${page.raw}`);
-    }
-    // a blurred render is mid-gray nearly everywhere
-    if (page.gray > (boxW * boxH) / 10) {
-      throw new Error(`issue-6330: the page is blurry: ${page.raw}`);
-    }
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      const page = await render(client, epubPath);
+      const [x0, y0, x1, y1] = page.box as [number, number, number, number];
+      const boxW = x1 - x0;
+      const boxH = y1 - y0;
+      console.log(
+        `issue-6330: page ${page.w}x${page.h} box ${boxW}x${boxH} nonwhite=${page.nonWhite} gray=${page.gray}`,
+      );
+      if (Math.abs(boxW - IMG_W) > 2 || Math.abs(boxH - IMG_H) > 2) {
+        throw new Error(`issue-6330: want a ${IMG_W}x${IMG_H} image box: ${page.raw}`);
+      }
+      // a blurred render is mid-gray nearly everywhere
+      if (page.gray > (boxW * boxH) / 10) {
+        throw new Error(`issue-6330: the page is blurry: ${page.raw}`);
+      }
 
-    const res = await client.request(ControlCommand.TestImageOrientation, [epubPath, 1]);
-    const raw = String(res[1] ?? "").trim();
-    if (res[0] !== 0) {
-      throw new Error(`issue-6330: image element failed: ${raw}`);
-    }
-    const m = /w=(\d+) h=(\d+) data=(\d+) tl=(\w+) tr=(\w+) bl=(\w+) br=(\w+)/.exec(raw);
-    if (!m) {
-      throw new Error(`issue-6330: unexpected image result: ${raw}`);
-    }
-    console.log(`issue-6330: image ${raw}`);
-    const [, w, h, data, tl, tr, bl, br] = m;
-    if (Number(w) !== IMG_W || Number(h) !== IMG_H) {
-      throw new Error(`issue-6330: want the ${IMG_W}x${IMG_H} raster, not the svg render: ${raw}`);
-    }
-    if (Number(data) === 0) {
-      throw new Error(`issue-6330: the original image bytes are not available: ${raw}`);
-    }
-    // black band on top, bottom-right is the last (white) stripe column
-    if (tl !== "000000" || tr !== "000000" || bl !== "000000" || br !== "ffffff") {
-      throw new Error(`issue-6330: the raster is not upright: ${raw}`);
-    }
-  });
+      const res = await client.request(ControlCommand.TestImageOrientation, [epubPath, 1]);
+      const raw = String(res[1] ?? "").trim();
+      if (res[0] !== 0) {
+        throw new Error(`issue-6330: image element failed: ${raw}`);
+      }
+      const m = /w=(\d+) h=(\d+) data=(\d+) tl=(\w+) tr=(\w+) bl=(\w+) br=(\w+)/.exec(raw);
+      if (!m) {
+        throw new Error(`issue-6330: unexpected image result: ${raw}`);
+      }
+      console.log(`issue-6330: image ${raw}`);
+      const [, w, h, data, tl, tr, bl, br] = m;
+      if (Number(w) !== IMG_W || Number(h) !== IMG_H) {
+        throw new Error(`issue-6330: want the ${IMG_W}x${IMG_H} raster, not the svg render: ${raw}`);
+      }
+      if (Number(data) === 0) {
+        throw new Error(`issue-6330: the original image bytes are not available: ${raw}`);
+      }
+      // black band on top, bottom-right is the last (white) stripe column
+      if (tl !== "000000" || tr !== "000000" || bl !== "000000" || br !== "ffffff") {
+        throw new Error(`issue-6330: the raster is not upright: ${raw}`);
+      }
+    },
+    ["-appdata", writeAppdata("issue-6330-settings", "DocumentColorsFollowTheme = off\nCustomScreenDPI = 96\n")],
+  );
 }
 
 if (import.meta.main) {

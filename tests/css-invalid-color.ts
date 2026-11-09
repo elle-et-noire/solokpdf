@@ -5,7 +5,7 @@
 
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, makeZip, runStandalone, tmpPath, type ZipEntry } from "./util.ts";
+import { EXE, makeZip, runStandalone, tmpPath, writeAppdata, type ZipEntry } from "./util.ts";
 
 const name = "css-invalid-color";
 const chapters = [
@@ -65,18 +65,22 @@ export async function testit(): Promise<void> {
   const epub = tmpPath(`${name}.epub`);
   writeFileSync(epub, makeEpub());
 
-  await withControlledSumatra(EXE, async (client) => {
-    for (const chapterNo of [1, 3]) {
-      const c = await renderChapter(client, epub, chapterNo);
-      if (c.nonwhite === 0 || c.nonwhite > kMaxTextPixels) {
-        throw new Error(`${name}: chapter ${chapterNo}: invalid color painted a background: ${c.raw}`);
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      for (const chapterNo of [1, 3]) {
+        const c = await renderChapter(client, epub, chapterNo);
+        if (c.nonwhite === 0 || c.nonwhite > kMaxTextPixels) {
+          throw new Error(`${name}: chapter ${chapterNo}: invalid color painted a background: ${c.raw}`);
+        }
       }
-    }
-    const c2 = await renderChapter(client, epub, 2);
-    if (c2.red < kMaxTextPixels) {
-      throw new Error(`${name}: a hex color without the # stopped working: ${c2.raw}`);
-    }
-  });
+      const c2 = await renderChapter(client, epub, 2);
+      if (c2.red < kMaxTextPixels) {
+        throw new Error(`${name}: a hex color without the # stopped working: ${c2.raw}`);
+      }
+    },
+    ["-appdata", writeAppdata(`${name}-settings`, "DocumentColorsFollowTheme = off\nCustomScreenDPI = 96\n")],
+  );
 }
 
 if (import.meta.main) {

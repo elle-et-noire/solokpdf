@@ -12,7 +12,7 @@
 
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, makeZip, runStandalone, tmpPath, type ZipEntry } from "./util.ts";
+import { EXE, makeZip, runStandalone, tmpPath, writeAppdata, type ZipEntry } from "./util.ts";
 
 const W = 600;
 const H = 800;
@@ -101,30 +101,34 @@ export async function testit(): Promise<void> {
   const epub = tmpPath("issue-1293.epub");
   writeFileSync(epub, makeEpub());
 
-  await withControlledSumatra(EXE, async (client) => {
-    // the viewport-sized box fills the page: no @page margin around it, and
-    // no spill onto a blank page (pages counts laid-out chapters: 1 + 3)
-    const p1 = await render(client, epub, 1);
-    if (!near(p1.box, [0, 0, W, H], 0)) {
-      throw new Error(`issue-1293: the viewport-sized box does not fill the page: ${p1.raw}`);
-    }
-    if (p1.pages !== pages.length) {
-      throw new Error(`issue-1293: a fixed-layout chapter took more than one page: ${p1.raw}`);
-    }
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      // the viewport-sized box fills the page: no @page margin around it, and
+      // no spill onto a blank page (pages counts laid-out chapters: 1 + 3)
+      const p1 = await render(client, epub, 1);
+      if (!near(p1.box, [0, 0, W, H], 0)) {
+        throw new Error(`issue-1293: the viewport-sized box does not fill the page: ${p1.raw}`);
+      }
+      if (p1.pages !== pages.length) {
+        throw new Error(`issue-1293: a fixed-layout chapter took more than one page: ${p1.raw}`);
+      }
 
-    const p3 = await render(client, epub, 3);
-    if (!near(p3.box, [300, 400, 400, 500], 2) || p3.red < 9000) {
-      throw new Error(`issue-1293: transform: scale() block misplaced: ${p3.raw}`);
-    }
+      const p3 = await render(client, epub, 3);
+      if (!near(p3.box, [300, 400, 400, 500], 2) || p3.red < 9000) {
+        throw new Error(`issue-1293: transform: scale() block misplaced: ${p3.raw}`);
+      }
 
-    // "HH" at 40px: ~58px wide, cap height ~27px from about 200 + 9
-    const p4 = await render(client, epub, 4);
-    const [x0, y0, x1, y1] = p4.box;
-    const ok = p4.blue > 100 && Math.abs(x0! - 100) <= 4 && y0! >= 200 && y0! <= 215 && x1! < 170 && y1! < 245;
-    if (!ok) {
-      throw new Error(`issue-1293: absolutely positioned span misplaced: ${p4.raw}`);
-    }
-  });
+      // "HH" at 40px: ~58px wide, cap height ~27px from about 200 + 9
+      const p4 = await render(client, epub, 4);
+      const [x0, y0, x1, y1] = p4.box;
+      const ok = p4.blue > 100 && Math.abs(x0! - 100) <= 4 && y0! >= 200 && y0! <= 215 && x1! < 170 && y1! < 245;
+      if (!ok) {
+        throw new Error(`issue-1293: absolutely positioned span misplaced: ${p4.raw}`);
+      }
+    },
+    ["-appdata", writeAppdata("issue-1293-settings", "DocumentColorsFollowTheme = off\nCustomScreenDPI = 96\n")],
+  );
 }
 
 if (import.meta.main) {

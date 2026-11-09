@@ -6,9 +6,9 @@
 
 import { join } from "node:path";
 import { type ControlClient, ControlCommand } from "./control.ts";
-import { ROOT, runStandalone, tmpPath } from "./util.ts";
+import { ROOT, runStandalone, tmpPath, writeAppdata } from "./util.ts";
 import { killAndWait, launchControlled } from "./win-automation.ts";
-import { captureWindowToPng, findChildWindow, sleep } from "./winapi.ts";
+import { captureWindowToPng, findChildWindow, getClientRect, sleep } from "./winapi.ts";
 
 // wide enough for one row, and too narrow for it
 const kWideDx = 1400;
@@ -26,11 +26,16 @@ async function toolbarDy(client: ControlClient): Promise<number> {
 // toolbar height with and without the Edit PDF row
 async function measure(dx: number, png: string): Promise<{ dy: number; editDy: number }> {
   const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
-  const { proc, client, frame } = await launchControlled(["-window-pos", `${dx}x700@0x0`, pdf]);
+  const appdata = writeAppdata(`toolbar-wrap-${dx}`, "RestoreSession = false\nToolbar = show\n");
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, "-window-pos", `${dx}x700@0x0`, pdf]);
   try {
     await client.waitForRenderIdle();
     await sleep(200);
     const dy = await toolbarDy(client);
+    const bounds = getClientRect(frame);
+    console.log(
+      `toolbar-wrap: requested=${dx} actual=${bounds.right - bounds.left} dpi=${(await client.request(ControlCommand.TestDpi, ["state"]))[1]}`,
+    );
     const hwnd = findChildWindow(frame, "SUMATRA_VIRT_TOOLBAR");
     if (hwnd) {
       captureWindowToPng(hwnd, tmpPath(png));

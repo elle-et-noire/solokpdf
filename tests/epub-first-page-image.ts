@@ -6,7 +6,7 @@
 
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, makePng, makeZip, runStandalone, tmpPath, type ZipEntry } from "./util.ts";
+import { EXE, makePng, makeZip, runStandalone, tmpPath, writeAppdata, type ZipEntry } from "./util.ts";
 
 const name = "epub-first-page-image";
 const img = `<img src="tall.png"/>`;
@@ -70,27 +70,31 @@ export async function testit(): Promise<void> {
   const epub = tmpPath(`${name}.epub`);
   writeFileSync(epub, makeEpub());
 
-  await withControlledSumatra(EXE, async (client) => {
-    const c1 = await renderChapter(client, epub, 1);
-    if (c1.red === 0) {
-      throw new Error(`${name}: first page is blank: ${c1.raw}`);
-    }
-    if (c1.boxBottom >= c1.pageDy) {
-      throw new Error(`${name}: the image runs off the first page: ${c1.raw}`);
-    }
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      const c1 = await renderChapter(client, epub, 1);
+      if (c1.red === 0) {
+        throw new Error(`${name}: first page is blank: ${c1.raw}`);
+      }
+      if (c1.boxBottom >= c1.pageDy) {
+        throw new Error(`${name}: the image runs off the first page: ${c1.raw}`);
+      }
 
-    // only an anchor and a space before the image, in a paragraph with its own margin
-    const c2 = await renderChapter(client, epub, 2);
-    if (c2.red === 0) {
-      throw new Error(`${name}: blank page before an image in a paragraph: ${c2.raw}`);
-    }
+      // only an anchor and a space before the image, in a paragraph with its own margin
+      const c2 = await renderChapter(client, epub, 2);
+      if (c2.red === 0) {
+        throw new Error(`${name}: blank page before an image in a paragraph: ${c2.raw}`);
+      }
 
-    // text above it: the page isn't empty, so the image still moves on
-    const c3 = await renderChapter(client, epub, 3);
-    if (c3.blue === 0 || c3.red !== 0) {
-      throw new Error(`${name}: expected only the text on the page: ${c3.raw}`);
-    }
-  });
+      // text above it: the page isn't empty, so the image still moves on
+      const c3 = await renderChapter(client, epub, 3);
+      if (c3.blue === 0 || c3.red !== 0) {
+        throw new Error(`${name}: expected only the text on the page: ${c3.raw}`);
+      }
+    },
+    ["-appdata", writeAppdata(`${name}-settings`, "DocumentColorsFollowTheme = off\nCustomScreenDPI = 96\n")],
+  );
 }
 
 if (import.meta.main) {

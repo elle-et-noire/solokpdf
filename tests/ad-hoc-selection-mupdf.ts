@@ -32,14 +32,14 @@ export async function runCases(names: string[]): Promise<void> {
     return;
   }
   const cases = [
-    { name: "smart-light", kind: "plain", mode: "smart", bg: "#ffffff", text: "#000000", red: true },
-    { name: "smart-dark", kind: "plain", mode: "smart", bg: "#202020", text: "#ffffff", red: true },
-    { name: "off", kind: "plain", mode: "off", bg: "#202020", text: "#ffffff", red: true },
-    { name: "cross-dark-off", kind: "plain", mode: "off", bg: "#202020", text: "#ffffff", red: true },
-    { name: "clip", kind: "clip", mode: "off", bg: "#ffffff", text: "#000000", red: false },
-    { name: "alpha", kind: "alpha", mode: "off", bg: "#ffffff", text: "#000000", red: false },
-    { name: "type3", kind: "type3", mode: "off", bg: "#ffffff", text: "#000000", red: false },
-    { name: "occlusion", kind: "occlusion", mode: "off", bg: "#ffffff", text: "#000000", red: false },
+    { name: "smart-light", kind: "plain", mode: "smart", bg: "#ffffff", text: "#000000" },
+    { name: "smart-dark", kind: "plain", mode: "smart", bg: "#202020", text: "#ffffff" },
+    { name: "off", kind: "plain", mode: "off", bg: "#202020", text: "#ffffff" },
+    { name: "cross-dark-off", kind: "plain", mode: "off", bg: "#202020", text: "#ffffff" },
+    { name: "clip", kind: "clip", mode: "off", bg: "#ffffff", text: "#000000" },
+    { name: "alpha", kind: "alpha", mode: "off", bg: "#ffffff", text: "#000000" },
+    { name: "type3", kind: "type3", mode: "off", bg: "#ffffff", text: "#000000" },
+    { name: "occlusion", kind: "occlusion", mode: "off", bg: "#ffffff", text: "#000000" },
   ];
   for (const c of cases) {
     if (!names.includes(c.name)) continue;
@@ -49,7 +49,7 @@ export async function runCases(names: string[]): Promise<void> {
     writeFileSync(path, pdf(c.kind), "latin1");
     writeFileSync(
       join(dir, SETTINGS_FILE),
-      `Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\nDocumentColorsFollowTheme = ${c.mode}\nThemes [\n [\n Name = Selection Test\n TextColor = ${c.text}\n BackgroundColor = ${c.bg}\n ControlBackgroundColor = ${c.bg}\n LinkColor = ${c.text}\n ${c.name === "cross-dark-off" ? "" : "SelectionBackgroundColor = #0066cc\n "}SelectionTextColor = #ff0000\n ]\n]\n`,
+      `Theme = Selection Test\nRestoreSession = false\nCheckForUpdates = false\nSelectionToolbar = false\nDocumentColorsFollowTheme = ${c.mode}\nThemes [\n [\n Name = Selection Test\n TextColor = ${c.text}\n BackgroundColor = ${c.bg}\n ControlBackgroundColor = ${c.bg}\n LinkColor = ${c.text}\n ${c.name === "cross-dark-off" ? "" : "SelectionBackgroundColor = #0066cc\n "}SelectionTextColor = #ff0000\n TextSelectionColor = #800066cc\n ]\n]\n`,
     );
     const { proc, client, frame } = await launchControlled(["-appdata", dir, path], {
       env: { SOLOKPDF_ENGINE: "mupdf" },
@@ -71,28 +71,35 @@ export async function runCases(names: string[]): Promise<void> {
       repaintWindow(canvas);
       let red = 0;
       let changed = 0;
-      let gray = 0;
+      let blended = 0;
+      const overlay = [0, 102, 204];
+      const alpha = 128;
       for (let attempt = 0; attempt < 50; attempt++) {
         await sleep(100);
         if (!captureWindowToPng(canvas, shot)) throw new Error(`${c.name}: capture failed`);
         const image = loadPng(shot);
         red = 0;
         changed = 0;
-        gray = 0;
+        blended = 0;
         for (let y = 0; y < image.h; y++)
           for (let x = 0; x < image.w; x++) {
             const [r, g, b] = pngPixel(image, x, y);
             const [br, bg, bb] = pngPixel(before, x, y);
             if (r! > 180 && g! < 80 && b! < 80) red++;
-            if (r !== br || g !== bg || b !== bb) changed++;
-            if (br! > 252 && bg! > 252 && bb! > 252 && r! > 100 && r! < 240 && r === g && g === b) gray++;
+            if (r === br && g === bg && b === bb) continue;
+            changed++;
+            if (
+              overlay.every(
+                (c, i) => Math.abs([r, g, b][i]! - ([br, bg, bb][i]! * (255 - alpha) + c * alpha) / 255) <= 2,
+              )
+            )
+              blended++;
           }
-        if (c.red && red > 10) break;
+        if (blended > 30) break;
       }
-      if (c.red ? red <= 10 : red > 0) throw new Error(`${c.name}: ${red} red pixels`);
-      if (changed < 10) throw new Error(`${c.name}: selection was not painted`);
-      if (c.name === "cross-dark-off" && gray < 30) throw new Error(`${c.name}: selection background is invisible`);
-      console.log(`${c.name}: ${red} red pixels`);
+      if (red > 0) throw new Error(`${c.name}: ${red} UI selection-text pixels in the document`);
+      if (blended < 30) throw new Error(`${c.name}: overlay missing: blended=${blended} changed=${changed}`);
+      console.log(`${c.name}: ${blended} blended pixels`);
     } finally {
       client.close();
       await killAndWait(proc);

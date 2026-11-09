@@ -9,6 +9,7 @@ Condensed measurements are in [data/](data/).
 | Topic                 | Records                                                                                                                                                                                                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Latest validation     | [D8 hosted checks](#d8-hosted-validation-audit-2026-11-09), [D9 scheduled-suite failures](#d9-scheduled-suite-failures-2026-11-09), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                                           |
+| Merge follow-ups      | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                                                         |
 | Recent implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input-target classification](#e12-input-target-classification-2026-11-09), [E11 settings application](#e11-settings-application-2026-11-09), [virtual sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
 | Keyboard input        | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                                                       |
 | Startup and memory    | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                                                              |
@@ -1704,6 +1705,86 @@ Triage each test separately with repeated targeted runs. Do not rerun a full
 suite or assume that these failures share one cause. Failure artifacts remain
 on the run.
 
+### Local triage
+
+Validation base: `6c3df5580`, Debug quick build, Windows build 26300.9818,
+120 DPI (125%), hidden desktop. App source and vendored MuPDF were unchanged.
+Before changing the tests, each of the ten non-clipboard tests ran three times
+per engine. Eight failed consistently; `selection-document-colors` and
+`toolbar-wrap` passed all six isolated runs.
+
+- `issue-6151`, `issue-6330`, `issue-1293`, `epub-first-page-image`,
+  `css-invalid-color` and `epub-pre-wraps` assumed unthemed page colors. The
+  tests now use `DocumentColorsFollowTheme = off`; the EPUB tests also set
+  `CustomScreenDPI = 96` and retain their content-geometry assertions.
+- `selection-mupdf-colors` still expected redrawn red text, and
+  `selection-purpy-contrast` still expected the removed outline fallback and
+  contrast adjustment. They now check the documented translucent overlay,
+  including ActualText, Type 3, clipped and transparent text. The adjacent
+  `ad-hoc-selection-mupdf` cases passed three times per outer engine setting;
+  that helper always selects MuPDF. The Purpy test includes its own engine cases.
+- `selection-document-colors` assumed white paper even in its smart-dark
+  case. It now compares selected pixels with the original pixels and the
+  configured alpha blend, within the selection bounds. This includes
+  antialiased glyph edges instead of requiring solid-white glyph samples.
+- `toolbar-wrap` now uses dedicated settings and logs actual frame width
+  and DPI. The old hosted failure was not reproduced locally; its cause
+  remains unconfirmed. A controlled settings-contamination probe made the
+  original test fail three times; the isolated version passed all three.
+
+The eight consistently failing tests passed three times per outer engine
+setting after their changes. The final `selection-document-colors` and
+`toolbar-wrap` versions also passed three times per engine. The ten affected suite entries moved directly
+below `issue-5978` for the next release run. No full suite was run.
+
+The MuPDF image menu opened and copied a process-local 4x4 `CF_BITMAP` in
+three local probes. This does not verify Windows' `CF_DIB` synthesis or
+clipboard contention; the original `issue-6360` needs hosted verification.
+The owner's system clipboard was not used.
+
+Targeted hosted rechecks on remote source `ee72b00a2`:
+[42630775847](https://github.com/elle-et-noire/solokpdf/actions/runs/42630775847)
+repeats `issue-6360`, `toolbar-wrap` and `selection-document-colors` three
+times each on MuPDF;
+[42630790144](https://github.com/elle-et-noire/solokpdf/actions/runs/42630790144)
+repeats the latter two three times each on PDFium. These runs do not contain
+the local test repairs. D9 remains open until the modified tests pass hosted
+targeted validation.
+
+## D10: Merged UI review (2026-11-09)
+
+Debug app built from `6c3df5580`; Windows build 26300.9818, 120 DPI (125%).
+Captured eight 1024x800 frames with `PrintWindow` on the hidden desktop:
+Light/Dark × PDFium/MuPDF × layered/signed PDF. Inspected every capture.
+
+- Page-info bars use the toolbar surface and readable theme text on both engines.
+- Signature lists use the sidebar surface on both engines. The generated
+  signer is deliberately untrusted; its warning and ellipsized list text are expected.
+- MuPDF's Layers list follows the sidebar colors; PDFium keeps the Layers
+  panel hidden as designed.
+
+The control-state checks confirmed the page-info row and expected panel
+visibility. D10 is complete for these merged UI areas. This was a Debug
+capture review, not a new Release, physical-DPI or screen-reader acceptance.
+Local captures, state and generated PDFs are under `.work/d10/`.
+
+## D11: MuPDF patch verification (2026-11-09)
+
+Downloaded the official `ArtifexSoftware/mupdf` tag `1.28.5` archive into
+`.work/d11/`; SHA-256:
+`eb902f036011f6e57979a1c6b00f724de8a8a724bb423f5bb54b6fa38999fdc0`.
+
+The first pass applied 87/88 patches. `0053-pdf-sign-docmdp-certify.patch`
+contained only the `/Lock /P` addition and assumed its own DocMDP block
+already existed. The other 1409 vendored files matched. Restored the missing
+DocMDP block to that patch from the existing vendored file; no vendored bytes changed.
+
+Applied all 88 patches again to a fresh extraction with LF preserved and
+compared all 1410 vendored files byte for byte: zero differences. D11 is
+complete. The archive, application logs and comparison results are in
+`.work/d11/`; the repeat procedure is in the
+[patch ledger](../../ext/patches/README.md#verifying-them).
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in
@@ -1823,14 +1904,16 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 
 ### D. CI
 
-| ID  | Item                                                                             | Status                                                                                                                            |
-| --- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | Release job in parallel with debug                                               | done — Run CI release build in parallel (D1)                                                                                      |
-| D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)                                                                                            |
-| D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | done — Merge upstream f45967f87 (D5)                                                                                              |
-| D6  | Merge upstream/master at 254c2ae7c into solokpdf-dev                             | done — Merge upstream/master 254c2ae7c (D6)                                                                                       |
-| D7  | Merge upstream/master at 8b716234f into solokpdf-dev                             | done — Merge upstream/master 8b716234f (D7)                                                                                       |
-| D8  | Record outstanding hosted CI checks                                              | done — Record hosted DPI validation results (D8); all four follow-ups verified; [results](#d8-hosted-validation-audit-2026-11-09) |
+| ID  | Item                                                                             | Status                                                                                                                                        |
+| --- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Release job in parallel with debug                                               | done — Run CI release build in parallel (D1)                                                                                                  |
+| D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)                                                                                                        |
+| D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | done — Merge upstream f45967f87 (D5)                                                                                                          |
+| D6  | Merge upstream/master at 254c2ae7c into solokpdf-dev                             | done — Merge upstream/master 254c2ae7c (D6)                                                                                                   |
+| D7  | Merge upstream/master at 8b716234f into solokpdf-dev                             | done — Merge upstream/master 8b716234f (D7)                                                                                                   |
+| D8  | Record outstanding hosted CI checks                                              | done — Record hosted DPI validation results (D8); all four follow-ups verified; [results](#d8-hosted-validation-audit-2026-11-09)             |
+| D10 | Check the merged UI in Light and Dark                                            | done — Debug captures reviewed on both engines; [scope and results](#d10-merged-ui-review-2026-11-09)                                         |
+| D11 | Verify the MuPDF patch ledger byte for byte                                      | done — restored the complete signing patch; 88 patches reproduce all 1410 vendored files; [results](#d11-mupdf-patch-verification-2026-11-09) |
 
 ### E. Quality
 
