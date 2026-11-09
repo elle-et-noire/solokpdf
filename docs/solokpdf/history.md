@@ -1,7 +1,7 @@
 # SolokPDF history
 
 Measurement and work log, oldest first. Current behavior is in
-[limitations.md](limitations.md); open items are in [backlog.md](backlog.md).
+[features.md](features.md) and [limitations.md](limitations.md); open items are in [backlog.md](backlog.md).
 Condensed measurements are in [data/](data/).
 
 ## Baseline (2026-10-24)
@@ -1522,6 +1522,43 @@ the Vim command line leaves Up and Down to the edit control instead of replacing
 its contents with history. Tests simulate IME messages; a real IME session was
 not exercised. Keyboard tests post window messages on a hidden desktop and do
 not establish physical keyboard behavior across all input methods.
+
+## Virtual sidebar rollout (2026-11-09)
+
+`dff595cf0` added the opt-in prototype. `a844148bc` centralized expansion and
+lifetime handling; `3412a2174` made virtual bookmarks and favorites the default
+in Debug and Release, removing the opt-in switches and native sidebar drawing.
+E10 remains open for the F2 physical acceptance checks. Settings application
+under `-for-testing` is the separate E11 task.
+
+Expansion delegates from `SidebarTree` to `VirtTree`; depth-based node updates
+and visible-row rebuilding live in `VirtTreeState`. `VirtTreeGuard` shares
+model, row and window validity checks across expansion notifications without
+changing their order. Debug probes live in `SidebarTree::TestMessage`.
+
+The refactor passed Debug/ASan builds and existing navigation, reentrancy,
+destruction and stale-UIA tests. Expansion depth and sibling collapse matched
+before and after the change. The diff review found no further issues; no new
+test files were added.
+
+The rollout adapted existing tests to the virtual controls. The Vim test
+reproduced posted arrow keys reaching document accelerators; selecting the
+table by the sidebar's focus target fixed routing. Its tree-only run passed
+three times, and the full Vim test passed. Navigation, styles, colors, all four
+scrollbar modes, large trees and Markdown/HTML outlines passed. ASan covered
+model replacement, destruction, stale UIA references and key routing in real
+documents and the shared control.
+
+Permanent overlay bars now reserve viewport space. The large-favorites test
+failed before the last-row correction and passed three times after it. End
+visibility, reentrancy and destruction checks also passed under ASan. The final
+Release build had no warnings or errors; Light/Dark rendering and UIA/MSAA
+passed on the hidden desktop.
+
+These are implementation-time results, not reruns for the documentation review.
+The [migration plan](tree-view-replacement-plan.md) retains the original scope
+and prototype results. Pending physical checks and their results belong in the
+[manual procedure](tree-view-screen-reader-check.md#実施結果).
 
 ## Completed backlog
 

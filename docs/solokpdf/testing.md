@@ -2,6 +2,10 @@
 
 ## Local Windows runs
 
+Build commands and output paths are in the [root readme](../../readme.md).
+Settings application under `-for-testing` has a separate known issue;
+see [E11](backlog.md#e11-settings-application) before testing live settings changes.
+
 Run every local test that can launch an app through the hidden-desktop runner,
 outside the Codex sandbox. The runner creates a unique desktop in `WinSta0`,
 checks it is not the input desktop, and never switches desktops. Ordinary child
@@ -45,7 +49,8 @@ bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-vim-keys.ts --tree-only --n
 
 The document-tree tests exercise the defaults without environment switches.
 Additional lifetime, UIA/MSAA, large-tree and navigation checks are listed in the
-[migration plan](tree-view-replacement-plan.md#検証). Use
+[migration plan](tree-view-replacement-plan.md#検証). Rollout results are in
+[history.md](history.md#virtual-sidebar-rollout-2026-11-09). Use
 `tests/sidebar-tree.ts` for item counts, selection and row operations.
 The new tree probes are standalone tests, not entries in `run-almost-all.ts`.
 `--tree-only` runs the existing Vim test's tree navigation and custom shortcuts

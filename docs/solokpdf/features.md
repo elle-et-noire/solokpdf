@@ -118,9 +118,8 @@ Palenight, `NotificationBackgroundColor` for Solarized Dark and Monokai,
 
 ## Virtual sidebar trees
 
-Bookmarks and favorites use virtual trees by default in Debug and Release.
-The Debug opt-in experiment began in `dff595cf0` (2026-11-09); its
-`SOLOKPDF_VIRTUAL_TOC` and `SOLOKPDF_VIRTUAL_FAVORITES` switches have been removed.
+Bookmarks and favorites use virtual trees by default in Debug and Release
+since `3412a2174` (2026-11-09). The former opt-in switches have been removed.
 Normal launches and `-for-testing` use the same control.
 
 The virtual trees use the existing `TreeModel` and support `Scrollbars` modes
@@ -131,8 +130,9 @@ document area's bottom, with 4 DIP padding below the last row.
 Always-visible overlay bars reserve room in the tree's viewport so a revealed
 row or title stays clear of the bars.
 
-Automated checks and implementation details are in the
-[migration plan](tree-view-replacement-plan.md). Narrator, NVDA, real monitor DPI
+Implementation and validation results are in
+[history.md](history.md#virtual-sidebar-rollout-2026-11-09), with prototype details
+in the [migration plan](tree-view-replacement-plan.md). Narrator, NVDA, real monitor DPI
 changes, native thumb dragging and real-cursor smart-bar hover remain unverified.
 Use the [test setup](testing.md#virtual-sidebar-trees) and
 [screen-reader procedure](tree-view-screen-reader-check.md) for follow-up.

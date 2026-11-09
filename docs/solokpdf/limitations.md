@@ -9,9 +9,9 @@ are in [history.md](history.md).
 - Settings and Advanced Settings open one screen on either engine. Ctrl+, opens
   it; commonly used settings appear above the full list (B70).
 - SolokPDF uses GDI+ for UI drawing by default. PDF pages use the configured engine.
-- The tree migration plan records settings changes reverting under `-for-testing`
-  when existing settings are reloaded without saving (E11). See its
-  [separate settings task](tree-view-replacement-plan.md#独立した設定の修正).
+- Settings changes can revert under `-for-testing` when existing settings are
+  reloaded without saving. See [E11](backlog.md#e11-settings-application) for
+  the scope and test workaround.
 - The toolbar's chapter and page boxes keep `ControlBackgroundColor` when
   normal, focused, selected and disabled (`theme-control-background`).
   Selections use the system highlight. A disabled native edit draws its text

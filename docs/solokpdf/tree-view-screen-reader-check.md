@@ -1,7 +1,8 @@
 # TreeView の手動確認
 
 2026-11-09 時点で実機確認は未実施（F2）。既定化した仮想ツリーが対象。Debug・Release とも同じ部品を使う。
-自動テストの状況は [置き換え計画](tree-view-replacement-plan.md#試作の結果) を参照する。
+既定化時の自動テスト結果は [history.md](history.md#virtual-sidebar-rollout-2026-11-09)、
+試作時の結果は [置き換え計画](tree-view-replacement-plan.md#試作の結果) を参照する。
 
 自動テストとは別に、操作する人のデスクトップで実行する。
 

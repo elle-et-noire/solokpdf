@@ -16,8 +16,8 @@ rendered output.
 
 ## Status (2026-11-09)
 
-Current source on `solokpdf-dev`. Build and test results retain the dates and
-scope recorded with each change.
+Source reviewed through `3412a2174` on `solokpdf-dev`. Build and test results
+below are earlier records, not reruns for this documentation review.
 
 | Area           | Current state                                                                                                    | Details                                                                                                              |
 | -------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -32,6 +32,8 @@ scope recorded with each change.
 
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
+The next code task is [E11: settings application](backlog.md#e11-settings-application).
+Tree implementation is in place; E10 remains open for the F2 acceptance checks.
 Build instructions are in the root readme; local GUI tests follow
 [testing.md](testing.md). Screen-reader and physical-device checks have separate
 manual steps; automated checks do not establish those results.

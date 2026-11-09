@@ -12,7 +12,6 @@ New-Item -ItemType Directory -Force .work/build-deps | Out-Null
 . ./tools/solokpdf/env.ps1
 bun add --cwd .work/build-deps minio@8.0.6 prettier@3.6.2
 bun cmd/solok-build.ts -dbg            # or -rel
-./out/solokpdf-dev/SolokPDF.exe -for-testing paper.pdf
 ```
 
 The wrapper verifies a pinned Windows x64 PDFium archive, regenerates projects
@@ -22,6 +21,12 @@ output is `out/solokpdf-dev/`; release output is `out/solokpdf-portable/`. PDBs
 are for development, not required to run.
 The release wrapper creates `out/SolokPDF-experimental-x64.zip`. Recorded build
 and test results are in [history](docs/solokpdf/history.md).
+
+For local test builds, `bun cmd/solok-build.ts -quick` updates
+`out/dbg64/SumatraPDF.exe` and `pdfium.dll` without staging the portable folder.
+Run app-launching tests through the [hidden-desktop runner](docs/solokpdf/testing.md).
+Keep `-for-testing` on ad-hoc launches; physical checks follow the separate
+[manual procedure](docs/solokpdf/tree-view-screen-reader-check.md).
 
 PDFium is the default for PDFs in this build. Set `$env:SOLOKPDF_ENGINE='mupdf'`
 to compare using the same UI. Non-PDF formats retain their existing engines.
