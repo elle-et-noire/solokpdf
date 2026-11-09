@@ -3,8 +3,9 @@
 ## Local Windows runs
 
 Build commands and output paths are in the [root readme](../../readme.md).
-Settings application under `-for-testing` has a separate known issue;
-see [E11](backlog.md#e11-settings-application) before testing live settings changes.
+Palette and settings-screen changes apply under `-for-testing` without writing
+the settings file. Use a dedicated `-appdata` without `-for-testing` only when
+the test needs to verify persistence; it still runs on the hidden desktop.
 
 Run every local test that can launch an app through the hidden-desktop runner,
 outside the Codex sandbox. The runner creates a unique desktop in `WinSta0`,

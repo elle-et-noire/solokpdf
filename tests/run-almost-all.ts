@@ -597,6 +597,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["command-palette-settings", commandPaletteSettings],
+  ["adv-settings-home-reload", advSettingsHomeReload],
   ["issue-3560", issue3560],
   ["closed-stdout", closedStdout],
   ["issue-5911", issue5911],
@@ -1018,7 +1020,6 @@ export const tests: NamedTest[] = [
   ["palette-delete-annotation", paletteDeleteAnnotation],
   ["palette-command-availability", paletteCommandAvailability],
   ["recent-files-menu", recentFilesMenu],
-  ["command-palette-settings", commandPaletteSettings],
   ["settings-restore-default", settingsRestoreDefault],
   ["issue-6287", issue6287],
   ["issue-6341", issue6341],
@@ -1083,7 +1084,6 @@ export const tests: NamedTest[] = [
   ["adv-settings-enter", advSettingsEnter],
   ["adv-settings-fresh-defaults", advSettingsFreshDefaults],
   ["issue-6137-adv-settings", issue6137AdvSettings],
-  ["adv-settings-home-reload", advSettingsHomeReload],
   ["adv-settings-external-reload", advSettingsExternalReload],
   ["reload-settings-memory-trim", reloadSettingsMemoryTrim],
   ["command-palette-external-reload", commandPaletteExternalReload],

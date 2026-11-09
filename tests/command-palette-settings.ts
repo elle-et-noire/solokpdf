@@ -4,10 +4,9 @@
 // the allowed ones, and Enter applies it right away.
 //
 // The advanced settings dialog reads gSettings live, so its "nondefault" rows
-// are how we check that a change actually landed. It needs a build that saves
-// settings: -for-testing skips the save, and applying re-reads the file.
+// are how we check that a change actually landed, with and without saving.
 
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
@@ -17,6 +16,7 @@ import {
   paletteSetText,
   sendCommand,
   waitForPalette,
+  waitForExit,
   paletteState,
   type PaletteState,
 } from "./win-automation.ts";
@@ -120,16 +120,16 @@ async function nonDefaultSettings(client: ControlClient, frame: number): Promise
   }
 }
 
-export async function testit(): Promise<void> {
-  const dir = tmpPath("command-palette-settings");
+async function testMode(mode: "testing" | "saved"): Promise<void> {
+  const dir = tmpPath(`command-palette-settings-${mode}`);
   rmSync(dir, { recursive: true, force: true });
   const appdata = join(dir, "appdata");
   mkdirSync(appdata, { recursive: true });
-  writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
+  const settingsPath = join(appdata, SETTINGS_FILE);
+  writeFileSync(settingsPath, SETTINGS);
+  const modified = statSync(settingsPath).mtimeMs;
 
-  // saveSettings: applying a value re-reads the settings file, so the app must
-  // be allowed to write it first
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata], { saveSettings: true });
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata], { saveSettings: mode === "saved" });
   try {
     // a non-bool setting is in the list at all, and Enter on it asks for a
     // value instead of closing
@@ -194,11 +194,27 @@ export async function testit(): Promise<void> {
         throw new Error(`command-palette-settings: ${name} is '${got.get(name) ?? "(default)"}', expected '${value}'`);
       }
     }
-    console.log("command-palette-settings: OK");
+    await client.quit();
+    if (!(await waitForExit(proc))) {
+      throw new Error("command-palette-settings: app did not exit");
+    }
+    if (mode === "testing") {
+      if (readFileSync(settingsPath, "utf8") !== SETTINGS || statSync(settingsPath).mtimeMs !== modified) {
+        throw new Error("command-palette-settings: -for-testing wrote settings");
+      }
+    } else if (!/ZoomIncrement\s*=\s*25\b/.test(readFileSync(settingsPath, "utf8"))) {
+      throw new Error("command-palette-settings: normal run did not save ZoomIncrement");
+    }
+    console.log(`command-palette-settings: OK (${mode})`);
   } finally {
     client.close();
     await killAndWait(proc);
   }
+}
+
+export async function testit(): Promise<void> {
+  await testMode("testing");
+  await testMode("saved");
 }
 
 if (import.meta.main) {

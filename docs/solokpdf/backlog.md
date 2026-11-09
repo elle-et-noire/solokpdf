@@ -13,30 +13,10 @@ there.
 | --- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D3  | Shard the full suite across runners                                                     | deferred: the suite takes ~25 min once a hung test is cut off                                                                                        |
 | E10 | Complete the [virtual sidebar migration](tree-view-replacement-plan.md)                 | doing: virtual trees are now the default; native sidebar drawing and opt-in switches removed; physical acceptance checks (F2) remain                 |
-| E11 | Apply settings without reloading stale values under `-for-testing`                      | todo: next code task; [scope and acceptance](#e11-settings-application)                                                                              |
 | E12 | Continue [keyboard input consolidation](keyboard-investigation.md)                      | todo: some context, binding and state handling is shared; remaining routing needs behavior checks                                                    |
 | F1  | Physical printer, print dialog and spooler check                                        | todo: needs the owner                                                                                                                                |
 | F2  | Virtual-tree screen readers, monitor DPI changes, native thumb and real smart-bar hover | todo: needs the owner; [manual procedure](tree-view-screen-reader-check.md); required for E10 acceptance                                             |
 | F3  | Keyboard physical input and OS hotkey checks                                            | todo: needs the owner; AltGr, dead keys, Japanese IME, key repeat, focus changes and hotkey conflicts; [details](keyboard-investigation.md#残る検証) |
-
-## E11: Settings application
-
-Settings changed through the palette or Advanced Settings can revert under
-`-for-testing` when an existing settings file is reloaded. Saving is suppressed,
-but applying the change still calls `ForceReloadSettings()`. The relevant paths
-are in `src/shared/AppSettings.cpp` and `src/AdvancedSettingsDialog.cpp`.
-This is separate from the completed tree rollout (`3412a2174`).
-
-Start with a failing regression using an existing, dedicated `-appdata` file.
-Reuse the palette/settings tests where possible; they currently use saved
-settings for this path. Verify that changes affect the current UI without
-writing the file under `-for-testing`, while normal saving and external-file
-reloads still work. Run only the affected tests through the
-[hidden-desktop runner](testing.md).
-
-Until fixed, preload each test's settings file before launch. Tests that need
-to change and save settings use a dedicated `-appdata` without `-for-testing`,
-on the hidden desktop.
 
 ## Dropped
 

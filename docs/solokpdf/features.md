@@ -323,6 +323,11 @@ first with translated labels; the filter also finds their raw setting names.
 Layout, zoom, and inverse search retain their choices. Advanced Settings
 shortcuts open the same screen.
 
+The palette and settings screen apply changes from memory, including derived
+fonts, colors and shortcuts. Saving remains separate: `-for-testing` applies
+changes for the current process without updating the settings file (E11).
+Normal runs save changes; external file edits still reload settings.
+
 ## Keyboard shortcuts dialog
 
 Settings > Customize Keyboard Shortcuts opens a filterable command and binding

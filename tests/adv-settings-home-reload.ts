@@ -4,11 +4,11 @@
 //
 // Run: bun tests/adv-settings-home-reload.ts [--no-build]
 
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { sleep } from "./winapi.ts";
-import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import { killAndWait, launchControlled, sendCommandSync, waitForExit } from "./win-automation.ts";
 import { ControlCommand, type ControlClient } from "./control.ts";
 
 async function adv(client: ControlClient, action: string, arg = 0): Promise<string> {
@@ -28,18 +28,21 @@ async function adv(client: ControlClient, action: string, arg = 0): Promise<stri
   throw new Error(`adv-settings-home-reload: Advanced Settings never ready for ${action}`);
 }
 
-export async function testit(): Promise<void> {
-  const appdata = tmpPath("adv-settings-home-reload");
+async function testMode(mode: "testing" | "saved"): Promise<void> {
+  const appdata = tmpPath(`adv-settings-home-reload-${mode}`);
   rmSync(appdata, { recursive: true, force: true });
   mkdirSync(appdata, { recursive: true });
   const pdf = join(appdata, "doc.pdf");
   copyFileSync(join(ROOT, "ext", "a-zlib", "zlib.3.pdf"), pdf);
+  const settingsPath = join(appdata, SETTINGS_FILE);
   writeFileSync(
-    join(appdata, SETTINGS_FILE),
+    settingsPath,
     `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = true\nShowStartPage = true\nFileStates [\n\t[\n\t\tFilePath = ${pdf}\n\t\tOpenCount = 1\n\t]\n]\n`,
   );
+  const original = readFileSync(settingsPath, "utf8");
+  const modified = statSync(settingsPath).mtimeMs;
 
-  const { proc, client, frame } = await launchControlled(["-appdata", appdata]);
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata], { saveSettings: mode === "saved" });
   try {
     const homeDeadline = Date.now() + 8000;
     let home = await client.homeSelection();
@@ -52,7 +55,10 @@ export async function testit(): Promise<void> {
     }
 
     sendCommandSync(frame, cmdId("CmdAdvancedSettings"));
-    await adv(client, "toggle", 0);
+    const toggled = await adv(client, "toggle", 0);
+    if (!toggled.includes("toggled=DisableJavaScript changed=1")) {
+      throw new Error(`adv-settings-home-reload: unexpected toggle: ${toggled.trim()}`);
+    }
     const saved = await adv(client, "save");
     if (!saved.includes("saved=1")) {
       throw new Error(`adv-settings-home-reload: save failed: ${saved.trim()}`);
@@ -72,11 +78,35 @@ export async function testit(): Promise<void> {
     if (!after.ready) {
       throw new Error(`adv-settings-home-reload: home page not ready after save (${after.raw})`);
     }
+
+    sendCommandSync(frame, cmdId("CmdAdvancedSettings"));
+    const values = await adv(client, "nondefault");
+    if (!values.includes("DisableJavaScript=true default=false")) {
+      throw new Error(`adv-settings-home-reload: saved change reverted (${mode})`);
+    }
+    await adv(client, "esc");
+    await client.quit();
+    if (!(await waitForExit(proc))) {
+      throw new Error("adv-settings-home-reload: app did not exit");
+    }
+    if (mode === "testing") {
+      if (readFileSync(settingsPath, "utf8") !== original || statSync(settingsPath).mtimeMs !== modified) {
+        throw new Error("adv-settings-home-reload: -for-testing wrote settings");
+      }
+    } else if (!/DisableJavaScript\s*=\s*true\b/.test(readFileSync(settingsPath, "utf8"))) {
+      throw new Error("adv-settings-home-reload: normal run did not save DisableJavaScript");
+    }
+    console.log(`adv-settings-home-reload: OK (${mode})`);
   } finally {
     client.close();
     await killAndWait(proc);
     rmSync(appdata, { recursive: true, force: true });
   }
+}
+
+export async function testit(): Promise<void> {
+  await testMode("testing");
+  await testMode("saved");
 }
 
 if (import.meta.main) {

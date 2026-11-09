@@ -27,6 +27,7 @@ void ScheduleSaveSettings();
 void FlushScheduledSaveSettings();
 void SaveSettingsNow();
 void ForceReloadSettings();
+void ApplySettingsChanges();
 void ReloadDeferredSettings();
 void ApplySettingsToOpenWindows();
 void CleanUpSettings();

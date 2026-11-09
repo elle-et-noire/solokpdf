@@ -759,31 +759,9 @@ void SaveSettingsNow() {
     SaveSettings();
 }
 
-bool LoadSettings() {
-    ReportIf(gSettings);
-
-    auto timeStart = TimeGet();
-
-    Settings* gprefs = nullptr;
-    TempStr settingsPath = GetSettingsPathTemp();
-    bool settingsMigrated = false;
-    {
-        Str prefsData = file::ReadFile(settingsPath);
-
-        gSettings = NewSettings(prefsData);
-        ReportIf(!gSettings);
-        gprefs = gSettings;
-        settingsMigrated = MigrateDocumentColorsFollowThemeSetting(prefsData);
-        settingsMigrated |= MigrateLegacyFileTime(&gSettings->timeOfLastUpdateCheck);
-        RememberLastSavedPrefs(prefsData);
-        str::Free(prefsData);
-    }
-    if (MigrateRenamedThemeNames()) {
-        // the file still named a theme we dropped; save so it stops doing that
-        settingsMigrated = true;
-    }
-
-    // takes effect for PDFs loaded after this (startup, and on settings reload)
+// Normalize current values and rebuild the state derived from them.
+static bool ApplyCurrentSettings() {
+    Settings* gprefs = gSettings;
     EngineMupdfSetDisableJavaScript(gSettings->disableJavaScript);
     EngineMupdfSetAllowExternalImages(gSettings->allowExternalImages);
     EngineMupdfSetAutoHeadingToc(gSettings->autoGenerateTOC);
@@ -800,7 +778,6 @@ bool LoadSettings() {
         str::ReplaceWithCopy(&gprefs->uiLanguage, trans::DetectUserLang());
     }
 
-    gprefs->lastPrefUpdate = file::GetModificationTime(settingsPath);
     // make sure that zoom levels are in the order expected by DisplayModel
     VecSort(*gprefs->zoomLevels, cmpFloat);
     while (len(*gprefs->zoomLevels) > 0 && (*gprefs->zoomLevels)[0] < kZoomMin) {
@@ -938,6 +915,34 @@ bool LoadSettings() {
     bool readAloudVoiceCleared = gReadAloudVoiceReady && ApplyReadAloudVoiceFromSettings();
 #endif
 
+    return readAloudVoiceCleared;
+}
+
+bool LoadSettings() {
+    ReportIf(gSettings);
+
+    auto timeStart = TimeGet();
+
+    TempStr settingsPath = GetSettingsPathTemp();
+    bool settingsMigrated = false;
+    {
+        Str prefsData = file::ReadFile(settingsPath);
+
+        gSettings = NewSettings(prefsData);
+        ReportIf(!gSettings);
+        settingsMigrated = MigrateDocumentColorsFollowThemeSetting(prefsData);
+        settingsMigrated |= MigrateLegacyFileTime(&gSettings->timeOfLastUpdateCheck);
+        RememberLastSavedPrefs(prefsData);
+        str::Free(prefsData);
+    }
+    if (MigrateRenamedThemeNames()) {
+        // the file still named a theme we dropped; save so it stops doing that
+        settingsMigrated = true;
+    }
+
+    gSettings->lastPrefUpdate = file::GetModificationTime(settingsPath);
+    bool readAloudVoiceCleared = ApplyCurrentSettings();
+
     bool needsSave = !file::Exists(settingsPath) || readAloudVoiceCleared || settingsMigrated;
     if (needsSave) {
         SaveSettings();
@@ -947,6 +952,31 @@ bool LoadSettings() {
 
     logf("LoadSettings('%s') took %.2f ms\n", settingsPath, TimeSinceInMs(timeStart));
     return true;
+}
+
+static void ClearSettingsUi() {
+    HomePageInvalidateLayoutCache();
+#if !defined(SUMATRA_NG)
+    for (MainWindow* win : gWindows) {
+        if (win->IsCurrentTabAbout()) {
+            win->DeleteToolTip();
+            HomePageDestroyChrome(win);
+        }
+    }
+#endif
+}
+
+// Apply in memory so test mode and failed saves cannot restore stale disk values.
+void ApplySettingsChanges() {
+    bool showToolbar = gSettings->showToolbar;
+    ClearSettingsUi();
+    SetCurrentLanguageAndRefreshUI(gSettings->uiLanguage);
+    ApplyCurrentSettings();
+    ReloadSettingsUpdateWindows(showToolbar);
+    UpdateDocumentColors();
+    UpdateFixedPageScrollbarsVisibility();
+    UpdateCrashHandlerSettings();
+    ScheduleSaveSettings();
 }
 
 // refresh the preferences when a different SumatraPDF process saves them
@@ -1014,15 +1044,7 @@ static void ReloadSettings(bool force = false) {
 
     // FileState* in the cache and chrome die with CleanUpSettings()
     // (crash 8c34d7eda). LoadSettings() rebuilds both; do not destroy after.
-    HomePageInvalidateLayoutCache();
-#if !defined(SUMATRA_NG)
-    for (MainWindow* win : gWindows) {
-        if (win->IsCurrentTabAbout()) {
-            win->DeleteToolTip();
-            HomePageDestroyChrome(win);
-        }
-    }
-#endif
+    ClearSettingsUi();
 
     FileHistorySetStates(nullptr);
     // no cache trim until LoadSettings() restores it: reading the file
@@ -1613,10 +1635,7 @@ bool SetSettingsValueFromStr(Str path, Str value) {
             return false;
     }
     UpdateParsedSettingTwin(path, value);
-    ScheduleSaveSettings();
-    // reload so everything derived from settings (theme, fonts, parsed colors,
-    // custom commands, accelerators ...) is re-computed and applied
-    ForceReloadSettings();
+    ApplySettingsChanges();
     ApplyChangedSettingsAndRelayout(before);
     return true;
 }

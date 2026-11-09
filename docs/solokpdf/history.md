@@ -1560,11 +1560,32 @@ The [migration plan](tree-view-replacement-plan.md) retains the original scope
 and prototype results. Pending physical checks and their results belong in the
 [manual procedure](tree-view-screen-reader-check.md#実施結果).
 
+## E11: Settings application (2026-11-09)
+
+Palette and Advanced Settings changes now rebuild derived settings from the
+current values. Saving is separate; applying no longer rereads stale disk
+values when `-for-testing` suppresses saves. Startup and external-file reloads
+share the same normalization and initialization. Advanced Settings invalidates
+the edited color's parsed cache without recreating the settings object.
+
+The existing `command-palette-settings` and `adv-settings-home-reload` tests
+failed before the fix. Both now exercise test mode and normal saving, checking
+live values and the settings file after graceful exit. Test mode checks file
+contents and modification time. Their suite entries follow `issue-5978`.
+
+Windows x64 Debug built with no warnings or errors. Both changed tests and
+`adv-settings-external-reload` passed three consecutive runs on the hidden
+desktop. `ad-hoc-b70-settings` (PDFium and MuPDF), `reload-settings-memory-trim`,
+`settings-restore-default`, `settings-persist` and `adv-settings-fresh-defaults`
+also passed. B70's translated-settings check skipped because this build has no
+embedded translations. Full suites were not run.
+
 ## Completed backlog
 
-Rows of [backlog.md](backlog.md) completed by 2026-11-04. Sources: an audit of every
+Rows of [backlog.md](backlog.md) completed by 2026-11-09. Sources: an audit of every
 MuPDF-only gate outside the engines (`kindEngineMupdf` comparisons and
-`AsEngineMupdf` helpers), the known limitations and the upstream full suite.
+`AsEngineMupdf` helpers), the known limitations, the upstream full suite
+and targeted regressions.
 
 ### A. Startup and page geometry
 
@@ -1692,3 +1713,4 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E6  | ASan run of the render-route probe (pattern strokes, Type 3 alpha, color resets)                                                                                                                                                                                                            | done — Add nested Type 3 and widget route fixtures (E6): `pdfium-type3-alpha`, `pdfium-pattern-strokes` and `pdfium-color-reset` pass on the debug ASan build, including canceled probes, nested Type 3, forms, annotations and widgets |
 | E7  | Theme tests: check dialog colors with `captureWindowDCToPng`; PrintWindow may paint dialogs in the OS theme                                                                                                                                                                                 | done — Read theme dialog colors from the window DC (E7): crops the client area; 4/4 runs passed                                                                                                                                         |
 | E8  | Chapter field colors and states in built-in and custom themes                                                                                                                                                                                                                               | done — Check chapter box theme states (E8): no defect; `issue-6095.epub` (`issue-6007.epub` has one chapter)                                                                                                                            |
+| E11 | Apply settings without reloading stale values under `-for-testing`                                                                                                                                                                                                                          | done — Apply settings without reloading disk values (2026-11-09); [validation](#e11-settings-application-2026-11-09)                                                                                                                    |

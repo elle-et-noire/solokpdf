@@ -983,6 +983,13 @@ void AdvancedSettingsWnd::ApplyChangesAndSave() {
             case SettingType::Compact:
                 ApplyCompactInts(item->compactInfo, p, item->strVal);
                 break;
+            case SettingType::Color: {
+                auto* parsed = (ParsedColor*)p;
+                str::ReplaceWithCopy(&parsed->s, item->strVal);
+                parsed->wasParsed = false;
+                parsed->parsedOk = false;
+                break;
+            }
             default:
                 str::ReplaceWithCopy((Str*)p, item->strVal);
                 break;
@@ -1007,10 +1014,7 @@ void AdvancedSettingsWnd::ApplyChangesAndSave() {
         FileHistoryClear(true);
         EmptyThumbnailCacheDirectory();
     }
-    ScheduleSaveSettings();
-    // reload so that all state derived from settings (theme, fonts, parsed
-    // colors, custom commands, accelerators ...) is re-computed and applied
-    ForceReloadSettings();
+    ApplySettingsChanges();
     // apply changes that a reload doesn't pick up on its own (menu bar, tabs,
     // anti-alias ...) and re-layout the open windows
     before.useTabs = gSettings->useTabs;

@@ -16,23 +16,24 @@ rendered output.
 
 ## Status (2026-11-09)
 
-Source reviewed through `3412a2174` on `solokpdf-dev`. Build and test results
-below are earlier records, not reruns for this documentation review.
+Current source on `solokpdf-dev` includes E11's in-memory settings application.
+Build and test results retain the dates and scope recorded with each change.
 
-| Area           | Current state                                                                                                    | Details                                                                                                              |
-| -------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                      | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
-| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7).                                                                   | [Merge results and remaining checks](upstream-merges.md#merge-result-2026-11-08)                                     |
-| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                      | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
-| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; physical-device checks remain pending.     | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
-| Keyboard input | Context and binding checks partly shared; physical input checks remain pending.                                  | [Handoff](keyboard-handoff.md), [investigation](keyboard-investigation.md)                                           |
-| Remaining work | Tree acceptance checks, settings application in test mode, keyboard follow-up, manual checks and suite sharding. | [Backlog](backlog.md)                                                                                                |
+| Area           | Current state                                                                                                | Details                                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                  | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
+| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7).                                                               | [Merge results and remaining checks](upstream-merges.md#merge-result-2026-11-08)                                     |
+| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                  | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
+| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; physical-device checks remain pending. | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
+| Keyboard input | Context and binding checks partly shared; physical input checks remain pending.                              | [Handoff](keyboard-handoff.md), [investigation](keyboard-investigation.md)                                           |
+| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11). | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
+| Remaining work | Tree acceptance checks, keyboard follow-up, manual checks and suite sharding.                                | [Backlog](backlog.md)                                                                                                |
 
 ## Resuming work
 
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
-The next code task is [E11: settings application](backlog.md#e11-settings-application).
+E11 is complete; keyboard follow-up remains under E12.
 Tree implementation is in place; E10 remains open for the F2 acceptance checks.
 Build instructions are in the root readme; local GUI tests follow
 [testing.md](testing.md). Screen-reader and physical-device checks have separate

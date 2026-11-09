@@ -10,7 +10,7 @@
 [history.md](history.md#virtual-sidebar-rollout-2026-11-09) にまとめる。残作業は、Narrator・NVDA、
 実モニター間の DPI 移動、標準バーのつまみ、実カーソルでのスマートバーを確認すること。
 これらの受け入れ確認を [backlog.md](backlog.md) の E10・F2 で追う。
-設定適用の問題は独立した E11。[読み上げ確認手順](tree-view-screen-reader-check.md) と
+設定適用の問題 E11 は修正済み。[読み上げ確認手順](tree-view-screen-reader-check.md) と
 [ローカルテスト手順](testing.md#virtual-sidebar-trees) を参照する。
 
 ## 目的と範囲
@@ -79,8 +79,8 @@ Win32 TreeView を外すと、Windows が提供している読み上げ情報が
 
 ## 独立した設定の修正
 
-設定適用の問題はツリー移行から独立した E11 として残る。原因となる経路、修正の受け入れ条件、
-未修正の間の検証方法は [backlog.md](backlog.md#e11-settings-application) を参照する。
+E11 で設定の適用と保存を分離した。`-for-testing` でも設定変更をメモリから適用し、既存ファイルの値へ戻さない。
+修正と検証の記録は [history.md](history.md#e11-settings-application-2026-11-09) を参照する。
 
 ## 試作で決めること
 
