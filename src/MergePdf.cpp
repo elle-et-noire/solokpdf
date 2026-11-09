@@ -23,6 +23,7 @@
 #include "AppSettings.h"
 #include "DocController.h"
 #include "EngineBase.h"
+#include "PdfDarkMode.h"
 #include "base/GuessFileType.h"
 #include "EngineAll.h"
 #include "MainWindow.h"
@@ -296,6 +297,7 @@ struct MergeRenderBatch {
     Vec<int> rotations;
     int thumbDx = 0;
     int thumbDy = 0;
+    ViewPageOptions options;
 };
 
 static int ThumbIdx(int pageNo, int rotation) {
@@ -362,7 +364,7 @@ static void RenderBatchAsync(MergeRenderBatch* batch) {
         task->pageNo = batch->pageNos[i];
         task->rotation = batch->rotations[i];
         task->bitmap = RenderPageThumbnail(task->src->engine, task->pageNo, kInvalidLocation, task->rotation,
-                                           batch->thumbDx, batch->thumbDy);
+                                           batch->thumbDx, batch->thumbDy, batch->options);
         uitask::Post(MkFunc0<MergeThumbTask>(FinishThumb, task));
     }
     uitask::Post(MkFunc0<MergeSources>(FinishRenderBatch, sources));
@@ -1281,6 +1283,7 @@ void MergeGrid::StartRendering() {
     batch->sources = sources;
     batch->thumbDx = thumbDx;
     batch->thumbDy = thumbDy;
+    batch->options.colors = CapturePageColors();
     sources->job.Start();
     RunAsync(MkFunc0<MergeRenderBatch>(RenderBatchAsync, batch), StrL("MergePdfThumbnails"));
 }

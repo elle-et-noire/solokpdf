@@ -54,6 +54,7 @@ struct PageThumbnailsCache {
     int rotation = 0;
     int thumbDx = 0;
     int thumbDy = 0;
+    u32 generation = 0;
     // render with the document's own engine, so unsaved page edits show;
     // else with a copy loaded from the file, which doesn't compete with the view
     bool liveEngine = false;
@@ -68,6 +69,7 @@ struct ThumbnailRowsModel : ListBoxModel {
 
 struct ThumbnailRenderTask {
     PageThumbnailsCache* cache = nullptr;
+    u32 generation = 0;
     int pageNo = 0;
     Location loc;
     Pixmap* bitmap = nullptr;
@@ -75,6 +77,7 @@ struct ThumbnailRenderTask {
 
 struct ThumbnailRenderWorker {
     PageThumbnailsCache* cache = nullptr;
+    u32 generation = 0;
     EngineBase* sourceEngine = nullptr;
     Vec<int> pages;
     Vec<Location> locs;
@@ -147,14 +150,11 @@ Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int ro
     return PixmapToBgr(RenderViewPage(engine, args, options));
 }
 
-Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int rotation, int thumbDx, int thumbDy) {
-    return RenderPageThumbnail(engine, pageNo, loc, rotation, thumbDx, thumbDy, {});
-}
-
 static void FinishThumbnailRender(ThumbnailRenderTask* task) {
     PageThumbnailsCache* cache = task->cache;
     int idx = task->pageNo - 1;
-    bool isValid = !cache->job.IsDetached() && idx >= 0 && idx < len(cache->thumbnails);
+    bool isValid =
+        !cache->job.IsDetached() && task->generation == cache->generation && idx >= 0 && idx < len(cache->thumbnails);
     if (isValid) {
         cache->stale[idx] = 0;
         if (task->bitmap) {
@@ -172,6 +172,23 @@ static void FinishThumbnailRender(ThumbnailRenderTask* task) {
     delete task;
 }
 
+#if defined(DEBUG)
+bool PageThumbnails_UnitTestStale() {
+    PageThumbnailsCache cache;
+    VecAppendBlanks(cache.thumbnails, 1);
+    VecAppend(cache.stale, (u8)1);
+    cache.generation = 1;
+    auto* task = new ThumbnailRenderTask;
+    task->cache = &cache;
+    task->pageNo = 1;
+    task->bitmap = AllocPixmap(4, 4);
+    FinishThumbnailRender(task);
+    bool ok = !cache.thumbnails[0] && cache.stale[0];
+    FreeThumbnail(cache.thumbnails[0]);
+    return ok;
+}
+#endif
+
 static void FinishThumbnailWorker(PageThumbnailsCache* cache) {
     if (cache->job.Finish()) {
         DeleteThumbnailCache(cache);
@@ -187,6 +204,7 @@ static void FinishThumbnailWorker(PageThumbnailsCache* cache) {
 static void RenderAndPostThumbnail(ThumbnailRenderWorker* worker, EngineBase* engine, int pageNo, Location loc) {
     auto* task = new ThumbnailRenderTask;
     task->cache = worker->cache;
+    task->generation = worker->generation;
     task->pageNo = pageNo;
     task->loc = loc;
     task->bitmap =
@@ -415,6 +433,7 @@ void PageThumbnailsCtrl::ResetCache() {
 
 // the document was re-rendered: so are the thumbnails, the old ones shown meanwhile
 void PageThumbnailsCtrl::Refresh() {
+    cache->generation++;
     for (int i = 0; i < len(cache->thumbnails); i++) {
         cache->stale[i] = cache->thumbnails[i] ? 1 : 0;
     }
@@ -427,6 +446,7 @@ void PageThumbnailsCtrl::RefreshPage(int pageNo) {
     if (idx < 0 || idx >= len(cache->thumbnails)) {
         return;
     }
+    cache->generation++;
     cache->stale[idx] = cache->thumbnails[idx] ? 1 : 0;
     StartRendering();
 }
@@ -841,10 +861,11 @@ void PageThumbnailsCtrl::StartRendering() {
     }
 
     worker->cache = cache;
+    worker->generation = cache->generation;
     worker->rotation = cache->rotation;
     worker->thumbDx = cache->thumbDx;
     worker->thumbDy = cache->thumbDy;
-    worker->options.grayscale = gSettings->fixedPageUI.grayscale;
+    worker->options = CaptureViewOptions();
     worker->options.brightness = dm->brightness;
     worker->options.contrast = dm->contrast;
     if (!cache->renderEngine) {

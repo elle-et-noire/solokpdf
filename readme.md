@@ -11,7 +11,7 @@ Build the portable development version:
 New-Item -ItemType Directory -Force .work/build-deps | Out-Null
 . ./tools/solokpdf/env.ps1
 bun add --cwd .work/build-deps minio@8.0.6 prettier@3.6.2
-bun cmd/solok-build.ts -dbg            # or -rel
+bun cmd/solok-build.ts -dbg
 ```
 
 The wrapper verifies a pinned Windows x64 PDFium archive, regenerates projects
@@ -19,6 +19,7 @@ with official Premake into the ignored `vs2026/` (toolset v145), invokes the
 original build script and stages a portable folder with license notices. Debug
 output is `out/solokpdf-dev/`; release output is `out/solokpdf-portable/`. PDBs
 are for development, not required to run.
+Release builds run only in GitHub Actions; do not run `-rel` locally.
 The release wrapper creates `out/SolokPDF-experimental-x64.zip`. Recorded build
 and test results are in [history](docs/solokpdf/history.md).
 

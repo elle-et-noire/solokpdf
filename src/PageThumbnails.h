@@ -82,6 +82,5 @@ struct PageThumbnailsCtrl : VirtListBox {
     static void CALLBACK ScrollbarAnimProc(HWND, UINT, UINT_PTR, DWORD);
 };
 
-Pixmap* RenderPageThumbnail(EngineBase*, int pageNo, Location, int rotation, int thumbDx, int thumbDy);
 Pixmap* RenderPageThumbnail(EngineBase*, int pageNo, Location, int rotation, int thumbDx, int thumbDy,
                             const ViewPageOptions& options);

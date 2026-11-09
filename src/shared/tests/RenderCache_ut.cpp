@@ -14,6 +14,8 @@
 #include "DisplayModel.h"
 #include "RenderCache.h"
 
+extern RenderCache* gRenderCache;
+
 struct RequestLockProbe {
     RecursiveMutex* mutex = nullptr;
     bool available = false;
@@ -204,6 +206,101 @@ bool RenderCache_UnitTestFullOfOldZoom() {
         cache.FreeForDisplayModel(dm);
     }
 
+    delete dm;
+    if (!prevSettings) {
+        DeleteSettings(gSettings);
+        gSettings = nullptr;
+    }
+    return ok;
+}
+
+// A late result must not evict the same tile from the current color generation.
+bool RenderCache_UnitTestStale() {
+    Settings* prevSettings = gSettings;
+    if (!gSettings) {
+        gSettings = NewSettings({});
+    }
+    EngineBase* engine = CreateEngineMupdfFromData(Str(kOnePagePdf), StrL("one-page.pdf"), nullptr);
+    if (!engine) {
+        return false;
+    }
+    NoopDocCb cb;
+    auto* dm = new DisplayModel(engine, &cb);
+    dm->SetInitialViewSettings(DisplayMode::Continuous, 1, {400, 300}, 96);
+
+    bool ok;
+    {
+        RenderCache cache;
+        PageRenderRequest req;
+        req.dm = dm;
+        req.pageNo = 1;
+        req.zoom = 1;
+        req.tile = TilePosition(0, 0, 0);
+        cache.darkModeEpoch++;
+        req.darkModeEpoch = cache.darkModeEpoch;
+        Pixmap* current = AllocPixmap(4, 4);
+        cache.Add(req, current);
+
+        req.darkModeEpoch--;
+        cache.Add(req, AllocPixmap(4, 4));
+        ok = cache.cacheCount == 1 && cache.cache[0]->bitmap == current;
+
+        req.darkModeEpoch = cache.darkModeEpoch;
+        req.abort = true;
+        cache.Add(req, AllocPixmap(4, 4));
+        ok = ok && cache.cacheCount == 1 && cache.cache[0]->bitmap == current;
+
+        RenderCache* prevCache = gRenderCache;
+        gRenderCache = &cache;
+        req.abort = false;
+        req.darkModeEpoch--;
+        req.errorCode = 1;
+        dm->RenderFinished(&req);
+        ok = ok && !dm->GetPageInfo(1)->failedToRender;
+        gRenderCache = prevCache;
+        cache.FreeForDisplayModel(dm);
+    }
+    delete dm;
+    if (!prevSettings) {
+        DeleteSettings(gSettings);
+        gSettings = nullptr;
+    }
+    return ok;
+}
+
+// The renderer must use the request's colors even after the active theme changes.
+bool RenderCache_UnitTestColors() {
+    Settings* prevSettings = gSettings;
+    if (!gSettings) {
+        gSettings = NewSettings({});
+    }
+    EngineBase* engine = CreateEngineMupdfFromData(Str(kOnePagePdf), StrL("one-page.pdf"), nullptr);
+    if (!engine) {
+        return false;
+    }
+    NoopDocCb cb;
+    auto* dm = new DisplayModel(engine, &cb);
+    bool ok = false;
+    {
+        RenderCache cache;
+        ViewPageOptions options;
+        options.colors.mode = DocumentColorsFollowTheme::Smart;
+        options.colors.foreground = MkRgb(200, 210, 220);
+        options.colors.pageBackground = MkRgb(17, 34, 51);
+        cache.SetViewColors(options);
+        cache.requests[0].dm = dm;
+        cache.requestCount = 1;
+        PageRenderRequest req;
+        if (cache.GetNextRequest(&req, 0)) {
+            cache.SetViewColors({});
+            RenderPageArgs args(1, 0.1f, 0);
+            Pixmap* bmp = RenderViewPage(engine, args, req.options);
+            bool bgr = bmp && (bmp->format == PixmapFormat::BGRA8 || bmp->format == PixmapFormat::BGR8);
+            ok = bgr && bmp->data[0] == 51 && bmp->data[1] == 34 && bmp->data[2] == 17;
+            FreePixmap(bmp);
+            cache.ClearCurrentRequest(0);
+        }
+    }
     delete dm;
     if (!prevSettings) {
         DeleteSettings(gSettings);

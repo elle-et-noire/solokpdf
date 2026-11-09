@@ -3,6 +3,8 @@ macOS/Linux ports were removed. SumatraPDF ng in `src/ng/` targets macOS,
 Linux and WebAssembly; its Windows build is for testing and comparison.
 
 For local SolokPDF GUI tests, follow `docs/solokpdf/testing.md`.
+SolokPDF Release builds run only in GitHub Actions; do not build Release locally.
+Use Debug and, when needed, ASan for local validation.
 
 We don't use STL but our own string / helper / container functions implemented in src\base directory
 

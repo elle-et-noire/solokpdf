@@ -252,31 +252,9 @@ void UpdateAfterThemeChange() {
 }
 
 void UpdateDocumentColors() {
-    Color bg;
-    Color text = ThemePageRenderColors(bg);
-    bool pagesDark = !IsLightColor(bg);
-    Color link = pagesDark ? ThemeWindowLinkColor() : 0;
-
-    static bool s_lastPreservePdfImages = false;
-    static int s_lastDocumentColorsFollowTheme = -1;
-    bool preservePdfImages = pagesDark && GetPreservePdfImagesInDarkMode();
-    int documentColorsFollowTheme = (int)GetDocumentColorsFollowTheme();
-    bool grayscale = gSettings->fixedPageUI.grayscale;
-
-    if ((text == gRenderCache->textColor) && (bg == gRenderCache->backgroundColor) &&
-        (link == gRenderCache->linkColor) && preservePdfImages == s_lastPreservePdfImages &&
-        documentColorsFollowTheme == s_lastDocumentColorsFollowTheme &&
-        grayscale == AtomicBoolGet(&gRenderCache->grayscalePageColors)) {
+    if (!gRenderCache->SetViewColors(CaptureViewOptions())) {
         return; // colors didn't change
     }
-    s_lastPreservePdfImages = preservePdfImages;
-    s_lastDocumentColorsFollowTheme = documentColorsFollowTheme;
-
-    AtomicBoolSet(&gRenderCache->grayscalePageColors, grayscale);
-    gRenderCache->textColor = text;
-    gRenderCache->backgroundColor = bg;
-    gRenderCache->linkColor = link;
-    gRenderCache->darkModeEpoch++;
 
     // ng: orig also regenerates the chm / markdown previews here; their browser
     // host is step 11b
@@ -361,7 +339,7 @@ void ApplyChangedSettingsAndRelayout(const SettingsApplyState& before) {
             if (dm && dm->GetEngine()) {
                 dm->GetEngine()->disableAntiAlias = p->disableAntiAlias;
             }
-            gRenderCache->darkModeEpoch++;
+            gRenderCache->InvalidateColors();
             w->RedrawAll(true);
         }
     }

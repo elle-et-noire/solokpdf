@@ -2,6 +2,10 @@
 
 ## Local Windows runs
 
+Release builds run only in GitHub Actions; do not build Release locally.
+Use Debug for local checks and ASan when ownership/lifetime paths change.
+Owner instruction, 2026-11-10: local Release builds are too expensive.
+
 Build commands and output paths are in the [root readme](../../readme.md).
 Palette and settings-screen changes apply under `-for-testing` without writing
 the settings file. Use a dedicated `-appdata` without `-for-testing` only when

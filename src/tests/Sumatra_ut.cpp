@@ -134,6 +134,9 @@ void ReadAloudHighlight_UnitTests();
 bool RenderCache_UnitTestCookieUnlocked();
 bool RenderCache_UnitTestFullOfOneVisiblePage();
 bool RenderCache_UnitTestFullOfOldZoom();
+bool RenderCache_UnitTestStale();
+bool RenderCache_UnitTestColors();
+bool PageThumbnails_UnitTestStale();
 bool DocController_UnitTestDestroyHook();
 bool Commands_UnitTestIdLimit();
 
@@ -785,6 +788,9 @@ int RunAppUnitTests(bool forAi) {
     utassert(RenderCache_UnitTestCookieUnlocked());
     utassert(RenderCache_UnitTestFullOfOneVisiblePage());
     utassert(RenderCache_UnitTestFullOfOldZoom());
+    utassert(RenderCache_UnitTestStale());
+    utassert(RenderCache_UnitTestColors());
+    utassert(PageThumbnails_UnitTestStale());
     utassert(DocController_UnitTestDestroyHook());
     utassert(Commands_UnitTestIdLimit());
     ReadAloudHighlight_UnitTests();

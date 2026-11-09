@@ -923,6 +923,10 @@ void DisplayModel::RenderFinishedAsync(PageRenderRequest* req) {
 }
 
 void DisplayModel::RenderFinished(PageRenderRequest* req) {
+    // A posted failure from an old theme must not mark the current page as failed.
+    if (gRenderCache && req->darkModeEpoch != gRenderCache->darkModeEpoch) {
+        return;
+    }
     if (req->errorCode != 0) {
         PageInfo* pageInfo = GetPageInfo(req->pageNo);
         if (pageInfo) {

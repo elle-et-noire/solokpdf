@@ -1,6 +1,8 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
    License: GPLv3 */
 
+#include "PdfDarkMode.h"
+
 // Note: they must be in this numeric order for ::Paint() logic to detect
 // page that couldn't be rendered
 constexpr int kRenderDelayUndefined = INT_MAX - 1;
@@ -109,10 +111,7 @@ struct PageRenderRequest {
     bool abort = false;
     AbortCookie* abortCookie = nullptr;
     u32 darkModeEpoch = 0;
-    bool grayscale = false;
-    // DisplayModel::brightness / contrast when the render started
-    int brightness = 0;
-    int contrast = 0;
+    ViewPageOptions options;
     u64 timestamp = 0;
 
     // set by render thread before calling renderFinishedCb
@@ -190,10 +189,7 @@ struct RenderCache {
     int nTileSizeReductions = 0;
     bool isRemoteSession = false;
 
-    Color textColor = 0;
-    Color backgroundColor = 0;
-    Color linkColor = 0;
-    AtomicBool grayscalePageColors = 0;
+    ViewPageOptions pageOptions;
     // bumped by UpdateDocumentColors when page render colors / the PDF
     // document color mode change; renders started under an older epoch are
     // discarded instead of cached
@@ -212,6 +208,9 @@ struct RenderCache {
     RenderCache(RenderCache const&) = delete;
     RenderCache& operator=(RenderCache const&) = delete;
     ~RenderCache();
+
+    bool SetViewColors(const ViewPageOptions& options);
+    void InvalidateColors();
 
     void RequestRendering(DisplayModel* dm, int pageNo);
     void Render(DisplayModel* dm, int pageNo, int rotation, float zoom, RectF pageRect,

@@ -110,11 +110,9 @@ Pixmap* ColoredThumbnail(FileState* fs) {
         fs->thumbnailColorData = ReadColorData(fs);
     }
     auto* color = ColorData(fs);
-    const PageColorInput colors = CapturePageColors();
+    ViewPageOptions options = CaptureViewOptions();
     DarkModeProfile profile;
-    BuildViewDarkModeProfile(color->engineClass, colors, &profile);
-    ViewPageOptions options;
-    options.grayscale = gSettings->fixedPageUI.grayscale;
+    BuildViewDarkModeProfile(color->engineClass, options.colors, &profile);
     options.brightness = fs->brightness;
     options.contrast = fs->contrast;
     PageColorPass colorPass = GetPageColorPass(color->engineClass, PageColorSource::Bitmap, profile);

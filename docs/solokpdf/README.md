@@ -16,14 +16,13 @@ rendered output.
 
 ## Status (2026-11-10)
 
-The implementation baseline is `9083edafe` on `solokpdf-dev`. It commits four virtual-tree checks in
+The CI coverage baseline is `9083edafe` on `solokpdf-dev`. It commits four virtual-tree checks in
 regular CI (D13) and a manual/weekly ASan workflow (E17).
 At 2026-11-10 03:01 JST, [regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/42669207693)
 was building Debug and Release; no ASan runs were listed.
 The latest recorded successful regular CI tested `fc8b455e8` (D12).
 E10–E16 and D8–D12 are complete within their recorded scope.
-The next implementation step is cache invalidation, followed by read contracts
-and document lifetime; see the
+The next implementation step is read contracts, followed by document lifetime; see the
 [refactoring plan](refactoring-plan.md) and [backlog](backlog.md).
 Planning docs are committed as `9e1eaac3b`; E21's shared color-stage selection
 is committed as `8bf864e18`. Effective-color input capture completes E21.
@@ -33,6 +32,9 @@ includes the 66-image comparison and validation scope. The earlier baseline
 thumbnail-test failure remains unresolved. E19's render-result contracts are
 implemented as `Clarify render result contracts (E19)`; [results and scope](history.md#e19-render-results-2026-11-10)
 record the targeted checks and pixel comparison.
+E22 aligns render-input snapshots with cache generations and rejects stale tile/F12 results.
+Its implementation, cache inventory and validation are in the
+[E22 record](history.md#e22-cache-contracts-2026-11-10).
 F2 passed by owner report. F1/F3 were
 removed from active work by the owner on 2026-11-10, without being marked passed.
 
@@ -74,12 +76,13 @@ Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
   them; see the [backlog](backlog.md#next-steps).
 - For design work, read the [current architecture](architecture.md) and
   [refactoring plan](refactoring-plan.md). E21 is complete within its recorded
-  validation scope. E19 is implemented; resume at E22. E18/E20 remain planned.
+  validation scope. E19/E22 are implemented; resume at E18, followed by E20.
 - For a code change, select the affected tests in [testing.md](testing.md).
   Run full suites only when explicitly requested.
 
 Build instructions are in the root readme. All local app-launching tests use
 the [hidden-desktop runner](testing.md#local-windows-runs).
+Release builds run only in GitHub Actions; use Debug/ASan locally.
 
 ## Source map
 

@@ -47,6 +47,14 @@ PageColorInput CapturePageColors() {
     return colors;
 }
 
+// Capture on the UI thread; queued rendering keeps these values with its generation.
+ViewPageOptions CaptureViewOptions() {
+    ViewPageOptions options;
+    options.colors = CapturePageColors();
+    options.grayscale = gSettings && gSettings->fixedPageUI.grayscale;
+    return options;
+}
+
 // User CSS overlay for MuPDF reflowable documents (EPUB, HTML, FB2, MOBI, TXT).
 // Empty when the effective page colors are black-on-white (nothing to override).
 TempStr ReflowDocumentThemeCssTemp() {

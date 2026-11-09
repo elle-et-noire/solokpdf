@@ -2245,6 +2245,84 @@ render errors and temporary-document/form-load failures were reviewed in code,
 not fault-injected. No Release GUI, ng, hosted, full-suite or performance run was performed.
 Request generations and cache invalidation remain E22 work.
 
+## E22: Cache contracts (2026-11-10)
+
+Implemented on `94dbfb1b1` (`Clarify render result contracts (E19)`),
+Commit subject: `Align render cache inputs and invalidation (E22)`.
+Cache dependencies and lifetimes are listed in
+[architecture.md](architecture.md#キャッシュと無効化).
+
+`CaptureViewOptions` captures effective colors and grayscale on the UI thread.
+`SetViewColors` publishes the same values and tile generation under the request
+and cache locks. Dequeued requests retain those values plus file adjustments;
+`RenderViewPage` requires an explicit snapshot. F12 and Merge PDF capture their
+worker inputs before dispatch. Merge PDF retains its unadjusted thumbnails.
+
+Three publication defects were tested separately from the input refactor:
+
+- A late tile could pass the worker's generation check, then evict a newer tile
+  inside `Add`. `RenderCache_UnitTestStale` failed before the insertion check.
+  Insertion now checks cancellation/generation under both locks before eviction.
+- An F12 result queued before Refresh could clear the refreshed page's stale
+  marker and publish old pixels. `PageThumbnails_UnitTestStale` failed before the
+  completion check. Cache/worker/task generations now reject that result on the
+  UI thread. Existing thumbnails remain visible until replacement.
+- A posted failure from an old theme could mark the current page as failed.
+  Extending `RenderCache_UnitTestStale` reproduced this after the tile fix.
+  `DisplayModel::RenderFinished` now rejects an old color generation on the UI
+  thread; synthetic failures retain their current generation.
+
+`RenderCache_UnitTestColors` also checks actual pixels from a request after
+changing the active cache colors. The existing `theme-pdfium-cache` check now
+covers grayscale, brightness/contrast, theme return and route-probe reuse.
+Its extended version passed on the unchanged production baseline.
+
+PDFium's page/color keys, conversion LRU/capacity and treatment of one oversized
+entry are unchanged. Adjustment/zoom changes do not enter conversion keys.
+Page routes, geometry, image rectangles and Home's neutral PNG remain retained
+across theme changes. Home keeps its profile/adjustment hash and rebuilds the
+colored copy after neutral-data replacement. Annotation/redaction/reload paths
+retain their existing page invalidation, editor routing and engine lifetime.
+MuPDF's conservative theme reset remains unchanged.
+
+Validation:
+
+- The final Debug build passed with zero warnings/errors; all 104610 unit
+  assertions passed. All three publication cases failed before their respective
+  fixes. The color-snapshot test checks rendered background pixels.
+- Ten targeted Debug configurations passed on the hidden desktop:
+  `theme-pdfium-cache`, `ad-hoc-pdfium-theme` on PDFium and MuPDF,
+  `ad-hoc-pdfium-thumb-theme`, `issue-4788`, `issue-6070`,
+  `epub-theme-restyle`, `ad-hoc-pdfium-redaction-undo`, and default/pattern
+  `theme-render-cancel`. The first four configurations also passed before the
+  production changes; the other checks use their existing assertions.
+- Decoded-pixel comparison covered 39 PNGs: 34 were identical throughout.
+  Five Home captures differed only in random Tip text at Y=730–751 in a
+  940×762 canvas. Difference bounds and visual comparison confirmed unchanged
+  document/thumbnail pixels, including F12 and the neutral cached PNG.
+  Raw differences are retained in `.work/e22/comparison.json`.
+- The ASan static build passed with zero warnings/errors. All 105102 unit
+  assertions and four targeted configurations passed: cache reuse, thumbnail
+  themes, redaction/undo, and pattern render cancellation. Saved logs contain
+  no sanitizer reports. Runtime options follow [testing.md](testing.md#asan-builds);
+  the prebuilt PDFium DLL is not instrumented.
+- Executable/runtime hashes remained fixed within each final Debug and ASan
+  batch. Debug exe SHA-256 changed from the production-baseline test build's
+  `261F889BB86801BD43475E227CA2A88E9063AAA31961C522B1CA9A9ECD35C7A7`
+  to `21634D993C3C7FD3D6D7FCFD5EEAA7630B7D5F744908CDAD1E10FEAB73C97F90`.
+  The baseline build includes the initial regression test, before its fix.
+
+Logs, binary manifests and PNGs are under `.work/e22/`; the expected failures
+are `unit-red.log`, `thumb-unit-red.log` and `notification-unit-red.log`.
+One intermediate local Release build passed before the owner's policy changed.
+The later rebuild was stopped when Release was restricted to GitHub Actions.
+Release now runs only in GitHub Actions; no final Release or hosted result is
+claimed for this change.
+No full suite, ng build, Release GUI, performance benchmark or hosted run was
+performed. Ng callers were adapted to the shared cache API only. The earlier
+baseline thumbnail timing instability remains unresolved; this change's
+baseline, final Debug and ASan thumbnail runs passed.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2396,6 +2474,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E16 | Make the PDFium-enabled ASan build reproducible                                                                                                                                                                                                                                             | done — Fix SolokPDF ASan builds (E16) (`fc8b455e8`); build, configuration and GUI checks passed; [record](#e16-asan-build-path-2026-11-10)                                                                                              |
 | E21 | Centralize color stages and capture effective page colors                                                                                                                                                                                                                                   | done — Centralize page color stage selection (`8bf864e18`); Capture effective page colors; [results](#e21-effective-color-inputs-2026-11-10)                                                                                            |
 | E19 | Clarify render outcomes, color state, alpha, fallback and cancellation                                                                                                                                                                                                                      | done — Clarify render result contracts (E19); [results](#e19-render-results-2026-11-10)                                                                                                                                                 |
+| E22 | Align cache dependencies, render inputs and invalidation                                                                                                                                                                                                                                    | done — Align render cache inputs and invalidation (E22); [results](#e22-cache-contracts-2026-11-10)                                                                                                                                     |
 
 ### F. Manual acceptance
 

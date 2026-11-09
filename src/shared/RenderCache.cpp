@@ -184,9 +184,8 @@ Pixmap* ApplyViewPageAdjust(Pixmap* bmp, ViewPageOptions options) {
 
 Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions options) {
     ViewEngineClass engineClass = ClassifyViewEngine(engine);
-    const PageColorInput colors = CapturePageColors();
     DarkModeProfile profile;
-    BuildViewDarkModeProfile(engineClass, colors, &profile);
+    BuildViewDarkModeProfile(engineClass, options.colors, &profile);
     PageColorPass colorPass = GetPageColorPass(engineClass, PageColorSource::Document, profile);
     RenderPageColor color = RenderPageColor::Original;
     RenderPageArgs renderArgs = args;
@@ -280,8 +279,6 @@ RenderCache::RenderCache() : maxTileSize(DefaultMaxTileSize()) {
     // gEnableDbgLog = true;
 
     isRemoteSession = IsRemoteSession();
-    textColor = kColBlack;
-    backgroundColor = kColWhite;
 
     int numCores = CpuCoreCount();
     maxRenderThreads = std::max(gMaxRenderThreads, numCores);
@@ -540,8 +537,37 @@ static bool RenderCacheFree(WindowTab* currTab, CachedObject* o) {
     return gRenderCache->DropCacheEntryIfNotUsed(entry);
 }
 
+// Publish colors and their generation together, serialized with request capture and tile insertion.
+bool RenderCache::SetViewColors(const ViewPageOptions& options) {
+    ScopedRecursiveMutex scopeReq(&requestAccess);
+    ScopedRecursiveMutex scopeCache(&cacheAccess);
+    const PageColorInput& old = pageOptions.colors;
+    const PageColorInput& colors = options.colors;
+    if (old.mode == colors.mode && old.foreground == colors.foreground && old.pageBackground == colors.pageBackground &&
+        old.linkColor == colors.linkColor && pageOptions.grayscale == options.grayscale) {
+        return false;
+    }
+    pageOptions.colors = colors;
+    pageOptions.grayscale = options.grayscale;
+    darkModeEpoch++;
+    return true;
+}
+
+void RenderCache::InvalidateColors() {
+    ScopedRecursiveMutex scopeReq(&requestAccess);
+    ScopedRecursiveMutex scopeCache(&cacheAccess);
+    darkModeEpoch++;
+}
+
 void RenderCache::Add(PageRenderRequest& req, Pixmap* bmp) {
+    ScopedRecursiveMutex scopeReq(&requestAccess);
     ScopedRecursiveMutex scope(&cacheAccess);
+    // Check before FreePage: a late result must not evict a newer tile.
+    if (req.abort || req.darkModeEpoch != darkModeEpoch) {
+        req.abort = true;
+        FreePixmap(bmp);
+        return;
+    }
     ReportIf(!req.dm);
 
     req.rotation = NormalizeRotation(req.rotation);
@@ -1035,6 +1061,10 @@ void RenderCache::Render(DisplayModel* dm, int pageNo, int rotation, float zoom,
         req.pageNo = pageNo;
         req.bmp = nullptr;
         req.errorCode = 1;
+        {
+            ScopedRecursiveMutex scope(&requestAccess);
+            req.darkModeEpoch = darkModeEpoch;
+        }
         callback.Call(&req);
     }
 }
@@ -1168,9 +1198,9 @@ bool RenderCache::GetNextRequest(PageRenderRequest* req, int threadIdx) {
     requestCount = idx;
     *req = requests[idx];
     req->darkModeEpoch = darkModeEpoch;
-    req->grayscale = AtomicBoolGet(&grayscalePageColors);
-    req->brightness = req->dm->brightness;
-    req->contrast = req->dm->contrast;
+    req->options = pageOptions;
+    req->options.brightness = req->dm->brightness;
+    req->options.contrast = req->dm->contrast;
     curReqs[threadIdx] = req;
     ReportIf(req->abort);
 
@@ -1426,12 +1456,8 @@ void RenderCache::AbortCurrentRequest(int threadIdx) {
 
 // AbortCurrentRequest sets req.abort from another thread, under requestAccess
 static bool RenderWasDropped(RenderCache* cache, PageRenderRequest& req) {
-    bool aborted;
-    {
-        ScopedRecursiveMutex scope(&cache->requestAccess);
-        aborted = req.abort;
-    }
-    return aborted || req.darkModeEpoch != cache->darkModeEpoch;
+    ScopedRecursiveMutex scope(&cache->requestAccess);
+    return req.abort || req.darkModeEpoch != cache->darkModeEpoch;
 }
 
 // Renders one queued request into the cache. Returns false when the queue was
@@ -1468,11 +1494,7 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
     MaskFpExceptions();
 #endif
     auto timeStart = TimeGet();
-    ViewPageOptions options;
-    options.grayscale = req.grayscale;
-    options.brightness = req.brightness;
-    options.contrast = req.contrast;
-    Pixmap* bmp = RenderViewPage(engine, args, options);
+    Pixmap* bmp = RenderViewPage(engine, args, req.options);
     if (RenderWasDropped(cache, req)) {
         // aborted or colors changed mid-render - discard result
         FreePixmap(bmp);
@@ -1708,7 +1730,7 @@ int RenderCache::Paint(
         args.keepAlpha = true;
         args.transparentBackdrop = ShowTransparencyGrid();
         Pixmap* bmp = dm->GetEngine()->RenderPage(args);
-        if (AtomicBoolGet(&grayscalePageColors)) {
+        if (pageOptions.grayscale) {
             bmp = GrayscalePagePixmap(bmp);
         }
         bmp = AdjustPagePixmap(bmp, dm->brightness, dm->contrast);

@@ -1,6 +1,9 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
    License: GPLv3 */
 
+#ifndef PDF_DARK_MODE_H
+#define PDF_DARK_MODE_H
+
 class EngineBase;
 struct RenderPageArgs;
 struct Pixmap;
@@ -71,13 +74,15 @@ void BuildViewDarkModeProfile(EngineBase* engine, DarkModeProfile* profile);
 void BuildViewDarkModeProfile(ViewEngineClass engineClass, const PageColorInput& colors, DarkModeProfile* profile);
 ViewEngineClass ClassifyViewEngine(EngineBase* engine);
 struct ViewPageOptions {
+    PageColorInput colors;
     int brightness = 0;
     int contrast = 0;
     bool grayscale = false;
     int imageProbeScale = 1;
 };
+ViewPageOptions CaptureViewOptions();
 Pixmap* ApplyViewPageAdjust(Pixmap* bmp, ViewPageOptions options);
-Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions options = {});
+Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions options);
 void CollectThumbnailSkipRects(EngineBase* engine, int pageNo, float zoom, int rotation, const RectF& pageRect,
                                Size bmpSize, Vec<Rect>& skipRects);
 bool EngineUsesDocumentColorsFollowTheme(EngineBase* engine);
@@ -122,3 +127,5 @@ inline bool PdfDarkModeKeepLargestRect(Vec<Rect>& rects) {
     VecAppend(rects, keep);
     return true;
 }
+
+#endif

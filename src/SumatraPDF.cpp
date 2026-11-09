@@ -4725,39 +4725,22 @@ void UpdateDocumentColors() {
     if (!gRenderCache) {
         return;
     }
-    Color bg;
-    Color text = ThemePageRenderColors(bg);
-    bool pagesDark = !IsLightColor(bg);
-    Color link = pagesDark ? ThemeWindowLinkColor() : 0;
-
-    // dark-mode options that also affect rendered pages but not the two
-    // cache colors; a change must invalidate cached renders the same way
-    static bool s_lastPreservePdfImages = false;
-    static int s_lastDocumentColorsFollowTheme = -1;
+    const ViewPageOptions options = CaptureViewOptions();
+    const PageColorInput& colors = options.colors;
     static Color s_lastSelectionBg = kColorUnset;
     static Color s_lastSelectionText = kColorUnset;
-    Color selectionBg = ThemeSelectionBg(bg);
-    Color selectionText = ThemeSelectionText(selectionBg, text);
-    bool preservePdfImages = pagesDark && GetPreservePdfImagesInDarkMode();
-    int documentColorsFollowTheme = (int)GetDocumentColorsFollowTheme();
-    bool grayscale = gSettings->fixedPageUI.grayscale;
-
-    if ((text == gRenderCache->textColor) && (bg == gRenderCache->backgroundColor) &&
-        (link == gRenderCache->linkColor) && preservePdfImages == s_lastPreservePdfImages &&
-        documentColorsFollowTheme == s_lastDocumentColorsFollowTheme && selectionBg == s_lastSelectionBg &&
-        selectionText == s_lastSelectionText && grayscale == AtomicBoolGet(&gRenderCache->grayscalePageColors)) {
+    Color selectionBg = ThemeSelectionBg(colors.pageBackground);
+    Color selectionText = ThemeSelectionText(selectionBg, colors.foreground);
+    bool colorsChanged = gRenderCache->SetViewColors(options);
+    if (!colorsChanged && selectionBg == s_lastSelectionBg && selectionText == s_lastSelectionText) {
         return; // colors didn't change
     }
-    s_lastPreservePdfImages = preservePdfImages;
-    s_lastDocumentColorsFollowTheme = documentColorsFollowTheme;
     s_lastSelectionBg = selectionBg;
     s_lastSelectionText = selectionText;
 
-    AtomicBoolSet(&gRenderCache->grayscalePageColors, grayscale);
-    gRenderCache->textColor = text;
-    gRenderCache->backgroundColor = bg;
-    gRenderCache->linkColor = link;
-    gRenderCache->darkModeEpoch++;
+    if (!colorsChanged) {
+        gRenderCache->InvalidateColors();
+    }
 
     // abort in-flight renders before restyle drops fz_page (ApplyReflowThemeCss)
     // also drop the engines' cached dark-mode analyses / processed images
@@ -12262,7 +12245,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
             ToggleTransparencyGrid();
             // cached tiles were rendered opaque; bump epoch so they are not reused
             if (gRenderCache) {
-                gRenderCache->darkModeEpoch++;
+                gRenderCache->InvalidateColors();
             }
             for (auto& w : gWindows) {
                 w->RedrawAll(true);
@@ -17334,7 +17317,7 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
 #endif
 
     // UpdateDocumentColors() keeps it in sync after this
-    AtomicBoolSet(&gRenderCache->grayscalePageColors, gSettings->fixedPageUI.grayscale);
+    gRenderCache->SetViewColors(CaptureViewOptions());
 
     SetCurrentLang(flags.lang ? flags.lang : gSettings->uiLanguage);
     if (flags.showPrintersDialog) {
@@ -17362,9 +17345,6 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     }
 
     gCrashOnOpen = flags.crashOnOpen;
-
-    gRenderCache->textColor = ThemePageRenderColors(gRenderCache->backgroundColor);
-    // logf("retrieved doc colors in WinMain: 0x%x 0x%x\n", gRenderCache->textColor, gRenderCache->backgroundColor);
 
     gIsStartup = true;
     if (!RegisterWinClass()) {

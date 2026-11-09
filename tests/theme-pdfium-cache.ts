@@ -39,12 +39,35 @@ export async function testit(): Promise<void> {
       if (zoom[0] !== 0) throw new Error(`zoom: ${zoom}`);
       await client.waitForRenderIdle();
     }
+    const conversions = () => (readFileSync(log, "utf8").match(/PDFium theme conversion:/g) ?? []).length;
+    const initial = conversions();
+    const invoke = async (name: string) => {
+      const result = await client.request(ControlCommand.TestInvokeCommand, [name]);
+      if (result[0] !== 0) throw new Error(`${name}: ${result}`);
+      await client.waitForRenderIdle();
+    };
+    await invoke("CmdToggleGrayscale");
+    await client.request(ControlCommand.TestPageAdjust, [20, 30]);
+    await client.waitForRenderIdle();
+    await invoke("CmdToggleGrayscale");
+    await client.request(ControlCommand.TestPageAdjust, [0, 0]);
+    await client.waitForRenderIdle();
+    if (conversions() !== initial) throw new Error("view adjustments reconverted PDF contents");
+
+    await invoke("CmdSetTheme Light");
+    if (conversions() !== initial + 1) throw new Error("new theme did not convert the visible page once");
+    await invoke("CmdSetTheme Solarized Dark");
+    if (conversions() !== initial + 1) throw new Error("returning to the cached theme reconverted PDF contents");
     await client.quit();
     await proc.exited;
     const text = readFileSync(log, "utf8");
     const pages = [...text.matchAll(/PDFium theme conversion: page=(\d+)/g)].map((match) => Number(match[1]));
     for (const page of [1, 2]) {
-      if (pages.filter((n) => n === page).length !== 1) throw new Error(`unexpected conversions: ${pages}`);
+      const expected = page === 1 ? 2 : 1;
+      if (pages.filter((n) => n === page).length !== expected) throw new Error(`unexpected conversions: ${pages}`);
+      const probes = [...text.matchAll(/PDFium render check: page=(\d+)/g)];
+      if (probes.filter((match) => Number(match[1]) === page).length !== 1)
+        throw new Error(`theme change repeated page ${page} route probe`);
     }
   } finally {
     await killAndWait(proc);
