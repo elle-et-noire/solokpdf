@@ -57,6 +57,11 @@ The new tree probes are standalone tests, not entries in `run-almost-all.ts`.
 `--tree-only` runs the existing Vim test's tree navigation and custom shortcuts
 without its document clipboard, dialog and link-hint checks.
 
+E14's [validation record](history.md#e14-virtual-tree-encapsulation-2026-11-10)
+maps encapsulation checks to the existing tests. `ad-hoc-tree-lifetime` includes
+`event-name`, which destroys the tree synchronously during a name-change WinEvent.
+Run startup/layout checks after builds finish; keep the executable hash fixed during each set.
+
 Narrator/NVDA, real monitor DPI changes, native scrollbar thumb dragging and
 real-cursor smart-bar hover are manual checks. The owner reported all F2 checks
 OK on 2026-11-09; see the [procedure and results](tree-view-screen-reader-check.md).
@@ -81,7 +86,7 @@ bun tools/solokpdf/run-hidden.ts -- bun tests/find-history-alt-down.ts --no-buil
 Add `keyboard-ime`, `ad-hoc-virtual-tree-focus`, `issue-1841`, `issue-5971`,
 `ad-hoc-shortcuts-dialog` or `command-palette-typing` only when the changed path needs them. `keyboard-ime`
 may skip when Japanese IME is unavailable; a skip does not establish IME
-behavior. Physical keys, OS hotkey conflicts and real IME operation remain F3.
+behavior. Physical keys, OS hotkey conflicts and real IME operation are outside active scope by owner instruction (2026-11-10).
 The [E13 coverage](keyboard-investigation.md#自動テストの経路確認e13) records the added paths.
 `keyboard-input-targets` runs in the regular and SolokPDF CI sets; it skips ng.
 `find-history-alt-down` sets the UI thread's Alt state and posts system-key
@@ -202,9 +207,9 @@ runner. Inside it, WebView2 crashes with an
 
 ## Owner's manual acceptance (F1–F3)
 
-F2 passed by owner report on 2026-11-09; F1 and F3 remain open. The owner runs checks on the
-visible desktop with physical devices. Automated local runs follow the hidden
-desktop procedure above.
+Historical procedure: F2 passed by owner report on 2026-11-09. The owner removed
+F1/F3 from active work on 2026-11-10; neither was marked passed. The procedure below
+is retained for reference. Automated local runs follow the hidden desktop procedure above.
 
 Use `-for-testing` and a dedicated `-appdata` directory, as in the
 [tree procedure](tree-view-screen-reader-check.md#起動). Keep any custom test

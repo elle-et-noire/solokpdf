@@ -35,9 +35,89 @@ struct VirtTreeStyle {
     bool focusOutline = false;
 };
 
-struct VirtTreeGuard;
+#if IS_DEBUG
+struct VirtTreeTestInfo {
+    int scrollX = 0;
+    int scrollY = 0;
+    int maxX = 0;
+    int maxY = 0;
+    int rowCount = 0;
+    int itemCount = 0;
+    int selectedRow = -1;
+    int contentWidth = 0;
+    int viewportHeight = 0;
+    u64 generation = 0;
+    HWND barX = nullptr;
+    HWND barY = nullptr;
+    int barYState = -1;
+    bool barYOwned = false;
+};
+
+struct VirtTreeTestRow {
+    TreeItem item = TreeModel::kNullItem;
+    int customFont = -1;
+    int boldLength = -1;
+    int layoutBold = -1;
+};
+#endif
 
 struct VirtTree {
+    Func1<VirtHostNativeMsg*> onNativeMsg;
+    Func1<VirtTreeSelectionChanged*> onSelectionChanged;
+    Func1<VirtTreeClick*> onClick;
+    Func1<VirtTreeFontQuery*> onGetFont;
+    Func1<VirtTreeStyle*> onGetStyle;
+
+    ~VirtTree();
+    bool Create(HWND parent, WStr className, TreeModel*, PlatformFont*, int bottomPaddingDip = 0,
+                TreeDirection direction = TreeDirection::LeftToRight);
+    HWND Hwnd() const;
+    Rect ClientRect() const;
+    PlatformFont* GetFont() const;
+    int ItemHeight() const;
+    VirtTreeBarMode GetMode() const;
+    TreeDirection GetDirection() const;
+    void SetColors(Color text, Color bg);
+    void SetDirection(TreeDirection);
+    void SetAccessibleName(Str);
+    void SetBounds(Rect);
+    void SetModel(TreeModel*);
+    void SetFont(PlatformFont*, int dpi, int bottomPaddingDip);
+    void Remeasure(int dpi = 0);
+    bool GetItemRect(TreeItem, VirtTreeRect, Rect&);
+    TreeItem GetItemAt(Point);
+    TreeItemExpansion GetExpansion(TreeItem) const;
+    TreeItem GetSelection() const;
+    TreeItem FirstItem() const;
+    VirtTreeRef MakeRef(TreeItem) const;
+    bool IsCurrent(VirtTreeRef) const;
+    bool IsValid(VirtTreeRef) const;
+    TreeItem FirstVisible();
+    TreeItem NextVisible(TreeItem);
+    bool EnsureVisible(TreeItem);
+    bool SelectItem(TreeItem);
+    bool UpdateScrollbars();
+    void Repaint();
+    void SetMode(VirtTreeBarMode newMode);
+    void RefreshScroll();
+    void ExpandItem(TreeItem, VirtTreeExpansion, VirtTreeSelectReason = VirtTreeSelectReason::Programmatic);
+    void ExpandToLevel(int level);
+    void CollapseSiblings(TreeItem item);
+    void ExpandAll();
+    void ExpandBranch(TreeItem item, VirtTreeExpansion expansion,
+                      VirtTreeSelectReason reason = VirtTreeSelectReason::Programmatic);
+#if IS_DEBUG
+    VirtTreeTestInfo TestInfo() const;
+    VirtTreeTestRow TestRow(int row) const;
+    Color TestTextColor(TreeItem);
+    int TestTextByte(int row, int offset) const;
+    bool TestMeasure();
+    void SetTestAccessHooks(Func1<VirtTreeExpandEvent*>, Func0);
+    void TestScrollEvent(Func0);
+#endif
+
+  private:
+    struct Guard;
     VirtTreeState state;
     VirtTreeScroll scrollX;
     VirtTreeScroll scrollY;
@@ -51,6 +131,7 @@ struct VirtTree {
     VirtTreeUia* uia = nullptr;
     VirtTreeMsaa* msaa = nullptr;
     PlatformFont* font = nullptr;
+    Str name;
     Color textColor = kColorUnset;
     Color bgColor = kColorUnset;
     VirtTreeBarMode mode = VirtTreeBarMode::Windows;
@@ -65,43 +146,18 @@ struct VirtTree {
     Vec<WCHAR> search;
     u64 lastSearch = 0;
     WCHAR suppressChar = 0;
-    Func1<VirtHostNativeMsg*> onNativeMsg;
-    Func1<VirtTreeSelectionChanged*> onSelectionChanged;
-    Func1<VirtTreeClick*> onClick;
-    Func1<VirtTreeFontQuery*> onGetFont;
-    Func1<VirtTreeStyle*> onGetStyle;
-    VirtTreeGuard* guards = nullptr;
+    Guard* guards = nullptr;
 
-    ~VirtTree();
-    bool Create(HWND parent, WStr className, TreeModel*, PlatformFont*, int bottomPaddingDip = 0);
-    void SetBounds(Rect);
-    void SetModel(TreeModel*);
-    void SetFont(PlatformFont*, int dpi, int bottomPaddingDip);
-    void Remeasure(int dpi = 0);
-    bool GetItemRect(TreeItem, VirtTreeRect, Rect&);
-    TreeItem GetItemAt(Point);
-    TreeItem FirstVisible();
-    TreeItem NextVisible(TreeItem);
-    bool EnsureVisible(TreeItem);
-    bool SelectItem(TreeItem);
     void FreeAccess();
     void Paint(VirtHostPaintEvent* ev);
     void Message(VirtHostNativeMsg* ev);
     bool UpdateBars();
-    void SetMode(VirtTreeBarMode newMode);
     void Scroll(UINT message, WPARAM wp);
     bool Measure(int dpi = 0);
     void MeasureExtent();
-    void UiaScrolled();
     void Select(VirtTreeSelectEvent* ev);
     void Expand(VirtTreeExpandEvent* ev);
-    void ExpandToLevel(int level);
-    void CollapseSiblings(TreeItem item);
-    void ExpandAll();
-    void ExpandBranch(TreeItem item, VirtTreeExpansion expansion,
-                      VirtTreeSelectReason reason = VirtTreeSelectReason::Programmatic);
-    void ExpandRange(int first, int end, VirtTreeExpansion expansion,
-                     VirtTreeSelectReason reason = VirtTreeSelectReason::Programmatic);
+    void ExpandRange(int first, int end, VirtTreeExpansion, VirtTreeSelectReason = VirtTreeSelectReason::Programmatic);
     bool KeyDown(int key);
     void Search(WCHAR ch);
 };

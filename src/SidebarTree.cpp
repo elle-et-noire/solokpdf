@@ -25,13 +25,12 @@ struct SidebarTreeGuard;
 
 struct SidebarTree : TreeView {
     SidebarTreeKind kind;
-    Str name;
     VirtTree tree;
     SidebarTreeGuard* guards = nullptr;
     Tooltip* tooltip = nullptr;
     VirtTreeRef tipItem;
 
-    SidebarTree(SidebarTreeKind kind, Str name) : kind(kind), name(str::Dup(name)) {}
+    SidebarTree(SidebarTreeKind kind, Str name) : kind(kind) { tree.SetAccessibleName(name); }
     ~SidebarTree() override;
 
     HWND Create(const CreateArgs&) override;
@@ -88,7 +87,6 @@ struct SidebarTreeGuard {
 SidebarTree::~SidebarTree() {
     for (SidebarTreeGuard* guard = guards; guard; guard = guard->previous) guard->tree = nullptr;
     delete tooltip;
-    str::Free(name);
 }
 
 static constexpr int kSidebarTipTimer = 12637;
@@ -112,13 +110,11 @@ HWND SidebarTree::Create(const CreateArgs& args) {
     if (!ControlBase::CreateCustom(outer)) return nullptr;
     WStr className = kind == SidebarTreeKind::Bookmarks ? WStrL(L"SumatraVirtualBookmarksTree")
                                                         : WStrL(L"SumatraVirtualFavoritesTree");
-    if (!tree.Create(hwnd, className, nullptr, args.font, kSidebarPadY)) {
+    auto direction = args.isRtl ? TreeDirection::RightToLeft : TreeDirection::LeftToRight;
+    if (!tree.Create(hwnd, className, nullptr, args.font, kSidebarPadY, direction)) {
         Destroy();
         return nullptr;
     }
-    SetWindowTextW(tree.host->native, CWStrTemp(ToWStrTemp(name)));
-    tree.rtl = args.isRtl;
-    HwndSetRtl(tree.host->native, args.isRtl);
     tree.onNativeMsg = MkMethod1<SidebarTree, VirtHostNativeMsg*, &SidebarTree::TreeMessage>(this);
     tree.onSelectionChanged = MkMethod1<SidebarTree, VirtTreeSelectionChanged*, &SidebarTree::SelectionChanged>(this);
     tree.onClick = MkMethod1<SidebarTree, VirtTreeClick*, &SidebarTree::Clicked>(this);
@@ -132,23 +128,19 @@ HWND SidebarTree::Create(const CreateArgs& args) {
 void SidebarTree::SetBounds(Rect bounds) {
     HideTip();
     ControlBase::SetBounds(bounds);
-    if (tree.host && tree.host->native) tree.SetBounds(HwndClientRect(hwnd));
+    if (tree.Hwnd()) tree.SetBounds(HwndClientRect(hwnd));
 }
 
 void SidebarTree::SetColors(Color text, Color bg) {
     ControlBase::SetColors(text, bg);
-    tree.textColor = textColor;
-    tree.bgColor = bgColor;
-    if (tree.host && tree.host->native) tree.host->Invalidate();
+    tree.SetColors(textColor, bgColor);
 }
 
 void SidebarTree::SetDirection(TreeDirection direction) {
     HideTip();
     bool rtl = direction == TreeDirection::RightToLeft;
     HwndSetRtl(hwnd, rtl);
-    tree.rtl = rtl;
-    HwndSetRtl(tree.host->native, rtl);
-    tree.SetMode(tree.mode);
+    tree.SetDirection(direction);
 }
 
 void SidebarTree::SetTreeFont(PlatformFont* treeFont, int dpi) {
@@ -159,45 +151,28 @@ void SidebarTree::SetTreeFont(PlatformFont* treeFont, int dpi) {
 }
 
 void SidebarTree::SetAccessibleName(Str value) {
-    if (str::Eq(name, value)) return;
-    SidebarTreeGuard guard(this);
-    HWND window = tree.host ? tree.host->native : nullptr;
-    BSTR before = window ? VirtTreeName(window) : nullptr;
-    str::ReplaceWithCopy(&name, value);
-    if (window) SetWindowTextW(window, CWStrTemp(ToWStrTemp(name)));
-    if (!guard.tree || !tree.host || tree.host->native != window) {
-        SysFreeString(before);
-        return;
-    }
-    BSTR after = window ? VirtTreeName(window) : nullptr;
-    VirtTreeUiaNameChanged(tree.uia, before, after);
-    if (guard.tree && tree.host && tree.host->native == window && window)
-        NotifyWinEvent(EVENT_OBJECT_NAMECHANGE, window, OBJID_CLIENT, CHILDID_SELF);
-    SysFreeString(before);
-    SysFreeString(after);
+    tree.SetAccessibleName(value);
 }
 
 HWND SidebarTree::FocusHwnd() {
-    return tree.host && tree.host->native ? tree.host->native : hwnd;
+    HWND window = tree.Hwnd();
+    return window ? window : hwnd;
 }
 
 void SidebarTree::UpdateScrollbars() {
     VirtTreeBarMode mode = SidebarBarMode();
-    if (tree.mode != mode) {
+    if (tree.GetMode() != mode) {
         HideTip();
         tree.SetMode(mode);
     }
 }
 
 bool SidebarTree::IsExpanded(TreeItem item) {
-    int node = tree.state.FindNode(item);
-    return node >= 0 && tree.state.nodes[node].expanded;
+    return tree.GetExpansion(item) == TreeItemExpansion::Expanded;
 }
 
 TreeItemExpansion SidebarTree::GetLoadedExpansion(TreeItem item) {
-    int node = tree.state.FindNode(item);
-    if (node < 0) return TreeItemExpansion::Unavailable;
-    return tree.state.nodes[node].expanded ? TreeItemExpansion::Expanded : TreeItemExpansion::Collapsed;
+    return tree.GetExpansion(item);
 }
 
 bool SidebarTree::GetItemRect(TreeItem item, bool justText, Rect& rect) {
@@ -205,7 +180,7 @@ bool SidebarTree::GetItemRect(TreeItem item, bool justText, Rect& rect) {
 }
 
 TreeItem SidebarTree::GetSelection() {
-    return tree.state.selected;
+    return tree.GetSelection();
 }
 bool SidebarTree::SelectItem(TreeItem item) {
     HideTip();
@@ -218,8 +193,7 @@ bool SidebarTree::EnsureVisible(TreeItem item) {
 
 void SidebarTree::ExpandItem(TreeItem item) {
     HideTip();
-    VirtTreeExpandEvent ev{item, VirtTreeExpansion::Expand};
-    tree.Expand(&ev);
+    tree.ExpandItem(item, VirtTreeExpansion::Expand);
 }
 
 void SidebarTree::ExpandToLevel(int level) {
@@ -240,7 +214,7 @@ void SidebarTree::ExpandSubtree(TreeItem item, TreeExpansion expansion) {
 }
 
 TreeItem SidebarTree::FirstItem() {
-    return len(tree.state.nodes) ? tree.state.nodes[0].item : TreeModel::kNullItem;
+    return tree.FirstItem();
 }
 
 TreeItem SidebarTree::FirstVisible() {
@@ -252,7 +226,7 @@ TreeItem SidebarTree::NextVisible(TreeItem item) {
 }
 
 int SidebarTree::ItemHeight() {
-    return tree.rowDy;
+    return tree.ItemHeight();
 }
 void SidebarTree::ExpandAll() {
     HideTip();
@@ -279,11 +253,11 @@ void SidebarTree::RemeasureItems() {
 }
 
 void SidebarTree::WindowMessage(ControlBase::WndProcEvent* ev) {
-    if (!tree.host || !tree.host->native) return;
+    if (!tree.Hwnd()) return;
     if (ev->msg == WM_SETFOCUS) {
-        ::SetFocus(tree.host->native);
+        ::SetFocus(tree.Hwnd());
     } else if (ev->msg == WM_MOUSEWHEEL || ev->msg == WM_MOUSEHWHEEL) {
-        ev->result = SendMessageW(tree.host->native, ev->msg, ev->wparam, ev->lparam);
+        ev->result = SendMessageW(tree.Hwnd(), ev->msg, ev->wparam, ev->lparam);
     } else {
         return;
     }
@@ -296,59 +270,42 @@ static constexpr WPARAM kSidebarCountItems = 20;
 void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
     if (!gForTesting) return;
     if (ev->msg == WM_APP + 103) {
-        int row = (int)ev->wp;
-        int offset = (int)ev->lp;
-        ev->res = 0;
-        if (row >= 0 && row < len(tree.state.rows) && offset >= 0) {
-            TreeItem item = tree.state.nodes[tree.state.rows[row]].item;
-            Str text = tree.state.model->Text(item);
-            if (offset < len(text)) ev->res = (u8)text.s[offset] + 1;
-        }
+        ev->res = tree.TestTextByte((int)ev->wp, (int)ev->lp);
         ev->didHandle = true;
         return;
     }
     if (ev->msg == WM_APP + 102) {
+        auto info = tree.TestInfo();
         switch (ev->wp) {
             case 0:
-                ev->res = len(tree.state.rows);
+                ev->res = info.rowCount;
                 break;
             case 1:
-                ev->res = tree.state.FindRow(tree.state.selected);
+                ev->res = info.selectedRow;
                 break;
             case 2:
-                ev->res = tree.scrollY.pos;
+                ev->res = info.scrollY;
                 break;
             case 3:
-                ev->res = tree.rowDy;
+                ev->res = tree.ItemHeight();
                 break;
             case 4:
-                ev->res = tree.rtl;
+                ev->res = tree.GetDirection() == TreeDirection::RightToLeft;
                 break;
-            case 5: {
-                int row = (int)ev->lp;
-                if (row < 0 || row >= len(tree.state.rows)) {
-                    ev->res = -1;
-                } else {
-                    ev->res = tree.metrics.fonts[tree.state.rows[row]] != tree.font;
-                }
+            case 5:
+                ev->res = tree.TestRow((int)ev->lp).customFont;
                 break;
-            }
             case 6: {
-                int row = (int)ev->lp;
-                if (row < 0 || row >= len(tree.state.rows)) {
+                TreeItem item = tree.TestRow((int)ev->lp).item;
+                if (!item) {
                     ev->res = -1;
                 } else {
-                    VirtTreeStyle style;
-                    style.item = tree.state.nodes[tree.state.rows[row]].item;
-                    style.textColor = tree.textColor;
-                    style.bgColor = tree.bgColor;
-                    QueryStyle(&style);
-                    ev->res = style.textColor;
+                    ev->res = tree.TestTextColor(item);
                 }
                 break;
             }
             case 7:
-                ev->res = (int)tree.mode;
+                ev->res = (int)tree.GetMode();
                 break;
             case 8:
                 ev->res = tooltip ? tooltip->Count() : 0;
@@ -357,18 +314,14 @@ void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
                 SetTreeFont(GetAppTreeFontForDpi((int)ev->lp), (int)ev->lp);
                 break;
             case 10:
-                ev->res = DpiGetForHwnd(tree.host->native);
+                ev->res = DpiGetForHwnd(tree.Hwnd());
                 break;
-            case 11: {
-                int row = (int)ev->lp;
-                ev->res = row >= 0 && row < len(tree.state.rows) ? tree.metrics.boldLengths[tree.state.rows[row]] : -1;
+            case 11:
+                ev->res = tree.TestRow((int)ev->lp).boldLength;
                 break;
-            }
-            case 12: {
-                int row = (int)ev->lp;
-                ev->res = row >= 0 && row < len(tree.state.rows) ? tree.metrics.layoutBold[tree.state.rows[row]] : -1;
+            case 12:
+                ev->res = tree.TestRow((int)ev->lp).layoutBold;
                 break;
-            }
             case 13:
                 SetAccessibleName(StrL("Changed name"));
                 ev->res = 1;
@@ -379,31 +332,30 @@ void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
                     ev->res = SelectItem(TreeModel::kNullItem);
                     break;
                 }
-                if (row < 0 || row >= len(tree.state.rows)) {
+                TreeItem item = tree.TestRow(row).item;
+                if (!item) {
                     ev->res = 0;
                     break;
                 }
-                TreeItem item = tree.state.nodes[tree.state.rows[row]].item;
                 ev->res = SelectItem(item);
                 break;
             }
             case 16:
-                ev->res = tree.barY ? (int)tree.barY->state : -1;
+                ev->res = info.barYState;
                 break;
             case 17:
-                ev->res = tree.barY ? (LRESULT)tree.barY->hwnd : 0;
+                ev->res = (LRESULT)info.barY;
                 break;
             case 18:
-                ev->res = (GetForegroundWindow() == GetAncestor(tree.host->native, GA_ROOT) ? 1 : 0) |
+                ev->res = (GetForegroundWindow() == GetAncestor(tree.Hwnd(), GA_ROOT) ? 1 : 0) |
                           (GetCapture() ? 2 : 0) | (gOverlayScrollbarSuppressThick ? 4 : 0) |
-                          (HasTestCursorPosition() ? 8 : 0) |
-                          (tree.barY && tree.barY->hwndOwner == tree.host->native ? 16 : 0);
+                          (HasTestCursorPosition() ? 8 : 0) | (info.barYOwned ? 16 : 0);
                 break;
             case 19:
                 ev->res = (LRESULT)GetForegroundWindow();
                 break;
             case kSidebarCountItems:
-                ev->res = len(tree.state.nodes);
+                ev->res = info.itemCount;
                 break;
             default:
                 ev->res = -1;
@@ -426,17 +378,17 @@ void SidebarTree::TreeMessage(VirtHostNativeMsg* ev) {
     if (ev->didHandle) return;
 #endif
     if (ev->msg == WM_TIMER && ev->wp == kSidebarTipTimer) {
-        KillTimer(tree.host->native, kSidebarTipTimer);
+        KillTimer(tree.Hwnd(), kSidebarTipTimer);
         ShowTip();
         ev->didHandle = true;
         return;
     }
     if (ev->msg == WM_MOUSEMOVE) {
         TreeItem item = GetItemAt(GET_X_LPARAM(ev->lp), GET_Y_LPARAM(ev->lp));
-        if (item != tipItem.item || tipItem.generation != tree.state.generation) {
+        if (item != tipItem.item || !tree.IsCurrent(tipItem)) {
             HideTip();
-            tipItem = tree.state.MakeRef(item);
-            if (item) SetTimer(tree.host->native, kSidebarTipTimer, UiTooltipDelayMs(), nullptr);
+            tipItem = tree.MakeRef(item);
+            if (item) SetTimer(tree.Hwnd(), kSidebarTipTimer, UiTooltipDelayMs(), nullptr);
         }
     } else if (ev->msg == WM_MOUSELEAVE || ev->msg == WM_LBUTTONDOWN || ev->msg == WM_KEYDOWN ||
                ev->msg == WM_MOUSEWHEEL || ev->msg == WM_MOUSEHWHEEL || ev->msg == WM_VSCROLL ||
@@ -454,14 +406,14 @@ void SidebarTree::TreeMessage(VirtHostNativeMsg* ev) {
 }
 
 void SidebarTree::HideTip() {
-    if (tree.host && tree.host->native) KillTimer(tree.host->native, kSidebarTipTimer);
+    if (tree.Hwnd()) KillTimer(tree.Hwnd(), kSidebarTipTimer);
     if (tooltip) tooltip->Delete();
     tipItem = {};
 }
 
 void SidebarTree::ShowTip() {
-    if (tree.state.FindRef(tipItem) < 0) return;
-    Point cursor = HwndMapWindowPoint(HWND_DESKTOP, tree.host->native, GetCursorPosition());
+    if (!tree.IsValid(tipItem)) return;
+    Point cursor = HwndMapWindowPoint(HWND_DESKTOP, tree.Hwnd(), GetCursorPosition());
     if (GetItemAt(cursor.x, cursor.y) != tipItem.item) {
         HideTip();
         return;
@@ -470,18 +422,18 @@ void SidebarTree::ShowTip() {
     ev.treeView = this;
     ev.treeItem = tipItem.item;
     SidebarTreeGuard guard(this);
-    u64 generation = tree.state.generation;
+    VirtTreeRef current = tipItem;
     auto notify = onGetTooltip;
     notify.Call(&ev);
-    if (!guard.tree || tree.state.generation != generation || !tree.host->native) return;
-    cursor = HwndMapWindowPoint(HWND_DESKTOP, tree.host->native, GetCursorPosition());
+    if (!guard.tree || !tree.IsCurrent(current) || !tree.Hwnd()) return;
+    cursor = HwndMapWindowPoint(HWND_DESKTOP, tree.Hwnd(), GetCursorPosition());
     if (GetItemAt(cursor.x, cursor.y) != ev.treeItem) {
         HideTip();
         return;
     }
     Rect label;
     if (!GetItemRect(ev.treeItem, true, label)) return;
-    Rect client = tree.host->ClientRect();
+    Rect client = tree.ClientRect();
     if (len(ev.text) == 0 && (label.x < 0 || (i64)label.x + label.dx > client.dx)) {
         ev.text = treeModel->Text(ev.treeItem);
     }
@@ -489,9 +441,9 @@ void SidebarTree::ShowTip() {
     if (!tooltip) {
         tooltip = new Tooltip();
         Tooltip::CreateArgs args;
-        args.parent = tree.host->native;
-        args.font = tree.font;
-        args.isRtl = tree.rtl;
+        args.parent = tree.Hwnd();
+        args.font = tree.GetFont();
+        args.isRtl = tree.GetDirection() == TreeDirection::RightToLeft;
         if (!tooltip->Create(args)) {
             delete tooltip;
             tooltip = nullptr;
@@ -521,7 +473,7 @@ void SidebarTree::Clicked(VirtTreeClick* ev) {
     click.treeItem = ev->item;
     click.isDblClick = ev->doubleClick;
     click.mouseWindow = ev->position;
-    click.mouseScreen = HwndClientToScreen(tree.host->native, ev->position);
+    click.mouseScreen = HwndClientToScreen(tree.Hwnd(), ev->position);
     auto notify = onClick;
     notify.Call(&click);
 }

@@ -10,7 +10,6 @@
 #include "gui/win/VirtTreeState.h"
 #include "gui/win/VirtTreeMetrics.h"
 #include "OverlayScrollbar.h"
-#include <uiautomation.h>
 #include "TreeUia.h"
 #include "VirtTree.h"
 
@@ -109,7 +108,7 @@ void TestTreeWindow::TestExpand(VirtTreeExpandEvent* ev) {
     expandAction = 0;
     if (action == 1) return SetModel(&model);
     if (action == 2) return delete this;
-    Expand(ev);
+    ExpandItem(ev->item, ev->expansion, ev->reason);
 }
 
 void TestTreeWindow::TestScroll() {
@@ -117,7 +116,7 @@ void TestTreeWindow::TestScroll() {
     scrollAction = 0;
     if (action == 1) return SetModel(&model);
     if (action == 2) return delete this;
-    UiaScrolled();
+    RefreshScroll();
 }
 
 void TestTreeWindow::QueryFont(VirtTreeFontQuery*) {
@@ -136,8 +135,7 @@ void TestTreeWindow::QueryStyle(VirtTreeStyle* style) {
         delete this;
         return;
     }
-    VirtTreeExpandEvent ev{kTreeFirstItem, VirtTreeExpansion::Collapse};
-    Expand(&ev);
+    ExpandItem(kTreeFirstItem, VirtTreeExpansion::Collapse);
 }
 
 void TestTreeWindow::ProbeMessage(VirtHostNativeMsg* ev) {
@@ -164,43 +162,44 @@ void TestTreeWindow::SelectionChanged(VirtTreeSelectionChanged* ev) {
     int action = selectionAction;
     selectionAction = 0;
     if (action == 1) SetModel(&model);
-    if (action == 2) DestroyWindow(host->native);
+    if (action == 2) DestroyWindow(Hwnd());
     if (action == 3) delete this;
 }
 
 void TestTreeWindow::TestMessage(VirtHostNativeMsg* ev) {
     if (ev->msg == WM_APP + 101) {
+        auto info = TestInfo();
         switch (ev->wp) {
             case 0:
-                ev->res = (int)mode;
+                ev->res = (int)GetMode();
                 break;
             case 1:
-                ev->res = scrollX.pos;
+                ev->res = info.scrollX;
                 break;
             case 2:
-                ev->res = scrollY.pos;
+                ev->res = info.scrollY;
                 break;
             case 3:
-                ev->res = scrollX.MaxPos();
+                ev->res = info.maxX;
                 break;
             case 4:
-                ev->res = scrollY.MaxPos();
+                ev->res = info.maxY;
                 break;
             case 5:
-                ev->res = len(state.rows);
+                ev->res = info.rowCount;
                 break;
             case 6:
-                ev->res = barY ? (LRESULT)barY->hwnd : 0;
+                ev->res = (LRESULT)info.barY;
                 break;
             case 7:
                 SetModel(&model);
-                ev->res = (LRESULT)state.generation;
+                ev->res = (LRESULT)TestInfo().generation;
                 break;
             case 8:
-                ev->res = barX ? (LRESULT)barX->hwnd : 0;
+                ev->res = (LRESULT)info.barX;
                 break;
             case 9:
-                ev->res = (LRESULT)state.selected;
+                ev->res = (LRESULT)GetSelection();
                 break;
             case 10: {
                 gDpiOverride = (int)ev->lp;
@@ -214,19 +213,19 @@ void TestTreeWindow::TestMessage(VirtHostNativeMsg* ev) {
                 break;
             }
             case 11:
-                ev->res = rowDy;
+                ev->res = ItemHeight();
                 break;
             case 12:
-                ev->res = contentDx;
+                ev->res = info.contentWidth;
                 break;
             case 13:
-                ev->res = PlatformFontMeasureText(VirtTree::font, model.Text(13)).dx + rowDy;
+                ev->res = PlatformFontMeasureText(VirtTree::GetFont(), model.Text(13)).dx + ItemHeight();
                 break;
             case 14:
-                ev->res = scrollY.viewport;
+                ev->res = info.viewportHeight;
                 break;
             case 15:
-                DestroyWindow(host->native);
+                DestroyWindow(Hwnd());
                 break;
             case 16:
                 ev->res = (int)lastReason;
@@ -244,8 +243,7 @@ void TestTreeWindow::TestMessage(VirtHostNativeMsg* ev) {
                 selectionAction = (int)ev->lp;
                 break;
             case 22: {
-                VirtTreeExpandEvent expand{(TreeItem)ev->lp, VirtTreeExpansion::Collapse};
-                Expand(&expand);
+                ExpandItem((TreeItem)ev->lp, VirtTreeExpansion::Collapse);
                 break;
             }
             case 23: {
@@ -267,19 +265,18 @@ void TestTreeWindow::TestMessage(VirtHostNativeMsg* ev) {
             case 24: {
                 model.rootCount = 1;
                 SetModel(&model);
-                VirtTreeExpandEvent expand{kTreeFirstItem, VirtTreeExpansion::Expand};
-                Expand(&expand);
+                ExpandItem(kTreeFirstItem, VirtTreeExpansion::Expand);
                 break;
             }
             case 25:
                 fontAction = (int)ev->lp;
                 break;
             case 26:
-                ev->res = Measure();
+                ev->res = TestMeasure();
                 break;
             case 27:
                 styleAction = ev->lp ? (int)ev->lp : 1;
-                host->Repaint();
+                Repaint();
                 break;
             case 28:
                 model.rootCount = kTreeRoots;
@@ -288,9 +285,9 @@ void TestTreeWindow::TestMessage(VirtHostNativeMsg* ev) {
             case 29:
                 testFocusOutline = ev->lp != 0;
                 SetActiveWindow(hwnd);
-                ::SetFocus(ev->lp == 2 ? hwnd : host->native);
-                host->Repaint();
-                ev->res = ::GetFocus() == (ev->lp == 2 ? hwnd : host->native);
+                ::SetFocus(ev->lp == 2 ? hwnd : Hwnd());
+                Repaint();
+                ev->res = ::GetFocus() == (ev->lp == 2 ? hwnd : Hwnd());
                 break;
             case 30:
                 expandAction = (int)ev->lp;
@@ -312,25 +309,21 @@ void TestTreeWindow::TestMessage(VirtHostNativeMsg* ev) {
                 break;
 #if IS_DEBUG
             case 34: {
-                if (!uia) break;
-                uiaData.onTestScrollEvent = MkMethod0<TestTreeWindow, &TestTreeWindow::DeleteOnScrollEvent>(this);
-                VirtTreeScroll before;
-                before.SetMetrics(200, 100);
-                VirtTreeScroll after = before;
-                after.SetPos(100);
-                VirtTreeUiaScrolled(uia, before, before, after, after);
+                TestScrollEvent(MkMethod0<TestTreeWindow, &TestTreeWindow::DeleteOnScrollEvent>(this));
                 break;
             }
 #endif
+            case 35:
+                SetAccessibleName(StrL("Changed name"));
+                break;
             default:
                 ev->res = -1;
         }
     } else if (ev->msg == WM_KEYDOWN && ev->wp >= '1' && ev->wp <= '4') {
         SetMode((VirtTreeBarMode)(ev->wp - '1'));
     } else if (ev->msg == WM_KEYDOWN && ev->wp == 'R') {
-        rtl = !rtl;
-        HwndSetRtl(host->native, rtl);
-        SetMode(mode);
+        SetDirection(GetDirection() == TreeDirection::LeftToRight ? TreeDirection::RightToLeft
+                                                                  : TreeDirection::LeftToRight);
 
     } else {
         return;
@@ -343,21 +336,19 @@ void TestTreeWindow::Destroyed(WindowBase::DestroyEvent*) {
 }
 
 void TestTreeWindow::Moved(WindowBase::MoveEvent*) {
-    UpdateBars();
+    UpdateScrollbars();
 }
 
 void TestTreeWindow::DpiChanged(WindowBase::DpiChangedEvent* ev) {
-    if (!ApplyDpiChangedRect(hwnd, ev, host != nullptr)) {
+    if (!ApplyDpiChangedRect(hwnd, ev, Hwnd() != nullptr)) {
         return;
     }
     DpiScope scope(hwnd);
-    VirtTree::font = GetDefaultGuiFont();
-    if (!Measure()) return;
-    SetMode(mode);
+    VirtTree::SetFont(GetDefaultGuiFont(), 0, 0);
 }
 
 void TestTreeWindow::LayoutHost(WindowBase::SizeEvent* ev) {
-    if (host) {
+    if (Hwnd()) {
         VirtTree::SetBounds({0, 0, ev->size.dx, ev->size.dy});
     }
 }
@@ -381,8 +372,8 @@ void TestTree() {
     w->onSelectionChanged = MkMethod1<TestTreeWindow, VirtTreeSelectionChanged*, &TestTreeWindow::SelectionChanged>(w);
     w->onGetFont = MkMethod1<TestTreeWindow, VirtTreeFontQuery*, &TestTreeWindow::QueryFont>(w);
     w->onGetStyle = MkMethod1<TestTreeWindow, VirtTreeStyle*, &TestTreeWindow::QueryStyle>(w);
-    w->uiaData.onExpand = MkMethod1<TestTreeWindow, VirtTreeExpandEvent*, &TestTreeWindow::TestExpand>(w);
-    w->uiaData.onScroll = MkMethod0<TestTreeWindow, &TestTreeWindow::TestScroll>(w);
+    w->SetTestAccessHooks(MkMethod1<TestTreeWindow, VirtTreeExpandEvent*, &TestTreeWindow::TestExpand>(w),
+                          MkMethod0<TestTreeWindow, &TestTreeWindow::TestScroll>(w));
     Rect rc = HwndClientRect(w->hwnd);
     w->VirtTree::SetBounds(rc);
     w->SetIsVisible(true);

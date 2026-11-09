@@ -19,6 +19,7 @@ import {
 
 const TEST_STATE = 0x8000 + 101;
 const WM_VSCROLL = 0x0115;
+const EVENT_OBJECT_NAMECHANGE = 0x800c;
 
 export async function testit(): Promise<void> {
   for (const input of [
@@ -31,6 +32,7 @@ export async function testit(): Promise<void> {
     "event-scroll",
     "event-expand",
     "event-mode",
+    "event-name",
   ]) {
     const proc = Bun.spawn([EXE, "-for-testing", "-testapp"], {
       env: { ...process.env, SOLOKPDF_TEST_TREE: "1" },
@@ -60,14 +62,20 @@ export async function testit(): Promise<void> {
       }
       assert.ok(tree, `${input}: tree unavailable`);
       if (input.startsWith("event-")) {
-        if (input !== "event-scroll" && input !== "event-mode") {
+        if (input !== "event-scroll" && input !== "event-mode" && input !== "event-name") {
           moveWindow(frame, 0, 0, 300, 110);
           sendMessage(tree, TEST_STATE, 24, 0);
           if (input !== "event-expand") sendMessage(tree, TEST_STATE, 22, 10);
         }
-        const event = input === "event-state" || input === "event-expand" ? 0x800a : 0x800b;
+        const event =
+          input === "event-name"
+            ? EVENT_OBJECT_NAMECHANGE
+            : input === "event-state" || input === "event-expand"
+              ? 0x800a
+              : 0x800b;
         assert.equal(Number(sendMessage(tree, TEST_STATE, 32, event | 0x10000)), 1, `${input}: hook failed`);
-        if (input === "event-scroll")
+        if (input === "event-name") sendMessage(tree, TEST_STATE, 35, 0);
+        else if (input === "event-scroll")
           sendMessage(tree, WM_VSCROLL, 7, 0); // SB_BOTTOM
         else if (input === "event-mode") sendMessage(tree, WM_KEYDOWN, "2".charCodeAt(0), 0);
         else if (input === "event-expand") sendMessage(tree, TEST_STATE, 22, 10);

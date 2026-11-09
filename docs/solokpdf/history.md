@@ -3,7 +3,7 @@
 Measurement and work log, oldest first. Current behavior is in
 [features.md](features.md) and [limitations.md](limitations.md); open items are in [backlog.md](backlog.md).
 Condensed measurements are in [data/](data/).
-The [current status](README.md#status-2026-11-09) distinguishes completed
+The [current status](README.md#status-2026-11-10) distinguishes completed
 follow-ups from the failures and pending checks recorded at earlier revisions.
 
 ## Navigation
@@ -1888,6 +1888,60 @@ executable hash stayed unchanged throughout. Logs are in
 No full suite or Release build was run. IME checks use API-driven composition;
 physical-key acceptance remains F3.
 
+## E14: Virtual-tree encapsulation (2026-11-10)
+
+Implemented and tested on top of `93668ab08`. `VirtTree` now owns queries for
+selection, expansion, first item and generation-tagged references, color and
+direction updates, and accessible-name storage and notifications. `SidebarTree`
+keeps the `TreeView` adapter, settings policy and tooltips. Model ownership is
+unchanged.
+
+State, row/measurement caches, host, bars and UIA/MSAA objects are private.
+The lifetime guard is a private nested type. `SidebarTree` and `TestTree.cpp`
+use operations and copied diagnostics; Debug-only hooks retain the existing
+reentrancy and destruction probes. No mutable state getter or `friend` was added.
+The prototype's DPI handler now uses the same font update API as the sidebar.
+Local diff review is complete; no independent review was run for E14.
+
+Debug quick and Release builds passed with zero warnings and errors.
+The following 15 configurations passed before and after the refactor on the
+hidden desktop; each accepted set kept its executable hash unchanged:
+
+- `ad-hoc-b69-hidden-desktop`
+- `ad-hoc-tree-prototype`, also with `--uia` and `--uia --delete-in-scroll-event`
+- `ad-hoc-virtual-toc`, `ad-hoc-virtual-favorites`
+- `ad-hoc-favorites-stale-uia`, `ad-hoc-tree-reentrant`
+- `toc-scrollbar-theme`, `toc-hover-colors`
+- `ad-hoc-tree-uia`, also with `--favorites`
+- `ad-hoc-tree-lifetime`
+- `ad-hoc-virtual-tree-focus`, `ad-hoc-vim-keys --tree-only`
+
+The existing lifetime test was then extended with `event-name`: a synchronous
+WinEvent hook destroys the tree during an accessible-name change. The Debug
+lifetime test passed. One additional prototype run during concurrent Release
+linking exhausted its initial layout wait (client height 0, viewport 432).
+After all builds finished, that same executable passed three standalone
+prototype runs. No timeout or assertion was relaxed. The other four harness
+configurations (reentrancy, extended lifetime, prototype `--uia` and prototype
+`--uia --delete-in-scroll-event`) passed after builds finished, recorded
+separately under `.work/e14-quiet-*`.
+
+Four ASan configurations passed: `ad-hoc-tree-lifetime` (including `event-name`),
+`ad-hoc-tree-reentrant`, `ad-hoc-favorites-stale-uia` and
+`ad-hoc-tree-prototype --uia --delete-in-scroll-event`. The executable hash
+stayed unchanged throughout that set.
+The standard `bun cmd/build.ts -asan` command failed because its
+`Debug|x64_asan` selection does not match the generated VS2026 project's
+`Debug x64_asan|x64` configuration. The native build used:
+
+```powershell
+msbuild vs2026/SumatraPDF-static.vcxproj '/p:Configuration=Debug x64_asan;Platform=x64' /m
+```
+
+Logs and executable-hash manifests are in `.work/e14-*`; the native ASan build
+logs are `.work/e14-asan-build-native.log` and `.work/e14-asan-extended-build.log`.
+No full suite was run.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2033,6 +2087,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E11 | Apply settings without reloading stale values under `-for-testing`                                                                                                                                                                                                                          | done — Apply settings without reloading disk values (2026-11-09); [validation](#e11-settings-application-2026-11-09)                                                                                                                    |
 | E12 | Share keyboard input-target classification                                                                                                                                                                                                                                                  | done — Centralize keyboard input targets (E12); [validation](#e12-input-target-classification-2026-11-09); physical input remains F3                                                                                                    |
 | E13 | Cover keyboard routes outside E12's targeted checks                                                                                                                                                                                                                                         | done — Cover keyboard routing gaps (E13); [validation](#e13-keyboard-route-checks-2026-11-09); physical input remains F3                                                                                                                |
+| E14 | Encapsulate remaining virtual-tree internals                                                                                                                                                                                                                                                | done — Encapsulate virtual-tree internals; [implementation and validation](#e14-virtual-tree-encapsulation-2026-11-10)                                                                                                                  |
 
 ### F. Manual acceptance
 

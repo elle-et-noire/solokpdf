@@ -19,13 +19,13 @@
 
 static constexpr u64 kTypeAheadTimeoutMs = 1000;
 
-struct VirtTreeGuard {
+struct VirtTree::Guard {
     VirtTree* tree;
-    VirtTreeGuard* previous;
+    Guard* previous;
     u64 generation;
     u64 rowsGeneration;
     HWND window;
-    explicit VirtTreeGuard(VirtTree* t)
+    explicit Guard(VirtTree* t)
         : tree(t),
           previous(t->guards),
           generation(t->state.generation),
@@ -33,24 +33,25 @@ struct VirtTreeGuard {
           window(t->host ? t->host->native : nullptr) {
         t->guards = this;
     }
-    ~VirtTreeGuard() {
+    ~Guard() {
         if (tree) tree->guards = previous;
     }
-    bool SameModel() const {
-        return tree && tree->state.generation == generation && tree->host && tree->host->native == window;
-    }
+    bool SameWindow() const { return tree && tree->host && tree->host->native == window; }
+    bool SameModel() const { return SameWindow() && tree->state.generation == generation; }
     bool SameRows() const { return SameModel() && tree->state.rowsGeneration == rowsGeneration; }
 };
 
 VirtTree::~VirtTree() {
-    for (VirtTreeGuard* guard = guards; guard; guard = guard->previous) guard->tree = nullptr;
+    for (Guard* guard = guards; guard; guard = guard->previous) guard->tree = nullptr;
+    str::Free(name);
     FreeAccess();
     OverlayScrollbarDestroy(barX);
     OverlayScrollbarDestroy(barY);
     if (host) host->Dispose();
 }
 
-bool VirtTree::Create(HWND parent, WStr className, TreeModel* model, PlatformFont* initialFont, int bottomPaddingDip) {
+bool VirtTree::Create(HWND parent, WStr className, TreeModel* model, PlatformFont* initialFont, int bottomPaddingDip,
+                      TreeDirection direction) {
     VirtHost::CreateArgs args;
     args.parent = parent;
     args.className = className;
@@ -67,13 +68,73 @@ bool VirtTree::Create(HWND parent, WStr className, TreeModel* model, PlatformFon
     uiaData.scrollY = &scrollY;
     uiaData.rowDy = &rowDy;
     uiaData.bottomPad = &bottomPad;
-    uiaData.onScroll = MkMethod0<VirtTree, &VirtTree::UiaScrolled>(this);
+    uiaData.onScroll = MkMethod0<VirtTree, &VirtTree::RefreshScroll>(this);
     uiaData.onSelect = MkMethod1<VirtTree, VirtTreeSelectEvent*, &VirtTree::Select>(this);
     uiaData.onExpand = MkMethod1<VirtTree, VirtTreeExpandEvent*, &VirtTree::Expand>(this);
     host->onPaint = MkMethod1<VirtTree, VirtHostPaintEvent*, &VirtTree::Paint>(this);
     host->onNativeMsg = MkMethod1<VirtTree, VirtHostNativeMsg*, &VirtTree::Message>(this);
     SetMode(VirtTreeBarMode::Windows);
+    SetWindowTextW(host->native, CWStrTemp(ToWStrTemp(name)));
+    rtl = direction == TreeDirection::RightToLeft;
+    HwndSetRtl(host->native, rtl);
     return true;
+}
+
+HWND VirtTree::Hwnd() const {
+    return host ? host->native : nullptr;
+}
+
+Rect VirtTree::ClientRect() const {
+    return host->ClientRect();
+}
+
+PlatformFont* VirtTree::GetFont() const {
+    return font;
+}
+
+int VirtTree::ItemHeight() const {
+    return rowDy;
+}
+
+VirtTreeBarMode VirtTree::GetMode() const {
+    return mode;
+}
+
+TreeDirection VirtTree::GetDirection() const {
+    return rtl ? TreeDirection::RightToLeft : TreeDirection::LeftToRight;
+}
+
+void VirtTree::SetColors(Color text, Color bg) {
+    textColor = text;
+    bgColor = bg;
+    if (Hwnd()) host->Invalidate();
+}
+
+// Direction changes also rebuild the bars on the matching side.
+void VirtTree::SetDirection(TreeDirection direction) {
+    Guard guard(this);
+    rtl = direction == TreeDirection::RightToLeft;
+    HwndSetRtl(host->native, rtl);
+    if (guard.SameWindow()) SetMode(mode);
+}
+
+// Keep the name notifications and their reentrant lifetime checks together.
+void VirtTree::SetAccessibleName(Str value) {
+    if (str::Eq(name, value)) return;
+    Guard guard(this);
+    HWND window = Hwnd();
+    BSTR before = window ? VirtTreeName(window) : nullptr;
+    str::ReplaceWithCopy(&name, value);
+    if (window) SetWindowTextW(window, CWStrTemp(ToWStrTemp(name)));
+    if (!guard.SameWindow()) {
+        SysFreeString(before);
+        return;
+    }
+    BSTR after = window ? VirtTreeName(window) : nullptr;
+    VirtTreeUiaNameChanged(uia, before, after);
+    if (guard.SameWindow() && window) NotifyWinEvent(EVENT_OBJECT_NAMECHANGE, window, OBJID_CLIENT, CHILDID_SELF);
+    SysFreeString(before);
+    SysFreeString(after);
 }
 
 void VirtTree::SetModel(TreeModel* model) {
@@ -106,6 +167,14 @@ void VirtTree::Remeasure(int dpi) {
     if (!Measure(dpi)) return;
     if (!UpdateBars()) return;
     host->Invalidate();
+}
+
+bool VirtTree::UpdateScrollbars() {
+    return UpdateBars();
+}
+
+void VirtTree::Repaint() {
+    host->Repaint();
 }
 
 bool VirtTree::GetItemRect(TreeItem item, VirtTreeRect part, Rect& rect) {
@@ -142,13 +211,39 @@ TreeItem VirtTree::FirstVisible() {
     return row < len(state.rows) ? state.nodes[state.rows[row]].item : TreeModel::kNullItem;
 }
 
+TreeItemExpansion VirtTree::GetExpansion(TreeItem item) const {
+    int node = state.FindNode(item);
+    if (node < 0) return TreeItemExpansion::Unavailable;
+    return state.nodes[node].expanded ? TreeItemExpansion::Expanded : TreeItemExpansion::Collapsed;
+}
+
+TreeItem VirtTree::GetSelection() const {
+    return state.selected;
+}
+
+TreeItem VirtTree::FirstItem() const {
+    return len(state.nodes) ? state.nodes[0].item : TreeModel::kNullItem;
+}
+
+VirtTreeRef VirtTree::MakeRef(TreeItem item) const {
+    return state.MakeRef(item);
+}
+
+bool VirtTree::IsCurrent(VirtTreeRef ref) const {
+    return ref.generation == state.generation;
+}
+
+bool VirtTree::IsValid(VirtTreeRef ref) const {
+    return state.FindRef(ref) >= 0;
+}
+
 TreeItem VirtTree::NextVisible(TreeItem item) {
     int row = state.FindRow(item) + 1;
     return row > 0 && row < len(state.rows) ? state.nodes[state.rows[row]].item : TreeModel::kNullItem;
 }
 
 bool VirtTree::EnsureVisible(TreeItem item) {
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     u64 generation = state.generation;
     HWND window = host->native;
     int node = state.FindNode(item);
@@ -163,7 +258,7 @@ bool VirtTree::EnsureVisible(TreeItem item) {
     if (len(expanded)) {
         state.RebuildRows();
         MeasureExtent();
-        VirtTreeGuard update(this);
+        Guard update(this);
         if (!UpdateBars() || !update.SameRows()) return false;
         for (int parent : expanded) {
             NotifyWinEvent(EVENT_OBJECT_STATECHANGE, host->native, OBJID_CLIENT, parent + 1);
@@ -194,6 +289,11 @@ bool VirtTree::SelectItem(TreeItem item) {
     VirtTreeSelectEvent ev{item, false, VirtTreeSelectReason::Programmatic};
     Select(&ev);
     return true;
+}
+
+void VirtTree::ExpandItem(TreeItem item, VirtTreeExpansion expansion, VirtTreeSelectReason reason) {
+    VirtTreeExpandEvent ev{item, expansion, reason};
+    Expand(&ev);
 }
 
 void VirtTree::FreeAccess() {
@@ -241,7 +341,7 @@ void VirtTree::Expand(VirtTreeExpandEvent* ev) {
     if (node < 0 || !state.SetExpanded(ev->item, ev->expansion)) return;
     MeasureExtent();
     if (!UpdateBars()) return;
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     host->Invalidate();
     NotifyWinEvent(EVENT_OBJECT_STATECHANGE, host->native, OBJID_CLIENT, node + 1);
     if (!guard.SameRows()) return;
@@ -271,7 +371,7 @@ void VirtTree::Expand(VirtTreeExpandEvent* ev) {
 // Keep the collapse phase separate to preserve selection and notification order.
 void VirtTree::ExpandToLevel(int level) {
     if (level < 1) return;
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     ExpandRange(0, len(state.nodes), VirtTreeExpansion::Collapse);
     if (!guard.SameModel()) return;
     state.ExpandLevels(level);
@@ -283,7 +383,7 @@ void VirtTree::ExpandToLevel(int level) {
 }
 
 void VirtTree::CollapseSiblings(TreeItem item) {
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     int node = state.FindNode(item ? item : state.selected);
     int parent = node >= 0 ? state.nodes[node].parent : -1;
     int first = parent >= 0 ? parent + 1 : 0;
@@ -316,7 +416,7 @@ void VirtTree::ExpandRange(int first, int end, VirtTreeExpansion expansion, Virt
     if (!state.SetRange(first, end, expansion)) return;
     MeasureExtent();
     if (!UpdateBars()) return;
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     host->Invalidate();
     for (int node : changed) {
         NotifyWinEvent(EVENT_OBJECT_STATECHANGE, host->native, OBJID_CLIENT, node + 1);
@@ -348,7 +448,7 @@ void VirtTree::ExpandRange(int first, int end, VirtTreeExpansion expansion, Virt
     }
 }
 
-void VirtTree::UiaScrolled() {
+void VirtTree::RefreshScroll() {
     if (!UpdateBars()) return;
     host->Invalidate();
 }
@@ -358,7 +458,7 @@ static bool IsTextBoundary(Str text, int offset) {
 }
 
 bool VirtTree::Measure(int dpi) {
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     u64 generation = state.generation;
     u64 measure = ++measureGeneration;
     DpiScope scope(host->native);
@@ -420,7 +520,7 @@ bool VirtTree::UpdateBars() {
     if (!host || !host->native) {
         return false;
     }
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     HWND window = host->native;
     u64 generation = state.generation;
     u64 rowsGeneration = state.rowsGeneration;
@@ -490,7 +590,7 @@ bool VirtTree::UpdateBars() {
 }
 
 void VirtTree::Paint(VirtHostPaintEvent* ev) {
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     u64 generation = state.generation;
     u64 rowsGeneration = state.rowsGeneration;
     u64 measure = measureGeneration;
@@ -556,7 +656,7 @@ void VirtTree::Paint(VirtHostPaintEvent* ev) {
 }
 
 void VirtTree::SetMode(VirtTreeBarMode newMode) {
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     barsGeneration++;
     u64 bars = barsGeneration;
     HWND window = host->native;
@@ -645,8 +745,79 @@ void VirtTree::Scroll(UINT message, WPARAM wp) {
     host->Invalidate();
 }
 
+#if IS_DEBUG
+// Diagnostics copy only values; tests cannot retain the tree's storage.
+VirtTreeTestInfo VirtTree::TestInfo() const {
+    VirtTreeTestInfo info;
+    info.scrollX = scrollX.pos;
+    info.scrollY = scrollY.pos;
+    info.maxX = scrollX.MaxPos();
+    info.maxY = scrollY.MaxPos();
+    info.rowCount = len(state.rows);
+    info.itemCount = len(state.nodes);
+    info.selectedRow = state.FindRow(state.selected);
+    info.contentWidth = contentDx;
+    info.viewportHeight = scrollY.viewport;
+    info.generation = state.generation;
+    info.barX = barX ? barX->hwnd : nullptr;
+    info.barY = barY ? barY->hwnd : nullptr;
+    info.barYState = barY ? (int)barY->state : -1;
+    info.barYOwned = barY && barY->hwndOwner == Hwnd();
+    return info;
+}
+
+VirtTreeTestRow VirtTree::TestRow(int row) const {
+    VirtTreeTestRow info;
+    if (row < 0 || row >= len(state.rows)) return info;
+    int node = state.rows[row];
+    info.item = state.nodes[node].item;
+    info.customFont = metrics.fonts[node] != font;
+    info.boldLength = metrics.boldLengths[node];
+    info.layoutBold = metrics.layoutBold[node];
+    return info;
+}
+
+Color VirtTree::TestTextColor(TreeItem item) {
+    VirtTreeStyle style;
+    style.item = item;
+    style.textColor = textColor;
+    style.bgColor = bgColor;
+    auto notify = onGetStyle;
+    notify.Call(&style);
+    return style.textColor;
+}
+
+int VirtTree::TestTextByte(int row, int offset) const {
+    if (row < 0 || row >= len(state.rows) || offset < 0) return 0;
+    TreeItem item = state.nodes[state.rows[row]].item;
+    Str text = state.model->Text(item);
+    return offset < len(text) ? (u8)text.s[offset] + 1 : 0;
+}
+
+bool VirtTree::TestMeasure() {
+    return Measure();
+}
+
+void VirtTree::SetTestAccessHooks(Func1<VirtTreeExpandEvent*> expand, Func0 scroll) {
+    uiaData.onExpand = expand;
+    uiaData.onScroll = scroll;
+}
+
+// Force another scroll event after a subscriber destroys the tree.
+void VirtTree::TestScrollEvent(Func0 onEvent) {
+    if (!uia) return;
+    uiaData.onTestScrollEvent = onEvent;
+    constexpr int kViewport = 100;
+    VirtTreeScroll before;
+    before.SetMetrics(2 * kViewport, kViewport);
+    VirtTreeScroll after = before;
+    after.SetPos(kViewport);
+    VirtTreeUiaScrolled(uia, before, before, after, after);
+}
+#endif
+
 bool VirtTree::KeyDown(int key) {
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     u64 generation = state.generation;
     HWND window = host->native;
     int row = state.FindRow(state.selected);
@@ -760,7 +931,7 @@ void VirtTree::Search(WCHAR ch) {
 }
 
 void VirtTree::Message(VirtHostNativeMsg* ev) {
-    VirtTreeGuard guard(this);
+    Guard guard(this);
     if (ev->msg == WM_DESTROY) {
         barsGeneration++;
         FreeAccess();

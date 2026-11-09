@@ -1,28 +1,20 @@
 # SolokPDF backlog
 
-Open work as of 2026-11-09. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
+Open work as of 2026-11-10. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D12, E14, F4).
+group (B76, C2, D12, E15, F4).
 
 ## Implementation and acceptance
 
-No open implementation or merge-validation items. Completed E10–E13 and
-D8–D11 records are in [history.md](history.md#navigation); the
-[status overview](README.md#validation-scope) distinguishes the tested revisions
-and validation scope. F1 and F3 below remain open.
+No open implementation or merge-validation items. Completed E10–E14 and D8–D11
+records are in [history.md](history.md#navigation). E14 is implemented and
+locally validated on top of `93668ab08`;
+see its [results](history.md#e14-virtual-tree-encapsulation-2026-11-10).
 
-## Owner's manual checks
-
-| ID  | Item                                             | Status                                                                                                                                                       |
-| --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| F1  | Physical printer, print dialog and spooler check | todo: needs the owner; [manual procedure](testing.md#printing-f1)                                                                                            |
-| F3  | Keyboard physical input and OS hotkey checks     | todo: needs the owner; AltGr, dead keys, Japanese IME, key repeat, focus changes and hotkey conflicts; [details](keyboard-investigation.md#実機入力の確認f3) |
-
-Use the [manual acceptance procedure](testing.md#owners-manual-acceptance-f1f3)
-to record the build, environment and individual results. Partial or skipped
-checks leave the relevant item open.
+F1/F3 were removed from active work by the owner on 2026-11-10, without marking
+them passed. Their earlier procedures and pending-check records are historical.
 
 ## Deferred
 

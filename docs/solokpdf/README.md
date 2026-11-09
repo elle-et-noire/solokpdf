@@ -14,44 +14,46 @@ render resolution and color processing. Do not switch the default to MuPDF to
 meet memory/startup targets. Font-info v2 remains probe-only because it changes
 rendered output.
 
-## Status (2026-11-09)
+## Status (2026-11-10)
 
-Repository reviewed at `cf2696d15` on `solokpdf-dev`; latest tested revisions
-are recorded below. E11's in-memory settings application,
+Implementation based on `93668ab08` on `solokpdf-dev`; E14's implementation and
+local validation are complete. E11's in-memory settings application,
 E12's shared input-target classification and E13's targeted routing checks are implemented.
 Tree acceptance (E10/F2) is complete by owner report; D8's hosted follow-ups
 are verified. D10's merged-UI review and D11's MuPDF patch comparison are
 complete. D9's eleven targets passed three hosted runs per engine. F1/F3
-remain manual checks. See the [backlog](backlog.md). Results retain their
+were removed from active work by the owner on 2026-11-10. See the [backlog](backlog.md). Results retain their
 source commits, dates and scope.
 
-| Area           | Current state                                                                                                                                  | Details                                                                                                              |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                                    | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
-| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7); recorded validation follow-ups are closed.                                                      | [Merge status](upstream-merges.md#current-status-2026-11-09)                                                         |
-| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                                    | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
-| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete).        | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
-| Keyboard input | E12 classification and E13 route checks implemented; special-mode counts clear and Alt+arrows operate find history. Physical input remains F3. | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                               |
-| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                                   | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
-| Remaining work | F1 printing and F3 physical keys; suite sharding is deferred.                                                                                  | [Backlog](backlog.md)                                                                                                |
+| Area           | Current state                                                                                                                           | Details                                                                                                              |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                             | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
+| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7); recorded validation follow-ups are closed.                                               | [Merge status](upstream-merges.md#current-status-2026-11-09)                                                         |
+| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                             | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
+| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete). | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
+| Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                     | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                               |
+| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                            | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
+| Refactoring    | E14's virtual-tree model, colors, direction, accessibility and test access are encapsulated; no open refactoring items.                 | [Results](history.md#e14-virtual-tree-encapsulation-2026-11-10), [backlog](backlog.md)                               |
 
 ### Validation scope
 
-These are existing records, not new test runs from this documentation review.
+Results are scoped to the revisions and checks listed here; earlier CI runs
+were not repeated for E14.
 
-| Check                   | Tested revision          | Recorded result                                                                                                  |
-| ----------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Latest regular CI       | `b24b868b9`              | Debug/Release jobs, 105055 unit tests and 65/65 feature tests passed; [record](history.md#hosted-triage).        |
-| Scheduled full suites   | `99ba47b52`              | PDFium 574/584, MuPDF 577/587; [eleven distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).    |
-| D9 targeted rechecks    | `b24b868b9`, `4ad4c30ae` | All eleven targets passed three hosted runs per engine; [record](history.md#hosted-triage). No full suite rerun. |
-| F2 physical tree checks | Build unspecified        | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).           |
+| Check                   | Tested revision             | Recorded result                                                                                                                                                                            |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Latest regular CI       | `b24b868b9`                 | Debug/Release jobs, 105055 unit tests and 65/65 feature tests passed; [record](history.md#hosted-triage).                                                                                  |
+| Scheduled full suites   | `99ba47b52`                 | PDFium 574/584, MuPDF 577/587; [eleven distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).                                                                              |
+| D9 targeted rechecks    | `b24b868b9`, `4ad4c30ae`    | All eleven targets passed three hosted runs per engine; [record](history.md#hosted-triage). No full suite rerun.                                                                           |
+| F2 physical tree checks | Build unspecified           | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                                     |
+| E14 local validation    | Working tree on `93668ab08` | Debug/Release builds, 15 targeted configurations, extended lifetime checks and four ASan configurations passed; [scope and results](history.md#e14-virtual-tree-encapsulation-2026-11-10). |
 
 ## Resuming work
 
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- F1 and F3 require the [owner's manual checks](testing.md#owners-manual-acceptance-f1f3).
+- E14 is implemented and locally validated; independent review has not run. See its [results](history.md#e14-virtual-tree-encapsulation-2026-11-10).
 - For a code change, select the affected tests in [testing.md](testing.md).
   Run full suites only when explicitly requested.
 
