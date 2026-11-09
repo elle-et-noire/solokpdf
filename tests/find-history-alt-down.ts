@@ -3,7 +3,7 @@
 // Alt+<mnemonic> opens the menu; these two have to stay with the combo.
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control";
-import { ROOT, USE_NG, cmdId, runStandalone } from "./util";
+import { ROOT, USE_NG, cmdId, runStandalone, writeAppdata } from "./util";
 import { getParentWindow, postMessage, sendMessage, sleep, VK_DOWN, VK_UP } from "./winapi";
 import {
   killAndWait,
@@ -18,6 +18,8 @@ import {
 
 const VK_RETURN = 0x0d;
 const WM_SYSKEYDOWN = 0x0104;
+const WM_SYSKEYUP = 0x0105;
+const KEY_RELEASE = 0xc0000001;
 const CB_GETDROPPEDSTATE = 0x0157;
 // lParam bit 29: Alt is down
 const ALT_DOWN_LPARAM = 1 << 29;
@@ -31,6 +33,18 @@ async function waitDropped(combo: number, want: boolean, what: string): Promise<
     await sleep(50);
   }
   throw new Error(`find-history-alt-down: ${what}: history list dropped should be ${want}`);
+}
+
+async function historyKey(client: ControlClient, edit: number, combo: number, key: number): Promise<void> {
+  await client.request(ControlCommand.TestFocusState, ["alt-down"]);
+  try {
+    postMessage(edit, WM_SYSKEYDOWN, key, ALT_DOWN_LPARAM | 1);
+    await waitDropped(combo, key === VK_DOWN, key === VK_DOWN ? "Alt+Down" : "Alt+Up");
+    postMessage(edit, WM_SYSKEYUP, key, ALT_DOWN_LPARAM | KEY_RELEASE);
+    await client.request(ControlCommand.TestFocusState, []);
+  } finally {
+    await client.request(ControlCommand.TestFocusState, ["alt-up"]);
+  }
 }
 
 async function waitHistoryOpen(client: ControlClient, what: string): Promise<void> {
@@ -86,23 +100,27 @@ export async function testit(): Promise<void> {
     console.log("find-history-alt-down: OK (the keys are orig only)");
     return;
   }
-  const { proc, client, frame } = await launchControlled([pdf]);
-  try {
-    await client.waitForRenderIdle();
-    sendCommand(frame, cmdId("CmdFindFirst"));
-    const edit = await waitForFocusClass(frame, "Edit");
-    const combo = getParentWindow(edit);
-    await typeIntoInput(combo, "deflate", false);
-    await pressKey(edit, VK_RETURN);
+  for (const floating of [false, true]) {
+    const appdata = writeAppdata(
+      `find-history-alt-down-${floating}`,
+      `SearchUIFloating = ${floating}\nRestoreSession = false\n`,
+    );
+    const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+    try {
+      await client.waitForRenderIdle();
+      sendCommand(frame, cmdId("CmdFindFirst"));
+      const edit = await waitForFocusClass(frame, "Edit");
+      const combo = getParentWindow(edit);
+      await typeIntoInput(combo, "deflate", false);
+      await pressKey(edit, VK_RETURN);
 
-    postMessage(edit, WM_SYSKEYDOWN, VK_DOWN, ALT_DOWN_LPARAM);
-    await waitDropped(combo, true, "Alt+Down");
-    postMessage(edit, WM_SYSKEYDOWN, VK_UP, ALT_DOWN_LPARAM);
-    await waitDropped(combo, false, "Alt+Up");
-    console.log("find-history-alt-down: OK");
-  } finally {
-    client.close();
-    await killAndWait(proc);
+      await historyKey(client, edit, combo, VK_DOWN);
+      await historyKey(client, edit, combo, VK_UP);
+      console.log(`find-history-alt-down: OK (floating=${floating})`);
+    } finally {
+      client.close();
+      await killAndWait(proc);
+    }
   }
 }
 

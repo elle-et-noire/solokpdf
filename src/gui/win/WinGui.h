@@ -890,6 +890,7 @@ struct DropDown;
 void CbSetCueBanner(DropDown*, Str);
 int CbGetTextLen(DropDown*);
 bool CbIsDropped(DropDown*);
+bool CbHandleAltArrow(DropDown*, KeyEvent*);
 int CbGetCurrentSelection(DropDown*);
 void CbSetCurrentSelection(DropDown*, int);
 

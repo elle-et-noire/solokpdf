@@ -8,15 +8,14 @@ group (B76, C2, D9, E14, F4).
 
 ## Implementation and acceptance
 
-| ID  | Item                                                                    | Status                                                                                                                                                                    |
-| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E10 | Complete the [virtual sidebar migration](tree-view-replacement-plan.md) | doing: virtual trees are now the default; native sidebar drawing and opt-in switches removed; physical acceptance checks (F2) remain                                      |
-| E13 | Cover keyboard routes outside E12's targeted checks                     | todo: favorites accelerators, toolbar focus, owned popups, Alt/F10, Merge PDF and special-mode state clearing; [scope](keyboard-investigation.md#自動テストの経路確認e13) |
+| ID  | Item                                                                    | Status                                                                                                                               |
+| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| E10 | Complete the [virtual sidebar migration](tree-view-replacement-plan.md) | doing: virtual trees are now the default; native sidebar drawing and opt-in switches removed; physical acceptance checks (F2) remain |
 
-E11 and E12 are implemented; see the [settings validation](history.md#e11-settings-application-2026-11-09)
-and [input-target validation](history.md#e12-input-target-classification-2026-11-09).
+E11, E12 and E13 are implemented; see the [settings validation](history.md#e11-settings-application-2026-11-09),
+[input-target validation](history.md#e12-input-target-classification-2026-11-09)
+and [route checks](history.md#e13-keyboard-route-checks-2026-11-09).
 E10 stays open until F2's physical checks are recorded.
-E13 records coverage gaps, not confirmed defects; keep physical input checks in F3.
 
 ## Recorded validation follow-ups
 

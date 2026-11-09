@@ -580,6 +580,7 @@ import { testit as fileLinkNoDest } from "./file-link-no-dest.ts";
 import { testit as annotTextPopupReload } from "./annot-text-popup-reload.ts";
 import { testit as controlPipeBusy } from "./control-pipe-busy.ts";
 import { testit as overlayScrollbarTheme } from "./overlay-scrollbar-theme.ts";
+import { testit as keyboardInputTargets } from "./keyboard-input-targets.ts";
 
 async function annotationClipboardTests(): Promise<void> {
   beginSharedControlledSession();
@@ -597,6 +598,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["keyboard-input-targets", keyboardInputTargets],
+  ["find-history-alt-down", findHistoryAltDown],
   ["command-palette-settings", commandPaletteSettings],
   ["adv-settings-home-reload", advSettingsHomeReload],
   ["issue-3560", issue3560],
@@ -769,7 +772,6 @@ export const tests: NamedTest[] = [
   ["issue-6101", issue6101],
   ["issue-5907", issue5907],
   ["issue-893", issue893],
-  ["find-history-alt-down", findHistoryAltDown],
   ["cmyk-image-save", cmykImageSave],
   ["issue-6214", issue6214],
   ["issue-5868", issue5868],

@@ -363,6 +363,19 @@ bool CbIsDropped(DropDown* dd) {
     return CbIsDropped(HwndOf(dd));
 }
 
+// Handle Alt+arrows without relying on a native dialog message loop.
+bool CbHandleAltArrow(DropDown* dd, KeyEvent* ev) {
+    if (!dd || !ev->isAlt || ev->isCtrl || ev->isShift || (ev->vkey != VK_DOWN && ev->vkey != VK_UP)) {
+        return false;
+    }
+    HWND hwnd = HwndOf(dd);
+    if (!hwnd || (ev->hwnd != hwnd && ev->hwnd != CbEditHwnd(dd))) {
+        return false;
+    }
+    SendMessageW(hwnd, CB_SHOWDROPDOWN, ev->vkey == VK_DOWN, 0);
+    return true;
+}
+
 int CbGetCurrentSelection(DropDown* dd) {
     return CbGetCurrentSelection(HwndOf(dd));
 }

@@ -15276,7 +15276,9 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
         WPARAM key = msg.wParam;
         bool isCaretKey = key == VK_LEFT || key == VK_RIGHT || key == VK_UP || key == VK_DOWN || key == VK_HOME ||
                           key == VK_END || key == VK_PRIOR || key == VK_NEXT;
-        if (isCaretKey && SelectTextWithKeyboardActive(FindMainWindowByHwnd(msg.hwnd))) {
+        MainWindow* win = FindMainWindowByHwnd(msg.hwnd);
+        if (isCaretKey && SelectTextWithKeyboardActive(win)) {
+            ClearKeyCount(win);
             return false;
         }
     }
@@ -15287,6 +15289,7 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
         WPARAM key = msg.wParam;
         MainWindow* win = FindMainWindowByHwnd(msg.hwnd);
         if (AnnotationPlacementOnKeyDown(win, key)) {
+            ClearKeyCount(win);
             return true;
         }
         if (ReadingAutoScrollOnKey(win, (int)key, IsCtrlPressed(), IsShiftPressed(), IsAltPressed())) {
@@ -15297,6 +15300,7 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
     if (msg.message == WM_KEYDOWN && !IsAltPressed()) {
         MainWindow* win = FindMainWindowByHwnd(msg.hwnd);
         if (ReadingBarOnKey(win, msg.wParam)) {
+            ClearKeyCount(win);
             return true;
         }
     }

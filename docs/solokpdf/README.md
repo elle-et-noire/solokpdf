@@ -16,28 +16,27 @@ rendered output.
 
 ## Status (2026-11-09)
 
-Source reviewed at `1e49e9185` on `solokpdf-dev`: E11's in-memory settings
-application and E12's shared input-target classification are implemented.
-E13 tracks uncovered keyboard routes; physical acceptance and hosted CI checks
-remain open. Build and test results below are implementation-time records,
-not reruns for this documentation review.
+Current source on `solokpdf-dev` includes E11's in-memory settings application,
+E12's shared input-target classification and E13's targeted routing checks.
+Physical acceptance and hosted CI checks remain open. Build and test results
+retain the dates and scope recorded with each change.
 
-| Area           | Current state                                                                                                              | Details                                                                                                              |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
-| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7).                                                                             | [Merge results and remaining checks](upstream-merges.md#merge-result-2026-11-08)                                     |
-| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
-| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; physical-device checks remain pending.               | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
-| Keyboard input | Input-target classification shared; 8 targeted tests passed on 2026-11-09; uncovered routes are E13, physical input is F3. | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                               |
-| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).               | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
-| Remaining work | E13 route coverage, F1–F3 physical checks and D8 hosted CI follow-up; suite sharding is deferred.                          | [Backlog](backlog.md)                                                                                                |
+| Area           | Current state                                                                                                                                  | Details                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                                    | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
+| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7).                                                                                                 | [Merge results and remaining checks](upstream-merges.md#merge-result-2026-11-08)                                     |
+| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                                    | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
+| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; physical-device checks remain pending.                                   | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
+| Keyboard input | E12 classification and E13 route checks implemented; special-mode counts clear and Alt+arrows operate find history. Physical input remains F3. | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                               |
+| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                                   | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
+| Remaining work | F1–F3 physical checks and D8 hosted CI follow-up; suite sharding is deferred.                                                                  | [Backlog](backlog.md)                                                                                                |
 
 ## Resuming work
 
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
-E11 and E12 are implemented. The [input-target results](keyboard-investigation.md#入力先共通化の結果e122026-11-09)
-record automated coverage. E13 lists the routes to check before further routing changes.
+E11, E12 and E13 are implemented. The [input-target results](keyboard-investigation.md#入力先共通化の結果e122026-11-09)
+and [E13 checks](keyboard-investigation.md#自動テストの経路確認e13) record automated coverage.
 Tree implementation is in place; E10 remains open for the F2 acceptance checks.
 D8 tracks hosted CI checks still unverified in the existing records; D7's
 [merge record](upstream-merges.md#merge-result-2026-11-08) lists its remaining validation.
@@ -63,7 +62,7 @@ manual steps; automated checks do not establish those results.
 | Current behavior   | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                 |
 | Open work          | [backlog.md](backlog.md)                                                                                                             |
 | Tree migration     | [tree-view-replacement-plan.md](tree-view-replacement-plan.md), [tree-view-screen-reader-check.md](tree-view-screen-reader-check.md) |
-| Keyboard follow-up | [Current routing, E12 results and E13 coverage gaps](keyboard-investigation.md); [original handoff](keyboard-handoff.md)             |
+| Keyboard follow-up | [Current routing, E12/E13 results and physical checks](keyboard-investigation.md); [original handoff](keyboard-handoff.md)           |
 | Test procedures    | [testing.md](testing.md)                                                                                                             |
 | Historical results | [history.md](history.md), [upstream-merges.md](upstream-merges.md), [selection-overlay-plan.md](selection-overlay-plan.md)           |
 | Measurements       | [data/](data/), cited by `history.md`                                                                                                |

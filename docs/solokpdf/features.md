@@ -316,6 +316,14 @@ and clears on Esc, mouse input, focus loss, or another command. A shortcut
 assigned to a digit takes precedence. The pending count appears at the bottom
 right. This Windows UI behavior has no ng counterpart yet.
 
+Reading-bar adjustments, annotation-placement completion and keyboard-caret
+navigation discard a pending count (E13).
+
+## Find history
+
+Alt+Down opens the search field's history; Alt+Up closes it in both the compact
+bar and floating find window. The keys stay with the search field.
+
 ## Settings
 
 Settings > Settings and Ctrl+, open one screen. Commonly used settings appear

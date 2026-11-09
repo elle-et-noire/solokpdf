@@ -475,6 +475,10 @@ void FindBarWnd::OnDpiChanged(WindowBase::DpiChangedEvent* ev) {
 }
 
 void FindBarWnd::OnKeyDown(KeyEvent* ev) {
+    if (CbHandleAltArrow(edit, ev)) {
+        ev->didHandle = true;
+        return;
+    }
     // the find edit lives in this owned popup, not as a child of the frame, so
     // the frame's edit accelerator table doesn't reach it; handle the find keys
     // here (Esc, Enter/Shift+Enter, F3/Shift+F3)

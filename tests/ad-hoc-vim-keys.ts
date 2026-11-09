@@ -1,4 +1,4 @@
-import { findSidebarTree, sidebarItemHeight, sidebarSelection } from "./sidebar-tree";
+import { findSidebarTree, sidebarItemHeight, sidebarSelection, sidebarSelectRow } from "./sidebar-tree";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -32,6 +32,7 @@ import {
   findVisibleChildWindow,
   getControlText,
   getFocusedHwnd,
+  getParentWindow,
   getScrollPos,
   MK_LBUTTON,
   packCoords,
@@ -39,6 +40,7 @@ import {
   sendMessage,
   sendText,
   sleep,
+  VK_TAB,
   WM_KEYDOWN,
   WM_KEYUP,
   WM_LBUTTONDOWN,
@@ -73,7 +75,7 @@ async function testTreeKeys(): Promise<void> {
   for (const vim of [false, true]) {
     const dir = writeAppdata(
       `vim-keys-tree-${vim}`,
-      `VimKeys = ${vim}\nRestoreSession = false\nShortcuts [\n [\n  Cmd = CmdGoToNextPage\n  Key = g\n ]\n]\n`,
+      `VimKeys = ${vim}\nRestoreSession = false\nShowToc = true\nShowFavorites = true\nShortcuts [\n [\n  Cmd = CmdGoToNextPage\n  Key = g\n ]\n]\n`,
     );
     const treeApp = await launchControlled(["-appdata", dir, outline]);
     try {
@@ -92,6 +94,37 @@ async function testTreeKeys(): Promise<void> {
       const result = String((await treeApp.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
       if (!result.includes("page=3 ") || !/count=0 prefix=-/.test(result)) {
         throw new Error(`tree custom shortcut did not run (Vim=${vim}): ${result}`);
+      }
+
+      for (const pageNo of [1, 3]) {
+        const added = await treeApp.client.request(ControlCommand.TestFavoriteNav, ["add", pageNo]);
+        if (added[0] !== 0) throw new Error(`adding favorite: ${added}`);
+      }
+      sendCommandSync(treeApp.frame, cmdId("CmdGoToFirstPage"));
+      const favorites = findSidebarTree(treeApp.frame, true, "favorites");
+      if (!favorites) throw new Error("favorites tree not found");
+      const filter = findVisibleChildWindow(getParentWindow(getParentWindow(favorites.hwnd)), "Edit");
+      if (!filter) throw new Error("favorites filter not found");
+      sendText(filter, "vim-keys-outline");
+      sendText(filter, "");
+      await clickAt(tree, 40, Math.floor(sidebarItemHeight(sidebar) / 2));
+      sendMessage(tree, WM_KEYDOWN, VK_TAB, 0);
+      if (getFocusedHwnd(treeApp.frame) !== favorites.hwnd) throw new Error("Tab did not focus favorites");
+      sidebarSelectRow(favorites, 0);
+      await pressKey(favorites.hwnd, 0x27);
+      const first = sidebarSelection(favorites);
+      await pressKey(favorites.hwnd, 0x28);
+      if (!first || sidebarSelection(favorites) === first)
+        throw new Error(`favorites Down did not move selection (Vim=${vim})`);
+      await pressKey(favorites.hwnd, 0x33);
+      let favState = String((await treeApp.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+      if (!favState.includes("page=1 ") || !/count=0 prefix=-/.test(favState)) {
+        throw new Error(`favorites navigation changed document input (Vim=${vim}): ${favState}`);
+      }
+      await pressKey(favorites.hwnd, 0x47);
+      favState = String((await treeApp.client.request(ControlCommand.TestVimKeys, ["state"]))[1]);
+      if (!favState.includes("page=2 ") || !/count=0 prefix=-/.test(favState)) {
+        throw new Error(`favorites custom shortcut did not run (Vim=${vim}): ${favState}`);
       }
     } finally {
       await treeApp.client.quit().catch(() => {});

@@ -39,6 +39,7 @@ import { testit as tryReads } from "./ad-hoc-pdfium-try-reads.ts";
 import { testit as unsupported } from "./ad-hoc-pdfium-unsupported.ts";
 import { testit as windowBg } from "./ad-hoc-pdfium-window-bg.ts";
 import { testit as vimKeys } from "./ad-hoc-vim-keys.ts";
+import { testit as keyboardInputTargets } from "./keyboard-input-targets.ts";
 import { testit as countPrefix } from "./ad-hoc-count-prefix.ts";
 import { testit as noUpdateCheck } from "./ad-hoc-no-update-check.ts";
 import { testit as trimMargins } from "./issue-trim-margins.ts";
@@ -128,6 +129,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-form-js", formJs],
   ["ad-hoc-pdfium-document-js", documentJs],
   ["ad-hoc-vim-keys", vimKeys],
+  ["keyboard-input-targets", keyboardInputTargets],
   ["ad-hoc-count-prefix", countPrefix],
   ["ad-hoc-no-update-check", noUpdateCheck],
 ];

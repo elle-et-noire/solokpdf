@@ -6,13 +6,13 @@ Condensed measurements are in [data/](data/).
 
 ## Navigation
 
-| Topic                 | Records                                                                                                                                                                                                          |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Recent implementation | [E12 input-target classification](#e12-input-target-classification-2026-11-09), [E11 settings application](#e11-settings-application-2026-11-09), [virtual sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
-| Keyboard input        | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12 results](keyboard-investigation.md)                                                                                                |
-| Startup and memory    | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                   |
-| Project origin        | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                   |
-| Completed work        | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                     |
+| Topic                 | Records                                                                                                                                                                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Recent implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input-target classification](#e12-input-target-classification-2026-11-09), [E11 settings application](#e11-settings-application-2026-11-09), [virtual sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
+| Keyboard input        | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                                                       |
+| Startup and memory    | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                                                              |
+| Project origin        | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                                              |
+| Completed work        | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                                                                |
 
 ## Baseline (2026-10-24)
 
@@ -1606,8 +1606,36 @@ Windows x64 Debug built with no warnings or errors. The six baseline tests and
 two additional routing checks passed after the change on the hidden desktop;
 the Japanese IME API test ran without skipping. No full suites ran. See the
 [coverage and remaining routes](keyboard-investigation.md#入力先共通化の結果e122026-11-09).
-Input-target consolidation is implemented; further routing changes need checks
-for the uncovered paths listed there. Physical input checks remain F3.
+Input-target consolidation is implemented. The uncovered paths were checked
+later in E13 below; physical input checks remain F3.
+
+## E13: Keyboard route checks (2026-11-09)
+
+Added posted-key checks for favorites, toolbar focus, both find UIs and their
+history lists, menu activation and special modes. Merge PDF reuses
+`issue-6372`'s message-loop Ctrl+A check. The
+[coverage table](keyboard-investigation.md#自動テストの経路確認e13) records each path.
+
+The reading-bar test failed with a pending count of 3 after Ctrl+Down. The same
+count survived highlighter completion with Enter and keyboard-caret Right in
+separate probes. Those paths now discard the count when they handle the key.
+
+`find-history-alt-down` failed 3/3 on both the modified and clean baseline builds.
+Setting the UI thread's Alt state alone did not fix it. Both find UIs now use a
+shared ComboBox helper for Alt+Down/Up. The test sets that state, posts key
+press/release pairs and checks both compact and floating find UIs.
+
+`keyboard-input-targets` is registered near the start of the regular suite and
+in SolokPDF CI. The corrected history test also moves near the start. Physical
+keyboard, IME and OS hotkey checks remain F3; these posted-key checks do not
+establish them.
+
+Windows x64 Debug built with no warnings or errors. `keyboard-input-targets`
+and `find-history-alt-down` each passed three consecutive runs on PDFium and
+MuPDF. `ad-hoc-vim-keys` and `issue-6372` passed on both; `ad-hoc-count-prefix`,
+`issue-6169`, `issue-5771` and `issue-4684` passed on PDFium. All GUI runs used
+the hidden desktop. Desktop-input and control-ID lint, C++ formatting and
+Prettier checks passed. Full suites and ASan were not run.
 
 ## Completed backlog
 
@@ -1744,3 +1772,4 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E8  | Chapter field colors and states in built-in and custom themes                                                                                                                                                                                                                               | done — Check chapter box theme states (E8): no defect; `issue-6095.epub` (`issue-6007.epub` has one chapter)                                                                                                                            |
 | E11 | Apply settings without reloading stale values under `-for-testing`                                                                                                                                                                                                                          | done — Apply settings without reloading disk values (2026-11-09); [validation](#e11-settings-application-2026-11-09)                                                                                                                    |
 | E12 | Share keyboard input-target classification                                                                                                                                                                                                                                                  | done — Centralize keyboard input targets (E12); [validation](#e12-input-target-classification-2026-11-09); physical input remains F3                                                                                                    |
+| E13 | Cover keyboard routes outside E12's targeted checks                                                                                                                                                                                                                                         | done — Cover keyboard routing gaps (E13); [validation](#e13-keyboard-route-checks-2026-11-09); physical input remains F3                                                                                                                |

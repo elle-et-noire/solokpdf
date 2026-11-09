@@ -766,6 +766,10 @@ void FindWindowWnd::OnClose(WindowBase::CloseEvent* /*ev*/) {
 }
 
 void FindWindowWnd::OnKeyDown(KeyEvent* ev) {
+    if (CbHandleAltArrow(edit, ev)) {
+        ev->didHandle = true;
+        return;
+    }
     HWND editHwnd = CbEditHwnd(edit);
     bool editFocused = edit && (ev->hwnd == edit->hwnd || ev->hwnd == editHwnd);
     bool historyDropped = editFocused && CbIsDropped(edit);

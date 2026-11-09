@@ -63,7 +63,7 @@ on their visible desktop using the
 [screen-reader procedure](tree-view-screen-reader-check.md); automated local
 runs continue to use the hidden desktop.
 
-### Keyboard input (E12)
+### Keyboard input (E12/E13)
 
 E12 is implemented in `1e49e9185`; its [coverage and results](keyboard-investigation.md#入力先共通化の結果e122026-11-09)
 record eight passing targeted tests. Start with these baseline tests before and
@@ -74,14 +74,20 @@ after changing input classification.
 bun cmd/solok-build.ts -quick
 bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-vim-keys.ts --no-build
 bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-count-prefix.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/keyboard-input-targets.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/find-history-alt-down.ts --no-build
 ```
 
 Add `keyboard-ime`, `ad-hoc-virtual-tree-focus`, `issue-1841`, `issue-5971`,
 `ad-hoc-shortcuts-dialog` or `command-palette-typing` only when the changed path needs them. `keyboard-ime`
 may skip when Japanese IME is unavailable; a skip does not establish IME
 behavior. Physical keys, OS hotkey conflicts and real IME operation remain F3.
-Uncovered routing paths are tracked in [E13](keyboard-investigation.md#自動テストの経路確認e13);
-the existing passing checks do not establish their behavior.
+The [E13 coverage](keyboard-investigation.md#自動テストの経路確認e13) records the added paths.
+`keyboard-input-targets` runs in the regular and SolokPDF CI sets; it skips ng.
+`find-history-alt-down` sets the UI thread's Alt state and posts system-key
+press/release pairs for both find UIs. Neither test generates physical keys.
+For the affected special modes and Merge PDF, use `issue-5771`, `issue-6169`,
+`issue-4684` and `issue-6372` when the changed path needs them.
 
 ### Settings application (E11)
 

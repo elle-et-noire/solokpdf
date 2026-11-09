@@ -2836,7 +2836,14 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 keys[VK_SHIFT] = str::Eq(action, StrL("shift-down")) ? 0x80 : 0;
                 SetKeyboardState(keys);
             }
+            if (str::Eq(action, StrL("alt-down")) || str::Eq(action, StrL("alt-up"))) {
+                BYTE keys[256];
+                GetKeyboardState(keys);
+                keys[VK_MENU] = str::Eq(action, StrL("alt-down")) ? 0x80 : 0;
+                SetKeyboardState(keys);
+            }
             if (win && win->pageEdit && str::Eq(action, StrL("page-edit"))) SetFocus(win->pageEdit->hwnd);
+            if (win && win->hwndToolbar && str::Eq(action, StrL("toolbar"))) SetFocus(win->hwndToolbar);
             if (win && str::Eq(action, StrL("activate"))) {
                 gTestActivating = true;
                 HWND fg = GetForegroundWindow();
