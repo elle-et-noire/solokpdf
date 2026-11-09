@@ -12,6 +12,14 @@ Debug ビルドで `-for-testing` を指定し、`SOLOKPDF_VIRTUAL_TOC=1` と
 設定適用の問題は独立した E11。[読み上げ確認手順](tree-view-screen-reader-check.md) と
 [ローカルテスト手順](testing.md#virtual-sidebar-trees) を参照する。
 
+展開操作は `SidebarTree` から `VirtTree` へ委譲し、展開深さに応じたノード更新と可視行の再生成を `VirtTreeState` に移した。
+展開通知をまたぐモデル・可視行・ウィンドウの有効性確認を `VirtTreeGuard` で共通化し、通知順序は維持する。
+試験用メッセージは `SidebarTree::TestMessage` に分離する。
+
+2026-11-09 の差分レビューでは追加の修正点は見つからなかった。リファクタリング時に Debug・ASan のビルド、
+既存の操作・再入・破棄・古い UIA 参照の対象テストを通し、展開深さと同階層の折り畳みも変更前後で比較した。
+常設テストの追加はない。実画面での確認結果は [手動確認](tree-view-screen-reader-check.md#実施結果) に記録する。
+
 ## 目的と範囲
 
 Windows 版 SolokPDF の目次とお気に入りを、Win32 TreeView から共通の仮想ツリーへ移行する。項目の表示とスクロールバーを同じ描画経路にまとめ、本文とテーマやスクロールバー設定を揃える。データモデル、文書エンジン、設定形式、既存の操作は維持する。ng 版の UI は対象外とする。

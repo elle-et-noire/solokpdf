@@ -189,6 +189,13 @@ bool VirtTreeState::SetRange(int first, int end, VirtTreeExpansion expansion) {
     return changed;
 }
 
+void VirtTreeState::ExpandLevels(int level) {
+    for (VirtTreeNode& node : nodes) {
+        if (node.childCount && node.depth + 1 < level) node.expanded = true;
+    }
+    RebuildRows();
+}
+
 void VirtTreeState::RebuildRows() {
     rowsGeneration++;
     VecReset(rows);

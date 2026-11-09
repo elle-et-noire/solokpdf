@@ -65,6 +65,9 @@ struct SidebarTree : TreeView {
 
     void WindowMessage(ControlBase::WndProcEvent*);
     void TreeMessage(VirtHostNativeMsg*);
+#if IS_DEBUG
+    void TestMessage(VirtHostNativeMsg*);
+#endif
     void SelectionChanged(VirtTreeSelectionChanged*);
     void Clicked(VirtTreeClick*);
     void QueryFont(VirtTreeFontQuery*);
@@ -242,44 +245,18 @@ void SidebarTree::ExpandItem(TreeItem item) {
 void SidebarTree::ExpandToLevel(int level) {
     if (level < 1) return;
     HideTip();
-    SidebarTreeGuard guard(this);
-    u64 generation = tree.state.generation;
-    HWND window = tree.host->native;
-    tree.ExpandRange(0, len(tree.state.nodes), VirtTreeExpansion::Collapse);
-    if (!guard.tree || tree.state.generation != generation || tree.host->native != window) return;
-    for (VirtTreeNode& node : tree.state.nodes) {
-        if (node.childCount && node.depth + 1 < level) node.expanded = true;
-    }
-    tree.state.RebuildRows();
-    tree.MeasureExtent();
-    if (!tree.UpdateBars()) return;
-    tree.host->Invalidate();
-    VirtTreeUiaReset(tree.uia);
-    NotifyWinEvent(EVENT_OBJECT_REORDER, tree.host->native, OBJID_CLIENT, CHILDID_SELF);
+    tree.ExpandToLevel(level);
 }
 
 void SidebarTree::CollapseSiblings(TreeItem item) {
     HideTip();
-    SidebarTreeGuard guard(this);
-    u64 generation = tree.state.generation;
-    HWND window = tree.host->native;
-    int node = tree.state.FindNode(item ? item : tree.state.selected);
-    int parent = node >= 0 ? tree.state.nodes[node].parent : -1;
-    int first = parent >= 0 ? parent + 1 : 0;
-    int end = parent >= 0 ? tree.state.nodes[parent].end : len(tree.state.nodes);
-    for (int i = first; i < end; i = tree.state.nodes[i].end) {
-        VirtTreeExpandEvent ev{tree.state.nodes[i].item, VirtTreeExpansion::Collapse};
-        tree.Expand(&ev);
-        if (!guard.tree || tree.state.generation != generation || tree.host->native != window) return;
-    }
+    tree.CollapseSiblings(item);
 }
 
 void SidebarTree::ExpandSubtree(TreeItem item, TreeExpansion expansion) {
     HideTip();
-    int node = tree.state.FindNode(item);
-    if (node < 0) return;
     auto how = expansion == TreeExpansion::Expand ? VirtTreeExpansion::Expand : VirtTreeExpansion::Collapse;
-    tree.ExpandRange(node, tree.state.nodes[node].end, how);
+    tree.ExpandBranch(item, how);
 }
 
 TreeItem SidebarTree::FirstItem() {
@@ -302,7 +279,7 @@ int SidebarTree::ItemHeight() {
 }
 void SidebarTree::ExpandAll() {
     HideTip();
-    tree.ExpandRange(0, len(tree.state.nodes), VirtTreeExpansion::Expand);
+    tree.ExpandAll();
 }
 void SidebarTree::Clear() {
     SetTreeModel(nullptr);
@@ -344,15 +321,10 @@ void SidebarTree::WindowMessage(ControlBase::WndProcEvent* ev) {
     ev->didHandle = true;
 }
 
-void SidebarTree::TreeMessage(VirtHostNativeMsg* ev) {
-    if (ev->msg == WM_DESTROY) {
-        HideTip();
-        delete tooltip;
-        tooltip = nullptr;
-        return;
-    }
 #if IS_DEBUG
-    if (gForTesting && ev->msg == WM_APP + 103) {
+void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
+    if (!gForTesting) return;
+    if (ev->msg == WM_APP + 103) {
         int row = (int)ev->wp;
         int offset = (int)ev->lp;
         ev->res = 0;
@@ -364,7 +336,7 @@ void SidebarTree::TreeMessage(VirtHostNativeMsg* ev) {
         ev->didHandle = true;
         return;
     }
-    if (gForTesting && ev->msg == WM_APP + 102) {
+    if (ev->msg == WM_APP + 102) {
         switch (ev->wp) {
             case 0:
                 ev->res = len(tree.state.rows);
@@ -461,6 +433,19 @@ void SidebarTree::TreeMessage(VirtHostNativeMsg* ev) {
         ev->didHandle = true;
         return;
     }
+}
+#endif
+
+void SidebarTree::TreeMessage(VirtHostNativeMsg* ev) {
+    if (ev->msg == WM_DESTROY) {
+        HideTip();
+        delete tooltip;
+        tooltip = nullptr;
+        return;
+    }
+#if IS_DEBUG
+    TestMessage(ev);
+    if (ev->didHandle) return;
 #endif
     if (ev->msg == WM_TIMER && ev->wp == kSidebarTipTimer) {
         KillTimer(tree.host->native, kSidebarTipTimer);

@@ -84,7 +84,11 @@ struct VirtTree {
     void UiaScrolled();
     void Select(VirtTreeSelectEvent* ev);
     void Expand(VirtTreeExpandEvent* ev);
-    void ExpandBranch(TreeItem item, VirtTreeExpansion expansion);
+    void ExpandToLevel(int level);
+    void CollapseSiblings(TreeItem item);
+    void ExpandAll();
+    void ExpandBranch(TreeItem item, VirtTreeExpansion expansion,
+                      VirtTreeSelectReason reason = VirtTreeSelectReason::Programmatic);
     void ExpandRange(int first, int end, VirtTreeExpansion expansion,
                      VirtTreeSelectReason reason = VirtTreeSelectReason::Programmatic);
     bool KeyDown(int key);

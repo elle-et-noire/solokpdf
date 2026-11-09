@@ -399,6 +399,11 @@ When fixing a bug, look there first for an existing repro file for that issue an
 
 ## Writing tests
 
+Reuse existing tests first. Add or extend a test only for an uncovered,
+material failure in behavior, data integrity or object lifetime. Do not test
+trivial accessors, restate the implementation, or add tests solely to accompany
+a refactor.
+
 Tests live in tests/ and are run with bun (e.g. `bun tests/issue-5633.ts`). Naming convention, keyed by the GitHub issue number being tested:
 
 - the test script is `tests/issue-<number>.ts`

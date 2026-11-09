@@ -22,10 +22,24 @@ static constexpr u64 kTypeAheadTimeoutMs = 1000;
 struct VirtTreeGuard {
     VirtTree* tree;
     VirtTreeGuard* previous;
-    explicit VirtTreeGuard(VirtTree* t) : tree(t), previous(t->guards) { t->guards = this; }
+    u64 generation;
+    u64 rowsGeneration;
+    HWND window;
+    explicit VirtTreeGuard(VirtTree* t)
+        : tree(t),
+          previous(t->guards),
+          generation(t->state.generation),
+          rowsGeneration(t->state.rowsGeneration),
+          window(t->host ? t->host->native : nullptr) {
+        t->guards = this;
+    }
     ~VirtTreeGuard() {
         if (tree) tree->guards = previous;
     }
+    bool SameModel() const {
+        return tree && tree->state.generation == generation && tree->host && tree->host->native == window;
+    }
+    bool SameRows() const { return SameModel() && tree->state.rowsGeneration == rowsGeneration; }
 };
 
 VirtTree::~VirtTree() {
@@ -95,20 +109,16 @@ bool VirtTree::EnsureVisible(TreeItem item) {
     if (len(expanded)) {
         state.RebuildRows();
         MeasureExtent();
-        u64 rowsGeneration = state.rowsGeneration;
-        auto valid = [&] {
-            return guard.tree && state.generation == generation && state.rowsGeneration == rowsGeneration &&
-                   host->native == window;
-        };
-        if (!UpdateBars() || !valid()) return false;
+        VirtTreeGuard update(this);
+        if (!UpdateBars() || !update.SameRows()) return false;
         for (int parent : expanded) {
             NotifyWinEvent(EVENT_OBJECT_STATECHANGE, host->native, OBJID_CLIENT, parent + 1);
-            if (!valid()) return false;
+            if (!update.SameRows()) return false;
             VirtTreeUiaExpanded(uia, state.nodes[parent].item, VirtTreeExpansion::Expand);
-            if (!valid()) return false;
+            if (!update.SameRows()) return false;
         }
         NotifyWinEvent(EVENT_OBJECT_REORDER, host->native, OBJID_CLIENT, CHILDID_SELF);
-        if (!valid()) return false;
+        if (!update.SameRows()) return false;
     }
     int row = state.FindRow(item);
     i64 top = (i64)row * rowDy;
@@ -172,36 +182,29 @@ void VirtTree::Select(VirtTreeSelectEvent* ev) {
 }
 
 void VirtTree::Expand(VirtTreeExpandEvent* ev) {
-    VirtTreeGuard guard(this);
     TreeItem before = state.selected;
     int node = state.FindNode(ev->item);
     if (node < 0 || !state.SetExpanded(ev->item, ev->expansion)) return;
     MeasureExtent();
     if (!UpdateBars()) return;
-    u64 generation = state.generation;
-    u64 rowsGeneration = state.rowsGeneration;
-    HWND window = host->native;
-    auto valid = [&] {
-        return guard.tree && state.generation == generation && state.rowsGeneration == rowsGeneration &&
-               host->native == window;
-    };
+    VirtTreeGuard guard(this);
     host->Invalidate();
     NotifyWinEvent(EVENT_OBJECT_STATECHANGE, host->native, OBJID_CLIENT, node + 1);
-    if (!valid()) return;
+    if (!guard.SameRows()) return;
     NotifyWinEvent(EVENT_OBJECT_REORDER, host->native, OBJID_CLIENT, CHILDID_SELF);
-    if (!valid()) return;
+    if (!guard.SameRows()) return;
     VirtTreeUiaExpanded(uia, ev->item, ev->expansion);
-    if (!valid()) return;
+    if (!guard.SameRows()) return;
     if (state.selected != before) {
         NotifyWinEvent(EVENT_OBJECT_SELECTION, host->native, OBJID_CLIENT, node + 1);
-        if (!valid()) return;
+        if (!guard.SameRows()) return;
         VirtTreeUiaSelected(uia, state.selected);
-        if (!valid()) return;
+        if (!guard.SameRows()) return;
         if (::GetFocus() == host->native) {
             NotifyWinEvent(EVENT_OBJECT_FOCUS, host->native, OBJID_CLIENT, node + 1);
-            if (!valid()) return;
+            if (!guard.SameRows()) return;
             VirtTreeUiaFocused(uia, state.selected);
-            if (!valid()) return;
+            if (!guard.SameRows()) return;
         }
         if (onSelectionChanged.IsValid()) {
             VirtTreeSelectionChanged event{before, state.selected, ev->reason};
@@ -211,14 +214,44 @@ void VirtTree::Expand(VirtTreeExpandEvent* ev) {
     }
 }
 
-void VirtTree::ExpandBranch(TreeItem item, VirtTreeExpansion expansion) {
+// Keep the collapse phase separate to preserve selection and notification order.
+void VirtTree::ExpandToLevel(int level) {
+    if (level < 1) return;
+    VirtTreeGuard guard(this);
+    ExpandRange(0, len(state.nodes), VirtTreeExpansion::Collapse);
+    if (!guard.SameModel()) return;
+    state.ExpandLevels(level);
+    MeasureExtent();
+    if (!UpdateBars()) return;
+    host->Invalidate();
+    VirtTreeUiaReset(uia);
+    NotifyWinEvent(EVENT_OBJECT_REORDER, host->native, OBJID_CLIENT, CHILDID_SELF);
+}
+
+void VirtTree::CollapseSiblings(TreeItem item) {
+    VirtTreeGuard guard(this);
+    int node = state.FindNode(item ? item : state.selected);
+    int parent = node >= 0 ? state.nodes[node].parent : -1;
+    int first = parent >= 0 ? parent + 1 : 0;
+    int end = parent >= 0 ? state.nodes[parent].end : len(state.nodes);
+    for (int i = first; i < end; i = state.nodes[i].end) {
+        VirtTreeExpandEvent ev{state.nodes[i].item, VirtTreeExpansion::Collapse};
+        Expand(&ev);
+        if (!guard.SameModel()) return;
+    }
+}
+
+void VirtTree::ExpandAll() {
+    ExpandRange(0, len(state.nodes), VirtTreeExpansion::Expand);
+}
+
+void VirtTree::ExpandBranch(TreeItem item, VirtTreeExpansion expansion, VirtTreeSelectReason reason) {
     int node = state.FindNode(item);
     if (node < 0) return;
-    ExpandRange(node, state.nodes[node].end, expansion, VirtTreeSelectReason::Keyboard);
+    ExpandRange(node, state.nodes[node].end, expansion, reason);
 }
 
 void VirtTree::ExpandRange(int first, int end, VirtTreeExpansion expansion, VirtTreeSelectReason reason) {
-    VirtTreeGuard guard(this);
     if (first < 0 || first >= len(state.nodes) || first >= end) return;
     bool expanded = expansion == VirtTreeExpansion::Expand;
     Vec<int> changed;
@@ -229,35 +262,29 @@ void VirtTree::ExpandRange(int first, int end, VirtTreeExpansion expansion, Virt
     if (!state.SetRange(first, end, expansion)) return;
     MeasureExtent();
     if (!UpdateBars()) return;
-    u64 generation = state.generation;
-    u64 rowsGeneration = state.rowsGeneration;
-    HWND window = host->native;
-    auto valid = [&] {
-        return guard.tree && state.generation == generation && state.rowsGeneration == rowsGeneration &&
-               host->native == window;
-    };
+    VirtTreeGuard guard(this);
     host->Invalidate();
     for (int node : changed) {
         NotifyWinEvent(EVENT_OBJECT_STATECHANGE, host->native, OBJID_CLIENT, node + 1);
-        if (!valid()) return;
+        if (!guard.SameRows()) return;
         VirtTreeUiaExpanded(uia, state.nodes[node].item, expansion);
-        if (!valid()) return;
+        if (!guard.SameRows()) return;
     }
     VirtTreeUiaReset(uia);
-    if (!valid()) return;
+    if (!guard.SameRows()) return;
     NotifyWinEvent(EVENT_OBJECT_REORDER, host->native, OBJID_CLIENT, CHILDID_SELF);
-    if (!valid()) return;
+    if (!guard.SameRows()) return;
     if (previous != state.selected) {
         int selected = state.FindNode(state.selected);
         NotifyWinEvent(EVENT_OBJECT_SELECTION, host->native, OBJID_CLIENT, selected + 1);
-        if (!valid()) return;
+        if (!guard.SameRows()) return;
         VirtTreeUiaSelected(uia, state.selected);
-        if (!valid()) return;
+        if (!guard.SameRows()) return;
         if (::GetFocus() == host->native) {
             NotifyWinEvent(EVENT_OBJECT_FOCUS, host->native, OBJID_CLIENT, selected + 1);
-            if (!valid()) return;
+            if (!guard.SameRows()) return;
             VirtTreeUiaFocused(uia, state.selected);
-            if (!valid()) return;
+            if (!guard.SameRows()) return;
         }
         if (onSelectionChanged.IsValid()) {
             VirtTreeSelectionChanged event{previous, state.selected, reason};
@@ -609,7 +636,7 @@ bool VirtTree::KeyDown(int key) {
             ExpandRange(first, count, expansion, VirtTreeSelectReason::Keyboard);
         } else if (row >= 0) {
             TreeItem item = state.nodes[state.rows[row]].item;
-            ExpandBranch(item, expansion);
+            ExpandBranch(item, expansion, VirtTreeSelectReason::Keyboard);
         }
     } else {
         return false;

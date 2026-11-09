@@ -57,5 +57,6 @@ struct VirtTreeState {
     bool SetExpanded(TreeItem item, VirtTreeExpansion expansion);
     bool SetSubtree(TreeItem item, VirtTreeExpansion expansion);
     bool SetRange(int first, int end, VirtTreeExpansion expansion);
+    void ExpandLevels(int level);
     void RebuildRows();
 };
