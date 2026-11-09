@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { EXE, formatDuration, prepareTestEnvironment, runTest, type NamedTest } from "./util.ts";
 import { setTestWindowLayout } from "./winapi.ts";
+import { treeTests } from "./run-solokpdf-trees.ts";
 import { testit as documentJs } from "./ad-hoc-pdfium-document-js.ts";
 import { testit as catalogLayout } from "./ad-hoc-pdfium-catalog-layout.ts";
 import { testit as dates } from "./ad-hoc-pdfium-dates.ts";
@@ -67,6 +68,7 @@ import { testit as activationTraceB71 } from "./ad-hoc-b71-activation-trace.ts";
 import { testit as controlStartB71 } from "./ad-hoc-b71-control-start.ts";
 
 const tests: NamedTest[] = [
+  ...treeTests,
   ["ad-hoc-pdfium-bookmarks", bookmarks],
   ["ad-hoc-b71-control-start", controlStartB71],
   ["ad-hoc-b71-activation-trace", activationTraceB71],

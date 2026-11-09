@@ -20,6 +20,9 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 | Project origin         | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                            |
 | Completed work         | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                              |
 
+The latest CI additions and local checks are recorded under
+[D13/E17](#ci-coverage-expansion-2026-11-10).
+
 ## Baseline (2026-10-24)
 
 - The initial repository had no commits or files. Its `origin` remains
@@ -2016,6 +2019,50 @@ checks retain their recorded scope; this run does not replace them or establish
 a full-suite pass at this revision. No workflow was dispatched or test rerun
 for this documentation update. D12 is complete with no failed or missing
 required step; F1/F3 remain outside active scope.
+
+## CI coverage expansion (2026-11-10)
+
+Working tree on `fb3dcc3fb`; D13 and E17 implement the owner's selected next
+steps. First hosted runs are pending, tracked in [backlog.md](backlog.md#next-steps).
+
+D13 adds `ad-hoc-virtual-toc`, `ad-hoc-virtual-favorites`,
+`ad-hoc-virtual-tree-focus` and `ad-hoc-tree-lifetime` at the start of the
+regular SolokPDF CI set. `tests/run-solokpdf-trees.ts` supplies the shared list
+and a standalone entry point for those four checks. The regular set grows
+from 65 to 69 entries; the unrelated 65 were not rerun locally.
+
+E17 adds `.github/workflows/solokpdf-asan.yml`, manually runnable and scheduled
+weekly for Wednesday 02:23 JST. A fresh runner builds the static Debug ASan
+executable; only the PDFium download is cached. The job runs the existing tree
+lifetime test and `ad-hoc-pdfium --fallback-only`, preserving failure exit
+codes and uploading logs. The fallback case is extracted from the existing
+PDFium test, which continues to run it too. No rendering assertions or
+cursor-dependent checks are skipped in the complete test.
+
+Local validation:
+
+- The four tree checks passed together on the hidden desktop with regular CI's
+  `workArea` layout (31.2 s), using `out/dbg64/SumatraPDF.exe`.
+- The focused missing-DLL fallback passed on Debug (0.9 s).
+- The complete `ad-hoc-pdfium` test passed on Debug (21.6 s), including its
+  existing font-cache pixel comparison and the extracted fallback case.
+- `actionlint` 1.7.12 accepted the regular and new ASan workflows. Bun bundled
+  the updated regular CI entry point and all 93 imported modules successfully.
+- `bun cmd/build.ts -asan -clean` rebuilt `out/dbg64_asan` with zero warnings
+  and errors (4m 38s), using the existing PDFium-enabled VS2026 solution.
+  `bun cmd/solok-build.ts -asan` then regenerated projects, confirmed the build
+  and staged PDFium plus the ASan runtime (5 s).
+- On that clean ASan build, `ad-hoc-tree-lifetime` passed (17.0 s) and
+  `ad-hoc-pdfium --fallback-only` passed (2.1 s), both on the hidden desktop.
+  Executable and runtime DLL hashes stayed unchanged across both tests.
+
+Logs are `.work/solokpdf-trees.log`, `.work/solokpdf-fallback-debug.log` and
+`.work/solokpdf-pdfium-debug.log`; ASan logs are
+`.work/solokpdf-asan-{clean-build,stage,lifetime,fallback}.log`, with hash
+manifests in `.work/solokpdf-asan-binaries-{before,after}.txt`.
+ASan commands and workflow details are in [testing.md](testing.md#asan-ci).
+No full suite or hosted run was performed. The prebuilt PDFium DLL remains
+uninstrumented.
 
 ## Completed backlog
 

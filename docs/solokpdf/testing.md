@@ -53,7 +53,15 @@ Additional lifetime, UIA/MSAA, large-tree and navigation checks are listed in th
 [migration plan](tree-view-replacement-plan.md#検証). Rollout results are in
 [history.md](history.md#virtual-sidebar-rollout-2026-11-09). Use
 `tests/sidebar-tree.ts` for item counts, selection and row operations.
-The new tree probes are standalone tests, not entries in `run-almost-all.ts`.
+The tree probes remain outside `run-almost-all.ts`. The regular SolokPDF CI set
+now includes `ad-hoc-virtual-toc`, `ad-hoc-virtual-favorites`,
+`ad-hoc-virtual-tree-focus` and `ad-hoc-tree-lifetime`, using the shared list in
+`tests/run-solokpdf-trees.ts`. Run only that group locally with:
+
+```powershell
+bun tools/solokpdf/run-hidden.ts -- bun tests/run-solokpdf-trees.ts --no-build
+```
+
 `--tree-only` runs the existing Vim test's tree navigation and custom shortcuts
 without its document clipboard, dialog and link-hint checks.
 
@@ -83,6 +91,35 @@ its isolated executable directory. The wrapper does not create a portable ZIP.
 The pinned PDFium DLL is not ASan-instrumented.
 See [E16's results](history.md#e16-asan-build-path-2026-11-10) and the
 [earlier workaround](history.md#e14-virtual-tree-encapsulation-2026-11-10).
+
+### ASan CI
+
+[solokpdf-asan.yml](../../.github/workflows/solokpdf-asan.yml) adds a manual
+workflow and a weekly run on Tuesday at 17:23 UTC (Wednesday 02:23 JST).
+It builds with `bun cmd/solok-build.ts -asan` on a fresh hosted runner.
+Only `.work/pdfium` is cached; compiled outputs are not restored.
+
+The workflow runs `ad-hoc-tree-lifetime` and
+`ad-hoc-pdfium --fallback-only --no-build`. The latter reuses the existing
+missing-DLL check without its cursor, dialog or screenshot checks. It verifies
+search through MuPDF and the reported DLL-load error. The complete
+`ad-hoc-pdfium` test still includes the same check.
+
+For the same focused fallback check locally, use the ASan environment above:
+
+```powershell
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-pdfium.ts --fallback-only --no-build
+```
+
+Build/test failures preserve their exit status and upload logs plus the final
+test's scratch files as `solokpdf-asan-output`. The fallback step still runs if
+the lifetime test fails, provided the build succeeded and the run was not canceled.
+The prebuilt PDFium DLL remains uninstrumented.
+
+GitHub requires the workflow on the default branch for
+[scheduled and manual execution](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+The repository's default branch is `solokpdf-dev`. First hosted validation of
+these additions is pending; see [D13/E17](backlog.md#next-steps).
 
 ### Physical tree checks
 

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { ControlCommand, withControlledSumatra, type ControlClient } from "./control.ts";
-import { EXE, assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { EXE, assemblePdf, cmdId, runStandalone, tmpPath, writeAppdata } from "./util.ts";
 import { waitForFrame, sendCommand } from "./win-automation.ts";
 import { captureWindowToPng, sendMessage, packCoords, setProcessDpiAware } from "./winapi.ts";
 
@@ -659,6 +659,15 @@ export async function testit(): Promise<void> {
   await expectOpenAction();
   await expectPassword(pdf);
   await expectFontCacheSamePixels();
+  await testFallback();
+  console.log(`PDFium Win32 checks passed. Screenshot: ${image}`);
+}
+
+async function testFallback(): Promise<void> {
+  const pdf = tmpPath("pdfium/fallback.pdf");
+  mkdirSync(dirname(pdf), { recursive: true });
+  writeFileSync(pdf, fixture(), "latin1");
+  const appdata = writeAppdata("pdfium/fallback-settings", "UiLanguage = en\nCheckForUpdates = false\n");
   const missingDir = tmpPath("pdfium/missing-dll");
   mkdirSync(missingDir, { recursive: true });
   const missingExe = join(missingDir, basename(EXE));
@@ -675,14 +684,16 @@ export async function testit(): Promise<void> {
       const text = await request(client, ControlCommand.TestSearch, [pdf, "Needle"]);
       if (!text.includes("FOUND")) throw new Error("Missing-DLL MuPDF fallback failed");
     },
-    ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", missingLog, pdf],
+    ["-appdata", appdata, "-log-to-file", missingLog, pdf],
     { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
   );
   const missingOutput = readFileSync(missingLog, "utf8");
   if (!missingOutput.includes("Cannot load PDFium DLL") || !missingOutput.includes("Windows error")) {
     throw new Error("Missing DLL cause was not reported");
   }
-  console.log(`PDFium Win32 checks passed. Screenshot: ${image}`);
+  console.log("Missing-DLL MuPDF fallback and error reporting passed");
 }
 
-if (import.meta.main) await runStandalone(testit);
+if (import.meta.main) {
+  await runStandalone(process.argv.includes("--fallback-only") ? testFallback : testit);
+}

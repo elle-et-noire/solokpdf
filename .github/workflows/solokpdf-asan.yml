@@ -1,0 +1,64 @@
+name: SolokPDF ASan
+
+on:
+  schedule:
+    - cron: "23 17 * * 2"
+  workflow_dispatch:
+
+concurrency:
+  group: solokpdf-asan-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  MSBUILDDISABLENODEREUSE: "1"
+
+jobs:
+  asan:
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 120
+    env:
+      SUMATRA_TEST_EXE: ${{ github.workspace }}\out\dbg64_asan\SumatraPDF-static.exe
+      ASAN_OPTIONS: 'windows_hook_legacy_allocators=0:suppressions="${{ github.workspace }}\asan.supp"'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/cache@v5
+        with:
+          path: .work/pdfium
+          key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
+      - name: Build ASan
+        id: build
+        run: |
+          New-Item -ItemType Directory -Force .work/solokpdf-asan | Out-Null
+          bun cmd/solok-build.ts -asan 2>&1 | Tee-Object -FilePath .work/solokpdf-asan/build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test tree lifetime
+        run: |
+          bun tests/ad-hoc-tree-lifetime.ts --no-build 2>&1 | Tee-Object -FilePath .work/solokpdf-asan/tree-lifetime.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test PDFium fallback
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          bun tests/ad-hoc-pdfium.ts --fallback-only --no-build 2>&1 | Tee-Object -FilePath .work/solokpdf-asan/pdfium-fallback.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload failure output
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: solokpdf-asan-output
+          path: |
+            .work/solokpdf-asan/
+            .work/tests-tmp/tmp/
+          if-no-files-found: ignore
+          retention-days: 7

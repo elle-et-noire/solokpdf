@@ -4,12 +4,12 @@ Open work as of 2026-11-10. Status: `todo`, `doing`, `blocked` (reason), `deferr
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D13, E17, F4).
+group (B76, C2, D14, E18, F4).
 
 ## Implementation and acceptance
 
-No active implementation or acceptance item remains. E10–E16 and D8–D12
-records are in [history.md](history.md#navigation). E16 is committed as
+E10–E16 and D8–D12 records are in [history.md](history.md#navigation).
+E16 is committed as
 `fc8b455e8`; its regular CI passed Debug/Release builds, unit tests and feature
 tests. See [D12's evidence and limits](history.md#d12-hosted-evidence-2026-11-10).
 
@@ -18,9 +18,23 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-D12 is complete; no next task is selected. Keep D3 deferred and F1/F3 and
-distribution outside active scope. For a new code change, choose affected
-tests from [testing.md](testing.md); run full suites only when explicitly requested.
+The owner selected CI coverage expansion after D12. Both additions are in the
+working tree on `fb3dcc3fb`; their first hosted results are pending.
+
+| ID  | Work                                                                             | Status                                                                            |
+| --- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| D13 | Add the four existing virtual-tree checks to regular SolokPDF CI                 | doing — implemented; targeted local validation recorded; first hosted run pending |
+| E17 | Run a clean ASan build, tree lifetime and PDFium fallback checks manually/weekly | doing — clean local build and both checks passed; first hosted run pending        |
+
+Implementation and local results are in [history.md](history.md#ci-coverage-expansion-2026-11-10).
+After publication, record the regular CI run for D13 and a manual run of
+`solokpdf-asan.yml` for E17. Record revision, run URL, step results and failures;
+neither task requires a full-suite run. The weekly ASan schedule starts when
+its workflow reaches the default branch.
+
+Keep D3 deferred and F1/F3 and distribution outside active scope. For a new code
+change, choose affected tests from [testing.md](testing.md); run full suites
+only when explicitly requested.
 
 ## Deferred
 
