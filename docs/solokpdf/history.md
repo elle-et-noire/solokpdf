@@ -22,6 +22,7 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 
 The latest CI additions and local checks are recorded under
 [D13/E17](#ci-coverage-expansion-2026-11-10).
+Ongoing design work starts with [E21 color-stage selection](#e21-color-stage-policy-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2074,6 +2075,59 @@ were in their build steps; feature-test results were not yet available.
 The ASan workflow's run list returned no runs. D13/E17 remain open.
 The latest recorded successful regular CI remains [D12](#d12-hosted-evidence-2026-11-10).
 This inspection dispatched no workflows or tests.
+
+## E21: Color-stage policy (2026-11-10)
+
+Working tree on `9e1eaac3b`, which commits the design documentation and plan.
+This is E21's first code change, not completion of E21 or the rendering review.
+
+`GetPageColorPass` now selects `None`, `Renderer` or `Bitmap` from the engine
+class, source and existing profile. `RenderViewPage` and `ColoredThumbnail`
+use this shared decision. The page path classifies its engine once before
+rendering. Removed the unused legacy-postprocess predicate and its stub.
+
+| Input                                                    | Existing color stage retained     |
+| -------------------------------------------------------- | --------------------------------- |
+| PDFium/MuPDF page, smart profile                         | Renderer, before view adjustments |
+| PDFium/MuPDF page, other profiles; fixed-layout engine   | Bitmap, after view adjustments    |
+| Image collection or reflowable page                      | No bitmap recolor                 |
+| Neutral cached thumbnail, except images/captured content | Bitmap, after view adjustments    |
+
+Profile hashing, skip rectangles, RGB mapping, adjustment order, alpha,
+annotation composition and cache invalidation are unchanged. The enum states
+the intended stage; actual render-result state remains E19 work. Effective
+color-input capture remains E21 work.
+
+Validation:
+
+- Debug quick builds passed before and after, with zero warnings/errors.
+  `bun cmd/solok-build.ts -rel` also passed with zero warnings/errors for
+  PdfFilter, PdfPreview, the tool and app, and staged the portable ZIP.
+- The hidden-desktop probe passed before the baseline. Five configurations
+  passed before and after: `ad-hoc-pdfium-theme` on PDFium and MuPDF,
+  `ad-hoc-pdfium-thumb-theme` on PDFium, `issue-4788` on PDFium and
+  `epub-theme-restyle` on MuPDF. The theme test includes its theme/mode-switch
+  and annotation-editor checks.
+- Compared 40 saved PNGs using decoded pixels: 35 were identical throughout.
+  The other five were Home captures differing only in the random tip text
+  at the bottom (Y=730–751 in a 940×762 canvas). Visual inspection and the
+  difference bounds confirmed identical thumbnail/content pixels. F12 images
+  and the neutral cached PNG were identical throughout.
+- The initial baseline thumbnail test captured an empty `f12-light` image.
+  It then passed three standalone retries on the unchanged baseline; the
+  third supplied the accepted baseline images. The changed version passed
+  on its first run. This test instability is unresolved; no test was changed.
+- Executable and DLL hashes stayed fixed within each test batch. Debug exe
+  SHA-256 changed from `7AF7366B975A08DC66954AC21DE4A0683E82DA6244FDEE11E3259D8B31652FE8`
+  to `833FD3B6FD8C1EDBCCF8D43F8621357204E06F5D9908F86A9915B90F7F71483A`.
+
+Logs and PNGs are in `.work/e21/{baseline,after}/`; the initial failed capture
+is under `baseline/thumbnails-failure/`, with retries in `baseline/thumbnail-retry-*.log`.
+Pixel differences are in `.work/e21/comparison.json`. Build logs are
+`.work/e21-baseline-build.log`, `.work/e21-after-debug-build.log` and
+`.work/e21-after-release-build.log`.
+GUI checks used Debug; no Release GUI, ASan, ng, hosted or full-suite run was
+performed for this change. No new tests were added.
 
 ## Completed backlog
 

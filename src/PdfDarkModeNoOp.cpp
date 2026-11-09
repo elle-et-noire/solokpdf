@@ -12,11 +12,6 @@ extern "C" {
 // Stub implementations for binaries that compile EngineMupdf.cpp but not
 // PdfDarkMode*.cpp / Theme.cpp (PdfFilter, PdfPreview, etc.).
 
-bool DarkModeProfileUsesLegacyPostProcess(const DarkModeProfile* profile) {
-    (void)profile;
-    return false;
-}
-
 void BuildViewDarkModeProfile(EngineBase* engine, DarkModeProfile* profile) {
     (void)engine;
     if (profile) {

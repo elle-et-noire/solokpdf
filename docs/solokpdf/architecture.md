@@ -1,6 +1,6 @@
 # SolokPDF の現行設計
 
-`9083edafe` 時点の Win32 版の責務と状態。設計上の見直しは
+`9083edafe` を基準とし、E21 の作業ツリーの変更を含む Win32 版の責務と状態。設計上の見直しは
 [リファクタリング計画](refactoring-plan.md)、実装・検証履歴は [history.md](history.md) を参照する。
 
 ## PDF エンジンの役割
@@ -36,8 +36,11 @@ PDF の色空間から RGB への変換と、テーマ色への変換は別の�
 | F12 ページサムネイル                    | `RenderPageThumbnail` が `RenderViewPage` を使う                                                    |
 | Home の保存済みサムネイル               | 中立 PNG を複製し、補正後に再着色する。画像保持は保存した矩形による近似                             |
 
-[RenderViewPage](../../src/shared/RenderCache.cpp) は、PDFium/MuPDF の smart なら色変換済みと判断して
-再着色を省く。描画結果には色変換の実施状態を表す専用情報がない。
+E21 の最初の差分では、`GetPageColorPass` がエンジン分類・入力元・プロファイルから
+色変換の担当を `None`・`Renderer`・`Bitmap` で返す。
+[RenderViewPage](../../src/shared/RenderCache.cpp) と Home のサムネイルがこの方針を使う。
+PDF の smart は描画側、Home の中立画像はビットマップ側で変換する。
+これは予定する段階の指定であり、描画結果には変換の実施状態を表す専用情報がまだない。
 `Pixmap` は画素形式・alpha の有無・乗算済みかを持つが、PDFium の透明度処理は
 `fallbackDrawn` も使って乗算の要否を判断する。
 

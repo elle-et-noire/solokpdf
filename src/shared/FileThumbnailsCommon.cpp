@@ -116,8 +116,8 @@ Pixmap* ColoredThumbnail(FileState* fs) {
     options.grayscale = gSettings->fixedPageUI.grayscale;
     options.brightness = fs->brightness;
     options.contrast = fs->contrast;
-    bool recolor = color->engineClass != ViewEngineClass::Image && color->engineClass != ViewEngineClass::Captured;
-    if (!recolor && !options.grayscale && options.brightness == 0 && options.contrast == 0) {
+    PageColorPass colorPass = GetPageColorPass(color->engineClass, PageColorSource::Bitmap, profile);
+    if (colorPass == PageColorPass::None && !options.grayscale && options.brightness == 0 && options.contrast == 0) {
         return neutral;
     }
     u32 hash = profile.hash;
@@ -131,7 +131,7 @@ Pixmap* ColoredThumbnail(FileState* fs) {
     color->colored = ClonePixmap(neutral);
     color->hash = hash;
     color->colored = ApplyViewPageAdjust(color->colored, options);
-    if (recolor && color->colored && !color->colored->hasAlpha) {
+    if (colorPass == PageColorPass::Bitmap && color->colored && !color->colored->hasAlpha) {
         Vec<Rect>* skip =
             profile.mode == PageColorMode::PreserveImages && profile.preservePdfImages && len(color->skipRects) > 0
                 ? &color->skipRects

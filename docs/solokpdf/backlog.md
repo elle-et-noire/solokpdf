@@ -41,13 +41,16 @@ paths and outputs first, then follow the order below. File splitting is an
 implementation choice, not a completion criterion. The [current architecture](architecture.md)
 records existing behavior separately from these proposed changes.
 
-| Order | ID  | Work                                                                      | Status                                                                |
-| ----- | --- | ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| 1     | E21 | Define effective color inputs, transformation stages and adjustment order | todo — after baseline; preserve current path differences              |
-| 2     | E19 | Clarify render outcomes, color state, alpha, fallback and cancellation    | todo — after E21 policy; preserve pixels and annotation ownership     |
-| 3     | E22 | Align cache dependencies, keys and invalidation with render inputs        | todo — after E19/E21; retain theme-independent data                   |
-| 4     | E18 | Clarify read results, waiting and lazy-editor side effects                | todo — after rendering contracts; inspect implementations and callers |
-| 5     | E20 | Review document state, ownership, invalidation and lock ordering          | todo — use preceding results; change identified problems              |
+| Order | ID  | Work                                                                      | Status                                                                                |
+| ----- | --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1     | E21 | Define effective color inputs, transformation stages and adjustment order | doing — shared stage selection implemented and locally checked; input capture remains |
+| 2     | E19 | Clarify render outcomes, color state, alpha, fallback and cancellation    | todo — after E21 policy; preserve pixels and annotation ownership                     |
+| 3     | E22 | Align cache dependencies, keys and invalidation with render inputs        | todo — after E19/E21; retain theme-independent data                                   |
+| 4     | E18 | Clarify read results, waiting and lazy-editor side effects                | todo — after rendering contracts; inspect implementations and callers                 |
+| 5     | E20 | Review document state, ownership, invalidation and lock ordering          | todo — use preceding results; change identified problems                              |
+
+E21's first change, baseline, pixel comparison and test limits are recorded in
+[history.md](history.md#e21-color-stage-policy-2026-11-10). Its code is not yet committed.
 
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a new code
 change, choose affected tests from [testing.md](testing.md); run full suites

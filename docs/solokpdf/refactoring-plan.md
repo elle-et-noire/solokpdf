@@ -1,6 +1,6 @@
 # SolokPDF の設計とコードの見直し計画
 
-基準は `9083edafe`。Win32 版を対象とする未実装の計画。
+基準は `9083edafe`。Win32 版を対象とし、E21 の色変換段階の選択から着手した計画。
 [現行設計](architecture.md) と [作業状態](backlog.md#design-review) を併せて参照する。
 
 目的は、描画・色処理・読み取り・編集の責務と状態を明確にし、同じ判断の重複と暗黙の前提を減らすこと。
@@ -54,6 +54,10 @@
 エンジン間比較は既存テストの許容差を使う。速度・メモリは変更した経路だけ比較し、改善を前提にしない。
 
 ## E21 色方針と処理順を明確にする
+
+最初の差分では `GetPageColorPass` に通常描画と Home の中立画像の段階選択を集約する。
+Debug・Release ビルドと対象検証・画素比較は [実施記録](history.md#e21-color-stage-policy-2026-11-10) を参照する。
+実効色の入力確定と描画結果の実施状態は後続の作業として残す。E21 全体の完了ではない。
 
 対象は `PdfDarkModeProfile.cpp`、`PdfDarkModeColor.cpp`、`Theme.cpp`、`RenderViewPage`、
 `FileThumbnailsCommon.cpp` と各エンジンの色処理入口。

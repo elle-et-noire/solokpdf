@@ -14,11 +14,19 @@
 #include "EngineAll.h"
 #include "PdfDarkMode.h"
 
-bool DarkModeProfileUsesLegacyPostProcess(const DarkModeProfile* profile) {
-    if (!profile) {
-        return false;
+// Cached thumbnails start from neutral pixels, including PDFs using smart colors.
+PageColorPass GetPageColorPass(ViewEngineClass engineClass, PageColorSource source, const DarkModeProfile& profile) {
+    if (source == PageColorSource::Bitmap) {
+        return engineClass == ViewEngineClass::Image || engineClass == ViewEngineClass::Captured
+                   ? PageColorPass::None
+                   : PageColorPass::Bitmap;
     }
-    return profile->mode == PageColorMode::LegacyInvert || profile->mode == PageColorMode::PreserveImages;
+
+    bool pdf = engineClass == ViewEngineClass::Pdfium || engineClass == ViewEngineClass::Mupdf;
+    if (pdf && profile.mode == PageColorMode::PreserveImages) {
+        return PageColorPass::Renderer;
+    }
+    return pdf || engineClass == ViewEngineClass::Fixed ? PageColorPass::Bitmap : PageColorPass::None;
 }
 
 static u32 HashDarkModeProfile(const DarkModeProfile& profile) {

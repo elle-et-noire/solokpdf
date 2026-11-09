@@ -29,6 +29,17 @@ enum class ViewEngineClass : u32 {
     Captured,
 };
 
+enum class PageColorSource {
+    Document,
+    Bitmap,
+};
+
+enum class PageColorPass {
+    None,
+    Renderer,
+    Bitmap,
+};
+
 constexpr int kThumbnailImageProbeScale = 4;
 
 // Full-bleed backgrounds / scans at or above this threshold are recolored with the page.
@@ -47,7 +58,7 @@ bool GetPreservePdfImagesInDarkMode();
 void SetPreservePdfImagesInDarkMode(bool preserve);
 static constexpr int kPreservePdfImagesMinSize = 72;
 
-bool DarkModeProfileUsesLegacyPostProcess(const DarkModeProfile* profile);
+PageColorPass GetPageColorPass(ViewEngineClass engineClass, PageColorSource source, const DarkModeProfile& profile);
 void BuildViewDarkModeProfile(EngineBase* engine, DarkModeProfile* profile);
 void BuildViewDarkModeProfile(ViewEngineClass engineClass, DarkModeProfile* profile);
 ViewEngineClass ClassifyViewEngine(EngineBase* engine);

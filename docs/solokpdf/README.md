@@ -16,7 +16,7 @@ rendered output.
 
 ## Status (2026-11-10)
 
-HEAD is `9083edafe` on `solokpdf-dev`. It commits four virtual-tree checks in
+The implementation baseline is `9083edafe` on `solokpdf-dev`. It commits four virtual-tree checks in
 regular CI (D13) and a manual/weekly ASan workflow (E17).
 At 2026-11-10 03:01 JST, [regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/42669207693)
 was building Debug and Release; no ASan runs were listed.
@@ -25,6 +25,11 @@ E10–E16 and D8–D12 are complete within their recorded scope.
 The next design review starts with color policy, render results and cache
 invalidation, then read contracts and document lifetime; see the
 [refactoring plan](refactoring-plan.md) and [backlog](backlog.md).
+Planning docs are committed as `9e1eaac3b`; the working tree starts E21's shared
+color-stage selection for live rendering and cached thumbnails.
+Debug/Release builds and five targeted Debug configurations passed;
+[E21's record](history.md#e21-color-stage-policy-2026-11-10) includes pixel comparisons
+and an unresolved baseline thumbnail-test failure.
 F2 passed by owner report. F1/F3 were
 removed from active work by the owner on 2026-11-10, without being marked passed.
 
@@ -65,7 +70,7 @@ Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 - Check D13/E17's hosted results against the recorded revision before closing
   them; see the [backlog](backlog.md#next-steps).
 - For design work, read the [current architecture](architecture.md) and
-  [refactoring plan](refactoring-plan.md). E18–E22 are planned, not implemented.
+  [refactoring plan](refactoring-plan.md). E21 is in progress; E18–E20/E22 remain planned.
 - For a code change, select the affected tests in [testing.md](testing.md).
   Run full suites only when explicitly requested.
 

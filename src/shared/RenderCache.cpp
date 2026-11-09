@@ -183,8 +183,10 @@ Pixmap* ApplyViewPageAdjust(Pixmap* bmp, ViewPageOptions options) {
 }
 
 Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions options) {
+    ViewEngineClass engineClass = ClassifyViewEngine(engine);
     DarkModeProfile profile;
-    BuildViewDarkModeProfile(engine, &profile);
+    BuildViewDarkModeProfile(engineClass, &profile);
+    PageColorPass colorPass = GetPageColorPass(engineClass, PageColorSource::Document, profile);
     args.darkProfile = profile.mode == PageColorMode::Normal ? nullptr : &profile;
     Pixmap* bmp = engine->RenderPage(args);
     args.darkProfile = nullptr;
@@ -193,17 +195,7 @@ Pixmap* RenderViewPage(EngineBase* engine, RenderPageArgs& args, ViewPageOptions
     }
     bmp = ApplyViewPageAdjust(bmp, options);
 
-    ViewEngineClass engineClass = ClassifyViewEngine(engine);
-    if ((engineClass == ViewEngineClass::Mupdf || engineClass == ViewEngineClass::Pdfium) &&
-        profile.mode == PageColorMode::PreserveImages) {
-        return bmp;
-    }
-    bool recolor = DarkModeProfileUsesLegacyPostProcess(&profile);
-    if (profile.mode == PageColorMode::Normal) {
-        recolor = engineClass == ViewEngineClass::Pdfium || engineClass == ViewEngineClass::Mupdf ||
-                  engineClass == ViewEngineClass::Fixed;
-    }
-    if (!recolor || bmp->hasAlpha) {
+    if (colorPass != PageColorPass::Bitmap || bmp->hasAlpha) {
         return bmp;
     }
 
