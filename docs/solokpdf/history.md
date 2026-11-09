@@ -9,7 +9,7 @@ Condensed measurements are in [data/](data/).
 | Topic                 | Records                                                                                                                                                                                                          |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Recent implementation | [E12 input-target classification](#e12-input-target-classification-2026-11-09), [E11 settings application](#e11-settings-application-2026-11-09), [virtual sidebar rollout](#virtual-sidebar-rollout-2026-11-09) |
-| Keyboard input        | [Initial review](#keyboard-input-review-2026-11-04), [current investigation and E12 plan](keyboard-investigation.md)                                                                                             |
+| Keyboard input        | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12 results](keyboard-investigation.md)                                                                                                |
 | Startup and memory    | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                   |
 | Project origin        | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                   |
 | Completed work        | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                     |
@@ -1572,6 +1572,8 @@ and prototype results. Pending physical checks and their results belong in the
 
 ## E11: Settings application (2026-11-09)
 
+Implemented in `87fcfd46c`.
+
 Palette and Advanced Settings changes now rebuild derived settings from the
 current values. Saving is separate; applying no longer rereads stale disk
 values when `-for-testing` suppresses saves. Startup and external-file reloads
@@ -1591,6 +1593,8 @@ also passed. B70's translated-settings check skipped because this build has no
 embedded translations. Full suites were not run.
 
 ## E12: Input-target classification (2026-11-09)
+
+Implemented in `1e49e9185`.
 
 `MainWindow.cpp` now classifies keyboard targets as document, input, tree or
 other. Accelerator selection and the document-input predicate share this

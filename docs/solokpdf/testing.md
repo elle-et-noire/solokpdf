@@ -65,8 +65,9 @@ runs continue to use the hidden desktop.
 
 ### Keyboard input (E12)
 
-The [implementation plan](keyboard-investigation.md#次の実装計画e12) starts with
-these baseline tests. Run them before and after changing input classification.
+E12 is implemented in `1e49e9185`; its [coverage and results](keyboard-investigation.md#入力先共通化の結果e122026-11-09)
+record eight passing targeted tests. Start with these baseline tests before and
+after changing input classification.
 
 ```powershell
 . ./tools/solokpdf/env.ps1
@@ -75,10 +76,12 @@ bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-vim-keys.ts --no-build
 bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-count-prefix.ts --no-build
 ```
 
-Add `keyboard-ime`, `ad-hoc-virtual-tree-focus`, `issue-5971` or
-`ad-hoc-shortcuts-dialog` only when the changed path needs them. `keyboard-ime`
+Add `keyboard-ime`, `ad-hoc-virtual-tree-focus`, `issue-1841`, `issue-5971`,
+`ad-hoc-shortcuts-dialog` or `command-palette-typing` only when the changed path needs them. `keyboard-ime`
 may skip when Japanese IME is unavailable; a skip does not establish IME
 behavior. Physical keys, OS hotkey conflicts and real IME operation remain F3.
+Uncovered routing paths are tracked in [E13](keyboard-investigation.md#自動テストの経路確認e13);
+the existing passing checks do not establish their behavior.
 
 ### Settings application (E11)
 
