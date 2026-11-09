@@ -8,42 +8,19 @@ group (B76, C2, D13, E17, F4).
 
 ## Implementation and acceptance
 
-No active product implementation item remains. Completed E10–E16 and D8–D11
-records are in [history.md](history.md#navigation). E14 is committed as
-`bef32a49c` and locally validated;
-see its [results](history.md#e14-virtual-tree-encapsulation-2026-11-10).
+No active implementation or acceptance item remains. E10–E16 and D8–D12
+records are in [history.md](history.md#navigation). E16 is committed as
+`fc8b455e8`; its regular CI passed Debug/Release builds, unit tests and feature
+tests. See [D12's evidence and limits](history.md#d12-hosted-evidence-2026-11-10).
 
 F1/F3 were removed from active work by the owner on 2026-11-10, without marking
 them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Plan based on local HEAD `bef32a49c` with E16's build/test changes in the
-working tree. No remote checks were run.
-
-| Order | ID  | Work                                                | Status                   |
-| ----- | --- | --------------------------------------------------- | ------------------------ |
-| 1     | D12 | Record hosted validation for the published revision | todo — after publication |
-
-E15's review of the four refactors is complete by owner confirmation
-(2026-11-10); see the [record](history.md#e15-refactor-review-2026-11-10).
-E16's ASan build path is implemented and locally validated; see the
-[results](history.md#e16-asan-build-path-2026-11-10) and
-[test procedure](testing.md#asan-builds).
-
-### D12: Hosted evidence
-
-When the source revision is available on hosted CI, inspect its regular run.
-Record the run URL, revision and Debug/Release, unit and
-feature-test results. A docs-only push does not trigger regular SolokPDF CI.
-Use a targeted hosted recheck only for an unresolved path; do not dispatch a
-full suite for this plan. Later scheduled results remain scoped to their own
-revision.
-
-Done when the README links to the checked revision's hosted evidence and lists
-any failed or missing checks with their follow-up. Publication and workflow dispatch are not part of this
-documentation task. D3 remains deferred; F1/F3 and distribution remain outside
-active scope.
+D12 is complete; no next task is selected. Keep D3 deferred and F1/F3 and
+distribution outside active scope. For a new code change, choose affected
+tests from [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Deferred
 

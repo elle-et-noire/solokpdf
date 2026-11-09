@@ -16,17 +16,12 @@ rendered output.
 
 ## Status (2026-11-10)
 
-Current implementation: `bef32a49c` on `solokpdf-dev`; the working tree was clean
-before this work. E16's ASan build/test changes are now in the working tree.
-The branch is five commits ahead of the local
-`origin/solokpdf-dev` tracking ref; no remote refresh was performed.
-E14's implementation and local validation are complete. E11's in-memory settings application,
-E12's shared input-target classification and E13's targeted routing checks are implemented.
-Tree acceptance (E10/F2) is complete by owner report; D8's hosted follow-ups
-are verified. D10's merged-UI review and D11's MuPDF patch comparison are
-complete. D9's eleven targets passed three hosted runs per engine. F1/F3
-were removed from active work by the owner on 2026-11-10. See the [backlog](backlog.md). Results retain their
-source commits, dates and scope.
+Implementation through `fc8b455e8` on `solokpdf-dev` includes E16's ASan
+build/test changes. Its [regular CI run](history.md#d12-hosted-evidence-2026-11-10)
+passed Debug/Release builds, unit tests and feature tests (D12).
+E10–E16 and D8–D12 are complete within their recorded scope; no active work
+remains in the [backlog](backlog.md). F2 passed by owner report. F1/F3 were
+removed from active work by the owner on 2026-11-10, without being marked passed.
 
 | Area           | Current state                                                                                                                                     | Details                                                                                                              |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -40,19 +35,19 @@ source commits, dates and scope.
 
 ### Validation scope
 
-Results are scoped to the revisions and checks listed here; earlier CI runs
-were not repeated for E14.
+Results apply only to the revisions and checks listed here. Regular CI does
+not run ASan or the standalone tree probes; those retain their local results.
 
 | Check                   | Tested revision                 | Recorded result                                                                                                                                                                            |
 | ----------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Current regular CI      | `fc8b455e8`                     | Debug/Release builds, 105117 unit tests and 65/65 feature tests passed; [D12 evidence and limits](history.md#d12-hosted-evidence-2026-11-10).                                              |
 | Recorded regular CI     | `b24b868b9`                     | Debug/Release jobs, 105055 unit tests and 65/65 feature tests passed; [record](history.md#hosted-triage).                                                                                  |
 | Scheduled full suites   | `99ba47b52`                     | PDFium 574/584, MuPDF 577/587; [eleven distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09).                                                                              |
 | D9 targeted rechecks    | `b24b868b9`, `4ad4c30ae`        | All eleven targets passed three hosted runs per engine; [record](history.md#hosted-triage). No full suite rerun.                                                                           |
 | F2 physical tree checks | Build unspecified               | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                                     |
 | E14 local validation    | Change committed as `bef32a49c` | Debug/Release builds, 15 targeted configurations, extended lifetime checks and four ASan configurations passed; [scope and results](history.md#e14-virtual-tree-encapsulation-2026-11-10). |
-| E16 local validation    | Working tree on `bef32a49c`     | ASan incremental build, Debug/Release configuration checks, tree lifetime and PDFium tests passed; [scope and results](history.md#e16-asan-build-path-2026-11-10).                         |
+| E16 local validation    | Change committed as `fc8b455e8` | ASan incremental build, Debug/Release configuration checks, tree lifetime and PDFium tests passed; [scope and results](history.md#e16-asan-build-path-2026-11-10).                         |
 
-Hosted results for the four refactoring commits and E16 are not recorded here.
 E16 replaces the direct-project ASan workaround with `bun cmd/solok-build.ts -asan`,
 staging PDFium and the ASan runtime beside the executable. Test staging also
 preserves the ASan DLL. See the [procedure](testing.md#asan-builds).
@@ -62,9 +57,9 @@ preserves the ASan DLL. See the [procedure](testing.md#asan-builds).
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- E15's review is complete by owner confirmation; E16 is implemented and locally
-  validated. The [next step](backlog.md#next-steps) is hosted evidence for the
-  published revision (D12).
+- No implementation or acceptance item is active. D12's hosted evidence is
+  [recorded](history.md#d12-hosted-evidence-2026-11-10); deferred and excluded
+  work stays in the [backlog](backlog.md).
 - For a code change, select the affected tests in [testing.md](testing.md).
   Run full suites only when explicitly requested.
 
@@ -86,15 +81,15 @@ the [hidden-desktop runner](testing.md#local-windows-runs).
 
 ## Document map
 
-| Purpose            | Documents                                                                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Current behavior   | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                      |
-| Open work          | [Ordered plan and completion criteria](backlog.md#next-steps)                                                                             |
-| Tree migration     | [tree-view-replacement-plan.md](tree-view-replacement-plan.md), [tree-view-screen-reader-check.md](tree-view-screen-reader-check.md)      |
-| Keyboard follow-up | [Current routing, E12/E13 results and physical checks](keyboard-investigation.md); [original handoff](keyboard-handoff.md)                |
-| Test procedures    | [Local automated tests](testing.md#local-windows-runs), [owner's manual acceptance](testing.md#owners-manual-acceptance-f1f3)             |
-| Historical results | [History navigation](history.md#navigation), [upstream merges](upstream-merges.md), [completed selection plan](selection-overlay-plan.md) |
-| Measurements       | [data/](data/), cited by `history.md`                                                                                                     |
+| Purpose                  | Documents                                                                                                                                 |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Current behavior         | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                      |
+| Work status              | [Active, deferred and excluded work](backlog.md)                                                                                          |
+| Completed tree migration | [Plan and results](tree-view-replacement-plan.md), [owner's acceptance](tree-view-screen-reader-check.md)                                 |
+| Keyboard input           | [Current routing and results](keyboard-investigation.md); [historical handoff](keyboard-handoff.md)                                       |
+| Test procedures          | [Local automated tests](testing.md#local-windows-runs), [historical manual checks](testing.md#owners-manual-acceptance-f1f3)              |
+| Historical results       | [History navigation](history.md#navigation), [upstream merges](upstream-merges.md), [completed selection plan](selection-overlay-plan.md) |
+| Measurements             | [data/](data/), cited by `history.md`                                                                                                     |
 
 ## Keeping docs current
 

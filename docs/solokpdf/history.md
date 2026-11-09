@@ -10,7 +10,7 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 
 | Topic                  | Records                                                                                                                                                                                                                                   |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Latest validation      | [E16 ASan build path](#e16-asan-build-path-2026-11-10), [D9 hosted completion](#hosted-triage), [D8 hosted checks](#d8-hosted-validation-audit-2026-11-09), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                 |
+| Latest validation      | [D12 current regular CI](#d12-hosted-evidence-2026-11-10), [E16 local ASan checks](#e16-asan-build-path-2026-11-10), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                        |
 | Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09)                                                                                                                                                    |
 | Merge follow-ups       | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                       |
 | Recent implementation  | [E14 tree encapsulation](#e14-virtual-tree-encapsulation-2026-11-10), [tree layout](#virtual-tree-layout-boundary-2026-11-10), [PDFium runtime](#pdfium-runtime-boundary-2026-11-10), [key state](#keyboard-state-boundary-2026-11-10)    |
@@ -1955,7 +1955,8 @@ from planned work. This confirmation adds no build or test results.
 
 ## E16: ASan build path (2026-11-10)
 
-Working tree on `bef32a49c`. Regenerating PDFium-enabled VS2026 projects and
+Committed as `fc8b455e8`, implemented and locally tested on top of `bef32a49c`.
+Regenerating PDFium-enabled VS2026 projects and
 running `cmd/build.ts -asan` with `SUMATRA_SLN=vs2026/SumatraPDF.slnx`
 reproduced E14's configuration failure. Added an existing `build-cli` test
 check that asks MSBuild to validate the project configuration without compiling
@@ -1993,7 +1994,28 @@ Commands and ASan options are in [testing.md](testing.md#asan-builds). Logs:
 `.work/e16-build-native.log`, `.work/e16-lifetime{,-after}.log` and
 `.work/e16-pdfium{,-after}.log`. No clean rebuild, Release ASan executable,
 full suite or hosted run was performed. The prebuilt PDFium DLL is not
-ASan-instrumented.
+ASan-instrumented. Subsequent regular CI is recorded under [D12](#d12-hosted-evidence-2026-11-10).
+
+## D12: Hosted evidence (2026-11-10)
+
+Inspected the existing [SolokPDF CI run 42659387417](https://github.com/elle-et-noire/solokpdf/actions/runs/42659387417)
+through GitHub's run/job API and logs. The run tested `fc8b455e8ca33b5dc0d3e24afe52a14fe579c88d`
+on `solokpdf-dev` and completed successfully at 2026-11-09 17:10:47 UTC
+(2026-11-10 02:10:47 JST).
+
+| Job                                                                                            | Verified steps                                      | Result        |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------- |
+| [Debug](https://github.com/elle-et-noire/solokpdf/actions/runs/42659387417/job/129306514034)   | Build debug, 105117 unit tests, 65/65 feature tests | All succeeded |
+| [Release](https://github.com/elle-et-noire/solokpdf/actions/runs/42659387417/job/129306513536) | Build release, Upload portable ZIP                  | All succeeded |
+
+The unit-test log reports `Passed all 105117 tests`; the feature-test log reports
+`65/65 SolokPDF tests passed in 3m 1.6s`.
+
+Regular CI does not run ASan or the standalone tree probes. E14/E16's local
+checks retain their recorded scope; this run does not replace them or establish
+a full-suite pass at this revision. No workflow was dispatched or test rerun
+for this documentation update. D12 is complete with no failed or missing
+required step; F1/F3 remain outside active scope.
 
 ## Completed backlog
 
@@ -2125,6 +2147,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | D9  | Triage the latest scheduled full-test failures                                   | done — Stabilize SolokPDF validation checks (`b24b868b9`); Fit toolbar test to the CI work area (`4ad4c30ae`); all eleven targets passed three hosted runs per engine; [results](#hosted-triage) |
 | D10 | Check the merged UI in Light and Dark                                            | done — Debug captures reviewed on both engines; [scope and results](#d10-merged-ui-review-2026-11-09)                                                                                            |
 | D11 | Verify the MuPDF patch ledger byte for byte                                      | done — restored the complete signing patch; 88 patches reproduce all 1410 vendored files; [results](#d11-mupdf-patch-verification-2026-11-09)                                                    |
+| D12 | Record hosted validation for the published revision                              | done — regular CI at `fc8b455e8` passed Debug/Release builds, unit and feature tests; [evidence and limits](#d12-hosted-evidence-2026-11-10)                                                     |
 
 ### E. Quality
 
@@ -2142,7 +2165,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E13 | Cover keyboard routes outside E12's targeted checks                                                                                                                                                                                                                                         | done — Cover keyboard routing gaps (E13); [validation](#e13-keyboard-route-checks-2026-11-09); F3 excluded, 2026-11-10                                                                                                                  |
 | E14 | Encapsulate remaining virtual-tree internals                                                                                                                                                                                                                                                | done — Encapsulate virtual-tree internals (`bef32a49c`); [implementation and validation](#e14-virtual-tree-encapsulation-2026-11-10)                                                                                                    |
 | E15 | Review the four committed refactors                                                                                                                                                                                                                                                         | done — owner confirmed completion, 2026-11-10; [record](#e15-refactor-review-2026-11-10)                                                                                                                                                |
-| E16 | Make the PDFium-enabled ASan build reproducible                                                                                                                                                                                                                                             | done in working tree — build, configuration and GUI checks passed; [record](#e16-asan-build-path-2026-11-10)                                                                                                                            |
+| E16 | Make the PDFium-enabled ASan build reproducible                                                                                                                                                                                                                                             | done — Fix SolokPDF ASan builds (E16) (`fc8b455e8`); build, configuration and GUI checks passed; [record](#e16-asan-build-path-2026-11-10)                                                                                              |
 
 ### F. Manual acceptance
 
