@@ -388,6 +388,7 @@ function sumatrapdf_files()
     "JxlReader.*",
     "KeyboardHelp.*",
     "KeyboardHelpCommon.*",
+    "KeyInputState.*",
     "LinkFollow.*",
     "MainWindow.*",
     "MainWindowCommon.*",

@@ -1861,6 +1861,33 @@ includes multiple documents, close/reopen, password-protected files, missing-DLL
 fallback and font-cache pixel equality when disabled, recorded and replayed.
 Logs are in `.work/pdfium-runtime-*.log`. No full suite or Release build was run.
 
+## Keyboard state boundary (2026-11-10)
+
+Working tree based on `9c6ee8e74`. Replaced the window's public count/prefix
+fields with `KeyInputState`, which owns digit accumulation, the leading-zero
+rule, the 9999 limit, prefix assignment and consumption of both values.
+Its state is private; readers receive a value copy. It has no window, settings
+or notification dependencies. See the [state boundary](keyboard-investigation.md#状態管理の分離2026-11-10).
+
+`VimKeys.cpp` keeps routing and shortcut precedence. Consumption and clearing
+share `TakePendingKeys`, which resets state before removing the notification.
+Focus, activation and tab-change hooks remain at their existing call sites.
+
+The Debug quick build passed with zero warnings and errors. These existing
+tests passed before and after the change on the hidden desktop:
+
+- `ad-hoc-vim-keys`
+- `ad-hoc-count-prefix`
+- `keyboard-input-targets`
+- `find-history-alt-down`
+- `keyboard-ime` (no skip on either version)
+
+The accepted post-change run started after build completion and verified the
+executable hash stayed unchanged throughout. Logs are in
+`.work/key-state-baseline-*.log` and `.work/key-state-final-*.log`.
+No full suite or Release build was run. IME checks use API-driven composition;
+physical-key acceptance remains F3.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in

@@ -1,6 +1,8 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
    License: GPLv3 */
 
+#include "KeyInputState.h"
+
 struct DoubleBuffer;
 struct TabGroup;
 struct Edit;
@@ -264,8 +266,7 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
 
     HWND hwndFrame = nullptr;
     HWND hwndCanvas = nullptr;
-    int pendingKeyCount = 0;
-    char pendingKeyPrefix = 0;
+    KeyInputState keyInput;
     bool vimLinkHints = false;
     HWND vimCmdEdit = nullptr;
     bool vimCmdComposing = false;

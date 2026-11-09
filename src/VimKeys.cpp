@@ -41,43 +41,40 @@ static Kind kNotifCountPrefix = "countPrefix";
 static constexpr int kVimCommandHeight = 30;
 static constexpr int kVimCommandInset = 8;
 
-void ClearKeyCount(MainWindow* win) {
-    if (!win || (!win->pendingKeyCount && !win->pendingKeyPrefix)) {
-        return;
-    }
-    win->pendingKeyCount = 0;
-    win->pendingKeyPrefix = 0;
-    RemoveNotificationsForGroup(win, kNotifCountPrefix);
-}
-
-struct PendingKeys {
-    int count;
-    char prefix;
-};
-
 static PendingKeys TakePendingKeys(MainWindow* win) {
-    PendingKeys keys{win->pendingKeyCount, win->pendingKeyPrefix};
-    ClearKeyCount(win);
+    if (!win) {
+        return {};
+    }
+
+    PendingKeys keys = win->keyInput.Take();
+    if (keys.count || keys.prefix) {
+        RemoveNotificationsForGroup(win, kNotifCountPrefix);
+    }
     return keys;
 }
 
+void ClearKeyCount(MainWindow* win) {
+    TakePendingKeys(win);
+}
+
 static void ShowPendingKeys(MainWindow* win) {
+    PendingKeys keys = win->keyInput.Get();
     NotificationCreateArgs args;
     args.win = win;
     args.groupId = kNotifCountPrefix;
-    if (win->pendingKeyCount && win->pendingKeyPrefix) {
-        args.msg = fmt("%d%c", win->pendingKeyCount, win->pendingKeyPrefix);
-    } else if (win->pendingKeyPrefix) {
-        args.msg = fmt("%c", win->pendingKeyPrefix);
+    if (keys.count && keys.prefix) {
+        args.msg = fmt("%d%c", keys.count, keys.prefix);
+    } else if (keys.prefix) {
+        args.msg = fmt("%c", keys.prefix);
     } else {
-        args.msg = fmt("%d", win->pendingKeyCount);
+        args.msg = fmt("%d", keys.count);
     }
     args.corner = NotifCorner::BottomRight;
     ShowNotification(args);
 }
 
 static void SetKeyPrefix(MainWindow* win, char prefix) {
-    win->pendingKeyPrefix = prefix;
+    win->keyInput.SetPrefix(prefix);
     ShowPendingKeys(win);
 }
 
@@ -342,7 +339,7 @@ static void OpenVimCommand(MainWindow* win) {
 }
 
 int TakeVimKeyCount(MainWindow* win, int cmdId) {
-    int count = win->pendingKeyCount;
+    int count = win->keyInput.Get().count;
     if (!count) {
         return 1;
     }
@@ -472,8 +469,9 @@ static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
         return false;
     }
 
-    int count = win->pendingKeyCount;
-    char prefix = win->pendingKeyPrefix;
+    PendingKeys pending = win->keyInput.Get();
+    int count = pending.count;
+    char prefix = pending.prefix;
     if (prefix) {
         PendingKeys keys = TakePendingKeys(win);
         count = keys.count;
@@ -700,14 +698,15 @@ TempStr VimKeysTestResultTemp(Str action, Str key, int* exitCode) {
     }
     *exitCode = 0;
     int page = win->ctrl ? win->ctrl->CurrentPageNo() : 0;
+    PendingKeys keys = win->keyInput.Get();
     return fmt("mode=%d page=%d focus=%d count=%d prefix=%c hints=%d edit=%lld", gSettings->vimKeys ? 1 : 0, page,
-               IsDocKeyTarget(win, GetFocus()) ? 1 : 0, win->pendingKeyCount,
-               win->pendingKeyPrefix ? win->pendingKeyPrefix : '-', win->linkFollowActive ? 1 : 0,
-               (i64)win->vimCmdEdit);
+               IsDocKeyTarget(win, GetFocus()) ? 1 : 0, keys.count, keys.prefix ? keys.prefix : '-',
+               win->linkFollowActive ? 1 : 0, (i64)win->vimCmdEdit);
 }
 
 bool VimKeysPreTranslate(MainWindow* countWin, MSG& msg) {
-    if (countWin && (countWin->pendingKeyCount || countWin->pendingKeyPrefix) &&
+    PendingKeys pending = countWin ? countWin->keyInput.Get() : PendingKeys{};
+    if (countWin && (pending.count || pending.prefix) &&
         (msg.message == WM_LBUTTONDOWN || msg.message == WM_RBUTTONDOWN || msg.message == WM_MBUTTONDOWN ||
          (msg.message == WM_KEYDOWN && msg.wParam == VK_ESCAPE) ||
          (msg.message == WM_KEYDOWN && !IsDocKeyTarget(countWin, msg.hwnd)))) {
@@ -718,12 +717,9 @@ bool VimKeysPreTranslate(MainWindow* countWin, MSG& msg) {
         StopKeyboardLinkFollowing(countWin);
         return true;
     }
-    if (IsDocKeyInput(countWin, msg) && !countWin->pendingKeyPrefix && msg.wParam >= '0' && msg.wParam <= '9' &&
+    if (IsDocKeyInput(countWin, msg) && !countWin->keyInput.Get().prefix && msg.wParam >= '0' && msg.wParam <= '9' &&
         !IsCtrlPressed() && !IsAltPressed() && !IsShiftPressed() && !ReadingAutoScrollAcceptsKeys(countWin)) {
-        if (!HasDigitShortcut((u16)msg.wParam) && (msg.wParam != '0' || countWin->pendingKeyCount)) {
-            constexpr int kMaxKeyCount = 9999;
-            countWin->pendingKeyCount =
-                std::min(kMaxKeyCount, countWin->pendingKeyCount * 10 + (int)(msg.wParam - '0'));
+        if (!HasDigitShortcut((u16)msg.wParam) && countWin->keyInput.AddDigit((int)msg.wParam)) {
             ShowPendingKeys(countWin);
             return true;
         }
