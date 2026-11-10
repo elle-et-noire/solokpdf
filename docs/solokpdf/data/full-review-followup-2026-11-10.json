@@ -1,0 +1,148 @@
+{
+  "date": "2026-11-10",
+  "revision": "0046373df",
+  "baseline": "32d95cef7",
+  "sourceDiff": "none under src/, cmd/, tests/; documentation changes only",
+  "environment": "Windows 10.0.26300, VS 2026 v145, Bun 1.4.4; Debug x64 and Debug ASan; hidden desktop outside sandbox; -for-testing, isolated -appdata",
+  "binaries": [
+    {
+      "path": "out/dbg64/SumatraPDF.exe",
+      "sha256": "33f7768639edd06e0141cfeb1a387801fab218c73e262a96bfc7236b144eefde"
+    },
+    {
+      "path": "out/dbg64/libsumatrapdf.dll",
+      "sha256": "df9188611490dbdcb7c1792cfe22446804083c279a27f1ea19fa6bf496123c87"
+    },
+    {
+      "path": "out/dbg64/pdfium.dll",
+      "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+    },
+    {
+      "path": "out/dbg64_asan/SumatraPDF-static.exe",
+      "sha256": "6e7be18b324347f52566b5449a74e00947f3f59fa04290f0291e70df1c72c204"
+    }
+  ],
+  "build": {
+    "command": "bun cmd/solok-build.ts -asan",
+    "result": "pass",
+    "warnings": 0,
+    "errors": 0,
+    "log": "out/full-review-followup-asan-build.log"
+  },
+  "existingTests": [
+    {
+      "name": "ad-hoc-b69-hidden-desktop",
+      "configuration": "Debug",
+      "result": "pass",
+      "skipped": false,
+      "desktop": "SolokPDFTests-7412-mwaelbao"
+    },
+    {
+      "name": "ctx-menu-reload",
+      "configuration": "Debug ASan",
+      "result": "pass",
+      "skipped": false,
+      "durationSeconds": 4,
+      "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/ctx-menu-reload.ts --no-build",
+      "asanOptions": "windows_hook_legacy_allocators=0:suppressions=\"C:\\work\\solokpdf\\asan.supp\"",
+      "log": "out/full-review-followup-ctx-menu.log"
+    }
+  ],
+  "observations": [
+    {
+      "kind": "E33",
+      "before": "chars=9 partial=0",
+      "failedRaw": "chars=0 partial=0",
+      "failedCache": "chars=0 text=",
+      "recoveredRaw": "chars=9 partial=0",
+      "staleCache": "chars=0 text=",
+      "injection": "FPDF_LoadPage temporarily returns NULL; original executable/DLL files unchanged"
+    },
+    {
+      "kind": "E32",
+      "exe": "C:\\work\\solokpdf\\out\\dbg64\\SumatraPDF.exe",
+      "tid": 33000,
+      "elapsedMs": 10210,
+      "timeout": true,
+      "exit": 0,
+      "log": "C:\\work\\solokpdf\\tmp\\review-failures\\shutdown-dbg.log",
+      "stderr": "",
+      "injection": "one idle render worker suspended after WaitRenderIdle; no active document render; process exits without joining it",
+      "limitation": "does not demonstrate a resumed-worker UAF or a blocked active render",
+      "retainedLog": "out/full-review-followup-data/shutdown-dbg.log"
+    }
+  ],
+  "localProbe": {
+    "path": "out/full-review-followup-probe.ts",
+    "sha256": "79396e35a4402b4487701f9523ed00ca017921099a315393dd48e8f1688733dc"
+  },
+  "input": {
+    "kind": "synthetic 5-page PDF assembled with tests/util.ts assemblePdf",
+    "text": "RETRYWORD",
+    "textPage": 1,
+    "displayedPageDuringTextProbe": 5,
+    "objects": [
+      "Catalog",
+      "Pages Count 5",
+      "Page Contents 4 Font F1 5",
+      "BT /F1 24 Tf 72 700 Td (RETRYWORD) Tj ET",
+      "Helvetica",
+      "blank page",
+      "blank page",
+      "blank page",
+      "blank page"
+    ],
+    "path": "out/full-review-followup-data/source.pdf"
+  },
+  "limits": [
+    "E33 injected failure on PDFium only; same common-cache failure path read in MuPDF, not injected there; cached text queried, search UI not driven",
+    "E32 stopped one worker after WaitRenderIdle, exact suspension point/lock ownership not known; multiple workers timed out; no resumed-worker UAF demonstrated",
+    "ASan worker probe reached its success checks before reload probe failed, but JSON/stderr were lost; no passing ASan lifetime claim",
+    "E34 reload/password/close probe lost control pipe; original tab destruction appears in log; exit code and ASan report unavailable; posted command to disabled owner is not ordinary physical input",
+    "No new product or registered test code; scratch probe retained locally only; no Release/full suite/physical tests; R5/R6 still lack runtime validation"
+  ],
+  "harnessCorrections": [
+    "Initial E33 probe expected an empty response instead of 'chars=0 text='; corrected response assertion before observing both failure and recovery",
+    "Combined ASan probe aborted before writing result JSON when a subsequent control request failed"
+  ],
+  "interruption": {
+    "scope": "conversation turns, not SolokPDF shutdown",
+    "initialTurn": "01a1c478-7d2f-7d93-bb12-c9023f7fbb83",
+    "continuationTurn": "01a1c483-c243-7763-831d-ebab3c42bde6",
+    "status": "failed",
+    "error": "This content was flagged for possible cybersecurity risk.",
+    "interpretation": "Not an approval/build wait; exact trigger unknown; further memory-modification/thread-suspension experiments stopped"
+  },
+  "logs": [
+    {
+      "path": "out/full-review-followup-asan-build.log",
+      "sha256": "78c18228884242d894752f3c60277d63714284359cc1e212b3e9eef0b2871b63",
+      "lastWriteTime": "2026-11-10T08:04:47.405Z",
+      "excerpt": "         すべての出力が最新のものです。\n         SumatraPDF-static.vcxproj -> C:\\work\\solokpdf\\out\\dbg64_asan\\SumatraPDF-static.exe\n       FinalizeBuildStatus:\n         ファイル \"C:\\work\\solokpdf\\vs2026\\..\\out\\dbg64_asan\\obj-s\\SumatraPDF-static\\SumatraP.31E17D57.tlog\\unsuccessfulbuild\" を削除しています。\n         \"C:\\work\\solokpdf\\vs2026\\..\\out\\dbg64_asan\\obj-s\\SumatraPDF-static\\SumatraP.31E17D57.tlog\\SumatraPDF-static.lastbuildstate\" のタッチ タスクを実行しています。\n     2>プロジェクト \"C:\\work\\solokpdf\\vs2026\\SumatraPDF-static.vcxproj\" (既定のターゲット) のビルドが完了しました。\n     1>プロジェクト \"C:\\work\\solokpdf\\vs2026\\SumatraPDF.slnx\" (SumatraPDF-static ターゲット) のビルドが完了しました。\n\nビルドに成功しました。\n    0 個の警告\n    0 エラー\n\n経過時間 00:00:03.05\nout\\dbg64_asan\\SumatraPDF-static.exe: 70.9 MB, 70,906,368\nexe: out\\dbg64_asan\\SumatraPDF-static.exe\nbuild took 4s\nSolokPDF ASan build: out\\dbg64_asan/SumatraPDF-static.exe. Use -for-testing for ad-hoc launches.\n"
+    },
+    {
+      "path": "out/full-review-followup-ctx-menu.log",
+      "sha256": "dc963514e5111eb9871af29c106a1cbd1403adc60dde07b84b4ea0f33f3fa0a9",
+      "lastWriteTime": "2026-11-10T08:17:54.519Z",
+      "excerpt": "✅ ctx-menu-reload passed in 4.0s\r\n"
+    },
+    {
+      "path": "out/full-review-followup-data/shutdown-dbg.log",
+      "sha256": "ba9dfe4888a61d81e0ca8221ade2f63ad56e47f51d65d7aa4917578d1d012355",
+      "lastWriteTime": "2026-11-10T08:04:13.125Z",
+      "excerpt": "~WindowTab: 0x000002699A1934E0, dm: 0x000002699ACBC8E0\n~DisplayModel: 0x000002699ACBC8E0\nRenderCacheThread: exiting\nRenderCache::~RenderCache: thread 0 didn't exit in 5 seconds\nRenderCache::~RenderCache: thread 2 didn't exit in 5 seconds"
+    },
+    {
+      "path": "out/full-review-followup-data/shutdown-asan.log",
+      "sha256": "2449c56d9b969e901a07242a3d3f5acf4f579630843b8ac7a45cebc1be27d631",
+      "lastWriteTime": "2026-11-10T08:06:06.152Z",
+      "excerpt": "~WindowTab: 0x000011F6F7FA9C80, dm: 0x000011EEF8011480\n~DisplayModel: 0x000011EEF8011480\nRenderCache::~RenderCache: thread 0 didn't exit in 5 seconds\nRenderCache::~RenderCache: thread 1 didn't exit in 5 seconds\nRenderCache::~RenderCache: thread 2 didn't exit in 5 seconds"
+    },
+    {
+      "path": "out/full-review-followup-data/reload-pdfium-asan.log",
+      "sha256": "5aa839d8a633604b7115fd8c8cc22d30b2925b4bf815b2a8f485e4413f33bd59",
+      "lastWriteTime": "2026-11-10T08:06:07.597Z",
+      "excerpt": "ReloadDocument: C:\\work\\solokpdf\\tmp\\review-failures\\reload-pdfium.pdf, auto refresh: 0\nCloseCurrentTab: tab: 0x00001285D78A9C80 win: 0x0000128BD78B8680, hwndFrame: 0x140472, quitIfLast: 0\n~WindowTab: 0x00001285D78A9C80, dm: 0x0000127DD7911480\n~DisplayModel: 0x0000127DD7911480"
+    }
+  ]
+}

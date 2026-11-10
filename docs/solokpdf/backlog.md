@@ -1,12 +1,12 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-10. E23 is complete; E24 is in progress and E25 remains provisional.
-E26–E33 record initial findings and additional validation, not completion of the review.
+E26–E34 record findings and additional validation, not completion of the review.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D14, E34, F4).
+group (B76, C2, D14, E35, F4).
 
 ## Implementation and acceptance
 
@@ -36,18 +36,19 @@ Assess correctness, maintainability and performance using the
 paths guide investigation without limiting its scope. Record the code actually
 read; check build and test infrastructure where the investigation or a change requires them.
 
-| ID  | Item                                                                | Status                                                                                                           |
-| --- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| E24 | Review structure and code against the evaluation criteria           | doing — initial path inspection only; deepen failure, cancellation, reentry and non-PDF paths, including E32/E33 |
-| E25 | Prioritize findings and record remaining work and coverage          | todo — initial findings recorded; finalize after E24                                                             |
-| E26 | Preserve unsaved edits during automatic reload (R1, P1)             | todo — both engines reproduced; gate replacement at ReloadDocument                                               |
-| E27 | Keep the save prompt after the source path disappears (R2, P1)      | todo — both engines reproduced; offer safe new-file save and Cancel                                              |
-| E28 | Roll back failed signature preparation (R3, P2)                     | todo — both engines reproduced; validate inputs before mutation and abandon failed changes                       |
-| E29 | Invalidate form text/search after edits (R4, P2)                    | todo — both engines reproduced; invalidate editor and display-engine caches, including JS effects                |
-| E30 | Validate network CBX cache freshness (R5, P2)                       | todo — code finding; add write time to reuse conditions and test same-size replacement                           |
-| E31 | Close the asynchronous controller-delete thread handle (R6, P2)     | todo — code finding; retain/close HANDLE, compare repeated closes and check ASan                                 |
-| E32 | Verify render-cache teardown after a worker join timeout            | todo — normal-close tests do not reach it; inject a stalled worker before changing destruction                   |
-| E33 | Distinguish failed page text extraction from a completed empty page | todo — no user-visible failure reproduced; inject a failed read and decide retry/result contract                 |
+| ID  | Item                                                                | Status                                                                                                                                  |
+| --- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| E24 | Review structure and code against the evaluation criteria           | doing — E33 reproduced; E32 teardown inspected; finish E34, partial edit failures and non-PDF validation                                |
+| E25 | Prioritize findings and record remaining work and coverage          | todo — initial findings recorded; finalize after E24                                                                                    |
+| E26 | Preserve unsaved edits during automatic reload (R1, P1)             | todo — both engines reproduced; gate replacement at ReloadDocument                                                                      |
+| E27 | Keep the save prompt after the source path disappears (R2, P1)      | todo — both engines reproduced; offer safe new-file save and Cancel                                                                     |
+| E28 | Roll back failed signature preparation (R3, P2)                     | todo — both engines reproduced; validate inputs before mutation and abandon failed changes                                              |
+| E29 | Invalidate form text/search after edits (R4, P2)                    | todo — both engines reproduced; invalidate editor and display-engine caches, including JS effects                                       |
+| E30 | Validate network CBX cache freshness (R5, P2)                       | todo — code finding; add write time to reuse conditions and test same-size replacement                                                  |
+| E31 | Close the asynchronous controller-delete thread handle (R6, P2)     | todo — code finding; retain/close HANDLE, compare repeated closes and check ASan                                                        |
+| E32 | Guarantee worker lifetime when render-cache shutdown times out      | todo — Debug timeout then exit 0 observed; decide owner-side stop-before-delete contract; resumed-worker/ASan proof remains open        |
+| E33 | Distinguish failed page text extraction from a completed empty page | todo — failure/recovery reproduced in PDFium: raw text recovers, cached text stays empty (R7, P2); add explicit failure result          |
+| E34 | Verify targets after synchronous reload and Save As dialogs         | todo — code lacks window/tab/engine revalidation; reload probe lost control pipe; preserve exit and ASan diagnostics before classifying |
 
 E23's mapping and E24's initial inspection are in [history.md](history.md#e23e25-structure-and-code-review-2026-11-10).
 Each remaining item's evidence, impact and next check are in [full-review-results.md](full-review-results.md).

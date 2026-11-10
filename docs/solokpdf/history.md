@@ -2615,6 +2615,39 @@ No Release, ASan, full suite, physical acceptance or distribution checks ran.
 E32/E33 retain worker-timeout and failed-text-read checks; E26–E31 are fixes,
 not changes made by this review. D3 and the existing exclusions remain intact.
 
+## E24 continuation and interrupted review (2026-11-10)
+
+Reviewed `0046373df`; product sources remain identical to the plan baseline.
+The [continued findings](full-review-results.md#e24-継続点検2026-11-100046373df)
+and [evidence](data/full-review-followup-2026-11-10.json) record:
+
+- E33/R7: after an injected PDFium page-load failure, direct extraction
+  recovered to nine characters but cached extraction stayed empty.
+- E32: Debug shutdown logged worker join timeouts and exited 0 with a
+  suspended worker. This confirms missing stop-before-delete enforcement,
+  not a reproduced resumed-worker UAF. Active-render stalls instead wait
+  earlier in controller cleanup.
+- E34: synchronous reload and clean Save As lack the target revalidation
+  used by edited-file saving and asynchronous loading. A password/close
+  probe lost its control pipe; exit and ASan diagnostics were not retained,
+  so the runtime defect remains unconfirmed.
+- Non-PDF Clone/save source differences and input/edit failure boundaries
+  were inspected; missing validation remains listed in the results.
+
+The current ASan Debug build passed with zero warnings/errors. Existing
+`ctx-menu-reload` passed in 4.0 seconds without skips on the hidden desktop.
+The desktop-isolation probe also passed. The ASan suspended-worker probe
+left timeout logs but lost its result JSON/stderr when the next probe failed;
+it is not counted as passing lifetime validation. No Release/full suite ran.
+
+The review turn and its first continuation failed with the conversation
+error `This content was flagged for possible cybersecurity risk`.
+This was not an approval or build wait. The precise trigger is unavailable;
+further process-memory modification/thread-suspension experiments stopped.
+Subsequent work used source inspection and the existing test only.
+
+E24 and E25 remain incomplete; fixes and commits have not started.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
