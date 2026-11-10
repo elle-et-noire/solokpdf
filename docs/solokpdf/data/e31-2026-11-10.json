@@ -1,0 +1,389 @@
+{
+  "date": "2026-11-10",
+  "item": "E31",
+  "baseCommit": "c27fcd623",
+  "scope": "Original Windows asynchronous controller-deletion thread HANDLE ownership",
+  "environment": {
+    "os": "Windows 10.0.26300.0",
+    "toolset": "Visual Studio 2026 v145",
+    "bun": "1.4.4",
+    "desktop": "hidden desktop outside sandbox",
+    "asanOptions": "windows_hook_legacy_allocators=0:suppressions=\"C:\\work\\solokpdf\\asan.supp\""
+  },
+  "before": {
+    "log": ".work/e31-before.log",
+    "counts": [
+      {
+        "engine": "mupdf",
+        "mode": "idle",
+        "closes": 24,
+        "before": 491,
+        "after": 493,
+        "growth": 2
+      },
+      {
+        "engine": "mupdf",
+        "mode": "rendering",
+        "closes": 24,
+        "before": 496,
+        "after": 520,
+        "growth": 24
+      },
+      {
+        "engine": "pdfium",
+        "mode": "idle",
+        "closes": 24,
+        "before": 492,
+        "after": 494,
+        "growth": 2
+      },
+      {
+        "engine": "pdfium",
+        "mode": "rendering",
+        "closes": 24,
+        "before": 497,
+        "after": 521,
+        "growth": 24
+      }
+    ],
+    "result": "failed on both engines",
+    "seconds": 37.8,
+    "warmupCycles": 3,
+    "handleAllowance": 4,
+    "scope": "Tab close repetitions; before adding the parent-frame destruction check"
+  },
+  "initialFixedRun": {
+    "log": ".work/e31-initial-fixed.log",
+    "counts": [
+      {
+        "engine": "mupdf",
+        "mode": "idle",
+        "closes": 24,
+        "before": 495,
+        "after": 497,
+        "growth": 2
+      },
+      {
+        "engine": "mupdf",
+        "mode": "rendering",
+        "closes": 24,
+        "before": 497,
+        "after": 502,
+        "growth": 5
+      },
+      {
+        "engine": "pdfium",
+        "mode": "idle",
+        "closes": 24,
+        "before": 492,
+        "after": 494,
+        "growth": 2
+      },
+      {
+        "engine": "pdfium",
+        "mode": "rendering",
+        "closes": 24,
+        "before": 494,
+        "after": 494,
+        "growth": 0
+      }
+    ],
+    "result": "failed: MuPDF process HANDLE growth +5 exceeded allowance 4; PDFium rendering growth 0",
+    "seconds": 47.1
+  },
+  "finalTest": {
+    "cyclesPerGroup": 24,
+    "warmupCyclesPerGroup": 6,
+    "processHandleAllowance": 8,
+    "synchronization": "Debug barrier holds published render requests; assert pending=1 during render, pending=0 after completed render; release and wait for deletion before sampling",
+    "sampling": "Minimum of three process HANDLE samples 20 ms apart after rendering/deletion settles",
+    "registration": ["tests/run-almost-all.ts, immediately after issue-5978", "tests/run-solokpdf-ci.ts, first"]
+  },
+  "builds": [
+    {
+      "config": "Debug",
+      "command": "bun cmd/solok-build.ts -quick",
+      "result": "passed, zero warnings/errors",
+      "executable": "out/dbg64/SumatraPDF.exe",
+      "sha256": "a9d760676daa688f09871c4b59c252f838e3fcbe943955b897c1521dd6fc5a4a"
+    },
+    {
+      "config": "Debug ASan",
+      "command": "bun cmd/solok-build.ts -asan",
+      "result": "passed, zero warnings/errors",
+      "executable": "out/dbg64_asan/SumatraPDF-static.exe",
+      "sha256": "4300027a44aba25ab3dfbbe1c407cb8a13b508aed0905d2f69af86ef5617f863"
+    }
+  ],
+  "tests": [
+    {
+      "config": "debug",
+      "command": "bun tools/solokpdf/run-hidden.ts -- bun tests/controller-delete-handles.ts --no-build",
+      "runs": [
+        {
+          "log": ".work/e31-debug-1.log",
+          "counts": [
+            {
+              "engine": "mupdf",
+              "mode": "idle",
+              "closes": 24,
+              "before": 497,
+              "after": 497,
+              "growth": 0
+            },
+            {
+              "engine": "mupdf",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 497,
+              "after": 497,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "idle",
+              "closes": 24,
+              "before": 494,
+              "after": 494,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 494,
+              "after": 494,
+              "growth": 0
+            }
+          ],
+          "result": "passed",
+          "seconds": 39.6,
+          "frameDestruction": "passed on both engines",
+          "gracefulExit": "passed on both engines"
+        },
+        {
+          "log": ".work/e31-debug-2.log",
+          "counts": [
+            {
+              "engine": "mupdf",
+              "mode": "idle",
+              "closes": 24,
+              "before": 497,
+              "after": 497,
+              "growth": 0
+            },
+            {
+              "engine": "mupdf",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 497,
+              "after": 497,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "idle",
+              "closes": 24,
+              "before": 494,
+              "after": 494,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 494,
+              "after": 494,
+              "growth": 0
+            }
+          ],
+          "result": "passed",
+          "seconds": 39.9,
+          "frameDestruction": "passed on both engines",
+          "gracefulExit": "passed on both engines"
+        },
+        {
+          "log": ".work/e31-debug-3.log",
+          "counts": [
+            {
+              "engine": "mupdf",
+              "mode": "idle",
+              "closes": 24,
+              "before": 497,
+              "after": 497,
+              "growth": 0
+            },
+            {
+              "engine": "mupdf",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 497,
+              "after": 497,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "idle",
+              "closes": 24,
+              "before": 494,
+              "after": 494,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 494,
+              "after": 494,
+              "growth": 0
+            }
+          ],
+          "result": "passed",
+          "seconds": 38.6,
+          "frameDestruction": "passed on both engines",
+          "gracefulExit": "passed on both engines"
+        }
+      ]
+    },
+    {
+      "config": "asan",
+      "command": "bun tools/solokpdf/run-hidden.ts -- bun tests/controller-delete-handles.ts --no-build",
+      "runs": [
+        {
+          "log": ".work/e31-asan-1.log",
+          "counts": [
+            {
+              "engine": "mupdf",
+              "mode": "idle",
+              "closes": 24,
+              "before": 496,
+              "after": 496,
+              "growth": 0
+            },
+            {
+              "engine": "mupdf",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 496,
+              "after": 496,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "idle",
+              "closes": 24,
+              "before": 494,
+              "after": 494,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 494,
+              "after": 494,
+              "growth": 0
+            }
+          ],
+          "result": "passed",
+          "seconds": 45.1,
+          "frameDestruction": "passed on both engines",
+          "gracefulExit": "passed on both engines"
+        },
+        {
+          "log": ".work/e31-asan-2.log",
+          "counts": [
+            {
+              "engine": "mupdf",
+              "mode": "idle",
+              "closes": 24,
+              "before": 496,
+              "after": 496,
+              "growth": 0
+            },
+            {
+              "engine": "mupdf",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 496,
+              "after": 496,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "idle",
+              "closes": 24,
+              "before": 493,
+              "after": 493,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 493,
+              "after": 493,
+              "growth": 0
+            }
+          ],
+          "result": "passed",
+          "seconds": 42.4,
+          "frameDestruction": "passed on both engines",
+          "gracefulExit": "passed on both engines"
+        },
+        {
+          "log": ".work/e31-asan-3.log",
+          "counts": [
+            {
+              "engine": "mupdf",
+              "mode": "idle",
+              "closes": 24,
+              "before": 496,
+              "after": 496,
+              "growth": 0
+            },
+            {
+              "engine": "mupdf",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 496,
+              "after": 496,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "idle",
+              "closes": 24,
+              "before": 493,
+              "after": 493,
+              "growth": 0
+            },
+            {
+              "engine": "pdfium",
+              "mode": "rendering",
+              "closes": 24,
+              "before": 493,
+              "after": 493,
+              "growth": 0
+            }
+          ],
+          "result": "passed",
+          "seconds": 41.3,
+          "frameDestruction": "passed on both engines",
+          "gracefulExit": "passed on both engines"
+        }
+      ]
+    }
+  ],
+  "additionalChecks": {
+    "hiddenDesktopProbe": "passed",
+    "controlIdLint": "passed",
+    "diffWhitespace": "passed"
+  },
+  "limits": [
+    "Thread creation failure reviewed, not injected",
+    "E32 render-cache shutdown timeout remains open",
+    "No Release build, full suite or ng GUI run",
+    "PDFium DLL is not ASan-instrumented"
+  ]
+}

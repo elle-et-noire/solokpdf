@@ -195,6 +195,8 @@ E30で修正済み。更新時刻も含めて世代を分け、コピー完了�
 
 ### R6 / E31 — P2: 非同期 controller 破棄の thread HANDLE を閉じない
 
+E31 で修正済み。反復開閉の再現と Debug・ASan の結果は[検証記録](history.md#e31-controller-delete-handles-2026-11-10)を参照。以下はレビュー時点の指摘。
+
 - **コード上の不具合・変更する。** [DeleteControllerAsync](../../src/SumatraPDF.cpp#L1170) は `StartThread` の戻り値を成功判定に使うだけで捨てる。`StartThread` は `CreateThread` の生 HANDLE を返し、自動では閉じない。
 - 描画中の文書を閉じ、非同期破棄へ進むごとに HANDLE を失う。通常の描画待ち設計を変える必要はない。
 - sidebar-thumbnails-close は終了コード、source-lifetime の HANDLE 比較は Clone の反復を確認する。controller 破棄の反復は確認していない。今回の HANDLE 増加量は未測定。

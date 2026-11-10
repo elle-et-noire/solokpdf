@@ -16,8 +16,8 @@ rendered output.
 
 ## Status (2026-11-10)
 
-Status snapshot at `a3a15cb8d` plus E30 changes on `solokpdf-dev`.
-D8–D13 and E10–E30 are complete within their recorded scope.
+Status snapshot at `c27fcd623` plus E31 changes on `solokpdf-dev`.
+D8–D13 and E10–E31 are complete within their recorded scope.
 E24's [review](full-review-results.md#e24-完了確認) records eleven defects and a shutdown contract issue;
 E25's [priorities, dependencies and remaining work](full-review-results.md#e25-再点検) are complete.
 E26 preserves unsaved edits and active form input during automatic reload; [results](history.md#e26-automatic-reload-2026-11-10).
@@ -25,7 +25,8 @@ E27 keeps the save prompt after source loss and gates saving on retained input; 
 E28 rolls back failed signature preparation; [results](history.md#e28-signature-rollback-2026-11-10).
 E29 refreshes form text, search and selection after edits and Undo/Redo; [results](history.md#e29-form-text-cache-2026-11-10).
 E30 versions network comic caches and publishes complete copies; [results](history.md#e30-network-comic-cache-2026-11-10).
-[backlog.md](backlog.md) records E31–E37's fixes and regression checks,
+E31 closes asynchronous controller-delete thread handles; [results](history.md#e31-controller-delete-handles-2026-11-10).
+[backlog.md](backlog.md) records E32–E37's fixes and regression checks,
 deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache

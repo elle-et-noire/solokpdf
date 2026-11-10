@@ -1126,6 +1126,12 @@ void ControllerCallbackHandler::CleanUp(DisplayModel* dm) {
 // handler -- see DeleteControllerFinish().
 static AtomicInt gPendingControllerDeletes;
 
+#if IS_DEBUG
+int TestPendingControllerDeletes() {
+    return AtomicIntGet(&gPendingControllerDeletes);
+}
+#endif
+
 static void DeleteControllerFinish(DocController* ctrl) {
     DisplayModel* dm = ctrl->AsFixed();
     if (dm) {
@@ -1167,11 +1173,13 @@ void DeleteControllerAsync(DocController* ctrl) {
     }
     AtomicIntInc(&gPendingControllerDeletes);
     auto fn = MkFunc0<DocController>(WaitForRendersThenDelete, ctrl);
-    if (!StartThread(fn, StrL("DeleteController"))) {
+    ThreadHandle thread = StartThread(fn, StrL("DeleteController"));
+    if (!thread) {
         // couldn't spawn: fall back to deleting (and waiting) right here
         AtomicIntDec(&gPendingControllerDeletes);
         delete ctrl;
     }
+    SafeCloseThreadHandle(&thread);
 }
 
 // Called during shutdown, before the render cache goes away: the scratch threads

@@ -35,6 +35,7 @@ The completed E18–E22 review has these records:
 - E26: [Automatic reload and unsaved edits](#e26-automatic-reload-2026-11-10).
 - E27: [Missing source and unsaved edits](#e27-missing-source-2026-11-10).
 - E30: [Network comic cache](#e30-network-comic-cache-2026-11-10).
+- E31: [Controller-delete handles](#e31-controller-delete-handles-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2942,6 +2943,29 @@ no ng GUI test, Release build or full suite was run. Tests used the reachable
 local administrative UNC share and hidden desktops outside the sandbox.
 Hashes, commands and results are in [the evidence record](data/e30-2026-11-10.json).
 
+## E31 controller-delete handles (2026-11-10)
+
+Completed E31 on `c27fcd623` plus these changes. `DeleteControllerAsync`
+retains the thread handle and closes it after creation. Rendering still finishes
+before UI-thread destruction; failed thread creation still deletes synchronously.
+E32's shutdown contract remains separate.
+
+Before the fix, both engines gained 24 HANDLEs over 24 closes during rendering.
+The completed-render controls gained two. `controller-delete-handles` uses a
+Debug-only barrier to verify the asynchronous path, waits for each deletion,
+compares process handle counts and destroys a frame while its delete is pending.
+The first fixed run reported +5 on MuPDF and +0 on PDFium; the original allowance
+of four failed. The final test uses six warm-ups and an allowance of eight
+process-wide handles, below the reproduced one-handle-per-close growth.
+
+Debug and ASan each passed three consecutive runs on both engines, including
+frame destruction and graceful shutdown. Every final group had zero handle growth.
+Both builds had zero warnings/errors;
+control-ID lint passed. Tests ran on hidden desktops outside the sandbox.
+Thread-creation failure was reviewed but not injected. No Release build, ng GUI
+check or full suite was run. Commands, executable hashes and counts are in
+[the evidence record](data/e31-2026-11-10.json).
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3106,6 +3130,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E28 | Roll back failed signature preparation (R3, P2)                                                                                                                                                                                                                                             | done — Roll back failed signature preparation (E28); [results](#e28-signature-rollback-2026-11-10)                                                                                                                                      |
 | E29 | Invalidate form text/search after edits (R4, P2)                                                                                                                                                                                                                                            | done — Refresh form text and search caches (E29); [results](#e29-form-text-cache-2026-11-10)                                                                                                                                            |
 | E30 | Validate network CBX cache freshness (R5, P2)                                                                                                                                                                                                                                               | done — Version network comic caches (E30); [results](#e30-network-comic-cache-2026-11-10)                                                                                                                                               |
+| E31 | Close the asynchronous controller-delete thread handle (R6, P2)                                                                                                                                                                                                                             | done — Close controller deletion thread handles (E31); [results](#e31-controller-delete-handles-2026-11-10)                                                                                                                             |
 
 ### F. Manual acceptance
 

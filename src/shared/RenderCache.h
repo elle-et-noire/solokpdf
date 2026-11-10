@@ -282,5 +282,9 @@ struct RenderCache {
 void ToggleRenderInfoWindow();
 bool IsRenderInfoWindowVisible();
 
+#if IS_DEBUG && !defined(SUMATRA_NG)
+int TestRenderHold(Str action);
+#endif
+
 void ToggleCacheInfoWindow();
 bool IsCacheInfoWindowVisible();

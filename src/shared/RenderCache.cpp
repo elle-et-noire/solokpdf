@@ -49,6 +49,32 @@ static bool IsTileVisible(DisplayModel* dm, int pageNo, TilePosition tile, float
 static bool gShowTileLayout = false;
 int gMaxRenderThreads = 8;
 
+#if IS_DEBUG && !defined(SUMATRA_NG)
+static AtomicInt gTestRenderHold;
+static AtomicInt gTestHeldRenders;
+
+int TestRenderHold(Str action) {
+    if (str::Eq(action, StrL("hold"))) {
+        AtomicIntSet(&gTestRenderHold, 1);
+    } else if (str::Eq(action, StrL("release"))) {
+        AtomicIntSet(&gTestRenderHold, 0);
+    }
+    return AtomicIntGet(&gTestHeldRenders);
+}
+
+// Hold a published request so tab close must wait for its renderer.
+static void WaitForTestRenderHold() {
+    if (!AtomicIntGet(&gTestRenderHold)) {
+        return;
+    }
+    AtomicIntInc(&gTestHeldRenders);
+    while (AtomicIntGet(&gTestRenderHold)) {
+        SleepInMs(10);
+    }
+    AtomicIntDec(&gTestHeldRenders);
+}
+#endif
+
 // Whether to run the bitmap recolor pass when no dark profile applies.
 // MuPDF, DjVu, and native HTML-layout ebook engines (CHM, EPUB, MOBI, …)
 // are recolored; image/comic collections keep original pixels.
@@ -1466,6 +1492,10 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
     if (!cache->GetNextRequest(&req, threadIdx)) {
         return false;
     }
+
+#if IS_DEBUG && !defined(SUMATRA_NG)
+    WaitForTestRenderHold();
+#endif
 
     if (!req.dm->PageVisibleNearbyLocked(req.pageNo) && !req.renderFinishedCb.IsValid()) {
         return true;

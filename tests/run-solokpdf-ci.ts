@@ -72,8 +72,10 @@ import { testit as missingSourceUnsaved } from "./missing-source-unsaved.ts";
 import { testit as signRollback } from "./sign-rollback.ts";
 import { testit as formTextCache } from "./form-text-cache.ts";
 import { testit as cbrNetworkUnrar } from "./cbr-network-unrar.ts";
+import { testit as controllerDeleteHandles } from "./controller-delete-handles.ts";
 
 const tests: NamedTest[] = [
+  ["controller-delete-handles", controllerDeleteHandles],
   ["cbr-network-unrar", cbrNetworkUnrar],
   ["form-text-cache", formTextCache],
   ["sign-rollback", signRollback],

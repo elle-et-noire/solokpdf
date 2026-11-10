@@ -797,6 +797,7 @@ enum class ControlCmd : u16 {
     TestFocusState = 171,
     TestClipboardFormat = 172,
     TestActivationTrace = 173,
+    TestControllerDelete = 174,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1933,6 +1934,20 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             int page = tab->ctrl ? tab->ctrl->CurrentPageNo() : 0;
             AppendTestResult(req, 0, fmt("path=%s page=%d", tab->filePath, page));
+            break;
+        }
+
+        case ControlCmd::TestControllerDelete: {
+#if IS_DEBUG
+            if (!gForTesting) {
+                AppendError(req, StrL("requires -for-testing"));
+                break;
+            }
+            int held = TestRenderHold(StringArg(req, 0));
+            AppendTestResult(req, 0, fmt("held=%d pending=%d", held, TestPendingControllerDeletes()));
+#else
+            AppendTestResult(req, 0, StrL("unsupported"));
+#endif
             break;
         }
 

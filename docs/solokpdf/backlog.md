@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-10. E23–E25 are complete within the recorded review scope.
-E26–E30 are complete; E31–E37 remain open fixes and regression checks.
+E26–E31 are complete; E32–E37 remain open fixes and regression checks.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -20,9 +20,9 @@ them passed. Their earlier procedures and pending-check records are historical.
 ## Next steps
 
 Continue with E34, E37 and E32 using the [review priorities](full-review-results.md#e25-再点検).
-Continue with E35/E36, E33 and E31. Detailed edit-change detection
+Continue with E35/E36 and E33. Detailed edit-change detection
 belongs to E36. E37's partial-redaction notification is P1.
-E31 can proceed independently; keep its HANDLE fix separate from E32.
+E31's completed HANDLE fix is independent of E32.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
 explicitly requested.
@@ -40,7 +40,6 @@ read; check build and test infrastructure where the investigation or a change re
 
 | ID  | Item                                                                 | Status                                                                                                                                      |
 | --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| E31 | Close the asynchronous controller-delete thread handle (R6, P2)      | todo — code finding; retain/close HANDLE, compare repeated closes and check ASan                                                            |
 | E32 | Guarantee worker lifetime when render-cache shutdown times out (P1)  | todo — stop before pending-delete/shared cleanup; clear requests on exit; account for dangerous threads; retain dependencies if not stopped |
 | E33 | Distinguish failed page text extraction from a completed empty page  | todo — failure/recovery reproduced in PDFium: raw text recovers, cached text stays empty (R7, P2); add explicit failure result              |
 | E34 | Verify targets after synchronous reload and Save As dialogs (R9, P1) | todo — DDE during Save As saves the other tab; Debug/ASan reproduced; reload cleanup also retained an ASan lifetime diagnostic              |

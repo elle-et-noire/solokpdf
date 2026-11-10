@@ -74,6 +74,19 @@ maps encapsulation checks to the existing tests. `ad-hoc-tree-lifetime` includes
 `event-name`, which destroys the tree synchronously during a name-change WinEvent.
 Run startup/layout checks after builds finish; keep the executable hash fixed during each set.
 
+### Controller deletion (E31)
+
+Run `tests/controller-delete-handles.ts` through the hidden runner with Debug
+and ASan. Both engines repeat 24 closes after rendering and 24 closes while a
+Debug-only barrier holds a published render request. Each close checks the
+pending-delete path, releases the barrier and waits for deletion before sampling
+process HANDLE counts. Six warm-up closes precede each group; the process-wide
+growth allowance is eight handles. The same test destroys the parent frame
+while deletion is pending, then checks completion and graceful exit.
+
+The test runs in the regular and SolokPDF CI sets; Release and ng skip it.
+It does not exercise thread-creation failure or E32's render-cache shutdown timeout.
+
 ### Network comic cache (E30)
 
 Run `tests/cbr-network-unrar.ts` through the hidden runner with Debug and ASan.
