@@ -8,7 +8,7 @@ group (B76, C2, D14, E23, F4).
 
 ## Implementation and acceptance
 
-E10–E16 and D8–D13 records are in [history.md](history.md#navigation).
+E10–E17 and D8–D13 records are in [history.md](history.md#navigation).
 E16 is committed as
 `fc8b455e8`; its regular CI passed Debug/Release builds, unit tests and feature
 tests. See [D12's evidence and limits](history.md#d12-hosted-evidence-2026-11-10).
@@ -18,22 +18,12 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-CI coverage expansion is committed as `9083edafe`. D13 is complete: its first
-regular CI and the latest run at `7d107cea8` passed. E17's first manual ASan
-run at `7d107cea8` built successfully, but both tests failed before opening
-their windows; see the [diagnosis](history.md#hosted-d13e17-validation-2026-11-10).
-
-| ID  | Work                                                                             | Status                                                                                       |
-| --- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| E17 | Run a clean ASan build, tree lifetime and PDFium fallback checks manually/weekly | doing — local runtime-selection fix and repeated targeted tests passed; hosted retry pending |
-
-Implementation and local results are in [history.md](history.md#ci-coverage-expansion-2026-11-10).
-The local fix shares runtime selection between `cmd/build.ts` and
-`cmd/run-unit-tests.ts`, using the installed default MSVC toolset's x64 DLL.
-Regression checks, the ASan build and both affected tests passed locally;
-the fix is included in `Match ASan runtime to the MSVC toolset`. Rerun E17 and record the
-build and both test results before closing it. The weekly schedule is configured
-on the default branch, `solokpdf-dev`; no full-suite run is required.
+D13 and E17 are complete within their [recorded scope](history.md#hosted-d13e17-validation-2026-11-10).
+Regular CI passed at `9083edafe` and `7d107cea8`. E17's first hosted run exposed
+an incompatible ASan DLL; `00fa812cd` fixes the selection. Its hosted retry
+passed the fresh ASan build, tree lifetime and PDFium fallback tests.
+The weekly schedule is configured on `solokpdf-dev`; no scheduled execution
+has been observed. No new implementation or validation task is selected.
 
 ## Design review
 

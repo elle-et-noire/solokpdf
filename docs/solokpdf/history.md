@@ -2552,8 +2552,26 @@ runtime SHA-256 remained
 Logs are `.work/e17-runtime-{before,after,format,build}.log` and
 `.work/e17-runtime-{ad-hoc-tree-lifetime,ad-hoc-pdfium}-{1,2,3}.log`.
 Repeated build-script checks are `.work/e17-runtime-build-cli-{1,2,3}.log`.
-E17 remains open until a hosted run of the published fix succeeds. No local
-Release build or hosted retry was performed for this correction.
+These local checks ran no Release build or hosted tests; the retry below
+validates the published correction.
+
+### Hosted retry
+
+[ASan run 42762543479](https://github.com/elle-et-noire/solokpdf/actions/runs/42762543479)
+tested `00fa812cda145beff5cc70860b7d11e01c06b4a9` and completed successfully
+at 2026-11-10 05:38:43 UTC (14:38:43 JST).
+
+- The fresh ASan build passed with zero warnings/errors (7m 18s).
+- The runtime log selects MSVC `14.51.36231`'s
+  `bin/Hostx64/x64/clang_rt.asan_dynamic-x86_64.dll`.
+- Tree lifetime passed (15.3s).
+- PDFium missing-DLL fallback, search and error reporting passed (1.4s).
+- Failure-artifact upload was skipped because the run succeeded.
+
+Logs are `.work/e17-retry-build.log` and `.work/e17-retry-job.log`.
+E17 is complete within this manual hosted-validation scope. Its weekly
+schedule remains configured on the default branch; no scheduled execution
+has been observed. The prebuilt PDFium DLL remains uninstrumented.
 
 ## Completed backlog
 
@@ -2705,6 +2723,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E14 | Encapsulate remaining virtual-tree internals                                                                                                                                                                                                                                                | done — Encapsulate virtual-tree internals (`bef32a49c`); [implementation and validation](#e14-virtual-tree-encapsulation-2026-11-10)                                                                                                    |
 | E15 | Review the four committed refactors                                                                                                                                                                                                                                                         | done — owner confirmed completion, 2026-11-10; [record](#e15-refactor-review-2026-11-10)                                                                                                                                                |
 | E16 | Make the PDFium-enabled ASan build reproducible                                                                                                                                                                                                                                             | done — Fix SolokPDF ASan builds (E16) (`fc8b455e8`); build, configuration and GUI checks passed; [record](#e16-asan-build-path-2026-11-10)                                                                                              |
+| E17 | Run a clean ASan build, tree lifetime and PDFium fallback checks manually/weekly                                                                                                                                                                                                            | done — runtime selection fixed in `00fa812cd`; hosted ASan build and both tests passed; [results](#hosted-d13e17-validation-2026-11-10)                                                                                                 |
 | E21 | Centralize color stages and capture effective page colors                                                                                                                                                                                                                                   | done — Centralize page color stage selection (`8bf864e18`); Capture effective page colors; [results](#e21-effective-color-inputs-2026-11-10)                                                                                            |
 | E19 | Clarify render outcomes, color state, alpha, fallback and cancellation                                                                                                                                                                                                                      | done — Clarify render result contracts (E19); [results](#e19-render-results-2026-11-10)                                                                                                                                                 |
 | E22 | Align cache dependencies, render inputs and invalidation                                                                                                                                                                                                                                    | done — Align render cache inputs and invalidation (E22); [results](#e22-cache-contracts-2026-11-10)                                                                                                                                     |
