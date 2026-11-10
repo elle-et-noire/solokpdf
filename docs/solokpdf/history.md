@@ -33,6 +33,7 @@ The completed E18–E22 review has these records:
 - E23–E25: [Operation review, findings and validation](#e23e25-structure-and-code-review-2026-11-10).
   [Priorities, scope correction and completed synthesis](#e25-review-synthesis-2026-11-10).
 - E26: [Automatic reload and unsaved edits](#e26-automatic-reload-2026-11-10).
+- E27: [Missing source and unsaved edits](#e27-missing-source-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2823,6 +2824,43 @@ missing-source save contract, E34's synchronous factory/dialog lifetime work,
 or E28/E36's missing dirty notifications. No Release build, full suite or
 ng GUI test was run.
 
+## E27 missing source (2026-11-10)
+
+Completed E27 on `396ddd0b2` plus these changes. Closing a dirty document
+now asks about unsaved edits before checking its source path. Retained memory
+and owned PDFium read handles allow Save to new PDF after rename/delete.
+A missing mmap source offers Cancel and explicit Discard, with instructions
+to restore the source. Dialog failure cancels closing.
+
+The shared save boundary rejects missing mmap input before reading PDF data
+and rejects an in-place save to a missing path. Save cancellation and failure
+rearm the prompt. Existing dialog engine references and target checks remain.
+Ng's dirty query also retains the prompt; it shares the save guard.
+
+Added `tests/missing-source-unsaved.ts` to the slow and SolokPDF CI sets.
+Before the fix, nine of eleven cases closed without asking; two PDFium
+memory-attachment controls already passed. The final eleven cases passed
+three consecutive Debug runs. They cover both engines, small files, memory
+attachments, PDFium handles, rename/delete, Cancel, SaveNew cancellation,
+failed save/retry, saved values after reopening, and graceful close.
+A junction makes MuPDF's mmap path unavailable without disconnecting a drive:
+direct saves fail, restoring the path enables saving, and Discard closes.
+The first post-fix run exposed a test wait that could select a hidden dialog;
+the test now selects visible dialogs before answering.
+
+The eleven cases also passed Debug ASan (64.9 s). Existing tests passed:
+`auto-reload-unsaved`, `ad-hoc-pdfium-source-lifetime`,
+`ad-hoc-pdfium-saveas`, `ad-hoc-pdfium-memory`. Save As reports Windows denied
+two large MuPDF rename/delete operations; the new junction case covers that
+missing-path condition. Debug, ASan and ng Windows Debug builds passed, as
+did the desktop-input lint. All app tests used hidden desktops outside the sandbox.
+
+Build/test commands, results and hashes are in
+[the evidence record](data/e27-2026-11-10.json).
+E27 is complete for Windows SolokPDF. E34's broader dialog/factory lifetime
+work and E28/E36's missing dirty notifications remain open. No Release build,
+full suite, ng GUI test or physical drive-disconnection test was run.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2983,6 +3021,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E24 | Review operation paths against the structure and code criteria                                                                                                                                                                                                                              | review complete at `a272e9137` plus documentation changes; [scope and evidence](#e24-review-completion-2026-11-10); product fixes remain open                                                                                           |
 | E25 | Prioritize findings and record remaining work and coverage                                                                                                                                                                                                                                  | review complete at `44250b78c` plus documentation changes; [scope and synthesis](#e25-review-synthesis-2026-11-10); detailed design and fixes remain in E26–E37                                                                         |
 | E26 | Preserve unsaved edits during automatic reload (R1, P1)                                                                                                                                                                                                                                     | done — Preserve edits during automatic reload (E26); [results](#e26-automatic-reload-2026-11-10)                                                                                                                                        |
+| E27 | Keep the save prompt after source loss (R2, P1)                                                                                                                                                                                                                                             | done — Preserve edits after source loss (E27); [results](#e27-missing-source-2026-11-10)                                                                                                                                                |
 
 ### F. Manual acceptance
 

@@ -63,6 +63,12 @@ are in [history.md](history.md).
   that input; saving edits uses the editor and then reloads. See
   `tests/ad-hoc-pdfium-source-lifetime.ts`. Overwriting a large file in place
   still requires reload; its open handle is not an immutable snapshot.
+- Closing a dirty document still asks Save/Discard/Cancel after its source
+  path disappears. Small PDFs, memory attachments and PDFium's retained
+  handles allow saving edits to a new PDF. A missing mmap source offers
+  Cancel and Discard; restore the source before saving. Save cancellation
+  and failure keep the edits. `tests/missing-source-unsaved.ts` covers both
+  engines and a missing MuPDF path through a directory junction.
 - `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
   API for it, so MuPDF reads it when the byte scan finds a catalog key. Release
   cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB

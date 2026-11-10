@@ -247,6 +247,7 @@ class EngineMupdf : public EngineBase {
     // load, a big one after its first change). Saving then never re-reads the
     // file, which is slow on a network / cloud drive (discussion #6256)
     fz_buffer* fileBytes = nullptr;
+    bool sourceRetained = false;
     bool fileBytesLoadStarted = false;
     // the file as loaded, to tell whether it changed on disk since
     i64 fileSizeAtLoad = -1;

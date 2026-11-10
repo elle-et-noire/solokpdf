@@ -2748,11 +2748,6 @@ bool AnnotationsNeedSavePrompt(WindowTab* tab) {
     if (!dm) {
         return false;
     }
-    // if the file no longer exists (e.g. USB removed, network drive gone),
-    // don't touch it: the engine memory-maps it
-    if (!file::Exists(dm->GetFilePath())) {
-        return false;
-    }
     return EngineHasUnsavedAnnotations(dm->GetEngine());
 }
 

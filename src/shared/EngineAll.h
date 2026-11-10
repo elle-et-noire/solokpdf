@@ -220,6 +220,7 @@ void EngineMupdfStartHeadingToc(EngineBase* engine, const Func0& onDone, Heading
 void EngineMupdfCancelHeadingToc(EngineBase* engine);
 TempStr EngineMupdfToolPasswordTemp(EngineBase* engine, Str srcPath);
 bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& showErrorFunc);
+bool EngineMupdfCanSave(EngineBase* engine);
 bool EngineMupdfSaveCopy(EngineBase* engine, Str path);
 
 // digitally signing a PDF (SignDocumentDialog.cpp drives this)

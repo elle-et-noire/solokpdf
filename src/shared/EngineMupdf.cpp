@@ -4086,6 +4086,7 @@ bool EngineMupdf::Load(Str path, PasswordUI* pwdUI, FileType kindHint) {
         if (!file) {
             return false;
         }
+        sourceRetained = true;
         ok = LoadFromStream(file, streamName, pwdUI);
         if (!ok) {
             return false;
@@ -4118,6 +4119,7 @@ bool EngineMupdf::Load(Str path, PasswordUI* pwdUI, FileType kindHint) {
     fz_drop_document(ctx, _doc);
     _doc = nullptr;
 
+    sourceRetained = true;
     if (!LoadFromStream(file, FilePath(), pwdUI)) {
         return false;
     }
@@ -11730,6 +11732,12 @@ static Str WhyNotSaveFromMemory(EngineMupdf* e, Str path, const pdf_write_option
 
 static void SyncRedacted(EngineBase* engine, EngineMupdf* e);
 
+// Query only the loaded editor; a missing mmap source must not be read to save.
+bool EngineMupdfCanSave(EngineBase* engine) {
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
+    return e && e->pdfdoc && (e->fileBytes || e->sourceRetained || file::Exists(e->FilePath()));
+}
+
 // re-save current pdf document using mupdf (as opposed to just saving the data)
 // this is used after the PDF was modified by the user (e.g. by adding / changing
 // annotations).
@@ -11752,6 +11760,12 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
     Str currPath = epdf->FilePath();
     if (len(path) == 0) {
         path = currPath;
+    }
+    if (!EngineMupdfCanSave(engine) || (str::Eq(path, currPath) && !file::Exists(currPath))) {
+        if (showErrorFunc.IsValid()) {
+            showErrorFunc.Call(StrL("The source file is unavailable. Restore it or save to a new PDF."));
+        }
+        return false;
     }
     auto* ctx = epdf->Ctx();
     // the first change started reading the file; finish now if it hasn't.
@@ -11980,6 +11994,7 @@ EngineBase* CreateEngineMupdfFromFile(Str path, FileType kind, int displayDPI, P
 
 EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI, Str path) {
     EngineMupdf* engine = new EngineMupdf();
+    engine->sourceRetained = true;
     engine->SetFilePath(path);
     fz_stream* stm = FzStreamFromData(engine->Ctx(), (u8*)data.s, data.len);
     if (!engine->LoadFromStream(stm, nameHint, pwdUI) || !engine->FinishLoading()) {
@@ -11993,6 +12008,7 @@ EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI,
 // The stream owns its reopened handle, so the editor can outlive its PDFium owner.
 EngineBase* CreateEngineMupdfFromHandle(HANDLE file, Str path, PasswordUI* pwdUI) {
     auto* engine = new EngineMupdf();
+    engine->sourceRetained = true;
     engine->SetFilePath(path);
     fz_stream* stream = OpenPdfHandle(engine->Ctx(), file);
     if (!engine->LoadFromStream(stream, StrL("file.pdf"), pwdUI) || !engine->FinishLoading()) {

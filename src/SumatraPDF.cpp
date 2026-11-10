@@ -5080,7 +5080,7 @@ static void InvokeInverseSearch(WindowTab* tab) {
 bool SaveAnnotationsToMaybeNewPdfFile(WindowTab* tab) {
     MainWindow* win = nullptr;
     EngineBase* engine = GetLiveTabEngine(tab, &win);
-    if (!engine) {
+    if (!engine || !EngineMupdfCanSave(engine)) {
         return false;
     }
     if (!IsCurrentTab(win, tab)) {
@@ -5196,7 +5196,8 @@ enum class SaveChoice {
 
 enum class SaveSource {
     File,
-    Data
+    Data,
+    Unavailable
 };
 
 static SaveChoice ShouldSaveAnnotationsDialog(HWND hwndParent, Str filePath, SaveSource source) {
@@ -5204,6 +5205,9 @@ static SaveChoice ShouldSaveAnnotationsDialog(HWND hwndParent, Str filePath, Sav
     TempStr mainInstrA = fmt(Tr("Unsaved changes in '%s'").s, fileName);
     WCHAR* mainInstr = CWStrTemp(mainInstrA);
     auto content = Tr("Save changes?");
+    if (source == SaveSource::Unavailable) {
+        content = Tr("The source file is unavailable. Restore it before saving.");
+    }
 
     constexpr int kBtnIdDiscard = 100;
     constexpr int kBtnIdSaveToExisting = 101;
@@ -5217,8 +5221,10 @@ static SaveChoice ShouldSaveAnnotationsDialog(HWND hwndParent, Str filePath, Sav
         buttons[nButtons].nButtonID = kBtnIdSaveToExisting;
         buttons[nButtons++].pszButtonText = CWStrTemp(Tr("&Save to existing PDF"));
     }
-    buttons[nButtons].nButtonID = kBtnIdSaveToNew;
-    buttons[nButtons++].pszButtonText = CWStrTemp(Tr("Save to &new PDF"));
+    if (source != SaveSource::Unavailable) {
+        buttons[nButtons].nButtonID = kBtnIdSaveToNew;
+        buttons[nButtons++].pszButtonText = CWStrTemp(Tr("Save to &new PDF"));
+    }
     buttons[nButtons].nButtonID = kBtnIdDiscard;
     buttons[nButtons++].pszButtonText = CWStrTemp(Tr("&Discard changes"));
     buttons[nButtons].nButtonID = IDCANCEL;
@@ -5248,8 +5254,10 @@ static SaveChoice ShouldSaveAnnotationsDialog(HWND hwndParent, Str filePath, Sav
 
     auto hr = TaskDialogIndirect(&dialogConfig, &buttonPressedId, nullptr, nullptr);
     ReportIf(hr == E_INVALIDARG);
-    bool discard = (hr != S_OK) || (buttonPressedId == kBtnIdDiscard);
-    if (discard) {
+    if (hr != S_OK) {
+        return SaveChoice::Cancel;
+    }
+    if (buttonPressedId == kBtnIdDiscard) {
         return SaveChoice::Discard;
     }
     switch (buttonPressedId) {
@@ -5291,21 +5299,17 @@ bool MaybeSaveAnnotations(WindowTab* tab) {
     if (IsStressTesting()) {
         return true;
     }
-    // if the file no longer exists (e.g. USB removed, network drive disconnected),
-    // don't try to access it - engine uses memory-mapped I/O and accessing
-    // pages of a gone file causes EXCEPTION_IN_PAGE_ERROR
+    if (!EngineHasUnsavedAnnotations(engine)) {
+        return true;
+    }
     auto filePath = dm->GetFilePath();
     bool dataBacked = false;
 #if defined(SOLOKPDF_PDFIUM)
     dataBacked = EnginePdfiumIsDataBacked(engine);
 #endif
-    if (!dataBacked && !file::Exists(filePath)) {
-        logf("MaybeSaveAnnotations: file '%s' no longer exists, skipping\n", filePath);
-        return true;
-    }
-    bool shouldConfirm = EngineHasUnsavedAnnotations(engine);
-    if (!shouldConfirm) {
-        return true;
+    SaveSource source = SaveSource::Unavailable;
+    if (EngineMupdfCanSave(engine)) {
+        source = !dataBacked && file::Exists(filePath) ? SaveSource::File : SaveSource::Data;
     }
     tab->askedToSaveAnnotations = true;
     MainWindow* win = tab->win;
@@ -5313,8 +5317,7 @@ bool MaybeSaveAnnotations(WindowTab* tab) {
     engineBeforeDialog->AddRef();
     AutoCall releaseEngine(SafeEngineRelease<EngineBase>, &engineBeforeDialog);
     Str displayPath = dataBacked && tab->displayName ? Str(tab->displayName) : dm->GetFilePath();
-    auto choice =
-        ShouldSaveAnnotationsDialog(win->hwndFrame, displayPath, dataBacked ? SaveSource::Data : SaveSource::File);
+    auto choice = ShouldSaveAnnotationsDialog(win->hwndFrame, displayPath, source);
     // The dialog pumps messages; validate tab itself, not just its former window.
     // A tab can be closed or its engine replaced while the window stays alive.
     win = FindMainWindowByTab(tab);

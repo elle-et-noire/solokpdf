@@ -1,0 +1,214 @@
+{
+  "date": "2026-11-10",
+  "item": "E27",
+  "baseCommit": "396ddd0b2",
+  "scope": "Windows SolokPDF missing-source save prompt; mupdf and pdfium. Ng dirty-query correction and shared save guard compile-checked only.",
+  "before": {
+    "result": "failed",
+    "cases": 11,
+    "failed": 9,
+    "passed": 2,
+    "durationSeconds": 23.7,
+    "log": ".work/e27-before.log",
+    "binaryHash": "not captured before rebuild"
+  },
+  "after": [
+    {
+      "config": "Debug",
+      "cases": 11,
+      "result": "passed",
+      "durationSeconds": 30.5,
+      "log": ".work/e27-after.log"
+    },
+    {
+      "config": "Debug",
+      "cases": 11,
+      "result": "passed",
+      "durationSeconds": 33.3,
+      "log": ".work/e27-1-missing-source-unsaved.log"
+    },
+    {
+      "config": "Debug",
+      "cases": 11,
+      "result": "passed",
+      "durationSeconds": 36.8,
+      "log": ".work/e27-2-missing-source-unsaved.log"
+    },
+    {
+      "config": "Debug ASan",
+      "cases": 11,
+      "result": "passed",
+      "durationSeconds": 64.9,
+      "log": ".work/e27-asan.log"
+    }
+  ],
+  "coverage": [
+    "real WM_CLOSE retains prompt after source loss; no helper discard before assertions",
+    "small PDFs and embedded memory attachments in both engines; rename and delete",
+    "33 MiB PDFium owned handle; rename and delete",
+    "Cancel preserves dirty state and edited value; SaveNew dialog cancellation does too",
+    "failed SaveNew retains edits, rearms prompt and allows successful retry",
+    "successful SaveNew closes gracefully; reopened field contains saved value and starts clean",
+    "33 MiB MuPDF mmap path loss via junction rename before editing prevents memory promotion",
+    "missing mmap input offers Cancel/Discard without save buttons; direct existing/new saves fail",
+    "restoring mmap path enables save choices; Cancel and explicit Discard work"
+  ],
+  "targetedTests": [
+    {
+      "name": "auto-reload-unsaved",
+      "result": "passed",
+      "durationSeconds": 52.1,
+      "log": ".work/e27-3-auto-reload-unsaved.log"
+    },
+    {
+      "name": "ad-hoc-pdfium-source-lifetime",
+      "result": "passed",
+      "durationSeconds": 35.6,
+      "log": ".work/e27-4-ad-hoc-pdfium-source-lifetime.log"
+    },
+    {
+      "name": "ad-hoc-pdfium-saveas",
+      "result": "passed",
+      "durationSeconds": 19.9,
+      "log": ".work/e27-5-ad-hoc-pdfium-saveas.log"
+    },
+    {
+      "name": "ad-hoc-pdfium-memory",
+      "result": "passed",
+      "durationSeconds": 4,
+      "log": ".work/e27-6-ad-hoc-pdfium-memory.log"
+    }
+  ],
+  "targetedLimits": [
+    "ad-hoc-pdfium-saveas reports Windows denied rename/delete for the direct MuPDF large-file handle (2 cases); E27's junction case tests missing mmap path without that denial"
+  ],
+  "builds": ["bun cmd/solok-build.ts -quick", "bun cmd/solok-build.ts -asan", "bun cmd/ng-build.ts -dbg"],
+  "command": "bun tools/solokpdf/run-hidden.ts -- bun tests/missing-source-unsaved.ts --no-build",
+  "execution": "All app tests outside sandbox on hidden desktops; sequential runs. ASan uses SUMATRA_TEST_EXE=out/dbg64_asan/SumatraPDF-static.exe and documented ASAN_OPTIONS.",
+  "harnessCorrection": "Initial post-fix run had a Quit timeout in one case; dialog lookup could select hidden windows. Visible-dialog lookup then passed three consecutive Debug runs and ASan.",
+  "lint": "bun tests/lint-desktop-input.ts passed",
+  "notRun": ["Release", "full suites", "ng GUI", "physical drive or network disconnection"],
+  "remaining": ["E34 synchronous factory/dialog lifetime", "E28/E36 missing dirty notifications"],
+  "files": [
+    {
+      "path": ".work/e27-before.log",
+      "sha256": "49869b1b73d68e19009f34afdc67529f95e6966da74a8e16001567733137acec",
+      "bytes": 965
+    },
+    {
+      "path": ".work/e27-after.log",
+      "sha256": "dc3d2477e85db5bd62f97b5185c5729c9ccc273b050925be625f92b419a974b6",
+      "bytes": 798
+    },
+    {
+      "path": ".work/e27-1-missing-source-unsaved.log",
+      "sha256": "426b392285922694b20932922d55236b320927f59146d7752f483def19110771",
+      "bytes": 798
+    },
+    {
+      "path": ".work/e27-2-missing-source-unsaved.log",
+      "sha256": "65dc7f81585c166c34f678631bd89cd3c5181cd147fefde40b1c855628f4d33a",
+      "bytes": 798
+    },
+    {
+      "path": ".work/e27-asan.log",
+      "sha256": "6e8eae3185988c67eee432c864739512598e94734818886ae3255618e0c5ba62",
+      "bytes": 800
+    },
+    {
+      "path": ".work/e27-3-auto-reload-unsaved.log",
+      "sha256": "bbbc44e619f5eecc4bb134d7428f31a18de68745c047347c8a0a8cedeaccdccb",
+      "bytes": 560
+    },
+    {
+      "path": ".work/e27-4-ad-hoc-pdfium-source-lifetime.log",
+      "sha256": "36a1f8facbdf94c07c43aab5169788f4f41fd9afa28b1f692570f1fe8453c776",
+      "bytes": 479
+    },
+    {
+      "path": ".work/e27-5-ad-hoc-pdfium-saveas.log",
+      "sha256": "8d829c4285e1b8eacd60c8d948d7556e29697d26f288ee1ee0bbbf737bbfa74b",
+      "bytes": 452
+    },
+    {
+      "path": ".work/e27-6-ad-hoc-pdfium-memory.log",
+      "sha256": "9ea57aff3ab6f133ca82658df8247c06773254d60ed3ff9802720031731169ac",
+      "bytes": 174
+    },
+    {
+      "path": ".work/e27-build.log",
+      "sha256": "78462d834128fee4cacc214c2270ebe025933ec3ff72d05ac8a0920040bd3a8a",
+      "bytes": 100161
+    },
+    {
+      "path": ".work/e27-asan-build.log",
+      "sha256": "156ef2007b39dc52ce6ca3f1b7388dba4bcf06f05110e983d2ef40f922abf23f",
+      "bytes": 92145
+    },
+    {
+      "path": ".work/e27-ng-build.log",
+      "sha256": "21bf9a01d0b70868f1b884a74d3fefd8d51b7d47f02edfb16f1901e4ce13c1df",
+      "bytes": 1824
+    },
+    {
+      "path": ".work/e27-lint-desktop-input.log",
+      "sha256": "d613d9bc9bd40cab9bf4ee43fa80896aba5fc79929c90b7c69f0db2840d30511",
+      "bytes": 48
+    },
+    {
+      "path": "out/dbg64/SumatraPDF.exe",
+      "sha256": "f9df2ab935449af4686911e9ebb7bf30ac8d5a4d41ba4a25691b58a01f166613",
+      "bytes": 24322048
+    },
+    {
+      "path": "out/dbg64_asan/SumatraPDF-static.exe",
+      "sha256": "79f537dd7b3eedd75796b7bcc84b9f73f3edf73584d34b8e59c6386c375e0f7f",
+      "bytes": 70910464
+    },
+    {
+      "path": "out/win/dbg/SumatraPDF.exe",
+      "sha256": "0eb74e39adca5c59196593a57680f0c0bf8f668d8b67f5fac23fd98b667d3647",
+      "bytes": 50839040
+    },
+    {
+      "path": "src/SumatraPDF.cpp",
+      "sha256": "5c3f66c87c34da7b49ab26c98016af7aa3dcce5c3e9dafd8673c5ca44321e25c",
+      "bytes": 657689
+    },
+    {
+      "path": "src/ng/SumatraPDF.cpp",
+      "sha256": "4e81baa2b5fe2d2ff546861499a5a224d518510206bb71cfa2e929acd4300fee",
+      "bytes": 268063
+    },
+    {
+      "path": "src/shared/EngineAll.h",
+      "sha256": "6e8fac8825ec4b1245283d0d140a66e5b608df2d4296cd3582ec0a37e98e9a53",
+      "bytes": 16884
+    },
+    {
+      "path": "src/shared/EngineMupdf.cpp",
+      "sha256": "3f387087bcdeae71bbb7e4d0b1681303d9843d4feda4eba7570aa131291cfd74",
+      "bytes": 497256
+    },
+    {
+      "path": "src/shared/EngineMupdf.h",
+      "sha256": "2ed8e0eea81ef12ddbe1b89e75bdd37fd7b49ccc93aeca89a313ca9b26fd3b26",
+      "bytes": 14785
+    },
+    {
+      "path": "tests/missing-source-unsaved.ts",
+      "sha256": "7c08f99cf230da42586f21eae1dec343720885e6f7dfe25e69b103a94286a8ef",
+      "bytes": 9218
+    },
+    {
+      "path": "tests/run-all.ts",
+      "sha256": "7848f93051806fee13d72ee5ca2bbb80af93cabb2abfc0163d05cceb705e07e6",
+      "bytes": 6684
+    },
+    {
+      "path": "tests/run-solokpdf-ci.ts",
+      "sha256": "081250b766f1ec786b47d7f247bdae42366ec3bf9525b96504bdd96af448f40e",
+      "bytes": 9318
+    }
+  ]
+}
