@@ -599,8 +599,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
-  ["theme-annotation-failure", themeAnnotationFailure],
   ["build-cli", buildCli],
+  ["theme-annotation-failure", themeAnnotationFailure],
   ["toolbar-wrap", toolbarWrap],
   ["issue-6151", issue6151],
   ["issue-6330", issue6330],

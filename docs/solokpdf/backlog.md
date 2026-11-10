@@ -8,7 +8,7 @@ group (B76, C2, D14, E23, F4).
 
 ## Implementation and acceptance
 
-E10–E16 and D8–D12 records are in [history.md](history.md#navigation).
+E10–E16 and D8–D13 records are in [history.md](history.md#navigation).
 E16 is committed as
 `fc8b455e8`; its regular CI passed Debug/Release builds, unit tests and feature
 tests. See [D12's evidence and limits](history.md#d12-hosted-evidence-2026-11-10).
@@ -18,20 +18,22 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-CI coverage expansion after D12 is committed as `9083edafe`. At 2026-11-10
-03:01 JST, its regular CI was building Debug and Release; no ASan runs were
-listed. See the [hosted snapshot](history.md#hosted-snapshot-2026-11-10).
+CI coverage expansion is committed as `9083edafe`. D13 is complete: its first
+regular CI and the latest run at `7d107cea8` passed. E17's first manual ASan
+run at `7d107cea8` built successfully, but both tests failed before opening
+their windows; see the [diagnosis](history.md#hosted-d13e17-validation-2026-11-10).
 
-| ID  | Work                                                                             | Status                                                                     |
-| --- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| D13 | Add the four existing virtual-tree checks to regular SolokPDF CI                 | doing — committed; local validation recorded; first hosted run in progress |
-| E17 | Run a clean ASan build, tree lifetime and PDFium fallback checks manually/weekly | doing — clean local build and both checks passed; first hosted run pending |
+| ID  | Work                                                                             | Status                                                                                       |
+| --- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| E17 | Run a clean ASan build, tree lifetime and PDFium fallback checks manually/weekly | doing — local runtime-selection fix and repeated targeted tests passed; hosted retry pending |
 
 Implementation and local results are in [history.md](history.md#ci-coverage-expansion-2026-11-10).
-Record the completed regular CI run for D13 and a manual run of
-`solokpdf-asan.yml` for E17. Record revision, run URL, step results and failures;
-neither task requires a full-suite run. The weekly ASan schedule starts when
-its workflow reaches the default branch.
+The local fix shares runtime selection between `cmd/build.ts` and
+`cmd/run-unit-tests.ts`, using the installed default MSVC toolset's x64 DLL.
+Regression checks, the ASan build and both affected tests passed locally;
+the fix is included in `Match ASan runtime to the MSVC toolset`. Rerun E17 and record the
+build and both test results before closing it. The weekly schedule is configured
+on the default branch, `solokpdf-dev`; no full-suite run is required.
 
 ## Design review
 

@@ -1,8 +1,9 @@
-import { copyFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { copyFileSync, readdirSync, statSync } from "node:fs";
 import { cpus } from "node:os";
 import { join, relative } from "node:path";
 import { $ } from "bun";
 import { clearDirPreserveSettings } from "./clean";
+import { asanDllName, findAsanDll } from "./helper/asan-runtime";
 import { ensureNinja, ninjaDir, ninjaToRoot } from "./ninja";
 import { detectVisualStudio2026, runLogged } from "./util";
 
@@ -237,37 +238,14 @@ function printBinaries(dir: string, targets: Set<string>): void {
   }
 }
 
-const asanDllName = "clang_rt.asan_dynamic-x86_64.dll";
-
-function findAsanDll(vsRoot: string): string {
-  const candidates = [join(vsRoot, String.raw`VC\Tools\MSVC`), join(vsRoot, String.raw`VC\Tools\Llvm\x64\lib\clang`)];
-  const walk = (dir: string): string | undefined => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        const found = walk(path);
-        if (found) return found;
-      } else if (entry.name === asanDllName) {
-        return path;
-      }
-    }
-    return undefined;
-  };
-  for (const base of candidates) {
-    if (existsSync(base)) {
-      const found = walk(base);
-      if (found) return found;
-    }
-  }
-  throw new Error(`could not find ${asanDllName} under ${vsRoot}`);
-}
-
 async function buildWindowsAsan(config: Config, clean: boolean, ninja: boolean): Promise<void> {
   const configName = config === "release" ? "Release" : "Debug";
   const outDir = join("out", config === "release" ? "rel64_asan" : "dbg64_asan");
   console.log(`${configName} ASan build (SumatraPDF-static.exe, x64_asan)`);
   if (clean) clearDirPreserveSettings(outDir);
   const { msbuildPath, vsRoot } = detectVisualStudio2026();
+  const asanDll = findAsanDll(vsRoot);
+  console.log(`ASan runtime: ${asanDll}`);
   if (ninja) {
     await buildNinja([join(ninjaToRoot, outDir, "SumatraPDF-static.exe")]);
   } else {
@@ -279,7 +257,7 @@ async function buildWindowsAsan(config: Config, clean: boolean, ninja: boolean):
     ]);
   }
   printBinaries(outDir, new Set(["SumatraPDF-static.exe"]));
-  copyFileSync(findAsanDll(vsRoot), join(outDir, asanDllName));
+  copyFileSync(asanDll, join(outDir, asanDllName));
   console.log(`exe: ${join(outDir, "SumatraPDF-static.exe")}`);
 }
 

@@ -1,8 +1,7 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { asanDllName, findAsanDll } from "./helper/asan-runtime";
 import { detectVisualStudio2026, runLogged } from "./util";
-
-const asanDllName = "clang_rt.asan_dynamic-x86_64.dll";
 
 type BuildKind = "dbg" | "dbg32" | "asan";
 
@@ -33,30 +32,9 @@ function parseArgs(): BuildKind {
   return kind;
 }
 
-function findAsanDll(vsRoot: string): string {
-  const candidates = [join(vsRoot, String.raw`VC\Tools\MSVC`), join(vsRoot, String.raw`VC\Tools\Llvm\x64\lib\clang`)];
-  const walk = (dir: string): string | undefined => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        const hit = walk(path);
-        if (hit) return hit;
-      } else if (entry.name === asanDllName) {
-        return path;
-      }
-    }
-    return;
-  };
-  for (const base of candidates) {
-    if (!existsSync(base)) continue;
-    const hit = walk(base);
-    if (hit) return hit;
-  }
-  throw new Error(`could not find ${asanDllName} under ${vsRoot}`);
-}
-
 function copyAsanRuntime(vsRoot: string, outDir: string): void {
   const src = findAsanDll(vsRoot);
+  console.log(`ASan runtime: ${src}`);
   const dst = join(outDir, asanDllName);
   copyFileSync(src, dst);
 }

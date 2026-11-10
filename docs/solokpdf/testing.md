@@ -92,6 +92,9 @@ Run app tests outside the sandbox, on the hidden desktop. The options match
 the project's ASan debugger environment, disabling legacy-allocator hooks and
 loading the checked-in suppressions. The test runner copies the ASan DLL into
 its isolated executable directory. The wrapper does not create a portable ZIP.
+Build and unit-test scripts use the installed default MSVC toolset's x64 ASan
+DLL and print its path. A missing runtime fails instead of using another toolset
+or LLVM's runtime. `bun tests/build-cli.ts` checks this selection without compiling.
 The pinned PDFium DLL is not ASan-instrumented.
 See [E16's results](history.md#e16-asan-build-path-2026-11-10) and the
 [earlier workaround](history.md#e14-virtual-tree-encapsulation-2026-11-10).
@@ -123,7 +126,7 @@ The prebuilt PDFium DLL remains uninstrumented.
 GitHub requires the workflow on the default branch for
 [scheduled and manual execution](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
 The repository's default branch is `solokpdf-dev`. D13/E17 are committed as
-`9083edafe`; dated hosted status is in the [validation record](history.md#hosted-snapshot-2026-11-10),
+`9083edafe`; dated hosted status is in the [validation record](history.md#hosted-d13e17-validation-2026-11-10),
 and remaining work is in the [backlog](backlog.md#next-steps).
 
 ### Physical tree checks

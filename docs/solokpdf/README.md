@@ -18,10 +18,14 @@ rendered output.
 
 The CI coverage baseline is `9083edafe` on `solokpdf-dev`. It commits four virtual-tree checks in
 regular CI (D13) and a manual/weekly ASan workflow (E17).
-At 2026-11-10 03:01 JST, [regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/42669207693)
-was building Debug and Release; no ASan runs were listed.
-The latest recorded successful regular CI tested `fc8b455e8` (D12).
-E10–E16 and D8–D12 are complete within their recorded scope.
+[Latest regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/42755793358)
+passed Debug/Release builds, 105115 unit tests and 70/70 feature tests at `7d107cea8`.
+D13's four tree checks passed. E17's first hosted ASan build passed, but both
+tests failed at startup because the staged ASan DLL lacks required exports;
+see the [hosted validation record](history.md#hosted-d13e17-validation-2026-11-10).
+The runtime-selection fix passed regression checks, an ASan build and
+both affected tests three times each; hosted validation of that fix remains pending.
+E10–E16 and D8–D13 are complete within their recorded scope.
 E18–E22 are complete within their recorded validation scope; see the
 [refactoring plan](refactoring-plan.md) and [backlog](backlog.md).
 Planning docs are committed as `9e1eaac3b`; E21's shared color-stage selection
@@ -60,12 +64,13 @@ removed from active work by the owner on 2026-11-10, without being marked passed
 Results apply only to the revisions and checks listed here. Regular CI does not
 run ASan. The ASan workflow's scope is in [testing.md](testing.md#asan-ci).
 
-| Check                    | Tested revision                 | Recorded result                                                                                                                                                         |
-| ------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D13 regular CI           | `9083edafe`                     | In progress at 03:01 JST; [hosted snapshot](history.md#hosted-snapshot-2026-11-10). No pass recorded yet.                                                               |
-| Latest successful CI     | `fc8b455e8`                     | Debug/Release builds, 105117 unit tests and 65/65 feature tests passed; [D12 evidence and limits](history.md#d12-hosted-evidence-2026-11-10).                           |
-| F2 physical tree checks  | Build unspecified               | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                  |
-| D13/E17 local validation | Change committed as `9083edafe` | Four added tree checks, complete Debug PDFium test, clean ASan build and both ASan checks passed before commit; [results](history.md#ci-coverage-expansion-2026-11-10). |
+| Check                    | Tested revision                    | Recorded result                                                                                                                                                                      |
+| ------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D13 regular CI           | `9083edafe`, `7d107cea8`           | Both runs passed Debug/Release builds and Debug tests; all four added tree checks passed at `7d107cea8`; [results](history.md#hosted-d13e17-validation-2026-11-10).                  |
+| Latest successful CI     | `7d107cea8`                        | Debug/Release builds, 105115 unit tests and 70/70 feature tests passed; [results](history.md#hosted-d13e17-validation-2026-11-10).                                                   |
+| E17 hosted ASan          | `7d107cea8`; runtime-selection fix | Hosted build passed; both tests failed with an incompatible ASan DLL. The fix passed both tests three times each locally; [results](history.md#hosted-d13e17-validation-2026-11-10). |
+| F2 physical tree checks  | Build unspecified                  | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                               |
+| D13/E17 local validation | Change committed as `9083edafe`    | Four added tree checks, complete Debug PDFium test, clean ASan build and both ASan checks passed before commit; [results](history.md#ci-coverage-expansion-2026-11-10).              |
 
 Earlier suite results, targeted rechecks and refactor validation remain in
 [history.md](history.md#navigation).
@@ -79,8 +84,7 @@ preserves the ASan DLL. See the [procedure](testing.md#asan-builds).
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- Check D13/E17's hosted results against the recorded revision before closing
-  them; see the [backlog](backlog.md#next-steps).
+- E17's local runtime-selection fix needs hosted validation; see the [backlog](backlog.md#next-steps).
 - For design work, read the [current architecture](architecture.md) and
   [refactoring plan](refactoring-plan.md). E21 is complete within its recorded
   validation scope. E18/E19/E20/E22 are complete within their recorded scope.

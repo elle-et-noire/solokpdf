@@ -1,10 +1,12 @@
-import { join } from "node:path";
-import { ROOT } from "./util.ts";
+import { dirname, join } from "node:path";
+import { ROOT, tmpPath } from "./util.ts";
 import { outDirName, resolveSources, type BuildFlags } from "../cmd/helper/ng-compile";
 import { forPlatform, targets } from "../cmd/helper/ng-targets";
 import type { Platform } from "../cmd/helper/ng-toolchain";
 import { isShared, sharedFiles } from "../cmd/helper/ng-shared";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { strict as assert } from "node:assert";
+import { asanDllName, findAsanDll } from "../cmd/helper/asan-runtime";
 import { detectVisualStudio2026 } from "../cmd/util";
 
 function run(args: string[], script = "build.ts"): { code: number; stdout: string; stderr: string } {
@@ -18,6 +20,37 @@ function run(args: string[], script = "build.ts"): { code: number; stdout: strin
 
 function check(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
+}
+
+function checkAsanRuntime(): void {
+  const root = mkdtempSync(tmpPath("asan-runtime-"));
+  const version = "14.51.36231";
+  const versionFile = join(root, "VC", "Auxiliary", "Build", "Microsoft.VCToolsVersion.default.txt");
+  const runtime = join(root, "VC", "Tools", "MSVC", version, "bin", "Hostx64", "x64", asanDllName);
+  const write = (path: string, data: string): void => {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, data);
+  };
+  try {
+    write(versionFile, `${version}\r\n`);
+    for (const installed of ["14.44.35207", version, "14.60.40000"]) {
+      write(join(root, "VC", "Tools", "MSVC", installed, "bin", "Hostx64", "x64", asanDllName), installed);
+    }
+    write(join(root, "VC", "Tools", "MSVC", version, "bin", "Hostx64", "arm64", asanDllName), "ARM64");
+    write(join(root, "VC", "Tools", "Llvm", "x64", "lib", "clang", "21", "lib", "windows", asanDllName), "LLVM");
+    assert.equal(findAsanDll(root), runtime, "ASan runtime must match the default MSVC toolset");
+
+    rmSync(runtime);
+    assert.throws(
+      () => findAsanDll(root),
+      (error: unknown) => error instanceof Error && error.message.includes(runtime),
+      "missing runtime must not use another toolset",
+    );
+    rmSync(versionFile);
+    assert.throws(() => findAsanDll(root), /Microsoft\.VCToolsVersion\.default\.txt/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 function checkVs2026Configs(): void {
@@ -48,6 +81,7 @@ function checkVs2026Configs(): void {
 }
 
 export async function testit(): Promise<void> {
+  checkAsanRuntime();
   checkVs2026Configs();
 
   const noArgs = run([]);

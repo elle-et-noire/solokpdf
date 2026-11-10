@@ -8,17 +8,17 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 
 ## Navigation
 
-| Topic                  | Records                                                                                                                                                                                                                                       |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Latest validation      | [D13/E17 hosted snapshot](#hosted-snapshot-2026-11-10), [D12 successful regular CI](#d12-hosted-evidence-2026-11-10), [E16 local ASan checks](#e16-asan-build-path-2026-11-10), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09) |
-| Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09)                                                                                                                                                        |
-| Merge follow-ups       | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                           |
-| Recent implementation  | [E14 tree encapsulation](#e14-virtual-tree-encapsulation-2026-11-10), [tree layout](#virtual-tree-layout-boundary-2026-11-10), [PDFium runtime](#pdfium-runtime-boundary-2026-11-10), [key state](#keyboard-state-boundary-2026-11-10)        |
-| Earlier implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input targets](#e12-input-target-classification-2026-11-09), [E11 settings](#e11-settings-application-2026-11-09), [sidebar rollout](#virtual-sidebar-rollout-2026-11-09)     |
-| Keyboard input         | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                         |
-| Startup and memory     | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                                |
-| Project origin         | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                |
-| Completed work         | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                                  |
+| Topic                  | Records                                                                                                                                                                                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Latest validation      | [D13/E17 hosted results](#hosted-d13e17-validation-2026-11-10), [D12 successful regular CI](#d12-hosted-evidence-2026-11-10), [E16 local ASan checks](#e16-asan-build-path-2026-11-10), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09) |
+| Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09)                                                                                                                                                                |
+| Merge follow-ups       | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                                   |
+| Recent implementation  | [E14 tree encapsulation](#e14-virtual-tree-encapsulation-2026-11-10), [tree layout](#virtual-tree-layout-boundary-2026-11-10), [PDFium runtime](#pdfium-runtime-boundary-2026-11-10), [key state](#keyboard-state-boundary-2026-11-10)                |
+| Earlier implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input targets](#e12-input-target-classification-2026-11-09), [E11 settings](#e11-settings-application-2026-11-09), [sidebar rollout](#virtual-sidebar-rollout-2026-11-09)             |
+| Keyboard input         | [Initial review](#keyboard-input-review-2026-11-04), [current routing and E12/E13 results](keyboard-investigation.md)                                                                                                                                 |
+| Startup and memory     | [Performance measurements](#phase-4-performance-measurements-and-changes), [system font cache](#system-font-cache-2026-10-26), [empty-window memory](#empty-window-direct2d-memory-2026-11-04)                                                        |
+| Project origin         | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                        |
+| Completed work         | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [selection overlay](selection-overlay-plan.md)                                                                                                                          |
 
 The latest CI additions and local checks are recorded under
 [D13/E17](#ci-coverage-expansion-2026-11-10).
@@ -2474,6 +2474,87 @@ called by the Win32 PDFium engine (verified by source search). No ng build,
 local Release or full-suite run was performed. Earlier thumbnail instability
 and hosted D13/E17 follow-ups remain open.
 
+## Hosted D13/E17 validation (2026-11-10)
+
+D13's first [regular CI 42669207693](https://github.com/elle-et-noire/solokpdf/actions/runs/42669207693)
+completed successfully at `9083edafebc72a89ad3fbc24b3d813172ab5da50`, superseding
+the earlier in-progress snapshot. Debug build, unit tests, feature tests,
+Release build and ZIP upload all passed.
+
+The latest [regular CI 42755793358](https://github.com/elle-et-noire/solokpdf/actions/runs/42755793358)
+tested `7d107cea80115a1bf144d2c394c8df6afb6dcb35`. The same steps passed;
+the Debug log reports 105115 unit tests and 70/70 feature tests (3m 35.6s).
+D13's four added tests passed: `ad-hoc-virtual-toc` (6.0s),
+`ad-hoc-virtual-favorites` (5.1s), `ad-hoc-virtual-tree-focus` (1.6s) and
+`ad-hoc-tree-lifetime` (13.8s). E20's `ad-hoc-pdfium-source-lifetime` also
+passed (19.7s). Release was built, not feature-tested. D13 is complete.
+The downloaded Debug log is `.work/e17-regular-ci-debug.log`.
+
+E17's first [manual ASan run 42760461179](https://github.com/elle-et-noire/solokpdf/actions/runs/42760461179)
+was dispatched with `gh workflow run solokpdf-asan.yml --repo elle-et-noire/solokpdf --ref solokpdf-dev`
+and tested the same `7d107cea8` revision. It failed:
+
+- The fresh ASan build passed with zero warnings/errors (3m 56s), using MSVC
+  `14.51.36231`.
+- Tree lifetime failed before opening its first tree: the app exited with
+  code 57 after 305.6ms.
+- PDFium fallback also exited with code 57 before connecting to its control
+  pipe; the test reported failure after its two-minute connection wait.
+- Failure output uploaded successfully as `solokpdf-asan-output`
+  (artifact `13736849626`).
+
+The artifact contains the fallback executable and ASan runtime. `dumpbin`
+found 160 ASan/sanitizer imports in the executable; the staged DLL lacks 41
+of those exports, including `__asan_wrap_static_crt_realloc`. The runtime is
+1,193,496 bytes, SHA-256
+`3AA742521E8CBD23252F0545AA51D5A15624A3E4430FBE2F81567AFAEB3FC59B`.
+The locally validated MSVC runtime (1,881,912 bytes, file version
+`19.51.36256.0`) provides all 160 required exports. This establishes a runtime
+mismatch before the tested application behavior could run.
+
+`cmd/build.ts`'s `findAsanDll` takes the first recursive match under the VS
+installation, independently of the toolset used to build. Select the matching
+MSVC runtime before retrying E17. No build-script change or retry was made
+during this run; E17 remains open. The weekly schedule is configured on the
+default branch; its scheduled execution has not been observed.
+
+Logs are `.work/e17-asan-{build-step,tree-step,job}.log`, downloaded failure
+files are in `.work/e17-asan-output/`, and symbol comparisons are
+`.work/e17-{exe-imports,dll-exports,local-dll-exports}.txt`.
+
+### Runtime-selection correction
+
+Implemented as `Match ASan runtime to the MSVC toolset`.
+Both `cmd/build.ts` and `cmd/run-unit-tests.ts`
+now use `cmd/helper/asan-runtime.ts`. It reads the installed default toolset
+selected by `detectVisualStudio2026` and resolves its `bin/Hostx64/x64` runtime.
+Missing version metadata or runtime fails instead of selecting another MSVC
+version, architecture or LLVM runtime. Both scripts print the runtime path.
+
+The existing `build-cli` test now models older/default/newer MSVC installations,
+an ARM64 runtime and LLVM. Before the fix, it failed by selecting `14.44.35207`
+instead of the default `14.51.36231`. Afterward it passed, including refusing
+other runtimes when the selected DLL or version file is missing. Its suite
+entry moved directly below `issue-5978`. The complete `build-cli` test passed
+three consecutive standalone runs, and Bun bundled the updated unit-test
+runner successfully. No full suite was run.
+
+`bun cmd/solok-build.ts -asan` passed with zero warnings/errors and selected
+`D:\vs2026\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64\clang_rt.asan_dynamic-x86_64.dll`.
+Both affected tests passed three consecutive hidden-desktop runs with the
+documented ASan options and `--no-build`: tree lifetime (32.0s, 16.0s, 15.1s)
+and PDFium `--fallback-only` (1.2s, 1.1s, 1.3s).
+
+Executable SHA-256 remained
+`6E7BE18B324347F52566B5449A74E00947F3F59FA04290F0291E70DF1C72C204`;
+runtime SHA-256 remained
+`7F901A239979C49B36A3B18ECD1843F551F94B5879585BDED41A650C5B71F35F`.
+Logs are `.work/e17-runtime-{before,after,format,build}.log` and
+`.work/e17-runtime-{ad-hoc-tree-lifetime,ad-hoc-pdfium}-{1,2,3}.log`.
+Repeated build-script checks are `.work/e17-runtime-build-cli-{1,2,3}.log`.
+E17 remains open until a hosted run of the published fix succeeds. No local
+Release build or hosted retry was performed for this correction.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2605,6 +2686,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | D10 | Check the merged UI in Light and Dark                                            | done — Debug captures reviewed on both engines; [scope and results](#d10-merged-ui-review-2026-11-09)                                                                                            |
 | D11 | Verify the MuPDF patch ledger byte for byte                                      | done — restored the complete signing patch; 88 patches reproduce all 1410 vendored files; [results](#d11-mupdf-patch-verification-2026-11-09)                                                    |
 | D12 | Record hosted validation for the published revision                              | done — regular CI at `fc8b455e8` passed Debug/Release builds, unit and feature tests; [evidence and limits](#d12-hosted-evidence-2026-11-10)                                                     |
+| D13 | Add the four existing virtual-tree checks to regular SolokPDF CI                 | done — `9083edafe`; first and latest regular CI passed; [results](#hosted-d13e17-validation-2026-11-10)                                                                                          |
 
 ### E. Quality
 
