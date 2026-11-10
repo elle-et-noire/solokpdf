@@ -5799,6 +5799,7 @@ static bool SaveDocAs(MainWindow* win, Str dstPath) {
     DisplayModel* dm = win->AsFixed();
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
     bool dataBacked = false;
+    bool retainedSource = false;
 #if defined(SOLOKPDF_PDFIUM)
     dataBacked = EnginePdfiumIsDataBacked(engine);
     if (len(srcFileName) == 0 && dataBacked) {
@@ -5827,6 +5828,9 @@ static bool SaveDocAs(MainWindow* win, Str dstPath) {
     if (!convertedAsPdf && !str::EndsWithI(realDstFileName, defExt)) {
         realDstFileName = str::JoinTemp(realDstFileName, defExt);
     }
+#if defined(SOLOKPDF_PDFIUM)
+    retainedSource = engine && engine->kind == kindEnginePdfium && !path::IsSame(srcFileName, realDstFileName);
+#endif
 
     logf("Saving '%s' to '%s'\n", srcFileName, realDstFileName);
 
@@ -5834,8 +5838,8 @@ static bool SaveDocAs(MainWindow* win, Str dstPath) {
     // Replace with EngineGetDocumentData() and save that if not empty
     bool ok = true;
     TempStr errorMsg;
-    if (convertedAsPdf || dataBacked || (!file::Exists(srcFileName) && engine)) {
-        // Recreate nonexistent files from memory...
+    if (convertedAsPdf || dataBacked || retainedSource || (!file::Exists(srcFileName) && engine)) {
+        // Copy the open source, which may differ from the current file at its path.
         logf("calling engine->SaveFileAs(%s)\n", realDstFileName);
         ok = engine->SaveFileAs(realDstFileName);
     } else if (!path::IsSame(srcFileName, realDstFileName)) {

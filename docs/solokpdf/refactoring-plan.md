@@ -2,6 +2,7 @@
 
 最初の基準は `9083edafe`。Win32 版を対象とする。
 E21 は `647da5a12` まで実装済み。E18・E19・E22 も実装・対象検証済み。
+E20 の入力保持と寿命の点検結果は [実施記録](history.md#e20-document-lifetime-2026-11-10) に記録する。
 [現行設計](architecture.md) と [作業状態](backlog.md#design-review) を併せて参照する。
 
 目的は、描画・色処理・読み取り・編集の責務と状態を明確にし、同じ判断の重複と暗黙の前提を減らすこと。
@@ -163,6 +164,14 @@ paint からの編集生成を止め、MuPDF の Try テキスト取得は文書
 
 ## E20 文書状態と寿命の整合性を点検する
 
+遅延編集・複製・補助読み取り・Save As を保持中の元データへ揃えた。
+大きいファイルの編集・複製は同じファイル実体を独立したハンドルで開き、ストリーミングを維持する。
+編集が PDFium の所有者より長く生存する場合も入力を所有する。
+実装・対象検証は `Preserve document source lifetimes (E20)` として完了。
+所有権・状態遷移・確認したロック順は [現行設計](architecture.md#所有権と同期)、
+再現・対象検証・未確認範囲は [E20 の記録](history.md#e20-document-lifetime-2026-11-10) を参照する。
+以下は元の完了条件として残す。
+
 1. 元データ、PDFium 文書、遅延編集、描画プローブ、ページ情報、テーマ変換結果の
    所有者・借用先・有効期間・必要なロックを対応付ける。
 2. 開く、編集生成失敗、編集、墨消し適用・Undo、保存、再読み込み、複製、閉じるの状態遷移を確認する。
@@ -190,6 +199,8 @@ paint からの編集生成を止め、MuPDF の Try テキスト取得は文書
 | キャッシュ・サムネイル             | `theme-pdfium-cache`、`ad-hoc-pdfium-theme-switch`、`ad-hoc-pdfium-thumb-theme`。中立 PNG・補正値・古い要求の破棄は変更箇所ごとに既存検証を確認する  |
 | 読み取り・編集                     | `ad-hoc-pdfium-try-reads`、`ad-hoc-pdfium-hover`、`ad-hoc-pdfium-form-hover`、`ad-hoc-pdfium-text`。権限・フォームを変える場合は対応テストを追加する |
 | 文書状態・所有権                   | `ad-hoc-pdfium-redaction-undo`、`ad-hoc-pdfium-saveas`、`ad-hoc-pdfium-memory`、完全版 `ad-hoc-pdfium`。反復寿命を変える場合は `ad-hoc-pdfium-leak`  |
+
+E20 で追加した `ad-hoc-pdfium-source-lifetime` は、元ファイルの移動・置換・削除、自己コピー、所有者破棄後の編集参照、反復複製を検証する。
 
 `ad-hoc-pdfium-thumb-theme` の既存のグレースケール確認も再利用する。
 共有の色方針を変える場合は、影響する非 PDF 経路を選び、EPUB は `epub-theme-restyle` で確認する。

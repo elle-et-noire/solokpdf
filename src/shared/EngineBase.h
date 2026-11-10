@@ -9,6 +9,7 @@ struct IPageDestination;
 struct TocItem;
 struct PropValue;
 struct PageTextCache;
+struct PdfRenderSource;
 enum class DocProp : u8;
 enum class WidgetCursorKind;
 class EngineBase;
@@ -129,7 +130,7 @@ struct PageText {
 void FreePageText(PageText*);
 Str NormalizeCommentNewlinesTemp(Str s);
 void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects);
-int PdfOpenActionPageMupdf(Str path, Str data, Str password, PageLayout* layout);
+int PdfOpenActionPageMupdf(const PdfRenderSource& source, Str password, PageLayout* layout);
 struct PdfPageGeometry {
     SizeF size;
     int rotation = 0;
@@ -145,7 +146,7 @@ struct PdfLinkMupdf {
     Str remoteDest; // owned, free with str::Free
     Str uri;        // owned, free with str::Free
 };
-void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupdf>& links);
+void PdfLinksMupdf(const PdfRenderSource& source, Str password, int pageNo, Vec<PdfLinkMupdf>& links);
 TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password);
 
 // a link destination
@@ -789,7 +790,7 @@ struct PdfViewerPrintPrefs {
 };
 
 bool GetPdfViewerPrintPrefs(EngineBase* engine, PdfViewerPrintPrefs& prefs);
-bool PdfViewerPrintPrefsMupdf(Str path, Str data, Str password, PdfViewerPrintPrefs& prefs);
+bool PdfViewerPrintPrefsMupdf(const PdfRenderSource& source, Str password, PdfViewerPrintPrefs& prefs);
 void SetChapterLayoutHold(bool hold);
 bool SaveFileOrData(Str srcFilePath, Str data, Str dstFilePath);
 

@@ -37,20 +37,22 @@ its workflow reaches the default branch.
 
 The [refactoring plan](refactoring-plan.md) covers rendering, color policy,
 cache invalidation, read contracts and document lifetime. Record the affected
-paths and outputs first, then follow the order below. File splitting is an
+paths and outputs first. File splitting is an
 implementation choice, not a completion criterion. The [current architecture](architecture.md)
 records existing behavior separately from these proposed changes.
 
-| Order | ID  | Work                                                             | Status                                                         |
-| ----- | --- | ---------------------------------------------------------------- | -------------------------------------------------------------- |
-| 1     | E20 | Review document state, ownership, invalidation and lock ordering | todo — next; use preceding results; change identified problems |
+E18–E22 are complete within their recorded validation scope; no design-review
+item remains active.
 
 E21 is complete within its recorded validation scope. Its stage-selection change
 is `8bf864e18`; input capture is recorded under [effective color inputs](history.md#e21-effective-color-inputs-2026-11-10).
 E19 is complete within its [recorded validation scope](history.md#e19-render-results-2026-11-10).
 E22 is complete within its [recorded validation scope](history.md#e22-cache-contracts-2026-11-10).
 E18 is implemented as `Clarify read and editor contracts (E18)`; [read-contract results](history.md#e18-read-contracts-2026-11-10)
-record its local validation and remaining limits. Resume at E20.
+record its local validation and remaining limits.
+E20's retained-input changes and ownership/lock audit are in the
+[document-lifetime record](history.md#e20-document-lifetime-2026-11-10).
+E20 is complete as `Preserve document source lifetimes (E20)` within that scope.
 Build/test evidence and the unresolved baseline thumbnail-test
 instability remain in the history.
 

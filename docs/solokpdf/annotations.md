@@ -66,7 +66,7 @@ MuPDF draws the annotations into the same pixels
   undoable until Save (B17). Print uses the editor's redacted pages before Save.
 - Page space is assumed equal in both engines; pages with `/UserUnit` aren't
   checked.
-- A clone reloads saved annotations from the file. Printing is the B52
+- A clone reads saved annotations from the retained original input. Printing is the B52
   exception: after Apply Redactions and before Save, it uses the editor's
   redacted document.
 

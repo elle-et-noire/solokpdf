@@ -55,8 +55,14 @@ are in [history.md](history.md).
   after rename/delete reads that handle (`tests/ad-hoc-pdfium-saveas.ts`).
   Hover reads annotation comments through PDFium without loading the hidden
   MuPDF editor; annotated pages also keep their files renameable
-  (`tests/ad-hoc-pdfium-hover.ts`). MuPDF's large-file handle blocks
-  rename/delete on Windows once its editor is loaded.
+  (`tests/ad-hoc-pdfium-hover.ts`). The PDFium editor and clones reopen the same
+  file object with independent positions and share rename/delete too.
+  The direct MuPDF engine's large-file handle still blocks rename/delete on Windows.
+- After rename, delete or replacement of the path, PDFium's editor, clones,
+  print preferences and auxiliary links use the retained input. Save As copies
+  that input; saving edits uses the editor and then reloads. See
+  `tests/ad-hoc-pdfium-source-lifetime.ts`. Overwriting a large file in place
+  still requires reload; its open handle is not an immutable snapshot.
 - `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
   API for it, so MuPDF reads it when the byte scan finds a catalog key. Release
   cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB

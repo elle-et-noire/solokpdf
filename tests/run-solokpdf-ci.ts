@@ -37,6 +37,7 @@ import { testit as annotations } from "./ad-hoc-pdfium-annotations.ts";
 import { testit as review } from "./ad-hoc-pdfium-review.ts";
 import { testit as redactionUndo } from "./ad-hoc-pdfium-redaction-undo.ts";
 import { testit as tryReads } from "./ad-hoc-pdfium-try-reads.ts";
+import { testit as sourceLifetime } from "./ad-hoc-pdfium-source-lifetime.ts";
 import { testit as unsupported } from "./ad-hoc-pdfium-unsupported.ts";
 import { testit as windowBg } from "./ad-hoc-pdfium-window-bg.ts";
 import { testit as vimKeys } from "./ad-hoc-vim-keys.ts";
@@ -68,6 +69,7 @@ import { testit as activationTraceB71 } from "./ad-hoc-b71-activation-trace.ts";
 import { testit as controlStartB71 } from "./ad-hoc-b71-control-start.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-pdfium-source-lifetime", sourceLifetime],
   ["ad-hoc-pdfium-try-reads", tryReads],
   ...treeTests,
   ["ad-hoc-pdfium-bookmarks", bookmarks],

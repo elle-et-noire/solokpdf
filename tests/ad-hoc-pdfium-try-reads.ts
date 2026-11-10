@@ -2,7 +2,7 @@
 // link following and hover call them on the UI thread. Pages whose blocking reads need the
 // editor: a comment annotation (MuPDF elements), a file attachment and a form field's text.
 // The tab shows a blank page 4 so visible-page prefetch doesn't populate the tested pages.
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra, type ControlClient } from "./control.ts";
 import { assemblePdf, EXE, runStandalone, tmpPath } from "./util.ts";
@@ -95,14 +95,12 @@ async function checkEditorFailure(): Promise<void> {
   const dir = tmpPath(`${kTag}/missing-editor`);
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "source.pdf");
-  // Keep PDFium file-backed; renaming then prevents MuPDF from opening the same path.
-  writeFileSync(pdf, makePdf(`%PDF-1.4\n%${"x".repeat(33 * 1024 * 1024)}\n`), "latin1");
+  writeFileSync(pdf, makePdf(), "latin1");
   await withControlledSumatra(
     EXE,
     async (client) => {
       await client.waitForRenderIdle();
-      await expectNoEditor(client, "opening file-backed fixture");
-      renameSync(pdf, join(dir, "moved.pdf"));
+      await expectNoEditor(client, "opening failure fixture");
       const text = await query(client, ["text-page", 3]);
       if (field(text, "partial") !== 1 || field(text, "chars") < 10) {
         throw new Error(`${kTag}: editor failure reported complete text: ${text}`);
@@ -114,7 +112,7 @@ async function checkEditorFailure(): Promise<void> {
       await expectNoEditor(client, "failed text fallback");
     },
     ["-appdata", join(dir, "settings"), "-view", "single page", "-page", "4", pdf],
-    { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
+    { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium", SOLOKPDF_TEST_EDITOR_FAILURE: "1" } },
   );
 }
 

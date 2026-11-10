@@ -26,6 +26,7 @@ Ongoing design work starts with [E21 color-stage selection](#e21-color-stage-pol
 Its follow-up captures [effective color inputs](#e21-effective-color-inputs-2026-11-10).
 Render execution and output contracts are recorded under [E19](#e19-render-results-2026-11-10).
 Read results and lazy-editor side effects are recorded under [E18](#e18-read-contracts-2026-11-10).
+Document inputs, ownership and teardown are recorded under [E20](#e20-document-lifetime-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2374,6 +2375,105 @@ ASan or ng build was run. Ownership and engine reference counting were retained;
 E20 remains the document-lifetime and lock-order review. The earlier thumbnail
 test instability and hosted D13/E17 follow-ups remain open.
 
+## E20: Document lifetime (2026-11-10)
+
+Baseline: `fcaec8179` (`Clarify read and editor contracts (E18)`).
+Implemented as `Preserve document source lifetimes (E20)`.
+Ownership, transitions and checked lock paths are
+in [architecture.md](architecture.md#所有権と同期).
+
+The new `ad-hoc-pdfium-source-lifetime` test first failed on the baseline:
+renaming small and 33 MiB PDFs prevented cloning and lazy-editor creation;
+replacing the path made clones, editor text and ordinary Save As use the
+replacement PDF. After fixing those paths, an added print-preference check
+still failed for large inputs: rename/delete returned no preferences, and
+replacement returned `copies=7` instead of the open document's `copies=3`.
+Both failures were observed before their fixes.
+The final source-copy review also reproduced Save As failure when a large PDF
+was copied onto its own renamed file (`.work/e20-self-copy-before.log`).
+Opening the destination previously truncated the retained source before reading
+it. Save As now compares file identities before truncating, treating the same
+file object (including hard links) as a successful no-op.
+
+The implementation now uses retained bytes or the original file object for
+lazy editing, cloning, OpenAction/layout, auxiliary links and print preferences.
+Large clones and editors reopen that file object with independent positions;
+they keep streaming and permit rename/delete. The editor's stream owns its
+handle; memory input is copied, so an editor can outlive its PDFium owner.
+Normal-file paths are set before editor initialization, preserving attachment
+destinations and document-script context. Memory-origin documents retain their
+separate save policy. Ordinary Save As uses the engine's original input;
+`EngineMupdfSaveUpdated` still saves edits and the UI reloads afterward.
+
+The source-lifetime test covers small/33 MiB × rename/replace/delete, with
+automatic reload disabled. Each case checks retained print preferences,
+printed text/ink, complete form text and byte-identical original-data copying.
+`clone-editor-page` takes an editor reference, releases its temporary PDFium
+owner, then renders and reads it. Six repeated pairs of clone/clone-editor
+operations per case check output stability and handle growth (tolerance: four).
+The copy check overwrites a larger destination and also saves onto the renamed
+source and a hard link, verifying that neither source is truncated.
+The test is first in `run-solokpdf-ci.ts`; no full suite was run locally.
+
+Renaming or deleting now permits editor creation, so E18's old failure fixture
+no longer fails to open. `ad-hoc-pdfium-try-reads` now injects editor creation
+failure with `SOLOKPDF_TEST_EDITOR_FAILURE`, gated by `gForTesting`; its partial
+text and retry assertions remain. This replaces the filesystem failure trigger,
+not the expected incomplete-result contract.
+
+The audit retained these paths:
+
+- The render probe borrows the owner, resets cancellation pointers after use,
+  and is dropped before its input. Theme documents close under `themeLock`
+  before their cached suffix can be replaced. No ownership change was needed.
+- Redaction/Undo keeps journal-derived routing and text invalidation; redacted
+  clones AddRef the editor. Original-data copying remains separate from edits.
+- Blocking editor delegation and annotation compositing occur after PDFium
+  locks are released. TOC checks release PDFium before requesting the editor.
+  Password UI runs outside `gPdfiumLock`; form callbacks do not enter UI/editor
+  code. No reverse acquisition was found in the checked paths.
+- Final release still closes PDFium/probe/input/runtime and returns the editor
+  reference under the existing global lock. The checked editor paths do not
+  acquire that lock; no teardown lock inversion was identified.
+- DisplayModel retirement/cancellation waits for outstanding renders before
+  releasing its engine. F12/Home workers retain engine references; detached
+  thumbnail caches outlive queued results until worker completion. Their
+  reference and UI-task ordering did not require changes.
+
+Debug and ASan builds passed with zero warnings/errors. Commands were
+`bun cmd/solok-build.ts -quick` and `bun cmd/solok-build.ts -asan`.
+All app tests used the hidden desktop, `--no-build`, and the documented ASan
+options when applicable. Final build logs: `.work/e20-debug-build.log` and
+`.work/e20-asan-build.log`; test logs: `.work/e20-{debug,asan}-<test>.log`.
+
+All 15 targeted Debug tests passed: `ad-hoc-pdfium-source-lifetime`,
+`ad-hoc-pdfium-try-reads`, `ad-hoc-pdfium-saveas`,
+`ad-hoc-pdfium-redaction-undo`, `ad-hoc-pdfium-memory`,
+`ad-hoc-pdfium-annots`, `ad-hoc-pdfium-forms`,
+`ad-hoc-pdfium-document-js`, `ad-hoc-pdfium-form-js`,
+`ad-hoc-pdfium-links`, `ad-hoc-pdfium-print-prefs`,
+`ad-hoc-pdfium-catalog-layout`, `ad-hoc-pdfium-permissions`,
+`sidebar-thumbnails-close` and `theme-render-cancel`.
+Debug SHA-256 stayed
+`8F374D65EB2D53852129A6A09A833E89DA546A42478CCC5B707B53D2C32BC009`.
+
+All six targeted ASan tests passed: `ad-hoc-pdfium-source-lifetime`,
+`ad-hoc-pdfium-try-reads`, `ad-hoc-pdfium-annots`,
+`ad-hoc-pdfium-redaction-undo`, `sidebar-thumbnails-close` and
+`theme-render-cancel`. ASan SHA-256 stayed
+`6E7BE18B324347F52566B5449A74E00947F3F59FA04290F0291E70DF1C72C204`.
+
+No rendering algorithm changed. The source test compares printed text and ink
+counts before/after filesystem changes, not complete pixel buffers. The
+redaction test's view counts matched the baseline (PDFium 3387 → 15348;
+MuPDF 3578 → 15348). Large-file in-place writes remain mutable and require
+reload. Files near 4 GiB, filesystem changes during password UI and all thread
+interleavings were not tested. The prebuilt PDFium DLL is not ASan-instrumented.
+Non-PDF defaults remain unchanged; the three source-query helpers are only
+called by the Win32 PDFium engine (verified by source search). No ng build,
+local Release or full-suite run was performed. Earlier thumbnail instability
+and hosted D13/E17 follow-ups remain open.
+
 ## Completed backlog
 
 Open validation is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2527,6 +2627,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E19 | Clarify render outcomes, color state, alpha, fallback and cancellation                                                                                                                                                                                                                      | done — Clarify render result contracts (E19); [results](#e19-render-results-2026-11-10)                                                                                                                                                 |
 | E22 | Align cache dependencies, render inputs and invalidation                                                                                                                                                                                                                                    | done — Align render cache inputs and invalidation (E22); [results](#e22-cache-contracts-2026-11-10)                                                                                                                                     |
 | E18 | Clarify read results, waiting and lazy-editor side effects                                                                                                                                                                                                                                  | done — Clarify read and editor contracts (E18); [results](#e18-read-contracts-2026-11-10)                                                                                                                                               |
+| E20 | Review document state, ownership, invalidation and lock ordering                                                                                                                                                                                                                            | done — Preserve document source lifetimes (E20); [results](#e20-document-lifetime-2026-11-10)                                                                                                                                           |
 
 ### F. Manual acceptance
 

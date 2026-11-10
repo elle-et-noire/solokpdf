@@ -6043,22 +6043,14 @@ int EngineMupdf::GetOpenActionPageNo() {
 
 //--- PDF facts read with MuPDF for engines without an API for them (EnginePdfium)
 
-// data, when set, is the whole file. nullptr when the PDF can't be opened or authenticated.
-static pdf_document* OpenPdfForQuery(fz_context* ctx, Str path, Str data, Str password) {
-    fz_stream* stm = nullptr;
+// Takes the stream reference; null when the PDF can't be opened or authenticated.
+static pdf_document* OpenPdfForQuery(fz_context* ctx, fz_stream* stm, Str password) {
+    if (!stm) {
+        return nullptr;
+    }
     pdf_document* doc = nullptr;
-    fz_var(stm);
     fz_var(doc);
     fz_try(ctx) {
-        if (data.s) {
-            stm = fz_open_memory(ctx, (const u8*)data.s, (size_t)len(data));
-        } else {
-#if OS_WIN
-            stm = fz_open_file_w(ctx, CWStrTemp(path));
-#else
-            stm = fz_open_file(ctx, CStrTemp(path));
-#endif
-        }
         doc = pdf_open_document_with_stream(ctx, stm);
         if (pdf_needs_password(ctx, doc) &&
             !pdf_authenticate_password(ctx, doc, len(password) > 0 ? CStrTemp(password) : "")) {
@@ -6074,6 +6066,27 @@ static pdf_document* OpenPdfForQuery(fz_context* ctx, Str path, Str data, Str pa
         return nullptr;
     }
     return doc;
+}
+
+static pdf_document* OpenPdfForQuery(fz_context* ctx, Str path, Str data, Str password) {
+    fz_stream* stm = nullptr;
+    fz_var(stm);
+    fz_try(ctx) {
+        if (data.s) {
+            stm = fz_open_memory(ctx, (const u8*)data.s, (size_t)len(data));
+        } else {
+#if OS_WIN
+            stm = fz_open_file_w(ctx, CWStrTemp(path));
+#else
+            stm = fz_open_file(ctx, CStrTemp(path));
+#endif
+        }
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        return nullptr;
+    }
+    return OpenPdfForQuery(ctx, stm, password);
 }
 
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
@@ -6131,6 +6144,78 @@ static void PdfStreamSeek(fz_context* ctx, fz_stream* stream, int64_t offset, in
     stream->pos = offset;
     stream->rp = stream->wp = input->buffer;
 }
+
+static void DropPdfQuery(fz_context*, void* state) {
+    delete (PdfStreamInput*)state;
+}
+
+// The query drops the document before returning, while the caller still owns source.
+static pdf_document* OpenPdfForQuery(fz_context* ctx, const PdfRenderSource& source, Str password) {
+    auto* input = new PdfStreamInput{&source};
+    fz_stream* stream = nullptr;
+    fz_var(stream);
+    fz_try(ctx) {
+        stream = fz_new_stream(ctx, input, PdfStreamNext, DropPdfQuery);
+        stream->seek = PdfStreamSeek;
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        return nullptr;
+    }
+    return OpenPdfForQuery(ctx, stream, password);
+}
+
+#if OS_WIN
+struct PdfHandleInput {
+    PdfStreamInput input{};
+    PdfRenderSource source{};
+    HANDLE file = INVALID_HANDLE_VALUE;
+};
+
+static int ReadPdfHandle(void* user, u32 offset, u8* data, u32 count) {
+    auto* input = (PdfHandleInput*)user;
+    LARGE_INTEGER pos{};
+    pos.QuadPart = offset;
+    DWORD read = 0;
+    return SetFilePointerEx(input->file, pos, nullptr, FILE_BEGIN) &&
+           ReadFile(input->file, data, count, &read, nullptr) && read == count;
+}
+
+static void DropPdfHandle(fz_context*, void* state) {
+    auto* streamInput = (PdfStreamInput*)state;
+    auto* input = (PdfHandleInput*)streamInput->source->user;
+    CloseHandle(input->file);
+    delete input;
+}
+
+// Reopen the same file object with an independent position; its path may now name another PDF.
+static fz_stream* OpenPdfHandle(fz_context* ctx, HANDLE file) {
+    DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    HANDLE copy = ReOpenFile(file, GENERIC_READ, share, FILE_FLAG_RANDOM_ACCESS);
+    LARGE_INTEGER size{};
+    if (copy == INVALID_HANDLE_VALUE) {
+        return nullptr;
+    }
+    if (!GetFileSizeEx(copy, &size) || size.QuadPart <= 0 || size.QuadPart > MAXDWORD) {
+        CloseHandle(copy);
+        return nullptr;
+    }
+    auto* input = new PdfHandleInput;
+    input->file = copy;
+    input->source = {input, (u32)size.QuadPart, ReadPdfHandle, nullptr, nullptr};
+    input->input.source = &input->source;
+    fz_stream* stream = nullptr;
+    fz_var(stream);
+    fz_try(ctx) {
+        stream = fz_new_stream(ctx, &input->input, PdfStreamNext, DropPdfHandle);
+        stream->seek = PdfStreamSeek;
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+    }
+    return stream;
+}
+#endif
 
 static void ThemePdfWrite(fz_context* ctx, void* state, const void* data, size_t size) {
     auto* output = (ThemePdfOutput*)state;
@@ -6980,17 +7065,19 @@ PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, 
 }
 #endif
 
-bool PdfViewerPrintPrefsMupdf(Str path, Str data, Str password, PdfViewerPrintPrefs& prefs) {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+bool PdfViewerPrintPrefsMupdf(const PdfRenderSource& source, Str password, PdfViewerPrintPrefs& prefs) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
         return false;
     }
-    pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
+    pdf_document* doc = OpenPdfForQuery(ctx, source, password);
     bool found = doc && ReadViewerPrintPrefs(ctx, doc, prefs);
     pdf_drop_document(ctx, doc);
     fz_drop_context(ctx);
     return found;
 }
+#endif
 
 // Read uncommon page geometry once; ordinary PDFium pages do not open a MuPDF document.
 bool PdfPageGeometryMupdf(Str path, Str data, Str password, int pageCount, Vec<PdfPageGeometry>& out) {
@@ -7030,6 +7117,7 @@ bool PdfPageGeometryMupdf(Str path, Str data, Str password, int pageCount, Vec<P
     return ok;
 }
 
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 // Target of a /Named action on page pageIdx (0-based), as MuPDF's link parser resolves it; -1 if none.
 static int NamedActionTarget(fz_context* ctx, pdf_obj* action, int pageIdx, int pageCount) {
     pdf_obj* n = pdf_dict_get(ctx, action, PDF_NAME(N));
@@ -7049,12 +7137,12 @@ static int NamedActionTarget(fz_context* ctx, pdf_obj* action, int pageIdx, int 
 }
 
 // Links PDFium can't fully read, including navigating push-button widgets.
-void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupdf>& links) {
+void PdfLinksMupdf(const PdfRenderSource& source, Str password, int pageNo, Vec<PdfLinkMupdf>& links) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
         return;
     }
-    pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
+    pdf_document* doc = OpenPdfForQuery(ctx, source, password);
     pdf_page* page = nullptr;
     fz_link* widgetLinks = nullptr;
     fz_var(page);
@@ -7118,13 +7206,13 @@ void PdfLinksMupdf(Str path, Str data, Str password, int pageNo, Vec<PdfLinkMupd
     fz_drop_context(ctx);
 }
 
-int PdfOpenActionPageMupdf(Str path, Str data, Str password, PageLayout* layout) {
+int PdfOpenActionPageMupdf(const PdfRenderSource& source, Str password, PageLayout* layout) {
     fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
         return 0;
     }
     int pageNo = 0;
-    pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
+    pdf_document* doc = OpenPdfForQuery(ctx, source, password);
     if (doc) {
         *layout = GetPreferredLayout(ctx, (fz_document*)doc);
         int pageCount = 0;
@@ -7140,6 +7228,7 @@ int PdfOpenActionPageMupdf(Str path, Str data, Str password, PageLayout* layout)
     fz_drop_context(ctx);
     return pageNo;
 }
+#endif
 
 // Same format as EngineMupdf::decryptionKey: hex of the file's MD5 then the crypt key.
 TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password) {
@@ -11889,8 +11978,9 @@ EngineBase* CreateEngineMupdfFromFile(Str path, FileType kind, int displayDPI, P
     return engine;
 }
 
-EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI) {
+EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI, Str path) {
     EngineMupdf* engine = new EngineMupdf();
+    engine->SetFilePath(path);
     fz_stream* stm = FzStreamFromData(engine->Ctx(), (u8*)data.s, data.len);
     if (!engine->LoadFromStream(stm, nameHint, pwdUI) || !engine->FinishLoading()) {
         SafeEngineRelease(&engine);
@@ -11898,6 +11988,20 @@ EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI)
     }
     return engine;
 }
+
+#if OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+// The stream owns its reopened handle, so the editor can outlive its PDFium owner.
+EngineBase* CreateEngineMupdfFromHandle(HANDLE file, Str path, PasswordUI* pwdUI) {
+    auto* engine = new EngineMupdf();
+    engine->SetFilePath(path);
+    fz_stream* stream = OpenPdfHandle(engine->Ctx(), file);
+    if (!engine->LoadFromStream(stream, StrL("file.pdf"), pwdUI) || !engine->FinishLoading()) {
+        SafeEngineRelease(&engine);
+        return nullptr;
+    }
+    return engine;
+}
+#endif
 
 static void AppendLoadedAnnotations(EngineMupdf* e, Vec<Annotation*>& annotsOut) {
     VecClear(annotsOut);

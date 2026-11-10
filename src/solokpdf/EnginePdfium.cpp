@@ -524,6 +524,8 @@ class EnginePdfium : public EngineBase {
         return ReadBlock(user, offset, data, count);
     }
 
+    PdfRenderSource ReadSource() { return {this, (u32)access.m_FileLen, ReadThemeSource, nullptr, nullptr}; }
+
     struct ThemeAccess {
         EnginePdfium* engine;
         Str suffix;
@@ -1254,7 +1256,7 @@ class EnginePdfium : public EngineBase {
     // destination without loading the target; MuPDF reads both, like /OpenAction.
     void AddMupdfLinks(int pageNo, PdfiumPage* info, int insertAt = -1) {
         Vec<PdfLinkMupdf> links;
-        PdfLinksMupdf(FilePath(), fileData, password, pageNo, links);
+        PdfLinksMupdf(ReadSource(), password, pageNo, links);
         for (auto& link : links) {
             if (link.remoteDest.s) {
                 if (auto* file = FileLinkAt(info, link.rect)) {
@@ -1725,13 +1727,17 @@ class EnginePdfium : public EngineBase {
         }
     }
 
-    bool Load(Str path, Str data, PasswordUI* pwdUI, TempStr* error, PdfiumFailure* failure) {
+    bool Load(Str path, Str data, PasswordUI* pwdUI, TempStr* error, PdfiumFailure* failure,
+              EnginePdfium* source = nullptr) {
         PdfiumProfile profile(StrL("load"));
         profile.Mark(StrL("start"));
         SetFilePath(path);
 
-        dataBacked = len(data) > 0;
-        if (dataBacked) {
+        dataBacked = source ? source->dataBacked : len(data) > 0;
+        if (source) {
+            data = source->fileData;
+        }
+        if (data.s) {
             fileData = str::Dup(data);
             if (!fileData.s) {
                 *error = StrL("PDFium memory allocation failed.");
@@ -1741,8 +1747,9 @@ class EnginePdfium : public EngineBase {
         } else {
             // Share writes so producers can overwrite a file kept open; it then reloads.
             DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
-            file = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_READ, share, nullptr, OPEN_EXISTING,
-                               FILE_ATTRIBUTE_NORMAL, nullptr);
+            file = source ? ReOpenFile(source->file, GENERIC_READ, share, FILE_FLAG_RANDOM_ACCESS)
+                          : CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_READ, share, nullptr, OPEN_EXISTING,
+                                        FILE_ATTRIBUTE_NORMAL, nullptr);
             LARGE_INTEGER size{};
             if (file == INVALID_HANDLE_VALUE || !GetFileSizeEx(file, &size) || size.QuadPart <= 0 ||
                 size.QuadPart > MAXDWORD) {
@@ -1750,7 +1757,7 @@ class EnginePdfium : public EngineBase {
                 return false;
             }
             access.m_FileLen = (unsigned long)size.QuadPart;
-            if (size.QuadPart < kMaxMemoryFileSize && !ReadIntoMemory()) {
+            if (!source && size.QuadPart < kMaxMemoryFileSize && !ReadIntoMemory()) {
                 *error = StrL("PDFium file read failed.");
                 return false;
             }
@@ -2155,7 +2162,7 @@ class EnginePdfium : public EngineBase {
         }
     }
 
-    // Loads for document scripts or the first annotation query: MuPDF opens the file again.
+    // Use the displayed document's bytes or file object, even after its path changes.
     EngineBase* AnnotationEditor(EditorLoad load) override {
         EngineBase* res = (EngineBase*)InterlockedCompareExchangePointer((void* volatile*)&editor, nullptr, nullptr);
         if (res || load == EditorLoad::IfLoaded) {
@@ -2167,8 +2174,14 @@ class EnginePdfium : public EngineBase {
         }
         PdfiumProfile profile(StrL("editor"));
         PasswordCloner pwdUI(password);
-        res = dataBacked ? CreateEngineMupdfFromData(fileData, StrL("file.pdf"), &pwdUI)
-                         : CreateEngineMupdfFromFile(FilePath(), FileType::PDF, 96, &pwdUI);
+        WCHAR failEditor[2]{};
+        bool forceFailure =
+            gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_TEST_EDITOR_FAILURE", failEditor, dimofi(failEditor));
+        if (!forceFailure) {
+            res = fileData.s
+                      ? CreateEngineMupdfFromData(fileData, StrL("file.pdf"), &pwdUI, dataBacked ? Str{} : FilePath())
+                      : CreateEngineMupdfFromHandle(file, FilePath(), &pwdUI);
+        }
         profile.Mark(StrL("loaded"));
         if (!res) {
             logf("EnginePdfium: MuPDF can't open '%s' to edit annotations\n", FilePath());
@@ -2201,14 +2214,14 @@ class EnginePdfium : public EngineBase {
         }
         TempStr error;
         PasswordCloner pwdUI(password);
-        EngineBase* clone = dataBacked ? CreateEnginePdfiumFromData(fileData, &pwdUI, &error)
-                                       : CreateEnginePdfium(FilePath(), &pwdUI, &error);
-        if (clone) {
-            if (dataBacked && FilePath()) {
-                clone->SetFilePath(FilePath());
-            }
-            clone->disableAutoLinks = disableAutoLinks;
+        auto* clone = new EnginePdfium();
+        PdfiumFailure failure = PdfiumFailure::Fallback;
+        if (!clone->Load(FilePath(), {}, &pwdUI, &error, &failure, this)) {
+            clone->Release();
+            return nullptr;
         }
+        clone->LoadDocumentJs();
+        clone->disableAutoLinks = disableAutoLinks;
         return clone;
     }
 
@@ -2218,13 +2231,13 @@ class EnginePdfium : public EngineBase {
         }
         logf("PDFium: catalog query\n");
         PdfiumProfile profile(StrL("openaction"));
-        int pageNo = PdfOpenActionPageMupdf(FilePath(), fileData, password, &preferredLayout);
+        int pageNo = PdfOpenActionPageMupdf(ReadSource(), password, &preferredLayout);
         profile.Mark(StrL("read"));
         return pageNo;
     }
 
     bool GetViewerPrintPrefs(PdfViewerPrintPrefs& prefs) override {
-        return PdfViewerPrintPrefsMupdf(FilePath(), fileData, password, prefs);
+        return PdfViewerPrintPrefsMupdf(ReadSource(), password, prefs);
     }
 
     // A known size needs no lock: the UI thread waited ~10 ms per call while pages drew.
@@ -3249,9 +3262,26 @@ class EnginePdfium : public EngineBase {
             return file::WriteFile(path, fileData);
         }
 
-        HANDLE dst = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS,
+        HANDLE dst = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
                                  FILE_ATTRIBUTE_NORMAL, nullptr);
         if (dst == INVALID_HANDLE_VALUE) {
+            return false;
+        }
+
+        // A renamed source or a hard link can name our open file; check before truncating it.
+        BY_HANDLE_FILE_INFORMATION srcInfo{}, dstInfo{};
+        if (!GetFileInformationByHandle(file, &srcInfo) || !GetFileInformationByHandle(dst, &dstInfo)) {
+            CloseHandle(dst);
+            return false;
+        }
+        bool same = srcInfo.dwVolumeSerialNumber == dstInfo.dwVolumeSerialNumber &&
+                    srcInfo.nFileIndexHigh == dstInfo.nFileIndexHigh && srcInfo.nFileIndexLow == dstInfo.nFileIndexLow;
+        if (same) {
+            CloseHandle(dst);
+            return true;
+        }
+        if (!SetEndOfFile(dst)) {
+            CloseHandle(dst);
             return false;
         }
 

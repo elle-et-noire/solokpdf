@@ -159,7 +159,10 @@ using ShowErrorCb = Func1<Str>;
 bool IsEngineMupdfSupportedFileType(FileType);
 int EngineMupdfCount();
 EngineBase* CreateEngineMupdfFromFile(Str path, FileType kind, int displayDPI, PasswordUI* pwdUI = nullptr);
-EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI);
+EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI, Str path = {});
+#if OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+EngineBase* CreateEngineMupdfFromHandle(HANDLE file, Str path, PasswordUI* pwdUI);
+#endif
 bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target,
                                 const DarkModeProfile* profile);
 Str LoadEmbeddedPDFFile(Str path);

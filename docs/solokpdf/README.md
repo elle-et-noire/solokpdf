@@ -22,7 +22,7 @@ At 2026-11-10 03:01 JST, [regular CI](https://github.com/elle-et-noire/solokpdf/
 was building Debug and Release; no ASan runs were listed.
 The latest recorded successful regular CI tested `fc8b455e8` (D12).
 E10–E16 and D8–D12 are complete within their recorded scope.
-The next implementation step is document lifetime; see the
+E18–E22 are complete within their recorded validation scope; see the
 [refactoring plan](refactoring-plan.md) and [backlog](backlog.md).
 Planning docs are committed as `9e1eaac3b`; E21's shared color-stage selection
 is committed as `8bf864e18`. Effective-color input capture completes E21.
@@ -39,6 +39,9 @@ E18 clarifies form read results, prevents paint from loading the editor and make
 MuPDF's Try text read decline on document-lock contention. Failed editor loads
 retain partial text without marking the cache complete. Implementation and
 targeted local validation are in the [E18 record](history.md#e18-read-contracts-2026-11-10).
+E20 keeps editing, cloning, auxiliary reads and Save As on the retained input.
+Ownership, lock ordering and targeted Debug/ASan results are in the
+[E20 record](history.md#e20-document-lifetime-2026-11-10).
 F2 passed by owner report. F1/F3 were
 removed from active work by the owner on 2026-11-10, without being marked passed.
 
@@ -80,7 +83,7 @@ Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
   them; see the [backlog](backlog.md#next-steps).
 - For design work, read the [current architecture](architecture.md) and
   [refactoring plan](refactoring-plan.md). E21 is complete within its recorded
-  validation scope. E18/E19/E22 are implemented; resume at E20.
+  validation scope. E18/E19/E20/E22 are complete within their recorded scope.
 - For a code change, select the affected tests in [testing.md](testing.md).
   Run full suites only when explicitly requested.
 

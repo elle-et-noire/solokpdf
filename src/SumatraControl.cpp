@@ -2015,6 +2015,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("clone-page")) ||
+                str::Eq(StringArg(req, 0), StrL("clone-editor-page")) ||
                 str::Eq(StringArg(req, 0), StrL("clone-form-highlights"))) {
                 // a page of the copy print and palette thumbnails render, printed
                 i32 pageNo = 0;
@@ -2036,6 +2037,18 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     AppendTestResult(req, 0, fmt("before=%d after=%d rects=%d", (int)before, (int)after, len(rects)));
                     SafeEngineRelease(&clone);
                     break;
+                }
+                if (str::Eq(StringArg(req, 0), StrL("clone-editor-page"))) {
+                    EngineBase* editor = clone->AnnotationEditor(EditorLoad::Load);
+                    if (editor) {
+                        editor->AddRef();
+                    }
+                    SafeEngineRelease(&clone);
+                    clone = editor;
+                    if (!clone) {
+                        AppendTestResult(req, 1, StrL("editor failed"));
+                        break;
+                    }
                 }
                 RenderPageArgs args(pageNo, 1.f, 0, nullptr, RenderTarget::Print);
                 Pixmap* raw = clone->RenderPage(args);
