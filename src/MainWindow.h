@@ -692,6 +692,7 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     // (shown as "n / m+")
     bool findCountCapped = false;
     void* findCountEngine = nullptr; // engine the cache was built for (compared, never deref'd)
+    int findTextGeneration = 0;
     // (page<<32 | startOffset) of each match, in scan order (the scan starts
     // at the page current at the time and wraps around)
     Vec<u64> findCountPositions;

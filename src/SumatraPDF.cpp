@@ -4665,6 +4665,7 @@ void MainWindowRerender(MainWindow* win, bool includeNonClientArea) {
     if (!dm) {
         return;
     }
+    InvalidateFindForTextChange(win);
     // restyle/layout can shrink engine pageCount; paint uses dm page numbers
     dm->SyncWithEngineLayout();
     // don't wait for in-flight renders: dm stays alive and a render that lands

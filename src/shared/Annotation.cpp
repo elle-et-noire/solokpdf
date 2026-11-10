@@ -575,6 +575,7 @@ bool ToggleFormButton(Annotation* annot) {
             logf("ToggleFormButton(): mupdf calls failed\n");
         }
     }
+    e->InvalidateAllText();
     if (changed) {
         // must be called outside docLock (it takes pagesLock then docLock/renderLock)
         MarkNotificationAsModified(e, annot);
@@ -647,6 +648,8 @@ static bool SetWidgetValue(Annotation* annot, Str value, Str operation, SetValue
             logf("%s(): mupdf calls failed\n", operation);
         }
     }
+    // Validation and appearance JS may change other pages even after rejection.
+    e->InvalidateAllText();
     if (ok) {
         MarkNotificationAsModified(e, annot);
     }

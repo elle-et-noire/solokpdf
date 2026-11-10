@@ -1195,6 +1195,7 @@ bool HasFindCountFor(MainWindow* win, Str text) {
     DisplayModel* dm = win->AsFixed();
     void* engine = dm ? (void*)dm->GetEngine() : nullptr;
     return win->findCountValid && win->findCountText && str::Eq(win->findCountText, text) &&
+           (!dm || win->findTextGeneration == dm->GetEngine()->TextGeneration()) &&
            win->findCountMatchCase == win->findMatchCase && win->findCountMatchWholeWord == win->findMatchWholeWord &&
            win->findCountEngine == engine && str::Eq(win->findCountRangeText, win->findPageRangeText);
 }
@@ -1553,6 +1554,23 @@ void InvalidateFindForDocumentChange(MainWindow* win) {
     if (md) {
         BrowserFindStartSearch(win, md);
     }
+}
+
+// Edits invalidate glyph positions, snippets and counts, including an active scan.
+void InvalidateFindForTextChange(MainWindow* win) {
+    DisplayModel* dm = win ? win->AsFixed() : nullptr;
+    if (!dm) {
+        return;
+    }
+    int generation = dm->GetEngine()->TextGeneration();
+    if (win->findTextGeneration == generation) {
+        return;
+    }
+    win->findTextGeneration = generation;
+    AbortFinding(win, true);
+    dm->textSearch->TextSelection::Reset();
+    DeleteOldSelectionInfo(win, true);
+    InvalidateFindForDocumentChange(win);
 }
 
 struct CountThreadData {
@@ -2785,6 +2803,7 @@ void PaintAllFindMatches(MainWindow* win, PaintRef ctx) {
     if (!win->IsDocLoaded() || !win->AsFixed()) {
         return;
     }
+    InvalidateFindForTextChange(win);
     if (FindEditTextLen(win) == 0) {
         return;
     }

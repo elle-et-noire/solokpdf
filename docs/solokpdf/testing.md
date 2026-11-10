@@ -74,6 +74,15 @@ maps encapsulation checks to the existing tests. `ad-hoc-tree-lifetime` includes
 `event-name`, which destroys the tree synchronously during a name-change WinEvent.
 Run startup/layout checks after builds finish; keep the executable hash fixed during each set.
 
+### Form text and search (E29)
+
+Run `tests/form-text-cache.ts` through the hidden runner with Debug and ASan.
+It warms display/editor caches before editing and checks both engines, cross-page
+JS, choice/checkbox, empty fields, validation side effects, search continuation,
+selection and Undo/Redo. In-place text entry also checks the floating search
+count changes from zero to two and back. Related checks are
+`ad-hoc-pdfium-forms`, `ad-hoc-pdfium-form-js` and `ad-hoc-pdfium-redaction-undo`.
+
 ### Signature rollback (E28)
 
 Signature rollback (E28): run `tests/sign-rollback.ts` through the hidden

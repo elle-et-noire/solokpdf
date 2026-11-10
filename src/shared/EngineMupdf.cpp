@@ -13160,6 +13160,7 @@ static bool EngineMupdfUndoRedo(EngineBase* engine, bool redo, Vec<Annotation*>&
         return false;
     }
     SyncPagesAfterUndoRedo(e, removedOut);
+    e->InvalidateAllText();
     SyncRedacted(engine, e);
     return true;
 }

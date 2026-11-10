@@ -13,6 +13,21 @@ Save's intentional reload and Discard Changes still proceed.
 `tests/auto-reload-unsaved.ts` covers both engines on Windows.
 Dirty-state omissions and dialog reentry remain separate E36 and E34 work.
 
+## Text and search after edits
+
+Form edits invalidate cached text on all acquired pages, including fields
+changed by JavaScript on other pages. PDFium follows its MuPDF editor's text
+generation; fields that were empty in the source also become searchable.
+Search skips, current matches, counts, snippets and selection coordinates
+refresh after edits and Undo/Redo. Borrowed text and glyph data stay alive
+until the engine closes.
+
+Validation rejection can still change other fields through JavaScript, so
+text invalidation runs after every setter attempt. This does not determine
+dirty state or report appearance-update errors; those remain E35/E36 work.
+`tests/form-text-cache.ts` covers both engines, in-place text entry, choice,
+checkbox, empty fields, cross-page calculations and rejected-input side effects.
+
 ## Document JavaScript
 
 PDFium reports document JavaScript but does not run MuPDF's scripts itself.

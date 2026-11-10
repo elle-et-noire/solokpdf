@@ -1,0 +1,86 @@
+{
+  "date": "2026-11-10",
+  "item": "E29",
+  "baseCommit": "575777b9b",
+  "scope": "Windows SolokPDF form text/search invalidation; shared engine/cache/search implementation",
+  "before": {
+    "result": "failed",
+    "engines": ["mupdf", "pdfium"],
+    "editedPageText": "OLDWORD",
+    "calculatedPageText": "OLDWORD",
+    "search": "NEWWORD",
+    "found": 0,
+    "source": "Initial form-text-cache run before product changes, captured in the task transcript"
+  },
+  "builds": [
+    {
+      "config": "Debug",
+      "command": "bun cmd/solok-build.ts -quick",
+      "result": "passed, zero warnings/errors",
+      "exeSha256": "d6f74601d0e240457bcd41d134f4f2b12da16a170e92f364dff6c70c5ecd6f7c",
+      "librarySha256": "d3619a083b58cdb63bd4846edac0d045d287d2ce73502494cf32e64a0b223c95",
+      "log": ".work/e29-build-debug.log"
+    },
+    {
+      "config": "Debug ASan",
+      "command": "bun cmd/solok-build.ts -asan",
+      "result": "passed, zero warnings/errors",
+      "exeSha256": "7d0bafb9fe0cd986f54d7cb961b26e902dcf5ce37de98bf56f85f9fb30bdaafa",
+      "options": "windows_hook_legacy_allocators=0:suppressions=\"C:\\work\\solokpdf\\asan.supp\"",
+      "log": ".work/e29-build-asan.log"
+    }
+  ],
+  "tests": [
+    {
+      "name": "form-text-cache",
+      "config": "Debug",
+      "result": "passed",
+      "scenarios": 10,
+      "seconds": 17.7,
+      "log": ".work/e29-form-text-cache-debug.log"
+    },
+    {
+      "name": "form-text-cache",
+      "config": "Debug ASan",
+      "result": "passed",
+      "scenarios": 10,
+      "seconds": 22.1,
+      "log": ".work/e29-form-text-cache-asan.log"
+    },
+    {
+      "name": "ad-hoc-pdfium-forms",
+      "config": "Debug",
+      "result": "passed",
+      "seconds": 8.6,
+      "log": ".work/e29-ad-hoc-pdfium-forms-debug.log"
+    },
+    {
+      "name": "ad-hoc-pdfium-form-js",
+      "config": "Debug",
+      "result": "passed",
+      "seconds": 5.8,
+      "log": ".work/e29-ad-hoc-pdfium-form-js-debug.log"
+    },
+    {
+      "name": "ad-hoc-pdfium-redaction-undo",
+      "config": "Debug",
+      "result": "passed",
+      "seconds": 5.8,
+      "log": ".work/e29-ad-hoc-pdfium-redaction-undo-debug.log"
+    }
+  ],
+  "cases": [
+    "Both engines: prewarmed display/editor caches on edited and calculated pages",
+    "In-place text UI commit; floating search count 0 -> 2 -> 0 -> 2",
+    "Choice and checkbox edits, initially empty fields",
+    "Rejected validation with a committed side effect on another page",
+    "Repeated query, FindNext, glyph selection, Undo and Redo"
+  ],
+  "execution": "Every app test ran outside the sandbox through tools/solokpdf/run-hidden.ts, with -for-testing and dedicated appdata",
+  "limits": [
+    "No Release build, full suite or ng build/GUI test",
+    "No exhaustive allocation/appearance failure injection or worker timing fault injection",
+    "E35/E36 acceptance, dirty-state and refresh-error reporting remain open",
+    "The pinned PDFium DLL is not ASan-instrumented"
+  ]
+}

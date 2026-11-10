@@ -72,6 +72,7 @@ int TextSearch::GetCurrentPageNo() const {
 }
 
 void TextSearch::SetText(Str text) {
+    SyncTextGeneration();
     // Single leading/trailing spaces request word boundaries; whole-word mode
     // requests both. Strip one space from each end for matching.
     this->matchWordStart = matchWholeWord || (text && text.s[0] == ' ' && (text.len < 2 || text.s[1] != ' '));
@@ -541,6 +542,9 @@ bool TextSearch::SliceUsedUp() const {
 // continues a search that paused (see sliceMs) where it stopped
 Vec<TextSel>* TextSearch::Resume() {
     ReportIf(!paused);
+    if (SyncTextGeneration()) {
+        resumePage = RestrictPage(forward ? Direction::Forward : Direction::Backward);
+    }
     if (FindStartingAtPage(resumePage)) {
         return &result;
     }
@@ -643,6 +647,9 @@ Vec<TextSel>* TextSearch::FindFirstOnPage(int pageNo, Str text) {
 }
 
 Vec<TextSel>* TextSearch::FindNext() {
+    if (SyncTextGeneration()) {
+        return FindStartingAtPage(findPage > 0 ? findPage : RestrictFirst()) ? &result : nullptr;
+    }
     ReportIf(len(findText) == 0);
     if (len(findText) == 0) {
         return nullptr;
@@ -670,4 +677,16 @@ Vec<TextSel>* TextSearch::FindNext() {
         return &result;
     }
     return nullptr;
+}
+
+// Revisit skipped pages and borrowed text after document edits.
+bool TextSearch::SyncTextGeneration() {
+    int generation = engine->TextGeneration();
+    if (textGeneration == generation) {
+        return false;
+    }
+    textGeneration = generation;
+    Reset();
+    markAllPagesNonSkip(pagesToSkip);
+    return true;
 }

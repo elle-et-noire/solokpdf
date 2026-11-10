@@ -70,8 +70,10 @@ import { testit as controlStartB71 } from "./ad-hoc-b71-control-start.ts";
 import { testit as autoReloadUnsaved } from "./auto-reload-unsaved.ts";
 import { testit as missingSourceUnsaved } from "./missing-source-unsaved.ts";
 import { testit as signRollback } from "./sign-rollback.ts";
+import { testit as formTextCache } from "./form-text-cache.ts";
 
 const tests: NamedTest[] = [
+  ["form-text-cache", formTextCache],
   ["sign-rollback", signRollback],
   ["auto-reload-unsaved", autoReloadUnsaved],
   ["missing-source-unsaved", missingSourceUnsaved],

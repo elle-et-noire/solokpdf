@@ -29,6 +29,7 @@ bool FindTermDiffersFromLast(MainWindow* win);
 void GoToFindMatch(MainWindow* win, int startPage, int startGlyph, int endPage, int endGlyph);
 void ClearFindMatches(MainWindow* win);
 void InvalidateFindForDocumentChange(MainWindow* win);
+void InvalidateFindForTextChange(MainWindow* win);
 void FindSelection(MainWindow* win, TextSearch::Direction direction);
 void BrowserFindResultReceived(MainWindow* win, int gen, int current, int total);
 void BrowserFindAllResultReceived(MainWindow* win, Str payload);

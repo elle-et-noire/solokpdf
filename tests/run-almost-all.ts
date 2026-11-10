@@ -440,6 +440,7 @@ import { testit as issue6107 } from "./issue-6107.ts";
 import { testit as issue5968 } from "./issue-5968.ts";
 import { testit as issue5978 } from "./issue-5978.ts";
 import { testit as signRollback } from "./sign-rollback.ts";
+import { testit as formTextCache } from "./form-text-cache.ts";
 import { testit as issue6455 } from "./issue-6455.ts";
 import { testit as issue6459 } from "./issue-6459.ts";
 import { testit as issue6467 } from "./issue-6467.ts";
@@ -600,6 +601,7 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["form-text-cache", formTextCache],
   ["sign-rollback", signRollback],
   ["build-cli", buildCli],
   ["theme-annotation-failure", themeAnnotationFailure],

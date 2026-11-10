@@ -402,6 +402,7 @@ struct MainWindow {
     bool findCountValid = false;
     bool findCountCapped = false;
     void* findCountEngine = nullptr; // engine the cache was built for (compared, never deref'd)
+    int findTextGeneration = 0;
     Vec<u64> findCountPositions;
     Str findCountPendingText;
     bool findCountPendingMatchCase = false;

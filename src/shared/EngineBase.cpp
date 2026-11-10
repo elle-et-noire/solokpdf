@@ -618,6 +618,29 @@ struct PageTextCache {
     Vec<ChapterTextCache*> chapters; // index = chapter - 1; entries lazily created
     // invalidated text: callers may still hold its pointers, so it lives as long as the engine
     Vec<PageText> retired;
+    int generation = 0;
+    int editorGeneration = 0;
+
+    void Invalidate(TextCacheEntry& page) {
+        if (page.data.text || page.data.coords || page.data.quads) {
+            VecAppend(retired, page.data);
+        }
+        page.data = {};
+        page.state = TextExtractionState::NotExtracted;
+        page.gen++;
+    }
+
+    void InvalidateAll() {
+        for (ChapterTextCache* chapter : chapters) {
+            if (!chapter) {
+                continue;
+            }
+            for (TextCacheEntry& page : chapter->pages) {
+                Invalidate(page);
+            }
+        }
+        generation++;
+    }
 
     ~PageTextCache() {
         DeleteVecMembers(chapters);
@@ -1021,6 +1044,7 @@ Location EngineBase::TextLocation(int pageNo) {
 // subsequent calls return the cached copy. The returned pointers are owned
 // by EngineBase and remain valid for the lifetime of the engine.
 bool EngineBase::HasTextForPage(int pageNo) {
+    TextGeneration();
     Location loc = TextLocation(pageNo);
     if (!loc.IsValid()) {
         return false;
@@ -1031,6 +1055,7 @@ bool EngineBase::HasTextForPage(int pageNo) {
 }
 
 void EngineBase::RequestTextExtraction(int pageNo) {
+    TextGeneration();
     Location loc = TextLocation(pageNo);
     if (!loc.IsValid()) {
         return;
@@ -1129,6 +1154,7 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
     int count = ChapterPageCount(loc.chapter);
 
     for (;;) {
+        TextGeneration();
         bool extract;
         int gen;
         {
@@ -1158,6 +1184,7 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
         }
         EnsurePageText(&extracted);
 
+        TextGeneration();
         ScopedMutex scope(&textCacheLock);
         TextCacheEntry* page = pageTextCache->Ensure(loc, count);
         if (page->gen == gen) {
@@ -1206,15 +1233,28 @@ void EngineBase::InvalidateTextForPage(int pageNo) {
     }
     ScopedMutex scope(&textCacheLock);
     TextCacheEntry* page = pageTextCache->Peek(loc);
+    pageTextCache->generation++;
     if (!page) {
         return;
     }
-    if (page->data.text || page->data.coords || page->data.quads) {
-        VecAppend(pageTextCache->retired, page->data);
+    pageTextCache->Invalidate(*page);
+}
+
+void EngineBase::InvalidateAllText() {
+    ScopedMutex scope(&textCacheLock);
+    pageTextCache->InvalidateAll();
+}
+
+// Display engines follow their editor without borrowing an owner pointer.
+int EngineBase::TextGeneration() {
+    EngineBase* editor = HasAnnotationEditor() ? AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
+    int editorGen = editor && editor != this ? editor->TextGeneration() : 0;
+    ScopedMutex scope(&textCacheLock);
+    if (pageTextCache->editorGeneration != editorGen) {
+        pageTextCache->editorGeneration = editorGen;
+        pageTextCache->InvalidateAll();
     }
-    page->data = {};
-    page->state = TextExtractionState::NotExtracted;
-    page->gen++;
+    return pageTextCache->generation;
 }
 
 // The UI thread's switch; an engine's annotation editor draws some of its pages (PDFium).

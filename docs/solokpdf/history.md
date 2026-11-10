@@ -2888,6 +2888,33 @@ desktops outside the sandbox. No Release build, full suite or ng GUI test
 was run. Detailed results and binary hashes are in
 [the evidence record](data/e28-2026-11-10.json).
 
+## E29 form text cache (2026-11-10)
+
+Completed E29 on `575777b9b` plus these changes. Form setter attempts invalidate
+all acquired pages, including rejected-input JavaScript side effects. PDFium
+tracks its editor's text generation and reads edited form text there, including
+fields empty in the source. In-flight extractions cannot install an older
+generation; borrowed text and coordinates retain their engine lifetime.
+
+Search continuation and skipped pages reset after edits. UI scans, counts,
+snippets, highlights and selections refresh with the text generation. Undo/Redo
+invalidates both engines. Conservative invalidation avoids depending on E36's
+pending change-detection contract; dirty/error reporting remains E35/E36 work.
+
+The initial regression failed on both engines: cached text on the edited and
+calculated pages remained `OLDWORD`, and searching `NEWWORD` returned zero.
+`form-text-cache` now checks ten cases across both engines: in-place text entry,
+choice, checkbox, empty fields and rejected validation with cross-page JS.
+It warms display/editor caches, repeats the same query, continues through
+matches, selects glyphs and checks Undo/Redo. In-place entry also checks the
+floating results count changes between zero and two.
+
+Debug and ASan passed. Existing `ad-hoc-pdfium-forms`,
+`ad-hoc-pdfium-form-js` and `ad-hoc-pdfium-redaction-undo` passed Debug.
+All app tests used hidden desktops outside the sandbox. No Release build,
+full suite or ng GUI test was run. Binary hashes and results are in
+[the evidence record](data/e29-2026-11-10.json).
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3050,6 +3077,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E26 | Preserve unsaved edits during automatic reload (R1, P1)                                                                                                                                                                                                                                     | done — Preserve edits during automatic reload (E26); [results](#e26-automatic-reload-2026-11-10)                                                                                                                                        |
 | E27 | Keep the save prompt after source loss (R2, P1)                                                                                                                                                                                                                                             | done — Preserve edits after source loss (E27); [results](#e27-missing-source-2026-11-10)                                                                                                                                                |
 | E28 | Roll back failed signature preparation (R3, P2)                                                                                                                                                                                                                                             | done — Roll back failed signature preparation (E28); [results](#e28-signature-rollback-2026-11-10)                                                                                                                                      |
+| E29 | Invalidate form text/search after edits (R4, P2)                                                                                                                                                                                                                                            | done — Refresh form text and search caches (E29); [results](#e29-form-text-cache-2026-11-10)                                                                                                                                            |
 
 ### F. Manual acceptance
 

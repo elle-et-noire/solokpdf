@@ -325,6 +325,12 @@ navigation discard a pending count (E13).
 Alt+Down opens the search field's history; Alt+Up closes it in both the compact
 bar and floating find window. The keys stay with the search field.
 
+## Form text and search
+
+Form edits and Undo/Redo refresh text, search matches, counts, snippets and
+selection coordinates in both engines, including JavaScript changes on other
+pages. See [forms.md](forms.md#text-and-search-after-edits).
+
 ## Settings
 
 Settings > Settings and Ctrl+, open one screen. Commonly used settings appear

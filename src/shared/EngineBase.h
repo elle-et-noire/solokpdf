@@ -625,6 +625,8 @@ class EngineBase {
     Str GetTextForPage(int pageNo, int* lenOut = nullptr, Rect** coordsOut = nullptr, QuadF** quadsOut = nullptr);
     bool TryGetTextForPage(int pageNo, int* lenOut = nullptr, Rect** coordsOut = nullptr, QuadF** quadsOut = nullptr);
     void InvalidateTextForPage(int pageNo);
+    void InvalidateAllText();
+    int TextGeneration();
     void SetHideAnnotations(bool hide);
     virtual void ReleaseTextExtractionThreadContext() {}
     // pages where clipping doesn't help are rendered in larger tiles

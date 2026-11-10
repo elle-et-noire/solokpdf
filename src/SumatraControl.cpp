@@ -1974,7 +1974,17 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 FreePageText(&text);
                 break;
             }
-            if (str::Eq(StringArg(req, 0), StrL("prefetch-text")) || str::Eq(StringArg(req, 0), StrL("cached-text"))) {
+            if (str::Eq(signAction, StrL("search-first")) || str::Eq(signAction, StrL("search-next"))) {
+                TextSearch* search = dm->textSearch;
+                Vec<TextSel>* matches = str::Eq(signAction, StrL("search-first"))
+                                            ? search->FindFirst(1, StringArg(req, 1))
+                                            : search->FindNext();
+                TempStr text = matches && len(*matches) ? search->ExtractTextTemp(StrL(" ")) : TempStr{};
+                AppendTestResult(req, 0, fmt("found=%d text=%s", matches && len(*matches) ? 1 : 0, text));
+                break;
+            }
+            if (str::Eq(signAction, StrL("prefetch-text")) || str::Eq(signAction, StrL("cached-text")) ||
+                str::Eq(signAction, StrL("editor-text"))) {
                 i32 pageNo = 0;
                 IntArg(req, 1, pageNo);
                 if (pageNo < 1 || pageNo > engine->PageCount()) {
@@ -1988,7 +1998,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     AppendTestResult(req, 0, fmt("ready=%d chars=%d", (int)ready, chars));
                     break;
                 }
-                Str text = engine->GetTextForPage(pageNo, &chars);
+                EngineBase* source = engine;
+                if (str::Eq(signAction, StrL("editor-text")) && engine->HasAnnotationEditor()) {
+                    source = engine->AnnotationEditor(EditorLoad::Load);
+                }
+                Str text = source ? source->GetTextForPage(pageNo, &chars) : Str{};
                 AppendTestResult(req, 0, fmt("chars=%d text=%s", chars, text));
                 break;
             }

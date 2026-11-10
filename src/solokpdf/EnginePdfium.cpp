@@ -2759,14 +2759,20 @@ class EnginePdfium : public EngineBase {
 
     PageText ExtractPageText(int pageNo) override { return ExtractText(pageNo, EditorLoad::Load); }
 
+    EngineBase* TextEditor(int pageNo) {
+        EngineBase* res = AnnotationEditor(EditorLoad::IfLoaded);
+        return res && ((acroForm && res->TextGeneration() != 0) || EngineMupdfPageRedacted(res, pageNo)) ? res
+                                                                                                         : nullptr;
+    }
+
     // Hover's prefetch never loads the editor: without it, text MuPDF must supply is left partial.
     PageText ExtractPrefetchText(int pageNo) override { return ExtractText(pageNo, EditorLoad::IfLoaded); }
 
     // False while a render owns the lock or the text needs the editor, which can't load here:
     // the I-beam hover only reads cached text and search then reads the page once, blocking.
     bool TryExtractPageText(int pageNo, PageText* out) override {
-        if (EngineBase* redacted = RedactedEditor(pageNo)) {
-            return redacted->TryExtractPageText(pageNo, out);
+        if (EngineBase* source = TextEditor(pageNo)) {
+            return source->TryExtractPageText(pageNo, out);
         }
         *out = {};
         if (!gPdfiumLock.TryLock()) {
@@ -2785,8 +2791,8 @@ class EnginePdfium : public EngineBase {
     }
 
     PageText ExtractText(int pageNo, EditorLoad load) {
-        if (EngineBase* redacted = RedactedEditor(pageNo)) {
-            return redacted->ExtractPageText(pageNo);
+        if (EngineBase* source = TextEditor(pageNo)) {
+            return source->ExtractPageText(pageNo);
         }
         PdfiumProfile profile(StrL("text"), pageNo);
         PageText result;

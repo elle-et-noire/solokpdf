@@ -85,6 +85,8 @@ struct TextSearch : public TextSelection {
     void ResetByteIdx() const;
     void SetPageText(int pageNo, Str text, int textLen);
     bool LoadPageText(int pageNo);
+    bool SyncTextGeneration();
+    int textGeneration = 0;
     int RestrictPage(Direction direction) const;
 
     // page pageText is for (0: none)

@@ -171,6 +171,11 @@ E28で修正済み。[実装・検証記録](history.md#e28-signature-rollback-2
 
 ### R4 / E29 — P2: フォーム編集後の検索が旧値を使う
 
+**E29 で修正済み。** フォーム setter の試行後と Undo/Redo で全取得済みページを無効化し、
+PDFium は editor の世代を追従する。検索の継続・件数・snippet・選択も更新する。
+受理や dirty の変更検出は E35/E36 に残し、E29 は拒否時も保守的に無効化する。
+[検証記録](history.md#e29-form-text-cache-2026-11-10)。以下は修正前の指摘。
+
 - **不具合・契約の欠落・変更する。** [SetWidgetValue](../../src/shared/Annotation.cpp#L626) → [MarkNotificationAsModified](../../src/shared/EngineMupdf.cpp#L13852) は表示リストを無効化するが、`EngineBase` のテキストを無効化しない。PDFium 側も独立したキャッシュを持つ。
 - `cached-text` で `OLDWORD` を取得してからフォームを `NEWWORD` に変更すると、値と view/print 画素は変わるが、取得文字列は旧値のまま、新値の検索は `found=0`。両エンジンで再現した。
 - `ad-hoc-pdfium-forms` と form-js は値・画素・保存を確認する。編集前の完成済みテキストを温めないため、この不整合を検出しない。
