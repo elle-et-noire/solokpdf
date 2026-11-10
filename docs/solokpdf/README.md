@@ -9,85 +9,68 @@ original Win32 application is in scope; `src/ng/` is not.
 ## Priority
 
 The move to PDFium is for its current text appearance: the user wants to avoid
-MuPDF's thinner-looking text. Preserve PDFium's font selection, antialiasing,
-render resolution and color processing. Do not switch the default to MuPDF to
+MuPDF's thinner-looking text. Preserve current display quality; changes to
+rendering output require checking their purpose and visual impact. Do not switch the default to MuPDF to
 meet memory/startup targets. Font-info v2 remains probe-only because it changes
 rendered output.
 
 ## Status (2026-11-10)
 
-The CI coverage baseline is `9083edafe` on `solokpdf-dev`. It commits four virtual-tree checks in
-regular CI (D13) and a manual/weekly ASan workflow (E17).
-[Latest successful regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/42755793358)
-passed Debug/Release builds, 105115 unit tests and 70/70 feature tests at `7d107cea8`.
-D13's four tree checks passed. E17's first hosted run exposed an incompatible
-ASan DLL; `00fa812cd` fixes runtime selection. Its
-[hosted ASan retry](https://github.com/elle-et-noire/solokpdf/actions/runs/42762543479)
-passed the fresh build, tree lifetime and PDFium fallback tests;
-see the [validation record](history.md#hosted-d13e17-validation-2026-11-10).
-E10–E17 and D8–D13 are complete within their recorded scope.
-E18–E22 are complete within their recorded validation scope; see the
-[refactoring plan](refactoring-plan.md) and [backlog](backlog.md).
-Planning docs are committed as `9e1eaac3b`; E21's shared color-stage selection
-is committed as `8bf864e18`. Effective-color input capture completes E21.
-The color-input change passed Debug/Release builds and seven targeted Debug
-configurations; [E21's latest record](history.md#e21-effective-color-inputs-2026-11-10)
-includes the 66-image comparison and validation scope. The earlier baseline
-thumbnail-test failure remains unresolved. E19's render-result contracts are
-implemented as `Clarify render result contracts (E19)`; [results and scope](history.md#e19-render-results-2026-11-10)
-record the targeted checks and pixel comparison.
-E22 aligns render-input snapshots with cache generations and rejects stale tile/F12 results.
-Its implementation, cache inventory and validation are in the
-[E22 record](history.md#e22-cache-contracts-2026-11-10).
-E18 clarifies form read results, prevents paint from loading the editor and makes
-MuPDF's Try text read decline on document-lock contention. Failed editor loads
-retain partial text without marking the cache complete. Implementation and
-targeted local validation are in the [E18 record](history.md#e18-read-contracts-2026-11-10).
-E20 keeps editing, cloning, auxiliary reads and Save As on the retained input.
-Ownership, lock ordering and targeted Debug/ASan results are in the
-[E20 record](history.md#e20-document-lifetime-2026-11-10).
-F2 passed by owner report. F1/F3 were
-removed from active work by the owner on 2026-11-10, without being marked passed.
+Status snapshot at `32d95cef7` on `solokpdf-dev`. D8–D13 and E10–E22 are complete
+within their recorded scope. The [structure and code review](full-review-plan.md) is planned
+as E23–E25 and has not started; [backlog.md](backlog.md) records its work items,
+deferred work and exclusions.
 
-| Area           | Current state                                                                                                                                     | Details                                                                                                              |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                                       | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                      |
-| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7); recorded validation follow-ups are closed.                                                         | [Merge status](upstream-merges.md#current-status-2026-11-09)                                                         |
-| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                                       | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                   |
-| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete).           | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md) |
-| Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                               | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                               |
-| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                                      | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                       |
-| Refactoring    | Tree layout/internals, PDFium runtime and pending key state are separated in four committed changes; review complete by owner confirmation (E15). | [Results](history.md#navigation), [review](history.md#e15-refactor-review-2026-11-10)                                |
+The completed E18–E22 review covers color inputs, render results, cache
+invalidation, read contracts and document lifetime. Read the
+[current architecture](architecture.md) for the resulting contracts and the
+[completed plan](refactoring-plan.md) for implementation commits and evidence.
+
+| Area           | Current state                                                                                                                                                            | Details                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                                                              | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                                         |
+| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7); recorded validation follow-ups are closed.                                                                                | [Merge status](upstream-merges.md#current-status-2026-11-09)                                                                            |
+| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                                                              | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                                      |
+| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete).                                  | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md)                    |
+| Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                                                      | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                                                  |
+| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                                                             | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                                          |
+| Refactoring    | Tree, runtime and key-state separation (E15), plus rendering/read/lifetime contracts (E18–E22), are complete within their recorded scope.                                | [Current architecture](architecture.md), [completed plan](refactoring-plan.md), [E15 review](history.md#e15-refactor-review-2026-11-10) |
+| Planned review | E23–E25 assess correctness, maintainability and performance. Operation paths guide investigation; build/test checks are included where relevant. Review has not started. | [Scope and plan](full-review-plan.md), [work items](backlog.md#design-review)                                                           |
 
 ### Validation scope
 
-Results apply only to the revisions and checks listed here. Regular CI does not
-run ASan. The ASan workflow's scope is in [testing.md](testing.md#asan-ci).
+These are recorded results, not a fresh CI-status check. Results apply only to
+the tested revisions and checks. Regular CI does not run ASan; Release was
+built and packaged, not feature-tested.
 
-| Check                    | Tested revision                 | Recorded result                                                                                                                                                         |
-| ------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D13 regular CI           | `9083edafe`, `7d107cea8`        | Both runs passed Debug/Release builds and Debug tests; all four added tree checks passed at `7d107cea8`; [results](history.md#hosted-d13e17-validation-2026-11-10).     |
-| Latest successful CI     | `7d107cea8`                     | Debug/Release builds, 105115 unit tests and 70/70 feature tests passed; [results](history.md#hosted-d13e17-validation-2026-11-10).                                      |
-| E17 hosted ASan          | `00fa812cd`                     | Fresh ASan build and both targeted tests passed after the runtime-selection fix; [results](history.md#hosted-d13e17-validation-2026-11-10).                             |
-| F2 physical tree checks  | Build unspecified               | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                  |
-| D13/E17 local validation | Change committed as `9083edafe` | Four added tree checks, complete Debug PDFium test, clean ASan build and both ASan checks passed before commit; [results](history.md#ci-coverage-expansion-2026-11-10). |
+| Check                   | Tested revision          | Recorded result                                                                                                                                                                                                          |
+| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Regular CI (D13)        | `9083edafe`, `7d107cea8` | Both passed Debug/Release builds and Debug tests. At `7d107cea8`: 105115 unit tests, 70/70 feature tests, including all four tree checks and source lifetime; [results](history.md#hosted-d13e17-validation-2026-11-10). |
+| E17 hosted ASan         | `00fa812cd`              | Fresh ASan build and both targeted tests passed after the runtime-selection fix; [results](history.md#hosted-d13e17-validation-2026-11-10).                                                                              |
+| F2 physical tree checks | Build unspecified        | Owner reported all checks OK; [record and evidence limits](tree-view-screen-reader-check.md#実施結果).                                                                                                                   |
 
-Earlier suite results, targeted rechecks and refactor validation remain in
-[history.md](history.md#navigation).
+Remaining evidence limits:
 
-E16 replaces the direct-project ASan workaround with `bun cmd/solok-build.ts -asan`,
-staging PDFium and the ASan runtime beside the executable. Test staging also
-preserves the ASan DLL. See the [procedure](testing.md#asan-builds).
+- The earlier baseline thumbnail capture instability is unresolved; later
+  targeted runs passed. See the [E22 record](history.md#e22-cache-contracts-2026-11-10).
+- The weekly ASan schedule is configured; no scheduled execution is recorded.
+  The successful run above was manual. The prebuilt PDFium DLL is not ASan-instrumented.
+- F1 printing and F3 physical keyboard checks were excluded by owner instruction
+  on 2026-11-10, without being marked passed. F2 passed by owner report;
+  its build and environment details were not supplied.
+
+Earlier suites, local checks and refactor validation remain in
+[history.md](history.md#navigation). Test procedures are in [testing.md](testing.md).
 
 ## Resuming work
 
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- D13/E17 hosted validation is complete within its recorded scope; see the [backlog](backlog.md#next-steps).
+- Start with E23's [operation mapping](full-review-plan.md#実施順);
+  record the functions read, unresolved paths and actual test coverage.
 - For design work, read the [current architecture](architecture.md) and
-  [refactoring plan](refactoring-plan.md). E21 is complete within its recorded
-  validation scope. E18/E19/E20/E22 are complete within their recorded scope.
+  [structure and code review plan](full-review-plan.md). The [earlier plan](refactoring-plan.md) is complete.
 - For a code change, select the affected tests in [testing.md](testing.md).
   Run full suites only when explicitly requested.
 
@@ -112,24 +95,26 @@ Responsibilities, state and API contracts are in [architecture.md](architecture.
 
 ## Document map
 
-| Purpose                  | Documents                                                                                                                                 |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Current behavior         | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                      |
-| Work status              | [Active, deferred and excluded work](backlog.md)                                                                                          |
-| Design and planned work  | [Current architecture](architecture.md), [refactoring plan](refactoring-plan.md)                                                          |
-| Completed tree migration | [Plan and results](tree-view-replacement-plan.md), [owner's acceptance](tree-view-screen-reader-check.md)                                 |
-| Keyboard input           | [Current routing and results](keyboard-investigation.md); [historical handoff](keyboard-handoff.md)                                       |
-| Test procedures          | [Local automated tests](testing.md#local-windows-runs), [historical manual checks](testing.md#owners-manual-acceptance-f1f3)              |
-| Historical results       | [History navigation](history.md#navigation), [upstream merges](upstream-merges.md), [completed selection plan](selection-overlay-plan.md) |
-| Measurements             | [data/](data/), cited by `history.md`                                                                                                     |
+| Purpose                     | Documents                                                                                                                                 |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Current behavior            | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                      |
+| Work status                 | [Active, deferred and excluded work](backlog.md)                                                                                          |
+| Planned code review         | [Scope, evaluation criteria and completion criteria](full-review-plan.md)                                                                 |
+| Design and completed review | [Current architecture](architecture.md), [completed refactoring plan](refactoring-plan.md)                                                |
+| Completed tree migration    | [Plan and results](tree-view-replacement-plan.md), [owner's acceptance](tree-view-screen-reader-check.md)                                 |
+| Keyboard input              | [Current routing and results](keyboard-investigation.md); [historical handoff](keyboard-handoff.md)                                       |
+| Test procedures             | [Local automated tests](testing.md#local-windows-runs), [historical manual checks](testing.md#owners-manual-acceptance-f1f3)              |
+| Historical results          | [History navigation](history.md#navigation), [upstream merges](upstream-merges.md), [completed selection plan](selection-overlay-plan.md) |
+| Measurements                | [data/](data/), cited by `history.md`                                                                                                     |
 
 ## Keeping docs current
 
 Keep current behavior in `features.md` and `limitations.md`, open work in
 `backlog.md`, and dated results in `history.md`. Mark completed plans with their
 implementation commit; retain their original acceptance criteria as history.
-Keep responsibilities and contracts in `architecture.md`; keep proposed changes
-and their completion criteria in `refactoring-plan.md`.
+Keep responsibilities and contracts in `architecture.md`. The completed
+`refactoring-plan.md` retains its original criteria and links to results;
+record any new work in `backlog.md` before extending the plan.
 Move completed backlog rows to [history.md](history.md#completed-backlog).
 Record upstream merges in `upstream-merges.md` and measurements in `data/`.
 Update this status when the default behavior or active work changes. Keep test

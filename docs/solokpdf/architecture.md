@@ -1,7 +1,8 @@
 # SolokPDF の現行設計
 
-E21 の色方針、E19 の描画結果、E22 のキャッシュ、E18 の読み取り契約、E20 の文書寿命を反映した Win32 版の責務と状態。設計上の見直しは
-[リファクタリング計画](refactoring-plan.md)、実装・検証履歴は [history.md](history.md) を参照する。
+E21 の色方針、E19 の描画結果、E22 のキャッシュ、E18 の読み取り契約、E20 の文書寿命を反映した Win32 版の責務と状態。
+次の点検は [構造とコードのレビュー計画](full-review-plan.md)、完了済みの見直しは [リファクタリング計画](refactoring-plan.md)、
+実装・検証履歴は [history.md](history.md) を参照する。
 
 ## PDF エンジンの役割
 

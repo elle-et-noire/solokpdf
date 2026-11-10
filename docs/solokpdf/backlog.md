@@ -1,56 +1,44 @@
 # SolokPDF backlog
 
-Open work as of 2026-11-10. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
+Work scope as of 2026-11-10. E23–E25 are planned (`todo`); the structure and code review has not started.
+D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D14, E23, F4).
+group (B76, C2, D14, E26, F4).
 
 ## Implementation and acceptance
 
-E10–E17 and D8–D13 records are in [history.md](history.md#navigation).
-E16 is committed as
-`fc8b455e8`; its regular CI passed Debug/Release builds, unit tests and feature
-tests. See [D12's evidence and limits](history.md#d12-hosted-evidence-2026-11-10).
+Completed D8–D13 and E10–E22 records are in
+[history.md](history.md#navigation). The [status page](README.md#validation-scope)
+summarizes recorded CI results and evidence limits.
 
 F1/F3 were removed from active work by the owner on 2026-11-10, without marking
 them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-D13 and E17 are complete within their [recorded scope](history.md#hosted-d13e17-validation-2026-11-10).
-Regular CI passed at `9083edafe` and `7d107cea8`. E17's first hosted run exposed
-an incompatible ASan DLL; `00fa812cd` fixes the selection. Its hosted retry
-passed the fresh ASan build, tree lifetime and PDFium fallback tests.
-The weekly schedule is configured on `solokpdf-dev`; no scheduled execution
-has been observed. No new implementation or validation task is selected.
+Start with E23's operation-to-implementation mapping in the [review plan](full-review-plan.md).
+Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
+affected tests from [testing.md](testing.md); run full suites only when
+explicitly requested.
 
 ## Design review
 
-The [refactoring plan](refactoring-plan.md) covers rendering, color policy,
-cache invalidation, read contracts and document lifetime. Record the affected
-paths and outputs first. File splitting is an
-implementation choice, not a completion criterion. The [current architecture](architecture.md)
-records existing behavior separately from these proposed changes.
+E18–E22 are complete within their recorded validation scope. The [completed plan](refactoring-plan.md) maps each item
+to its implementation and results. The [current architecture](architecture.md)
+records the resulting responsibilities and contracts.
 
-E18–E22 are complete within their recorded validation scope; no design-review
-item remains active.
+Assess correctness, maintainability and performance using the
+[review plan's evaluation criteria](full-review-plan.md#評価観点). Operation
+paths guide investigation without limiting its scope. Record the code actually
+read; check build and test infrastructure where the investigation or a change requires them.
 
-E21 is complete within its recorded validation scope. Its stage-selection change
-is `8bf864e18`; input capture is recorded under [effective color inputs](history.md#e21-effective-color-inputs-2026-11-10).
-E19 is complete within its [recorded validation scope](history.md#e19-render-results-2026-11-10).
-E22 is complete within its [recorded validation scope](history.md#e22-cache-contracts-2026-11-10).
-E18 is implemented as `Clarify read and editor contracts (E18)`; [read-contract results](history.md#e18-read-contracts-2026-11-10)
-record its local validation and remaining limits.
-E20's retained-input changes and ownership/lock audit are in the
-[document-lifetime record](history.md#e20-document-lifetime-2026-11-10).
-E20 is complete as `Preserve document source lifetimes (E20)` within that scope.
-Build/test evidence and the unresolved baseline thumbnail-test
-instability remain in the history.
-
-Keep D3 deferred and F1/F3 and distribution outside active scope. For a new code
-change, choose affected tests from [testing.md](testing.md); run full suites
-only when explicitly requested.
+| ID  | Item                                                             | Status |
+| --- | ---------------------------------------------------------------- | ------ |
+| E23 | Map operation entry points to implementations and existing tests | todo   |
+| E24 | Review structure and code against the evaluation criteria        | todo   |
+| E25 | Prioritize findings and record remaining work and coverage       | todo   |
 
 ## Deferred
 

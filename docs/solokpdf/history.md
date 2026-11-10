@@ -22,11 +22,14 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 
 The latest CI additions and local checks are recorded under
 [D13/E17](#ci-coverage-expansion-2026-11-10).
-Ongoing design work starts with [E21 color-stage selection](#e21-color-stage-policy-2026-11-10).
-Its follow-up captures [effective color inputs](#e21-effective-color-inputs-2026-11-10).
-Render execution and output contracts are recorded under [E19](#e19-render-results-2026-11-10).
-Read results and lazy-editor side effects are recorded under [E18](#e18-read-contracts-2026-11-10).
-Document inputs, ownership and teardown are recorded under [E20](#e20-document-lifetime-2026-11-10).
+The completed E18–E22 review has these records:
+
+- E21: [Color-stage selection](#e21-color-stage-policy-2026-11-10) and
+  [effective color inputs](#e21-effective-color-inputs-2026-11-10).
+- E19: [Render execution and output contracts](#e19-render-results-2026-11-10).
+- E22: [Cache dependencies and invalidation](#e22-cache-contracts-2026-11-10).
+- E18: [Read results and lazy-editor side effects](#e18-read-contracts-2026-11-10).
+- E20: [Document inputs, ownership and teardown](#e20-document-lifetime-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2575,7 +2578,7 @@ has been observed. The prebuilt PDFium DLL remains uninstrumented.
 
 ## Completed backlog
 
-Open validation is in [backlog.md](backlog.md); completed hosted checks are in
+Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
 the [D8 audit](#d8-hosted-validation-audit-2026-11-09). Older pending notes below
 describe their original state.
 
