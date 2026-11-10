@@ -1944,6 +1944,16 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 2, StrL("NOTREADY no-engine"));
                 break;
             }
+            Str signAction = StringArg(req, 0);
+            if (str::Eq(signAction, StrL("sign")) || str::Eq(signAction, StrL("sign-state")) ||
+                str::Eq(signAction, StrL("sign-save"))) {
+                i32 failure = 0;
+                IntArg(req, 5, failure);
+                AppendTestResult(req, 0,
+                                 SignRollbackResultTemp(engine, signAction, StringArg(req, 1), StringArg(req, 2),
+                                                        StringArg(req, 3), StringArg(req, 4), failure));
+                break;
+            }
             if (str::Eq(StringArg(req, 0), StrL("pages"))) {
                 AppendTestResult(req, 0, fmt("pages=%d", engine->PageCount()));
                 break;

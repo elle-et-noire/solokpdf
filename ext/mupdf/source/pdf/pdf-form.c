@@ -1052,14 +1052,14 @@ pdf_annot *
 pdf_create_signature_widget(fz_context *ctx, pdf_page *page, char *name)
 {
 	fz_rect rect = { 12, 12, 12+100, 12+50 };
-	pdf_annot *annot;
+	pdf_annot *annot = NULL;
 
 	pdf_begin_operation(ctx, page->doc, "Create signature");
 
-	annot = pdf_create_annot_raw(ctx, page, PDF_ANNOT_WIDGET);
-
+	fz_var(annot);
 	fz_try(ctx)
 	{
+		annot = pdf_create_annot_raw(ctx, page, PDF_ANNOT_WIDGET);
 		pdf_obj *obj = annot->obj;
 		pdf_obj *root = pdf_dict_get(ctx, pdf_trailer(ctx, page->doc), PDF_NAME(Root));
 		pdf_obj *acroform = pdf_dict_get(ctx, root, PDF_NAME(AcroForm));
@@ -1087,8 +1087,10 @@ pdf_create_signature_widget(fz_context *ctx, pdf_page *page, char *name)
 	}
 	fz_catch(ctx)
 	{
+		pdf_drop_annot(ctx, annot);
 		pdf_abandon_operation(ctx, page->doc);
-		pdf_delete_annot(ctx, page, annot);
+		pdf_sync_annots(ctx, page);
+		fz_rethrow(ctx);
 	}
 	return (pdf_annot *)annot;
 }

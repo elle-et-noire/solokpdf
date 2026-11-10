@@ -21,6 +21,7 @@
 
 extern "C" {
 #include <mupdf/pdf.h>
+#include "../../ext/mupdf/source/pdf/pdf-annot-imp.h"
 #if OS_WIN
 #include "mupdf/pkcs7-windows.h"
 #elif OS_DARWIN
@@ -34,6 +35,7 @@ extern "C" {
 
 #include "Annotation.h"
 #include "Settings.h"
+#include "SumatraConfig.h"
 #include "DocController.h"
 #include "EngineBase.h"
 #include "base/GuessFileType.h"
@@ -168,6 +170,29 @@ int EngineMupdfCountSignedSignatures(EngineBase* engine) {
 
 #if OS_WIN || OS_DARWIN || defined(SUMATRA_HAVE_OPENSSL)
 
+enum class SignStage {
+    Widget = 1,
+    Options,
+    Registered,
+    Digest
+};
+
+static void TestSignFailure(fz_context* ctx, SignStage stage) {
+#if IS_DEBUG && OS_WIN
+    WCHAR value[2]{};
+    if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_TEST_SIGN_FAILURE", value, dimofi(value)) == 1 &&
+        value[0] == L'0' + (int)stage) {
+        fz_throw(ctx, FZ_ERROR_GENERIC, "injected signature failure %d", (int)stage);
+    }
+#endif
+}
+
+#if IS_DEBUG && OS_WIN
+static size_t FailSignDigest(fz_context* ctx, pdf_pkcs7_signer*) {
+    fz_throw(ctx, FZ_ERROR_GENERIC, "injected signature digest failure");
+}
+#endif
+
 // Finds the unsigned signature widget named name; returns a kept reference the
 // caller drops. The page that owns it is left loaded and returned in pageOut
 // (caller drops it). Dropping that page before signing unbinds the annot
@@ -252,6 +277,7 @@ bool EngineMupdfSignDocument(EngineBase* engine, const PdfSignArgs& args, Str* e
     pdf_page* page = nullptr;
     fz_image* graphic = nullptr;
     fz_buffer* imgBuf = nullptr;
+    Str imgData;
     int pageNo = args.pageNo;
     bool ok = false;
     fz_var(signer);
@@ -259,6 +285,7 @@ bool EngineMupdfSignDocument(EngineBase* engine, const PdfSignArgs& args, Str* e
     fz_var(page);
     fz_var(graphic);
     fz_var(imgBuf);
+    fz_var(imgData);
     fz_var(ok);
     fz_var(pageNo);
 
@@ -269,6 +296,11 @@ bool EngineMupdfSignDocument(EngineBase* engine, const PdfSignArgs& args, Str* e
     static_assert(kPdfSignShowGraphicName == PDF_SIGNATURE_SHOW_GRAPHIC_NAME);
 
     fz_try(ctx) {
+        if (!epdf->pdfdoc->journal) {
+            fz_throw(ctx, FZ_ERROR_ARGUMENT, "signature preparation requires an undo journal");
+        }
+        int steps;
+        pdf_undoredo_state(ctx, epdf->pdfdoc, &steps);
 #if OS_WIN
         if (args.certThumbprint) {
             signer = pkcs7_windows_read_store(ctx, CStrTemp(args.certThumbprint));
@@ -285,67 +317,107 @@ bool EngineMupdfSignDocument(EngineBase* engine, const PdfSignArgs& args, Str* e
         signer = pkcs7_openssl_read_pfx(ctx, CStrTemp(args.certPath), CStrTemp(args.certPassword));
 #endif
 #endif
+#if IS_DEBUG && OS_WIN
+        WCHAR failure[2]{};
+        if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_TEST_SIGN_FAILURE", failure, dimofi(failure)) == 1 &&
+            failure[0] == L'0' + (int)SignStage::Digest) {
+            signer->max_digest_size = FailSignDigest;
+        }
+#endif
+        if (args.imagePath) {
+            imgData = file::ReadFile(args.imagePath);
+            if (len(imgData) == 0) {
+                fz_throw(ctx, FZ_ERROR_ARGUMENT, "could not read signature image");
+            }
+            imgBuf = fz_new_buffer_from_copied_data(ctx, (const unsigned char*)imgData.s, (size_t)len(imgData));
+            graphic = fz_new_image_from_buffer(ctx, imgBuf);
+        }
         if (args.fieldName) {
             widget = FindUnsignedSignatureWidget(ctx, epdf->pdfdoc, args.fieldName, &pageNo, &page);
             if (!widget) {
                 fz_throw(ctx, FZ_ERROR_ARGUMENT, "signature field '%s' is gone", CStrTemp(args.fieldName));
             }
+            if (pdf_annot_field_flags(ctx, widget) & PDF_FIELD_IS_READ_ONLY) {
+                fz_throw(ctx, FZ_ERROR_ARGUMENT, "Signature is read only, it cannot be signed.");
+            }
         } else {
             page = pdf_load_page(ctx, epdf->pdfdoc, pageNo - 1);
-            // the name only has to be unique; mupdf doesn't check, so make it
-            // unlikely to collide with fields the document already has
-            TempStr name = fmt("SumatraSignature%d", pdf_count_signatures(ctx, epdf->pdfdoc) + 1);
-            widget = pdf_create_signature_widget(ctx, page, CStrTemp(name));
-            if (!args.rect.IsEmpty()) {
-                pdf_set_annot_rect(ctx, widget, ToFzRect(args.rect));
-            }
         }
-        // The field's /Lock is what the signature's FieldMDP transform locks.
-        // mupdf gives a new field /Lock /Action /All, which makes every later
-        // signature a change this one forbids (discussion #6315), so an
-        // approval signature gets none; "lock fields" keeps / adds it, and
-        // "lock document" adds the PDF 2.0 /P 1 our set_value patch copies
-        // into the transform. /SumatraCertify is the DocMDP level the same
-        // patch turns into the certification, inside the signed section.
+
+        pdf_annot savedWidget = widget ? *widget : pdf_annot{};
+        int recalculate = epdf->pdfdoc->recalculate;
+        bool modified = epdf->modifiedAnnotations;
         pdf_begin_operation(ctx, epdf->pdfdoc, "Prepare signature");
-        pdf_obj* wobj = pdf_annot_obj(ctx, widget);
-        if (args.lockFields || args.lockDocument) {
-            pdf_obj* lock = pdf_dict_put_dict(ctx, wobj, PDF_NAME(Lock), 2);
-            pdf_dict_put(ctx, lock, PDF_NAME(Action), PDF_NAME(All));
-            if (args.lockDocument) {
-                pdf_dict_put_int(ctx, lock, PDF_NAME(P), 1);
+        fz_try(ctx) {
+            if (len(args.fieldName) == 0) {
+                // the name only has to be unique; mupdf doesn't check, so make it
+                // unlikely to collide with fields the document already has
+                TempStr name = fmt("SumatraSignature%d", pdf_count_signatures(ctx, epdf->pdfdoc) + 1);
+                widget = pdf_create_signature_widget(ctx, page, CStrTemp(name));
+                if (!args.rect.IsEmpty()) {
+                    pdf_set_annot_rect(ctx, widget, ToFzRect(args.rect));
+                }
             }
-        } else if (len(args.fieldName) == 0) {
-            pdf_dict_del(ctx, wobj, PDF_NAME(Lock));
-        }
-        if (args.certifyLevel > 0) {
-            pdf_dict_puts_drop(ctx, wobj, "SumatraCertify", pdf_new_int(ctx, args.certifyLevel));
-        }
-        pdf_end_operation(ctx, epdf->pdfdoc);
-        if (args.imagePath) {
-            Str imgData = file::ReadFile(args.imagePath);
-            if (len(imgData) == 0) {
-                fz_throw(ctx, FZ_ERROR_ARGUMENT, "could not read signature image");
+            TestSignFailure(ctx, SignStage::Widget);
+            // The field's /Lock is what the signature's FieldMDP transform locks.
+            // mupdf gives a new field /Lock /Action /All, which makes every later
+            // signature a change this one forbids (discussion #6315), so an
+            // approval signature gets none; "lock fields" keeps / adds it, and
+            // "lock document" adds the PDF 2.0 /P 1 our set_value patch copies
+            // into the transform. /SumatraCertify is the DocMDP level the same
+            // patch turns into the certification, inside the signed section.
+            pdf_obj* wobj = pdf_annot_obj(ctx, widget);
+            if (args.lockFields || args.lockDocument) {
+                pdf_obj* lock = pdf_dict_put_dict(ctx, wobj, PDF_NAME(Lock), 2);
+                pdf_dict_put(ctx, lock, PDF_NAME(Action), PDF_NAME(All));
+                if (args.lockDocument) {
+                    pdf_dict_put_int(ctx, lock, PDF_NAME(P), 1);
+                }
+            } else if (len(args.fieldName) == 0) {
+                pdf_dict_del(ctx, wobj, PDF_NAME(Lock));
             }
-            imgBuf = fz_new_buffer_from_copied_data(ctx, (const unsigned char*)imgData.s, (size_t)len(imgData));
-            str::Free(imgData);
-            graphic = fz_new_image_from_buffer(ctx, imgBuf);
+            if (args.certifyLevel > 0) {
+                pdf_dict_puts_drop(ctx, wobj, "SumatraCertify", pdf_new_int(ctx, args.certifyLevel));
+            }
+            TestSignFailure(ctx, SignStage::Options);
+            const char* reason = args.reason ? CStrTemp(args.reason) : nullptr;
+            const char* location = args.location ? CStrTemp(args.location) : nullptr;
+            // PDF_SIGNATURE_DEFAULT_APPEARANCE, minus the logo: that draws mupdf's
+            // logo into the signature, which has no business in a user's document
+            int appearance = args.appearanceFlags >= 0 ? args.appearanceFlags : kPdfSignDefaultAppearance;
+            appearance &= ~PDF_SIGNATURE_SHOW_LOGO;
+            // note: mupdf draws the reason / location into the signature's
+            // appearance but doesn't put /Reason and /Location in the signature
+            // dictionary, and they can't be added afterwards: signing already
+            // reserved a /ByteRange for the bytes as they are now, so any extra
+            // dictionary entry shifts the offsets and invalidates the signature.
+            pdf_sign_signature(ctx, widget, signer, appearance, graphic, reason, location);
+            TestSignFailure(ctx, SignStage::Registered);
+            pdf_end_operation(ctx, epdf->pdfdoc);
         }
-        const char* reason = args.reason ? CStrTemp(args.reason) : nullptr;
-        const char* location = args.location ? CStrTemp(args.location) : nullptr;
-        // PDF_SIGNATURE_DEFAULT_APPEARANCE, minus the logo: that draws mupdf's
-        // logo into the signature, which has no business in a user's document
-        int appearance = args.appearanceFlags >= 0 ? args.appearanceFlags : kPdfSignDefaultAppearance;
-        appearance &= ~PDF_SIGNATURE_SHOW_LOGO;
-        // note: mupdf draws the reason / location into the signature's
-        // appearance but doesn't put /Reason and /Location in the signature
-        // dictionary, and they can't be added afterwards: signing already
-        // reserved a /ByteRange for the bytes as they are now, so any extra
-        // dictionary entry shifts the offsets and invalidates the signature.
-        pdf_sign_signature(ctx, widget, signer, appearance, graphic, reason, location);
+        fz_catch(ctx) {
+            // Pending signers and loaded widgets live outside the object journal.
+            epdf->modifiedAnnotations = true;
+            if (widget) {
+                pdf_xref_remove_unsaved_signature(ctx, epdf->pdfdoc, pdf_annot_obj(ctx, widget));
+            }
+            pdf_abandon_operation(ctx, epdf->pdfdoc);
+            pdf_sync_open_pages(ctx, epdf->pdfdoc);
+            if (savedWidget.obj) {
+                widget->needs_new_local_ap = savedWidget.needs_new_local_ap;
+                widget->needs_new_ap = savedWidget.needs_new_ap;
+                widget->has_new_ap = savedWidget.has_new_ap;
+            }
+            // Abandon drops local appearances; the next render must rebuild them.
+            epdf->pdfdoc->resynth_required = 1;
+            epdf->pdfdoc->recalculate = recalculate;
+            epdf->modifiedAnnotations = modified;
+            fz_rethrow(ctx);
+        }
         ok = true;
     }
     fz_always(ctx) {
+        str::Free(imgData);
         fz_drop_image(ctx, graphic);
         fz_drop_buffer(ctx, imgBuf);
         pdf_drop_annot(ctx, widget);

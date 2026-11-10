@@ -376,6 +376,8 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   Sign Document and signature-field clicks use the lazy MuPDF editor to sign,
   certify and save incrementally, then reopen the result in PDFium while
   retaining the view state. Unsaved annotation and form edits share that save.
+  Failed preparation restores the prior document and pending signatures;
+  canceling or failing the later save retains the prepared signature (E28).
   See [forms.md](forms.md).
 - Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
   annotation except widgets, so form fields used to be blank; documents with

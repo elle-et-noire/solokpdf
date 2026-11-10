@@ -11,7 +11,7 @@ Reload Document commits active form input, then offers Save, Discard or Cancel
 for unsaved changes. A failed save or Cancel keeps the document and Undo history.
 Save's intentional reload and Discard Changes still proceed.
 `tests/auto-reload-unsaved.ts` covers both engines on Windows.
-Dirty-state omissions and dialog reentry remain separate E28/E36 and E34 work.
+Dirty-state omissions and dialog reentry remain separate E36 and E34 work.
 
 ## Document JavaScript
 
@@ -42,6 +42,13 @@ Annotation and form edits already live in that editor. Signing adds its change
 there, so Save As or overwrite saves those edits and the signature together.
 Canceling the save leaves them unsaved, as in the MuPDF document path. The
 existing unsaved-changes prompt handles them on close or reload.
+
+Failed signature preparation restores the field, lock/certification settings,
+Undo/Redo history, pending signers and loaded widgets. Existing edits and
+signatures survive. Certificate and image inputs are read before editing;
+preparation requires an idle Undo journal. A successful preparation is one
+Undo step. Canceling or failing the subsequent save keeps that signature dirty.
+`tests/sign-rollback.ts` covers both Windows engines.
 
 `tests/ad-hoc-pdfium-signing.ts` signs and certifies through both engines,
 verifies the saved bytes, and reopens the result. `tests/issue-5964.ts` covers

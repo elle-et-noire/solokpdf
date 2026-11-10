@@ -74,6 +74,15 @@ maps encapsulation checks to the existing tests. `ad-hoc-tree-lifetime` includes
 `event-name`, which destroys the tree synchronously during a name-change WinEvent.
 Run startup/layout checks after builds finish; keep the executable hash fixed during each set.
 
+### Signature rollback (E28)
+
+Signature rollback (E28): run `tests/sign-rollback.ts` through the hidden
+runner with Debug and ASan. It compares document state and rendering after
+input errors and injected preparation failures, then retries and verifies
+every saved signature. It also covers prior edits, Redo, pending/saved
+signatures, a malformed field tree and failed saves. Debug-only injections
+are skipped by Release CI; the remaining checks still run.
+
 ### ASan builds
 
 Build the PDFium-enabled static executable and stage both runtime DLLs with

@@ -1967,6 +1967,8 @@ EXPORTS
 	pdf_end_operation
 
 	pdf_abandon_operation
+	pdf_sync_open_pages
+	pdf_xref_remove_unsaved_signature
 
 	pdf_undoredo_state
 	pdf_undoredo_step

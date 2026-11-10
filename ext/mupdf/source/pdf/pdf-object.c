@@ -979,7 +979,7 @@ new_entry(fz_context *ctx, pdf_document *doc, char *operation)
 static void
 do_begin_operation(fz_context *ctx, pdf_document *doc, const char *operation_)
 {
-	char *operation;
+	char *operation = NULL;
 
 	/* If we aren't journalling this doc, just give up now. */
 	if (ctx == NULL || doc == NULL || doc->journal == NULL)
@@ -988,21 +988,16 @@ do_begin_operation(fz_context *ctx, pdf_document *doc, const char *operation_)
 	/* Always increment nesting. */
 	doc->journal->nesting++;
 
-	operation = operation_ ? fz_strdup(ctx, operation_) : NULL;
-
-#ifdef PDF_DEBUG_JOURNAL
-	fz_write_printf(ctx, fz_stddbg(ctx), "Beginning: (->%d) %s\n", doc->journal->nesting, operation ? operation : "<implicit>");
-#endif
-
+	fz_var(operation);
 	fz_try(ctx)
 	{
 		pdf_journal_entry *entry;
 
-		/* We create a new entry, and link it into the middle of
-		 * the chain. If we actually come to put anything into
-		 * it later, then the call to pdf_add_journal_fragment
-		 * during that addition will discard everything in the
-		 * history that follows it. */
+		operation = operation_ ? fz_strdup(ctx, operation_) : NULL;
+#ifdef PDF_DEBUG_JOURNAL
+		fz_write_printf(ctx, fz_stddbg(ctx), "Beginning: (->%d) %s\n", doc->journal->nesting, operation ? operation : "<implicit>");
+#endif
+		/* Redo history is discarded only when the outer operation commits. */
 		entry = fz_malloc_struct(ctx, pdf_journal_entry);
 
 		if (doc->journal->pending_tail == NULL)
@@ -1220,6 +1215,8 @@ void pdf_end_operation(fz_context *ctx, pdf_document *doc)
 	 * changes from pending onto current. */
 	entry = doc->journal->pending;
 	assert(entry);
+	if (entry && entry->head)
+		discard_journal_entries(ctx, doc->journal->current ? &doc->journal->current->next : &doc->journal->head);
 
 	/* We really ought to have just a single pending entry at this point,
 	 * but implicit operations when we've just loaded a file can mean
@@ -1892,11 +1889,6 @@ static void prepare_object_for_alteration(fz_context *ctx, pdf_obj *obj, pdf_obj
 	entry = NULL;
 	if (doc->journal)
 	{
-		/* We are about to add a fragment. Everything after 'current' in the
-		 * history must be thrown away. If current is NULL, then *everything*
-		 * must be thrown away. */
-		discard_journal_entries(ctx, doc->journal->current ? &doc->journal->current->next : &doc->journal->head);
-
 		/* We should be collating into a pending block. */
 		entry = doc->journal->pending_tail;
 		assert(entry);

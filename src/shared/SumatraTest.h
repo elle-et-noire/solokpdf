@@ -1,6 +1,8 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
    License: GPLv3 */
 
+class EngineBase;
+
 void EnsureTestSettings();
 TempStr SynctexResultTemp(Str pdfPath, Str srcPath, int line);
 TempStr InverseSearchResultTemp(Str pdfPath, int pageNo, int x, int y);
@@ -42,6 +44,7 @@ TempStr ImageInsertResultTemp(Str pdfPath, Str imagePath, int* exitCodeOut = nul
 TempStr PageRenderColorsResultTemp(Str path, int* exitCodeOut = nullptr, int pageNo = 1, int zoomPercent = 100);
 TempStr PageRenderViewPrintResultTemp(Str path, int* exitCodeOut = nullptr);
 TempStr ListSigningCertsResultTemp(int* exitCodeOut = nullptr);
+TempStr SignRollbackResultTemp(EngineBase*, Str action, Str cert, Str password, Str image, Str field, int failure);
 TempStr SignDocumentResultTemp(Str pdfPath, Str destPath, Str thumbprint, Str certPath, Str certPassword,
                                Str imagePath = {}, int appearanceFlags = -1, int certifyLevel = 0, int lockFlags = 0,
                                int* exitCodeOut = nullptr);

@@ -69,8 +69,10 @@ import { testit as activationTraceB71 } from "./ad-hoc-b71-activation-trace.ts";
 import { testit as controlStartB71 } from "./ad-hoc-b71-control-start.ts";
 import { testit as autoReloadUnsaved } from "./auto-reload-unsaved.ts";
 import { testit as missingSourceUnsaved } from "./missing-source-unsaved.ts";
+import { testit as signRollback } from "./sign-rollback.ts";
 
 const tests: NamedTest[] = [
+  ["sign-rollback", signRollback],
   ["auto-reload-unsaved", autoReloadUnsaved],
   ["missing-source-unsaved", missingSourceUnsaved],
   ["ad-hoc-pdfium-source-lifetime", sourceLifetime],

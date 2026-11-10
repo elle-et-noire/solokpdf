@@ -2861,6 +2861,33 @@ E27 is complete for Windows SolokPDF. E34's broader dialog/factory lifetime
 work and E28/E36's missing dirty notifications remain open. No Release build,
 full suite, ng GUI test or physical drive-disconnection test was run.
 
+## E28 signature rollback (2026-11-10)
+
+Completed E28 on `e1b821eef` plus these changes. Signature preparation validates
+inputs before editing and commits creation, field options and signing as one
+Undo step. Failure removes only the new pending signer, abandons the PDF
+changes and synchronizes loaded widgets while retaining existing wrappers.
+An absent or busy journal prevents preparation. Save Cancel/failure after
+successful preparation still retains the dirty signature.
+
+MuPDF patch `solok-0021` preserves Redo until commit, balances operation-start
+allocation failures, fixes pending-signer removal and propagates widget-creation
+errors. All 89 patches reproduce all 1,410 vendored files byte for byte.
+
+`tests/sign-rollback.ts` covers both engines, new/existing fields, prior edits,
+Redo, pending/saved signatures, malformed field trees and failed saves.
+The initial failing regression left one field and three Undo steps with dirty
+still false. A rendering probe also caught lost local appearances after
+abandon; rollback now requests their regeneration.
+
+All 22 scenarios (202 failed attempts, 20 retries/saves) passed Debug (30.1 s)
+and ASan (41.6 s), including rendering and every saved signature's digest.
+Existing `ad-hoc-pdfium-signing`, `sign-certify`, `ad-hoc-sign-document`,
+`annot-undo-redo` and `annot-undo-one-step` passed. All app tests used hidden
+desktops outside the sandbox. No Release build, full suite or ng GUI test
+was run. Detailed results and binary hashes are in
+[the evidence record](data/e28-2026-11-10.json).
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3022,6 +3049,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E25 | Prioritize findings and record remaining work and coverage                                                                                                                                                                                                                                  | review complete at `44250b78c` plus documentation changes; [scope and synthesis](#e25-review-synthesis-2026-11-10); detailed design and fixes remain in E26–E37                                                                         |
 | E26 | Preserve unsaved edits during automatic reload (R1, P1)                                                                                                                                                                                                                                     | done — Preserve edits during automatic reload (E26); [results](#e26-automatic-reload-2026-11-10)                                                                                                                                        |
 | E27 | Keep the save prompt after source loss (R2, P1)                                                                                                                                                                                                                                             | done — Preserve edits after source loss (E27); [results](#e27-missing-source-2026-11-10)                                                                                                                                                |
+| E28 | Roll back failed signature preparation (R3, P2)                                                                                                                                                                                                                                             | done — Roll back failed signature preparation (E28); [results](#e28-signature-rollback-2026-11-10)                                                                                                                                      |
 
 ### F. Manual acceptance
 

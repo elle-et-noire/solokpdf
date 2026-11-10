@@ -21,11 +21,11 @@ extern "C" {
 #include "DocController.h"
 #include "EngineBase.h"
 #include "EngineAll.h"
+#include "EngineMupdf.h"
 #include "Annotation.h"
 #include "ImageReader.h"
 #include "ImageSaveCropResize.h"
 #include "PdfCreator.h"
-#include "PdfCad.h"
 #include "DisplayModel.h"
 #include "PdfSync.h"
 #include "ProgressUpdateUI.h"
@@ -1123,6 +1123,118 @@ TempStr ListSigningCertsResultTemp(int* exitCodeOut) {
     }
     if (exitCodeOut) {
         *exitCodeOut = 0;
+    }
+    return ToStrTemp(out);
+}
+
+TempStr SignRollbackResultTemp(EngineBase* engine, Str action, Str cert, Str password, Str image, Str field,
+                               int failure) {
+    if (str::Eq(action, StrL("sign-save"))) {
+        return EngineMupdfSaveUpdated(engine, cert, {}) ? StrL("saved") : StrL("save-failed");
+    }
+    if (str::Eq(action, StrL("sign"))) {
+        PdfSignArgs args;
+        args.certPath = cert;
+        args.certPassword = password;
+        args.imagePath = image;
+        args.fieldName = field;
+        args.rect = RectF(50, 50, 200, 80);
+        args.certifyLevel = failure || image ? kPdfCertifyFormsSigningAndAnnots : 0;
+        args.lockFields = failure || image;
+        Str err;
+        EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
+        if (!e || !e->pdfdoc) {
+            return StrL("no-editor");
+        }
+        ScopedRecursiveMutex scope(&e->docLock);
+        pdf_journal* journal = e->pdfdoc->journal;
+        constexpr int kNoJournal = 5;
+        constexpr int kBusyJournal = 6;
+        if (failure == kNoJournal) {
+            e->pdfdoc->journal = nullptr;
+        }
+        if (failure == kBusyJournal) {
+            EngineMupdfBeginOperation(engine, "Test busy signature");
+        }
+#if IS_DEBUG && OS_WIN
+        WCHAR fail[] = {(WCHAR)(L'0' + failure), 0};
+        SetEnvironmentVariableW(L"SOLOKPDF_TEST_SIGN_FAILURE", fail);
+#endif
+        bool ok = EngineMupdfSignDocument(engine, args, &err);
+        if (failure == kNoJournal) {
+            e->pdfdoc->journal = journal;
+        }
+        if (failure == kBusyJournal) {
+            EngineMupdfEndOperation(engine);
+        }
+#if IS_DEBUG && OS_WIN
+        SetEnvironmentVariableW(L"SOLOKPDF_TEST_SIGN_FAILURE", nullptr);
+#endif
+        TempStr res = fmt("ok=%d error=%s", (int)ok, err);
+        str::Free(err);
+        return res;
+    }
+
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
+    if (!e || !e->pdfdoc) {
+        return StrL("no-editor");
+    }
+    RenderPageArgs render(1, 1.f, 0, nullptr, RenderTarget::Print);
+    Pixmap* raw = e->RenderPage(render);
+    Pixmap* pixels = raw ? EnsureReadablePixmap(raw) : nullptr;
+    int ink = pixels ? CountNonWhitePixels(pixels) : -1;
+    if (pixels != raw) {
+        FreePixmap(pixels);
+    }
+    FreePixmap(raw);
+    fz_context* ctx = e->BaseCtx();
+    ScopedRecursiveMutex scope(&e->docLock);
+    str::Builder out;
+    fz_try(ctx) {
+        Vec<Annotation*> widgets;
+        EngineMupdfGetPageWidgets(e, 1, widgets);
+        int steps = 0;
+        int pos = pdf_undoredo_state(ctx, e->pdfdoc, &steps);
+        int pending = 0;
+        for (int i = 0; i < e->pdfdoc->num_incremental_sections; i++) {
+            for (pdf_unsaved_sig* s = e->pdfdoc->xref_sections[i].unsaved_sigs; s; s = s->next) {
+                pending++;
+            }
+        }
+        pdf_obj* root = pdf_dict_get(ctx, pdf_trailer(ctx, e->pdfdoc), PDF_NAME(Root));
+        out.Append(fmt("ink=%d faults=%d pos=%d steps=%d dirty=%d pending=%d fields=%d sigflags=%d perms=%d\n", ink,
+                       IS_DEBUG, pos, steps, (int)e->modifiedAnnotations, pending, pdf_count_signatures(ctx, e->pdfdoc),
+                       pdf_dict_get_int(ctx, pdf_dict_get(ctx, root, PDF_NAME(AcroForm)), PDF_NAME(SigFlags)),
+                       (int)(pdf_dict_get(ctx, root, PDF_NAME(Perms)) != nullptr)));
+        FzPageInfo* pi = e->PageInfoByPageNo(1);
+        int rawWidgets = 0;
+        pdf_page* page = pi && pi->page ? pdf_page_from_fz_page(ctx, pi->page) : nullptr;
+        for (pdf_annot* w = pdf_first_widget(ctx, page); w; w = pdf_next_widget(ctx, w)) {
+            rawWidgets++;
+        }
+        out.Append(fmt("widgets=%d wrappers=%d\n", rawWidgets, len(widgets)));
+        auto appendWrapper = [&](Annotation* w) {
+            pdf_obj* obj = pdf_resolve_indirect(ctx, pdf_annot_obj(ctx, w->pdfannot));
+            char buf[2048];
+            size_t n = 0;
+            char* text = pdf_sprint_obj(ctx, buf, sizeof(buf), &n, obj, 1, 1);
+            out.Append(fmt("wrapper=%p obj=%s\n", (const void*)w, Str(text, (int)n)));
+            if (text != buf) {
+                fz_free(ctx, text);
+            }
+        };
+        for (Annotation* w : widgets) {
+            appendWrapper(w);
+        }
+        if (pi) {
+            for (Annotation* a : pi->annotations) {
+                appendWrapper(a);
+            }
+        }
+    }
+    fz_catch(ctx) {
+        out.Append(fmt("ERROR %s", Str(fz_caught_message(ctx))));
+        fz_report_error(ctx);
     }
     return ToStrTemp(out);
 }

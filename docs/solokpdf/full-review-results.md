@@ -161,6 +161,8 @@ E26 で修正済み。自動更新は未保存・入力中に保留し、更新�
 
 ### R3 / E28 — P2: 署名の途中失敗が未保存とされない変更を残す
 
+E28で修正済み。[実装・検証記録](history.md#e28-signature-rollback-2026-11-10)。以下は修正前の指摘。
+
 - **不具合・変更する。** [PdfSign.cpp:298](../../src/shared/PdfSign.cpp#L298) は新規 widget を作り、`Prepare signature` を確定した後に画像を読む。画像エラー時は rollback せず false を返し、成功時だけ dirty を立てる（同ファイル 325–364 行）。
 - 有効な使い捨て PFX と壊れた既存 PNG を指定してページ上に配置すると、エラー後も署名の配置候補が 1→2、`canUndo=1`・`modified=0` となる。両エンジンで UI 経由で再現した。
 - `ad-hoc-pdfium-signing` は成功・再開封・署名検証、`ad-hoc-sign-document` の失敗は変更前の誤パスワードを確認する。この途中失敗は未検証。
