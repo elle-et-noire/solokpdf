@@ -7481,6 +7481,17 @@ static void RebuildCommentsFromAnnotationsInner(fz_context* ctx, pdf_annot* anno
 }
 
 static void RebuildCommentsFromAnnotations(fz_context* ctx, FzPageInfo* pageInfo) {
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    WCHAR fail[2]{};
+    if (gForTesting && pageInfo->pageNo == 2 &&
+        GetEnvironmentVariableW(L"SOLOKPDF_TEST_REDACT_RELOAD", fail, dimofi(fail)) == 1 &&
+        (fail[0] == L'1' || fail[0] == L'2')) {
+        if (fail[0] == L'1') {
+            SetEnvironmentVariableW(L"SOLOKPDF_TEST_REDACT_RELOAD", nullptr);
+        }
+        fz_throw(ctx, FZ_ERROR_GENERIC, "injected comment enumeration failure");
+    }
+#endif
     DeleteVecMembers(pageInfo->comments);
 
     Vec<IPageElement*>& comments = pageInfo->comments;
@@ -7595,7 +7606,8 @@ static FzPageInfo* GetFzPageInfoLocked(EngineMupdf* e, Location loc, bool loadQu
     }
 
     if (e->pdfdoc && !pageInfo->annotsLoaded) {
-        pageInfo->annotsLoaded = true;
+        bool loaded = false;
+        fz_var(loaded);
         fz_try(ctx) {
             // null for a page that isn't a pdf_page; pdf_first_widget()
             // dereferences it without checking (pdf_first_annot() doesn't)
@@ -7616,11 +7628,19 @@ static FzPageInfo* GetFzPageInfoLocked(EngineMupdf* e, Location loc, bool loadQu
                 }
                 widget = pdf_next_widget(ctx, widget);
             }
+            RebuildCommentsFromAnnotations(ctx, pageInfo);
+            loaded = true;
         }
         fz_catch(ctx) {
             fz_report_error(ctx);
         }
-        RebuildCommentsFromAnnotations(ctx, pageInfo);
+        if (!loaded) {
+            DeleteVecMembers(pageInfo->annotations);
+            DeleteVecMembers(pageInfo->widgets);
+            DeleteVecMembers(pageInfo->comments);
+            return pageInfo;
+        }
+        pageInfo->annotsLoaded = true;
     }
 
     if (loadQuick || pageInfo->fullyLoaded) {
@@ -12570,8 +12590,25 @@ bool EngineMupdfHoldDocLock(EngineBase* engine, int ms) {
     return held;
 }
 
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+static void InjectRedactAfter(fz_context* ctx, pdf_document* doc, pdf_page* page, pdf_redact_options* opts) {
+    pdf_begin_operation(ctx, doc, "Inject redaction failure");
+    fz_try(ctx) {
+        pdf_redact_page(ctx, doc, page, opts);
+    }
+    fz_always(ctx) {
+        pdf_abandon_operation(ctx, doc);
+    }
+    fz_catch(ctx) {
+        fz_rethrow(ctx);
+    }
+    fz_throw(ctx, FZ_ERROR_GENERIC, "injected failure after deleting annotations");
+}
+#endif
+
 // Redact every page with a /Redact mark as one undo step (MuPDF journals each page separately).
-static void RedactAllPages(EngineBase* engine, EngineMupdf* e, Vec<int>& redacted, Vec<Annotation*>& deletedOut) {
+static void RedactAllPages(EngineBase* engine, EngineMupdf* e, Vec<int>& redacted, Vec<int>& failedPages,
+                           Vec<Annotation*>& deletedOut) {
     pdf_redact_options opts{};
     opts.black_boxes = 1;
     opts.image_method = PDF_REDACT_IMAGE_PIXELS;
@@ -12579,69 +12616,158 @@ static void RedactAllPages(EngineBase* engine, EngineMupdf* e, Vec<int>& redacte
     opts.text = PDF_REDACT_TEXT_REMOVE;
 
     auto* ctx = e->Ctx();
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    WCHAR failPage[8]{};
+    if (gForTesting) {
+        GetEnvironmentVariableW(L"SOLOKPDF_TEST_REDACT_FAIL", failPage, dimofi(failPage));
+    }
+#endif
     ScopedEngineOperation op(engine, kApplyRedactionsOp);
+    if (!op.active) {
+        return;
+    }
     ScopedRecursiveMutex pagesScope(&e->pagesLock);
     ScopedMutex renderScope(&e->renderLock);
 
     for (int pageNo = 1; pageNo <= e->pageCount; pageNo++) {
-        FzPageInfo* pi = GetFzPageInfoLocked(e, e->LocationFromPageNo(pageNo), true, nullptr);
-        if (!pi || !pi->page) {
+        FzPageInfo* pi = nullptr;
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+        if (failPage[0] != L'p' || pageNo != 2)
+#endif
+        {
+            pi = GetFzPageInfoLocked(e, e->LocationFromPageNo(pageNo), true, nullptr);
+        }
+        if (!pi || !pi->page || !pi->annotsLoaded) {
+            VecAppend(failedPages, pageNo);
             continue;
         }
 
         bool hasRedact = false;
-        for (Annotation* a : pi->annotations) {
-            if (a && a->type == AnnotationType::Redact) {
-                hasRedact = true;
-                break;
+        bool inspected = false;
+        fz_var(hasRedact);
+        fz_var(inspected);
+        {
+            ScopedRecursiveMutex docScope(&e->docLock);
+            fz_try(ctx) {
+                pdf_page* page = pdf_page_from_fz_page(ctx, pi->page);
+                if (!page) {
+                    fz_throw(ctx, FZ_ERROR_GENERIC, "not a PDF page");
+                }
+                for (pdf_annot* a = pdf_first_annot(ctx, page); a; a = pdf_next_annot(ctx, a)) {
+                    if (pdf_annot_type(ctx, a) == PDF_ANNOT_REDACT) {
+                        hasRedact = true;
+                        break;
+                    }
+                }
+                inspected = true;
             }
+            fz_catch(ctx) {
+                fz_report_error(ctx);
+            }
+        }
+        if (!inspected) {
+            VecAppend(failedPages, pageNo);
+            continue;
         }
         if (!hasRedact) {
             continue;
         }
 
         Vec<Annotation*> before = pi->annotations;
+        Vec<pdf_annot*> live;
         int did = 0;
-        bool failed = false;
+        bool begun = false;
+        bool ok = false;
+        fz_var(did);
+        fz_var(begun);
+        fz_var(ok);
         {
             ScopedRecursiveMutex docScope(&e->docLock);
             fz_try(ctx) {
+                // Keep this page reversible until its remaining annotations are known.
+                pdf_begin_operation(ctx, e->pdfdoc, "Redact page");
+                begun = true;
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+                if (failPage[0] == L'*' || ((failPage[0] == L'2' || failPage[0] == L'r') && pageNo == 2)) {
+                    if (failPage[0] == L'r') {
+                        SetEnvironmentVariableW(L"SOLOKPDF_TEST_REDACT_FAIL", nullptr);
+                    }
+                    fz_throw(ctx, FZ_ERROR_GENERIC, "injected redaction failure");
+                }
+#endif
                 pdf_page* page = pdf_page_from_fz_page(ctx, pi->page);
                 if (page) {
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+                    if ((failPage[0] == L'a' || failPage[0] == L'u' || failPage[0] == L'v') && pageNo == 2) {
+                        InjectRedactAfter(ctx, e->pdfdoc, page, &opts);
+                    }
+#endif
                     did = pdf_redact_page(ctx, e->pdfdoc, page, &opts);
                 }
-            }
-            fz_catch(ctx) {
-                fz_report_error(ctx);
-                failed = true;
-                logf("EngineMupdfApplyRedactions: pdf_redact_page failed on page %d\n", pageNo);
-            }
-        }
-        if (failed || !did) {
-            continue;
-        }
-
-        Vec<pdf_annot*> live;
-        bool listedLive = false;
-        {
-            ScopedRecursiveMutex docScope(&e->docLock);
-            fz_try(ctx) {
-                pdf_page* page = pdf_page_from_fz_page(ctx, pi->page);
-                for (pdf_annot* a = page ? pdf_first_annot(ctx, page) : nullptr; a; a = pdf_next_annot(ctx, a)) {
+                if (!did) {
+                    fz_throw(ctx, FZ_ERROR_GENERIC, "redaction mark not found");
+                }
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+                if (failPage[0] == L'l' && pageNo == 2) {
+                    fz_throw(ctx, FZ_ERROR_GENERIC, "injected annotation enumeration failure");
+                }
+#endif
+                for (pdf_annot* a = pdf_first_annot(ctx, page); a; a = pdf_next_annot(ctx, a)) {
                     VecAppend(live, a);
                 }
-                listedLive = true;
+                RebuildCommentsFromAnnotations(ctx, pi);
+                pdf_end_operation(ctx, e->pdfdoc);
+                begun = false;
+                ok = true;
             }
             fz_catch(ctx) {
                 fz_report_error(ctx);
+                logf("EngineMupdfApplyRedactions: pdf_redact_page failed on page %d\n", pageNo);
+                if (begun) {
+                    fz_try(ctx) {
+                        pdf_abandon_operation(ctx, e->pdfdoc);
+                    }
+                    fz_catch(ctx) {
+                        fz_report_error(ctx);
+                    }
+                }
             }
+        }
+        if (!ok) {
+            VecAppend(failedPages, pageNo);
+            ScopedRecursiveMutex docScope(&e->docLock);
+            // Abandon restores PDF objects, not loaded pages or wrappers.
+            for (Annotation* a : pi->annotations) {
+                if (a) {
+                    a->pdfannot = nullptr;
+                    VecAppend(deletedOut, a);
+                }
+            }
+            for (Annotation* a : pi->widgets) {
+                if (a) {
+                    a->pdfannot = nullptr;
+                    VecAppend(deletedOut, a);
+                }
+            }
+            VecClear(pi->annotations);
+            VecClear(pi->widgets);
+            FreePageInfo(ctx, pi);
+            AtomicIntInc(&e->elementsGeneration);
+            e->InvalidateTextForPage(pageNo);
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+            if ((failPage[0] == L'u' || failPage[0] == L'v') && pageNo == 2) {
+                SetEnvironmentVariableW(L"SOLOKPDF_TEST_REDACT_RELOAD", failPage[0] == L'u' ? L"1" : L"2");
+            }
+#endif
+            GetFzPageInfoLocked(e, e->LocationFromPageNo(pageNo), true, nullptr);
+            continue;
         }
 
         for (Annotation* w : before) {
             if (!w) {
                 continue;
             }
-            bool gone = listedLive ? VecFind(live, w->pdfannot) < 0 : w->type == AnnotationType::Redact;
+            bool gone = VecFind(live, w->pdfannot) < 0;
             if (!gone) {
                 continue;
             }
@@ -12650,10 +12776,6 @@ static void RedactAllPages(EngineBase* engine, EngineMupdf* e, Vec<int>& redacte
             VecAppend(deletedOut, w);
         }
 
-        {
-            ScopedRecursiveMutex docScope(&e->docLock);
-            RebuildCommentsFromAnnotations(ctx, pi);
-        }
         InvalidateFzPageAfterContentChange(e, pi);
         e->InvalidateTextForPage(pageNo);
         VecAppend(redacted, pageNo);
@@ -12664,28 +12786,34 @@ static void RedactAllPages(EngineBase* engine, EngineMupdf* e, Vec<int>& redacte
 // and return the Sumatra wrappers that MuPDF deleted (caller must Detach +
 // DeleteAnnotation). Incremental save is unsafe afterwards; pdfdoc->redacted
 // already forces a full rewrite in EngineMupdfSaveUpdated.
-bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut) {
+bool EngineMupdfApplyRedactions(EngineBase* engine, Vec<Annotation*>& deletedOut, Vec<int>& failedPages) {
     VecReset(deletedOut);
+    VecReset(failedPages);
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc) {
         return false;
     }
 
-    // the undo step this apply becomes; -1 without a journal, where it can't be undone
-    int step = e->pdfdoc->journal ? EngineMupdfUndoPos(e, nullptr) : -1;
-    if (e->pdfdoc->journal && step < 0) {
+    if (!e->pdfdoc->journal) {
+        logf("EngineMupdfApplyRedactions: no undo journal\n");
+        return false;
+    }
+    int step = EngineMupdfUndoPos(e, nullptr);
+    if (step < 0) {
         // inside another operation: undo couldn't tell when the pages change
         logf("EngineMupdfApplyRedactions: the undo history is busy\n");
         return false;
     }
     Vec<int> redacted;
-    RedactAllPages(engine, e, redacted, deletedOut);
+    RedactAllPages(engine, e, redacted, failedPages, deletedOut);
+    InvalidateRedactedText(engine, e, failedPages);
 
     bool any = len(redacted) > 0;
     if (any) {
         e->modifiedAnnotations = true;
-        // the marks are burned in and gone; nothing left to apply
-        e->createdRedactMark = false;
+        if (len(failedPages) == 0) {
+            e->createdRedactMark = false;
+        }
         RecordRedactedPages(e, step, redacted);
         SyncRedacted(engine, e);
     }
@@ -12889,20 +13017,31 @@ int EngineMupdfUndoPos(EngineMupdf* e, int* stepsOut) {
 // themselves, so this is for grouping a whole gesture (create, paste, a resize
 // drag that writes on every mouse move) into a single step. Nested operations
 // fold into the outermost one. Must be paired with EngineMupdfEndOperation().
-void EngineMupdfBeginOperation(EngineBase* engine, const char* name) {
+bool EngineMupdfBeginOperation(EngineBase* engine, const char* name) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!e || !e->pdfdoc) {
-        return;
+        return false;
     }
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    WCHAR fail[2]{};
+    if (gForTesting && str::Eq(Str(name), Str(kApplyRedactionsOp)) &&
+        GetEnvironmentVariableW(L"SOLOKPDF_TEST_REDACT_FAIL", fail, dimofi(fail)) == 1 && fail[0] == L'b') {
+        return false;
+    }
+#endif
     auto* ctx = e->Ctx();
     ScopedRecursiveMutex docScope(&e->docLock);
+    bool active = false;
+    fz_var(active);
     fz_try(ctx) {
         pdf_begin_operation(ctx, e->pdfdoc, name);
         e->journalNesting++;
+        active = true;
     }
     fz_catch(ctx) {
         fz_report_error(ctx);
     }
+    return active;
 }
 
 void EngineMupdfEndOperation(EngineBase* engine) {

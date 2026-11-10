@@ -440,6 +440,8 @@ import { testit as issue6107 } from "./issue-6107.ts";
 import { testit as issue5968 } from "./issue-5968.ts";
 import { testit as issue5978 } from "./issue-5978.ts";
 import { testit as signRollback } from "./sign-rollback.ts";
+import { testit as redactPartial } from "./redact-partial.ts";
+import { testit as redactNoJournal } from "./redact-no-journal.ts";
 import { testit as formTextCache } from "./form-text-cache.ts";
 import { testit as controllerDeleteHandles } from "./controller-delete-handles.ts";
 import { testit as dialogTargetReentry } from "./dialog-target-reentry.ts";
@@ -608,6 +610,8 @@ export const tests: NamedTest[] = [
   ["cbr-network-unrar", cbrNetworkUnrar],
   ["form-text-cache", formTextCache],
   ["sign-rollback", signRollback],
+  ["redact-partial", redactPartial],
+  ["redact-no-journal", redactNoJournal],
   ["build-cli", buildCli],
   ["theme-annotation-failure", themeAnnotationFailure],
   ["toolbar-wrap", toolbarWrap],

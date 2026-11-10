@@ -14,10 +14,10 @@ rendering output require checking their purpose and visual impact. Do not switch
 meet memory/startup targets. Font-info v2 remains probe-only because it changes
 rendered output.
 
-## Status (2026-11-10)
+## Status (2026-11-11)
 
-Status snapshot at `c27fcd623` plus E31 changes on `solokpdf-dev`.
-D8–D13 and E10–E31 are complete within their recorded scope.
+Status snapshot after E37 on `solokpdf-dev`.
+D8–D13 and E10–E37 are complete within their recorded scope.
 E24's [review](full-review-results.md#e24-完了確認) records eleven defects and a shutdown contract issue;
 E25's [priorities, dependencies and remaining work](full-review-results.md#e25-再点検) are complete.
 E26 preserves unsaved edits and active form input during automatic reload; [results](history.md#e26-automatic-reload-2026-11-10).
@@ -31,8 +31,8 @@ E33 retries failed page text extraction; [results](history.md#e33-text-extractio
 E34 validates document targets after dialogs; [results](history.md#e34-dialog-targets-2026-11-10).
 E35 preserves choice-field validation rejection; [results](history.md#e35-choice-validation-2026-11-10).
 E36 publishes committed edits despite refresh failures; [results](history.md#e36-committed-edit-notification-2026-11-11).
-[backlog.md](backlog.md) records E37's fix and regression checks,
-deferred work and exclusions.
+E37 reports partial redactions and restores failed pages; [results](history.md#e37-redaction-failures-2026-11-11).
+[backlog.md](backlog.md) records deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache
 invalidation, read contracts and document lifetime. Read the
@@ -48,7 +48,7 @@ invalidation, read contracts and document lifetime. Read the
 | Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                       | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                                                  |
 | Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                              | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                                          |
 | Refactoring    | Tree, runtime and key-state separation (E15), plus rendering/read/lifetime contracts (E18–E22), are complete within their recorded scope. | [Current architecture](architecture.md), [completed plan](refactoring-plan.md), [E15 review](history.md#e15-refactor-review-2026-11-10) |
-| Code review    | E23–E25 complete within scope; priorities, dependencies and remaining work recorded. Product fixes remain open.                           | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review)                                                  |
+| Code review    | E23–E25 complete within scope; E26–E37 address the recorded findings.                                                                     | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review)                                                  |
 
 ### Validation scope
 
@@ -80,8 +80,6 @@ Earlier suites, local checks and refactor validation remain in
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- Continue with E37 using the [review priorities](full-review-results.md#e25-再点検).
-  Keep fixes separate from review documentation and add missing regression coverage before changing product code.
 - For design work, read the [current architecture](architecture.md) and
   [structure and code review plan](full-review-plan.md). The [earlier plan](refactoring-plan.md) is complete.
 - For a code change, select the affected tests in [testing.md](testing.md).

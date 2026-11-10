@@ -141,6 +141,16 @@ every saved signature. It also covers prior edits, Redo, pending/saved
 signatures, a malformed field tree and failed saves. Debug-only injections
 are skipped by Release CI; the remaining checks still run.
 
+### Redaction failures (E37)
+
+Run `tests/redact-partial.ts` and `tests/redact-no-journal.ts` through the
+hidden runner with Debug and ASan. Both engines cover partial and total
+failure, failed page loading, failure after annotation deletion, annotation
+enumeration and reload failures, and missing or unavailable journal operations.
+The tests check the warning, text, marks, overlapping FreeText, dirty state,
+Undo/Redo, retry and saved output. Debug fault injection is unavailable in
+Release and ng; those configurations skip these tests.
+
 ### ASan builds
 
 Build the PDFium-enabled static executable and stage both runtime DLLs with

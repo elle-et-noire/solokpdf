@@ -70,6 +70,8 @@ import { testit as controlStartB71 } from "./ad-hoc-b71-control-start.ts";
 import { testit as autoReloadUnsaved } from "./auto-reload-unsaved.ts";
 import { testit as missingSourceUnsaved } from "./missing-source-unsaved.ts";
 import { testit as signRollback } from "./sign-rollback.ts";
+import { testit as redactPartial } from "./redact-partial.ts";
+import { testit as redactNoJournal } from "./redact-no-journal.ts";
 import { testit as formTextCache } from "./form-text-cache.ts";
 import { testit as cbrNetworkUnrar } from "./cbr-network-unrar.ts";
 import { testit as controllerDeleteHandles } from "./controller-delete-handles.ts";
@@ -83,6 +85,8 @@ const tests: NamedTest[] = [
   ["cbr-network-unrar", cbrNetworkUnrar],
   ["form-text-cache", formTextCache],
   ["sign-rollback", signRollback],
+  ["redact-partial", redactPartial],
+  ["redact-no-journal", redactNoJournal],
   ["auto-reload-unsaved", autoReloadUnsaved],
   ["missing-source-unsaved", missingSourceUnsaved],
   ["ad-hoc-pdfium-source-lifetime", sourceLifetime],

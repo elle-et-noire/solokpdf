@@ -3,7 +3,7 @@
 Measurement and work log, oldest first. Current behavior is in
 [features.md](features.md) and [limitations.md](limitations.md); open items are in [backlog.md](backlog.md).
 Condensed measurements are in [data/](data/).
-The [current status](README.md#status-2026-11-10) distinguishes completed
+The [current status](README.md#status-2026-11-11) distinguishes completed
 follow-ups from the failures and pending checks recorded at earlier revisions.
 
 ## Navigation
@@ -3052,6 +3052,28 @@ modified documents, calculation during refresh and missing journal. The
 regressions failed before their fixes. `annot-undo-one-step` and
 `ad-hoc-pdfium-form-js` passed; ng Debug built. No Release or full suite ran.
 
+## E37 redaction failures (2026-11-11)
+
+Page operations remain undoable as one gesture. A page is committed only after
+its remaining annotations are enumerated; a failure rolls that page back and
+rebuilds its loaded page and wrappers. Failed page numbers are reported in a
+persistent warning, and successful pages stay edited. Applying requires a
+journal. Failed annotation reloads leave wrappers unavailable and retry on the
+next page access while preserving text reads.
+
+Debug tests on both engines covered partial and total failure, page loading,
+failure after annotation deletion, live and reload enumeration failures,
+missing journal, journal start failure, retry, Undo/Redo, user-created marks,
+overlapping FreeText and saved text and marks. The notification, journal and
+post-deletion/list/reload failure regressions were observed before their fixes.
+Existing redaction, rendering and one-step Undo tests passed on both engines.
+The two new tests also passed on both engines in
+ASan; the PDFium DLL is not instrumented. The post-deletion fault abandons a
+nested operation after `pdf_redact_page` returns; it does not inject inside
+MuPDF. Ng Debug built and its multi-page redaction Undo test passed; ng failure
+injection was not run. Failure of journal abandonment itself was not injected.
+No Release or full suite ran.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3222,6 +3244,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E34 | Verify targets after synchronous reload and Save As dialogs                                                                                                                                                                                                                                 | done — Validate document targets after dialogs (E34); [results](#e34-dialog-targets-2026-11-10)                                                                                                                                         |
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
+| E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
 
 ### F. Manual acceptance
 

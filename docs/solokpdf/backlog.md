@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-10. E23–E25 are complete within the recorded review scope.
-E26–E36 are complete; E37 remains open.
+Work scope as of 2026-11-11. E23–E25 are complete within the recorded review scope.
+E26–E37 are complete within their recorded validation scope.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -19,8 +19,6 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Continue with E37 using the [review priorities](full-review-results.md#e25-再点検).
-E37's partial-redaction notification is P1.
 E31 closes controller-delete HANDLEs; E32 gates shared cleanup on worker shutdown.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
@@ -37,15 +35,13 @@ Assess correctness, maintainability and performance using the
 paths guide investigation without limiting its scope. Record the code actually
 read; check build and test infrastructure where the investigation or a change requires them.
 
-| ID  | Item                                                          | Status                                                                                                                                     |
-| --- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| E37 | Report partial redaction and reconcile failed pages (R11, P1) | todo — code finding; P1 for retained text reported removed; retain successes, warn on failures, preserve marks, reconcile wrappers/journal |
+No open implementation items remain from the E25 review.
 
 E23's mapping and E24's initial inspection are in [history.md](history.md#e23e25-structure-and-code-review-2026-11-10).
 E24's [completion](history.md#e24-review-completion-2026-11-10) records the final investigation and its limits.
 E25's [record](history.md#e25-review-synthesis-2026-11-10) records the recheck, scope correction and completed synthesis.
-Each remaining item's evidence, impact and next check are in [full-review-results.md](full-review-results.md).
-Fixes remain separate from this review's documentation; write failing regression tests before changing product code.
+Each finding's evidence, impact and original next check are in [full-review-results.md](full-review-results.md).
+The review's findings and historical priorities remain in that record.
 
 ## Deferred
 

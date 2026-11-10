@@ -2899,7 +2899,8 @@ void ApplyRedactionsInTab(WindowTab* tab) {
     SetSelectedAnnotation(tab, nullptr);
 
     Vec<Annotation*> deleted;
-    bool ok = EngineMupdfApplyRedactions(engine, deleted);
+    Vec<int> failedPages;
+    bool ok = EngineMupdfApplyRedactions(engine, deleted, failedPages);
     for (Annotation* a : deleted) {
         DetachAnnotationFromUI(a);
         DeleteAnnotation(a);
@@ -2907,11 +2908,27 @@ void ApplyRedactionsInTab(WindowTab* tab) {
     DeleteOldSelectionInfo(win, true);
     RefreshAnnotationLists(tab);
     ToolbarUpdateStateForWindow(win, true);
+    if (ok || len(failedPages) > 0) {
+        MainWindowRerender(win);
+    }
+    if (len(failedPages) > 0) {
+        str::Builder pages;
+        for (int pageNo : failedPages) {
+            if (len(pages) > 0) {
+                pages.Append(StrL(", "));
+            }
+            pages.Append(fmt("%d", pageNo));
+        }
+        Str text = ok ? Tr("Redactions partially applied. Failed pages: %s. Verify and retry.")
+                      : Tr("Redactions failed on pages: %s. Verify and retry.");
+        TempStr msg = fmt(text.s, ToStrTemp(pages));
+        ShowWarningNotification(win, msg, kNotifNoTimeout);
+        return;
+    }
     if (!ok) {
         ShowWarningNotification(win, Tr("Failed to apply redactions"), kNotif5SecsTimeOut);
         return;
     }
-    MainWindowRerender(win);
     ShowTemporaryNotification(win, Tr("Redactions applied."), kNotif5SecsTimeOut);
 }
 

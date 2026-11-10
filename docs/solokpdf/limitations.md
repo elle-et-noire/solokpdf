@@ -363,6 +363,8 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   so other pages never wait for it; text extracted while a redaction changes
   a page is dropped, so search can't find redacted words, and redacted pages
   take recolor skip rects and the annotation switch from the editor (B53).
+  Failed pages retain their marks, and a persistent warning identifies them;
+  successful pages remain edited and undoable. Applying requires a journal (E37).
   The editor remains lazy until
   annotation work starts; ordinary PDF open and render are unchanged.
   `tests/ad-hoc-pdfium-redactions.ts` runs `redact-annotations.ts` in both

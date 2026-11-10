@@ -533,6 +533,9 @@ static TempStr MarkupAnnotsResultTemp(Str action, int x, int y, int* exitCodeOut
             Rect screen = dm->CvtToScreen(PageNo(a), r);
             out.Append(fmt("type=%s page=%d rect=%g,%g,%g,%g screen=%d,%d,%d,%d\n", typeName, PageNo(a), r.x, r.y, r.dx,
                            r.dy, screen.x, screen.y, screen.dx, screen.dy));
+            if (isFreeText) {
+                out.Append(fmt("freeTextContents=%s\n", Contents(a)));
+            }
             // A closed polyline repeats its first vertex, so a test can tell an
             // open path from one closed with Ctrl+click (issue #6119). On its
             // own line: readers of the one above anchor at its end.
@@ -603,6 +606,9 @@ static TempStr MarkupAnnotsResultTemp(Str action, int x, int y, int* exitCodeOut
     int canRedo = EngineMupdfCanRedo(engine) ? 1 : 0;
     int modified = EngineHasUnsavedAnnotations(engine) ? 1 : 0;
     out.Append(fmt("undo canUndo=%d canRedo=%d modified=%d\n", canUndo, canRedo, modified));
+    out.Append(fmt("userRedact=%d\n", (int)EngineHasUserRedactMarks(engine)));
+    NotificationWnd* actionNotif = GetNotificationForGroup(gWindows[0]->hwndCanvas, kNotifActionResponse);
+    out.Append(fmt("actionNotification=%s\n", actionNotif ? NotificationGetMessageTemp(actionNotif) : Str{}));
     bool hasNotification = GetNotificationForGroup(gWindows[0]->hwndCanvas, kNotifAnnotation) != nullptr;
     bool selectedHover = tab->selectedAnnotation && tab->selectedAnnotation == gWindows[0]->annotationUnderCursor;
     out.Append(fmt("state selected=%d hover=%d editToolbar=%d notification=%d selectedHover=%d\n",
@@ -1964,6 +1970,21 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             Str signAction = StringArg(req, 0);
+#if IS_DEBUG && defined(SOLOKPDF_PDFIUM)
+            if (gForTesting && str::Eq(signAction, StrL("redact-resume"))) {
+                SetEnvironmentVariableW(L"SOLOKPDF_TEST_REDACT_RELOAD", nullptr);
+                AppendTestResult(req, 0, StrL("resumed"));
+                break;
+            }
+#endif
+            if (str::Eq(signAction, StrL("redact-faults"))) {
+#if IS_DEBUG && defined(SOLOKPDF_PDFIUM)
+                AppendTestResult(req, 0, gForTesting ? StrL("supported") : StrL("unsupported"));
+#else
+                AppendTestResult(req, 0, StrL("unsupported"));
+#endif
+                break;
+            }
 #if IS_DEBUG
             if (str::Eq(signAction, StrL("set-annot-contents"))) {
                 if (!gForTesting) {

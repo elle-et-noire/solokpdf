@@ -326,7 +326,7 @@ bool TakeAnnotRefreshFailure(EngineBase*);
 void MarkNotificationAsModified(EngineMupdf*, Annotation*, AnnotationChange);
 Annotation* MakeAnnotationWrapper(EngineMupdf* engine, pdf_annot* annot, int pageNo);
 int EngineMupdfUndoPos(EngineMupdf* e, int* stepsOut);
-void EngineMupdfBeginOperation(EngineBase*, const char* name);
+bool EngineMupdfBeginOperation(EngineBase*, const char* name);
 void EngineMupdfEndOperation(EngineBase*);
 
 // Everything changed while this is alive becomes one undo step. Use it for a
@@ -334,7 +334,12 @@ void EngineMupdfEndOperation(EngineBase*);
 // colors and contents; a resize drag writes on every mouse move).
 struct ScopedEngineOperation {
     EngineBase* engine = nullptr;
+    bool active = false;
 
-    ScopedEngineOperation(EngineBase* e, const char* name) : engine(e) { EngineMupdfBeginOperation(e, name); }
-    ~ScopedEngineOperation() { EngineMupdfEndOperation(engine); }
+    ScopedEngineOperation(EngineBase* e, const char* name) : engine(e), active(EngineMupdfBeginOperation(e, name)) {}
+    ~ScopedEngineOperation() {
+        if (active) {
+            EngineMupdfEndOperation(engine);
+        }
+    }
 };

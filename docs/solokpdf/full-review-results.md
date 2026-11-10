@@ -439,6 +439,8 @@ Debug/ASan は既定で cleanup、通常 Release は既定で fast exit とな�
 
 ### R11 / E37 — P1: 墨消しの部分成功を全体成功として通知する
 
+2026-11-11: E37 の修正と検証は [history.md](history.md#e37-redaction-failures-2026-11-11) を参照。以下はレビュー時点の記録。
+
 - **コード上の不具合・変更する。** `RedactAllPages`（`EngineMupdf.cpp:12505–12540`）はページ取得・墨消しの失敗を continue し、`EngineMupdfApplyRedactions`（12602–12611行）は成功ページが一つでもあれば true を返す。共通 UI の `ApplyRedactionsInTab` は全体成功を通知し、残る user mark の状態も false にされる。E25 の再点検で、未削除の本文を削除完了と受け取る影響を理由に P2 から P1 へ上げた。過去の検証 JSON の優先度は当時の記録として残す。
 - 成功ページの wrapper・本文・text の無効化、dirty、Undo step と PDFium の編集側への切替は維持できる。問題は取得不能・失敗・マークなしを区別しない全体結果であり、失敗ページの本文が未処理でも成功と受け取られる。
 - `pdf_redact_page` は journal があれば失敗ページの PDF オブジェクトを abandon する。ただし abandon は Undo の `pdf_sync_open_pages` を行わない。削除後の失敗や live annotation 列挙失敗を、wrapper まで元通りと保証してはいけない。列挙失敗時の現行代替は Redact だけを外す一方、MuPDF は重なる FreeText も削除する。
