@@ -557,6 +557,16 @@ bool SetAccessTime(Str path, FILETIME accessTime) {
     return utimensat(AT_FDCWD, CStrTemp(path), ts, 0) == 0;
 }
 
+bool GetSizeAndTime(Str path, i64* size, FILETIME* modified) {
+    struct stat st;
+    if (!StatPath(path, st) || !S_ISREG(st.st_mode)) {
+        return false;
+    }
+    *size = st.st_size;
+    *modified = FileTimeFromTimespec(StatModificationTime(st));
+    return true;
+}
+
 FILETIME GetModificationTime(Str path) {
     struct stat st;
     if (!StatPath(path, st)) {

@@ -601,6 +601,7 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["cbr-network-unrar", cbrNetworkUnrar],
   ["form-text-cache", formTextCache],
   ["sign-rollback", signRollback],
   ["build-cli", buildCli],
@@ -1128,7 +1129,6 @@ export const tests: NamedTest[] = [
   ["merge-struct-parents", mergeStructParents],
   ["reuse-instance-fullscreen", reuseInstanceFullscreen],
   ["attachment-open-external", attachmentOpenExternal],
-  ["cbr-network-unrar", cbrNetworkUnrar],
   ["file-link-no-dest", fileLinkNoDest],
   ["control-pipe-busy", controlPipeBusy],
   ["issue-6441", issue6441],

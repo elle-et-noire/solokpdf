@@ -1633,6 +1633,18 @@ bool SetAccessTime(Str path, FILETIME accessTime) {
     return SetFileTime(h, nullptr, &accessTime, nullptr);
 }
 
+// Bypass the network attribute cache when validating a file's current version.
+bool GetSizeAndTime(Str path, i64* size, FILETIME* modified) {
+    WIN32_FILE_ATTRIBUTE_DATA info{};
+    if (!GetFileAttributesExW(CWStrTemp(path), GetFileExInfoStandard, &info) ||
+        (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+        return false;
+    }
+    *size = ((i64)info.nFileSizeHigh << 32) | info.nFileSizeLow;
+    *modified = info.ftLastWriteTime;
+    return true;
+}
+
 FILETIME GetModificationTime(Str filePath) {
     FILETIME lastMod{};
     WIN32_FILE_ATTRIBUTE_DATA fileInfo;

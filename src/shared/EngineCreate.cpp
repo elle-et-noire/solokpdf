@@ -30,11 +30,8 @@ bool AnnotationsAreDisabled();
 
 static bool gEnableEpubWithPdfEngine = true;
 
-// Deterministic cache path for a cbx file on a slow drive. Uses
-// md5(path + size) so it stays stable across opens of the same file, and
-// reuses the file's own extension (.cbr/.cbz/.cb7/.cbt) so tooling that
-// inspects the temp copy still sniffs the right format.
-static TempStr GetCbxCachePathTemp(Str path, i64 fileSize) {
+// Each source version has its own path so existing engines and Clones retain their input.
+static TempStr GetCbxCachePathTemp(Str path, i64 fileSize, FILETIME modified) {
     TempStr dataDir = GetSumatraDataDirTemp();
     if (len(dataDir) == 0) {
         return {};
@@ -46,7 +43,8 @@ static TempStr GetCbxCachePathTemp(Str path, i64 fileSize) {
     TempStr cacheDir = path::JoinTemp(dataDir, StrL("cbx-cache"));
 
     u8 digest[16]{};
-    TempStr keyStr = fmt("%s|%lld", path, (long long)fileSize);
+    TempStr keyStr =
+        fmt("v2|%s|%lld|%u|%u", path, (long long)fileSize, modified.dwHighDateTime, modified.dwLowDateTime);
     CalcMD5Digest(keyStr, digest);
     TempStr hex = str::MemToHexTemp(Str((const char*)digest, dimofi(digest)));
 
@@ -129,15 +127,16 @@ static TempStr MaybeCopyCbxToLocalCache(Str path) {
     if (IsStressTesting()) {
         return {};
     }
-    i64 fileSize = file::GetSize(path);
-    if (fileSize <= 0) {
+    i64 fileSize = 0;
+    FILETIME modified{};
+    if (!file::GetSizeAndTime(path, &fileSize, &modified) || fileSize <= 0) {
         return {};
     }
-    TempStr cachePath = GetCbxCachePathTemp(path, fileSize);
+    TempStr cachePath = GetCbxCachePathTemp(path, fileSize, modified);
     if (len(cachePath) == 0) {
         return {};
     }
-    if (file::Exists(cachePath)) {
+    if (file::GetSize(cachePath) == fileSize) {
         FILETIME now;
         GetSystemTimeAsFileTime(&now);
         file::SetAccessTime(cachePath, now);
@@ -150,17 +149,76 @@ static TempStr MaybeCopyCbxToLocalCache(Str path) {
     }
 
     auto timeStart = TimeGet();
+    static AtomicInt copySeq;
+    TempStr pending =
+        fmt("%s.%u.%llu.%d.tmp", cachePath, GetCurrentProcessId(), GetTickCount64(), AtomicIntInc(&copySeq));
     CbxCopyProgressState progState{0};
     auto cb = MkFunc1<CbxCopyProgressState, file::CopyProgress*>(OnCbxCopyProgress, &progState);
-    bool ok = file::Copy(cachePath, path, false, cb);
+    bool ok = file::Copy(pending, path, true, cb);
     if (!ok) {
         logf("MaybeCopyCbxToLocalCache: file::Copy('%s' -> '%s') failed\n", path, cachePath);
-        file::Delete(cachePath);
+        file::Delete(pending);
         return {};
+    }
+
+    i64 sizeAfter = 0;
+    FILETIME modifiedAfter{};
+    if (!file::GetSizeAndTime(path, &sizeAfter, &modifiedAfter) || sizeAfter != fileSize ||
+        !FileTimeEq(modified, modifiedAfter) || file::GetSize(pending) != fileSize) {
+        file::Delete(pending);
+        logf("MaybeCopyCbxToLocalCache: source changed while copying '%s'\n", path);
+        return {};
+    }
+
+    // Publish only complete copies; another opener may have published this version first.
+    if (!file::Rename(cachePath, pending)) {
+        file::Delete(pending);
+        if (file::GetSize(cachePath) != fileSize) {
+            return {};
+        }
     }
     logf("MaybeCopyCbxToLocalCache: copied '%s' -> '%s' in %.2f ms\n", path, cachePath, TimeSinceInMs(timeStart));
     return cachePath;
 }
+
+#if IS_DEBUG
+struct CbxCacheCopyTest {
+    Str signal;
+    Str cachePath;
+    bool paused = false;
+    bool timedOut = false;
+};
+
+static void PauseCbxCacheCopy(CbxCacheCopyTest* test, file::CopyProgress*) {
+    if (test->paused) {
+        return;
+    }
+    test->paused = true;
+    file::WriteFile(test->signal, test->cachePath);
+    TempStr resume = str::JoinTemp(test->signal, StrL(".go"));
+    u64 deadline = GetTickCount64() + 20000;
+    while (!file::Exists(resume)) {
+        if (GetTickCount64() >= deadline) {
+            test->timedOut = true;
+            return;
+        }
+        Sleep(10);
+    }
+}
+
+// Pause inside the real copy so tests can change the source or race another opener.
+TempStr TestCbxCacheCopyTemp(Str path, Str signal) {
+    i64 size = 0;
+    FILETIME modified{};
+    file::GetSizeAndTime(path, &size, &modified);
+    CbxCacheCopyTest test{signal, GetCbxCachePathTemp(path, size, modified)};
+    auto previous = file::gFileCopyProgressCb;
+    file::gFileCopyProgressCb = MkFunc1<CbxCacheCopyTest, file::CopyProgress*>(PauseCbxCacheCopy, &test);
+    TempStr result = MaybeCopyCbxToLocalCache(path);
+    file::gFileCopyProgressCb = previous;
+    return fmt("path=%s timeout=%d", result, (int)test.timedOut);
+}
+#endif
 
 static AtomicInt gOpenCacheSeq;
 

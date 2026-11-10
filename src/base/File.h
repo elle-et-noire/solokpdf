@@ -117,6 +117,7 @@ int ReadN(Str path, u8* buf, size_t toRead);
 bool WriteFile(Str path, Str);
 
 i64 GetSize(Str path);
+bool GetSizeAndTime(Str path, i64* size, FILETIME* modified);
 
 // read-only memory-mapped view of an entire file
 struct Mapping {

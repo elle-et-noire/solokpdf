@@ -34,6 +34,7 @@ The completed E18–E22 review has these records:
   [Priorities, scope correction and completed synthesis](#e25-review-synthesis-2026-11-10).
 - E26: [Automatic reload and unsaved edits](#e26-automatic-reload-2026-11-10).
 - E27: [Missing source and unsaved edits](#e27-missing-source-2026-11-10).
+- E30: [Network comic cache](#e30-network-comic-cache-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2915,6 +2916,32 @@ All app tests used hidden desktops outside the sandbox. No Release build,
 full suite or ng GUI test was run. Binary hashes and results are in
 [the evidence record](data/e29-2026-11-10.json).
 
+## E30 network comic cache (2026-11-10)
+
+Completed E30 on `a3a15cb8d` plus these changes. Network CBX copies now use
+path, size and write time, read without the network attribute cache. A new key
+namespace excludes legacy copies. Each version retains its own path for open
+engines and Clones.
+
+Copying uses a private file in the cache directory. Source size/write time and
+copy size are rechecked before publishing by rename. Concurrent publication
+keeps the winner; failures remove only the private copy and fall back to the
+source. Same-size changes with unchanged write time remain outside the guarantee.
+
+The regression failed before the fix: replacing a RAR with same-size white
+pages still returned `ink=256` from the old image instead of `ink=0`.
+`cbr-network-unrar` now checks same-process reload, cache reuse, retained old
+Clones, a CBZ above 32 MiB, missing metadata, unpublished copies, source updates
+during copying, racing publication and failed-publication fallback. The race
+checks use a Debug-only copy barrier; Release CI retains the other checks.
+The test is registered in the regular and SolokPDF CI sets.
+
+Debug and ASan each passed three consecutive runs. Debug unit tests passed
+(105,220 checks). The Windows ng Debug `test_engines` target compiled;
+no ng GUI test, Release build or full suite was run. Tests used the reachable
+local administrative UNC share and hidden desktops outside the sandbox.
+Hashes, commands and results are in [the evidence record](data/e30-2026-11-10.json).
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3078,6 +3105,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E27 | Keep the save prompt after source loss (R2, P1)                                                                                                                                                                                                                                             | done — Preserve edits after source loss (E27); [results](#e27-missing-source-2026-11-10)                                                                                                                                                |
 | E28 | Roll back failed signature preparation (R3, P2)                                                                                                                                                                                                                                             | done — Roll back failed signature preparation (E28); [results](#e28-signature-rollback-2026-11-10)                                                                                                                                      |
 | E29 | Invalidate form text/search after edits (R4, P2)                                                                                                                                                                                                                                            | done — Refresh form text and search caches (E29); [results](#e29-form-text-cache-2026-11-10)                                                                                                                                            |
+| E30 | Validate network CBX cache freshness (R5, P2)                                                                                                                                                                                                                                               | done — Version network comic caches (E30); [results](#e30-network-comic-cache-2026-11-10)                                                                                                                                               |
 
 ### F. Manual acceptance
 

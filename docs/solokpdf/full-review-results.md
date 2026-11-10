@@ -184,6 +184,9 @@ PDFium は editor の世代を追従する。検索の継続・件数・snippet�
 
 ### R5 / E30 — P2: ネットワーク CBX の同サイズ更新を検出しない
 
+E30で修正済み。更新時刻も含めて世代を分け、コピー完了と元情報の再確認後に公開する。
+同サイズ更新・旧Clone・公開競合の[検証記録](history.md#e30-network-comic-cache-2026-11-10)。以下は修正前の指摘。
+
 - **コード上の不具合・変更する。** [EngineCreate.cpp:37](../../src/shared/EngineCreate.cpp#L37) のキーは path + size だけ。[同 140 行](../../src/shared/EngineCreate.cpp#L140) はキャッシュの存在だけで再利用する。`EngineCbx::CreateFromFile` も元の更新時刻を比較せずローカルコピーを開く。
 - 同じパス・サイズの CBX が更新されても、再度開くと旧ページを読む。RAR、またはメモリ読み込み上限を超える CBX が該当する。実際の SMB 再現は未実施。
 - `cbr-network-unrar` は最初の読み込み・赤いページ・ファイル経由の解凍を確認する。管理共有がなければ skip し、更新後の再開封は確認しない。

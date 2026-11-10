@@ -1,0 +1,183 @@
+{
+  "date": "2026-11-10",
+  "item": "E30",
+  "baseCommit": "a3a15cb8d",
+  "scope": "Windows network CBX cache freshness, publication and retained Clone input",
+  "before": {
+    "seconds": 3.6,
+    "observed": "same-size replacement retained stale pixels: ink=256 text=",
+    "source": "Initial regression run before product changes, captured in the task transcript",
+    "expected": "ink=0",
+    "result": "failed"
+  },
+  "builds": [
+    {
+      "result": "passed, zero warnings/errors",
+      "executable": "out/dbg64/SumatraPDF.exe",
+      "config": "Debug",
+      "command": "bun cmd/solok-build.ts -quick"
+    },
+    {
+      "result": "passed, zero warnings/errors",
+      "executable": "out/dbg64_asan/SumatraPDF-static.exe",
+      "config": "Debug ASan",
+      "command": "bun cmd/solok-build.ts -asan"
+    },
+    {
+      "result": "passed",
+      "executable": "out/win/dbg/test_engines.exe",
+      "config": "Windows ng Debug",
+      "command": "bun cmd/ng-build.ts -dbg test_engines"
+    }
+  ],
+  "tests": [
+    {
+      "seconds": [16.7, 12.4, 12.9],
+      "result": "passed",
+      "consecutiveRuns": 3,
+      "config": "Debug",
+      "name": "cbr-network-unrar"
+    },
+    {
+      "options": "windows_hook_legacy_allocators=0:suppressions=\"C:\\work\\solokpdf\\asan.supp\"",
+      "result": "passed",
+      "config": "Debug ASan",
+      "name": "cbr-network-unrar",
+      "consecutiveRuns": 3,
+      "seconds": [21.0, 29.9, 15.5]
+    },
+    {
+      "checks": 105220,
+      "result": "passed",
+      "command": "SUMATRA_SLN=vs2026/SumatraPDF.slnx bun cmd/run-unit-tests.ts -dbg",
+      "name": "unit tests"
+    }
+  ],
+  "scenarios": [
+    "same-size RAR replacement",
+    "same-process explicit reload bypasses stale attributes",
+    "unchanged version cache hit",
+    "old RAR Clone after replacement",
+    "same-size CBZ replacement above 32 MiB",
+    "old large-CBZ Clone after replacement",
+    "missing source metadata rejects caching",
+    "copy barrier confirms final path remains unpublished",
+    "write-time change during copying rejects the copy",
+    "competing opener publishes a complete winner",
+    "losing publisher retains winner and removes private copy",
+    "publication failure falls back to source",
+    "no temporary copies remain after checked failures"
+  ],
+  "fixtureCorrection": {
+    "log": ".work/e30-test-asan.log",
+    "change": "use dedicated ReloadModifiedDocuments=false settings for the old engine",
+    "result": "first ASan run failed because large-CBZ fixture allowed automatic reload"
+  },
+  "environment": {
+    "appFlags": "-for-testing",
+    "desktop": "unique hidden desktop in WinSta0, outside sandbox",
+    "settings": "dedicated ReloadModifiedDocuments=false for retained-engine assertions",
+    "source": "\\\\localhost\\c$ administrative share, reachable; no share skips in final runs"
+  },
+  "limitations": [
+    "content changes preserving size and write time are not detected",
+    "no Release build or full suite",
+    "no ng GUI or POSIX runtime test",
+    "no actual remote/high-latency SMB test",
+    "copy I/O failure and post-copy metadata loss were not separately injected"
+  ],
+  "files": [
+    {
+      "path": "out/dbg64/SumatraPDF.exe",
+      "sha256": "6205888632e22a2a46983b7248f28430b091acad1033cc10d8c458d1e27f90ca"
+    },
+    {
+      "path": "out/dbg64/libsumatrapdf.dll",
+      "sha256": "21943284e8d56c06bb346a52d82fee95476da43fb4b94ee24234abf202622975"
+    },
+    {
+      "path": "out/dbg64_asan/SumatraPDF-static.exe",
+      "sha256": "b331dcb0c15afabfd073fc920d0940052c50c971d79dd8f03fab0407b239303b"
+    },
+    {
+      "path": "out/win/dbg/test_engines.exe",
+      "sha256": "eb404c849bb9608bd858a62ac3cc0f072d819b9e7a2af871be46a34a2a04c704"
+    },
+    {
+      "path": "src/base/File.cpp",
+      "sha256": "89b248f4a1bedb72d308a574d397ffd7cfa1b38b3f787d450af4f8fb0a7f3020"
+    },
+    {
+      "path": "src/base/File.h",
+      "sha256": "89c0431dd823fa68eacc1839f8b28de89ed0b04cd68881c79c7f830546709398"
+    },
+    {
+      "path": "src/base/File_posix.cpp",
+      "sha256": "b401f3237c66bf8cc15ebe8a5831d1cbe0abcc27e2ec4a33486516527b272ac0"
+    },
+    {
+      "path": "src/shared/EngineCreate.cpp",
+      "sha256": "20b5ff0926004c6f2675c3561f9aca6b37abb728556aed6003c4cab1a7f799bb"
+    },
+    {
+      "path": "src/shared/EngineAll.h",
+      "sha256": "06789743a129e9aca3ac9a9ed6a59004fe5e79a88162f74417dfb4c77b22f71b"
+    },
+    {
+      "path": "src/SumatraControl.cpp",
+      "sha256": "ef2fa5345aecec415cfb5d952b72f91966ec8851ed0bf526b60833ccdb35a502"
+    },
+    {
+      "path": "tests/cbr-network-unrar.ts",
+      "sha256": "c79cd049181745e0551bde85329326c2c34bf3a48e81afcc3f1e7f6ee95f8d58"
+    },
+    {
+      "path": ".work/e30-build-debug.log",
+      "sha256": "af287ccb40a3718fd95998db28875b9f11f7b25c9f704e71df29b02c28c0c44d"
+    },
+    {
+      "path": ".work/e30-build-asan.log",
+      "sha256": "93bc9fa5e7d79f00a116158c557a796c8ad9c97b5739b0533fd3612bc8e0dcc2"
+    },
+    {
+      "path": ".work/e30-build-ng.log",
+      "sha256": "1e9bc5bc8b4e6e4703224b36ce8ece73cff979e39aea832cc3c728862e64bb5c"
+    },
+    {
+      "path": ".work/e30-unit-tests.log",
+      "sha256": "18a0efa00d83663d85a7323c0072553c77727f18e5cd9f291760afaa1a0bfdee"
+    },
+    {
+      "path": "out/dbg64/unit-tests-dbg.txt",
+      "sha256": "2962100c86c1217ab3d3075ec6362676c8303970f2c3287d31f6e161a4dd7277"
+    },
+    {
+      "path": ".work/e30-test-asan.log",
+      "sha256": "9d709cca8f833b049fc5c48bb5941c29240d599b8ed8d43756a75ad7355ba9ea"
+    },
+    {
+      "path": ".work/e30-test-debug-1.log",
+      "sha256": "ddce908705ceed43336855620baada51372e97f4a80950ff3ad1e2d9afb0f335"
+    },
+    {
+      "path": ".work/e30-test-asan-1.log",
+      "sha256": "9f43b4923aa69a9a29846d73bcd81862757fcfab286841967dfbbf13cc47c261"
+    },
+    {
+      "path": ".work/e30-test-debug-2.log",
+      "sha256": "58fbb23b4688fb3364da373d0a91532de8edb53c74ab03796b0725cf09aef6c7"
+    },
+    {
+      "path": ".work/e30-test-asan-2.log",
+      "sha256": "6ed751a31fb34646be3ff2e96fda13f649f3136617438cb16eb2396a1e76dba1"
+    },
+    {
+      "path": ".work/e30-test-debug-3.log",
+      "sha256": "16679ba445476ee3604bbea5e070c8ccc8674efcf8dc25ff485a2e7bcf9b2455"
+    },
+    {
+      "path": ".work/e30-test-asan-3.log",
+      "sha256": "7bb43bc33302c95a8b68abbf9778d9c397fafa99992cdd41371f01c92b466e97"
+    }
+  ]
+}

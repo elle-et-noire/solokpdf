@@ -1945,6 +1945,14 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             Str signAction = StringArg(req, 0);
+            if (str::Eq(signAction, StrL("cbx-copy"))) {
+#if IS_DEBUG
+                AppendTestResult(req, 0, TestCbxCacheCopyTemp(StringArg(req, 1), StringArg(req, 2)));
+#else
+                AppendTestResult(req, 0, StrL("unsupported"));
+#endif
+                break;
+            }
             if (str::Eq(signAction, StrL("sign")) || str::Eq(signAction, StrL("sign-state")) ||
                 str::Eq(signAction, StrL("sign-save"))) {
                 i32 failure = 0;

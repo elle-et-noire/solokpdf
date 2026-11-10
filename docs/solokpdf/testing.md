@@ -74,6 +74,15 @@ maps encapsulation checks to the existing tests. `ad-hoc-tree-lifetime` includes
 `event-name`, which destroys the tree synchronously during a name-change WinEvent.
 Run startup/layout checks after builds finish; keep the executable hash fixed during each set.
 
+### Network comic cache (E30)
+
+Run `tests/cbr-network-unrar.ts` through the hidden runner with Debug and ASan.
+It needs the local administrative share (`\\localhost\c$`); an unavailable
+share skips the test. It checks same-size RAR/large-CBZ updates, same-process
+reload, cache hits and old Clones. Debug barriers check unpublished copies,
+source changes during copying, racing publication and failed-publication
+fallback. Release CI skips the barriers; the remaining checks still run.
+
 ### Form text and search (E29)
 
 Run `tests/form-text-cache.ts` through the hidden runner with Debug and ASan.

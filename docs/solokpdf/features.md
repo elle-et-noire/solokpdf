@@ -27,6 +27,18 @@ SolokPDF disables upstream update checks, commands and settings UI. Existing
   MuPDF and its AGPL obligations remain because the fallback/library remain.
 - No binary, downloaded PDF, build cache, PDB or archive is added to Git.
 
+## Network comics
+
+Network RAR comics and CBX files above the memory limit use local copies keyed
+by source path, size and write time. File information bypasses the network
+attribute cache. Unchanged versions reuse a complete copy; a newer version
+keeps a separate path so existing engines and Clones retain their input.
+
+Copies remain private until copying finishes and source metadata is rechecked.
+Metadata, copy or publication failures fall back to the source path. Changes
+that preserve both size and write time are not detected. See the
+[E30 results](history.md#e30-network-comic-cache-2026-11-10).
+
 ## Theme-colored icon
 
 The app icon is SumatraPDF's (badge, band, "PDF") traced to vector paths in
