@@ -16,10 +16,10 @@ rendered output.
 
 ## Status (2026-11-10)
 
-Status snapshot at `a272e9137` plus documentation changes on `solokpdf-dev`.
-D8–D13 and E10–E24 are complete within their recorded scope.
+Status snapshot at `44250b78c` plus documentation changes on `solokpdf-dev`.
+D8–D13 and E10–E25 are complete within their recorded scope.
 E24's [review](full-review-results.md#e24-完了確認) records eleven defects and a shutdown contract issue;
-E25's final synthesis and product fixes remain open. [backlog.md](backlog.md) records E26–E37's fixes and regression checks,
+E25's [priorities, dependencies and remaining work](full-review-results.md#e25-再点検) are complete. Product fixes remain open. [backlog.md](backlog.md) records E26–E37's fixes and regression checks,
 deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache
@@ -36,7 +36,7 @@ invalidation, read contracts and document lifetime. Read the
 | Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                       | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                                                  |
 | Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                              | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                                          |
 | Refactoring    | Tree, runtime and key-state separation (E15), plus rendering/read/lifetime contracts (E18–E22), are complete within their recorded scope. | [Current architecture](architecture.md), [completed plan](refactoring-plan.md), [E15 review](history.md#e15-refactor-review-2026-11-10) |
-| Code review    | E23/E24 investigation complete; six paths and eight criteria reviewed. E25 final synthesis and product fixes remain open.                 | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review)                                                  |
+| Code review    | E23–E25 complete within scope; priorities, dependencies and remaining work recorded. Product fixes remain open.                           | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review)                                                  |
 
 ### Validation scope
 
@@ -68,8 +68,8 @@ Earlier suites, local checks and refactor validation remain in
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- Continue E25 using the [E24 completion record](full-review-results.md#e24-完了確認).
-  E26/E27's unsaved-edit loss has the highest fix priority. Keep fixes separate from review documentation.
+- Start E26/E27 using the [review priorities](full-review-results.md#e25-再点検), then E34, E37 and E32.
+  Keep fixes separate from review documentation and add missing regression coverage before changing product code.
 - For design work, read the [current architecture](architecture.md) and
   [structure and code review plan](full-review-plan.md). The [earlier plan](refactoring-plan.md) is complete.
 - For a code change, select the affected tests in [testing.md](testing.md).

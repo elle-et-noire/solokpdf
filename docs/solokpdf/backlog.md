@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-10. E23/E24 are complete; E25's final synthesis remains open.
+Work scope as of 2026-11-10. E23–E25 are complete within the recorded review scope.
 E26–E37 are fixes and regression checks, not completed product changes.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
@@ -19,8 +19,10 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Continue E25 using the [E24 completion record](full-review-results.md#e24-完了確認).
-E26/E27's unsaved-edit loss has the highest fix priority among the initial findings.
+Start E26/E27, then E34, E37 and E32 using the [review priorities](full-review-results.md#e25-再点検).
+Continue with E28, E35/E36/E29, E33, E30 and E31. Detailed edit-change detection
+and signature rollback belong to E36 and E28. E37's partial-redaction notification is P1.
+E31 can proceed independently; keep its HANDLE fix separate from E32.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
 explicitly requested.
@@ -38,22 +40,22 @@ read; check build and test infrastructure where the investigation or a change re
 
 | ID  | Item                                                                 | Status                                                                                                                                      |
 | --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| E25 | Prioritize findings and record remaining work and coverage           | todo — initial findings recorded; finalize after E24                                                                                        |
-| E26 | Preserve unsaved edits during automatic reload (R1, P1)              | todo — both engines reproduced; gate replacement at ReloadDocument                                                                          |
-| E27 | Keep the save prompt after the source path disappears (R2, P1)       | todo — both engines reproduced; offer safe new-file save and Cancel                                                                         |
-| E28 | Roll back failed signature preparation (R3, P2)                      | todo — both engines reproduced; validate inputs before mutation and abandon failed changes                                                  |
+| E26 | Preserve unsaved edits during automatic reload (R1, P1)              | todo — both engines reproduced; preserve active form input and reloadOnFocus as well as dirty edits                                         |
+| E27 | Keep the save prompt after the source path disappears (R2, P1)       | todo — both engines reproduced; query dirty before path existence; distinguish safe new-file save from mmap input; keep Cancel              |
+| E28 | Roll back failed signature preparation (R3, P2)                      | todo — both engines reproduced; validate inputs first; rollback must cover pending signatures and loaded pages as well as PDF objects       |
 | E29 | Invalidate form text/search after edits (R4, P2)                     | todo — both engines reproduced; invalidate editor and display-engine caches, including JS effects                                           |
-| E30 | Validate network CBX cache freshness (R5, P2)                        | todo — code finding; add write time to reuse conditions and test same-size replacement                                                      |
+| E30 | Validate network CBX cache freshness (R5, P2)                        | todo — code finding; version by write time, publish complete copies, retain old Clone input; test same-size replacement                     |
 | E31 | Close the asynchronous controller-delete thread handle (R6, P2)      | todo — code finding; retain/close HANDLE, compare repeated closes and check ASan                                                            |
-| E32 | Guarantee worker lifetime when render-cache shutdown times out       | todo — owner stop barrier selected; clear active requests on exit; preserve dependencies if pending; dedicated lifetime checks required     |
+| E32 | Guarantee worker lifetime when render-cache shutdown times out (P1)  | todo — stop before pending-delete/shared cleanup; clear requests on exit; account for dangerous threads; retain dependencies if not stopped |
 | E33 | Distinguish failed page text extraction from a completed empty page  | todo — failure/recovery reproduced in PDFium: raw text recovers, cached text stays empty (R7, P2); add explicit failure result              |
 | E34 | Verify targets after synchronous reload and Save As dialogs (R9, P1) | todo — DDE during Save As saves the other tab; Debug/ASan reproduced; reload cleanup also retained an ASan lifetime diagnostic              |
 | E35 | Preserve choice-field validation rejection (R8, P2)                  | todo — both engines reproduced twice; return the MuPDF setter result instead of unconditional success                                       |
 | E36 | Publish committed edits after refresh failures (R10, P2)             | todo — code finding; distinguish accepted value, committed changes and update error; notify dirty/render/text for actual changes            |
-| E37 | Report partial redaction and reconcile failed pages (R11, P2)        | todo — code finding; retain successful pages, report failures and preserve remaining marks; reconcile wrappers and require rollback support |
+| E37 | Report partial redaction and reconcile failed pages (R11, P1)        | todo — code finding; P1 for retained text reported removed; retain successes, warn on failures, preserve marks, reconcile wrappers/journal  |
 
 E23's mapping and E24's initial inspection are in [history.md](history.md#e23e25-structure-and-code-review-2026-11-10).
 E24's [completion](history.md#e24-review-completion-2026-11-10) records the final investigation and its limits.
+E25's [record](history.md#e25-review-synthesis-2026-11-10) records the recheck, scope correction and completed synthesis.
 Each remaining item's evidence, impact and next check are in [full-review-results.md](full-review-results.md).
 Fixes remain separate from this review's documentation; write failing regression tests before changing product code.
 

@@ -31,6 +31,7 @@ The completed E18–E22 review has these records:
 - E18: [Read results and lazy-editor side effects](#e18-read-contracts-2026-11-10).
 - E20: [Document inputs, ownership and teardown](#e20-document-lifetime-2026-11-10).
 - E23–E25: [Operation review, findings and validation](#e23e25-structure-and-code-review-2026-11-10).
+  [Priorities, scope correction and completed synthesis](#e25-review-synthesis-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2748,6 +2749,46 @@ unexecuted regression conditions. No rebuild, new ASan run, Release,
 full suite, failure-injection/reentry probe or product change was made.
 The earlier ASan evidence remains separate. No commit was made.
 
+## E25 review synthesis (2026-11-10)
+
+Committed E24's investigation and evidence as `44250b78c`
+(`Record E24 review completion`), then drafted E25's fix order and boundaries.
+The assistant prematurely declared E25 and the whole review complete.
+The owner challenged that claim; it was withdrawn for recheck.
+
+The [recheck](full-review-results.md#e25-再点検) established priority
+rationale, dependencies, change boundaries and the unverified fix conditions.
+Product fixes and new regression tests remain unimplemented.
+
+The recheck found gaps in the first synthesis:
+
+- E26 must preserve active form input and pending reload state, not only
+  engine dirty state. E27 must distinguish querying dirty from safely
+  reading a retained or mmap source while saving.
+- E34 must own the path before entering the factory and validate targets
+  on failure as well as success. E32's application shutdown gate must
+  account for pending UI deletes and dangerous threads before cleanup.
+- E37 moves from P2 to P1: a partial redaction can report completion
+  while text remains. This is a code finding, not a new runtime repro.
+- E30 needs versioned, completely published copies so open Clones keep
+  their old input. Adding write time alone does not define publication.
+- E36 cannot infer document changes from acceptance or Undo position;
+  nested operations and rejected JS with side effects need a decision.
+  E28's rollback must address pending signatures and loaded pages,
+  not just journalled PDF objects. Detailed design belongs to E36 and E28.
+
+Parsed the four existing evidence JSON files and recalculated all 56
+distinct recorded path/log + SHA-256 pairs: all matched, none missing.
+Read the existing test assertions and skip conditions; their ordinary
+success paths do not establish the unexecuted failure conditions.
+No app test, build, new ASan run, Release or full suite was run.
+
+The assistant then incorrectly made E28/E36 implementation details a
+condition for E25 completion. Corrected that scope: E25 is complete for
+priorities, minimum change directions, dependencies, decisions and
+remaining work. Detailed design, implementation and regression tests
+remain in E26–E37. Next product work is E26, then E27.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2906,6 +2947,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E20 | Review document state, ownership, invalidation and lock ordering                                                                                                                                                                                                                            | done — Preserve document source lifetimes (E20); [results](#e20-document-lifetime-2026-11-10)                                                                                                                                           |
 | E23 | Map operation entry points, implementations and existing tests                                                                                                                                                                                                                              | review complete at `7c67b529f`; [mapping](full-review-results.md#e23-入口と実装)                                                                                                                                                        |
 | E24 | Review operation paths against the structure and code criteria                                                                                                                                                                                                                              | review complete at `a272e9137` plus documentation changes; [scope and evidence](#e24-review-completion-2026-11-10); product fixes remain open                                                                                           |
+| E25 | Prioritize findings and record remaining work and coverage                                                                                                                                                                                                                                  | review complete at `44250b78c` plus documentation changes; [scope and synthesis](#e25-review-synthesis-2026-11-10); detailed design and fixes remain in E26–E37                                                                         |
 
 ### F. Manual acceptance
 
