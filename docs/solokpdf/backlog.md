@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-10. E23–E25 are complete within the recorded review scope.
-E26–E35 are complete; E36–E37 remain open fixes and regression checks.
+E26–E36 are complete; E37 remains open.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -20,8 +20,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 ## Next steps
 
 Continue with E37 using the [review priorities](full-review-results.md#e25-再点検).
-Continue with E36. Detailed edit-change detection
-belongs to E36. E37's partial-redaction notification is P1.
+E37's partial-redaction notification is P1.
 E31 closes controller-delete HANDLEs; E32 gates shared cleanup on worker shutdown.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
@@ -40,7 +39,6 @@ read; check build and test infrastructure where the investigation or a change re
 
 | ID  | Item                                                          | Status                                                                                                                                     |
 | --- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| E36 | Publish committed edits after refresh failures (R10, P2)      | todo — code finding; distinguish accepted value, committed changes and update error; notify dirty/render/text for actual changes           |
 | E37 | Report partial redaction and reconcile failed pages (R11, P1) | todo — code finding; P1 for retained text reported removed; retain successes, warn on failures, preserve marks, reconcile wrappers/journal |
 
 E23's mapping and E24's initial inspection are in [history.md](history.md#e23e25-structure-and-code-review-2026-11-10).

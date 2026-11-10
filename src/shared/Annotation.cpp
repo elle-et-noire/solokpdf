@@ -19,6 +19,7 @@ extern "C" {
 #include "EngineBase.h"
 #include "EngineMupdf.h"
 #include "AppSettings.h"
+#include "SumatraConfig.h"
 #include "Commands.h"
 #include "Translations.h"
 #include "Annotation.h"
@@ -162,6 +163,16 @@ struct AnnotAccess {
     explicit AnnotAccess(Annotation* a) : ctx(a->engine->Ctx()), annot(a->pdfannot), lock(&a->engine->docLock) {}
 };
 
+static void TestAnnotUpdateFailure(fz_context* ctx) {
+#if IS_DEBUG && OS_WIN
+    WCHAR value[2]{};
+    if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_TEST_EDIT_REFRESH_FAILURE", value, dimofi(value)) == 1 &&
+        value[0] == L'1') {
+        fz_throw(ctx, FZ_ERROR_GENERIC, "injected edit refresh failure");
+    }
+#endif
+}
+
 // Centralize the lock and MuPDF error boundary shared by annotation getters.
 template <typename T, typename Read>
 static T ReadAnnot(Annotation* annot, T fallback, Read read) {
@@ -185,11 +196,21 @@ static bool UpdateAnnotIf(Annotation* annot, Update update) {
     }
     EngineMupdf* engine = annot->engine;
     bool changed = false;
+    bool begun = false;
+    fz_var(changed);
+    fz_var(begun);
     {
         AnnotAccess access(annot);
         fz_try(access.ctx) {
-            changed = update(access.ctx, access.annot);
+            pdf_begin_operation(access.ctx, engine->pdfdoc, "Edit annotation");
+            begun = true;
+            bool requested = update(access.ctx, access.annot);
+            int journalChanged = pdf_operation_has_changes(access.ctx, engine->pdfdoc);
+            changed = journalChanged < 0 ? requested : journalChanged != 0;
+            pdf_end_operation(access.ctx, engine->pdfdoc);
+            begun = false;
             if (changed) {
+                TestAnnotUpdateFailure(access.ctx);
                 pdf_update_annot(access.ctx, access.annot);
                 // e.g. a border width change moves /Rect
                 annot->bounds = PdfAnnotBounds(access.ctx, access.annot);
@@ -197,11 +218,18 @@ static bool UpdateAnnotIf(Annotation* annot, Update update) {
         }
         fz_catch(access.ctx) {
             fz_report_error(access.ctx);
-            changed = false;
+            if (changed && !begun) {
+                engine->annotRefreshFailed = true;
+            }
+        }
+        if (begun) {
+            changed = pdf_operation_has_changes(access.ctx, engine->pdfdoc) != 0;
+            pdf_end_operation(access.ctx, engine->pdfdoc);
         }
     }
     if (changed) {
         MarkNotificationAsModified(engine, annot);
+        engine->InvalidateTextForPage(annot->pageNo);
     }
     return changed;
 }
@@ -483,6 +511,36 @@ static void UpdateFormFieldPage(fz_context* ctx, pdf_annot* a) {
     }
 }
 
+static void RefreshFormField(fz_context* ctx, EngineMupdf* e, pdf_annot* a, FormEditResult& result) {
+    bool begun = false;
+    fz_var(begun);
+    fz_try(ctx) {
+        pdf_begin_implicit_operation(ctx, e->pdfdoc);
+        begun = true;
+        TestAnnotUpdateFailure(ctx);
+        pdf_update_annot(ctx, a);
+        UpdateFormFieldPage(ctx, a);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        result.refreshFailed = true;
+    }
+    if (begun) {
+        bool jsChanged = pdf_operation_has_js_changes(ctx, e->pdfdoc) > 0;
+        if (jsChanged && !result.changed) {
+            fz_try(ctx) {
+                pdf_name_operation(ctx, e->pdfdoc, "Update form field");
+            }
+            fz_catch(ctx) {
+                fz_report_error(ctx);
+                result.refreshFailed = true;
+            }
+        }
+        result.changed |= jsChanged;
+        pdf_end_operation(ctx, e->pdfdoc);
+    }
+}
+
 // PDF form (widget) fields. GetWidgetType returns a pdf_widget_type value
 // (PDF_WIDGET_TYPE_*), or 0 (UNKNOWN) when annot isn't a form widget.
 int GetWidgetType(Annotation* annot) {
@@ -512,15 +570,17 @@ WidgetCursorKind GetWidgetCursorKind(Annotation* annot) {
     });
 }
 
-// Toggle a checkbox / radio-button form field in place. Returns true if it was
-// a (non-read-only) checkbox/radio and got toggled.
-bool ToggleFormButton(Annotation* annot) {
+// Toggle a checkbox or radio button and report committed changes separately.
+FormEditResult ToggleFormButton(Annotation* annot) {
     if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Widget) {
-        return false;
+        return {};
     }
     EngineMupdf* e = annot->engine;
     auto* a = annot->pdfannot;
-    bool changed = false;
+    FormEditResult result;
+    bool begun = false;
+    fz_var(result);
+    fz_var(begun);
     {
         // BaseCtx(), not a Ctx() clone: toggling regenerates the appearance,
         // which runs the button's format/calculate JS; mupdf executes (and
@@ -531,6 +591,10 @@ bool ToggleFormButton(Annotation* annot) {
             int wt = pdf_widget_type(ctx, a);
             int flags = pdf_annot_field_flags(ctx, a);
             bool readOnly = (flags & PDF_FIELD_IS_READ_ONLY) != 0;
+            if (!readOnly && (wt == PDF_WIDGET_TYPE_RADIOBUTTON || wt == PDF_WIDGET_TYPE_CHECKBOX)) {
+                pdf_begin_operation(ctx, e->pdfdoc, "Toggle form button");
+                begun = true;
+            }
             if (wt == PDF_WIDGET_TYPE_RADIOBUTTON && !readOnly) {
                 // pdf_toggle_widget mishandles radio groups whose buttons have
                 // distinct on-state names: it sets every sibling's /AS to the
@@ -560,27 +624,37 @@ bool ToggleFormButton(Annotation* annot) {
                     pdf_abandon_operation(ctx, e->pdfdoc);
                     fz_rethrow(ctx);
                 }
-                pdf_update_annot(ctx, a);
-                UpdateFormFieldPage(ctx, a); // refresh all radio-group siblings
-                changed = true;
+                result.accepted = true;
+                result.changed = pdf_operation_has_changes(ctx, e->pdfdoc) != 0;
+                pdf_end_operation(ctx, e->pdfdoc);
+                begun = false;
+                RefreshFormField(ctx, e, a, result);
             } else if (wt == PDF_WIDGET_TYPE_CHECKBOX && !readOnly) {
                 pdf_toggle_widget(ctx, a);
-                pdf_update_annot(ctx, a);
-                UpdateFormFieldPage(ctx, a);
-                changed = true;
+                result.accepted = true;
+                result.changed = pdf_operation_has_changes(ctx, e->pdfdoc) != 0;
+                pdf_end_operation(ctx, e->pdfdoc);
+                begun = false;
+                RefreshFormField(ctx, e, a, result);
             }
         }
         fz_catch(ctx) {
             fz_report_error(ctx);
             logf("ToggleFormButton(): mupdf calls failed\n");
+            result.refreshFailed = result.changed;
+        }
+        if (begun) {
+            result.changed = pdf_operation_has_changes(ctx, e->pdfdoc) != 0;
+            pdf_end_operation(ctx, e->pdfdoc);
         }
     }
     e->InvalidateAllText();
-    if (changed) {
+    if (result.changed) {
         // must be called outside docLock (it takes pagesLock then docLock/renderLock)
         MarkNotificationAsModified(e, annot);
+        InvalidateFormPages(e);
     }
-    return changed;
+    return result;
 }
 
 // pdf_annot_field_flags (PDF_FIELD_IS_*, PDF_TX_FIELD_IS_* bits), or 0.
@@ -624,13 +698,18 @@ int GetWidgetMaxLen(Annotation* annot) {
 }
 
 template <typename SetValue>
-static bool SetWidgetValue(Annotation* annot, Str value, Str operation, SetValue setValue) {
+static FormEditResult SetWidgetValue(Annotation* annot, Str value, Str operation, SetValue setValue) {
     if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Widget) {
-        return false;
+        return {};
     }
     EngineMupdf* e = annot->engine;
     auto* a = annot->pdfannot;
-    bool ok = false;
+    FormEditResult result;
+    bool begun = false;
+    bool setterDone = false;
+    fz_var(result);
+    fz_var(begun);
+    fz_var(setterDone);
     TempStr valueZ = str::DupTemp(value);
     {
         // BaseCtx(), not a Ctx() clone: regenerating the appearance runs the
@@ -639,25 +718,36 @@ static bool SetWidgetValue(Annotation* annot, Str value, Str operation, SetValue
         auto* ctx = e->BaseCtx();
         ScopedRecursiveMutex cs(&e->docLock);
         fz_try(ctx) {
-            ok = setValue(ctx, a, len(valueZ) == 0 ? "" : valueZ.s);
-            pdf_update_annot(ctx, a);
-            UpdateFormFieldPage(ctx, a); // refresh JS-calculated fields
+            pdf_begin_operation(ctx, e->pdfdoc, "Edit form field");
+            begun = true;
+            result.accepted = setValue(ctx, a, len(valueZ) == 0 ? "" : valueZ.s);
+            setterDone = true;
+            result.changed = pdf_operation_has_changes(ctx, e->pdfdoc) != 0;
+            pdf_end_operation(ctx, e->pdfdoc);
+            begun = false;
+            RefreshFormField(ctx, e, a, result);
         }
         fz_catch(ctx) {
             fz_report_error(ctx);
             logf("%s(): mupdf calls failed\n", operation);
+            result.refreshFailed = setterDone;
+        }
+        if (begun) {
+            result.changed = pdf_operation_has_changes(ctx, e->pdfdoc) != 0;
+            pdf_end_operation(ctx, e->pdfdoc);
         }
     }
     // Validation and appearance JS may change other pages even after rejection.
     e->InvalidateAllText();
-    if (ok) {
+    if (result.changed) {
         MarkNotificationAsModified(e, annot);
+        InvalidateFormPages(e);
     }
-    return ok;
+    return result;
 }
 
 // set a text field's value (runs validation); returns true if accepted.
-bool SetWidgetTextValue(Annotation* annot, Str value) {
+FormEditResult SetWidgetTextValue(Annotation* annot, Str value) {
     auto setValue = [](fz_context* ctx, pdf_annot* a, const char* s) {
         return pdf_set_text_field_value(ctx, a, s) != 0;
     };
@@ -687,7 +777,7 @@ void GetWidgetChoiceOptions(Annotation* annot, StrVec& out) {
 }
 
 // set a choice field's value to one of its options; returns true if applied.
-bool SetWidgetChoiceValue(Annotation* annot, Str value) {
+FormEditResult SetWidgetChoiceValue(Annotation* annot, Str value) {
     auto setValue = [](fz_context* ctx, pdf_annot* a, const char* s) {
         return pdf_set_choice_field_value(ctx, a, s) != 0;
     };

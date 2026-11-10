@@ -406,6 +406,12 @@ void pdf_begin_operation(fz_context *ctx, pdf_document *doc, const char *operati
  * they generally happen as a result of them. */
 void pdf_begin_implicit_operation(fz_context *ctx, pdf_document *doc);
 
+/* Whether the innermost operation has journalled changes, or -1 without a journal. */
+int pdf_operation_has_changes(fz_context *ctx, pdf_document *doc);
+int pdf_operation_has_js_changes(fz_context *ctx, pdf_document *doc);
+void pdf_mark_js_changes(fz_context *ctx, pdf_document *doc);
+void pdf_name_operation(fz_context *ctx, pdf_document *doc, const char *name);
+
 /* Call this to end an operation. */
 void pdf_end_operation(fz_context *ctx, pdf_document *doc);
 

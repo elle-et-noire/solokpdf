@@ -216,6 +216,7 @@ class EngineMupdf : public EngineBase {
     // used to track "dirty" state of annotations. not perfect because if we add and delete
     // the same annotation, we should be back to 0
     bool modifiedAnnotations = false;
+    bool annotRefreshFailed = false;
 
     // set when a Redact annotation is created in this editing session. Apply
     // Redactions is offered for marks the user made, not for marks that came
@@ -320,6 +321,8 @@ EngineMupdf* AnnotEngineMupdf(EngineBase* engine, EditorLoad load);
 fz_rect ToFzRect(RectF rect);
 RectF ToRectF(fz_rect rect);
 void MarkNotificationAsModified(EngineMupdf*, Annotation*);
+void InvalidateFormPages(EngineMupdf*);
+bool TakeAnnotRefreshFailure(EngineBase*);
 void MarkNotificationAsModified(EngineMupdf*, Annotation*, AnnotationChange);
 Annotation* MakeAnnotationWrapper(EngineMupdf* engine, pdf_annot* annot, int pageNo);
 int EngineMupdfUndoPos(EngineMupdf* e, int* stepsOut);

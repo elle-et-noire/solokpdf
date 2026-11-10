@@ -11,7 +11,6 @@ Reload Document commits active form input, then offers Save, Discard or Cancel
 for unsaved changes. A failed save or Cancel keeps the document and Undo history.
 Save's intentional reload and Discard Changes still proceed.
 `tests/auto-reload-unsaved.ts` covers both engines on Windows.
-Dirty-state omissions and dialog reentry remain separate E36 and E34 work.
 
 ## Text and search after edits
 
@@ -23,8 +22,11 @@ refresh after edits and Undo/Redo. Borrowed text and glyph data stay alive
 until the engine closes.
 
 Validation rejection can still change other fields through JavaScript, so
-text invalidation runs after every setter attempt. This does not determine
-dirty state or report appearance-update errors; those remain E36 work.
+text invalidation runs after every setter attempt. Committed changes are
+tracked separately from acceptance, including JavaScript side effects and
+calculations during appearance refresh. A failed refresh reports a warning
+and keeps the committed edit. Without a journal, edits are conservatively
+marked modified because their changes cannot be inspected.
 Choice fields return validation rejection rather than reporting success.
 `tests/form-text-cache.ts` covers both engines, in-place text entry, choice,
 checkbox, empty fields, cross-page calculations and rejected-input side effects.

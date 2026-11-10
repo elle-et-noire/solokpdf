@@ -22,6 +22,8 @@
 #include "SumatraPDF.h"
 #include "Commands.h"
 #include "Toolbar.h"
+#include "Notifications.h"
+#include "Translations.h"
 #include "SumatraDialogs.h"
 #include "FormFields.h"
 #include "AppHelpersCommon.h"
@@ -126,13 +128,16 @@ void CommitFormFieldEdit(bool save) {
     if (font) {
         DeleteObject(font);
     }
-    bool changed = false;
+    FormEditResult result;
     if (save && widget) {
-        changed = isChoice ? SetWidgetChoiceValue(widget, text) : SetWidgetTextValue(widget, text);
+        result = isChoice ? SetWidgetChoiceValue(widget, text) : SetWidgetTextValue(widget, text);
+    }
+    if (result.refreshFailed) {
+        MaybeDelayedWarningNotification(Tr("Could not update the form field appearance"));
     }
     if (win) {
         HwndSetFocus(win->hwndCanvas);
-        if (changed) {
+        if (result.changed) {
             MainWindowRerender(win);
             // refresh the tab's unsaved-changes (red dot) indicator and toolbar
             // state now, otherwise it only updates on the next repaint trigger

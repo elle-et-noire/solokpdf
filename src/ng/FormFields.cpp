@@ -32,6 +32,7 @@
 #include "MainWindow.h"
 #include "WindowTab.h"
 #include "Toolbar.h"
+#include "Notifications.h"
 #include "gui/AppShell.h"
 #include "gui/DocCanvas.h"
 #include "SumatraDialogs.h"
@@ -145,12 +146,15 @@ void CommitFormFieldEdit(bool save) {
     }
     gEdit = {};
 
-    bool changed = false;
+    FormEditResult result;
     if (save && widget) {
-        changed = isChoice ? SetWidgetChoiceValue(widget, text) : SetWidgetTextValue(widget, text);
+        result = isChoice ? SetWidgetChoiceValue(widget, text) : SetWidgetTextValue(widget, text);
+    }
+    if (result.refreshFailed) {
+        MaybeDelayedWarningNotification(Tr("Could not update the form field appearance"));
     }
     if (win) {
-        if (changed) {
+        if (result.changed) {
             MainWindowRerender(win);
             // refresh the tab's unsaved-changes (red dot) indicator and toolbar
             // state now, otherwise it only updates on the next repaint trigger

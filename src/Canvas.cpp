@@ -1625,8 +1625,14 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y, WPARAM key) {
     // their own list (GetWidgetAtPos), separate from markup annotations. Consume
     // the click in either case so it doesn't start a drag/selection.
     Annotation* widget = locked ? nullptr : dm->GetWidgetAtPos(pt);
-    if (ToggleFormButton(widget)) {
-        MainWindowRerender(win);
+    FormEditResult buttonEdit = ToggleFormButton(widget);
+    if (buttonEdit.refreshFailed) {
+        MaybeDelayedWarningNotification(Tr("Could not update the form field appearance"));
+    }
+    if (buttonEdit.accepted || buttonEdit.changed) {
+        if (buttonEdit.changed) {
+            MainWindowRerender(win);
+        }
         win->mouseAction = MouseAction::None;
         return;
     }

@@ -1,0 +1,108 @@
+Expose committed changes in the current journal operation, including
+changes made by JavaScript during a form appearance refresh.
+
+diff --git a/include/mupdf/pdf/object.h b/include/mupdf/pdf/object.h
+index ce4d66610..862d31f20 100644
+--- a/include/mupdf/pdf/object.h
++++ b/include/mupdf/pdf/object.h
+@@ -406,6 +406,12 @@ void pdf_begin_operation(fz_context *ctx, pdf_document *doc, const char *operati
+  * they generally happen as a result of them. */
+ void pdf_begin_implicit_operation(fz_context *ctx, pdf_document *doc);
+ 
++/* Whether the innermost operation has journalled changes, or -1 without a journal. */
++int pdf_operation_has_changes(fz_context *ctx, pdf_document *doc);
++int pdf_operation_has_js_changes(fz_context *ctx, pdf_document *doc);
++void pdf_mark_js_changes(fz_context *ctx, pdf_document *doc);
++void pdf_name_operation(fz_context *ctx, pdf_document *doc, const char *name);
++
+ /* Call this to end an operation. */
+ void pdf_end_operation(fz_context *ctx, pdf_document *doc);
+ 
+diff --git a/source/pdf/pdf-form.c b/source/pdf/pdf-form.c
+index 39b05f7c2..f51a321b6 100644
+--- a/source/pdf/pdf-form.c
++++ b/source/pdf/pdf-form.c
+@@ -2374,7 +2374,10 @@ void pdf_field_event_calculate(fz_context *ctx, pdf_document *doc, pdf_obj *fiel
+ 					new_value = pdf_js_event_value(js);
+ 					throw_if_js_oom(ctx, !new_value);
+ 					if (strcmp(old_value, new_value))
++					{
+ 						pdf_set_field_value(ctx, doc, field, new_value, 0);
++						pdf_mark_js_changes(ctx, doc);
++					}
+ 				}
+ 			}
+ 			fz_always(ctx)
+diff --git a/source/pdf/pdf-js.c b/source/pdf/pdf-js.c
+index dc01753cd..17bf7d962 100644
+--- a/source/pdf/pdf-js.c
++++ b/source/pdf/pdf-js.c
+@@ -1292,6 +1292,7 @@ void pdf_js_execute(pdf_js *js, const char *name, const char *source, char **res
+ 				js_pop(J, 1);
+ 			}
+ 		}
++		pdf_mark_js_changes(ctx, js->doc);
+ 		pdf_end_operation(ctx, js->doc);
+ 	}
+ 	fz_catch(ctx)
+diff --git a/source/pdf/pdf-object.c b/source/pdf/pdf-object.c
+index edf00449e..eee41546e 100644
+--- a/source/pdf/pdf-object.c
++++ b/source/pdf/pdf-object.c
+@@ -143,6 +143,7 @@ typedef struct pdf_journal_entry
+ 	struct pdf_journal_entry *next;
+ 
+ 	char *title;
++	int js_changes;
+ #ifdef PDF_DEBUG_JOURNAL
+ 	int changed_since_last_dumped;
+ #endif
+@@ -1038,6 +1039,40 @@ void pdf_begin_implicit_operation(fz_context *ctx, pdf_document *doc)
+ 	do_begin_operation(ctx, doc, NULL);
+ }
+ 
++int pdf_operation_has_changes(fz_context *ctx, pdf_document *doc)
++{
++	if (ctx == NULL || doc == NULL || doc->journal == NULL)
++		return -1;
++	if (doc->journal->pending_tail == NULL)
++		return 0;
++	return doc->journal->pending_tail->head != NULL;
++}
++
++int pdf_operation_has_js_changes(fz_context *ctx, pdf_document *doc)
++{
++	if (ctx == NULL || doc == NULL || doc->journal == NULL)
++		return -1;
++	if (doc->journal->pending_tail == NULL)
++		return 0;
++	return doc->journal->pending_tail->js_changes;
++}
++
++void pdf_mark_js_changes(fz_context *ctx, pdf_document *doc)
++{
++	if (pdf_operation_has_changes(ctx, doc) > 0)
++		doc->journal->pending_tail->js_changes = 1;
++}
++
++void pdf_name_operation(fz_context *ctx, pdf_document *doc, const char *name)
++{
++	pdf_journal_entry *entry;
++	if (ctx == NULL || doc == NULL || doc->journal == NULL)
++		return;
++	entry = doc->journal->pending_tail;
++	if (entry && entry->title == NULL)
++		entry->title = fz_strdup(ctx, name);
++}
++
+ void pdf_drop_journal(fz_context *ctx, pdf_journal *journal)
+ {
+ 	if (ctx == NULL || journal == NULL)
+@@ -1172,6 +1207,7 @@ void pdf_end_operation(fz_context *ctx, pdf_document *doc)
+ 		 * with no entry at all! */
+ 		if (entry && entry->prev)
+ 		{
++			entry->prev->js_changes |= entry->js_changes;
+ 			if (entry->tail == NULL)
+ 			{
+ 				/* Nothing to move. */

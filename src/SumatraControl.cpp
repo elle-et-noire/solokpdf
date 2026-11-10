@@ -1964,6 +1964,25 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             Str signAction = StringArg(req, 0);
+#if IS_DEBUG
+            if (str::Eq(signAction, StrL("set-annot-contents"))) {
+                if (!gForTesting) {
+                    AppendTestResult(req, 1, StrL("testing only"));
+                    break;
+                }
+                Vec<Annotation*> annots;
+                if (!EngineGetAnnotations(engine, annots) || len(annots) == 0) {
+                    AppendTestResult(req, 1, StrL("no annotation"));
+                    break;
+                }
+                Annotation* annot = annots[0];
+                TempStr before = str::DupTemp(Contents(annot));
+                bool changed = SetContents(annot, StringArg(req, 1));
+                AppendTestResult(req, 0,
+                                 fmt("changed=%d before='%s' after='%s'", (int)changed, before, Contents(annot)));
+                break;
+            }
+#endif
             if (str::Eq(signAction, StrL("cbx-copy"))) {
 #if IS_DEBUG
                 AppendTestResult(req, 0, TestCbxCacheCopyTemp(StringArg(req, 1), StringArg(req, 2)));

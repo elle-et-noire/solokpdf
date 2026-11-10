@@ -1499,6 +1499,8 @@ TempStr PixmapRgbHexTemp(Pixmap* px, int x, int y) {
     return fmt("%02x%02x%02x", (int)p[2], (int)p[1], (int)p[0]);
 }
 
+static int FormPixels(EngineBase* engine, int pageNo, RenderTarget target);
+
 // Toggle the idx-th (0-based) checkbox / radio widget on pageNo, as a click
 // on it would. Reports the field value before and after.
 TempStr ToggleFormButtonResultTemp(int pageNo, int idx, int* exitCodeOut) {
@@ -1543,12 +1545,15 @@ TempStr ToggleFormButtonResultTemp(int pageNo, int idx, int* exitCodeOut) {
     }
 
     TempStr before = str::DupTemp(GetWidgetValue(button));
-    bool toggled = ToggleFormButton(button);
+    int viewBefore = FormPixels(dm->GetEngine(), pageNo, RenderTarget::View);
+    FormEditResult result = ToggleFormButton(button);
     TempStr after = str::DupTemp(GetWidgetValue(button));
+    int viewAfter = FormPixels(dm->GetEngine(), pageNo, RenderTarget::View);
     if (exitCodeOut) {
         *exitCodeOut = 0;
     }
-    out.Append(fmt("OK toggled=%d before='%s' after='%s' buttons=%d\n", (int)toggled, before, after, nButtons));
+    out.Append(fmt("OK toggled=%d before='%s' after='%s' buttons=%d refreshFailed=%d viewBefore=%d viewAfter=%d\n",
+                   (int)result.changed, before, after, nButtons, (int)result.refreshFailed, viewBefore, viewAfter));
     return ToStrTemp(out);
 }
 
@@ -1635,20 +1640,21 @@ TempStr SetFormFieldResultTemp(int pageNo, int idx, Str value, int* exitCodeOut)
     TempStr before = str::DupTemp(GetWidgetValue(widget));
     int viewBefore = FormPixels(dm->GetEngine(), pageNo, RenderTarget::View);
     int printBefore = FormPixels(dm->GetEngine(), pageNo, RenderTarget::Print);
-    bool changed = false;
+    FormEditResult result;
     if (type == PDF_WIDGET_TYPE_TEXT) {
-        changed = SetWidgetTextValue(widget, value);
+        result = SetWidgetTextValue(widget, value);
     } else if (type == PDF_WIDGET_TYPE_COMBOBOX || type == PDF_WIDGET_TYPE_LISTBOX) {
-        changed = SetWidgetChoiceValue(widget, value);
+        result = SetWidgetChoiceValue(widget, value);
     }
     TempStr after = str::DupTemp(GetWidgetValue(widget));
     int viewAfter = FormPixels(dm->GetEngine(), pageNo, RenderTarget::View);
     int printAfter = FormPixels(dm->GetEngine(), pageNo, RenderTarget::Print);
     if (exitCodeOut) {
-        *exitCodeOut = changed ? 0 : 1;
+        *exitCodeOut = result.accepted ? 0 : 1;
     }
-    return fmt("%s before='%s' after='%s' viewBefore=%d viewAfter=%d printBefore=%d printAfter=%d",
-               changed ? StrL("OK") : StrL("ERROR"), before, after, viewBefore, viewAfter, printBefore, printAfter);
+    return fmt("%s before='%s' after='%s' viewBefore=%d viewAfter=%d printBefore=%d printAfter=%d refreshFailed=%d",
+               result.accepted ? StrL("OK") : StrL("ERROR"), before, after, viewBefore, viewAfter, printBefore,
+               printAfter, (int)result.refreshFailed);
 }
 
 // Render one page and count red / non-white pixels (issue #3415: WebP in EPUB paints).

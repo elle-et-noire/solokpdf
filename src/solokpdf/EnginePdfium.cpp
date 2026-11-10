@@ -2767,8 +2767,10 @@ class EnginePdfium : public EngineBase {
 
     EngineBase* TextEditor(int pageNo) {
         EngineBase* res = AnnotationEditor(EditorLoad::IfLoaded);
-        return res && ((acroForm && res->TextGeneration() != 0) || EngineMupdfPageRedacted(res, pageNo)) ? res
-                                                                                                         : nullptr;
+        return res && ((acroForm && res->TextGeneration() != 0) || EngineMupdfHasUnsavedAnnotations(res) ||
+                       EngineMupdfPageRedacted(res, pageNo))
+                   ? res
+                   : nullptr;
     }
 
     // Hover's prefetch never loads the editor: without it, text MuPDF must supply is left partial.

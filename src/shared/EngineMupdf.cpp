@@ -5133,6 +5133,14 @@ bool EngineMupdf::FinishLoading() {
         // that edits the document goes through EngineMupdfBeginOperation()
         // (MuPDF's own annotation setters begin one themselves).
         fz_try(ctx) {
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+            WCHAR noJournal[2]{};
+            if (gForTesting &&
+                GetEnvironmentVariableW(L"SOLOKPDF_TEST_NO_JOURNAL", noJournal, dimofi(noJournal)) == 1 &&
+                noJournal[0] == L'1') {
+                fz_throw(ctx, FZ_ERROR_GENERIC, "injected journal failure");
+            }
+#endif
             pdf_enable_journal(ctx, pdfdoc);
         }
         fz_catch(ctx) {
@@ -13922,6 +13930,29 @@ void EngineMupdfGetFormFieldHighlightRects(EngineBase* engine, int pageNo, Annot
 // to easily trace all places that modify annotations
 void MarkNotificationAsModified(EngineMupdf* e, Annotation* annot) {
     MarkNotificationAsModified(e, annot, AnnotationChange::Modify);
+}
+
+void InvalidateFormPages(EngineMupdf* e) {
+    ScopedRecursiveMutex pagesScope(&e->pagesLock);
+    ScopedMutex renderScope(&e->renderLock);
+    fz_context* ctx = e->Ctx();
+    ForEachPageInfo(e, [ctx](FzPageInfo* pi) {
+        if (pi->displayList) {
+            fz_drop_display_list(ctx, pi->displayList);
+            pi->displayList = nullptr;
+        }
+        pi->elementsNeedRebuilding = true;
+    });
+}
+
+bool TakeAnnotRefreshFailure(EngineBase* engine) {
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
+    if (!e) {
+        return false;
+    }
+    bool failed = e->annotRefreshFailed;
+    e->annotRefreshFailed = false;
+    return failed;
 }
 
 NO_INLINE void MarkNotificationAsModified(EngineMupdf* e, Annotation* annot, AnnotationChange change) {

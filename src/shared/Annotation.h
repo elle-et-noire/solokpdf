@@ -203,10 +203,15 @@ int GetWidgetFieldFlags(Annotation*);
 Str GetWidgetValue(Annotation*);
 float GetWidgetFontSize(Annotation*);
 int GetWidgetMaxLen(Annotation*);
-bool SetWidgetTextValue(Annotation*, Str value);
+struct FormEditResult {
+    bool accepted = false;
+    bool changed = false;
+    bool refreshFailed = false;
+};
+FormEditResult SetWidgetTextValue(Annotation*, Str value);
 void GetWidgetChoiceOptions(Annotation*, StrVec& out);
-bool SetWidgetChoiceValue(Annotation*, Str value);
-bool ToggleFormButton(Annotation*);
+FormEditResult SetWidgetChoiceValue(Annotation*, Str value);
+FormEditResult ToggleFormButton(Annotation*);
 
 bool AnnotationIsLive(Annotation*);
 

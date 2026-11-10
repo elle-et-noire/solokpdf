@@ -2723,8 +2723,14 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y) {
     // a text or choice field starts in-place editing. Widgets are hit-tested on
     // their own list, separate from markup annotations.
     Annotation* widget = locked ? nullptr : dm->GetWidgetAtPos(pt);
-    if (ToggleFormButton(widget)) {
-        MainWindowRerender(win);
+    FormEditResult buttonEdit = ToggleFormButton(widget);
+    if (buttonEdit.refreshFailed) {
+        MaybeDelayedWarningNotification(Tr("Could not update the form field appearance"));
+    }
+    if (buttonEdit.accepted || buttonEdit.changed) {
+        if (buttonEdit.changed) {
+            MainWindowRerender(win);
+        }
         win->mouseAction = MouseAction::None;
         return;
     }

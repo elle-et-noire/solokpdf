@@ -30,7 +30,8 @@ E32 retains worker dependencies when shutdown cannot finish; [results](history.m
 E33 retries failed page text extraction; [results](history.md#e33-text-extraction-failure-2026-11-10).
 E34 validates document targets after dialogs; [results](history.md#e34-dialog-targets-2026-11-10).
 E35 preserves choice-field validation rejection; [results](history.md#e35-choice-validation-2026-11-10).
-[backlog.md](backlog.md) records E36–E37's fixes and regression checks,
+E36 publishes committed edits despite refresh failures; [results](history.md#e36-committed-edit-notification-2026-11-11).
+[backlog.md](backlog.md) records E37's fix and regression checks,
 deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache

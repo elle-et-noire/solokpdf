@@ -1292,6 +1292,7 @@ void pdf_js_execute(pdf_js *js, const char *name, const char *source, char **res
 				js_pop(J, 1);
 			}
 		}
+		pdf_mark_js_changes(ctx, js->doc);
 		pdf_end_operation(ctx, js->doc);
 	}
 	fz_catch(ctx)

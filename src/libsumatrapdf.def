@@ -1963,6 +1963,10 @@ EXPORTS
 	pdf_enable_journal
 
 	pdf_begin_operation
+	pdf_begin_implicit_operation
+	pdf_operation_has_changes
+	pdf_operation_has_js_changes
+	pdf_name_operation
 
 	pdf_end_operation
 

@@ -5,6 +5,9 @@
 #include "../ext/mupdf/source/pdf/annotation-icons.h"
 #include "base/File.h"
 #include "base/UITask.h"
+extern "C" {
+#include <mupdf/pdf.h>
+}
 #include "gui/Dpi.h"
 #include "gui/UIModels.h"
 #include "gui/PlatformFont.h"
@@ -23,6 +26,8 @@
 #include "WindowTab.h"
 #include "Commands.h"
 #include "Toolbar.h"
+#include "Notifications.h"
+#include "EngineMupdf.h"
 #include "AppSettings.h"
 #include "FormFields.h"
 #include "AnnotFilterToolbar.h"
@@ -265,6 +270,10 @@ Color BarActiveBg() {
 void AnnotChanged(WindowTab* tab) {
     if (!tab || !tab->win) {
         return;
+    }
+    DisplayModel* dm = tab->AsFixed();
+    if (dm && TakeAnnotRefreshFailure(dm->GetEngine())) {
+        MaybeDelayedWarningNotification(Tr("Could not update the annotation appearance"));
     }
     NotifyAnnotationsChanged(tab);
     ToolbarUpdateStateForWindow(tab->win, false);

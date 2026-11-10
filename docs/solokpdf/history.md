@@ -3035,6 +3035,23 @@ JavaScript-disabled acceptance and saved values. Existing cache, search and
 Undo/Redo cases also passed. `ad-hoc-pdfium-forms` passed on both engines,
 including accepted choice rendering and saving.
 
+## E36 committed edit notification (2026-11-11)
+
+Form results distinguish acceptance, committed changes and refresh errors.
+Nested journal entries detect validation and calculation side effects; an
+unknown change without a journal is treated as modified. Changed form edits
+invalidate all loaded editor pages and both engines' text caches. Markup edits
+also invalidate their text page; PDFium reads changed text from the editor. Failed
+appearance updates retain committed edits and report a warning.
+
+In Debug, `form-text-cache` passed on both engines with injected refresh
+failure for text, choice, checkbox, radio and free-text markup, including Undo,
+Redo and saved values. Text and search were checked after failure; radio drawing
+was checked by pixel changes. Rejected JavaScript side effects covered clean and already
+modified documents, calculation during refresh and missing journal. The
+regressions failed before their fixes. `annot-undo-one-step` and
+`ad-hoc-pdfium-form-js` passed; ng Debug built. No Release or full suite ran.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3204,6 +3221,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E33 | Distinguish failed text extraction from an empty page                                                                                                                                                                                                                                       | done — Retry failed page text extraction (E33); [results](#e33-text-extraction-failure-2026-11-10)                                                                                                                                      |
 | E34 | Verify targets after synchronous reload and Save As dialogs                                                                                                                                                                                                                                 | done — Validate document targets after dialogs (E34); [results](#e34-dialog-targets-2026-11-10)                                                                                                                                         |
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
+| E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 
 ### F. Manual acceptance
 

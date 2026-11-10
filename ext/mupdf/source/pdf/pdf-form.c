@@ -2374,7 +2374,10 @@ void pdf_field_event_calculate(fz_context *ctx, pdf_document *doc, pdf_obj *fiel
 					new_value = pdf_js_event_value(js);
 					throw_if_js_oom(ctx, !new_value);
 					if (strcmp(old_value, new_value))
+					{
 						pdf_set_field_value(ctx, doc, field, new_value, 0);
+						pdf_mark_js_changes(ctx, doc);
+					}
 				}
 			}
 			fz_always(ctx)

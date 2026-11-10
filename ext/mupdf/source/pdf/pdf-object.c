@@ -143,6 +143,7 @@ typedef struct pdf_journal_entry
 	struct pdf_journal_entry *next;
 
 	char *title;
+	int js_changes;
 #ifdef PDF_DEBUG_JOURNAL
 	int changed_since_last_dumped;
 #endif
@@ -1038,6 +1039,40 @@ void pdf_begin_implicit_operation(fz_context *ctx, pdf_document *doc)
 	do_begin_operation(ctx, doc, NULL);
 }
 
+int pdf_operation_has_changes(fz_context *ctx, pdf_document *doc)
+{
+	if (ctx == NULL || doc == NULL || doc->journal == NULL)
+		return -1;
+	if (doc->journal->pending_tail == NULL)
+		return 0;
+	return doc->journal->pending_tail->head != NULL;
+}
+
+int pdf_operation_has_js_changes(fz_context *ctx, pdf_document *doc)
+{
+	if (ctx == NULL || doc == NULL || doc->journal == NULL)
+		return -1;
+	if (doc->journal->pending_tail == NULL)
+		return 0;
+	return doc->journal->pending_tail->js_changes;
+}
+
+void pdf_mark_js_changes(fz_context *ctx, pdf_document *doc)
+{
+	if (pdf_operation_has_changes(ctx, doc) > 0)
+		doc->journal->pending_tail->js_changes = 1;
+}
+
+void pdf_name_operation(fz_context *ctx, pdf_document *doc, const char *name)
+{
+	pdf_journal_entry *entry;
+	if (ctx == NULL || doc == NULL || doc->journal == NULL)
+		return;
+	entry = doc->journal->pending_tail;
+	if (entry && entry->title == NULL)
+		entry->title = fz_strdup(ctx, name);
+}
+
 void pdf_drop_journal(fz_context *ctx, pdf_journal *journal)
 {
 	if (ctx == NULL || journal == NULL)
@@ -1172,6 +1207,7 @@ void pdf_end_operation(fz_context *ctx, pdf_document *doc)
 		 * with no entry at all! */
 		if (entry && entry->prev)
 		{
+			entry->prev->js_changes |= entry->js_changes;
 			if (entry->tail == NULL)
 			{
 				/* Nothing to move. */
