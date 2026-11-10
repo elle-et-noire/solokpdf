@@ -32,6 +32,7 @@ The completed E18–E22 review has these records:
 - E20: [Document inputs, ownership and teardown](#e20-document-lifetime-2026-11-10).
 - E23–E25: [Operation review, findings and validation](#e23e25-structure-and-code-review-2026-11-10).
   [Priorities, scope correction and completed synthesis](#e25-review-synthesis-2026-11-10).
+- E26: [Automatic reload and unsaved edits](#e26-automatic-reload-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2789,6 +2790,39 @@ priorities, minimum change directions, dependencies, decisions and
 remaining work. Detailed design, implementation and regression tests
 remain in E26–E37. Next product work is E26, then E27.
 
+## E26 automatic reload (2026-11-10)
+
+Completed E26 on `b0a43d187` plus these changes. Automatic reload now checks
+unsaved edits and this window's active form input before canceling an editor
+or replacing the controller. Deferred updates remain on the tab across
+selection changes. Reload/close teardown leaves another window's editor alone.
+
+Reload Document commits input and asks Save/Discard/Cancel. Cancel and failed
+saves retain the edits; the prompt is rearmed after the dialog. The caller
+rechecks the tab, window and controller. Explicit Discard Changes and the
+intentional post-save reload keep their direct paths.
+
+Added `tests/auto-reload-unsaved.ts`. Before product edits, all six initial
+cases failed: dirty edits/Undo, active text and active choice, in both engines.
+The final ten cases passed in Debug (31.7 s) and ASan (64.6 s) on the hidden
+desktop. They cover pending updates after tab selection, Undo/Redo, manual
+Reload with active input, Cancel/Discard, read-only save failure and retry,
+post-save reload, and another window reloading during text/choice input.
+
+Targeted existing tests passed: `ad-hoc-pdfium-forms`,
+`ad-hoc-pdfium-form-js`, `reload-debounce`, `annot-text-popup-reload`.
+An initial parallel attempt collided in the shared test scratch directory;
+the reported passes are from the sequential rerun. Debug and ASan builds
+passed. Ng's Windows Debug build also passed for the shared API change;
+its Reload behavior was not changed. The test is registered in the slow suite
+(watcher waits) and SolokPDF CI. The desktop-input lint passed.
+Logs and hashes are in [the evidence record](data/e26-2026-11-10.json).
+
+E26 is complete for the Windows SolokPDF path. This does not close E27's
+missing-source save contract, E34's synchronous factory/dialog lifetime work,
+or E28/E36's missing dirty notifications. No Release build, full suite or
+ng GUI test was run.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2948,6 +2982,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E23 | Map operation entry points, implementations and existing tests                                                                                                                                                                                                                              | review complete at `7c67b529f`; [mapping](full-review-results.md#e23-入口と実装)                                                                                                                                                        |
 | E24 | Review operation paths against the structure and code criteria                                                                                                                                                                                                                              | review complete at `a272e9137` plus documentation changes; [scope and evidence](#e24-review-completion-2026-11-10); product fixes remain open                                                                                           |
 | E25 | Prioritize findings and record remaining work and coverage                                                                                                                                                                                                                                  | review complete at `44250b78c` plus documentation changes; [scope and synthesis](#e25-review-synthesis-2026-11-10); detailed design and fixes remain in E26–E37                                                                         |
+| E26 | Preserve unsaved edits during automatic reload (R1, P1)                                                                                                                                                                                                                                     | done — Preserve edits during automatic reload (E26); [results](#e26-automatic-reload-2026-11-10)                                                                                                                                        |
 
 ### F. Manual acceptance
 

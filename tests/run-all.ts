@@ -26,6 +26,7 @@ import { testit as printAutoRotate } from "./print-auto-rotate.ts";
 import { testit as issue6150 } from "./issue-6150.ts";
 import { testit as issue5040 } from "./issue-5040.ts";
 import { testit as reloadDebounce } from "./reload-debounce.ts";
+import { testit as autoReloadUnsaved } from "./auto-reload-unsaved.ts";
 import { testit as issue6316 } from "./issue-6316.ts";
 import { testit as issue2693 } from "./issue-2693.ts";
 import { testit as issue5865 } from "./issue-5865.ts";
@@ -78,6 +79,7 @@ export const notInPreReleaseTests: NamedTest[] = [
 ];
 
 export const slowTests: NamedTest[] = [
+  ["auto-reload-unsaved", autoReloadUnsaved],
   ["ad-hoc-startup-diagnostics", startupDiagnostics],
   ["pdfium-pattern-strokes", pdfiumPatternStrokes],
   ["pdfium-pattern-rendering", pdfiumPatternRendering],

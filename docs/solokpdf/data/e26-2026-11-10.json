@@ -1,0 +1,142 @@
+{
+  "date": "2026-11-10",
+  "item": "E26",
+  "baseCommit": "b0a43d187",
+  "scope": "Windows SolokPDF automatic reload; mupdf and pdfium",
+  "before": {
+    "result": "failed",
+    "cases": 6,
+    "durationSeconds": 15.5,
+    "binaryHash": "not captured before edits",
+    "log": ".work/e26-before.log"
+  },
+  "after": [
+    {
+      "config": "Debug",
+      "result": "passed",
+      "cases": 10,
+      "durationSeconds": 31.7,
+      "log": ".work/e26-after.log"
+    },
+    {
+      "config": "Debug ASan",
+      "result": "passed",
+      "cases": 10,
+      "durationSeconds": 64.6,
+      "log": ".work/e26-asan.log"
+    }
+  ],
+  "coverage": [
+    "watcher enabled; external replacement retains dirty state and Undo/Redo",
+    "active text/choice survives automatic reload",
+    "pending update survives tab switches and retries after editor cancellation",
+    "other window reload leaves text/choice editor intact",
+    "manual Reload commits input and preserves edits on Cancel",
+    "manual Reload Discard and explicit Discard Changes reload disk content",
+    "read-only save fails without discarding edits; retry saves and reloads",
+    "intentional post-save reload remains clean"
+  ],
+  "targetedTests": [
+    "ad-hoc-pdfium-forms",
+    "ad-hoc-pdfium-form-js",
+    "reload-debounce",
+    "annot-text-popup-reload",
+    "lint-desktop-input"
+  ],
+  "builds": ["SolokPDF Debug", "SolokPDF Debug ASan", "ng Windows Debug"],
+  "execution": "App tests ran outside sandbox on hidden desktops. Parallel scratch-directory collision discarded; sequential rerun passed.",
+  "notRun": ["Release", "full suites", "ng GUI"],
+  "remaining": ["E27 missing source", "E34 synchronous reload/dialog lifetime", "E28/E36 missing dirty notifications"],
+  "files": [
+    {
+      "path": ".work/e26-before.log",
+      "sha256": "4311dde139ece8757a413899f29252e2397d8a799c161970c4b120b669ad1239",
+      "bytes": 488
+    },
+    {
+      "path": ".work/e26-after.log",
+      "sha256": "2ae1268af51f620aeb502b6f9419b940085f5296a107cbd212584f1dea7bc8f8",
+      "bytes": 560
+    },
+    {
+      "path": ".work/e26-asan.log",
+      "sha256": "ff198c4b571c4c9a4360a1fc82b286b4c8376fb11d309254cc47062fe530f99a",
+      "bytes": 562
+    },
+    {
+      "path": ".work/e26-build.log",
+      "sha256": "64c70471d2b51a813f625e2f5712db4c47448b8542824b52a86577a3aa61052b",
+      "bytes": 96625
+    },
+    {
+      "path": ".work/e26-asan-build.log",
+      "sha256": "8632d9ed2b8fce89b6b87c39c18d8f819e07083479c7752f5ed21c132f2508fe",
+      "bytes": 86536
+    },
+    {
+      "path": ".work/e26-ng-build.log",
+      "sha256": "39d806729c7986e5310dba39db70113c89d3767e8bdb5207c01011667064014c",
+      "bytes": 1670
+    },
+    {
+      "path": ".work/e26-ad-hoc-pdfium-forms.log",
+      "sha256": "c42b1ee1f429e8329b2a78e4801db6a0b3c43949dd7749979e04839631ad9bbf",
+      "bytes": 158
+    },
+    {
+      "path": ".work/e26-ad-hoc-pdfium-form-js.log",
+      "sha256": "ae2b2d66da5b40fa9b4da06bca1b026fc6b3b1a8191d37cb18402a820815f293",
+      "bytes": 107
+    },
+    {
+      "path": ".work/e26-reload-debounce.log",
+      "sha256": "b0ae4ee86dff7a29a5aacf6c8cdbe0b1c6275c176b7787ed27ece9109bcb2701",
+      "bytes": 36
+    },
+    {
+      "path": ".work/e26-annot-text-popup-reload.log",
+      "sha256": "23901f3d998136a6df476b46c125297efe09ef9d57ac474f253b9c96307bf200",
+      "bytes": 73
+    },
+    {
+      "path": "tests/auto-reload-unsaved.ts",
+      "sha256": "53d3c62971ad06eaf82c473f759eff417d364e04557821c0c85c94334981ea55",
+      "bytes": 9372
+    },
+    {
+      "path": "src/SumatraPDF.cpp",
+      "sha256": "3a156ac5e763acd3779b7f5c17a16d380f7a6b0fd828e2962af92da3e0ff2794",
+      "bytes": 657718
+    },
+    {
+      "path": "src/FormFields.cpp",
+      "sha256": "4c1e7f90f79636de0cd037462389f583fd4be8a31e7788b7685881baf39a280c",
+      "bytes": 11216
+    },
+    {
+      "path": "src/shared/FormFields.h",
+      "sha256": "9062297f0c38054a096a8a47a47ece89472b84befeaa146def9f2000cbf883a2",
+      "bytes": 945
+    },
+    {
+      "path": "src/ng/FormFields.cpp",
+      "sha256": "2ded44350580d705eeaeac5863fc3fbe81d4bdef819914a4b85a8b066f6b2f53",
+      "bytes": 12828
+    },
+    {
+      "path": "out/dbg64/SumatraPDF.exe",
+      "sha256": "f8658a802c5ca73d659a671e192ce8f4a4557b17fc01efacecf9f663a29bda0c",
+      "bytes": 24322048
+    },
+    {
+      "path": "out/dbg64_asan/SumatraPDF-static.exe",
+      "sha256": "c53647840f29add479a3cb39140d55dd38b24116b6da714445b083359552b9e7",
+      "bytes": 70907904
+    },
+    {
+      "path": "out/win/dbg/SumatraPDF.exe",
+      "sha256": "a29d85c9e63e7f05a2bcfc26f2c471e3f2606d1ee3a003003c482083a0a8e1f6",
+      "bytes": 50836480
+    }
+  ]
+}

@@ -67,8 +67,10 @@ import { testit as positionB71 } from "./ad-hoc-b71-window-position.ts";
 import { testit as activationTraceB71 } from "./ad-hoc-b71-activation-trace.ts";
 
 import { testit as controlStartB71 } from "./ad-hoc-b71-control-start.ts";
+import { testit as autoReloadUnsaved } from "./auto-reload-unsaved.ts";
 
 const tests: NamedTest[] = [
+  ["auto-reload-unsaved", autoReloadUnsaved],
   ["ad-hoc-pdfium-source-lifetime", sourceLifetime],
   ["ad-hoc-pdfium-try-reads", tryReads],
   ...treeTests,

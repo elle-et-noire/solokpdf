@@ -42,8 +42,8 @@ static WNDPROC gDefCtrlProc = nullptr;
 static bool gCommitting = false;
 
 // True while a form field is being edited in place.
-bool IsFormFieldEditActive() {
-    return gEdit.hwnd != nullptr;
+bool IsFormFieldEditActive(MainWindow* win) {
+    return gEdit.hwnd && (!win || gEdit.win == win);
 }
 
 // Tint empty fillable fields so they are visible without hovering (issue #5966).

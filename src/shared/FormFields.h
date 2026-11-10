@@ -15,7 +15,7 @@ bool StartFormFieldEdit(MainWindow* win, Annotation* widget);
 bool StartSignatureFieldSigning(MainWindow* win, Annotation* widget);
 void CommitFormFieldEdit(bool save);
 void CancelFormFieldEditIfWidget(Annotation* widget);
-bool IsFormFieldEditActive();
+bool IsFormFieldEditActive(MainWindow* win = nullptr);
 bool FormFieldEditOnTab(bool back);
 bool FormFieldEditOnKeyDown(int vk);
 void PaintFormFieldHighlights(MainWindow* win, Gfx* gfx);

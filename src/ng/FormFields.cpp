@@ -62,8 +62,8 @@ static void FreeFormFieldEdit(gpui::InputState* st) {
 }
 
 // True while a form field is being edited in place.
-bool IsFormFieldEditActive() {
-    return gEdit.widget != nullptr;
+bool IsFormFieldEditActive(MainWindow* win) {
+    return gEdit.widget && (!win || gEdit.win == win);
 }
 
 // Tint empty fillable fields so they are visible without hovering (issue #5966).

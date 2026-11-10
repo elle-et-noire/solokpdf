@@ -1,5 +1,18 @@
 # PDFium forms and signing
 
+## External updates
+
+Automatic reload waits while the current document has unsaved edits or an
+active text/choice editor. The pending update survives tab switches. Canceling
+the editor lets the update run on the next tab selection. Reloading another
+window leaves the editor intact.
+
+Reload Document commits active form input, then offers Save, Discard or Cancel
+for unsaved changes. A failed save or Cancel keeps the document and Undo history.
+Save's intentional reload and Discard Changes still proceed.
+`tests/auto-reload-unsaved.ts` covers both engines on Windows.
+Dirty-state omissions and dialog reentry remain separate E28/E36 and E34 work.
+
 ## Document JavaScript
 
 PDFium reports document JavaScript but does not run MuPDF's scripts itself.

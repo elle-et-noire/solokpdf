@@ -2419,9 +2419,16 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
         return;
     }
 
-    // tear down any in-place form-field edit before the engine is deleted below,
-    // so the overlay's widget pointer can't dangle into freed memory
-    CommitFormFieldEdit(false);
+    // Keep the pending update until this tab's edits can be replaced safely.
+    if (autoRefresh && (IsFormFieldEditActive(win) || EngineHasUnsavedAnnotations(tab->GetEngine()))) {
+        tab->reloadOnFocus = true;
+        logf("ReloadDocument: deferred automatic reload for %s\n", tab->filePath);
+        return;
+    }
+
+    if (IsFormFieldEditActive(win)) {
+        CommitFormFieldEdit(false);
+    }
 
     // Do not clear ignoreNextAutoReload here: SaveAnnotationsToExistingFile sets it
     // so the file-watcher auto-reload from that write is skipped. Clearing it on every
@@ -4575,7 +4582,6 @@ void LoadModelIntoTab(WindowTab* tab) {
             ReloadDocument(win, false);
         } else {
             if (tab->reloadOnFocus) {
-                tab->reloadOnFocus = false;
                 ReloadDocument(win, true);
             }
         }
@@ -4848,7 +4854,9 @@ static void CloseDocumentInCurrentTab(MainWindow* win, bool keepUIEnabled, bool 
     // tear down any in-place form-field edit before the model/engine goes away,
     // so the overlay's widget pointer can't dangle (cancel: don't write/re-render
     // a document that's being closed or reloaded)
-    CommitFormFieldEdit(false);
+    if (IsFormFieldEditActive(win)) {
+        CommitFormFieldEdit(false);
+    }
     CloseMeasurement(win);
     CancelAnnotationPlacement(win);
     // signing writes into this document's engine; a tab switch or close would
@@ -5354,6 +5362,28 @@ bool MaybeSaveAnnotations(WindowTab* tab) {
             ReportIf(true);
     }
     return true;
+}
+
+static void ReloadWithSavePrompt(MainWindow* win) {
+    WindowTab* tab = win->CurrentTab();
+    DocController* ctrl = tab ? tab->ctrl : nullptr;
+    if (IsFormFieldEditActive(win)) {
+        CommitFormFieldEdit(true);
+    }
+    if (FindMainWindowByTab(tab) != win || !IsCurrentTab(win, tab) || tab->ctrl != ctrl) {
+        return;
+    }
+    bool reload = MaybeSaveAnnotations(tab);
+    MainWindow* owner = FindMainWindowByTab(tab);
+    if (owner) {
+        tab->askedToSaveAnnotations = false;
+    }
+    if (owner != win || !IsCurrentTab(win, tab) || tab->ctrl != ctrl) {
+        return;
+    }
+    if (reload) {
+        ReloadDocument(win, false);
+    }
 }
 
 // Answer the "Unsaved changes" prompt for tab without showing it (tests).
@@ -11176,7 +11206,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
             break;
 
         case CmdReloadDocument:
-            ReloadDocument(win, false);
+            ReloadWithSavePrompt(win);
             break;
 
         case CmdCreateShortcutToFile:

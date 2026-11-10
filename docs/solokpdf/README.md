@@ -16,10 +16,12 @@ rendered output.
 
 ## Status (2026-11-10)
 
-Status snapshot at `44250b78c` plus documentation changes on `solokpdf-dev`.
-D8–D13 and E10–E25 are complete within their recorded scope.
+Status snapshot at `b0a43d187` plus E26 changes on `solokpdf-dev`.
+D8–D13 and E10–E26 are complete within their recorded scope.
 E24's [review](full-review-results.md#e24-完了確認) records eleven defects and a shutdown contract issue;
-E25's [priorities, dependencies and remaining work](full-review-results.md#e25-再点検) are complete. Product fixes remain open. [backlog.md](backlog.md) records E26–E37's fixes and regression checks,
+E25's [priorities, dependencies and remaining work](full-review-results.md#e25-再点検) are complete.
+E26 preserves unsaved edits and active form input during automatic reload; [results](history.md#e26-automatic-reload-2026-11-10).
+[backlog.md](backlog.md) records E27–E37's fixes and regression checks,
 deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache
@@ -68,7 +70,7 @@ Earlier suites, local checks and refactor validation remain in
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- Start E26/E27 using the [review priorities](full-review-results.md#e25-再点検), then E34, E37 and E32.
+- Continue with E27 using the [review priorities](full-review-results.md#e25-再点検), then E34, E37 and E32.
   Keep fixes separate from review documentation and add missing regression coverage before changing product code.
 - For design work, read the [current architecture](architecture.md) and
   [structure and code review plan](full-review-plan.md). The [earlier plan](refactoring-plan.md) is complete.

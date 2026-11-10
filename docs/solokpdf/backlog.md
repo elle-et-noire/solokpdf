@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-10. E23–E25 are complete within the recorded review scope.
-E26–E37 are fixes and regression checks, not completed product changes.
+E26 is complete; E27–E37 remain open fixes and regression checks.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -19,7 +19,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Start E26/E27, then E34, E37 and E32 using the [review priorities](full-review-results.md#e25-再点検).
+Continue with E27, then E34, E37 and E32 using the [review priorities](full-review-results.md#e25-再点検).
 Continue with E28, E35/E36/E29, E33, E30 and E31. Detailed edit-change detection
 and signature rollback belong to E36 and E28. E37's partial-redaction notification is P1.
 E31 can proceed independently; keep its HANDLE fix separate from E32.
@@ -40,7 +40,6 @@ read; check build and test infrastructure where the investigation or a change re
 
 | ID  | Item                                                                 | Status                                                                                                                                      |
 | --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| E26 | Preserve unsaved edits during automatic reload (R1, P1)              | todo — both engines reproduced; preserve active form input and reloadOnFocus as well as dirty edits                                         |
 | E27 | Keep the save prompt after the source path disappears (R2, P1)       | todo — both engines reproduced; query dirty before path existence; distinguish safe new-file save from mmap input; keep Cancel              |
 | E28 | Roll back failed signature preparation (R3, P2)                      | todo — both engines reproduced; validate inputs first; rollback must cover pending signatures and loaded pages as well as PDF objects       |
 | E29 | Invalidate form text/search after edits (R4, P2)                     | todo — both engines reproduced; invalidate editor and display-engine caches, including JS effects                                           |
