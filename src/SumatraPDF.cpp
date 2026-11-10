@@ -1724,6 +1724,10 @@ DocController* CreateControllerForEngineOrFile(EngineBase* engine, Str path, Pas
     if (!engine) {
         engine = CreateEngineFromFile(path, pwdUI, chmInFixedUI);
     }
+    if (!IsMainWindowValidAndNotClosing(win)) {
+        SafeEngineRelease(&engine);
+        return nullptr;
+    }
     if (!engine) {
         // as a last resort, try to open as chm file
         auto* ctrl = CreateControllerForChm(path, pwdUI, win);
@@ -2452,6 +2456,13 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
     StartPendingSearch(win);
 }
 
+static void DeleteOrphanedController(MainWindow* win, DocController*& ctrl);
+
+static bool IsSameDocument(MainWindow* win, WindowTab* tab, DocController* ctrl, EngineBase* engine) {
+    return IsMainWindowValidAndNotClosing(win) && FindMainWindowByTab(tab) == win && win->CurrentTab() == tab &&
+           tab->ctrl == ctrl && tab->GetEngine() == engine;
+}
+
 void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
     WindowTab* tab = win->CurrentTab();
 
@@ -2463,6 +2474,14 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
     if (tab->IsNonDocumentTab()) {
         return;
     }
+    DocController* originalCtrl = tab->ctrl;
+    EngineBase* originalEngine = tab->GetEngine();
+    if (originalEngine) {
+        originalEngine->AddRef();
+    }
+    defer {
+        SafeEngineRelease(&originalEngine);
+    };
 
     // Keep the pending update until this tab's edits can be replaced safely.
     if (autoRefresh && (IsFormFieldEditActive(win) || EngineHasUnsavedAnnotations(tab->GetEngine()))) {
@@ -2473,6 +2492,9 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
 
     if (IsFormFieldEditActive(win)) {
         CommitFormFieldEdit(false);
+    }
+    if (!IsSameDocument(win, tab, originalCtrl, originalEngine)) {
+        return;
     }
 
     // Do not clear ignoreNextAutoReload here: SaveAnnotationsToExistingFile sets it
@@ -2503,7 +2525,10 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
     // DefaultPasswords, then gives up quietly: the tab keeps the document it
     // has, and the user is asked if they reload it themselves.
     HwndPasswordUI pwdUI(canAskForPassword ? win->hwndFrame : nullptr);
-    Str path = tab->filePath;
+    Str path = str::Dup(tab->filePath);
+    defer {
+        str::Free(path);
+    };
     if (len(path) == 0) {
         logf("ReloadDocument: tab->filePath is empty, auto refresh: %d\n", (int)autoRefresh);
         return;
@@ -2523,6 +2548,11 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
         EngineMupdfSetEbookLayoutAspect(previousAspect);
     };
     DocController* ctrl = CreateControllerForEngineOrFile(nullptr, path, &pwdUI, win);
+    if (!IsSameDocument(win, tab, originalCtrl, originalEngine)) {
+        DeleteOrphanedController(win, ctrl);
+        DeleteFileState(fs);
+        return;
+    }
     // We don't allow PDF-repair if it is an autorefresh because
     // a refresh event can occur before the file is finished being written,
     // in which case the repair could fail. Instead, if the file is broken,
@@ -4631,6 +4661,9 @@ void LoadModelIntoTab(WindowTab* tab) {
             }
         }
     }
+    if (!IsMainWindowValidAndNotClosing(win) || FindMainWindowByTab(tab) != win || win->CurrentTab() != tab) {
+        return;
+    }
     HwndInvalidate(win->hwndCanvas);
     UpdateWindow(win->hwndCanvas);
 
@@ -5758,6 +5791,7 @@ static void SaveCurrentFileAs(MainWindow* win) {
         return;
     }
 
+    WindowTab* targetTab = win->CurrentTab();
     auto* ctrl = win->ctrl;
     TempStr srcFileName = ctrl->GetFilePath();
     if (gPluginMode) {
@@ -5771,6 +5805,12 @@ static void SaveCurrentFileAs(MainWindow* win) {
 
     DisplayModel* dm = win->AsFixed();
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
+    if (engine) {
+        engine->AddRef();
+    }
+    defer {
+        SafeEngineRelease(&engine);
+    };
 #if defined(SOLOKPDF_PDFIUM)
     if (len(srcFileName) == 0 && EnginePdfiumIsDataBacked(engine)) {
         WindowTab* tab = win->CurrentTab();
@@ -5848,6 +5888,9 @@ static void SaveCurrentFileAs(MainWindow* win) {
     // in plugin mode, which is likely the main reason for saving as...)
 
     bool ok = (TakeTestSaveFileName(&ofn) || GetSaveFileNameW(&ofn));
+    if (!IsSameDocument(win, targetTab, ctrl, engine)) {
+        return;
+    }
     if (!ok) {
         // GetSaveFileNameW() returns FALSE both on user cancellation (extended
         // error == 0) and on an actual failure such as a path that is too long
@@ -5860,13 +5903,6 @@ static void SaveCurrentFileAs(MainWindow* win) {
         return;
     }
 
-    // GetSaveFileNameW() runs a modal dialog that pumps messages.
-    // During the dialog, a file watcher notification can trigger ReloadDocument(),
-    // destroying the old engine and invalidating srcFileName, defExt, engine pointers.
-    // Re-acquire everything from the (potentially new) controller.
-    if (!win->IsDocLoaded()) {
-        return;
-    }
     SaveDocAs(win, ToUtf8Temp(dstFileName));
 }
 

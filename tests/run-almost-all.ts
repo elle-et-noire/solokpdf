@@ -442,6 +442,7 @@ import { testit as issue5978 } from "./issue-5978.ts";
 import { testit as signRollback } from "./sign-rollback.ts";
 import { testit as formTextCache } from "./form-text-cache.ts";
 import { testit as controllerDeleteHandles } from "./controller-delete-handles.ts";
+import { testit as dialogTargetReentry } from "./dialog-target-reentry.ts";
 import { testit as issue6455 } from "./issue-6455.ts";
 import { testit as issue6459 } from "./issue-6459.ts";
 import { testit as issue6467 } from "./issue-6467.ts";
@@ -602,6 +603,7 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["dialog-target-reentry", dialogTargetReentry],
   ["controller-delete-handles", controllerDeleteHandles],
   ["cbr-network-unrar", cbrNetworkUnrar],
   ["form-text-cache", formTextCache],

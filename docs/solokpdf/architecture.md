@@ -154,8 +154,8 @@ E32 の `RenderCache::Stop` は要求・起床用 lock の取得と全 worker �
 Win32 はその停止と dangerous thread の完了を確認して cleanup へ進む。dangerous thread の10秒待機と pending delete の5秒待機では UI task を処理する。
 停止・完了を確認できなければ依存資源を保持して fast exit する。通常 Release の fast exit は維持する。ng も同期モデル破棄より前に同じ停止 API を使う。
 通常のタブ破棄の描画終了待ちは維持する。全ての終了処理の有界性を保証する変更ではない。
-同期 Reload と clean 文書の Save As は、ダイアログ復帰後の対象検証が編集保存より弱い。
-Save As 中の DDE open で別文書を保存し、Reload 中の終了再入で借用パスの寿命を失う（E34/R9）。
+同期 Reload と clean 文書の Save As はダイアログ復帰後に窓・タブ・controller・engine の同一性を検証する。
+Reload はパスと engine を保持し、対象が変われば新 controller を破棄する。パスワード画面は終了通知を外側のループに戻す。
 
 上記の PDFium の入力保持を非 PDF 全般の保証にはしない。
 ファイル入力の画像・CBX・EPUB は、保存や Clone が現在の元パスを読む経路を持つ。

@@ -223,9 +223,12 @@ bool ShowPasswordDialog(const PasswordDialogArgs& args, PasswordDialogResult* re
     }
 
     MSG msg;
-    while (!wnd->done && GetMessageW(&msg, nullptr, 0, 0)) {
-        if (msg.message == WM_QUIT) {
-            PostQuitMessage((int)msg.wParam);
+    while (!wnd->done) {
+        BOOL gotMessage = GetMessageW(&msg, nullptr, 0, 0);
+        if (gotMessage <= 0) {
+            if (gotMessage == 0) {
+                PostQuitMessage((int)msg.wParam);
+            }
             break;
         }
         if (PreTranslateMessage(msg)) {

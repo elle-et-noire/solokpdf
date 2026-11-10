@@ -34,6 +34,14 @@ The B69 probe (`tests/ad-hoc-b69-hidden-desktop.ts`) creates a visible window
 and checks its desktop name against the input desktop. Run it first when
 checking the runner. Local app tests must never run on the owner's desktop.
 
+### Dialog targets (E34)
+
+Run `tests/dialog-target-reentry.ts` in Debug and ASan through the hidden runner.
+Both PDF engines cover Save As with unchanged, switched, closed and reloaded
+targets; reload with password acceptance, cancellation, target close and app exit.
+`ctx-menu-reload`, `auto-reload-unsaved` and `missing-source-unsaved` cover related
+reload and save behavior.
+
 ### Virtual sidebar trees
 
 Bookmarks and favorites use virtual trees by default in Debug and Release.

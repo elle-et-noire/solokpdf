@@ -74,8 +74,10 @@ import { testit as formTextCache } from "./form-text-cache.ts";
 import { testit as cbrNetworkUnrar } from "./cbr-network-unrar.ts";
 import { testit as controllerDeleteHandles } from "./controller-delete-handles.ts";
 import { testit as renderCacheShutdown } from "./render-cache-shutdown.ts";
+import { testit as dialogTargetReentry } from "./dialog-target-reentry.ts";
 
 const tests: NamedTest[] = [
+  ["dialog-target-reentry", dialogTargetReentry],
   ["render-cache-shutdown", renderCacheShutdown],
   ["controller-delete-handles", controllerDeleteHandles],
   ["cbr-network-unrar", cbrNetworkUnrar],

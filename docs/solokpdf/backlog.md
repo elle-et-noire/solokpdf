@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-10. E23–E25 are complete within the recorded review scope.
-E26–E33 are complete; E34–E37 remain open fixes and regression checks.
+E26–E34 are complete; E35–E37 remain open fixes and regression checks.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -19,7 +19,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Continue with E34 and E37 using the [review priorities](full-review-results.md#e25-再点検).
+Continue with E37 using the [review priorities](full-review-results.md#e25-再点検).
 Continue with E35/E36. Detailed edit-change detection
 belongs to E36. E37's partial-redaction notification is P1.
 E31 closes controller-delete HANDLEs; E32 gates shared cleanup on worker shutdown.
@@ -38,12 +38,11 @@ Assess correctness, maintainability and performance using the
 paths guide investigation without limiting its scope. Record the code actually
 read; check build and test infrastructure where the investigation or a change requires them.
 
-| ID  | Item                                                                 | Status                                                                                                                                     |
-| --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| E34 | Verify targets after synchronous reload and Save As dialogs (R9, P1) | todo — DDE during Save As saves the other tab; Debug/ASan reproduced; reload cleanup also retained an ASan lifetime diagnostic             |
-| E35 | Preserve choice-field validation rejection (R8, P2)                  | todo — both engines reproduced twice; return the MuPDF setter result instead of unconditional success                                      |
-| E36 | Publish committed edits after refresh failures (R10, P2)             | todo — code finding; distinguish accepted value, committed changes and update error; notify dirty/render/text for actual changes           |
-| E37 | Report partial redaction and reconcile failed pages (R11, P1)        | todo — code finding; P1 for retained text reported removed; retain successes, warn on failures, preserve marks, reconcile wrappers/journal |
+| ID  | Item                                                          | Status                                                                                                                                     |
+| --- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| E35 | Preserve choice-field validation rejection (R8, P2)           | todo — both engines reproduced twice; return the MuPDF setter result instead of unconditional success                                      |
+| E36 | Publish committed edits after refresh failures (R10, P2)      | todo — code finding; distinguish accepted value, committed changes and update error; notify dirty/render/text for actual changes           |
+| E37 | Report partial redaction and reconcile failed pages (R11, P1) | todo — code finding; P1 for retained text reported removed; retain successes, warn on failures, preserve marks, reconcile wrappers/journal |
 
 E23's mapping and E24's initial inspection are in [history.md](history.md#e23e25-structure-and-code-review-2026-11-10).
 E24's [completion](history.md#e24-review-completion-2026-11-10) records the final investigation and its limits.

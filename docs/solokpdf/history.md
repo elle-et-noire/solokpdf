@@ -3011,6 +3011,20 @@ failure. `ad-hoc-pdfium-try-reads` and `form-text-cache` check existing PDFium
 and MuPDF text and search behavior. Failure injection into the PDF engines was
 not repeated; the failure/recovery regression uses a simulated engine.
 
+## E34 dialog targets (2026-11-10)
+
+Save As and synchronous reload validate the original window, tab, controller
+and engine after message-pumping operations. Reload retains its path and engine;
+an orphaned controller is discarded. Tab selection rechecks its target after
+reload, and the password loop forwards `WM_QUIT`.
+
+The new regression reproduced wrong Save As and reload targets before the fix.
+Debug and ASan cover both PDF engines, including target switching, closure,
+replacement and exit during the password dialog. ASan also exposed a stale
+window in tab selection; the exit test exposed a swallowed quit message. Both
+were fixed. `ctx-menu-reload` passed in ASan; `auto-reload-unsaved` and
+`missing-source-unsaved` passed in Debug. No Release or full suite was run.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3178,6 +3192,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E31 | Close the asynchronous controller-delete thread handle (R6, P2)                                                                                                                                                                                                                             | done — Close controller deletion thread handles (E31); [results](#e31-controller-delete-handles-2026-11-10)                                                                                                                             |
 | E32 | Guarantee worker lifetime when render-cache shutdown times out (P1)                                                                                                                                                                                                                         | done — Preserve worker lifetimes during shutdown (E32); [results](#e32-worker-shutdown-2026-11-10)                                                                                                                                      |
 | E33 | Distinguish failed text extraction from an empty page                                                                                                                                                                                                                                       | done — Retry failed page text extraction (E33); [results](#e33-text-extraction-failure-2026-11-10)                                                                                                                                      |
+| E34 | Verify targets after synchronous reload and Save As dialogs                                                                                                                                                                                                                                 | done — Validate document targets after dialogs (E34); [results](#e34-dialog-targets-2026-11-10)                                                                                                                                         |
 
 ### F. Manual acceptance
 
