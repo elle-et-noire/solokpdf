@@ -2999,6 +2999,18 @@ No Release build, full app suite, ng GUI or non-Windows run was performed.
 These checks do not guarantee bounded execution of every shutdown callback.
 Commands, hashes and results are in [the evidence record](data/e32-2026-11-10.json).
 
+## E33 text extraction failure (2026-11-10)
+
+PDFium and MuPDF report failed page text extraction separately from successful
+empty pages. The shared cache does not store failures; later reads retry.
+Existing partial text and cache invalidation semantics remain unchanged.
+
+The Debug unit test failed before the fix and passed afterward. It covers
+failure and recovery, cached empty pages, partial replacement and nonblocking
+failure. `ad-hoc-pdfium-try-reads` and `form-text-cache` check existing PDFium
+and MuPDF text and search behavior. Failure injection into the PDF engines was
+not repeated; the failure/recovery regression uses a simulated engine.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3165,6 +3177,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E30 | Validate network CBX cache freshness (R5, P2)                                                                                                                                                                                                                                               | done — Version network comic caches (E30); [results](#e30-network-comic-cache-2026-11-10)                                                                                                                                               |
 | E31 | Close the asynchronous controller-delete thread handle (R6, P2)                                                                                                                                                                                                                             | done — Close controller deletion thread handles (E31); [results](#e31-controller-delete-handles-2026-11-10)                                                                                                                             |
 | E32 | Guarantee worker lifetime when render-cache shutdown times out (P1)                                                                                                                                                                                                                         | done — Preserve worker lifetimes during shutdown (E32); [results](#e32-worker-shutdown-2026-11-10)                                                                                                                                      |
+| E33 | Distinguish failed text extraction from an empty page                                                                                                                                                                                                                                       | done — Retry failed page text extraction (E33); [results](#e33-text-extraction-failure-2026-11-10)                                                                                                                                      |
 
 ### F. Manual acceptance
 

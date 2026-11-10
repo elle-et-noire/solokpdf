@@ -27,7 +27,8 @@ E29 refreshes form text, search and selection after edits and Undo/Redo; [result
 E30 versions network comic caches and publishes complete copies; [results](history.md#e30-network-comic-cache-2026-11-10).
 E31 closes asynchronous controller-delete thread handles; [results](history.md#e31-controller-delete-handles-2026-11-10).
 E32 retains worker dependencies when shutdown cannot finish; [results](history.md#e32-worker-shutdown-2026-11-10).
-[backlog.md](backlog.md) records E33–E37's fixes and regression checks,
+E33 retries failed page text extraction; [results](history.md#e33-text-extraction-failure-2026-11-10).
+[backlog.md](backlog.md) records E34–E37's fixes and regression checks,
 deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache

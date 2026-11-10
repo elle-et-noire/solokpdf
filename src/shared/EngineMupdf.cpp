@@ -4395,6 +4395,60 @@ static TempStr AssemblePdfTemp(const char* const* objs, int nObjs) {
     return ToStrTemp(b);
 }
 
+class TextFailureEngine : public EnginePdfProxy {
+  public:
+    int calls = 0;
+    bool fail = true;
+    bool empty = false;
+    bool partial = false;
+    TextFailureEngine() { pageCount = 1; }
+    EngineBase* Clone() override { return nullptr; }
+    bool SaveFileAs(Str) override { return false; }
+    PageText ExtractPageText(int) override {
+        calls++;
+        PageText result;
+        result.failed = fail;
+        result.partial = partial;
+        if (!fail && !empty) {
+            result.text = str::Dup(StrL("recovered"));
+            result.nCodepoints = len(result.text);
+        }
+        return result;
+    }
+    PageText ExtractPrefetchText(int pageNo) override { return ExtractPageText(pageNo); }
+    bool TryExtractPageText(int pageNo, PageText* out) override {
+        *out = ExtractPageText(pageNo);
+        return !out->failed;
+    }
+};
+
+bool EngineBase_UnitTestTextFailure() {
+    auto* engine = new TextFailureEngine();
+    Str first = engine->GetTextForPage(1);
+    engine->fail = false;
+    Str second = engine->GetTextForPage(1);
+    bool ok = len(first) == 0 && str::Eq(second, StrL("recovered")) && engine->calls == 2;
+    engine->InvalidateTextForPage(1);
+    engine->empty = true;
+    engine->GetTextForPage(1);
+    engine->GetTextForPage(1);
+    ok = ok && engine->calls == 3;
+    engine->InvalidateTextForPage(1);
+    engine->empty = false;
+    engine->partial = true;
+    engine->PrefetchTextForPage(1);
+    engine->partial = false;
+    engine->GetTextForPage(1);
+    ok = ok && engine->calls == 5;
+    engine->InvalidateTextForPage(1);
+    engine->fail = true;
+    ok = ok && !engine->TryGetTextForPage(1);
+    engine->fail = false;
+    ok = ok && str::Eq(engine->GetTextForPage(1), StrL("recovered")) && engine->calls == 7;
+    engine->Release();
+    return ok;
+}
+
 // GetTextForPage() hands out pointers that word count and search keep across
 // calls; an edit invalidating the page's text must not free them under them
 bool EngineBase_UnitTestTextOutlivesInvalidate() {
@@ -9637,7 +9691,9 @@ static PageText ExtractPageTextLocked(EngineMupdf* e, FzPageInfo* pageInfo) {
         fz_report_error(ctx);
     }
     if (!stext) {
-        return {};
+        PageText result;
+        result.failed = true;
+        return result;
     }
     PageText res;
     res.text = FzTextPageToUtf8(stext, &res.coords, &res.quads);
@@ -9651,7 +9707,9 @@ PageText EngineMupdf::ExtractPageText(int pageNo) {
     ScopedMutex renderScope(&renderLock);
     FzPageInfo* pageInfo = GetFzPageInfoLocked(this, LocationFromPageNo(pageNo), true, nullptr);
     if (!pageInfo) {
-        return {};
+        PageText result;
+        result.failed = true;
+        return result;
     }
     return ExtractPageTextLocked(this, pageInfo);
 }
@@ -9678,12 +9736,12 @@ bool EngineMupdf::TryExtractPageText(int pageNo, PageText* out) {
         renderLock.Unlock();
         pagesLock.Unlock();
         *out = {};
-        return true;
+        return false;
     }
     *out = ExtractPageTextLocked(this, pageInfo);
     renderLock.Unlock();
     pagesLock.Unlock();
-    return true;
+    return !out->failed;
 }
 
 void EngineMupdf::ReleaseTextExtractionThreadContext() {

@@ -1076,9 +1076,15 @@ class EnginePdfium : public EngineBase {
         PageText result;
         FPDF_TEXTPAGE textPage = gPdfium.FPDFText_LoadPage(page);
         if (!textPage) {
+            result.failed = true;
             return result;
         }
         int count = gPdfium.FPDFText_CountChars(textPage);
+        if (count < 0) {
+            gPdfium.FPDFText_ClosePage(textPage);
+            result.failed = true;
+            return result;
+        }
         constexpr int kMaxPageChars = 2000000;
         if (count > 0 && count <= kMaxPageChars) {
             str::Builder text;
@@ -2781,6 +2787,10 @@ class EnginePdfium : public EngineBase {
         bool needsEditor = false;
         PageText text = TextLocked(pageNo, &needsEditor);
         gPdfiumLock.Unlock();
+        if (text.failed) {
+            FreePageText(&text);
+            return false;
+        }
         if (!needsEditor) {
             *out = text;
             return true;
@@ -2819,11 +2829,15 @@ class EnginePdfium : public EngineBase {
         *needsEditor = false;
         auto* info = Page(pageNo);
         if (!info) {
-            return {};
+            PageText result;
+            result.failed = true;
+            return result;
         }
         FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
         if (!page) {
-            return {};
+            PageText result;
+            result.failed = true;
+            return result;
         }
         bool missingUnicode = false;
         bool widgetText = false;

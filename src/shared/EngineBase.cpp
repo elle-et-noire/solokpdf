@@ -1098,7 +1098,7 @@ void EngineBase::RequestTextExtraction(int pageNo) {
 // The default blocks; PDF overrides decline on contention or unavailable full text.
 bool EngineBase::TryExtractPageText(int pageNo, PageText* out) {
     *out = ExtractPageText(pageNo);
-    return true;
+    return !out->failed;
 }
 
 // The default blocks; PDF overrides can return a best-effort list. Elements stay engine-owned.
@@ -1179,6 +1179,17 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
         } else if (mode == TextReadMode::Prefetch) {
             extracted = ExtractPrefetchText(pageNo);
         } else if (!TryExtractPageText(pageNo, &extracted)) {
+            FreePageText(&extracted);
+            text = ReturnPageText({}, lenOut, coordsOut, quadsOut);
+            return false;
+        }
+        if (extracted.failed) {
+            FreePageText(&extracted);
+            ScopedMutex scope(&textCacheLock);
+            TextCacheEntry* page = pageTextCache->Ensure(loc, count);
+            if (page->gen == gen && page->state == TextExtractionState::Pending) {
+                page->state = TextExtractionState::NotExtracted;
+            }
             text = ReturnPageText({}, lenOut, coordsOut, quadsOut);
             return false;
         }

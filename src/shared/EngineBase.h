@@ -125,6 +125,7 @@ struct PageText {
     QuadF* quads = nullptr; // glyph corners; null when the engine only has AABBs
     int nCodepoints = 0;    // number of Unicode codepoints and bounding boxes in coords
     bool partial = false;   // incomplete text; a blocking read tries full extraction
+    bool failed = false;
 };
 
 void FreePageText(PageText*);
