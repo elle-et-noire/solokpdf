@@ -2648,6 +2648,106 @@ Subsequent work used source inspection and the existing test only.
 
 E24 and E25 remain incomplete; fixes and commits have not started.
 
+## E24 contract review continuation (2026-11-10)
+
+Reviewed `a272e9137`; product sources are unchanged from the plan baseline.
+The Debug exe/DLL and Debug ASan exe hashes match the previous record.
+The hidden-desktop isolation probe passed before the new GUI checks.
+
+- R8/E35: choice-field validation rejection returns success and marks the
+  document dirty without changing the value or creating Undo history.
+  Reproduced twice per engine; text-field rejection is the clean control.
+- Seven local non-PDF cases recorded Clone/text/save differences after
+  source rename or replacement. Image Clone can read the current path;
+  copied pixels alone do not establish an original-input snapshot.
+- R9/E34: DDE opens another tab while clean Save As is modal; accepting
+  the original dialog writes the other document. Debug and Debug ASan
+  both reproduced it and exited 0 with empty stderr.
+- The reload probe missed the custom password window by expecting
+  `#32770`. Its cleanup Quit reentered the modal loop and produced an
+  ASan lifetime diagnostic, exit 1. Result JSON and stderr were retained;
+  the intended DDE step was never reached. This is not a passing test.
+
+Sources, observations and hashes are in the
+[contract evidence](data/full-review-contracts-2026-11-10.json).
+
+The initial form probe preloaded PDFium's editor with JavaScript disabled;
+the probe was corrected before repeating the checks. The first non-PDF
+probe waited at its expected save-error modal. It was rerun alone with
+modal dismissal and a 45-second runner limit. Its earlier form results
+remained saved. These are harness issues, not product crashes.
+
+To limit interruptions, save evidence per case, bound GUI waits and handle
+expected dialogs. Do not resume process-memory edits or thread suspension.
+Keep failures separate from completed cases and continue independent code
+inspection. E24/E25 remain incomplete. No product fix or commit was made.
+
+## Review interruption diagnosis (2026-11-10)
+
+`codex_tui.read_thread` confirmed two failed turns in the current thread:
+`01a1c493-9b30-7321-90b1-fd8891a11dfc` and
+`01a1c49b-1511-76a0-80a5-f0605f51012a`. Both report
+`This content was flagged for possible cybersecurity risk.`
+The intervening turn is `interrupted`, with no error. Approval waits and
+GUI timeouts do not explain these two failed-turn statuses.
+
+The exact flagged material and internal decision are unavailable. Do not
+infer that a particular tool, diagnostic or app crash caused the block.
+The latest app probe had already exited and saved its diagnostic at
+17:46:20 JST. App failure and assistant-turn failure are separate events.
+
+Earlier measures preserved evidence but did not prevent the safety stop.
+Do not blindly retry the same experiment. Continue this review with source
+inspection and targeted existing tests; design dedicated regression hooks
+before new reentry/failure probes. Check turn state, remaining processes
+and saved side effects before resuming. Save each case immediately, bound
+GUI waits and close the identified modal before Quit.
+These steps limit lost work; they cannot disable or
+guarantee against server-side safety review.
+
+The proposed 60-second reporting rule was removed: it does not prevent
+safety stops and adds conversation context.
+
+The [official recovery guidance](https://developers.openai.com/api/docs/guides/agents-api/errors)
+was consulted for recovery procedure. The diagnosis above comes from the
+actual turn statuses, not an assumed API error-code mapping.
+
+## E24 review completion (2026-11-10)
+
+Reviewed `a272e9137` plus documentation changes. `src/`, `cmd/`, `tests/`
+and `ext/` remain identical to baseline `32d95cef7`.
+E24 is complete for the six operation paths and eight evaluation criteria
+in the [plan](full-review-plan.md). E25's final prioritization and all
+product fixes remain open; this is not an all-source or all-feature audit.
+
+The [completion record](full-review-results.md#e24-完了確認)
+resolves the remaining investigation:
+
+- E32: choose an owner-side stop result before shared cleanup. Workers
+  must clear active requests on exit; failed stop retains dependencies
+  for process exit. Extending join time or retaining only the cache does
+  not meet that contract. Implementation and lifetime checks remain open.
+- R10/E36: committed annotation/form values can lose dirty/repaint
+  notification when a later appearance update fails. Acceptance, actual
+  changes and update errors need separate results at the shared boundary.
+- R11/E37: redaction reports any successful page as overall success.
+  Keep successful-page work but expose partial failure and reconcile
+  failed-page annotations; journal abandon alone does not sync loaded
+  pages. Both new findings are code findings, not runtime reproductions.
+
+Existing Debug x64 tests passed in eight configurations, no skips:
+desktop isolation, forms, form-js, redaction-undo, render-cancel, plus
+redact-only one-step on each engine and render-cancel's pattern variant.
+The last variant asserts cancellation occurred; the default only asserts
+render start and graceful exit. Redaction/one-step forcibly end their
+test processes and do not establish graceful-shutdown correctness.
+
+[Evidence](data/e24-completion-2026-11-10.json) records commands, inputs,
+environment, times, logs, binary/source hashes, inspected functions and
+unexecuted regression conditions. No rebuild, new ASan run, Release,
+full suite, failure-injection/reentry probe or product change was made.
+The earlier ASan evidence remains separate. No commit was made.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2805,6 +2905,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E18 | Clarify read results, waiting and lazy-editor side effects                                                                                                                                                                                                                                  | done — Clarify read and editor contracts (E18); [results](#e18-read-contracts-2026-11-10)                                                                                                                                               |
 | E20 | Review document state, ownership, invalidation and lock ordering                                                                                                                                                                                                                            | done — Preserve document source lifetimes (E20); [results](#e20-document-lifetime-2026-11-10)                                                                                                                                           |
 | E23 | Map operation entry points, implementations and existing tests                                                                                                                                                                                                                              | review complete at `7c67b529f`; [mapping](full-review-results.md#e23-入口と実装)                                                                                                                                                        |
+| E24 | Review operation paths against the structure and code criteria                                                                                                                                                                                                                              | review complete at `a272e9137` plus documentation changes; [scope and evidence](#e24-review-completion-2026-11-10); product fixes remain open                                                                                           |
 
 ### F. Manual acceptance
 

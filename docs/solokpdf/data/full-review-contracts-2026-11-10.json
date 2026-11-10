@@ -1,0 +1,526 @@
+{
+  "date": "2026-11-10",
+  "revision": "a272e9137",
+  "baseline": "32d95cef7",
+  "sourceDiff": "none under src/, cmd/, tests/; review documents only",
+  "environment": "Windows 10.0.26300; Bun 1.4.4; existing Debug x64; hidden desktop outside sandbox; -for-testing, isolated -appdata; no build, Release or full suite",
+  "binaries": [
+    {
+      "path": "out/dbg64/SumatraPDF.exe",
+      "sha256": "33f7768639edd06e0141cfeb1a387801fab218c73e262a96bfc7236b144eefde",
+      "executedThisRun": true
+    },
+    {
+      "path": "out/dbg64/libsumatrapdf.dll",
+      "sha256": "df9188611490dbdcb7c1792cfe22446804083c279a27f1ea19fa6bf496123c87",
+      "executedThisRun": true
+    },
+    {
+      "path": "out/dbg64/pdfium.dll",
+      "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f",
+      "executedThisRun": true
+    },
+    {
+      "path": "out/dbg64_asan/SumatraPDF-static.exe",
+      "sha256": "6e7be18b324347f52566b5449a74e00947f3f59fa04290f0291e70df1c72c204",
+      "executedThisRun": true
+    }
+  ],
+  "desktopProbe": {
+    "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/ad-hoc-b69-hidden-desktop.ts --no-build",
+    "result": "pass",
+    "desktop": "SolokPDFTests-31056-mwaflejn",
+    "skipped": false
+  },
+  "observations": [
+    {
+      "kind": "validation-rejection",
+      "engine": "mupdf",
+      "type": "text",
+      "round": 0,
+      "before": [0, "editor=none"],
+      "edit": [1, "ERROR before='first' after='first' viewBefore=214 viewAfter=214 printBefore=118 printAfter=118"],
+      "after": "undo canUndo=0 canRedo=0 modified=0"
+    },
+    {
+      "kind": "validation-rejection",
+      "engine": "mupdf",
+      "type": "choice",
+      "round": 0,
+      "before": [0, "editor=none"],
+      "edit": [0, "OK before='first' after='first' viewBefore=214 viewAfter=214 printBefore=118 printAfter=118"],
+      "after": "undo canUndo=0 canRedo=0 modified=1"
+    },
+    {
+      "kind": "validation-rejection",
+      "engine": "pdfium",
+      "type": "text",
+      "round": 0,
+      "before": [0, "editor=none"],
+      "edit": [1, "ERROR before='first' after='first' viewBefore=214 viewAfter=214 printBefore=214 printAfter=214"],
+      "after": "undo canUndo=0 canRedo=0 modified=0"
+    },
+    {
+      "kind": "validation-rejection",
+      "engine": "pdfium",
+      "type": "choice",
+      "round": 0,
+      "before": [0, "editor=none"],
+      "edit": [0, "OK before='first' after='first' viewBefore=214 viewAfter=214 printBefore=214 printAfter=214"],
+      "after": "undo canUndo=0 canRedo=0 modified=1"
+    },
+    {
+      "kind": "validation-rejection",
+      "engine": "mupdf",
+      "type": "text",
+      "round": 1,
+      "before": [0, "editor=none"],
+      "edit": [1, "ERROR before='first' after='first' viewBefore=214 viewAfter=214 printBefore=118 printAfter=118"],
+      "after": "undo canUndo=0 canRedo=0 modified=0"
+    },
+    {
+      "kind": "validation-rejection",
+      "engine": "mupdf",
+      "type": "choice",
+      "round": 1,
+      "before": [0, "editor=none"],
+      "edit": [0, "OK before='first' after='first' viewBefore=214 viewAfter=214 printBefore=118 printAfter=118"],
+      "after": "undo canUndo=0 canRedo=0 modified=1"
+    },
+    {
+      "kind": "validation-rejection",
+      "engine": "pdfium",
+      "type": "text",
+      "round": 1,
+      "before": [0, "editor=none"],
+      "edit": [1, "ERROR before='first' after='first' viewBefore=214 viewAfter=214 printBefore=214 printAfter=214"],
+      "after": "undo canUndo=0 canRedo=0 modified=0"
+    },
+    {
+      "kind": "validation-rejection",
+      "engine": "pdfium",
+      "type": "choice",
+      "round": 1,
+      "before": [0, "editor=none"],
+      "edit": [0, "OK before='first' after='first' viewBefore=214 viewAfter=214 printBefore=214 printAfter=214"],
+      "after": "undo canUndo=0 canRedo=0 modified=1"
+    },
+    {
+      "kind": "non-pdf-before-save",
+      "type": "png",
+      "action": "rename",
+      "before": [0, "ink=0 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [0, "ink=0 text="],
+      "cached": [0, "chars=0 text="]
+    },
+    {
+      "kind": "non-pdf-source",
+      "type": "png",
+      "action": "rename",
+      "inputSha256": "3390d7fd82c58973f5878bc1c8c9ff33bf8ccd5a2a1274cfe1368a454481bcb3",
+      "before": [0, "ink=0 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [0, "ink=0 text="],
+      "cached": [0, "chars=0 text="],
+      "save": [1, "FAIL save"],
+      "savedSource": "unavailable"
+    },
+    {
+      "kind": "non-pdf-before-save",
+      "type": "png",
+      "action": "replace",
+      "before": [0, "ink=0 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [0, "ink=1600 text="],
+      "cached": [0, "chars=0 text="]
+    },
+    {
+      "kind": "non-pdf-source",
+      "type": "png",
+      "action": "replace",
+      "inputSha256": "3390d7fd82c58973f5878bc1c8c9ff33bf8ccd5a2a1274cfe1368a454481bcb3",
+      "before": [0, "ink=0 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [0, "ink=1600 text="],
+      "cached": [0, "chars=0 text="],
+      "save": [0, "OK"],
+      "savedSource": "replacement"
+    },
+    {
+      "kind": "non-pdf-before-save",
+      "type": "cbz",
+      "action": "rename",
+      "before": [0, "ink=0 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [1, "clone failed"],
+      "cached": [0, "chars=0 text="]
+    },
+    {
+      "kind": "non-pdf-source",
+      "type": "cbz",
+      "action": "rename",
+      "inputSha256": "574e91dd4f6892d22db72c08f051765bf378a9e9b84cfc350d1722c0a650960d",
+      "before": [0, "ink=0 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [1, "clone failed"],
+      "cached": [0, "chars=0 text="],
+      "save": [1, "FAIL save"],
+      "savedSource": "unavailable"
+    },
+    {
+      "kind": "non-pdf-before-save",
+      "type": "cbz",
+      "action": "replace",
+      "before": [0, "ink=0 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [0, "ink=1600 text="],
+      "cached": [0, "chars=0 text="]
+    },
+    {
+      "kind": "non-pdf-source",
+      "type": "cbz",
+      "action": "replace",
+      "inputSha256": "574e91dd4f6892d22db72c08f051765bf378a9e9b84cfc350d1722c0a650960d",
+      "before": [0, "ink=0 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [0, "ink=1600 text="],
+      "cached": [0, "chars=0 text="],
+      "save": [0, "OK"],
+      "savedSource": "replacement"
+    },
+    {
+      "kind": "non-pdf-before-save",
+      "type": "epub",
+      "action": "rename",
+      "before": [0, "ink=249900 text=ORIGINALWORD\n"],
+      "textBefore": [0, "chars=13 text=ORIGINALWORD\n"],
+      "clone": [1, "clone failed"],
+      "cached": [0, "chars=13 text=ORIGINALWORD\n"]
+    },
+    {
+      "kind": "non-pdf-source",
+      "type": "epub",
+      "action": "rename",
+      "inputSha256": "25695118680b451a074cc5a6a7b950a0ab731cf6cc0dea06d319acbc4538b732",
+      "before": [0, "ink=249900 text=ORIGINALWORD\n"],
+      "textBefore": [0, "chars=13 text=ORIGINALWORD\n"],
+      "clone": [1, "clone failed"],
+      "cached": [0, "chars=13 text=ORIGINALWORD\n"],
+      "save": [1, "FAIL save"],
+      "savedSource": "unavailable"
+    },
+    {
+      "kind": "non-pdf-before-save",
+      "type": "epub",
+      "action": "replace",
+      "before": [0, "ink=249900 text=ORIGINALWORD\n"],
+      "textBefore": [0, "chars=13 text=ORIGINALWORD\n"],
+      "clone": [0, "ink=249900 text=REPLACEDWORD\n"],
+      "cached": [0, "chars=13 text=ORIGINALWORD\n"]
+    },
+    {
+      "kind": "non-pdf-source",
+      "type": "epub",
+      "action": "replace",
+      "inputSha256": "25695118680b451a074cc5a6a7b950a0ab731cf6cc0dea06d319acbc4538b732",
+      "before": [0, "ink=249900 text=ORIGINALWORD\n"],
+      "textBefore": [0, "chars=13 text=ORIGINALWORD\n"],
+      "clone": [0, "ink=249900 text=REPLACEDWORD\n"],
+      "cached": [0, "chars=13 text=ORIGINALWORD\n"],
+      "save": [0, "OK"],
+      "savedSource": "replacement"
+    },
+    {
+      "kind": "non-pdf-before-save",
+      "type": "djvu",
+      "action": "rename",
+      "before": [0, "ink=380793 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [1, "clone failed"],
+      "cached": [0, "chars=0 text="]
+    },
+    {
+      "kind": "non-pdf-source",
+      "type": "djvu",
+      "action": "rename",
+      "inputSha256": "4bdfa81a8ced6111d35a68ff51fb4ef21976560d930f0ede377e928f21307dd1",
+      "before": [0, "ink=380793 text="],
+      "textBefore": [0, "chars=0 text="],
+      "clone": [1, "clone failed"],
+      "cached": [0, "chars=0 text="],
+      "save": [0, "OK"],
+      "savedSource": "original"
+    }
+  ],
+  "logs": [
+    {
+      "path": "out/full-review-contracts-2.log",
+      "sha256": "a155abb862e9341cecff3d41849ace044c284f7828508e0d9c00391fd8cae93d",
+      "output": "{\"kind\":\"validation-rejection\",\"engine\":\"mupdf\",\"type\":\"text\",\"round\":0,\"before\":[0,\"editor=none\"],\"edit\":[1,\"ERROR before='first' after='first' viewBefore=214 viewAfter=214 printBefore=118 printAfter=118\"],\"after\":\"undo canUndo=0 canRedo=0 modified=0\"}\r\n{\"kind\":\"validation-rejection\",\"engine\":\"mupdf\",\"type\":\"choice\",\"round\":0,\"before\":[0,\"editor=none\"],\"edit\":[0,\"OK before='first' after='first' viewBefore=214 viewAfter=214 printBefore=118 printAfter=118\"],\"after\":\"undo canUndo=0 canRedo=0 modified=1\"}\r\n{\"kind\":\"validation-rejection\",\"engine\":\"pdfium\",\"type\":\"text\",\"round\":0,\"before\":[0,\"editor=none\"],\"edit\":[1,\"ERROR before='first' after='first' viewBefore=214 viewAfter=214 printBefore=214 printAfter=214\"],\"after\":\"undo canUndo=0 canRedo=0 modified=0\"}\r\n{\"kind\":\"validation-rejection\",\"engine\":\"pdfium\",\"type\":\"choice\",\"round\":0,\"before\":[0,\"editor=none\"],\"edit\":[0,\"OK before='first' after='first' viewBefore=214 viewAfter=214 printBefore=214 printAfter=214\"],\"after\":\"undo canUndo=0 canRedo=0 modified=1\"}\r\n{\"kind\":\"validation-rejection\",\"engine\":\"mupdf\",\"type\":\"text\",\"round\":1,\"before\":[0,\"editor=none\"],\"edit\":[1,\"ERROR before='first' after='first' viewBefore=214 viewAfter=214 printBefore=118 printAfter=118\"],\"after\":\"undo canUndo=0 canRedo=0 modified=0\"}\r\n{\"kind\":\"validation-rejection\",\"engine\":\"mupdf\",\"type\":\"choice\",\"round\":1,\"before\":[0,\"editor=none\"],\"edit\":[0,\"OK before='first' after='first' viewBefore=214 viewAfter=214 printBefore=118 printAfter=118\"],\"after\":\"undo canUndo=0 canRedo=0 modified=1\"}\r\n{\"kind\":\"validation-rejection\",\"engine\":\"pdfium\",\"type\":\"text\",\"round\":1,\"before\":[0,\"editor=none\"],\"edit\":[1,\"ERROR before='first' after='first' viewBefore=214 viewAfter=214 printBefore=214 printAfter=214\"],\"after\":\"undo canUndo=0 canRedo=0 modified=0\"}\r\n{\"kind\":\"validation-rejection\",\"engine\":\"pdfium\",\"type\":\"choice\",\"round\":1,\"before\":[0,\"editor=none\"],\"edit\":[0,\"OK before='first' after='first' viewBefore=214 viewAfter=214 printBefore=214 printAfter=214\"],\"after\":\"undo canUndo=0 canRedo=0 modified=1\"}\r\n"
+    },
+    {
+      "path": "out/full-review-contracts-png-rename.log",
+      "sha256": "b28a952b7728ea84b4d302ca6e5e7054516495e6a94d07fce1b32f26154a28ca",
+      "output": "{\"kind\":\"non-pdf-before-save\",\"type\":\"png\",\"action\":\"rename\",\"before\":[0,\"ink=0 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[0,\"ink=0 text=\"],\"cached\":[0,\"chars=0 text=\"]}\r\n{\"kind\":\"non-pdf-source\",\"type\":\"png\",\"action\":\"rename\",\"inputSha256\":\"3390d7fd82c58973f5878bc1c8c9ff33bf8ccd5a2a1274cfe1368a454481bcb3\",\"before\":[0,\"ink=0 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[0,\"ink=0 text=\"],\"cached\":[0,\"chars=0 text=\"],\"save\":[1,\"FAIL save\"],\"savedSource\":\"unavailable\"}\r\n"
+    },
+    {
+      "path": "out/full-review-contracts-observed-png-replace.log",
+      "sha256": "55a429b24cb33fc7e0a3e30cee4a96f418f5ff43a444c008f446103bfc2cc9a1",
+      "output": "{\"kind\":\"non-pdf-before-save\",\"type\":\"png\",\"action\":\"replace\",\"before\":[0,\"ink=0 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[0,\"ink=1600 text=\"],\"cached\":[0,\"chars=0 text=\"]}\r\n{\"kind\":\"non-pdf-source\",\"type\":\"png\",\"action\":\"replace\",\"inputSha256\":\"3390d7fd82c58973f5878bc1c8c9ff33bf8ccd5a2a1274cfe1368a454481bcb3\",\"before\":[0,\"ink=0 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[0,\"ink=1600 text=\"],\"cached\":[0,\"chars=0 text=\"],\"save\":[0,\"OK\"],\"savedSource\":\"replacement\"}\r\n"
+    },
+    {
+      "path": "out/full-review-contracts-observed-cbz-rename.log",
+      "sha256": "4d304914ac698284d29c6fa47268f1f9a68f832593753ba305f584636201e906",
+      "output": "{\"kind\":\"non-pdf-before-save\",\"type\":\"cbz\",\"action\":\"rename\",\"before\":[0,\"ink=0 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[1,\"clone failed\"],\"cached\":[0,\"chars=0 text=\"]}\r\n{\"kind\":\"non-pdf-source\",\"type\":\"cbz\",\"action\":\"rename\",\"inputSha256\":\"574e91dd4f6892d22db72c08f051765bf378a9e9b84cfc350d1722c0a650960d\",\"before\":[0,\"ink=0 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[1,\"clone failed\"],\"cached\":[0,\"chars=0 text=\"],\"save\":[1,\"FAIL save\"],\"savedSource\":\"unavailable\"}\r\n"
+    },
+    {
+      "path": "out/full-review-contracts-observed-cbz-replace.log",
+      "sha256": "cdb04b6f9cccfd7fb8e87d0b047e699249b74b18fe48471a6f08c3ff2a9f0e58",
+      "output": "{\"kind\":\"non-pdf-before-save\",\"type\":\"cbz\",\"action\":\"replace\",\"before\":[0,\"ink=0 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[0,\"ink=1600 text=\"],\"cached\":[0,\"chars=0 text=\"]}\r\n{\"kind\":\"non-pdf-source\",\"type\":\"cbz\",\"action\":\"replace\",\"inputSha256\":\"574e91dd4f6892d22db72c08f051765bf378a9e9b84cfc350d1722c0a650960d\",\"before\":[0,\"ink=0 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[0,\"ink=1600 text=\"],\"cached\":[0,\"chars=0 text=\"],\"save\":[0,\"OK\"],\"savedSource\":\"replacement\"}\r\n"
+    },
+    {
+      "path": "out/full-review-contracts-observed-epub-rename.log",
+      "sha256": "71244a887250018e826c66b45c399345e85d1a11a2cf852991b25705b235c778",
+      "output": "{\"kind\":\"non-pdf-before-save\",\"type\":\"epub\",\"action\":\"rename\",\"before\":[0,\"ink=249900 text=ORIGINALWORD\\n\"],\"textBefore\":[0,\"chars=13 text=ORIGINALWORD\\n\"],\"clone\":[1,\"clone failed\"],\"cached\":[0,\"chars=13 text=ORIGINALWORD\\n\"]}\r\n{\"kind\":\"non-pdf-source\",\"type\":\"epub\",\"action\":\"rename\",\"inputSha256\":\"25695118680b451a074cc5a6a7b950a0ab731cf6cc0dea06d319acbc4538b732\",\"before\":[0,\"ink=249900 text=ORIGINALWORD\\n\"],\"textBefore\":[0,\"chars=13 text=ORIGINALWORD\\n\"],\"clone\":[1,\"clone failed\"],\"cached\":[0,\"chars=13 text=ORIGINALWORD\\n\"],\"save\":[1,\"FAIL save\"],\"savedSource\":\"unavailable\"}\r\n"
+    },
+    {
+      "path": "out/full-review-contracts-observed-epub-replace.log",
+      "sha256": "9053e0379314a0d980ed610114ed75f888ded4adc322331012c8933b8f784856",
+      "output": "{\"kind\":\"non-pdf-before-save\",\"type\":\"epub\",\"action\":\"replace\",\"before\":[0,\"ink=249900 text=ORIGINALWORD\\n\"],\"textBefore\":[0,\"chars=13 text=ORIGINALWORD\\n\"],\"clone\":[0,\"ink=249900 text=REPLACEDWORD\\n\"],\"cached\":[0,\"chars=13 text=ORIGINALWORD\\n\"]}\r\n{\"kind\":\"non-pdf-source\",\"type\":\"epub\",\"action\":\"replace\",\"inputSha256\":\"25695118680b451a074cc5a6a7b950a0ab731cf6cc0dea06d319acbc4538b732\",\"before\":[0,\"ink=249900 text=ORIGINALWORD\\n\"],\"textBefore\":[0,\"chars=13 text=ORIGINALWORD\\n\"],\"clone\":[0,\"ink=249900 text=REPLACEDWORD\\n\"],\"cached\":[0,\"chars=13 text=ORIGINALWORD\\n\"],\"save\":[0,\"OK\"],\"savedSource\":\"replacement\"}\r\n"
+    },
+    {
+      "path": "out/full-review-contracts-observed-djvu-rename.log",
+      "sha256": "f1021775afd1f1ff2fd7d5036e00fc51d588efd7f6156daef160901a10c6584a",
+      "output": "{\"kind\":\"non-pdf-before-save\",\"type\":\"djvu\",\"action\":\"rename\",\"before\":[0,\"ink=380793 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[1,\"clone failed\"],\"cached\":[0,\"chars=0 text=\"]}\r\n{\"kind\":\"non-pdf-source\",\"type\":\"djvu\",\"action\":\"rename\",\"inputSha256\":\"4bdfa81a8ced6111d35a68ff51fb4ef21976560d930f0ede377e928f21307dd1\",\"before\":[0,\"ink=380793 text=\"],\"textBefore\":[0,\"chars=0 text=\"],\"clone\":[1,\"clone failed\"],\"cached\":[0,\"chars=0 text=\"],\"save\":[0,\"OK\"],\"savedSource\":\"original\"}\r\n"
+    }
+  ],
+  "reproducer": {
+    "path": "out/full-review-contracts.ts",
+    "sha256": "009560df1eb0b1973c7df8e75f3f3dd967b722eaff337ec0339346d9e7279bfe",
+    "source": "import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from \"node:fs\";\nimport { join, resolve } from \"node:path\";\nimport { createHash } from \"node:crypto\";\nimport { ControlCommand, withControlledSumatra, type ControlClient } from \"../tests/control.ts\";\nimport { assemblePdf, EXE, makePng, makeZip, SETTINGS_FILE } from \"../tests/util.ts\";\nimport { postMessage, waitForTopWindow, WM_CLOSE } from \"../tests/winapi.ts\";\n\nconst root = resolve(`out/full-review-contracts-data-${process.env.REVIEW_RUN ?? \"2\"}`);\nmkdirSync(root, { recursive: true });\nconst results: unknown[] = [];\nfunction record(result: unknown) {\n  results.push(result);\n  writeFileSync(join(root, \"results.json\"), JSON.stringify(results, null, 2));\n  console.log(JSON.stringify(result));\n}\nfunction check(ok: unknown, why: string): asserts ok {\n  if (!ok) throw new Error(why);\n}\nfunction settings(dir: string) {\n  mkdirSync(dir, { recursive: true });\n  writeFileSync(join(dir, SETTINGS_FILE), \"UiLanguage = en\\nRestoreSession = false\\nCheckForUpdates = false\\nReloadModifiedDocuments = false\\nDisableJavaScript = false\\n\");\n}\nasync function query(client: ControlClient, args: (string | number)[]) {\n  return client.request(ControlCommand.TestCurrentPdf, args);\n}\nasync function form(type: \"text\" | \"choice\", engine: string, round: number) {\n  const dir = join(root, `${type}-${engine}-${round}`);\n  settings(dir);\n  const path = join(dir, \"form.pdf\");\n  const field = type === \"text\" ? \"/FT /Tx\" : \"/FT /Ch /Ff 131072 /Opt [(first) (second)]\";\n  writeFileSync(path, assemblePdf([\n    \"<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /DR << /Font << /Helv 5 0 R >> >> >> >>\",\n    \"<< /Type /Pages /Count 1 /Kids [3 0 R] >>\",\n    \"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 700] /Annots [4 0 R] >>\",\n    `<< /Type /Annot /Subtype /Widget ${field} /T (field) /V (first) /Rect [100 300 500 400] /P 3 0 R /F 4 /DA (/Helv 18 Tf 0 g) /AA << /V << /S /JavaScript /JS (event.rc = false;) >> >> >>`,\n    \"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\",\n  ]), \"latin1\");\n  await withControlledSumatra(EXE, async (client, proc) => {\n    await client.waitForRenderIdle();\n    const before = await query(client, [\"editor\"]);\n    const edit = await client.setFormField(1, 0, \"second\");\n    const after = await client.request(ControlCommand.TestMarkupAnnots);\n    check(String(edit[1]).includes(\"before='first' after='first'\"), `validation did not reject: ${edit}`);\n    check(edit[0] === (type === \"text\" ? 1 : 0), `unexpected setter result: ${edit}`);\n    check(String(after[1]).includes(`modified=${type === \"text\" ? 0 : 1}`), `unexpected dirty: ${after}`);\n    record({ kind: \"validation-rejection\", engine, type, round, before, edit, after: /undo .*\\n/.exec(String(after[1]))?.[0].trim() });\n  }, [\"-appdata\", dir, \"-log-to-file\", join(dir, \"app.log\"), path], { env: { ...process.env, SOLOKPDF_ENGINE: engine } });\n}\nfunction epub(word: string) {\n  const entries = {\n    mimetype: \"application/epub+zip\",\n    \"META-INF/container.xml\": '<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile full-path=\"book.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>',\n    \"book.opf\": '<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"2.0\" unique-identifier=\"id\"><metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:title>Review</dc:title><dc:identifier id=\"id\">review</dc:identifier><dc:language>en</dc:language></metadata><manifest><item id=\"c\" href=\"c.xhtml\" media-type=\"application/xhtml+xml\"/></manifest><spine><itemref idref=\"c\"/></spine></package>',\n    \"c.xhtml\": `<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><title>Review</title></head><body><p>${word}</p></body></html>`,\n  };\n  return makeZip(Object.entries(entries).map(([name, data]) => ({ name, data: Buffer.from(data), store: name === \"mimetype\" })));\n}\nasync function nonPdf(type: \"png\" | \"cbz\" | \"epub\" | \"djvu\", action: \"rename\" | \"replace\") {\n  const dir = join(root, `${type}-${action}`);\n  settings(dir);\n  const path = join(dir, `source.${type}`);\n  const saved = join(dir, `saved.${type}`);\n  const oldPng = makePng(40, 40, [255, 255, 255]);\n  const newPng = makePng(40, 40, [0, 0, 0]);\n  const cbz = (data: Buffer) => makeZip([{ name: \"001.png\", data }]);\n  const original = type === \"png\" ? oldPng : type === \"cbz\" ? cbz(oldPng) : type === \"epub\" ? epub(\"ORIGINALWORD\") : readFileSync(\"tests/issue-6312.djvu\");\n  const replacement = type === \"png\" ? newPng : type === \"cbz\" ? cbz(newPng) : epub(\"REPLACEDWORD\");\n  writeFileSync(path, original);\n  await withControlledSumatra(EXE, async (client, proc) => {\n    await client.waitForRenderIdle();\n    const before = await query(client, [\"clone-page\", 1]);\n    const textBefore = await query(client, [\"cached-text\", 1]);\n    renameSync(path, join(dir, `moved.${type}`));\n    if (action === \"replace\") writeFileSync(path, replacement);\n    const clone = await query(client, [\"clone-page\", 1]);\n    const cached = await query(client, [\"cached-text\", 1]);\n    record({ kind: \"non-pdf-before-save\", type, action, before, textBefore, clone, cached });\n    const saveRequest = client.request(ControlCommand.TestSaveFileAs, [saved]);\n    const modal = await Promise.race([saveRequest.then(() => 0), waitForTopWindow(proc.pid!, \"#32770\", 5000)]);\n    if (modal) postMessage(modal, WM_CLOSE, 0, 0);\n    const save = await saveRequest;\n    const bytes = existsSync(saved) ? readFileSync(saved) : null;\n    const savedSource = !bytes ? \"unavailable\" : bytes.equals(original) ? \"original\" : bytes.equals(replacement) ? \"replacement\" : \"other\";\n    record({ kind: \"non-pdf-source\", type, action, inputSha256: createHash(\"sha256\").update(original).digest(\"hex\"), before, textBefore, clone, cached, save, savedSource });\n    check(before[0] === 0 && Number(/^ink=(-?\\d+)/.exec(String(before[1]))?.[1] ?? -1) >= 0, `${type} invalid input: ${before}`);\n    check((save[0] === 0) === Boolean(bytes), `${type} save status/bytes disagree`);\n  }, [\"-appdata\", dir, \"-log-to-file\", join(dir, \"app.log\"), path]);\n}\nif (process.argv.includes(\"--forms\")) {\n  for (let round = 0; round < 2; round++) for (const engine of [\"mupdf\", \"pdfium\"]) for (const type of [\"text\", \"choice\"] as const) await form(type, engine, round);\n}\nif (process.argv.includes(\"--non-pdf\")) {\n  for (const type of [\"png\", \"cbz\", \"epub\", \"djvu\"] as const) for (const action of [\"rename\", \"replace\"] as const) {\n    if (type === \"djvu\" && action === \"replace\") continue;\n    const only = process.argv.find(arg => arg.startsWith(\"--case=\"))?.slice(7);\n    if (only && only !== `${type}-${action}`) continue;\n    await nonPdf(type, action);\n  }\n}\n",
+    "commands": [
+      "bun tools/solokpdf/run-hidden.ts --timeout-ms=45000 -- bun out/full-review-contracts.ts --forms",
+      "set REVIEW_RUN to a fresh per-case suffix, then bun tools/solokpdf/run-hidden.ts --timeout-ms=45000 -- bun out/full-review-contracts.ts --non-pdf --case=<png|cbz|epub|djvu>-<rename|replace>"
+    ]
+  },
+  "limits": [
+    "E32 no additional memory edits or thread suspension; reload DDE scenario never reached DDE because the password window lookup failed; the ASan diagnostic occurred during probe cleanup",
+    "Non-PDF probes compare Clone render/text, retained cached text and Save As bytes; do not drive physical printing or claim all original-page rendering after replacement",
+    "Only local file-loaded PNG/CBZ/EPUB and small copied DjVu inputs; no large image, mmap DjVu, data-backed attachments, SMB/UNC, PostScript or DjVu replacement",
+    "Choice rejection uses the existing debug setter hook and synthetic validation JavaScript, not physical mouse editing; each engine repeated twice with text rejection controls",
+    "No registered regression test or product fix; exit 0 means observations were collected, not that current app behavior is correct"
+  ],
+  "harnessCorrections": [
+    "Initial pre-edit TestMarkupAnnots created PDFium editor with JavaScript disabled; switched to side-effect-free editor query and repeated all eight form cases",
+    "First combined non-PDF run waited at save-error modal; form JSON survived, no whole-run success claimed; no leftover matching processes found",
+    "Early non-PDF assertions wrongly assumed image/CBZ Clone retained input and CBZ save survived rename; saved observations contradicted these assumptions; final probe records actual behavior before assertions and dismisses expected save warnings"
+  ],
+  "dialogProbes": [
+    {
+      "run": "dbg3",
+      "result": {
+        "kind": "E34-clean-save-dialog",
+        "dir": "C:\\work\\solokpdf\\out\\full-review-save-dialog-dbg3",
+        "phases": [
+          {
+            "phase": "original",
+            "value": [0, "path=C:\\work\\solokpdf\\out\\full-review-save-dialog-dbg3\\original.pdf page=1"]
+          },
+          {
+            "phase": "dialog",
+            "value": {
+              "dialog": 52825258,
+              "ownerEnabled": false,
+              "edits": [
+                {
+                  "hwnd": 5113860,
+                  "text": "original.pdf"
+                }
+              ]
+            }
+          },
+          {
+            "phase": "dde-open",
+            "value": "1"
+          },
+          {
+            "phase": "after-dde",
+            "value": [0, "path=C:\\work\\solokpdf\\out\\full-review-save-dialog-dbg3\\other.pdf page=1"]
+          },
+          {
+            "phase": "saved",
+            "value": {
+              "exists": true,
+              "isOriginal": false,
+              "isOther": true
+            }
+          },
+          {
+            "phase": "exit",
+            "value": {
+              "code": 0,
+              "forced": false,
+              "stderr": ""
+            }
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "out/full-review-save-dialog-dbg3/result.json",
+          "sha256": "41059ba37edbcec39075bf3c55b2178032a1dbf034fa9315d90a7bdedc4b7dcd"
+        },
+        {
+          "path": "out/full-review-save-dialog-dbg3/stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "out/full-review-save-dialog-dbg3/app.log",
+          "sha256": "dfad371aa22c548be3aa5b574c202e546fbba2b42135db667efa0dd0ae9496bc"
+        }
+      ]
+    },
+    {
+      "run": "asan",
+      "result": {
+        "kind": "E34-clean-save-dialog",
+        "dir": "C:\\work\\solokpdf\\out\\full-review-save-dialog-asan",
+        "phases": [
+          {
+            "phase": "original",
+            "value": [0, "path=C:\\work\\solokpdf\\out\\full-review-save-dialog-asan\\original.pdf page=1"]
+          },
+          {
+            "phase": "dialog",
+            "value": {
+              "dialog": 37489374,
+              "ownerEnabled": false,
+              "edits": [
+                {
+                  "hwnd": 82118386,
+                  "text": "original.pdf"
+                }
+              ]
+            }
+          },
+          {
+            "phase": "dde-open",
+            "value": "1"
+          },
+          {
+            "phase": "after-dde",
+            "value": [0, "path=C:\\work\\solokpdf\\out\\full-review-save-dialog-asan\\other.pdf page=1"]
+          },
+          {
+            "phase": "saved",
+            "value": {
+              "exists": true,
+              "isOriginal": false,
+              "isOther": true
+            }
+          },
+          {
+            "phase": "exit",
+            "value": {
+              "code": 0,
+              "forced": false,
+              "stderr": ""
+            }
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "out/full-review-save-dialog-asan/result.json",
+          "sha256": "534d7acbb10571668e4367e9b138c84f7dfcc92e4fd8177c26fc4b7de586ed6c"
+        },
+        {
+          "path": "out/full-review-save-dialog-asan/stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "out/full-review-save-dialog-asan/app.log",
+          "sha256": "aebfe01b1231540a4a8281da0f4804412eb348db2dd7f02303aba649c46e4188"
+        }
+      ]
+    },
+    {
+      "run": "reload-asan",
+      "result": {
+        "kind": "E34-reload-dialog",
+        "dir": "C:\\work\\solokpdf\\out\\full-review-save-dialog-reload-asan",
+        "phases": [
+          {
+            "phase": "original",
+            "value": [0, "path=C:\\work\\solokpdf\\out\\full-review-save-dialog-reload-asan\\original.pdf page=1"]
+          },
+          {
+            "phase": "error",
+            "value": "Error: no dialog"
+          },
+          {
+            "phase": "exit",
+            "value": {
+              "code": 1,
+              "forced": false,
+              "stderr": "warning: dropping unclosed PDF processor\r\nwarning: ... repeated 2 times...\r\nwarning: dropping unclosed output\r\nwarning: UNHANDLED EXCEPTION!\r\nabort error: themed PDF rendering canceled\r\n=================================================================\n==36656==ERROR: AddressSanitizer: heap-use-after-free on address 0x120bf1fc0620 at pc 0x7ffaf863b8d5 bp 0x004a45ef5960 sp 0x004a45ef50f0\nREAD of size 69 at 0x120bf1fc0620 thread T0\n    #0 0x7ffaf863b8d4 in _asan_wrap_static_crt__free_base+0x8608b (C:\\work\\solokpdf\\out\\dbg64_asan\\clang_rt.asan_dynamic-x86_64.dll+0x18008b8d4)\n    #1 0x7ff7029b37a1 in BuilderT<char>::Append C:\\work\\solokpdf\\src\\base\\Base.cpp:3295\n    #2 0x7ff70299bd5b in str::evalPercInst C:\\work\\solokpdf\\src\\base\\Base.cpp:5000\n    #3 0x7ff702997ed5 in str::Fmt::Eval C:\\work\\solokpdf\\src\\base\\Base.cpp:5111\n    #4 0x7ff70297b3e8 in str::FormatArgs C:\\work\\solokpdf\\src\\base\\Base.cpp:5155\n    #5 0x7ff700c47eaa in str::Format<Str,Str> C:\\work\\solokpdf\\src\\base\\Base.h:2494\n    #6 0x7ff700c4845d in str::FormatTemp<Str,Str> C:\\work\\solokpdf\\src\\base\\Base.h:2499\n    #7 0x7ff700c48df0 in logf<Str,Str> C:\\work\\solokpdf\\src\\base\\Base.h:2929\n    #8 0x7ff701d6228f in CreateEnginePdfium C:\\work\\solokpdf\\src\\solokpdf\\EnginePdfium.cpp:3403\n    #9 0x7ff70179ffcb in CreateEngineForKind C:\\work\\solokpdf\\src\\shared\\EngineCreate.cpp:389\n    #10 0x7ff701799e06 in CreateEngineFromFile C:\\work\\solokpdf\\src\\shared\\EngineCreate.cpp:534\n    #11 0x7ff7010a4eca in CreateControllerForEngineOrFile C:\\work\\solokpdf\\src\\SumatraPDF.cpp:1680\n    #12 0x7ff7010987e0 in ReloadDocument C:\\work\\solokpdf\\src\\SumatraPDF.cpp:2473\n    #13 0x7ff70111e225 in FrameOnCommand C:\\work\\solokpdf\\src\\SumatraPDF.cpp:11179\n    #14 0x7ff701134cd4 in WndProcSumatraFrame C:\\work\\solokpdf\\src\\SumatraPDF.cpp:14313\n    #15 0x7ffbf9b752e5 in CallWindowProcW+0x6a5 (C:\\WINDOWS\\System32\\USER32.dll+0x1800152e5)\n    #16 0x7ffbf9b75dbc in IsWindowUnicode+0x20c (C:\\WINDOWS\\System32\\USER32.dll+0x180015dbc)\n    #17 0x7ff70113d00b in RunMessageLoop C:\\work\\solokpdf\\src\\SumatraPDF.cpp:15433\n    #18 0x7ff7010890f0 in WinMain C:\\work\\solokpdf\\src\\SumatraPDF.cpp:17802\n    #19 0x7ff702c03af8 in __scrt_common_main_seh D:\\a\\_work\\1\\s\\src\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl:288\n    #20 0x7ffbf918dda6 in BaseThreadInitThunk+0x16 (C:\\WINDOWS\\System32\\KERNEL32.DLL+0x18002dda6)\n    #21 0x7ffbfb139c5b in RtlUserThreadStart+0x2b (C:\\WINDOWS\\SYSTEM32\\ntdll.dll+0x1800c9c5b)\n\n0x120bf1fc0620 is located 0 bytes inside of 70-byte region [0x120bf1fc0620,0x120bf1fc0666)\nfreed by thread T0 here:\n    #0 0x7ffaf86439c1 in _asan_wrap_static_crt__free_base+0x8e178 (C:\\work\\solokpdf\\out\\dbg64_asan\\clang_rt.asan_dynamic-x86_64.dll+0x1800939c1)\n    #1 0x7ff70295d41c in str::Free C:\\work\\solokpdf\\src\\base\\Base.cpp:1587\n    #2 0x7ff701cd4515 in WindowTab::~WindowTab C:\\work\\solokpdf\\src\\shared\\WindowTab.cpp:183\n    #3 0x7ff700ea6f46 in WindowTab::`scalar deleting destructor'+0x16 (C:\\work\\solokpdf\\out\\dbg64_asan\\SumatraPDF-static.exe+0x140456f46)\n    #4 0x7ff700ea3908 in DeleteVecMembers<WindowTab *> C:\\work\\solokpdf\\src\\base\\Base.h:1970\n    #5 0x7ff7011bbfa9 in TabsOnCloseWindow C:\\work\\solokpdf\\src\\Tabs.cpp:778\n    #6 0x7ff7010947a5 in CloseWindow C:\\work\\solokpdf\\src\\SumatraPDF.cpp:5647\n    #7 0x7ff7010e5a7a in OnMenuExit C:\\work\\solokpdf\\src\\SumatraPDF.cpp:4828\n    #8 0x7ff70111e20d in FrameOnCommand C:\\work\\solokpdf\\src\\SumatraPDF.cpp:11175\n    #9 0x7ff701134cd4 in WndProcSumatraFrame C:\\work\\solokpdf\\src\\SumatraPDF.cpp:14313\n    #10 0x7ffbf9b752e5 in CallWindowProcW+0x6a5 (C:\\WINDOWS\\System32\\USER32.dll+0x1800152e5)\n    #11 0x7ffbf9b75dbc in IsWindowUnicode+0x20c (C:\\WINDOWS\\System32\\USER32.dll+0x180015dbc)\n    #12 0x7ff700dd5475 in ShowPasswordDialog C:\\work\\solokpdf\\src\\GetPasswordDialog.cpp:238\n    #13 0x7ff700dd5cc6 in ShowGetPasswordDialog C:\\work\\solokpdf\\src\\GetPasswordDialog.cpp:266\n    #14 0x7ff7010c01f4 in HwndPasswordUI::GetPassword C:\\work\\solokpdf\\src\\SumatraPDF.cpp:677\n    #15 0x7ff701d8d492 in EnginePdfium::LoadWithPassword C:\\work\\solokpdf\\src\\solokpdf\\EnginePdfium.cpp:1701\n    #16 0x7ff701d88b43 in EnginePdfium::Load C:\\work\\solokpdf\\src\\solokpdf\\EnginePdfium.cpp:1778\n    #17 0x7ff701d620f3 in CreateEnginePdfium C:\\work\\solokpdf\\src\\solokpdf\\EnginePdfium.cpp:3395\n    #18 0x7ff70179ffcb in CreateEngineForKind C:\\work\\solokpdf\\src\\shared\\EngineCreate.cpp:389\n    #19 0x7ff701799e06 in CreateEngineFromFile C:\\work\\solokpdf\\src\\shared\\EngineCreate.cpp:534\n    #20 0x7ff7010a4eca in CreateControllerForEngineOrFile C:\\work\\solokpdf\\src\\SumatraPDF.cpp:1680\n    #21 0x7ff7010987e0 in ReloadDocument C:\\work\\solokpdf\\src\\SumatraPDF.cpp:2473\n    #22 0x7ff70111e225 in FrameOnCommand C:\\work\\solokpdf\\src\\SumatraPDF.cpp:11179\n    #23 0x7ff701134cd4 in WndProcSumatraFrame C:\\work\\solokpdf\\src\\SumatraPDF.cpp:14313\n    #24 0x7ffbf9b752e5 in CallWindowProcW+0x6a5 (C:\\WINDOWS\\System32\\USER32.dll+0x1800152e5)\n    #25 0x7ffbf9b75dbc in IsWindowUnicode+0x20c (C:\\WINDOWS\\System32\\USER32.dll+0x180015dbc)\n    #26 0x7ff70113d00b in RunMessageLoop C:\\work\\solokpdf\\src\\SumatraPDF.cpp:15433\n    #27 0x7ff7010890f0 in WinMain C:\\work\\solokpdf\\src\\SumatraPDF.cpp:17802\n\npreviously allocated by thread T0 here:\n    #0 0x7ffaf86428e2 in _asan_wrap_static_crt__free_base+0x8d099 (C:\\work\\solokpdf\\out\\dbg64_asan\\clang_rt.asan_dynamic-x86_64.dll+0x1800928e2)\n    #1 0x7ff7029b654d in MallocMaybeTrim C:\\work\\solokpdf\\src\\base\\Base.cpp:23\n    #2 0x7ff702957a5b in Alloc C:\\work\\solokpdf\\src\\base\\Base.cpp:1109\n    #3 0x7ff702957f24 in MemDup C:\\work\\solokpdf\\src\\base\\Base.cpp:1155\n    #4 0x7ff70298d6cc in DupT<Str> C:\\work\\solokpdf\\src\\base\\Base.cpp:1468\n    #5 0x7ff70295d653 in str::Dup C:\\work\\solokpdf\\src\\base\\Base.cpp:1597\n    #6 0x7ff70295d9f6 in str::ReplaceWithCopy C:\\work\\solokpdf\\src\\base\\Base.cpp:2213\n    #7 0x7ff701cd580f in WindowTab::SetFilePath C:\\work\\solokpdf\\src\\shared\\WindowTab.cpp:70\n    #8 0x7ff7010a0578 in LoadDocumentFinish C:\\work\\solokpdf\\src\\SumatraPDF.cpp:3483\n    #9 0x7ff70109ef00 in LoadDocument C:\\work\\solokpdf\\src\\SumatraPDF.cpp:4396\n    #10 0x7ff701138fee in LoadOnStartup C:\\work\\solokpdf\\src\\SumatraPDF.cpp:14927\n    #11 0x7ff701088815 in WinMain C:\\work\\solokpdf\\src\\SumatraPDF.cpp:17664\n    #12 0x7ff702c03af8 in __scrt_common_main_seh D:\\a\\_work\\1\\s\\src\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl:288\n    #13 0x7ffbf918dda6 in BaseThreadInitThunk+0x16 (C:\\WINDOWS\\System32\\KERNEL32.DLL+0x18002dda6)\n    #14 0x7ffbfb139c5b in RtlUserThreadStart+0x2b (C:\\WINDOWS\\SYSTEM32\\ntdll.dll+0x1800c9c5b)\n\nSUMMARY: AddressSanitizer: heap-use-after-free C:\\work\\solokpdf\\src\\base\\Base.cpp:3295 in BuilderT<char>::Append\nShadow bytes around the buggy address:\n  0x120bf1fc0380: fd fd fd fd fd fd fd fd fd fa fa fa fa fa fd fd\n  0x120bf1fc0400: fd fd fd fd fd fd fd fa fa fa fa fa fd fd fd fd\n  0x120bf1fc0480: fd fd fd fd fd fa fa fa fa fa fd fd fd fd fd fd\n  0x120bf1fc0500: fd fd fd fa fa fa fa fa fd fd fd fd fd fd fd fd\n  0x120bf1fc0580: fd fa fa fa fa fa fd fd fd fd fd fd fd fd fd fa\n=>0x120bf1fc0600: fa fa fa fa[fd]fd fd fd fd fd fd fd fd fa fa fa\n  0x120bf1fc0680: fa fa fd fd fd fd fd fd fd fd fd fa fa fa fa fa\n  0x120bf1fc0700: fd fd fd fd fd fd fd fd fd fd fa fa fa fa fd fd\n  0x120bf1fc0780: fd fd fd fd fd fd fd fd fa fa fa fa fd fd fd fd\n  0x120bf1fc0800: fd fd fd fd fd fa fa fa fa fa fd fd fd fd fd fd\n  0x120bf1fc0880: fd fd fd fa fa fa fa fa fd fd fd fd fd fd fd fd\nShadow byte legend (one shadow byte represents 8 application bytes):\n  Addressable:           00\n  Partially addressable: 01 02 03 04 05 06 07 \n  Heap left redzone:       fa\n  Freed heap region:       fd\n  Stack left redzone:      f1\n  Stack mid redzone:       f2\n  Stack right redzone:     f3\n  Stack after return:      f5\n  Stack use after scope:   f8\n  Global redzone:          f9\n  Global init order:       f6\n  Poisoned by user:        f7\n  Container overflow:      fc\n  Array cookie:            ac\n  Intra object redzone:    bb\n  ASan internal:           fe\n  Left alloca redzone:     ca\n  Right alloca redzone:    cb\n==36656==ABORTING"
+            }
+          }
+        ],
+        "error": "Error: no dialog"
+      },
+      "files": [
+        {
+          "path": "out/full-review-save-dialog-reload-asan/result.json",
+          "sha256": "f96a147a959f48c5b6bee2e95ebd40869e8c0f808edf87f188c29ac3ca740f92"
+        },
+        {
+          "path": "out/full-review-save-dialog-reload-asan/stderr.txt",
+          "sha256": "4c282f9097190758eeb5a3b0880aaa8c076d3e1e96225613abe0d1b1ebb9586b"
+        },
+        {
+          "path": "out/full-review-save-dialog-reload-asan/app.log",
+          "sha256": "3dabc1aff6e54abd7e32579c9cfeceae36231ac8b0eac8ecd04e9e8410a72a7e"
+        }
+      ]
+    }
+  ],
+  "dialogReproducer": {
+    "path": "out/full-review-save-dialog.ts",
+    "sha256": "2ccfde536c403df358f71b004d368f01fa856fdd5f2966a8f8f33d27a4c8f17c",
+    "source": "import { existsSync, mkdirSync, readFileSync, writeFileSync } from \"node:fs\";\nimport { join, resolve } from \"node:path\";\nimport { ControlCommand } from \"../tests/control.ts\";\nimport { assemblePdf, cmdId, SETTINGS_FILE } from \"../tests/util.ts\";\nimport { killAndWait, launchControlled, takeStderr } from \"../tests/win-automation.ts\";\nimport { enumChildWindows, getClassName, getControlText, isWindowEnabled, postMessage, sendCopyDataW, sendText, waitForTopWindow, WM_CLOSE, WM_COMMAND } from \"../tests/winapi.ts\";\n\nconst dir = resolve(`out/full-review-save-dialog-${process.env.REVIEW_RUN ?? \"dbg3\"}`);\nmkdirSync(dir, { recursive: true });\nconst reload = process.argv.includes(\"--reload\");\nconst result: Record<string, unknown> = { kind: reload ? \"E34-reload-dialog\" : \"E34-clean-save-dialog\", dir, phases: [] };\nfunction record(phase: string, value: unknown) {\n  (result.phases as unknown[]).push({ phase, value });\n  writeFileSync(join(dir, \"result.json\"), JSON.stringify(result, null, 2));\n  console.log(phase, JSON.stringify(value));\n}\nfunction pdf(word: string) {\n  const stream = `BT /F1 24 Tf 72 700 Td (${word}) Tj ET`;\n  return assemblePdf([\n    \"<< /Type /Catalog /Pages 2 0 R >>\",\n    \"<< /Type /Pages /Count 1 /Kids [3 0 R] >>\",\n    \"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\",\n    \"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\",\n    `<< /Length ${stream.length} >>\\nstream\\n${stream}\\nendstream`,\n  ]);\n}\nconst original = join(dir, \"original.pdf\"), other = join(dir, \"other.pdf\"), saved = join(dir, \"saved.pdf\");\nwriteFileSync(original, pdf(\"ORIGINALWORD\"), \"latin1\");\nwriteFileSync(other, pdf(\"OTHERWORD\"), \"latin1\");\nwriteFileSync(join(dir, SETTINGS_FILE), \"UiLanguage = en\\nUseTabs = true\\nRestoreSession = false\\nCheckForUpdates = false\\nReloadModifiedDocuments = false\\n\");\nconst { proc, client, frame } = await launchControlled([\"-appdata\", dir, \"-log-to-file\", join(dir, \"app.log\"), original], { env: { SOLOKPDF_ENGINE: \"pdfium\" } });\nlet dialog = 0;\nlet forced = false;\ntry {\n  await client.waitForRenderIdle();\n  record(\"original\", await client.request(ControlCommand.TestCurrentTab));\n  if (reload) writeFileSync(original, readFileSync(\"out/full-review-followup-data/encrypted.pdf\"));\n  postMessage(frame, WM_COMMAND, cmdId(reload ? \"CmdReloadDocument\" : \"CmdSaveAs\"), 0);\n  dialog = await waitForTopWindow(proc.pid!, \"#32770\", 5000);\n  if (!dialog) throw new Error(\"no dialog\");\n  const edits: { hwnd: number; text: string }[] = [];\n  const controlDeadline = Date.now() + 5000;\n  do {\n    edits.length = 0;\n    enumChildWindows(dialog, hwnd => {\n      if (getClassName(hwnd) === \"Edit\") edits.push({ hwnd, text: getControlText(hwnd) });\n      return true;\n    });\n    if (reload || edits.some(e => e.text === \"original\" || e.text === \"original.pdf\")) break;\n    await Bun.sleep(50);\n  } while (Date.now() < controlDeadline);\n  record(\"dialog\", { dialog, ownerEnabled: isWindowEnabled(frame), edits });\n  const filename = edits.find(e => e.text === \"original\" || e.text === \"original.pdf\");\n  if (!reload && !filename) throw new Error(\"no filename edit\");\n  record(\"dde-open\", String(sendCopyDataW(frame, 0x44646557, `[Open(\"${other}\",0,0,0)]`)));\n  const deadline = Date.now() + 5000;\n  let current: unknown;\n  do {\n    current = await client.request(ControlCommand.TestCurrentTab);\n    if (String(current).includes(other)) break;\n    await Bun.sleep(50);\n  } while (Date.now() < deadline);\n  record(\"after-dde\", current);\n  if (!String(current).includes(other)) throw new Error(\"DDE did not activate other document\");\n  if (reload) {\n    postMessage(dialog, WM_CLOSE, 0, 0);\n    await Bun.sleep(300);\n    record(\"after-reload-cancel\", await client.request(ControlCommand.TestCurrentTab));\n    record(\"after-reload-engine\", await client.request(ControlCommand.TestCurrentPdf, [\"cached-text\", 1]));\n  } else {\n    sendText(filename!.hwnd, saved);\n    postMessage(dialog, WM_COMMAND, 1, 0);\n    const saveDeadline = Date.now() + 5000;\n    while (!existsSync(saved) && Date.now() < saveDeadline) await Bun.sleep(50);\n    const bytes = existsSync(saved) ? readFileSync(saved) : null;\n    record(\"saved\", { exists: Boolean(bytes), isOriginal: bytes?.equals(readFileSync(original)), isOther: bytes?.equals(readFileSync(other)) });\n  }\n} catch (error) {\n  result.error = String(error);\n  record(\"error\", result.error);\n} finally {\n  if (dialog) postMessage(dialog, WM_CLOSE, 0, 0);\n  if (proc.exitCode === null) {\n    try { await client.quit(); } catch (error) { record(\"quit-error\", String(error)); }\n  }\n  const exit = await Promise.race([proc.exited, Bun.sleep(5000).then(() => \"timeout\")]);\n  if (exit === \"timeout\") { forced = true; await killAndWait(proc); }\n  client.close();\n  const stderr = await takeStderr(proc);\n  writeFileSync(join(dir, \"stderr.txt\"), stderr);\n  record(\"exit\", { code: proc.exitCode, forced, stderr });\n}\nif (result.error) process.exitCode = 1;\n",
+    "status": "retained evidence, not an approved regression test; do not repeat the reload/cleanup experiment during review",
+    "asanOptions": "windows_hook_legacy_allocators=0:suppressions=\"C:\\work\\solokpdf\\asan.supp\""
+  },
+  "interruptions": {
+    "source": "codex_tui.read_thread, 2026-11-10",
+    "thread": "01a1c493-893a-7f21-a101-43a5aa4ab303",
+    "turns": [
+      {
+        "id": "01a1c493-9b30-7321-90b1-fd8891a11dfc",
+        "status": "failed"
+      },
+      {
+        "id": "01a1c498-f11f-70e2-8ce3-991dbec07c85",
+        "status": "interrupted",
+        "error": null
+      },
+      {
+        "id": "01a1c49b-1511-76a0-80a5-f0605f51012a",
+        "status": "failed"
+      }
+    ],
+    "failureMessage": "This content was flagged for possible cybersecurity risk.",
+    "conclusion": "Two assistant turns failed safety review. One intervening turn was interrupted with no error. Exact flagged content and internal decision reasons are unavailable; no evidence of approval wait or runner timeout as the turn failure cause.",
+    "separateProbeFailure": "Reload probe expected #32770, but password window uses CreateCustom. After the 5-second lookup failed, client.quit() ran during its nested loop; application exited 1 with an ASan diagnostic, retained at 17:46:20 JST. This is not evidence that DDE was reached or that the app crash caused the assistant safety stop.",
+    "prevention": [
+      "No blind retry of the same interrupted experiment",
+      "During review use source inspection and relevant existing tests; defer new failure/reentry probes to dedicated regression-test design",
+      "Persist each case, including errors, exit, stderr and next step",
+      "Check turn status and saved side effects on resumption before launching anything again",
+      "No process-memory modification or external worker suspension; no safety-setting changes"
+    ],
+    "limitation": "Server-side safety review cannot be disabled or guaranteed not to recur by this assistant."
+  }
+}

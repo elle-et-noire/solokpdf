@@ -1,0 +1,362 @@
+{
+  "date": "2026-11-10",
+  "revision": "a272e9137",
+  "baseline": "32d95cef7",
+  "scope": "E24 investigation complete; E25 final prioritization and all product fixes remain open",
+  "sourceDiff": "git diff --exit-code 32d95cef7 -- src cmd tests ext returned 0; documentation changes only",
+  "environment": "Windows, VS 2026 v145, Bun 1.4.4; existing Debug x64; hidden desktops outside sandbox; app helpers use -for-testing and isolated appdata; no rebuild, new ASan run, Release or full suite",
+  "binaries": [
+    {
+      "path": "out/dbg64/SumatraPDF.exe",
+      "sha256": "33f7768639edd06e0141cfeb1a387801fab218c73e262a96bfc7236b144eefde"
+    },
+    {
+      "path": "out/dbg64/libsumatrapdf.dll",
+      "sha256": "df9188611490dbdcb7c1792cfe22446804083c279a27f1ea19fa6bf496123c87"
+    },
+    {
+      "path": "out/dbg64/pdfium.dll",
+      "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+    }
+  ],
+  "tests": [
+    {
+      "name": "ad-hoc-b69-hidden-desktop",
+      "configuration": "Debug x64",
+      "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/ad-hoc-b69-hidden-desktop.ts --no-build",
+      "exitCode": 0,
+      "startedAt": "2026-11-10T18:07:12.0578246+09:00",
+      "durationSeconds": 0.42,
+      "log": "out/e24-completion/ad-hoc-b69-hidden-desktop.log",
+      "sha256": "2c815c8e6d5a3a0d1385ef43e2eed4743bcc4601ee35a1c30f01ba72fefbb25b",
+      "skipped": false,
+      "output": "PASS: visible probe window belongs to hidden desktop SolokPDFTests-31304-mwagv45f\r\n"
+    },
+    {
+      "name": "ad-hoc-pdfium-forms",
+      "configuration": "Debug x64",
+      "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/ad-hoc-pdfium-forms.ts --no-build",
+      "exitCode": 0,
+      "startedAt": "2026-11-10T18:07:12.5360322+09:00",
+      "durationSeconds": 11.61,
+      "log": "out/e24-completion/ad-hoc-pdfium-forms.log",
+      "sha256": "fecf628a510e327e69d3a3ebfb85e51356f7861565c134d877f2f6f56e95cca0",
+      "skipped": false,
+      "output": "text (mupdf): saved filled\r\nchoice (mupdf): saved second\r\ntext (pdfium): saved filled\r\nchoice (pdfium): saved second\r\n✅ ad-hoc-pdfium-forms passed in 10.4s\r\n"
+    },
+    {
+      "name": "ad-hoc-pdfium-form-js",
+      "configuration": "Debug x64",
+      "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/ad-hoc-pdfium-form-js.ts --no-build",
+      "exitCode": 0,
+      "startedAt": "2026-11-10T18:07:24.1476553+09:00",
+      "durationSeconds": 6.04,
+      "log": "out/e24-completion/ad-hoc-pdfium-form-js.log",
+      "sha256": "26b5cd3319f73bbfee4a1e7d11399e4f2df2b7f63b9d88713365ae81cb6c4d1d",
+      "skipped": false,
+      "output": "mupdf: calculated 14 and saved\r\npdfium: calculated 14 and saved\r\n✅ ad-hoc-pdfium-form-js passed in 3.3s\r\n"
+    },
+    {
+      "name": "ad-hoc-pdfium-redaction-undo",
+      "configuration": "Debug x64",
+      "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/ad-hoc-pdfium-redaction-undo.ts --no-build",
+      "exitCode": 0,
+      "startedAt": "2026-11-10T18:07:30.1878884+09:00",
+      "durationSeconds": 11.71,
+      "log": "out/e24-completion/ad-hoc-pdfium-redaction-undo.log",
+      "sha256": "8b79fa8392193f07c4a427568bfcf309402e95c9529fb2d495aea4173eb49e30",
+      "skipped": false,
+      "output": "ad-hoc-pdfium-redaction-undo pdfium: OK (dark pixels 3387 -> 15348)\r\nad-hoc-pdfium-redaction-undo mupdf: OK (dark pixels 3578 -> 15348)\r\n✅ ad-hoc-pdfium-redaction-undo passed in 6.5s\r\n"
+    },
+    {
+      "name": "theme-render-cancel",
+      "configuration": "Debug x64",
+      "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/theme-render-cancel.ts --no-build",
+      "exitCode": 0,
+      "startedAt": "2026-11-10T18:07:41.9057445+09:00",
+      "durationSeconds": 9.79,
+      "log": "out/e24-completion/theme-render-cancel.log",
+      "sha256": "38457a1e33dcc91e38d0c29240b445c2998f24262621794dd45ea8c5798a8846",
+      "skipped": false,
+      "output": "✅ theme-render-cancel passed in 1.9s\r\n"
+    },
+    {
+      "name": "annot-undo-one-step-redact-pdfium",
+      "configuration": "Debug x64",
+      "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/annot-undo-one-step.ts --no-build",
+      "environment": {
+        "SOLOKPDF_ENGINE": "pdfium",
+        "ANNOT_UNDO_ONLY": "redact",
+        "SOLOKPDF_TEST_PATTERN_STROKES": ""
+      },
+      "exitCode": 0,
+      "startedAt": "2026-11-10T18:09:58.1435850+09:00",
+      "durationSeconds": 2.2,
+      "log": "out/e24-completion/annot-undo-one-step-redact-pdfium.log",
+      "sha256": "9774311afce74fc503e97c2135c9d42a7c25b631a279c2bdbab3c17b6edaf0b8",
+      "skipped": false,
+      "output": "annot-undo-one-step: OK\r\n✅ annot-undo-one-step passed in 1.1s\r\n"
+    },
+    {
+      "name": "annot-undo-one-step-redact-mupdf",
+      "configuration": "Debug x64",
+      "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/annot-undo-one-step.ts --no-build",
+      "environment": {
+        "SOLOKPDF_ENGINE": "mupdf",
+        "ANNOT_UNDO_ONLY": "redact",
+        "SOLOKPDF_TEST_PATTERN_STROKES": ""
+      },
+      "exitCode": 0,
+      "startedAt": "2026-11-10T18:10:00.3855772+09:00",
+      "durationSeconds": 7.68,
+      "log": "out/e24-completion/annot-undo-one-step-redact-mupdf.log",
+      "sha256": "510d3f6ef814e9619ea19817f4f3de78c04998831064c134bb00646b19025ff5",
+      "skipped": false,
+      "output": "annot-undo-one-step: OK\r\n✅ annot-undo-one-step passed in 1.2s\r\n"
+    },
+    {
+      "name": "theme-render-cancel-pattern",
+      "configuration": "Debug x64",
+      "command": "bun tools/solokpdf/run-hidden.ts --timeout-ms=60000 -- bun tests/theme-render-cancel.ts --no-build",
+      "environment": {
+        "SOLOKPDF_ENGINE": "pdfium",
+        "ANNOT_UNDO_ONLY": "redact",
+        "SOLOKPDF_TEST_PATTERN_STROKES": "1"
+      },
+      "exitCode": 0,
+      "startedAt": "2026-11-10T18:10:08.0715393+09:00",
+      "durationSeconds": 9.6,
+      "log": "out/e24-completion/theme-render-cancel-pattern.log",
+      "sha256": "a3c3a9c2df791d6244feca6478e4678e25179a03ebcbf5a4b8c265427d63a5d3",
+      "skipped": false,
+      "output": "✅ theme-render-cancel passed in 2.4s\r\n"
+    }
+  ],
+  "inspected": [
+    {
+      "path": "src/SumatraPDF.cpp",
+      "functions": [
+        "DeleteControllerAsync",
+        "WaitForRendersThenDelete",
+        "DeleteControllerFinish",
+        "WaitForPendingControllerDeletes",
+        "ControllerCallbackHandler::CleanUp",
+        "WinMain shutdown and fastExit selection"
+      ],
+      "judgment": "E32: one owner stop barrier before cleanup; keep live dependencies on failure",
+      "sha256": "b54ef2be153a2281dcc7fa178e47ba105e4a90fd0c6f16784706e5e095cf9751",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/shared/RenderCache.cpp",
+      "functions": [
+        "RenderCache::~RenderCache",
+        "Render",
+        "GetNextRequest",
+        "ClearCurrentRequest",
+        "CancelRenderingBlocking",
+        "RenderCacheRunOne",
+        "RenderCacheThread"
+      ],
+      "judgment": "No destruction before all workers stop; exit flag alone can skip clearing current request",
+      "sha256": "022bd428695ebe4b63f6fa66bb0171d4cef6d666b33238553b5871d2bcb78227",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/base/Base.cpp",
+      "functions": ["WaitThread", "JoinThread"],
+      "judgment": "WaitThread retains Win32 HANDLE after timeout; do not change generic JoinThread solely for this owner",
+      "sha256": "4fe02cff61f26ed2189bb865129ea138423fd875f718b46dadb2c782a6f0d34f",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/base/UITask.cpp",
+      "functions": ["DrainQueue", "Destroy", "Post"],
+      "judgment": "Pending UI deletion must complete while UI task dispatch exists",
+      "sha256": "45c92a2431f3e61d474285680f43003496c8e448bcbad35803d3c0fca3109a2a",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/shared/DisplayModel.cpp",
+      "functions": ["Retire", "~DisplayModel", "RenderFinishedAsync", "RenderFinishedOnUIThread"],
+      "judgment": "Retired models reject UI results; normal model cleanup still waits for rendering",
+      "sha256": "4885dd2baa8f8f585e2f48fb5282fb54d42b984bc1eafec35c132544fd4796b2",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/shared/Annotation.cpp",
+      "functions": [
+        "UpdateAnnotIf",
+        "UpdateAnnot",
+        "ToggleFormButton",
+        "UpdateFormFieldPage",
+        "SetWidgetValue",
+        "SetWidgetTextValue",
+        "SetWidgetChoiceValue",
+        "EngineMupdfCreateAnnotation",
+        "PasteCopiedAnnotation"
+      ],
+      "judgment": "R10/E36: separate committed mutation from acceptance and later appearance failure; retain existing create/unlink cleanup",
+      "sha256": "746be7cff7ea9d1feb6808f2cad1f6b7fd68e1fd641e3267ae0c50fe58ccb9ef",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/shared/EngineMupdf.cpp",
+      "functions": [
+        "FinishLoading journal setup",
+        "MarkNotificationAsModified",
+        "RedactAllPages",
+        "EngineMupdfApplyRedactions",
+        "InvalidateFzPageAfterContentChange",
+        "RecordRedactedPages",
+        "RecomputeRedacted",
+        "SyncRedacted",
+        "EngineMupdfBeginOperation",
+        "EngineMupdfEndOperation",
+        "SyncPagesAfterUndoRedo",
+        "ResyncWrapperList",
+        "EngineMupdfUndoRedo",
+        "EngineMupdfRefreshModifiedState"
+      ],
+      "judgment": "R11/E37: partial redaction result and failed-page wrapper reconciliation are required; successful-page tracking can stay",
+      "sha256": "7e46b5024b90fb3ca86cf6792fb43fb890dcaf7c808d798ee5af2c395f9131ad",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/shared/SumatraPDFCommon.cpp",
+      "functions": ["BeginPdfEditOperation", "EndPdfEditOperation", "ApplyRedactionsInTab"],
+      "judgment": "Shared UI must report partial success and preserve changed state",
+      "sha256": "be821795808a620fb23de76bb1213265e31349d60b92dc5659e6f97da35ab709",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/shared/EngineMupdf.h",
+      "functions": ["ScopedEngineOperation"],
+      "judgment": "End groups operations; it is not rollback-on-scope-exit",
+      "sha256": "194032b165dd4f2bec569d0a3263cba82883b1f4260303b2c6e6f2656177d987",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "ext/mupdf/source/pdf/pdf-form.c",
+      "functions": [
+        "set_validated_field_value",
+        "pdf_set_field_value",
+        "toggle_check_box",
+        "pdf_set_text_field_value",
+        "pdf_set_choice_field_value",
+        "pdf_update_page"
+      ],
+      "judgment": "Setter commit and subsequent update operations have different failure boundaries; rejection can retain script changes",
+      "sha256": "1e97e607b4f3b78ca85099dc648eb3cbc52973273e3b7fd4222a0a633705e3a1",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "ext/mupdf/source/pdf/pdf-js.c",
+      "functions": ["field_setValue"],
+      "judgment": "Validation script can mutate another field via PDF field setter",
+      "sha256": "599f2cf87445591bee56bf0b88e65a0df745f64c1f8c5e83a62c3843deef37d4",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "ext/mupdf/source/pdf/pdf-appearance.c",
+      "functions": ["pdf_update_appearance", "pdf_update_annot"],
+      "judgment": "Appearance update has its own abandon boundary and propagating failure classes",
+      "sha256": "64d841f602356ed40fff1c6a4f97f410991e1f9fc68fb94857bab2d1d762dc78",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "ext/mupdf/source/pdf/pdf-clean.c",
+      "functions": [
+        "pdf_apply_redaction_imp",
+        "pdf_redact_page",
+        "pdf_redact_page_annotations",
+        "pdf_redact_page_links"
+      ],
+      "judgment": "One-page abandon is not all-pages rollback; overlapping FreeText may be removed",
+      "sha256": "47312443635a3450e2a42c60e0119dbf3bf6880865dd39fa16bcd07a4a40ffef",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "ext/mupdf/source/pdf/pdf-object.c",
+      "functions": ["pdf_end_operation", "pdf_abandon_operation", "swap_fragments", "pdf_undo", "pdf_redo"],
+      "judgment": "Nested successful steps merge; abandon swaps objects but does not call pdf_sync_open_pages; no journal means no rollback",
+      "sha256": "7bdf0fbf3f9c78267fb272ca889d66a0925da4a15a2277e24005d559d03236ed",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "ext/mupdf/source/pdf/pdf-annot.c",
+      "functions": ["pdf_delete_annot"],
+      "judgment": "Deletion changes loaded annotation membership as well as journaled PDF objects",
+      "sha256": "1d9bf0d9c9afa5e8381d4af243d3e2d8e4121307b0fd3ad6b9996e1552aa8717",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/ng/SumatraPDF.cpp",
+      "functions": ["DeleteControllerAsync", "main shutdown cache deletion", "CmdApplyRedactions handling"],
+      "judgment": "Read shared-API impact; no ng build or feature work",
+      "sha256": "ef8254523ecb06630c6de3c0a183469c79b773834da93b9d833b6e7d4fd5cc66",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/ng/FormFields.cpp",
+      "functions": ["CommitFormFieldEdit"],
+      "judgment": "Shared setter outcome drives repaint here too",
+      "sha256": "2e950be352431ff1c8bc4946fcdba22100dafd6a34621303388fdf7bef4903d7",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/ng/gui/DocCanvas.cpp",
+      "functions": ["ToggleFormButton caller"],
+      "judgment": "Shared button outcome drives repaint here too",
+      "sha256": "29776cee78332d09a58e91c6e28f34706c10f2ad7421ec788ad01a435141e856",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    },
+    {
+      "path": "src/shared/tests/RenderCache_ut.cpp",
+      "functions": ["RenderCache_UnitTestCookieUnlocked"],
+      "judgment": "Checks cookie destructor lock availability, not worker shutdown timeout; not executed",
+      "sha256": "678c161dfea0d57dbb1fc83387a7fb7420d10841da6d7ae1087648526405f742",
+      "coverage": "named paths only; not every branch or whole-file audit"
+    }
+  ],
+  "existingTestCoverage": {
+    "forms": "acceptance, display pixels and saved values on both engines; no rejection-side-effect or post-setter refresh failures",
+    "formJs": "calculated 14 survives save/reopen on both engines; no JS failure/side-effect rejection scenario",
+    "redactionUndo": "applied text, changed pixels, print Clone, search, Undo/Redo and editor-lock avoidance on both engines; final cleanup kills process, not graceful-shutdown validation",
+    "oneStep": "redact only, two marked pages restored in one Undo on each engine; no partial failure and no text fixture; final cleanup kills process",
+    "renderCancel": "default case requires render-start signal and exit 0; pattern variant additionally asserts canceled-or-failed marker and no unhandled-exception text; no timeout/lifetime-failure coverage"
+  },
+  "findings": [
+    {
+      "id": "E32",
+      "kind": "shutdown ownership contract",
+      "decision": "change",
+      "runtimeThisTurn": false,
+      "nextVerification": "cooperative fake-engine completion and explicit stop-result hook; stopped-before-delete, retained dependencies on Pending, current request clearing, UI completion order; ASan during fix"
+    },
+    {
+      "id": "R10/E36",
+      "kind": "code finding",
+      "priority": "P2",
+      "decision": "change",
+      "runtimeThisTurn": false,
+      "nextVerification": "post-commit refresh failure in markup and form types, plus rejected field with another-field JS mutation; actual changes, dirty, Undo, pixels and text caches agree"
+    },
+    {
+      "id": "R11/E37",
+      "kind": "code finding",
+      "priority": "P2",
+      "decision": "change",
+      "runtimeThisTurn": false,
+      "nextVerification": "second/all-page failures, after-annotation-removal failure, failed live enumeration, absent journal; successful-page content, remaining marks, wrappers, dirty, one Undo and partial-result UI agree"
+    }
+  ],
+  "limits": [
+    "No new failure injection, process-memory edits, worker suspension or dialog reentry probes; no interrupted experiment repeated",
+    "Normal test passes do not establish stopped-worker lifetime, rejected-script side effects, partial-edit correctness or failed-page rollback safety",
+    "Earlier evidence and the earlier incomplete ASan-worker experiment remain separate; no new ASan success claim",
+    "SMB/UNC replacement (R5) and controller HANDLE growth (R6) remain fix-stage runtime checks of established code findings",
+    "No all-format replacement guarantee: large image, mmap DjVu, data-backed attachment and PostScript runtime checks not added; existing per-format source contracts retained",
+    "No ng feature work/build, physical acceptance, distribution, DLL registration, crash recovery or exhaustive allocation/codec/device failures"
+  ]
+}
