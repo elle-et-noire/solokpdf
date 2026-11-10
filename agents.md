@@ -44,6 +44,8 @@ After making a change to a .cpp, .c or .h file under `src/` (and before running 
 
 After changing a .ts file under `cmd/` or `tests/`, run `bun cmd/format.ts` — it runs prettier over `cmd/**/*.ts` and `tests/**/*.ts` and then clang-formats the C/C++ sources. Use `bun cmd/format.ts -ts` to run only the prettier pass (no Visual Studio / clang-format needed). Prettier settings live in `.prettierrc.json` (`printWidth` 120, `endOfLine` lf) and `.prettierignore` (vendored code, build output, scratch `tmp/` dirs). For other prettier-owned files (.js / .json / .md) run `bunx prettier --write <files>` on the files you touched.
 
+If Bun or Prettier is not on PATH, check the local setup in `docs/solokpdf/history.md` and ignored `.work/` before reporting it unavailable. Bun may be under `.work/tools/`; Prettier may be run with `node .work/build-deps/node_modules/prettier/bin/prettier.cjs`.
+
 Never commit changes automatically. Always wait for explicit command to commit changes.
 
 When committing a fix for a GitHub issue, end the commit message's **first line** with `(fixes #<issue-no>)`, e.g. `fix crash on committing an empty zoom value (fixes #5909)`. That is the line GitHub shows everywhere, so the link belongs there, not buried in the body.
