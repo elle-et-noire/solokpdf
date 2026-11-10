@@ -185,6 +185,7 @@ bool AutoReloadFileStillChanging(WindowTab* tab);
 void DeleteControllerAsync(DocController* ctrl);
 #if IS_DEBUG
 int TestPendingControllerDeletes();
+void TestShutdownThread(Str action);
 #endif
 void ToggleFullScreen(MainWindow* win, bool presentation = false);
 

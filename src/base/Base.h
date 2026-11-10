@@ -1305,6 +1305,7 @@ struct Semaphore {
     int count = 0;
 
     void Signal(int n = 1);
+    bool TrySignal(int n = 1);
     void Wait();
 };
 

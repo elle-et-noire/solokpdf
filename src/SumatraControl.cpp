@@ -1943,7 +1943,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendError(req, StrL("requires -for-testing"));
                 break;
             }
-            int held = TestRenderHold(StringArg(req, 0));
+            Str action = StringArg(req, 0);
+            if (str::StartsWith(action, StrL("dangerous-"))) {
+                TestShutdownThread(action);
+            }
+            int held = TestRenderHold(action);
             AppendTestResult(req, 0, fmt("held=%d pending=%d", held, TestPendingControllerDeletes()));
 #else
             AppendTestResult(req, 0, StrL("unsupported"));

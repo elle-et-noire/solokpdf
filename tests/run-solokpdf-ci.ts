@@ -73,8 +73,10 @@ import { testit as signRollback } from "./sign-rollback.ts";
 import { testit as formTextCache } from "./form-text-cache.ts";
 import { testit as cbrNetworkUnrar } from "./cbr-network-unrar.ts";
 import { testit as controllerDeleteHandles } from "./controller-delete-handles.ts";
+import { testit as renderCacheShutdown } from "./render-cache-shutdown.ts";
 
 const tests: NamedTest[] = [
+  ["render-cache-shutdown", renderCacheShutdown],
   ["controller-delete-handles", controllerDeleteHandles],
   ["cbr-network-unrar", cbrNetworkUnrar],
   ["form-text-cache", formTextCache],

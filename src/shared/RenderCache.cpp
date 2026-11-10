@@ -52,10 +52,13 @@ int gMaxRenderThreads = 8;
 #if IS_DEBUG && !defined(SUMATRA_NG)
 static AtomicInt gTestRenderHold;
 static AtomicInt gTestHeldRenders;
+constexpr int kTestRenderUntilStop = 2;
 
 int TestRenderHold(Str action) {
     if (str::Eq(action, StrL("hold"))) {
         AtomicIntSet(&gTestRenderHold, 1);
+    } else if (str::Eq(action, StrL("hold-until-stop"))) {
+        AtomicIntSet(&gTestRenderHold, kTestRenderUntilStop);
     } else if (str::Eq(action, StrL("release"))) {
         AtomicIntSet(&gTestRenderHold, 0);
     }
@@ -63,12 +66,15 @@ int TestRenderHold(Str action) {
 }
 
 // Hold a published request so tab close must wait for its renderer.
-static void WaitForTestRenderHold() {
+static void WaitForTestRenderHold(RenderCache* cache) {
     if (!AtomicIntGet(&gTestRenderHold)) {
         return;
     }
     AtomicIntInc(&gTestHeldRenders);
     while (AtomicIntGet(&gTestRenderHold)) {
+        if (AtomicIntGet(&gTestRenderHold) == kTestRenderUntilStop && AtomicBoolGet(&cache->shouldExit)) {
+            break;
+        }
         SleepInMs(10);
     }
     AtomicIntDec(&gTestHeldRenders);
@@ -323,35 +329,60 @@ RenderCache::RenderCache() : maxTileSize(DefaultMaxTileSize()) {
     }
 }
 
-RenderCache::~RenderCache() {
-    // Signal threads to exit FIRST, then wait for them WITHOUT holding the
-    // critical sections. Workers take requestAccess for their idle bookkeeping,
-    // so holding it here would deadlock until the WaitForMultipleObjects
-    // timeout fires -- after which destroying a still-in-use lock would
-    // access-violate.
+// A failed stop retains every handle and dependency so the owner can fast-exit or retry.
+bool RenderCache::Stop(int timeoutMs) {
+    auto start = TimeGet();
     AtomicBoolSet(&shouldExit, true);
 
-    // no render thread ever ran; drop what the pump would have rendered
+    while (!requestAccess.TryLock()) {
+        if (TimeSinceInMs(start) >= timeoutMs) {
+            return false;
+        }
+        SleepInMs(1);
+    }
+    requestCount = 0;
+    for (int i = 0; i < nRenderThreads; i++) {
+        auto* req = curReqs[i];
+        if (req) {
+            req->abort = true;
+            if (req->abortCookie) {
+                req->abortCookie->Abort();
+            }
+        }
+    }
     if (pump) {
         AtomicIntSet(&pump->active, 0);
         ReleasePump(pump);
         pump = nullptr;
         ClearCurrentRequest(0);
         nRenderThreads = 0;
-        ScopedRecursiveMutex scope(&requestAccess);
-        requestCount = 0;
     }
+    requestAccess.Unlock();
 
-    if (nRenderThreads > 0) {
-        // wake all threads waiting on the semaphore
-        startRendering.Signal(nRenderThreads);
-
-        // wait for all threads to finish
-        for (int i = 0; i < nRenderThreads; i++) {
-            if (!JoinThread(&renderThreads[i], 5000)) {
-                logf("RenderCache::~RenderCache: thread %d didn't exit in 5 seconds\n", i);
-            }
+    while (nRenderThreads > 0 && !startRendering.TrySignal(nRenderThreads)) {
+        if (TimeSinceInMs(start) >= timeoutMs) {
+            return false;
         }
+        SleepInMs(1);
+    }
+    for (int i = 0; i < nRenderThreads; i++) {
+        int remaining = std::max(0, timeoutMs - (int)TimeSinceInMs(start));
+        if (renderThreads[i] && !WaitThread(renderThreads[i], remaining)) {
+            return false;
+        }
+    }
+    for (int i = 0; i < nRenderThreads; i++) {
+        if (renderThreads[i]) {
+            JoinThread(&renderThreads[i], -1);
+        }
+    }
+    return true;
+}
+
+RenderCache::~RenderCache() {
+    if (!Stop()) {
+        log(StrL("RenderCache destroyed with live workers\n"));
+        CrashMe();
     }
 
     // Threads are gone; remaining state inspection is single-threaded.
@@ -1110,6 +1141,9 @@ bool RenderCache::Render(DisplayModel* dm, int pageNo, int rotation, float zoom,
     }
 
     ScopedRecursiveMutex scope(&requestAccess);
+    if (AtomicBoolGet(&shouldExit)) {
+        return false;
+    }
     PageRenderRequest* newRequest;
 
     /* add request to the queue */
@@ -1216,7 +1250,7 @@ int RenderCache::GetRenderDelay(DisplayModel* dm, int pageNo, TilePosition tile)
 bool RenderCache::GetNextRequest(PageRenderRequest* req, int threadIdx) {
     ScopedRecursiveMutex scope(&requestAccess);
 
-    if (requestCount <= 0 || requestCount > kMaxPageRequests) {
+    if (AtomicBoolGet(&shouldExit) || requestCount <= 0 || requestCount > kMaxPageRequests) {
         return false;
     }
 
@@ -1494,7 +1528,7 @@ static bool RenderCacheRunOne(RenderCache* cache, int threadIdx, PageRenderReque
     }
 
 #if IS_DEBUG && !defined(SUMATRA_NG)
-    WaitForTestRenderHold();
+    WaitForTestRenderHold(cache);
 #endif
 
     if (!req.dm->PageVisibleNearbyLocked(req.pageNo) && !req.renderFinishedCb.IsValid()) {
@@ -1589,6 +1623,7 @@ static void RenderCacheThread(RenderThreadData* td) {
         }
         RenderCacheRunOne(cache, threadIdx, req);
     }
+    cache->ClearCurrentRequest(threadIdx);
     logf("RenderCacheThread: exiting\n");
     DestroyTempArena();
 }

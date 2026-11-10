@@ -85,7 +85,24 @@ growth allowance is eight handles. The same test destroys the parent frame
 while deletion is pending, then checks completion and graceful exit.
 
 The test runs in the regular and SolokPDF CI sets; Release and ng skip it.
-It does not exercise thread-creation failure or E32's render-cache shutdown timeout.
+It does not exercise thread-creation failure. E32's shutdown checks are below.
+
+### Worker shutdown (E32)
+
+Run `tests/render-cache-shutdown.ts` through the hidden runner with Debug and
+ASan. Both engines cover idle exit, a published request released by stop,
+a request held past the five-second stop budget, dangerous-thread UI completion
+and the ten-second dangerous-thread timeout. The test checks pending-delete
+draining, cleanup versus retained dependencies, exit status and ASan diagnostics.
+Its measured waits place it in the regular slow tests and SolokPDF CI set;
+Release and ng skip the Debug-only injections.
+
+`RenderCache_UnitTestStop` checks request-lock and semaphore-lock contention,
+live-thread timeout, retained HANDLEs and successful retry. Run the Debug/ASan
+unit tests for changes to this boundary. Normal-close regressions use
+`controller-delete-handles`; related checks are `font-cache-shutdown` and
+`theme-render-cancel`. This coverage does not establish bounded shutdown for
+every worker or UI callback, or ng GUI behavior.
 
 ### Network comic cache (E30)
 

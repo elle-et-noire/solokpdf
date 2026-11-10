@@ -21,6 +21,7 @@ constexpr int kMaxBitmapsCached = 256;
 // (chained), so they don't flood the render queue
 constexpr int kMaxPredictiveRequests = 4;
 constexpr int kRenderCacheAllPages = -1;
+constexpr int kRenderStopTimeoutMs = 5000;
 
 struct PageInfo;
 struct Pixmap;
@@ -208,6 +209,7 @@ struct RenderCache {
     RenderCache(RenderCache const&) = delete;
     RenderCache& operator=(RenderCache const&) = delete;
     ~RenderCache();
+    bool Stop(int timeoutMs = kRenderStopTimeoutMs);
 
     bool SetViewColors(const ViewPageOptions& options);
     void InvalidateColors();

@@ -398,6 +398,8 @@ GUI はケースごとに制限時間を設け、期待されるエラーダイ�
 
 ### E32 の終了契約
 
+2026-11-10 に実装・回帰試験を完了した。[結果と検証範囲](history.md#e32-worker-shutdown-2026-11-10)。以下は修正前の比較・選定記録。
+
 `DeleteControllerAsync` → `Retire` / `AbortRendering` → `CancelRenderingBlocking` → `DeleteControllerFinish` と、
 `RenderCacheThread` / `ClearCurrentRequest` → `WaitThread` / `JoinThread`、WinMain の終了順を再確認した。
 `DisplayModel` の通常破棄は `ControllerCallbackHandler::CleanUp` を介して描画終了を待つ。

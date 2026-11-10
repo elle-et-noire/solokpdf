@@ -47,6 +47,7 @@ import { testit as issue5972 } from "./issue-5972.ts";
 import { testit as annotFilterToolbar } from "./annot-filter-toolbar.ts";
 import { testit as dviOpen } from "./dvi-open.ts";
 import { testit as fontCacheShutdown } from "./font-cache-shutdown.ts";
+import { testit as renderCacheShutdown } from "./render-cache-shutdown.ts";
 import { testit as smartScrollbarsAutohide } from "./smart-scrollbars-autohide.ts";
 import { testit as pasteImageAnnot } from "./ad-hoc-paste-image-annot.ts";
 import { testit as pngOptimize } from "./ad-hoc-png-optimize.ts";
@@ -80,6 +81,7 @@ export const notInPreReleaseTests: NamedTest[] = [
 ];
 
 export const slowTests: NamedTest[] = [
+  ["render-cache-shutdown", renderCacheShutdown],
   ["missing-source-unsaved", missingSourceUnsaved],
   ["auto-reload-unsaved", autoReloadUnsaved],
   ["ad-hoc-startup-diagnostics", startupDiagnostics],

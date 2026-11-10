@@ -26,7 +26,8 @@ E28 rolls back failed signature preparation; [results](history.md#e28-signature-
 E29 refreshes form text, search and selection after edits and Undo/Redo; [results](history.md#e29-form-text-cache-2026-11-10).
 E30 versions network comic caches and publishes complete copies; [results](history.md#e30-network-comic-cache-2026-11-10).
 E31 closes asynchronous controller-delete thread handles; [results](history.md#e31-controller-delete-handles-2026-11-10).
-[backlog.md](backlog.md) records E32–E37's fixes and regression checks,
+E32 retains worker dependencies when shutdown cannot finish; [results](history.md#e32-worker-shutdown-2026-11-10).
+[backlog.md](backlog.md) records E33–E37's fixes and regression checks,
 deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache
@@ -75,7 +76,7 @@ Earlier suites, local checks and refactor validation remain in
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- Continue with E34, E37 and E32 using the [review priorities](full-review-results.md#e25-再点検).
+- Continue with E34 and E37 using the [review priorities](full-review-results.md#e25-再点検).
   Keep fixes separate from review documentation and add missing regression coverage before changing product code.
 - For design work, read the [current architecture](architecture.md) and
   [structure and code review plan](full-review-plan.md). The [earlier plan](refactoring-plan.md) is complete.

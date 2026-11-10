@@ -1,0 +1,134 @@
+{
+  "item": "E32",
+  "date": "2026-11-10",
+  "base": "3fa812406361a06389e6ebde07ba8f2e5798470e",
+  "status": "complete within recorded validation scope",
+  "contract": [
+    "Stop admission, cancel work and confirm all render workers before shared cleanup",
+    "Use one 5000 ms render-stop budget including request and semaphore lock contention",
+    "Keep handles and dependencies when stop fails; retry remains possible",
+    "Clear published requests before worker exit",
+    "Drain UI completions; fast exit on dangerous-thread or pending-delete timeout",
+    "Keep normal tab-close waits and normal Release fast exit"
+  ],
+  "environment": {
+    "os": "Microsoft Windows NT 10.0.26300.0",
+    "localBuilds": ["Debug", "Debug ASan"],
+    "gui": "hidden desktops outside sandbox",
+    "asanOptions": "windows_hook_legacy_allocators=0:suppressions=\"C:\\work\\solokpdf\\asan.supp\"",
+    "pdfium": "pinned DLL is not ASan-instrumented"
+  },
+  "baselineRegression": {
+    "test": "tests/render-cache-shutdown.ts",
+    "command": "bun tools/solokpdf/run-hidden.ts -- bun tests/render-cache-shutdown.ts --no-build",
+    "result": "failed after 12.6s: mupdf: shutdown hung with a live renderer",
+    "note": "Observed before any product change; first failing engine stopped the test"
+  },
+  "commands": [
+    ". ./tools/solokpdf/env.ps1",
+    "bun cmd/format.ts -ts",
+    "clang-format -i <changed src C/C++ files>",
+    "bun cmd/ng-format.ts src/ng/SumatraPDF.cpp src/ng/tests/Sumatra_ut.cpp",
+    "bun cmd/solok-build.ts -quick",
+    "bun cmd/solok-build.ts -asan",
+    "SUMATRA_SLN=vs2026/SumatraPDF.slnx bun tools/solokpdf/run-hidden.ts -- bun cmd/run-unit-tests.ts -dbg",
+    "SUMATRA_SLN=vs2026/SumatraPDF.slnx bun tools/solokpdf/run-hidden.ts -- bun cmd/run-unit-tests.ts -asan",
+    "bun tools/solokpdf/run-hidden.ts -- bun tests/render-cache-shutdown.ts --no-build",
+    "bun tools/solokpdf/run-hidden.ts -- bun tests/controller-delete-handles.ts --no-build",
+    "bun tools/solokpdf/run-hidden.ts -- bun tests/font-cache-shutdown.ts --no-build",
+    "bun tools/solokpdf/run-hidden.ts -- bun tests/theme-render-cancel.ts --no-build",
+    "bun cmd/ng-build.ts -dbg",
+    "bun cmd/ng-build.ts -dbg test_util",
+    "bun tools/solokpdf/run-hidden.ts -- out/win/dbg/test_util.exe -for-ai",
+    "bun tests/lint-control-ids.ts --no-build"
+  ],
+  "results": {
+    "debugBuild": "passed; 0 warnings/errors",
+    "asanBuild": "passed; 0 warnings/errors",
+    "shutdown": [
+      {
+        "build": "Debug",
+        "runs": 2,
+        "seconds": [57.8, 77.3],
+        "result": "all 10 scenarios passed",
+        "logs": ["out/e32-debug-test-1.log", "out/e32-debug-test-2.log"],
+        "note": "Second run uses the final executable; the first precedes constant naming and extra unit assertions"
+      },
+      {
+        "build": "ASan",
+        "runs": 2,
+        "seconds": [43.5, 52.3],
+        "result": "all 10 scenarios passed; no ASan diagnostic",
+        "logs": ["out/e32-asan-test-1.log", "out/e32-asan-test-2.log"]
+      }
+    ],
+    "scenarios": [
+      "MuPDF and PDFium: idle cleanup",
+      "MuPDF and PDFium: held render releases on stop, clears request and drains pending delete",
+      "MuPDF and PDFium: held render times out and retains dependencies for fast exit",
+      "MuPDF and PDFium: dangerous worker remains pending; fast exit after timeout",
+      "MuPDF and PDFium: dangerous worker posts UI completion; drain and normal cleanup"
+    ],
+    "debugUnits": "passed all 105127 checks; out/dbg64/unit-tests-dbg.txt",
+    "asanUnits": "passed all 105116 checks; out/dbg64_asan/unit-tests-asan.txt",
+    "stopUnit": "request-lock, semaphore-lock and live-worker timeouts; keep handles; retry and repeated stop pass",
+    "related": [
+      "controller-delete-handles: Debug and ASan passed; zero handle growth on both engines",
+      "font-cache-shutdown: Debug and ASan passed",
+      "theme-render-cancel: Debug and ASan passed"
+    ],
+    "ngBuild": "Windows Debug app and test_util compiled",
+    "ngUnits": "Final source: three runs failed only AppSettings_ut.cpp:42 serialized/expect and :50 out/expectLoaded; all runs exit 2",
+    "ngBaseline": "Clean HEAD after stashing all E32 changes: same two failures in three runs, all exit 2; stash then restored",
+    "lint": "control command IDs agree"
+  },
+  "hashes": [
+    {
+      "path": "out/dbg64/SumatraPDF.exe",
+      "sha256": "db4eb2057c572008532ce7fcbd45f4e93e2cdb0ee25f31bbfa7d74b0be803f55"
+    },
+    {
+      "path": "out/dbg64_asan/SumatraPDF-static.exe",
+      "sha256": "9dd747ee1ea4bac7968238792a7de239e397de3d63c2120da4e34f0a027812c3"
+    },
+    {
+      "path": "out/win/dbg/SumatraPDF.exe",
+      "sha256": "9f37d11de231d08d96e7a1828db3f4246e3bec9908c2eb87280b993d9ca770bb"
+    },
+    {
+      "path": "out/win/dbg/test_util.exe",
+      "sha256": "8c61711681adadf4f02f7509f94efbb450d2787e49fc2df20a8c3cf5df41d39b"
+    }
+  ],
+  "logs": [
+    "out/e32-debug-build.log",
+    "out/e32-asan-build.log",
+    "out/e32-debug-units.log",
+    "out/e32-asan-units.log",
+    "out/e32-debug-controller.log",
+    "out/e32-asan-controller.log",
+    "out/e32-debug-font.log",
+    "out/e32-asan-font.log",
+    "out/e32-debug-cancel.log",
+    "out/e32-asan-cancel.log",
+    "out/e32-ng-debug-build.log",
+    "out/e32-ng-final-unit-build.log",
+    "out/e32-ng-baseline-build.log",
+    "out/e32-ng-baseline-1.log",
+    "out/e32-ng-baseline-2.log",
+    "out/e32-ng-baseline-3.log",
+    "out/e32-ng-final-1.log",
+    "out/e32-ng-final-2.log",
+    "out/e32-ng-final-3.log",
+    "out/e32-debug-logs/",
+    "out/e32-asan-logs/"
+  ],
+  "limits": [
+    "No local Release build or full app suite",
+    "No ng GUI or non-Windows execution",
+    "Unrelated ng settings serialization failures remain",
+    "No guarantee that every UI callback or non-render worker terminates within a bound",
+    "No thread-creation failure injection; normal tab-close waits unchanged",
+    "The first ng runner invocation with nested -- failed at CreateProcessW; subsequent separate build and hidden-executable commands ran successfully"
+  ]
+}

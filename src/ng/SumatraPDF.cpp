@@ -7574,13 +7574,6 @@ int GpuiMain(int argc, char** argv) {
     StopUiHangDetector();
     SavePerfLog();
     UnregisterSettingsForFileChanges();
-    ShutdownWin11Printing();
-    TtsRelease();
-    ClearPendingNextPrevNav();
-#if OS_WIN
-    DisconnectLastDragDataObject();
-    NativeCursorsDelete();
-#endif
 
     // the window is off the screen but its model is still here, and the shell
     // cached its geometry on every frame, so the session snapshot SaveSettings
@@ -7589,6 +7582,21 @@ int GpuiMain(int argc, char** argv) {
         ScheduleSaveSettings();
         FlushScheduledSaveSettings();
     }
+    if (gRenderCache && !gRenderCache->Stop()) {
+        log(StrL("render workers did not stop; retaining shared resources\n"));
+#if OS_WIN
+        ::ExitProcess(res);
+#else
+        std::_Exit(res);
+#endif
+    }
+    ShutdownWin11Printing();
+    TtsRelease();
+    ClearPendingNextPrevNav();
+#if OS_WIN
+    DisconnectLastDragDataObject();
+    NativeCursorsDelete();
+#endif
     // a window leaves the list before it is deleted: the destructor of the
     // next one walks gWindows (ReadAloudForgetTab for each of its tabs)
     while (len(gWindows) > 0) {

@@ -63,6 +63,7 @@ void CachedObjects_UnitTests();
 void CommandPaletteModel_UnitTests();
 void ImageReader_UnitTests();
 bool RenderCache_UnitTestCookieUnlocked();
+bool RenderCache_UnitTestStop();
 bool RenderCache_UnitTestFullOfOneVisiblePage();
 bool RenderCache_UnitTestFullOfOldZoom();
 
@@ -402,6 +403,7 @@ void SumatraPDF_UnitTests() {
     CommandPaletteModel_UnitTests();
     ImageReader_UnitTests();
     utassert(RenderCache_UnitTestCookieUnlocked());
+    utassert(RenderCache_UnitTestStop());
     utassert(RenderCache_UnitTestFullOfOneVisiblePage());
     utassert(RenderCache_UnitTestFullOfOldZoom());
 #if OS_POSIX && !OS_WASM

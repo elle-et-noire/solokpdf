@@ -4,6 +4,14 @@ Current behavior of PDFium tabs by area, compared with MuPDF. Open items are in
 [backlog.md](backlog.md); landed items (the B/D/E IDs below) and measurements
 are in [history.md](history.md).
 
+## Shutdown
+
+Cleanup waits for render workers to stop before freeing their dependencies.
+If the five-second stop budget expires, or dangerous threads remain after ten
+seconds, the app retains shared resources and exits through the OS (E32).
+Debug/ASan normally perform cleanup; Release normally exits through the OS.
+This does not bound every shutdown callback or ordinary tab-close wait.
+
 ## Settings
 
 - Settings and Advanced Settings open one screen on either engine. Ctrl+, opens

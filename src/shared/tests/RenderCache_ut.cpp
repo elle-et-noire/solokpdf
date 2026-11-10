@@ -4,6 +4,7 @@
 #include "base/Base.h"
 #include "base/GuessFileType.h"
 #include "base/Pixmap.h"
+#include "base/Timer.h"
 
 #include "gui/UIModels.h"
 #include "Settings.h"
@@ -57,6 +58,83 @@ bool RenderCache_UnitTestCookieUnlocked() {
 
     cache.ClearCurrentRequest(0);
     return available;
+}
+
+enum class StopLock {
+    Request,
+    Wake,
+    None
+};
+
+struct StopProbe {
+    RenderCache* cache;
+    StopLock lock;
+    AtomicBool ready = false;
+    AtomicBool release = false;
+};
+
+static void HoldStopLock(StopProbe* probe) {
+    auto* cache = probe->cache;
+    if (probe->lock == StopLock::Request) {
+        cache->requestAccess.Lock();
+    } else if (probe->lock == StopLock::Wake) {
+        cache->startRendering.mutex.Lock();
+    }
+    AtomicBoolSet(&probe->ready, true);
+    while (!AtomicBoolGet(&probe->release)) {
+        SleepInMs(1);
+    }
+    if (probe->lock == StopLock::Request) {
+        cache->requestAccess.Unlock();
+    } else if (probe->lock == StopLock::Wake) {
+        cache->startRendering.mutex.Unlock();
+    }
+}
+
+bool RenderCache_UnitTestStop() {
+    if (!kHasThreads) {
+        return true;
+    }
+    bool ok = true;
+    const StopLock locks[] = {StopLock::Request, StopLock::Wake, StopLock::None};
+    for (StopLock lock : locks) {
+        RenderCache cache;
+        StopProbe probe{&cache, lock};
+        ThreadHandle thread = StartThread(MkFunc0(HoldStopLock, &probe), StrL("stop-lock-test"));
+        if (!thread) {
+            return false;
+        }
+        cache.renderThreads[0] = thread;
+        cache.nRenderThreads = 1;
+        StopProbe finished{&cache, StopLock::None};
+        if (lock == StopLock::None) {
+            AtomicBoolSet(&finished.release, true);
+            cache.renderThreads[1] = StartThread(MkFunc0(HoldStopLock, &finished), StrL("stop-finished-test"));
+            if (cache.renderThreads[1]) {
+                cache.nRenderThreads++;
+                ok = ok && WaitThread(cache.renderThreads[1], 1000);
+            } else {
+                ok = false;
+            }
+        }
+        while (!AtomicBoolGet(&probe.ready)) {
+            SleepInMs(1);
+        }
+
+        auto start = TimeGet();
+        bool stopped = cache.Stop(20);
+        ok = ok && !stopped && TimeSinceInMs(start) < 1000;
+        ok = ok && cache.renderThreads[0] == thread && !WaitThread(thread, 0);
+        if (lock == StopLock::None) {
+            ok = ok && cache.renderThreads[1] != nullptr;
+        }
+        AtomicBoolSet(&probe.release, true);
+        bool retried = cache.Stop();
+        ok = ok && retried && cache.renderThreads[0] == nullptr && cache.requestCount == 0;
+
+        ok = ok && cache.Stop(0);
+    }
+    return ok;
 }
 
 namespace {

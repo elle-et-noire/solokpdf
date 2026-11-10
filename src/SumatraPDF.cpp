@@ -1130,6 +1130,38 @@ static AtomicInt gPendingControllerDeletes;
 int TestPendingControllerDeletes() {
     return AtomicIntGet(&gPendingControllerDeletes);
 }
+
+static AtomicInt gTestDangerousHold;
+constexpr int kTestDangerousUntilStop = 2;
+
+static void FinishTestDangerousThread() {
+    AtomicIntDec(&gDangerousThreadCount);
+    log(StrL("test dangerous thread finished on UI\n"));
+}
+
+static void TestDangerousThread() {
+    while (AtomicIntGet(&gTestDangerousHold)) {
+        if (AtomicIntGet(&gTestDangerousHold) == kTestDangerousUntilStop && AtomicBoolGet(&gRenderCache->shouldExit)) {
+            break;
+        }
+        SleepInMs(10);
+    }
+    uitask::Post(MkFunc0Void(FinishTestDangerousThread), "TestDangerousThread");
+}
+
+void TestShutdownThread(Str action) {
+    if (str::Eq(action, StrL("dangerous-release"))) {
+        AtomicIntSet(&gTestDangerousHold, 0);
+        return;
+    }
+    AtomicIntSet(&gTestDangerousHold, str::Eq(action, StrL("dangerous-drain")) ? kTestDangerousUntilStop : 1);
+    AtomicIntInc(&gDangerousThreadCount);
+    ThreadHandle thread = StartThread(MkFunc0Void(TestDangerousThread), StrL("shutdown-test"));
+    if (!thread) {
+        AtomicIntDec(&gDangerousThreadCount);
+    }
+    SafeCloseThreadHandle(&thread);
+}
 #endif
 
 static void DeleteControllerFinish(DocController* ctrl) {
@@ -1184,12 +1216,17 @@ void DeleteControllerAsync(DocController* ctrl) {
 
 // Called during shutdown, before the render cache goes away: the scratch threads
 // use gRenderCache and their deletes are queued as ui tasks.
-static void WaitForPendingControllerDeletes() {
+static bool WaitForPendingControllerDeletes() {
+    auto start = TimeGet();
     while (AtomicIntGet(&gPendingControllerDeletes) > 0) {
+        if (TimeSinceInMs(start) >= kRenderStopTimeoutMs) {
+            return false;
+        }
         uitask::DrainQueue();
         Sleep(10);
     }
     uitask::DrainQueue();
+    return true;
 }
 
 void ControllerCallbackHandler::FocusFrame(bool always) {
@@ -16082,6 +16119,8 @@ static bool fastExit = false;
 static bool fastExit = true;
 #endif
 
+constexpr int kDangerousStopTimeoutMs = 10000;
+
 static void stdNewHandler() {
     // do nothing
     // this suppresses throw std::bad_alloc done by default hanlder
@@ -17844,7 +17883,6 @@ ContinueOpenWindow:
     exitCode = RunMessageLoop();
     StopUiHangDetector();
     SafeCloseHandle(&hMutex);
-    CleanUpThumbnailCache();
 
 Exit:
     SavePerfLog();
@@ -17867,8 +17905,13 @@ Exit:
         LaunchFileIfExists(logFilePath);
     }
     str::FreePtr(&logFilePath);
-    if (AreDangerousThreadsPending()) {
-        if (gIsDebugBuild) {
+    FlushScheduledSaveSettings();
+    if (!fastExit && gRenderCache && !gRenderCache->Stop()) {
+        log(StrL("render workers did not stop; retaining shared resources\n"));
+        fastExit = true;
+    }
+    if (!fastExit && AreDangerousThreadsPending()) {
+        if (gIsDebugBuild || gIsAsanBuild) {
             // in debug builds wait for the threads instead of fast-exiting so
             // that full cleanup runs and leak trackers only report real leaks.
             // Heading-TOC / annot-load workers decrement the counter from a
@@ -17878,8 +17921,9 @@ Exit:
             TimeStamp waitStart = TimeGet();
             while (AreDangerousThreadsPending()) {
                 uitask::DrainQueue();
-                if (TimeSinceInMs(waitStart) > 10000) {
+                if (TimeSinceInMs(waitStart) > kDangerousStopTimeoutMs) {
                     log(StrL("timed out waiting for dangerous threads\n"));
+                    fastExit = true;
                     break;
                 }
                 ::Sleep(50);
@@ -17888,10 +17932,6 @@ Exit:
             fastExit = true;
         }
     }
-    // Deferred ScheduleSaveSettings posts may still be in the queue, and a
-    // fast ExitProcess never drains it. Flush while windows (and FileHistory)
-    // are still alive. No-op if OnMenuExit already saved (gDontSaveSettings).
-    FlushScheduledSaveSettings();
     if (fastExit) {
         // leave all the remaining clean-up to the OS
         // (as recommended for a quick exit)
@@ -17900,6 +17940,7 @@ Exit:
         log(StrL("fast exit: skipping cleanup, leak reports are expected\n"));
         ::ExitProcess(exitCode);
     }
+    CleanUpThumbnailCache();
 
     if (gInitialSessionData) {
         FreeSessionDataVec(gInitialSessionData);
@@ -17909,6 +17950,10 @@ Exit:
     FreeExternalViewers();
     while (len(gWindows) > 0) {
         DeleteMainWindow(gWindows[0]);
+    }
+    if (!WaitForPendingControllerDeletes()) {
+        log(StrL("controller deletes did not finish; retaining shared resources\n"));
+        ::ExitProcess(exitCode);
     }
     WebViewShutdown();
     TempStr webViewDataDir = GetWebViewDataDirTemp();
@@ -17936,10 +17981,6 @@ Exit:
         uitask::DrainQueue();
     }
 #endif
-
-    // must run before uitask::Destroy() (these deletes are queued as ui tasks)
-    // and before gRenderCache goes away (the waiting threads use it)
-    WaitForPendingControllerDeletes();
 
     // FreeType faces alias the system-font cache until the engine is destroyed.
     if (EngineMupdfCount() > 0) {
@@ -17989,6 +18030,7 @@ Exit:
     }
     DeleteAppTools();
     DestroyPerfLog();
+    log(StrL("shutdown: shared cleanup complete\n"));
     DestroyLogging();
     DestroyTempArena();
     DestroyPermArena();

@@ -586,6 +586,18 @@ void Semaphore::Signal(int n) {
     }
 }
 
+bool Semaphore::TrySignal(int n) {
+    if (!mutex.TryLock()) {
+        return false;
+    }
+    count += n;
+    for (int i = 0; i < n; i++) {
+        cond.Wake();
+    }
+    mutex.Unlock();
+    return true;
+}
+
 void Semaphore::Wait() {
     ScopedMutex lock(&mutex);
     while (count <= 0) {

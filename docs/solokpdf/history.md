@@ -2966,6 +2966,39 @@ Thread-creation failure was reviewed but not injected. No Release build, ng GUI
 check or full suite was run. Commands, executable hashes and counts are in
 [the evidence record](data/e31-2026-11-10.json).
 
+## E32 worker shutdown (2026-11-10)
+
+Completed E32 on `3fa812406` plus these changes. `RenderCache::Stop` closes
+admission, drops queued work, aborts published requests and waits for all
+workers within one five-second budget, including request/semaphore lock
+contention. Failed stops retain thread handles for retry or process exit.
+Workers clear published requests before their stack disappears.
+
+Win32 stops the cache before waiting for controller deletes or freeing shared
+resources. Dangerous threads still drain UI completions; a ten-second timeout
+now forces fast exit. Pending controller deletion has a five-second wait and
+drains UI tasks before shared cleanup. Timeout paths retain dependencies;
+normal tab-close waits and Release fast exit remain. Ng stops the shared cache
+before synchronous model destruction and exits without cleanup on failure.
+
+Before the fix, the new regression held a published MuPDF request and shutdown
+still had not returned after twelve seconds. The final test covers both
+engines with idle exit, stop-triggered release, an unresponsive renderer,
+dangerous-thread completion on the UI thread and dangerous-thread timeout.
+It checks cleanup decisions and graceful exit, including pending deletes.
+Debug and ASan each passed twice. Request-lock/semaphore-lock contention,
+retained HANDLEs and stop retry also passed in Debug/ASan unit tests.
+
+`controller-delete-handles`, `font-cache-shutdown` and `theme-render-cancel`
+passed in both builds. All controller-close handle samples had zero growth.
+Debug/ASan builds had zero warnings/errors; control-ID lint passed. The Windows
+ng Debug app and unit target compiled. Ng unit tests reported only the two
+`AppSettings_ut.cpp` serialization failures at lines 42 and 50; the clean
+baseline reproduced both in three runs. Those failures remain outside E32.
+No Release build, full app suite, ng GUI or non-Windows run was performed.
+These checks do not guarantee bounded execution of every shutdown callback.
+Commands, hashes and results are in [the evidence record](data/e32-2026-11-10.json).
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3131,6 +3164,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E29 | Invalidate form text/search after edits (R4, P2)                                                                                                                                                                                                                                            | done — Refresh form text and search caches (E29); [results](#e29-form-text-cache-2026-11-10)                                                                                                                                            |
 | E30 | Validate network CBX cache freshness (R5, P2)                                                                                                                                                                                                                                               | done — Version network comic caches (E30); [results](#e30-network-comic-cache-2026-11-10)                                                                                                                                               |
 | E31 | Close the asynchronous controller-delete thread handle (R6, P2)                                                                                                                                                                                                                             | done — Close controller deletion thread handles (E31); [results](#e31-controller-delete-handles-2026-11-10)                                                                                                                             |
+| E32 | Guarantee worker lifetime when render-cache shutdown times out (P1)                                                                                                                                                                                                                         | done — Preserve worker lifetimes during shutdown (E32); [results](#e32-worker-shutdown-2026-11-10)                                                                                                                                      |
 
 ### F. Manual acceptance
 
