@@ -1,11 +1,12 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-10. E23–E25 are planned (`todo`); the structure and code review has not started.
+Work scope as of 2026-11-10. E23 is complete; E24 is in progress and E25 remains provisional.
+E26–E33 record initial findings and additional validation, not completion of the review.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D14, E26, F4).
+group (B76, C2, D14, E34, F4).
 
 ## Implementation and acceptance
 
@@ -18,7 +19,8 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Start with E23's operation-to-implementation mapping in the [review plan](full-review-plan.md).
+Continue E24's [remaining investigation](full-review-results.md#e24-の継続調査).
+E26/E27's unsaved-edit loss has the highest fix priority among the initial findings.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
 explicitly requested.
@@ -34,11 +36,22 @@ Assess correctness, maintainability and performance using the
 paths guide investigation without limiting its scope. Record the code actually
 read; check build and test infrastructure where the investigation or a change requires them.
 
-| ID  | Item                                                             | Status |
-| --- | ---------------------------------------------------------------- | ------ |
-| E23 | Map operation entry points to implementations and existing tests | todo   |
-| E24 | Review structure and code against the evaluation criteria        | todo   |
-| E25 | Prioritize findings and record remaining work and coverage       | todo   |
+| ID  | Item                                                                | Status                                                                                                           |
+| --- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| E24 | Review structure and code against the evaluation criteria           | doing — initial path inspection only; deepen failure, cancellation, reentry and non-PDF paths, including E32/E33 |
+| E25 | Prioritize findings and record remaining work and coverage          | todo — initial findings recorded; finalize after E24                                                             |
+| E26 | Preserve unsaved edits during automatic reload (R1, P1)             | todo — both engines reproduced; gate replacement at ReloadDocument                                               |
+| E27 | Keep the save prompt after the source path disappears (R2, P1)      | todo — both engines reproduced; offer safe new-file save and Cancel                                              |
+| E28 | Roll back failed signature preparation (R3, P2)                     | todo — both engines reproduced; validate inputs before mutation and abandon failed changes                       |
+| E29 | Invalidate form text/search after edits (R4, P2)                    | todo — both engines reproduced; invalidate editor and display-engine caches, including JS effects                |
+| E30 | Validate network CBX cache freshness (R5, P2)                       | todo — code finding; add write time to reuse conditions and test same-size replacement                           |
+| E31 | Close the asynchronous controller-delete thread handle (R6, P2)     | todo — code finding; retain/close HANDLE, compare repeated closes and check ASan                                 |
+| E32 | Verify render-cache teardown after a worker join timeout            | todo — normal-close tests do not reach it; inject a stalled worker before changing destruction                   |
+| E33 | Distinguish failed page text extraction from a completed empty page | todo — no user-visible failure reproduced; inject a failed read and decide retry/result contract                 |
+
+E23's mapping and E24's initial inspection are in [history.md](history.md#e23e25-structure-and-code-review-2026-11-10).
+Each remaining item's evidence, impact and next check are in [full-review-results.md](full-review-results.md).
+Fixes remain separate from this review's documentation; write failing regression tests before changing product code.
 
 ## Deferred
 

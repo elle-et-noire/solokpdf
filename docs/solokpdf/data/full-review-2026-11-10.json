@@ -1,0 +1,233 @@
+{
+  "date": "2026-11-10",
+  "revision": "7c67b529fef38a124aab7ec2de751d368024338a",
+  "planBaseline": "32d95cef7",
+  "sourceDiff": "none under src/, cmd/, tests/ between baseline and reviewed HEAD; no product code changes during review",
+  "configuration": "Debug x64, SOLOKPDF_PDFIUM; VS 2026 v145; Bun 1.4.4; Windows 10.0.26300",
+  "desktop": "hidden desktop through tools/solokpdf/run-hidden.ts, outside sandbox; -for-testing and isolated -appdata",
+  "build": {
+    "initialAttempt": "sandbox FileTracker access denied; rerun outside sandbox passed",
+    "warnings": 0,
+    "result": "pass",
+    "log": "out/full-review-build.log",
+    "errors": 0,
+    "command": "bun cmd/solok-build.ts -quick"
+  },
+  "binaries": [
+    {
+      "path": "out/dbg64/SumatraPDF.exe",
+      "sha256": "33f7768639edd06e0141cfeb1a387801fab218c73e262a96bfc7236b144eefde"
+    },
+    {
+      "path": "out/dbg64/libsumatrapdf.dll",
+      "sha256": "df9188611490dbdcb7c1792cfe22446804083c279a27f1ea19fa6bf496123c87"
+    },
+    {
+      "path": "out/dbg64/pdfium.dll",
+      "sha256": "a318c39c137482dc4687c2973b7ec1c27fc1c20253cf2dc31928f922eab89e8f"
+    }
+  ],
+  "existingTests": [
+    {
+      "result": "pass",
+      "name": "ad-hoc-b69-hidden-desktop",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "ad-hoc-pdfium-try-reads",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "ad-hoc-pdfium-source-lifetime",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "ad-hoc-pdfium-redaction-undo",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "theme-render-cancel",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "keyboard-input-targets",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "sidebar-thumbnails-close",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "ad-hoc-pdfium-permissions",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "ad-hoc-pdfium-form-js",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "ad-hoc-pdfium-document-js",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "ad-hoc-pdfium-signing",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "theme-annotation-failure",
+      "skipped": false
+    },
+    {
+      "result": "pass",
+      "name": "theme-pdfium-cache",
+      "skipped": false
+    }
+  ],
+  "existingTestLogs": [
+    "START ad-hoc-b69-hidden-desktop 2026-11-10T07:33:54.582Z\r\nPASS: visible probe window belongs to hidden desktop SolokPDFTests-35824-mwadj4yb\r\nPASS ad-hoc-b69-hidden-desktop\r\nSTART ad-hoc-pdfium-try-reads 2026-11-10T07:33:54.770Z\r\nad-hoc-pdfium-try-reads: OK (links 1,1,0, form text chars=23 text=HELLO WORLD\r\nFIELDVALUE\r\n)\r\nPASS ad-hoc-pdfium-try-reads\r\nSTART ad-hoc-pdfium-source-lifetime 2026-11-10T07:34:04.363Z\r\nsmall rename: clone, editor and source copy retained the open document\r\nsmall replace: clone, editor and source copy retained the open document\r\nsmall delete: clone, editor and source copy retained the open document\r\nbig rename: clone, editor and source copy retained the open document\r\nbig replace: clone, editor and source copy retained the open document\r\nbig delete: clone, editor and source copy retained the open document\r\nPASS ad-hoc-pdfium-source-lifetime\r\nSTART ad-hoc-pdfium-redaction-undo 2026-11-10T07:34:20.302Z\r\nad-hoc-pdfium-redaction-undo pdfium: OK (dark pixels 3387 -> 15348)\r\nad-hoc-pdfium-redaction-undo mupdf: OK (dark pixels 3578 -> 15348)\r\nPASS ad-hoc-pdfium-redaction-undo\r\nSTART theme-render-cancel 2026-11-10T07:34:25.694Z\r\nPASS theme-render-cancel\r\nSTART keyboard-input-targets 2026-11-10T07:34:26.644Z\r\nkeyboard-input-targets: special modes, toolbar, both find UIs, history and menu keys passed\r\nPASS keyboard-input-targets\r\nSTART sidebar-thumbnails-close 2026-11-10T07:34:41.135Z\r\nsidebar-thumbnails-close: OK\r\nPASS sidebar-thumbnails-close\r\n",
+    "START ad-hoc-pdfium-permissions 2026-11-10T07:40:41.969Z\r\nPASS ad-hoc-pdfium-permissions\r\nSTART ad-hoc-pdfium-form-js 2026-11-10T07:40:49.709Z\r\nmupdf: calculated 14 and saved\r\npdfium: calculated 14 and saved\r\nPASS ad-hoc-pdfium-form-js\r\nSTART ad-hoc-pdfium-document-js 2026-11-10T07:40:52.637Z\r\nmupdf: document script initialized and drew the field; DisableJavaScript stopped it\r\npdfium: document script initialized and drew the field; DisableJavaScript stopped it\r\nPASS ad-hoc-pdfium-document-js\r\nSTART ad-hoc-pdfium-signing 2026-11-10T07:40:57.891Z\r\nmupdf certify=0: signed and reopened\r\nmupdf certify=1: signed and reopened\r\npdfium certify=0: signed and reopened\r\npdfium certify=1: signed and reopened\r\nPASS ad-hoc-pdfium-signing\r\nSTART theme-annotation-failure 2026-11-10T07:41:04.213Z\r\nPASS theme-annotation-failure\r\nSTART theme-pdfium-cache 2026-11-10T07:41:06.026Z\r\nPASS theme-pdfium-cache\r\n"
+  ],
+  "observations": {
+    "expectedBehaviorMet": false,
+    "formCacheAndClose": [
+      {
+        "engine": "pdfium",
+        "action": "keep",
+        "before": [0, "chars=8 text=OLDWORD\n"],
+        "set": [0, "OK before='OLDWORD' after='NEWWORD' viewBefore=683 viewAfter=754 printBefore=683 printAfter=754"],
+        "after": [0, "chars=8 text=OLDWORD\n"],
+        "search": [0, "engine=enginePdfium pages=1 found=0 text=OLDWORD\n toc= tocPage=0 link="],
+        "dirty": ["undo canUndo=1 canRedo=0 modified=1"],
+        "dialog": true,
+        "exit": null
+      },
+      {
+        "engine": "pdfium",
+        "action": "rename",
+        "before": [0, "chars=8 text=OLDWORD\n"],
+        "set": [0, "OK before='OLDWORD' after='NEWWORD' viewBefore=683 viewAfter=754 printBefore=683 printAfter=754"],
+        "after": [0, "chars=8 text=OLDWORD\n"],
+        "search": [0, "engine=enginePdfium pages=1 found=0 text=OLDWORD\n toc= tocPage=0 link="],
+        "dirty": ["undo canUndo=1 canRedo=0 modified=1"],
+        "dialog": false,
+        "exit": 0
+      },
+      {
+        "engine": "mupdf",
+        "action": "keep",
+        "before": [0, "chars=8 text=OLDWORD\n"],
+        "set": [0, "OK before='OLDWORD' after='NEWWORD' viewBefore=683 viewAfter=754 printBefore=364 printAfter=418"],
+        "after": [0, "chars=8 text=OLDWORD\n"],
+        "search": [0, "engine=enginePdf pages=1 found=0 text=OLDWORD\n toc= tocPage=0 link="],
+        "dirty": ["undo canUndo=1 canRedo=0 modified=1"],
+        "dialog": true,
+        "exit": null
+      },
+      {
+        "engine": "mupdf",
+        "action": "rename",
+        "before": [0, "chars=8 text=OLDWORD\n"],
+        "set": [0, "OK before='OLDWORD' after='NEWWORD' viewBefore=683 viewAfter=754 printBefore=364 printAfter=418"],
+        "after": [0, "chars=8 text=OLDWORD\n"],
+        "search": [0, "engine=enginePdf pages=1 found=0 text=OLDWORD\n toc= tocPage=0 link="],
+        "dirty": ["undo canUndo=1 canRedo=0 modified=1"],
+        "dialog": false,
+        "exit": 0
+      }
+    ],
+    "autoReload": [
+      {
+        "engine": "pdfium",
+        "repeat": 0,
+        "set": [0, "OK before='OLDWORD' after='NEWWORD' viewBefore=683 viewAfter=754 printBefore=683 printAfter=754"],
+        "before": "undo canUndo=1 canRedo=0 modified=1",
+        "after": "undo canUndo=0 canRedo=0 modified=0",
+        "dialog": false,
+        "text": [0, "chars=9 text=DISKWORD\n"]
+      },
+      {
+        "engine": "pdfium",
+        "repeat": 1,
+        "set": [0, "OK before='OLDWORD' after='NEWWORD' viewBefore=683 viewAfter=754 printBefore=683 printAfter=754"],
+        "before": "undo canUndo=1 canRedo=0 modified=1",
+        "after": "undo canUndo=0 canRedo=0 modified=0",
+        "dialog": false,
+        "text": [0, "chars=9 text=DISKWORD\n"]
+      },
+      {
+        "engine": "mupdf",
+        "repeat": 0,
+        "set": [0, "OK before='OLDWORD' after='NEWWORD' viewBefore=683 viewAfter=754 printBefore=364 printAfter=418"],
+        "before": "undo canUndo=1 canRedo=0 modified=1",
+        "after": "undo canUndo=0 canRedo=0 modified=0",
+        "dialog": false,
+        "text": [0, "chars=9 text=DISKWORD\n"]
+      },
+      {
+        "engine": "mupdf",
+        "repeat": 1,
+        "set": [0, "OK before='OLDWORD' after='NEWWORD' viewBefore=683 viewAfter=754 printBefore=364 printAfter=418"],
+        "before": "undo canUndo=1 canRedo=0 modified=1",
+        "after": "undo canUndo=0 canRedo=0 modified=0",
+        "dialog": false,
+        "text": [0, "chars=9 text=DISKWORD\n"]
+      }
+    ],
+    "signatureFailure": [
+      {
+        "engine": "pdfium",
+        "errorTitle": "Sign Document",
+        "fieldsBefore": 1,
+        "fieldsAfter": 2,
+        "state": "undo canUndo=1 canRedo=0 modified=0"
+      },
+      {
+        "engine": "mupdf",
+        "errorTitle": "Sign Document",
+        "fieldsBefore": 1,
+        "fieldsAfter": 2,
+        "state": "undo canUndo=1 canRedo=0 modified=0"
+      }
+    ]
+  },
+  "reproducers": [
+    {
+      "run": "bun tools/solokpdf/run-hidden.ts -- bun tests/tmp/full-review/probe.ts",
+      "source": "import { mkdirSync, renameSync, writeFileSync } from \"node:fs\";\nimport { join } from \"node:path\";\nimport { ControlCommand } from \"../../control.ts\";\nimport { assemblePdf, SETTINGS_FILE, tmpPath } from \"../../util.ts\";\nimport { launchControlled, killAndWait, sendCommandSync } from \"../../win-automation.ts\";\nimport { findTopWindow, postMessage, sleep, WM_CLOSE } from \"../../winapi.ts\";\n\nconst results: object[] = [];\nfunction formPdf(): string {\n  return assemblePdf([\n    \"<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /DR << /Font << /Helv 5 0 R >> >> >> >>\",\n    \"<< /Type /Pages /Count 1 /Kids [3 0 R] >>\",\n    \"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 700] /Annots [4 0 R] >>\",\n    \"<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /V (OLDWORD) /Rect [100 300 500 400] /P 3 0 R /F 4 /DA (/Helv 18 Tf 0 g) >>\",\n    \"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\",\n  ]);\n}\n\nfor (const engine of [\"pdfium\", \"mupdf\"]) {\n  for (const action of [\"keep\", \"rename\"]) {\n    const dir = tmpPath(`full-review/${engine}-${action}`);\n    mkdirSync(dir, { recursive: true });\n    const source = join(dir, \"source.pdf\");\n    writeFileSync(source, formPdf(), \"latin1\");\n    writeFileSync(join(dir, SETTINGS_FILE), \"UiLanguage = en\\nReloadModifiedDocuments = false\\nRestoreSession = false\\n\");\n    const { proc, client, frame } = await launchControlled([\"-appdata\", dir, \"-log-to-file\", join(dir, \"app.log\"), source], {\n      env: { ...process.env, SOLOKPDF_ENGINE: engine },\n    });\n    try {\n      await client.waitForRenderIdle();\n      const before = await client.request(ControlCommand.TestCurrentPdf, [\"cached-text\", 1]);\n      const set = await client.setFormField(1, 0, \"NEWWORD\");\n      if (set[0] !== 0 || !String(set[1]).includes(\"after='NEWWORD'\")) throw new Error(`edit failed: ${set}`);\n      const after = await client.request(ControlCommand.TestCurrentPdf, [\"cached-text\", 1]);\n      const search = await client.request(ControlCommand.TestCurrentPdf, [\"NEWWORD\"]);\n      const dirty = await client.request(ControlCommand.TestMarkupAnnots, []);\n      if (!String(dirty[1]).includes(\"modified=1\")) throw new Error(`not dirty: ${dirty}`);\n      if (action === \"rename\") renameSync(source, join(dir, \"moved.pdf\"));\n      postMessage(frame, WM_CLOSE, 0, 0);\n      const deadline = Date.now() + 5000;\n      let dialog = 0;\n      while (Date.now() < deadline && proc.exitCode === null && !(dialog = findTopWindow(proc.pid!, \"#32770\"))) await sleep(25);\n      const row = { engine, action, before, set, after, search, dirty: String(dirty[1]).match(/undo[^\\n]*/), dialog: !!dialog, exit: proc.exitCode };\n      results.push(row);\n      console.log(JSON.stringify(row));\n      if (dialog) {\n        postMessage(dialog, WM_CLOSE, 0, 0);\n        await sleep(100);\n      }\n    } finally {\n      client.close();\n      if (proc.exitCode === null) await killAndWait(proc);\n    }\n  }\n}\nwriteFileSync(tmpPath(\"full-review/probe-results.json\"), JSON.stringify(results, null, 2));\n",
+      "path": "tests/tmp/full-review/probe.ts"
+    },
+    {
+      "run": "bun tools/solokpdf/run-hidden.ts -- bun tests/tmp/full-review/reload.ts",
+      "source": "import { mkdirSync, writeFileSync } from \"node:fs\";\nimport { join } from \"node:path\";\nimport { ControlCommand } from \"../../control.ts\";\nimport { assemblePdf, SETTINGS_FILE, tmpPath } from \"../../util.ts\";\nimport { launchControlled, killAndWait } from \"../../win-automation.ts\";\nimport { findTopWindow, sleep } from \"../../winapi.ts\";\n\nfunction fixture(word: string): string {\n  return assemblePdf([\n    \"<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /DR << /Font << /Helv 5 0 R >> >> >> >>\",\n    \"<< /Type /Pages /Count 1 /Kids [3 0 R] >>\",\n    \"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 700] /Annots [4 0 R] >>\",\n    `<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /V (${word}) /Rect [100 300 500 400] /P 3 0 R /F 4 /DA (/Helv 18 Tf 0 g) >>`,\n    \"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\",\n  ]);\n}\n\nconst results: object[] = [];\nfor (const engine of [\"pdfium\", \"mupdf\"]) {\n  for (let repeat = 0; repeat < 2; repeat++) {\n    const dir = tmpPath(`full-review/reload-${engine}-${repeat}`);\n    mkdirSync(dir, { recursive: true });\n    const path = join(dir, \"source.pdf\");\n    writeFileSync(path, fixture(\"OLDWORD\"), \"latin1\");\n    writeFileSync(join(dir, SETTINGS_FILE), \"UiLanguage = en\\nReloadModifiedDocuments = true\\nRestoreSession = false\\n\");\n    const { proc, client } = await launchControlled([\"-appdata\", dir, \"-log-to-file\", join(dir, \"app.log\"), path], {\n      env: { ...process.env, SOLOKPDF_ENGINE: engine },\n    });\n    try {\n      await client.waitForRenderIdle();\n      const set = await client.setFormField(1, 0, \"NEWWORD\");\n      if (set[0] !== 0) throw new Error(String(set));\n      const before = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1]);\n      if (!before.includes(\"modified=1\")) throw new Error(\"not dirty\");\n      writeFileSync(path, fixture(\"DISKWORD\"), \"latin1\");\n      const deadline = Date.now() + 8000;\n      let dialog = 0;\n      let after = \"\";\n      while (Date.now() < deadline) {\n        dialog = findTopWindow(proc.pid!, \"#32770\");\n        if (dialog) break;\n        after = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1]);\n        if (after.includes(\"modified=0\")) break;\n        await sleep(50);\n      }\n      const text = dialog ? [] : await client.request(ControlCommand.TestCurrentPdf, [\"cached-text\", 1]);\n      const row = { engine, repeat, set, before: before.match(/undo[^\\n]*/)?.[0], after: after.match(/undo[^\\n]*/)?.[0], dialog: !!dialog, text };\n      results.push(row);\n      console.log(JSON.stringify(row));\n    } finally {\n      client.close();\n      await killAndWait(proc);\n    }\n  }\n}\nwriteFileSync(tmpPath(\"full-review/reload-results.json\"), JSON.stringify(results, null, 2));\n",
+      "path": "tests/tmp/full-review/reload.ts"
+    },
+    {
+      "run": "bun tools/solokpdf/run-hidden.ts -- bun tests/tmp/full-review/sign-failure.ts",
+      "source": "import { mkdirSync, writeFileSync } from \"node:fs\";\nimport { join } from \"node:path\";\nimport { ControlCommand } from \"../../control.ts\";\nimport { writeTestPfx } from \"../../pki.ts\";\nimport { assemblePdf, cmdId, SETTINGS_FILE, tmpPath } from \"../../util.ts\";\nimport { launchControlled, killAndWait, sendCommand, pressEnter, moveTestCursor, findCanvas } from \"../../win-automation.ts\";\nimport { enumWindows, enumChildWindows, getClassName, getWindowPid, getWindowText, getClientRect, clientToScreen, sendMessage, sendText, postMessage, packCoords, sleep, WM_CLOSE } from \"../../winapi.ts\";\n\nfunction top(pid: number, cls: string, title?: string): number {\n  let found = 0;\n  enumWindows((h) => {\n    if (getWindowPid(h) === pid && getClassName(h) === cls && (title === undefined || getWindowText(h) === title)) found = h;\n    return true;\n  });\n  return found;\n}\nfunction children(hwnd: number, cls: string): number[] {\n  const out: number[] = [];\n  enumChildWindows(hwnd, (h) => { if (getClassName(h) === cls) out.push(h); return true; });\n  return out;\n}\nasync function waitFor(f: () => number): Promise<number> {\n  for (const until = Date.now() + 5000; Date.now() < until;) { const h = f(); if (h) return h; await sleep(25); }\n  throw new Error(\"window timeout\");\n}\nconst rows: object[] = [];\nfor (const engine of [\"pdfium\", \"mupdf\"]) {\n  const dir = tmpPath(`full-review/sign-failure-${engine}`);\n  mkdirSync(dir, { recursive: true });\n  const pdf = join(dir, \"source.pdf\"), pfx = join(dir, \"cert.pfx\"), img = join(dir, \"broken.png\");\n  writeTestPfx(pfx, \"ReviewTest\", \"pw\");\n  writeFileSync(img, \"not an image\");\n  writeFileSync(pdf, assemblePdf([\"<< /Type /Catalog /Pages 2 0 R >>\", \"<< /Type /Pages /Count 1 /Kids [3 0 R] >>\", \"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 700] >>\"]), \"latin1\");\n  writeFileSync(join(dir, SETTINGS_FILE), \"UiLanguage = en\\nRestoreSession = false\\n\");\n  const { proc, client, frame } = await launchControlled([\"-appdata\", dir, \"-log-to-file\", join(dir, \"app.log\"), pdf], {env: {...process.env, SOLOKPDF_ENGINE: engine}});\n  try {\n    await client.waitForRenderIdle();\n    sendCommand(frame, cmdId(\"CmdSignDocument\"));\n    const dlg = await waitFor(() => top(proc.pid!, \"SumatraWgDefaultWinClass\", \"Sign Document\"));\n    await waitFor(() => children(dlg, \"Edit\").length === 5 ? 1 : 0);\n    const edits = children(dlg, \"Edit\"), combos = children(dlg, \"ComboBox\");\n    if (edits.length !== 5) throw new Error(`edits=${edits.length}`);\n    const fieldsBefore = Number(sendMessage(combos[1], 0x0146, 0, 0));\n    sendMessage(combos[0], 0x014e, Number(sendMessage(combos[0], 0x0146, 0, 0)) - 1, 0);\n    sendText(edits[0], pfx); sendText(edits[1], \"pw\"); sendText(edits[4], img);\n    await pressEnter(dlg);\n    await sleep(100);\n    const canvas = findCanvas(frame), rect = getClientRect(canvas);\n    const x = Math.floor(rect.right / 2), y = Math.floor(rect.bottom / 2);\n    const screen = clientToScreen(canvas, x, y);\n    await moveTestCursor(screen.x, screen.y, client);\n    postMessage(canvas, 0x0201, 1, packCoords(x, y));\n    postMessage(canvas, 0x0202, 0, packCoords(x, y));\n    const error = await waitFor(() => top(proc.pid!, \"#32770\"));\n    const errorTitle = getWindowText(error);\n    postMessage(error, WM_CLOSE, 0, 0);\n    await sleep(100);\n    postMessage(dlg, WM_CLOSE, 0, 0);\n    await sleep(100);\n    const state = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1]);\n    sendCommand(frame, cmdId(\"CmdSignDocument\"));\n    const reopened = await waitFor(() => top(proc.pid!, \"SumatraWgDefaultWinClass\", \"Sign Document\"));\n    await waitFor(() => children(reopened, \"ComboBox\").length >= 3 ? 1 : 0);\n    const fieldsAfter = Number(sendMessage(children(reopened, \"ComboBox\")[1], 0x0146, 0, 0));\n    postMessage(reopened, WM_CLOSE, 0, 0);\n    const row = { engine, errorTitle, fieldsBefore, fieldsAfter, state: state.match(/undo[^\\n]*/)?.[0] };\n    rows.push(row); console.log(JSON.stringify(row));\n  } finally { client.close(); await killAndWait(proc); }\n}\nwriteFileSync(tmpPath(\"full-review/sign-failure-results.json\"), JSON.stringify(rows, null, 2));\n",
+      "path": "tests/tmp/full-review/sign-failure.ts"
+    }
+  ],
+  "inputs": "Producers assemble dedicated small PDFs. Form OLDWORD -> NEWWORD; external rewrite DISKWORD. PFX is generated locally by tests/pki.ts and is not installed in the certificate store. Signature image is a file containing not an image.",
+  "limitations": [
+    "R5 CBX freshness and R6 thread HANDLE: code inspection only",
+    "E32 render join timeout and E33 failed-text reads: additional validation required",
+    "No Release, ASan, full suite, real printer, physical keys, distribution, DLL registration or crash recovery check"
+  ],
+  "probeCorrections": [
+    "Signature probe first read controls before creation completed",
+    "Synchronous click blocked in expected image-error modal; only probe processes were terminated",
+    "moveTestCursor arguments corrected; final asynchronous message probe completed for both engines"
+  ],
+  "reviewStatus": "Initial inspection only. E23 complete; E24 in progress; E25 provisional. Full review unfinished."
+}

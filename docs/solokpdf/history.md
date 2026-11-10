@@ -30,6 +30,7 @@ The completed E18–E22 review has these records:
 - E22: [Cache dependencies and invalidation](#e22-cache-contracts-2026-11-10).
 - E18: [Read results and lazy-editor side effects](#e18-read-contracts-2026-11-10).
 - E20: [Document inputs, ownership and teardown](#e20-document-lifetime-2026-11-10).
+- E23–E25: [Operation review, findings and validation](#e23e25-structure-and-code-review-2026-11-10).
 
 ## Baseline (2026-10-24)
 
@@ -2576,6 +2577,44 @@ E17 is complete within this manual hosted-validation scope. Its weekly
 schedule remains configured on the default branch; no scheduled execution
 has been observed. The prebuilt PDFium DLL remains uninstrumented.
 
+## E23–E25 structure and code review (2026-11-10)
+
+Reviewed `7c67b529f` using the [full review plan](full-review-plan.md).
+There are no `src/`, `cmd/` or `tests/` differences from its `32d95cef7` baseline.
+The [results](full-review-results.md) map six operation paths to functions and
+tests, record initial observations against all eight criteria, and separate
+defects from provisional design judgments and unverified failure paths.
+This was an approximately 30-minute initial inspection. E23 is complete;
+E24 remains in progress and E25 is not final. Product code is unchanged.
+
+- R1/E26: external updates replace unsaved edits and Undo history; reproduced
+  twice per engine with the file watcher enabled.
+- R2/E27: closing after moving the source skips the save prompt; reproduced
+  on both engines, with an unchanged-path control that shows the prompt.
+- R3/E28: a corrupt signature image leaves a new field and Undo step while
+  reporting no unsaved changes; reproduced through the UI on both engines.
+- R4/E29: form values and pixels change, but cached text and search retain the
+  old value; reproduced on both engines.
+- R5/E30: the network CBX cache reuses same-path/same-size stale content.
+  Code finding; SMB replacement has not been tested.
+- R6/E31: asynchronous controller deletion drops a successful thread HANDLE.
+  Code finding; handle growth and ASan validation remain open.
+
+Debug quick build passed outside the sandbox with zero warnings/errors.
+The first sandboxed attempt failed in MSBuild FileTracker with access denied.
+All GUI runs used the hidden-desktop runner, `-for-testing` and isolated
+appdata. Twelve targeted path tests plus the desktop probe passed without
+skips. The [evidence](data/full-review-2026-11-10.json) contains their names,
+logs, binary hashes, reproducer sources and observations. Reproducer exit 0
+means observation completed, not that the observed behavior was correct.
+
+The signature probe needed control-creation polling and asynchronous mouse
+messages to get past its expected error modal; only its own processes were
+terminated. These harness corrections are recorded separately from app results.
+No Release, ASan, full suite, physical acceptance or distribution checks ran.
+E32/E33 retain worker-timeout and failed-text-read checks; E26–E31 are fixes,
+not changes made by this review. D3 and the existing exclusions remain intact.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -2732,6 +2771,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E22 | Align cache dependencies, render inputs and invalidation                                                                                                                                                                                                                                    | done — Align render cache inputs and invalidation (E22); [results](#e22-cache-contracts-2026-11-10)                                                                                                                                     |
 | E18 | Clarify read results, waiting and lazy-editor side effects                                                                                                                                                                                                                                  | done — Clarify read and editor contracts (E18); [results](#e18-read-contracts-2026-11-10)                                                                                                                                               |
 | E20 | Review document state, ownership, invalidation and lock ordering                                                                                                                                                                                                                            | done — Preserve document source lifetimes (E20); [results](#e20-document-lifetime-2026-11-10)                                                                                                                                           |
+| E23 | Map operation entry points, implementations and existing tests                                                                                                                                                                                                                              | review complete at `7c67b529f`; [mapping](full-review-results.md#e23-入口と実装)                                                                                                                                                        |
 
 ### F. Manual acceptance
 

@@ -16,26 +16,26 @@ rendered output.
 
 ## Status (2026-11-10)
 
-Status snapshot at `32d95cef7` on `solokpdf-dev`. D8–D13 and E10–E22 are complete
-within their recorded scope. The [structure and code review](full-review-plan.md) is planned
-as E23–E25 and has not started; [backlog.md](backlog.md) records its work items,
-deferred work and exclusions.
+Status snapshot at `7c67b529f` on `solokpdf-dev`. D8–D13 and E10–E23 are complete
+within their recorded scope. E24's [initial inspection](full-review-results.md) found
+six defects; the full review and E25 remain unfinished. [backlog.md](backlog.md) records E26–E33's fixes and additional
+checks, deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache
 invalidation, read contracts and document lifetime. Read the
 [current architecture](architecture.md) for the resulting contracts and the
 [completed plan](refactoring-plan.md) for implementation commits and evidence.
 
-| Area           | Current state                                                                                                                                                            | Details                                                                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                                                              | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                                         |
-| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7); recorded validation follow-ups are closed.                                                                                | [Merge status](upstream-merges.md#current-status-2026-11-09)                                                                            |
-| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                                                              | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                                      |
-| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete).                                  | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md)                    |
-| Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                                                      | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                                                  |
-| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                                                             | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                                          |
-| Refactoring    | Tree, runtime and key-state separation (E15), plus rendering/read/lifetime contracts (E18–E22), are complete within their recorded scope.                                | [Current architecture](architecture.md), [completed plan](refactoring-plan.md), [E15 review](history.md#e15-refactor-review-2026-11-10) |
-| Planned review | E23–E25 assess correctness, maintainability and performance. Operation paths guide investigation; build/test checks are included where relevant. Review has not started. | [Scope and plan](full-review-plan.md), [work items](backlog.md#design-review)                                                           |
+| Area           | Current state                                                                                                                             | Details                                                                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                               | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                                         |
+| Upstream       | Merged through `8b716234f` on 2026-11-08 (D7); recorded validation follow-ups are closed.                                                 | [Merge status](upstream-merges.md#current-status-2026-11-09)                                                                            |
+| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                               | [Current colors](features.md#selection-colors), [implementation record](selection-overlay-plan.md)                                      |
+| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete).   | [Migration plan and results](tree-view-replacement-plan.md), [manual reader check](tree-view-screen-reader-check.md)                    |
+| Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                       | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                                                  |
+| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                              | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                                          |
+| Refactoring    | Tree, runtime and key-state separation (E15), plus rendering/read/lifetime contracts (E18–E22), are complete within their recorded scope. | [Current architecture](architecture.md), [completed plan](refactoring-plan.md), [E15 review](history.md#e15-refactor-review-2026-11-10) |
+| Code review    | E23 mapping complete; E24 initial inspection found four reproduced defects and two code findings. E24/E25 and product fixes remain open.  | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review)                                                  |
 
 ### Validation scope
 
@@ -67,8 +67,8 @@ Earlier suites, local checks and refactor validation remain in
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
 [backlog.md](backlog.md), then the current behavior and plan for the area at hand.
 
-- Start with E23's [operation mapping](full-review-plan.md#実施順);
-  record the functions read, unresolved paths and actual test coverage.
+- Continue E24's [remaining investigation](full-review-results.md#e24-の継続調査).
+  E26/E27's unsaved-edit loss has the highest fix priority. Keep fixes separate from review documentation.
 - For design work, read the [current architecture](architecture.md) and
   [structure and code review plan](full-review-plan.md). The [earlier plan](refactoring-plan.md) is complete.
 - For a code change, select the affected tests in [testing.md](testing.md).
@@ -99,7 +99,7 @@ Responsibilities, state and API contracts are in [architecture.md](architecture.
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Current behavior            | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                      |
 | Work status                 | [Active, deferred and excluded work](backlog.md)                                                                                          |
-| Planned code review         | [Scope, evaluation criteria and completion criteria](full-review-plan.md)                                                                 |
+| Code review                 | [Results, findings and validation](full-review-results.md), [scope and criteria](full-review-plan.md)                                     |
 | Design and completed review | [Current architecture](architecture.md), [completed refactoring plan](refactoring-plan.md)                                                |
 | Completed tree migration    | [Plan and results](tree-view-replacement-plan.md), [owner's acceptance](tree-view-screen-reader-check.md)                                 |
 | Keyboard input              | [Current routing and results](keyboard-investigation.md); [historical handoff](keyboard-handoff.md)                                       |
