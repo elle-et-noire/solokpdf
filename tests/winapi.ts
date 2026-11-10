@@ -322,6 +322,7 @@ const kernel32 = loadDll("kernel32.dll", {
   Process32FirstW: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.bool },
   Process32NextW: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.bool },
   OpenProcess: { args: [FFIType.u32, FFIType.bool, FFIType.u32], returns: FFIType.u64 },
+  GetExitCodeProcess: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.bool },
   TerminateProcess: { args: [FFIType.u64, FFIType.u32], returns: FFIType.bool },
   WaitForSingleObject: { args: [FFIType.u64, FFIType.u32], returns: FFIType.u32 },
   CloseHandle: { args: [FFIType.u64], returns: FFIType.bool },
@@ -2494,6 +2495,20 @@ export type KillableProc = {
   kill?: (signal?: number | string) => unknown;
   exitCode?: number | null;
 };
+
+export function observeProcessExit(pid: number): () => number | null {
+  if (!IS_WIN) return () => null;
+  const queryLimitedInformation = 0x1000;
+  let handle = kernel32.symbols.OpenProcess(queryLimitedInformation, false, pid);
+  return () => {
+    if (!handle) return null;
+    const code = new Uint32Array(1);
+    const ok = kernel32.symbols.GetExitCodeProcess(handle, ptr(code));
+    kernel32.symbols.CloseHandle(handle);
+    handle = 0n;
+    return ok ? code[0]! : null;
+  };
+}
 
 // Kill a spawned process (Bun.Subprocess or node ChildProcess) and wait until
 // the OS says it has exited. Replaces proc.kill()+sleep and taskkill /F.

@@ -1970,6 +1970,26 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             Str signAction = StringArg(req, 0);
+#if IS_DEBUG
+            if (gForTesting && str::Eq(signAction, StrL("print-ready"))) {
+                HANDLE thread = tab->win->printThread;
+                bool ready = thread && WaitForSingleObject(thread, 0) == WAIT_OBJECT_0;
+                AppendTestResult(req, 0, ready ? StrL("ready") : StrL("waiting"));
+                break;
+            }
+            if (gForTesting && str::Eq(signAction, StrL("print-close"))) {
+                AppendTestResult(req, 0, TestPrintClose(tab->win, StringArg(req, 1)));
+                break;
+            }
+#endif
+            if (str::Eq(signAction, StrL("save-faults"))) {
+#if IS_DEBUG && defined(SOLOKPDF_PDFIUM)
+                AppendTestResult(req, 0, gForTesting ? StrL("supported") : StrL("unsupported"));
+#else
+                AppendTestResult(req, 0, StrL("unsupported"));
+#endif
+                break;
+            }
 #if IS_DEBUG && defined(SOLOKPDF_PDFIUM)
             if (gForTesting && str::Eq(signAction, StrL("redact-resume"))) {
                 SetEnvironmentVariableW(L"SOLOKPDF_TEST_REDACT_RELOAD", nullptr);

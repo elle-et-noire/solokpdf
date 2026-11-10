@@ -4892,8 +4892,17 @@ static void OnMenuExit() {
         return;
     }
 
-    for (MainWindow* win : gWindows) {
+    Vec<MainWindow*> checked(gWindows);
+    for (MainWindow* win : checked) {
+        if (!IsMainWindowValid(win)) {
+            continue;
+        }
         if (!CanCloseWindow(win)) {
+            return;
+        }
+    }
+    for (MainWindow* win : gWindows) {
+        if (!VecContains(checked, win)) {
             return;
         }
     }
@@ -5077,6 +5086,45 @@ static void CloseDocumentInCurrentTab(MainWindow* win, bool keepUIEnabled, bool 
     // HwndSetFocus(win->hwndFrame);
 }
 
+// Publish UI input before deciding whether the document needs saving.
+static bool CommitTabInput(WindowTab* tab) {
+    MainWindow* win = FindMainWindowByTab(tab);
+    if (!win) {
+        return false;
+    }
+    if (!IsCurrentTab(win, tab)) {
+        return true;
+    }
+    DocController* ctrl = tab->ctrl;
+    EngineBase* engine = tab->GetEngine();
+    if (engine) {
+        engine->AddRef();
+    }
+    defer {
+        SafeEngineRelease(&engine);
+    };
+    auto same = [&]() {
+        return IsMainWindowValid(win) && FindMainWindowByTab(tab) == win && IsCurrentTab(win, tab) &&
+               tab->ctrl == ctrl && tab->GetEngine() == engine;
+    };
+    if (IsFormFieldEditActive(win)) {
+        CommitFormFieldEdit(true);
+        if (!same()) {
+            return false;
+        }
+    }
+    if (IsEditingFreeTextInPlace(win)) {
+        EndFreeTextInPlaceEdit(true);
+        if (!same()) {
+            return false;
+        }
+    }
+    if (IsEditingAnnotContents(win)) {
+        CommitAnnotContents(win);
+    }
+    return same();
+}
+
 static void ShowSavedAnnotationsNotification(HWND hwndParent, Str path) {
     str::Builder msg;
     msg.Append(fmt(Tr("Saved annotations to '%s'").s, path));
@@ -5108,6 +5156,9 @@ static void ShowSaveAnnotationError(ShowErrorData* d, Str err) {
 }
 
 bool SaveAnnotationsToExistingFile(WindowTab* tab) {
+    if (!CommitTabInput(tab)) {
+        return false;
+    }
     MainWindow* win = nullptr;
     EngineBase* engine = GetLiveTabEngine(tab, &win);
     if (!engine) {
@@ -5158,6 +5209,9 @@ static void InvokeInverseSearch(WindowTab* tab) {
 
 // returns true if saved successully
 bool SaveAnnotationsToMaybeNewPdfFile(WindowTab* tab) {
+    if (!CommitTabInput(tab)) {
+        return false;
+    }
     MainWindow* win = nullptr;
     EngineBase* engine = GetLiveTabEngine(tab, &win);
     if (!engine || !EngineMupdfCanSave(engine)) {
@@ -5361,6 +5415,9 @@ bool MaybeSaveAnnotations(WindowTab* tab) {
     if (!tab) {
         return true;
     }
+    if (!CommitTabInput(tab)) {
+        return false;
+    }
     // TODO: hacky because CloseCurrentTab() can call CloseWindow() and
     // they both ask to save annotations
     // Could determine in CloseCurrentTab() if will CloseWindow() and
@@ -5450,8 +5507,8 @@ bool MaybeSaveAnnotations(WindowTab* tab) {
 static void ReloadWithSavePrompt(MainWindow* win) {
     WindowTab* tab = win->CurrentTab();
     DocController* ctrl = tab ? tab->ctrl : nullptr;
-    if (IsFormFieldEditActive(win)) {
-        CommitFormFieldEdit(true);
+    if (tab && !CommitTabInput(tab)) {
+        return;
     }
     if (FindMainWindowByTab(tab) != win || !IsCurrentTab(win, tab) || tab->ctrl != ctrl) {
         return;
@@ -5495,6 +5552,9 @@ void CloseTab(WindowTab* tab, bool quitIfLast) {
     }
     MainWindow* win = tab->win;
     if (!TabStillInWindow(win, tab)) {
+        return;
+    }
+    if (!CommitTabInput(tab) || !TabStillInWindow(win, tab)) {
         return;
     }
     logf("CloseTab: tab: 0x%p win: 0x%p, hwndFrame: 0x%x, quitIfLast: %d, dm: 0x%p\n", tab, win, win->hwndFrame,
@@ -5629,7 +5689,11 @@ static bool IsPrintInProgress(MainWindow* win) {
 }
 
 bool CanCloseWindow(MainWindow* win) {
-    if (!win) {
+    if (!IsMainWindowValidAndNotClosing(win)) {
+        return false;
+    }
+    WindowTab* tab = win->CurrentTab();
+    if (tab && !CommitTabInput(tab)) {
         return false;
     }
     // a plugin window should only be closed when its parent is destroyed
@@ -5642,7 +5706,7 @@ bool CanCloseWindow(MainWindow* win) {
         auto caption = Tr("Printing in progress.");
         auto msg = Tr("Printing is still in progress. Abort and quit?");
         int res = MsgBox(win->hwndFrame, msg, caption, flags);
-        if (IDNO == res) {
+        if (res != IDYES || !IsMainWindowValidAndNotClosing(win)) {
             return false;
         }
     }
@@ -5650,12 +5714,44 @@ bool CanCloseWindow(MainWindow* win) {
     return true;
 }
 
+#if IS_DEBUG
+static void WaitTestPrint(Str* signal) {
+    u64 deadline = GetTickCount64() + 10000;
+    while (!file::Exists(*signal) && GetTickCount64() < deadline) {
+        Sleep(10);
+    }
+    file::WriteFile(str::JoinTemp(*signal, StrL(".done")), StrL("done"));
+}
+
+TempStr TestPrintClose(MainWindow* win, Str signal) {
+    if (!gForTesting || win->printThread || len(signal) == 0) {
+        return StrL("unsupported");
+    }
+    Str owned = str::Dup(signal);
+    ThreadHandle thread = StartThread(MkFunc0<Str>(WaitTestPrint, &owned), StrL("TestPrintClose"));
+    if (!thread) {
+        str::Free(owned);
+        return StrL("thread-failed");
+    }
+    win->printThread = thread;
+    bool allowed = CanCloseWindow(win);
+    bool live = IsMainWindowValid(win);
+    if (live && win->printThread == thread) {
+        win->printThread = nullptr;
+    }
+    WaitForSingleObject(thread, INFINITE);
+    SafeCloseThreadHandle(&thread);
+    str::Free(owned);
+    return fmt("allowed=%d live=%d", (int)allowed, (int)live);
+}
+#endif
+
 /* Close the documents associated with window 'hwnd'.
    Closes the window unless this is the last window in which
    case it switches to empty window and disables the "File\Close"
    menu item. */
 void CloseWindow(MainWindow* win, bool quitIfLast, bool forceClose) {
-    if (!win) {
+    if (!win || (!forceClose && !IsMainWindowValid(win))) {
         return;
     }
     // guard against reentrant CloseWindow calls triggered by Windows theme
@@ -5663,6 +5759,15 @@ void CloseWindow(MainWindow* win, bool quitIfLast, bool forceClose) {
     // WM_DESTROY is the expected reentrant cleanup and must still proceed.
     if (win->isBeingClosed && !forceClose) {
         return;
+    }
+    if (!forceClose) {
+        WindowTab* tab = win->CurrentTab();
+        if (tab && !CommitTabInput(tab)) {
+            return;
+        }
+        if (!IsMainWindowValidAndNotClosing(win)) {
+            return;
+        }
     }
     logf("CloseWindow: win: 0x%p, hwndFrame: 0x%x, quitIfLast: %d, forceClose: %d\n", win, win->hwndFrame,
          (int)quitIfLast, (int)forceClose);
@@ -5793,6 +5898,9 @@ static void SaveCurrentFileAs(MainWindow* win) {
     }
 
     WindowTab* targetTab = win->CurrentTab();
+    if (!CommitTabInput(targetTab)) {
+        return;
+    }
     auto* ctrl = win->ctrl;
     TempStr srcFileName = ctrl->GetFilePath();
     if (gPluginMode) {
@@ -8999,6 +9107,9 @@ static void OnFrameKeyEsc(MainWindow* win) {
     // cancelled placement was closing the document (issue #6118).
     if (!win->pdfAnnotationsToolbarEnabled && gSettings->escToExit && CanCloseWindow(win)) {
         CloseWindow(win, true, false);
+        return;
+    }
+    if (!IsMainWindowValidAndNotClosing(win)) {
         return;
     }
     if (gPluginMode) {

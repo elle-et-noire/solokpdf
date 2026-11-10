@@ -77,8 +77,14 @@ import { testit as cbrNetworkUnrar } from "./cbr-network-unrar.ts";
 import { testit as controllerDeleteHandles } from "./controller-delete-handles.ts";
 import { testit as renderCacheShutdown } from "./render-cache-shutdown.ts";
 import { testit as dialogTargetReentry } from "./dialog-target-reentry.ts";
+import { testit as pendingDocumentInput } from "./pending-document-input.ts";
+import { testit as atomicPdfSave } from "./atomic-pdf-save.ts";
+import { testit as printCloseReentry } from "./print-close-reentry.ts";
 
 const tests: NamedTest[] = [
+  ["pending-document-input", pendingDocumentInput],
+  ["atomic-pdf-save", atomicPdfSave],
+  ["print-close-reentry", printCloseReentry],
   ["dialog-target-reentry", dialogTargetReentry],
   ["render-cache-shutdown", renderCacheShutdown],
   ["controller-delete-handles", controllerDeleteHandles],

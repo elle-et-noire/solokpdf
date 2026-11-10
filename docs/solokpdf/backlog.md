@@ -6,7 +6,7 @@ D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (re
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D14, E38, F4).
+group (B76, C2, D14, E39, F4).
 
 ## Implementation and acceptance
 
@@ -42,6 +42,15 @@ E24's [completion](history.md#e24-review-completion-2026-11-10) records the fina
 E25's [record](history.md#e25-review-synthesis-2026-11-10) records the recheck, scope correction and completed synthesis.
 Each finding's evidence, impact and original next check are in [full-review-results.md](full-review-results.md).
 The review's findings and historical priorities remain in that record.
+
+## Independent review follow-up
+
+SOL1–SOL3 are implemented, uncommitted, within the [recorded checks](full-review-sol-results.md#sol1sol3-修正検証2026-11-11).
+The original review and its unverified branches remain recorded.
+
+| ID  | Item                                               | Status                                                                                                                                                                            |
+| --- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E38 | Identify intermittent ASan native shutdown failure | todo — `0xC0000409`, fast-fail `0x23`, MSCTF/ASan `RtlReAllocateHeap` during DLL shutdown; cause unconfirmed. See the correction record and evidence. Do not waive nonzero exits. |
 
 ## Deferred
 

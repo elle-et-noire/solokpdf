@@ -3280,30 +3280,43 @@ class EnginePdfium : public EngineBase {
     }
 
     bool SaveFileAs(Str path) override {
-        if (fileData.s) {
-            return file::WriteFile(path, fileData);
+        WCHAR failure[2]{};
+#if IS_DEBUG
+        if (gForTesting) {
+            GetEnvironmentVariableW(L"SOLOKPDF_TEST_SAVE_FAILURE", failure, dimofi(failure));
         }
-
-        HANDLE dst = CreateFileW(CWStrTemp(ToWStrTemp(path)), GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
-                                 FILE_ATTRIBUTE_NORMAL, nullptr);
+#endif
+        // A renamed source or hard link may name the retained input itself.
+        if (!fileData.s && file::Exists(path)) {
+            HANDLE existing = CreateFileW(CWStrTemp(path), FILE_READ_ATTRIBUTES,
+                                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (existing == INVALID_HANDLE_VALUE) {
+                return false;
+            }
+            BY_HANDLE_FILE_INFORMATION srcInfo{}, dstInfo{};
+            bool infoOk = GetFileInformationByHandle(file, &srcInfo) && GetFileInformationByHandle(existing, &dstInfo);
+            CloseHandle(existing);
+            if (!infoOk) {
+                return false;
+            }
+            bool same = srcInfo.dwVolumeSerialNumber == dstInfo.dwVolumeSerialNumber &&
+                        srcInfo.nFileIndexHigh == dstInfo.nFileIndexHigh &&
+                        srcInfo.nFileIndexLow == dstInfo.nFileIndexLow;
+            if (same) {
+                return true;
+            }
+        }
+        TempStr staged = file::CreateTempNear(path);
+        if (len(staged) == 0) {
+            return false;
+        }
+        defer {
+            file::Delete(staged);
+        };
+        HANDLE dst =
+            CreateFileW(CWStrTemp(staged), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (dst == INVALID_HANDLE_VALUE) {
-            return false;
-        }
-
-        // A renamed source or a hard link can name our open file; check before truncating it.
-        BY_HANDLE_FILE_INFORMATION srcInfo{}, dstInfo{};
-        if (!GetFileInformationByHandle(file, &srcInfo) || !GetFileInformationByHandle(dst, &dstInfo)) {
-            CloseHandle(dst);
-            return false;
-        }
-        bool same = srcInfo.dwVolumeSerialNumber == dstInfo.dwVolumeSerialNumber &&
-                    srcInfo.nFileIndexHigh == dstInfo.nFileIndexHigh && srcInfo.nFileIndexLow == dstInfo.nFileIndexLow;
-        if (same) {
-            CloseHandle(dst);
-            return true;
-        }
-        if (!SetEndOfFile(dst)) {
-            CloseHandle(dst);
             return false;
         }
 
@@ -3311,6 +3324,10 @@ class EnginePdfium : public EngineBase {
         unsigned char data[kCopyChunkSize];
         bool ok = true;
         for (unsigned long offset = 0; offset < access.m_FileLen;) {
+            if (failure[0] == L'r' && offset >= access.m_FileLen / 2) {
+                ok = false;
+                break;
+            }
             DWORD count = access.m_FileLen - offset;
             if (count > kCopyChunkSize) {
                 count = kCopyChunkSize;
@@ -3322,12 +3339,16 @@ class EnginePdfium : public EngineBase {
                 break;
             }
             offset += count;
+            if (failure[0] == L'w' && offset >= access.m_FileLen / 2) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) {
+            ok = FlushFileBuffers(dst) != 0;
         }
         CloseHandle(dst);
-        if (!ok) {
-            file::Delete(path);
-        }
-        return ok;
+        return ok && file::RenameReplace(path, staged);
     }
     bool HasClipOptimizations(int) override { return true; }
     bool BenchLoadPage(int pageNo) override {

@@ -1607,7 +1607,7 @@ static DWORD CALLBACK CopyProgressRoutine(LARGE_INTEGER TotalFileSize, LARGE_INT
     p.bytesCopied = TotalBytesTransferred.QuadPart;
     p.bytesTotal = TotalFileSize.QuadPart;
     cb->Call(&p);
-    return PROGRESS_CONTINUE;
+    return p.cancel ? PROGRESS_CANCEL : PROGRESS_CONTINUE;
 }
 
 bool Copy(Str dst, Str src, bool dontOverwrite, const CopyProgressCb& cbProgress) {
@@ -1711,33 +1711,26 @@ bool RenameReplace(Str newPath, Str oldPath) {
     return MoveFileExW(CWStrTemp(oldPath), CWStrTemp(newPath), flags) != 0;
 }
 
+// Keep staged output on the destination volume so publication can be a rename.
+TempStr CreateTempNear(Str dst) {
+    TempStr dstDir = path::GetDirTemp(path::NormalizeTemp(dst));
+    WCHAR tempPathW[MAX_PATH]{};
+    if (!GetTempFileNameW(CWStrTemp(dstDir), L"sav", 0, tempPathW)) {
+        LogLastError();
+        return {};
+    }
+    return ToUtf8Temp(tempPathW);
+}
+
 bool OverwriteAtomicRetry(Str dst, Str src, int retryCount, int retrySleepMs) {
     if (len(dst) == 0 || len(src) == 0) {
         return false;
     }
-
-    TempStr dstDir = path::GetDirTemp(dst);
-    TempStr dstName = path::GetBaseNameTemp(dst);
-    WCHAR* dstDirW = CWStrTemp(dstDir);
-    WCHAR* prefixW = CWStrTemp(dstName);
-    WCHAR prefix[4] = L"tmp";
-    int prefixLen = (int)wcslen(prefixW);
-    prefixLen = std::min(prefixLen, 3);
-    for (int i = 0; i < prefixLen; i++) {
-        prefix[i] = prefixW[i];
-    }
-    if (prefixLen > 0) {
-        prefix[prefixLen] = 0;
-    }
-
-    WCHAR tempPathW[MAX_PATH]{};
-    if (!GetTempFileNameW(dstDirW, prefix, 0, tempPathW)) {
-        LogLastError();
+    TempStr tempPath = CreateTempNear(dst);
+    if (len(tempPath) == 0) {
         return false;
     }
-
-    TempStr tempPath = ToUtf8Temp(tempPathW);
-    if (!Copy(tempPath, src, false)) {
+    if (!Copy(tempPath, src, false, gFileCopyProgressCb)) {
         Delete(tempPath);
         return false;
     }

@@ -344,6 +344,9 @@ void MainWindowRerender(MainWindow* win, bool includeNonClientArea = false);
 void ReplaceImageFromFile(MainWindow* win, IPageElement* imageEl);
 void EditImageExternally(MainWindow* win, IPageElement* imageEl);
 TempStr TestImageReplace(MainWindow* win, Str action, int pageNo, int imageIdx, Str path);
+#if IS_DEBUG
+TempStr TestPrintClose(MainWindow*, Str signal);
+#endif
 void RerenderTabPage(WindowTab*, int pageNo);
 void GetFrameNcStrips(MainWindow*, Vec<Rect>& out);
 EngineBase* CreatePdfEngineForDialog(Str path, HWND hwnd);

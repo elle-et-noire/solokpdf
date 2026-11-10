@@ -542,6 +542,9 @@ bool Copy(Str dst, Str src, bool dontOverwrite, const CopyProgressCb& cbProgress
         if (cbProgress.IsValid()) {
             CopyProgress progress{copied, total < 0 ? 0 : total};
             cbProgress.Call(&progress);
+            if (progress.cancel) {
+                return false;
+            }
         }
     }
 }
@@ -638,7 +641,7 @@ bool OverwriteAtomicRetry(Str dst, Str src, int retryCount, int retrySleepMs) {
     close(tempFd);
 
     TempStr tempPath = Str(tempPathZ);
-    if (!Copy(tempPath, src, false)) {
+    if (!Copy(tempPath, src, false, gFileCopyProgressCb)) {
         Delete(tempPath);
         return false;
     }

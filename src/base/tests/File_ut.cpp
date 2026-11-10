@@ -247,6 +247,26 @@ void FileUtilTest() {
 #endif
 
     {
+        TempStr source = GetTempFilePathTemp(StrL("copy-src"));
+        TempStr dest = GetTempFilePathTemp(StrL("copy-dst"));
+        utassert(file::WriteFile(source, StrL("new content")));
+        utassert(file::WriteFile(dest, StrL("keep content")));
+        auto previous = file::gFileCopyProgressCb;
+        file::gFileCopyProgressCb = MkFunc1Void<file::CopyProgress*>([](file::CopyProgress* p) { p->cancel = true; });
+        utassert(!file::OverwriteAtomicRetry(dest, source, 1, 0));
+        file::gFileCopyProgressCb = previous;
+        Str saved = file::ReadFile(dest);
+        utassert(str::Eq(saved, StrL("keep content")));
+        str::Free(saved);
+        utassert(file::OverwriteAtomicRetry(dest, source, 1, 0));
+        saved = file::ReadFile(dest);
+        utassert(str::Eq(saved, StrL("new content")));
+        str::Free(saved);
+        file::Delete(source);
+        file::Delete(dest);
+    }
+
+    {
         // write a temp file, map it and verify the view matches what was written
         TempStr path = GetTempFilePathTemp(StrL("mmap-test"));
         utassert(len(path) > 0);

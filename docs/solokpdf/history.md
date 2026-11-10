@@ -3251,3 +3251,24 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | ID  | Item                                                                                    | Status                                                                                                                                            |
 | --- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | F2  | Virtual-tree screen readers, monitor DPI changes, native thumb and real smart-bar hover | done — owner reported all checks OK, 2026-11-09; [results](tree-view-screen-reader-check.md#実施結果); build and environment details not provided |
+
+## SOL1–SOL3 corrections (2026-11-11)
+
+Implemented on `4d68e2f69` after the independent review; not committed.
+Windows save/reload/close now commits target input before inspecting dirty state.
+PDFium source copies and Merge stage beside the destination before replacing it.
+Print-close confirmation checks the owner again after modal reentry; Exit checks
+its window snapshot before closing.
+
+The [correction record](full-review-sol-results.md#sol1sol3-修正検証2026-11-11)
+and [evidence](data/sol-review-fixes-2026-11-11.json) preserve initial failures,
+final Debug/ASan results and limits. New targeted tests cover 56 pending-input,
+14 save-failure and six print-confirmation cases. Existing reload, cache, source
+lifetime, Merge and dialog-reentry tests passed. Shared-file unit tests passed
+in Debug/ASan; ng Windows Debug test_util compiled without running it.
+
+A separate intermittent ASan shutdown failure remains open as E38. Native exit
+`0xC0000409` and a debugger stack place the failure in the MSCTF/ASan heap path
+during OS DLL shutdown. Its root cause is unconfirmed. Passing retries do not
+cancel the failed observations; no suppression or exit-code exemption was added.
+No local Release build, full GUI suite or commit was run.

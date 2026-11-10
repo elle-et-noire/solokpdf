@@ -62,6 +62,7 @@ SeqStrings AnnotEditorLineEndingStyles();
 TempStr AnnotationListRowTextTemp(Annotation*);
 
 #if OS_WIN
+void CommitAnnotContents(MainWindow*);
 void RepositionAnnotEditToolbar(MainWindow*);
 void RepositionFreeTextInPlaceEdit(MainWindow*);
 HBRUSH FreeTextInPlaceEditCtlColor(HWND edit, HDC hdc);

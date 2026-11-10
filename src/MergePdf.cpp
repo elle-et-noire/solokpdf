@@ -1885,8 +1885,13 @@ void MergePdfWnd::OnRestore(VirtMouseEvent*) {
     grid->SetRemoved(false);
 }
 
-// Writes the pages not removed to destPath, which may be one of the sources:
-// the result goes to a temp file first
+#if IS_DEBUG
+static void CancelMergeCopy(file::CopyProgress* progress) {
+    progress->cancel = progress->bytesCopied > 0;
+}
+#endif
+
+// Stage and publish separately so a failed save preserves every source.
 bool MergePdfWnd::SaveTo(Str destPath) {
     Vec<PdfMergePage> pages;
     for (MergeItem& it : grid->items) {
@@ -1914,14 +1919,21 @@ bool MergePdfWnd::SaveTo(Str destPath) {
     TempStr tmpPath = GetTempFilePathTemp(StrL("merge"));
     bool ok = len(tmpPath) > 0 && EngineMupdfMergePdfs(srcs, pages, tmpPath);
     if (ok) {
-        WindowTab* tab = FindTabByFile(destPath);
+#if IS_DEBUG
+        WCHAR failure[2]{};
+        auto previous = file::gFileCopyProgressCb;
+        defer {
+            file::gFileCopyProgressCb = previous;
+        };
+        if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_TEST_SAVE_FAILURE", failure, dimofi(failure))) {
+            file::gFileCopyProgressCb = MkFunc1Void<file::CopyProgress*>(CancelMergeCopy);
+        }
+#endif
+        ok = file::OverwriteAtomicRetry(destPath, tmpPath, 1, 0);
+        WindowTab* tab = ok ? FindTabByFile(destPath) : nullptr;
         if (tab) {
-            // it's reloaded below; the file watcher needn't
             tab->ignoreNextAutoReload = true;
         }
-        Str data = file::ReadFile(tmpPath);
-        ok = len(data) > 0 && file::WriteFile(destPath, data);
-        str::Free(data);
     }
     if (len(tmpPath) > 0) {
         file::Delete(tmpPath);

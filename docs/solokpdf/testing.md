@@ -47,6 +47,35 @@ in both PDF engines. It checks that external updates preserve the input, cancel
 allows the deferred reload, and committed input stays protected until Undo
 returns the document to its clean state.
 
+### Pending input and failed saves (SOL1–SOL3)
+
+Run these individually through the hidden runner in Debug and ASan:
+
+```powershell
+bun tools/solokpdf/run-hidden.ts -- bun tests/pending-document-input.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/atomic-pdf-save.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/print-close-reentry.ts --no-build
+```
+
+`pending-document-input` checks FreeText, annotation contents, text and choice
+input in both engines: save, prior dirty state, failed save/retry, Save As,
+manual reload, tab close and window close. Reload/close includes Cancel and
+retry; every case reopens the saved PDF and checks the value. Multi-line FreeText
+window close also checks the saved bounds.
+`PENDING_INPUT_CASE=<engine>-<input>-<action>` selects one case.
+
+`atomic-pdf-save` checks small/large PDFium copies and both engines' Merge PDF.
+It compares existing output bytes after read/write failure or read-only
+publication failure, checks temporary-file cleanup and verifies successful output.
+Debug-only failures require `-for-testing`; Release/ng skip them.
+`ATOMIC_SAVE_CASE=<engine>-<small|big|merge>-<w|r|p|empty>` selects one case.
+
+`print-close-reentry` uses a bounded test worker, without a printer. It ends
+that worker while the real print confirmation is modal, then exits the app.
+The close permission must reject a destroyed window; No must keep a live one.
+Choice input must commit before the print question can steal focus.
+This tests the dialog/lifetime contract, not spooler or physical printing.
+
 ### Virtual sidebar trees
 
 Bookmarks and favorites use virtual trees by default in Debug and Release.

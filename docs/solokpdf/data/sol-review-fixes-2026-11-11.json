@@ -1,0 +1,284 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "baseHead": "4d68e2f697acab9c1832cd8ab8a7c897fbad52e6",
+  "committed": false,
+  "request": "Fix SOL1-SOL3 from the independent review; retain original review records.",
+  "configuration": {
+    "platform": "Windows 11 build 26300.9818 x64",
+    "bun": "1.4.4",
+    "toolset": "MSVC 14.51.36231",
+    "gui": "hidden desktop, outside sandbox, -for-testing",
+    "modes": ["Debug x64 PDFium enabled", "Debug x64 ASan PDFium enabled"],
+    "asanOptions": "windows_hook_legacy_allocators=0:suppressions=\"C:\\work\\solokpdf\\asan.supp\"",
+    "pdfiumInstrumented": false,
+    "releaseBuild": false,
+    "fullGuiSuites": false
+  },
+  "builds": [
+    {
+      "log": ".work/sol-fix-ready-build-dbg.log",
+      "result": "pass; zero warnings/errors",
+      "executable": "out/dbg64/SumatraPDF.exe",
+      "sha256": "0d771fec9b9348c7cfbd2fbe9b59df76462d1b82789ac0f8f3762ccb572e97d5"
+    },
+    {
+      "log": ".work/sol-fix-ready-build-asan.log",
+      "result": "pass; zero warnings/errors",
+      "executable": "out/dbg64_asan/SumatraPDF-static.exe",
+      "sha256": "a89b4d728b95ad335c392bc9c8a5615bbfa2ffdcddad44357b37ec4c3777841c"
+    },
+    {
+      "log": ".work/sol-fix-ng-build.log",
+      "result": "pass; Windows Debug test_util compile/link only; not executed"
+    }
+  ],
+  "previousBinary": {
+    "debugSha256": "438985478f60b693eed872010eaabed100311fb428cc67832883add70b765afc",
+    "asanSha256": "d649a4b48ec733d5edb71698a119692ab4dd56c3f53f991210e19f7187467870",
+    "differenceFromFinal": "Final rebuild only adds Debug -for-testing print-ready control query; product paths unchanged."
+  },
+  "failuresBeforeFix": [
+    {
+      "log": ".work/sol1-before.log",
+      "finding": "SOL1",
+      "result": "expected failure on original pending-input flow",
+      "assertion": "mupdf-FreeText-reload loses input without a save prompt",
+      "output": "❌ pending-document-input failed after 5.8s: mupdf-FreeText-reload: Error: mupdf-FreeText-reload: input discarded without a save prompt"
+    },
+    {
+      "log": ".work/sol2-before-pdfium-valid.log",
+      "finding": "SOL2",
+      "result": "expected failure using original writer plus partial-transfer fault hook",
+      "assertion": "pdfium-small-w destroys existing destination",
+      "output": "❌ atomic-pdf-save failed after 1.2s: pdfium-small-w: failed save destroyed the existing destination"
+    },
+    {
+      "log": ".work/sol2-before-merge.log",
+      "finding": "SOL2",
+      "result": "expected failure using original Merge publisher plus partial-write fault hook",
+      "assertion": "mupdf-merge-w destroys existing destination",
+      "output": "❌ atomic-pdf-save failed after 5.5s: mupdf-merge-w: failed save destroyed the existing destination"
+    },
+    {
+      "log": ".work/sol3-before.log",
+      "finding": "SOL3",
+      "result": "expected failure using original CanCloseWindow plus Debug test worker",
+      "assertion": "allowed=1 live=0",
+      "output": "❌ print-close-reentry failed after 1.9s: mupdf: allowed=1 live=0, expected allowed=0 live=0"
+    },
+    {
+      "log": ".work/sol1-bounds-before.log",
+      "finding": "SOL1",
+      "result": "additional test failure before close-order correction",
+      "assertion": "multi-line FreeText saved bounds do not expand on window close",
+      "output": "❌ pending-document-input failed after 1.3s: mupdf-FreeText-window-close: Error: Closing lost the expanded FreeText bounds"
+    },
+    {
+      "log": ".work/sol1-print-input-before.log",
+      "finding": "SOL1",
+      "result": "additional test failure before pre-print commit",
+      "assertion": "print question cancels choice input",
+      "output": "❌ print-close-reentry failed after 1.5s: Print confirmation lost input: OK before='ORIGINAL' after='EDITED' viewBefore=1118 viewAfter=1118 printBefore=549 printAfter=549 refreshFailed=0"
+    }
+  ],
+  "verification": [
+    {
+      "log": ".work/sol1-verified-dbg.log",
+      "test": "pending-document-input",
+      "mode": "Debug",
+      "result": "pass",
+      "cases": 56,
+      "output": "mupdf-FreeText-reload: pending input saved\r\nmupdf-FreeText-close: pending input saved\r\nmupdf-FreeText-save: pending input saved\r\nmupdf-FreeText-save-dirty: pending input saved\r\nmupdf-FreeText-save-failed: pending input saved\r\nmupdf-FreeText-save-as: pending input saved\r\nmupdf-FreeText-window-close: pending input saved\r\nmupdf-Square-reload: pending input saved\r\nmupdf-Square-close: pending input saved\r\nmupdf-Square-save: pending input saved\r\nmupdf-Square-save-dirty: pending input saved\r\nmupdf-Square-save-failed: pending input saved\r\nmupdf-Square-save-as: pending input saved\r\nmupdf-Square-window-close: pending input saved\r\nmupdf-text-reload: pending input saved\r\nmupdf-text-close: pending input saved\r\nmupdf-text-save: pending input saved\r\nmupdf-text-save-dirty: pending input saved\r\nmupdf-text-save-failed: pending input saved\r\nmupdf-text-save-as: pending input saved\r\nmupdf-text-window-close: pending input saved\r\nmupdf-choice-reload: pending input saved\r\nmupdf-choice-close: pending input saved\r\nmupdf-choice-save: pending input saved\r\nmupdf-choice-save-dirty: pending input saved\r\nmupdf-choice-save-failed: pending input saved\r\nmupdf-choice-save-as: pending input saved\r\nmupdf-choice-window-close: pending input saved\r\npdfium-FreeText-reload: pending input saved\r\npdfium-FreeText-close: pending input saved\r\npdfium-FreeText-save: pending input saved\r\npdfium-FreeText-save-dirty: pending input saved\r\npdfium-FreeText-save-failed: pending input saved\r\npdfium-FreeText-save-as: pending input saved\r\npdfium-FreeText-window-close: pending input saved\r\npdfium-Square-reload: pending input saved\r\npdfium-Square-close: pending input saved\r\npdfium-Square-save: pending input saved\r\npdfium-Square-save-dirty: pending input saved\r\npdfium-Square-save-failed: pending input saved\r\npdfium-Square-save-as: pending input saved\r\npdfium-Square-window-close: pending input saved\r\npdfium-text-reload: pending input saved\r\npdfium-text-close: pending input saved\r\npdfium-text-save: pending input saved\r\npdfium-text-save-dirty: pending input saved\r\npdfium-text-save-failed: pending input saved\r\npdfium-text-save-as: pending input saved\r\npdfium-text-window-close: pending input saved\r\npdfium-choice-reload: pending input saved\r\npdfium-choice-close: pending input saved\r\npdfium-choice-save: pending input saved\r\npdfium-choice-save-dirty: pending input saved\r\npdfium-choice-save-failed: pending input saved\r\npdfium-choice-save-as: pending input saved\r\npdfium-choice-window-close: pending input saved\r\n✅ pending-document-input passed in 2m 47.8s"
+    },
+    {
+      "log": ".work/sol1-verified-asan.log",
+      "test": "pending-document-input",
+      "mode": "ASan",
+      "result": "pass",
+      "cases": 56,
+      "output": "mupdf-FreeText-reload: pending input saved\r\nmupdf-FreeText-close: pending input saved\r\nmupdf-FreeText-save: pending input saved\r\nmupdf-FreeText-save-dirty: pending input saved\r\nmupdf-FreeText-save-failed: pending input saved\r\nmupdf-FreeText-save-as: pending input saved\r\nmupdf-FreeText-window-close: pending input saved\r\nmupdf-Square-reload: pending input saved\r\nmupdf-Square-close: pending input saved\r\nmupdf-Square-save: pending input saved\r\nmupdf-Square-save-dirty: pending input saved\r\nmupdf-Square-save-failed: pending input saved\r\nmupdf-Square-save-as: pending input saved\r\nmupdf-Square-window-close: pending input saved\r\nmupdf-text-reload: pending input saved\r\nmupdf-text-close: pending input saved\r\nmupdf-text-save: pending input saved\r\nmupdf-text-save-dirty: pending input saved\r\nmupdf-text-save-failed: pending input saved\r\nmupdf-text-save-as: pending input saved\r\nmupdf-text-window-close: pending input saved\r\nmupdf-choice-reload: pending input saved\r\nmupdf-choice-close: pending input saved\r\nmupdf-choice-save: pending input saved\r\nmupdf-choice-save-dirty: pending input saved\r\nmupdf-choice-save-failed: pending input saved\r\nmupdf-choice-save-as: pending input saved\r\nmupdf-choice-window-close: pending input saved\r\npdfium-FreeText-reload: pending input saved\r\npdfium-FreeText-close: pending input saved\r\npdfium-FreeText-save: pending input saved\r\npdfium-FreeText-save-dirty: pending input saved\r\npdfium-FreeText-save-failed: pending input saved\r\npdfium-FreeText-save-as: pending input saved\r\npdfium-FreeText-window-close: pending input saved\r\npdfium-Square-reload: pending input saved\r\npdfium-Square-close: pending input saved\r\npdfium-Square-save: pending input saved\r\npdfium-Square-save-dirty: pending input saved\r\npdfium-Square-save-failed: pending input saved\r\npdfium-Square-save-as: pending input saved\r\npdfium-Square-window-close: pending input saved\r\npdfium-text-reload: pending input saved\r\npdfium-text-close: pending input saved\r\npdfium-text-save: pending input saved\r\npdfium-text-save-dirty: pending input saved\r\npdfium-text-save-failed: pending input saved\r\npdfium-text-save-as: pending input saved\r\npdfium-text-window-close: pending input saved\r\npdfium-choice-reload: pending input saved\r\npdfium-choice-close: pending input saved\r\npdfium-choice-save: pending input saved\r\npdfium-choice-save-dirty: pending input saved\r\npdfium-choice-save-failed: pending input saved\r\npdfium-choice-save-as: pending input saved\r\npdfium-choice-window-close: pending input saved\r\n✅ pending-document-input passed in 3m 17.3s"
+    },
+    {
+      "log": ".work/sol2-verified-dbg.log",
+      "test": "atomic-pdf-save",
+      "mode": "Debug",
+      "result": "pass",
+      "cases": 14,
+      "output": "pdfium-small-w: destination preserved\r\npdfium-small-r: destination preserved\r\npdfium-small-p: destination preserved\r\npdfium-small-: destination preserved\r\npdfium-big-w: destination preserved\r\npdfium-big-r: destination preserved\r\npdfium-big-p: destination preserved\r\npdfium-big-: destination preserved\r\npdfium-merge-w: destination preserved\r\npdfium-merge-p: destination preserved\r\npdfium-merge-: destination preserved\r\nmupdf-merge-w: destination preserved\r\nmupdf-merge-p: destination preserved\r\nmupdf-merge-: destination preserved\r\n✅ atomic-pdf-save passed in 20.5s"
+    },
+    {
+      "log": ".work/sol-fix-final-atomic-pdf-save-asan.log",
+      "test": "atomic-pdf-save",
+      "mode": "ASan",
+      "result": "pass",
+      "cases": 14,
+      "output": "pdfium-small-w: destination preserved\r\npdfium-small-r: destination preserved\r\npdfium-small-p: destination preserved\r\npdfium-small-: destination preserved\r\npdfium-big-w: destination preserved\r\npdfium-big-r: destination preserved\r\npdfium-big-p: destination preserved\r\npdfium-big-: destination preserved\r\npdfium-merge-w: destination preserved\r\npdfium-merge-p: destination preserved\r\npdfium-merge-: destination preserved\r\nmupdf-merge-w: destination preserved\r\nmupdf-merge-p: destination preserved\r\nmupdf-merge-: destination preserved\r\n✅ atomic-pdf-save passed in 28.4s"
+    },
+    {
+      "log": ".work/sol3-ready-dbg.log",
+      "test": "print-close-reentry",
+      "mode": "Debug final instrumentation",
+      "result": "pass",
+      "cases": 6,
+      "output": "mupdf destroy: close confirmation validated\r\nmupdf cancel: close confirmation validated\r\nmupdf input: close confirmation validated\r\npdfium destroy: close confirmation validated\r\npdfium cancel: close confirmation validated\r\npdfium input: close confirmation validated\r\n✅ print-close-reentry passed in 8.5s"
+    },
+    {
+      "log": ".work/sol3-ready-asan-1.log",
+      "test": "print-close-reentry",
+      "mode": "ASan final instrumentation",
+      "repeat": 1,
+      "result": "pass",
+      "cases": 6,
+      "output": "mupdf destroy: close confirmation validated\r\nmupdf cancel: close confirmation validated\r\nmupdf input: close confirmation validated\r\npdfium destroy: close confirmation validated\r\npdfium cancel: close confirmation validated\r\npdfium input: close confirmation validated\r\n✅ print-close-reentry passed in 13.9s"
+    },
+    {
+      "log": ".work/sol3-ready-asan-2.log",
+      "test": "print-close-reentry",
+      "mode": "ASan final instrumentation",
+      "repeat": 2,
+      "result": "pass",
+      "cases": 6,
+      "output": "mupdf destroy: close confirmation validated\r\nmupdf cancel: close confirmation validated\r\nmupdf input: close confirmation validated\r\npdfium destroy: close confirmation validated\r\npdfium cancel: close confirmation validated\r\npdfium input: close confirmation validated\r\n✅ print-close-reentry passed in 10.7s"
+    },
+    {
+      "log": ".work/sol3-ready-asan-3.log",
+      "test": "print-close-reentry",
+      "mode": "ASan final instrumentation",
+      "repeat": 3,
+      "result": "fail; Bun exit 9 after shared cleanup, native code not measured in this run",
+      "output": "mupdf destroy: close confirmation validated\r\nmupdf cancel: close confirmation validated\r\nmupdf input: close confirmation validated\r\n\r\n❌ print-close-reentry failed after 12.5s: Exit 9: warning: dropping unclosed PDF processor\r\nwarning: ... repeated 2 times...\r\nwarning: dropping unclosed output\r\nwarning: UNHANDLED EXCEPTION!\r\nabort error: themed PDF rendering canceled\r\nSumatraPDF stderr:\r\nwarning: dropping unclosed PDF processor\r\nwarning: ... repeated 2 times...\r\nwarning: dropping unclosed output\r\nwarning: UNHANDLED EXCEPTION!\r\nabort error: themed PDF rendering canceled"
+    },
+    {
+      "log": ".work/sol-fix-related-auto-reload-unsaved.log",
+      "test": "auto-reload-unsaved",
+      "mode": "Debug",
+      "result": "pass",
+      "output": "mupdf FreeText: preserved annotation input and pending reload\r\nmupdf Square: preserved annotation input and pending reload\r\nmupdf dirty: preserved edits and pending reload\r\nmupdf text: preserved edits and pending reload\r\nmupdf choice: preserved edits and pending reload\r\nmupdf other-text: preserved edits and pending reload\r\nmupdf other-choice: preserved edits and pending reload\r\npdfium FreeText: preserved annotation input and pending reload\r\npdfium Square: preserved annotation input and pending reload\r\npdfium dirty: preserved edits and pending reload\r\npdfium text: preserved edits and pending reload\r\npdfium choice: preserved edits and pending reload\r\npdfium other-text: preserved edits and pending reload\r\npdfium other-choice: preserved edits and pending reload\r\n✅ auto-reload-unsaved passed in 40.1s"
+    },
+    {
+      "log": ".work/sol-fix-related-dialog-target-reentry.log",
+      "test": "dialog-target-reentry",
+      "mode": "Debug",
+      "result": "pass",
+      "output": "pdfium: reload unchanged target checked\r\npdfium: reload cancelled after switching checked\r\npdfium: reload accepted after switching checked\r\npdfium: close target during reload checked\r\npdfium: exit during reload checked\r\npdfium: Save As same target checked\r\npdfium: Save As switch target checked\r\npdfium: Save As close target checked\r\npdfium: Save As reload target checked\r\nmupdf: reload unchanged target checked\r\nmupdf: reload cancelled after switching checked\r\nmupdf: reload accepted after switching checked\r\nmupdf: close target during reload checked\r\nmupdf: exit during reload checked\r\nmupdf: Save As same target checked\r\nmupdf: Save As switch target checked\r\nmupdf: Save As close target checked\r\nmupdf: Save As reload target checked\r\n✅ dialog-target-reentry passed in 30.4s"
+    },
+    {
+      "log": ".work/sol-fix-related-ad-hoc-pdfium-source-lifetime.log",
+      "test": "ad-hoc-pdfium-source-lifetime",
+      "mode": "Debug",
+      "result": "pass",
+      "output": "small rename: clone, editor and source copy retained the open document\r\nsmall replace: clone, editor and source copy retained the open document\r\nsmall delete: clone, editor and source copy retained the open document\r\nbig rename: clone, editor and source copy retained the open document\r\nbig replace: clone, editor and source copy retained the open document\r\nbig delete: clone, editor and source copy retained the open document\r\n✅ ad-hoc-pdfium-source-lifetime passed in 20.9s"
+    },
+    {
+      "log": ".work/sol-fix-related-issue-6070.log",
+      "test": "issue-6070",
+      "mode": "Debug",
+      "result": "pass",
+      "output": "issue-6070: OK\r\n✅ issue-6070 passed in 2.9s"
+    },
+    {
+      "log": ".work/sol-fix-related-form-text-cache.log",
+      "test": "form-text-cache",
+      "mode": "Debug",
+      "result": "pass",
+      "output": "mupdf text: checked caches, search, selection and Undo/Redo\r\nmupdf choice: checked caches, search, selection and Undo/Redo\r\nmupdf button: checked caches, search, selection and Undo/Redo\r\nmupdf blank: checked caches, search, selection and Undo/Redo\r\nmupdf reject: checked caches, search, selection and Undo/Redo\r\npdfium text: checked caches, search, selection and Undo/Redo\r\npdfium choice: checked caches, search, selection and Undo/Redo\r\npdfium button: checked caches, search, selection and Undo/Redo\r\npdfium blank: checked caches, search, selection and Undo/Redo\r\npdfium reject: checked caches, search, selection and Undo/Redo\r\n✅ form-text-cache passed in 49.9s"
+    },
+    {
+      "log": ".work/sol-fix-final-dialog-target-reentry-asan.log",
+      "test": "dialog-target-reentry",
+      "mode": "ASan",
+      "result": "pass",
+      "output": "pdfium: reload unchanged target checked\r\npdfium: reload cancelled after switching checked\r\npdfium: reload accepted after switching checked\r\npdfium: close target during reload checked\r\npdfium: exit during reload checked\r\npdfium: Save As same target checked\r\npdfium: Save As switch target checked\r\npdfium: Save As close target checked\r\npdfium: Save As reload target checked\r\nmupdf: reload unchanged target checked\r\nmupdf: reload cancelled after switching checked\r\nmupdf: reload accepted after switching checked\r\nmupdf: close target during reload checked\r\nmupdf: exit during reload checked\r\nmupdf: Save As same target checked\r\nmupdf: Save As switch target checked\r\nmupdf: Save As close target checked\r\nmupdf: Save As reload target checked\r\n✅ dialog-target-reentry passed in 55.9s"
+    },
+    {
+      "log": ".work/sol-fix-dialog-final-dbg.log",
+      "test": "dialog-target-reentry",
+      "mode": "Debug final instrumentation",
+      "result": "pass",
+      "output": "pdfium: reload unchanged target checked\r\npdfium: reload cancelled after switching checked\r\npdfium: reload accepted after switching checked\r\npdfium: close target during reload checked\r\npdfium: exit during reload checked\r\npdfium: Save As same target checked\r\npdfium: Save As switch target checked\r\npdfium: Save As close target checked\r\npdfium: Save As reload target checked\r\nmupdf: reload unchanged target checked\r\nmupdf: reload cancelled after switching checked\r\nmupdf: reload accepted after switching checked\r\nmupdf: close target during reload checked\r\nmupdf: exit during reload checked\r\nmupdf: Save As same target checked\r\nmupdf: Save As switch target checked\r\nmupdf: Save As close target checked\r\nmupdf: Save As reload target checked\r\n✅ dialog-target-reentry passed in 25.9s"
+    },
+    {
+      "log": ".work/sol-fix-merge-final-mupdf.log",
+      "test": "issue-6070",
+      "mode": "Debug final instrumentation; SOLOKPDF_ENGINE=mupdf",
+      "result": "pass",
+      "output": "issue-6070: OK\r\n✅ issue-6070 passed in 7.3s"
+    },
+    {
+      "log": ".work/sol-fix-unit-dbg.log",
+      "test": "cmd/run-unit-tests.ts",
+      "mode": "dbg",
+      "result": "pass",
+      "assertions": "Includes atomic-copy cancellation preserving existing destination and successful publication; shared helper unchanged after unit run."
+    },
+    {
+      "log": ".work/sol-fix-unit-asan.log",
+      "test": "cmd/run-unit-tests.ts",
+      "mode": "asan",
+      "result": "pass",
+      "assertions": "Includes atomic-copy cancellation preserving existing destination and successful publication; shared helper unchanged after unit run."
+    }
+  ],
+  "additionalFailedObservations": {
+    "id": "E38",
+    "result": "unresolved",
+    "nativeExit": "0xC0000409",
+    "fastFailParameter": "0x23",
+    "symptom": "Intermittent nonzero native process exit after shared-cleanup-complete marker during ASan save test shutdown; Bun presents exit 9.",
+    "nativeLog": {
+      "log": ".work/sol2-native-default-1.log",
+      "output": "❌ sol2-exit-default failed after 7.8s: Error: SumatraPDF: exit code 9\r\nwarning: dropping unclosed PDF processor\r\nwarning: ... repeated 2 times...\r\nwarning: dropping unclosed output\r\nwarning: UNHANDLED EXCEPTION!\r\nabort error: themed PDF rendering canceled; native exit=3221226505"
+    },
+    "debugStack": "exception c0000409 first=0 tid=33500 addr=00007FFBFB1B1875 info=23\n00007ffbfb1b1875 RtlPinAtomInAtomTable +c5\n00007ffbfb1b1875 RtlPinAtomInAtomTable +c5\n00007ffbfb1de4a4 strncpy +1d14\n00007ffbfb197733 _C_specific_handler +93\n00007ffbfb1dab3f _chkstk +9f\n00007ffbfb136985 RtlWow64GetCurrentMachine +655\n00007ffbfb1da47e KiUserExceptionDispatcher +2e\n00007ffbfb0cd4d9 RtlReAllocateHeap +1749\n00007ffbfb0cbc2f RtlSizeHeap +85df\n00007ffbfb0ca185 RtlSizeHeap +6b35\n00007ffbfb0cbe0e RtlReAllocateHeap +7e\n00007ffbd32b07f3 _asan_wrap_static_crt__free_base +8afaa\n00007ffbfaa03f54 HasDeferredInputForCoreDispatcher +2534\n00007ffbfaa6ad54 DllGetClassObject +b84\n00007ffbfaa06ce9 TF_CanUninitialize +c9\n00007ffbfaa5efb4 DllCanUnloadNow +3ba4\n00007ffbfaa06636 HasDeferredInputForCoreDispatcher +4c16\n00007ffbfaa5dfd0 DllCanUnloadNow +2bc0\n00007ffbfaa5df84 DllCanUnloadNow +2b74\n00007ffbfaa67712 TF_WaitForInitialized +e12\n00007ffbfaa2575d TF_CreateCicLoadMutex +90d\n00007ffbfaa23ae6 CtfImeDestroyThreadMgr +406\n00007ffbfaa23a64 CtfImeDestroyThreadMgr +384\n00007ffbfaa6e037 DllGetClassObject +3e67\n00007ffbfaa0cc01 TF_CanUninitialize +5fe1\n00007ffbfaa0ca48 TF_CanUninitialize +5e28\n00007ffbfaa0c962 TF_CanUninitialize +5d42\n00007ffbfb13a87f RtlFreeActivationContextStack +3ef\n00007ffbfb13b13a LdrShutdownProcess +22a\n00007ffbfb139d9e RtlExitUserProcess +9e\n00007ffbf91a17ab ExitProcess +b\n00007ff75d6209f8 exit_or_terminate_process +2c\n00007ff75d6209ca common_exit +e2\n00007ff75d5fcb4b __scrt_common_main_seh +16b\n00007ffbf918dda7 BaseThreadInitThunk +17\n00007ffbfb139c5c RtlUserThreadStart +2c\nexit c0000409",
+    "interpretation": "DLL shutdown stack traverses Windows MSCTF and ASan heap wrapper/RtlReAllocateHeap. Windows function names use nearest available export symbols, not full Microsoft PDBs. Product root cause not established.",
+    "hookComparison": "Four selected-case runs with windows_hook_legacy_allocators=1 passed. Not accepted as cause or fix; standard runtime settings/suppressions remain unchanged.",
+    "warnings": "Some canceled PDFium themed-render paths print MuPDF UNHANDLED EXCEPTION/abort warnings even with native exit 0. Kept in logs; not proof of shutdown safety.",
+    "exemptionsAdded": false,
+    "testRace": {
+      "log": ".work/sol3-verified-asan-2.log",
+      "result": "timeout 124 in print destroy case",
+      "cause": "Signal file is created immediately before worker returns. Nested exit can see still-running handle and open a second print question.",
+      "correction": "Query signaled thread HANDLE on separate control connection before posting Exit; no fixed delay or failure exemption."
+    },
+    "moduleCheck": {
+      "dll": "C:/Windows/System32/msctf.dll",
+      "moduleBase": "0x7ffbfa9f0000",
+      "TF_CanUninitialize": "0x7ffbfaa06c20",
+      "method": "Local LoadLibrary/GetProcAddress in a separate process; matches native stack export address plus offset."
+    }
+  },
+  "sourceSha256": {
+    "src/AnnotEditToolbar.cpp": "f59de70d71d8632e33c112713c1bd45a44c8fd87a2c4a4cc2861f384b3574207",
+    "src/MergePdf.cpp": "9b685f1c18457d63bb43918aaa4a8260dcc3911d107cf988d078921bf42c1b14",
+    "src/SumatraControl.cpp": "42884fdb23ff8cb8210302f8a03ab09a364c578c3586490cc08b10e697405d62",
+    "src/SumatraPDF.cpp": "cc0bddb11b2dd0e036b8ad40afd1601571e6a6579bfeeb079fffc797763875b3",
+    "src/SumatraPDF.h": "72b1f7c6e1a228c213f090f2ced6c1e1010aaf20db60c43e1a8b3585e66b24db",
+    "src/base/File.cpp": "0bf39afe587547e49623f42ae7e3c0e3f55ac861e3f1fa66d7b098cee26323aa",
+    "src/base/File.h": "8118f4a85317c3db496f93943a0d52e2d9038185ce8c01db6131c6d30a16ac2f",
+    "src/base/File_posix.cpp": "72df9555e17177f7a2eeb49d101edb693e143b2f50573b203e7a68514a4f80dd",
+    "src/base/tests/File_ut.cpp": "32c25cfe5520b8a6987ef3c29bde46ffcf1652de645da7fa9bfa7b18c08729fc",
+    "src/shared/AnnotEditToolbar.h": "d44687753018431bd39b6807b4240497b3df1ad4f151f9d383611896ad2cc06a",
+    "src/solokpdf/EnginePdfium.cpp": "87a234d583da5fe1f2965a0f7a56d1610d82e67be5dcc941d59adf80e5fe1dfd",
+    "tests/run-almost-all.ts": "3bd9f172205c797291d0368feef558af4c4240162ddda18eabb5c44e54e0c3e4",
+    "tests/run-solokpdf-ci.ts": "a08c5fce24071bb38b2b52b6cff1bf98ca7c349d7d3d656a974deedae2c15f8f",
+    "tests/winapi.ts": "fb69f974694533c505ebbf1896a24ce4834d6de1d61746af029411e8c19439d8",
+    "tests/pending-document-input.ts": "c826bafd512875d9b4442662d5f8503d7ee7ad5aaabf161d769668b429fa7595",
+    "tests/atomic-pdf-save.ts": "eaf31d3da4ea7f18704503325642a7a462f0a689b37f8336dbb07c1f6188b228",
+    "tests/print-close-reentry.ts": "d903de4252ed1ea4ea5e02ba2344962fd0f956d2ade9aa91c345f4e303f68840"
+  },
+  "limits": [
+    "Real disk-full, power-loss durability and SMB/special-filesystem replacement not tested",
+    "Not every transfer offset, JavaScript rejection or modal reentry combination",
+    "No real printer/spooler test",
+    "No claim about all worker callbacks or shutdown dependencies",
+    "ng Windows compile only; no ng GUI/unit execution or POSIX build",
+    "Original review exclusions remain"
+  ],
+  "staticChecks": [
+    "clang-format --dry-run --Werror on all changed C/C++: pass",
+    "bun tests/lint-command-ids.ts: pass",
+    "bun tests/lint-desktop-input.ts: pass",
+    "git diff --check: pass"
+  ]
+}
