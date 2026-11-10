@@ -2484,7 +2484,8 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
     };
 
     // Keep the pending update until this tab's edits can be replaced safely.
-    if (autoRefresh && (IsFormFieldEditActive(win) || EngineHasUnsavedAnnotations(tab->GetEngine()))) {
+    if (autoRefresh && (IsFormFieldEditActive(win) || IsEditingFreeTextInPlace(win) || IsEditingAnnotContents(win) ||
+                        EngineHasUnsavedAnnotations(tab->GetEngine()))) {
         tab->reloadOnFocus = true;
         logf("ReloadDocument: deferred automatic reload for %s\n", tab->filePath);
         return;

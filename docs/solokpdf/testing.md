@@ -42,6 +42,11 @@ targets; reload with password acceptance, cancellation, target close and app exi
 `ctx-menu-reload`, `auto-reload-unsaved` and `missing-source-unsaved` cover related
 reload and save behavior.
 
+`auto-reload-unsaved` also covers pending FreeText and toolbar contents input
+in both PDF engines. It checks that external updates preserve the input, cancel
+allows the deferred reload, and committed input stays protected until Undo
+returns the document to its clean state.
+
 ### Virtual sidebar trees
 
 Bookmarks and favorites use virtual trees by default in Debug and Release.

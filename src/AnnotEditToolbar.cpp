@@ -1327,6 +1327,11 @@ static void EndContentsEdit(AnnotEditToolbar* tb, bool accept) {
     }
 }
 
+bool IsEditingAnnotContents(MainWindow* win) {
+    AnnotEditToolbar* tb = win ? win->annotEditToolbar : nullptr;
+    return tb && tb->editingContents;
+}
+
 // posted tasks outlive the window that posted them: check it's still there
 static void PostedAcceptContents(MainWindow* win) {
     if (!IsMainWindowValid(win) || !win->annotEditToolbar) {

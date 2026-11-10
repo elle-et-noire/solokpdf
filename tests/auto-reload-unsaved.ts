@@ -24,6 +24,17 @@ const kSaveExisting = 101;
 const kSetSelection = 0x0186; // LB_SETCURSEL
 const kGetSelection = 0x0188; // LB_GETCURSEL
 type Mode = "dirty" | "text" | "choice" | "other-text" | "other-choice";
+type AnnotType = "FreeText" | "Square";
+
+function annotFixture(value: string, type: AnnotType): string {
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R /AcroForm << /DR << /Font << /Helv 5 0 R >> >> >> >>",
+    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 700] /Annots [4 0 R] >>",
+    `<< /Type /Annot /Subtype /${type} /P 3 0 R /Rect [100 300 500 400] /Contents (${value}) /DA (/Helv 18 Tf 0 g) >>`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ]);
+}
 
 function fixture(value: string, type: "text" | "choice" = "text"): string {
   const field = type === "text" ? "/FT /Tx" : `/FT /Ch /Opt [(${kOriginal}) (${kEdited}) (${kDisk})]`;
@@ -85,6 +96,104 @@ async function startInput(client: ControlClient, canvas: number, type: "text" | 
   if (type === "text") sendText(editor, kEdited);
   else sendMessage(editor, kSetSelection, 1, 0);
   return editor;
+}
+
+async function selectAnnot(client: ControlClient, canvas: number): Promise<void> {
+  const rect = /type=\w+[^\n]*screen=(-?\d+),(-?\d+),(\d+),(\d+)/.exec(await state(client));
+  if (!rect) throw new Error("No annotation rectangle");
+  await until(async () => {
+    await clickAt(canvas, +rect[1]! + +rect[3]! / 2, +rect[2]! + +rect[4]! / 2, 0, 0, client);
+    return (await state(client)).includes("state selected=1");
+  }, "Annotation was not selected");
+}
+
+async function startAnnotInput(client: ControlClient, canvas: number, pid: number, type: AnnotType): Promise<number> {
+  await selectAnnot(client, canvas);
+  const dump = await state(client);
+  const chip = /[=;]contents:(-?\d+),(-?\d+),(\d+),(\d+)/.exec(dump);
+  const placed = / placed=(-?\d+),(-?\d+),(\d+),(\d+)/.exec(dump);
+  const toolbar = findTopWindow(pid, "SumatraAnnotEditToolbar");
+  if (!chip || !placed || !toolbar) throw new Error(`No Contents chip: ${dump}`);
+  await clickAt(
+    toolbar,
+    +chip[1]! - +placed[1]! + +chip[3]! / 2,
+    +chip[2]! - +placed[2]! + +chip[4]! / 2,
+    0,
+    0,
+    client,
+  );
+  let editor = 0;
+  await until(() => {
+    editor = findVisibleChildWindow(type === "FreeText" ? canvas : toolbar, "Edit");
+    return editor !== 0;
+  }, "No annotation editor");
+  sendText(editor, kEdited);
+  return editor;
+}
+
+async function annotValue(client: ControlClient, canvas: number, expected: string): Promise<void> {
+  await selectAnnot(client, canvas);
+  const result = await client.request(ControlCommand.TestAnnotEditorLayout);
+  if (result[0] !== 0 || !String(result[1]).trimEnd().endsWith(` contents=${expected}`))
+    throw new Error(`Lost annotation ${expected}: ${result[1]}`);
+}
+
+async function checkAnnot(engine: string, type: AnnotType): Promise<void> {
+  const dir = tmpPath(`auto-reload-unsaved/${engine}-${type}`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, SETTINGS_FILE),
+    "UiLanguage = en\nReloadModifiedDocuments = true\nRestoreSession = false\nLazyLoading = false\n",
+  );
+  const source = join(dir, "source.pdf");
+  const other = join(dir, "other.pdf");
+  const log = join(dir, "app.log");
+  writeFileSync(source, annotFixture(kOriginal, type), "latin1");
+  writeFileSync(other, fixture(kOriginal), "latin1");
+  await withControlledSumatra(
+    EXE,
+    async (client, proc) => {
+      const frame = await waitForTopWindow(proc.pid!, FRAME_CLASS);
+      sendCommandSync(frame, cmdId("CmdPrevTab"));
+      await client.waitForRenderIdle();
+      sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
+      const canvas = findCanvas(frame);
+      for (const action of ["cancel", "commit"] as const) {
+        const editor = await startAnnotInput(client, canvas, proc.pid!, type);
+        if (!(await state(client)).includes("modified=0")) throw new Error("Annotation input committed before watcher");
+        const start = readFileSync(log, "utf8").length;
+        const diskValue = action === "cancel" ? kDisk : kOriginal;
+        writeFileSync(source, annotFixture(diskValue, type), "latin1");
+        await until(
+          () => /ReloadDocument:/.test(readFileSync(log, "utf8").slice(start)),
+          "Watcher did not reach reload",
+        );
+        await client.waitForRenderIdle();
+        if (!isWindowVisible(editor) || getControlText(editor) !== kEdited)
+          throw new Error(`${engine} ${type}: automatic reload destroyed annotation input`);
+        if (action === "cancel") {
+          await pressEscape(editor);
+          await until(() => !isWindowVisible(editor), "Annotation input did not cancel");
+        } else {
+          await clickAt(canvas, 30, 30, 0, 0, client);
+          await until(async () => (await state(client)).includes("modified=1"), "Annotation input did not commit");
+          await roundTrip(frame, client);
+          await annotValue(client, canvas, kEdited);
+          sendCommandSync(frame, cmdId("CmdUndo"));
+          if (!(await state(client)).includes("modified=0"))
+            throw new Error("Annotation Undo did not restore clean state");
+        }
+        await roundTrip(frame, client);
+        await annotValue(client, canvas, diskValue);
+        if (!(await state(client)).includes("canUndo=0 canRedo=0 modified=0"))
+          throw new Error("Pending annotation reload did not finish");
+      }
+      await client.resolveUnsavedChanges("discard");
+    },
+    ["-appdata", dir, "-log-to-file", log, "-zoom", "fit page", source, other],
+    { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
+  );
+  console.log(`${engine} ${type}: preserved annotation input and pending reload`);
 }
 
 async function check(engine: string, mode: Mode): Promise<void> {
@@ -193,11 +302,18 @@ async function check(engine: string, mode: Mode): Promise<void> {
 
 export async function testit(): Promise<void> {
   if (USE_NG) {
-    console.log("auto-reload-unsaved: Windows form controls only");
+    console.log("auto-reload-unsaved: Windows edit controls only");
     return;
   }
   const failures: string[] = [];
   for (const engine of ["mupdf", "pdfium"]) {
+    for (const type of ["FreeText", "Square"] as const) {
+      try {
+        await checkAnnot(engine, type);
+      } catch (error) {
+        failures.push(`${engine} ${type}: ${error}`);
+      }
+    }
     for (const mode of ["dirty", "text", "choice", "other-text", "other-choice"] as const) {
       try {
         await check(engine, mode);
