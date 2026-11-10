@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra, type ControlClient } from "./control.ts";
-import { assemblePdf, cmdId, EXE, pollUntil, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { assemblePdf, cmdId, EXE, pollUntil, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
 import { clickAt, findCanvas, FRAME_CLASS, pressEnter, sendCommandSync } from "./win-automation.ts";
 import { findVisibleChildWindow, sendText, waitForTopWindow } from "./winapi.ts";
 
@@ -137,13 +137,71 @@ async function check(engine: string, mode: Mode): Promise<void> {
   );
 }
 
+async function choiceValidation(engine: string, javascript: boolean): Promise<void> {
+  const dir = tmpPath(`choice-validation/${engine}-${javascript}`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, SETTINGS_FILE), `UiLanguage = en\nDisableJavaScript = ${!javascript}\n`);
+  const source = join(dir, "form.pdf");
+  const saved = join(dir, "saved.pdf");
+  writeFileSync(
+    source,
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /DR << /Font << /Helv 5 0 R >> >> >> >>",
+      "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 700] /Annots [4 0 R] >>",
+      "<< /Type /Annot /Subtype /Widget /FT /Ch /Ff 131072 /Opt [(first) (second) (third)] /T (field) /V (first) /Rect [100 300 500 400] /P 3 0 R /F 4 /DA (/Helv 18 Tf 0 g) /AA << /V << /S /JavaScript /JS (if \\(event.value == 'second'\\) event.rc = false;) >> >> >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]),
+    "latin1",
+  );
+  const options = { env: { ...process.env, SOLOKPDF_ENGINE: engine } };
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      await client.waitForRenderIdle();
+      const result = await client.setFormField(1, 0, "second");
+      const state = String((await client.request(ControlCommand.TestMarkupAnnots))[1]);
+      if (javascript) {
+        if (
+          result[0] !== 1 ||
+          !String(result[1]).includes("before='first' after='first'") ||
+          !state.includes("canUndo=0 canRedo=0 modified=0")
+        )
+          throw new Error(`${engine} rejected choice: ${result} ${state}`);
+      } else if (result[0] !== 0 || !String(result[1]).includes("after='second'")) {
+        throw new Error(`${engine} JavaScript disabled: ${result}`);
+      }
+      const accepted = await client.setFormField(1, 0, "third");
+      if (accepted[0] !== 0 || !String(accepted[1]).includes("after='third'"))
+        throw new Error(`${engine} accepted choice: ${accepted}`);
+      await client.resolveUnsavedChanges("save-as", saved);
+    },
+    ["-appdata", dir, source],
+    options,
+  );
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      await client.waitForRenderIdle();
+      const result = await client.setFormField(1, 0, "third");
+      if (result[0] !== 0 || !String(result[1]).includes("before='third'"))
+        throw new Error(`${engine} saved choice: ${result}`);
+      await client.resolveUnsavedChanges("discard");
+    },
+    ["-appdata", dir, saved],
+    options,
+  );
+}
+
 export async function testit(): Promise<void> {
   if (USE_NG) {
     console.log("form-text-cache: skips ng's different control protocol");
     return;
   }
-  for (const engine of ["mupdf", "pdfium"])
+  for (const engine of ["mupdf", "pdfium"]) {
+    for (const javascript of [true, false]) await choiceValidation(engine, javascript);
     for (const mode of ["text", "choice", "button", "blank", "reject"] as Mode[]) await check(engine, mode);
+  }
 }
 
 if (import.meta.main) await runStandalone(testit);

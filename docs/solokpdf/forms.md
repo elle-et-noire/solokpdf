@@ -24,7 +24,8 @@ until the engine closes.
 
 Validation rejection can still change other fields through JavaScript, so
 text invalidation runs after every setter attempt. This does not determine
-dirty state or report appearance-update errors; those remain E35/E36 work.
+dirty state or report appearance-update errors; those remain E36 work.
+Choice fields return validation rejection rather than reporting success.
 `tests/form-text-cache.ts` covers both engines, in-place text entry, choice,
 checkbox, empty fields, cross-page calculations and rejected-input side effects.
 

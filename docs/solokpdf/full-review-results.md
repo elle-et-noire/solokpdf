@@ -317,6 +317,8 @@ GUI は非表示 desktop、`-for-testing`、専用 `-appdata` を使用した。
 
 ### R8 / E35 — P2: 選択項目の入力拒否を成功とする
 
+**E35 で修正済み。** choice の受理結果を返す。[検証記録](history.md#e35-choice-validation-2026-11-10)。以下は修正前の指摘。
+
 - **不具合・変更する。** `SetWidgetChoiceValue`（`src/shared/Annotation.cpp:687`）は `pdf_set_choice_field_value` の戻り値を捨て、常に `true` を返す。共通の `SetWidgetValue` はこれを受けて `MarkNotificationAsModified` を呼ぶ。
 - MuPDF の同関数は `pdf_set_text_field_value` の結果を返す。入力検証 JS の `event.rc = false` では値を変更せず `0` を返すため、成功通知と dirty が実際の文書変更に一致しない。
 - 合成フォームで `first` → `second` を拒否させると、choice は `OK before='first' after='first'`・`canUndo=0 modified=1`。text の対照例は `ERROR`・`modified=0`。両エンジンで各2回確認した。

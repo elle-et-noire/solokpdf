@@ -3025,6 +3025,16 @@ window in tab selection; the exit test exposed a swallowed quit message. Both
 were fixed. `ctx-menu-reload` passed in ASan; `auto-reload-unsaved` and
 `missing-source-unsaved` passed in Debug. No Release or full suite was run.
 
+## E35 choice validation (2026-11-10)
+
+Choice setters now return MuPDF's validation result. Text invalidation remains
+conservative; dirty tracking for JavaScript side effects remains E36.
+The new `form-text-cache` case failed before the fix with unchanged value,
+success and dirty state. Debug passed on both engines for rejection, acceptance,
+JavaScript-disabled acceptance and saved values. Existing cache, search and
+Undo/Redo cases also passed. `ad-hoc-pdfium-forms` passed on both engines,
+including accepted choice rendering and saving.
+
 ## Completed backlog
 
 Current work scope is in [backlog.md](backlog.md); completed hosted checks are in
@@ -3193,6 +3203,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E32 | Guarantee worker lifetime when render-cache shutdown times out (P1)                                                                                                                                                                                                                         | done — Preserve worker lifetimes during shutdown (E32); [results](#e32-worker-shutdown-2026-11-10)                                                                                                                                      |
 | E33 | Distinguish failed text extraction from an empty page                                                                                                                                                                                                                                       | done — Retry failed page text extraction (E33); [results](#e33-text-extraction-failure-2026-11-10)                                                                                                                                      |
 | E34 | Verify targets after synchronous reload and Save As dialogs                                                                                                                                                                                                                                 | done — Validate document targets after dialogs (E34); [results](#e34-dialog-targets-2026-11-10)                                                                                                                                         |
+| E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 
 ### F. Manual acceptance
 

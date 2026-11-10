@@ -689,8 +689,7 @@ void GetWidgetChoiceOptions(Annotation* annot, StrVec& out) {
 // set a choice field's value to one of its options; returns true if applied.
 bool SetWidgetChoiceValue(Annotation* annot, Str value) {
     auto setValue = [](fz_context* ctx, pdf_annot* a, const char* s) {
-        pdf_set_choice_field_value(ctx, a, s);
-        return true;
+        return pdf_set_choice_field_value(ctx, a, s) != 0;
     };
     return SetWidgetValue(annot, value, StrL("SetWidgetChoiceValue"), setValue);
 }

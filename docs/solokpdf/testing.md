@@ -129,6 +129,8 @@ JS, choice/checkbox, empty fields, validation side effects, search continuation,
 selection and Undo/Redo. In-place text entry also checks the floating search
 count changes from zero to two and back. Related checks are
 `ad-hoc-pdfium-forms`, `ad-hoc-pdfium-form-js` and `ad-hoc-pdfium-redaction-undo`.
+The same test checks choice validation rejection, accepted values, saving and
+JavaScript-disabled acceptance for both engines (E35).
 
 ### Signature rollback (E28)
 
