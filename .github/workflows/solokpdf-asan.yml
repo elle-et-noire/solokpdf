@@ -43,7 +43,12 @@ jobs:
           New-Item -ItemType Directory -Force .work/solokpdf-asan | Out-Null
           bun cmd/solok-build.ts -asan 2>&1 | Tee-Object -FilePath .work/solokpdf-asan/build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test atomic PDF save and shutdown
+        run: |
+          bun tests/atomic-pdf-save.ts --no-build 2>&1 | Tee-Object -FilePath .work/solokpdf-asan/atomic-pdf-save.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Test tree lifetime
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           bun tests/ad-hoc-tree-lifetime.ts --no-build 2>&1 | Tee-Object -FilePath .work/solokpdf-asan/tree-lifetime.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

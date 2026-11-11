@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-11. E23–E25 are complete within the recorded review scope.
-E26–E37 are complete within their recorded validation scope.
+E26–E38 are complete within their recorded validation scope.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -48,9 +48,9 @@ The review's findings and historical priorities remain in that record.
 SOL1–SOL3 are committed in `febc58f07`, within the [recorded checks](full-review-sol-results.md#sol1sol3-修正検証2026-11-11).
 The original review and its unverified branches remain recorded.
 
-| ID  | Item                                 | Status                                                                                                                                                                                          |
-| --- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E38 | Correct ASan native shutdown failure | todo — MSVC ASan termination-time heap handoff isolated with an independent probe; runtime correction pending. [Results](asan-shutdown.md). Do not waive failed reallocations or nonzero exits. |
+E38 uses a pinned matching MSVC/ASan toolset. The independent probe and local
+save/shutdown rechecks pass; hosted validation is not recorded for this change.
+[Results](asan-shutdown.md).
 
 ## Deferred
 

@@ -3,7 +3,7 @@ import { cpus } from "node:os";
 import { join, relative } from "node:path";
 import { $ } from "bun";
 import { clearDirPreserveSettings } from "./clean";
-import { asanDllName, findAsanDll } from "./helper/asan-runtime";
+import { asanBuildJobs, asanDllName, asanMsbuildArgs, findAsanDll } from "./helper/asan-runtime";
 import { ensureNinja, ninjaDir, ninjaToRoot } from "./ninja";
 import { detectVisualStudio2026, runLogged } from "./util";
 
@@ -243,8 +243,11 @@ async function buildWindowsAsan(config: Config, clean: boolean, ninja: boolean):
   const outDir = join("out", config === "release" ? "rel64_asan" : "dbg64_asan");
   console.log(`${configName} ASan build (SumatraPDF-static.exe, x64_asan)`);
   if (clean) clearDirPreserveSettings(outDir);
-  const { msbuildPath, vsRoot } = detectVisualStudio2026();
-  const asanDll = findAsanDll(vsRoot);
+  const toolsDir = process.env.SUMATRA_ASAN_TOOLS;
+  if (toolsDir && ninja) throw new Error("SUMATRA_ASAN_TOOLS requires the MSBuild ASan build");
+  const toolArgs = asanMsbuildArgs(toolsDir);
+  const { msbuildPath, vsRoot } = detectVisualStudio2026(toolsDir);
+  const asanDll = findAsanDll(vsRoot, toolsDir);
   console.log(`ASan runtime: ${asanDll}`);
   if (ninja) {
     await buildNinja([join(ninjaToRoot, outDir, "SumatraPDF-static.exe")]);
@@ -253,7 +256,8 @@ async function buildWindowsAsan(config: Config, clean: boolean, ninja: boolean):
       slnPath,
       "/t:SumatraPDF-static",
       `/p:Configuration=${configName};Platform=x64_asan`,
-      "/m",
+      ...toolArgs,
+      `/m:${asanBuildJobs}`,
     ]);
   }
   printBinaries(outDir, new Set(["SumatraPDF-static.exe"]));

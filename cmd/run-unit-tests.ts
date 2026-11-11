@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { asanDllName, findAsanDll } from "./helper/asan-runtime";
+import { asanBuildJobs, asanDllName, asanMsbuildArgs, findAsanDll } from "./helper/asan-runtime";
 import { detectVisualStudio2026, runLogged } from "./util";
 
 type BuildKind = "dbg" | "dbg32" | "asan";
@@ -33,7 +33,7 @@ function parseArgs(): BuildKind {
 }
 
 function copyAsanRuntime(vsRoot: string, outDir: string): void {
-  const src = findAsanDll(vsRoot);
+  const src = findAsanDll(vsRoot, process.env.SUMATRA_ASAN_TOOLS);
   console.log(`ASan runtime: ${src}`);
   const dst = join(outDir, asanDllName);
   copyFileSync(src, dst);
@@ -102,7 +102,9 @@ async function runAndCapture(exe: string, cwd: string, logPath: string): Promise
 async function main() {
   const kind = parseArgs();
   const { platform, target, exeName, outDir, logName } = configFor(kind);
-  const { msbuildPath, vsRoot } = detectVisualStudio2026();
+  const toolsDir = kind === "asan" ? process.env.SUMATRA_ASAN_TOOLS : undefined;
+  const toolArgs = asanMsbuildArgs(toolsDir);
+  const { msbuildPath, vsRoot } = detectVisualStudio2026(toolsDir);
 
   const { genDocsForBuild } = await import("./gen-docs");
   await genDocsForBuild();
@@ -112,7 +114,8 @@ async function main() {
     solokSolution ?? String.raw`vs2022\SumatraPDF.sln`,
     `/t:${target}`,
     `/p:Configuration=Debug;Platform=${platform}`,
-    "/m",
+    ...toolArgs,
+    kind === "asan" ? `/m:${asanBuildJobs}` : "/m",
   ]);
   if (kind === "asan") {
     copyAsanRuntime(vsRoot, outDir);

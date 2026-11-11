@@ -203,25 +203,31 @@ Run app tests outside the sandbox, on the hidden desktop. The options match
 the project's ASan debugger environment, disabling legacy-allocator hooks and
 loading the checked-in suppressions. The test runner copies the ASan DLL into
 its isolated executable directory. The wrapper does not create a portable ZIP.
-Build and unit-test scripts use the installed default MSVC toolset's x64 ASan
-DLL and print its path. A missing runtime fails instead of using another toolset
-or LLVM's runtime. `bun tests/build-cli.ts` checks this selection without compiling.
+The SolokPDF ASan wrapper downloads Microsoft's pinned `14.52.37029` compiler,
+CRT and ASan packages into `.work/msvc-asan`, checking their catalog hashes.
+The installed Windows SDK and Visual Studio MSBuild are still required.
+Compilation, linking and runtime staging use the same tools directory.
+Original-app builds use the installed default toolset unless
+`SUMATRA_ASAN_TOOLS` explicitly selects another directory; ASan unit-test builds
+honor the same selection. Missing files fail without a toolset or LLVM fallback.
+`bun tests/build-cli.ts` checks this selection without compiling.
 The pinned PDFium DLL is not ASan-instrumented.
 See [E16's results](history.md#e16-asan-build-path-2026-11-10) and the
 [earlier workaround](history.md#e14-virtual-tree-encapsulation-2026-11-10).
 
 ### ASan CI
 
-E38's independent runtime diagnostic and remaining correction are recorded in
-[ASan process shutdown](asan-shutdown.md). It reproduces without application
-code and remains outside the normal suites while the installed runtime fails.
+E38's [runtime correction and independent diagnostic](asan-shutdown.md) record
+the old runtime's failure and the pinned replacement's passing results.
+The independent probe remains outside the normal suites.
 
 [solokpdf-asan.yml](../../.github/workflows/solokpdf-asan.yml) adds a manual
 workflow and a weekly run on Tuesday at 17:23 UTC (Wednesday 02:23 JST).
 It builds with `bun cmd/solok-build.ts -asan` on a fresh hosted runner.
-Only `.work/pdfium` is cached; compiled outputs are not restored.
+Only `.work/pdfium` is cached; compiled outputs are not restored. The build
+fetches the pinned ASan toolset separately.
 
-The workflow runs `ad-hoc-tree-lifetime` and
+The workflow runs `atomic-pdf-save`, `ad-hoc-tree-lifetime` and
 `ad-hoc-pdfium --fallback-only --no-build`. The latter reuses the existing
 missing-DLL check without its cursor, dialog or screenshot checks. It verifies
 search through MuPDF and the reported DLL-load error. The complete
@@ -234,8 +240,9 @@ bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-pdfium.ts --fallback-only -
 ```
 
 Build/test failures preserve their exit status and upload logs plus the final
-test's scratch files as `solokpdf-asan-output`. The fallback step still runs if
-the lifetime test fails, provided the build succeeded and the run was not canceled.
+test's scratch files as `solokpdf-asan-output`. The lifetime and fallback steps
+still run if an earlier test fails, provided the build succeeded and the run
+was not canceled.
 The prebuilt PDFium DLL remains uninstrumented.
 
 GitHub requires the workflow on the default branch for

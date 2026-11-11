@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { ROOT, tmpPath } from "./util.ts";
 import { outDirName, resolveSources, type BuildFlags } from "../cmd/helper/ng-compile";
 import { forPlatform, targets } from "../cmd/helper/ng-targets";
@@ -6,7 +6,7 @@ import type { Platform } from "../cmd/helper/ng-toolchain";
 import { isShared, sharedFiles } from "../cmd/helper/ng-shared";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { strict as assert } from "node:assert";
-import { asanDllName, findAsanDll } from "../cmd/helper/asan-runtime";
+import { asanDllName, asanMsbuildArgs, findAsanDll } from "../cmd/helper/asan-runtime";
 import { detectVisualStudio2026 } from "../cmd/util";
 
 function run(args: string[], script = "build.ts"): { code: number; stdout: string; stderr: string } {
@@ -39,6 +39,29 @@ function checkAsanRuntime(): void {
     write(join(root, "VC", "Tools", "MSVC", version, "bin", "Hostx64", "arm64", asanDllName), "ARM64");
     write(join(root, "VC", "Tools", "Llvm", "x64", "lib", "clang", "21", "lib", "windows", asanDllName), "LLVM");
     assert.equal(findAsanDll(root), runtime, "ASan runtime must match the default MSVC toolset");
+
+    const tools = join(root, "portable tools", "14.52.37025");
+    const replacement = join(tools, "bin", "Hostx64", "x64", asanDllName);
+    write(replacement, "corrected runtime");
+    assert.equal(findAsanDll(root, tools), resolve(replacement), "explicit toolset must supply the ASan runtime");
+    assert.deepEqual(asanMsbuildArgs(), []);
+    assert.throws(() => asanMsbuildArgs(tools), /MSVC toolset is missing/);
+    for (const file of [
+      "bin/Hostx64/x64/cl.exe",
+      "bin/Hostx64/x64/link.exe",
+      "include/vcruntime.h",
+      "lib/x64/libcmt.lib",
+    ]) {
+      write(join(tools, file), "matched tools");
+    }
+    assert.deepEqual(asanMsbuildArgs(tools), [
+      `/p:VCToolsInstallDir=${resolve(tools)}\\`,
+      "/p:VCToolsVersion=14.52.37025",
+      "/p:PreferredToolArchitecture=x64",
+    ]);
+    assert.throws(() => asanMsbuildArgs(root), /invalid MSVC tools directory/);
+    rmSync(replacement);
+    assert.throws(() => findAsanDll(root, tools), /ASan runtime/, "missing explicit runtime must not use the default");
 
     rmSync(runtime);
     assert.throws(

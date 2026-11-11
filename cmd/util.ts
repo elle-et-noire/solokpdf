@@ -1,5 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, dirname, extname, resolve } from "node:path";
+import { basename, join, dirname, extname, resolve } from "node:path";
 
 // user docs live in the sumatra-website repo, checked out next to this one
 export const websiteDir = resolve(import.meta.dir, "..", "..", "hack", "webapps", "sumatra-website");
@@ -124,16 +124,12 @@ function deleteMsbuildPchFiles(): void {
   }
 }
 
-// msbuild compiles with $(VCToolsVersion), which a developer prompt sets from
-// the environment. A stale prompt (e.g. VSCMD 17.14 pinning MSVC 14.44 while
-// 14.51 is the default) made builds from different shells use different
-// compilers on the same out/ dirs, and each one's .pch failed the other's
-// build with C1853. Always build with the installed default toolset, and drop
-// the .pch files when that toolset changes.
-function useDefaultVcToolset(vsRoot: string): void {
+// Ignore stale developer prompts and discard PCH files when the selected tools change.
+function useVcToolset(vsRoot: string, toolsDir?: string): void {
   const defaultPath = join(vsRoot, "VC", "Auxiliary", "Build", "Microsoft.VCToolsVersion.default.txt");
-  if (!existsSync(defaultPath)) return;
-  const toolset = readFileSync(defaultPath, "utf8").trim();
+  if (!toolsDir && !existsSync(defaultPath)) return;
+  const selected = toolsDir ? resolve(toolsDir) : readFileSync(defaultPath, "utf8").trim();
+  const toolset = toolsDir ? basename(selected) : selected;
   const envToolset = process.env.VCToolsVersion;
   if (envToolset && envToolset !== toolset) {
     console.log(`ignoring VCToolsVersion=${envToolset} from the environment, building with MSVC ${toolset}`);
@@ -142,17 +138,17 @@ function useDefaultVcToolset(vsRoot: string): void {
     delete process.env.VCToolsRedistDir;
   }
   const last = existsSync(vcToolsStampPath) ? readFileSync(vcToolsStampPath, "utf8").trim() : "";
-  if (last === toolset) return;
-  console.log(`MSVC toolset changed (${last || "unknown"} -> ${toolset}), deleting stale .pch files`);
+  if (last === selected) return;
+  console.log(`MSVC toolset changed (${last || "unknown"} -> ${selected}), deleting stale .pch files`);
   deleteMsbuildPchFiles();
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(vcToolsStampPath, `${toolset}\n`);
+  writeFileSync(vcToolsStampPath, `${selected}\n`);
 }
 
-export function detectVisualStudioVer(ver: string): VisualStudioInfo | undefined {
+export function detectVisualStudioVer(ver: string, toolsDir?: string): VisualStudioInfo | undefined {
   const vsRoot = findVsRootVer(ver);
   if (vsRoot == "") return;
-  useDefaultVcToolset(vsRoot);
+  useVcToolset(vsRoot, toolsDir);
 
   const msbuildPath = findTool(vsRoot, msBuildRelPath);
   if (!msbuildPath) {
@@ -180,8 +176,8 @@ export function detectVisualStudio2022(): VisualStudioInfo {
   return res;
 }
 
-export function detectVisualStudio2026(): VisualStudioInfo {
-  let res = detectVisualStudioVer("18");
+export function detectVisualStudio2026(toolsDir?: string): VisualStudioInfo {
+  let res = detectVisualStudioVer("18", toolsDir);
   if (!res) {
     throw new Error(`couldn't find vs 2026 msbuild.exe `);
   }

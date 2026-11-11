@@ -3283,3 +3283,19 @@ block then fails reallocation through the original Windows heap function.
 Explicit DLL unload and non-ASan controls succeed. Legacy hooks do not correct
 this path. E38 remains open pending a runtime correction; no product workaround
 or failure exemption was added.
+
+## E38 runtime correction (2026-11-11)
+
+SolokPDF ASan builds now pin Microsoft's `14.52.37029` compiler, CRT and runtime
+packages in `.work/msvc-asan`, verifying catalog SHA-256 digests. The installed
+Visual Studio is unchanged. MSBuild and runtime staging use the same tools;
+Dav1d's Clang-only preprocessor check was made compatible with the new MSVC.
+
+The independent probe passes with ASan `19.52.37029.0` and fails with installed
+`19.51.36256.0`: three runs per runtime, legacy-hook setting and plain/ASan mode.
+The replacement preserves data, zeros the extension and detects the negative
+heap-overflow test. Debug ASan `atomic-pdf-save` passed the original shutdown
+case 40 times and all 14 save cases. The ASan workflow now runs that test.
+Hosted execution remains unverified for this change; no local Release build,
+full suite, suppression or exit exemption was added.
+[Details](asan-shutdown.md), [evidence](data/e38-correction-2026-11-11.json).

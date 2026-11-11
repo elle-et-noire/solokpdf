@@ -8,6 +8,10 @@ if (args.length > 1 || (args.length === 1 && !["-dbg", "-rel", "-quick", "-asan"
   throw new Error("usage: bun cmd/solok-build.ts [-dbg | -rel | -quick | -asan]");
 }
 const config = args[0] ?? "-dbg";
+if (config === "-asan") {
+  const { fetchAsanTools } = await import("./solok-fetch-asan");
+  process.env.SUMATRA_ASAN_TOOLS = await fetchAsanTools();
+}
 const pdfium = await fetchPdfium();
 if (!existsSync(join(pdfium, "include/fpdfview.h"))) throw new Error("PDFium headers are missing");
 // vs2022/ stays upstream's; the PDFium projects go to the ignored vs2026/

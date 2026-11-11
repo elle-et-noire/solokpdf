@@ -609,8 +609,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
-  ["pending-document-input", pendingDocumentInput],
   ["atomic-pdf-save", atomicPdfSave],
+  ["pending-document-input", pendingDocumentInput],
   ["print-close-reentry", printCloseReentry],
   ["auto-reload-unsaved", autoReloadUnsaved],
   ["dialog-target-reentry", dialogTargetReentry],
