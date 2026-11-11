@@ -609,11 +609,11 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
-  ["atomic-pdf-save", atomicPdfSave],
   ["pending-document-input", pendingDocumentInput],
+  ["dialog-target-reentry", dialogTargetReentry],
+  ["atomic-pdf-save", atomicPdfSave],
   ["print-close-reentry", printCloseReentry],
   ["auto-reload-unsaved", autoReloadUnsaved],
-  ["dialog-target-reentry", dialogTargetReentry],
   ["controller-delete-handles", controllerDeleteHandles],
   ["cbr-network-unrar", cbrNetworkUnrar],
   ["form-text-cache", formTextCache],

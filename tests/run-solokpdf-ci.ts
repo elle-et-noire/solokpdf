@@ -83,9 +83,10 @@ import { testit as printCloseReentry } from "./print-close-reentry.ts";
 
 const tests: NamedTest[] = [
   ["pending-document-input", pendingDocumentInput],
+  ["dialog-target-reentry", dialogTargetReentry],
+  ["ad-hoc-pdfium-form-hover", formHover],
   ["atomic-pdf-save", atomicPdfSave],
   ["print-close-reentry", printCloseReentry],
-  ["dialog-target-reentry", dialogTargetReentry],
   ["render-cache-shutdown", renderCacheShutdown],
   ["controller-delete-handles", controllerDeleteHandles],
   ["cbr-network-unrar", cbrNetworkUnrar],
@@ -127,7 +128,6 @@ const tests: NamedTest[] = [
   ["ad-hoc-pdfium-saveas", saveas],
   ["ad-hoc-pdfium-forms", forms],
   ["ad-hoc-pdfium-form-highlight", formHighlight],
-  ["ad-hoc-pdfium-form-hover", formHover],
   ["ad-hoc-pdfium-hover", hover],
   ["ad-hoc-pdfium-synctex", synctex],
   ["ad-hoc-pdfium-tools", tools],

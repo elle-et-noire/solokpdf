@@ -320,6 +320,20 @@ export function sendCommandSync(hwnd: number, id: number): void {
   sendMessage(hwnd, WM_COMMAND, id, 0);
 }
 
+// Wait for a modal command to return while this process drives its dialog.
+export async function sendCommandAsync(hwnd: number, id: number): Promise<void> {
+  if (!IS_WIN) throw new Error("sendCommandAsync requires Windows");
+  const api = JSON.stringify(new URL("./winapi.ts", import.meta.url).href);
+  const code = `import { sendMessage, WM_COMMAND } from ${api};
+    sendMessage(Number(process.argv[1]), WM_COMMAND, Number(process.argv[2]), 0);`;
+  const sender = Bun.spawn([process.execPath, "-e", code, String(hwnd), String(id)], {
+    stdout: "ignore",
+    stderr: "pipe",
+  });
+  const stderr = await new Response(sender.stderr).text();
+  if ((await sender.exited) !== 0) throw new Error(`Command ${id} failed: ${stderr}`);
+}
+
 export async function waitForTitle(frame: number, pred: (title: string) => boolean, timeoutMs = 8000): Promise<string> {
   const deadline = Date.now() + timeoutMs;
   let last = "";

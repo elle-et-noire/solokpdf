@@ -3,7 +3,14 @@ import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { IS_WIN } from "./host.ts";
 import { cmdId, EXE, makeTextPdf, pollUntil, runStandalone, tmpPath, USE_NG } from "./util.ts";
-import { killAndWait, launchControlled, pressEnter, takeStderr, waitForTitle } from "./win-automation.ts";
+import {
+  killAndWait,
+  launchControlled,
+  pressEnter,
+  sendCommandAsync,
+  takeStderr,
+  waitForTitle,
+} from "./win-automation.ts";
 import {
   enumChildWindows,
   enumWindows,
@@ -45,7 +52,11 @@ async function checkSave(engine: string, mode: "same" | "switch" | "close" | "re
   const saved = join(dir, "saved.pdf");
   writeFileSync(original, makeTextPdf("ORIGINAL"));
   writeFileSync(other, makeTextPdf("OTHER"));
-  const app = await launchControlled([original], { env: { ...process.env, SOLOKPDF_ENGINE: engine } });
+  const app = await launchControlled([original], {
+    env: { ...process.env, SOLOKPDF_ENGINE: engine },
+    startupDiagnosticsDir: dir,
+  });
+  let saveCommand: Promise<Error | null> | undefined;
   try {
     await app.client.waitForRenderIdle();
     if (mode === "close") {
@@ -56,7 +67,10 @@ async function checkSave(engine: string, mode: "same" | "switch" | "close" | "re
       postMessage(app.frame, WM_COMMAND, cmdId("CmdPrevTab"), 0);
       await waitForTitle(app.frame, (title) => title.includes("original.pdf"));
     }
-    postMessage(app.frame, WM_COMMAND, cmdId("CmdSaveAs"), 0);
+    saveCommand = sendCommandAsync(app.frame, cmdId("CmdSaveAs")).then(
+      () => null,
+      (error: Error) => error,
+    );
     const dialog = await waitForTopWindow(app.proc.pid!, "#32770", 10000);
     if (!dialog) throw new Error("Save As dialog did not open");
     const edit = await pollUntil(
@@ -96,6 +110,8 @@ async function checkSave(engine: string, mode: "same" | "switch" | "close" | "re
       (visible) => !visible,
       { error: "Save As did not close" },
     );
+    const error = await saveCommand;
+    if (error) throw error;
     await app.client.waitForRenderIdle();
     if (mode === "same" && !existsSync(saved)) throw new Error(`${engine}: ordinary Save As made no file`);
     if (mode !== "same" && existsSync(saved)) throw new Error(`${engine}: stale Save As was not cancelled`);
@@ -107,6 +123,7 @@ async function checkSave(engine: string, mode: "same" | "switch" | "close" | "re
   } finally {
     app.client.close();
     await killAndWait(app.proc);
+    await saveCommand;
   }
 }
 

@@ -915,7 +915,10 @@ export class ControlClient {
     if (code !== 0) {
       throw new Error(`TestToggleFormButton failed: ${raw || code}`);
     }
-    const m = /^OK toggled=(\d) before='(.*)' after='(.*)' buttons=\d+$/.exec(raw);
+    const m =
+      /^OK toggled=(\d) before='(.*)' after='(.*)' buttons=\d+(?: refreshFailed=\d viewBefore=-?\d+ viewAfter=-?\d+)?$/.exec(
+        raw,
+      );
     if (!m) {
       throw new Error(`toggleFormButton: could not parse '${raw}'`);
     }

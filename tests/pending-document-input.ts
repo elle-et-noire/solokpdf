@@ -59,12 +59,14 @@ async function state(client: ControlClient): Promise<string> {
 }
 
 async function startInput(client: ControlClient, canvas: number, type: "text" | "choice"): Promise<number> {
-  const res = await client.request(ControlCommand.TestCurrentPdf, ["widget-cursor", 1, 200, 350]);
-  const pt = /pt=(-?\d+),(-?\d+)/.exec(String(res[1]));
-  if (!pt) throw new Error(`No field point: ${res[1]}`);
-  await clickAt(canvas, +pt[1]!, +pt[2]!, 0, 0, client);
   let editor = 0;
-  await until(() => {
+  // Hit testing can decline while rendering; retry until the editor opens.
+  await until(async () => {
+    await client.waitForRenderIdle();
+    const res = await client.request(ControlCommand.TestCurrentPdf, ["widget-cursor", 1, 200, 350]);
+    const pt = /pt=(-?\d+),(-?\d+)/.exec(String(res[1]));
+    if (!pt) throw new Error(`No field point: ${res[1]}`);
+    await clickAt(canvas, +pt[1]!, +pt[2]!, 0, 0, client);
     editor = findVisibleChildWindow(canvas, type === "choice" ? "ListBox" : "Edit");
     return editor !== 0;
   }, "No form editor");
