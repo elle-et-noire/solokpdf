@@ -212,6 +212,10 @@ See [E16's results](history.md#e16-asan-build-path-2026-11-10) and the
 
 ### ASan CI
 
+E38's independent runtime diagnostic and remaining correction are recorded in
+[ASan process shutdown](asan-shutdown.md). It reproduces without application
+code and remains outside the normal suites while the installed runtime fails.
+
 [solokpdf-asan.yml](../../.github/workflows/solokpdf-asan.yml) adds a manual
 workflow and a weekly run on Tuesday at 17:23 UTC (Wednesday 02:23 JST).
 It builds with `bun cmd/solok-build.ts -asan` on a fresh hosted runner.

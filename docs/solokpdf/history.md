@@ -3272,3 +3272,14 @@ A separate intermittent ASan shutdown failure remains open as E38. Native exit
 during OS DLL shutdown. Its root cause is unconfirmed. Passing retries do not
 cancel the failed observations; no suppression or exit-code exemption was added.
 No local Release build, full GUI suite or commit was run.
+
+## E38 shutdown investigation (2026-11-11)
+
+SOL1–SOL3 were committed as `febc58f07`.
+E38's [follow-up](asan-shutdown.md) resolves the native stack with Microsoft
+PDBs and preserves an independent EXE/DLL probe. The installed MSVC ASan runtime
+bypasses allocation ownership during process termination; the probe's ASan-owned
+block then fails reallocation through the original Windows heap function.
+Explicit DLL unload and non-ASan controls succeed. Legacy hooks do not correct
+this path. E38 remains open pending a runtime correction; no product workaround
+or failure exemption was added.

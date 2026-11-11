@@ -1,0 +1,290 @@
+{
+  "date": "2026-11-11",
+  "id": "E38",
+  "result": "shutdown allocator path isolated; runtime correction pending",
+  "baseCommit": "febc58f073c7ab8b4f5e3a6028412d913a37688e",
+  "environment": {
+    "osVersion": "10.0.26300.0",
+    "nativeStackWindowsDllVersion": "10.0.26100.9818",
+    "toolset": "14.51.36231",
+    "compiler": "MSVC x64",
+    "runtimeFileVersion": "19.51.36256.0",
+    "appSha256": "a89b4d728b95ad335c392bc9c8a5615bbfa2ffdcddad44357b37ec4c3777841c",
+    "asanSha256": "7f901a239979c49b36a3b18ecd1843f551f94b5879585bded41a650c5b71f35f",
+    "stagedProbeRuntimeSha256": "7f901a239979c49b36a3b18ecd1843f551f94b5879585bded41a650c5b71f35f",
+    "nativeStackMsctfSha256": "5d3ea684c59e7f51302f024510390f0b23a4bfd73a0ee2308f1addf2095350f3",
+    "nativeStackNtdllSha256": "b072efaeac06c558b1ab71d7e91f2d7c14903262af53e33bd277edc4ce5aed21",
+    "resumedSystemFiles": {
+      "msctfVersion": "10.0.26100.9949",
+      "ntdllVersion": "10.0.26100.9974",
+      "msctfSha256": "91d53af881942a6d4da33bdbeab8776a2163d3c0eb8d450caadb094af2c0d57f",
+      "ntdllSha256": "a0f81bf5c610c0ff0a550adc020a58446f214790c748057bb575042e972e6a34"
+    },
+    "note": "Windows files changed while the turn was interrupted. Native stack signatures and hashes refer to retained copies used for symbolication; resumed probes use current system files."
+  },
+  "applicationReproduction": {
+    "test": "atomic-pdf-save",
+    "selectedCase": "pdfium-small-w",
+    "asanOptions": "windows_hook_legacy_allocators=0:suppressions=\"C:/work/solokpdf/asan.supp\"",
+    "nativeExit": "0xC0000409",
+    "fastFail": "0x23",
+    "definition": "FAST_FAIL_UNEXPECTED_HEAP_EXCEPTION",
+    "withoutDebugger": {
+      "runs": 2,
+      "passes": 1,
+      "failures": 1,
+      "failedOutput": "❌ atomic-pdf-save failed after 21.3s: Error: SumatraPDF: exit code 9; native exit=3221226505"
+    },
+    "withDebugger": {
+      "runs": 40,
+      "passes": 38,
+      "failures": [17, 40],
+      "logs": ".work/e38-debug-<n>.log"
+    },
+    "nativeStackLog": ".work/e38-stack-40.log",
+    "nativeStack": [
+      "AV target=11a284e00010 rcx=17e82000000 rdx=11a284e00000 r8=90 r9=2 rbx=1979afede0 rbp=17e82000000 rsi=11a284ed5140 rdi=0 r10=fffffffffff00000 r11=17e82000140",
+      "exception c0000005 first=1 tid=25968 addr=00007FFBFB0CD4D9 info=0",
+      "00007ffbfb0cd4d9 ntdll!RtlpHpReallocComputeSizes +69 (rva=5d4d9)",
+      "00007ffbfb0cd4d9 ntdll!RtlpHpReallocComputeSizes +69 (rva=5d4d9)",
+      "00007ffbfb0cbc2f ntdll!RtlpHpReAllocateHeap +7f (rva=5bc2f)",
+      "00007ffbfb0ca185 ntdll!RtlpReAllocateHeapInternal +395 (rva=5a185)",
+      "00007ffbfb0cbe0e ntdll!RtlReAllocateHeap +7e (rva=5be0e)",
+      "00007ffb076707f3 clang_rt.asan_dynamic-x86_64!__asan_wrap_RtlReAllocateHeap +a23 (rva=907f3)",
+      "00007ffbfaa03f54 MSCTF!CInputProfileManager::~CInputProfileManager +21c (rva=13f54)",
+      "00007ffbfaa6ad54 MSCTF!CInputProfileManager::`vector deleting destructor' +14 (rva=7ad54)",
+      "00007ffbfaa06ce9 MSCTF!CInputProfileManager::Release +25 (rva=16ce9)",
+      "00007ffbfaa5efb4 MSCTF!CInputProcessorProfiles::~CInputProcessorProfiles +90 (rva=6efb4)",
+      "00007ffbfaa06636 MSCTF!CInputProcessorProfiles::Release +56 (rva=16636)",
+      "00007ffbfaa5dfd0 MSCTF!CicProfile::~CicProfile +28 (rva=6dfd0)",
+      "00007ffbfaa5df84 MSCTF!CicProfile::`vector deleting destructor' +14 (rva=6df84)",
+      "00007ffbfaa67712 MSCTF!CicProfile::Release +32 (rva=77712)",
+      "00007ffbfaa2575d MSCTF!CicBridge::UnInitIMMX +5d (rva=3575d)",
+      "00007ffbfaa23ae6 MSCTF!CicBridge::~CicBridge +5e (rva=33ae6)",
+      "00007ffbfaa23a64 MSCTF!CicBridge::`vector deleting destructor' +14 (rva=33a64)",
+      "00007ffbfaa6e037 MSCTF!CicBridge::Release +27 (rva=7e037)",
+      "00007ffbfaa0cc01 MSCTF!TLS::InternalDestroyTLS +3d (rva=1cc01)",
+      "00007ffbfaa0ca48 MSCTF!TF_UninitThreadSystem +30 (rva=1ca48)",
+      "00007ffbfaa0c962 MSCTF!CicFlsCallback +42 (rva=1c962)",
+      "00007ffbfb13a87f ntdll!RtlpFlsDataCleanup +ff (rva=ca87f)",
+      "00007ffbfb13b13a ntdll!LdrShutdownProcess +22a (rva=cb13a)",
+      "00007ffbfb139d9e ntdll!RtlExitUserProcess +9e (rva=c9d9e)",
+      "00007ffbf91a17ab KERNEL32!ExitProcess +b (rva=417ab)",
+      "00007ff699dd0d38 SumatraPDF-static!exit_or_terminate_process +2c (rva=21f0d38)",
+      "00007ff699dd0d0a SumatraPDF-static!common_exit +e2 (rva=21f0d0a)",
+      "00007ff699dace8b SumatraPDF-static!__scrt_common_main_seh +16b (rva=21cce8b)",
+      "00007ffbf918dda7 KERNEL32!BaseThreadInitThunk +17 (rva=2dda7)",
+      "00007ffbfb139c5c ntdll!RtlUserThreadStart +2c (rva=c9c5c)",
+      "exception c0000409 first=0 tid=25968 addr=00007FFBFB1B1875 info=23",
+      "00007ffbfb1b1875 ntdll!RtlpHeapFatalExceptionFilter +11 (rva=141875)",
+      "00007ffbfb1b1875 ntdll!RtlpHeapFatalExceptionFilter +11 (rva=141875)",
+      "00007ffbfb1de4a4 ntdll!RtlReAllocateHeap$filt$0 +16 (rva=16e4a4)",
+      "00007ffbfb197733 ntdll!_C_specific_handler +93 (rva=127733)",
+      "00007ffbfb1dab3f ntdll!RtlpExecuteHandlerForException +f (rva=16ab3f)",
+      "00007ffbfb136985 ntdll!RtlDispatchException +5f5 (rva=c6985)",
+      "00007ffbfb1da47e ntdll!KiUserExceptionDispatch +2e (rva=16a47e)",
+      "00007ffbfb0cd4d9 ntdll!RtlpHpReallocComputeSizes +69 (rva=5d4d9)",
+      "00007ffbfb0cbc2f ntdll!RtlpHpReAllocateHeap +7f (rva=5bc2f)",
+      "00007ffbfb0ca185 ntdll!RtlpReAllocateHeapInternal +395 (rva=5a185)",
+      "00007ffbfb0cbe0e ntdll!RtlReAllocateHeap +7e (rva=5be0e)",
+      "00007ffb076707f3 clang_rt.asan_dynamic-x86_64!__asan_wrap_RtlReAllocateHeap +a23 (rva=907f3)",
+      "00007ffbfaa03f54 MSCTF!CInputProfileManager::~CInputProfileManager +21c (rva=13f54)",
+      "00007ffbfaa6ad54 MSCTF!CInputProfileManager::`vector deleting destructor' +14 (rva=7ad54)",
+      "00007ffbfaa06ce9 MSCTF!CInputProfileManager::Release +25 (rva=16ce9)",
+      "00007ffbfaa5efb4 MSCTF!CInputProcessorProfiles::~CInputProcessorProfiles +90 (rva=6efb4)",
+      "00007ffbfaa06636 MSCTF!CInputProcessorProfiles::Release +56 (rva=16636)",
+      "00007ffbfaa5dfd0 MSCTF!CicProfile::~CicProfile +28 (rva=6dfd0)",
+      "00007ffbfaa5df84 MSCTF!CicProfile::`vector deleting destructor' +14 (rva=6df84)",
+      "00007ffbfaa67712 MSCTF!CicProfile::Release +32 (rva=77712)",
+      "00007ffbfaa2575d MSCTF!CicBridge::UnInitIMMX +5d (rva=3575d)",
+      "00007ffbfaa23ae6 MSCTF!CicBridge::~CicBridge +5e (rva=33ae6)",
+      "00007ffbfaa23a64 MSCTF!CicBridge::`vector deleting destructor' +14 (rva=33a64)",
+      "00007ffbfaa6e037 MSCTF!CicBridge::Release +27 (rva=7e037)",
+      "00007ffbfaa0cc01 MSCTF!TLS::InternalDestroyTLS +3d (rva=1cc01)",
+      "00007ffbfaa0ca48 MSCTF!TF_UninitThreadSystem +30 (rva=1ca48)",
+      "00007ffbfaa0c962 MSCTF!CicFlsCallback +42 (rva=1c962)",
+      "00007ffbfb13a87f ntdll!RtlpFlsDataCleanup +ff (rva=ca87f)",
+      "00007ffbfb13b13a ntdll!LdrShutdownProcess +22a (rva=cb13a)",
+      "00007ffbfb139d9e ntdll!RtlExitUserProcess +9e (rva=c9d9e)",
+      "00007ffbf91a17ab KERNEL32!ExitProcess +b (rva=417ab)",
+      "00007ff699dd0d38 SumatraPDF-static!exit_or_terminate_process +2c (rva=21f0d38)",
+      "00007ff699dd0d0a SumatraPDF-static!common_exit +e2 (rva=21f0d0a)",
+      "00007ff699dace8b SumatraPDF-static!__scrt_common_main_seh +16b (rva=21cce8b)",
+      "00007ffbf918dda7 KERNEL32!BaseThreadInitThunk +17 (rva=2dda7)",
+      "00007ffbfb139c5c ntdll!RtlUserThreadStart +2c (rva=c9c5c)",
+      "exit c0000409"
+    ]
+  },
+  "symbols": {
+    "ntdll": "DC3DD41745DCA8311D7377D95BFAB28B1",
+    "msctf": "B3572A9D25691BE3042F0D55F0059C7B1",
+    "source": "Microsoft public symbol server; runtime PDB supplied with installed MSVC",
+    "wrapperRva": "0x907f3",
+    "wrapperSource": "compiler-rt/lib/asan/asan_malloc_win.cpp:2533",
+    "terminatingCheckSource": "sanitizer_common/sanitizer_win.cpp:1596",
+    "disassemblyLogs": [".work/e38-asan-disasm.txt", ".work/e38-msctf-disasm.txt", ".work/e38-ntdll-disasm.txt"]
+  },
+  "diagnosis": "During process termination, the installed ASan RtlReAllocateHeap wrapper bypasses allocation ownership and calls the original Windows heap function. The independent probe reallocates an ASan-owned block successfully during explicit unload but fails at process shutdown. This matches the application shutdown call path; the probe does not always produce the exact native fast-fail.",
+  "probeMatrix": [
+    {
+      "legacyHooks": 0,
+      "mode": "plain",
+      "attempt": 1,
+      "runnerExit": 0,
+      "explicitUnload": "pass",
+      "processShutdown": "pass",
+      "log": ".work/e38-final-plain-0-1.log",
+      "output": ["plain unload exit=0 realloc=ok", "plain shutdown exit=0 realloc=ok"]
+    },
+    {
+      "legacyHooks": 0,
+      "mode": "plain",
+      "attempt": 2,
+      "runnerExit": 0,
+      "explicitUnload": "pass",
+      "processShutdown": "pass",
+      "log": ".work/e38-final-plain-0-2.log",
+      "output": ["plain unload exit=0 realloc=ok", "plain shutdown exit=0 realloc=ok"]
+    },
+    {
+      "legacyHooks": 0,
+      "mode": "plain",
+      "attempt": 3,
+      "runnerExit": 0,
+      "explicitUnload": "pass",
+      "processShutdown": "pass",
+      "log": ".work/e38-final-plain-0-3.log",
+      "output": ["plain unload exit=0 realloc=ok", "plain shutdown exit=0 realloc=ok"]
+    },
+    {
+      "legacyHooks": 0,
+      "mode": "asan",
+      "attempt": 1,
+      "runnerExit": 1,
+      "explicitUnload": "pass",
+      "processShutdown": "failed reallocation",
+      "log": ".work/e38-final-asan-0-1.log",
+      "output": ["asan unload exit=0 asan-owned=1", "realloc=ok", "asan shutdown exit=0 asan-owned=1", "realloc=failed"]
+    },
+    {
+      "legacyHooks": 0,
+      "mode": "asan",
+      "attempt": 2,
+      "runnerExit": 1,
+      "explicitUnload": "pass",
+      "processShutdown": "failed reallocation",
+      "log": ".work/e38-final-asan-0-2.log",
+      "output": ["asan unload exit=0 asan-owned=1", "realloc=ok", "asan shutdown exit=0 asan-owned=1", "realloc=failed"]
+    },
+    {
+      "legacyHooks": 0,
+      "mode": "asan",
+      "attempt": 3,
+      "runnerExit": 1,
+      "explicitUnload": "pass",
+      "processShutdown": "failed reallocation",
+      "log": ".work/e38-final-asan-0-3.log",
+      "output": ["asan unload exit=0 asan-owned=1", "realloc=ok", "asan shutdown exit=0 asan-owned=1", "realloc=failed"]
+    },
+    {
+      "legacyHooks": 1,
+      "mode": "plain",
+      "attempt": 1,
+      "runnerExit": 0,
+      "explicitUnload": "pass",
+      "processShutdown": "pass",
+      "log": ".work/e38-final-plain-1-1.log",
+      "output": ["plain unload exit=0 realloc=ok", "plain shutdown exit=0 realloc=ok"]
+    },
+    {
+      "legacyHooks": 1,
+      "mode": "plain",
+      "attempt": 2,
+      "runnerExit": 0,
+      "explicitUnload": "pass",
+      "processShutdown": "pass",
+      "log": ".work/e38-final-plain-1-2.log",
+      "output": ["plain unload exit=0 realloc=ok", "plain shutdown exit=0 realloc=ok"]
+    },
+    {
+      "legacyHooks": 1,
+      "mode": "plain",
+      "attempt": 3,
+      "runnerExit": 0,
+      "explicitUnload": "pass",
+      "processShutdown": "pass",
+      "log": ".work/e38-final-plain-1-3.log",
+      "output": ["plain unload exit=0 realloc=ok", "plain shutdown exit=0 realloc=ok"]
+    },
+    {
+      "legacyHooks": 1,
+      "mode": "asan",
+      "attempt": 1,
+      "runnerExit": 1,
+      "explicitUnload": "pass",
+      "processShutdown": "failed reallocation",
+      "log": ".work/e38-final-asan-1-1.log",
+      "output": ["asan unload exit=0 asan-owned=1", "realloc=ok", "asan shutdown exit=0 asan-owned=1", "realloc=failed"]
+    },
+    {
+      "legacyHooks": 1,
+      "mode": "asan",
+      "attempt": 2,
+      "runnerExit": 1,
+      "explicitUnload": "pass",
+      "processShutdown": "failed reallocation",
+      "log": ".work/e38-final-asan-1-2.log",
+      "output": ["asan unload exit=0 asan-owned=1", "realloc=ok", "asan shutdown exit=0 asan-owned=1", "realloc=failed"]
+    },
+    {
+      "legacyHooks": 1,
+      "mode": "asan",
+      "attempt": 3,
+      "runnerExit": 1,
+      "explicitUnload": "pass",
+      "processShutdown": "failed reallocation",
+      "log": ".work/e38-final-asan-1-3.log",
+      "output": ["asan unload exit=0 asan-owned=1", "realloc=ok", "asan shutdown exit=0 asan-owned=1", "realloc=failed"]
+    }
+  ],
+  "resumedProbeMatrix": [
+    {
+      "legacyHooks": 0,
+      "mode": "plain",
+      "runnerExit": 0,
+      "log": ".work/e38-resumed-plain-0.log",
+      "output": ["plain unload exit=0 realloc=ok", "plain shutdown exit=0 realloc=ok"]
+    },
+    {
+      "legacyHooks": 0,
+      "mode": "asan",
+      "runnerExit": 1,
+      "log": ".work/e38-resumed-asan-0.log",
+      "output": ["asan unload exit=0 asan-owned=1", "realloc=ok", "asan shutdown exit=0 asan-owned=1", "realloc=failed"]
+    },
+    {
+      "legacyHooks": 1,
+      "mode": "plain",
+      "runnerExit": 0,
+      "log": ".work/e38-resumed-plain-1.log",
+      "output": ["plain unload exit=0 realloc=ok", "plain shutdown exit=0 realloc=ok"]
+    },
+    {
+      "legacyHooks": 1,
+      "mode": "asan",
+      "runnerExit": 1,
+      "log": ".work/e38-resumed-asan-1.log",
+      "output": ["asan unload exit=0 asan-owned=1", "realloc=ok", "asan shutdown exit=0 asan-owned=1", "realloc=failed"]
+    }
+  ],
+  "sourceSha256": {
+    "tools/solokpdf/asan-shutdown/repro.cpp": "f51202453b4664ebb5a6b43cd76ea1c64b86a203f73f7bc51b9d83276f780f07",
+    "tools/solokpdf/asan-shutdown/run.ps1": "f2b457aa763969f34ec3f745db1b47d42e9e6b35f0587486adff14b1411a4b1b"
+  },
+  "limitations": [
+    "No runtime correction or replacement installed",
+    "No claim that all application memory or worker lifetime issues are excluded",
+    "Simple EDIT-window shutdown probe passed 12 runs; not an MSCTF reproducer",
+    "No application source changes, local Release build, full suite, instrumentation reduction, new suppression, IME disabling or exit-code exemption"
+  ]
+}

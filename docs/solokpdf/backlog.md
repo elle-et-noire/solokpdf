@@ -45,12 +45,12 @@ The review's findings and historical priorities remain in that record.
 
 ## Independent review follow-up
 
-SOL1–SOL3 are implemented, uncommitted, within the [recorded checks](full-review-sol-results.md#sol1sol3-修正検証2026-11-11).
+SOL1–SOL3 are committed in `febc58f07`, within the [recorded checks](full-review-sol-results.md#sol1sol3-修正検証2026-11-11).
 The original review and its unverified branches remain recorded.
 
-| ID  | Item                                               | Status                                                                                                                                                                            |
-| --- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E38 | Identify intermittent ASan native shutdown failure | todo — `0xC0000409`, fast-fail `0x23`, MSCTF/ASan `RtlReAllocateHeap` during DLL shutdown; cause unconfirmed. See the correction record and evidence. Do not waive nonzero exits. |
+| ID  | Item                                 | Status                                                                                                                                                                                          |
+| --- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E38 | Correct ASan native shutdown failure | todo — MSVC ASan termination-time heap handoff isolated with an independent probe; runtime correction pending. [Results](asan-shutdown.md). Do not waive failed reallocations or nonzero exits. |
 
 ## Deferred
 
