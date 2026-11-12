@@ -1,5 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { IS_WIN } from "./host.ts";
 import { cmdId, EXE, makeTextPdf, pollUntil, runStandalone, tmpPath, USE_NG } from "./util.ts";
@@ -12,11 +12,8 @@ import {
   waitForTitle,
 } from "./win-automation.ts";
 import {
-  enumChildWindows,
   enumWindows,
   findChildWindow,
-  getClassName,
-  getControlText,
   getWindowPid,
   getWindowText,
   isWindowVisible,
@@ -54,7 +51,7 @@ async function checkSave(engine: string, mode: "same" | "switch" | "close" | "re
   writeFileSync(original, makeTextPdf("ORIGINAL"));
   writeFileSync(other, makeTextPdf("OTHER"));
   const app = await launchControlled([original], {
-    env: { ...process.env, SOLOKPDF_ENGINE: engine },
+    env: { ...process.env, SOLOKPDF_ENGINE: engine, SOLOKPDF_TEST_EXPLORER_DIALOG: "1" },
     startupDiagnosticsDir: dir,
   });
   let saveCommand: Promise<Error | null> | undefined;
@@ -74,21 +71,10 @@ async function checkSave(engine: string, mode: "same" | "switch" | "close" | "re
     );
     const dialog = await waitForTopWindow(app.proc.pid!, "#32770", 10000);
     if (!dialog) throw new Error("Save As dialog did not open");
-    const initialNames = [basename(original), basename(original, ".pdf")];
-    const edit = await pollUntil(
-      () => {
-        let result = 0;
-        enumChildWindows(dialog, (hwnd) => {
-          if (getClassName(hwnd) === "Edit" && isWindowVisible(hwnd) && initialNames.includes(getControlText(hwnd))) {
-            result = hwnd;
-            return false;
-          }
-          return true;
-        });
-        return result;
-      },
-      (hwnd) => hwnd !== 0,
-      { error: "Save As filename field was not initialized" },
+    await pollUntil(
+      () => isWindowVisible(dialog),
+      (visible) => visible,
+      { error: "Save As did not become visible" },
     );
     if (mode === "switch") {
       if (!sendCopyDataW(app.frame, kDdeCopyData, `[Open("${other.replaceAll("\\", "/")}",0,0,0)]`)) {
@@ -108,10 +94,15 @@ async function checkSave(engine: string, mode: "same" | "switch" | "close" | "re
       const text = await app.client.request(ControlCommand.TestCurrentPdf, ["cached-text", 1]);
       if (text[0] !== 0 || !String(text[1]).includes("REPLACED")) throw new Error(`reload did not replace: ${text}`);
     }
-    sendText(edit, saved);
-    const entered = getControlText(edit);
-    if (entered !== saved) throw new Error(`Save As filename is '${entered}', expected '${saved}'`);
-    postMessage(dialog, WM_COMMAND, 1, 0);
+    await pollUntil(
+      async () => {
+        const res = await app.client.request(ControlCommand.TestSaveFileName, [saved, "dialog"]);
+        if (res[0] !== 2 && (res[0] !== 0 || res[1] !== "accepted")) throw new Error(`Save As: ${res}`);
+        return res;
+      },
+      (res) => res[0] === 0,
+      { error: (res) => `Save As did not accept its target: ${res}` },
+    );
     await pollUntil(
       () => isWindowVisible(dialog),
       (visible) => !visible,

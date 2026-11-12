@@ -131,7 +131,7 @@ export enum ControlCommand {
   TestRenameFile = 131,
   // holds background chapter layout (1) or lets it run (0)
   TestChapterLayoutHold = 133,
-  // the path the next Save As takes, without its dialog
+  // path for the next Save As; orig: [path, "dialog"] accepts the open file dialog
   TestSaveFileName = 134,
   // places the signature being placed at a canvas point (pixels), as a click does
   TestPlaceSignature = 135,

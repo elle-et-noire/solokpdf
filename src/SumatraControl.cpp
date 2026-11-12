@@ -6,6 +6,10 @@
 #include "base/UITask.h"
 #include "base/Win.h"
 #include "base/Pixmap.h"
+
+#include <commdlg.h>
+#include <dlgs.h>
+
 #include "gui/Dpi.h"
 
 #include "gui/UIModels.h"
@@ -895,6 +899,42 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
         return StrL("about");
     }
     return StrL("other");
+}
+
+// Use the file dialog protocol; its child controls differ between Windows versions.
+static TempStr AcceptSaveDialog(Str path, int* exitCodeOut) {
+    *exitCodeOut = 1;
+    MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+    if (!gForTesting || !win || len(path) == 0) {
+        return StrL("ERROR requires a testing window and target path");
+    }
+    TempWStr target = ToWStrTemp(path);
+    if (len(target) >= MAX_PATH) {
+        return StrL("ERROR save-dialog path too long");
+    }
+    HWND dialog = GetLastActivePopup(win->hwndFrame);
+    DWORD pid = 0;
+    GetWindowThreadProcessId(dialog, &pid);
+    *exitCodeOut = 2;
+    if (dialog == win->hwndFrame || pid != GetCurrentProcessId() || !IsWindowVisible(dialog) ||
+        !str::Eq(HwndGetClassName(dialog), StrL("#32770"))) {
+        return StrL("NOTREADY no-save-dialog");
+    }
+
+    SendMessageW(dialog, CDM_SETCONTROLTEXT, edt1, (LPARAM)CWStrTemp(target));
+    WCHAR filePath[MAX_PATH]{};
+    LRESULT count = SendMessageW(dialog, CDM_GETFILEPATH, dimof(filePath), (LPARAM)filePath);
+    if (count < 1 || count > dimofi(filePath)) {
+        return fmt("NOTREADY save-dialog result=%d", (int)count);
+    }
+    WStr selected(filePath, (int)count - 1);
+    if (!wstr::EqI(selected, target)) {
+        return fmt("NOTREADY save-dialog path='%s'", ToUtf8Temp(selected));
+    }
+
+    PostMessageW(dialog, WM_COMMAND, IDOK, 0);
+    *exitCodeOut = 0;
+    return StrL("accepted");
 }
 
 static void ExecuteControlRequest(ControlRequest* req) {
@@ -2316,6 +2356,12 @@ static void ExecuteControlRequest(ControlRequest* req) {
         }
 
         case ControlCmd::TestSaveFileName: {
+            if (str::Eq(StringArg(req, 1), StrL("dialog"))) {
+                int exitCode = 0;
+                Str res = AcceptSaveDialog(StringArg(req, 0), &exitCode);
+                AppendTestResult(req, exitCode, res);
+                break;
+            }
             SetTestSaveFileName(StringArg(req, 0));
             AppendTestResult(req, 0, StrL("OK"));
             break;

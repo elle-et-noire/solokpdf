@@ -5889,6 +5889,11 @@ void CloseWindow(MainWindow* win, bool quitIfLast, bool forceClose) {
 
 static bool SaveDocAs(MainWindow* win, Str dstPath);
 
+// A hook selects the Explorer-style dialog that supports CDM_* messages.
+static UINT_PTR CALLBACK TestSaveDialogHook(HWND, UINT, WPARAM, LPARAM) {
+    return 0;
+}
+
 static void SaveCurrentFileAs(MainWindow* win) {
     if (!CanAccessDisk()) {
         return;
@@ -5996,6 +6001,11 @@ static void SaveCurrentFileAs(MainWindow* win) {
     // picks a reasonable default (in particular, we don't want this
     // in plugin mode, which is likely the main reason for saving as...)
 
+    // The modal reentry test uses the Explorer-style file dialog protocol.
+    if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_TEST_EXPLORER_DIALOG", nullptr, 0) > 0) {
+        ofn.Flags |= OFN_EXPLORER | OFN_ENABLEHOOK;
+        ofn.lpfnHook = TestSaveDialogHook;
+    }
     bool ok = (TakeTestSaveFileName(&ofn) || GetSaveFileNameW(&ofn));
     if (!IsSameDocument(win, targetTab, ctrl, engine)) {
         return;

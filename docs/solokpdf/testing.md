@@ -39,6 +39,9 @@ checking the runner. Local app tests must never run on the owner's desktop.
 Run `tests/dialog-target-reentry.ts` in Debug and ASan through the hidden runner.
 Both PDF engines cover Save As with unchanged, switched, closed and reloaded
 targets; reload with password acceptance, cancellation, target close and app exit.
+Save As requests the Explorer-style dialog in test mode and uses the common-dialog
+protocol through `TestSaveFileName(path, "dialog")` to verify its full target path
+before accepting it. The test waits for the Save As command to return.
 `ctx-menu-reload`, `auto-reload-unsaved` and `missing-source-unsaved` cover related
 reload and save behavior.
 
