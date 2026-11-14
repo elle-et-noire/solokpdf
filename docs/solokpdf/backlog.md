@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-15. E23–E25 are complete within the recorded review scope.
-E26–E52 are complete within their recorded validation scope. E53–E57 are open findings of the
+E26–E53 are complete within their recorded validation scope. E54–E57 are open findings of the
 [2026-11-13 review](#2026-11-13-review-findings).
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
@@ -20,7 +20,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E53 first.
+Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E54 first.
 Each fix starts with a failing test, as the findings are read from code, not reproduced.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
@@ -62,13 +62,12 @@ recorded in [full-review-results.md](full-review-results.md) and
 was built or reproduced. Confirm each with a failing test before fixing. Line numbers are at
 `ce9903893`.
 
-| ID  | P   | Status | Item                                                         | Where and trigger                                                                                                                |
-| --- | --- | ------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| E53 | P3  | todo   | Partial text re-extracted on every read after editor failure | `EngineBase.cpp:1166` keeps the page `Pending`; each search or selection update reruns PDFium extraction                         |
-| E54 | P3  | todo   | Unbounded form value read                                    | `FormFieldHighlight` (`EnginePdfium.cpp:2057`) allocates the value without the 64 KiB cap other reads use                        |
-| E55 | P3  | todo   | Document `gPdfiumLock` serialization                         | Blocking UI reads (`GetElements`, `PageContentBox`, `GetNamedDest`) wait for a drawing tile; not in limitations.md               |
-| E56 | P3  | todo   | Measure smart-theme tile cost                                | `DrawPage` reopens the themed PDF per tile (`EnginePdfium.cpp:2437`); unmeasured on large documents                              |
-| E57 | P3  | todo   | Measure large outlines in the virtual tree                   | `Measure` (`VirtTree.cpp:473-502`) and `SetModel` walk every node on model, font and DPI changes; tested only to 5,000 bookmarks |
+| ID  | P   | Status | Item                                       | Where and trigger                                                                                                                |
+| --- | --- | ------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| E54 | P3  | todo   | Unbounded form value read                  | `FormFieldHighlight` (`EnginePdfium.cpp:2057`) allocates the value without the 64 KiB cap other reads use                        |
+| E55 | P3  | todo   | Document `gPdfiumLock` serialization       | Blocking UI reads (`GetElements`, `PageContentBox`, `GetNamedDest`) wait for a drawing tile; not in limitations.md               |
+| E56 | P3  | todo   | Measure smart-theme tile cost              | `DrawPage` reopens the themed PDF per tile (`EnginePdfium.cpp:2437`); unmeasured on large documents                              |
+| E57 | P3  | todo   | Measure large outlines in the virtual tree | `Measure` (`VirtTree.cpp:473-502`) and `SetModel` walk every node on model, font and DPI changes; tested only to 5,000 bookmarks |
 
 Structural notes from the review, not work items: the color-pass decision lives in
 `GetPageColorPass`, `BuildViewDarkModeProfile` and each engine (E46 is a disagreement);

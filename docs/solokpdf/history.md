@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E53 | Stop re-extracting partial text after an editor failure                                                                                                                                                                                                                                     | done — Keep partial page text once full text fails (E53); [results](#e53-partial-page-text-2026-11-15)                                                                                                                                  |
 | E52 | Keep auto-scroll keys to the document                                                                                                                                                                                                                                                       | done — Keep auto-scroll keys to the document (E52); [results](#e52-auto-scroll-key-target-2026-11-15)                                                                                                                                   |
 | E51 | End key capture when focus moves                                                                                                                                                                                                                                                            | done — Stop key capture when focus leaves it (E51); [results](#e51-shortcut-key-capture-focus-2026-11-15)                                                                                                                               |
 | E50 | Scroll trees on small wheel deltas                                                                                                                                                                                                                                                          | done — Scroll trees on small wheel deltas (E50); [results](#e50-small-tree-wheel-deltas-2026-11-15)                                                                                                                                     |
@@ -3526,3 +3527,16 @@ scrolling. It now takes only keys aimed at the document frame or canvas.
 The new `ad-hoc-auto-scroll-vim-line` failed before the fix (Esc stopped
 scrolling) and passes after; it is registered in SolokPDF CI.
 `auto-scroll-extras` and `ad-hoc-vim-keys` pass. Debug, hidden desktop; no ASan or hosted CI run.
+
+## E53 partial page text (2026-11-15)
+
+Commit subject: `Keep partial page text once full text fails (E53)`.
+When the hidden MuPDF editor could not load, a PDFium page that needs it got
+only partial text, and the cache left the page pending, so every search or
+selection update extracted it again. A blocking read that gets partial text now
+keeps it until the page is invalidated.
+
+The new `EngineBase_UnitTestPartialTextFinal` failed before the fix (two
+extractions) and passes after; Debug unit tests pass (105130).
+`ad-hoc-pdfium-try-reads`, `form-text-cache`, `ad-hoc-pdfium-redaction-undo`
+and `ad-hoc-pdfium-text` pass. No ASan or hosted CI run.

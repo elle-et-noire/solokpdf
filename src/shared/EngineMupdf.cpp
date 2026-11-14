@@ -4451,6 +4451,22 @@ bool EngineBase_UnitTestTextFailure() {
     return ok;
 }
 
+// A blocking read that only gets partial text (the editor can't load) keeps it
+// until the page is invalidated, instead of extracting again on every read (E53)
+bool EngineBase_UnitTestPartialTextFinal() {
+    auto* engine = new TextFailureEngine();
+    engine->fail = false;
+    engine->partial = true;
+    engine->GetTextForPage(1);
+    engine->GetTextForPage(1);
+    bool ok = engine->calls == 1;
+    engine->InvalidateTextForPage(1);
+    engine->partial = false;
+    ok = ok && str::Eq(engine->GetTextForPage(1), StrL("recovered")) && engine->calls == 2;
+    engine->Release();
+    return ok;
+}
+
 // Every edit invalidates all cached text; unchanged pages must reuse their old
 // text instead of keeping another copy alive for the engine's lifetime (E42)
 bool EngineBase_UnitTestTextReuse() {

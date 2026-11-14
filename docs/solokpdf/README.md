@@ -46,6 +46,7 @@ E49 keeps a shortcut's name and toolbar button when its key changes; [results](h
 E50 scrolls trees on small wheel deltas; [results](history.md#e50-small-tree-wheel-deltas-2026-11-15).
 E51 ends shortcut key capture when focus moves to another control; [results](history.md#e51-shortcut-key-capture-focus-2026-11-15).
 E52 keeps auto-scroll keys to the document; [results](history.md#e52-auto-scroll-key-target-2026-11-15).
+E53 keeps partial page text once full extraction fails; [results](history.md#e53-partial-page-text-2026-11-15).
 [backlog.md](backlog.md) records deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache
@@ -62,7 +63,7 @@ invalidation, read contracts and document lifetime. Read the
 | Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                       | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                                                         |
 | Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                              | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                                                 |
 | Refactoring    | Tree, runtime and key-state separation (E15), plus rendering/read/lifetime contracts (E18–E22), are complete within their recorded scope. | [Current architecture](architecture.md), [completed plan](refactoring-plan.md), [E15 review](history.md#e15-refactor-review-2026-11-10)        |
-| Code review    | E23–E25 complete within scope; E26–E52 address the recorded findings. E53–E57 are open from the 2026-11-13 review.                        | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review), [open findings](backlog.md#2026-11-13-review-findings) |
+| Code review    | E23–E25 complete within scope; E26–E53 address the recorded findings. E54–E57 are open from the 2026-11-13 review.                        | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review), [open findings](backlog.md#2026-11-13-review-findings) |
 
 ### Validation scope
 

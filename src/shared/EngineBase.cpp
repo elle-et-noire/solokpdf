@@ -600,6 +600,8 @@ struct TextCacheEntry {
     // invalidated text, reused if extraction gives the same: readers may still hold it
     PageText stale;
     TextExtractionState state = TextExtractionState::NotExtracted;
+    // a blocking read got only partial text too (no editor): keep it until invalidated (E53)
+    bool partialIsFinal = false;
     // bumped by InvalidateTextForPage: text extracted before it is dropped
     int gen = 0;
 
@@ -654,6 +656,7 @@ struct PageTextCache {
             page.stale = page.data;
         }
         page.data = {};
+        page.partialIsFinal = false;
         page.state = TextExtractionState::NotExtracted;
         page.gen++;
     }
@@ -1191,7 +1194,8 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
             // Finished includes textless pages. Pending still allows synchronous extraction.
             // Partial (prefetched) text satisfies all but a blocking read.
             bool done = page->state == TextExtractionState::Finished;
-            extract = mode == TextReadMode::Blocking ? !done || page->data.partial : !done && !page->data.partial;
+            bool wantFull = page->data.partial && !page->partialIsFinal;
+            extract = mode == TextReadMode::Blocking ? !done || wantFull : !done && !page->data.partial;
             if (extract && mode == TextReadMode::Blocking) {
                 page->state = TextExtractionState::Pending;
             }
@@ -1227,7 +1231,12 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
         ScopedMutex scope(&textCacheLock);
         TextCacheEntry* page = pageTextCache->Ensure(loc, count);
         if (page->gen == gen) {
+            bool partial = extracted.partial;
             page->StoreText(extracted);
+            if (mode == TextReadMode::Blocking && partial) {
+                page->partialIsFinal = true;
+                page->state = TextExtractionState::Finished;
+            }
             break;
         }
         // invalidated while extracting (e.g. a redaction applied): the text may be stale
