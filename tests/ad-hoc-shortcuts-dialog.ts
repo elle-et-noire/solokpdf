@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled, pressKey, sendCommandSync } from "./win-automation.ts";
-import { getScrollPos, postMessage, sleep, VK_F20, WM_KEYDOWN } from "./winapi.ts";
+import { findChildWindow, getScrollPos, postMessage, sleep, VK_F20, WM_KEYDOWN } from "./winapi.ts";
 import { ControlCommand } from "./control.ts";
 
 function makePdf(): string {
@@ -127,6 +127,30 @@ export async function testit(): Promise<void> {
   }
   await checkUnsavedOk(dir, pdf);
   await checkNamedShortcut(dir, pdf);
+  await checkCaptureFocus(dir, pdf);
+}
+
+// E51: after Add key, a key typed into one of the dialog's edits must not become the binding
+async function checkCaptureFocus(dir: string, pdf: string): Promise<void> {
+  const VK_F23 = 0x86;
+  const appdata = join(dir, "capture-focus");
+  mkdirSync(appdata, { recursive: true });
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+  try {
+    await client.waitForRenderIdle();
+    sendCommandSync(frame, cmdId("CmdCustomizeShortcuts"));
+    await client.request(ControlCommand.TestShortcutsDialog, ["state"]);
+    const dialog = Number((await client.request(ControlCommand.TestShortcutsDialog, ["begin", "CmdScrollDown"]))[1]);
+    const edit = dialog ? findChildWindow(dialog, "Edit") : 0;
+    if (!edit) throw new Error("dialog edit not found");
+    postMessage(edit, WM_KEYDOWN, VK_F23, 0);
+    await sleep(300);
+    const has = await client.request(ControlCommand.TestShortcutsDialog, ["has", "CmdScrollDown", "f23"]);
+    if (has[1] !== "0") throw new Error("a key typed into an edit was captured as the binding");
+  } finally {
+    await client.quit().catch(() => {});
+    await killAndWait(proc);
+  }
 }
 
 // E49: reassigning or removing a named toolbar shortcut's key keeps its name and button

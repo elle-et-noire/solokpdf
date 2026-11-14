@@ -279,6 +279,11 @@ bool ShortcutsWnd::Assign(Str keyText, ConflictMode mode) {
 }
 
 void ShortcutsWnd::OnKeyDown(KeyEvent* ev) {
+    // Add key focuses the dialog itself; a key for another control means focus moved on (E51)
+    if (capturing && ev->hwnd != hwnd) {
+        capturing = false;
+        captureHint->SetText(Tr("Select a command and press Add key..."));
+    }
     if (capturing) {
         ev->didHandle = true;
         if (ev->vkey == VK_ESCAPE) {
