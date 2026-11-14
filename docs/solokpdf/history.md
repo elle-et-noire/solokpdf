@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E40 | Drop a prepared signature's pending signer on Undo                                                                                                                                                                                                                                          | done — Undo prepared signatures with their signers (E40); [results](#e40-signature-undo-2026-11-15)                                                                                                                                     |
 | E39 | Preserve originals during non-incremental in-place PDF saves                                                                                                                                                                                                                                | done — Preserve full PDF saves atomically (E39); [results](#e39-full-pdf-saves-2026-11-15)                                                                                                                                              |
 
 ### F. Manual acceptance
@@ -3339,3 +3340,24 @@ Final local Debug checks ran outside the sandbox on hidden desktops:
   reading the original bytes. `solok-build.ts -dbg` and final quick builds passed.
 
 No local Release build, ASan run, ng build, full GUI suite or hosted CI run was performed.
+
+## E40 signature undo (2026-11-15)
+
+Commit subject: `Undo prepared signatures with their signers (E40)`.
+`tests/sign-undo.ts` failed before the fix on both engines: after signing and
+Undo, the pending signer remained and the signature widget, `/V` and SigFlags
+stayed in the document. A pending signature makes MuPDF start a new increment,
+so `pdf_undo` swapped the step's objects into it instead of reverting them.
+
+Undo now forbids new increments while it runs, drops pending signers whose field
+lost `/V`, and drops an increment Undo emptied (`solok-0023`); otherwise an
+incremental save after undoing every edit made after signing wrote nothing, not
+even the signature. Redo of a prepared signature is unavailable, since its
+signer is gone. Undo of a signature that was already saved stays unavailable.
+
+Checks (Debug, hidden desktop): `sign-undo` (both engines; new and existing
+fields; Undo, blocked Redo, edit, save and re-sign; Undo through a later edit;
+save after an undone later edit), `sign-rollback`, `ad-hoc-sign-document`,
+`ad-hoc-pdfium-signing`, `annot-undo-one-step` and
+`ad-hoc-pdfium-redaction-undo`. Without the increment flag or the empty
+increment drop, `sign-undo` fails. No ASan, Release, ng or hosted CI run.

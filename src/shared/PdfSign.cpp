@@ -347,7 +347,7 @@ bool EngineMupdfSignDocument(EngineBase* engine, const PdfSignArgs& args, Str* e
         pdf_annot savedWidget = widget ? *widget : pdf_annot{};
         int recalculate = epdf->pdfdoc->recalculate;
         bool modified = epdf->modifiedAnnotations;
-        pdf_begin_operation(ctx, epdf->pdfdoc, "Prepare signature");
+        pdf_begin_operation(ctx, epdf->pdfdoc, kPrepareSignatureOp);
         fz_try(ctx) {
             if (len(args.fieldName) == 0) {
                 // the name only has to be unique; mupdf doesn't check, so make it

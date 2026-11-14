@@ -13071,6 +13071,37 @@ bool EngineMupdfReplaceImage(EngineBase* engine, int pageNo, int imageIdx, Str i
 
 //--- Undo / redo, on top of MuPDF's journal (see pdf_enable_journal)
 
+static bool HasSignatureValue(fz_context* ctx, pdf_obj* field) {
+    bool has = false;
+    fz_try(ctx) {
+        has = pdf_dict_get(ctx, field, PDF_NAME(V)) != nullptr;
+    }
+    fz_catch(ctx) {
+        fz_ignore_error(ctx);
+    }
+    return has;
+}
+
+static pdf_obj* FindUndoneSignature(fz_context* ctx, pdf_document* doc) {
+    for (int i = 0; i < doc->num_incremental_sections; i++) {
+        for (pdf_unsaved_sig* s = doc->xref_sections[i].unsaved_sigs; s; s = s->next) {
+            if (!HasSignatureValue(ctx, s->field)) {
+                return s->field;
+            }
+        }
+    }
+    return nullptr;
+}
+
+// Undoing "Prepare signature" removes the field's /V; drop its pending signer too.
+static void DropUndoneSignatures(fz_context* ctx, pdf_document* doc) {
+    pdf_obj* field = FindUndoneSignature(ctx, doc);
+    while (field) {
+        pdf_xref_remove_unsaved_signature(ctx, doc, field);
+        field = FindUndoneSignature(ctx, doc);
+    }
+}
+
 // Where we are in the undo history: 0 is the document as it was loaded,
 // *stepsOut is the number of recorded steps. -1 if the document isn't
 // journalled or MuPDF refused to answer (it does while an operation is open).
@@ -13087,6 +13118,11 @@ int EngineMupdfUndoPos(EngineMupdf* e, int* stepsOut) {
     int pos = -1;
     fz_try(ctx) {
         pos = pdf_undoredo_state(ctx, e->pdfdoc, &steps);
+        // undo dropped that step's signer, so a redo would save an unsigned /V
+        const char* next = pos < steps ? pdf_undoredo_step(ctx, e->pdfdoc, pos) : nullptr;
+        if (next && str::Eq(Str(next), Str(kPrepareSignatureOp))) {
+            steps = pos;
+        }
     }
     fz_catch(ctx) {
         // MuPDF throws while an edit/appearance op is still open (e.g. selecting
@@ -13153,10 +13189,33 @@ void EngineMupdfEndOperation(EngineBase* engine) {
     }
 }
 
+// pdf_undo writes to the newest increment. A prepared signature's step can be
+// undone only while its signer is pending there; a saved signature is final.
+static bool SignatureUndoBlocked(EngineMupdf* e) {
+    if (!e || !e->pdfdoc || e->journalNesting > 0) {
+        return false;
+    }
+    auto* ctx = e->Ctx();
+    pdf_document* doc = e->pdfdoc;
+    ScopedRecursiveMutex docScope(&e->docLock);
+    bool blocked = false;
+    fz_try(ctx) {
+        int steps = 0;
+        int pos = pdf_undoredo_state(ctx, doc, &steps);
+        const char* step = pos > 0 ? pdf_undoredo_step(ctx, doc, pos - 1) : nullptr;
+        bool newest = doc->num_incremental_sections > 0 && doc->xref_sections[0].unsaved_sigs;
+        blocked = step && str::Eq(Str(step), Str(kPrepareSignatureOp)) && !newest;
+    }
+    fz_catch(ctx) {
+        fz_ignore_error(ctx);
+    }
+    return blocked;
+}
+
 bool EngineMupdfCanUndo(EngineBase* engine) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     int pos = EngineMupdfUndoPos(e, nullptr);
-    return pos > 0;
+    return pos > 0 && !SignatureUndoBlocked(e);
 }
 
 bool EngineMupdfCanRedo(EngineBase* engine) {
@@ -13176,6 +13235,7 @@ static int UndoPosNoWait(EngineMupdf* e, int* stepsOut) {
     }
     if (e->docLock.TryLock()) {
         e->undoPosSeen = EngineMupdfUndoPos(e, &e->undoStepsSeen);
+        e->undoBlockedSeen = SignatureUndoBlocked(e);
         e->docLock.Unlock();
     }
     *stepsOut = e->undoStepsSeen;
@@ -13184,8 +13244,9 @@ static int UndoPosNoWait(EngineMupdf* e, int* stepsOut) {
 
 bool EngineMupdfCanUndoNoWait(EngineBase* engine) {
     int steps = 0;
-    int pos = UndoPosNoWait(AnnotEngineMupdf(engine, EditorLoad::IfLoaded), &steps);
-    return pos > 0;
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
+    int pos = UndoPosNoWait(e, &steps);
+    return pos > 0 && !e->undoBlockedSeen;
 }
 
 bool EngineMupdfCanRedoNoWait(EngineBase* engine) {
@@ -13440,13 +13501,24 @@ static bool EngineMupdfUndoRedo(EngineBase* engine, bool redo, Vec<Annotation*>&
     bool ok = false;
     {
         ScopedRecursiveMutex docScope(&e->docLock);
+        int disallow = e->pdfdoc->disallow_new_increments;
         fz_try(ctx) {
             if (redo) {
                 pdf_redo(ctx, e->pdfdoc);
             } else {
+                // a pending signature in the newest increment makes MuPDF start
+                // another one; the undone objects must be swapped where they live
+                if (e->pdfdoc->num_incremental_sections > 0) {
+                    e->pdfdoc->disallow_new_increments = 1;
+                }
                 pdf_undo(ctx, e->pdfdoc);
+                DropUndoneSignatures(ctx, e->pdfdoc);
+                pdf_xref_drop_empty_increment(ctx, e->pdfdoc);
             }
             ok = true;
+        }
+        fz_always(ctx) {
+            e->pdfdoc->disallow_new_increments = disallow;
         }
         fz_catch(ctx) {
             fz_report_error(ctx);

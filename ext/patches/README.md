@@ -115,6 +115,7 @@ SolokPDF patches apply after upstream's numbered ones, in this order.
 | `solok-0020-pdf-color-form-inheritance` | reject isolated color filtering when a Form inherits painting colors |
 | `solok-0021-pdf-signature-rollback` | preserve redo on abandoned operations, remove pending signers safely and propagate signature-widget creation failures |
 | `solok-0022-pdf-operation-changes` | expose changes in the current journal operation |
+| `solok-0023-pdf-drop-empty-increment` | drop an increment undo emptied, so a pending signature below it is still saved |
 
 That is the whole list: `ext/mupdf` is byte-for-byte `1.28.5` plus the
 patches in both tables, and nothing else.

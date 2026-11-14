@@ -228,6 +228,7 @@ class EngineMupdf : public EngineBase {
     // what UndoPosNoWait last saw, for when a render holds docLock
     int undoPosSeen = -1;
     int undoStepsSeen = 0;
+    bool undoBlockedSeen = false;
 
     // how many journal operations we have open (see EngineMupdfBeginOperation).
     // MuPDF can't undo / redo while one is, e.g. during a resize drag
@@ -328,6 +329,9 @@ Annotation* MakeAnnotationWrapper(EngineMupdf* engine, pdf_annot* annot, int pag
 int EngineMupdfUndoPos(EngineMupdf* e, int* stepsOut);
 bool EngineMupdfBeginOperation(EngineBase*, const char* name);
 void EngineMupdfEndOperation(EngineBase*);
+
+// undo step that prepares a signature; its signer lives outside the journal
+constexpr const char* kPrepareSignatureOp = "Prepare signature";
 
 // Everything changed while this is alive becomes one undo step. Use it for a
 // gesture that makes several changes (creating an annotation sets its geometry,

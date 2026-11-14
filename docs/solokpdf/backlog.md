@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-15. E23–E25 are complete within the recorded review scope.
-E26–E39 are complete within their recorded validation scope. E40–E57 are open findings of the
+E26–E40 are complete within their recorded validation scope. E41–E57 are open findings of the
 [2026-11-13 review](#2026-11-13-review-findings).
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
@@ -20,7 +20,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E40 first.
+Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E41 first.
 Each fix starts with a failing test, as the findings are read from code, not reproduced.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
@@ -64,7 +64,6 @@ was built or reproduced. Confirm each with a failing test before fixing. Line nu
 
 | ID  | P   | Status | Item                                                                     | Where and trigger                                                                                                                                                                                                                                     |
 | --- | --- | ------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E40 | P1  | todo   | Undo of a prepared signature keeps its pending signer                    | `PdfSign.cpp:394` registers it outside the journal; `pdf_xref_remove_unsaved_signature` runs only on failure (`:402`). Sign, cancel Save, Ctrl+Z, edit, Save: `/V` is gone and saving throws until reload (MuPDF part traced by the reviewer only)    |
 | E41 | P2  | todo   | Modifier keydown clears count and prefix                                 | `VimKeysUntranslated` (`VimKeys.cpp:737`), Ctrl branch (`:459`), prefix branch (`:516`). `5` Shift+G goes to the last page; `g` Shift+T is not `gT`. `ad-hoc-vim-keys` passes modifiers as arguments and never sends `VK_SHIFT`                       |
 | E42 | P2  | todo   | Retired page text grows without bound while editing                      | `UpdateAnnotIf` (`Annotation.cpp:232`) bumps the text generation; `TextGeneration` (`EngineBase.cpp:1262`) then retires every cached page into `retired` (`:626`), freed only with the engine. Search all, change an annotation, search again, repeat |
 | E43 | P2  | todo   | PDFium outline silently truncated at 4096 items                          | `budget = 4096` in `GetToc` (`EnginePdfium.cpp:3107`); MuPDF has no limit; not in limitations.md                                                                                                                                                      |

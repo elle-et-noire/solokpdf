@@ -187,6 +187,8 @@ input errors and injected preparation failures, then retries and verifies
 every saved signature. It also covers prior edits, Redo, pending/saved
 signatures, a malformed field tree and failed saves. Debug-only injections
 are skipped by Release CI; the remaining checks still run.
+`tests/sign-undo.ts` covers Undo and Redo of a prepared signature, with
+and without later edits, on both engines (E40).
 
 ### Redaction failures (E37)
 

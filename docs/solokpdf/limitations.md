@@ -395,6 +395,7 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   retaining the view state. Unsaved annotation and form edits share that save.
   Failed preparation restores the prior document and pending signatures;
   canceling or failing the later save retains the prepared signature (E28).
+  Undo removes a prepared signature and its signer; Redo cannot restore it (E40).
   See [forms.md](forms.md).
 - Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
   annotation except widgets, so form fields used to be blank; documents with

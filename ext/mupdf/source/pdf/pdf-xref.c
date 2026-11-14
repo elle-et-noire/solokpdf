@@ -689,6 +689,36 @@ void pdf_xref_store_unsaved_signature(fz_context *ctx, pdf_document *doc, pdf_ob
 	xref->unsaved_sigs_end = &unsaved_sig->next;
 }
 
+/* A signature makes later edits start a new increment. Undoing them all
+ * leaves that increment empty, and an incremental save then writes nothing,
+ * not even the pending signature below it. */
+int pdf_xref_drop_empty_increment(fz_context *ctx, pdf_document *doc)
+{
+	pdf_xref *xref;
+	pdf_xref_subsec *sub;
+	int i;
+
+	if (doc->num_incremental_sections < 2 || doc->xref_base != 0)
+		return 0;
+
+	xref = &doc->xref_sections[0];
+	if (xref->unsaved_sigs)
+		return 0;
+	for (sub = xref->subsec; sub != NULL; sub = sub->next)
+		for (i = 0; i < sub->len; i++)
+			if (sub->table[i].type)
+				return 0;
+
+	pdf_drop_xref_subsec(ctx, xref);
+	memmove(xref, xref + 1, (doc->num_xref_sections - 1) * sizeof(pdf_xref));
+	doc->num_xref_sections--;
+	doc->num_incremental_sections--;
+	for (i = 0; i < doc->max_xref_len; i++)
+		if (doc->xref_index[i] > 0)
+			doc->xref_index[i]--;
+	return 1;
+}
+
 int pdf_xref_obj_is_unsaved_signature(pdf_document *doc, pdf_obj *obj)
 {
 	int i;
