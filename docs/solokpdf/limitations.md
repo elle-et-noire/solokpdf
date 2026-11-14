@@ -331,6 +331,12 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   Hover annotation and link queries also skip a page while rendering holds
   that lock, as MuPDF's hover does. `issue-6362` scrolls and changes pages
   without stalling locally (B23).
+- PDFium is not thread-safe, so one lock (`gPdfiumLock`) serializes PDFium calls
+  for every open document. Hover, link and text queries skip a page while a tile
+  draws; reads that must answer wait for it: page elements for clicks and context
+  menus (`GetElements`), Fit Content's content box (`PageContentBox`) and named
+  destinations (`GetNamedDest`). On a slow page, or while another tab draws, the
+  UI can pause for that tile (E55).
 
 ## Annotations, forms, signatures and attachments
 
