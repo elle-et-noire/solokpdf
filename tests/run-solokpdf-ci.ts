@@ -79,6 +79,7 @@ import { testit as renderCacheShutdown } from "./render-cache-shutdown.ts";
 import { testit as dialogTargetReentry } from "./dialog-target-reentry.ts";
 import { testit as pendingDocumentInput } from "./pending-document-input.ts";
 import { testit as atomicPdfSave } from "./atomic-pdf-save.ts";
+import { testQuick as fullPdfSave } from "./ad-hoc-pdfium-full-save.ts";
 import { testit as printCloseReentry } from "./print-close-reentry.ts";
 
 const tests: NamedTest[] = [
@@ -86,6 +87,7 @@ const tests: NamedTest[] = [
   ["dialog-target-reentry", dialogTargetReentry],
   ["ad-hoc-pdfium-form-hover", formHover],
   ["atomic-pdf-save", atomicPdfSave],
+  ["ad-hoc-pdfium-full-save", fullPdfSave],
   ["print-close-reentry", printCloseReentry],
   ["render-cache-shutdown", renderCacheShutdown],
   ["controller-delete-handles", controllerDeleteHandles],

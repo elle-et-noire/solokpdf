@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E39 | Preserve originals during non-incremental in-place PDF saves                                                                                                                                                                                                                                | done — Preserve full PDF saves atomically (E39); [results](#e39-full-pdf-saves-2026-11-15)                                                                                                                                              |
 
 ### F. Manual acceptance
 
@@ -3299,3 +3300,42 @@ case 40 times and all 14 save cases. The ASan workflow now runs that test.
 Hosted execution remains unverified for this change; no local Release build,
 full suite, suppression or exit exemption was added.
 [Details](asan-shutdown.md), [evidence](data/e38-correction-2026-11-11.json).
+
+## E39 full PDF saves (2026-11-15)
+
+Commit subject: `Preserve full PDF saves atomically (E39)`.
+The pre-fix Debug regression applied redactions to a generated 33 MiB PDFium
+PDF, injected a partial-output failure and failed: the original bytes were gone.
+
+Full MuPDF outputs now stage beside the destination, close and flush, then
+publish through the atomic file helper. In-place full saves retain the editor's
+input bytes before publication. Windows replacement preserves open readers;
+a backup protects the original if replacement fails partway through. If even
+restoring that backup fails, it is retained and its path is logged.
+Incremental saves and the from-memory append path are unchanged. No vendored
+MuPDF changes or PDFium rendering changes were needed.
+
+The caller audit also covered `EngineMupdfSaveCopy`, Merge, EPUB conversion,
+image collections and OFD conversion. These full-rewrite callers now stage
+output; EPUB conversion no longer deletes an existing destination
+when conversion fails.
+
+Final local Debug checks ran outside the sandbox on hidden desktops:
+
+- `ad-hoc-pdfium-full-save`: all four engine/size cases passed. Both failures
+  preserve original bytes, report failure and keep edits dirty; retry, reopened
+  redacted text, another page and a second edit/save pass. The small PDFium
+  case is registered in SolokPDF CI. App caches live below a separate fixture
+  directory so they are not mistaken for staged outputs.
+- `atomic-pdf-save`: 20/20 cases passed, including full copies with pending
+  annotations on both engines, existing-output preservation and temp cleanup.
+- `redact-partial`, `redact-no-journal`, `ad-hoc-pdfium-redactions` and
+  `ad-hoc-pdfium-redaction-undo`: passed their built-in cases for both engines.
+- `annot-undo-one-step`, `convert-epub-to-pdf`, `issue-1930` and the
+  `Square-save` case of `pending-document-input`: passed once per engine.
+- `issue-1909`: passed, including OFD-to-PDF conversion. The writer must be
+  dropped after closing it and before flushing/publishing its output.
+- Debug unit tests: 105124 passed, including replacement while a reader keeps
+  reading the original bytes. `solok-build.ts -dbg` and final quick builds passed.
+
+No local Release build, ASan run, ng build, full GUI suite or hosted CI run was performed.

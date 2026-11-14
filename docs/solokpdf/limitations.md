@@ -343,6 +343,13 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   MuPDF document of the same file, which draws them over PDFium's pages once
   loaded, including redaction marks. PDFium's own incremental save, used
   before, wrote every parsed object: one annotation added up to 35 MB.
+- Full PDF rewrites, including applied redactions and repaired documents, stage
+  beside the destination and replace it after output closes and flushes (E39).
+  Failed writes or publication preserve the original and leave edits dirty.
+  An in-place rewrite retains MuPDF's source bytes until reload; ordinary open
+  and render stay unchanged. Full MuPDF copies, Merge and EPUB/image/OFD
+  conversions use the same publication helper. `ad-hoc-pdfium-full-save` covers small/33 MiB in-place saves
+  in both engines; `atomic-pdf-save` covers copies and Merge.
 - PDFium loads the editor for explicit comment queries and before the first
   annotation journal operation. Page render and hover leave it unloaded;
   PDFium supplies hover comments and authors, with MuPDF's line-break cleanup.

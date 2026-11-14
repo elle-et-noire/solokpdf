@@ -17,6 +17,7 @@ extern "C" {
 #include "EngineBase.h"
 #include "Annotation.h"
 #include "ImageReader.h"
+#include "PdfSave.h"
 #include "PdfCreator.h"
 
 // EngineImages.cpp — avoid including EngineAll.h (needs full FileType for defaults)
@@ -352,7 +353,7 @@ bool PdfCreator::SaveToFile(Str filePath) const {
         pdf_write_options opts = gPdfDefaultWriteOptions;
         opts.do_compress = 1;
         opts.do_compress_images = 1;
-        pdf_save_document(ctx, doc, CStrTemp(filePath), &opts);
+        SavePdfFile(ctx, doc, filePath, &opts);
     }
     fz_catch(ctx) {
         fz_report_error(ctx);

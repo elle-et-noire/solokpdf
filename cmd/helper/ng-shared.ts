@@ -351,6 +351,7 @@ export const sharedFiles = [
   "src/shared/PdfCad.h",
   "src/shared/PdfCreator.cpp",
   "src/shared/PdfCreator.h",
+  "src/shared/PdfSave.h",
   "src/shared/PdfDarkMode.h",
   "src/shared/PdfDarkModeColor.cpp",
   "src/shared/PdfDarkModeImageStats.cpp",

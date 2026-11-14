@@ -50,13 +50,14 @@ in both PDF engines. It checks that external updates preserve the input, cancel
 allows the deferred reload, and committed input stays protected until Undo
 returns the document to its clean state.
 
-### Pending input and failed saves (SOL1–SOL3)
+### Pending input and failed saves (SOL1–SOL3, E39)
 
 Run these individually through the hidden runner in Debug and ASan:
 
 ```powershell
 bun tools/solokpdf/run-hidden.ts -- bun tests/pending-document-input.ts --no-build
 bun tools/solokpdf/run-hidden.ts -- bun tests/atomic-pdf-save.ts --no-build
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-pdfium-full-save.ts --no-build
 bun tools/solokpdf/run-hidden.ts -- bun tests/print-close-reentry.ts --no-build
 ```
 
@@ -67,11 +68,20 @@ retry; every case reopens the saved PDF and checks the value. Multi-line FreeTex
 window close also checks the saved bounds.
 `PENDING_INPUT_CASE=<engine>-<input>-<action>` selects one case.
 
-`atomic-pdf-save` checks small/large PDFium copies and both engines' Merge PDF.
+`atomic-pdf-save` checks small/large PDFium copies, both engines' Merge PDF and
+full MuPDF copies with pending annotations (20 cases).
 It compares existing output bytes after read/write failure or read-only
 publication failure, checks temporary-file cleanup and verifies successful output.
 Debug-only failures require `-for-testing`; Release/ng skip them.
-`ATOMIC_SAVE_CASE=<engine>-<small|big|merge>-<w|r|p|empty>` selects one case.
+`ATOMIC_SAVE_CASE=<engine>-<small|big|merge|copy>-<w|r|p|f|empty>` selects one case;
+`copy` uses `f`, `p` and empty (success).
+
+`ad-hoc-pdfium-full-save` applies redactions to generated small and 33 MiB PDFs
+in both engines. It injects a partial-output failure, denies replacement with a
+read-only target, compares original bytes, checks the failure warning and dirty
+state, and verifies temp cleanup, retry, reopened text and another edit/save.
+`FULL_SAVE_CASE=<engine>-<small|big>` selects one case. SolokPDF CI runs the
+small PDFium case; Debug fault injection requires `-for-testing`.
 
 `print-close-reentry` uses a bounded test worker, without a printer. It ends
 that worker while the real print confirmation is modal, then exits the app.

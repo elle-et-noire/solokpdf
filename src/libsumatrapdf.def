@@ -848,6 +848,7 @@ EXPORTS
 
 
 	fz_new_output
+	fz_new_output_with_path
 
 	fz_new_output_with_buffer
 

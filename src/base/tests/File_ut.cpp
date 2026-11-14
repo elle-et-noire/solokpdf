@@ -258,10 +258,22 @@ void FileUtilTest() {
         Str saved = file::ReadFile(dest);
         utassert(str::Eq(saved, StrL("keep content")));
         str::Free(saved);
+#if OS_WIN
+        HANDLE reader =
+            CreateFileW(CWStrTemp(dest), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        utassert(reader != INVALID_HANDLE_VALUE);
+#endif
         utassert(file::OverwriteAtomicRetry(dest, source, 1, 0));
         saved = file::ReadFile(dest);
         utassert(str::Eq(saved, StrL("new content")));
         str::Free(saved);
+#if OS_WIN
+        char oldBytes[12]{};
+        utassert(file::ReadAt(reader, 0, oldBytes, sizeof(oldBytes)));
+        utassert(str::Eq(Str(oldBytes, sizeof(oldBytes)), StrL("keep content")));
+        file::Close(reader);
+#endif
         file::Delete(source);
         file::Delete(dest);
     }

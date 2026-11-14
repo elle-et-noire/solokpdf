@@ -161,9 +161,7 @@ bool Copy(Str dst, Str src, bool dontOverwrite);
 bool Copy(Str dst, Str src, bool dontOverwrite, const CopyProgressCb& cbProgress);
 bool Rename(Str newPath, Str oldPath);
 bool RenameReplace(Str newPath, Str oldPath);
-#if OS_WIN
 TempStr CreateTempNear(Str path);
-#endif
 bool OverwriteAtomicRetry(Str dst, Str src, int retryCount, int retrySleepMs);
 
 bool SetAccessTime(Str path, FILETIME accessTime);

@@ -625,22 +625,30 @@ bool RenameReplace(Str newPath, Str oldPath) {
     return Rename(newPath, oldPath);
 }
 
-bool OverwriteAtomicRetry(Str dst, Str src, int retryCount, int retrySleepMs) {
-    if (len(dst) == 0 || len(src) == 0) {
-        return false;
-    }
-
+TempStr CreateTempNear(Str dst) {
     TempStr dstDir = path::GetDirTemp(dst);
+    if (len(dstDir) == 0) {
+        dstDir = StrL(".");
+    }
     TempStr dstName = path::GetBaseNameTemp(dst);
     TempStr tempTemplate = fmt("%s/.%s.tmp.XXXXXX", dstDir, dstName);
     char* tempPathZ = CStrTemp(tempTemplate);
     int tempFd = mkstemp(tempPathZ);
     if (tempFd < 0) {
-        return false;
+        return {};
     }
     close(tempFd);
+    return Str(tempPathZ);
+}
 
-    TempStr tempPath = Str(tempPathZ);
+bool OverwriteAtomicRetry(Str dst, Str src, int retryCount, int retrySleepMs) {
+    if (len(dst) == 0 || len(src) == 0) {
+        return false;
+    }
+    TempStr tempPath = CreateTempNear(dst);
+    if (len(tempPath) == 0) {
+        return false;
+    }
     if (!Copy(tempPath, src, false, gFileCopyProgressCb)) {
         Delete(tempPath);
         return false;

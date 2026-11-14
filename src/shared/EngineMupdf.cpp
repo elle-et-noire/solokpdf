@@ -48,6 +48,7 @@ extern "C" {
 #include "EbookBase.h"
 #include "EbookDoc.h"
 #include "Settings.h"
+#include "PdfSave.h"
 #include "SumatraConfig.h"
 #include "EngineMupdf.h"
 
@@ -11530,6 +11531,29 @@ static bool SwapDocFileToMemory(EngineMupdf* e, fz_buffer* bytes) {
     return true;
 }
 
+// Retain the open input, including a PDFium editor's independently reopened handle.
+static bool RetainPdfSource(EngineMupdf* e) {
+    auto* ctx = e->Ctx();
+    fz_buffer* bytes = nullptr;
+    fz_var(bytes);
+    {
+        ScopedRecursiveMutex scope(&e->docLock);
+        fz_try(ctx) {
+            fz_seek(ctx, e->pdfdoc->file, 0, SEEK_SET);
+            bytes = fz_read_all(ctx, e->pdfdoc->file, 0);
+        }
+        fz_catch(ctx) {
+            fz_report_error(ctx);
+        }
+    }
+    if (!bytes) {
+        return false;
+    }
+    bool retained = SwapDocFileToMemory(e, bytes);
+    fz_drop_buffer(ctx, bytes);
+    return retained;
+}
+
 // data is the whole file, read after load; call on the UI thread
 static bool UseFileBytes(EngineMupdf* e, Str data) {
     if (len(data) == 0 || e->fileBytes || (i64)len(data) != e->fileSizeAtLoad ||
@@ -11818,6 +11842,64 @@ static Str WhyNotSaveFromMemory(EngineMupdf* e, Str path, const pdf_write_option
 
 static void SyncRedacted(EngineBase* engine, EngineMupdf* e);
 
+// Flush the complete output before atomically replacing the destination.
+void PublishPdfFile(fz_context* ctx, Str path, Str staged) {
+    file::FileHandle h = file::OpenReadWrite(staged, false);
+    bool flushed = h != file::kInvalidFileHandle && file::Flush(h);
+    file::Close(h);
+    if (!flushed) {
+        fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot flush staged PDF");
+    }
+    if (!file::RenameReplace(path, staged)) {
+        fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot replace PDF: %s", CStrTemp(file::LastErrorTemp()));
+    }
+}
+
+static void WritePdfFile(fz_context* ctx, pdf_document* doc, Str path, const pdf_write_options* opts) {
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    WCHAR failure[2]{};
+    if (gForTesting && !opts->do_incremental &&
+        GetEnvironmentVariableW(L"SOLOKPDF_TEST_SAVE_FAILURE", failure, dimofi(failure)) == 1 && failure[0] == L'f') {
+        SetEnvironmentVariableW(L"SOLOKPDF_TEST_SAVE_FAILURE", nullptr);
+        fz_output* out = fz_new_output_with_path(ctx, CStrTemp(path), 0);
+        fz_try(ctx) {
+            fz_write_printf(ctx, out, "%%PDF-1.7\npartial output\n");
+            fz_close_output(ctx, out);
+            fz_throw(ctx, FZ_ERROR_SYSTEM, "injected full-save write failure");
+        }
+        fz_always(ctx) {
+            fz_drop_output(ctx, out);
+        }
+        fz_catch(ctx) {
+            fz_rethrow(ctx);
+        }
+    }
+#endif
+    pdf_save_document(ctx, doc, CStrTemp(path), opts);
+}
+
+// Full writes may still read the source; publish only after MuPDF closes output.
+void SavePdfFile(fz_context* ctx, pdf_document* doc, Str path, const pdf_write_options* opts) {
+    if (opts->do_incremental) {
+        pdf_save_document(ctx, doc, CStrTemp(path), opts);
+        return;
+    }
+    TempStr staged = file::CreateTempNear(path);
+    if (len(staged) == 0) {
+        fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot create staged PDF");
+    }
+    fz_try(ctx) {
+        WritePdfFile(ctx, doc, staged, opts);
+        PublishPdfFile(ctx, path, staged);
+    }
+    fz_always(ctx) {
+        file::Delete(staged);
+    }
+    fz_catch(ctx) {
+        fz_rethrow(ctx);
+    }
+}
+
 // Query only the loaded editor; a missing mmap source must not be read to save.
 bool EngineMupdfCanSave(EngineBase* engine) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
@@ -11857,10 +11939,14 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
     // the first change started reading the file; finish now if it hasn't.
     // Before docLock: the swap takes pagesLock first
     bool inPlace = str::Eq(path, currPath);
-    if (inPlace && !epdf->fileBytes && epdf->fileSizeAtLoad > 0 && pdf_can_be_saved_incrementally(ctx, epdf->pdfdoc)) {
+    bool fullRewrite = !pdf_can_be_saved_incrementally(ctx, epdf->pdfdoc);
+    if (inPlace && !epdf->fileBytes && epdf->fileSizeAtLoad > 0 && !fullRewrite) {
         Str data = ReadFileLogged(path, StrL("save"));
         UseFileBytes(epdf, data);
         str::Free(data);
+    }
+    if (inPlace && fullRewrite && !epdf->fileBytes) {
+        RetainPdfSource(epdf);
     }
     ScopedRecursiveMutex scope(&epdf->docLock);
 
@@ -11881,10 +11967,13 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
     bool ok = false;
     fz_var(ok);
     fz_try(ctx) {
+        if (inPlace && !save_opts.do_incremental && !epdf->fileBytes) {
+            fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot retain source for full PDF save");
+        }
         if (fromMemory) {
             SaveIncrementalFromMemory(epdf, path, &save_opts);
         } else {
-            pdf_save_document(ctx, epdf->pdfdoc, CStrTemp(path), &save_opts);
+            SavePdfFile(ctx, epdf->pdfdoc, path, &save_opts);
         }
         ok = true;
         auto dur = TimeSinceInMs(timeStart);
@@ -11920,6 +12009,9 @@ bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
     if (!epdf || !epdf->pdfdoc || len(path) == 0) {
         return false;
     }
+    if (path::IsSame(path, epdf->FilePath()) && !epdf->fileBytes && !RetainPdfSource(epdf)) {
+        return false;
+    }
     auto* ctx = epdf->Ctx();
     ScopedRecursiveMutex scope(&epdf->docLock);
     pdf_write_options save_opts{};
@@ -11928,7 +12020,7 @@ bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
     save_opts.do_compress = 1;
     bool ok = false;
     fz_try(ctx) {
-        pdf_save_document(ctx, epdf->pdfdoc, CStrTemp(path), &save_opts);
+        SavePdfFile(ctx, epdf->pdfdoc, path, &save_opts);
         ok = true;
     }
     fz_catch(ctx) {
@@ -13315,7 +13407,7 @@ bool EngineMupdfMergePdfs(const Vec<PdfMergeSource>& srcs, const Vec<PdfMergePag
         opts.do_compress = 1;
         // the dropped pages' objects
         opts.do_garbage = 3;
-        pdf_save_document(ctx, doc, CStrTemp(destPath), &opts);
+        SavePdfFile(ctx, doc, destPath, &opts);
         ok = true;
     }
     fz_always(ctx) {
@@ -13417,6 +13509,10 @@ bool EngineMupdfSaveAsPdf(EngineBase* engine, Str destPath) {
     if (!e || !e->_doc) {
         return false;
     }
+    TempStr staged = file::CreateTempNear(destPath);
+    if (len(staged) == 0) {
+        return false;
+    }
     fz_context* ctx = e->Ctx();
     ScopedRecursiveMutex scope(&e->docLock);
     fz_document_writer* writer = nullptr;
@@ -13425,7 +13521,7 @@ bool EngineMupdfSaveAsPdf(EngineBase* engine, Str destPath) {
     fz_var(writer);
     fz_var(page);
     fz_try(ctx) {
-        writer = fz_new_pdf_writer(ctx, CStrTemp(destPath), nullptr);
+        writer = fz_new_pdf_writer(ctx, CStrTemp(staged), nullptr);
         int n = fz_count_pages(ctx, e->_doc);
         for (int i = 0; i < n; i++) {
             page = fz_load_page(ctx, e->_doc, i);
@@ -13436,11 +13532,15 @@ bool EngineMupdfSaveAsPdf(EngineBase* engine, Str destPath) {
             page = nullptr;
         }
         fz_close_document_writer(ctx, writer);
+        fz_drop_document_writer(ctx, writer);
+        writer = nullptr;
+        PublishPdfFile(ctx, destPath, staged);
         ok = true;
     }
     fz_always(ctx) {
         fz_drop_page(ctx, page);
         fz_drop_document_writer(ctx, writer);
+        file::Delete(staged);
     }
     fz_catch(ctx) {
         fz_report_error(ctx);
@@ -14414,7 +14514,7 @@ int EngineMupdfEbookToPdf(Str srcPath, Str dstPath, float pageDx, float pageDy, 
         }
         pdf_write_options opts{};
         pdf_parse_write_options(ctx, &opts, "compress");
-        pdf_save_document(ctx, pdf, CStrTemp(dstPath), &opts);
+        SavePdfFile(ctx, pdf, dstPath, &opts);
         nPages = count;
     }
     fz_always(ctx) {
@@ -14436,9 +14536,6 @@ int EngineMupdfEbookToPdf(Str srcPath, Str dstPath, float pageDx, float pageDy, 
         nPages = 0;
     }
     fz_drop_context(ctx);
-    if (nPages == 0) {
-        file::Delete(dstPath);
-    }
     return nPages;
 }
 

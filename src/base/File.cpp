@@ -1701,10 +1701,34 @@ bool Rename(Str newPath, Str oldPath) {
     return true;
 }
 
-// Like Rename() but overwrites newPath if it exists, and doesn't return until
-// the rename is on disk. Used to publish a file written to a temp path.
+// Publish staged output while preserving readers of the replaced file.
 bool RenameReplace(Str newPath, Str oldPath) {
     if (len(newPath) == 0 || len(oldPath) == 0) {
+        return false;
+    }
+    TempStr backup = CreateTempNear(newPath);
+    if (len(backup) == 0) {
+        return false;
+    }
+    if (!Delete(backup)) {
+        return false;
+    }
+
+    // A backup also protects against ReplaceFile's partial-failure error codes.
+    if (ReplaceFileW(CWStrTemp(newPath), CWStrTemp(oldPath), CWStrTemp(backup), 0, nullptr, nullptr)) {
+        Delete(backup);
+        return true;
+    }
+    DWORD err = GetLastError();
+    if (Exists(backup)) {
+        if (!MoveFileExW(CWStrTemp(backup), CWStrTemp(newPath), MOVEFILE_WRITE_THROUGH)) {
+            logf("file::RenameReplace: original retained at '%s'\n", backup);
+        }
+        SetLastError(err);
+        return false;
+    }
+    if (err != ERROR_FILE_NOT_FOUND) {
+        SetLastError(err);
         return false;
     }
     DWORD flags = MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH;
@@ -1737,8 +1761,7 @@ bool OverwriteAtomicRetry(Str dst, Str src, int retryCount, int retrySleepMs) {
 
     retryCount = std::max(retryCount, 1);
     for (int i = 0; i < retryCount; i++) {
-        BOOL ok = MoveFileExW(CWStrTemp(tempPath), CWStrTemp(dst), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
-        if (ok) {
+        if (RenameReplace(dst, tempPath)) {
             return true;
         }
         if (i + 1 < retryCount && retrySleepMs > 0) {

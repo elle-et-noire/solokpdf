@@ -2030,6 +2030,22 @@ static void ExecuteControlRequest(ControlRequest* req) {
 #endif
                 break;
             }
+#if IS_DEBUG
+            if (gForTesting && str::Eq(signAction, StrL("save-copy"))) {
+                bool saved = EngineMupdfSaveCopy(engine, StringArg(req, 1));
+                AppendTestResult(req, 0, fmt("saved=%d", (int)saved));
+                break;
+            }
+            if (gForTesting && str::Eq(signAction, StrL("save-result"))) {
+                extern bool SaveAnnotationsToExistingFile(WindowTab * tab);
+                bool saved = SaveAnnotationsToExistingFile(tab);
+                NotificationWnd* notification = GetNotificationForGroup(tab->win, kNotifActionResponse);
+                AppendTestResult(req, 0,
+                                 fmt("saved=%d message=%s", (int)saved,
+                                     notification ? NotificationGetMessageTemp(notification) : Str{}));
+                break;
+            }
+#endif
 #if IS_DEBUG && defined(SOLOKPDF_PDFIUM)
             if (gForTesting && str::Eq(signAction, StrL("redact-resume"))) {
                 SetEnvironmentVariableW(L"SOLOKPDF_TEST_REDACT_RELOAD", nullptr);
