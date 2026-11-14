@@ -4402,6 +4402,7 @@ class TextFailureEngine : public EnginePdfProxy {
     bool fail = true;
     bool empty = false;
     bool partial = false;
+    Str value = StrL("recovered");
     TextFailureEngine() { pageCount = 1; }
     EngineBase* Clone() override { return nullptr; }
     bool SaveFileAs(Str) override { return false; }
@@ -4411,7 +4412,7 @@ class TextFailureEngine : public EnginePdfProxy {
         result.failed = fail;
         result.partial = partial;
         if (!fail && !empty) {
-            result.text = str::Dup(StrL("recovered"));
+            result.text = str::Dup(value);
             result.nCodepoints = len(result.text);
         }
         return result;
@@ -4446,6 +4447,25 @@ bool EngineBase_UnitTestTextFailure() {
     ok = ok && !engine->TryGetTextForPage(1);
     engine->fail = false;
     ok = ok && str::Eq(engine->GetTextForPage(1), StrL("recovered")) && engine->calls == 7;
+    engine->Release();
+    return ok;
+}
+
+// Every edit invalidates all cached text; unchanged pages must reuse their old
+// text instead of keeping another copy alive for the engine's lifetime (E42)
+bool EngineBase_UnitTestTextReuse() {
+    auto* engine = new TextFailureEngine();
+    engine->fail = false;
+    Str first = engine->GetTextForPage(1);
+    bool ok = str::Eq(first, StrL("recovered"));
+    for (int i = 0; i < 3; i++) {
+        engine->InvalidateAllText();
+        ok = ok && engine->GetTextForPage(1).s == first.s;
+    }
+    engine->InvalidateTextForPage(1);
+    engine->value = StrL("changed");
+    Str changed = engine->GetTextForPage(1);
+    ok = ok && changed.s != first.s && str::Eq(changed, StrL("changed")) && str::Eq(first, StrL("recovered"));
     engine->Release();
     return ok;
 }

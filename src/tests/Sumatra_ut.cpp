@@ -122,6 +122,7 @@ bool EngineMupdf_UnitTestEbookMarginCss();
 bool EngineMupdf_UnitTestMergeEBookUI();
 bool EngineMupdf_UnitTestPageLabels();
 bool EngineBase_UnitTestTextOutlivesInvalidate();
+bool EngineBase_UnitTestTextReuse();
 bool EngineBase_UnitTestTextFailure();
 bool EngineMupdf_UnitTestDoi();
 bool Accelerators_UnitTestFolderNavIsSafe();
@@ -779,6 +780,7 @@ int RunAppUnitTests(bool forAi) {
     utassert(EngineMupdf_UnitTestMergeEBookUI());
     utassert(EngineMupdf_UnitTestPageLabels());
     utassert(EngineBase_UnitTestTextOutlivesInvalidate());
+    utassert(EngineBase_UnitTestTextReuse());
     utassert(EngineBase_UnitTestTextFailure());
     utassert(EngineMupdf_UnitTestDoi());
     utassert(Accelerators_UnitTestFolderNavIsSafe());

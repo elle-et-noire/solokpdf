@@ -577,10 +577,28 @@ enum class TextExtractionState {
     Finished,
 };
 
+static bool HasPageText(const PageText& pt) {
+    return pt.text || pt.coords || pt.quads;
+}
+
+static bool SamePageText(const PageText& a, const PageText& b) {
+    if (a.partial != b.partial || a.nCodepoints != b.nCodepoints || !str::Eq(a.text, b.text)) {
+        return false;
+    }
+    if (!a.coords != !b.coords || !a.quads != !b.quads) {
+        return false;
+    }
+    size_t n = (size_t)a.nCodepoints;
+    bool sameCoords = !a.coords || memcmp(a.coords, b.coords, n * sizeof(Rect)) == 0;
+    return sameCoords && (!a.quads || memcmp(a.quads, b.quads, n * sizeof(QuadF)) == 0);
+}
+
 struct TextCacheEntry {
     PageText data;
     // partial text a full one replaced, kept alive for a reader still holding its pointers
     PageText superseded;
+    // invalidated text, reused if extraction gives the same: readers may still hold it
+    PageText stale;
     TextExtractionState state = TextExtractionState::NotExtracted;
     // bumped by InvalidateTextForPage: text extracted before it is dropped
     int gen = 0;
@@ -590,6 +608,11 @@ struct TextCacheEntry {
         if (state == TextExtractionState::Finished || (text.partial && data.partial)) {
             FreePageText(&text);
             return;
+        }
+        if (HasPageText(stale) && SamePageText(stale, text)) {
+            FreePageText(&text);
+            text = stale;
+            stale = {};
         }
         if (data.partial) {
             FreePageText(&superseded);
@@ -610,6 +633,7 @@ struct ChapterTextCache {
         for (TextCacheEntry& page : pages) {
             FreePageText(&page.data);
             FreePageText(&page.superseded);
+            FreePageText(&page.stale);
         }
     }
 };
@@ -621,9 +645,13 @@ struct PageTextCache {
     int generation = 0;
     int editorGeneration = 0;
 
+    // Only text that differs from what extraction gives again is retired.
     void Invalidate(TextCacheEntry& page) {
-        if (page.data.text || page.data.coords || page.data.quads) {
-            VecAppend(retired, page.data);
+        if (HasPageText(page.data)) {
+            if (HasPageText(page.stale)) {
+                VecAppend(retired, page.stale);
+            }
+            page.stale = page.data;
         }
         page.data = {};
         page.state = TextExtractionState::NotExtracted;

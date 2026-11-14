@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E42 | Bound retired page text while editing                                                                                                                                                                                                                                                       | done — Reuse unchanged page text after edits (E42); [results](#e42-retired-page-text-2026-11-15)                                                                                                                                        |
 | E41 | Keep Vim counts and prefixes across modifier keydowns                                                                                                                                                                                                                                       | done — Keep Vim counts across modifier keys (E41); [results](#e41-vim-modifier-keys-2026-11-15)                                                                                                                                         |
 | E40 | Drop a prepared signature's pending signer on Undo                                                                                                                                                                                                                                          | done — Undo prepared signatures with their signers (E40); [results](#e40-signature-undo-2026-11-15)                                                                                                                                     |
 | E39 | Preserve originals during non-incremental in-place PDF saves                                                                                                                                                                                                                                | done — Preserve full PDF saves atomically (E39); [results](#e39-full-pdf-saves-2026-11-15)                                                                                                                                              |
@@ -3374,3 +3375,18 @@ not `gT`. Vim key handling now ignores modifier keydowns.
 `ad-hoc-vim-keys` now posts Shift and Ctrl keydowns after a count and after
 `g`; it failed before the fix and passes after. `keyboard-input-targets`,
 `keyboard-ime` and `issue-6169` pass. Debug, hidden desktop; no ASan or hosted CI run.
+
+## E42 retired page text (2026-11-15)
+
+Commit subject: `Reuse unchanged page text after edits (E42)`.
+An annotation edit bumps the editor's text generation, and a PDFium tab then
+invalidates every cached page. Invalidated text must outlive its readers, so it
+was kept until the engine closed: search all, edit, search again added a copy
+of every page's text per edit. The cache now keeps a page's invalidated text
+and reuses it when extraction gives identical text and boxes; only text that
+changed is retired.
+
+The new `EngineBase_UnitTestTextReuse` failed before the fix (Debug unit tests
+then passed: 105292). `form-text-cache`, `ad-hoc-pdfium-try-reads`,
+`ad-hoc-pdfium-redaction-undo` and `redact-partial` pass. Debug, hidden
+desktop; no ASan or hosted CI run.
