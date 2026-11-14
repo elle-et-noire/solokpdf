@@ -87,7 +87,8 @@ export async function testit(): Promise<void> {
         sendMessage(tree, TEST_STATE, 27, 2);
       } else {
         sendMessage(tree, TEST_STATE, 20, 3);
-        if (input === "mouse") sendMessage(tree, WM_LBUTTONDOWN, 0, packCoords(5, 5));
+        // on the label: an expander click toggles without selecting (E44)
+        if (input === "mouse") sendMessage(tree, WM_LBUTTONDOWN, 0, packCoords(120, 5));
         else sendMessage(tree, WM_KEYDOWN, VK_HOME, 0);
       }
       await sleep(500);
