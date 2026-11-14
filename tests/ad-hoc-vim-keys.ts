@@ -237,6 +237,22 @@ export async function testit(): Promise<void> {
     await pressKey(frame, 0x33);
     await pressKey(frame, 0x87);
     if (!/count=0 prefix=-/.test(await state())) throw new Error("unbound key left a count prefix");
+    // E41: Shift/Ctrl arrive as keydowns of their own before the key they modify
+    const startPage = await page();
+    await pressKey(frame, 0x35);
+    await pressKey(frame, 0x10);
+    await pressKey(frame, 0x11);
+    if (!/count=5 prefix=-/.test(await state())) throw new Error("modifier keydown cleared a count");
+    await key("Shift+G");
+    if ((await page()) !== 5) throw new Error(`5 Shift+G went to page ${await page()}`);
+    await pressKey(frame, 0x47);
+    await pressKey(frame, 0x10);
+    await pressKey(frame, 0x11);
+    if (!/prefix=g/.test(await state())) throw new Error("modifier keydown cleared a prefix");
+    await pressKey(frame, 0x1b);
+    await pressKey(frame, 0x30 + startPage);
+    await key("Shift+G");
+    if ((await page()) !== startPage) throw new Error("could not restore the page");
     const initialTab = await path();
     await pressKey(frame, 0x47);
     await client.request(ControlCommand.TestInvokeCommand, ["CmdNextTab"]);

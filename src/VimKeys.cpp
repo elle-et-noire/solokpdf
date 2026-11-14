@@ -434,8 +434,24 @@ static bool IsDocKeyInput(MainWindow* win, MSG& msg) {
            IsDocKeyTarget(win, GetFocus());
 }
 
+// Shift, Ctrl and Win send keydowns of their own before the key they modify
+static bool IsModifierVk(WPARAM vk) {
+    switch (vk) {
+        case VK_SHIFT:
+        case VK_CONTROL:
+        case VK_LSHIFT:
+        case VK_RSHIFT:
+        case VK_LCONTROL:
+        case VK_RCONTROL:
+        case VK_LWIN:
+        case VK_RWIN:
+            return true;
+    }
+    return false;
+}
+
 static bool HandleVimKey(MainWindow* win, MSG& msg, int mods, HKL layout) {
-    if (!gSettings->vimKeys || !IsDocKeyInput(win, msg)) {
+    if (!gSettings->vimKeys || !IsDocKeyInput(win, msg) || IsModifierVk(msg.wParam)) {
         return false;
     }
 
@@ -735,7 +751,7 @@ bool VimKeysPreTranslate(MainWindow* countWin, MSG& msg) {
 }
 
 void VimKeysUntranslated(MainWindow* win, MSG& msg) {
-    if (win && msg.message == WM_KEYDOWN) {
+    if (win && msg.message == WM_KEYDOWN && !IsModifierVk(msg.wParam)) {
         ClearKeyCount(win);
     }
 }

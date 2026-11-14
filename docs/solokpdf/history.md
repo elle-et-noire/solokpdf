@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E41 | Keep Vim counts and prefixes across modifier keydowns                                                                                                                                                                                                                                       | done — Keep Vim counts across modifier keys (E41); [results](#e41-vim-modifier-keys-2026-11-15)                                                                                                                                         |
 | E40 | Drop a prepared signature's pending signer on Undo                                                                                                                                                                                                                                          | done — Undo prepared signatures with their signers (E40); [results](#e40-signature-undo-2026-11-15)                                                                                                                                     |
 | E39 | Preserve originals during non-incremental in-place PDF saves                                                                                                                                                                                                                                | done — Preserve full PDF saves atomically (E39); [results](#e39-full-pdf-saves-2026-11-15)                                                                                                                                              |
 
@@ -3361,3 +3362,15 @@ save after an undone later edit), `sign-rollback`, `ad-hoc-sign-document`,
 `ad-hoc-pdfium-signing`, `annot-undo-one-step` and
 `ad-hoc-pdfium-redaction-undo`. Without the increment flag or the empty
 increment drop, `sign-undo` fails. No ASan, Release, ng or hosted CI run.
+
+## E41 Vim modifier keys (2026-11-15)
+
+Commit subject: `Keep Vim counts across modifier keys (E41)`.
+Shift and Ctrl send keydowns of their own. The Vim prefix branch consumed them
+and cleared the prefix, the Ctrl branch took the count, and unhandled keydowns
+cleared the count, so `5` Shift+G went to the last page and `g` Shift+T was
+not `gT`. Vim key handling now ignores modifier keydowns.
+
+`ad-hoc-vim-keys` now posts Shift and Ctrl keydowns after a count and after
+`g`; it failed before the fix and passes after. `keyboard-input-targets`,
+`keyboard-ime` and `issue-6169` pass. Debug, hidden desktop; no ASan or hosted CI run.
