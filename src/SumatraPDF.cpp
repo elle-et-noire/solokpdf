@@ -15517,7 +15517,9 @@ static bool MaybeTranslateAccelerator(MSG& msg) {
             ClearKeyCount(win);
             return true;
         }
-        if (ReadingAutoScrollOnKey(win, (int)key, IsCtrlPressed(), IsShiftPressed(), IsAltPressed())) {
+        // only document keys: the Vim ':' line and other edits keep theirs (E52)
+        if (IsDocKeyTarget(win, msg.hwnd) &&
+            ReadingAutoScrollOnKey(win, (int)key, IsCtrlPressed(), IsShiftPressed(), IsAltPressed())) {
             return true;
         }
     }
