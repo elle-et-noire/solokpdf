@@ -126,6 +126,42 @@ export async function testit(): Promise<void> {
     await killAndWait(proc);
   }
   await checkUnsavedOk(dir, pdf);
+  await checkNamedShortcut(dir, pdf);
+}
+
+// E49: reassigning or removing a named toolbar shortcut's key keeps its name and button
+async function checkNamedShortcut(dir: string, pdf: string): Promise<void> {
+  const namedBlock = (text: string) => /\[\s*Cmd\s*=\s*CmdScrollDown\s*([^\]]*)\]/.exec(text)?.[1] ?? "";
+  for (const action of ["reassign", "remove"]) {
+    const appdata = join(dir, `named-${action}`);
+    mkdirSync(appdata, { recursive: true });
+    const settings = join(appdata, "SolokPDF-settings.txt");
+    writeFileSync(
+      settings,
+      "UiLanguage = en\nShortcuts [\n  [\n    Cmd = CmdScrollDown\n    Key = f22\n    Name = Named scroll\n    ToolbarText = NamedScroll\n  ]\n]\n",
+    );
+    const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf], { saveSettings: true });
+    try {
+      await client.waitForRenderIdle();
+      sendCommandSync(frame, cmdId("CmdCustomizeShortcuts"));
+      await client.request(ControlCommand.TestShortcutsDialog, ["state"]);
+      const args = action === "remove" ? ["remove", "CmdScrollDown", "f22"] : ["add", "CmdScrollUp", "f22"];
+      const res = await client.request(ControlCommand.TestShortcutsDialog, args);
+      if (res[0] !== 0) throw new Error(`${action}: ${res[1]}`);
+      await client.request(ControlCommand.TestShortcutsDialog, ["save"]);
+      let text = readFileSync(settings, "utf8");
+      for (let i = 0; i < 100 && /Key\s*=\s*f22/i.test(namedBlock(text)); i++) {
+        await sleep(20);
+        text = readFileSync(settings, "utf8");
+      }
+      if (/Key\s*=\s*f22/i.test(namedBlock(text))) throw new Error(`${action} left f22 on the shortcut:\n${text}`);
+      if (!/ToolbarText\s*=\s*NamedScroll/.test(text) || !/Name\s*=\s*Named scroll/.test(text))
+        throw new Error(`${action} dropped the shortcut's name or toolbar text:\n${text}`);
+    } finally {
+      await client.quit().catch(() => {});
+      await killAndWait(proc);
+    }
+  }
 }
 
 // E48: OK applies the draft in memory; -for-testing never writes the settings file

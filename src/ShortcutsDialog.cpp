@@ -47,6 +47,18 @@ static void FreeShortcut(Shortcut* sc) {
     free(sc);
 }
 
+// A shortcut's palette name and toolbar button outlive its key (E49)
+static void RemoveDraftKey(Vec<Shortcut*>& draft, int idx) {
+    Shortcut* sc = draft[idx];
+    if (len(sc->name) || len(sc->toolbarText) || len(sc->toolbarSvgIcon)) {
+        str::Free(sc->key);
+        sc->key = {};
+        return;
+    }
+    FreeShortcut(sc);
+    VecRemoveAt(draft, idx);
+}
+
 static int DefinitionCmdId(Str definition) {
     str::TrimWs(definition);
     Str name;
@@ -256,8 +268,7 @@ bool ShortcutsWnd::Assign(Str keyText, ConflictMode mode) {
     }
     int old = DraftForKey(key);
     if (old >= 0) {
-        FreeShortcut(draft[old]);
-        VecRemoveAt(draft, old);
+        RemoveDraftKey(draft, old);
     }
     Shortcut sc{};
     sc.cmd = definition;
@@ -319,8 +330,7 @@ void ShortcutsWnd::OnRemove(VirtMouseEvent*) {
     if (idx < 0) {
         return;
     }
-    FreeShortcut(draft[idx]);
-    VecRemoveAt(draft, idx);
+    RemoveDraftKey(draft, idx);
     RefreshCommands();
 }
 
@@ -590,6 +600,27 @@ TempStr ShortcutsDialogTestTemp(Str action, Str command, Str key, Str arg, int* 
             *exitCodeOut = 0;
         }
         return found ? StrL("1") : StrL("0");
+    }
+    if (str::Eq(action, StrL("remove"))) {
+        for (int i = 0; i < len(wnd->shownCommands); i++) {
+            if (wnd->shownCommands[i] != GetCommandIdByName(command)) {
+                continue;
+            }
+            wnd->commands->SetCurrentSelection(i);
+            wnd->RefreshBindings();
+            for (int row = 0; row < len(wnd->shownBindings); row++) {
+                int idx = wnd->shownBindings[row];
+                if (idx >= 0 && str::EqI(wnd->draft[idx]->key, key)) {
+                    wnd->bindings->SetCurrentSelection(row);
+                    wnd->OnRemove();
+                    if (exitCodeOut) {
+                        *exitCodeOut = 0;
+                    }
+                    return str::DupTemp(StrL("removed"));
+                }
+            }
+        }
+        return str::DupTemp(StrL("binding not shown"));
     }
     if (str::Eq(action, StrL("save"))) {
         wnd->OnOk();

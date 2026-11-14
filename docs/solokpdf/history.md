@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E49 | Keep a shortcut's name and toolbar text when its key changes                                                                                                                                                                                                                                | done — Keep named shortcuts when their key changes (E49); [results](#e49-named-shortcut-keys-2026-11-15)                                                                                                                                |
 | E48 | Keep shortcut dialog changes without a saved file                                                                                                                                                                                                                                           | done — Apply shortcut changes in memory (E48); [results](#e48-shortcuts-dialog-ok-2026-11-15)                                                                                                                                           |
 | E47 | Refresh hidden page thumbnails                                                                                                                                                                                                                                                              | done — Mark hidden page thumbnails stale (E47); [results](#e47-hidden-page-thumbnails-2026-11-15)                                                                                                                                       |
 | E46 | Recolor reflowable home thumbnails once                                                                                                                                                                                                                                                     | done — Keep theme-styled ebook thumbnails as drawn (E46); [results](#e46-reflowable-thumbnail-colors-2026-11-15)                                                                                                                        |
@@ -3475,3 +3476,15 @@ E11 did for the settings dialog, and the save follows on the UI queue.
 fix ("key unbound") and passes after; its saved-file checks now wait for the
 queued save. `ad-hoc-keyboard-help-content`, `issue-6464` and
 `ad-hoc-b70-settings` pass. Debug, hidden desktop; no ASan or hosted CI run.
+
+## E49 named shortcut keys (2026-11-15)
+
+Commit subject: `Keep named shortcuts when their key changes (E49)`.
+Reassigning a key or removing a binding in the Keyboard Shortcuts dialog
+deleted the whole `Shortcut`, including its command-palette name and toolbar
+button. Such a shortcut now only loses its key; one without a name, toolbar
+text or icon is still deleted.
+
+`ad-hoc-shortcuts-dialog` gained reassign and remove phases on a named toolbar
+shortcut (and a `remove` action in the dialog's test hook); the reassign phase
+failed before the fix and both pass after. Debug, hidden desktop; no ASan or hosted CI run.
