@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E47 | Refresh hidden page thumbnails                                                                                                                                                                                                                                                              | done — Mark hidden page thumbnails stale (E47); [results](#e47-hidden-page-thumbnails-2026-11-15)                                                                                                                                       |
 | E46 | Recolor reflowable home thumbnails once                                                                                                                                                                                                                                                     | done — Keep theme-styled ebook thumbnails as drawn (E46); [results](#e46-reflowable-thumbnail-colors-2026-11-15)                                                                                                                        |
 | E45 | Navigate once per favorite click                                                                                                                                                                                                                                                            | done — Navigate once per favorite click (E45); [results](#e45-favorite-click-navigation-2026-11-15)                                                                                                                                     |
 | E44 | Toggle tree nodes on expander clicks without navigating                                                                                                                                                                                                                                     | done — Toggle tree nodes without selecting them (E44); [results](#e44-tree-expander-click-2026-11-15)                                                                                                                                   |
@@ -3446,3 +3447,16 @@ theme it was drawn in until it is regenerated.
 The new `PdfDarkMode_UnitTestThumbnailPass` failed before the fix and passes
 after; Debug unit tests pass (105107) and `ad-hoc-pdfium-thumb-theme` passes.
 No ASan or hosted CI run.
+
+## E47 hidden page thumbnails (2026-11-15)
+
+Commit subject: `Mark hidden page thumbnails stale (E47)`.
+Re-renders refreshed the page thumbnails only while they were shown, and
+showing them again reused the cache, so thumbnails hidden by switching the
+sidebar view kept old brightness, contrast and annotation edits. Re-renders now
+mark hidden thumbnails stale; showing them renders those pages again.
+
+The new `ad-hoc-thumbnails-hidden` (brightness change while hidden) failed
+before the fix and passes after; it is registered in SolokPDF CI.
+`sidebar-thumbnails`, `sidebar-thumbnails-close` and
+`ad-hoc-pdfium-thumb-theme` pass. Debug, hidden desktop; no ASan or hosted CI run.

@@ -4751,7 +4751,8 @@ void MainWindowRerender(MainWindow* win, bool includeNonClientArea) {
     // after this is either still valid or dropped by the darkModeEpoch check
     gRenderCache->AbortRendering(dm);
     gRenderCache->KeepForDisplayModel(dm, dm);
-    if (win->pageThumbs && win->pageThumbs->active) {
+    // hidden thumbnails only become stale; Activate renders them again (E47)
+    if (win->pageThumbs) {
         win->pageThumbs->Refresh();
     }
     if (includeNonClientArea) {
@@ -4773,7 +4774,7 @@ void RerenderTabPage(WindowTab* tab, int pageNo) {
     if (!IsCurrentTab(win, tab)) {
         return;
     }
-    if (win->pageThumbs && win->pageThumbs->active) {
+    if (win->pageThumbs) {
         win->pageThumbs->RefreshPage(pageNo);
     }
     HwndInvalidate(win->hwndCanvas);

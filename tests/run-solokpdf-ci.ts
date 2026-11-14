@@ -8,6 +8,7 @@ import { testit as dates } from "./ad-hoc-pdfium-dates.ts";
 import { testit as coexist } from "./ad-hoc-solok-coexist.ts";
 import { testit as themeSwitch } from "./ad-hoc-pdfium-theme-switch.ts";
 import { testit as thumbnailTheme } from "./ad-hoc-pdfium-thumb-theme.ts";
+import { testit as thumbnailsHidden } from "./ad-hoc-thumbnails-hidden.ts";
 import { testit as cad } from "./ad-hoc-pdfium-cad.ts";
 import { testit as commands } from "./ad-hoc-pdfium-commands.ts";
 import { testit as formJs } from "./ad-hoc-pdfium-form-js.ts";
@@ -157,6 +158,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-solok-coexist", coexist],
   ["ad-hoc-pdfium-theme-switch", themeSwitch],
   ["ad-hoc-pdfium-thumb-theme", thumbnailTheme],
+  ["ad-hoc-thumbnails-hidden", thumbnailsHidden],
   ["ad-hoc-pdfium-cad", cad],
   ["ad-hoc-pdfium-commands", commands],
   ["ad-hoc-pdfium-window-bg", windowBg],

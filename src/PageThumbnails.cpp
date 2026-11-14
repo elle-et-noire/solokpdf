@@ -801,6 +801,15 @@ int PageThumbnailsCtrl::RenderedCount() const {
     return n;
 }
 
+// thumbnails shown until they are rendered again
+int PageThumbnailsCtrl::StaleCount() const {
+    int n = 0;
+    for (u8 stale : cache->stale) {
+        n += stale ? 1 : 0;
+    }
+    return n;
+}
+
 void PageThumbnailsCtrl::StartRendering() {
     if (!active || cache->job.IsRunning() || pageCount <= 0) {
         return;

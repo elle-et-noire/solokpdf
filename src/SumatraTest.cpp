@@ -1354,6 +1354,7 @@ TempStr SidebarThumbnailsResultTemp(int* exitCodeOut) {
         Rect r = thumbs->PageRect(pageNo);
         sb.Append(fmt("%d:%d,%d,%d,%d;", pageNo, r.x, r.y, r.dx, r.dy));
     }
+    sb.Append(fmt(" stale=%d active=%d", thumbs->StaleCount(), (int)thumbs->active));
     if (exitCodeOut) {
         *exitCodeOut = 0;
     }
