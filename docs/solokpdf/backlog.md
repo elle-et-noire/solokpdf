@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-15. E23–E25 are complete within the recorded review scope.
-E26–E42 are complete within their recorded validation scope. E43–E57 are open findings of the
+E26–E43 are complete within their recorded validation scope. E44–E57 are open findings of the
 [2026-11-13 review](#2026-11-13-review-findings).
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
@@ -20,7 +20,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E43 first.
+Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E44 first.
 Each fix starts with a failing test, as the findings are read from code, not reproduced.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
@@ -64,7 +64,6 @@ was built or reproduced. Confirm each with a failing test before fixing. Line nu
 
 | ID  | P   | Status | Item                                                                     | Where and trigger                                                                                                                                                                                                          |
 | --- | --- | ------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E43 | P2  | todo   | PDFium outline silently truncated at 4096 items                          | `budget = 4096` in `GetToc` (`EnginePdfium.cpp:3107`); MuPDF has no limit; not in limitations.md                                                                                                                           |
 | E44 | P2  | todo   | Expander click selects and navigates                                     | `VirtTree.cpp:1034-1041` selects with reason Mouse before the glyph hit test; `TocTreeSelectionChanged` navigates and follows external links                                                                               |
 | E45 | P3  | todo   | Favorite click navigates twice                                           | `VirtTree.cpp:1034-1055` fires selection then click; `FavTreeSelectionChanged` and `FavTreeItemClicked` (`Favorites.cpp:409-441`) both navigate, adding a second nav point. TOC dedupes with `gTocSelChangedByMouseClick`  |
 | E46 | P3  | todo   | Home thumbnails of reflowable documents recolored twice                  | `GetPageColorPass` (`PdfDarkModeProfile.cpp:19`) returns `Bitmap` for `Reflowable`; `ColoredThumbnail` (`FileThumbnailsCommon.cpp:133-138`) recolors PNGs whose CSS was already themed. EPUB without cover in a dark theme |
@@ -78,7 +77,7 @@ was built or reproduced. Confirm each with a failing test before fixing. Line nu
 | E54 | P3  | todo   | Unbounded form value read                                                | `FormFieldHighlight` (`EnginePdfium.cpp:2057`) allocates the value without the 64 KiB cap other reads use                                                                                                                  |
 | E55 | P3  | todo   | Document `gPdfiumLock` serialization                                     | Blocking UI reads (`GetElements`, `PageContentBox`, `GetNamedDest`) wait for a drawing tile; not in limitations.md                                                                                                         |
 | E56 | P3  | todo   | Measure smart-theme tile cost                                            | `DrawPage` reopens the themed PDF per tile (`EnginePdfium.cpp:2437`); unmeasured on large documents                                                                                                                        |
-| E57 | P3  | todo   | Measure large outlines in the virtual tree                               | `Measure` (`VirtTree.cpp:473-502`) and `SetModel` walk every node on model, font and DPI changes; tested only to 4,000 bookmarks                                                                                           |
+| E57 | P3  | todo   | Measure large outlines in the virtual tree                               | `Measure` (`VirtTree.cpp:473-502`) and `SetModel` walk every node on model, font and DPI changes; tested only to 5,000 bookmarks                                                                                           |
 
 Structural notes from the review, not work items: the color-pass decision lives in
 `GetPageColorPass`, `BuildViewDarkModeProfile` and each engine (E46 is a disagreement);

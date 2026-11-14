@@ -17,10 +17,32 @@ function outlinePdf(remote: boolean): string {
   ]);
 }
 
+// E43: the last item's /Next loops back to the first
+function loopOutlinePdf(count: number): string {
+  const first = 5;
+  const items = Array.from({ length: count }, (_, i) => {
+    const prev = i > 0 ? ` /Prev ${first + i - 1} 0 R` : "";
+    const next = ` /Next ${i + 1 < count ? first + i + 1 : first} 0 R`;
+    return `<< /Title (Item ${i + 1}) /Parent 4 0 R${prev}${next} /Dest [3 0 R /Fit] >>`;
+  });
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R /Outlines 4 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] >>",
+    `<< /Type /Outlines /First ${first} 0 R /Last ${first + count - 1} 0 R /Count ${count} >>`,
+    ...items,
+  ]);
+}
+
 export async function testit(): Promise<void> {
-  for (const remote of [false, true]) {
-    const pdf = tmpPath(`pdfium-outline-${remote ? "remote" : "named"}.pdf`);
-    writeFileSync(pdf, outlinePdf(remote));
+  const cases = [
+    { name: "named", pdf: outlinePdf(false) },
+    { name: "remote", pdf: outlinePdf(true) },
+    { name: "loop", pdf: loopOutlinePdf(3) },
+  ];
+  for (const c of cases) {
+    const pdf = tmpPath(`pdfium-outline-${c.name}.pdf`);
+    writeFileSync(pdf, c.pdf);
     const reports: string[] = [];
     for (const engine of ["mupdf", "pdfium"]) {
       const report = await withControlledSumatra(
@@ -36,6 +58,12 @@ export async function testit(): Promise<void> {
         { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
       );
       reports.push(report);
+    }
+    // MuPDF drops a looping outline; PDFium lists each item once
+    if (c.name === "loop") {
+      const items = reports[1].match(/^Item \d+\|/gm) ?? [];
+      if (items.length !== 3) throw new Error(`loop outline has ${items.length} items: ${reports[1].slice(0, 300)}`);
+      continue;
     }
     if (reports[0] !== reports[1]) throw new Error(`outline differs: ${JSON.stringify(reports)}`);
   }

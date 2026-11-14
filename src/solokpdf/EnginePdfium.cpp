@@ -147,6 +147,57 @@ struct PdfiumBufferTrace {
 };
 
 // Pack opaque pixels in place. Cancellation leaves a partial buffer to discard.
+// Bookmarks read so far: a malformed outline can link back to one (E43).
+// Open addressing on the handle, which PDFium keeps stable per dictionary.
+struct VisitedBookmarks {
+    FPDF_BOOKMARK* slots = nullptr;
+    int cap = 0;
+    int count = 0;
+
+    ~VisitedBookmarks() { free(slots); }
+
+    static int Slot(FPDF_BOOKMARK mark, int cap) {
+        u64 h = (u64)(uintptr_t)mark * 0x9E3779B97F4A7C15ull;
+        return (int)(h >> 32) & (cap - 1);
+    }
+
+    void Insert(FPDF_BOOKMARK mark) {
+        int i = Slot(mark, cap);
+        while (slots[i]) {
+            i = (i + 1) & (cap - 1);
+        }
+        slots[i] = mark;
+    }
+
+    void Grow() {
+        FPDF_BOOKMARK* old = slots;
+        int oldCap = cap;
+        cap = cap ? cap * 2 : 64;
+        slots = AllocArray<FPDF_BOOKMARK>(cap);
+        for (int i = 0; i < oldCap; i++) {
+            if (old[i]) {
+                Insert(old[i]);
+            }
+        }
+        free(old);
+    }
+
+    // false if mark was already added
+    bool Add(FPDF_BOOKMARK mark) {
+        if (2 * (count + 1) > cap) {
+            Grow();
+        }
+        for (int i = Slot(mark, cap); slots[i]; i = (i + 1) & (cap - 1)) {
+            if (slots[i] == mark) {
+                return false;
+            }
+        }
+        Insert(mark);
+        count++;
+        return true;
+    }
+};
+
 static bool CompactOpaquePixmap(Pixmap* pixmap, AtomicInt* aborted) {
     const int srcBpp = PixmapBytesPerPixel(PixmapFormat::BGRA8);
     const int dstBpp = PixmapBytesPerPixel(PixmapFormat::BGR8);
@@ -1514,14 +1565,13 @@ class EnginePdfium : public EngineBase {
         VecAppend(info->links, (IPageElement*)element);
     }
 
-    TocItem* ReadBookmarks(FPDF_BOOKMARK first, TocItem* parent, int depth, int& budget, int& id) {
+    TocItem* ReadBookmarks(FPDF_BOOKMARK first, TocItem* parent, int depth, VisitedBookmarks& seen, int& id) {
         if (depth > 64) {
             return nullptr;
         }
         TocItem* head = nullptr;
         TocItem** tail = &head;
-        for (auto mark = first; mark && budget > 0; mark = gPdfium.FPDFBookmark_GetNextSibling(doc, mark)) {
-            budget--;
+        for (auto mark = first; mark && seen.Add(mark); mark = gPdfium.FPDFBookmark_GetNextSibling(doc, mark)) {
             unsigned long bytes = gPdfium.FPDFBookmark_GetTitle(mark, nullptr, 0);
             TempStr title;
             if (bytes >= sizeof(WCHAR) && bytes <= 2 * 1024 * 1024 && bytes % sizeof(WCHAR) == 0) {
@@ -1544,25 +1594,24 @@ class EnginePdfium : public EngineBase {
                     item->color = MkRgb(r, g, b);
                 }
             }
-            item->child = ReadBookmarks(gPdfium.FPDFBookmark_GetFirstChild(doc, mark), item, depth + 1, budget, id);
+            item->child = ReadBookmarks(gPdfium.FPDFBookmark_GetFirstChild(doc, mark), item, depth + 1, seen, id);
             *tail = item;
             tail = &item->next;
         }
         return head;
     }
 
-    bool NeedsMupdfToc(FPDF_BOOKMARK first, int depth, int& budget) {
+    bool NeedsMupdfToc(FPDF_BOOKMARK first, int depth, VisitedBookmarks& seen) {
         if (depth > 64) {
             return false;
         }
-        for (auto mark = first; mark && budget > 0; mark = gPdfium.FPDFBookmark_GetNextSibling(doc, mark)) {
-            budget--;
+        for (auto mark = first; mark && seen.Add(mark); mark = gPdfium.FPDFBookmark_GetNextSibling(doc, mark)) {
             FPDF_ACTION action = gPdfium.FPDFBookmark_GetAction(mark);
             unsigned long type = action ? gPdfium.FPDFAction_GetType(action) : PDFACTION_GOTO;
             if (type == PDFACTION_UNSUPPORTED || type == PDFACTION_REMOTEGOTO) {
                 return true;
             }
-            if (NeedsMupdfToc(gPdfium.FPDFBookmark_GetFirstChild(doc, mark), depth + 1, budget)) {
+            if (NeedsMupdfToc(gPdfium.FPDFBookmark_GetFirstChild(doc, mark), depth + 1, seen)) {
                 return true;
             }
         }
@@ -3078,8 +3127,8 @@ class EnginePdfium : public EngineBase {
                 return toc;
             }
             hasAttachments = gPdfium.FPDFDoc_GetAttachmentCount(doc) > 0;
-            int budget = 4096;
-            needsMupdf = NeedsMupdfToc(gPdfium.FPDFBookmark_GetFirstChild(doc, nullptr), 0, budget);
+            VisitedBookmarks seen;
+            needsMupdf = NeedsMupdfToc(gPdfium.FPDFBookmark_GetFirstChild(doc, nullptr), 0, seen);
         }
 
         if (needsMupdf) {
@@ -3104,9 +3153,10 @@ class EnginePdfium : public EngineBase {
             return toc;
         }
         PdfiumProfile profile(StrL("outline"));
-        int budget = 4096, id = 0;
+        VisitedBookmarks seen;
+        int id = 0;
         auto* root = AllocTocItem(arena, {}, 0);
-        root->child = ReadBookmarks(gPdfium.FPDFBookmark_GetFirstChild(doc, nullptr), root, 0, budget, id);
+        root->child = ReadBookmarks(gPdfium.FPDFBookmark_GetFirstChild(doc, nullptr), root, 0, seen, id);
         TocItem** tail = &root->child;
         while (*tail) {
             tail = &(*tail)->next;

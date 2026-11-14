@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E43 | Read PDFium outlines past 4096 items                                                                                                                                                                                                                                                        | done — Read PDFium outlines without an item limit (E43); [results](#e43-pdfium-outline-limit-2026-11-15)                                                                                                                                |
 | E42 | Bound retired page text while editing                                                                                                                                                                                                                                                       | done — Reuse unchanged page text after edits (E42); [results](#e42-retired-page-text-2026-11-15)                                                                                                                                        |
 | E41 | Keep Vim counts and prefixes across modifier keydowns                                                                                                                                                                                                                                       | done — Keep Vim counts across modifier keys (E41); [results](#e41-vim-modifier-keys-2026-11-15)                                                                                                                                         |
 | E40 | Drop a prepared signature's pending signer on Undo                                                                                                                                                                                                                                          | done — Undo prepared signatures with their signers (E40); [results](#e40-signature-undo-2026-11-15)                                                                                                                                     |
@@ -3390,3 +3391,17 @@ The new `EngineBase_UnitTestTextReuse` failed before the fix (Debug unit tests
 then passed: 105292). `form-text-cache`, `ad-hoc-pdfium-try-reads`,
 `ad-hoc-pdfium-redaction-undo` and `redact-partial` pass. Debug, hidden
 desktop; no ASan or hosted CI run.
+
+## E43 PDFium outline limit (2026-11-15)
+
+Commit subject: `Read PDFium outlines without an item limit (E43)`.
+PDFium tabs stopped reading bookmarks after 4096 items, a budget that guarded
+against outlines linking back to an earlier item. The outline is now read once
+per bookmark, tracked in a set of visited handles, so long outlines are complete
+and a loop ends at the first repeated item. MuPDF drops a looping outline
+entirely; PDFium tabs list each item once.
+
+`ad-hoc-virtual-toc-large` now uses 5,000 bookmarks and failed before the fix
+(4096 rows); `ad-hoc-pdfium-outline` adds a `/Next` loop, which listed 4096
+items before. Both pass, and `ad-hoc-pdfium-fuzz` (300 inputs, 144 outline
+reads) found nothing. Debug, hidden desktop; no ASan or hosted CI run.

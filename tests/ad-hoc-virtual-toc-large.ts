@@ -15,7 +15,7 @@ import {
   WM_KEYDOWN,
 } from "./winapi";
 
-const kCount = 4000;
+const kCount = 5000;
 const kTestState = 0x8000 + 102;
 
 export async function testit(): Promise<void> {

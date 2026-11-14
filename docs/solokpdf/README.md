@@ -36,6 +36,7 @@ E39 stages full PDF saves before replacement; [results](history.md#e39-full-pdf-
 E40 drops a prepared signature's signer on Undo; [results](history.md#e40-signature-undo-2026-11-15).
 E41 keeps Vim counts and prefixes across modifier keydowns; [results](history.md#e41-vim-modifier-keys-2026-11-15).
 E42 reuses unchanged page text after edits; [results](history.md#e42-retired-page-text-2026-11-15).
+E43 reads PDFium outlines without an item limit; [results](history.md#e43-pdfium-outline-limit-2026-11-15).
 [backlog.md](backlog.md) records deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache
@@ -52,7 +53,7 @@ invalidation, read contracts and document lifetime. Read the
 | Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                       | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                                                         |
 | Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                              | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                                                 |
 | Refactoring    | Tree, runtime and key-state separation (E15), plus rendering/read/lifetime contracts (E18–E22), are complete within their recorded scope. | [Current architecture](architecture.md), [completed plan](refactoring-plan.md), [E15 review](history.md#e15-refactor-review-2026-11-10)        |
-| Code review    | E23–E25 complete within scope; E26–E42 address the recorded findings. E43–E57 are open from the 2026-11-13 review.                        | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review), [open findings](backlog.md#2026-11-13-review-findings) |
+| Code review    | E23–E25 complete within scope; E26–E43 address the recorded findings. E44–E57 are open from the 2026-11-13 review.                        | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review), [open findings](backlog.md#2026-11-13-review-findings) |
 
 ### Validation scope
 
