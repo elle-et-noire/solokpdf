@@ -14,11 +14,12 @@
 #include "PdfDarkMode.h"
 
 // Cached thumbnails start from neutral pixels, including PDFs using smart colors.
+// Reflowable ones were drawn with the theme CSS already (E46).
 PageColorPass GetPageColorPass(ViewEngineClass engineClass, PageColorSource source, const DarkModeProfile& profile) {
     if (source == PageColorSource::Bitmap) {
-        return engineClass == ViewEngineClass::Image || engineClass == ViewEngineClass::Captured
-                   ? PageColorPass::None
-                   : PageColorPass::Bitmap;
+        bool themed = engineClass == ViewEngineClass::Image || engineClass == ViewEngineClass::Captured ||
+                      engineClass == ViewEngineClass::Reflowable;
+        return themed ? PageColorPass::None : PageColorPass::Bitmap;
     }
 
     bool pdf = engineClass == ViewEngineClass::Pdfium || engineClass == ViewEngineClass::Mupdf;
@@ -103,4 +104,17 @@ bool EngineUsesDocumentColorsFollowTheme(EngineBase* engine) {
 
 bool EngineUsesReflowThemeCss(EngineBase* engine) {
     return engine && engine->kind == kindEngineMupdf && engine->isReflowable;
+}
+
+// Home thumbnails of reflowable documents must not be recolored on top of their theme CSS
+bool PdfDarkMode_UnitTestThumbnailPass() {
+    PageColorInput dark;
+    dark.mode = DocumentColorsFollowTheme::Smart;
+    dark.foreground = 0xe0e0e0;
+    dark.pageBackground = 0x202020;
+    DarkModeProfile profile;
+    BuildViewDarkModeProfile(ViewEngineClass::Reflowable, dark, &profile);
+    bool ok = GetPageColorPass(ViewEngineClass::Reflowable, PageColorSource::Bitmap, profile) == PageColorPass::None;
+    BuildViewDarkModeProfile(ViewEngineClass::Mupdf, dark, &profile);
+    return ok && GetPageColorPass(ViewEngineClass::Mupdf, PageColorSource::Bitmap, profile) == PageColorPass::Bitmap;
 }
