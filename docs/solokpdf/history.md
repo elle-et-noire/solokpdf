@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E44 | Toggle tree nodes on expander clicks without navigating                                                                                                                                                                                                                                     | done — Toggle tree nodes without selecting them (E44); [results](#e44-tree-expander-click-2026-11-15)                                                                                                                                   |
 | E43 | Read PDFium outlines past 4096 items                                                                                                                                                                                                                                                        | done — Read PDFium outlines without an item limit (E43); [results](#e43-pdfium-outline-limit-2026-11-15)                                                                                                                                |
 | E42 | Bound retired page text while editing                                                                                                                                                                                                                                                       | done — Reuse unchanged page text after edits (E42); [results](#e42-retired-page-text-2026-11-15)                                                                                                                                        |
 | E41 | Keep Vim counts and prefixes across modifier keydowns                                                                                                                                                                                                                                       | done — Keep Vim counts across modifier keys (E41); [results](#e41-vim-modifier-keys-2026-11-15)                                                                                                                                         |
@@ -3405,3 +3406,16 @@ entirely; PDFium tabs list each item once.
 (4096 rows); `ad-hoc-pdfium-outline` adds a `/Next` loop, which listed 4096
 items before. Both pass, and `ad-hoc-pdfium-fuzz` (300 inputs, 144 outline
 reads) found nothing. Debug, hidden desktop; no ASan or hosted CI run.
+
+## E44 tree expander click (2026-11-15)
+
+Commit subject: `Toggle tree nodes without selecting them (E44)`.
+A click on a node's expander selected the node first, so the TOC navigated to
+its destination (and followed external links). Like the native TreeView's
+button, an expander click now only expands or collapses; a collapse that moves
+the selection to the parent reports it as not by mouse, which the TOC ignores.
+
+`ad-hoc-tree-double-click` now checks that expander clicks keep the selection
+and page, including a collapse over the selected child; it failed before the
+fix and passes after. `ad-hoc-virtual-toc` passes. The test is registered in
+the SolokPDF tree runner. Debug, hidden desktop; no ASan or hosted CI run.

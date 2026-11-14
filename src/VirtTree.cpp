@@ -1031,14 +1031,28 @@ void VirtTree::Message(VirtHostNativeMsg* ev) {
             VirtTreeNode node = state.nodes[state.rows[(int)row]];
             u64 generation = state.generation;
             HWND window = host->native;
+            i64 x = (i64)GET_X_LPARAM(ev->lp) + scrollX.pos;
+            // like the native TreeView's button: toggle without selecting or clicking the item.
+            // A collapse that moves the selection reports it as not by mouse (TVC_UNKNOWN)
+            bool onExpander = node.childCount > 0 && x < ((i64)node.depth + 1) * rowDy;
+            if (onExpander) {
+                VirtTreeExpandEvent expand{node.item,
+                                           node.expanded ? VirtTreeExpansion::Collapse : VirtTreeExpansion::Expand,
+                                           VirtTreeSelectReason::Programmatic};
+                Expand(&expand);
+                if (guard.tree && host->native == window) {
+                    host->Invalidate();
+                }
+                ev->didHandle = true;
+                return;
+            }
             VirtTreeSelectEvent select{node.item, true, VirtTreeSelectReason::Mouse};
             Select(&select);
             if (!guard.tree || state.generation != generation || host->native != window) {
                 ev->didHandle = true;
                 return;
             }
-            i64 x = (i64)GET_X_LPARAM(ev->lp) + scrollX.pos;
-            if (node.childCount > 0 && (doubleClick || x < ((i64)node.depth + 1) * rowDy)) {
+            if (node.childCount > 0 && doubleClick) {
                 VirtTreeExpandEvent expand{node.item,
                                            node.expanded ? VirtTreeExpansion::Collapse : VirtTreeExpansion::Expand,
                                            VirtTreeSelectReason::Mouse};

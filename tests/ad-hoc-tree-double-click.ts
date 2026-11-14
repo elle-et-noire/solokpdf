@@ -1,12 +1,66 @@
 import { strict as assert } from "node:assert";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { ControlCommand } from "./control";
 import { assemblePdf, runStandalone, SETTINGS_FILE, tmpPath } from "./util";
 import { clickAt, killAndWait, launchControlled } from "./win-automation";
 import { findChildWindow, packCoords, sendMessage, VK_LEFT, WM_KEYDOWN, WM_LBUTTONUP } from "./winapi";
 
 const TEST_STATE = 0x8000 + 102;
 const WM_LBUTTONDBLCLK = 0x0203;
+
+// E44: like the native TreeView, an expander click toggles without selecting or navigating
+async function checkExpanderClick(appdata: string): Promise<void> {
+  const pdf = tmpPath("tree-expander-click.pdf");
+  writeFileSync(
+    pdf,
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R /Outlines 5 0 R /PageMode /UseOutlines >>",
+      "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+      "<< /Type /Outlines /First 6 0 R /Last 6 0 R /Count 1 >>",
+      "<< /Title (Parent) /Parent 5 0 R /First 7 0 R /Last 7 0 R /Count -1 /Dest [4 0 R /Fit] >>",
+      "<< /Title (Child) /Parent 6 0 R /Dest [4 0 R /Fit] >>",
+    ]),
+  );
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+  try {
+    await client.waitForRenderIdle();
+    const tree = findChildWindow(frame, "SumatraVirtualBookmarksTree");
+    assert.ok(tree, "tree unavailable");
+    const state = (n: number) => Number(sendMessage(tree, TEST_STATE, n, 0));
+    const page = async () =>
+      /page=(\d+)/.exec(String((await client.request(ControlCommand.TestCurrentTab, []))[1]))?.[1];
+    const selected = state(1);
+    assert.equal(await page(), "1", "document must start on page 1");
+    const toggle = async () => {
+      const rows = state(0);
+      await clickAt(tree, 5, Math.floor(state(3) / 2), 0, 0, client);
+      assert.equal(state(0), rows === 1 ? 2 : 1, "expander click did not toggle");
+      assert.equal(state(1), selected, "expander click changed the selection");
+      await client.waitForRenderIdle();
+      assert.equal(await page(), "1", "expander click navigated");
+    };
+    await toggle();
+    if (state(0) === 1) await toggle();
+
+    // collapsing over the selected child moves the selection to the parent without navigating
+    await clickAt(tree, state(3) * 3, Math.floor(state(3) * 1.5), 0, 0, client);
+    await client.waitForRenderIdle();
+    assert.equal(state(1), 1, "child label click did not select it");
+    await client.request(ControlCommand.TestInvokeCommand, ["CmdGoToFirstPage"]);
+    await client.waitForRenderIdle();
+    assert.equal(await page(), "1", "could not return to page 1");
+    await clickAt(tree, 5, Math.floor(state(3) / 2), 0, 0, client);
+    assert.equal(state(0), 1, "expander click did not collapse");
+    await client.waitForRenderIdle();
+    assert.equal(await page(), "1", "collapse moved the selection and navigated");
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
 
 export async function testit(): Promise<void> {
   const pdf = tmpPath("tree-double-click.pdf");
@@ -50,6 +104,7 @@ export async function testit(): Promise<void> {
     client.close();
     await killAndWait(proc);
   }
+  await checkExpanderClick(appdata);
 }
 
 if (import.meta.main) {

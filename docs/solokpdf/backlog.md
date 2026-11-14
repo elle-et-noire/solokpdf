@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-15. E23–E25 are complete within the recorded review scope.
-E26–E43 are complete within their recorded validation scope. E44–E57 are open findings of the
+E26–E44 are complete within their recorded validation scope. E45–E57 are open findings of the
 [2026-11-13 review](#2026-11-13-review-findings).
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
@@ -20,7 +20,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E44 first.
+Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E45 first.
 Each fix starts with a failing test, as the findings are read from code, not reproduced.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
@@ -64,7 +64,6 @@ was built or reproduced. Confirm each with a failing test before fixing. Line nu
 
 | ID  | P   | Status | Item                                                                     | Where and trigger                                                                                                                                                                                                          |
 | --- | --- | ------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E44 | P2  | todo   | Expander click selects and navigates                                     | `VirtTree.cpp:1034-1041` selects with reason Mouse before the glyph hit test; `TocTreeSelectionChanged` navigates and follows external links                                                                               |
 | E45 | P3  | todo   | Favorite click navigates twice                                           | `VirtTree.cpp:1034-1055` fires selection then click; `FavTreeSelectionChanged` and `FavTreeItemClicked` (`Favorites.cpp:409-441`) both navigate, adding a second nav point. TOC dedupes with `gTocSelChangedByMouseClick`  |
 | E46 | P3  | todo   | Home thumbnails of reflowable documents recolored twice                  | `GetPageColorPass` (`PdfDarkModeProfile.cpp:19`) returns `Bitmap` for `Reflowable`; `ColoredThumbnail` (`FileThumbnailsCommon.cpp:133-138`) recolors PNGs whose CSS was already themed. EPUB without cover in a dark theme |
 | E47 | P3  | todo   | Hidden F12 thumbnails keep old adjustments and edits                     | `Refresh` runs only while `active` (`SumatraPDF.cpp:4754,4776`); `Activate` reuses the cache (`PageThumbnails.cpp:843`). Show thumbnails, switch to TOC, change brightness or an annotation, switch back                   |

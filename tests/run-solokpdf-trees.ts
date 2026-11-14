@@ -4,12 +4,14 @@ import { testit as toc } from "./ad-hoc-virtual-toc.ts";
 import { testit as favorites } from "./ad-hoc-virtual-favorites.ts";
 import { testit as focus } from "./ad-hoc-virtual-tree-focus.ts";
 import { testit as lifetime } from "./ad-hoc-tree-lifetime.ts";
+import { testit as doubleClick } from "./ad-hoc-tree-double-click.ts";
 
 export const treeTests: NamedTest[] = [
   ["ad-hoc-virtual-toc", toc],
   ["ad-hoc-virtual-favorites", favorites],
   ["ad-hoc-virtual-tree-focus", focus],
   ["ad-hoc-tree-lifetime", lifetime],
+  ["ad-hoc-tree-double-click", doubleClick],
 ];
 
 export async function testit(): Promise<void> {
