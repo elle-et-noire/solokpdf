@@ -203,6 +203,11 @@ static void SelectFirstFavTreeItem(MainWindow* win) {
     tv->EnsureVisible(sel);
 }
 
+// set when a mouse click changed the selection and navigated, so the click
+// notification that follows doesn't add a second navigation point (E45).
+// A rebuild drops that click, so it clears the flag
+static bool gFavSelChangedByMouseClick = false;
+
 static void ApplyFavFilter(MainWindow* win) {
     if (!win || !win->favTreeView) {
         return;
@@ -210,6 +215,7 @@ static void ApplyFavFilter(MainWindow* win) {
     TreeView* treeView = win->favTreeView;
     auto* prevModel = treeView->treeModel;
     TreeModel* newModel = BuildFavTreeModel(win, GetFavFilterTemp(win));
+    gFavSelChangedByMouseClick = false;
     treeView->SetTreeModel(newModel);
     delete prevModel;
     if (IsFavoritesTabActive(win)) {
@@ -407,7 +413,9 @@ static void OnFavItemStyle(TreeView::ItemStyleEvent* ev) {
 }
 
 static void FavTreeItemClicked(TreeView::ClickEvent* ev) {
-    if (ev->treeItem != ev->treeView->GetSelection()) {
+    bool handledBySelChange = gFavSelChangedByMouseClick;
+    gFavSelChangedByMouseClick = false;
+    if (handledBySelChange || ev->treeItem != ev->treeView->GetSelection()) {
         return;
     }
     // Parent rows with children: leave expand/collapse to the tree; only
@@ -437,6 +445,7 @@ static void FavTreeSelectionChanged(TreeView::SelectionChangedEvent* ev) {
         // selecting a parent to expand/collapse must not navigate away
         return;
     }
+    gFavSelChangedByMouseClick = true;
     GoToFavForTreeItem(win, ev->selectedItem);
 }
 

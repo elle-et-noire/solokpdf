@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E45 | Navigate once per favorite click                                                                                                                                                                                                                                                            | done — Navigate once per favorite click (E45); [results](#e45-favorite-click-navigation-2026-11-15)                                                                                                                                     |
 | E44 | Toggle tree nodes on expander clicks without navigating                                                                                                                                                                                                                                     | done — Toggle tree nodes without selecting them (E44); [results](#e44-tree-expander-click-2026-11-15)                                                                                                                                   |
 | E43 | Read PDFium outlines past 4096 items                                                                                                                                                                                                                                                        | done — Read PDFium outlines without an item limit (E43); [results](#e43-pdfium-outline-limit-2026-11-15)                                                                                                                                |
 | E42 | Bound retired page text while editing                                                                                                                                                                                                                                                       | done — Reuse unchanged page text after edits (E42); [results](#e42-retired-page-text-2026-11-15)                                                                                                                                        |
@@ -3419,3 +3420,15 @@ the selection to the parent reports it as not by mouse, which the TOC ignores.
 and page, including a collapse over the selected child; it failed before the
 fix and passes after. `ad-hoc-virtual-toc` passes. The test is registered in
 the SolokPDF tree runner. Debug, hidden desktop; no ASan or hosted CI run.
+
+## E45 favorite click navigation (2026-11-15)
+
+Commit subject: `Navigate once per favorite click (E45)`.
+A mouse click on a favorite navigated on the selection change and again on the
+click that follows, adding a second navigation point, so Back stayed on the
+favorite. The favorites tree now skips the click after a selection change that
+navigated, as the TOC does; a tree rebuild clears that state.
+
+The new `ad-hoc-favorites-click` failed before the fix (Back stayed on page 3)
+and passes after; `ad-hoc-virtual-favorites` and `edit-favorites` pass. It is
+registered in the SolokPDF tree runner. Debug, hidden desktop; no ASan or hosted CI run.
