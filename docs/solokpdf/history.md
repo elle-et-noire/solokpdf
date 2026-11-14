@@ -3245,6 +3245,8 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E57 | Measure large outlines in the virtual tree                                                                                                                                                                                                                                                  | done — Record E56 and E57 measurements; [results](#e57-large-outlines-in-the-virtual-tree-2026-11-15)                                                                                                                                   |
+| E56 | Measure smart-theme tile cost                                                                                                                                                                                                                                                               | done — Record E56 and E57 measurements; [results](#e56-smart-theme-tile-cost-2026-11-15)                                                                                                                                                |
 | E55 | Document gPdfiumLock serialization                                                                                                                                                                                                                                                          | done — Document PDFium lock waits (E55); [results](#e55-pdfium-lock-serialization-2026-11-15)                                                                                                                                           |
 | E54 | Bound PDFium form value reads                                                                                                                                                                                                                                                               | done — Bound PDFium form value reads (E54); [results](#e54-form-value-reads-2026-11-15)                                                                                                                                                 |
 | E53 | Stop re-extracting partial text after an editor failure                                                                                                                                                                                                                                     | done — Keep partial page text once full text fails (E53); [results](#e53-partial-page-text-2026-11-15)                                                                                                                                  |
@@ -3566,3 +3568,37 @@ Recorded in [limitations.md](limitations.md#responsiveness): one lock serializes
 PDFium calls for all documents; hover, link and text queries skip a page while a
 tile draws, while `GetElements`, `PageContentBox` and `GetNamedDest` wait for it.
 Documentation only.
+
+## E56 smart-theme tile cost (2026-11-15)
+
+Measured with the Release ZIP of SolokPDF CI 43614563296 (`b0d0787f9`),
+`SOLOKPDF_PROFILE=1`, on `.work/corpus/phase4/attention-vector-300.pdf`
+(41 MiB, 300 vector pages), fit page, opened at pages 1, 150 and 290. The
+`page` phase of `DrawPage`, which includes reopening the themed PDF for each
+tile, averaged 11.5 ms with the Light theme and 12.5 ms with Solarized Dark
+(smart colors) at page 150; medians were within 1 ms at all three pages, and
+`draw` stayed at 4.5–6.3 ms. Pages are converted once and cached, so the
+per-tile reopen costs about 1 ms here. A large attachment or a huge xref was
+not measured. No code change.
+
+## E57 large outlines in the virtual tree (2026-11-15)
+
+Measured with the Debug build (Release builds compile out the tree's test
+messages), opening generated outlines with `-for-testing` and timing until the
+tree holds every item, then six font/DPI changes (`Measure` over every node):
+
+| Outline               | Items   | Open to populated  | Font/DPI change (median) |
+| --------------------- | ------- | ------------------ | ------------------------ |
+| flat                  | 5,000   | 675 ms             | 121 ms                   |
+| flat                  | 20,000  | 3,428 ms           | 500 ms                   |
+| flat                  | 50,000  | 20,878 ms          | 1,242 ms                 |
+| flat                  | 100,000 | UI hung over 120 s | —                        |
+| nested (100 per part) | 5,000   | 656 ms             | 118 ms                   |
+| nested                | 20,000  | 1,157 ms           | 505 ms                   |
+| nested                | 50,000  | 2,413 ms           | 1,297 ms                 |
+| nested                | 100,000 | 4,005 ms           | 2,565 ms                 |
+
+Font and DPI changes grow linearly (about 25 µs per node in Debug). Opening a
+flat outline grows quadratically and is the same on MuPDF tabs (flat 50,000:
+19,274 ms), so it is app-side; `TocItem::ChildCount` walks the sibling list and
+`ChildAt` is constant only for sequential access. Filed as E58.

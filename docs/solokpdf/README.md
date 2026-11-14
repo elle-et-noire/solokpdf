@@ -49,6 +49,8 @@ E52 keeps auto-scroll keys to the document; [results](history.md#e52-auto-scroll
 E53 keeps partial page text once full extraction fails; [results](history.md#e53-partial-page-text-2026-11-15).
 E54 bounds PDFium form value reads; [results](history.md#e54-form-value-reads-2026-11-15).
 E55 documents waits on the PDFium lock; [results](history.md#e55-pdfium-lock-serialization-2026-11-15).
+E56 measures smart-theme tile cost; [results](history.md#e56-smart-theme-tile-cost-2026-11-15).
+E57 measures large outlines in the virtual tree; [results](history.md#e57-large-outlines-in-the-virtual-tree-2026-11-15).
 [backlog.md](backlog.md) records deferred work and exclusions.
 
 The completed E18–E22 review covers color inputs, render results, cache
@@ -65,7 +67,7 @@ invalidation, read contracts and document lifetime. Read the
 | Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                       | [Investigation and results](keyboard-investigation.md), [handoff](keyboard-handoff.md)                                                         |
 | Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                              | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                                                 |
 | Refactoring    | Tree, runtime and key-state separation (E15), plus rendering/read/lifetime contracts (E18–E22), are complete within their recorded scope. | [Current architecture](architecture.md), [completed plan](refactoring-plan.md), [E15 review](history.md#e15-refactor-review-2026-11-10)        |
-| Code review    | E23–E25 complete within scope; E26–E55 address the recorded findings. E56–E57 are open from the 2026-11-13 review.                        | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review), [open findings](backlog.md#2026-11-13-review-findings) |
+| Code review    | E23–E25 complete within scope; E26–E57 address the recorded findings. E58, found by E57's measurement, is open.                           | [Results and evidence](full-review-results.md), [work items](backlog.md#design-review), [open findings](backlog.md#2026-11-13-review-findings) |
 
 ### Validation scope
 

@@ -1,13 +1,13 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-15. E23–E25 are complete within the recorded review scope.
-E26–E55 are complete within their recorded validation scope. E56–E57 are open findings of the
-[2026-11-13 review](#2026-11-13-review-findings).
+E26–E57 are complete within their recorded validation scope. E58 is open, from E57's
+[measurement](history.md#e57-large-outlines-in-the-virtual-tree-2026-11-15).
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D14, E58, F4).
+group (B76, C2, D14, E59, F4).
 
 ## Implementation and acceptance
 
@@ -20,8 +20,8 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E56 first.
-Each fix starts with a failing test, as the findings are read from code, not reproduced.
+The [2026-11-13 findings](#2026-11-13-review-findings) are done. Fix E58 next, starting
+with a profile of the flat-outline open.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
 explicitly requested.
@@ -62,10 +62,9 @@ recorded in [full-review-results.md](full-review-results.md) and
 was built or reproduced. Confirm each with a failing test before fixing. Line numbers are at
 `ce9903893`.
 
-| ID  | P   | Status | Item                                       | Where and trigger                                                                                                                |
-| --- | --- | ------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| E56 | P3  | todo   | Measure smart-theme tile cost              | `DrawPage` reopens the themed PDF per tile (`EnginePdfium.cpp:2437`); unmeasured on large documents                              |
-| E57 | P3  | todo   | Measure large outlines in the virtual tree | `Measure` (`VirtTree.cpp:473-502`) and `SetModel` walk every node on model, font and DPI changes; tested only to 5,000 bookmarks |
+| ID  | P   | Status | Item                                 | Where and trigger                                                                                                                                                                                                                              |
+| --- | --- | ------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E58 | P2  | todo   | Flat outlines open in quadratic time | Opening an outline with many top-level items: 50,000 take 21 s in Debug, 100,000 hang the UI over 120 s; nested 100,000 take 4 s. Same on MuPDF. Suspect `TocItem::ChildCount` (list walk) or non-sequential `ChildAt` per item; profile first |
 
 Structural notes from the review, not work items: the color-pass decision lives in
 `GetPageColorPass`, `BuildViewDarkModeProfile` and each engine (E46 is a disagreement);
