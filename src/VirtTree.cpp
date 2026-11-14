@@ -930,6 +930,15 @@ void VirtTree::Search(WCHAR ch) {
     }
 }
 
+// Three rows per wheel notch. Precision touchpads send small deltas; the
+// rest below a pixel carries over to the next message (E50)
+int VirtTree::WheelPixels(int wheel, i64* rest) {
+    i64 total = (i64)wheel * rowDy * 3 + *rest;
+    i64 px = total / WHEEL_DELTA;
+    *rest = total - px * WHEEL_DELTA;
+    return (int)std::max((i64)INT_MIN, std::min(px, (i64)INT_MAX));
+}
+
 void VirtTree::Message(VirtHostNativeMsg* ev) {
     Guard guard(this);
     if (ev->msg == WM_DESTROY) {
@@ -969,17 +978,15 @@ void VirtTree::Message(VirtHostNativeMsg* ev) {
     } else if (ev->msg == WM_VSCROLL || ev->msg == WM_HSCROLL) {
         Scroll(ev->msg, ev->wp);
     } else if (ev->msg == WM_MOUSEWHEEL) {
-        scrollY.MoveBy(-GET_WHEEL_DELTA_WPARAM(ev->wp) * rowDy / WHEEL_DELTA * 3);
+        scrollY.MoveBy(WheelPixels(-GET_WHEEL_DELTA_WPARAM(ev->wp), &wheelRestY));
         if (!UpdateBars()) {
             ev->didHandle = true;
             return;
         }
         host->Invalidate();
     } else if (ev->msg == WM_MOUSEHWHEEL) {
-        i64 delta = (i64)GET_WHEEL_DELTA_WPARAM(ev->wp) * rowDy * 3 / WHEEL_DELTA;
-        if (rtl) delta = -delta;
-        delta = std::max((i64)INT_MIN, std::min(delta, (i64)INT_MAX));
-        scrollX.MoveBy((int)delta);
+        int wheel = GET_WHEEL_DELTA_WPARAM(ev->wp);
+        scrollX.MoveBy(WheelPixels(rtl ? -wheel : wheel, &wheelRestX));
         if (!UpdateBars()) {
             ev->didHandle = true;
             return;

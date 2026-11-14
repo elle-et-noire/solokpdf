@@ -137,6 +137,9 @@ struct VirtTree {
     VirtTreeBarMode mode = VirtTreeBarMode::Windows;
     bool rtl = false;
     int rowDy = 0;
+    // wheel movement below one pixel, kept for the next message (vertical, horizontal)
+    i64 wheelRestY = 0;
+    i64 wheelRestX = 0;
     int bottomPad = 0;
     int contentDx = 0;
     VirtTreeMetrics metrics;
@@ -150,6 +153,7 @@ struct VirtTree {
 
     void FreeAccess();
     void Paint(VirtHostPaintEvent* ev);
+    int WheelPixels(int wheel, i64* rest);
     void Message(VirtHostNativeMsg* ev);
     bool UpdateBars();
     void Scroll(UINT message, WPARAM wp);

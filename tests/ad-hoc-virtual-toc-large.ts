@@ -17,6 +17,7 @@ import {
 
 const kCount = 5000;
 const kTestState = 0x8000 + 102;
+const WM_MOUSEWHEEL = 0x020a;
 
 export async function testit(): Promise<void> {
   const pdf = tmpPath("virtual-toc-large.pdf");
@@ -47,6 +48,9 @@ export async function testit(): Promise<void> {
     assert.ok(hwnd, "virtual bookmarks tree unavailable");
     const state = (field: number) => Number(sendMessage(hwnd, kTestState, field, 0));
     assert.equal(state(0), kCount, "bookmarks not populated");
+    // E50: precision touchpads send wheel deltas far below WHEEL_DELTA (120)
+    for (let i = 0; i < 10; i++) sendMessage(hwnd, WM_MOUSEWHEEL, (0x10000 - 4) * 0x10000, 0);
+    assert.ok(state(2) > 0, "small wheel deltas did not scroll the tree");
     sendMessage(hwnd, WM_KEYDOWN, VK_END, 0);
     assert.equal(state(1), kCount - 1, "End did not select the last bookmark");
     assert.ok(state(2) > 65535, "scroll position was truncated");

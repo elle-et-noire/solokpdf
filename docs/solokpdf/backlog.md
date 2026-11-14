@@ -1,7 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-15. E23–E25 are complete within the recorded review scope.
-E26–E49 are complete within their recorded validation scope. E50–E57 are open findings of the
+E26–E50 are complete within their recorded validation scope. E51–E57 are open findings of the
 [2026-11-13 review](#2026-11-13-review-findings).
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
@@ -20,7 +20,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E50 first.
+Fix the [2026-11-13 findings](#2026-11-13-review-findings) by priority, E51 first.
 Each fix starts with a failing test, as the findings are read from code, not reproduced.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
@@ -64,7 +64,6 @@ was built or reproduced. Confirm each with a failing test before fixing. Line nu
 
 | ID  | P   | Status | Item                                                         | Where and trigger                                                                                                                |
 | --- | --- | ------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| E50 | P3  | todo   | Small wheel deltas don't scroll the tree                     | `VirtTree.cpp:972` divides by `WHEEL_DELTA` before multiplying; precision touchpads scroll 0 rows                                |
 | E51 | P3  | todo   | Key capture stays armed after focus moves                    | `ShortcutsDialog.cpp:270-311`: after Add key, typing in the argument edit binds the key                                          |
 | E52 | P3  | todo   | Auto-scroll takes keys typed in the Vim `:` line             | `ReadingAutoScrollOnKey` (`SumatraPDF.cpp:15512`) ignores the key target; digits change speed, Esc stops scrolling               |
 | E53 | P3  | todo   | Partial text re-extracted on every read after editor failure | `EngineBase.cpp:1166` keeps the page `Pending`; each search or selection update reruns PDFium extraction                         |

@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E50 | Scroll trees on small wheel deltas                                                                                                                                                                                                                                                          | done — Scroll trees on small wheel deltas (E50); [results](#e50-small-tree-wheel-deltas-2026-11-15)                                                                                                                                     |
 | E49 | Keep a shortcut's name and toolbar text when its key changes                                                                                                                                                                                                                                | done — Keep named shortcuts when their key changes (E49); [results](#e49-named-shortcut-keys-2026-11-15)                                                                                                                                |
 | E48 | Keep shortcut dialog changes without a saved file                                                                                                                                                                                                                                           | done — Apply shortcut changes in memory (E48); [results](#e48-shortcuts-dialog-ok-2026-11-15)                                                                                                                                           |
 | E47 | Refresh hidden page thumbnails                                                                                                                                                                                                                                                              | done — Mark hidden page thumbnails stale (E47); [results](#e47-hidden-page-thumbnails-2026-11-15)                                                                                                                                       |
@@ -3488,3 +3489,15 @@ text or icon is still deleted.
 `ad-hoc-shortcuts-dialog` gained reassign and remove phases on a named toolbar
 shortcut (and a `remove` action in the dialog's test hook); the reassign phase
 failed before the fix and both pass after. Debug, hidden desktop; no ASan or hosted CI run.
+
+## E50 small tree wheel deltas (2026-11-15)
+
+Commit subject: `Scroll trees on small wheel deltas (E50)`.
+The virtual tree divided a vertical wheel delta by `WHEEL_DELTA` before scaling
+it, so deltas a precision touchpad sends (well below 120) scrolled 0 rows.
+Both axes now scale first and carry the rest below a pixel to the next message;
+a full notch still scrolls three rows.
+
+`ad-hoc-virtual-toc-large` sends ten -4 wheel deltas; it failed before the fix
+and passes after. `ad-hoc-virtual-toc`, `ad-hoc-virtual-favorites-large` and
+`ad-hoc-tree-double-click` pass. Debug, hidden desktop; no ASan or hosted CI run.
