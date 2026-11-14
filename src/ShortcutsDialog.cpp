@@ -360,8 +360,8 @@ void ShortcutsWnd::OnOk(VirtMouseEvent*) {
         VecAppend(*gSettings->shortcuts, sc);
     }
     VecReset(draft);
-    ScheduleSaveSettings();
-    ForceReloadSettings();
+    // apply in memory: a reload from disk loses the draft under -for-testing or a failed save (E48)
+    ApplySettingsChanges();
 }
 
 bool ShortcutsWnd::Create(MainWindow* mainWin) {

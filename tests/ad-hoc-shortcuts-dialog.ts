@@ -20,7 +20,10 @@ export async function testit(): Promise<void> {
   const pdf = join(dir, "pages.pdf");
   const settings = join(dir, "SolokPDF-settings.txt");
   writeFileSync(pdf, makePdf(), "latin1");
-  writeFileSync(settings, "UiLanguage = en\nReuseInstance = false\nShowStartPage = false\nSmoothScroll = false\nScrollbars = windows\n");
+  writeFileSync(
+    settings,
+    "UiLanguage = en\nReuseInstance = false\nShowStartPage = false\nSmoothScroll = false\nScrollbars = windows\n",
+  );
 
   const { proc, client, frame } = await launchControlled(
     ["-appdata", dir, "-zoom", "200", "-view", "continuous", pdf],
@@ -30,6 +33,15 @@ export async function testit(): Promise<void> {
     const res = await client.request(ControlCommand.TestShortcutsDialog, [action, command, key, arg]);
     if (res[0] !== 0) throw new Error(`${action}: ${res[1]}`);
     return String(res[1]);
+  };
+  // OK schedules the save on the UI queue
+  const savedSettings = async (expect: RegExp) => {
+    let text = readFileSync(settings, "utf8");
+    for (let i = 0; i < 100 && !expect.test(text); i++) {
+      await sleep(20);
+      text = readFileSync(settings, "utf8");
+    }
+    return text;
   };
   const waitClosed = async () => {
     for (let i = 0; i < 50; i++) {
@@ -49,7 +61,7 @@ export async function testit(): Promise<void> {
     }
     await request("add", "CmdScrollDownHalfPage", "ctrl-d");
     await request("save");
-    const saved = readFileSync(settings, "utf8");
+    const saved = await savedSettings(/Key\s*=\s*ctrl-d/i);
     if (!/Cmd\s*=\s*CmdScrollDownHalfPage/.test(saved) || !/Key\s*=\s*ctrl-d/i.test(saved)) {
       throw new Error(`shortcut missing from ${settings}`);
     }
@@ -95,7 +107,7 @@ export async function testit(): Promise<void> {
     }
     if (!captured) throw new Error("Add key did not capture F20");
     await request("save");
-    const withArg = readFileSync(settings, "utf8");
+    const withArg = await savedSettings(/Key\s*=\s*f20/i);
     if (!/Cmd\s*=\s*CmdScrollDown 4/.test(withArg) || !/Key\s*=\s*f20/i.test(withArg)) {
       throw new Error("command argument was not saved");
     }
@@ -109,6 +121,26 @@ export async function testit(): Promise<void> {
     if (oneLine <= 0 || fourLines < 3 * oneLine) {
       throw new Error(`CmdScrollDown 4 moved ${fourLines} after a one-line move of ${oneLine}`);
     }
+  } finally {
+    await client.quit().catch(() => {});
+    await killAndWait(proc);
+  }
+  await checkUnsavedOk(dir, pdf);
+}
+
+// E48: OK applies the draft in memory; -for-testing never writes the settings file
+async function checkUnsavedOk(dir: string, pdf: string): Promise<void> {
+  const appdata = join(dir, "unsaved");
+  mkdirSync(appdata, { recursive: true });
+  const { proc, client, frame } = await launchControlled(["-appdata", appdata, pdf]);
+  try {
+    await client.waitForRenderIdle();
+    sendCommandSync(frame, cmdId("CmdCustomizeShortcuts"));
+    await client.request(ControlCommand.TestShortcutsDialog, ["state"]);
+    await client.request(ControlCommand.TestShortcutsDialog, ["add", "CmdScrollDownHalfPage", "f21"]);
+    await client.request(ControlCommand.TestShortcutsDialog, ["save"]);
+    const res = await client.request(ControlCommand.TestShortcutsDialog, ["resolve", "", "f21"]);
+    if (res[1] !== "CmdScrollDownHalfPage") throw new Error(`OK without a saved file lost the binding: ${res[1]}`);
   } finally {
     await client.quit().catch(() => {});
     await killAndWait(proc);

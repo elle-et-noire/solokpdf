@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E48 | Keep shortcut dialog changes without a saved file                                                                                                                                                                                                                                           | done — Apply shortcut changes in memory (E48); [results](#e48-shortcuts-dialog-ok-2026-11-15)                                                                                                                                           |
 | E47 | Refresh hidden page thumbnails                                                                                                                                                                                                                                                              | done — Mark hidden page thumbnails stale (E47); [results](#e47-hidden-page-thumbnails-2026-11-15)                                                                                                                                       |
 | E46 | Recolor reflowable home thumbnails once                                                                                                                                                                                                                                                     | done — Keep theme-styled ebook thumbnails as drawn (E46); [results](#e46-reflowable-thumbnail-colors-2026-11-15)                                                                                                                        |
 | E45 | Navigate once per favorite click                                                                                                                                                                                                                                                            | done — Navigate once per favorite click (E45); [results](#e45-favorite-click-navigation-2026-11-15)                                                                                                                                     |
@@ -3460,3 +3461,17 @@ The new `ad-hoc-thumbnails-hidden` (brightness change while hidden) failed
 before the fix and passes after; it is registered in SolokPDF CI.
 `sidebar-thumbnails`, `sidebar-thumbnails-close` and
 `ad-hoc-pdfium-thumb-theme` pass. Debug, hidden desktop; no ASan or hosted CI run.
+
+## E48 shortcuts dialog OK (2026-11-15)
+
+Commit subject: `Apply shortcut changes in memory (E48)`.
+The Keyboard Shortcuts dialog's OK scheduled a save and then reloaded the
+settings file, so the new bindings were lost whenever the file was not
+written: under `-for-testing`, after a failed save, or without a settings
+file. OK now applies the bindings in memory with `ApplySettingsChanges`, as
+E11 did for the settings dialog, and the save follows on the UI queue.
+
+`ad-hoc-shortcuts-dialog` gained a `-for-testing` phase that failed before the
+fix ("key unbound") and passes after; its saved-file checks now wait for the
+queued save. `ad-hoc-keyboard-help-content`, `issue-6464` and
+`ad-hoc-b70-settings` pass. Debug, hidden desktop; no ASan or hosted CI run.
