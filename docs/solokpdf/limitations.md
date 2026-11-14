@@ -397,6 +397,8 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   canceling or failing the later save retains the prepared signature (E28).
   Undo removes a prepared signature and its signer; Redo cannot restore it (E40).
   See [forms.md](forms.md).
+- A form field value or widget appearance stream over 1 MiB is not read on PDFium
+  tabs: the field counts as filled and is not highlighted (E54).
 - Form field widgets are displayed and printed. `FPDF_ANNOT` draws every
   annotation except widgets, so form fields used to be blank; documents with
   an AcroForm now get a form handle and `FPDF_FFLDraw` after each render

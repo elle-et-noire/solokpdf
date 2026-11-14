@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E54 | Bound PDFium form value reads                                                                                                                                                                                                                                                               | done — Bound PDFium form value reads (E54); [results](#e54-form-value-reads-2026-11-15)                                                                                                                                                 |
 | E53 | Stop re-extracting partial text after an editor failure                                                                                                                                                                                                                                     | done — Keep partial page text once full text fails (E53); [results](#e53-partial-page-text-2026-11-15)                                                                                                                                  |
 | E52 | Keep auto-scroll keys to the document                                                                                                                                                                                                                                                       | done — Keep auto-scroll keys to the document (E52); [results](#e52-auto-scroll-key-target-2026-11-15)                                                                                                                                   |
 | E51 | End key capture when focus moves                                                                                                                                                                                                                                                            | done — Stop key capture when focus leaves it (E51); [results](#e51-shortcut-key-capture-focus-2026-11-15)                                                                                                                               |
@@ -3540,3 +3541,19 @@ The new `EngineBase_UnitTestPartialTextFinal` failed before the fix (two
 extractions) and passes after; Debug unit tests pass (105130).
 `ad-hoc-pdfium-try-reads`, `form-text-cache`, `ad-hoc-pdfium-redaction-undo`
 and `ad-hoc-pdfium-text` pass. No ASan or hosted CI run.
+
+## E54 form value reads (2026-11-15)
+
+Commit subject: `Bound PDFium form value reads (E54)`.
+Form field highlighting and the widget-text check read a field's value (and
+appearance stream) whole, at any size, on every pass over a page. PDFium can
+only read such strings whole, so values and appearance streams above 1 MiB (the
+cap annotation contents use) are no longer read: a field holding one counts as
+filled, and such a widget as having text. The 64 KiB tooltip cap was too small
+for multi-line field values.
+
+No failing test: showing the unbounded read needs a fixture of hundreds of
+megabytes, and a whitespace-only value just over the cap would only codify the
+cap. `ad-hoc-pdfium-form-highlight`, `ad-hoc-pdfium-forms`,
+`ad-hoc-pdfium-form-hover` and `ad-hoc-pdfium-text` pass. Debug, hidden desktop;
+no ASan or hosted CI run.

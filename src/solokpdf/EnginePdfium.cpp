@@ -146,7 +146,9 @@ struct PdfiumBufferTrace {
     }
 };
 
-// Pack opaque pixels in place. Cancellation leaves a partial buffer to discard.
+// Largest widget value or appearance stream read whole; PDFium has no partial read (E54)
+constexpr unsigned long kMaxWidgetStringBytes = 1024 * 1024;
+
 // Bookmarks read so far: a malformed outline can link back to one (E43).
 // Open addressing on the handle, which PDFium keeps stable per dictionary.
 struct VisitedBookmarks {
@@ -198,6 +200,7 @@ struct VisitedBookmarks {
     }
 };
 
+// Pack opaque pixels in place. Cancellation leaves a partial buffer to discard.
 static bool CompactOpaquePixmap(Pixmap* pixmap, AtomicInt* aborted) {
     const int srcBpp = PixmapBytesPerPixel(PixmapFormat::BGRA8);
     const int dstBpp = PixmapBytesPerPixel(PixmapFormat::BGR8);
@@ -2103,7 +2106,11 @@ class EnginePdfium : public EngineBase {
         if (bytes <= sizeof(FPDF_WCHAR)) {
             return 1;
         }
-        WCHAR* value = AllocArrayTemp<WCHAR>(bytes / sizeof(WCHAR) + 1);
+        // PDFium reads a value only whole; a larger one counts as filled without reading it (E54)
+        if (bytes > kMaxWidgetStringBytes) {
+            return 0;
+        }
+        WCHAR* value = AllocArrayTemp<WCHAR>((int)(bytes / sizeof(WCHAR)) + 1);
         gPdfium.FPDFAnnot_GetFormFieldValue(form, annot, (FPDF_WCHAR*)value, bytes);
         TempStr v = ToUtf8Temp(WStr(value));
         bool empty = button ? str::Eq(v, StrL("Off")) : str::IsEmptyOrWhiteSpace(v);
@@ -2794,6 +2801,10 @@ class EnginePdfium : public EngineBase {
         }
         bool hasText = false;
         unsigned long bytes = gPdfium.FPDFAnnot_GetAP(annot, FPDF_ANNOT_APPEARANCEMODE_NORMAL, nullptr, 0);
+        // too large to read: assume text, as the editor then supplies it (E54)
+        if (bytes > kMaxWidgetStringBytes) {
+            return true;
+        }
         if (bytes > sizeof(FPDF_WCHAR)) {
             WCHAR* ap = AllocArray<WCHAR>(bytes / sizeof(WCHAR) + 1);
             gPdfium.FPDFAnnot_GetAP(annot, FPDF_ANNOT_APPEARANCEMODE_NORMAL, (FPDF_WCHAR*)ap, bytes);
@@ -2804,6 +2815,9 @@ class EnginePdfium : public EngineBase {
         bytes = form ? gPdfium.FPDFAnnot_GetFormFieldValue(form, annot, nullptr, 0) : 0;
         if (bytes <= sizeof(FPDF_WCHAR)) {
             return false;
+        }
+        if (bytes > kMaxWidgetStringBytes) {
+            return true;
         }
         WCHAR* value = AllocArray<WCHAR>(bytes / sizeof(WCHAR) + 1);
         gPdfium.FPDFAnnot_GetFormFieldValue(form, annot, (FPDF_WCHAR*)value, bytes);
