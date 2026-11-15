@@ -32,6 +32,7 @@ export async function testit(): Promise<void> {
   writeFileSync(cache, catalog("gpt-6.1-sol"));
   const appdata = writeAppdata("codex-provider-settings", "CodexBuild [\n Model = gpt-6.1-sol\n]\n");
   const failures: string[] = [];
+  const withoutPath = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.toLowerCase() !== "path"));
   await withControlledSumatra(
     EXE,
     async (client) => {
@@ -59,7 +60,8 @@ export async function testit(): Promise<void> {
       if (!String(refreshed[1]).includes("fresh-catalog-model")) failures.push(`refresh: ${refreshed[1]}`);
     },
     ["-appdata", appdata],
-    { env: { ...process.env, PATH: dir + delimiter + process.env.PATH, CODEX_HOME: dir } },
+    // Windows names it Path; a second PATH key would be ignored, keeping the mock off PATH.
+    { env: { ...withoutPath, PATH: dir + delimiter + process.env.PATH, CODEX_HOME: dir } },
   );
   if (failures.length) throw new Error(failures.join("\n"));
 }
