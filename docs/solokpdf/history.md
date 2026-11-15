@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E60 | Read the catalog (open action, layout) once on the loader thread                                                                                                                                                                                                                            | done — Read the PDF catalog from the render probe (E60); [results](#e60-catalog-read-at-load-2026-11-16)                                                                                                                                |
 | E59 | Keep the startup default-app log off the launch path                                                                                                                                                                                                                                        | done — Log non-default file types off the launch path (E59); [results](#e59-startup-default-app-log-2026-11-16)                                                                                                                         |
 | E58 | Open flat outlines in linear time                                                                                                                                                                                                                                                           | done — Count tree children once per item (E58); [results](#e58-flat-outline-open-2026-11-15)                                                                                                                                            |
 | E57 | Measure large outlines in the virtual tree                                                                                                                                                                                                                                                  | done — Record E56 and E57 measurements; [results](#e57-large-outlines-in-the-virtual-tree-2026-11-15)                                                                                                                                   |
@@ -3637,3 +3638,24 @@ thread so Debug/ASan shutdown waits for it. Timed in Debug (OS calls, so Release
 launches each: 9.6–16.0 ms removed from launch; `DetectExternalViewers` (1.8–2.2 ms) and
 `ReRegisterFileAssociations` (0.0–0.1 ms) stay. The log keeps the same 27 lines on this
 machine. Checked with `tests/render-cache-shutdown.ts`.
+
+## E60 catalog read at load (2026-11-16)
+
+When the byte scan found a catalog key, `GetOpenActionPageNo` opened the file in MuPDF
+from `LoadDocumentFinish` on the UI thread to read `/OpenAction`, `/PageLayout` and
+`/Direction`; the first tile then opened it a second time for the render probe. Engine
+creation now opens the probe (the first tile needs it anyway) and reads the catalog from
+its parse; `GetOpenActionPageNo` returns the cached page. Debug, `SOLOKPDF_PROFILE=1`,
+`profile-ui.ts` (PDFium phases are Release code):
+
+| PDF       | Before: UI-thread query | Before: MuPDF opens | After: probe + read at load | After: MuPDF opens |
+| --------- | ----------------------- | ------------------- | --------------------------- | ------------------ |
+| BERT      | 1.23 ms                 | 2                   | 1.07 + 0.20 ms              | 1                  |
+| Attention | 1.47 ms                 | 2                   | 2.22 + 0.16 ms              | 1                  |
+
+The UI-thread query is gone. The probe's open moved from the first tile to engine
+creation: the loader thread for asynchronous opens, the UI thread for the profile
+script's startup open. Rendering is unchanged. `ad-hoc-pdfium-catalog-layout` and
+`issue-2022` pass on PDFium. `ad-hoc-pdfium`, including `/OpenAction`, passes with its
+auto-link assertion skipped; that assertion also fails without this change
+(`https://example.com/wrapped/` instead of the joined `tail-part` URL).

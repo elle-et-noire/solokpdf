@@ -594,6 +594,7 @@ class EnginePdfium : public EngineBase {
     bool documentJs = false;
     // false when a byte scan found no /OpenAction, /PageLayout or /Direction
     bool catalogKeys = true;
+    int openActionPageNo = 0;
     HANDLE file = INVALID_HANDLE_VALUE;
     Str fileData;
     bool dataBacked = false;
@@ -2367,19 +2368,32 @@ class EnginePdfium : public EngineBase {
         }
         clone->LoadDocumentJs();
         clone->disableAutoLinks = disableAutoLinks;
+        clone->openActionPageNo = openActionPageNo;
+        clone->preferredLayout = preferredLayout;
         return clone;
     }
 
-    int GetOpenActionPageNo() override {
+    // Opens the render probe at load (the first tile needs it) and reads the catalog from it:
+    // one MuPDF parse per open, done before DisplayModel reads preferredLayout.
+    void ReadCatalog() {
         if (!catalogKeys) {
-            return 0;
+            return;
         }
         logf("PDFium: catalog query\n");
         PdfiumProfile profile(StrL("openaction"));
-        int pageNo = PdfOpenActionPageMupdf(ReadSource(), password, &preferredLayout);
+        ScopedMutex themeScope(&themeLock);
+        if (!renderProbe) {
+            renderProbe = NewPdfRenderProbe(ReadSource(), password);
+            if (renderProbe && profile.enabled) {
+                logf("PDFium render probe: opened\n");
+            }
+            profile.Mark(StrL("probe"));
+        }
+        openActionPageNo = PdfOpenActionPageMupdf(renderProbe, &preferredLayout);
         profile.Mark(StrL("read"));
-        return pageNo;
     }
+
+    int GetOpenActionPageNo() override { return openActionPageNo; }
 
     bool GetViewerPrintPrefs(PdfViewerPrintPrefs& prefs) override {
         return PdfViewerPrintPrefsMupdf(ReadSource(), password, prefs);
@@ -3587,6 +3601,7 @@ EngineBase* CreateEnginePdfium(Str path, PasswordUI* pwdUI, TempStr* errorOut, P
         *failureOut = failure;
     }
     if (ok) {
+        engine->ReadCatalog();
         engine->LoadDocumentJs();
         return engine;
     }
@@ -3603,6 +3618,7 @@ EngineBase* CreateEnginePdfiumFromData(Str data, PasswordUI* pwdUI, TempStr* err
         *failureOut = failure;
     }
     if (ok) {
+        engine->ReadCatalog();
         engine->LoadDocumentJs();
         return engine;
     }

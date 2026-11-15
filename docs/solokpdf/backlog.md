@@ -19,7 +19,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-The [2026-11-13 findings](#2026-11-13-review-findings) and E58 are done. E60–E65 below are open.
+The [2026-11-13 findings](#2026-11-13-review-findings) and E58 are done. E61–E65 below are open.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
 explicitly requested.
@@ -77,7 +77,6 @@ counts; `pdfium.dll` is a Release binary, so its `page`/`draw` phases are repres
 
 | ID  | Item                                                                 | Status |
 | --- | -------------------------------------------------------------------- | ------ |
-| E60 | Read the catalog (open action, layout) once on the loader thread     | todo   |
 | E61 | Keep recently used PDFium page handles instead of reparsing per call | todo   |
 | E62 | Reuse one MuPDF document for MuPDF-route tiles                       | todo   |
 | E63 | Query MuPDF links through the probe, not a new open under the lock   | todo   |

@@ -7516,27 +7516,22 @@ void PdfLinksMupdf(const PdfRenderSource& source, Str password, int pageNo, Vec<
     fz_drop_context(ctx);
 }
 
-int PdfOpenActionPageMupdf(const PdfRenderSource& source, Str password, PageLayout* layout) {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
-    if (!ctx) {
+// Reads the catalog from the probe's parse, so opening needs no second MuPDF document.
+int PdfOpenActionPageMupdf(PdfRenderProbe* probe, PageLayout* layout) {
+    if (!probe) {
         return 0;
     }
-    int pageNo = 0;
-    pdf_document* doc = OpenPdfForQuery(ctx, source, password);
-    if (doc) {
-        *layout = GetPreferredLayout(ctx, (fz_document*)doc);
-        int pageCount = 0;
-        fz_try(ctx) {
-            pageCount = pdf_count_pages(ctx, doc);
-        }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
-        }
-        pageNo = PdfOpenActionPageNo(ctx, doc, pageCount);
-        pdf_drop_document(ctx, doc);
+    fz_context* ctx = probe->ctx;
+    pdf_document* doc = probe->doc;
+    *layout = GetPreferredLayout(ctx, (fz_document*)doc);
+    int pageCount = 0;
+    fz_try(ctx) {
+        pageCount = pdf_count_pages(ctx, doc);
     }
-    fz_drop_context(ctx);
-    return pageNo;
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+    }
+    return PdfOpenActionPageNo(ctx, doc, pageCount);
 }
 #endif
 

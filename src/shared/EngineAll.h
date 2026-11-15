@@ -10,6 +10,7 @@ struct AnnotCreateArgs;
 struct PropValue;
 struct djvu_text_zone;
 struct DarkModeProfile;
+struct PageLayout;
 
 struct PdfRenderSource {
     void* user;
@@ -35,6 +36,7 @@ struct PdfRenderCheck {
 PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password);
 void DeletePdfRenderProbe(PdfRenderProbe* probe);
 PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, int pageNo);
+int PdfOpenActionPageMupdf(PdfRenderProbe* probe, PageLayout* layout);
 enum class PdfThemeLayout {
     Incremental,
     Rewritten,

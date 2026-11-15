@@ -78,17 +78,18 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   and failure keep the edits. `tests/missing-source-unsaved.ts` covers both
   engines and a missing MuPDF path through a directory junction.
 - `/OpenAction` (array and GoTo forms) sets the first-open page. PDFium has no
-  API for it, so MuPDF reads it when the byte scan finds a catalog key. Release
-  cost (3 runs): 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the 41 MB
-  vector PDF and 18.8–20.4 ms on IPA, whose AES-256 (R6) key check MuPDF
+  API for it; when the byte scan finds a catalog key, engine creation opens the
+  render probe's MuPDF parse and reads it there (E60). The former separate
+  query cost (Release, 3 runs) 0.6–1.1 ms on Attention/BERT, 5.6–5.9 ms on the
+  41 MB vector PDF and 18.8–20.4 ms on IPA, whose AES-256 (R6) key check MuPDF
   repeats.
 - The catalog's `/PageLayout` and `/ViewerPreferences/Direction` apply on
   PDFium tabs (`issue-2022` failed before on PDFium: `r2l=0` for a catalog
-  declaring R2L). The existing cheap MuPDF OpenAction query reads them before
-  the display model is built. It does not load the hidden editor. Both engines
-  pass `issue-2022`, including remembered state (B38). The page geometry byte
-  scan also looks for `/OpenAction`, `/PageLayout` and `/Direction`, including
-  in Flate object streams; without them PDFium skips the query. Encrypted
+  declaring R2L). The same read takes them before the display model is built.
+  It does not load the hidden editor. Both engines pass `issue-2022`, including
+  remembered state (B38). The page geometry byte scan also looks for
+  `/OpenAction`, `/PageLayout` and `/Direction`, including in Flate object
+  streams; without them PDFium skips the query. Encrypted
   object streams and files of 32 MiB or more still query.
   `ad-hoc-pdfium-catalog-layout` checks a plain catalog, a compressed one and a
   catalog without these keys, whose open logs no query (B44).
@@ -137,7 +138,8 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   retains original colors; `smart` applies theme colors while preserving images;
   `legacy` applies the usual bitmap color conversion after rendering.
   Extremely deep form nesting can still exceed MuPDF's interpreter limits.
-- Render-route checks keep a MuPDF parse of each PDFium document open. Its
+- Render-route checks keep a MuPDF parse of each PDFium document open, opened
+  at load when the catalog needs reading and otherwise at the first tile. Its
   object table cost about 7 MiB of private memory on the 113,083-object, 41 MB
   vector benchmark file. First-render and navigation times did not change
   measurably. A check canceled mid-analysis discards the parse; the next check
