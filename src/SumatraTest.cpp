@@ -1085,7 +1085,7 @@ TempStr SeedTextSelectionResultTemp(int pageNo, int* exitCodeOut, int start, int
     }
 
     if (end < 0) {
-        end = textLen - 1;
+        end = textLen;
     }
     if (start < 0 || end <= start || end > textLen) {
         return fail(StrL("ERROR invalid-range"));

@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
-import { getClipboardText } from "./winapi.ts";
+import { canTestClipboard, clearTestClipboard, getTestClipboardText } from "./test-clipboard.ts";
 
 const kLeading = 12;
 
@@ -100,9 +100,10 @@ async function copyPage(file: string): Promise<string> {
   const { proc, client, frame } = await launchControlled([file]);
   try {
     await client.waitForRenderIdle();
+    await clearTestClipboard(client);
     await client.seedTextSelection(1);
     sendCommandSync(frame, cmdId("CmdCopySelection"));
-    return (await getClipboardText(2000)).replace(/[\r\n]+$/, "");
+    return (await getTestClipboardText(client)).replace(/[\r\n]+$/, "");
   } finally {
     client.close();
     await killAndWait(proc);
@@ -110,6 +111,7 @@ async function copyPage(file: string): Promise<string> {
 }
 
 export async function testit(): Promise<void> {
+  if (!canTestClipboard("copy-join-lines")) return;
   const dir = tmpPath("copy-join-lines");
   mkdirSync(dir, { recursive: true });
   const failed: string[] = [];

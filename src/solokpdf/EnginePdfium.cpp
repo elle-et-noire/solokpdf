@@ -57,6 +57,84 @@ Str UnprotectPdfPassword(Str sealed, const u8 digest[16]) {
 Kind kindEnginePdfium = "enginePdfium";
 constexpr int kUnresolvedAttachment = -1;
 
+struct PdfiumTextLine {
+    RectF bounds;
+    RectF firstWord;
+    float fontSize = 0;
+    int last = 0;
+    int lineBreak = -1;
+    bool wordDone = false;
+    bool horizontal = true;
+};
+
+// Mark soft wraps from PDFium geometry with the same paragraph rules as MuPDF.
+static void PdfiumSoftBreaks(FPDF_TEXTPAGE page, const Vec<int>& order, Vec<int>& breaks) {
+    Vec<PdfiumTextLine> lines;
+    PdfiumTextLine line;
+    for (int i : order) {
+        int rune = (int)gPdfium.FPDFText_GetUnicode(page, i);
+        if (rune == '\r') {
+            continue;
+        }
+        if (rune == '\n') {
+            line.lineBreak = i;
+            VecAppend(lines, line);
+            line = {};
+            continue;
+        }
+        if (rune <= ' ') {
+            line.wordDone = !line.firstWord.IsEmpty();
+            continue;
+        }
+        double left = 0, right = 0, bottom = 0, top = 0;
+        if (!gPdfium.FPDFText_GetCharBox(page, i, &left, &right, &bottom, &top)) {
+            line.horizontal = false;
+            continue;
+        }
+        FS_MATRIX matrix{};
+        constexpr float kAxisEpsilon = 0.001f;
+        if (IsRtlCodepoint(rune) || !gPdfium.FPDFText_GetMatrix(page, i, &matrix) || fabsf(matrix.b) > kAxisEpsilon ||
+            fabsf(matrix.c) > kAxisEpsilon) {
+            line.horizontal = false;
+        }
+        RectF box{(float)left, (float)-top, (float)(right - left), (float)(top - bottom)};
+        line.bounds = line.bounds.Union(box);
+        if (!line.wordDone) {
+            line.firstWord = line.firstWord.Union(box);
+        }
+        if (line.fontSize == 0) {
+            line.fontSize = (float)gPdfium.FPDFText_GetFontSize(page, i);
+        }
+        line.last = rune;
+    }
+    if (!line.bounds.IsEmpty()) {
+        VecAppend(lines, line);
+    }
+    for (int start = 0; start < len(lines);) {
+        int end = start + 1;
+        RectF block = lines[start].bounds;
+        while (end < len(lines)) {
+            const auto& prev = lines[end - 1];
+            const auto& next = lines[end];
+            if (prev.bounds.IsEmpty() || next.bounds.IsEmpty() ||
+                next.bounds.y - prev.bounds.Bottom() > prev.fontSize * 0.55f) {
+                break;
+            }
+            block = block.Union(next.bounds);
+            end++;
+        }
+        for (int j = start; j + 1 < end; j++) {
+            const auto& current = lines[j];
+            const auto& next = lines[j + 1];
+            if (current.horizontal && next.horizontal && current.lineBreak >= 0 &&
+                JoinTextLines(current.bounds, next.bounds, block, current.fontSize, next.firstWord.dx, current.last)) {
+                VecAppend(breaks, current.lineBreak);
+            }
+        }
+        start = end;
+    }
+}
+
 struct PdfiumWidget {
     RectF rect;
     WidgetCursorKind cursor = WidgetCursorKind::None;
@@ -1151,6 +1229,8 @@ class EnginePdfium : public EngineBase {
             double prevRight = 0, prevBottom = 0, prevTop = 0;
             Vec<int> order;
             RtlClusterOrder(textPage, count, order);
+            Vec<int> softBreaks;
+            PdfiumSoftBreaks(textPage, order, softBreaks);
             for (int k = 0; k < count; k++) {
                 if (cookie && PdfiumCookie::IsCanceled(cookie)) {
                     gPdfium.FPDFText_ClosePage(textPage);
@@ -1239,6 +1319,9 @@ class EnginePdfium : public EngineBase {
                     if (sourceIndices) {
                         VecAppend(*sourceIndices, -1);
                     }
+                }
+                if (code == '\n' && VecContains(softBreaks, i)) {
+                    code = ' ';
                 }
                 char buf[8]{};
                 int bytes = 0;

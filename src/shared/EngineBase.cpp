@@ -1906,3 +1906,28 @@ bool SaveFileOrData(Str srcFilePath, Str data, Str dstFilePath) {
     }
     return len(data) != 0 && file::WriteFile(dstFilePath, data);
 }
+
+static bool IsTextSentenceEnd(int rune) {
+    static const int kEnders[] = {'.',    ':',    ';',    '!',    '?',    ')',    ']',    '}',    '"',    '\'',
+                                  0x2026, 0x201D, 0x2019, 0x3002, 0xFF01, 0xFF1F, 0xFF1A, 0xFF1B, 0x300D, 0x300F};
+    for (int e : kEnders) {
+        if (rune == e) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool JoinTextLines(RectF line, RectF next, RectF block, float height, float wordWidth, int last) {
+    if (next.y - line.Bottom() > height * 0.55f) {
+        return false;
+    }
+    if (block.dx > 1.f && line.dx < block.dx * 0.82f) {
+        float room = block.Right() - line.Right();
+        bool wordFits = room > wordWidth + height * 0.3f;
+        if (wordFits || IsTextSentenceEnd(last)) {
+            return false;
+        }
+    }
+    return next.x - line.x <= height * 0.4f;
+}
