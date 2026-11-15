@@ -433,6 +433,7 @@ import { testit as fullscreenSessionRestore } from "./fullscreen-session-restore
 import { testit as stampEditToolbarName } from "./stamp-edit-toolbar-name.ts";
 import { testit as homeTipDoubleClick } from "./home-tip-double-click.ts";
 import { testit as homeOpenFont } from "./home-open-font.ts";
+import { testit as f12GrayThumbnail } from "./f12-gray-thumbnail.ts";
 import { testit as issue6261 } from "./issue-6261.ts";
 import { testit as commandPaletteAnnotations } from "./command-palette-annotations.ts";
 import { testit as paletteDeleteAnnotation } from "./palette-delete-annotation.ts";
@@ -1063,6 +1064,7 @@ export const tests: NamedTest[] = [
   ["stamp-edit-toolbar-name", stampEditToolbarName],
   ["home-tip-double-click", homeTipDoubleClick],
   ["home-open-font", homeOpenFont],
+  ["f12-gray-thumbnail", f12GrayThumbnail],
   ["issue-6261", issue6261],
   ["command-palette-annotations", commandPaletteAnnotations],
   ["palette-delete-annotation", paletteDeleteAnnotation],

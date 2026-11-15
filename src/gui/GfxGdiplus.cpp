@@ -370,12 +370,21 @@ void GfxGdiplus::DrawPixmap(Pixmap* px, const Rect& r) {
     if (!px || r.IsEmpty()) {
         return;
     }
-    Gdiplus::Bitmap* bmp = WrapPixmapGdiplus(px);
-    if (!bmp) {
-        return;
+    // GDI+ can't wrap a palette DIB (e.g. a gray page render): draw a 32bpp copy
+    Pixmap* owned = nullptr;
+    if (px->format == PixmapFormat::Native || !px->data) {
+        owned = PixmapCopyAs32bppDIB(px);
+        if (!owned) {
+            return;
+        }
     }
-    gfx->DrawImage(bmp, ToGdipRect(r), 0, 0, px->width, px->height, Gdiplus::UnitPixel);
-    delete bmp;
+    Pixmap* src = owned ? owned : px;
+    Gdiplus::Bitmap* bmp = WrapPixmapGdiplus(src);
+    if (bmp) {
+        gfx->DrawImage(bmp, ToGdipRect(r), 0, 0, src->width, src->height, Gdiplus::UnitPixel);
+        delete bmp;
+    }
+    FreePixmap(owned);
 }
 
 void GfxGdiplus::PushClip(const Rect& r) {
