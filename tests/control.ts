@@ -802,6 +802,20 @@ export class ControlClient {
     return rows;
   }
 
+  // SolokPDF: the virtual control under a client point of a window class.
+  async virtHit(className: string, x: number, y: number): Promise<VirtCtrlInfo | null> {
+    const res = await this.request(ControlCommand.TestVirtTree, ["hit", className, x, y]);
+    const code = typeof res[0] === "number" ? res[0] : -1;
+    const raw = String(res[1] ?? "").trim();
+    if (code !== 0) {
+      throw new Error(`TestVirtTree hit failed: ${raw || code}`);
+    }
+    if (!raw || raw === "NONE") {
+      return null;
+    }
+    return parseVirtLine(raw);
+  }
+
   // Notifications are drawn over the document and linger for ~2s, so a test
   // that reads pixels would have to wait them out. Turning them off also takes
   // down any that are already showing.

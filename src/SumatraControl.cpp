@@ -2416,7 +2416,21 @@ static void ExecuteControlRequest(ControlRequest* req) {
 
         case ControlCmd::TestVirtTree: {
             str::Builder out;
-            AppendVirtTreeDump(out, StringArg(req, 0));
+            Str action = StringArg(req, 0);
+            if (str::Eq(action, StrL("hit"))) {
+                Str cls = StringArg(req, 1);
+                i32 x = 0;
+                i32 y = 0;
+                if (len(cls) == 0 || !IntArg(req, 2, x) || !IntArg(req, 3, y)) {
+                    AppendError(req, StrL("TestVirtTree hit expects string class, int x, int y"));
+                    break;
+                }
+                if (!AppendVirtHit(out, cls, x, y)) {
+                    out.Append(StrL("NONE\n"));
+                }
+            } else {
+                AppendVirtTreeDump(out, action);
+            }
             AppendTestResult(req, 0, ToStrTemp(out));
             break;
         }
