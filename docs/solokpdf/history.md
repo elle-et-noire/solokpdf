@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E66 | Keep the themed snapshot document and page between tiles (smart colors)                                                                                                                                                                                                                     | done — Keep themed snapshot pages parsed (E66); [results](#e66-themed-snapshot-pages-2026-11-16)                                                                                                                                        |
 | E61 | Keep recently used PDFium page handles instead of reparsing per call                                                                                                                                                                                                                        | done — Keep recently used PDFium pages parsed (E61); [results](#e61-pdfium-page-handles-2026-11-16)                                                                                                                                     |
 | E60 | Read the catalog (open action, layout) once on the loader thread                                                                                                                                                                                                                            | done — Read the PDF catalog from the render probe (E60); [results](#e60-catalog-read-at-load-2026-11-16)                                                                                                                                |
 | E59 | Keep the startup default-app log off the launch path                                                                                                                                                                                                                                        | done — Log non-default file types off the launch path (E59); [results](#e59-startup-default-app-log-2026-11-16)                                                                                                                         |
@@ -3691,3 +3692,31 @@ others. The idle release took 0.8 ms and freed 9.7 MiB of private memory on Atte
 `-forms`, `-form-highlight`, `-form-hover`, `-form-js`, `-hover`, `-try-reads`,
 `-fit-content`, `-page-boxes`, `-theme`, `-images`, `-source-lifetime`, `-memory`,
 `-leak`, `-scroll` and `render-cache-shutdown`.
+
+## E66 themed snapshot pages (2026-11-16)
+
+With smart colors, every tile of a themed page opened the snapshot in PDFium
+(`FPDF_LoadCustomDocument`), set up its form environment, parsed the page, drew it and
+closed all three. Each theme cache entry now keeps its snapshot document, form and drawn page,
+with the file access PDFium reads through. They change only under `gPdfiumLock`: evicting
+an entry (`themeLock`, then `gPdfiumLock`), the E61 idle timer and the destructor close them.
+A tile that needs widgets drawn and finds the document opened without a form (or the
+reverse) reopens it.
+
+Debug, the E61 script with canvas captures after opening and after pages 4 and 2:
+
+| PDF, theme       | Page loads | Themed document loads        | Later tiles of a page, `page` phase |
+| ---------------- | ---------- | ---------------------------- | ----------------------------------- |
+| BERT, smart      | 21 → 14    | 11 (one per themed tile) → 4 | 2.4–6.5 ms → 0.00 ms                |
+| Attention, smart | 23 → 17    | 12 → 7                       | 2.8–4.8 ms → 0.00 ms                |
+| BERT, Light      | 14 → 14    | 0                            | unchanged                           |
+| Attention, Light | 14 → 14    | 0                            | unchanged                           |
+
+Documents reopen after the idle release. While pages are shown, the kept snapshots cost
+private memory (Attention +8.7 MiB, BERT +2.8 MiB before the idle release); the idle
+release closes them in 3.0–4.8 ms on the thread pool. Canvas captures and the 20 exported
+pages hash identically before and after in both themes. Passing on PDFium:
+`ad-hoc-pdfium-theme`, `-theme-switch`, `-thumb-theme`, `-tiles`, `-images`,
+`render-cache-shutdown`, `theme-pdfium-cache`, `theme-pdfium-fallback`,
+`theme-render-cancel`, `theme-dynamic-widget`, `theme-encrypted`, `theme-state-widget`
+and `theme-annotation-failure`.

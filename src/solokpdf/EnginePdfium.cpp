@@ -596,6 +596,7 @@ class EnginePdfium : public EngineBase {
     bool catalogKeys = true;
     int openActionPageNo = 0;
     int pageLoads = 0;
+    int themeDocLoads = 0;
     // recently used pages of doc, kept parsed; under gPdfiumLock (see AcquirePage)
     struct CachedPage {
         FPDF_PAGE page = nullptr;
@@ -645,6 +646,13 @@ class EnginePdfium : public EngineBase {
     Mutex fileLock;
     Mutex themeLock;
     PdfRenderProbe* renderProbe = nullptr;
+    struct ThemeAccess {
+        EnginePdfium* engine;
+        Str suffix;
+        u32 sourceSize;
+    };
+    // Snapshot fields are under themeLock. The snapshot opened in PDFium, its form and its page stay
+    // between tiles; they change only under gPdfiumLock, and file/access must outlive doc.
     struct ThemeEntry {
         PdfThemeSnapshot snapshot;
         int pageNo = 0;
@@ -652,6 +660,11 @@ class EnginePdfium : public EngineBase {
         Color background = 0;
         Color link = 0;
         u64 used = 0;
+        ThemeAccess access{};
+        FPDF_FILEACCESS file{};
+        FPDF_DOCUMENT doc = nullptr;
+        FPDF_FORMHANDLE form = nullptr;
+        FPDF_PAGE page = nullptr;
     };
     static constexpr int kThemeCacheEntries = 4;
     static constexpr u64 kThemeCacheBytes = 64 * 1024 * 1024;
@@ -681,12 +694,6 @@ class EnginePdfium : public EngineBase {
 
     PdfRenderSource ReadSource() { return {this, (u32)access.m_FileLen, ReadThemeSource, nullptr, nullptr}; }
 
-    struct ThemeAccess {
-        EnginePdfium* engine;
-        Str suffix;
-        u32 sourceSize;
-    };
-
     static int ReadThemeBlock(void* user, unsigned long offset, unsigned char* data, unsigned long count) {
         auto* access = (ThemeAccess*)user;
         u32 sourceSize = access->sourceSize;
@@ -709,7 +716,39 @@ class EnginePdfium : public EngineBase {
         return 1;
     }
 
-    static void ClearTheme(ThemeEntry& entry) {
+    // Caller holds gPdfiumLock.
+    static void CloseThemeDocument(ThemeEntry& entry) {
+        if (entry.page) {
+            if (entry.form) {
+                gPdfium.FORM_OnBeforeClosePage(entry.page, entry.form);
+            }
+            gPdfium.FPDF_ClosePage(entry.page);
+        }
+        if (entry.form) {
+            gPdfium.FPDFDOC_ExitFormFillEnvironment(entry.form);
+        }
+        if (entry.doc) {
+            gPdfium.FPDF_CloseDocument(entry.doc);
+        }
+        entry.page = nullptr;
+        entry.form = nullptr;
+        entry.doc = nullptr;
+    }
+
+    // Caller holds gPdfiumLock.
+    void CloseThemeDocuments() {
+        for (ThemeEntry& entry : themeEntries) {
+            CloseThemeDocument(entry);
+        }
+    }
+
+    // Caller holds themeLock; takes gPdfiumLock, as the idle timer may close the document meanwhile.
+    void ClearTheme(ThemeEntry& entry) {
+        if (!entry.used) {
+            return;
+        }
+        ScopedMutex lock(&gPdfiumLock);
+        CloseThemeDocument(entry);
         str::Free(entry.snapshot.data);
         entry = {};
     }
@@ -860,6 +899,46 @@ class EnginePdfium : public EngineBase {
         return entry->page;
     }
 
+    // Caller holds themeLock and gPdfiumLock. The snapshot's document and page stay open between tiles,
+    // so later tiles of a smart-themed page skip both parses; withForm draws its widgets.
+    FPDF_PAGE AcquireThemePage(ThemeEntry& entry, bool withForm) {
+        if (entry.doc && !!entry.form != withForm) {
+            CloseThemeDocument(entry);
+        }
+        if (!entry.doc) {
+            bool incremental = entry.snapshot.layout == PdfThemeLayout::Incremental;
+            u32 sourceSize = incremental ? (u32)access.m_FileLen : 0;
+            entry.access = {this, entry.snapshot.data, sourceSize};
+            entry.file = {};
+            entry.file.m_FileLen = sourceSize + (u32)len(entry.snapshot.data);
+            entry.file.m_GetBlock = ReadThemeBlock;
+            entry.file.m_Param = &entry.access;
+            entry.doc = gPdfium.FPDF_LoadCustomDocument(&entry.file, CStrTemp(password));
+            themeDocLoads++;
+            if (entry.doc && withForm) {
+                entry.form = gPdfium.FPDFDOC_InitFormFillEnvironment(entry.doc, &formInfo);
+            }
+            if (!entry.doc || (withForm && !entry.form)) {
+                CloseThemeDocument(entry);
+                return nullptr;
+            }
+        }
+        if (!entry.page) {
+            entry.page = LoadPage(entry.doc, entry.pageNo - 1);
+            if (!entry.page) {
+                CloseThemeDocument(entry);
+                return nullptr;
+            }
+            // the form module keeps a view per loaded page; it must drop it before the page closes
+            if (entry.form) {
+                gPdfium.FORM_OnAfterLoadPage(entry.page, entry.form);
+            }
+        }
+        pageUsedTick = GetTickCount64();
+        ArmPageTimer();
+        return entry.page;
+    }
+
     // Caller holds gPdfiumLock.
     void ClosePage(CachedPage& entry) {
         if (!entry.page) {
@@ -901,7 +980,7 @@ class EnginePdfium : public EngineBase {
         SetThreadpoolTimer(pageTimer, &ft, 0, 0);
     }
 
-    // Closes cached pages once idle, so a shown page's decoded images don't stay resident.
+    // Closes cached pages and themed snapshots once idle, so a shown page's decoded images don't stay resident.
     // Never waits for gPdfiumLock: while it's busy, the check runs again later.
     static void CALLBACK PageTimerProc(PTP_CALLBACK_INSTANCE, void* ctx, PTP_TIMER) {
         auto* engine = (EnginePdfium*)ctx;
@@ -919,6 +998,7 @@ class EnginePdfium : public EngineBase {
             PdfiumProfile profile(StrL("idle"));
             profile.Mark(StrL("start"));
             engine->CloseCachedPages();
+            engine->CloseThemeDocuments();
             engine->pageTimerArmed = false;
             profile.Mark(StrL("close-pages"));
         }
@@ -1919,10 +1999,11 @@ class EnginePdfium : public EngineBase {
         }
         ScopedMutex lock(&gPdfiumLock);
         if (profile.enabled) {
-            logf("PDFium page loads: %d\n", pageLoads);
+            logf("PDFium page loads: %d, themed document loads: %d\n", pageLoads, themeDocLoads);
         }
         // before the form environment: closing a page with a form view uses it
         CloseCachedPages();
+        CloseThemeDocuments();
         if (!tocFromEditor) {
             DestroyTocTree(toc);
         }
@@ -1955,7 +2036,7 @@ class EnginePdfium : public EngineBase {
         str::Free(fileData);
         str::Free(password);
         for (auto& entry : themeEntries) {
-            ClearTheme(entry);
+            str::Free(entry.snapshot.data);
         }
         if (runtime) {
             gPdfium.Release();
@@ -2698,63 +2779,32 @@ class EnginePdfium : public EngineBase {
         if (theme && theme->snapshot.status == PdfThemeStatus::Failed) {
             return {DrawStatus::NeedsMupdf};
         }
-        u32 sourceSize = theme && theme->snapshot.layout == PdfThemeLayout::Incremental ? (u32)access.m_FileLen : 0;
-        ThemeAccess themedAccess{this, theme ? theme->snapshot.data : Str{}, sourceSize};
         ScopedMutex lock(&gPdfiumLock);
         profile.Mark(StrL("lock"));
         if (AtomicIntGet(&cookie->aborted)) {
             return {DrawStatus::Canceled};
         }
         bool drawAnnots = parts == PdfRenderParts::ContentsAndAnnotations;
-        FPDF_FILEACCESS themedFile{};
-        struct ThemeDocument {
-            FPDF_DOCUMENT doc = nullptr;
-            FPDF_FORMHANDLE form = nullptr;
-            ~ThemeDocument() {
-                if (form) {
-                    gPdfium.FPDFDOC_ExitFormFillEnvironment(form);
-                }
-                if (doc) {
-                    gPdfium.FPDF_CloseDocument(doc);
-                }
-            }
-        } themed;
-        FPDF_DOCUMENT drawDoc = doc;
+
+        // the page stays parsed between tiles, in doc or in the theme's snapshot
         FPDF_FORMHANDLE drawForm = form;
+        FPDF_PAGE page = nullptr;
         if (theme && theme->snapshot.data.s) {
-            themedFile.m_FileLen = sourceSize + (u32)len(theme->snapshot.data);
-            themedFile.m_GetBlock = ReadThemeBlock;
-            themedFile.m_Param = &themedAccess;
-            themed.doc = gPdfium.FPDF_LoadCustomDocument(&themedFile, CStrTemp(password));
-            if (themed.doc && form && drawAnnots) {
-                themed.form = gPdfium.FPDFDOC_InitFormFillEnvironment(themed.doc, &formInfo);
-            }
-            if (!themed.doc || (form && drawAnnots && !themed.form)) {
+            page = AcquireThemePage(*theme, form && drawAnnots);
+            if (!page) {
                 return {DrawStatus::NeedsMupdf};
             }
-            if (themed.doc) {
-                drawDoc = themed.doc;
-                drawForm = themed.form;
+            drawForm = theme->form;
+        } else {
+            page = AcquirePage(args.pageNo, PageFormView::Register);
+            if (!page) {
+                return {DrawStatus::Failed};
             }
-        }
-
-        // doc's pages stay parsed between tiles; a themed snapshot's page is drawn once
-        bool cached = !themed.doc;
-        FPDF_PAGE page = cached ? AcquirePage(args.pageNo, PageFormView::Register) : LoadPage(drawDoc, args.pageNo - 1);
-        if (!page) {
-            return {themed.doc ? DrawStatus::NeedsMupdf : DrawStatus::Failed};
         }
         profile.Mark(StrL("page"));
         if (PdfiumCookie::IsCanceled(cookie)) {
-            if (!cached) {
-                gPdfium.FPDF_ClosePage(page);
-            }
             profile.Mark(StrL("canceled-page"));
             return {DrawStatus::Canceled};
-        }
-        // the form module keeps a view per loaded page; it must drop it before the page closes
-        if (drawForm && !cached) {
-            gPdfium.FORM_OnAfterLoadPage(page, drawForm);
         }
         FPDF_BITMAP bmp =
             gPdfium.FPDFBitmap_CreateEx(pixmap->width, pixmap->height, FPDFBitmap_BGRA, pixmap->data, pixmap->stride);
@@ -2786,12 +2836,6 @@ class EnginePdfium : public EngineBase {
             }
             gPdfium.FPDF_RenderPage_Close(page);
             gPdfium.FPDFBitmap_Destroy(bmp);
-        }
-        if (!cached) {
-            if (drawForm) {
-                gPdfium.FORM_OnBeforeClosePage(page, drawForm);
-            }
-            gPdfium.FPDF_ClosePage(page);
         }
         profile.Mark(StrL("bitmap"));
         if (PdfiumCookie::IsCanceled(cookie)) {
