@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E65 | Share the file buffer between a PDFium engine and its clones                                                                                                                                                                                                                                | done — Share the PDFium file buffer with clones (E65); [results](#e65-shared-file-buffer-2026-11-16)                                                                                                                                    |
 | E67 | `ad-hoc-pdfium` auto-link check gets `https://example.com/wrapped/`, not the joined URL; fails before E60 too                                                                                                                                                                               | done — Join soft-wrapped URLs in auto-links (E67); [results](#e67-soft-wrapped-urls-2026-11-16)                                                                                                                                         |
 | E63 | Query MuPDF links through the probe, not a new open under the lock                                                                                                                                                                                                                          | done — Read MuPDF links from the render probe (E63); [results](#e63-mupdf-links-from-the-probe-2026-11-16)                                                                                                                              |
 | E62 | Reuse one MuPDF document for MuPDF-route tiles                                                                                                                                                                                                                                              | done — Draw MuPDF-route tiles from the render probe (E62); [results](#e62-mupdf-route-tiles-from-the-probe-2026-11-16)                                                                                                                  |
@@ -3796,3 +3797,21 @@ its left; the other #2239 checks are unchanged. Both engines report the joined U
 line, as `ad-hoc-pdfium` expects. Passing: `ad-hoc-pdfium` (it failed before),
 `issue-2239` on PDFium and MuPDF, `ad-hoc-pdfium-links`. `ad-hoc-pdfium` stays out of
 `run-solokpdf-ci.ts` (excluded there: mouse messages and pixel checks).
+
+## E65 shared file buffer (2026-11-16)
+
+A PDFium engine reads a file under 32 MiB into memory and closes the handle, and each
+`Clone()` (thumbnails palette, printing) copied that buffer. An engine and its clones now
+share one reference-counted buffer, freed with the last of them; it is never written after
+load. Files of 32 MiB or more keep reopening the handle as before.
+
+Debug, private bytes after the thumbnails palette rendered both pages of a generated
+2-page PDF with a 30 MiB comment, minus before opening it: 66.5 → 36.4 MiB (three launches
+each, within 0.2 MiB). The same PDF without the comment adds 6.1 MiB.
+
+The remaining 30 MiB over the small file is the hidden MuPDF editor: opening any command
+palette lists annotations, which loads it on the UI thread (`editor loaded=254.8 ms`,
+private bytes 102.6 → 135.7 MiB). Filed as E68. Passing on PDFium:
+`command-palette-thumbnails`, `ad-hoc-pdfium-thumb-theme`, `ad-hoc-thumbnails-hidden`,
+`ad-hoc-pdfium-source-lifetime`, `render-cache-shutdown`, `print-auto-rotate` and
+`ad-hoc-pdfium` (small and 33 MiB overwrite reloads).

@@ -65,6 +65,7 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   MuPDF editor; annotated pages also keep their files renameable
   (`tests/ad-hoc-pdfium-hover.ts`). The PDFium editor and clones reopen the same
   file object with independent positions and share rename/delete too.
+  Clones of a smaller file (thumbnails, printing) share the engine's in-memory copy.
   The direct MuPDF engine's large-file handle still blocks rename/delete on Windows.
 - After rename, delete or replacement of the path, PDFium's editor, clones,
   print preferences and auxiliary links use the retained input. Save As copies

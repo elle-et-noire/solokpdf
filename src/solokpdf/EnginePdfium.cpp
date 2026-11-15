@@ -366,6 +366,27 @@ class PdfiumCookie : public AbortCookie {
 // same limit as EngineMupdf: smaller files are read into memory
 constexpr i64 kMaxMemoryFileSize = 32LL * 1024 * 1024;
 
+// The bytes of an in-memory file, shared by an engine and its clones. Never modified after load.
+struct PdfiumFileBytes {
+    AtomicRefCount refs = 1;
+    Str data;
+};
+
+// takes ownership of data
+static PdfiumFileBytes* NewFileBytes(Str data) {
+    auto* bytes = new PdfiumFileBytes();
+    bytes->data = data;
+    return bytes;
+}
+
+static void ReleaseFileBytes(PdfiumFileBytes* bytes) {
+    if (!bytes || AtomicRefCountDec(&bytes->refs) != 0) {
+        return;
+    }
+    str::Free(bytes->data);
+    delete bytes;
+}
+
 // Keys a byte scan looks for; each needs a MuPDF query.
 enum PdfKeys {
     kGeometryKeys = 1, // /UserUnit, /Rotate off a multiple of 90
@@ -619,6 +640,8 @@ class EnginePdfium : public EngineBase {
     bool pageTimerArmed = false;
     AtomicBool pageTimerClosing = 0;
     HANDLE file = INVALID_HANDLE_VALUE;
+    // fileData views fileBytes, which clones share
+    PdfiumFileBytes* fileBytes = nullptr;
     Str fileData;
     bool dataBacked = false;
     FPDF_FILEACCESS access{};
@@ -863,7 +886,8 @@ class EnginePdfium : public EngineBase {
             free(d);
             return false;
         }
-        fileData = Str(d, n);
+        fileBytes = NewFileBytes(Str(d, n));
+        fileData = fileBytes->data;
         return true;
     }
 
@@ -2104,7 +2128,7 @@ class EnginePdfium : public EngineBase {
         if (file != INVALID_HANDLE_VALUE) {
             CloseHandle(file);
         }
-        str::Free(fileData);
+        ReleaseFileBytes(fileBytes);
         str::Free(password);
         for (auto& entry : themeEntries) {
             str::Free(entry.snapshot.data);
@@ -2171,15 +2195,19 @@ class EnginePdfium : public EngineBase {
         SetFilePath(path);
 
         dataBacked = source ? source->dataBacked : len(data) > 0;
-        if (source) {
-            data = source->fileData;
-        }
-        if (data.s) {
-            fileData = str::Dup(data);
-            if (!fileData.s) {
+        if (source && source->fileBytes) {
+            fileBytes = source->fileBytes;
+            AtomicRefCountAdd(&fileBytes->refs);
+            fileData = fileBytes->data;
+            access.m_FileLen = (unsigned long)len(fileData);
+        } else if (!source && data.s) {
+            Str copy = str::Dup(data);
+            if (!copy.s) {
                 *error = StrL("PDFium memory allocation failed.");
                 return false;
             }
+            fileBytes = NewFileBytes(copy);
+            fileData = fileBytes->data;
             access.m_FileLen = (unsigned long)len(fileData);
         } else {
             // Share writes so producers can overwrite a file kept open; it then reloads.

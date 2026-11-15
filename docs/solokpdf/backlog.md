@@ -6,7 +6,7 @@ D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (re
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D15, E68, F4).
+group (B76, C2, D15, E69, F4).
 
 ## Implementation and acceptance
 
@@ -19,7 +19,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-The [2026-11-13 findings](#2026-11-13-review-findings) and E58 are done. E64 and E65 below are open.
+The [2026-11-13 findings](#2026-11-13-review-findings) and E58 are done. E64 and E68 below are open.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
 explicitly requested.
@@ -75,10 +75,10 @@ A code-reading review (Fable, 2026-11-16) without Release measurements. Each cha
 keep pixels identical and be checked in Debug through `SOLOKPDF_PROFILE=1` phases or call
 counts; `pdfium.dll` is a Release binary, so its `page`/`draw` phases are representative.
 
-| ID  | Item                                                         | Status |
-| --- | ------------------------------------------------------------ | ------ |
-| E64 | Measure virtual-tree rows lazily                             | todo   |
-| E65 | Share the file buffer between a PDFium engine and its clones | todo   |
+| ID  | Item                                                                                                                        | Status |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | ------ |
+| E64 | Measure virtual-tree rows lazily                                                                                            | todo   |
+| E68 | Opening the command palette loads the hidden MuPDF editor on PDFium tabs to list annotations (UI thread, file-sized memory) | todo   |
 
 ## Deferred
 
