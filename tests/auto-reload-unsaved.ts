@@ -84,15 +84,22 @@ async function answerReload(frame: number, pid: number, button: number): Promise
 }
 
 async function startInput(client: ControlClient, canvas: number, type: "text" | "choice"): Promise<number> {
-  const res = await client.request(ControlCommand.TestCurrentPdf, ["widget-cursor", 1, 200, 350]);
-  const pt = /pt=(-?\d+),(-?\d+)/.exec(String(res[1]));
-  if (!pt) throw new Error(`No field point: ${res[1]}`);
-  await clickAt(canvas, +pt[1]!, +pt[2]!, 0, 0, client);
+  // A click while a moved tab's window still lays out can miss the field; click once more.
   let editor = 0;
-  await until(() => {
-    editor = findVisibleChildWindow(canvas, type === "choice" ? "ListBox" : "Edit");
-    return editor !== 0;
-  }, "No form editor");
+  for (let attempt = 0; attempt < 2 && editor === 0; attempt++) {
+    await client.waitForRenderIdle();
+    const res = await client.request(ControlCommand.TestCurrentPdf, ["widget-cursor", 1, 200, 350]);
+    const pt = /pt=(-?\d+),(-?\d+)/.exec(String(res[1]));
+    if (!pt) throw new Error(`No field point: ${res[1]}`);
+    await clickAt(canvas, +pt[1]!, +pt[2]!, 0, 0, client);
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      editor = findVisibleChildWindow(canvas, type === "choice" ? "ListBox" : "Edit");
+      if (editor !== 0) break;
+      await Bun.sleep(40);
+    }
+  }
+  if (editor === 0) throw new Error("No form editor");
   if (type === "text") sendText(editor, kEdited);
   else sendMessage(editor, kSetSelection, 1, 0);
   return editor;
@@ -225,6 +232,7 @@ async function check(engine: string, mode: Mode): Promise<void> {
         if (!idx) throw new Error(`Other tab not found: ${rows}`);
         const moved = await client.request(ControlCommand.TestMigrateTab, [0, +idx[1]!, -1]);
         if (moved[0] !== 0) throw new Error(`Cannot create second window: ${moved[1]}`);
+        await client.waitForRenderIdle();
       }
       const canvas = findCanvas(frame);
       let editor = 0;
