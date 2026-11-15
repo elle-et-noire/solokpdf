@@ -266,6 +266,8 @@ void SidebarTree::WindowMessage(ControlBase::WndProcEvent* ev) {
 
 #if IS_DEBUG
 static constexpr WPARAM kSidebarCountItems = 20;
+static constexpr WPARAM kSidebarMeasuredItems = 21;
+static constexpr WPARAM kSidebarContentWidth = 22;
 
 void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
     if (!gForTesting) return;
@@ -356,6 +358,12 @@ void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
                 break;
             case kSidebarCountItems:
                 ev->res = info.itemCount;
+                break;
+            case kSidebarMeasuredItems:
+                ev->res = info.measuredItems;
+                break;
+            case kSidebarContentWidth:
+                ev->res = info.contentWidth;
                 break;
             default:
                 ev->res = -1;

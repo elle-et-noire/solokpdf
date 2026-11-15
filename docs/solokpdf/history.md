@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E64 | Measure virtual-tree rows lazily                                                                                                                                                                                                                                                            | done — Measure virtual-tree rows when first shown (E64); [results](#e64-lazy-tree-row-measuring-2026-11-16)                                                                                                                             |
 | E65 | Share the file buffer between a PDFium engine and its clones                                                                                                                                                                                                                                | done — Share the PDFium file buffer with clones (E65); [results](#e65-shared-file-buffer-2026-11-16)                                                                                                                                    |
 | E67 | `ad-hoc-pdfium` auto-link check gets `https://example.com/wrapped/`, not the joined URL; fails before E60 too                                                                                                                                                                               | done — Join soft-wrapped URLs in auto-links (E67); [results](#e67-soft-wrapped-urls-2026-11-16)                                                                                                                                         |
 | E63 | Query MuPDF links through the probe, not a new open under the lock                                                                                                                                                                                                                          | done — Read MuPDF links from the render probe (E63); [results](#e63-mupdf-links-from-the-probe-2026-11-16)                                                                                                                              |
@@ -3815,3 +3816,31 @@ private bytes 102.6 → 135.7 MiB). Filed as E68. Passing on PDFium:
 `command-palette-thumbnails`, `ad-hoc-pdfium-thumb-theme`, `ad-hoc-thumbnails-hidden`,
 `ad-hoc-pdfium-source-lifetime`, `render-cache-shutdown`, `print-auto-rotate` and
 `ad-hoc-pdfium` (small and 33 MiB overwrite reloads).
+
+## E64 lazy tree row measuring (2026-11-16)
+
+`VirtTree::Measure` asked every node for its font and measured its title (about 25 µs per node,
+E57) on each model change (every document open and tab switch) and font/DPI change, collapsed
+branches included. A node is now measured when it first becomes a row; a model, font or DPI
+change forgets the measurements and measures the rows only. The horizontal extent still covers
+every row, updated when rows are expanded; expanding everything pays the full cost once.
+`ad-hoc-virtual-toc` checks the measured count (it measured the collapsed bookmark before)
+and that expanding a long child title widens the extent.
+
+Debug, the E57 script (`.work/measure/measure-toc.ts`); nested outlines have collapsed parts
+of 100 items:
+
+| Outline | Items   | Open to populated | Font/DPI change (median) |
+| ------- | ------- | ----------------- | ------------------------ |
+| nested  | 5,000   | 474 → 309 ms      | 145.1 → 4.2 ms           |
+| nested  | 20,000  | 1,076 → 549 ms    | 548.8 → 7.4 ms           |
+| nested  | 50,000  | 2,243 → 965 ms    | 1,400.5 → 15.2 ms        |
+| nested  | 100,000 | 3,919 → 1,286 ms  | 2,935.2 → 30.0 ms        |
+
+Flat outlines have every node as a row, so they are unchanged: flat 100,000 in the same
+session, before 4,529–4,868 ms open and 3,162–3,222 ms font/DPI change (2 runs), after
+4,291–4,515 ms and 3,074–3,149 ms (3 runs).
+Passing: `ad-hoc-virtual-toc`, `ad-hoc-virtual-favorites`, `ad-hoc-virtual-tree-focus`,
+`ad-hoc-tree-lifetime`, `ad-hoc-tree-double-click`, `ad-hoc-favorites-click`, `ad-hoc-tree-uia`,
+`ad-hoc-virtual-favorites-large`, `ad-hoc-favorites-filter-scroll`, `issue-3560` and
+`ad-hoc-pdfium-outline`; `bun cmd/run-unit-tests.ts -dbg` passes.

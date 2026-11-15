@@ -154,6 +154,8 @@ document area's bottom, with 4 DIP padding below the last row.
 (upstream: every bookmark on the current page and its parents, always).
 Always-visible overlay bars reserve room in the tree's viewport so a revealed
 row or title stays clear of the bars.
+Rows are measured when first shown, so collapsed branches of a large outline
+cost nothing until expanded.
 
 Implementation and validation results are in
 [history.md](history.md#virtual-sidebar-rollout-2026-11-09), with prototype details

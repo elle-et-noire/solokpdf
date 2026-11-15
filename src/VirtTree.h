@@ -45,6 +45,7 @@ struct VirtTreeTestInfo {
     int itemCount = 0;
     int selectedRow = -1;
     int contentWidth = 0;
+    int measuredItems = 0;
     int viewportHeight = 0;
     u64 generation = 0;
     HWND barX = nullptr;
@@ -142,6 +143,7 @@ struct VirtTree {
     i64 wheelRestX = 0;
     int bottomPad = 0;
     int contentDx = 0;
+    int measureDpi = 0;
     VirtTreeMetrics metrics;
     u64 measureGeneration = 0;
     u64 barsGeneration = 0;
@@ -158,7 +160,7 @@ struct VirtTree {
     bool UpdateBars();
     void Scroll(UINT message, WPARAM wp);
     bool Measure(int dpi = 0);
-    void MeasureExtent();
+    bool MeasureRows();
     void Select(VirtTreeSelectEvent* ev);
     void Expand(VirtTreeExpandEvent* ev);
     void ExpandRange(int first, int end, VirtTreeExpansion, VirtTreeSelectReason = VirtTreeSelectReason::Programmatic);

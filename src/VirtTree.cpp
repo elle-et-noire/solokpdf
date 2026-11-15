@@ -257,7 +257,7 @@ bool VirtTree::EnsureVisible(TreeItem item) {
     }
     if (len(expanded)) {
         state.RebuildRows();
-        MeasureExtent();
+        if (!MeasureRows()) return false;
         Guard update(this);
         if (!UpdateBars() || !update.SameRows()) return false;
         for (int parent : expanded) {
@@ -339,8 +339,7 @@ void VirtTree::Expand(VirtTreeExpandEvent* ev) {
     TreeItem before = state.selected;
     int node = state.FindNode(ev->item);
     if (node < 0 || !state.SetExpanded(ev->item, ev->expansion)) return;
-    MeasureExtent();
-    if (!UpdateBars()) return;
+    if (!MeasureRows() || !UpdateBars()) return;
     Guard guard(this);
     host->Invalidate();
     NotifyWinEvent(EVENT_OBJECT_STATECHANGE, host->native, OBJID_CLIENT, node + 1);
@@ -375,8 +374,7 @@ void VirtTree::ExpandToLevel(int level) {
     ExpandRange(0, len(state.nodes), VirtTreeExpansion::Collapse);
     if (!guard.SameModel()) return;
     state.ExpandLevels(level);
-    MeasureExtent();
-    if (!UpdateBars()) return;
+    if (!MeasureRows() || !UpdateBars()) return;
     host->Invalidate();
     VirtTreeUiaReset(uia);
     NotifyWinEvent(EVENT_OBJECT_REORDER, host->native, OBJID_CLIENT, CHILDID_SELF);
@@ -414,8 +412,7 @@ void VirtTree::ExpandRange(int first, int end, VirtTreeExpansion expansion, Virt
     }
     TreeItem previous = state.selected;
     if (!state.SetRange(first, end, expansion)) return;
-    MeasureExtent();
-    if (!UpdateBars()) return;
+    if (!MeasureRows() || !UpdateBars()) return;
     Guard guard(this);
     host->Invalidate();
     for (int node : changed) {
@@ -457,25 +454,32 @@ static bool IsTextBoundary(Str text, int offset) {
     return offset == 0 || offset == len(text) || ((u8)text.s[offset] & 0xc0) != 0x80;
 }
 
+// Collapsed branches are measured when expanded (MeasureRows): a large outline opens and
+// changes font without measuring every node.
 bool VirtTree::Measure(int dpi) {
-    Guard guard(this);
-    u64 generation = state.generation;
-    u64 measure = ++measureGeneration;
+    ++measureGeneration;
     DpiScope scope(host->native);
     if (dpi <= 0) dpi = DpiGetForHwnd(host->native);
-    int height = PlatformFontMeasureText(font, StrL("Ag")).dy + DpiScaleByDpi(dpi, 6);
-    Vec<int> widths;
-    Vec<PlatformFont*> fonts;
-    Vec<int> boldStarts;
-    Vec<int> boldLengths;
-    Vec<u8> layoutBold;
-    int count = len(state.nodes);
-    for (int i = 0; i < count; i++) {
+    measureDpi = dpi;
+    rowDy = PlatformFontMeasureText(font, StrL("Ag")).dy + DpiScaleByDpi(dpi, 6);
+    metrics.Reset(len(state.nodes));
+    return MeasureRows();
+}
+
+// Measures rows not measured yet and updates the horizontal extent, which covers every row.
+// False when a font query replaced the model, rows or measurements.
+bool VirtTree::MeasureRows() {
+    Guard guard(this);
+    u64 measure = measureGeneration;
+    DpiScope scope(host->native);
+    for (int row = 0; row < len(state.rows); row++) {
+        int node = state.rows[row];
+        if (metrics.measured[node]) continue;
         AutoArenaSavepoint temp;
-        VirtTreeFontQuery query{state.nodes[i].item, font, dpi};
+        VirtTreeFontQuery query{state.nodes[node].item, font, measureDpi};
         auto notify = onGetFont;
         notify.Call(&query);
-        if (!guard.tree || state.generation != generation || measureGeneration != measure || !host->native) {
+        if (!guard.SameRows() || measureGeneration != measure) {
             return false;
         }
         if (!query.font) query.font = font;
@@ -494,26 +498,16 @@ bool VirtTree::Measure(int dpi) {
                 useLayout = true;
             }
         }
-        VecAppend(fonts, query.font);
-        VecAppend(boldStarts, start);
-        VecAppend(boldLengths, boldLength);
-        VecAppend(layoutBold, (u8)useLayout);
-        VecAppend(widths, width);
+        metrics.fonts[node] = query.font;
+        metrics.boldStarts[node] = start;
+        metrics.boldLengths[node] = boldLength;
+        metrics.layoutBold[node] = (u8)useLayout;
+        metrics.widths[node] = width;
+        metrics.measured[node] = 1;
     }
-    rowDy = height;
-    metrics.fonts = fonts;
-    metrics.boldStarts = boldStarts;
-    metrics.boldLengths = boldLengths;
-    metrics.layoutBold = layoutBold;
-    metrics.widths = widths;
     metrics.UpdateExtent(state, rowDy);
     contentDx = metrics.extent;
     return true;
-}
-
-void VirtTree::MeasureExtent() {
-    metrics.UpdateExtent(state, rowDy);
-    contentDx = metrics.extent;
 }
 
 bool VirtTree::UpdateBars() {
@@ -757,6 +751,7 @@ VirtTreeTestInfo VirtTree::TestInfo() const {
     info.itemCount = len(state.nodes);
     info.selectedRow = state.FindRow(state.selected);
     info.contentWidth = contentDx;
+    for (u8 m : metrics.measured) info.measuredItems += m;
     info.viewportHeight = scrollY.viewport;
     info.generation = state.generation;
     info.barX = barX ? barX->hwnd : nullptr;

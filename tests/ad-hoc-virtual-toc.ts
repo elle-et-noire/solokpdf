@@ -34,6 +34,8 @@ import {
 } from "./winapi";
 
 const TEST_STATE = 0x8000 + 102;
+const MEASURED_ITEMS = 21;
+const CONTENT_WIDTH = 22;
 const WM_LBUTTONDBLCLK = 0x0203;
 const WM_HSCROLL = 0x0114;
 const SB_LEFT = 6;
@@ -52,7 +54,7 @@ export async function testit(): Promise<void> {
       "<< /Title (First) /Parent 6 0 R /Next 8 0 R /Dest [3 0 R /Fit] >>",
       "<< /Title (Second) /Parent 6 0 R /Prev 7 0 R /Next 9 0 R /First 10 0 R /Last 10 0 R /Count -1 /Dest [4 0 R /Fit] >>",
       "<< /Title (Third) /Parent 6 0 R /Prev 8 0 R /F 2 /C [1 0 0] /Dest [5 0 R /Fit] >>",
-      "<< /Title (Nested) /Parent 8 0 R /Dest [5 0 R /Fit] >>",
+      "<< /Title (Nested bookmark with a title wide enough to widen the tree) /Parent 8 0 R /Dest [5 0 R /Fit] >>",
     ]),
   );
   const appdata = tmpPath("virtual-toc-settings");
@@ -73,6 +75,7 @@ export async function testit(): Promise<void> {
     assert.equal(getWindowRect(tree).bottom, getWindowRect(canvas).bottom, "tree and document bottom edges differ");
     const state = (field: number, value = 0) => Number(sendMessage(tree, TEST_STATE, field, value));
     assert.equal(state(0), 3, "TOC rows");
+    assert.equal(state(MEASURED_ITEMS), 3, "collapsed bookmark was measured");
     assert.equal(state(1), 0, "initial selection");
     assert.equal(state(5, 2), 1, "bold bookmark font was not measured");
     assert.equal(state(6, 2), 0x0000ff, "bookmark text color was not applied");
@@ -82,6 +85,7 @@ export async function testit(): Promise<void> {
     assert.ok(state(3) > height, "DPI update did not change row height");
     sendMessage(tree, TEST_STATE, 9, dpi);
     assert.equal(state(3), height, "restoring DPI did not restore row height");
+    assert.equal(state(MEASURED_ITEMS), 3, "DPI update measured a collapsed bookmark");
     const waitPage = async (page: number) => {
       const until = Date.now() + 5000;
       while (Date.now() < until) {
@@ -99,8 +103,11 @@ export async function testit(): Promise<void> {
     sendMessage(tree, WM_LBUTTONDOWN, 0, packCoords(60, state(3) + Math.floor(state(3) / 2)));
     await waitPage(2);
     assert.equal(state(1), 1, "mouse selection");
+    const collapsedWidth = state(CONTENT_WIDTH);
     sendMessage(tree, WM_LBUTTONDOWN, 0, packCoords(5, state(3) + Math.floor(state(3) / 2)));
     assert.equal(state(0), 4, "mouse expansion");
+    assert.equal(state(MEASURED_ITEMS), 4, "expanded bookmark was not measured");
+    assert.ok(state(CONTENT_WIDTH) > collapsedWidth, "expanded bookmark did not widen the tree");
     sendMessage(tree, WM_KEYDOWN, VK_RIGHT, 0);
     await waitPage(3);
     assert.equal(state(1), 2, "keyboard selection of child");

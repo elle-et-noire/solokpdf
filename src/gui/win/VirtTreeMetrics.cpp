@@ -7,6 +7,18 @@
 #include "gui/win/VirtTreeState.h"
 #include "gui/win/VirtTreeMetrics.h"
 
+// Forget every measurement, e.g. for a new model, font or DPI.
+void VirtTreeMetrics::Reset(int nodeCount) {
+    VecResize(widths, nodeCount);
+    VecResize(fonts, nodeCount);
+    VecResize(boldStarts, nodeCount);
+    VecResize(boldLengths, nodeCount);
+    VecResize(layoutBold, nodeCount);
+    VecResize(measured, nodeCount);
+    for (u8& m : measured) m = 0;
+    extent = 0;
+}
+
 void VirtTreeMetrics::UpdateExtent(const VirtTreeState& state, int rowDy) {
     extent = 0;
     for (int index : state.rows) {
