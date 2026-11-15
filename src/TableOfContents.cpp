@@ -196,10 +196,10 @@ void ClearTocBox(MainWindow* win) {
 // Fill win->tocMatchingItems with every entry that should look "current" for
 // bestMatch: all TOC items on the same page, plus the ancestor chain (so a
 // nested 6 / 6.1 / 6.1.1 path all highlight together). TreeView still has only
-// one selection; extras are painted in OnTocItemStyle when gShowAllMatchingTOC.
+// one selection; extras are painted in OnTocItemStyle when TocHighlightAllMatches.
 static void SetTocMultiHighlight(MainWindow* win, TreeView* treeView, TocItem* bestMatch) {
     Vec<TocItem*> next;
-    if (gShowAllMatchingTOC && bestMatch && treeView) {
+    if (gSettings->tocHighlightAllMatches && bestMatch && treeView) {
         // All bookmarks that point at the same page as the best match (the issue's
         // "subsequent" same-page entries that TreeView single-select cannot show).
         if (bestMatch->pageNo >= 1 && treeView->treeModel) {

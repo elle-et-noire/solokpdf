@@ -27,10 +27,6 @@
 #include "TableOfContents.h"
 #include "TableOfContentsCommon.h"
 
-// When true, multi-highlight every TOC item that matches the current page
-// (issue #4642). Easy to flip for comparison with single-selection behavior.
-bool gShowAllMatchingTOC = true;
-
 // Own a stable copy of the destination at post time. Engine-private kinds
 // that hold fz_outline/fz_link (mupdf) are converted to scrollTo with
 // page/rect/zoom already resolved on the TocItem/dest.
@@ -232,7 +228,7 @@ bool TocMatchingItemsEq(const Vec<TocItem*>& a, const Vec<TocItem*>& b) {
 }
 
 bool TocItemIsMultiHighlight(MainWindow* win, TocItem* item) {
-    if (!gShowAllMatchingTOC || !win || !item) {
+    if (!gSettings->tocHighlightAllMatches || !win || !item) {
         return false;
     }
     return TocMatchingItemsContains(win->tocMatchingItems, item);

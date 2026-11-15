@@ -58,6 +58,7 @@ ShowFileNavigateHint = true
 ShowAnnotationAuthorInTooltip = false
 ShowTocPageNumbers = true
 TocWrapText = false
+TocHighlightAllMatches = true
 AutoGenerateTOC = false
 ShowStartPage = true
 SidebarDx = 0

@@ -150,6 +150,8 @@ The virtual trees use the existing `TreeModel` and support `Scrollbars` modes
 keyboard navigation, UI Automation and MSAA. Titles remain single-line without
 fixed page numbers or search-match highlighting. The scroll area reaches the
 document area's bottom, with 4 DIP padding below the last row.
+`TocHighlightAllMatches = false` highlights only the current bookmark, as in 3.6
+(upstream: every bookmark on the current page and its parents, always).
 Always-visible overlay bars reserve room in the tree's viewport so a revealed
 row or title stays clear of the bars.
 

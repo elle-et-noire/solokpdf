@@ -323,7 +323,7 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     // set to temporarily disable UpdateTocSelection
     bool tocKeepSelection = false;
     // Non-owning TOC items that match the current page (same page as best match
-    // plus ancestors). Used when gShowAllMatchingTOC to multi-highlight; the
+    // plus ancestors). Used when TocHighlightAllMatches to multi-highlight; the
     // tree still has a single selection (the best match). Cleared with the TOC.
     Vec<TocItem*> tocMatchingItems;
     // width of the toc/favorites sidebar; the source of truth for layout

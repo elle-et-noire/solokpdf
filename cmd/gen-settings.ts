@@ -1932,6 +1932,13 @@ const globalPrefs: Field[] = [
     "if true, long bookmark / table-of-contents entries wrap to the sidebar's width instead of being cut off",
   ).ver("3.7"),
   field(
+    "TocHighlightAllMatches",
+    Bool,
+    true,
+    "if true, highlight every bookmark / table-of-contents entry on the current page and its parent entries; " +
+      "if false, highlight only the current entry",
+  ).ver("3.7"),
+  field(
     "AutoGenerateTOC",
     Bool,
     false,
@@ -2612,6 +2619,7 @@ const globalPrefsLayout = [
   "ShowAnnotationAuthorInTooltip",
   "ShowTocPageNumbers",
   "TocWrapText",
+  "TocHighlightAllMatches",
   "ShowStartPage",
   "ScrollbarInSinglePage",
   "SmoothScroll",

@@ -150,10 +150,10 @@ void ToggleTocBox(MainWindow* win) {
 // Fill win->tocMatchingItems with every entry that should look "current" for
 // bestMatch: all TOC items on the same page, plus the ancestor chain (so a
 // nested 6 / 6.1 / 6.1.1 path all highlight together). The tree has only one
-// selection; the extras are painted by the pane when gShowAllMatchingTOC.
+// selection; the extras are painted by the pane when TocHighlightAllMatches.
 static void SetTocMultiHighlight(MainWindow* win, TocTree* tm, TocItem* bestMatch) {
     Vec<TocItem*> next;
-    if (gShowAllMatchingTOC && bestMatch && tm) {
+    if (gSettings->tocHighlightAllMatches && bestMatch && tm) {
         // All bookmarks that point at the same page as the best match (the issue's
         // "subsequent" same-page entries that a single selection cannot show).
         if (bestMatch->pageNo >= 1) {

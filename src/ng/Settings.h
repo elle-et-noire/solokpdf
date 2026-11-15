@@ -1391,6 +1391,10 @@ struct Settings {
     // if true, long bookmark / table-of-contents entries wrap to the
     // sidebar's width instead of being cut off
     bool tocWrapText;
+    // if true, highlight every bookmark / table-of-contents entry on the
+    // current page and its parent entries; if false, highlight only the
+    // current entry
+    bool tocHighlightAllMatches;
     // if true, show a list of frequently read documents when no document
     // is loaded
     bool showStartPage;

@@ -14,12 +14,6 @@ void ExpandTocToCurrentPage(MainWindow*);
 void UpdateTocExpansionState(Vec<int>& tocState, MainWindow*, TocTree*);
 void TocFilterChanged(MainWindow*);
 
-// When true (default), the bookmarks pane highlights every TOC entry that
-// matches the current page (same page number as the best match, plus the
-// ancestor chain), not only the single tree selection (issue #4642).
-// Flip to false to restore single-highlight-only behavior.
-extern bool gShowAllMatchingTOC;
-
 void GoToTocItem(MainWindow*, TocItem*);
 bool GoToAdjacentChapter(MainWindow*, bool next);
 // the tree the bookmarks pane shows: the filtered one if a filter is on

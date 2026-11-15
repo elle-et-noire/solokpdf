@@ -561,6 +561,7 @@ import { testit as tocTitleFallback } from "./toc-title-fallback.ts";
 import { testit as tocShowOnOpen } from "./toc-show-on-open.ts";
 import { testit as tocSelectionVisible } from "./toc-selection-visible.ts";
 import { testit as tocHoverColors } from "./toc-hover-colors.ts";
+import { testit as tocHighlightAll } from "./toc-highlight-all.ts";
 import { testit as tocNativeScroll } from "./toc-native-scroll.ts";
 import { testit as tocScrollbarTheme } from "./toc-scrollbar-theme.ts";
 import { testit as sidebarCueColor } from "./sidebar-cue-color.ts";
@@ -1134,6 +1135,7 @@ export const tests: NamedTest[] = [
   ["toc-show-on-open", tocShowOnOpen],
   ["toc-selection-visible", tocSelectionVisible],
   ["toc-hover-colors", tocHoverColors],
+  ["toc-highlight-all", tocHighlightAll],
   ["toc-native-scroll", tocNativeScroll],
   ["toc-scrollbar-theme", tocScrollbarTheme],
   ["sidebar-cue-color", sidebarCueColor],
