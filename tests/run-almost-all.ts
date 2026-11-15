@@ -266,6 +266,7 @@ import { testit as issue6509 } from "./issue-6509.ts";
 import { testit as issue6517 } from "./issue-6517.ts";
 import { testit as issue3940 } from "./issue-3940.ts";
 import { testit as issue6520 } from "./issue-6520.ts";
+import { testit as upstreamD14 } from "./ad-hoc-pdfium-d14.ts";
 import { testit as f7EndsPlacement } from "./f7-ends-placement.ts";
 import { testit as findUiOneAtATime } from "./find-ui-one-at-a-time.ts";
 import { testit as issue6477 } from "./issue-6477.ts";
@@ -1212,6 +1213,7 @@ export const tests: NamedTest[] = [
   ["issue-6509", issue6509],
   ["issue-6517", issue6517],
   ["issue-3940", issue3940],
+  ["ad-hoc-pdfium-d14", upstreamD14],
   ["issue-6520", issue6520],
   ["f7-ends-placement", f7EndsPlacement],
   ["find-ui-one-at-a-time", findUiOneAtATime],

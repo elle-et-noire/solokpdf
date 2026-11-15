@@ -85,7 +85,10 @@ import { testit as atomicPdfSave } from "./atomic-pdf-save.ts";
 import { testQuick as fullPdfSave } from "./ad-hoc-pdfium-full-save.ts";
 import { testit as printCloseReentry } from "./print-close-reentry.ts";
 
+import { testit as upstreamD14 } from "./ad-hoc-pdfium-d14.ts";
+
 const tests: NamedTest[] = [
+  ["ad-hoc-pdfium-d14", upstreamD14],
   ["pending-document-input", pendingDocumentInput],
   ["dialog-target-reentry", dialogTargetReentry],
   ["ad-hoc-pdfium-form-hover", formHover],

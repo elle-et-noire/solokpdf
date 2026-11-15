@@ -2025,7 +2025,7 @@ void ToggleReadColumns(MainWindow* win) {
 // a PDF shown trimmed, by Trim Pages To Selection or Trim Empty Margins
 bool CanSaveTrimmedPages(MainWindow* win) {
     DisplayModel* dm = win ? win->AsFixed() : nullptr;
-    if (!dm || !EngineMupdfIsPdf(dm->GetEngine())) {
+    if (!dm || !IsPdfDoc(win->CurrentTab())) {
         return false;
     }
     return !dm->GetUserCrop().IsEmpty() || dm->GetTrimEmptyMargins();

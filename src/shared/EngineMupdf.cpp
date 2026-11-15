@@ -12378,7 +12378,7 @@ bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
 // only cropBoxes[i], set as its CropBox; an empty box keeps the page as is.
 // Boxes are in PageMediabox() space. The open document is not changed.
 bool EngineMupdfSaveCropped(EngineBase* engine, Str path, const Vec<RectF>& cropBoxes) {
-    EngineMupdf* epdf = AsEngineMupdf(engine);
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!epdf || !epdf->pdfdoc || len(path) == 0) {
         return false;
     }
@@ -12406,6 +12406,13 @@ bool EngineMupdfSaveCropped(EngineBase* engine, Str path, const Vec<RectF>& crop
 
         stm = fz_open_buffer(ctx, buf);
         copy = pdf_open_document_with_stream(ctx, stm);
+        if (pdf_needs_password(ctx, copy) && epdf->pdfdoc->crypt) {
+            TempStr key = str::MemToHexTemp(Str((const char*)pdf_crypt_key(ctx, epdf->pdfdoc->crypt), kPdfCryptKeyLen));
+            TempStr password = str::JoinTemp(StrL(PDF_RAW_KEY_PASSWORD_PREFIX), key);
+            if (!pdf_authenticate_password(ctx, copy, CStrTemp(password))) {
+                fz_throw(ctx, FZ_ERROR_ARGUMENT, "cannot unlock cropped copy");
+            }
+        }
         int n = std::min(pdf_count_pages(ctx, copy), len(cropBoxes));
         for (int i = 0; i < n; i++) {
             RectF r = cropBoxes[i];
@@ -12576,10 +12583,27 @@ EngineBase* CreateEngineMupdfFromFile(Str path, FileType kind, int displayDPI, P
     return engine;
 }
 
+// Retained input gets a disk version only if the path still holds those bytes.
+static void SetDataSourceVersion(EngineMupdf* engine, Str data, Str path) {
+    i64 size = 0;
+    FILETIME modified{};
+    if (len(path) == 0 || !file::GetSizeAndTime(path, &size, &modified) || size != len(data)) {
+        return;
+    }
+    Str disk = file::ReadFile(path);
+    bool same = str::Eq(disk, data);
+    str::Free(disk);
+    if (same && FileTimeEq(modified, file::GetModificationTime(path))) {
+        engine->fileSizeAtLoad = size;
+        engine->fileTimeAtLoad = modified;
+    }
+}
+
 EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI, Str path) {
     EngineMupdf* engine = new EngineMupdf();
     engine->sourceRetained = true;
     engine->SetFilePath(path);
+    SetDataSourceVersion(engine, data, path);
     fz_stream* stm = FzStreamFromData(engine->Ctx(), (u8*)data.s, data.len);
     if (!engine->LoadFromStream(stm, nameHint, pwdUI) || !engine->FinishLoading()) {
         SafeEngineRelease(&engine);
@@ -12594,6 +12618,12 @@ EngineBase* CreateEngineMupdfFromHandle(HANDLE file, Str path, PasswordUI* pwdUI
     auto* engine = new EngineMupdf();
     engine->sourceRetained = true;
     engine->SetFilePath(path);
+    LARGE_INTEGER size{};
+    FILETIME modified{};
+    if (GetFileSizeEx(file, &size) && GetFileTime(file, nullptr, nullptr, &modified)) {
+        engine->fileSizeAtLoad = size.QuadPart;
+        engine->fileTimeAtLoad = modified;
+    }
     fz_stream* stream = OpenPdfHandle(engine->Ctx(), file);
     if (!engine->LoadFromStream(stream, StrL("file.pdf"), pwdUI) || !engine->FinishLoading()) {
         SafeEngineRelease(&engine);
