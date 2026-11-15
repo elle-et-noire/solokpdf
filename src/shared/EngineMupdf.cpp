@@ -1554,7 +1554,7 @@ static bool IsWhitespaceRune(int c) {
     return c <= 0xffff && iswspace((wint_t)c);
 }
 
-// True when the glyph at posOff is a newline that continues a URL started at
+// True when the glyph at posOff is a line break that continues a URL started at
 // startOff. Wrapped URLs end in a non-alphanumeric, resume slightly below and
 // to the left of the previous line's end, and do not start a new column
 // (issue #2239: a two-column table glued "Languagehat" onto archive.org/).
@@ -1563,7 +1563,9 @@ static bool LinkifyCheckMultiline(Utf8PageText pageText, int startOff, int posOf
     if (startOff < 0 || startOff >= posOff || posOff <= 0 || posOff >= pageLen || (posOff + 1) >= pageLen) {
         return false;
     }
-    if ('\n' != RuneAt(pageText, posOff)) {
+    // page text joins soft-wrapped lines with a space (#5793)
+    int sep = RuneAt(pageText, posOff);
+    if ('\n' != sep && ' ' != sep) {
         return false;
     }
     if (IsAlphaNumRune(RuneAt(pageText, posOff - 1)) || IsWhitespaceRune(RuneAt(pageText, posOff + 1))) {
@@ -1577,6 +1579,10 @@ static bool LinkifyCheckMultiline(Utf8PageText pageText, int startOff, int posOf
     Rect first = coords[startOff];
     // stext glyph boxes use page space with y growing down.
     if (next.BR().y <= last.y) {
+        return false;
+    }
+    // a space only wraps when the next glyph starts a lower line
+    if (' ' == sep && (float)next.y < (float)last.y + (float)last.dy * 0.5f) {
         return false;
     }
     if ((float)next.y > (float)last.BR().y + ((float)last.dy * 1.5f)) {

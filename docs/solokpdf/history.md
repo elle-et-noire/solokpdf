@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E67 | `ad-hoc-pdfium` auto-link check gets `https://example.com/wrapped/`, not the joined URL; fails before E60 too                                                                                                                                                                               | done — Join soft-wrapped URLs in auto-links (E67); [results](#e67-soft-wrapped-urls-2026-11-16)                                                                                                                                         |
 | E63 | Query MuPDF links through the probe, not a new open under the lock                                                                                                                                                                                                                          | done — Read MuPDF links from the render probe (E63); [results](#e63-mupdf-links-from-the-probe-2026-11-16)                                                                                                                              |
 | E62 | Reuse one MuPDF document for MuPDF-route tiles                                                                                                                                                                                                                                              | done — Draw MuPDF-route tiles from the render probe (E62); [results](#e62-mupdf-route-tiles-from-the-probe-2026-11-16)                                                                                                                  |
 | E66 | Keep the themed snapshot document and page between tiles (smart colors)                                                                                                                                                                                                                     | done — Keep themed snapshot pages parsed (E66); [results](#e66-themed-snapshot-pages-2026-11-16)                                                                                                                                        |
@@ -3780,3 +3781,18 @@ already holds. The reported links, canvas captures and exported pages are unchan
 Passing on PDFium: `ad-hoc-pdfium-links`, `ad-hoc-pdfium` (auto-link assertion skipped,
 see E67), `issue-1914`, `ad-hoc-pdfium-outline`, `ad-hoc-pdfium-hover` and
 `render-cache-shutdown`.
+
+## E67 soft-wrapped URLs (2026-11-16)
+
+Auto-linking joins a URL that wraps onto the next line (#2239) only at a `
+` in the page
+text. Copy joins soft-wrapped lines with a space (#5793); upstream `6c96027be` extended that
+to short lines of ragged-right text, and D14 (`e57e701ae`) applied it to PDFium page text. So
+in tightly set text the URL stopped at the line end on both engines: the fixture's
+`https://example.com/wrapped/` + `tail-part` gave `https://example.com/wrapped/` on MuPDF
+too. With D14's soft break turned off, PDFium gave the joined link again.
+`LinkifyCheckMultiline` now also accepts a space when the next glyph starts a lower line, to
+its left; the other #2239 checks are unchanged. Both engines report the joined URL once per
+line, as `ad-hoc-pdfium` expects. Passing: `ad-hoc-pdfium` (it failed before),
+`issue-2239` on PDFium and MuPDF, `ad-hoc-pdfium-links`. `ad-hoc-pdfium` stays out of
+`run-solokpdf-ci.ts` (excluded there: mouse messages and pixel checks).
