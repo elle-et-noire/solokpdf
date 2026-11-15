@@ -17,8 +17,9 @@ runs.
 The Debug ASan application passed `atomic-pdf-save`'s original
 `pdfium-small-w` case 40 consecutive times, then all 14 save cases. These local
 runs used the hidden desktop and the existing ASan options/suppressions.
-The updated ASan workflow adds this save/shutdown check; hosted validation
-has not been run for this change.
+The updated ASan workflow adds this save/shutdown check. Hosted run
+[43725820411](https://github.com/elle-et-noire/solokpdf/actions/runs/43725820411) passed it at `1ed7b7f33` with the pinned
+`14.52.37029` toolset (2026-11-15).
 
 `cmd/solok-fetch-asan.ts` pins six official VSIX packages and verifies their
 catalog SHA-256 digests. Build arguments select the same tools directory for

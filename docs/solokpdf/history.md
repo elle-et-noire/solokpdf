@@ -3317,8 +3317,9 @@ The independent probe passes with ASan `19.52.37029.0` and fails with installed
 The replacement preserves data, zeros the extension and detects the negative
 heap-overflow test. Debug ASan `atomic-pdf-save` passed the original shutdown
 case 40 times and all 14 save cases. The ASan workflow now runs that test.
-Hosted execution remains unverified for this change; no local Release build,
-full suite, suppression or exit exemption was added.
+No local Release build, full suite, suppression or exit exemption was added.
+Hosted run [43725820411](https://github.com/elle-et-noire/solokpdf/actions/runs/43725820411) passed it at
+`1ed7b7f33` with the pinned toolset (2026-11-15).
 [Details](asan-shutdown.md), [evidence](data/e38-correction-2026-11-11.json).
 
 ## E39 full PDF saves (2026-11-15)

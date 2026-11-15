@@ -49,7 +49,8 @@ SOL1–SOL3 are committed in `febc58f07`, within the [recorded checks](full-revi
 The original review and its unverified branches remain recorded.
 
 E38 uses a pinned matching MSVC/ASan toolset. The independent probe and local
-save/shutdown rechecks pass; hosted validation is not recorded for this change.
+save/shutdown rechecks pass; hosted run [43725820411](https://github.com/elle-et-noire/solokpdf/actions/runs/43725820411)
+passed it at `1ed7b7f33` (2026-11-15).
 [Results](asan-shutdown.md).
 
 ## 2026-11-13 review findings
