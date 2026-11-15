@@ -122,6 +122,8 @@ constexpr int kInnerPadding = 8;
 // the home page brand: five stripes in the logo colors and the name
 static const Str kHomeBrandFont = StrL("Segoe UI Semibold");
 constexpr int kHomeBrandFontSize = 15;
+// the "Open..." link; full and cached layouts must agree
+constexpr int kHomeOpenFontSize = 13;
 constexpr int kHomeBrandStripeDx = 3;
 constexpr int kHomeBrandStripeDy = 16;
 constexpr int kHomeBrandStripeGap = 2;
@@ -1476,7 +1478,7 @@ static void ApplyHomeLayoutCache(HomePageLayout& l, int scrollY) {
     l.highlighted = c.highlighted;
 
     PlatformFont* hdrFont = HomePageFont(24);
-    PlatformFont* fontText = HomePageFont(14);
+    PlatformFont* fontText = HomePageFont(kHomeOpenFontSize);
 
     Str txt = Tr("Recently Opened");
     if (gSettings->homePageSortByFrequentlyRead) {
@@ -1533,7 +1535,7 @@ static void LayoutHomePage(HomePageLayout& l) {
     }
 
     bool isRtl = IsUIRtl();
-    PlatformFont* fontText = HomePageFont(13);
+    PlatformFont* fontText = HomePageFont(kHomeOpenFontSize);
 
     // --- Pre-compute thumbnail grid x offset so header can align with it ---
     // use unfiltered count so layout stays stable when search filters results
