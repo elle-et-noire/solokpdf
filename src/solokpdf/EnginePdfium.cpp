@@ -595,6 +595,28 @@ class EnginePdfium : public EngineBase {
     // false when a byte scan found no /OpenAction, /PageLayout or /Direction
     bool catalogKeys = true;
     int openActionPageNo = 0;
+    int pageLoads = 0;
+    // recently used pages of doc, kept parsed; under gPdfiumLock (see AcquirePage)
+    struct CachedPage {
+        FPDF_PAGE page = nullptr;
+        int pageNo = 0;
+        // FORM_OnAfterLoadPage was called for it
+        bool formView = false;
+        u64 used = 0;
+    };
+    enum class PageFormView {
+        None,
+        Register,
+    };
+    static constexpr int kCachedPages = 3;
+    static constexpr DWORD kPageIdleMs = 1500;
+    static constexpr DWORD kPageRetryMs = 250;
+    CachedPage cachedPages[kCachedPages];
+    u64 pageClock = 0;
+    u64 pageUsedTick = 0;
+    PTP_TIMER pageTimer = nullptr;
+    bool pageTimerArmed = false;
+    AtomicBool pageTimerClosing = 0;
     HANDLE file = INVALID_HANDLE_VALUE;
     Str fileData;
     bool dataBacked = false;
@@ -795,6 +817,114 @@ class EnginePdfium : public EngineBase {
         return true;
     }
 
+    // Caller holds gPdfiumLock. Counted for the profile log: each call parses the page's contents.
+    FPDF_PAGE LoadPage(FPDF_DOCUMENT d, int index) {
+        pageLoads++;
+        return gPdfium.FPDF_LoadPage(d, index);
+    }
+
+    // Caller holds gPdfiumLock and got Page(pageNo). Tiles, links, text and hover share one parse
+    // of the page instead of each loading it. The cache owns the handle: it stays valid while the
+    // lock is held and fewer than kCachedPages other pages are acquired.
+    FPDF_PAGE AcquirePage(int pageNo, PageFormView view = PageFormView::None) {
+        CachedPage* entry = nullptr;
+        CachedPage* oldest = &cachedPages[0];
+        for (CachedPage& c : cachedPages) {
+            if (c.page && c.pageNo == pageNo) {
+                entry = &c;
+                break;
+            }
+            // an empty entry has used == 0
+            if (c.used < oldest->used) {
+                oldest = &c;
+            }
+        }
+        if (!entry) {
+            FPDF_PAGE page = LoadPage(doc, pageNo - 1);
+            if (!page) {
+                return nullptr;
+            }
+            ClosePage(*oldest);
+            entry = oldest;
+            entry->page = page;
+            entry->pageNo = pageNo;
+        }
+        // like FPDF_ClosePage, FORM_OnBeforeClosePage waits for the page to leave the cache
+        if (view == PageFormView::Register && form && !entry->formView) {
+            gPdfium.FORM_OnAfterLoadPage(entry->page, form);
+            entry->formView = true;
+        }
+        entry->used = ++pageClock;
+        pageUsedTick = GetTickCount64();
+        ArmPageTimer();
+        return entry->page;
+    }
+
+    // Caller holds gPdfiumLock.
+    void ClosePage(CachedPage& entry) {
+        if (!entry.page) {
+            return;
+        }
+        if (entry.formView) {
+            gPdfium.FORM_OnBeforeClosePage(entry.page, form);
+        }
+        gPdfium.FPDF_ClosePage(entry.page);
+        entry = {};
+    }
+
+    // Caller holds gPdfiumLock.
+    void CloseCachedPages() {
+        for (CachedPage& c : cachedPages) {
+            ClosePage(c);
+        }
+    }
+
+    // Caller holds gPdfiumLock.
+    void ArmPageTimer() {
+        if (pageTimerArmed) {
+            return;
+        }
+        if (!pageTimer) {
+            pageTimer = CreateThreadpoolTimer(PageTimerProc, this, nullptr);
+        }
+        if (pageTimer) {
+            SetPageTimer(kPageIdleMs);
+            pageTimerArmed = true;
+        }
+    }
+
+    void SetPageTimer(DWORD ms) {
+        // negative: relative, in 100 ns units
+        ULARGE_INTEGER due;
+        due.QuadPart = (ULONGLONG)(-(LONGLONG)ms * 10000);
+        FILETIME ft{due.LowPart, due.HighPart};
+        SetThreadpoolTimer(pageTimer, &ft, 0, 0);
+    }
+
+    // Closes cached pages once idle, so a shown page's decoded images don't stay resident.
+    // Never waits for gPdfiumLock: while it's busy, the check runs again later.
+    static void CALLBACK PageTimerProc(PTP_CALLBACK_INSTANCE, void* ctx, PTP_TIMER) {
+        auto* engine = (EnginePdfium*)ctx;
+        if (AtomicBoolGet(&engine->pageTimerClosing)) {
+            return;
+        }
+        if (!gPdfiumLock.TryLock()) {
+            engine->SetPageTimer(kPageRetryMs);
+            return;
+        }
+        u64 idle = GetTickCount64() - engine->pageUsedTick;
+        if (idle < kPageIdleMs) {
+            engine->SetPageTimer(kPageIdleMs - (DWORD)idle);
+        } else {
+            PdfiumProfile profile(StrL("idle"));
+            profile.Mark(StrL("start"));
+            engine->CloseCachedPages();
+            engine->pageTimerArmed = false;
+            profile.Mark(StrL("close-pages"));
+        }
+        gPdfiumLock.Unlock();
+    }
+
     PdfiumPage* Page(int pageNo) {
         if (pageNo < 1 || pageNo > pageCount) {
             return nullptr;
@@ -803,7 +933,8 @@ class EnginePdfium : public EngineBase {
         if (!p) {
             FS_SIZEF size{};
             if (len(geometry) == pageCount) {
-                FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+                // runs before any AcquirePage of this page, so no cached handle misses the rotation
+                FPDF_PAGE page = LoadPage(doc, pageNo - 1);
                 if (!page) {
                     return nullptr;
                 }
@@ -980,7 +1111,7 @@ class EnginePdfium : public EngineBase {
                 return rect;
             }
             auto* info = engine->Page(pageNo);
-            FPDF_PAGE page = info ? gPdfium.FPDF_LoadPage(engine->doc, pageNo - 1) : nullptr;
+            FPDF_PAGE page = info ? engine->AcquirePage(pageNo) : nullptr;
             if (!page) {
                 return rect;
             }
@@ -991,7 +1122,6 @@ class EnginePdfium : public EngineBase {
                 rect.x = hasX ? pt.x : kDestUseDefault;
                 rect.y = hasY ? pt.y : kDestUseDefault;
             }
-            gPdfium.FPDF_ClosePage(page);
             engine = nullptr;
             return rect;
         }
@@ -1473,10 +1603,11 @@ class EnginePdfium : public EngineBase {
             return;
         }
         PdfiumProfile profile(StrL("links"), pageNo);
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        FPDF_PAGE page = AcquirePage(pageNo);
         if (!page) {
             return;
         }
+        profile.Mark(StrL("page"));
         int pos = 0;
         FPDF_LINK link;
         bool needsMupdf = false;
@@ -1559,7 +1690,6 @@ class EnginePdfium : public EngineBase {
             // Hit testing walks backward; keep real /Link annotations above widgets.
             AddMupdfLinks(pageNo, info, 0);
         }
-        gPdfium.FPDF_ClosePage(page);
         info->linksLoaded = true;
         profile.Mark(StrL("load-and-scan"));
     }
@@ -1714,7 +1844,7 @@ class EnginePdfium : public EngineBase {
         VecReset(out);
         ScopedMutex lock(&gPdfiumLock);
         PdfiumPage* info = Page(pageNo);
-        FPDF_PAGE page = info ? gPdfium.FPDF_LoadPage(doc, pageNo - 1) : nullptr;
+        FPDF_PAGE page = info ? AcquirePage(pageNo) : nullptr;
         if (!page) {
             return false;
         }
@@ -1723,7 +1853,6 @@ class EnginePdfium : public EngineBase {
         for (int i = 0; i < n; i++) {
             AddPathPoints(page, info, gPdfium.FPDFPage_GetObject(page, i), identity, 0, out);
         }
-        gPdfium.FPDF_ClosePage(page);
         return true;
     }
 
@@ -1779,7 +1908,21 @@ class EnginePdfium : public EngineBase {
     ~EnginePdfium() override {
         PdfiumProfile profile(StrL("close"));
         profile.Mark(StrL("start"));
+        if (pageTimer) {
+            // a running callback may re-arm the timer before it sees pageTimerClosing
+            AtomicBoolSet(&pageTimerClosing, true);
+            for (int i = 0; i < 2; i++) {
+                SetThreadpoolTimer(pageTimer, nullptr, 0, 0);
+                WaitForThreadpoolTimerCallbacks(pageTimer, TRUE);
+            }
+            CloseThreadpoolTimer(pageTimer);
+        }
         ScopedMutex lock(&gPdfiumLock);
+        if (profile.enabled) {
+            logf("PDFium page loads: %d\n", pageLoads);
+        }
+        // before the form environment: closing a page with a form view uses it
+        CloseCachedPages();
         if (!tocFromEditor) {
             DestroyTocTree(toc);
         }
@@ -2066,7 +2209,7 @@ class EnginePdfium : public EngineBase {
         if (info->annotationsChecked) {
             return info->hasAnnotations;
         }
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        FPDF_PAGE page = AcquirePage(pageNo);
         if (!page) {
             return true;
         }
@@ -2084,7 +2227,6 @@ class EnginePdfium : public EngineBase {
                 break;
             }
         }
-        gPdfium.FPDF_ClosePage(page);
         info->annotationsChecked = true;
         return info->hasAnnotations;
     }
@@ -2126,7 +2268,7 @@ class EnginePdfium : public EngineBase {
 
     // Caller holds gPdfiumLock. False when a signature's state needs MuPDF.
     bool LoadFormRects(int pageNo, PdfiumPage* info) {
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        FPDF_PAGE page = AcquirePage(pageNo);
         if (!page) {
             return false;
         }
@@ -2151,7 +2293,6 @@ class EnginePdfium : public EngineBase {
             }
             gPdfium.FPDFPage_CloseAnnot(annot);
         }
-        gPdfium.FPDF_ClosePage(page);
         if (!ok) {
             VecClear(info->formRects);
             return false;
@@ -2259,7 +2400,7 @@ class EnginePdfium : public EngineBase {
 
     // Caller holds gPdfiumLock. Every widget, hidden ones too, as MuPDF lists them.
     void LoadWidgets(int pageNo, PdfiumPage* info) {
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        FPDF_PAGE page = AcquirePage(pageNo);
         if (!page) {
             return;
         }
@@ -2279,7 +2420,6 @@ class EnginePdfium : public EngineBase {
             }
             gPdfium.FPDFPage_CloseAnnot(annot);
         }
-        gPdfium.FPDF_ClosePage(page);
         info->widgetsLoaded = true;
     }
 
@@ -2425,7 +2565,7 @@ class EnginePdfium : public EngineBase {
             return {};
         }
         RectF media(0, 0, info->size.dx, info->size.dy);
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        FPDF_PAGE page = AcquirePage(pageNo);
         if (!page) {
             return media;
         }
@@ -2445,7 +2585,6 @@ class EnginePdfium : public EngineBase {
             content = found ? content.Union(box) : box;
             found = true;
         }
-        gPdfium.FPDF_ClosePage(page);
         return found ? content : media;
     }
 
@@ -2459,7 +2598,7 @@ class EnginePdfium : public EngineBase {
             if (!info) {
                 return;
             }
-            FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+            FPDF_PAGE page = AcquirePage(pageNo);
             if (!page) {
                 return;
             }
@@ -2487,7 +2626,6 @@ class EnginePdfium : public EngineBase {
                     VecAppend(out, PdfPageBox{spec.kind, rect});
                 }
             }
-            gPdfium.FPDF_ClosePage(page);
         }
         if (!hasMedia || missingNamedBox) {
             // PDFium only reads box entries on the page; MuPDF resolves inherited boxes.
@@ -2600,18 +2738,22 @@ class EnginePdfium : public EngineBase {
             }
         }
 
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(drawDoc, args.pageNo - 1);
+        // doc's pages stay parsed between tiles; a themed snapshot's page is drawn once
+        bool cached = !themed.doc;
+        FPDF_PAGE page = cached ? AcquirePage(args.pageNo, PageFormView::Register) : LoadPage(drawDoc, args.pageNo - 1);
         if (!page) {
             return {themed.doc ? DrawStatus::NeedsMupdf : DrawStatus::Failed};
         }
         profile.Mark(StrL("page"));
         if (PdfiumCookie::IsCanceled(cookie)) {
-            gPdfium.FPDF_ClosePage(page);
+            if (!cached) {
+                gPdfium.FPDF_ClosePage(page);
+            }
             profile.Mark(StrL("canceled-page"));
             return {DrawStatus::Canceled};
         }
         // the form module keeps a view per loaded page; it must drop it before the page closes
-        if (drawForm) {
+        if (drawForm && !cached) {
             gPdfium.FORM_OnAfterLoadPage(page, drawForm);
         }
         FPDF_BITMAP bmp =
@@ -2645,10 +2787,12 @@ class EnginePdfium : public EngineBase {
             gPdfium.FPDF_RenderPage_Close(page);
             gPdfium.FPDFBitmap_Destroy(bmp);
         }
-        if (drawForm) {
-            gPdfium.FORM_OnBeforeClosePage(page, drawForm);
+        if (!cached) {
+            if (drawForm) {
+                gPdfium.FORM_OnBeforeClosePage(page, drawForm);
+            }
+            gPdfium.FPDF_ClosePage(page);
         }
-        gPdfium.FPDF_ClosePage(page);
         profile.Mark(StrL("bitmap"));
         if (PdfiumCookie::IsCanceled(cookie)) {
             return {DrawStatus::Canceled};
@@ -2867,12 +3011,11 @@ class EnginePdfium : public EngineBase {
             return;
         }
         if (!info->imagesLoaded) {
-            FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+            FPDF_PAGE page = AcquirePage(pageNo);
             if (!page) {
                 return;
             }
             CollectImages(page, info);
-            gPdfium.FPDF_ClosePage(page);
         }
         for (RectF& r : info->images) {
             PointF c[4] = {r.TL(), PointF(r.x + r.dx, r.y), PointF(r.x, r.y + r.dy), r.BR()};
@@ -2995,7 +3138,7 @@ class EnginePdfium : public EngineBase {
             result.failed = true;
             return result;
         }
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
+        FPDF_PAGE page = AcquirePage(pageNo);
         if (!page) {
             PageText result;
             result.failed = true;
@@ -3012,7 +3155,6 @@ class EnginePdfium : public EngineBase {
                 gPdfium.FPDFPage_CloseAnnot(annot);
             }
         }
-        gPdfium.FPDF_ClosePage(page);
         *needsEditor = widgetText || missingUnicode;
         return result;
     }
@@ -3514,15 +3656,7 @@ class EnginePdfium : public EngineBase {
     bool HasClipOptimizations(int) override { return true; }
     bool BenchLoadPage(int pageNo) override {
         ScopedMutex lock(&gPdfiumLock);
-        if (!Page(pageNo)) {
-            return false;
-        }
-        FPDF_PAGE page = gPdfium.FPDF_LoadPage(doc, pageNo - 1);
-        if (!page) {
-            return false;
-        }
-        gPdfium.FPDF_ClosePage(page);
-        return true;
+        return Page(pageNo) && AcquirePage(pageNo);
     }
 };
 

@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E61 | Keep recently used PDFium page handles instead of reparsing per call                                                                                                                                                                                                                        | done — Keep recently used PDFium pages parsed (E61); [results](#e61-pdfium-page-handles-2026-11-16)                                                                                                                                     |
 | E60 | Read the catalog (open action, layout) once on the loader thread                                                                                                                                                                                                                            | done — Read the PDF catalog from the render probe (E60); [results](#e60-catalog-read-at-load-2026-11-16)                                                                                                                                |
 | E59 | Keep the startup default-app log off the launch path                                                                                                                                                                                                                                        | done — Log non-default file types off the launch path (E59); [results](#e59-startup-default-app-log-2026-11-16)                                                                                                                         |
 | E58 | Open flat outlines in linear time                                                                                                                                                                                                                                                           | done — Count tree children once per item (E58); [results](#e58-flat-outline-open-2026-11-15)                                                                                                                                            |
@@ -3659,3 +3660,34 @@ script's startup open. Rendering is unchanged. `ad-hoc-pdfium-catalog-layout` an
 `issue-2022` pass on PDFium. `ad-hoc-pdfium`, including `/OpenAction`, passes with its
 auto-link assertion skipped; that assertion also fails without this change
 (`https://example.com/wrapped/` instead of the joined `tail-part` URL).
+
+## E61 PDFium page handles (2026-11-16)
+
+Each tile, link scan, text extraction, annotation check, form/widget read, content box,
+page boxes, path points and destination rectangle loaded and closed its own `FPDF_PAGE`,
+so a shown page was parsed once per tile plus once per query. `AcquirePage` now keeps the
+last three pages of the document parsed, under `gPdfiumLock`. A drawn page registers its
+form view once (`FORM_OnAfterLoadPage`) and drops it when the page leaves the cache. A
+thread-pool timer closes the pages 1.5 s after their last use; it only `TryLock`s and
+retries 250 ms later when the lock is busy. The destructor stops the timer, then closes
+the pages before the form environment and the document. Themed snapshot documents and
+`Page()`'s one-time rotation fix still load and close their page per call.
+
+Debug (`pdfium.dll` is Release), zoom 250 % in a 900×1000 window: open, two hovers,
+a text selection on page 1, pages 4 and 2, then pages 1–5 exported at 150 and 50 DPI.
+`PDFium page loads` counts `FPDF_LoadPage` calls; the `page` phase is per tile.
+
+| PDF, theme       | Page loads | Later tiles of a page, `page` phase | Links `page` phase |
+| ---------------- | ---------- | ----------------------------------- | ------------------ |
+| BERT, Light      | 27 → 14    | 0.5–1.4 ms → 0.00 ms                | 0.61 → 0.00 ms     |
+| Attention, Light | 27 → 14    | 0.2–1.0 ms → 0.00–0.01 ms           | 0.36 → 0.00 ms     |
+| BERT, smart      | 25 → 20    | unchanged (themed snapshot)         | 0.94 → 0.01 ms     |
+| Attention, smart | 26 → 22    | unchanged (themed snapshot)         | 1.08 → 0.00 ms     |
+
+The first tile of a page still parses it (2–12 ms), as does a page evicted by three
+others. The idle release took 0.8 ms and freed 9.7 MiB of private memory on Attention
+(decoded figures), none on BERT. The 20 exported pages per PDF and theme hash identically before and after. Passing on PDFium:
+`ad-hoc-pdfium` (auto-link assertion skipped, see E60), `-tiles`, `-links`, `-text`,
+`-forms`, `-form-highlight`, `-form-hover`, `-form-js`, `-hover`, `-try-reads`,
+`-fit-content`, `-page-boxes`, `-theme`, `-images`, `-source-lifetime`, `-memory`,
+`-leak`, `-scroll` and `render-cache-shutdown`.

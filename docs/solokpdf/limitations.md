@@ -344,6 +344,9 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   menus (`GetElements`), Fit Content's content box (`PageContentBox`) and named
   destinations (`GetNamedDest`). On a slow page, or while another tab draws, the
   UI can pause for that tile (E55).
+- PDFium keeps the last three pages it parsed for tiles, links, text and hover,
+  and closes them 1.5 s after their last use. Pages drawn from a themed
+  snapshot (smart colors) are still parsed per tile (E61).
 
 ## Annotations, forms, signatures and attachments
 
