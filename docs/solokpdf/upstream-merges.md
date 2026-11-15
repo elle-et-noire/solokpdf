@@ -302,3 +302,11 @@ SolokPDF tests touched by conflicts passed on both engines: `keyboard-ime`,
 `theme-control-background` (after its wait also covers the dialog's
 drop-down, created after the titled window). `overlay-scrollbar-theme` needs
 a visible input desktop for screen pixels ([testing](testing.md)).
+
+Hosted CI: run
+[43716827963](https://github.com/elle-et-noire/solokpdf/actions/runs/43716827963)
+failed `auto-reload-unsaved` (MuPDF `other-text`: the click after a tab move
+missed the field during relayout); after `48e9f484a` made the test wait and
+retry, run
+[43718747287](https://github.com/elle-et-noire/solokpdf/actions/runs/43718747287)
+passed. Full suites not run.
