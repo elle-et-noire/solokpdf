@@ -3206,6 +3206,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | D11 | Verify the MuPDF patch ledger byte for byte                                      | done — restored the complete signing patch; 88 patches reproduce all 1410 vendored files; [results](#d11-mupdf-patch-verification-2026-11-09)                                                    |
 | D12 | Record hosted validation for the published revision                              | done — regular CI at `fc8b455e8` passed Debug/Release builds, unit and feature tests; [evidence and limits](#d12-hosted-evidence-2026-11-10)                                                     |
 | D13 | Add the four existing virtual-tree checks to regular SolokPDF CI                 | done — `9083edafe`; first and latest regular CI passed; [results](#hosted-d13e17-validation-2026-11-10)                                                                                          |
+| D14 | Merge upstream/master at b1a8e2257 into solokpdf-dev                             | done — Merge upstream/master b1a8e2257 (D14) and its (D14) follow-ups; [results](upstream-merges.md#merge-result-2026-11-15)                                                                     |
 
 ### E. Quality
 

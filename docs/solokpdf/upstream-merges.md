@@ -1,12 +1,10 @@
 # Upstream merges
 
-## Current status (2026-11-09)
+## Current status (2026-11-15)
 
-Merged through `8b716234f`; see the [latest merge](#merge-result-2026-11-08).
-Its validation follow-ups are closed: D8's hosted checks,
-[D9's targeted repeats](history.md#hosted-triage), [D10's Light/Dark review](history.md#d10-merged-ui-review-2026-11-09)
-and [D11's MuPDF patch comparison](history.md#d11-mupdf-patch-verification-2026-11-09)
-are complete.
+Merged through `b1a8e2257` in `4e4bc8593` (D14); see the
+[latest result](#merge-result-2026-11-15). D14 validation is recorded there.
+D8–D13 remain complete within their recorded scope.
 
 Records below are oldest first. Later results update the validation recorded
 at each merge; they do not establish that every test passes at current HEAD.
@@ -209,3 +207,98 @@ PDFium passed 574/584 tests and MuPDF 577/587. D9's
 Later 2026-11-09 follow-up: D9's eleven targets passed three hosted runs per
 engine. The merged-UI Light/Dark check (D10) and MuPDF patch-byte check (D11)
 are also complete; see the results linked at the top. No full suite was rerun.
+
+## Merge result (2026-11-15)
+
+Merged `upstream/master` at `b1a8e2257`, 131 commits after `8b716234f`,
+into `solokpdf-dev` (D14, merge commit `4e4bc8593`). Upstream adds
+Save Trimmed Pages As, View As Hex, Custom AI chat, Close Tabs of Missing
+Files and `KeepMissingSessionTabs`; Extract Pages and Convert to Images
+cover more document types. It shares annotation loading, narrows engine and
+UI interfaces, renders MuPDF pages into cached BGRA buffers, reuses the open
+engine for thumbnails, extracts MuPDF text from display lists, joins wrapped
+copy lines, reduces background painting and scrollbar updates, and fixes
+lifetimes around rendering, tabs, find, drags and save prompts. Dependencies
+include libjpeg-turbo 3.2.1, djvudec, GPUI and MuPDF patches 0086–0087.
+
+Conflicts (34 files):
+
+| Files                                                                   | Resolution                                                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Command/flag generators; Commands, Flags and both Settings outputs      | Upstream entries first, SolokPDF commands/flags after; regenerated. SolokPDF defaults and retired color flags stay as before. No new upstream default shortcut clashes with Ctrl+,, Vim or theme keys.                                     |
+| premake5.files.lua; TestApp.cpp                                         | Union with the new JPEG SIMD layout. Keep TestTree.cpp and a guarded testapp flag for three SolokPDF tree tests; drop the unused old app/layout/tab harness. vs2022 matches upstream exactly.                                              |
+| EngineAll.h, EngineCreate.cpp, EngineMupdf.cpp                          | Keep PDFium creation, selection, render probe and EditorLoad routing; move annotation entry points into upstream's shared implementation. Preserve redaction, source retention, signature Undo and operation-failure behavior.             |
+| AnnotEditToolbar.cpp                                                    | Shared loader takes EngineBase; loading routes through the editor for editing. Remove the old direct EngineMupdf loader.                                                                                                                   |
+| SumatraControl.cpp, tests/control.ts                                    | Keep upstream IDs through 164 and its holes; SolokPDF IDs are 165–176. Shared control framing is unchanged.                                                                                                                                |
+| HomePage, RegistryPreview, CrashHandler                                 | Move promo suppression and version attribution into HomePageCommon. Keep branding, crash policy and SolokPDF-data paths with the PE build ID.                                                                                              |
+| Theme/settings dialogs; BrightnessContrast and SignDocument common code | Keep the single Settings screen, SolokPDF label/button colors, and PDFium signing. Use upstream's renamed button styling helper.                                                                                                           |
+| OverlayScrollbar.cpp, Win.cpp, MainWindow.cpp                           | Shared thumb geometry retains SolokPDF RTL behavior, guarded from ng; keep keyboard/Vim/IME, test cursor, activation and clipboard helpers. Keep upstream JS submenus and remove unused window-size helpers.                               |
+| SumatraPDF.cpp and Common; ng/SumatraPDF.cpp                            | Keep render-color snapshots and shutdown retention with upstream lifetime checks. Annotation visibility calls SetHideAnnotations. Thumbnails share the open PDFium engine and retain theme metadata, pending state and stale-batch checks. |
+| Orig/ng unit tests, ng/test_util, run-almost-all.ts                     | Use upstream's shared parser tests with SolokPDF's retired flags removed; keep high-contrast coverage and SolokPDF order after issue-5978. Remove upstream-deleted tests.                                                                  |
+
+Fork preservation audit: compared the SolokPDF hunks from `8b716234f..0e0d4f651`
+for all 153 overlapping files under src/, cmd/ and tests/. Added behavior survives
+in place or at the shared location. Intentional removals: unused EngineDump flag;
+the old TestApp launcher (the tree test calls TestTree directly); obsolete
+annotation/Undo forwarding wrappers and uncalled ResizeHwndToClientArea;
+duplicate parser tests moved upstream; disabled caption-paint and file-checker
+loops. Generated numeric tables change by regeneration. Upstream removed
+`TestVirtTree`'s hit mode (3e2e764dd), which `issue-6464` (SolokPDF CI) uses; a
+follow-up restores it as SolokPDF code. Upstream's other deleted control commands
+and harness flags have no SolokPDF caller.
+
+MuPDF patches 0086–0087 are in the upstream table; solok-0001–0023 remain in
+their own table after it. Neither new patch touches a SolokPDF-patched file.
+A fresh 1.28.5 tree plus all 93 patches reproduces all 1410 vendored files
+byte for byte. No new vendored edit was needed.
+
+| Feature                       | PDFium status                                                                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Save Trimmed Pages As         | Initially wrote nothing. Now uses the lazy editor; the copied encrypted PDF reuses its unlocked key. CropBox geometry and encryption are tested.                                       |
+| Extract Pages                 | Existing PDF file tools remain; retained-input editors now record a verified source version so encrypted tabs can pass their key. Non-PDF extraction is upstream's vector path.        |
+| Convert to Images             | The open PDFium engine renders exports, including encrypted input; the editor stays unloaded.                                                                                          |
+| Page text / joined copy lines | PDFium's own text API; horizontal LTR wraps share MuPDF's paragraph heuristic. Rotated/RTL lines keep their source breaks. The test selection helper now includes the final character. |
+| Open-engine thumbnails        | Share the live PDFium engine with a reference; no editor for routine thumbnails. Keep theme colors and stale-render rejection.                                                         |
+| JavaScript submenus           | Existing document-JS editor path uses upstream's nested menu data.                                                                                                                     |
+| Annotation loading            | Shared loader, with PDFium editing routed through the lazy editor.                                                                                                                     |
+
+Follow-ups also correct RGB-order background initialization after upstream's
+BGRA render-target change; the existing RenderCache color unit test caught it.
+PDFium's fonts, antialiasing, resolution and rendering color path are unchanged.
+The new ad-hoc D14 test is registered in SolokPDF CI and the regular test list.
+The new session tests use SETTINGS_FILE; copy/menu tests use the process-local
+clipboard helpers.
+
+Validation (local Debug, hidden desktop, after the follow-ups): SolokPDF and
+ng Windows debug builds passed. Unit tests passed with each engine (105971
+on the PDFium solution); ng `test_util` passed 106669 after its settings
+golden test learned that SolokPDF retired `SelectionColor`. All five lint
+tests passed.
+
+`run-solokpdf-ci` passed 89/90 on PDFium and 86/90 on MuPDF. The shared
+failure, `issue-6464-tab-layout`, needed the restored `TestVirtTree` hit
+mode; `issue-6464` then passed on both engines. MuPDF's other three
+(`ad-hoc-pdfium-sig-status`, `ad-hoc-pdfium-catalog-layout`,
+`ad-hoc-pdfium-links`) assert PDFium behavior; the MuPDF hidden-button link
+code is unchanged from before the merge.
+
+Upstream's changed tests (`ad-hoc-chapters`, `background-tab-reload`,
+`caption-capture-loss`, `close-window-with-dialog`, `copy-join-lines`,
+`custom-ai-ui`, `custom-ai`, `f7-ends-placement`, `find-ui-one-at-a-time`,
+`hex-view`, `issue-3940`, `issue-5875`, `issue-6439`, `issue-6505`,
+`issue-6506`, `issue-6509`, `issue-6517`, `issue-6520`,
+`menu-bar-armed-deactivate`, `next-file-save-prompt`,
+`page-links-fresh-engine`, `pending-tab-freed-session-state`,
+`reload-keeps-fullscreen-layout`, `scrollbar-capture-loss`,
+`session-restore-broken-file`, `tab-switch-ends-modes`,
+`tab-switch-presentation`) passed on both engines. `codex-provider` fails on
+this machine: an installed Codex CLI under `%LOCALAPPDATA%\Programs\OpenAI`
+runs instead of the mock, which the test's skip check does not cover.
+
+SolokPDF tests touched by conflicts passed on both engines: `keyboard-ime`,
+`ad-hoc-theme-keyboard`, `theme-document-background`, `theme-render-cancel`,
+`ad-hoc-pdfium-theme`, `ad-hoc-pdfium-tiles`, `render-selections-8bpp`,
+`pdf-tools-encrypted`, `password-dialog-reuse-instance` and
+`theme-control-background` (after its wait also covers the dialog's
+drop-down, created after the titled window). `overlay-scrollbar-theme` needs
+a visible input desktop for screen pixels ([testing](testing.md)).

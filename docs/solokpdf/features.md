@@ -27,6 +27,17 @@ SolokPDF disables upstream update checks, commands and settings UI. Existing
   MuPDF and its AGPL obligations remain because the fallback/library remain.
 - No binary, downloaded PDF, build cache, PDB or archive is added to Git.
 
+## Upstream additions (D14)
+
+The 2026-11-15 merge adds Save Trimmed Pages As, View As Hex, Custom AI chat
+with an API endpoint, and Close Tabs of Missing Files. `KeepMissingSessionTabs`
+controls missing session placeholders. The new views use the existing theme
+colors; Settings stays on Ctrl+, with the single settings screen.
+
+Per-build crash/log directories use the PE build ID under SolokPDF-data.
+PDFium remains the default engine; ordinary text, rendering and thumbnails
+keep using PDFium. See [PDF tools](limitations.md#pdf-tools) for exports.
+
 ## Network comics
 
 Network RAR comics and CBX files above the memory limit use local copies keyed

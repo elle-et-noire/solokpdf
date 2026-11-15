@@ -184,6 +184,11 @@ This does not bound every shutdown callback or ordinary tab-close wait.
 
 ## Text, search and selection
 
+- D14 joins horizontal left-to-right paragraph wraps using PDFium glyph geometry
+  and the same boundary rules as MuPDF. Headings and paragraph breaks remain.
+  Rotated and right-to-left lines keep PDFium's breaks. No editor is loaded
+  for this step; `copy-join-lines` covers the four paragraph layouts.
+
 - Both engines show document selection with a translucent overlay, preserving
   the original text drawing. Theme fields `TextSelectionColor`, `SearchMatchColor`
   and `CurrentSearchMatchColor` control selection and search overlays; overlapping
@@ -466,6 +471,15 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   quick SolokPDF CI checks.
 
 ## PDF tools
+
+- D14 supports Save Trimmed Pages As on PDFium tabs through the lazy editor,
+  including unsaved annotations and encrypted input. Each page gets its shown
+  CropBox; outside content remains in the PDF. Extract Pages keeps encryption
+  and Convert to Images renders through PDFium without loading the editor.
+  `ad-hoc-pdfium-d14` covers plain and AES-256 inputs; `issue-6520` checks
+  saved page geometry. The editor records a disk version for retained input
+  only when those bytes still match the file, so encrypted tools can reuse
+  the unlocked key without accepting a changed source.
 
 - PDF tools accept a PDFium tab. The viewer stays in PDFium while MuPDF's
   existing file tools perform bake, compression, page extraction/deletion,
