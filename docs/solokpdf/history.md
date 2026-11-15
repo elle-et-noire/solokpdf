@@ -3245,6 +3245,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E58 | Open flat outlines in linear time                                                                                                                                                                                                                                                           | done — Count tree children once per item (E58); [results](#e58-flat-outline-open-2026-11-15)                                                                                                                                            |
 | E57 | Measure large outlines in the virtual tree                                                                                                                                                                                                                                                  | done — Record E56 and E57 measurements; [results](#e57-large-outlines-in-the-virtual-tree-2026-11-15)                                                                                                                                   |
 | E56 | Measure smart-theme tile cost                                                                                                                                                                                                                                                               | done — Record E56 and E57 measurements; [results](#e56-smart-theme-tile-cost-2026-11-15)                                                                                                                                                |
 | E55 | Document gPdfiumLock serialization                                                                                                                                                                                                                                                          | done — Document PDFium lock waits (E55); [results](#e55-pdfium-lock-serialization-2026-11-15)                                                                                                                                           |
@@ -3602,3 +3603,24 @@ Font and DPI changes grow linearly (about 25 µs per node in Debug). Opening a
 flat outline grows quadratically and is the same on MuPDF tabs (flat 50,000:
 19,274 ms), so it is app-side; `TocItem::ChildCount` walks the sibling list and
 `ChildAt` is constant only for sequential access. Filed as E58.
+
+## E58 flat outline open (2026-11-15)
+
+`TreeModelItems` asked `ChildCount` of the current parent on every step;
+`TocItem::ChildCount` walks the child list, so walking a flat outline was
+quadratic. `SetTocMultiHighlight` walks every item on each selection update.
+The iterator now asks once per item. `TreeModelItemsTest` (unit test) counts the
+calls on a 1,000-item flat model; it failed before the fix.
+
+Debug, same script as E57:
+
+| Outline | Items   | Before (E57)       | After    |
+| ------- | ------- | ------------------ | -------- |
+| flat    | 5,000   | 675 ms             | 1,083 ms |
+| flat    | 20,000  | 3,428 ms           | 2,150 ms |
+| flat    | 50,000  | 20,878 ms          | 2,271 ms |
+| flat    | 100,000 | UI hung over 120 s | 3,893 ms |
+| nested  | 100,000 | 4,005 ms           | 3,993 ms |
+
+Small outlines vary by startup noise. Font/DPI changes are unchanged.
+Checked with `bun cmd/run-unit-tests.ts -dbg` and `tests/ad-hoc-virtual-toc.ts`.

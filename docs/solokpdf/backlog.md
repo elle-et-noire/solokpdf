@@ -1,8 +1,7 @@
 # SolokPDF backlog
 
 Work scope as of 2026-11-15. E23–E25 are complete within the recorded review scope.
-E26–E57 are complete within their recorded validation scope. E58 is open, from E57's
-[measurement](history.md#e57-large-outlines-in-the-virtual-tree-2026-11-15).
+E26–E58 are complete within their recorded validation scope.
 D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -20,8 +19,7 @@ them passed. Their earlier procedures and pending-check records are historical.
 
 ## Next steps
 
-The [2026-11-13 findings](#2026-11-13-review-findings) are done. Fix E58 next, starting
-with a profile of the flat-outline open.
+The [2026-11-13 findings](#2026-11-13-review-findings) and E58 are done; no item is open.
 Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
 affected tests from [testing.md](testing.md); run full suites only when
 explicitly requested.
@@ -62,9 +60,7 @@ recorded in [full-review-results.md](full-review-results.md) and
 was built or reproduced. Confirm each with a failing test before fixing. Line numbers are at
 `ce9903893`.
 
-| ID  | P   | Status | Item                                 | Where and trigger                                                                                                                                                                                                                              |
-| --- | --- | ------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E58 | P2  | todo   | Flat outlines open in quadratic time | Opening an outline with many top-level items: 50,000 take 21 s in Debug, 100,000 hang the UI over 120 s; nested 100,000 take 4 s. Same on MuPDF. Suspect `TocItem::ChildCount` (list walk) or non-sequential `ChildAt` per item; profile first |
+All rows are done; see [history.md](history.md#completed-backlog).
 
 Structural notes from the review, not work items: the color-pass decision lives in
 `GetPageColorPass`, `BuildViewDarkModeProfile` and each engine (E46 is a disagreement);

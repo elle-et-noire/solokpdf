@@ -21,12 +21,13 @@ TreeItem TreeModelItems::iterator::operator*() const {
 }
 
 // pre-order: the current item's first child, else the next sibling of the
-// nearest ancestor that still has one
+// nearest ancestor that still has one. ChildCount is asked once per item:
+// TocItem counts by walking its children, which made flat outlines quadratic.
 TreeModelItems::iterator& TreeModelItems::iterator::operator++() {
-    VecAppend(stack, {curr, 0});
+    VecAppend(stack, {curr, 0, tm->ChildCount(curr)});
     while (len(stack) > 0) {
         Frame& f = stack[len(stack) - 1];
-        if (f.nextChild < tm->ChildCount(f.item)) {
+        if (f.nextChild < f.childCount) {
             curr = tm->ChildAt(f.item, f.nextChild++);
             return *this;
         }

@@ -370,6 +370,37 @@ struct BranchTreeTestModel : TreeModel {
     }
 };
 
+// ChildCount may walk a sibling list (TocItem), so callers must ask once per item
+struct FlatTreeTestModel : TreeModel {
+    static constexpr int kCount = 1000;
+    int childCountCalls = 0;
+    TreeItem Root() override { return 1; }
+    Str Text(TreeItem) override { return StrL("item"); }
+    TreeItem Parent(TreeItem item) override { return item > 1 ? 1 : 0; }
+    int ChildCount(TreeItem item) override {
+        childCountCalls++;
+        return item == 1 ? kCount : 0;
+    }
+    TreeItem ChildAt(TreeItem, int idx) override { return 2 + idx; }
+    bool IsExpanded(TreeItem) override { return false; }
+    void SetUserData(TreeItem, uintptr_t) override { utassert(false); }
+    uintptr_t GetUserData(TreeItem) override {
+        utassert(false);
+        return 0;
+    }
+};
+
+static void TreeModelItemsTest() {
+    FlatTreeTestModel model;
+    int n = 0;
+    for (TreeItem ti : TreeModelItems(&model)) {
+        utassert(ti == 1 + n);
+        n++;
+    }
+    utassert(n == FlatTreeTestModel::kCount + 1);
+    utassert(model.childCountCalls == n);
+}
+
 static void VirtTreeStateTest() {
     TreeStateTestModel model;
     VirtTreeState tree;
@@ -452,6 +483,7 @@ static void VirtTreeStateTest() {
 }
 
 void VirtCtrl_UnitTests() {
+    TreeModelItemsTest();
     VirtTreeStateTest();
     GdiFontDpiTest();
     Slider_HaloFitsTest();
