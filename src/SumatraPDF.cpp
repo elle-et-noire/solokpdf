@@ -17178,6 +17178,27 @@ static void InstallSumatraCrashHandler(bool localOnly) {
     CaptureSettings();
 }
 
+static void LogNonDefaultExtsThread() {
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    LogNonDefaultRegisteredExtensions();
+    if (SUCCEEDED(hr)) {
+        CoUninitialize();
+    }
+    DestroyTempArena();
+    AtomicIntDec(&gDangerousThreadCount);
+}
+
+// ~10 ms of registry and shell lookups that only feed the log; keep them off launch.
+// Counted as dangerous so Debug/ASan cleanup doesn't tear down logging under it.
+static void LogNonDefaultExtsAsync() {
+    AtomicIntInc(&gDangerousThreadCount);
+    ThreadHandle thread = StartThread(MkFunc0Void(LogNonDefaultExtsThread), StrL("LogNonDefaultExts"));
+    if (!thread) {
+        AtomicIntDec(&gDangerousThreadCount);
+    }
+    SafeCloseThreadHandle(&thread);
+}
+
 int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevInstance*/, _In_ LPSTR /*lpCmdLine*/,
                      _In_ int /*nCmdShow*/) {
     int exitCode = 1; // by default it's error
@@ -17540,7 +17561,7 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
 
     DetectExternalViewers();
     ReRegisterFileAssociations();
-    LogNonDefaultRegisteredExtensions();
+    LogNonDefaultExtsAsync();
 
     gRenderCache = new RenderCache();
     gFindTabByEngine = FindTabByEngineForCache;
