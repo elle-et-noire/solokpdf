@@ -645,7 +645,15 @@ class EnginePdfium : public EngineBase {
     Mutex editorLock;
     Mutex fileLock;
     Mutex themeLock;
+    // Guards renderProbe, its idle timer state and every use of its MuPDF parse. Taken after themeLock
+    // or gPdfiumLock (only TryLock under gPdfiumLock); nothing else is locked while it's held.
+    Mutex probeLock;
     PdfRenderProbe* renderProbe = nullptr;
+    PTP_TIMER probeTimer = nullptr;
+    bool probeTimerArmed = false;
+    u64 probeUsedTick = 0;
+    AtomicInt probeTiles = 0;
+    AtomicInt openedTiles = 0;
     struct ThemeAccess {
         EnginePdfium* engine;
         Str suffix;
@@ -967,17 +975,17 @@ class EnginePdfium : public EngineBase {
             pageTimer = CreateThreadpoolTimer(PageTimerProc, this, nullptr);
         }
         if (pageTimer) {
-            SetPageTimer(kPageIdleMs);
+            SetIdleTimer(pageTimer, kPageIdleMs);
             pageTimerArmed = true;
         }
     }
 
-    void SetPageTimer(DWORD ms) {
+    static void SetIdleTimer(PTP_TIMER timer, DWORD ms) {
         // negative: relative, in 100 ns units
         ULARGE_INTEGER due;
         due.QuadPart = (ULONGLONG)(-(LONGLONG)ms * 10000);
         FILETIME ft{due.LowPart, due.HighPart};
-        SetThreadpoolTimer(pageTimer, &ft, 0, 0);
+        SetThreadpoolTimer(timer, &ft, 0, 0);
     }
 
     // Closes cached pages and themed snapshots once idle, so a shown page's decoded images don't stay resident.
@@ -988,12 +996,12 @@ class EnginePdfium : public EngineBase {
             return;
         }
         if (!gPdfiumLock.TryLock()) {
-            engine->SetPageTimer(kPageRetryMs);
+            SetIdleTimer(engine->pageTimer, kPageRetryMs);
             return;
         }
         u64 idle = GetTickCount64() - engine->pageUsedTick;
         if (idle < kPageIdleMs) {
-            engine->SetPageTimer(kPageIdleMs - (DWORD)idle);
+            SetIdleTimer(engine->pageTimer, kPageIdleMs - (DWORD)idle);
         } else {
             PdfiumProfile profile(StrL("idle"));
             profile.Mark(StrL("start"));
@@ -1003,6 +1011,56 @@ class EnginePdfium : public EngineBase {
             profile.Mark(StrL("close-pages"));
         }
         gPdfiumLock.Unlock();
+    }
+
+    // Caller holds probeLock and just used renderProbe.
+    void ArmProbeTimer() {
+        probeUsedTick = GetTickCount64();
+        if (probeTimerArmed) {
+            return;
+        }
+        if (!probeTimer) {
+            probeTimer = CreateThreadpoolTimer(ProbeTimerProc, this, nullptr);
+        }
+        if (probeTimer) {
+            SetIdleTimer(probeTimer, kPageIdleMs);
+            probeTimerArmed = true;
+        }
+    }
+
+    // Like PageTimerProc: drops the fonts and images MuPDF-route tiles left in the probe, keeping its parse.
+    static void CALLBACK ProbeTimerProc(PTP_CALLBACK_INSTANCE, void* ctx, PTP_TIMER) {
+        auto* engine = (EnginePdfium*)ctx;
+        if (AtomicBoolGet(&engine->pageTimerClosing)) {
+            return;
+        }
+        if (!engine->probeLock.TryLock()) {
+            SetIdleTimer(engine->probeTimer, kPageRetryMs);
+            return;
+        }
+        u64 idle = GetTickCount64() - engine->probeUsedTick;
+        if (idle < kPageIdleMs) {
+            SetIdleTimer(engine->probeTimer, kPageIdleMs - (DWORD)idle);
+        } else {
+            PdfiumProfile profile(StrL("idle"));
+            profile.Mark(StrL("start"));
+            TrimPdfRenderProbe(engine->renderProbe);
+            engine->probeTimerArmed = false;
+            profile.Mark(StrL("trim-probe"));
+        }
+        engine->probeLock.Unlock();
+    }
+
+    static void StopIdleTimer(PTP_TIMER timer) {
+        if (!timer) {
+            return;
+        }
+        // a running callback may re-arm the timer before it sees pageTimerClosing
+        for (int i = 0; i < 2; i++) {
+            SetThreadpoolTimer(timer, nullptr, 0, 0);
+            WaitForThreadpoolTimerCallbacks(timer, TRUE);
+        }
+        CloseThreadpoolTimer(timer);
     }
 
     PdfiumPage* Page(int pageNo) {
@@ -1988,17 +2046,13 @@ class EnginePdfium : public EngineBase {
     ~EnginePdfium() override {
         PdfiumProfile profile(StrL("close"));
         profile.Mark(StrL("start"));
-        if (pageTimer) {
-            // a running callback may re-arm the timer before it sees pageTimerClosing
-            AtomicBoolSet(&pageTimerClosing, true);
-            for (int i = 0; i < 2; i++) {
-                SetThreadpoolTimer(pageTimer, nullptr, 0, 0);
-                WaitForThreadpoolTimerCallbacks(pageTimer, TRUE);
-            }
-            CloseThreadpoolTimer(pageTimer);
-        }
+        AtomicBoolSet(&pageTimerClosing, true);
+        StopIdleTimer(pageTimer);
+        StopIdleTimer(probeTimer);
         ScopedMutex lock(&gPdfiumLock);
         if (profile.enabled) {
+            logf("PDFium MuPDF-route tiles: probe=%d opened=%d\n", AtomicIntGet(&probeTiles),
+                 AtomicIntGet(&openedTiles));
             logf("PDFium page loads: %d, themed document loads: %d\n", pageLoads, themeDocLoads);
         }
         // before the form environment: closing a page with a form view uses it
@@ -2602,7 +2656,7 @@ class EnginePdfium : public EngineBase {
         }
         logf("PDFium: catalog query\n");
         PdfiumProfile profile(StrL("openaction"));
-        ScopedMutex themeScope(&themeLock);
+        ScopedMutex probeScope(&probeLock);
         if (!renderProbe) {
             renderProbe = NewPdfRenderProbe(ReadSource(), password);
             if (renderProbe && profile.enabled) {
@@ -2733,6 +2787,7 @@ class EnginePdfium : public EngineBase {
             return PdfRenderRoute::Unchecked;
         }
         PdfRenderSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
+        ScopedMutex probeScope(&probeLock);
         if (!renderProbe) {
             renderProbe = NewPdfRenderProbe(source, password);
             if (renderProbe && profile.enabled) {
@@ -2747,6 +2802,9 @@ class EnginePdfium : public EngineBase {
             DeletePdfRenderProbe(renderProbe);
             renderProbe = nullptr;
             return PdfRenderRoute::Unchecked;
+        }
+        if (renderProbe) {
+            ArmProbeTimer();
         }
         info->renderRoute = check.route;
         if (profile.enabled) {
@@ -2858,8 +2916,23 @@ class EnginePdfium : public EngineBase {
         PdfRenderSource source{this, (u32)access.m_FileLen, ReadThemeSource, cookie, PdfiumCookie::IsCanceled};
         PdfRenderAntialias antialias = disableAntiAlias ? PdfRenderAntialias::Disabled : PdfRenderAntialias::Enabled;
         profile.Mark(StrL("mupdf-start"));
-        bool drawn =
-            PdfRenderMupdf(source, password, args.pageNo, m, pixmap, args.darkProfile, parts, args.target, antialias);
+        // the probe's parse saves opening the file per tile; while another tile draws from it, open one
+        bool drawn = false;
+        bool viaProbe = false;
+        if (probeLock.TryLock()) {
+            if (renderProbe) {
+                viaProbe = true;
+                drawn = PdfRenderMupdf(renderProbe, source, password, args.pageNo, m, pixmap, args.darkProfile, parts,
+                                       args.target, antialias);
+                ArmProbeTimer();
+            }
+            probeLock.Unlock();
+        }
+        if (!viaProbe) {
+            drawn = PdfRenderMupdf(nullptr, source, password, args.pageNo, m, pixmap, args.darkProfile, parts,
+                                   args.target, antialias);
+        }
+        AtomicIntInc(viaProbe ? &probeTiles : &openedTiles);
         if (PdfiumCookie::IsCanceled(cookie)) {
             return {DrawStatus::Canceled};
         }

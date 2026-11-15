@@ -6947,11 +6947,22 @@ void DeletePdfRenderProbe(PdfRenderProbe* probe) {
     delete probe;
 }
 
+// Drops the fonts and images kept from earlier checks, links and tiles; the parse stays.
+void TrimPdfRenderProbe(PdfRenderProbe* probe) {
+    if (!probe || !probe->ctx) {
+        return;
+    }
+    fz_empty_store(probe->ctx);
+    fz_purge_glyph_cache(probe->ctx);
+}
+
 PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password) {
+    // the probe also draws MuPDF-route tiles; a small store bounds what they keep until trimmed
+    constexpr size_t kProbeStoreBytes = 32 << 20;
     auto* probe = new PdfRenderProbe();
     probe->source = source;
     probe->input.source = &probe->source;
-    probe->ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    probe->ctx = fz_new_context(nullptr, nullptr, kProbeStoreBytes);
     fz_context* ctx = probe->ctx;
     if (!ctx) {
         delete probe;
@@ -9146,22 +9157,27 @@ static void UnhookAbortedDevices(fz_device* drawDev, fz_device* outer) {
 
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 // Borrows a BGRA destination with its backdrop already filled; MuPDF produces premultiplied alpha.
-bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
-                    const DarkModeProfile* profile, PdfRenderParts parts, RenderTarget target,
+// With probe (its lock held), draws from the probe's parse instead of opening the file per tile.
+bool PdfRenderMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, Str password, int pageNo, const float m[6],
+                    Pixmap* pixmap, const DarkModeProfile* profile, PdfRenderParts parts, RenderTarget target,
                     PdfRenderAntialias antialias) {
     if (!pixmap || pixmap->format != PixmapFormat::BGRA8) {
         return false;
     }
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = probe ? probe->ctx : fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
         return false;
     }
-    install_load_windows_font_funcs(ctx);
-    InstallEmbeddedFontLoader();
+    if (!probe) {
+        install_load_windows_font_funcs(ctx);
+        InstallEmbeddedFontLoader();
+    }
     fz_set_aa_level(ctx, antialias == PdfRenderAntialias::Disabled || target == RenderTarget::Print ? 0 : 8);
     PdfStreamInput input{&source};
     fz_stream* stream = nullptr;
-    pdf_document* doc = nullptr;
+    // the probe's reads ignore cancellation, so a canceled tile can't leave its parse half-read;
+    // the draw device still stops on it
+    pdf_document* doc = probe ? probe->doc : nullptr;
     pdf_page* page = nullptr;
     fz_pixmap* pix = nullptr;
     fz_device* dev = nullptr;
@@ -9175,11 +9191,13 @@ bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, con
     fz_var(drawDev);
     fz_var(ok);
     fz_try(ctx) {
-        stream = fz_new_stream(ctx, &input, PdfStreamNext, nullptr);
-        stream->seek = PdfStreamSeek;
-        doc = pdf_open_document_with_stream(ctx, stream);
-        if (pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, CStrTemp(password))) {
-            fz_throw(ctx, FZ_ERROR_ARGUMENT, "wrong password");
+        if (!probe) {
+            stream = fz_new_stream(ctx, &input, PdfStreamNext, nullptr);
+            stream->seek = PdfStreamSeek;
+            doc = pdf_open_document_with_stream(ctx, stream);
+            if (pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, CStrTemp(password))) {
+                fz_throw(ctx, FZ_ERROR_ARGUMENT, "wrong password");
+            }
         }
         page = pdf_load_page(ctx, doc, pageNo - 1);
         pix = fz_new_pixmap_with_data(ctx, fz_device_bgr(ctx), pixmap->width, pixmap->height, nullptr, 1,
@@ -9207,8 +9225,10 @@ bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, con
         fz_drop_device(ctx, dev);
         fz_drop_pixmap(ctx, pix);
         fz_drop_page(ctx, (fz_page*)page);
-        pdf_drop_document(ctx, doc);
-        fz_drop_stream(ctx, stream);
+        if (!probe) {
+            pdf_drop_document(ctx, doc);
+            fz_drop_stream(ctx, stream);
+        }
     }
     fz_catch(ctx) {
         if (!source.isCanceled || !source.isCanceled(source.cancelData)) {
@@ -9217,7 +9237,9 @@ bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, con
             fz_ignore_error(ctx);
         }
     }
-    fz_drop_context(ctx);
+    if (!probe) {
+        fz_drop_context(ctx);
+    }
     if (ok) {
         pixmap->premultiplied = pixmap->hasAlpha;
     }

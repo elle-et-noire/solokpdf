@@ -144,6 +144,9 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   vector benchmark file. First-render and navigation times did not change
   measurably. A check canceled mid-analysis discards the parse; the next check
   reparses the document.
+- Tiles of pages routed to MuPDF draw from that parse (E62). A tile drawn while
+  another holds it opens the file for itself. Fonts and images those tiles
+  leave in its 32 MiB store are dropped 1.5 s after the last use.
 - PDFium draws colored Type 3 glyphs at full opacity under a fill alpha below
   1, set on the page or inherited by a form. Such pages use MuPDF in every
   color mode. Pages with a Type 3 font and a translucent ExtGState get a

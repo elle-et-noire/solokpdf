@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E62 | Reuse one MuPDF document for MuPDF-route tiles                                                                                                                                                                                                                                              | done — Draw MuPDF-route tiles from the render probe (E62); [results](#e62-mupdf-route-tiles-from-the-probe-2026-11-16)                                                                                                                  |
 | E66 | Keep the themed snapshot document and page between tiles (smart colors)                                                                                                                                                                                                                     | done — Keep themed snapshot pages parsed (E66); [results](#e66-themed-snapshot-pages-2026-11-16)                                                                                                                                        |
 | E61 | Keep recently used PDFium page handles instead of reparsing per call                                                                                                                                                                                                                        | done — Keep recently used PDFium pages parsed (E61); [results](#e61-pdfium-page-handles-2026-11-16)                                                                                                                                     |
 | E60 | Read the catalog (open action, layout) once on the loader thread                                                                                                                                                                                                                            | done — Read the PDF catalog from the render probe (E60); [results](#e60-catalog-read-at-load-2026-11-16)                                                                                                                                |
@@ -3720,3 +3721,35 @@ pages hash identically before and after in both themes. Passing on PDFium:
 `render-cache-shutdown`, `theme-pdfium-cache`, `theme-pdfium-fallback`,
 `theme-render-cancel`, `theme-dynamic-widget`, `theme-encrypted`, `theme-state-widget`
 and `theme-annotation-failure`.
+
+## E62 MuPDF-route tiles from the probe (2026-11-16)
+
+`PdfRenderMupdf` created a MuPDF context, opened the file (xref, page tree), loaded the page,
+fonts and images, drew one tile and dropped everything, for every tile of a page routed to
+MuPDF (colored Type 3 glyphs under fill alpha, uncolored tiling patterns). A MuPDF-route
+tile now draws from the render probe's parse, which every such page already has. The
+probe gets its own `probeLock` instead of `themeLock`: route checks take it after
+`themeLock`, `DrawMupdf` holds no other lock and only `TryLock`s it, and a tile that finds
+it busy opens the file as before, so render threads never wait for each other. Its reads
+ignore cancellation, so a canceled tile can't leave the kept parse half-read; the draw
+device still stops on it. The probe's store is 32 MiB instead of MuPDF's 256 MiB default,
+and a sibling of the E61 idle timer empties it and the glyph cache 1.5 s after the last
+use; the parse stays (B73).
+
+Debug, `SOLOKPDF_PROFILE=1`, the E66 script on a generated 5-page PDF whose pages all take
+the MuPDF route (Helvetica text, a 400×2000 JPEG, an uncolored tiling pattern stroke and a
+colored Type 3 glyph under `ca 0.5`): open, pages 4 and 2 at 250 %, then pages 1–5 exported
+at 150 and 50 DPI.
+
+| Theme | MuPDF-route tiles | File opens for them |
+| ----- | ----------------- | ------------------- |
+| smart | 24                | 24 → 7              |
+| Light | 24                | 24 → 7              |
+
+The 7 remaining opens are tiles drawn while another thread held the probe. Canvas captures
+and the exported pages hash identically before and after in both themes, so cached
+fonts and decoded images at other scales don't change the output. Trimming the probe took
+0.3–0.5 ms. Passing on PDFium: `pdfium-type3-alpha`, `pdfium-pattern-strokes`,
+`pdfium-pattern-rendering`, `theme-type3`, `theme-pattern-colors`, `theme-render-cancel`,
+`render-cache-shutdown`, `ad-hoc-pdfium-catalog-layout`, `issue-2022` and
+`ad-hoc-pdfium-tiles`.

@@ -35,6 +35,7 @@ struct PdfRenderCheck {
 
 PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password);
 void DeletePdfRenderProbe(PdfRenderProbe* probe);
+void TrimPdfRenderProbe(PdfRenderProbe* probe);
 PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, int pageNo);
 int PdfOpenActionPageMupdf(PdfRenderProbe* probe, PageLayout* layout);
 enum class PdfThemeLayout {
@@ -66,8 +67,8 @@ enum class PdfRenderAntialias {
     Disabled,
 };
 
-bool PdfRenderMupdf(const PdfRenderSource& source, Str password, int pageNo, const float m[6], Pixmap* pixmap,
-                    const DarkModeProfile* profile, PdfRenderParts parts, RenderTarget target,
+bool PdfRenderMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, Str password, int pageNo, const float m[6],
+                    Pixmap* pixmap, const DarkModeProfile* profile, PdfRenderParts parts, RenderTarget target,
                     PdfRenderAntialias antialias);
 
 bool IsEngineDjVuSupportedFileType(FileType kind);
