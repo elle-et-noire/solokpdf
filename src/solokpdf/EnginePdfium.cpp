@@ -654,6 +654,9 @@ class EnginePdfium : public EngineBase {
     u64 probeUsedTick = 0;
     AtomicInt probeTiles = 0;
     AtomicInt openedTiles = 0;
+    // under gPdfiumLock
+    int probeLinkQueries = 0;
+    int openedLinkQueries = 0;
     struct ThemeAccess {
         EnginePdfium* engine;
         Str suffix;
@@ -1668,7 +1671,20 @@ class EnginePdfium : public EngineBase {
     // destination without loading the target; MuPDF reads both, like /OpenAction.
     void AddMupdfLinks(int pageNo, PdfiumPage* info, int insertAt = -1) {
         Vec<PdfLinkMupdf> links;
-        PdfLinksMupdf(ReadSource(), password, pageNo, links);
+        // the probe's parse saves opening the file under gPdfiumLock; never wait here for a MuPDF tile
+        bool viaProbe = false;
+        if (probeLock.TryLock()) {
+            if (renderProbe) {
+                viaProbe = true;
+                PdfLinksMupdf(renderProbe, ReadSource(), password, pageNo, links);
+                ArmProbeTimer();
+            }
+            probeLock.Unlock();
+        }
+        if (!viaProbe) {
+            PdfLinksMupdf(nullptr, ReadSource(), password, pageNo, links);
+        }
+        (viaProbe ? probeLinkQueries : openedLinkQueries)++;
         for (auto& link : links) {
             if (link.remoteDest.s) {
                 if (auto* file = FileLinkAt(info, link.rect)) {
@@ -2053,6 +2069,7 @@ class EnginePdfium : public EngineBase {
         if (profile.enabled) {
             logf("PDFium MuPDF-route tiles: probe=%d opened=%d\n", AtomicIntGet(&probeTiles),
                  AtomicIntGet(&openedTiles));
+            logf("PDFium MuPDF link queries: probe=%d opened=%d\n", probeLinkQueries, openedLinkQueries);
             logf("PDFium page loads: %d, themed document loads: %d\n", pageLoads, themeDocLoads);
         }
         // before the form environment: closing a page with a form view uses it

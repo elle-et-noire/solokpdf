@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E63 | Query MuPDF links through the probe, not a new open under the lock                                                                                                                                                                                                                          | done — Read MuPDF links from the render probe (E63); [results](#e63-mupdf-links-from-the-probe-2026-11-16)                                                                                                                              |
 | E62 | Reuse one MuPDF document for MuPDF-route tiles                                                                                                                                                                                                                                              | done — Draw MuPDF-route tiles from the render probe (E62); [results](#e62-mupdf-route-tiles-from-the-probe-2026-11-16)                                                                                                                  |
 | E66 | Keep the themed snapshot document and page between tiles (smart colors)                                                                                                                                                                                                                     | done — Keep themed snapshot pages parsed (E66); [results](#e66-themed-snapshot-pages-2026-11-16)                                                                                                                                        |
 | E61 | Keep recently used PDFium page handles instead of reparsing per call                                                                                                                                                                                                                        | done — Keep recently used PDFium pages parsed (E61); [results](#e61-pdfium-page-handles-2026-11-16)                                                                                                                                     |
@@ -3753,3 +3754,29 @@ fonts and decoded images at other scales don't change the output. Trimming the p
 `pdfium-pattern-rendering`, `theme-type3`, `theme-pattern-colors`, `theme-render-cancel`,
 `render-cache-shutdown`, `ad-hoc-pdfium-catalog-layout`, `issue-2022` and
 `ad-hoc-pdfium-tiles`.
+
+## E63 MuPDF links from the probe (2026-11-16)
+
+PDFium reports Named actions only as unsupported and can't read a GoToR's named `/D` or a
+push button's navigation, so `LoadLinks` asked MuPDF for such pages: `PdfLinksMupdf` created a
+context and opened the whole file while `gPdfiumLock` was held, stalling every PDFium call in
+the app for the open. It now reads the links from the render probe's parse when `LoadLinks`
+gets `probeLock` with `TryLock` (gPdfiumLock → probeLock; nothing holding `probeLock` waits for
+`gPdfiumLock` or `themeLock`). A busy probe, e.g. a MuPDF-route tile drawing from it (E62), or
+an engine that has not opened one yet, keeps the one-shot open. The probe's idle timer also
+covers these queries.
+
+Debug, the E66 script on a generated 8-page Beamer-like PDF (First/Prev/Next/LastPage Named
+links and a GoToR link on every page): open, hovers on pages 1, 4, 2, 6 and 8, then
+`TestPageLinks` on pages 1, 3 and 8, each in a new engine that has no probe yet.
+
+| Engine                  | MuPDF opens under `gPdfiumLock` | `load-and-scan` phase (Debug MuPDF) |
+| ----------------------- | ------------------------------- | ----------------------------------- |
+| Viewer, 5 link queries  | 5 → 0                           | 1.21–1.38 → 0.57–0.98 ms            |
+| `TestPageLinks` engines | 3 → 3                           | unchanged                           |
+
+The saving grows with the file: an open parses the xref and page tree, which the probe
+already holds. The reported links, canvas captures and exported pages are unchanged.
+Passing on PDFium: `ad-hoc-pdfium-links`, `ad-hoc-pdfium` (auto-link assertion skipped,
+see E67), `issue-1914`, `ad-hoc-pdfium-outline`, `ad-hoc-pdfium-hover` and
+`render-cache-shutdown`.

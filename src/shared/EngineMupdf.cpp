@@ -7457,13 +7457,15 @@ static int NamedActionTarget(fz_context* ctx, pdf_obj* action, int pageIdx, int 
     return -1;
 }
 
-// Links PDFium can't fully read, including navigating push-button widgets.
-void PdfLinksMupdf(const PdfRenderSource& source, Str password, int pageNo, Vec<PdfLinkMupdf>& links) {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+// Links PDFium can't fully read, including navigating push-button widgets. With probe (its lock held),
+// reads them from the probe's parse instead of opening the file.
+void PdfLinksMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, Str password, int pageNo,
+                   Vec<PdfLinkMupdf>& links) {
+    fz_context* ctx = probe ? probe->ctx : fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     if (!ctx) {
         return;
     }
-    pdf_document* doc = OpenPdfForQuery(ctx, source, password);
+    pdf_document* doc = probe ? probe->doc : OpenPdfForQuery(ctx, source, password);
     pdf_page* page = nullptr;
     fz_link* widgetLinks = nullptr;
     fz_var(page);
@@ -7519,12 +7521,16 @@ void PdfLinksMupdf(const PdfRenderSource& source, Str password, int pageNo, Vec<
     fz_always(ctx) {
         fz_drop_link(ctx, widgetLinks);
         fz_drop_page(ctx, (fz_page*)page);
-        pdf_drop_document(ctx, doc);
+        if (!probe) {
+            pdf_drop_document(ctx, doc);
+        }
     }
     fz_catch(ctx) {
         fz_report_error(ctx);
     }
-    fz_drop_context(ctx);
+    if (!probe) {
+        fz_drop_context(ctx);
+    }
 }
 
 // Reads the catalog from the probe's parse, so opening needs no second MuPDF document.

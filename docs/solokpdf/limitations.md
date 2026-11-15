@@ -289,7 +289,8 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   links match MuPDF on a fixture (links and outline). PDFium reports
   First/Last/Prev/NextPage actions only as unsupported and can't name a GoToR
   destination without loading the target, so a page with such a link reads
-  them with MuPDF, like `/OpenAction`. Named links match MuPDF's targets and
+  them with MuPDF, from the render probe's parse when it is free (E63), like
+  `/OpenAction`. Named links match MuPDF's targets and
   rects, including on a cropped, rotated page; a GoToR with a named `/D` opens
   the target there, as with MuPDF (an explicit page array opens at the start in
   both). Outlines containing named actions or GoToR destinations use the lazy

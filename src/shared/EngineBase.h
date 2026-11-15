@@ -147,7 +147,9 @@ struct PdfLinkMupdf {
     Str remoteDest; // owned, free with str::Free
     Str uri;        // owned, free with str::Free
 };
-void PdfLinksMupdf(const PdfRenderSource& source, Str password, int pageNo, Vec<PdfLinkMupdf>& links);
+struct PdfRenderProbe;
+void PdfLinksMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, Str password, int pageNo,
+                   Vec<PdfLinkMupdf>& links);
 TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password);
 
 // a link destination
