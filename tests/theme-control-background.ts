@@ -263,17 +263,20 @@ export async function testit(): Promise<void> {
     const setMode = async (key: number): Promise<void> => {
       const res = await client.request(ControlCommand.TestInvokeCommand, ["CmdSetDocumentColorsFollowTheme"]);
       if (res[0] !== 0) throw new Error(`color mode dialog failed: ${res[1]}`);
+      // the titled window exists before its drop-down is created
       let dialog = 0;
-      for (let i = 0; i < 40 && !dialog; i++) {
+      let combo = 0;
+      for (let i = 0; i < 40 && !combo; i++) {
+        dialog = 0;
         enumWindows((hwnd) => {
           if (getWindowPid(hwnd) === proc.pid && getWindowText(hwnd) === "Make Document Colors Follow Theme") {
             dialog = hwnd;
           }
           return !dialog;
         });
-        if (!dialog) await sleep(50);
+        combo = dialog ? findChildWindow(dialog, "ComboBox") : 0;
+        if (!combo) await sleep(50);
       }
-      const combo = findChildWindow(dialog, "ComboBox");
       if (!combo) throw new Error("color mode combo missing");
       sendMessage(combo, WM_KEYDOWN, key, 0);
       sendMessage(combo, WM_KEYUP, key, 0);

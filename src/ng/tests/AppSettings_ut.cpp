@@ -31,9 +31,16 @@ void AppSettingsTest() {
         str::ReplaceTemp(expectLoaded, StrL("EscToExit = false"), StrL("EscToExit = false\r\nVimKeys = false"));
     expectLoaded = str::ReplaceTemp(expectLoaded, StrL("ScrollLineAmount = 16"),
                                     StrL("ScrollLineAmount = 16\r\nKeyScrollLineAmount = 48"));
+    // SolokPDF retired SelectionColor: defaults omit it, a load keeps it as an
+    // unknown key at the end of FixedPageUI
+    Str selColor = StrL("\tSelectionColor = #ffff00\r\n");
+    expectLoaded = str::ReplaceTemp(expectLoaded, selColor, StrL(""));
+    expectLoaded = str::ReplaceTemp(expectLoaded, StrL("\r\n]\r\n\r\nEBookUI ["),
+                                    StrL("\r\n\tSelectionColor = #ffff00\r\n]\r\n\r\nEBookUI ["));
     // ng also sizes tabs to their names by default
     TempStr expect = str::ReplaceTemp(expectLoaded, StrL("TabsEqualWidth = true"), StrL("TabsEqualWidth = false"));
     expect = str::ReplaceTemp(expect, StrL("NoHomeTab = false"), StrL("NoHomeTab = true"));
+    expect = str::ReplaceTemp(expect, selColor, StrL(""));
 
     // the defaults serialize to the golden file, with those substitutions
     Settings* def = NewSettings({});

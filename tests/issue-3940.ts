@@ -3,7 +3,8 @@
 // Picking an item that is neither a URL nor a page copies its text.
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control";
 import { EXE, runStandalone, tmpPath, USE_NG } from "./util";
-import { getClipboardText, setClipboardText, sleep, VK_DOWN, VK_RETURN, VK_RIGHT } from "./winapi";
+import { sleep, VK_DOWN, VK_RETURN, VK_RIGHT } from "./winapi";
+import { canTestClipboard, clearTestClipboard, getTestClipboardText } from "./test-clipboard";
 import { killAndWait, launchControlled } from "./win-automation";
 import { writeFileSync } from "node:fs";
 
@@ -65,9 +66,9 @@ async function uiState(client: ControlClient): Promise<string> {
 
 // ng shows the menu in a gpui popup; orig's TrackPopupMenu can't be driven from here
 async function testNgCopy(pdf: string): Promise<void> {
-  setClipboardText("");
   const { proc, client } = await launchControlled([pdf]);
   try {
+    await clearTestClipboard(client);
     await client.waitForRenderIdle();
     const m = /canvas=(-?\d+),(-?\d+),(\d+),(\d+)/.exec(await uiState(client));
     if (!m) {
@@ -88,7 +89,7 @@ async function testNgCopy(pdf: string): Promise<void> {
     for (const key of keys) {
       await client.request(ControlCommand.TestInput, ["key", key, 0, 0, 0]);
     }
-    const got = await getClipboardText(POPUP_MS);
+    const got = await getTestClipboardText(client);
     if (got !== PICKED) {
       throw new Error(`issue-3940: clipboard ${JSON.stringify(got)}, expected ${JSON.stringify(PICKED)}`);
     }
@@ -119,7 +120,7 @@ export async function testit(): Promise<void> {
     }
   });
 
-  if (USE_NG) {
+  if (USE_NG && canTestClipboard("issue-3940")) {
     await testNgCopy(pdf);
   }
 }
