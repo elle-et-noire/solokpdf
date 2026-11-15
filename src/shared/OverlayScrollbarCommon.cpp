@@ -110,9 +110,11 @@ Rect GetThumbRect(OverlayScrollbar* sb) {
     }
     thumbOffset = limitValue(thumbOffset, 0, std::max(0, scrollableTrack));
 
+#if !defined(SUMATRA_NG)
     if (!IsVert(sb) && sb->layout == OverlayScrollbar::Layout::RightToLeft) {
         thumbOffset = scrollableTrack - thumbOffset;
     }
+#endif
     if (IsVert(sb)) {
         return {track.x, track.y + thumbOffset, track.dx, thumbLen};
     }
@@ -130,9 +132,11 @@ int PosForThumbCenteredAt(OverlayScrollbar* sb, int clickPos) {
     int clickInTrack = clickPos - (IsVert(sb) ? track.y : track.x);
     int thumbOffset = clickInTrack - (thumbLen / 2);
     thumbOffset = limitValue(thumbOffset, 0, std::max(0, scrollableTrack));
+#if !defined(SUMATRA_NG)
     if (!IsVert(sb) && sb->layout == OverlayScrollbar::Layout::RightToLeft) {
         thumbOffset = scrollableTrack - thumbOffset;
     }
+#endif
     int newPos = sb->nMin;
     if (scrollableTrack > 0 && scrollableRange > 0) {
         newPos = sb->nMin + MulDivI(thumbOffset, scrollableRange, scrollableTrack);
