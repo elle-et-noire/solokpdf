@@ -12,6 +12,7 @@ struct DocController;
 struct DocControllerCallback;
 struct ChmModel;
 struct MarkdownModel;
+struct BrowserDocController;
 struct DisplayModel;
 struct MenuModel;
 struct NotificationWnd;
@@ -202,6 +203,7 @@ struct MainWindow {
     DisplayModel* AsFixed() const;
     ChmModel* AsChm() const;
     MarkdownModel* AsMarkdown() const;
+    BrowserDocController* AsBrowser() const;
 
     // owned by CurrentTab()
     DocController* ctrl = nullptr;
@@ -284,6 +286,8 @@ struct MainWindow {
     bool dragRightClick = false;
     Point dragStart;
     Point dragPrevPos;
+    // presentation just started: the next mouse move hides the cursor at once
+    bool hideCursorOnNextMove = false;
     // middle-button auto-scroll: pixels per 20 ms, with the sub-pixel leftover
     float xScrollSpeed = 0;
     float yScrollSpeed = 0;

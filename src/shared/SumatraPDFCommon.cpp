@@ -50,6 +50,7 @@
 #include "Notifications.h"
 #include "MainWindow.h"
 #include "AnnotPlacement.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "UpdateCheck.h"
 #include "Commands.h"
@@ -876,7 +877,7 @@ Annotation* FindMatchingAnnotation(WindowTab* tab, const SavedAnnotSel& key) {
         return nullptr;
     }
     Vec<Annotation*> annots;
-    EngineMupdfGetAnnotations(engine, annots);
+    EngineGetAnnotations(engine, annots);
     for (Annotation* a : annots) {
         if (a->pageNo == key.pageNo && a->type == key.type && a->bounds == key.bounds) {
             return a;
@@ -1044,6 +1045,38 @@ PendingNextPrevNav* gPendingNextPrevNav = nullptr;
 void ClearPendingNextPrevNav() {
     delete gPendingNextPrevNav;
     gPendingNextPrevNav = nullptr;
+}
+
+// next / prev file asked for while the folder scan runs: done when it ends
+void DeferNextPrevNav(MainWindow* win, WindowTab* tab, bool forward, Str pathToDelete) {
+    ClearPendingNextPrevNav();
+    auto* p = new PendingNextPrevNav;
+    p->win = win;
+    p->tab = tab;
+    p->forward = forward;
+    p->path = str::Dup(tab->filePath);
+    p->pathToDelete = str::Dup(pathToDelete);
+    gPendingNextPrevNav = p;
+}
+
+// the scan ended: navigate, unless the user moved to another tab or document
+// meanwhile, which the request no longer applies to
+void ReplayPendingNextPrevNav() {
+    PendingNextPrevNav* p = gPendingNextPrevNav;
+    if (!p) {
+        return;
+    }
+    gPendingNextPrevNav = nullptr;
+    AutoDelete delP(p);
+    MainWindow* win = p->win;
+    if (!IsMainWindowValidAndNotClosing(win)) {
+        return;
+    }
+    WindowTab* tab = win->CurrentTab();
+    if (tab != p->tab || win->IsCurrentTabAbout() || !str::Eq(tab->filePath, p->path)) {
+        return;
+    }
+    OpenNextPrevFileInFolder(win, p->forward, p->pathToDelete);
 }
 
 bool IsAtDocumentBottom(MainWindow* win) {
@@ -1989,6 +2022,48 @@ void ToggleReadColumns(MainWindow* win) {
     }
 }
 
+// a PDF shown trimmed, by Trim Pages To Selection or Trim Empty Margins
+bool CanSaveTrimmedPages(MainWindow* win) {
+    DisplayModel* dm = win ? win->AsFixed() : nullptr;
+    if (!dm || !EngineMupdfIsPdf(dm->GetEngine())) {
+        return false;
+    }
+    return !dm->GetUserCrop().IsEmpty() || dm->GetTrimEmptyMargins();
+}
+
+// "foo.pdf" => "foo trimmed.pdf", next to it
+TempStr TrimmedPagesPathTemp(Str srcPath) {
+    TempStr seed = IsOpenCachePath(srcPath) ? path::GetBaseNameTemp(srcPath) : str::DupTemp(srcPath);
+    return fmt("%s trimmed.pdf", path::GetPathNoExtTemp(seed));
+}
+
+// Save the PDF with each page's CropBox set to the part the view shows, so
+// every viewer shows it trimmed. Content outside stays in the file (#6520)
+bool SaveTrimmedPages(MainWindow* win, Str dstPath) {
+    if (!CanSaveTrimmedPages(win)) {
+        return false;
+    }
+    DisplayModel* dm = win->AsFixed();
+    EngineBase* engine = dm->GetEngine();
+    RectF userCrop = dm->GetUserCrop();
+    Vec<RectF> boxes;
+    for (int pageNo = 1; pageNo <= engine->PageCount(); pageNo++) {
+        RectF mb = engine->PageMediabox(pageNo);
+        RectF box;
+        if (userCrop.IsEmpty()) {
+            box = engine->PageContentBox(pageNo).Intersect(mb);
+        } else {
+            box = {mb.x + userCrop.x * mb.dx, mb.y + userCrop.y * mb.dy, userCrop.dx * mb.dx, userCrop.dy * mb.dy};
+        }
+        VecAppend(boxes, box);
+    }
+
+    bool ok = EngineMupdfSaveCropped(engine, dstPath, boxes);
+    Str msg = ok ? Str(fmt(Tr("Saved trimmed pages to '%s'").s, dstPath)) : Tr("Failed to save a file");
+    ShowTemporaryNotification(win, msg);
+    return ok;
+}
+
 void ShowWholePages(MainWindow* win) {
     DisplayModel* dm = win->AsFixed();
     if (!dm) {
@@ -2540,28 +2615,18 @@ void CreateThumbnailForFile(MainWindow* win, FileState* ds) {
         }
     }
 
-    // re-opening a PostScript or DVI file converts it again (seconds for a big
-    // one), so hand the thread a clone of the engine we already have
-    EngineBase* clone = nullptr;
+    // render page 1 of the engine we already have rather than open the file
+    // again: a PostScript or DVI conversion, an ebook layout or an archive
+    // extraction, done twice. Engines render from several threads anyway. The
+    // ref keeps it alive for the thread even if the tab closes first.
+    EngineBase* shared = nullptr;
     DisplayModel* dm = win->IsDocLoaded() ? win->AsFixed() : nullptr;
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
-    bool isConverted = engine && (engine->kind == kindEnginePostScript || engine->kind == kindEngineDvi ||
-                                  engine->kind == kindEngineCaj);
-    if (isConverted && str::Eq(engine->FilePath(), ds->filePath)) {
-        clone = engine->Clone();
-    }
-#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-    // PDFium runs one call at a time, so a second copy's load would only delay the view's pages
-    if (engine && engine->kind == kindEnginePdfium && str::Eq(engine->FilePath(), ds->filePath)) {
+    if (engine && str::Eq(engine->FilePath(), ds->filePath)) {
         engine->AddRef();
-        clone = engine;
+        shared = engine;
     }
-#endif
-
-    // otherwise use file-based async thumbnail creation; it's independent
-    // of the tab lifecycle so it works even if the tab is closed before
-    // the render completes
-    CreateThumbnailFromFileAsync(ds, clone);
+    CreateThumbnailFromFileAsync(ds, shared);
 }
 
 void DeleteCurrentFileAndOpenNext(MainWindow* win) {
@@ -2665,7 +2730,8 @@ void UndoRedoInTab(WindowTab* tab, bool redo) {
     if (!engine || !EngineSupportsAnnotations(engine)) {
         return;
     }
-    bool can = redo ? EngineMupdfCanRedo(engine) : EngineMupdfCanUndo(engine);
+    UndoDir dir = redo ? UndoDir::Redo : UndoDir::Undo;
+    bool can = EngineCanUndoRedo(engine, dir, EngineWait::Wait);
     if (!can) {
         UndoRedoUnavailable(win, redo);
         return;
@@ -2680,7 +2746,7 @@ void UndoRedoInTab(WindowTab* tab, bool redo) {
     }
 
     Vec<Annotation*> removed;
-    bool ok = redo ? EngineMupdfRedo(engine, removed) : EngineMupdfUndo(engine, removed);
+    bool ok = EngineUndoRedo(engine, dir, removed);
     for (Annotation* a : removed) {
         DetachAnnotationFromUI(a);
         DeleteAnnotation(a);
@@ -3275,7 +3341,16 @@ enum class ThumbnailsToMake {
 struct RegenerateThumbnailsData {
     Vec<CreateThumbnailFromFileData*> files;
     ThumbnailsToMake which = ThumbnailsToMake::All;
+    int gen = 0;
 };
+
+// bumped by each regenerate batch: an older one still running stops, and its
+// thumbnails (maybe of the previous ThumbnailsType) are dropped
+static AtomicInt gThumbnailBatchGen = 0;
+
+static bool IsThumbnailBatchStale(int gen) {
+    return gen != 0 && gen != AtomicIntGet(&gThumbnailBatchGen);
+}
 
 // The history entries, in the order the home page shows them. Only copies: the
 // thumbnail thread finds out which files still exist, because checking a file on
@@ -3290,9 +3365,16 @@ static RegenerateThumbnailsData* NewRegenerateThumbnailsData(ThumbnailsToMake wh
     auto* data = new RegenerateThumbnailsData();
     data->which = which;
     for (FileState* fs : all) {
-        if (len(fs->filePath) > 0 && !fs->thumbnailPending) {
-            VecAppend(data->files, NewThumbnailData(fs));
+        if (len(fs->filePath) == 0 || fs->thumbnailPending) {
+            continue;
         }
+        // an open document's load makes its own thumbnail (CreateThumbnailForFile)
+        bool openElsewhere = which == ThumbnailsToMake::Missing && gSettings->showStartPage &&
+                             FindMainWindowByFile(fs->filePath, false) != nullptr;
+        if (openElsewhere) {
+            continue;
+        }
+        VecAppend(data->files, NewThumbnailData(fs));
     }
     return data;
 }
@@ -3376,7 +3458,7 @@ static void RegenerateThumbnailsThread(RegenerateThumbnailsData* data) {
     int done = 0;
     for (CreateThumbnailFromFileData* d : data->files) {
         done++;
-        if (!DocumentIsThere(d->filePath)) {
+        if (IsThumbnailBatchStale(data->gen) || !DocumentIsThere(d->filePath)) {
             SkipThumbnailFile(d);
             ResetTempArena();
             continue;
@@ -3396,6 +3478,17 @@ static void RegenerateThumbnailsThread(RegenerateThumbnailsData* data) {
     DestroyTempArena();
 }
 
+// a batch started here supersedes the one still running
+static void StartRegenerateThumbnails(RegenerateThumbnailsData* data) {
+    data->gen = AtomicIntInc(&gThumbnailBatchGen);
+    for (CreateThumbnailFromFileData* d : data->files) {
+        d->batchGen = data->gen;
+    }
+    auto fn = MkFunc0<RegenerateThumbnailsData>(RegenerateThumbnailsThread, data);
+    ThumbnailThreadStarted();
+    RunAsync(fn, StrL("RegenerateThumbnails"));
+}
+
 // the cached thumbnails were made for the other ThumbnailsType: drop them and
 // re-create those of the files that still exist on a background thread
 void OnThumbnailsTypeChanged() {
@@ -3413,10 +3506,7 @@ void OnThumbnailsTypeChanged() {
         return;
     }
 
-    auto* data = NewRegenerateThumbnailsData(ThumbnailsToMake::All);
-    auto fn = MkFunc0<RegenerateThumbnailsData>(RegenerateThumbnailsThread, data);
-    ThumbnailThreadStarted();
-    RunAsync(fn, StrL("RegenerateThumbnails"));
+    StartRegenerateThumbnails(NewRegenerateThumbnailsData(ThumbnailsToMake::All));
 }
 
 // Home-page files that still exist but have no cached thumbnail.
@@ -3434,9 +3524,7 @@ void RegenerateMissingThumbnails() {
         delete data;
         return;
     }
-    auto fn = MkFunc0<RegenerateThumbnailsData>(RegenerateThumbnailsThread, data);
-    ThumbnailThreadStarted();
-    RunAsync(fn, StrL("RegenerateThumbnails"));
+    StartRegenerateThumbnails(data);
 }
 
 int SidebarExtraDx(MainWindow* win) {
@@ -3489,7 +3577,7 @@ void CreateThumbnailFromFileFinish(CreateThumbnailFromFileData* d) {
     if (fs) {
         fs->thumbnailPending = false;
     }
-    if (d->bmp) {
+    if (d->bmp && !IsThumbnailBatchStale(d->batchGen)) {
         SetThumbnail(fs, d->bmp, d->colorClass, &d->skipRects);
         d->bmp = nullptr;
         MaybeRedrawHomePage();

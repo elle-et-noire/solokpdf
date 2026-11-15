@@ -19,6 +19,7 @@
 #include "EngineBase.h"
 #include "base/GuessFileType.h"
 #include "EngineAll.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "MainWindow.h"
 #include "FileHistory.h"
@@ -95,7 +96,7 @@ void CloseEbookSettingsDialog() {
     gp::InputState* edits[] = {gEbook.editFont, gEbook.editSize, gEbook.editMargin, gEbook.editSpacing, gEbook.editCss};
     for (gp::InputState* e : edits) {
         if (e && win && win->gpuiWin) {
-            gp::InputBlur(e, win->gpuiWin->app, win->gpuiWin);
+            InputBlurWhereFocused(e, win->gpuiWin);
         }
         delete e;
     }

@@ -13,6 +13,7 @@
 #include "EngineAll.h"
 #include "DisplayModel.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Selection.h"
 #include "Theme.h"
@@ -35,7 +36,7 @@ EngineBase* GetPdfEngine(MainWindow* win) {
     }
     DisplayModel* dm = win->AsFixed();
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
-    if (!engine || !EngineSupportsAnnotations(engine)) {
+    if (!engine || !IsPdfPageEngine(engine->kind) || !EngineSupportsAnnotations(engine)) {
         return nullptr;
     }
     return engine;

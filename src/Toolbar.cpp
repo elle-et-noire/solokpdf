@@ -27,6 +27,7 @@
 #include "AnnotPlacement.h"
 #include "Notifications.h"
 #include "Canvas.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "resource.h"
 #include "Commands.h"
@@ -415,8 +416,10 @@ void ToolbarUpdateStateForWindow(MainWindow* win, bool setButtonsVisibility) {
             }
             // update tooltip before SetTabDirty (which rebuilds tooltips via LayoutTabs).
             // Must use MakeTabTooltipTemp (path+size); path-only overwrote size here.
+            // Only when the dirty flag changes: the tooltip stats the file, and
+            // this runs on every page change
             TabInfo* ti = win->tabsCtrl->GetTab(i);
-            if (ti && tab && tab->filePath) {
+            if (ti && tab && tab->filePath && (dirty != ti->isDirty || len(ti->tooltip) == 0)) {
                 TempStr tooltip = MakeTabTooltipTemp(tab->filePath, dirty);
                 str::ReplaceWithCopy(&ti->tooltip, tooltip);
             }
@@ -2578,6 +2581,8 @@ static VirtCtrl* MakeToolbarSeparator(int rowDy) {
     return sep;
 }
 
+static Edit* ToolbarCreateLocationEdit(MainWindow* win, PlatformFont* font, int iconDy);
+
 // (re)build the tree of virtual controls the toolbar is made of, one per button
 static void BuildToolbarLayout(MainWindow* win) {
     PopulateToolbarLayout();
@@ -2624,7 +2629,7 @@ static void BuildToolbarLayout(MainWindow* win) {
             box->AddChild(label);
 
             // chapter box: [chapterEdit] / N, hidden unless HasChapters()
-            Edit* chapterEdit = ToolbarCreateChapterEdit(win, tb->platformFont, tb->iconSize);
+            Edit* chapterEdit = ToolbarCreateLocationEdit(win, tb->platformFont, tb->iconSize);
             chapterEdit->SetVisibility(Visibility::Collapse);
             win->chapterEdit = chapterEdit;
             box->AddChild(chapterEdit);
@@ -2648,7 +2653,7 @@ static void BuildToolbarLayout(MainWindow* win) {
             tb->pageLabel2 = label2;
             box->AddChild(label2);
 
-            Edit* pageEdit = ToolbarCreatePageEdit(win, tb->platformFont, tb->iconSize);
+            Edit* pageEdit = ToolbarCreateLocationEdit(win, tb->platformFont, tb->iconSize);
             win->pageEdit = pageEdit;
             box->AddChild(pageEdit);
 
@@ -2972,12 +2977,8 @@ static void OnLocationEditChar(MainWindow* win, Edit::CharEvent* ev) {
     }
 }
 
-static int PageEditPadL() {
-    return UiEdgeDx();
-}
-
 static int PageEditPadR() {
-    return PageEditPadL() + DpiScale(4);
+    return UiEdgeDx() + DpiScale(4);
 }
 
 static Edit* ToolbarCreateLocationEdit(MainWindow* win, PlatformFont* font, int iconDy) {
@@ -2994,7 +2995,7 @@ static Edit* ToolbarCreateLocationEdit(MainWindow* win, PlatformFont* font, int 
     // the box is as tall as the icons, so without this the digits would sit at
     // its top instead of on the same line as "Page:" and "/ N"
     args.centerTextVert = true;
-    args.marginLeft = PageEditPadL();
+    args.marginLeft = UiEdgeDx();
     args.marginRight = PageEditPadR();
     auto* e = new Edit();
     e->SetColors(TbTextColor(), ThemeWindowControlBackgroundColor());
@@ -3010,14 +3011,6 @@ static Edit* ToolbarCreateLocationEdit(MainWindow* win, PlatformFont* font, int 
     e->idealDy = iconDy;
     e->onChar = MkFunc1(OnLocationEditChar, win);
     return e;
-}
-
-Edit* ToolbarCreatePageEdit(MainWindow* win, PlatformFont* font, int iconDy) {
-    return ToolbarCreateLocationEdit(win, font, iconDy);
-}
-
-Edit* ToolbarCreateChapterEdit(MainWindow* win, PlatformFont* font, int iconDy) {
-    return ToolbarCreateLocationEdit(win, font, iconDy);
 }
 
 // no document: the find edit does nothing, so don't offer a text cursor

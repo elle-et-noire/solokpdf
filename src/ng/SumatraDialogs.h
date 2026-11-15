@@ -102,9 +102,9 @@ struct SavePathArgs {
 // takes ownership of args
 void ShowSavePathDialog(SavePathArgs* args);
 void CloseSavePathDialog();
+void CloseSavePathDialogFor(MainWindow* win);
 bool IsSavePathDialogVisible();
 // -dbg-control's stand-in for picking a name in the dialog ({} is Cancel)
-bool TestFinishSavePathDialog(Str path);
 gpui::El* SavePathDialogBuild(MainWindow* win, gpui::Ctx* cx);
 
 void ShowGoToPageDialog(MainWindow* win);
@@ -260,7 +260,7 @@ TempStr PageGridStateTemp();
 bool ShowPageGrid();
 void TogglePageGrid();
 void SetShowPageGrid(bool);
-void RedrawPageGridWindows();
+void RedrawAllWindows();
 struct DisplayModel;
 namespace gpui {
 struct PaintCtx;

@@ -31,6 +31,7 @@
 #include "Notifications.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Toolbar.h"
 #include "Selection.h"
@@ -126,6 +127,10 @@ void StartAnnotationPlacement(MainWindow* win, int cmdId) {
     }
     if (IsEditingAnnotContents(win)) {
         EndAnnotContentsEdit(true);
+    }
+    // a drag or selection still under way would finish into the placement
+    if (win->mouseAction != MouseAction::None || win->annotationBeingDragged || win->annotationBeingResized) {
+        CanvasCancelDrag(win);
     }
 
     EndCurrentPlacement(win);

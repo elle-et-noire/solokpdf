@@ -167,16 +167,6 @@ static bool IsSep(WCHAR c) {
     return c == kPathSepWChar || (OS_WIN && c == L'/');
 }
 
-bool IsDriveRoot(Str path) {
-    if (!path.s) {
-        return false;
-    }
-    while (path.len > 3 && IsSep(path.s[path.len - 1])) {
-        path.len--;
-    }
-    return path.len == 3 && path.s[1] == ':' && IsSep(path.s[2]);
-}
-
 // the Str / WStr path helpers share these bodies
 
 template <typename S>
@@ -1122,9 +1112,13 @@ bool IsInTempDir(Str path) {
     if (len(dir) > 0 && !IsSep(dir.s[len(dir) - 1])) {
         dir = str::JoinTemp(dir, StrL("\\"));
     }
-    // long form of the parent: GetLongPathName() fails for a file that doesn't exist
     TempStr p = NormalizeTemp(path);
-    p = path::JoinTemp(LongPathTemp(path::GetDirTemp(p)), path::GetBaseNameTemp(p));
+    // long form of the parent: GetLongPathName() fails for a file that doesn't
+    // exist. Only 8.3 names (with a '~') have one; skipping the rest saves a
+    // network round trip per file on a UNC path
+    if (str::IndexOfChar(p, '~') >= 0) {
+        p = path::JoinTemp(LongPathTemp(path::GetDirTemp(p)), path::GetBaseNameTemp(p));
+    }
     return len(p) > len(dir) && str::StartsWithI(p, dir);
 }
 
@@ -1684,7 +1678,17 @@ bool SetZoneIdentifier(Str filePath, int zoneId) {
 
 bool DeleteZoneIdentifier(Str filePath) {
     TempStr path = str::JoinTemp(filePath, StrL(":Zone.Identifier"));
-    return Delete(path);
+    if (DeleteFileW(CWStrTemp(path))) {
+        return true;
+    }
+    DWORD err = GetLastError();
+    // no stream, or a file system without streams (a NAS share answers
+    // ERROR_INVALID_NAME): nothing to delete, nothing worth a log line
+    if (err == ERROR_FILE_NOT_FOUND || err == ERROR_INVALID_NAME) {
+        return true;
+    }
+    LogLastError(err);
+    return false;
 }
 
 bool Rename(Str newPath, Str oldPath) {
@@ -1800,27 +1804,6 @@ bool WriteAll(FileHandle h, Str data) {
         written += (int)n;
     }
     return true;
-}
-
-bool ReadAt(FileHandle h, i64 offset, void* buf, int size) {
-    LARGE_INTEGER pos;
-    pos.QuadPart = offset;
-    if (!SetFilePointerEx(h, pos, nullptr, FILE_BEGIN)) {
-        return false;
-    }
-    int total = 0;
-    while (total < size) {
-        DWORD n = 0;
-        if (!::ReadFile(h, (char*)buf + total, (DWORD)(size - total), &n, nullptr) || n == 0) {
-            return false;
-        }
-        total += (int)n;
-    }
-    return true;
-}
-
-TempStr LastErrorTemp() {
-    return GetLastErrorAsStr(GetTempArena());
 }
 
 #endif

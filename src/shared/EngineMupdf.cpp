@@ -192,8 +192,8 @@ void EngineMupdfCancelLoadAllAnnotations(EngineBase* engine) {
     if (!e) {
         return;
     }
+    // the load thread reads annotLoadDoneCb: leave it alone, the flag is enough
     AtomicIntSet(&e->annotLoadCancel, 1);
-    e->annotLoadDoneCb = {};
 }
 
 // lets the UI ask without pulling in mupdf headers (declared in EngineAll.h)
@@ -1255,10 +1255,56 @@ static float StextLineHeight(const fz_stext_line* line) {
     return 10.f;
 }
 
+// Width of the first word of line. A CJK character is a word of its own, as
+// those scripts wrap anywhere.
+static float FirstWordWidth(const fz_stext_line* line) {
+    constexpr int kFirstCjkRune = 0x2E80;
+    bool started = false;
+    float x0 = 0;
+    float x1 = 0;
+    for (fz_stext_char* c = line->first_char; c; c = c->next) {
+        if (c->c == ' ' || c->c == '\t') {
+            if (started) {
+                break;
+            }
+            continue;
+        }
+        fz_rect r = fz_rect_from_quad(c->quad);
+        if (!started) {
+            x0 = r.x0;
+            started = true;
+        }
+        x1 = r.x1;
+        if (c->c >= kFirstCjkRune) {
+            break;
+        }
+    }
+    return started ? x1 - x0 : 0;
+}
+
+// The last non-space character of line ends a sentence, a statement or a
+// bracketed / quoted part: . : ; ! ? ) ] } " ' and their CJK forms.
+static bool EndsSentence(const fz_stext_line* line) {
+    int last = 0;
+    for (fz_stext_char* c = line->first_char; c; c = c->next) {
+        if (c->c != ' ' && c->c != '\t') {
+            last = c->c;
+        }
+    }
+    static const int kEnders[] = {'.',    ':',    ';',    '!',    '?',    ')',    ']',    '}',    '"',    '\'',
+                                  0x2026, 0x201D, 0x2019, 0x3002, 0xFF01, 0xFF1F, 0xFF1A, 0xFF1B, 0x300D, 0x300F};
+    for (int e : kEnders) {
+        if (last == e) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // True when nextLine is a soft wrap of the same paragraph (reflow/ebook copy
 // should join with a space, not a newline — #5793).
 // FB2/HTML reflow lines typically share a ~0.25–0.35em gap; paragraph spacing
-// is larger (~0.5em+). Mid-line soft wraps also nearly fill the block width.
+// is larger (~0.5em+).
 static bool IsSoftLineBreak(const fz_stext_line* line, const fz_stext_line* nextLine, const fz_stext_block* block) {
     if (!line || !nextLine || !block) {
         return false;
@@ -1272,12 +1318,19 @@ static bool IsSoftLineBreak(const fz_stext_line* line, const fz_stext_line* next
     if (gap > h * 0.55f) {
         return false;
     }
-    // Soft wraps usually fill most of the block width; a short line is the
-    // end of a paragraph (or a title), so keep a hard newline after it.
+    // Soft wraps usually fill most of the block width; a short line is the end
+    // of a paragraph (or a title), so keep a hard newline after it. Unless it is
+    // ragged-right text: the next line's first word didn't fit after it and the
+    // line doesn't end a sentence or a statement (code).
     float blockW = block->bbox.x1 - block->bbox.x0;
     float lineW = line->bbox.x1 - line->bbox.x0;
     if (blockW > 1.f && lineW < blockW * 0.82f) {
-        return false;
+        float room = block->bbox.x1 - line->bbox.x1;
+        float spaceW = h * 0.3f;
+        bool nextWordFits = room > FirstWordWidth(nextLine) + spaceW;
+        if (nextWordFits || EndsSentence(line)) {
+            return false;
+        }
     }
     // New paragraphs often start with a larger left indent (text-indent).
     float dx = nextLine->bbox.x0 - line->bbox.x0;
@@ -1824,6 +1877,10 @@ static LinkRectList* LinkifyText(Utf8PageText pageText, Rect* coords) {
     return list;
 }
 
+enum class PixelOrder {
+    Rgb,
+    Bgr,
+};
 // LinkifyText() for engines without an fz_stext_page
 void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects) {
     if (len(text) == 0 || !coords) {
@@ -1839,7 +1896,7 @@ void LinkifyPageText(Str text, Rect* coords, StrVec& urls, Vec<RectF>& rects) {
 
 // try to produce an 8-bit palette for saving some memory
 #if OS_WIN
-static RenderedBitmap* TryRenderAsPaletteImage(fz_pixmap* pixmap) {
+static RenderedBitmap* TryRenderAsPaletteImage(fz_pixmap* pixmap, PixelOrder order) {
     int w = pixmap->w;
     int h = pixmap->h;
     int stride = ((w + 3) / 4) * 4;
@@ -1915,8 +1972,9 @@ static RenderedBitmap* TryRenderAsPaletteImage(fz_pixmap* pixmap) {
                     k = paletteSize++;
                     hashKey[slot] = px;
                     hashIdx[slot] = (i16)k;
-                    // palette is BGR0 (RGBQUAD layout); source is RGBA, so swap R and B
-                    palette[k] = ((px & 0xFFu) << 16) | (px & 0xFF00u) | ((px >> 16) & 0xFFu);
+                    // palette is BGR0 (RGBQUAD layout): a BGRA source matches, RGBA swaps R and B
+                    palette[k] =
+                        order == PixelOrder::Bgr ? px : ((px & 0xFFu) << 16) | (px & 0xFF00u) | ((px >> 16) & 0xFFu);
                     break;
                 }
                 if (hashKey[slot] == px) {
@@ -2005,7 +2063,7 @@ static RenderedBitmap* NewRenderedFzPixmap(fz_context* ctx, fz_pixmap* pixmap, b
         return nullptr;
     }
     if (!preserveAlpha && pixmap->n == 4 && fz_colorspace_is_rgb(ctx, pixmap->colorspace)) {
-        RenderedBitmap* res = TryRenderAsPaletteImage(pixmap);
+        RenderedBitmap* res = TryRenderAsPaletteImage(pixmap, PixelOrder::Rgb);
         if (res) {
             return res;
         }
@@ -2058,10 +2116,103 @@ static RenderedBitmap* NewRenderedFzPixmap(fz_context* ctx, fz_pixmap* pixmap, b
 }
 #endif
 
-static Pixmap* NewPixmapFromFzPixmap(fz_context* ctx, fz_pixmap* pixmap, bool preserveAlpha = false) {
+// A page render paints straight into the BGRA Pixmap the cache keeps, through
+// a mupdf pixmap that borrows its memory. The finished page then needs no
+// conversion from RGB and no copy, which was as much work as drawing it.
+// On Windows the cache wants a DIB section (BitBlt is faster than pushing DIB
+// bits), unless the page palettizes, in which case the 32-bit buffer is
+// thrown away; a document's pages mostly go one way, so the last outcome
+// picks the kind of buffer for the next page.
+enum class RenderBuffer {
+    Dib,
+    Plain,
+};
+
+struct PageRenderTarget {
+    Pixmap* pixmap = nullptr;
+    fz_pixmap* fz = nullptr;
+    RenderBuffer kind = RenderBuffer::Plain;
+};
+
+static bool NewRenderTarget(fz_context* ctx, fz_irect bounds, RenderBuffer kind, PageRenderTarget& t) {
+    int w = bounds.x1 - bounds.x0;
+    int h = bounds.y1 - bounds.y0;
+    t.kind = kind;
 #if OS_WIN
-    return PixmapFromRenderedBitmap(NewRenderedFzPixmap(ctx, pixmap, preserveAlpha));
+    if (kind == RenderBuffer::Dib) {
+        t.pixmap = AllocPixmapDIB(w, h);
+    } else {
+        t.pixmap = AllocPixmap(w, h, PixmapFormat::BGRA8, false);
+    }
 #else
+    t.pixmap = AllocPixmap(w, h, PixmapFormat::BGRA8, false);
+#endif
+    if (!t.pixmap) {
+        return false;
+    }
+    // mupdf lays rows out at w * 4 bytes, like our BGRA8
+    ReportIf(t.pixmap->stride != w * 4);
+    fz_try(ctx) {
+        t.fz = fz_new_pixmap_with_bbox_and_data(ctx, fz_device_bgr(ctx), bounds, nullptr, 1, t.pixmap->data);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        FreePixmap(t.pixmap);
+        t.pixmap = nullptr;
+        return false;
+    }
+    return true;
+}
+
+static void FreeRenderTarget(fz_context* ctx, PageRenderTarget& t) {
+    fz_drop_pixmap(ctx, t.fz);
+    t.fz = nullptr;
+    FreePixmap(t.pixmap);
+    t.pixmap = nullptr;
+}
+
+#if OS_WIN
+// the same pixels in a DIB section, for a page that was expected to palettize
+// and didn't
+static Pixmap* PixmapToDib(Pixmap* p) {
+    Pixmap* dib = AllocPixmapDIB(p->width, p->height);
+    if (!dib) {
+        return p;
+    }
+    CopyPixmapRows(dib, p->data, p->stride);
+    FreePixmap(p);
+    return dib;
+}
+#endif
+
+// the rendered page for the cache: palettized when it has few enough colors
+// (a quarter of the memory), otherwise the target itself. palettizedOut says
+// which, for the next render's choice of buffer
+static Pixmap* FinishRenderTarget(fz_context* ctx, PageRenderTarget& t, bool preserveAlpha, bool* palettizedOut) {
+    Pixmap* res = t.pixmap;
+    t.pixmap = nullptr;
+    *palettizedOut = false;
+#if OS_WIN
+    if (!preserveAlpha) {
+        RenderedBitmap* pal = TryRenderAsPaletteImage(t.fz, PixelOrder::Bgr);
+        if (pal) {
+            FreePixmap(res);
+            res = PixmapFromRenderedBitmap(pal);
+            *palettizedOut = true;
+        }
+    }
+    if (!*palettizedOut && t.kind == RenderBuffer::Plain) {
+        res = PixmapToDib(res);
+    }
+#endif
+    fz_drop_pixmap(ctx, t.fz);
+    t.fz = nullptr;
+    return res;
+}
+
+#if !OS_WIN
+// an image's pixmap as a Pixmap; page renders paint into a PageRenderTarget
+static Pixmap* NewPixmapFromFzPixmap(fz_context* ctx, fz_pixmap* pixmap) {
     fz_pixmap* bgrPixmap = NewBgrPixmap(ctx, pixmap);
     if (!bgrPixmap) {
         return nullptr;
@@ -2082,8 +2233,8 @@ static Pixmap* NewPixmapFromFzPixmap(fz_context* ctx, fz_pixmap* pixmap, bool pr
     }
     fz_drop_pixmap(ctx, bgrPixmap);
     return res;
-#endif
 }
+#endif
 
 static TocItem* NewTocItemWithDestination(Arena* arena, TocItem* parent, Str title, IPageDestination* dest) {
     auto* res = AllocTocItem(arena, title, 0);
@@ -2698,6 +2849,83 @@ static bool DocJsDefinesMenuFunction(fz_context* ctx, pdf_document* doc, Str nam
     return found;
 }
 
+static int PageNoFromPdfDest(fz_context* ctx, pdf_document* doc, pdf_obj* dest);
+
+// true when js is a script object's JavaScript holding Xpedition's string table
+static bool XpStringsFromJsObj(fz_context* ctx, pdf_obj* jsObj, StrVec& strings) {
+    if (pdf_is_dict(ctx, jsObj)) {
+        jsObj = pdf_dict_get(ctx, jsObj, PDF_NAME(JS));
+    }
+    if (!jsObj) {
+        return false;
+    }
+    char* js = pdf_load_stream_or_string_as_utf8(ctx, jsObj);
+    bool ok = ParseXpeditionStrings(Str(js), strings);
+    fz_free(ctx, js);
+    if (!ok) {
+        strings.Reset();
+    }
+    return ok;
+}
+
+// Xpedition's string table, from the catalog's /OpenAction script or a
+// document-level one (issue #6517)
+static void DocXpeditionStrings(fz_context* ctx, pdf_document* doc, StrVec& strings) {
+    pdf_obj* tree = nullptr;
+    fz_var(tree);
+    fz_try(ctx) {
+        pdf_obj* root = pdf_dict_get(ctx, pdf_trailer(ctx, doc), PDF_NAME(Root));
+        pdf_obj* open = pdf_dict_gets(ctx, root, "OpenAction");
+        bool found = false;
+        if (pdf_name_eq(ctx, pdf_dict_get(ctx, open, PDF_NAME(S)), PDF_NAME(JavaScript))) {
+            found = XpStringsFromJsObj(ctx, open, strings);
+        }
+        if (!found) {
+            tree = pdf_load_name_tree(ctx, doc, PDF_NAME(JavaScript));
+            int n = pdf_dict_len(ctx, tree);
+            for (int i = 0; i < n && !found; i++) {
+                found = XpStringsFromJsObj(ctx, pdf_dict_get_val(ctx, tree, i), strings);
+            }
+        }
+    }
+    fz_always(ctx) {
+        pdf_drop_obj(ctx, tree);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        strings.Reset();
+    }
+}
+
+// Xpedition jumps return named dest "[{n}]"; turn them into "#<0-based page>"
+// that GetJsMenuAction understands, or nothing when the dest doesn't exist
+static void ResolveXpNamedDests(fz_context* ctx, pdf_document* doc, PageDestinationJsMenu* menu) {
+    StrVec resolved;
+    for (int i = 0; i < len(menu->returns); i++) {
+        Str ret = menu->returns[i];
+        if (!str::StartsWith(ret, StrL("[{"))) {
+            resolved.Append(ret);
+            continue;
+        }
+        int pageNo = 0;
+        pdf_obj* name = nullptr;
+        fz_var(name);
+        fz_try(ctx) {
+            name = pdf_new_string(ctx, ret.s, (size_t)len(ret));
+            pageNo = PageNoFromPdfDest(ctx, doc, name);
+        }
+        fz_always(ctx) {
+            pdf_drop_obj(ctx, name);
+        }
+        fz_catch(ctx) {
+            fz_report_error(ctx);
+            pageNo = 0;
+        }
+        resolved.Append(pageNo > 0 ? fmt("#%d", pageNo - 1) : TempStr{});
+    }
+    menu->returns = resolved;
+}
+
 // Altium schematic PDFs (and similar) put component metadata on /Link annots
 // whose action is Acrobat JavaScript: either app.popUpMenu("...") inline, or a
 // call to a named ShowCompProps_* function in catalog /Names /JavaScript.
@@ -2727,6 +2955,9 @@ static void AppendJsMenuLinks(fz_context* ctx, pdf_document* doc, pdf_page* pdfp
     // the menu function last checked by DocJsDefinesMenuFunction, and its answer
     Str menuFnChecked;
     bool menuFnIsMenu = false;
+    // Xpedition's string table, loaded for the first _c() link
+    StrVec xpStrings;
+    bool xpStringsLoaded = false;
     for (int i = 0; i < n; i++) {
         char* js = nullptr;
         fz_rect rect{};
@@ -2756,13 +2987,29 @@ static void AppendJsMenuLinks(fz_context* ctx, pdf_document* doc, pdf_page* pdfp
         }
         StrVec items;
         StrVec returns;
-        ParseJsPopUpMenuItems(Str(js), items);
+        Vec<int> levels;
+        ParseJsPopUpMenuItems(Str(js), items, levels);
         Str name = len(items) == 0 ? ExtractJsCallName(Str(js)) : Str{};
         if (name) {
             char* namedJs = LookupNamedJavaScript(ctx, doc, name);
             if (namedJs) {
-                ParseJsPopUpMenuItems(Str(namedJs), items);
+                ParseJsPopUpMenuItems(Str(namedJs), items, levels);
                 fz_free(ctx, namedJs);
+            }
+        }
+        // Xpedition: the call's index arrays select strings from the document's table
+        auto* dest = new PageDestinationJsMenu();
+        if (str::Eq(name, StrL("_c")) && len(items) == 0) {
+            if (!xpStringsLoaded) {
+                xpStringsLoaded = true;
+                DocXpeditionStrings(ctx, doc, xpStrings);
+            }
+            if (ParseXpeditionMenu(Str(js), xpStrings, dest)) {
+                ResolveXpNamedDests(ctx, doc, dest);
+                items = dest->items;
+                returns = dest->returns;
+            } else {
+                VecReset(dest->levels);
             }
         }
         // KiCad: the items are the call's arguments, the function lives in any script
@@ -2778,11 +3025,14 @@ static void AppendJsMenuLinks(fz_context* ctx, pdf_document* doc, pdf_page* pdfp
         }
         fz_free(ctx, js);
         if (len(items) == 0) {
+            delete dest;
             continue;
         }
-        auto* dest = new PageDestinationJsMenu();
         dest->items = items;
         dest->returns = returns;
+        if (len(levels) > 0) {
+            dest->levels = levels;
+        }
         dest->rect = ToRectF(rect);
         auto* pel = new PageElementDestination(dest);
         pel->pageNo = pageNo;
@@ -5453,7 +5703,7 @@ int EngineMupdf::LayOutChapter(int chapter) {
     }
     // Captured before the count. ApplyReflowThemeCss resets under pagesLock,
     // so a count started against the previous layout is dropped below.
-    int gen = chapters.Generation();
+    int epoch = chapters.Epoch();
 
     auto* ctx = Ctx();
     int n = 1;
@@ -5489,7 +5739,7 @@ int EngineMupdf::LayOutChapter(int chapter) {
     bool staleBox = false;
     {
         ScopedRecursiveMutex pagesScope(&pagesLock);
-        if (chapters.Generation() != gen) {
+        if (chapters.Epoch() != epoch) {
             return chapters.PageCount(chapter);
         }
         if (chapter >= 1 && chapter <= len(chapterPages)) {
@@ -7569,8 +7819,11 @@ enum class StextRun {
 };
 
 // WholePage includes annotations and widgets so their text can be selected and searched (issue #1649).
+// list: the page's display list, replayed instead of running the page. An
+// ebook page shapes its text on every run, so this saves a shaping pass; only
+// for pages without annotations, since the list has those too.
 static fz_stext_page* NewStextPage(fz_context* ctx, fz_page* page, const fz_stext_options* options, fz_cookie* cookie,
-                                   StextRun run) {
+                                   StextRun run, fz_display_list* list = nullptr) {
     if (!page) {
         return nullptr;
     }
@@ -7579,7 +7832,9 @@ static fz_stext_page* NewStextPage(fz_context* ctx, fz_page* page, const fz_stex
     fz_var(dev);
     fz_try(ctx) {
         dev = fz_new_stext_device(ctx, text, options);
-        if (run == StextRun::Contents) {
+        if (list) {
+            fz_run_display_list(ctx, list, dev, fz_identity, fz_infinite_rect, cookie);
+        } else if (run == StextRun::Contents) {
             fz_run_page_contents(ctx, page, dev, fz_identity, cookie);
         } else {
             fz_run_page(ctx, page, dev, fz_identity, cookie);
@@ -7689,13 +7944,22 @@ static FzPageInfo* GetFzPageInfoLocked(EngineMupdf* e, Location loc, bool loadQu
     fz_stext_page* stext = nullptr;
     fz_var(stext);
     fz_stext_options opts = NewTextPageOptions(kImageTextPageFlags);
+    // a pdf page's list includes its annotations, which Contents leaves out;
+    // with none on the page the two runs are the same
+    bool listIsContents = !e->pdfdoc || (len(pageInfo->annotations) == 0 && len(pageInfo->widgets) == 0);
+    fz_display_list* list = listIsContents ? pageInfo->displayList : nullptr;
     fz_try(ctx) {
-        stext = NewStextPage(ctx, page, &opts, cookie, StextRun::Contents);
+        stext = NewStextPage(ctx, page, &opts, cookie, StextRun::Contents, list);
+        // a list built before the chapter's layout finished is empty, while the
+        // page would already run with content: don't cache that as the text
+        if (list && stext && !stext->first_block) {
+            fz_drop_stext_page(ctx, stext);
+            stext = NewStextPage(ctx, page, &opts, cookie, StextRun::Contents, nullptr);
+        }
     }
     fz_catch(ctx) {
         fz_report_error(ctx);
     }
-
     fz_link* link = fz_load_links(ctx, page);
     link = FixupPageLinks(link);
     if (e->pdfdoc) {
@@ -7798,7 +8062,22 @@ FzPageInfo* EngineMupdf::GetFzPageInfoCanFail(int pageNo) {
 // Maybe: when loading fully, cache extracted text in FzPageInfo
 // so that we don't have to re-do fz_new_stext_page_from_page() when doing search
 FzPageInfo* EngineMupdf::GetFzPageInfo(int pageNo, bool loadQuick, fz_cookie* cookie) {
-    return GetFzPageInfo(LocationFromPageNo(pageNo), loadQuick, cookie);
+    Location loc = LocationFromPageNo(pageNo);
+    // a chapter not laid out yet counts as one placeholder page, so a page
+    // number past that is unknown until the chapters before it are laid out
+    // (a fresh engine in BenchLoadPage / TestPageLinks); past the end it stays
+    // invalid and is not a page
+    for (int c = 1; !loc.IsValid() && pageNo >= 1 && c <= ChapterCount(); c++) {
+        if (IsChapterLaidOut(c)) {
+            continue;
+        }
+        ChapterPageCount(c);
+        loc = LocationFromPageNo(pageNo);
+    }
+    if (!loc.IsValid()) {
+        return nullptr;
+    }
+    return GetFzPageInfo(loc, loadQuick, cookie);
 }
 
 FzPageInfo* EngineMupdf::GetFzPageInfo(Location loc, bool loadQuick, fz_cookie* cookie) {
@@ -9005,7 +9284,9 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
         fzcookie = (fz_cookie*)cookie->GetData();
     }
 
-    FzPageInfo* pageInfo = GetFzPageInfo(loc, false, fzcookie);
+    // quick first: the display list built below lets the full load extract
+    // the text from it instead of running the page again
+    FzPageInfo* pageInfo = GetFzPageInfo(loc, true, fzcookie);
     if (!pageInfo) {
         return nullptr;
     }
@@ -9064,13 +9345,27 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
         }
     }
 
-    fz_colorspace* csRgb = fz_device_rgb(ctx);
-    fz_pixmap* pix = nullptr;
+    // the text and links of the page, loaded here, on the render thread, so
+    // the UI thread finds them ready
+    if (!GetFzPageInfo(loc, false, fzcookie)) {
+        fz_drop_display_list(ctx, keptList);
+        return nullptr;
+    }
+
+    PageRenderTarget target;
+    // a transparent backdrop is never palettized
+    bool expectPalette = !args.transparentBackdrop && AtomicIntGet(&renderPalettized) != 0;
+    RenderBuffer bufKind = expectPalette ? RenderBuffer::Plain : RenderBuffer::Dib;
+    bool palettized = false;
+    if (!NewRenderTarget(ctx, ibounds, bufKind, target)) {
+        fz_drop_display_list(ctx, keptList);
+        return nullptr;
+    }
     fz_device* dev = nullptr;
     Pixmap* pixmap = nullptr;
 
     fz_var(dev);
-    fz_var(pix);
+    fz_var(target);
     fz_var(pixmap);
 
     if (keptList) {
@@ -9080,9 +9375,8 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
         // after-free. Hold renderLock to serialize.
         ScopedMutex rls(&renderLock);
         fz_try(ctx) {
-            pix = fz_new_pixmap_with_bbox(ctx, csRgb, ibounds, nullptr, 1);
-            ClearRenderedPagePixmap(ctx, pix, args);
-            dev = fz_new_draw_device(ctx, ctm, pix);
+            ClearRenderedPagePixmap(ctx, target.fz, args);
+            dev = fz_new_draw_device(ctx, ctm, target.fz);
             fz_device* drawDev = dev;
             if (disableAntiAlias) {
                 fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
@@ -9097,11 +9391,16 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             } else {
                 fz_close_device(ctx, dev);
                 if (CadEnhanceActive() && cadRasterDominant) {
-                    PdfCadEnhancePixmap(ctx, pix, zoom, true);
+                    PdfCadEnhancePixmap(ctx, target.fz, zoom, true);
                 }
-                bool skipPalette = args.transparentBackdrop ||
-                                   (args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages);
-                pixmap = NewPixmapFromFzPixmap(ctx, pix, skipPalette);
+                pixmap = FinishRenderTarget(
+                    ctx, target,
+                    args.transparentBackdrop ||
+                        (args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages),
+                    &palettized);
+                if (!args.transparentBackdrop) {
+                    AtomicIntSet(&renderPalettized, palettized ? 1 : 0);
+                }
                 MarkTransparentBackdropPixmap(pixmap, args.transparentBackdrop);
             }
         }
@@ -9109,9 +9408,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             if (dev) {
                 fz_drop_device(ctx, dev);
             }
-            if (pix) {
-                fz_drop_pixmap(ctx, pix);
-            }
+            FreeRenderTarget(ctx, target);
             fz_drop_display_list(ctx, keptList);
         }
         fz_catch(ctx) {
@@ -9140,9 +9437,8 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
     if (pdfdoc) {
         fz_try(ctx) {
             pdfpage = pdf_page_from_fz_page(ctx, page);
-            pix = fz_new_pixmap_with_bbox(ctx, csRgb, ibounds, nullptr, 1);
-            ClearRenderedPagePixmap(ctx, pix, args);
-            dev = fz_new_draw_device(ctx, ctm, pix);
+            ClearRenderedPagePixmap(ctx, target.fz, args);
+            dev = fz_new_draw_device(ctx, ctm, target.fz);
             if (disableAntiAlias) {
                 fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
             }
@@ -9158,11 +9454,12 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             } else {
                 fz_close_device(ctx, dev);
                 if (CadEnhanceActive() && cadRasterDominant) {
-                    PdfCadEnhancePixmap(ctx, pix, zoom, true);
+                    PdfCadEnhancePixmap(ctx, target.fz, zoom, true);
                 }
-                bool skipPalette = args.transparentBackdrop ||
-                                   (args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages);
-                pixmap = NewPixmapFromFzPixmap(ctx, pix, skipPalette);
+                pixmap = FinishRenderTarget(ctx, target, args.transparentBackdrop, &palettized);
+                if (!args.transparentBackdrop) {
+                    AtomicIntSet(&renderPalettized, palettized ? 1 : 0);
+                }
                 MarkTransparentBackdropPixmap(pixmap, args.transparentBackdrop);
             }
         }
@@ -9170,7 +9467,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             if (dev) {
                 fz_drop_device(ctx, dev);
             }
-            fz_drop_pixmap(ctx, pix);
+            FreeRenderTarget(ctx, target);
         }
         fz_catch(ctx) {
             fz_report_error(ctx);
@@ -9179,9 +9476,8 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
         }
     } else {
         fz_try(ctx) {
-            pix = fz_new_pixmap_with_bbox(ctx, csRgb, ibounds, nullptr, 1);
-            ClearRenderedPagePixmap(ctx, pix, args);
-            dev = fz_new_draw_device(ctx, ctm, pix);
+            ClearRenderedPagePixmap(ctx, target.fz, args);
+            dev = fz_new_draw_device(ctx, ctm, target.fz);
             dev = PdfDrawWrap(ctx, dev, args.darkProfile, ctm, ibounds);
             if (disableAntiAlias) {
                 fz_enable_device_hints(ctx, dev, FZ_DONT_INTERPOLATE_IMAGES);
@@ -9189,13 +9485,14 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
             fz_run_page_contents(ctx, page, dev, fz_identity, nullptr);
             fz_close_device(ctx, dev);
             fz_drop_device(ctx, dev);
-            bool skipPalette = args.transparentBackdrop ||
-                               (args.darkProfile && args.darkProfile->mode == PageColorMode::PreserveImages);
-            pixmap = NewPixmapFromFzPixmap(ctx, pix, skipPalette);
+            pixmap = FinishRenderTarget(ctx, target, args.transparentBackdrop, &palettized);
+            if (!args.transparentBackdrop) {
+                AtomicIntSet(&renderPalettized, palettized ? 1 : 0);
+            }
             MarkTransparentBackdropPixmap(pixmap, args.transparentBackdrop);
         }
         fz_always(ctx) {
-            fz_drop_pixmap(ctx, pix);
+            FreeRenderTarget(ctx, target);
         }
         fz_catch(ctx) {
             fz_report_error(ctx);
@@ -10299,11 +10596,22 @@ static TempStr FormatUnixTimeTemp(int64_t unixSecs) {
     }
     time_t t = (time_t)unixSecs;
     struct tm tm;
-    gmtime_s(&tm, &t);
+    if (gmtime_s(&tm, &t) != 0) {
+        return {};
+    }
     char buf[64];
     strftime(buf, sizeof buf, "%Y/%m/%d %H:%M:%S UTC", &tm);
     return str::DupTemp(Str(buf));
 }
+
+#if IS_DEBUG
+bool EngineMupdf_UnitTestFormatUnixTime() {
+    // a certificate's notAfter can be past what gmtime_s handles (year 3000)
+    constexpr int64_t kYear9999 = 253402300799LL;
+    return str::Eq(FormatUnixTimeTemp(86400), StrL("1970/01/02 00:00:00 UTC")) &&
+           len(FormatUnixTimeTemp(kYear9999)) == 0;
+}
+#endif
 
 static TempStr FormatPdfDateRawTemp(fz_context* ctx, pdf_obj* obj) {
     if (!obj) {
@@ -11887,7 +12195,7 @@ void PublishPdfFile(fz_context* ctx, Str path, Str staged) {
         fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot flush staged PDF");
     }
     if (!file::RenameReplace(path, staged)) {
-        fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot replace PDF: %s", CStrTemp(file::LastErrorTemp()));
+        fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot replace PDF");
     }
 }
 
@@ -11956,7 +12264,7 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
     if (!epdf || !epdf->pdfdoc) {
         return false;
     }
-    if (!EngineMupdfHasUnsavedAnnotations(engine)) {
+    if (!EngineHasUnsavedAnnotations(engine)) {
         return false;
     }
 
@@ -12062,6 +12370,68 @@ bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
     fz_catch(ctx) {
         fz_report_error(ctx);
         logf("EngineMupdfSaveCopy: saving '%s' failed: '%s'\n", path, Str(fz_caught_message(ctx)));
+    }
+    return ok;
+}
+
+// Write a copy of the live PDF (with unsaved annotations) whose page i+1 shows
+// only cropBoxes[i], set as its CropBox; an empty box keeps the page as is.
+// Boxes are in PageMediabox() space. The open document is not changed.
+bool EngineMupdfSaveCropped(EngineBase* engine, Str path, const Vec<RectF>& cropBoxes) {
+    EngineMupdf* epdf = AsEngineMupdf(engine);
+    if (!epdf || !epdf->pdfdoc || len(path) == 0) {
+        return false;
+    }
+    auto* ctx = epdf->Ctx();
+    ScopedRecursiveMutex scope(&epdf->docLock);
+    fz_buffer* buf = nullptr;
+    fz_output* out = nullptr;
+    fz_stream* stm = nullptr;
+    pdf_document* copy = nullptr;
+    pdf_page* page = nullptr;
+    bool ok = false;
+    fz_var(buf);
+    fz_var(out);
+    fz_var(stm);
+    fz_var(copy);
+    fz_var(page);
+    fz_var(ok);
+    fz_try(ctx) {
+        pdf_write_options opts = gPdfDefaultWriteOptions;
+        opts.do_incremental = 0;
+        buf = fz_new_buffer(ctx, 1024 * 1024);
+        out = fz_new_output_with_buffer(ctx, buf);
+        pdf_write_document(ctx, epdf->pdfdoc, out, &opts);
+        fz_close_output(ctx, out);
+
+        stm = fz_open_buffer(ctx, buf);
+        copy = pdf_open_document_with_stream(ctx, stm);
+        int n = std::min(pdf_count_pages(ctx, copy), len(cropBoxes));
+        for (int i = 0; i < n; i++) {
+            RectF r = cropBoxes[i];
+            if (r.IsEmpty()) {
+                continue;
+            }
+            page = pdf_load_page(ctx, copy, i);
+            fz_rect box = {r.x, r.y, r.x + r.dx, r.y + r.dy};
+            pdf_set_page_box(ctx, page, FZ_CROP_BOX, box);
+            fz_drop_page(ctx, (fz_page*)page);
+            page = nullptr;
+        }
+        opts.do_compress = 1;
+        pdf_save_document(ctx, copy, CStrTemp(path), &opts);
+        ok = true;
+    }
+    fz_always(ctx) {
+        fz_drop_page(ctx, (fz_page*)page);
+        pdf_drop_document(ctx, copy);
+        fz_drop_stream(ctx, stm);
+        fz_drop_output(ctx, out);
+        fz_drop_buffer(ctx, buf);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        logf("EngineMupdfSaveCropped: saving '%s' failed: '%s'\n", path, Str(fz_caught_message(ctx)));
     }
     return ok;
 }
@@ -12275,11 +12645,14 @@ bool EngineMupdfTryGetLoadedAnnotations(EngineBase* engine, Vec<Annotation*>& an
 
 // Load each page just far enough to read its annots (not stext/links). Callers
 // that need the complete list now (tests, matching after reload) use this.
-void EngineMupdfGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
+bool EngineGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
     VecClear(annotsOut);
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
-    if (!e || !e->pdfdoc) {
-        return;
+    if (!e) {
+        return false;
+    }
+    if (!e->pdfdoc) {
+        return true;
     }
     for (int i = 1; i <= e->pageCount; i++) {
         FzPageInfo* pi = e->GetFzPageInfo(i, true);
@@ -12288,6 +12661,7 @@ void EngineMupdfGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) 
         }
         VecAppendVec(annotsOut, pi->annotations);
     }
+    return true;
 }
 
 static void AnnotLoadFinished(EngineMupdf* e) {
@@ -12413,12 +12787,9 @@ static void AnnotLoadThread(EngineMupdf* e) {
     uitask::Post(fn, "AnnotLoadFinished");
 }
 
-#if defined(SUMATRA_NG)
-// ng: the annotation UI asks for one page's wrappers before it starts the
-// background loader; it cannot include EngineMupdf.h (mupdf headers clash with
-// gpui.h), so this is the entry point
+// Loads one page's annotation wrappers (page + annot dicts, not stext).
 void EngineMupdfLoadAnnotsForPage(EngineBase* engine, int pageNo) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!e || pageNo < 1 || pageNo > e->pageCount) {
         return;
     }
@@ -12428,19 +12799,16 @@ void EngineMupdfLoadAnnotsForPage(EngineBase* engine, int pageNo) {
     }
 }
 
-#endif
 void EngineMupdfStartLoadAllAnnotations(EngineBase* engine, const Vec<int>& firstPages, const Func0& onProgress) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!e || !e->pdfdoc) {
         return;
     }
+    // a running load thread reads annotLoadDoneCb, so set it only before it starts
+    if (e->annotLoadDone || e->annotLoadStarted) {
+        return;
+    }
     e->annotLoadDoneCb = onProgress;
-    if (e->annotLoadDone) {
-        return;
-    }
-    if (e->annotLoadStarted) {
-        return;
-    }
     bool allLoaded = true;
     {
         // PDF is always single-chapter (annotations are PDF-only)
@@ -12473,7 +12841,7 @@ void EngineMupdfStartLoadAllAnnotations(EngineBase* engine, const Vec<int>& firs
     SafeCloseThreadHandle(&th);
 }
 
-bool EngineMupdfHasUnsavedAnnotations(EngineBase* engine) {
+bool EngineHasUnsavedAnnotations(EngineBase* engine) {
     EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     return epdf && epdf->pdfdoc && epdf->modifiedAnnotations;
 }
@@ -12481,9 +12849,9 @@ bool EngineMupdfHasUnsavedAnnotations(EngineBase* engine) {
 // redaction marks the user made in this session. Marks that came with the
 // file don't count: they surface only as their page gets loaded, so the button
 // would appear out of nowhere when an annotation is selected
-bool EngineMupdfHasUserRedactMarks(EngineBase* engine) {
+bool EngineHasUserRedactMarks(EngineBase* engine) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
-    return e && e->createdRedactMark && EngineMupdfHasRedactMarks(engine);
+    return e && e->createdRedactMark && EngineHasRedactMarks(engine);
 }
 
 static bool HasRedactAnnot(const Vec<Annotation*>& annots) {
@@ -12495,7 +12863,7 @@ static bool HasRedactAnnot(const Vec<Annotation*>& annots) {
     return false;
 }
 
-bool EngineMupdfHasRedactMarks(EngineBase* engine) {
+bool EngineHasRedactMarks(EngineBase* engine) {
     Vec<Annotation*> annots;
     EngineMupdfGetLoadedAnnotations(engine, annots);
     return HasRedactAnnot(annots);
@@ -12504,7 +12872,7 @@ bool EngineMupdfHasRedactMarks(EngineBase* engine) {
 // For menu and toolbar state, which is rebuilt on every page change: a render
 // holds pagesLock for as long as the page takes, and waiting for it froze
 // navigation (#6362). While it is held, answers what it last saw.
-bool EngineMupdfHasRedactMarksNoWait(EngineBase* engine) {
+bool EngineHasRedactMarksNoWait(EngineBase* engine) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e) {
         return false;
@@ -13248,22 +13616,9 @@ static bool SignatureUndoBlocked(EngineMupdf* e) {
     return blocked;
 }
 
-bool EngineMupdfCanUndo(EngineBase* engine) {
-    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
-    int pos = EngineMupdfUndoPos(e, nullptr);
-    return pos > 0 && !SignatureUndoBlocked(e);
-}
-
-bool EngineMupdfCanRedo(EngineBase* engine) {
-    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
-    int steps = 0;
-    int pos = EngineMupdfUndoPos(e, &steps);
-    return pos >= 0 && pos < steps;
-}
-
-// For menu and toolbar state, rebuilt on every page change: a render holds
-// docLock for as long as the page takes to draw (#6362). While it is held,
-// answers what it last saw.
+// NoWait is for menu and toolbar state, rebuilt on every page change: a render
+// holds docLock for as long as the page takes to draw (#6362). While it is
+// held, answers what it last saw.
 static int UndoPosNoWait(EngineMupdf* e, int* stepsOut) {
     if (!e) {
         *stepsOut = 0;
@@ -13278,16 +13633,13 @@ static int UndoPosNoWait(EngineMupdf* e, int* stepsOut) {
     return e->undoPosSeen;
 }
 
-bool EngineMupdfCanUndoNoWait(EngineBase* engine) {
-    int steps = 0;
+bool EngineCanUndoRedo(EngineBase* engine, UndoDir dir, EngineWait wait) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
-    int pos = UndoPosNoWait(e, &steps);
-    return pos > 0 && !e->undoBlockedSeen;
-}
-
-bool EngineMupdfCanRedoNoWait(EngineBase* engine) {
     int steps = 0;
-    int pos = UndoPosNoWait(AnnotEngineMupdf(engine, EditorLoad::IfLoaded), &steps);
+    int pos = wait == EngineWait::Wait ? EngineMupdfUndoPos(e, &steps) : UndoPosNoWait(e, &steps);
+    if (dir == UndoDir::Undo) {
+        return pos > 0 && !(wait == EngineWait::Wait ? SignatureUndoBlocked(e) : e->undoBlockedSeen);
+    }
     return pos >= 0 && pos < steps;
 }
 
@@ -13520,16 +13872,17 @@ bool EngineMupdfMergePdfs(const Vec<PdfMergeSource>& srcs, const Vec<PdfMergePag
     return ok;
 }
 
-// Step one operation back (or forward with redo). Returns false if there was
+// Step one operation back (or forward with UndoDir::Redo). Returns false if there was
 // nothing to step to. The wrappers in removedOut are detached from the document
 // already; the caller must take them out of the UI and delete them.
-static bool EngineMupdfUndoRedo(EngineBase* engine, bool redo, Vec<Annotation*>& removedOut) {
+bool EngineUndoRedo(EngineBase* engine, UndoDir dir, Vec<Annotation*>& removedOut) {
+    bool redo = dir == UndoDir::Redo;
     VecReset(removedOut);
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e || !e->pdfdoc) {
         return false;
     }
-    bool can = redo ? EngineMupdfCanRedo(engine) : EngineMupdfCanUndo(engine);
+    bool can = EngineCanUndoRedo(engine, dir, EngineWait::Wait);
     if (!can) {
         return false;
     }
@@ -13558,7 +13911,7 @@ static bool EngineMupdfUndoRedo(EngineBase* engine, bool redo, Vec<Annotation*>&
         }
         fz_catch(ctx) {
             fz_report_error(ctx);
-            logf("EngineMupdfUndoRedo: pdf_%s() failed\n", redo ? StrL("redo") : StrL("undo"));
+            logf("EngineUndoRedo: pdf_%s() failed\n", redo ? StrL("redo") : StrL("undo"));
         }
     }
     if (!ok) {
@@ -13568,14 +13921,6 @@ static bool EngineMupdfUndoRedo(EngineBase* engine, bool redo, Vec<Annotation*>&
     e->InvalidateAllText();
     SyncRedacted(engine, e);
     return true;
-}
-
-bool EngineMupdfUndo(EngineBase* engine, Vec<Annotation*>& removedOut) {
-    return EngineMupdfUndoRedo(engine, false, removedOut);
-}
-
-bool EngineMupdfRedo(EngineBase* engine, Vec<Annotation*>& removedOut) {
-    return EngineMupdfUndoRedo(engine, true, removedOut);
 }
 
 // The journal knows exactly whether the document differs from the file, which
@@ -13664,10 +14009,6 @@ bool EngineMupdfHasOfdSignatures(EngineBase* engine) {
     }
     ScopedRecursiveMutex scope(&e->docLock);
     return ofd_count_signatures(e->Ctx(), e->_doc) > 0;
-}
-
-bool EngineMupdfSupportsAnnotations(EngineBase* engine) {
-    return EngineMupdfIsPdf(engine);
 }
 
 // Restyle a reflowable document with the current theme page colors and drop
@@ -14111,8 +14452,8 @@ static FzPageInfo* GetPdfPageInfo(EngineMupdf* engine, int pageNo) {
     return engine->GetFzPageInfoCanFail(pageNo);
 }
 
-Annotation* EngineMupdfGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos, float padding,
-                                          Annotation* preferredAnnot) {
+Annotation* EngineGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos, float padding,
+                                     Annotation* preferredAnnot) {
     EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
     if (!pi) {
@@ -14123,13 +14464,15 @@ Annotation* EngineMupdfGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF
     return FindAnnotAtPos(pi->annotations, pos, padding, preferredAnnot);
 }
 
-// Like EngineMupdfGetAnnotationAtPos but for form fields (widgets), which live
+// Like EngineGetAnnotationAtPos but for form fields (widgets), which live
 // in their own list. Returns the smallest widget containing pos, or null.
-Annotation* EngineMupdfGetWidgetAtPos(EngineBase* engine, int pageNo, PointF pos) {
-    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
-    if (!epdf) {
+Annotation* EngineGetWidgetAtPos(EngineBase* engine, int pageNo, PointF pos) {
+    bool found = true;
+    WidgetCursorKind cursor{};
+    if (engine && engine->FormWidgetAt(pageNo, pos, found, cursor) && !found) {
         return nullptr;
     }
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
     if (!pi) {
         return nullptr;
@@ -14645,6 +14988,233 @@ int EngineMupdfEbookToPdf(Str srcPath, Str dstPath, float pageDx, float pageDy, 
     }
     fz_drop_context(ctx);
     return nPages;
+}
+
+// --- Extract Pages for documents that aren't PDF (#6509) ---
+
+// index in sel of the page a link or bookmark points at, -1 if not extracted
+static int ExtractedPageIdx(fz_context* ctx, fz_document* doc, const Vec<Location>& sel, const char* uri) {
+    fz_link_dest dest = fz_resolve_link_dest(ctx, doc, uri);
+    if (dest.loc.page < 0) {
+        return -1;
+    }
+    Location loc{dest.loc.chapter + 1, dest.loc.page + 1};
+    for (int i = 0; i < len(sel); i++) {
+        if (sel[i] == loc) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// a link's uri in the new PDF: external ones as they are, internal ones only
+// when they point at an extracted page
+static char* ExtractedLinkUri(fz_context* ctx, fz_document* doc, const Vec<Location>& sel, const char* uri) {
+    if (!uri) {
+        return nullptr;
+    }
+    if (fz_is_external_link(ctx, uri)) {
+        return fz_strdup(ctx, uri);
+    }
+    int idx = ExtractedPageIdx(ctx, doc, sel, uri);
+    if (idx < 0) {
+        return nullptr;
+    }
+    fz_link_dest dest = fz_resolve_link_dest(ctx, doc, uri);
+    dest.loc = fz_make_location(0, idx);
+    return pdf_new_uri_from_explicit_dest(ctx, dest);
+}
+
+static void AddExtractedLinks(fz_context* ctx, fz_document* doc, pdf_document* pdf, const Vec<Location>& sel,
+                              int pageIdx, fz_link* links) {
+    pdf_page* page = pdf_load_page(ctx, pdf, pageIdx);
+    for (fz_link* l = links; l; l = l->next) {
+        char* uri = nullptr;
+        fz_var(uri);
+        fz_try(ctx) {
+            uri = ExtractedLinkUri(ctx, doc, sel, l->uri);
+            if (uri) {
+                fz_drop_link(ctx, pdf_create_link(ctx, page, l->rect, uri));
+            }
+        }
+        fz_always(ctx) {
+            fz_free(ctx, uri);
+        }
+        fz_catch(ctx) {
+            // one broken link shouldn't fail the extraction
+            fz_report_error(ctx);
+        }
+    }
+    fz_drop_page(ctx, (fz_page*)page);
+}
+
+// the bookmarks that point at extracted pages; one that doesn't is left out
+// and its children move up to its place
+static void AddExtractedOutline(fz_context* ctx, fz_document* doc, const Vec<Location>& sel, fz_outline_iterator* iter,
+                                fz_outline* o) {
+    for (; o; o = o->next) {
+        char* uri = o->uri ? ExtractedLinkUri(ctx, doc, sel, o->uri) : nullptr;
+        if (!uri) {
+            AddExtractedOutline(ctx, doc, sel, iter, o->down);
+            continue;
+        }
+        fz_outline_item item{};
+        item.title = o->title;
+        item.uri = uri;
+        item.is_open = o->is_open;
+        fz_try(ctx) {
+            fz_outline_iterator_insert(ctx, iter, &item);
+        }
+        fz_always(ctx) {
+            fz_free(ctx, uri);
+        }
+        fz_catch(ctx) {
+            fz_rethrow(ctx);
+        }
+        if (!o->down) {
+            continue;
+        }
+        // insert leaves iter after the new item: step onto it, then into it
+        fz_outline_iterator_prev(ctx, iter);
+        fz_outline_iterator_down(ctx, iter);
+        AddExtractedOutline(ctx, doc, sel, iter, o->down);
+        fz_outline_iterator_up(ctx, iter);
+        fz_outline_iterator_next(ctx, iter);
+    }
+}
+
+// Writes the given pages (1-based, as the viewer numbers them) of an open
+// document that isn't a PDF -- XPS, EPUB as laid out, FB2, ... -- to a new PDF
+// as vector content, keeping text, the links between kept pages and the
+// bookmarks to them. A PDF goes through pdfclean instead, which keeps more.
+bool EngineMupdfExtractPagesToPdf(EngineBase* engine, const Vec<int>& pages, Str destPath) {
+    EngineMupdf* e = AsEngineMupdf(engine);
+    if (!e || !e->_doc || e->pdfdoc || len(pages) == 0 || len(destPath) == 0) {
+        return false;
+    }
+    fz_context* ctx = e->Ctx();
+    if (!ctx) {
+        return false;
+    }
+
+    // locations first: loading a page lays out its chapter, which renumbers
+    // the pages after it
+    Vec<Location> sel;
+    for (int pageNo : pages) {
+        Location loc = e->LocationFromPageNo(pageNo);
+        if (!loc.IsValid()) {
+            return false;
+        }
+        VecAppend(sel, loc);
+    }
+
+    // fz_throw longjmps past destructors, so every lock is taken outside fz_try
+    pdf_document* pdf = nullptr;
+    fz_try(ctx) {
+        pdf = pdf_create_document(ctx);
+    }
+    fz_catch(ctx) {
+        fz_report_error(ctx);
+        return false;
+    }
+
+    // per extracted page, in the new page's coordinates; added once every page
+    // exists, since a link can point at a later one
+    Vec<fz_link*> links;
+    bool ok = true;
+    for (Location loc : sel) {
+        FzPageInfo* pageInfo = e->GetFzPageInfo(loc, false, nullptr);
+        if (!pageInfo) {
+            ok = false;
+            break;
+        }
+        // as RenderPage: a restyle drops fz_page under these locks
+        ScopedMutex cs(&e->renderLock);
+        ScopedRecursiveMutex docScope(&e->docLock);
+        fz_page* page = pageInfo->page;
+        if (!page) {
+            ok = false;
+            break;
+        }
+        pdf_obj* resources = nullptr;
+        fz_buffer* contents = nullptr;
+        pdf_obj* pageObj = nullptr;
+        fz_device* dev = nullptr;
+        fz_link* pageLinks = nullptr;
+        fz_var(resources);
+        fz_var(contents);
+        fz_var(pageObj);
+        fz_var(dev);
+        fz_var(pageLinks);
+        fz_try(ctx) {
+            fz_rect box = fz_bound_page_box(ctx, page, FZ_CROP_BOX);
+            fz_matrix ctm = fz_translate(-box.x0, -box.y0);
+            box = fz_transform_rect(box, ctm);
+            dev = pdf_page_write(ctx, pdf, box, &resources, &contents);
+            fz_run_page(ctx, page, dev, ctm, nullptr);
+            fz_close_device(ctx, dev);
+            pageObj = pdf_add_page(ctx, pdf, box, 0, resources, contents);
+            pdf_insert_page(ctx, pdf, -1, pageObj);
+            pageLinks = fz_load_links(ctx, page);
+            for (fz_link* l = pageLinks; l; l = l->next) {
+                l->rect = fz_transform_rect(l->rect, ctm);
+            }
+        }
+        fz_always(ctx) {
+            fz_drop_device(ctx, dev);
+            pdf_drop_obj(ctx, pageObj);
+            pdf_drop_obj(ctx, resources);
+            fz_drop_buffer(ctx, contents);
+        }
+        fz_catch(ctx) {
+            fz_report_error(ctx);
+            ok = false;
+        }
+        if (!ok) {
+            fz_drop_link(ctx, pageLinks);
+            break;
+        }
+        VecAppend(links, pageLinks);
+    }
+
+    if (ok) {
+        ScopedRecursiveMutex docScope(&e->docLock);
+        fz_outline* outline = nullptr;
+        fz_outline_iterator* iter = nullptr;
+        fz_var(outline);
+        fz_var(iter);
+        fz_try(ctx) {
+            for (int i = 0; i < len(sel); i++) {
+                AddExtractedLinks(ctx, e->_doc, pdf, sel, i, links[i]);
+            }
+            outline = fz_load_outline(ctx, e->_doc);
+            if (outline) {
+                iter = pdf_new_outline_iterator(ctx, pdf);
+                AddExtractedOutline(ctx, e->_doc, sel, iter, outline);
+            }
+            pdf_write_options opts{};
+            pdf_parse_write_options(ctx, &opts, "compress");
+            pdf_save_document(ctx, pdf, CStrTemp(destPath), &opts);
+        }
+        fz_always(ctx) {
+            fz_drop_outline_iterator(ctx, iter);
+            fz_drop_outline(ctx, outline);
+        }
+        fz_catch(ctx) {
+            fz_report_error(ctx);
+            ok = false;
+        }
+    }
+
+    for (fz_link* l : links) {
+        fz_drop_link(ctx, l);
+    }
+    pdf_drop_document(ctx, pdf);
+    if (!ok) {
+        logf("EngineMupdfExtractPagesToPdf: failed for '%s'\n", destPath);
+        file::Delete(destPath);
+    }
+    return ok;
 }
 
 TempStr EngineMupdfGetPdfInfo(Str path, Str password) {

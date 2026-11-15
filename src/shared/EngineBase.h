@@ -265,7 +265,7 @@ struct PageDestination : IPageDestination {
     Str GetName() override;
 };
 
-bool ParseJsPopUpMenuItems(Str js, StrVec& items);
+bool ParseJsPopUpMenuItems(Str js, StrVec& items, Vec<int>& levels);
 Str ExtractJsCallName(Str js);
 
 // JavaScript app.popUpMenu items (Altium schematic PDFs, issue #1198).
@@ -273,20 +273,28 @@ struct PageDestinationJsMenu : IPageDestination {
     StrVec items;
     // what picking each item returns (KiCad, issue #6503); empty when unknown
     StrVec returns;
+    // submenu depth of each item, 0 = top; an item followed by a deeper one is
+    // that submenu's title (Xpedition, issue #6517). Empty when flat
+    Vec<int> levels;
     Str tooltip;
 
     PageDestinationJsMenu();
     ~PageDestinationJsMenu() override;
 
     Str GetValue() override;
+    int Level(int i);
+    bool IsSubmenu(int i);
 };
 
 bool ParseJsMenuCallItems(Str js, StrVec& items, StrVec& returns);
 bool JsDefinesMenuFunction(Str js, Str name);
+bool ParseXpeditionStrings(Str docJs, StrVec& strings);
+bool ParseXpeditionMenu(Str linkJs, StrVec& strings, PageDestinationJsMenu* menu);
 
 struct JsMenuAction {
     Str url;
     int pageNo = 0;
+    Str copyText;
 };
 JsMenuAction GetJsMenuAction(PageDestinationJsMenu*, int i);
 
@@ -631,7 +639,7 @@ class EngineBase {
     void SetHideAnnotations(bool hide);
     virtual void ReleaseTextExtractionThreadContext() {}
     // pages where clipping doesn't help are rendered in larger tiles
-    virtual bool HasClipOptimizations(int pageNo) = 0;
+    virtual bool HasClipOptimizations(int /*pageNo*/) { return false; }
 
     // access to various document properties (such as Author, Title, etc.)
     virtual TempStr GetPropertyTemp(DocProp prop) = 0;
@@ -678,7 +686,7 @@ class EngineBase {
 
     // loads the given page so that the time required can be measured
     // without also measuring rendering times
-    virtual bool BenchLoadPage(int pageNo) = 0;
+    virtual bool BenchLoadPage(int /*pageNo*/) { return true; }
 
     Str FilePath() const;
 

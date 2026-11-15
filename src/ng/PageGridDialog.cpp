@@ -23,6 +23,7 @@
 #include "EngineAll.h"
 #include "DisplayModel.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Theme.h"
 #include "SumatraConfig.h"
@@ -408,7 +409,7 @@ static void ApplyLive() {
     str::ReplaceWithCopy(&pg->units, SeqStrByIndex(kPageGridUnitTok, gPageGrid.unitIdx));
     SetColorText(pg->color, SerializeColorTemp(gPageGrid.currentColor));
     SetShowPageGrid(gPageGrid.showGrid);
-    RedrawPageGridWindows();
+    RedrawAllWindows();
 }
 
 // orig's OnUnitsChanged: the values keep their length, the numbers change
@@ -486,7 +487,7 @@ static void FreePageGridInputs() {
                                gPageGrid.editOffX,  gPageGrid.editOffY,   gPageGrid.editColor};
     for (gp::InputState* e : edits) {
         if (e && win && win->gpuiWin) {
-            gp::InputBlur(e, win->gpuiWin->app, win->gpuiWin);
+            InputBlurWhereFocused(e, win->gpuiWin);
         }
         delete e;
     }
@@ -514,7 +515,7 @@ void ClosePageGridDialog() {
         gPageGrid.win = nullptr;
     }
     WriteSnapToPrefs();
-    RedrawPageGridWindows();
+    RedrawAllWindows();
     FreePageGridInputs();
     AppShellInvalidate(gPageGrid.win);
 }

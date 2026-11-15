@@ -24,6 +24,7 @@
 #include "ProgressUpdateUI.h"
 #include "TextSelection.h"
 #include "TextSearch.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
@@ -35,8 +36,6 @@
 // OLE drag and drop, the part orig's Canvas.cpp and ng's gui/OleDragDrop_win.cpp
 // share: the data objects and drop sources for dragging text or an image out of
 // the canvas, and reading text, URLs and files from a dropped data object.
-
-bool gTestCancelDrag = false;
 
 // data object of the most recent drag-out, kept connected because cross-process
 // drop targets can still extract data after DoDragDrop returns (e.g. Explorer

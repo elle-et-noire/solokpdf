@@ -168,8 +168,8 @@ void ChangeThemeWnd::Recolor() {
         SetDlgListColors(listBox);
     }
     labelDocumentColorsFollowTheme->SetColor(kColText, ThemeWindowTextColor());
-    SetDlgButtonColors(btnCancel, DlgButtonStyle::Outline);
-    SetDlgButtonColors(btnChange, DlgButtonStyle::Filled);
+    SetVirtButtonStyle(btnCancel, DlgButtonStyle::Outline);
+    SetVirtButtonStyle(btnChange, DlgButtonStyle::Filled);
     HwndInvalidate(hwnd);
 }
 
@@ -320,7 +320,7 @@ bool ChangeThemeWnd::Create(MainWindow* mainWin) {
     int dx = DpiScale(kThemeDlgDx);
     LayoutAndSizeToContent(layout, dx, 0, hwnd);
     // pick up the virtual controls so we paint them and they get their input
-    DoLayout(HwndClientRect(hwnd).Size());
+    DoLayout();
     PositionDialog(hwnd, win->hwndFrame);
     UpdateTheme();
     Recolor();

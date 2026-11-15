@@ -26,6 +26,7 @@
 #include "SumatraConfig.h"
 #include "AppSettings.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "SumatraPDF.h"
 #include "Theme.h"
@@ -199,8 +200,6 @@ static void ScheduleFocusNavListBox() {
     auto fn = MkFunc0Void(FocusNavListBox);
     uitask::Post(fn, "FocusNavListBox");
 }
-
-Str NavEntryBaseName(const NavFileEntry& e);
 
 // rebuild the shown entries: all of them without a filter, else those whose
 // name has every filter word (the command palette's matching), without ".."
@@ -397,15 +396,6 @@ static TempStr NavEntryPathTemp(NavFilesInFolderWnd* wnd, NavFileEntry& e) {
         name = Str(name.s, name.len - 1); // strip the trailing "\\"
     }
     return path::JoinTemp(wnd->currDir, name);
-}
-
-// entry display name without a trailing path separator (dirs use "name\\")
-Str NavEntryBaseName(const NavFileEntry& e) {
-    Str name = e.name;
-    if (e.isDir && name.len > 0 && path::IsSep(name.s[name.len - 1])) {
-        return Str(name.s, name.len - 1);
-    }
-    return name;
 }
 
 // index of selectPath in the listing, or 0 if not found / empty
@@ -1278,7 +1268,7 @@ bool NavFilesInFolderWnd::Create(MainWindow* mainWin, Str filePath) {
     }
     LayoutAndSizeToContent(layout, dx, dy, hwnd);
     // pick up the virtual controls so we paint them and they get their input
-    DoLayout(HwndClientRect(hwnd).Size());
+    DoLayout();
     PositionNavFilesWnd(hwnd, mainWin->hwndFrame, docked, placeLeft);
 
     if (selIdx >= 0) {

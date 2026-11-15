@@ -36,6 +36,7 @@
 #include "Tabs.h"
 #include "ReadingAutoScroll.h"
 #include "ReadAloud.h"
+#include "AIChatTypes.h"
 #include "AIChatCommon.h"
 #include "AIChatPanel.h"
 #include "OverlayScrollbar.h"
@@ -158,7 +159,7 @@ void ControllerCallbackHandler::TocChanged(DocController* ctrl) {
         ReloadTocTree(tab);
     } else if (tab->showToc && !win->InPresentation()) {
         // presentation mode has its own sidebar state (tab->showTocPresentation)
-        SetSidebarVisibility(win, true, gSettings->showFavorites);
+        SetTocVisibility(win, true);
     }
     AppShellInvalidate(win);
 }

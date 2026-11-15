@@ -688,16 +688,53 @@ bool IsPdfPageEngine(Kind kind) {
     return kind == kindEngineMupdf;
 }
 
+EngineCachedPdf::~EngineCachedPdf() {
+    str::Free(cachedPdf);
+}
+
+// the proxy's FilePath() stays the user's file, not the cached conversion
+bool EngineCachedPdf::OpenCachedPdf(Str pdfPath) {
+    cachedPdf = str::Dup(pdfPath);
+    pdfEngine = CreateEngineMupdfFromFile(cachedPdf, FileType::PDF, DpiGet(), nullptr);
+    if (!pdfEngine) {
+        return false;
+    }
+    CopyStateFromPdfEngine();
+    return true;
+}
+
+EngineBase* EngineCachedPdf::Clone() {
+    if (len(cachedPdf) == 0 || !file::Exists(cachedPdf)) {
+        return nullptr;
+    }
+    EngineBase* inner = CreateEngineMupdfFromFile(cachedPdf, FileType::PDF, DpiGet(), nullptr);
+    if (!inner) {
+        return nullptr;
+    }
+    EngineCachedPdf* clone = NewEmpty();
+    if (FilePath()) {
+        clone->SetFilePath(FilePath());
+    }
+    clone->pdfEngine = inner;
+    clone->cachedPdf = str::Dup(cachedPdf);
+    clone->CopyStateFromPdfEngine();
+    return clone;
+}
+
+// saving as .pdf writes the cached conversion; anything else copies the original
+bool EngineCachedPdf::SaveFileAs(Str dstPath) {
+    if (str::EndsWithI(dstPath, StrL(".pdf")) && len(cachedPdf) > 0) {
+        return file::Copy(dstPath, cachedPdf, false);
+    }
+    Str srcPath = FilePath();
+    return len(srcPath) > 0 && file::Copy(dstPath, srcPath, false);
+}
+
 static bool IsEngineMupdf(EngineBase* engine) {
     if (!engine) {
         return false;
     }
     return engine->kind == kindEngineMupdf;
-}
-
-// EngineMupdf, or an engine whose annotations an EngineMupdf edits
-static bool HasMupdfAnnotations(EngineBase* engine) {
-    return IsEngineMupdf(engine) || (engine && engine->HasAnnotationEditor());
 }
 
 bool EngineSupportsAnnotations(EngineBase* engine) {
@@ -710,61 +747,5 @@ bool EngineSupportsAnnotations(EngineBase* engine) {
     if (!IsEngineMupdf(engine)) {
         return false;
     }
-    return EngineMupdfSupportsAnnotations(engine);
-}
-
-bool EngineGetAnnotations(EngineBase* engine, Vec<Annotation*>& annotsOut) {
-    if (!HasMupdfAnnotations(engine)) {
-        return false;
-    }
-    EngineMupdfGetAnnotations(engine, annotsOut);
-    return true;
-}
-
-bool EngineHasUnsavedAnnotations(EngineBase* engine) {
-    if (!HasMupdfAnnotations(engine)) {
-        return false;
-    }
-    return EngineMupdfHasUnsavedAnnotations(engine);
-}
-
-bool EngineHasRedactMarks(EngineBase* engine) {
-    if (!HasMupdfAnnotations(engine)) {
-        return false;
-    }
-    return EngineMupdfHasRedactMarks(engine);
-}
-
-bool EngineHasRedactMarksNoWait(EngineBase* engine) {
-    if (!HasMupdfAnnotations(engine)) {
-        return false;
-    }
-    return EngineMupdfHasRedactMarksNoWait(engine);
-}
-
-bool EngineHasUserRedactMarks(EngineBase* engine) {
-    if (!HasMupdfAnnotations(engine)) {
-        return false;
-    }
-    return EngineMupdfHasUserRedactMarks(engine);
-}
-
-Annotation* EngineGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos, float padding, Annotation* annot) {
-    if (!HasMupdfAnnotations(engine)) {
-        return nullptr;
-    }
-    return EngineMupdfGetAnnotationAtPos(engine, pageNo, pos, padding, annot);
-}
-
-Annotation* EngineGetWidgetAtPos(EngineBase* engine, int pageNo, PointF pos) {
-    if (!IsEngineMupdf(engine) && !(engine && engine->HasAcroForm())) {
-        return nullptr;
-    }
-    // an engine that reads its own fields spares loading the editor where there is none
-    bool found = true;
-    WidgetCursorKind cursor{};
-    if (engine->FormWidgetAt(pageNo, pos, found, cursor) && !found) {
-        return nullptr;
-    }
-    return EngineMupdfGetWidgetAtPos(engine, pageNo, pos);
+    return EngineMupdfIsPdf(engine);
 }

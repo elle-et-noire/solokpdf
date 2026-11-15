@@ -20,59 +20,7 @@ concept CanNegate = requires(T v) {
 static_assert(!CanNegate<Str>);
 static_assert(!CanNegate<WStr>);
 
-static void StrReplaceTestOne(Str s, Str toReplace, Str replaceWith, Str expected) {
-    TempStr res = str::ReplaceTemp(s, toReplace, replaceWith);
-    utassert(str::Eq(res, expected));
-}
-
 static void StrReplaceTest() {
-    Str d[] = {
-        StrL("golagon"),
-        StrL("gon"),
-        StrL("rabato"),
-        StrL("golarabato"),
-        StrL("a"),
-        StrL("a"),
-        StrL("bor"),
-        StrL("bor"),
-        StrL("abora"),
-        StrL("a"),
-        StrL(""),
-        StrL("bor"),
-        StrL("aaaaaa"),
-        StrL("a"),
-        StrL("b"),
-        StrL("bbbbbb"),
-        StrL("aba"),
-        StrL("a"),
-        StrL("ccc"),
-        StrL("cccbccc"),
-        StrL("Aba"),
-        StrL("a"),
-        StrL("c"),
-        StrL("Abc"),
-        StrL("abc"),
-        StrL("abc"),
-        StrL(""),
-        StrL(""),
-        {},
-        StrL("a"),
-        StrL("b"),
-        {},
-        StrL("a"),
-        StrL(""),
-        StrL("b"),
-        {},
-        StrL("a"),
-        StrL("b"),
-        {},
-        {},
-    };
-    size_t n = dimof(d) / 4;
-    for (size_t i = 0; i < n; i++) {
-        StrReplaceTestOne(d[i * 4], d[(i * 4) + 1], d[(i * 4) + 2], d[(i * 4) + 3]);
-    }
-
     struct {
         Str string, find, replace, result;
     } data[] = {
@@ -116,41 +64,33 @@ static void CountWordsTest() {
                   4, 6);
 }
 
+// a table as cmd/gen-code.ts emits it: name\0 then the number as zigzag LEB128
+// (10 -> 0x14, -3 -> 0x05, 0x1234 -> 0xe8 0x48), ending with \0
 static void StrSeqNumTest() {
-    str::Builder b;
-    SeqStrNumAppend(&b, StrL("foo"), 10);
-    SeqStrNumAppend(&b, StrL("bar"), -3);
-    SeqStrNumAppend(&b, StrL("baz"), 0x1234);
-    SeqStrNumFinish(&b);
-    SeqStrNum seq = ToStr(b).s;
+    SeqStrNum seq =
+        "foo\0\x14"
+        "bar\0\x05"
+        "baz\0\xe8\x48"
+        "\0";
 
-    i64 num = 0;
-    utassert(0 == SeqStrNumIndex(seq, StrL("foo"), &num));
-    utassert(num == 10);
-    utassert(1 == SeqStrNumIndex(seq, StrL("bar"), &num));
-    utassert(num == -3);
-    utassert(2 == SeqStrNumIndex(seq, StrL("baz"), &num));
-    utassert(num == 0x1234);
-    utassert(-1 == SeqStrNumIndex(seq, StrL("missing"), &num));
-
-    Str s = SeqStrNumByIndex(seq, 1, &num);
-    utassert(str::Eq(s, StrL("bar")));
-    utassert(num == -3);
-
-    s = SeqStrNumStrByNumber(seq, 10);
-    utassert(str::Eq(s, StrL("foo")));
-    s = SeqStrNumStrByNumber(seq, 0x1234);
-    utassert(str::Eq(s, StrL("baz")));
+    utassert(str::Eq(SeqStrNumStrByNumber(seq, 10), StrL("foo")));
+    utassert(str::Eq(SeqStrNumStrByNumber(seq, 0x1234), StrL("baz")));
     utassert(len(SeqStrNumStrByNumber(seq, 99)) == 0);
+
+    i64 found = 0;
+    utassert(SeqStrNumIndexIS(seq, StrL("BAR"), &found) == 1 && found == -3);
+    utassert(SeqStrNumIndexIS(seq, StrL("missing"), &found) == -1);
 
     int off = 0;
     int idx = 0;
-    SeqStrNumAdvance(seq, off, &idx);
+    utassert(SeqStrNumAdvance(seq, off, &idx));
     utassert(idx == 1);
-    utassert(str::Eq(SeqStrNumAt(seq, off), StrL("bar")));
-    num = 0;
-    s = SeqStrNumAt(seq, off, &num);
+    i64 num = 0;
+    Str s = SeqStrNumAt(seq, off, &num);
     utassert(str::Eq(s, StrL("bar")) && num == -3);
+    utassert(SeqStrNumAdvance(seq, off, &idx));
+    s = SeqStrNumAt(seq, off, &num);
+    utassert(str::Eq(s, StrL("baz")) && num == 0x1234);
 }
 
 static void StrSeqTest() {
@@ -508,12 +448,7 @@ static void StrFindITest() {
 }
 
 static void StrCutTest() {
-    // IndexOfAfter: offset just past the match, or -1
     Str s = StrL("key=value");
-    utassert(str::IndexOfAfter(s, StrL("=")) == 4);
-    utassert(str::IndexOfAfter(s, StrL("key")) == 3);
-    utassert(str::IndexOfAfter(s, StrL("xyz")) == -1);
-    utassert(str::IndexOfAfter(s, StrL("value")) == 9); // match at end -> len
 
     // Cut: split around first occurrence
     Str before, after;
@@ -947,13 +882,6 @@ void StrTest() {
         utassert(str::Parse(StrL("ansi string, -30-20 1.5%"), "%S,%d%?-%2u%f%%%$", &str1, &i, &j, &f).s);
         utassert(str::Eq(str1, StrL("ansi string")) && i == -30 && j == 20 && f == 1.5f);
     }
-    {
-        TempStr str1;
-        int i, j;
-        float f;
-        utassert(str::Parse(StrL("wide string, -30-20 1.5%"), "%S,%d%?-%2u%f%%%$", &str1, &i, &j, &f).s);
-        utassert(str::Eq(str1, StrL("wide string")) && i == -30 && j == 20 && f == 1.5f);
-    }
 
     {
         Str path = StrL(
@@ -1159,10 +1087,6 @@ void StrTest() {
         TempWStr tmp = strconv::StrCPToWStrTemp(StrL("abc"), 12345);
         utassert(len(tmp) == 0);
     }
-    {
-        Str tmp = strconv::WStrToCodePage(987654, L"abc");
-        utassert(len(tmp) == 0);
-    }
 
     {
         const char cp1251[] = {'\xcf', '\xf0', '\xe8', '\xe2', '\xe5', '\xf2'};
@@ -1185,21 +1109,6 @@ void StrTest() {
         const char cp932[] = {'\x82', '\xb1', '\x82', '\xf1', '\x82', '\xc9', '\x82', '\xbf', '\x82', '\xcd'};
         TempStr utf8 = strconv::ToMultiByteTemp(Str((char*)cp932, dimof(cp932)), 932, CP_UTF8);
         utassert(str::Eq(utf8, StrL("こんにちは")));
-    }
-
-    {
-        char buf1[6]{};
-        size_t cnt = str::BufAppend(Str(buf1, dimof(buf1)), StrL(""));
-        utassert(0 == cnt);
-        cnt = str::BufAppend(Str(buf1, dimof(buf1)), StrL("1234"));
-        utassert(4 == cnt);
-        utassert(str::Eq(StrL("1234"), Str(buf1)));
-        cnt = str::BufAppend(Str(buf1, dimof(buf1)), StrL("56"));
-        utassert(1 == cnt);
-        utassert(str::Eq(StrL("12345"), Str(buf1)));
-        cnt = str::BufAppend(Str(buf1, dimof(buf1)), StrL("6"));
-        utassert(0 == cnt);
-        utassert(str::Eq(StrL("12345"), Str(buf1)));
     }
 
     {

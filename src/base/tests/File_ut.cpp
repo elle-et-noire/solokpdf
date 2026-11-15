@@ -46,12 +46,6 @@ void FileUtilTest() {
     utassert(path::IsInDir(StrL("C:\\Temp\\sum17E3.tmp.exe"), StrL("C:\\Temp")));
     utassert(path::IsInDir(StrL("C:\\Temp\\a"), StrL("C:\\Temp\\")));
     utassert(!path::IsInDir(StrL("C:\\Temporary\\a"), StrL("C:\\Temp")));
-    utassert(path::IsDriveRoot(StrL("C:\\")));
-    utassert(path::IsDriveRoot(StrL("C:/")));
-    utassert(path::IsDriveRoot(StrL("C:\\\\")));
-    utassert(!path::IsDriveRoot(StrL("C:")));
-    utassert(!path::IsDriveRoot(StrL("C:\\Windows")));
-    utassert(!path::IsDriveRoot(StrL("file.exe")));
     dirName = path::GetDirTemp(StrL("/etc"));
     utassert(str::Eq(dirName, StrL("/")));
 
@@ -216,23 +210,6 @@ void FileUtilTest() {
         }
     }
     {
-        // a UNC path is \\?\UNC\server\share when extended, not \\?\\\server\share
-        Str shortUnc = StrL("\\\\server\\share\\doc.pdf");
-        utassert(str::Eq(path::NormalizeTemp(shortUnc), shortUnc));
-
-        str::Builder longName;
-        for (int i = 0; i < MAX_PATH; i++) {
-            longName.AppendChar('a');
-        }
-        TempStr longUnc = fmt("\\\\server\\share\\%s.pdf", ToStr(longName));
-        TempStr expected = fmt("\\\\?\\UNC\\server\\share\\%s.pdf", ToStr(longName));
-        TempStr norm = path::NormalizeTemp(longUnc);
-        utassert(str::Eq(norm, expected));
-        // already extended: unchanged
-        utassert(str::Eq(path::NormalizeTemp(norm), expected));
-    }
-
-    {
         // the module path must come back whole no matter how small the first
         // buffer is, i.e. the growing loop must run and not truncate
         TempWStr expected = GetModulePathTemp((HMODULE) nullptr, MAX_PATH + 1);
@@ -270,7 +247,8 @@ void FileUtilTest() {
         str::Free(saved);
 #if OS_WIN
         char oldBytes[12]{};
-        utassert(file::ReadAt(reader, 0, oldBytes, sizeof(oldBytes)));
+        DWORD bytesRead = 0;
+        utassert(ReadFile(reader, oldBytes, sizeof(oldBytes), &bytesRead, nullptr) && bytesRead == sizeof(oldBytes));
         utassert(str::Eq(Str(oldBytes, sizeof(oldBytes)), StrL("keep content")));
         file::Close(reader);
 #endif

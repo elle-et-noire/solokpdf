@@ -46,6 +46,7 @@
 #include "SumatraPDF.h"
 #include "MainWindow.h"
 #include "AnnotPlacement.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Tabs.h"
 #include "FileHistory.h"
@@ -459,7 +460,7 @@ void CloseCommandPalette() {
         ToolWindowClose(wnd->tw);
         wnd->tw = nullptr;
     } else if (win && win->gpuiWin && wnd->editQuery) {
-        gp::InputBlur(wnd->editQuery, win->gpuiWin->app, win->gpuiWin);
+        InputBlurWhereFocused(wnd->editQuery, win->gpuiWin);
     }
     delete wnd->editQuery;
     if (wnd->thumbCache) {

@@ -59,10 +59,6 @@ TabInfo::~TabInfo() {
     str::Free(pageText);
 }
 
-static Gdiplus::Color GdipCol(Color c) {
-    return GdiRgbFromColor(c);
-}
-
 //--- TabCtrl: one tab
 
 // paints the tab (background, title, dirty dot) and hosts its ✕. It doesn't own
@@ -737,7 +733,7 @@ HBITMAP TabsCtrl::RenderForDragging(int idx) {
     Color bgCol = GetColor(kColTabBg);
     Color textCol = TabTextColorForBackground(GetColor(kColTabText), bgCol);
 
-    SolidBrush br(GdipCol(bgCol));
+    SolidBrush br(GdiRgbFromColor(bgCol));
     Gdiplus::Rect gr(0, 0, r.dx, r.dy);
     gfx->FillRectangle(&br, gr);
 
@@ -769,11 +765,11 @@ HBITMAP TabsCtrl::RenderForDragging(int idx) {
         rPage.Width = (float)pageDx;
     }
 
-    br.SetColor(GdipCol(textCol));
+    br.SetColor(GdiRgbFromColor(textCol));
     WCHAR* ws = CWStrTemp(ti->text);
     gfx->DrawString(ws, -1, f, rFile, &sfFile, &br);
     if (pageDx > 0) {
-        br.SetColor(GdipCol(AccentColor(textCol, 40)));
+        br.SetColor(GdiRgbFromColor(AccentColor(textCol, 40)));
         WCHAR* wsPage = CWStrTemp(ti->pageText);
         gfx->DrawString(wsPage, -1, f, rPage, &sfPage, &br);
     }
@@ -927,13 +923,6 @@ void TabsCtrl::CloseTab(int idx) {
     tabBeingClosed = -1;
 }
 
-static bool CanDragTab(TabInfo* tab) {
-    if (tab->isPinned) {
-        return false;
-    }
-    return true;
-}
-
 void TabsCtrl::Paint(VirtPaintCtx&) {
     // children paint themselves; host WM_PAINT fills the background
 }
@@ -1048,16 +1037,6 @@ LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
 
             if (hl != tabUnderMouse) {
-                // note: hl == -1 possible repro: we start drag, a file gets loaded via DDE etc.
-                // which re-layouts tabs and mouse is no longer over a tab
-                if (isDragging && hl != -1 && tabUnderMouse != -1) {
-                    // send notification if the highlighted tab is dragged over another
-                    if (!CanDragTab(GetTab(tabUnderMouse))) {
-                        TriggerTabDragged(this, hl, tabUnderMouse);
-                        UpdateAfterDrag(this, hl, tabUnderMouse);
-                        return 0;
-                    }
-                }
                 UpdateHover(tabUnderMouse);
                 return 0;
             }
@@ -1073,9 +1052,8 @@ LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
 
         case WM_LBUTTONDOWN: {
-            if (overClose) {
-                tabBeingClosed = tabUnderMouse;
-            }
+            // a ✕ closes only when both press and release are on it
+            tabBeingClosed = overClose ? tabUnderMouse : -1;
             LRESULT res = 0;
             if (vroot) {
                 vroot->OnMessage(msg, wp, lp, res);

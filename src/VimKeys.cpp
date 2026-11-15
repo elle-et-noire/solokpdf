@@ -20,6 +20,7 @@
 #include "FileHistory.h"
 #include "Notifications.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Commands.h"
 #include "AppSettings.h"

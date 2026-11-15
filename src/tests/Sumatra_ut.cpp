@@ -28,6 +28,7 @@
 #include "EngineBase.h"
 #include "EngineAll.h"
 #include "AppSettings.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Flags.h"
 #include "Commands.h"
@@ -54,14 +55,15 @@ void PngSizeTest();
 void parseCommandsTest();
 void DocPropertiesTest();
 void ParseFileArgsTest();
+void ParseCommandLineTest();
 void RestrictedUseConfigTest();
 void ControlFrameActionTest();
+void HexViewTest();
 void OpenDdeCmdTest();
 void UpdateCheckDecisionTest();
 
 // in src/base/tests/
 void ArchiveTest();
-void AppendStoreTest();
 void BaseUtilTest();
 void ByteOrderTests();
 void ClipboardImageTest();
@@ -92,7 +94,6 @@ void PagePosition_UnitTests();
 void PdfSync_UnitTests();
 void CachedObjects_UnitTests();
 bool PdfDarkModeImageStats_UnitTest();
-void SimpleLogTest();
 
 void CommandPaletteModel_UnitTests();
 void TextSelection_UnitTests();
@@ -101,6 +102,7 @@ void Layout_UnitTests();
 void VirtCtrl_UnitTests();
 bool TableOfContents_UnitTestSnapshotNamedDest();
 bool Translations_UnitTestUnescape();
+bool Translations_UnitTestLocale();
 bool MarkdownModel_UnitTestBrowserNavigationUrl();
 bool MarkdownToc_UnitTestHtmlLinks();
 bool MarkdownSelectionCss_UnitTest();
@@ -117,6 +119,7 @@ bool DisplayMode_UnitTestZoom();
 bool ExternalViewers_UnitTestPDFXChangePaths();
 bool Canvas_UnitTestScrollLineAmount();
 bool EngineMupdf_UnitTestEbookLineSpacingCss();
+bool EngineMupdf_UnitTestFormatUnixTime();
 bool EngineMupdf_UnitTestEbookFontFamilyCss();
 bool EngineMupdf_UnitTestEbookMarginCss();
 bool EngineMupdf_UnitTestMergeEBookUI();
@@ -132,7 +135,6 @@ bool AccelTestCustomScope();
 bool Accelerators_UnitTestTreeTakesLetters();
 bool Accelerators_UnitTestCreateAnnotEdit();
 bool Accelerators_UnitTestCustomShortcutShown();
-bool ShortcutParse_UnitTestShiftedPunct();
 bool AnnotSearch_UnitTests();
 void ReadAloudHighlight_UnitTests();
 bool RenderCache_UnitTestCookieUnlocked();
@@ -236,118 +238,6 @@ static void GhostButtonDisabledTest() {
         utassert(ThemeFree_UnitTest());
         DeleteSettings(gSettings);
         gSettings = nullptr;
-    }
-}
-
-static void ParseCommandLineTest() {
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -bench foo.pdf", i);
-        utassert(2 == len(i.pathsToBenchmark));
-        utassert(str::Eq(StrL("foo.pdf"), i.pathsToBenchmark[0]));
-        utassert(len(i.pathsToBenchmark[1]) == 0);
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -bench foo.pdf -fwdsearch-width 5", i);
-        utassert(len(i.globalPrefArgs) == 2);
-        Str s = i.globalPrefArgs[0];
-        utassert(str::Eq(s, StrL("-fwdsearch-width")));
-        s = i.globalPrefArgs[1];
-        utassert(str::Eq(s, StrL("5")));
-        utassert(2 == len(i.pathsToBenchmark));
-        utassert(str::Eq(StrL("foo.pdf"), i.pathsToBenchmark[0]));
-        utassert(len(i.pathsToBenchmark[1]) == 0);
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -bench bar.pdf loadonly", i);
-        utassert(2 == len(i.pathsToBenchmark));
-        utassert(str::Eq(StrL("bar.pdf"), i.pathsToBenchmark[0]));
-        utassert(str::Eq(StrL("loadonly"), i.pathsToBenchmark[1]));
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -bench bar.pdf 1 -fwdsearch-color #abCDef", i);
-        utassert(len(i.globalPrefArgs) == 2);
-        utassert(2 == len(i.pathsToBenchmark));
-        utassert(str::Eq(StrL("bar.pdf"), i.pathsToBenchmark[0]));
-        utassert(str::Eq(StrL("1"), i.pathsToBenchmark[1]));
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -bench bar.pdf 1-5,3   -bench some.pdf 1,3,8-34", i);
-        utassert(4 == len(i.pathsToBenchmark));
-        utassert(str::Eq(StrL("bar.pdf"), i.pathsToBenchmark[0]));
-        utassert(str::Eq(StrL("1-5,3"), i.pathsToBenchmark[1]));
-        utassert(str::Eq(StrL("some.pdf"), i.pathsToBenchmark[2]));
-        utassert(str::Eq(StrL("1,3,8-34"), i.pathsToBenchmark[3]));
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -presentation foo.pdf -invert-colors bar.pdf", i);
-        utassert(true == i.enterPresentation);
-        utassert(true == i.invertColors);
-        utassert(2 == len(i.fileNames));
-        utassert(0 == i.fileNames.Find(StrL("foo.pdf")));
-        utassert(1 == i.fileNames.Find(StrL("bar.pdf")));
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -invertcolors rosanna.pdf", i);
-        utassert(true == i.invertColors);
-        utassert(1 == len(i.fileNames));
-        utassert(0 == i.fileNames.Find(StrL("rosanna.pdf")));
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), LR"(SumatraPDF.exe "foo \" bar \\.pdf" un\"quoted.pdf)", i);
-        utassert(2 == len(i.fileNames));
-        utassert(0 == i.fileNames.Find(StrL(R"(foo " bar \\.pdf)")));
-        utassert(1 == i.fileNames.Find(StrL(R"(un"quoted.pdf)")));
-    }
-
-    {
-        Flags i;
-        ParseFlags(
-            GetPermArena(),
-            L"SumatraPDF.exe -page 37 -view continuousfacing -zoom fitcontent -scroll 45,1234         -reuse-instance",
-            i);
-        utassert(0 == len(i.fileNames));
-        utassert(i.pageNumber == 37);
-        utassert(i.startView == DisplayMode::ContinuousFacing);
-        utassert(i.startZoom == kZoomFitContent);
-        utassert(i.startScroll.x == 45 && i.startScroll.y == 1234);
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), LR"(SumatraPDF.exe -view "single page" -zoom 237.45 -scroll -21,-1)", i);
-        utassert(0 == len(i.fileNames));
-        utassert(i.startView == DisplayMode::SinglePage);
-        utassert(i.startZoom == 237.45f);
-        utassert(i.startScroll.x == -21 && i.startScroll.y == -1);
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -zoom 35%", i);
-        utassert(0 == len(i.fileNames));
-        utassert(i.startZoom == 35.f);
-    }
-
-    {
-        Flags i;
-        ParseFlags(GetPermArena(), L"SumatraPDF.exe -zoom fit-content", i);
-        utassert(i.startZoom == kZoomFitContent);
-        utassert(0 == len(i.fileNames));
     }
 }
 
@@ -480,6 +370,7 @@ static void SumatraPDF_UnitTests() {
     OnlineURLAllowedTest();
     RestrictedUseConfigTest();
     ControlFrameActionTest();
+    HexViewTest();
     OpenDdeCmdTest();
     UpdateCheckDecisionTest();
     CachedObjects_UnitTests();
@@ -719,7 +610,6 @@ int RunAppUnitTests(bool forAi) {
     printf("Running unit tests\n");
 
     ArchiveTest();
-    AppendStoreTest();
     BaseUtilTest();
     ByteOrderTests();
     ClipboardImageTest();
@@ -734,7 +624,6 @@ int RunAppUnitTests(bool forAi) {
     JsonTest();
     RefHoverTest();
     SettingsUtilTest();
-    SimpleLogTest();
     SquareTreeTest();
     StrFormatTest();
     StrTest();
@@ -762,6 +651,7 @@ int RunAppUnitTests(bool forAi) {
     VirtCtrl_UnitTests();
     utassert(TableOfContents_UnitTestSnapshotNamedDest());
     utassert(Translations_UnitTestUnescape());
+    utassert(Translations_UnitTestLocale());
     utassert(MarkdownModel_UnitTestBrowserNavigationUrl());
     utassert(MarkdownToc_UnitTestHtmlLinks());
     utassert(MarkdownToc_UnitTestHtmlHeadings());
@@ -777,6 +667,7 @@ int RunAppUnitTests(bool forAi) {
     utassert(ExternalViewers_UnitTestPDFXChangePaths());
     utassert(Canvas_UnitTestScrollLineAmount());
     utassert(EngineMupdf_UnitTestEbookLineSpacingCss());
+    utassert(EngineMupdf_UnitTestFormatUnixTime());
     utassert(EngineMupdf_UnitTestEbookFontFamilyCss());
     utassert(EngineMupdf_UnitTestEbookMarginCss());
     utassert(EngineMupdf_UnitTestMergeEBookUI());
@@ -792,7 +683,6 @@ int RunAppUnitTests(bool forAi) {
     utassert(Accelerators_UnitTestTreeTakesLetters());
     utassert(Accelerators_UnitTestCreateAnnotEdit());
     utassert(Accelerators_UnitTestCustomShortcutShown());
-    utassert(ShortcutParse_UnitTestShiftedPunct());
     utassert(AnnotSearch_UnitTests());
     utassert(RenderCache_UnitTestCookieUnlocked());
     utassert(RenderCache_UnitTestStop());

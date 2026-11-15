@@ -26,6 +26,7 @@
 #include "EngineBase.h"
 #include "AppSettings.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "SumatraPDF.h"
 #include "Translations.h"
@@ -36,6 +37,7 @@
 #include "AIChatCommon.h"
 #include "AIChatPanel.h"
 #include "AIChatPanelCommon.h"
+#include "AIChatAPI.h"
 
 // timer ids on hwndAiChatBox
 constexpr UINT_PTR kTimerAutoSelectSession = 42;
@@ -233,6 +235,7 @@ static void OnSessionComboChange(MainWindow* win) {
         AIChatLog(p->logger, StrL("session"), StrL("new"));
         str::ReplaceWithCopy(&st->sessionId, Str{});
         st->chatLog.Reset();
+        AIChatResetAPI(st);
         WebViewClearChat(win);
         return;
     }
@@ -247,6 +250,7 @@ static void OnSessionComboChange(MainWindow* win) {
         AIChatLog(p->logger, StrL("session"), sessions[sessionIdx].sessionId);
         str::ReplaceWithCopy(&st->sessionId, sessions[sessionIdx].sessionId);
         st->chatLog.Reset();
+        AIChatResetAPI(st);
         WebViewClearChat(win);
         p->LoadSessionHistory(win, st->sessionId, dir);
         // LoadSessionHistory writes to the webview which rebuilds chatLog
@@ -300,10 +304,10 @@ static void SyncAIChatSettingsFromUI(MainWindow* win) {
         return;
     }
     if (win->aiChatModelCombo) {
-        int sel = CbGetCurrentSelection(win->aiChatModelCombo);
         StrVec models;
         p->BuildModelsList(models);
-        if (sel >= 0 && sel < len(models)) {
+        int sel = AIChatFindModelInList(models, HwndGetTextTemp(win->aiChatModelCombo->hwnd));
+        if (sel >= 0) {
             p->SetModel(models[sel]);
         }
     }
@@ -326,7 +330,7 @@ void UpdateAIChatPanelForCurrentTab(MainWindow* win) {
     WindowTab* tab = win->CurrentTab();
     AIChatTabState* st = GetTabState(tab, win->aiChatProvider);
     bool supported = IsAIChatSupportedForTab(tab);
-    bool working = supported && st && st->process != nullptr;
+    bool working = supported && st && (st->process != nullptr || st->apiRequest != nullptr);
     bool enableInput = supported && !working;
 
     if (win->aiChatInput) {
@@ -445,10 +449,6 @@ static void AIChatReadThread(AIChatReadThreadCtx* ctx) {
     delete ctx;
 }
 
-static void StartAIChatReadThread(AIChatReadThreadCtx* ctx) {
-    AIChatReadThread(ctx);
-}
-
 // --- Headless chat runner (for -dbg-control tests) ---
 
 static void AIChatReadAllPipe(HANDLE hPipe, str::Builder& out) {
@@ -464,6 +464,7 @@ static void AIChatReadAllPipe(HANDLE hPipe, str::Builder& out) {
 // provider parser while capturing the emitted text/errors. Same provider code
 // the panel uses, so it exercises the real path.
 bool RunAIChatSync(AIChatBackend backend, Str filePath, Str message, Str& outText, Str& outErr) {
+    if (backend == AIChatBackend::CustomAPI) return AIChatRunAPISync(message, outText, outErr);
     AIChatProvider* p = GetAIChatProvider((int)backend);
     if (!p) {
         outErr = str::Dup(StrL("unknown backend"));
@@ -530,9 +531,9 @@ bool RunAIChatSync(AIChatBackend backend, Str filePath, Str message, Str& outTex
     // parse the collected output through the real provider parser, capturing the
     // text it emits instead of posting to a (nonexistent) webview
     AIChatCaptureSink sink;
-    gAIChatCapture = &sink;
     AIChatStreamCtx ctx;
     ctx.providerId = (int)backend;
+    ctx.capture = &sink;
     Str out = ToStr(raw);
     int off = 0;
     while (off < out.len) {
@@ -549,7 +550,6 @@ bool RunAIChatSync(AIChatBackend backend, Str filePath, Str message, Str& outTex
             off++;
         }
     }
-    gAIChatCapture = nullptr;
     str::Free(ctx.sessionId);
 
     Str err = ToStr(sink.err);
@@ -588,7 +588,7 @@ static void SendAIChatMessage(MainWindow* win) {
     if (!tab || len(tab->filePath) == 0 || !st) {
         return;
     }
-    if (st->process) {
+    if (st->process || st->apiRequest) {
         return; // this tab already has a running request
     }
 
@@ -616,6 +616,11 @@ static void SendAIChatMessage(MainWindow* win) {
     int optionIdx = p->GetOption();
     if (optionIdx < 0 || optionIdx >= p->optionCount) {
         optionIdx = p->optionDefault;
+    }
+
+    if (p->backend == AIChatBackend::CustomAPI) {
+        AIChatStartAPI(win, input, model);
+        return;
     }
 
     TempStr exePath = p->FindExecutableTemp();
@@ -666,7 +671,7 @@ static void SendAIChatMessage(MainWindow* win) {
     ctx->stream.sessionId = str::Dup(st->sessionId ? st->sessionId : kAIChatPendingSessionId());
     st->turnId = AIChatNewTurnId();
     ctx->stream.turnId = st->turnId;
-    RunAsync(MkFunc0(StartAIChatReadThread, ctx), StrL("AIChatReadThread"));
+    RunAsync(MkFunc0(AIChatReadThread, ctx), StrL("AIChatReadThread"));
 }
 
 // --- WndProcs ---
@@ -1174,7 +1179,7 @@ void OnAIChatTabChanged(MainWindow* win) {
     }
 
     // update working state for this tab
-    SetAIChatWorking(win, st->process != nullptr);
+    SetAIChatWorking(win, (st->process != nullptr || st->apiRequest != nullptr));
 
     // if tab has in-memory chat log, replay it (fast, includes current session)
     if (len(st->chatLog) > 0) {

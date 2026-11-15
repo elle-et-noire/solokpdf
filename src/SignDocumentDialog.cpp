@@ -22,6 +22,7 @@
 #include "EngineAll.h"
 #include "DisplayModel.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Selection.h"
 #include "Theme.h"
@@ -33,8 +34,6 @@
 #include "SumatraDialogs.h"
 #include "shared/PdfToolsCommon.h"
 #include "SignDocumentDialogCommon.h"
-
-extern bool SaveAnnotationsToMaybeNewPdfFile(WindowTab*);
 
 // Fills in a signature field with a certificate from a .pfx / .p12 file.
 //
@@ -629,22 +628,9 @@ bool SignDocumentWnd::Create(MainWindow* mainWin) {
     PlatformFont* fontMeta = DlgUiFont(kToolDlgMetaFontPx);
     SetFont(fontText);
     bool isRtl = IsUIRtl();
-    {
-        CreateCustomArgs args;
-        args.owner = hwndOwner;
-        args.title = Tr("Sign Document");
-        args.visible = false;
-        args.style = WS_POPUPWINDOW | WS_CAPTION;
-        args.font = fontText;
-        args.isRtl = isRtl;
-        args.bgColor = colBg;
-        args.icon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(GetAppIconID()));
-        CreateCustom(args);
-    }
-    if (!hwnd) {
+    if (!CreateToolDialog(this, hwndOwner, Tr("Sign Document"), fontText, colTxt, colBg)) {
         return false;
     }
-    SetColors(colTxt, colBg);
 
     // every field after a muted label, the labels in one column
     Vec<VirtText*> labels;
@@ -763,9 +749,7 @@ bool SignDocumentWnd::Create(MainWindow* mainWin) {
     vbox->AddChild(NewDlgFooter(btnCancel, btnSign));
     layout = vbox;
 
-    LayoutAndSizeToContent(layout, DpiScale(kSignDlgDx), 0, hwnd);
-    DoLayout(HwndClientRect(hwnd).Size());
-    HwndCenterDialog(hwnd, win ? win->hwndFrame : nullptr);
+    SizeToLayout(this, layout, DpiScale(kSignDlgDx), 0, win ? win->hwndFrame : nullptr);
     UpdateTheme();
 
     SetIsVisible(true);

@@ -97,40 +97,7 @@ struct TipHookInstaller {
 };
 static TipHookInstaller gTipHookInstaller;
 
-#if defined(SOLOKPDF_PDFIUM)
-// upstream's author's products; the fork doesn't advertise them
-static Str sumatraPromos;
-#else
-static Str sumatraPromos = StrL(R"promos(Try [Edna](https://edna.arslexis.io): a note taking web app for power users.
-Try [MarkLexis](https://marklexis.arslexis.io): a bookmarking web application.
-Try [Sumatra File Manager](https://sumatrafilemanager.com): file manager with super powers.
-Try [Sumatra File Manager Web](https://web.sumatrafilemanager.com): file manager for S3, Dropbox and more.
-)promos");
-#endif
-
-static Str promoFromServer;
-
-static void EnsureTipsParsed() {
-    if (gTipsParsed) {
-        return;
-    }
-    CollectTipsFromString(sumatraTips, &gTipLines);
-    CollectTipsFromString(sumatraPromos, &gPromoLines);
-    gTipsParsed = true;
-    PickRandomTipOrPromo();
-}
-
 static void ClearHomeLayoutCache(MainWindow*);
-
-void FreeHomePageTips() {
-    if (gTipsParsed) {
-        gTipLines.Reset();
-        gPromoLines.Reset();
-        gTipsParsed = false;
-    }
-    str::Free(promoFromServer);
-    HomePageInvalidateLayoutCache();
-}
 
 // the About box: the brand over the version, the link rows, a note, then a
 // hairline over the copy link and the other software
@@ -245,43 +212,6 @@ struct AboutCtrl : VirtCtrl {
 static void OpenAboutUrl(VirtMouseEvent* ev) {
     auto* link = (VirtLink*)ev->target;
     OpenTipUrl(link->target);
-}
-
-void SetPromoString(Str s) {
-    if (len(s) == 0) return;
-    str::ReplaceWithCopy(&promoFromServer, s);
-}
-
-static TempStr GetAppVersionTemp() {
-#if defined(SOLOKPDF_PDFIUM)
-    // the version is upstream's; say so, or it reads as SolokPDF's own
-    TempStr s = str::DupTemp(StrL("(SumatraPDF v" CURR_VERSION_STRA ")"));
-#else
-    TempStr s = str::DupTemp(StrL("v" CURR_VERSION_STRA));
-#endif
-    if (IsProcess64()) {
-        s = str::JoinTemp(s, StrL(" 64-bit"));
-    } else {
-        s = str::JoinTemp(s, StrL(" 32-bit"));
-    }
-    if (gIsDebugBuild) {
-        s = str::JoinTemp(s, StrL(" (dbg)"));
-    }
-    return s;
-}
-
-// "3.7 64-bit, built Oct 14 2026 01:46"
-static TempStr AboutVersionLineTemp() {
-    Str bits = IsProcess64() ? StrL("64-bit") : StrL("32-bit");
-    Str built = StrL(__DATE__ " " __TIME__);
-    // without the seconds
-    built.len = std::max(0, len(built) - 3);
-#if defined(SOLOKPDF_PDFIUM)
-    // upstream's version is in the footer; the build date identifies a fork build
-    return fmt("%s, built %s", bits, built);
-#else
-    return fmt("%s %s, built %s", StrL(CURR_VERSION_STRA), bits, built);
-#endif
 }
 
 constexpr Color kCol1 = MkRgb(196, 64, 50);
@@ -1323,10 +1253,6 @@ void HomePageOnDpiChanged(MainWindow* win, int dpi) {
     }
 }
 
-void PickAnotherRandomPromotion() {
-    PickAnotherRandomTip();
-}
-
 // --- scroll-friendly layout cache: full LayoutHomePage only when content/size/
 // filter changes; pure scrollY changes just offset stored thumb rects ---
 struct HomePageLayoutCache {
@@ -1479,34 +1405,6 @@ static bool HomeLayoutCacheFilesMatch(MainWindow* win, const Vec<FileState*>& fi
         }
     }
     return true;
-}
-
-static void CollectHomePageFiles(MainWindow* win, Vec<FileState*>& fileStates, StrVec& filterWords) {
-    Vec<FileState*> allFileStates;
-    if (gSettings->homePageSortByFrequentlyRead) {
-        FileHistoryGetFrequencyOrder(allFileStates);
-    } else {
-        FileHistoryGetRecentlyOpenedOrder(allFileStates);
-    }
-
-    TempStr searchQuery = HomeSearchQueryTemp(win);
-    bool hasFilter = searchQuery && searchQuery.s[0];
-    if (hasFilter) {
-        SplitFilterToWords(searchQuery, filterWords);
-    }
-    for (int i = 0; i < len(allFileStates); i++) {
-        FileState* fs = allFileStates[i];
-        if (len(fs->filePath) == 0) {
-            continue;
-        }
-        if (hasFilter) {
-            TempStr baseName = path::GetBaseNameTemp(fs->filePath);
-            if (!FilterMatches(baseName, filterWords)) {
-                continue;
-            }
-        }
-        VecAppend(fileStates, fs);
-    }
 }
 
 static void SaveHomeLayoutCache(const HomePageLayout& l, Str filterText, int scrollY) {
@@ -2424,7 +2322,7 @@ static void HomeOpenDocClicked(MainWindow* win, VirtMouseEvent*) {
 
 static void HomeTipBandDoubleClicked(MainWindow* win, VirtMouseEvent* ev) {
     ev->didHandle = true;
-    PickAnotherRandomPromotion();
+    PickAnotherRandomTip();
     // painting reuses the layout, which holds the parsed tip
     HomePageRelayout(win);
     HwndInvalidate(win->hwndCanvas);
@@ -3154,7 +3052,7 @@ void HomePageRelayout(MainWindow* win) {
     if (HomeLayoutCacheMatches(win, l.rc, filterText)) {
         Vec<FileState*> files;
         StrVec filterWords;
-        CollectHomePageFiles(win, files, filterWords);
+        CollectHomePageFiles(HomeSearchQueryTemp(win), files, filterWords);
         if (HomeLayoutCacheFilesMatch(win, files)) {
             ApplyHomeLayoutCache(l, win->homePageScrollY);
             usedCache = true;

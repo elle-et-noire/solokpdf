@@ -33,6 +33,7 @@
 #include "EngineBase.h"
 #include "EngineAll.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Theme.h"
 #include "SumatraConfig.h"
@@ -827,7 +828,7 @@ void CloseImageEditWindow() {
         ToolWindowClose(gImgEdit.tw);
         gImgEdit.tw = nullptr;
     } else if (win && win->gpuiWin && gImgEdit.destEdit) {
-        gp::InputBlur(gImgEdit.destEdit, win->gpuiWin->app, win->gpuiWin);
+        InputBlurWhereFocused(gImgEdit.destEdit, win->gpuiWin);
     }
     delete gImgEdit.destEdit;
     gImgEdit.destEdit = nullptr;

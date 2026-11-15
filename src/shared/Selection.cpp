@@ -64,6 +64,7 @@
 #include "Canvas.h"
 #endif
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "SelectionToolbar.h"
 #if defined(SUMATRA_NG)
@@ -157,6 +158,12 @@ void DeleteOldSelectionInfo(MainWindow* win, bool alsoTextSel) {
     win->showSelection = false;
     win->selectionMeasure = SizeF();
     win->selectionDragEdge = SelectionDragEdge::None;
+#if !defined(SUMATRA_NG)
+    // the handles belong to the selection: a later keyboard or menu selection
+    // must not show them
+    win->touchSelHandles = false;
+    win->touchSelDragging = TouchSelHandle::None;
+#endif
     WindowTab* tab = win->CurrentTab();
     if (!tab) {
         return;
@@ -983,10 +990,8 @@ void OnSelectAll(MainWindow* win, bool textOnly) {
         return;
     }
 
-    if (win->AsChm()) {
-        win->AsChm()->SelectAll();
-    } else if (win->AsMarkdown()) {
-        win->AsMarkdown()->SelectAll();
+    if (win->AsBrowser()) {
+        win->AsBrowser()->SelectAll();
         return;
     }
     if (!win->AsFixed()) {

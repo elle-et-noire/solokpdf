@@ -37,6 +37,7 @@ extern "C" {
 #include "TextSearch.h"
 #include "MainWindow.h"
 #include "SumatraPDF.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "PagePosition.h"
 #include "Selection.h"
@@ -833,28 +834,6 @@ TempStr ScrollToLinkResultTemp(int minViewportDelta, int* exitCodeOut) {
     } else {
         out.Append(
             fmt("FAIL viewport_before=%d viewport_after=%d delta=%d min=%d\n", before, after, delta, minViewportDelta));
-    }
-    if (exitCodeOut) {
-        *exitCodeOut = ok ? 0 : 1;
-    }
-    return ToStrTemp(out);
-}
-
-// Verifies Tr resolves error-path strings through the translation table.
-TempStr I18nErrorStringResultTemp(int* exitCodeOut) {
-    str::Builder out;
-    Str err = Tr("Error");
-    Str crash = Tr("SumatraPDF crashed");
-    Str printers = Tr("SumatraPDF - Show Printers");
-    bool ok = len(err) > 0 && len(crash) > 0 && len(printers) > 0 &&
-              str::Eq(err, trans::GetTranslation(StrL("Error"))) &&
-              str::Eq(crash, trans::GetTranslation(StrL("SumatraPDF crashed"))) &&
-              str::Eq(printers, trans::GetTranslation(StrL("SumatraPDF - Show Printers")));
-    if (ok) {
-        out.Append(fmt("OK error=%s crash=%s printers=%s\n", err, crash, printers));
-    } else {
-        out.Append(fmt("FAIL error=%s crash=%s printers=%s\n", err ? err : StrL("(null)"),
-                       crash ? crash : StrL("(null)"), printers ? printers : StrL("(null)")));
     }
     if (exitCodeOut) {
         *exitCodeOut = ok ? 0 : 1;

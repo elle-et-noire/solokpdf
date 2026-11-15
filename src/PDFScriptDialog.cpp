@@ -18,6 +18,7 @@
 #include "DocController.h"
 #include "EngineBase.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "SumatraConfig.h"
 #include "SumatraPDF.h"
@@ -524,7 +525,7 @@ void PDFScriptWnd::Create(MainWindow* owner, Str path) {
     layout = columns;
 
     OnExample();
-    ResizeHwndToClientArea(hwnd, DpiScale(kScriptDlgDx), DpiScale(kScriptDlgDy), false);
+    HwndResizeClientSize(hwnd, DpiScale(kScriptDlgDx), DpiScale(kScriptDlgDy));
     DoLayout();
     HwndCenterDialog(hwnd, owner->hwndFrame);
     HwndEnsureOnScreen(hwnd);

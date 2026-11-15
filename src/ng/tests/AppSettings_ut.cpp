@@ -38,7 +38,7 @@ void AppSettingsTest() {
     // the defaults serialize to the golden file, with those substitutions
     Settings* def = NewSettings({});
     utassert(def != nullptr);
-    Str serialized = SerializeSettings(def, {});
+    Str serialized = SerializeSettings(def, {}, SerializeOpt::All);
     utassert(str::Eq(serialized, expect));
     str::Free(serialized);
     DeleteSettings(def);
@@ -46,7 +46,7 @@ void AppSettingsTest() {
     // and a load + save of it keeps its NoHomeTab and TabsEqualWidth values
     Settings* loaded = NewSettings(golden);
     utassert(loaded != nullptr);
-    Str out = SerializeSettings(loaded, golden);
+    Str out = SerializeSettings(loaded, golden, SerializeOpt::All);
     utassert(str::Eq(out, expectLoaded));
     str::Free(out);
     DeleteSettings(loaded);
@@ -64,7 +64,7 @@ void AppSettingsTest() {
         "]\n");
     loaded = NewSettings(withFile);
     utassert(loaded != nullptr);
-    out = SerializeSettings(loaded, withFile);
+    out = SerializeSettings(loaded, withFile, SerializeOpt::All);
     utassert(str::Contains(out, StrL("MeasurementScale = 2.5")));
     utassert(str::Contains(out, StrL("MeasurementUnit = mm")));
     str::Free(out);

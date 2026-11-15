@@ -15,6 +15,7 @@
 #include "Settings.h"
 #include "AppSettings.h"
 
+#include "SumatraConfig.h"
 #include "SumatraPDF.h"
 #include "resource.h"
 #include "Translations.h"
@@ -198,13 +199,8 @@ constexpr int kDlgBtnRadius = 4;
 VirtButton* NewDlgButton(HWND hwndForDpi, Str text, PlatformFont* font, DlgButtonStyle style, bool isDefault) {
     VirtButton* b = NewThemedButton(hwndForDpi, text, font, isDefault);
     b->cornerRadius = DpiScale(kDlgBtnRadius);
-    SetDlgButtonColors(b, style);
-    return b;
-}
-
-// the style's colors in the current theme
-void SetDlgButtonColors(VirtButton* b, DlgButtonStyle style) {
     SetVirtButtonStyle(b, style);
+    return b;
 }
 
 constexpr int kDlgBtnDisabledShift = 28;
@@ -226,6 +222,34 @@ void SetDlgButtonEnabled(VirtButton* b, DlgButtonStyle style, bool enabled) {
 
 PlatformFont* DlgUiFont(int px) {
     return GetUserGuiFont(StrL("Segoe UI"), DpiScale(px));
+}
+
+// creates the hidden popup window of a tool dialog, with the app icon and
+// the dialog colors; false if the window could not be created
+bool CreateToolDialog(WindowBase* w, HWND owner, Str title, PlatformFont* font, Color txt, Color bg) {
+    CreateCustomArgs args;
+    args.owner = owner;
+    args.title = title;
+    args.visible = false;
+    args.style = WS_POPUPWINDOW | WS_CAPTION;
+    args.font = font;
+    args.isRtl = IsUIRtl();
+    args.bgColor = bg;
+    args.icon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(GetAppIconID()));
+    w->CreateCustom(args);
+    if (!w->hwnd) {
+        return false;
+    }
+    w->SetColors(txt, bg);
+    return true;
+}
+
+// sizes the dialog to fit `layout` (at least minDx x minDy), lays it out and
+// centers it on `centerOn`
+void SizeToLayout(WindowBase* w, ILayout* layout, int minDx, int minDy, HWND centerOn) {
+    LayoutAndSizeToContent(layout, minDx, minDy, w->hwnd);
+    w->DoLayout();
+    HwndCenterDialog(w->hwnd, centerOn);
 }
 
 // a label centered in a line `dy` dips high

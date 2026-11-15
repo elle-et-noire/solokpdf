@@ -1301,10 +1301,10 @@ void AdvancedSettingsWnd::RefreshPreviewColors(Color oldBg) {
     if (editValue) {
         editValue->SetColors(ThemeWindowTextColor(), ThemeSelectedColorOn(bg));
     }
-    SetDlgButtonColors(btnOpenSettingsFile, DlgButtonStyle::Ghost);
-    SetDlgButtonColors(btnHelp, DlgButtonStyle::Ghost);
-    SetDlgButtonColors(btnCancel, DlgButtonStyle::Outline);
-    SetDlgButtonColors(btnSave, DlgButtonStyle::Filled);
+    SetVirtButtonStyle(btnOpenSettingsFile, DlgButtonStyle::Ghost);
+    SetVirtButtonStyle(btnHelp, DlgButtonStyle::Ghost);
+    SetVirtButtonStyle(btnCancel, DlgButtonStyle::Outline);
+    SetVirtButtonStyle(btnSave, DlgButtonStyle::Filled);
     hintState = -1;
     UpdateHints();
 }
@@ -1528,7 +1528,7 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
     dx = std::max(dx, minDx);
     LayoutAndSizeToContent(layout, dx, dy, hwnd);
     // pick up the virtual controls so we paint them and they get their input
-    DoLayout(HwndClientRect(hwnd).Size());
+    DoLayout();
     gAdvSettingsLastClientDx = HwndClientRect(hwnd).dx;
     gAdvSettingsLastClientDy = HwndClientRect(hwnd).dy;
     PositionDialog(hwnd, win->hwndFrame);
@@ -2162,9 +2162,7 @@ bool RestrictedUseWnd::Create(MainWindow* mainWin) {
 
     layout = new Padding(vbox, DpiScaledInsets(4, 8));
     UpdateButtons();
-    LayoutAndSizeToContent(layout, DpiScale(520), 0, hwnd);
-    DoLayout(HwndClientRect(hwnd).Size());
-    HwndCenterDialog(hwnd, win ? win->hwndFrame : nullptr);
+    SizeToLayout(this, layout, DpiScale(520), 0, win ? win->hwndFrame : nullptr);
     UpdateTheme();
     SetIsVisible(true);
     vroot->SetFocus(list);

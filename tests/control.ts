@@ -21,9 +21,7 @@ export enum ControlCommand {
   TestInverseSearch = 22,
   TestImageResizeArrowKey = 23,
   TestFindResultPageColumnClip = 24,
-  TestFileKind = 25,
   TestScrollToLink = 26,
-  TestI18nErrorString = 27,
   TestPageInfoOverlay = 28,
   TestGetToc = 29,
   TestPageLinks = 30,
@@ -72,7 +70,6 @@ export enum ControlCommand {
   TestSelectionToolbar = 73,
   TestMarkupAnnots = 74,
   TestCmykImageSave = 75,
-  TestContextMenuPoint = 76,
   TestFindWindowContents = 77,
   TestFindUiState = 78,
   TestRenderViewPrint = 79,
@@ -97,7 +94,6 @@ export enum ControlCommand {
   TestReadingBar = 98,
   TestSeedTextSelection = 99,
   TestTtsEngineCrash = 100,
-  StartPerfLog = 101,
   StopPerfLog = 102,
   WaitSessionRestored = 103,
   TestNavFiles = 104,
@@ -173,19 +169,23 @@ export enum ControlCommand {
   TestPerfStats = 161,
   // ng only: the state of the canvas overlays
   TestOverlayState = 162,
-  TestShortcutsDialog = 163,
-  TestVimKeys = 164,
-  TestSetFormField = 165,
-  TestDocumentJsOpen = 166,
-  TestCurrentPdf = 167,
+  // [timeoutMs]: blocks until the home page painted after startup
+  WaitHomePainted = 163,
+  // [idx]: select tab idx; idx < 0 only reports the current tab and count
+  TestSelectTab = 164,
+  TestShortcutsDialog = 165,
+  TestVimKeys = 166,
+  TestSetFormField = 167,
+  TestDocumentJsOpen = 168,
+  TestCurrentPdf = 169,
   // every command's visibility on a surface, one "CmdName vis" line each
-  TestAllCommandVisibility = 168,
-  TestCursorPosition = 169,
-  TestClipboardText = 170,
-  TestFocusState = 171,
-  TestClipboardFormat = 172,
-  TestActivationTrace = 173,
-  TestControllerDelete = 174,
+  TestAllCommandVisibility = 170,
+  TestCursorPosition = 171,
+  TestClipboardText = 172,
+  TestFocusState = 173,
+  TestClipboardFormat = 174,
+  TestActivationTrace = 175,
+  TestControllerDelete = 176,
 }
 
 export type ControlArg = number | string | Uint8Array | ControlArg[];
@@ -631,6 +631,31 @@ export class ControlClient {
     return info;
   }
 
+  async waitForHomePainted(timeoutMs = 15000): Promise<string> {
+    const res = await this.request(ControlCommand.WaitHomePainted, [timeoutMs * SLOW_BUILD_FACTOR]);
+    const code = typeof res[0] === "number" ? res[0] : -1;
+    const info = String(res[1] ?? "");
+    if (code !== 0) {
+      throw new Error(`WaitHomePainted failed: ${info || code}`);
+    }
+    return info;
+  }
+
+  // Selects tab idx (none when idx < 0) and reports the selected tab and count.
+  async selectTab(idx = -1): Promise<{ idx: number; count: number }> {
+    const res = await this.request(ControlCommand.TestSelectTab, [idx]);
+    const code = typeof res[0] === "number" ? res[0] : -1;
+    const info = String(res[1] ?? "");
+    if (code !== 0) {
+      throw new Error(`TestSelectTab failed: ${info || code}`);
+    }
+    const m = /idx=(-?\d+) count=(\d+)/.exec(info);
+    if (!m) {
+      throw new Error(`TestSelectTab: unexpected result '${info}'`);
+    }
+    return { idx: parseInt(m[1]!, 10), count: parseInt(m[2]!, 10) };
+  }
+
   async waitForSessionRestored(timeoutMs = 15000): Promise<string> {
     const res = await this.request(ControlCommand.WaitSessionRestored, [timeoutMs * SLOW_BUILD_FACTOR]);
     const code = typeof res[0] === "number" ? res[0] : -1;
@@ -760,7 +785,6 @@ export class ControlClient {
   }
 
   // Visible virtual controls. className limits the dump to one window class.
-  // "hit" is the control under a client point of that class, or null.
   async virtTree(className = ""): Promise<VirtCtrlInfo[]> {
     const res = await this.request(ControlCommand.TestVirtTree, className ? [className] : []);
     const code = typeof res[0] === "number" ? res[0] : -1;
@@ -776,19 +800,6 @@ export class ControlClient {
       rows.push(parseVirtLine(line));
     }
     return rows;
-  }
-
-  async virtHit(className: string, x: number, y: number): Promise<VirtCtrlInfo | null> {
-    const res = await this.request(ControlCommand.TestVirtTree, ["hit", className, x, y]);
-    const code = typeof res[0] === "number" ? res[0] : -1;
-    const raw = String(res[1] ?? "").trim();
-    if (code !== 0) {
-      throw new Error(`TestVirtTree hit failed: ${raw || code}`);
-    }
-    if (!raw || raw === "NONE") {
-      return null;
-    }
-    return parseVirtLine(raw);
   }
 
   // Notifications are drawn over the document and linger for ~2s, so a test

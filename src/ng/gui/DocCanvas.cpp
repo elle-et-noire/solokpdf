@@ -34,6 +34,7 @@
 #include "Notifications.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "gui/AppShell.h"
 #include "Selection.h"
@@ -1131,6 +1132,7 @@ static void StartOrUpdateSmoothScrollY(MainWindow* win, int targetY) {
     }
     win->scrollAnimY = (double)current;
     win->scrollAnimActive = true;
+    AppShellRequestFastTick(win);
     logf("SmoothScroll: %d -> %d\n", current, targetY);
 }
 
@@ -1879,9 +1881,21 @@ static void StopMouseDrag(MainWindow* win, int x, int y, bool aborted = false) {
     win->MoveDocBy(drag.dx, -2 * drag.dy);
 }
 
+// every way out of middle-click auto-scroll: the speeds and the cursor go
+// with the mode
+static void StopAutoScroll(MainWindow* win) {
+    win->mouseAction = MouseAction::None;
+    win->xScrollSpeed = 0;
+    win->yScrollSpeed = 0;
+    win->xScrollAccum = 0;
+    win->yScrollAccum = 0;
+    CanvasSetCursor(win, (int)gp::CursorKind::Arrow);
+}
+
 static void OnMouseMiddleButtonDown(MainWindow* win, int x, int y) {
     if (win->mouseAction == MouseAction::None) {
         win->mouseAction = MouseAction::Scrolling;
+        AppShellRequestFastTick(win);
         win->dragStartPending = true;
         // the farther the mouse moves from here, the faster the document scrolls
         win->dragStart = Point(x, y);
@@ -1890,7 +1904,7 @@ static void OnMouseMiddleButtonDown(MainWindow* win, int x, int y) {
         win->xScrollAccum = 0;
         win->yScrollAccum = 0;
     } else if (win->mouseAction == MouseAction::Scrolling) {
-        win->mouseAction = MouseAction::None;
+        StopAutoScroll(win);
     }
 }
 
@@ -1899,7 +1913,7 @@ static void OnMouseMiddleButtonUp(MainWindow* win) {
     // releasing it ends the scroll; releasing without moving leaves auto-scroll
     // latched on, which is what dragStartPending still being set means
     if (win->mouseAction == MouseAction::Scrolling && !win->dragStartPending) {
-        win->mouseAction = MouseAction::None;
+        StopAutoScroll(win);
     }
 }
 
@@ -2667,7 +2681,7 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y) {
         return;
     }
     if (MouseAction::Scrolling == win->mouseAction) {
-        win->mouseAction = MouseAction::None;
+        StopAutoScroll(win);
         return;
     }
     if (win->mouseAction != MouseAction::None) {
@@ -2906,7 +2920,6 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y) {
 // the 3rd click of a triple click: select the whole line (issue #694)
 // https://github.com/sumatrapdfreader/sumatrapdf/issues/5289: CmdToggleInverseSearch
 // turns the double-click inverse search off for a session
-bool gDisableInteractiveInverseSearch = false;
 
 // orig's OnMouseLeftButtonDblClk. False when the press was not a double-click
 // action, so the caller can still treat it as an ordinary click.
@@ -3015,6 +3028,31 @@ static bool OnMouseLeftButtonDblClk(MainWindow* win, int x, int y) {
     return true;
 }
 
+// orig's AppendJsMenuItems: the items from i on that are at least `level`
+// deep; a submenu title gets its deeper items as a submenu
+static void AppendJsMenuItems(MenuModel* model, PageDestinationJsMenu* dest, int& i, int level) {
+    while (i < len(dest->items) && dest->Level(i) >= level) {
+        int idx = i++;
+        MenuItemModel it;
+        Str item = dest->items[idx];
+        if (str::Eq(item, StrL("-"))) {
+            it.separator = true;
+            VecAppend(model->items, it);
+            continue;
+        }
+        // && keeps a & from becoming an access-key marker
+        it.title = str::Dup(str::ReplaceTemp(item, StrL("&"), StrL("&&")));
+        it.titleOwned = true;
+        if (dest->IsSubmenu(idx)) {
+            it.submenu = new MenuModel();
+            AppendJsMenuItems(it.submenu, dest, i, dest->Level(idx) + 1);
+        } else {
+            it.cmdId = kJsMenuItemCmdFirst + idx;
+        }
+        VecAppend(model->items, it);
+    }
+}
+
 // orig's LinkHandler::GotoLink shows a JavaScript menu link's items in a popup
 // at the cursor; picking one runs RunJsMenuItem()
 static void OpenJsMenuPopup(MainWindow* win, gp::Ctx* cx, int x, int y, PageDestinationJsMenu* dest) {
@@ -3023,22 +3061,12 @@ static void OpenJsMenuPopup(MainWindow* win, gp::Ctx* cx, int x, int y, PageDest
     ui->jsMenu = new PageDestinationJsMenu();
     ui->jsMenu->items = dest->items;
     ui->jsMenu->returns = dest->returns;
+    ui->jsMenu->levels = dest->levels;
 
     DeleteMenuModel(ui->ctxMenu);
     auto* model = new MenuModel();
-    for (int i = 0; i < len(dest->items); i++) {
-        MenuItemModel it;
-        Str item = dest->items[i];
-        if (str::Eq(item, StrL("-"))) {
-            it.separator = true;
-        } else {
-            // && keeps a & from becoming an access-key marker
-            it.title = str::Dup(str::ReplaceTemp(item, StrL("&"), StrL("&&")));
-            it.titleOwned = true;
-            it.cmdId = kJsMenuItemCmdFirst + i;
-        }
-        VecAppend(model->items, it);
-    }
+    int itemIdx = 0;
+    AppendJsMenuItems(model, dest, itemIdx, 0);
     ui->ctxMenu = model;
     AppShellInvalidate(win);
     float k = CanvasScale(win);
@@ -3046,7 +3074,7 @@ static void OpenJsMenuPopup(MainWindow* win, gp::Ctx* cx, int x, int y, PageDest
 }
 
 // item cmdId - kJsMenuItemCmdFirst of the JavaScript menu was picked: launch its
-// URL or go to its page. false for any other command
+// URL, go to its page or copy its text. false for any other command
 static bool RunJsMenuItem(MainWindow* win, int cmdId) {
     PageDestinationJsMenu* menu = Ui(win)->jsMenu;
     int i = cmdId - kJsMenuItemCmdFirst;
@@ -3058,6 +3086,9 @@ static bool RunJsMenuItem(MainWindow* win, int cmdId) {
         win->linkHandler->LaunchURL(action.url);
     } else if (action.pageNo > 0 && win->ctrl && win->ctrl->ValidPageNo(action.pageNo)) {
         win->ctrl->GoToPage(action.pageNo, true);
+    } else if (len(action.copyText) > 0) {
+        CopyTextToClipboard(win, action.copyText);
+        ShowTemporaryNotification(win, Tr("Copied to clipboard"));
     }
     return true;
 }
@@ -3115,12 +3146,7 @@ static void OnMouseLeftButtonUp(MainWindow* win, gp::Ctx* cx, int x, int y) {
 
     // Left-up during middle-click auto-scroll mode stops auto-scroll
     if (MouseAction::Scrolling == ma) {
-        win->mouseAction = MouseAction::None;
-        win->xScrollSpeed = 0;
-        win->yScrollSpeed = 0;
-        win->xScrollAccum = 0;
-        win->yScrollAccum = 0;
-        CanvasSetCursor(win, kCurArrow);
+        StopAutoScroll(win);
         return;
     }
 
@@ -3412,8 +3438,8 @@ static void OnMouseMove(MainWindow* win, int x, int y) {
         }
         if (!win->dragPrevPos.Eq(x, y)) {
             AppShellShowCursor(win, true);
-            // hack: hide the cursor immediately the first time (EnterFullScreen)
-            win->presCursorHide.Arm(win->dragPrevPos.Eq(-2, -3) ? 1 : kHideCursorDelayInMs);
+            win->presCursorHide.Arm(win->hideCursorOnNextMove ? 1 : kHideCursorDelayInMs);
+            win->hideCursorOnNextMove = false;
         }
     }
     if (gLaserPointer && !kLaserPointerIsCursor) {
@@ -3580,12 +3606,7 @@ void DocCanvasAutoScrollTick(MainWindow* win, int elapsedMs) {
     // WM_KILLFOCUS; the tick sees the frame without the focus, or inactive
     bool lostFocus = !AppShellIsFrameFocused(win) || (win->gpuiWin && !win->gpuiWin->active);
     if (lostFocus) {
-        win->mouseAction = MouseAction::None;
-        win->xScrollSpeed = 0;
-        win->yScrollSpeed = 0;
-        win->xScrollAccum = 0;
-        win->yScrollAccum = 0;
-        CanvasSetCursor(win, kCurArrow);
+        StopAutoScroll(win);
         return;
     }
     float scale = (float)elapsedMs / 20.0f;
@@ -3794,7 +3815,7 @@ static void OnMouseRightButtonDown(MainWindow* win, int x, int y) {
         return;
     }
     if (MouseAction::Scrolling == win->mouseAction) {
-        win->mouseAction = MouseAction::None;
+        StopAutoScroll(win);
     } else if (win->mouseAction != MouseAction::None) {
         return;
     }
@@ -4125,8 +4146,20 @@ void DocCanvasView::OnMenuAction(DocCanvasView* self, gp::Ctx* cx, const gp::Act
     gp::Notify(cx);
 }
 
+// a JavaScript menu item can be long (#6518): like a Win32 menu, the width
+// is capped by the window, not GPUI's 500px; longer labels wrap
+static float CanvasMenuMaxW(gp::Ctx* cx) {
+    constexpr float kMargin = 16;
+    float winW = cx->win ? gp::WindowSize(cx->win).dipW : 0;
+    return winW - 2 * kMargin;
+}
+
 static gpc::PopupMenu* CanvasPopupFromModel(gp::Ctx* cx, MenuModel* model, Str id) {
     gpc::PopupMenu* menu = gpc::PopupMenu::New(cx, GpuiDup(cx->a, id))->MinW(220);
+    float maxW = CanvasMenuMaxW(cx);
+    if (maxW > 0) {
+        menu->MaxW(maxW);
+    }
     if (!model) {
         return menu;
     }

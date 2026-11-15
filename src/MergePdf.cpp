@@ -27,6 +27,7 @@
 #include "base/GuessFileType.h"
 #include "EngineAll.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "ExternalViewers.h"
 #include "SumatraPDF.h"
@@ -1788,9 +1789,7 @@ bool InsertPosWnd::Create(HWND owner, Str what, int n, int afterPage) {
     vbox->AddChild(new Padding(footer, DpiScaledInsets(kToolDlgFootPadDy, kToolDlgPadDx)));
     layout = vbox;
 
-    LayoutAndSizeToContent(layout, DpiScale(kInsertDlgDx), 0, hwnd);
-    DoLayout(HwndClientRect(hwnd).Size());
-    HwndCenterDialog(hwnd, owner);
+    SizeToLayout(this, layout, DpiScale(kInsertDlgDx), 0, owner);
     UpdateTheme();
     SetIsVisible(true);
     if (hasPage) {
@@ -1930,7 +1929,7 @@ bool MergePdfWnd::SaveTo(Str destPath) {
         }
 #endif
         ok = file::OverwriteAtomicRetry(destPath, tmpPath, 1, 0);
-        WindowTab* tab = ok ? FindTabByFile(destPath) : nullptr;
+        WindowTab* tab = ok ? FindTabByFilePath(destPath) : nullptr;
         if (tab) {
             tab->ignoreNextAutoReload = true;
         }
@@ -1950,7 +1949,7 @@ void MergePdfWnd::AfterSave(Str path) {
     MainWindow* w = IsMainWindowValidAndNotClosing(win) ? win : nullptr;
     TempStr savedPath = str::DupTemp(path);
     Close();
-    WindowTab* tab = FindTabByFile(savedPath);
+    WindowTab* tab = FindTabByFilePath(savedPath);
     if (tab) {
         SelectTabInWindow(tab);
         ReloadDocument(tab->win, false);

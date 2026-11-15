@@ -17,6 +17,7 @@
 #include "DisplayModel.h"
 #include "Theme.h"
 #include "FindBar.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "MainWindow.h"
 #include "SumatraPDF.h"
@@ -66,12 +67,13 @@ void StopMiddleClickScroll(MainWindow* win) {
 // ng: orig arms / kills a 10 ms WM_TIMER; the shell ticks unconditionally, so
 // "armed" is just the per-tab state the tick reads. What is left of the two is
 // resetting the time base and the sub-pixel accumulator.
-void ArmReadingTimer(MainWindow*, WindowTab* tab) {
+void ArmReadingTimer(MainWindow* win, WindowTab* tab) {
     if (!tab) {
         return;
     }
     tab->autoScroll.lastQpc = 0;
     tab->autoScroll.accum = 0;
+    AppShellRequestFastTick(win);
 }
 
 void KillReadingTimer(MainWindow*) {}

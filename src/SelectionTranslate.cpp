@@ -21,6 +21,7 @@
 #include "SumatraPDF.h"
 #include "SumatraConfig.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "TextSelection.h"
 #include "Selection.h"
@@ -278,7 +279,7 @@ void SelectionTranslateWnd::Relayout(bool initial) {
     if (initial || !sizeInitialized) {
         LayoutAndSizeToContent(layout, 0, 0, hwnd);
         // pick up the virtual controls so we paint them and they get their input
-        DoLayout(HwndClientRect(hwnd).Size());
+        DoLayout();
         HwndCenterDialog(hwnd, hwndOwner);
         sizeInitialized = true;
         return;
@@ -286,7 +287,7 @@ void SelectionTranslateWnd::Relayout(bool initial) {
     // keep current client size (or grow if new content needs more space, e.g. result)
     Rect rc = HwndClientRect(hwnd);
     LayoutAndSizeToContent(layout, rc.dx, rc.dy, hwnd);
-    DoLayout(HwndClientRect(hwnd).Size());
+    DoLayout();
 }
 
 void SelectionTranslateWnd::OnGetMinMaxInfo(WindowBase::GetMinMaxInfoEvent* ev) {

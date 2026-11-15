@@ -19,6 +19,8 @@
 import { runNamedTests, runSuiteMain, startSuiteProgress, type NamedTest, type SuiteOptions } from "./util.ts";
 import { setTestWindowLayout } from "./winapi.ts";
 import { beginSharedControlledSession, endSharedControlledSession } from "./win-automation.ts";
+import { testit as customAIUI } from "./custom-ai-ui.ts";
+import { testit as customAI } from "./custom-ai.ts";
 import { testit as lintCommandIds } from "./lint-command-ids.ts";
 import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
 import { testit as lintSystemClipboard } from "./lint-system-clipboard.ts";
@@ -35,8 +37,7 @@ import { testit as jpegXlPdf } from "./jpeg-xl-pdf.ts";
 import { testit as buildCli } from "./build-cli.ts";
 import { testit as ngEmbedded } from "./ng-embedded.ts";
 import { testit as combiningMarkFirst } from "./combining-mark-first.ts";
-import { testit as parseTipBrackets } from "./parse-tip-brackets.ts";
-import { testit as issue5840 } from "./issue-5840.ts";
+import { testit as appUnitTests } from "./app-unit-tests.ts";
 import { testit as issue5844 } from "./issue-5844.ts";
 import { testit as issue3434 } from "./issue-3434.ts";
 import { testit as cmykImageSave } from "./cmyk-image-save.ts";
@@ -47,10 +48,6 @@ import { testit as issue6346 } from "./issue-6346.ts";
 import { testit as issue6348 } from "./issue-6348.ts";
 import { testit as issue750 } from "./issue-750.ts";
 import { testit as issue6039 } from "./issue-6039.ts";
-import { testit as issue5846 } from "./issue-5846.ts";
-import { testit as issue5941 } from "./issue-5941.ts";
-import { testit as issue2447 } from "./issue-2447.ts";
-import { testit as issue476 } from "./issue-476.ts";
 import { testit as issue5875 } from "./issue-5875.ts";
 import { testit as issue3744 } from "./issue-3744.ts";
 import { testit as issue4986 } from "./issue-4986.ts";
@@ -104,7 +101,6 @@ import { testit as issue5642 } from "./issue-5642.ts";
 import { testit as issue5665 } from "./issue-5665.ts";
 import { testit as issue5677 } from "./issue-5677.ts";
 import { testit as issue5681 } from "./issue-5681.ts";
-import { testit as issue1678 } from "./issue-1678.ts";
 import { testit as issue1724 } from "./issue-1724.ts";
 import { testit as issue2239 } from "./issue-2239.ts";
 import { testit as issue1744 } from "./issue-1744.ts";
@@ -253,6 +249,25 @@ import { testit as issue6496 } from "./issue-6496.ts";
 import { testit as issue1139 } from "./issue-1139.ts";
 import { testit as issue6497 } from "./issue-6497.ts";
 import { testit as issue6221 } from "./issue-6221.ts";
+import { testit as issue6505 } from "./issue-6505.ts";
+import { testit as issue6506 } from "./issue-6506.ts";
+import { testit as copyJoinLines } from "./copy-join-lines.ts";
+import { testit as tabSwitchEndsModes } from "./tab-switch-ends-modes.ts";
+import { testit as scrollbarCaptureLoss } from "./scrollbar-capture-loss.ts";
+import { testit as nextFileSavePrompt } from "./next-file-save-prompt.ts";
+import { testit as backgroundTabReload } from "./background-tab-reload.ts";
+import { testit as sessionRestoreBrokenFile } from "./session-restore-broken-file.ts";
+import { testit as tabSwitchPresentation } from "./tab-switch-presentation.ts";
+import { testit as reloadKeepsFullscreenLayout } from "./reload-keeps-fullscreen-layout.ts";
+import { testit as closeWindowWithDialog } from "./close-window-with-dialog.ts";
+import { testit as captionCaptureLoss } from "./caption-capture-loss.ts";
+import { testit as menuBarArmedDeactivate } from "./menu-bar-armed-deactivate.ts";
+import { testit as issue6509 } from "./issue-6509.ts";
+import { testit as issue6517 } from "./issue-6517.ts";
+import { testit as issue3940 } from "./issue-3940.ts";
+import { testit as issue6520 } from "./issue-6520.ts";
+import { testit as f7EndsPlacement } from "./f7-ends-placement.ts";
+import { testit as findUiOneAtATime } from "./find-ui-one-at-a-time.ts";
 import { testit as issue6477 } from "./issue-6477.ts";
 import { testit as issue6137Contents } from "./issue-6137-contents.ts";
 import { testit as issue6093 } from "./issue-6093.ts";
@@ -404,6 +419,7 @@ import { testit as wheelWhileClosing } from "./wheel-while-closing.ts";
 import { testit as hwheelHome } from "./hwheel-home.ts";
 import { testit as tabMenuClose } from "./tab-menu-close.ts";
 import { testit as chapterNav } from "./chapter-nav.ts";
+import { testit as pageLinksFreshEngine } from "./page-links-fresh-engine.ts";
 import { testit as mouseButtonShortcuts } from "./mouse-button-shortcuts.ts";
 import { testit as issue6483 } from "./issue-6483.ts";
 import { testit as issue6485 } from "./issue-6485.ts";
@@ -532,6 +548,8 @@ import { testit as issue6080 } from "./issue-6080.ts";
 import { testit as issue6203 } from "./issue-6203.ts";
 import { testit as issue6205 } from "./issue-6205.ts";
 import { testit as advSettingsEnter } from "./adv-settings-enter.ts";
+import { testit as hexView } from "./hex-view.ts";
+import { testit as codexProvider } from "./codex-provider.ts";
 import { testit as advSettingsFreshDefaults } from "./adv-settings-fresh-defaults.ts";
 import { testit as issue6137AdvSettings } from "./issue-6137-adv-settings.ts";
 import { testit as advSettingsHomeReload } from "./adv-settings-home-reload.ts";
@@ -827,16 +845,12 @@ export const tests: NamedTest[] = [
   ["lint-control-ids", lintControlIds],
   ["lint-posted-tasks", lintPostedTasks],
   ["font-map-current", fontMapCurrent],
-  ["parse-tip-brackets", parseTipBrackets],
+  ["build-cli", buildCli],
+  ["app-unit-tests", appUnitTests],
   ["combining-mark-first", combiningMarkFirst],
-  ["issue-5840", issue5840],
   ["issue-5844", issue5844],
   ["issue-3434", issue3434],
   ["issue-1809", issue1809],
-  ["issue-5846", issue5846],
-  ["issue-5941", issue5941],
-  ["issue-2447", issue2447],
-  ["issue-476", issue476],
   ["issue-5875", issue5875],
 
   // --- default session: -for-testing + quadrant window + -dbg-control ----
@@ -905,7 +919,6 @@ export const tests: NamedTest[] = [
   ["issue-5665", issue5665],
   ["issue-5677", issue5677],
   ["issue-5681", issue5681],
-  ["issue-1678", issue1678],
   ["issue-1724", issue1724],
   ["issue-2239", issue2239],
   ["issue-1744", issue1744],
@@ -1110,6 +1123,7 @@ export const tests: NamedTest[] = [
   ["issue-6203", issue6203],
   ["issue-6205", issue6205],
   ["adv-settings-enter", advSettingsEnter],
+  ["hex-view", hexView],
   ["adv-settings-fresh-defaults", advSettingsFreshDefaults],
   ["issue-6137-adv-settings", issue6137AdvSettings],
   ["adv-settings-external-reload", advSettingsExternalReload],
@@ -1182,6 +1196,29 @@ export const tests: NamedTest[] = [
   ["issue-1139", issue1139],
   ["issue-6497", issue6497],
   ["issue-6221", issue6221],
+  ["issue-6505", issue6505],
+  ["issue-6506", issue6506],
+  ["copy-join-lines", copyJoinLines],
+  ["tab-switch-ends-modes", tabSwitchEndsModes],
+  ["scrollbar-capture-loss", scrollbarCaptureLoss],
+  ["next-file-save-prompt", nextFileSavePrompt],
+  ["background-tab-reload", backgroundTabReload],
+  ["session-restore-broken-file", sessionRestoreBrokenFile],
+  ["tab-switch-presentation", tabSwitchPresentation],
+  ["reload-keeps-fullscreen-layout", reloadKeepsFullscreenLayout],
+  ["close-window-with-dialog", closeWindowWithDialog],
+  ["caption-capture-loss", captionCaptureLoss],
+  ["menu-bar-armed-deactivate", menuBarArmedDeactivate],
+  ["issue-6509", issue6509],
+  ["issue-6517", issue6517],
+  ["issue-3940", issue3940],
+  ["issue-6520", issue6520],
+  ["f7-ends-placement", f7EndsPlacement],
+  ["find-ui-one-at-a-time", findUiOneAtATime],
+  ["codex-provider", codexProvider],
+  ["custom-ai", customAI],
+  ["custom-ai-ui", customAIUI],
+  ["page-links-fresh-engine", pageLinksFreshEngine],
 ];
 
 export async function testit(opts?: SuiteOptions): Promise<void> {

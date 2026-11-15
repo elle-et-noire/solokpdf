@@ -16,6 +16,7 @@
 #include "EngineBase.h"
 #include "DisplayModel.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "TipMarkup.h"
 #include "Notifications.h"
@@ -93,7 +94,11 @@ static void ArmTimeout(NotificationWnd* wnd, int timeoutMs) {
 }
 
 void ExpireNotifications(MainWindow* win, int elapsedMs) {
-    for (int i = gNotifications.len - 1; i >= 0; i--) {
+    for (int i = len(gNotifications) - 1; i >= 0; i--) {
+        // a close callback can remove other notifications too
+        if (i >= len(gNotifications)) {
+            continue;
+        }
         NotificationWnd* wnd = gNotifications[i];
         if (wnd->win != win || !wnd->timeLeft.Tick(elapsedMs)) {
             continue;

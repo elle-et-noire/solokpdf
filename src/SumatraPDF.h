@@ -63,6 +63,7 @@ struct MainWindow;
 extern Func1<MainWindow*> gAfterLayout;
 extern Func0 gOnSessionRestored;
 void ShowWinScrollBar(HWND hwnd, int bar, BOOL show);
+void CancelDrag(MainWindow* win);
 void NotifySessionRestoreFinished();
 bool IsSessionRestoreFinished();
 bool HasPendingDocumentLoads();
@@ -121,6 +122,8 @@ bool OpenFileExternally(Str path);
 void CloseCurrentTab(MainWindow* win, bool quitIfLast);
 void CloseTab(WindowTab* tab, bool quitIfLast);
 bool MaybeSaveAnnotations(WindowTab* tab);
+bool SaveAnnotationsToExistingFile(WindowTab*);
+bool SaveAnnotationsToMaybeNewPdfFile(WindowTab*);
 enum class UnsavedChangesAction {
     Discard,
     SaveExisting,
@@ -128,7 +131,7 @@ enum class UnsavedChangesAction {
 };
 bool ResolveUnsavedChanges(WindowTab* tab, UnsavedChangesAction action, Str newPath = {});
 void DeleteFileFromDiskAndHistory(Str path);
-WindowTab* FindTabByFilePath(Str path);
+WindowTab* FindTabByFilePath(Str path, MainWindow* limitWin = nullptr);
 WindowTab* FindTabInWindow(Str path, MainWindow* win);
 // the tab that currently owns this controller, null if it is no longer shown
 WindowTab* FindTabByController(DocController*);
@@ -141,6 +144,7 @@ enum class SidebarResizeFrame {
 };
 void SetSidebarVisibility(MainWindow* win, bool topVisible, bool bottomVisible,
                           SidebarResizeFrame = SidebarResizeFrame::Keep);
+void SetTocVisibility(MainWindow* win, bool tocVisible, SidebarResizeFrame = SidebarResizeFrame::Keep);
 void RememberFavTreeExpansionState(MainWindow* win);
 void AdvanceFocus(MainWindow* win);
 void SetCurrentLanguageAndRefreshUI(Str langCode);
@@ -212,8 +216,6 @@ void CopyLocationToClipboard(WindowTab*);
 
 MainWindow* FindMainWindowByFile(Str file, bool focusTab, MainWindow* limitWin = nullptr);
 MainWindow* FindMainWindowBySyncFile(Str path, bool focusTab);
-WindowTab* FindTabByFile(Str file, MainWindow* limitWin = nullptr);
-WindowTab* FindTabByFilePath(Str path, MainWindow* limitWin);
 void ExecuteCmd(MainWindow* win, int cmdId);
 void OpenNextPrevFileInFolder(MainWindow* win, bool forward, Str pathToDelete = {});
 void SelectTabInWindow(WindowTab*);

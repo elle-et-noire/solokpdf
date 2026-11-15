@@ -33,12 +33,14 @@
 #include "DisplayModel.h"
 #include "ProgressUpdateUI.h"
 #include "Notifications.h"
+#include "Translations.h"
 #include "ReadAloud.h"
 #include "ReadingAutoScroll.h"
 #include "TextSelection.h"
 #include "Annotation.h"
 #include "TextSearch.h"
 #include "SumatraPDF.h"
+#include "AIChatTypes.h"
 #include "AIChatCommon.h"
 #include "AIChatPanel.h"
 #include "SelectionToolbar.h"
@@ -285,14 +287,6 @@ WindowTab* MainWindow::CurrentTab() const {
         curr = GetTab(i);
         return curr;
     }
-#if 0
-    int nTabs = TabCount();
-    ReportIf(nTabs > 0);
-    if (nTabs > 0) {
-        curr = GetTab(0);
-        return curr;
-    }
-#endif
     return nullptr;
 }
 
@@ -531,6 +525,27 @@ static void LaunchEmbeddedDestination(MainWindow* win, PageDestination* pd) {
     str::Free(data);
 }
 
+// Appends the JavaScript menu's items from i on that are at least `level` deep;
+// a submenu title gets its deeper items as a submenu. Item i has command id i + 1
+static void AppendJsMenuItems(HMENU menu, PageDestinationJsMenu* dest, int& i, int level) {
+    while (i < len(dest->items) && dest->Level(i) >= level) {
+        int idx = i++;
+        Str item = dest->items[idx];
+        if (str::Eq(item, StrL("-"))) {
+            AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+            continue;
+        }
+        TempWStr title = ToWStrTemp(MenuToSafeStringTemp(item));
+        if (!dest->IsSubmenu(idx)) {
+            AppendMenuW(menu, MF_STRING, (UINT)(idx + 1), title.s);
+            continue;
+        }
+        HMENU sub = CreatePopupMenu();
+        AppendJsMenuItems(sub, dest, i, dest->Level(idx) + 1);
+        AppendMenuW(menu, MF_POPUP, (UINT_PTR)sub, title.s);
+    }
+}
+
 void LinkHandler::GotoLink(IPageDestination* dest) {
     ReportIf(!win || win->linkHandler != this);
     if (!dest || !win || !win->IsDocLoaded()) {
@@ -575,17 +590,12 @@ void LinkHandler::GotoLink(IPageDestination* dest) {
         if (!menu) {
             return;
         }
-        for (int i = 0; i < len(menuDest->items); i++) {
-            Str item = menuDest->items[i];
-            if (str::Eq(item, StrL("-"))) {
-                AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-                continue;
-            }
-            AppendMenuW(menu, MF_STRING, (UINT)(i + 1), CWStrTemp(MenuToSafeStringTemp(item)));
-        }
+        int itemIdx = 0;
+        AppendJsMenuItems(menu, menuDest, itemIdx, 0);
         Point pt = GetCursorPosition();
         int cmd =
             TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_LEFTALIGN, pt.x, pt.y, 0, win->hwndFrame, nullptr);
+        // also destroys the submenus
         DestroyMenu(menu);
         if (cmd < 1 || cmd > len(menuDest->items)) {
             return;
@@ -595,6 +605,8 @@ void LinkHandler::GotoLink(IPageDestination* dest) {
             LaunchURL(action.url);
         } else if (action.pageNo > 0 && win->ctrl->ValidPageNo(action.pageNo)) {
             win->ctrl->GoToPage(action.pageNo, true);
+        } else if (len(action.copyText) > 0 && CopyTextToClipboard(action.copyText)) {
+            ShowTemporaryNotification(win, Tr("Copied to clipboard"));
         }
         return;
     }
@@ -624,13 +636,6 @@ void LinkHandler::LaunchFile(Str pathOrig, IPageDestination* remoteLink) {
         /* technically c: is not abs, only c:\\ */
         isAbsPath = true;
     }
-#if 0
-    // we used to not allow absolute links due to security, but if we can open
-    // the doc we should assume we can handle it securely
-    if (isAbsPath) {
-        return;
-    }
-#endif
     if (!isAbsPath) {
         auto dir = path::GetDirTemp(win->ctrl->GetFilePath());
         fullPath = path::JoinTemp(dir, path);

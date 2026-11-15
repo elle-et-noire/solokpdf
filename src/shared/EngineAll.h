@@ -159,6 +159,20 @@ using ShowErrorCb = Func1<Str>;
 bool IsEngineMupdfSupportedFileType(FileType);
 int EngineMupdfCount();
 EngineBase* CreateEngineMupdfFromFile(Str path, FileType kind, int displayDPI, PasswordUI* pwdUI = nullptr);
+
+// an engine that converts its document to a PDF file and renders that (CAJ, DVI)
+class EngineCachedPdf : public EnginePdfProxy {
+  public:
+    EngineBase* Clone() override;
+    bool SaveFileAs(Str dstPath) override;
+
+  protected:
+    Str cachedPdf;
+
+    ~EngineCachedPdf() override;
+    virtual EngineCachedPdf* NewEmpty() = 0;
+    bool OpenCachedPdf(Str pdfPath);
+};
 EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI, Str path = {});
 #if OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 EngineBase* CreateEngineMupdfFromHandle(HANDLE file, Str path, PasswordUI* pwdUI);
@@ -168,29 +182,28 @@ bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6]
 Str LoadEmbeddedPDFFile(Str path);
 TempStr ParseEmbeddedStreamNumber(Str path, int* streamNoOut);
 Annotation* EngineMupdfCreateAnnotation(EngineBase*, int pageNo, PointF pos, AnnotCreateArgs* args);
-void EngineMupdfGetAnnotations(EngineBase*, Vec<Annotation*>&);
 void EngineMupdfGetLoadedAnnotations(EngineBase*, Vec<Annotation*>&);
 bool EngineMupdfTryGetLoadedAnnotations(EngineBase*, Vec<Annotation*>&);
 bool EngineMupdfAnnotsLoadDone(EngineBase*);
 void EngineMupdfStartLoadAllAnnotations(EngineBase*, const Vec<int>& firstPages, const Func0& onProgress);
 void EngineMupdfLoadAnnotsForPage(EngineBase*, int pageNo);
 void EngineMupdfCancelLoadAllAnnotations(EngineBase*);
-bool EngineMupdfHasUnsavedAnnotations(EngineBase*);
-bool EngineMupdfHasRedactMarks(EngineBase*);
-bool EngineMupdfHasRedactMarksNoWait(EngineBase*);
-bool EngineMupdfHasUserRedactMarks(EngineBase*);
 bool EngineMupdfApplyRedactions(EngineBase*, Vec<Annotation*>& deletedOut, Vec<int>& failedPages);
 bool EngineMupdfPageRedacted(EngineBase*, int pageNo);
 EngineBase* EngineMupdfRedactedEngine(EngineBase*);
 bool EngineMupdfHoldDocLock(EngineBase*, int ms);
 bool EngineMupdfBeginOperation(EngineBase*, const char* name);
 void EngineMupdfEndOperation(EngineBase*);
-bool EngineMupdfCanUndo(EngineBase*);
-bool EngineMupdfCanRedo(EngineBase*);
-bool EngineMupdfCanUndoNoWait(EngineBase*);
-bool EngineMupdfCanRedoNoWait(EngineBase*);
-bool EngineMupdfUndo(EngineBase*, Vec<Annotation*>& removedOut);
-bool EngineMupdfRedo(EngineBase*, Vec<Annotation*>& removedOut);
+enum class UndoDir {
+    Undo,
+    Redo
+};
+enum class EngineWait {
+    Wait,
+    NoWait
+};
+bool EngineCanUndoRedo(EngineBase*, UndoDir, EngineWait);
+bool EngineUndoRedo(EngineBase*, UndoDir, Vec<Annotation*>& removedOut);
 void EngineMupdfRefreshModifiedState(EngineBase*);
 // a PDF EngineMupdfMergePdfs() reads pages from
 struct PdfMergeSource {
@@ -206,7 +219,6 @@ struct PdfMergePage {
 };
 bool EngineMupdfMergePdfs(const Vec<PdfMergeSource>& srcs, const Vec<PdfMergePage>& pages, Str destPath);
 
-bool EngineMupdfSupportsAnnotations(EngineBase*);
 bool EngineMupdfIsPdf(EngineBase* engine);
 bool EngineMupdfIsEncrypted(EngineBase* engine);
 bool EngineMupdfHeadingTocPending(EngineBase* engine);
@@ -222,6 +234,7 @@ TempStr EngineMupdfToolPasswordTemp(EngineBase* engine, Str srcPath);
 bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& showErrorFunc);
 bool EngineMupdfCanSave(EngineBase* engine);
 bool EngineMupdfSaveCopy(EngineBase* engine, Str path);
+bool EngineMupdfSaveCropped(EngineBase* engine, Str path, const Vec<RectF>& cropBoxes);
 
 // digitally signing a PDF (SignDocumentDialog.cpp drives this)
 // appearance flag bits match mupdf's PDF_SIGNATURE_SHOW_* (logo is never used)
@@ -264,6 +277,7 @@ int EngineMupdfCountSignedSignatures(EngineBase*);
 bool EngineMupdfHasOfdSignatures(EngineBase*);
 bool EngineMupdfIsOfd(EngineBase*);
 bool EngineMupdfSaveAsPdf(EngineBase*, Str destPath);
+bool EngineMupdfExtractPagesToPdf(EngineBase*, const Vec<int>& pages, Str destPath);
 bool IsUnsignedSignatureWidget(Annotation*, TempStr* fieldNameOut);
 bool EngineMupdfSignDocument(EngineBase*, const PdfSignArgs&, Str* errOut);
 void ListWindowsSigningCertificates(StrVec& thumbprints, StrVec& labels);
@@ -318,9 +332,7 @@ struct PdfSigCert {
 PdfSigCert* EngineMupdfGetSignatureCerts(EngineBase*);
 void FreePdfSigCerts(PdfSigCert*);
 #endif
-Annotation* EngineMupdfGetAnnotationAtPos(EngineBase*, int pageNo, PointF pos, float padding, Annotation*);
 IPageElement* EngineMupdfElementAtPosWait(EngineBase* engine, int pageNo, PointF pt);
-Annotation* EngineMupdfGetWidgetAtPos(EngineBase*, int pageNo, PointF pos);
 bool EngineMupdfGetPageWidgets(EngineBase*, int pageNo, Vec<Annotation*>& out);
 Annotation* EngineMupdfGetAdjacentWidget(EngineBase*, Annotation* cur, bool forward);
 void EngineMupdfGetFormFieldHighlightRects(EngineBase*, int pageNo, Annotation* skip, Vec<RectF>& out);

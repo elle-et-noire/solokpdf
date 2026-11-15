@@ -2830,7 +2830,7 @@ class EnginePdfium : public EngineBase {
 
     EngineBase* TextEditor(int pageNo) {
         EngineBase* res = AnnotationEditor(EditorLoad::IfLoaded);
-        return res && ((acroForm && res->TextGeneration() != 0) || EngineMupdfHasUnsavedAnnotations(res) ||
+        return res && ((acroForm && res->TextGeneration() != 0) || EngineHasUnsavedAnnotations(res) ||
                        EngineMupdfPageRedacted(res, pageNo))
                    ? res
                    : nullptr;

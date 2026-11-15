@@ -34,6 +34,7 @@
 #include "Commands.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Toolbar.h"
 #include "SvgIcons.h"
@@ -1517,26 +1518,6 @@ void AnnotEditView::OnContentsCancel(AnnotEditView*, gp::Ctx* cx, const gp::Clic
     gp::Notify(cx);
 }
 
-static TempStr ChipLabelTemp(const AnnotEditItem& item) {
-    switch (item.kind) {
-        case AnnotEditKind::Opacity:
-            return fmt("%d%%", ((item.number * 100) + 127) / 255);
-        case AnnotEditKind::Border:
-        case AnnotEditKind::TextSize:
-            return fmt("%d", item.number);
-        case AnnotEditKind::Bold:
-            return str::DupTemp(StrL("B"));
-        case AnnotEditKind::Italic:
-            return str::DupTemp(StrL("I"));
-        case AnnotEditKind::Underline:
-            return str::DupTemp(StrL("U"));
-        case AnnotEditKind::Icon:
-            return str::DupTemp(item.iconName);
-        default:
-            return str::DupTemp(item.text);
-    }
-}
-
 static const char* ChipSvgIcon(AnnotEditKind kind) {
     switch (kind) {
         case AnnotEditKind::Contents:
@@ -2146,23 +2127,6 @@ void SetSelectedAnnotation(WindowTab* tab, Annotation* annot) {
         UpdateAnnotFilterToolbar(win);
         AppShellInvalidate(win);
     }
-}
-
-void StartLoadingAnnotationsForUi(WindowTab* tab) {
-    DisplayModel* dm = tab ? tab->AsFixed() : nullptr;
-    if (!dm) {
-        return;
-    }
-    EngineBase* engine = dm->GetEngine();
-    if (!EngineSupportsAnnotations(engine)) {
-        return;
-    }
-    Vec<int> firstPages;
-    CollectPriorityAnnotPages(tab, tab->selectedAnnotation, firstPages);
-    for (int pageNo : firstPages) {
-        EngineMupdfLoadAnnotsForPage(engine, pageNo);
-    }
-    EngineMupdfStartLoadAllAnnotations(engine, firstPages, MkFunc0(OnAnnotsProgress, tab));
 }
 
 // tests click the frame; the document model is canvas pixels

@@ -29,6 +29,7 @@
 #include "DisplayModel.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #if !defined(SUMATRA_NG)
 #include "Canvas.h"
@@ -388,6 +389,11 @@ void ToggleSelectTextWithKeyboard(MainWindow* win) {
     }
     if (!CanSelectTextWithKeyboard(win)) {
         return;
+    }
+    // only the highlighter works on a keyboard selection; other placements
+    // take the pointer and end, as starting one ends this mode
+    if (IsPlacingAnnotation(win) && win->annotPlacement.kind != AnnotPlacementKind::Highlighter) {
+        CancelAnnotationPlacement(win);
     }
     PlaceInitialCaret(win);
     if (PageTextLen(win->AsFixed()->GetEngine(), win->textSelectPage) <= 0) {

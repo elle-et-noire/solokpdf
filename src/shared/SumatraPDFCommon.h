@@ -69,12 +69,19 @@ void CollectHistoryFilesInDir(Str dir, StrVec& out);
 void InsertSortedNatural(StrVec* v, Str s);
 struct PendingNextPrevNav {
     MainWindow* win = nullptr;
+    WindowTab* tab = nullptr;
     bool forward = true;
+    Str path;         // owned
     Str pathToDelete; // owned
-    ~PendingNextPrevNav() { str::Free(pathToDelete); }
+    ~PendingNextPrevNav() {
+        str::Free(path);
+        str::Free(pathToDelete);
+    }
 };
 extern PendingNextPrevNav* gPendingNextPrevNav;
 void ClearPendingNextPrevNav();
+void DeferNextPrevNav(MainWindow* win, WindowTab* tab, bool forward, Str pathToDelete);
+void ReplayPendingNextPrevNav();
 bool IsAtDocumentBottom(MainWindow* win);
 void OnNextFileHintClosed(NotificationClosedEvent* ev);
 void ToggleMangaMode(MainWindow* win);
@@ -114,6 +121,9 @@ void ShowViewModeNotification(MainWindow* win, int cmdId);
 void ZoomToSelection(MainWindow* win);
 void TrimPagesToSelection(MainWindow* win);
 void ShowWholePages(MainWindow* win);
+bool CanSaveTrimmedPages(MainWindow* win);
+TempStr TrimmedPagesPathTemp(Str srcPath);
+bool SaveTrimmedPages(MainWindow* win, Str dstPath);
 void ToggleReadColumns(MainWindow* win);
 bool IsManualDocHtmlPage(Str path);
 Str ManualInjectThemeCss(Str html);
@@ -144,8 +154,8 @@ enum class ViewEngineClass : u32;
 
 struct CreateThumbnailFromFileData {
     Str filePath;
-    // when set, render from this clone of the open document instead of loading
-    // the file again (owned)
+    // when set, the open document's engine, ref'd for us: render from it
+    // instead of loading the file again
     EngineBase* engine = nullptr;
     Pixmap* bmp = nullptr;
     // value-initialized: ViewEngineClass::Image
@@ -154,6 +164,8 @@ struct CreateThumbnailFromFileData {
     // see LoadDocumentAsyncData: the thumbnail is rendered off the UI thread,
     // so the per-document ebook settings have to come along as a copy (#4600)
     FileEBookUI* fileEBookUI = nullptr;
+    // the regenerate batch it came from, 0 for a single thumbnail
+    int batchGen = 0;
     ~CreateThumbnailFromFileData() {
         str::Free(filePath);
         SafeEngineRelease(&engine);

@@ -55,6 +55,7 @@ void TtsFreeVoices(Vec<TtsVoiceInfo>& voices);
 void TtsSortVoicesByLanguage(Vec<TtsVoiceInfo>& voices);
 
 bool TtsSetVoiceById(Str voiceId);
+bool TtsIsInitialized();
 Str TtsGetVoiceId();
 
 void TtsSetSpeed(float speed);
@@ -93,9 +94,6 @@ struct ReadAloudHighlightMap {
 };
 
 void ReadAloudHighlightFree(ReadAloudHighlightMap* map);
-
-bool ReadAloudHighlightBuildFromPage(EngineBase* engine, int pageNo, ReadAloudHighlightMap* map,
-                                     str::Builder& cleanedOut);
 
 bool ReadAloudHighlightBuildFromTextSelection(TextSelection* ts, ReadAloudHighlightMap* map, str::Builder& cleanedOut);
 

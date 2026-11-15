@@ -15,6 +15,7 @@
 #include "DisplayModel.h"
 #include "AppSettings.h"
 #include "TextSelection.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
@@ -31,6 +32,8 @@
 // things out during a presentation and off again afterwards, and an app that
 // started up with the mouse cursor replaced by a red dot would look broken.
 bool gLaserPointer = false;
+// toggled by CmdToggleInverseSearch: a click no longer does inverse search
+bool gDisableInteractiveInverseSearch = false;
 
 bool IsLaserPointerActive() {
     return gLaserPointer;

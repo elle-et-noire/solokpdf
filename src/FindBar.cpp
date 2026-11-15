@@ -36,11 +36,7 @@
 #include "DarkMode.h"
 #include "FindBar.h"
 #include "AppHelpersCommon.h"
-
-// command ids for the bar's toolbar buttons; must not collide with real commands
-constexpr int kFindBarCloseCmdId = (int)CmdLast + 50;
-
-constexpr int kFindBarPinCmdId = (int)CmdLast + 52;
+#include "FindWindowCommon.h"
 
 // the bar's buttons, in order; btns[], the icons and these must line up
 constexpr int kFindBarBtnCmds[] = {
@@ -294,14 +290,14 @@ void FindBarWnd::Layout(int forceBarDx) {
         int clientDx = std::max(forceBarDx - nonClientDx, layout->MinIntrinsicWidth(0));
         inLayout = true;
         LayoutAndSizeToContent(layout, clientDx, 0, hwnd);
-        DoLayout(HwndClientRect(hwnd).Size());
+        DoLayout();
         inLayout = false;
     } else {
         int extra = DpiScale(kFindBarDefaultEditDx - kFindBarMinEditDx);
         int minDx = layout->MinIntrinsicWidth(0) + extra;
         inLayout = true;
         LayoutAndSizeToContent(layout, minDx, 0, hwnd);
-        DoLayout(HwndClientRect(hwnd).Size());
+        DoLayout();
         inLayout = false;
     }
     Rect wr = HwndWindowRect(hwnd);
@@ -653,6 +649,10 @@ static void PositionFindBar(FindBarWnd* bar) {
 }
 
 void ShowCompactBar(MainWindow* win) {
+    // one find UI at a time: SearchUIFloating can change while the window is up
+    if (IsFindWindowVisible(win)) {
+        HideFindWindow(win);
+    }
     TempStr term = CurrentFindTermTemp(win);
     if (!win->findBar) {
         win->findBar = CreateFindBar(win);

@@ -317,6 +317,11 @@ static bool AccelIsForCmd(const Accel& a, int cmdId) {
     if (a.cmd == cmdId) {
         return true;
     }
+    // only a custom command can alias cmdId; the list walk below is per
+    // accelerator per menu item, so skip it for built-in ids
+    if (a.cmd < (int)CmdFirstCustom) {
+        return false;
+    }
     CustomCommand* cmd = FindCustomCommand(a.cmd);
     return cmd && cmd->origId == cmdId;
 }
@@ -590,10 +595,6 @@ int AsciiAcceleratorCmd(u32 ch) {
     return 0;
 }
 
-static Str CurrentLangCode() {
-    return trans::GetCurrentLangCode();
-}
-
 namespace {
 // ng: orig fills three win32 tables here (all / edit / tree view). We keep one
 // and classify at lookup time; gpui decides per key context (step 6).
@@ -768,7 +769,7 @@ static void BuildWinAcceleratorTables() {
 #endif
 
 void CreateSumatraAcceleratorTable() {
-    gShortcutLangCode = CurrentLangCode;
+    gShortcutLangCode = trans::GetCurrentLangCode;
     ReportIf(gAccels);
 
     PatchCreateAnnotEditAccelerators();

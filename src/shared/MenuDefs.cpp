@@ -19,6 +19,7 @@
 #include "SumatraConfig.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Commands.h"
 #include "ExternalViewers.h"
@@ -276,12 +277,20 @@ MenuDef menuDefView[] = {
         CmdShowWholePages,
     },
     {
+        TrN("Save Trimmed Pages As..."),
+        CmdSaveTrimmedPagesAs,
+    },
+    {
         TrN("Read &Columns"),
         CmdToggleReadColumns,
     },
     {
         TrN("Read Columns: Show &Whole Page"),
         CmdToggleColumnsWholePage,
+    },
+    {
+        TrN("View As &Hex"),
+        CmdViewAsHex,
     },
     {
         StrL(kMenuSeparator),
@@ -382,6 +391,10 @@ MenuDef menuDefView[] = {
     {
         TrN("Antigravity chat"),
         CmdAIChatWithAntiGravity,
+    },
+    {
+        TrN("Custom AI"),
+        CmdAIChatWithCustomAPI,
     },
     {
         {},
@@ -562,10 +575,6 @@ MenuDef menuDefThemes[] = {
 
 //[ ACCESSKEY_GROUP Settings Menu
 MenuDef menuDefSettings[] = {
-#if 0
-    { TrN("Contribute Translation"),       CmdContributeTranslation },
-    { StrL(kMenuSeparator),                       0                  },
-#endif
     {
         TrN("&Settings..."),
         CmdOptions,
@@ -1092,6 +1101,10 @@ MenuDef menuDefDocumentAIChat[] = {
         CmdAIChatWithAntiGravity,
     },
     {
+        TrN("Custom AI"),
+        CmdAIChatWithCustomAPI,
+    },
+    {
         {},
         0,
     },
@@ -1113,7 +1126,7 @@ MenuDef menuDefDocumentOperations[] = {
         CmdDocumentShowOutline,
     },
     {
-        TrN("Extract Pages From PDF"),
+        TrN("Extract Pages"),
         CmdPdfExtractPages,
     },
     {
@@ -1169,7 +1182,7 @@ MenuDef menuDefDocumentOperations[] = {
         CmdConvertToPDF,
     },
     {
-        TrN("Convert PDF to Images..."),
+        TrN("Convert to Images..."),
         CmdConvertPdfToImages,
     },
     {

@@ -109,6 +109,7 @@ PaperFormat GetPaperFormatFromSizeApprox(SizeF size) {
 #include "Notifications.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Selection.h"
 #include "SumatraDialogs.h"
@@ -662,7 +663,7 @@ static void MessageBoxWarningCond(bool show, Str msg, Str title) {
         return;
     }
 #if defined(SUMATRA_NG)
-    MessageBoxWarningSimple(nullptr, ToWStrTemp(msg), ToWStrTemp(title));
+    MsgBoxWarning(nullptr, msg, title);
 #else
     MessageBoxWarning(nullptr, msg, title);
 #endif
@@ -1324,6 +1325,12 @@ static void PrintToDeviceOnThread(MainWindow* win, PrintData* data) {
     win->printThread = nullptr;
     auto fn = MkFunc0(PrintThread, threadData);
     win->printThread = StartThread(fn, StrL("PrintThread"));
+    if (!win->printThread) {
+        // the thread would have freed it and dropped its progress notification
+        logf("PrintToDeviceOnThread: couldn't start the print thread\n");
+        delete threadData;
+        return;
+    }
     // read by DeletePrinterThread, which the thread posts to this (UI) thread,
     // so it runs after this
     threadData->thread = win->printThread;
@@ -1663,12 +1670,8 @@ static void PrintCurrentFileCont(MainWindow* win, bool waitForCompletion, bool s
     Vec<PRINTPAGERANGE> ranges;
     Vec<SelectionOnPage>* sel;
 
-    if (win->AsChm()) {
-        win->AsChm()->PrintCurrentPage(true);
-        return;
-    }
-    if (win->AsMarkdown()) {
-        win->AsMarkdown()->PrintCurrentPage(true);
+    if (win->AsBrowser()) {
+        win->AsBrowser()->PrintCurrentPage(true);
         return;
     }
     DisplayModel* dm = win->AsFixed();

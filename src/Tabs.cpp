@@ -25,6 +25,7 @@
 #include "SumatraPDF.h"
 #include "DocumentProperties.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Commands.h"
 #include "CommandAvailability.h"
@@ -165,22 +166,6 @@ void RemoveTab(WindowTab* tab) {
         return;
     }
     // if the removed tab was the current one, select another
-#if 0
-    WindowTab* curr = win->CurrentTab();
-    WindowTab* newCurrent = curr;
-    if (!curr || newCurrent == tab) {
-        // TODO(tabs): why do I need win->tabSelectionHistory.Size() > 0
-        if (win->tabSelectionHistory->Size() > 0) {
-            newCurrent = win->tabSelectionHistory->Pop();
-        } else {
-            newCurrent = win->GetTab(0);
-        }
-    }
-    int newIdx = win->GetTabIdx(newCurrent);
-    win->tabsCtrl->SetSelected(newIdx);
-    tab = win->CurrentTab();
-    LoadModelIntoTab(tab);
-#else
     // select tab to the right or to the left if nothing to the right
     int newIdx = idx;
     int lastIdx = nTabs - 1;
@@ -192,7 +177,6 @@ void RemoveTab(WindowTab* tab) {
     if (tab && tab->type != WindowTab::Type::None) {
         LoadModelIntoTab(tab);
     }
-#endif
 }
 
 static void MaybeMigrateTab(WindowTab* tab, MainWindow* newWin, Point releasePt) {
@@ -318,12 +302,6 @@ void TabsSelect(MainWindow* win, int tabIndex) {
     LoadModelIntoTab(tab);
 }
 
-// clang-format off
-extern bool SaveAnnotationsToExistingFile(WindowTab*);
-extern bool SaveAnnotationsToMaybeNewPdfFile(WindowTab*);
-
-// clang-format on
-
 void CloseAllTabs(MainWindow* win) {
     if (!win) {
         return;
@@ -400,13 +378,11 @@ static void TabsContextMenu(TabsCtrl* tabsCtrl, VirtMouseEvent* ev) {
         DeleteMenu(popup, CmdDiscardChanges, MF_BYCOMMAND);
         RemoveBadMenuSeparators(popup);
     }
-    MarkMenuOwnerDraw(popup);
     // handled: the menu loop can close the window and free tabsCtrl, so the
     // event must not bubble up to it
     ev->didHandle = true;
     uint flags = TPM_RETURNCMD | TPM_RIGHTBUTTON;
     int cmdId = TrackPopupMenu(popup, flags, pt.x, pt.y, 0, win->hwndFrame, nullptr);
-    FreeMenuOwnerDrawInfoData(popup);
     DestroyMenu(popup);
     if (!IsMainWindowValidAndNotClosing(win)) {
         return;
@@ -545,15 +521,6 @@ static NO_INLINE void VerifyWindowTab(MainWindow* win, WindowTab* tdata) {
     if (tdata->IsNonDocumentTab()) {
         return;
     }
-#if 0
-    // disabling this check. best I can tell, external apps can change window
-    // title and trigger this
-    auto winTitle = win::GetTextTemp(win->hwndFrame);
-    if (!str::Eq(winTitle.Get(), tdata->frameTitle.Get())) {
-        logf(L"VerifyWindowTab: winTitle: '%s', tdata->frameTitle: '%s'\n", winTitle.Get(), tdata->frameTitle.Get());
-        ReportIf(!str::Eq(winTitle.Get(), tdata->frameTitle));
-    }
-#endif
     bool expectedTocVisibility = tdata->showToc; // if not in presentation mode
     if (win->InPresentation()) {
         expectedTocVisibility = false; // WindowMode::PresentationBlack, WindowMode::PresentationWhite

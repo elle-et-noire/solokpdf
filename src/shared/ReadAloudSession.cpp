@@ -16,6 +16,7 @@
 #include "EngineBase.h"
 #include "DisplayModel.h"
 #include "TextSelection.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "MainWindow.h"
 #include "Notifications.h"
@@ -641,6 +642,11 @@ static TempStr CleanReadAloudTextTemp(Str text) {
 
 // Read-aloud lifetime and commands
 static void ReadAloudSetSourceTab(WindowTab* tab) {
+    // reading moves to another tab: stop the old one as pause does, so it keeps
+    // its position and its window's highlight timer stops
+    if (gReadAloudSourceTab && gReadAloudSourceTab != tab) {
+        ReadAloudStopRememberPos();
+    }
     gReadAloudSourceTab = tab;
 }
 
@@ -686,12 +692,9 @@ void StopReadAloudIfSourceWindow(MainWindow* win) {
     if (!win || !gReadAloudSourceTab || gReadAloudSourceTab->win != win) {
         return;
     }
-
-    if (TtsIsSpeaking()) {
-        TtsStop();
-    }
-
-    ReadAloudClearSourceTab();
+    // as for a tab: also stop the highlight timer, which a kept last window
+    // would go on running
+    StopReadAloudIfSourceTab(gReadAloudSourceTab);
 }
 
 // reset "Continue reading" state, called when its document goes away
@@ -1309,7 +1312,11 @@ bool ApplyReadAloudVoiceFromSettings() {
 
     Str voiceId = gSettings->readAloudVoiceId;
     if (len(voiceId) == 0) {
-        TtsSetVoiceById(StrL(""));
+        // the default voice needs no reset while no engine exists; creating
+        // one costs ~30 ms of startup
+        if (TtsIsInitialized()) {
+            TtsSetVoiceById(StrL(""));
+        }
         return false;
     }
 

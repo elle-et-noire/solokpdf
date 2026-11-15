@@ -20,6 +20,7 @@ TemporaryFileAutoMove = true
 RememberOpenedFiles = true
 RememberStatePerDocument = true
 RestoreSession = true
+KeepMissingSessionTabs = true
 ReuseInstance = true
 ShowMenubar = true
 ShowMenubarWithTabs = false
@@ -186,6 +187,13 @@ AntiGravity [
 	Model = gemini-3.8-flash-medium
 	Effort = 1
 	AutoApprove = true
+	BgColor = #ffffff
+]
+
+CustomAI [
+	Name = Custom AI
+	ApiKeyEnv = CUSTOM_AI_API_KEY
+	IncludeCurrentPage = false
 	BgColor = #ffffff
 ]
 

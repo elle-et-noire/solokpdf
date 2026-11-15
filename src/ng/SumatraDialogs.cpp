@@ -35,6 +35,7 @@
 #include "gui/AppShell.h"
 #include "gui/ToolWindow.h"
 #include "gui/PlatformFont.h"
+#include "AIChatTypes.h"
 #include "AIChatCommon.h"
 #include "SelectionTranslate.h"
 #include "SimpleBrowserWindow.h"
@@ -447,6 +448,35 @@ ToolWindow* DlgWindowOpen(const DlgWindowSpec& spec, MainWindow* win) {
     e->win = win;
     VecAppend(gDlgWindows, e);
     return tw;
+}
+
+// `win` is closing: close its dialogs now, while their close callbacks can
+// still use it. The tool window layer reports a closed owner only later,
+// from the ui task queue, after the MainWindow is deleted.
+void DlgWindowsCloseFor(MainWindow* win) {
+    Vec<DlgWindowEntry*> entries = gDlgWindows;
+    for (DlgWindowEntry* e : entries) {
+        if (!VecContains(gDlgWindows, e) || e->win != win) {
+            continue;
+        }
+        // an unowned dialog moves to another main window instead
+        bool moves = e->spec.onOwnerClosed && !e->spec.modal && !e->spec.owned && len(gWindows) > 1;
+        if (moves) {
+            continue;
+        }
+        ToolWindow* tw = e->tw;
+        void (*close)() = e->spec.close;
+        {
+            DlgWindowCurrentScope current(tw);
+            if (close) {
+                close();
+            }
+        }
+        // a close callback that left its window up
+        if (VecContains(gDlgWindows, e)) {
+            DlgWindowClose(&tw);
+        }
+    }
 }
 
 void DlgWindowClose(ToolWindow** tw) {

@@ -1,17 +1,20 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
    License: GPLv3 */
 
+struct AIChatAPIRequest;
 struct SelectionOnPage;
 struct MainWindow;
 struct DocController;
 struct DisplayModel;
 struct ChmModel;
 struct MarkdownModel;
+struct BrowserDocController;
 class EngineBase;
 struct TocTree;
 struct TabState;
 struct Annotation;
 struct WatchedFile;
+struct HexView;
 #if !defined(SUMATRA_NG)
 struct LoadArgs;
 #endif
@@ -79,8 +82,14 @@ struct VimMark {
 
 // per-tab state of one AI chat provider (see AIChatPanel.cpp)
 struct AIChatTabState {
+    ~AIChatTabState();
     Str sessionId;
     str::Builder chatLog;
+    AIChatAPIRequest* apiRequest = nullptr;
+    str::Builder apiMessages;
+    str::Builder apiReply;
+    Str apiIdentity;
+    bool apiFailed = false;
     void* process = nullptr;
     // the running turn, 0 if none: its updates are routed by this
     int turnId = 0;
@@ -101,9 +110,11 @@ struct WindowTab {
         About,
         Document,
         Favorites, // full-window favorites list (CmdFavoriteShowInTab)
+        HexView,   // filePath's bytes (CmdViewAsHex)
     };
     MainWindow* win = nullptr;
     DocController* ctrl = nullptr;
+    HexView* hex = nullptr;
     u64 loadStartedAt = 0;
 #if !defined(SUMATRA_NG)
     // network-drive copy progress while loading (-1 = not in copy phase)
@@ -151,7 +162,7 @@ struct WindowTab {
     Str readAloudText;
     // per-provider AI chat state, indexed by AIChatBackend
     // (0 = Claude, 1 = Grok, 2 = Codex, 3 = AntiGravity)
-    AIChatTabState aiChat[4];
+    AIChatTabState aiChat[kAIChatProviderCount];
     Type type = Type::None;
     LoadState loadState = LoadState::None;
     // previous View settings, needed when unchecking the Fit Width/Page toolbar buttons
@@ -229,10 +240,14 @@ struct WindowTab {
     WindowTab(const WindowTab&) = delete;
     WindowTab& operator=(const WindowTab&) = delete;
     ~WindowTab();
+#if !defined(SUMATRA_NG)
+    void DropPendingLoad();
+#endif
 
     bool IsAboutTab() const;
     bool IsPinnedHomeTab() const;
     bool IsFavoritesTab() const;
+    bool IsHexTab() const;
     bool IsNonDocumentTab() const;
 
     DisplayModel* AsFixed() const;
@@ -245,6 +260,7 @@ struct WindowTab {
 
     ChmModel* AsChm() const;
     MarkdownModel* AsMarkdown() const;
+    BrowserDocController* AsBrowser() const;
 
     Str GetTabTitle() const;
     bool IsDocLoaded() const;
@@ -259,4 +275,5 @@ bool SaveDataToFile(HWND hwndParent, Str fileName, Str data);
 
 bool IsPdfDoc(WindowTab* tab);
 bool IsEpubDoc(WindowTab* tab);
+bool IsMupdfNonPdfDoc(WindowTab* tab);
 bool IsCajDoc(WindowTab* tab);

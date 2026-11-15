@@ -31,25 +31,24 @@ enum class Arg {
     Help3 = 8, ExitWhenDone = 9, ExitOnPrint = 10, Restrict = 11,
     Presentation = 12, FullScreen = 13, InvertColors = 14, InvertColors2 = 15,
     Console = 16, Install = 17, UnInstall = 18, WithFilter = 19,
-    WithSearch = 20, WithPreview = 21, Rand = 22, Regress = 23,
-    Extract = 24, Tester = 25, TestApp = 26, TestPlugin = 27,
-    TestPreview = 28, NewWindow = 29, Log = 30, LogToFile = 31,
-    CrashOnOpen = 32, ReuseInstance = 33, EscToExit = 34, ArgEnumPrinters = 35,
-    ListPrinters = 36, SleepMs = 37, PrintTo = 38, PrintSilent = 39,
-    PrintSettings = 40, InverseSearch = 41, ForwardSearch1 = 42, ForwardSearch2 = 43,
-    NamedDest = 44, NamedDest2 = 45, Page = 46, View = 47,
-    Zoom = 48, Scroll = 49, AppData = 50, Plugin = 51,
-    StressTest = 52, N = 53, Max = 54, MaxFiles = 55,
-    Render = 56, ExtractText = 57, Bench = 58, Dir = 59,
-    InstallDir = 60, Lang = 61, UpdateSelfTo = 62, ArgDeleteFile = 63,
-    FwdSearchOffset = 64, FwdSearchWidth = 65, FwdSearchColor = 66, FwdSearchPermanent = 67,
-    MangaMode = 68, Search = 69, AllUsers = 70, AllUsers2 = 71,
-    RunInstallNow = 72, Adobe = 73, DDE = 74, Pwd = 75,
-    EngineDump = 76, UpgradeFrom = 77, ForTesting = 78, QuickLook = 79,
-    QuickLookAgent = 80, WindowPos = 81, DumpExif = 82, DumpChm = 83,
-    Control = 84, UnitTests = 85, ForAi = 86, NewWindowTabs = 87,
-    HtmlBackend = 88, InstallRegRoot = 89, NoDesktopShortcut = 90, StartPerfLog = 91,
-    LogPerfFile = 92, ConfigureRestrictedUse = 93, WithThumbnails = 94,
+    WithSearch = 20, WithPreview = 21, Rand = 22, Extract = 23,
+    TestPlugin = 24, NewWindow = 25, Log = 26, LogToFile = 27,
+    CrashOnOpen = 28, ReuseInstance = 29, EscToExit = 30, ArgEnumPrinters = 31,
+    ListPrinters = 32, SleepMs = 33, PrintTo = 34, PrintSilent = 35,
+    PrintSettings = 36, InverseSearch = 37, ForwardSearch1 = 38, ForwardSearch2 = 39,
+    NamedDest = 40, NamedDest2 = 41, Page = 42, View = 43,
+    Zoom = 44, Scroll = 45, AppData = 46, Plugin = 47,
+    StressTest = 48, N = 49, Max = 50, MaxFiles = 51,
+    Render = 52, ExtractText = 53, Bench = 54, Dir = 55,
+    InstallDir = 56, Lang = 57, UpdateSelfTo = 58, ArgDeleteFile = 59,
+    FwdSearchOffset = 60, FwdSearchWidth = 61, FwdSearchColor = 62, FwdSearchPermanent = 63,
+    MangaMode = 64, Search = 65, AllUsers = 66, AllUsers2 = 67,
+    RunInstallNow = 68, Adobe = 69, DDE = 70, Pwd = 71,
+    UpgradeFrom = 72, ForTesting = 73, QuickLook = 74, QuickLookAgent = 75,
+    WindowPos = 76, DumpExif = 77, DumpChm = 78, Control = 79,
+    UnitTests = 80, ForAi = 81, NewWindowTabs = 82, HtmlBackend = 83,
+    NoDesktopShortcut = 84, StartPerfLog = 85, LogPerfFile = 86, ConfigureRestrictedUse = 87,
+    WithThumbnails = 88, TestApp = 89,
 };
 
 static SeqStrings gArgNames =
@@ -58,9 +57,8 @@ static SeqStrings gArgNames =
     "help\0" "exit-when-done\0" "exit-on-print\0" "restrict\0"
     "presentation\0" "fullscreen\0" "invertcolors\0" "invert-colors\0"
     "console\0" "install\0" "uninstall\0" "with-filter\0"
-    "with-search\0" "with-preview\0" "rand\0" "regress\0"
-    "x\0" "tester\0" "testapp\0" "test-plugin\0"
-    "test-preview\0" "new-window\0" "log\0" "log-to-file\0"
+    "with-search\0" "with-preview\0" "rand\0" "x\0"
+    "test-plugin\0" "new-window\0" "log\0" "log-to-file\0"
     "crash-on-open\0" "reuse-instance\0" "esc-to-exit\0" "enum-printers\0"
     "list-printers\0" "sleep-ms\0" "print-to\0" "t\0"
     "print-settings\0" "inverse-search\0" "forward-search\0" "fwdsearch\0"
@@ -72,11 +70,11 @@ static SeqStrings gArgNames =
     "fwdsearch-offset\0" "fwdsearch-width\0" "fwdsearch-color\0" "fwdsearch-permanent\0"
     "manga-mode\0" "search\0" "all-users\0" "allusers\0"
     "run-install-now\0" "a\0" "dde\0" "pwd\0"
-    "engine-dump\0" "upgrade-from\0" "for-testing\0" "quicklook\0"
-    "quicklook-agent\0" "window-pos\0" "dump-exif\0" "dump-chm\0"
-    "dbg-control\0" "unit-tests\0" "for-ai\0" "new-window-tabs\0"
-    "html-backend\0" "install-reg-root\0" "no-desktop-shortcut\0" "start-perf-log\0"
-    "log-perf-file\0" "configure-restricted-use\0" "with-thumbnails\0";
+    "upgrade-from\0" "for-testing\0" "quicklook\0" "quicklook-agent\0"
+    "window-pos\0" "dump-exif\0" "dump-chm\0" "dbg-control\0"
+    "unit-tests\0" "for-ai\0" "new-window-tabs\0" "html-backend\0"
+    "no-desktop-shortcut\0" "start-perf-log\0" "log-perf-file\0" "configure-restricted-use\0"
+    "with-thumbnails\0" "testapp\0";
 // clang-format on
 // @gen-end flags
 
@@ -565,16 +563,8 @@ static void ParseFlagNodes(Arena* a, StrNode* firstArg, Flags& i, Str toolNames)
             i.stressRandomizeFiles = true;
             continue;
         }
-        if (arg == Arg::Regress) {
-            i.regress = true;
-            continue;
-        }
         if (arg == Arg::Extract) {
             i.justExtractFiles = true;
-            continue;
-        }
-        if (arg == Arg::Tester) {
-            i.tester = true;
             continue;
         }
         if (arg == Arg::TestApp) {
@@ -584,11 +574,6 @@ static void ParseFlagNodes(Arena* a, StrNode* firstArg, Flags& i, Str toolNames)
         if (arg == Arg::TestPlugin) {
             i.testPlugin = true;
             // remaining args are for the plugin test
-            break;
-        }
-        if (arg == Arg::TestPreview) {
-            i.testPreview = true;
-            // remaining args are for the preview test
             break;
         }
         if (arg == Arg::NewWindow) {
@@ -738,10 +723,6 @@ static void ParseFlagNodes(Arena* a, StrNode* firstArg, Flags& i, Str toolNames)
         }
         if (arg == Arg::HtmlBackend) {
             i.htmlBackend = str::Dup(a, param);
-            continue;
-        }
-        if (arg == Arg::InstallRegRoot) {
-            i.installRegRoot = str::Dup(a, param);
             continue;
         }
         if (arg == Arg::LogPerfFile) {

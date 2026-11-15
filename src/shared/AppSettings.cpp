@@ -34,6 +34,7 @@
 #include "FileHistory.h"
 #include "SumatraPDF.h"
 #if !defined(SUMATRA_NG)
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "MainWindow.h"
 #include "DisplayModel.h"
@@ -475,7 +476,7 @@ static void UpdateCrashHandlerSettings() {
     Vec<FileState*> empty;
     Vec<FileState*>* saved = gSettings->fileStates;
     gSettings->fileStates = &empty;
-    Str d = SerializeSettings(gSettings, {});
+    Str d = SerializeSettings(gSettings, {}, SerializeOpt::NoSecrets);
     gSettings->fileStates = saved;
     CrashHandlerSetSettings(d);
     str::Free(d);
@@ -556,8 +557,8 @@ static void RememberSessionState() {
         }
         SessionData* windowState = NewSessionData();
         for (WindowTab* tab : win->Tabs()) {
-            if (len(tab->filePath) == 0) {
-                // home page tab
+            if (len(tab->filePath) == 0 || tab->IsHexTab()) {
+                // home page or hex view tab
                 continue;
             }
             Str fp = tab->filePath;
@@ -596,7 +597,7 @@ static void RememberSessionState() {
         int selectedDocOrdinal = 1;
         WindowTab* cur = win->CurrentTab();
         for (WindowTab* tab : win->Tabs()) {
-            if (tab->IsAboutTab() || len(tab->filePath) == 0) {
+            if (tab->IsAboutTab() || tab->IsHexTab() || len(tab->filePath) == 0) {
                 continue;
             }
             docOrdinal++;
@@ -689,7 +690,7 @@ static bool SaveSettings(bool force) {
     // while these bytes still match the last in-memory snapshot
     bool missing = !file::Exists(path);
     TempStr prevPrefs = file::ReadFileWithArena(path, GetTempArena());
-    Str prefs = SerializeSettings(gSettings, prevPrefs);
+    Str prefs = SerializeSettings(gSettings, prevPrefs, SerializeOpt::All);
     AutoCall freePrefs((void (*)(Str))str::Free, prefs);
     ReportIf(len(prefs) == 0);
     if (len(prefs) == 0) {
@@ -1174,10 +1175,6 @@ int GetAppMenuFontSizeForDpi(int dpi) {
     return std::abs(ncm.lfMenuFont.lfHeight);
 }
 
-int GetAppMenuFontSize() {
-    return GetAppMenuFontSizeForDpi(DpiGet());
-}
-
 int GetAppFontSizeForDpi(int dpi) {
     auto fntSize = gSettings->uIFontSize;
     if (fntSize < kMinFontSize) {
@@ -1338,6 +1335,24 @@ TempStr ZoomLevelStr(float zoom) {
     return fmt("%.f%%", zoom);
 }
 
+// A zoom edit's text: one of levels by name, or a typed number clamped to the
+// zoom range. Empty, unreadable or a 0 level gives fallback.
+float ParseZoomText(Str text, const Vec<float>& levels, float fallback) {
+    for (float z : levels) {
+        if (str::EqI(text, ZoomLevelStrExact(z))) {
+            return z == 0 ? fallback : z;
+        }
+    }
+    if (len(text) == 0) {
+        return fallback;
+    }
+    float zoom = (float)atof(CStrTemp(text));
+    if (zoom == 0) {
+        return fallback;
+    }
+    return limitValue(zoom, kZoomMin, kZoomMax);
+}
+
 // A level as a list of them should offer it: a fit mode by name, a percentage
 // exactly. ZoomLevelStr() rounds, which is right for "Zoom: 137%" in the corner
 // of the window but turns the 12.5% level into a row saying "12%".
@@ -1452,7 +1467,7 @@ static void CollectSettingFieldsInStruct(Vec<SettingField>& out, const StructInf
             comment = Str(fieldComment);
             fieldComment += len(comment) + 1;
         }
-        if (field.internal || field.type == SettingType::Comment || field.offset == (size_t)-1) {
+        if (field.internal || field.secret || field.type == SettingType::Comment || field.offset == (size_t)-1) {
             continue;
         }
         int offset = baseOffset + (int)field.offset;
@@ -1735,7 +1750,7 @@ static SeqStrings kFileStateKeepNoPerDoc =
 
 // prevData is used to preserve fields that exists in prevField but not in Settings
 // caller has to free()
-Str SerializeSettings(Settings* prefs, Str prevData) {
+Str SerializeSettings(Settings* prefs, Str prevData, SerializeOpt opt) {
     Vec<FileState*>* allFileStates = prefs->fileStates;
     Vec<FileState*> withFavorites;
 
@@ -1783,7 +1798,7 @@ Str SerializeSettings(Settings* prefs, Str prevData) {
         gFileStateInfo.fieldNames = keepNames;
         gFileStateInfo.fieldCount = (u16)nKeep;
 
-        Str serialized = SerializeStruct(&gSettingsInfo, prefs, prevData);
+        Str serialized = SerializeStruct(&gSettingsInfo, prefs, prevData, opt);
 
         gFileStateInfo.fields = savedFields;
         gFileStateInfo.fieldNames = savedNames;
@@ -1792,7 +1807,7 @@ Str SerializeSettings(Settings* prefs, Str prevData) {
         return serialized;
     }
 
-    return SerializeStruct(&gSettingsInfo, prefs, prevData);
+    return SerializeStruct(&gSettingsInfo, prefs, prevData, opt);
 }
 
 void DeleteSettings(Settings* gp) {

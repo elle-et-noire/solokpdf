@@ -4,7 +4,6 @@
 #include "base/Base.h"
 #include "base/Win.h"
 #include "base/File.h"
-#include "base/Crypto.h"
 
 #include "SumatraConfig.h"
 #include "Version.h"
@@ -268,17 +267,12 @@ TempStr GetPdfPreviewLogDirTemp() {
         return {};
     }
     TempStr exePath = path::JoinTemp(exeDir, Str(kExeName));
-    Str d = file::ReadFile(exePath);
-    if (len(d) == 0) {
+    TempStr buildId = GetPeBuildIdTemp(exePath);
+    if (len(buildId) == 0) {
         return {};
     }
-    u8 sha1[20]{};
-    CalcSHA1Digest(d, sha1);
-    str::Free(d);
-    char id[7];
-    for (int i = 0; i < 3; i++) { // first 6 hex chars (3 bytes), matches GetSumatraBuildSpecificDirTemp
-        sprintf_s(&id[(size_t)2 * i], 3, "%02x", sha1[i]);
-    }
+    char id[7] = "000000";
+    str::BufSet(Str(id, dimof(id)), buildId);
     TempStr local = GetSpecialFolderTemp(CSIDL_LOCAL_APPDATA, false);
     if (len(local) == 0) {
         return {};

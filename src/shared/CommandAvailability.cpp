@@ -511,7 +511,7 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
     }
 
     if (cmdId == CmdAIChatWithClaudeCode || cmdId == CmdAIChatWithGrokBuild || cmdId == CmdAIChatWithOpenAICodex ||
-        cmdId == CmdAIChatWithAntiGravity) {
+        cmdId == CmdAIChatWithAntiGravity || cmdId == CmdAIChatWithCustomAPI) {
         if (!ctx.aiChatAvailable) {
             return CommandVisibility::Hide;
         }
@@ -563,6 +563,10 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         }
     }
 
+    if (CmdCloseMissingTabs == cmdId) {
+        // checking the files here would stat them on every menu build (#6369)
+        return ctx.hasDocTabs ? CommandVisibility::Show : CommandVisibility::Hide;
+    }
     if (CmdCloseOtherTabs == cmdId) {
         return ctx.canCloseOtherTabs ? CommandVisibility::Show : CommandVisibility::Hide;
     }
@@ -613,6 +617,12 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
     // that list, so the internet and prefs checks have to happen here.
     if (cmdId == CmdSumatraPDFWeb && (!HasPermission(Perm::InternetAccess) || !HasPermission(Perm::SavePreferences))) {
         return CommandVisibility::Hide;
+    }
+
+    // works on a failed load too: that is when looking at the bytes helps
+    if (cmdId == CmdViewAsHex) {
+        bool canView = !ctx.isHexTab && len(ctx.filePath) > 0 && CanAccessDisk();
+        return canView ? MapForSurface(CommandVisibility::Show, surface) : CommandVisibility::Hide;
     }
 
     if (CmdWorksWithoutDocument(cmdId)) {
@@ -730,12 +740,19 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
         return CommandVisibility::Hide;
     }
 
-    // OFD pages render to images like PDF pages
-    if (!ctx.isPdf && !(ctx.isOfd && cmdId == CmdConvertPdfToImages)) {
+    // any document with rendered pages converts to images; an ebook as laid out (#6505)
+    if (cmdId == CmdConvertPdfToImages && !ctx.isFixedPage) {
+        return CommandVisibility::Hide;
+    }
+    if (!ctx.isPdf) {
         if (cmdId == CmdPdfShowInfo || cmdId == CmdPdfBake || cmdId == CmdPdfCompress || cmdId == CmdPdfDecompress ||
             cmdId == CmdPdfEncrypt || cmdId == CmdPdfDecrypt || cmdId == CmdPdfDeletePages ||
-            cmdId == CmdPdfExtractPages || cmdId == CmdTogglePageBoxes || cmdId == CmdConvertPdfToImages ||
-            cmdId == CmdMergePDF || cmdId == CmdRunPDFScript) {
+            cmdId == CmdTogglePageBoxes || cmdId == CmdToggleEditPDF || cmdId == CmdMergePDF ||
+            cmdId == CmdRunPDFScript || cmdId == CmdSaveTrimmedPagesAs) {
+            return CommandVisibility::Hide;
+        }
+        // XPS, EPUB, ... (anything MuPDF opened) extract to a new PDF (#6509)
+        if (cmdId == CmdPdfExtractPages && ctx.engineKind != kindEngineMupdf) {
             return CommandVisibility::Hide;
         }
     }
@@ -905,6 +922,10 @@ CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, Comm
     }
     if (cmdId == CmdPasteAnnotation) {
         return HasCopiedAnnotation() ? CommandVisibility::Show : MapForSurface(CommandVisibility::Disable, surface);
+    }
+
+    if (cmdId == CmdSaveTrimmedPagesAs) {
+        return ctx.hasTrimmedPages ? CommandVisibility::Show : MapForSurface(CommandVisibility::Disable, surface);
     }
 
     if ((cmdId == CmdSaveAnnotations) || (cmdId == CmdSaveAnnotationsNewFile) || (cmdId == CmdDiscardChanges)) {

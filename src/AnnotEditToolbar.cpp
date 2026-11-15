@@ -38,6 +38,7 @@ extern "C" {
 #include "Translations.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Canvas.h"
 #include "Commands.h"
@@ -562,18 +563,6 @@ static void PaintStyleToggle(Gfx* gfx, Rect r, AnnotEditKind kind, Color col, Pl
     }
     PlatformFont* styled = GetPlatformFont(font->name, font->sizePt, style);
     gfx->DrawText(label, r, gfxTextCenter | gfxTextVCenter, styled ? styled : font, col);
-}
-
-static TempStr ChipLabelTemp(const AnnotEditItem& item) {
-    switch (item.kind) {
-        case AnnotEditKind::Opacity:
-            return fmt("%d%%", ((item.number * 100) + 127) / 255);
-        case AnnotEditKind::Border:
-        case AnnotEditKind::TextSize:
-            return fmt("%d", item.number);
-        default:
-            return item.text;
-    }
 }
 
 void AnnotEditChip::Paint(VirtPaintCtx& ctx) {
@@ -2596,38 +2585,6 @@ void SetSelectedAnnotation(WindowTab* tab, Annotation* annot) {
     ScheduleShowSelectedAnnotationView(tab);
     UpdateAnnotEditToolbar(win);
     UpdateAnnotFilterToolbar(win);
-}
-
-// Load annot wrappers for one page (page + annot dicts, not stext).
-static void LoadAnnotsForPage(EngineMupdf* e, int pageNo) {
-    if (!e || pageNo < 1 || pageNo > e->pageCount) {
-        return;
-    }
-    FzPageInfo* pi = e->GetFzPageInfo(pageNo, true);
-    if (!pi) {
-        logf("LoadAnnotsForPage: page %d GetFzPageInfo failed\n", pageNo);
-        return;
-    }
-}
-
-void StartLoadingAnnotationsForUi(WindowTab* tab) {
-    if (!tab) {
-        return;
-    }
-    DisplayModel* dm = tab->AsFixed();
-    if (!dm) {
-        return;
-    }
-    EngineMupdf* engine = AnnotEngineMupdf(dm->GetEngine(), EditorLoad::Load);
-    if (!engine) {
-        return;
-    }
-    Vec<int> firstPages;
-    CollectPriorityAnnotPages(tab, tab->selectedAnnotation, firstPages);
-    for (int pageNo : firstPages) {
-        LoadAnnotsForPage(engine, pageNo);
-    }
-    EngineMupdfStartLoadAllAnnotations(engine, firstPages, MkFunc0(OnAnnotsProgress, tab));
 }
 
 // orig reports canvas pixels as they are

@@ -25,6 +25,7 @@
 #include "SumatraConfig.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Tabs.h"
 #include "TableOfContents.h"
@@ -96,8 +97,8 @@ static void RememberSessionState() {
         }
         SessionData* windowState = NewSessionData();
         for (WindowTab* tab : win->Tabs()) {
-            if (len(tab->filePath) == 0) {
-                // home page tab
+            if (len(tab->filePath) == 0 || tab->IsHexTab()) {
+                // home page or hex view tab
                 continue;
             }
             Str fp = tab->filePath;
@@ -134,7 +135,7 @@ static void RememberSessionState() {
         int selectedDocOrdinal = 1;
         WindowTab* cur = win->CurrentTab();
         for (WindowTab* tab : win->Tabs()) {
-            if (tab->IsAboutTab() || len(tab->filePath) == 0) {
+            if (tab->IsAboutTab() || tab->IsHexTab() || len(tab->filePath) == 0) {
                 continue;
             }
             docOrdinal++;
@@ -225,7 +226,7 @@ void SetTabState(WindowTab* tab, TabState* state) {
 
     tab->tocState = *state->tocState;
     tab->sidebarContent = SidebarContentFromStr(state->sidebarView, SidebarContent::Bookmarks);
-    SetSidebarVisibility(win, state->showToc, gSettings->showFavorites);
+    SetTocVisibility(win, state->showToc);
 
     DisplayMode displayMode = DisplayModeFromString(state->displayMode, DisplayMode::Automatic);
     if (displayMode != DisplayMode::Automatic) {
@@ -261,12 +262,9 @@ void SetTabState(WindowTab* tab, TabState* state) {
 }
 
 static void RestoreMissingTabOnStartup(MainWindow* win, TabState* state) {
-    logf("RestoreTabOnStartup: file not found '%s', creating placeholder tab\n", state->filePath);
-    FileHistoryDemote(state->filePath, true);
-    WindowTab* tab = new WindowTab(win);
-    tab->SetFilePath(state->filePath);
-    tab->tabState = state;
-    AddTabToWindow(win, tab);
+    if (WindowTab* tab = NewMissingSessionTab(win, state)) {
+        AddTabToWindow(win, tab);
+    }
 }
 
 // while the session's tabs are being created: adding a tab selects it, which
@@ -276,10 +274,7 @@ static bool gRestoringSession = false;
 // orig's LoadArgs::lazyLoad: with LazyLoading the tab is created without its
 // document, which loads on the first switch to the tab
 static void RestoreLazyTabOnStartup(MainWindow* win, TabState* state) {
-    WindowTab* tab = new WindowTab(win);
-    tab->SetFilePath(state->filePath);
-    tab->tabState = state;
-    AddTabToWindow(win, tab);
+    AddTabToWindow(win, NewSessionTab(win, state));
 }
 
 // orig's LoadModelIntoTab: "if (gSettings->lazyLoading && !tab->ctrl &&
@@ -312,6 +307,10 @@ void LoadLazyTabIfNeeded(WindowTab* tab) {
         if (state) {
             SetTabState(curr, state);
         }
+        // the borrowed state is applied; gInitialSessionData that owns it can go
+        // away on the next save, as orig's LoadDocumentFinish does
+        curr->tabState = nullptr;
+        tab->tabState = nullptr;
     } else if (curr == tab) {
         tab->loadState = WindowTab::LoadState::Error;
     }
@@ -328,8 +327,8 @@ static void RestoreTabOnStartup(MainWindow* win, TabState* state) {
         RestoreLazyTabOnStartup(win, state);
         return;
     }
+    // a failed load already shows its error tab (or asks for a password)
     if (!LoadDocument(win, state->filePath, LoadPrefs::DontSave)) {
-        RestoreMissingTabOnStartup(win, state);
         return;
     }
     SetTabState(win->CurrentTab(), state);

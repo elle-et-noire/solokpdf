@@ -27,6 +27,7 @@
 #include "DisplayModel.h"
 #include "MainWindow.h"
 #include "Theme.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "SumatraConfig.h"
 #include "Commands.h"
@@ -50,6 +51,7 @@
 #include "Accelerators.h"
 #include "FilterHighlightDraw.h"
 #include "Annotation.h"
+#include "CanvasCommon.h"
 #include "AnnotSearch.h"
 #include "AnnotEditToolbar.h"
 #include "AnnotPlacement.h"
@@ -103,6 +105,8 @@ struct CommandPaletteWnd : WindowBase, PaletteSources {
     bool thumbnailMode = false;
     bool smartTabMode = false;
     bool stickyMode = false;
+    // closing: a delete is posted, so it must not be reused
+    bool deleteScheduled = false;
 
     void PreTranslate(WindowBase::PreTranslateEvent*);
     void OnKeyDown(KeyEvent*);
@@ -142,7 +146,7 @@ struct CommandPaletteWnd : WindowBase, PaletteSources {
     void DrawListBoxItem(VirtListBox::DrawItemEvent* ev);
 };
 
-extern CommandPaletteWnd* gCommandPaletteWnd;
+static CommandPaletteWnd* gCommandPaletteWnd = nullptr;
 
 // the palette: a query line over a hairline, the mode switches, the rows on
 // an inset with a rounded selection, and the key hints
@@ -208,7 +212,6 @@ static i32 gCommandsNoActivate[] = {
 };
 // clang-format on
 
-CommandPaletteWnd* gCommandPaletteWnd = nullptr;
 static int gPaletteOpDepth = 0;
 static HWND gHwndToActivateOnClose = nullptr;
 static WindowTab* gTabToSelectOnClose = nullptr;
@@ -233,20 +236,21 @@ void CommandPaletteWnd::SetThumbnailMode(ThumbnailMode mode) {
         listBox->SetIsVisible(false);
         thumbnailCtrl->SetIsVisible(true);
         thumbnailMode = true;
-        DoLayout(HwndClientRect(hwnd).Size());
+        DoLayout();
         thumbnailCtrl->Activate();
     } else {
         thumbnailCtrl->Deactivate();
         thumbnailCtrl->SetIsVisible(false);
         listBox->SetIsVisible(true);
         thumbnailMode = false;
-        DoLayout(HwndClientRect(hwnd).Size());
+        DoLayout();
     }
     EditSetFocus(editQuery);
 }
 
 void SafeDeleteCommandPaletteWnd() {
-    if (!gCommandPaletteWnd) {
+    // a delete posted for an earlier palette must not take a newer one
+    if (!gCommandPaletteWnd || !gCommandPaletteWnd->deleteScheduled) {
         return;
     }
 
@@ -292,7 +296,11 @@ void ScheduleDeleteAndExecCommand(i32 cmdId) {
     if (!gCommandPaletteWnd) {
         return;
     }
-    gCmdIdToExecOnClose = cmdId;
+    // a later close request (deactivation) must not drop the picked command
+    if (cmdId != 0) {
+        gCmdIdToExecOnClose = cmdId;
+    }
+    gCommandPaletteWnd->deleteScheduled = true;
     if (IsMainWindowValidAndNotClosing(gCommandPaletteWnd->win)) {
         HighlightTab(gCommandPaletteWnd->win, nullptr);
     }
@@ -1135,7 +1143,7 @@ bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance)
     LayoutAndSizeToContent(layout, dx, dy, hwnd);
     // the help rows are virtual controls: pick them up so we paint them and
     // they get their input
-    DoLayout(HwndClientRect(hwnd).Size());
+    DoLayout();
     if (str::StartsWith(prefix, Str(kPalettePrefixThumbnails))) {
         SetThumbnailMode(ThumbnailMode::Enabled);
     }
@@ -1160,11 +1168,16 @@ bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance)
 
 void RunCommandPalette(MainWindow* win, Str prefix, int smartTabAdvance) {
     if (gCommandPaletteWnd) {
-        if (gCommandPaletteWnd->hwnd && IsWindow(gCommandPaletteWnd->hwnd)) {
-            HwndSetFocus(gCommandPaletteWnd->hwnd);
+        CommandPaletteWnd* prev = gCommandPaletteWnd;
+        bool alive = prev->hwnd && IsWindow(prev->hwnd) && !prev->deleteScheduled;
+        if (alive) {
+            HwndSetFocus(prev->hwnd);
             return;
         }
-        ScheduleDeleteAndExecCommand();
+        // gone or closing: delete it now, so its posted delete can't take the
+        // palette created below
+        prev->deleteScheduled = true;
+        SafeDeleteCommandPaletteWnd();
     }
 
     gCursorPosLParam = 0;
@@ -1328,7 +1341,6 @@ static TempStr UpdateCommandNameTemp(MainWindow* win, int cmdId, Str s) {
             newIsOn = !gSettings->vimKeys;
         } break;
         case CmdToggleInverseSearch: {
-            extern bool gDisableInteractiveInverseSearch;
             isToggle = true;
             newIsOn = !gDisableInteractiveInverseSearch;
         } break;

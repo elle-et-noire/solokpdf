@@ -227,11 +227,11 @@ function libjpeg_turbo_files()
 
   filter { 'platforms:x86' }
   files_in_dir("ext/libjpeg-turbo/simd/i386", {
-    "jsimdcpu.asm", "jfdctflt-3dn.asm", "jidctflt-3dn.asm", "jquant-3dn.asm",
+    "jsimdcpu.asm", "jfdctflt-3dn.asm", "jidctflt-3dn.asm", "jquantf-3dn.asm",
     "jccolor-mmx.asm", "jcgray-mmx.asm", "jcsample-mmx.asm", "jdcolor-mmx.asm",
     "jdmerge-mmx.asm", "jdsample-mmx.asm", "jfdctfst-mmx.asm", "jfdctint-mmx.asm",
-    "jidctfst-mmx.asm", "jidctint-mmx.asm", "jidctred-mmx.asm", "jquant-mmx.asm",
-    "jfdctflt-sse.asm", "jidctflt-sse.asm", "jquant-sse.asm",
+    "jidctfst-mmx.asm", "jidctint-mmx.asm", "jidctred-mmx.asm", "jquanti-mmx.asm",
+    "jfdctflt-sse.asm", "jidctflt-sse.asm", "jquantf-sse.asm",
     "jccolor-sse2.asm", "jcgray-sse2.asm", "jchuff-sse2.asm", "jcphuff-sse2.asm",
     "jcsample-sse2.asm", "jdcolor-sse2.asm", "jdmerge-sse2.asm", "jdsample-sse2.asm",
     "jfdctfst-sse2.asm", "jfdctint-sse2.asm", "jidctflt-sse2.asm", "jidctfst-sse2.asm",
@@ -240,7 +240,7 @@ function libjpeg_turbo_files()
     "jdmerge-avx2.asm", "jdsample-avx2.asm", "jfdctint-avx2.asm", "jidctint-avx2.asm",
     "jquanti-avx2.asm",
   })
-  files { "ext/libjpeg-turbo/simd/i386/jsimd.c" }
+  files { "ext/libjpeg-turbo/simd/jsimd.c" }
 
   filter { 'platforms:x64 or x64_asan' }
   files_in_dir("ext/libjpeg-turbo/simd/x86_64", {
@@ -253,7 +253,7 @@ function libjpeg_turbo_files()
     "jdmerge-avx2.asm", "jdsample-avx2.asm", "jfdctint-avx2.asm", "jidctint-avx2.asm",
     "jquanti-avx2.asm",
   })
-  files { "ext/libjpeg-turbo/simd/x86_64/jsimd.c" }
+  files { "ext/libjpeg-turbo/simd/jsimd.c" }
 
   filter {}
 end
@@ -336,6 +336,8 @@ function sumatrapdf_files()
     "MarkdownToc.*",
     "EmbeddedResources.*",
     "AIChatCommon.*",
+    "AIChatAPI.*",
+    "AIChatTypes.h",
     "AIChatPanel.*",
     "AIChatPanelCommon.*",
     "AIAntiGravity.*",
@@ -376,6 +378,8 @@ function sumatrapdf_files()
     "GlobalHotkeysCommon_win.*",
     "GoogleLens.*",
     "HangDetector.*",
+    "HexView.*",
+    "HexViewCommon.*",
     "HomePage.*",
     "HomePageCommon.*",
     "OpenFromUrlCommon.*",
@@ -476,7 +480,6 @@ function sumatrapdf_files()
     "Tabs.*",
     "TabsCommon.*",
     "TabGroupsManage.*",
-    "Tester.*",
     "Tests.cpp",
     "TextSearch.*",
     "TextSelection.*",
@@ -497,21 +500,14 @@ function sumatrapdf_files()
   })
   filter { "configurations:Debug or DebugFull" }
   files_in_dir("src", {
-    "regress/Regress.*",
     "TestPlugin.cpp",
-    "TestPreview.cpp",
   })
   files_in_dir("src/tests", {
     "*.cpp",
   })
-  files_in_dir("src/testcode", {
-    "test-app.h",
-    "TestApp.cpp",
-    "TestLayout.cpp",
-    "TestTree.cpp",
-    --"TestLice.cpp",
-    "TestTab.cpp",
-  })
+  if _OPTIONS["with-pdfium"] then
+    files_in_dir("src/testcode", { "TestTree.cpp" })
+  end
   files_in_dir("src/gui/tests", {
     "*.cpp",
   })
@@ -557,7 +553,6 @@ end
 function base_files()
   files_in_dir("src/base", {
     "ApiHook.*",
-    "AppendStore.*",
     "Archive.*",
     "Base.h",
     "Base.cpp",

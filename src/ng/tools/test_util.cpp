@@ -9,7 +9,6 @@
 // must be last due to assert() over-write
 #include "base/tests/UtAssert.h"
 
-extern void AppendStoreTest();
 extern void ArchiveTest();
 extern void BaseUtilTest();
 extern void ByteOrderTests();
@@ -35,7 +34,6 @@ extern void RtfDoc_UnitTests();
 extern void PdfSync_UnitTests();
 extern void TextSelection_UnitTests();
 extern void PagePosition_UnitTests();
-extern void CommandPaletteModel_UnitTests();
 extern void SumatraPDF_UnitTests();
 #if IS_DEBUG
 extern bool ThemeHighContrast_UnitTest();
@@ -50,7 +48,6 @@ extern void TipMarkup_UnitTests();
 extern void ReadAloudHighlight_UnitTests();
 extern void RefHoverTest();
 extern void AppSettingsTest();
-extern void SimpleLogTest();
 extern bool ShortcutParse_UnitTestShiftedPunct();
 extern bool ShortcutParse_UnitTestGpuiStroke();
 extern bool ShortcutParse_UnitTestAccelTable();
@@ -67,6 +64,7 @@ extern bool EbookDoc_UnitTestUtf16BeTwice();
 bool GumboHtmlParser_UnitTest();
 bool DisplayMode_UnitTestZoom();
 bool Translations_UnitTestUnescape();
+bool Translations_UnitTestLocale();
 extern bool Accelerators_UnitTestFolderNavIsSafe();
 extern bool AccelTestCustomScope();
 extern bool NavFiles_UnitTestHidden();
@@ -162,7 +160,6 @@ int main(int argc, char** argv) {
     }
 #endif
 
-    AppendStoreTest();
     ArchiveTest();
     BaseUtilTest();
     ByteOrderTests();
@@ -199,7 +196,6 @@ int main(int argc, char** argv) {
     ReadAloudHighlight_UnitTests();
     RefHoverTest();
     AppSettingsTest();
-    SimpleLogTest();
     utassert(ShortcutParse_UnitTestShiftedPunct());
     utassert(ShortcutParse_UnitTestGpuiStroke());
     utassert(ShortcutParse_UnitTestAccelTable());
@@ -218,6 +214,7 @@ int main(int argc, char** argv) {
     utassert(GumboHtmlParser_UnitTest());
     utassert(DisplayMode_UnitTestZoom());
     utassert(Translations_UnitTestUnescape());
+    utassert(Translations_UnitTestLocale());
     utassert(NavFiles_UnitTestHidden());
 #if !OS_WIN
     utassert(MeasurementSystem_UnitTests());

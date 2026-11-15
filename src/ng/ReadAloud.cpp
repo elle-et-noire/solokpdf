@@ -21,6 +21,7 @@
 #include "Menu.h"
 #include "Toolbar.h"
 #include "Theme.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "MainWindow.h"
 #include "Selection.h"
@@ -120,6 +121,9 @@ Vec<TtsVoiceInfo> TtsGetVoices() {
     return Vec<TtsVoiceInfo>();
 }
 bool TtsSetVoiceById(Str) {
+    return false;
+}
+bool TtsIsInitialized() {
     return false;
 }
 Str TtsGetVoiceId() {

@@ -193,8 +193,10 @@ struct RenderCache {
     ViewPageOptions pageOptions;
     // bumped by UpdateDocumentColors when page render colors / the PDF
     // document color mode change; renders started under an older epoch are
-    // discarded instead of cached
+    // discarded instead of cached. Render threads read it: change it through
+    // BumpDarkModeEpoch, which holds requestAccess
     u32 darkModeEpoch = 0;
+    void BumpDarkModeEpoch();
 
     /* Interface for page rendering thread */
     Semaphore startRendering; // signaled once per queued request

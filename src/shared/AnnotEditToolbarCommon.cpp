@@ -23,6 +23,7 @@ extern "C" {
 #include "Translations.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Commands.h"
 #include "Toolbar.h"
@@ -349,11 +350,6 @@ static TempStr GetKnownColorNameTemp(PdfColor c) {
     return {};
 }
 
-// Clear non-owning Annotation* before the old engine is destroyed.
-void InvalidateEditAnnotationsOnEngineChange(WindowTab* tab) {
-    CloseAnnotationUiForTab(tab);
-}
-
 void NotifyAnnotationsChanged(WindowTab* tab) {
     if (tab && tab->win) {
         UpdateAnnotFilterToolbar(tab->win);
@@ -508,7 +504,8 @@ bool SameRectF(RectF a, RectF b) {
 }
 
 void OnAnnotsProgress(WindowTab* tab) {
-    if (!tab || !IsMainWindowValidAndNotClosing(tab->win)) {
+    // posted from the load thread: the tab may have closed since
+    if (!IsWindowTabValid(tab) || !IsMainWindowValidAndNotClosing(tab->win)) {
         return;
     }
     RefreshAnnotFilterAnnotations(tab->win);
@@ -588,6 +585,27 @@ static PdfColor ColorWithOpacity(PdfColor c, Annotation* annot, bool withOpacity
     u8 a;
     UnpackPdfColor(c, r, g, b, a);
     return MkPdfColor(r, g, b, (u8)Opacity(annot));
+}
+
+// the text a toolbar chip shows for item
+TempStr ChipLabelTemp(const AnnotEditItem& item) {
+    switch (item.kind) {
+        case AnnotEditKind::Opacity:
+            return fmt("%d%%", ((item.number * 100) + 127) / 255);
+        case AnnotEditKind::Border:
+        case AnnotEditKind::TextSize:
+            return fmt("%d", item.number);
+        case AnnotEditKind::Bold:
+            return str::DupTemp(StrL("B"));
+        case AnnotEditKind::Italic:
+            return str::DupTemp(StrL("I"));
+        case AnnotEditKind::Underline:
+            return str::DupTemp(StrL("U"));
+        case AnnotEditKind::Icon:
+            return str::DupTemp(item.iconName);
+        default:
+            return str::DupTemp(item.text);
+    }
 }
 
 void CollectItems(Annotation* annot, Vec<AnnotEditItem>& out) {
@@ -788,6 +806,24 @@ void CollectPriorityAnnotPages(WindowTab* tab, Annotation* extra, Vec<int>& page
     }
 }
 
+// Load the priority pages' annotations now, the rest in the background.
+void StartLoadingAnnotationsForUi(WindowTab* tab) {
+    DisplayModel* dm = tab ? tab->AsFixed() : nullptr;
+    if (!dm) {
+        return;
+    }
+    EngineBase* engine = dm->GetEngine();
+    if (!EngineSupportsAnnotations(engine)) {
+        return;
+    }
+    Vec<int> firstPages;
+    CollectPriorityAnnotPages(tab, tab->selectedAnnotation, firstPages);
+    for (int pageNo : firstPages) {
+        EngineMupdfLoadAnnotsForPage(engine, pageNo);
+    }
+    EngineMupdfStartLoadAllAnnotations(engine, firstPages, MkFunc0(OnAnnotsProgress, tab));
+}
+
 // how wide the stroke of an ink annotation is, from the Thickness slider of
 // its color drop-down
 void ChipThicknessPicked(AnnotEditToolbarBase* tb, int width) {
@@ -853,6 +889,14 @@ void DeleteAnnotationAndUpdateUI(WindowTab* tab, Annotation* annot) {
         return;
     }
     Annotation* keepSelected = annot == tab->selectedAnnotation ? nullptr : tab->selectedAnnotation;
+
+    // deleting the annotation being moved or resized (Delete mid-drag) ends that
+    // gesture first; otherwise the drag goes on as a pan of the page
+    MainWindow* win = tab->win;
+    bool resizingIt = win && win->annotationBeingResized && annot == tab->selectedAnnotation;
+    if (win && (win->annotationBeingDragged == annot || resizingIt)) {
+        CancelDrag(win);
+    }
 
     DetachAnnotationFromUI(annot);
     DeleteAnnotation(annot);

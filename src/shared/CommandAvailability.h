@@ -22,6 +22,7 @@ struct AppCommandCtx {
     WindowTab* tab = nullptr;
 
     bool isDocLoaded = false;
+    bool isHexTab = false;
     Str filePath;
     Kind engineKind = nullptr;
     int pageCount = 0;
@@ -55,6 +56,8 @@ struct AppCommandCtx {
     bool supportsAnnots = false;
     bool hideAnnotations = false;
     bool hasUnsavedAnnotations = false;
+    // Trim Pages To Selection or Trim Empty Margins is on
+    bool hasTrimmedPages = false;
     // any redaction mark in the loaded pages, including marks that came with
     // the file
     bool hasRedactMarks = false;

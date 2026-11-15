@@ -21,6 +21,7 @@
 #include "DisplayModel.h"
 #include "SumatraPDF.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 
 #include "Theme.h"
@@ -667,8 +668,11 @@ void NotificationWnd::UpdateMessage(Str msg, int timeoutMs, bool highlight) {
     HwndSetRtl(hwnd, IsUIRtl());
     Layout(msg);
     HwndRepaintNow(hwnd);
+    // 0 persists: drop a timeout armed by an earlier message
     if (timeoutMs != 0) {
         SetTimer(hwnd, kNotifTimerTimeoutId, timeoutMs, nullptr);
+    } else {
+        KillTimer(hwnd, kNotifTimerTimeoutId);
     }
 }
 
@@ -821,16 +825,29 @@ NotificationWnd* ShowNotification(const NotificationCreateArgs& argsIn) {
     return wnd;
 }
 
+enum class NotifFlavor {
+    Normal,
+    Warning,
+    Plain,
+    PlainWarning
+};
+
+static NotificationWnd* ShowMsgNotification(HWND hwnd, Str msg, int timeoutMs, NotifFlavor flavor) {
+    NotificationCreateArgs args;
+    args.hwndParent = hwnd;
+    args.msg = msg;
+    args.warning = flavor == NotifFlavor::Warning || flavor == NotifFlavor::PlainWarning;
+    args.plainText = flavor == NotifFlavor::Plain || flavor == NotifFlavor::PlainWarning;
+    args.timeoutMs = timeoutMs;
+    return ShowNotification(args);
+}
+
 // show a temporary notification that will go away after a timeout
 NotificationWnd* ShowTemporaryNotification(HWND hwnd, Str msg, int timeoutMs) {
     if (timeoutMs <= 0) {
         timeoutMs = kNotifDefaultTimeOut;
     }
-    NotificationCreateArgs args;
-    args.hwndParent = hwnd;
-    args.msg = msg;
-    args.timeoutMs = timeoutMs;
-    return ShowNotification(args);
+    return ShowMsgNotification(hwnd, msg, timeoutMs, NotifFlavor::Normal);
 }
 
 // show a notification whose content is an arbitrary VirtCtrl tree. Ownership of
@@ -850,12 +867,7 @@ NotificationWnd* ShowWarningNotification(HWND hwndParent, Str msg, int timeoutMs
     if (timeoutMs < 0) {
         timeoutMs = kNotifDefaultTimeOut;
     }
-    NotificationCreateArgs args;
-    args.hwndParent = hwndParent;
-    args.msg = msg;
-    args.warning = true;
-    args.timeoutMs = timeoutMs;
-    return ShowNotification(args);
+    return ShowMsgNotification(hwndParent, msg, timeoutMs, NotifFlavor::Warning);
 }
 
 // for a message that embeds text we didn't author (a file path, document
@@ -865,25 +877,14 @@ NotificationWnd* ShowPlainNotification(HWND hwnd, Str msg, int timeoutMs) {
     if (timeoutMs <= 0) {
         timeoutMs = kNotifDefaultTimeOut;
     }
-    NotificationCreateArgs args;
-    args.hwndParent = hwnd;
-    args.msg = msg;
-    args.plainText = true;
-    args.timeoutMs = timeoutMs;
-    return ShowNotification(args);
+    return ShowMsgNotification(hwnd, msg, timeoutMs, NotifFlavor::Plain);
 }
 
 NotificationWnd* ShowPlainWarningNotification(HWND hwndParent, Str msg, int timeoutMs) {
     if (timeoutMs < 0) {
         timeoutMs = kNotifDefaultTimeOut;
     }
-    NotificationCreateArgs args;
-    args.hwndParent = hwndParent;
-    args.msg = msg;
-    args.plainText = true;
-    args.warning = true;
-    args.timeoutMs = timeoutMs;
-    return ShowNotification(args);
+    return ShowMsgNotification(hwndParent, msg, timeoutMs, NotifFlavor::PlainWarning);
 }
 
 void NotificationUpdateMessage(NotificationWnd* wnd, Str msg, int timeoutInMS, bool highlight) {

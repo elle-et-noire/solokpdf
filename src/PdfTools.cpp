@@ -30,6 +30,7 @@
 #include "SumatraPDF.h"
 #include "SumatraConfig.h"
 #include "MainWindow.h"
+#include "AIChatTypes.h"
 #include "WindowTab.h"
 #include "Translations.h"
 #include "ExternalViewers.h"
@@ -85,24 +86,19 @@ static void BrowseForDest(HWND owner, Edit* edit, WStr filter, WStr defExt) {
     }
 }
 
-// PNG / JPEG / BMP / GIF, same core formats as the Save Image dialog
-struct ConvertImageFormat {
-    Str label;
-    Str ext; // including the dot, e.g. ".png"
+// GDI+ encoder data for kConvertImageFormats, by the same index
+struct ConvertImageEncoder {
     WStr mime;
     WStr defExt; // OPENFILENAME lpstrDefExt, no dot
 };
 
-static const ConvertImageFormat kConvertImageFormats[] = {
-    {StrL("PNG"), StrL(".png"), L"image/png", L"png"},
-    {StrL("JPEG"), StrL(".jpg"), L"image/jpeg", L"jpg"},
-    {StrL("BMP"), StrL(".bmp"), L"image/bmp", L"bmp"},
-    {StrL("GIF"), StrL(".gif"), L"image/gif", L"gif"},
+static const ConvertImageEncoder kConvertImageEncoders[] = {
+    {L"image/png", L"png"},
+    {L"image/jpeg", L"jpg"},
+    {L"image/bmp", L"bmp"},
+    {L"image/gif", L"gif"},
 };
-
-static int ConvertImageFormatCount() {
-    return dimofi(kConvertImageFormats);
-}
+static_assert(dimof(kConvertImageEncoders) == kConvertImageFormatCount);
 
 // Every dialog here has the same shape, drawn like the palette: the lines
 // the user types in (a page range, a password), a hairline, then the files -
@@ -346,7 +342,7 @@ static DropDown* NewFormatDropDown(HWND parent, PlatformFont* font) {
     args.isRtl = IsUIRtl();
     dd->Create(args);
     StrVec items;
-    for (int i = 0; i < ConvertImageFormatCount(); i++) {
+    for (int i = 0; i < kConvertImageFormatCount; i++) {
         items.Append(kConvertImageFormats[i].label);
     }
     dd->SetItems(items);
@@ -430,7 +426,7 @@ void PdfToolDialog::FinishDialog(Edit* focusOn) {
         clientW = std::max(gToolDlgLastClientDx, DpiScale(kToolDlgMinDx));
     }
     Size size = layout->Layout(ExpandHeight(clientW));
-    ResizeHwndToClientArea(hwnd, size.dx, size.dy, false);
+    HwndResizeClientSize(hwnd, size.dx, size.dy);
     windowDy = HwndWindowRect(hwnd).dy;
     // positions everything and picks up the virtual controls to paint
     DoLayout(size);
@@ -452,7 +448,7 @@ int PdfToolDialog::SelectedFormatIdx() const {
         return 0;
     }
     int idx = CbGetCurrentSelection(dropFormat);
-    if (idx < 0 || idx >= ConvertImageFormatCount()) {
+    if (idx < 0 || idx >= kConvertImageFormatCount) {
         return 0;
     }
     return idx;
@@ -832,7 +828,25 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
-    WindowTab* sourceTab = isExtract ? FindTabByFile(srcPath, win) : nullptr;
+    // XPS, EPUB, ...: MuPDF draws the pages of the open document into a new PDF
+    WindowTab* docTab = FindTabByFilePath(srcPath, win);
+    if (isExtract && IsMupdfNonPdfDoc(docTab)) {
+        HCURSOR prev = SetCursor(LoadCursor(nullptr, IDC_WAIT));
+        bool ok = ExtractPagesToNewPdf(docTab, parsedPages, destPath);
+        SetCursor(prev);
+        if (!ok) {
+            MessageBoxWarning(hwnd, Tr("Failed to save a file"), Tr("Extract Pages"));
+            return;
+        }
+        MainWindow* w = win;
+        TempStr path = str::DupTemp(destPath);
+        Close();
+        LoadArgs args(path, w);
+        StartLoadDocument(&args);
+        return;
+    }
+
+    WindowTab* sourceTab = isExtract ? FindTabByFilePath(srcPath, win) : nullptr;
     EngineBase* sourceEngine = sourceTab ? sourceTab->GetEngine() : nullptr;
 
     TempStr pageRange;
@@ -920,14 +934,17 @@ void PdfDeletePageDialog::PreTranslate(WindowBase::PreTranslateEvent* ev) {
 
 bool PdfDeletePageDialog::Create(MainWindow* w, WindowTab* tab, bool isExtractArg) {
     isExtract = isExtractArg;
-    Str title = isExtract ? Tr("Extract Pages From PDF") : Tr("Delete Pages From PDF");
+    // from XPS, EPUB, ... the pages go to a new PDF next to the document
+    bool toNewPdf = isExtract && IsMupdfNonPdfDoc(tab);
+    Str title = isExtract ? Tr("Extract Pages") : Tr("Delete Pages From PDF");
     if (!CreateToolDialog(w, tab, title)) {
         return false;
     }
     pageCount = w->ctrl ? w->ctrl->PageCount() : 0;
     int currentPage = w->ctrl ? w->ctrl->CurrentPageNo() : 1;
     AddPagesLine(fmt("%d", currentPage));
-    AddFilesBlock(MakeUniqueFilePathTemp(srcPath), L"PDF Files\0*.pdf\0All Files\0*.*\0", L"pdf");
+    TempStr destPath = toNewPdf ? DefaultPdfDestPathTemp(srcPath) : MakeUniqueFilePathTemp(srcPath);
+    AddFilesBlock(destPath, L"PDF Files\0*.pdf\0All Files\0*.*\0", L"pdf");
 
     Str actionText = isExtract ? Tr("Extract Pages") : Tr("Delete Pages");
     AddFooter(actionText, PageRangeHint());
@@ -950,7 +967,9 @@ void ShowPdfPageRangeDialog(MainWindow* win, bool isExtract) {
     if (!tab || len(tab->filePath) == 0) {
         return;
     }
-    if (!IsPdfDoc(tab)) {
+    // extract also works for XPS, EPUB, ...; delete rewrites the PDF itself
+    bool canExtract = isExtract && IsMupdfNonPdfDoc(tab);
+    if (!IsPdfDoc(tab) && !canExtract) {
         return;
     }
 
@@ -1414,7 +1433,7 @@ static bool GetImageEncoderForPath(Str path, CLSID* encOut) {
         return false;
     }
     int idx = ConvertImageFormatIdxFromPath(path);
-    CLSID enc = GetGdiPlusEncoderClsid(kConvertImageFormats[idx].mime);
+    CLSID enc = GetGdiPlusEncoderClsid(kConvertImageEncoders[idx].mime);
     if (enc.Data1 == 0 && enc.Data2 == 0 && enc.Data3 == 0) {
         return false;
     }
@@ -1607,7 +1626,7 @@ void ConvertPdfToImagesDialog::OnBrowseTemplate(VirtMouseEvent*) {
     ofn.lpstrFilter = L"PNG\0*.png\0JPEG\0*.jpg;*.jpeg\0BMP\0*.bmp\0GIF\0*.gif\0All Files\0*.*\0";
     ofn.nFilterIndex = (DWORD)(fmtIdx + 1);
     ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
-    ofn.lpstrDefExt = kConvertImageFormats[fmtIdx].defExt.s;
+    ofn.lpstrDefExt = kConvertImageEncoders[fmtIdx].defExt.s;
 
     if (!(TakeTestSaveFileName(&ofn) || GetSaveFileNameW(&ofn))) {
         return;
@@ -1620,7 +1639,7 @@ void ConvertPdfToImagesDialog::OnBrowseTemplate(VirtMouseEvent*) {
     }
     destEdit->SetText(picked);
     int filterIdx = (int)ofn.nFilterIndex - 1;
-    if (filterIdx >= 0 && filterIdx < ConvertImageFormatCount()) {
+    if (filterIdx >= 0 && filterIdx < kConvertImageFormatCount) {
         syncingFormat = true;
         CbSetCurrentSelection(dropFormat, filterIdx);
         syncingFormat = false;
@@ -1638,7 +1657,7 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
     DisplayModel* dm = win ? win->AsFixed() : nullptr;
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
     if (!engine) {
-        MessageBoxWarning(hwnd, StrL("Failed to convert PDF to images."), Tr("Convert PDF to Images"));
+        MessageBoxWarning(hwnd, StrL("Failed to convert to images."), Tr("Convert to Images"));
         return;
     }
 
@@ -1653,7 +1672,7 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
         return;
     }
     if (!PagesFitDpi(engine, pages, dpi)) {
-        MessageBoxWarning(hwnd, Tr("Too large for this DPI"), Tr("Convert PDF to Images"));
+        MessageBoxWarning(hwnd, Tr("Too large for this DPI"), Tr("Convert to Images"));
         return;
     }
 
@@ -1666,7 +1685,7 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
 
     if (nOk == 0) {
         str::Free(firstPath);
-        MessageBoxWarning(hwnd, StrL("Failed to convert PDF to images."), Tr("Convert PDF to Images"));
+        MessageBoxWarning(hwnd, StrL("Failed to convert to images."), Tr("Convert to Images"));
         return;
     }
     logf("ConvertPdfToImages: wrote %d of %d file(s)\n", nOk, len(pages));
@@ -1677,7 +1696,7 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
 }
 
 bool ConvertPdfToImagesDialog::Create(MainWindow* w, WindowTab* tab) {
-    if (!CreateToolDialog(w, tab, Tr("Convert PDF to Images"))) {
+    if (!CreateToolDialog(w, tab, Tr("Convert to Images"))) {
         return false;
     }
     pageCount = w->ctrl ? w->ctrl->PageCount() : 1;
@@ -1732,7 +1751,7 @@ void ShowConvertPdfToImagesDialog(MainWindow* win) {
     if (!tab || len(tab->filePath) == 0) {
         return;
     }
-    if (!IsPdfDoc(tab) && !EngineMupdfIsOfd(tab->GetEngine())) {
+    if (!tab->AsFixed()) {
         return;
     }
     logf("ShowConvertPdfToImagesDialog: opening for '%s'\n", tab->filePath);
@@ -1829,7 +1848,7 @@ void SaveSelectionAsImageDialog::OnBrowseDest(VirtMouseEvent*) {
     ofn.lpstrFilter = L"PNG\0*.png\0JPEG\0*.jpg;*.jpeg\0BMP\0*.bmp\0GIF\0*.gif\0All Files\0*.*\0";
     ofn.nFilterIndex = (DWORD)(fmtIdx + 1);
     ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
-    ofn.lpstrDefExt = kConvertImageFormats[fmtIdx].defExt.s;
+    ofn.lpstrDefExt = kConvertImageEncoders[fmtIdx].defExt.s;
 
     if (!(TakeTestSaveFileName(&ofn) || GetSaveFileNameW(&ofn))) {
         return;
@@ -1837,7 +1856,7 @@ void SaveSelectionAsImageDialog::OnBrowseDest(VirtMouseEvent*) {
     TempStr picked = ToUtf8Temp(dstFileName);
     destEdit->SetText(picked);
     int filterIdx = (int)ofn.nFilterIndex - 1;
-    if (filterIdx >= 0 && filterIdx < ConvertImageFormatCount()) {
+    if (filterIdx >= 0 && filterIdx < kConvertImageFormatCount) {
         syncingFormat = true;
         CbSetCurrentSelection(dropFormat, filterIdx);
         syncingFormat = false;

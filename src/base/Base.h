@@ -1461,14 +1461,6 @@ void ArenaDelete(Arena* arena);
 ArenaSavepoint GetArenaSavepoint(Arena* arena);
 void RestoreArenaSavepoint(ArenaSavepoint temp);
 
-u32 ArenaPtrCompress(Arena* arena, void* ptr);
-void* ArenaPtrUncompress(Arena* arena, u32 compressed);
-
-template <typename T>
-inline T* ArenaPtrUncompress(Arena* arena, u32 compressed) {
-    return (T*)ArenaPtrUncompress(arena, compressed);
-}
-
 // Thread-local temporary arena, reset after each message loop iteration
 extern thread_local Arena* gTempArena;
 Arena* GetTempArena();
@@ -2027,13 +2019,6 @@ void VecReverse(Vec<T>& v) {
     }
 }
 
-template <typename T, typename E>
-bool VecPush(Arena* arena, T& v, E el) {
-    if (!VecGrow(arena, v, 1)) return false;
-    v.els[v.len++] = el;
-    return true;
-}
-
 //--- Str.h ------------------------------------------------------------------
 
 #define kUtf8Bom "\xEF\xBB\xBF"
@@ -2042,7 +2027,6 @@ bool VecPush(Arena* arena, T& v, E el) {
 
 // Singly-linked string node; AllocStrNode places the string bytes immediately
 // after the node in one allocation (s.s points into that block).
-using StrArena = u32;
 
 struct StrNode {
     StrNode* next = nullptr;
@@ -2132,7 +2116,6 @@ Str SliceFromCharLast(Str str, char c);
 int IndexOfChar(Str s, char c);
 int IndexOf(Str buf, Str toFind);
 int IndexOfI(Str s, Str toFind);
-int IndexOfAfter(Str s, Str needle);
 bool Cut(Str s, Str sep, Str* before, Str* after);
 bool CutChar(Str s, char c, Str* before, Str* after);
 bool CutCharLast(Str s, char c, Str* before, Str* after);
@@ -2160,7 +2143,6 @@ TempStr LFToCRLFTemp(Str s);
 int RemoveCharsInPlace(Str str, Str toRemove);
 
 int BufSet(Str dst, Str src);
-int BufAppend(Str dst, Str s);
 
 TempStr MemToHexTemp(Str buf);
 int HexDigitVal(char c);
@@ -2273,9 +2255,7 @@ using SeqStrNum = const char*;
 
 TempStr SeqStrNumAt(SeqStrNum strs, int off, i64* numOut = nullptr);
 bool SeqStrNumAdvance(SeqStrNum strs, int& off, int* idxInOut = nullptr);
-int SeqStrNumIndex(SeqStrNum strs, Str toFind, i64* numOut);
 int SeqStrNumIndexIS(SeqStrNum strs, Str toFind, i64* numOut);
-TempStr SeqStrNumByIndex(SeqStrNum strs, int idx, i64* numOut);
 TempStr SeqStrNumStrByNumber(SeqStrNum strs, i64 num);
 
 // A Vec<C> that always keeps a NUL after the last char, so the storage is
@@ -2311,7 +2291,6 @@ struct BuilderT : Vec<C> {
     C RemoveAt(int idx, int count = 1);
     C RemoveLast();
     S TakeStr();
-    S TakeWStr() { return TakeStr(); }
     C LastChar() const;
     // Lend a buffer to start in, instead of the first allocation, the way
     // VecUseExternalBuffer() does. Must be empty with no storage yet. Appends
@@ -2332,9 +2311,6 @@ using Builder = BuilderT<WCHAR>;
 void BuilderUseExternalBuffer(Builder& b, WStr buf);
 bool BuilderReserve(Builder& b, int cap);
 } // namespace wstr
-
-void SeqStrNumAppend(str::Builder* b, Str s, i64 num);
-void SeqStrNumFinish(str::Builder* b);
 
 int ParseInt(Str s);
 i64 ParseInt64(Str s);
