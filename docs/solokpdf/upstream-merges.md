@@ -291,9 +291,9 @@ Upstream's changed tests (`ad-hoc-chapters`, `background-tab-reload`,
 `page-links-fresh-engine`, `pending-tab-freed-session-state`,
 `reload-keeps-fullscreen-layout`, `scrollbar-capture-loss`,
 `session-restore-broken-file`, `tab-switch-ends-modes`,
-`tab-switch-presentation`) passed on both engines. `codex-provider` fails on
-this machine: an installed Codex CLI under `%LOCALAPPDATA%\Programs\OpenAI`
-runs instead of the mock, which the test's skip check does not cover.
+`tab-switch-presentation`) passed on both engines. `codex-provider` ran the
+Codex CLI on PATH instead of its mock: on Windows its `PATH` override sat
+beside the inherited `Path` key and was ignored. Fixed in `25de8e3c6`; it passes.
 
 SolokPDF tests touched by conflicts passed on both engines: `keyboard-ime`,
 `ad-hoc-theme-keyboard`, `theme-document-background`, `theme-render-cancel`,
