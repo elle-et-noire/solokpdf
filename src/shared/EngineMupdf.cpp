@@ -8817,9 +8817,9 @@ static void ClearRenderedPagePixmap(fz_context* ctx, fz_pixmap* pix, const Rende
         for (int y = 0; y < pix->h; y++) {
             u8* row = pix->samples + y * pix->stride;
             for (int x = 0; x < pix->w; x++) {
-                row[x * pix->n] = GetRed(bg);
+                row[x * pix->n] = GetBlue(bg);
                 row[x * pix->n + 1] = GetGreen(bg);
-                row[x * pix->n + 2] = GetBlue(bg);
+                row[x * pix->n + 2] = GetRed(bg);
                 row[x * pix->n + 3] = 255;
             }
         }
