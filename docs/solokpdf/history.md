@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E68 | Opening the command palette loads the hidden MuPDF editor on PDFium tabs to list annotations (UI thread, file-sized memory)                                                                                                                                                                 | done — Skip the editor for unannotated PDFs (E68); [results](#e68-annotation-lists-without-the-editor-2026-11-16)                                                                                                                       |
 | E64 | Measure virtual-tree rows lazily                                                                                                                                                                                                                                                            | done — Measure virtual-tree rows when first shown (E64); [results](#e64-lazy-tree-row-measuring-2026-11-16)                                                                                                                             |
 | E65 | Share the file buffer between a PDFium engine and its clones                                                                                                                                                                                                                                | done — Share the PDFium file buffer with clones (E65); [results](#e65-shared-file-buffer-2026-11-16)                                                                                                                                    |
 | E67 | `ad-hoc-pdfium` auto-link check gets `https://example.com/wrapped/`, not the joined URL; fails before E60 too                                                                                                                                                                               | done — Join soft-wrapped URLs in auto-links (E67); [results](#e67-soft-wrapped-urls-2026-11-16)                                                                                                                                         |
@@ -3844,3 +3845,26 @@ Passing: `ad-hoc-virtual-toc`, `ad-hoc-virtual-favorites`, `ad-hoc-virtual-tree-
 `ad-hoc-tree-lifetime`, `ad-hoc-tree-double-click`, `ad-hoc-favorites-click`, `ad-hoc-tree-uia`,
 `ad-hoc-virtual-favorites-large`, `ad-hoc-favorites-filter-scroll`, `issue-3560` and
 `ad-hoc-pdfium-outline`; `bun cmd/run-unit-tests.ts -dbg` passes.
+
+## E68 annotation lists without the editor (2026-11-16)
+
+Opening the command palette, the annotation list or Edit PDF mode called
+`StartLoadingAnnotationsForUi`, which loads the hidden MuPDF editor to list annotations, also
+for files without any. The open's byte scan (`ScanPdfKeys`) now also looks for `/Annots` and
+a `/Subtype` other than a link, widget, font, XObject or metadata, inflating object streams as
+for the catalog keys. Without both, `MayHaveAnnotations` is false and the lists stay empty
+without the editor; once the editor is loaded (an edit) they load as before. A file that has
+annotations lists the same entries. Files of 32 MiB or more aren't scanned and still load it.
+
+Debug, the E65 2-page PDF with a 30 MiB comment, three launches each
+(`.work/measure/measure-palette-editor.ts`): opening the palette took 273–314 ms and raised
+private bytes by 35.4–35.6 MiB, with `editor loaded=250.7–265.9 ms`; after, 19–40 ms and
+4.3–4.4 MiB, with no editor.
+
+`ad-hoc-pdfium-palette-editor` opens the palette on a PDF with only a link and a Type1 font
+(it loaded the editor before) and on one whose note sits in a compressed object stream (listed,
+editor loaded). Passing on PDFium: `command-palette-annotations`, `command-palette-external-reload`,
+`command-palette-thumbnails`, `command-palette-typing`, `annot-filter-toolbar`,
+`annot-list-placement`, `annot-filter-syntax`, `ad-hoc-pdfium-annotations`, `ad-hoc-pdfium-annots`,
+`ad-hoc-pdfium-hover`, `ad-hoc-pdfium-catalog-layout`, `issue-6287`, `issue-6406` and
+`render-cache-shutdown`; on MuPDF: `command-palette-annotations` and `annot-list-placement`.

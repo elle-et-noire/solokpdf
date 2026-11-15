@@ -674,6 +674,8 @@ class EngineBase {
     virtual PageReadResult TryFormWidgetAt(int pageNo, PointF pos, bool& found, WidgetCursorKind& cursor);
     virtual bool HasPageAnnotations(int) { return true; }
     virtual bool TryHasPageAnnotations(int pageNo) { return HasPageAnnotations(pageNo); }
+    // false: no page has an annotation other than links and widgets
+    virtual bool MayHaveAnnotations() { return true; }
     virtual EngineBase* HeadingTocEngine(EditorLoad) { return this; }
 
     virtual bool HasToc();

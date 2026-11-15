@@ -380,6 +380,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   links take priority over overlapping comments. The markup diagnostic reads all
   pages. `issue-5329` passes on both engines after seeding the active settings
   file; annotation tooltips include authors when enabled (B26, B63).
+- Annotation lists (command palette, annotation list, Edit PDF mode) load the editor only
+  when the open's byte scan finds an annotation other than links and widgets, or the editor
+  is already loaded. Files of 32 MiB or more aren't scanned and still load it; so may an
+  encrypted file with object streams (E68, `ad-hoc-pdfium-palette-editor`).
 - Applying redactions on a PDFium tab rewrites pages in the already loaded
   MuPDF editor and, as on MuPDF tabs, leaves the file unsaved and the step
   undoable. Until Save reloads the tab, PDFium draws, extracts text and lists

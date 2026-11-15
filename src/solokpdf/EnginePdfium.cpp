@@ -391,12 +391,55 @@ static void ReleaseFileBytes(PdfiumFileBytes* bytes) {
 enum PdfKeys {
     kGeometryKeys = 1, // /UserUnit, /Rotate off a multiple of 90
     kCatalogKeys = 2,  // /OpenAction, /PageLayout, /ViewerPreferences /Direction
+    kAnnotsKey = 4,    // /Annots
+    kSubtypeKey = 8,   // /Subtype other than a link, widget, font, XObject or metadata
+    kAnnotKeys = kAnnotsKey | kSubtypeKey,
 };
 
 static int ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker, int want);
 
 static bool HasName(Str data, int i, Str name) {
     return i + len(name) <= len(data) && memcmp(data.s + i, name.s, len(name)) == 0;
+}
+
+static bool IsPdfSpace(char c) {
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\0';
+}
+
+static bool IsPdfDelimiter(char c) {
+    return IsPdfSpace(c) || (c != 0 && strchr("/<>[]()%{}", c));
+}
+
+// Whether the /Subtype key at i names what may be a listed annotation: not a link, widget,
+// font, XObject or metadata. A value cut off by the end of data counts.
+static bool IsAnnotSubtype(Str data, int i) {
+    static const char* kOtherSubtypes[] = {
+        "Link",         "Widget", "Type0",         "Type1",    "MMType1", "Type3", "TrueType", "CIDFontType0",
+        "CIDFontType2", "Type1C", "CIDFontType0C", "OpenType", "Image",   "Form",  "PS",       "XML"};
+    int at = i + len(StrL("/Subtype"));
+    if (at < len(data) && !IsPdfDelimiter(data.s[at])) {
+        return false; // a longer key, e.g. /Subtype2
+    }
+    while (at < len(data) && IsPdfSpace(data.s[at])) {
+        at++;
+    }
+    if (at >= len(data) || data.s[at] != '/') {
+        return true;
+    }
+    int start = ++at;
+    while (at < len(data) && !IsPdfDelimiter(data.s[at])) {
+        at++;
+    }
+    if (at >= len(data)) {
+        return true;
+    }
+    Str name(data.s + start, at - start);
+    for (const char* other : kOtherSubtypes) {
+        if (str::Eq(name, Str(other))) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Returns the keys of want that data may hold. Without access an object stream may hold any:
@@ -416,6 +459,12 @@ static int ScanPdfKeys(Str data, int want, FPDF_FILEACCESS* access = nullptr, un
         if (HasName(data, i, StrL("/OpenAction")) || HasName(data, i, StrL("/PageLayout")) ||
             HasName(data, i, StrL("/Direction"))) {
             found |= kCatalogKeys & want;
+        }
+        if (HasName(data, i, StrL("/Annots"))) {
+            found |= kAnnotsKey & want;
+        }
+        if ((want & kSubtypeKey) && HasName(data, i, StrL("/Subtype")) && IsAnnotSubtype(data, i)) {
+            found |= kSubtypeKey;
         }
         if (!(want & kGeometryKeys)) {
             i++;
@@ -615,6 +664,8 @@ class EnginePdfium : public EngineBase {
     bool documentJs = false;
     // false when a byte scan found no /OpenAction, /PageLayout or /Direction
     bool catalogKeys = true;
+    // false when a byte scan found no annotation other than links and widgets
+    bool annotKeys = true;
     int openActionPageNo = 0;
     int pageLoads = 0;
     int themeDocLoads = 0;
@@ -2257,11 +2308,12 @@ class EnginePdfium : public EngineBase {
         }
         VecResize(pages, pageCount);
         int revision = gPdfium.FPDF_GetSecurityHandlerRevision(doc);
-        // One byte scan gates the MuPDF geometry and catalog queries.
+        // One byte scan gates the MuPDF geometry and catalog queries and annotation lists.
         if (fileData.s && len(fileData) < kMaxMemoryFileSize) {
-            int want = isPasswordProtected ? kCatalogKeys : kGeometryKeys | kCatalogKeys;
+            int want = (isPasswordProtected ? kCatalogKeys : kGeometryKeys | kCatalogKeys) | kAnnotKeys;
             int keys = ScanPdfKeys(fileData, want, revision >= 0 ? nullptr : &access);
             catalogKeys = (keys & kCatalogKeys) != 0;
+            annotKeys = (keys & kAnnotKeys) == kAnnotKeys;
             if ((keys & kGeometryKeys) && !PdfPageGeometryMupdf(path, fileData, password, pageCount, geometry)) {
                 VecClear(geometry);
             }
@@ -2374,6 +2426,9 @@ class EnginePdfium : public EngineBase {
         ScopedMutex lock(&gPdfiumLock);
         return HasSignedSigsLocked();
     }
+
+    // Lets annotation lists skip loading the editor for a file without annotations.
+    bool MayHaveAnnotations() override { return annotKeys || AnnotationEditor(EditorLoad::IfLoaded); }
 
     bool HasPageAnnotations(int pageNo) override {
         ScopedMutex lock(&gPdfiumLock);

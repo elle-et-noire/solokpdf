@@ -806,14 +806,15 @@ void CollectPriorityAnnotPages(WindowTab* tab, Annotation* extra, Vec<int>& page
     }
 }
 
-// Load the priority pages' annotations now, the rest in the background.
+// Load the priority pages' annotations now, the rest in the background. A file without
+// annotations has none to list, so it doesn't load a hidden editor for them.
 void StartLoadingAnnotationsForUi(WindowTab* tab) {
     DisplayModel* dm = tab ? tab->AsFixed() : nullptr;
     if (!dm) {
         return;
     }
     EngineBase* engine = dm->GetEngine();
-    if (!EngineSupportsAnnotations(engine)) {
+    if (!EngineSupportsAnnotations(engine) || !engine->MayHaveAnnotations()) {
         return;
     }
     Vec<int> firstPages;
