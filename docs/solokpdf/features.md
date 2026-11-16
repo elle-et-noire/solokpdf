@@ -209,9 +209,12 @@ bookmarks do: hover adds no third shade. The selection hides while the search
 box has the focus (as upstream; Enter there opens nothing); the hover fill
 stays. A thumbnail's tooltip follows whichever moved last, the mouse or the
 keys (E93). F12 page thumbnails, which upstream gives no hover feedback, get
-the same hover fill between the page and where the outline would be; the
-current page keeps its selection look when hovered, and leaving the sidebar
-clears it (E92). Page thumbnails keep their thin frame; the selection outline sits
+the selection outline at half strength, with no fill: the same 2-DIP ring, in
+its hue, mixed from the sidebar until it stands out by the square root of the
+outline's ratio (`ThemeHoverEdgeOn`, about 1.75:1 against 3:1; E95). E92's
+hover fill there, 1.13:1 in a 4-DIP band, was hard to see. The current page
+keeps its selection look when hovered, and leaving the sidebar clears it
+(E92). Page thumbnails keep their thin frame; the selection outline sits
 four DPI-scaled pixels outside the page. The sidebar reserves room for the
 outline at its edges and between rows. Neither Home nor the sidebar has a
 separate keyboard focus ring.

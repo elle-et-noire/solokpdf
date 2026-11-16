@@ -51,6 +51,7 @@ Color ThemeSelectedColorOn(Color bg);
 Color ThemeSelectionBg(Color bg);
 Color ThemeSelectionText(Color bg, Color text);
 Color ThemeSelectionEdgeOn(Color bg);
+Color ThemeHoverEdgeOn(Color bg);
 Color ThemeRaisedColor();
 Color ThemeTextOverlay(u8& alpha);
 Color ThemeSearchOverlay(u8& alpha);

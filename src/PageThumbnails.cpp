@@ -545,9 +545,6 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
         if (isCurrent) {
             // the selection color around the page, inside its outline (E94)
             ev->gfx->FillRoundedRect(outline, ringDx, ThemeSelectionBg(listBg));
-        } else if (pageNo == hoverPage) {
-            // the hovered page: the hover step in the same place, as on Home (E92)
-            ev->gfx->FillRoundedRect(outline, ringDx, ThemeHoverColorOn(listBg));
         }
         Color pageBg;
         ThemePageRenderColors(pageBg);
@@ -564,6 +561,9 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
         ev->gfx->DrawRect(pageRect, ThemeScrollbarThumbColor());
         if (isCurrent) {
             DrawSelectionOutline(ev->gfx, outline, ringDx, ringDx, ThemeSelectionEdgeOn(listBg));
+        } else if (pageNo == hoverPage) {
+            // the hovered page: the selection's outline at half strength, no fill (E95)
+            DrawSelectionOutline(ev->gfx, outline, ringDx, ringDx, ThemeHoverEdgeOn(listBg));
         }
 
         TempStr label = fmt("%d", pageNo);

@@ -1419,6 +1419,24 @@ Color ThemeSelectionEdgeOn(Color bg) {
     return EnsureContrastRatio(fill, bg, kMinInkContrast);
 }
 
+// A hover outline on surface bg: bg mixed toward the selection outline until
+// it has half its strength. Ratios multiply, so half is the square root
+// (3:1 -> 1.73:1) in every theme; a plain halfway mix gave Dark only 1.53:1.
+Color ThemeHoverEdgeOn(Color bg) {
+    if (gUseHighContrast) {
+        return ThemeHotEdgeColor();
+    }
+    Color edge = ThemeSelectionEdgeOn(bg);
+    float half = sqrtf(ContrastRatio(edge, bg));
+    for (float t = kSelectionMixStep; t < 1.0f; t += kSelectionMixStep) {
+        Color c = MixColors(bg, edge, t);
+        if (ContrastRatio(c, bg) >= half) {
+            return c;
+        }
+    }
+    return edge;
+}
+
 // the selected tab against the tab strip
 constexpr float kMinStripContrast = 1.13f;
 

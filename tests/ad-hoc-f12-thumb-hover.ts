@@ -1,7 +1,7 @@
-// F12 page thumbnails: the page under the mouse gets the hover fill around it
-// (no outline, fainter than the selection), the current page keeps its
-// selection look, and leaving the sidebar or scrolling another page under the
-// mouse moves the hover (E92).
+// F12 page thumbnails: the page under the mouse gets an outline where the
+// selection's goes, in its hue at about half its strength and with no fill
+// (E95); the current page keeps its selection look, and leaving the sidebar or
+// scrolling another page under the mouse moves the hover (E92).
 //
 // Run: bun tests/ad-hoc-f12-thumb-hover.ts [--no-build]
 
@@ -88,16 +88,41 @@ function currentPageError(col: number[][]): string {
   return selectionLookError(bg, fill, edge);
 }
 
-// what is wrong with page 2's hover fill against its unhovered column, "" when right
-function hoverError(col: number[][], before: number[][], selFill: number[]): string {
-  const bg = before[before.length - 2]!;
-  const fill = col[col.length - 2]!;
-  const fillK = contrastRatio(fill, bg);
-  const selK = contrastRatio(selFill, bg);
-  if (fillK < 1.04) return `no hover fill above page 2: bg ${bg} fill ${fill} (${fillK.toFixed(3)})`;
-  if (fillK >= selK) return `hover ${fillK.toFixed(3)} not fainter than selection ${selK.toFixed(3)}`;
-  for (const c of col) {
-    if (contrastRatio(c, bg) > fillK + 0.02) return `hovered page has an outline: ${c} vs fill ${fill}`;
+// the most contrasting pixel of a column against its first (the sidebar)
+function strongest(col: number[][]): number {
+  let best = 0;
+  for (let i = 1; i < col.length; i++) {
+    if (contrastRatio(col[i]!, col[0]!) > contrastRatio(col[best]!, col[0]!)) best = i;
+  }
+  return best;
+}
+
+// what is wrong with page 2's hover ring, "" when right: an outline in the
+// selection outline's hue, fainter than it but at least ~1.5:1, and no fill
+// between it and the page (E95)
+function hoverError(col: number[][], selCol: number[][]): string {
+  const bg = col[0]!;
+  const ringAt = strongest(col);
+  const ring = col[ringAt]!;
+  const selEdge = selCol[strongest(selCol)]!;
+  const ringK = contrastRatio(ring, bg);
+  const selK = contrastRatio(selEdge, bg);
+  const what = `bg ${bg} ring ${ring} (${ringK.toFixed(2)}) selection outline ${selEdge} (${selK.toFixed(2)})`;
+  if (ringK < 1.5) return `no hover ring above page 2: ${what}`;
+  if (ringK >= selK - 0.3) return `hover ring not fainter than the selection outline: ${what}`;
+
+  // same hue: the ring moves from the sidebar the way the selection outline does
+  const d = ring.map((v, i) => v - bg[i]!);
+  const e = selEdge.map((v, i) => v - bg[i]!);
+  const dot = d.reduce((a, v, i) => a + v * e[i]!, 0);
+  const cos = dot / Math.sqrt(d.reduce((a, v) => a + v * v, 0) * e.reduce((a, v) => a + v * v, 0));
+  if (!(cos > 0.97)) return `hover ring off the selection hue (cos ${cos.toFixed(3)}): ${what}`;
+
+  // the band inside the ring, up to the page frame, stays the sidebar color
+  let i = ringAt + 1;
+  while (i < col.length && contrastRatio(col[i]!, bg) > 1.3) i++;
+  for (; i < col.length; i++) {
+    if (contrastRatio(col[i]!, bg) > 1.03) return `fill inside the hover ring: ${col[i]} at ${i}: ${what}`;
   }
   return "";
 }
@@ -132,17 +157,21 @@ async function checkTheme(client: ControlClient, theme: string): Promise<void> {
   const p1 = pageRect(t, 1);
   const p2 = pageRect(t, 2);
   const before = base!.p2;
-  const selFill = base!.cur[base!.cur.length - 1]!;
   const unhovered = (l: Look) => (l.p2.join() === before.join() ? "" : `page 2 still hovered: ${l.p2[8]}`);
 
-  // a non-current page: the hover fill around it, no outline; page 1 unchanged
+  // a non-current page: the hover ring around it, no fill; page 1 unchanged
   await hoverAt(client, hwnd, p2);
   await waitFor(`${theme}: hover not reported on page 2`, async () => (await thumbs(client)).hover === 2);
+  let hov: Look = base!;
   let err = await settleLook(hwnd, p1, p2, (l) => {
-    const e = hoverError(l.p2, before, selFill);
+    hov = l;
+    const e = hoverError(l.p2, l.cur);
     return e || currentPageError(l.cur);
   });
   check(err === "", `${theme}: hovering page 2: ${err}`);
+  const ringK = contrastRatio(hov.p2[strongest(hov.p2)]!, hov.p2[0]!);
+  const selK = contrastRatio(hov.cur[strongest(hov.cur)]!, hov.cur[0]!);
+  console.log(`${theme}: hover ring ${ringK.toFixed(2)}:1, selection outline ${selK.toFixed(2)}:1`);
 
   // the current page hovered keeps the selection look
   await hoverAt(client, hwnd, p1);
