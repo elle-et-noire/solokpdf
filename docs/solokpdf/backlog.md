@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-16: E78–E81 open; D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-16: E78, E79 and E81 open; D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -27,7 +27,6 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | E78 | `tts-engine-crash-recovery` hangs intermittently (full suite 43835416476 MuPDF timed out at 5 min; locally 2 hangs in 6 MuPDF runs, PDFium passed). Stacks in `.work/e78-tts-hang/tts-stacks.txt`: the crashed TTS thread waits in `MaybeEndCrashedThread` for `EndedThreadDumpThread`, whose `MiniDumpWriteDump` blocks in `LoadLibraryExA` on the loader lock; the UI thread sits in an ALPC call. Upstream code (`9e246efc4`, `src/base/CrashHandler.cpp:508`). Find the lock holder (`!locks`, UI stack) before fixing | todo   |
 | E79 | Field visibility from the E77 audit (E77-2, E77-3): Light find bar box is two-tone (`f2` edit, white ring and drop-down); Advanced Settings, Keyboard Shortcuts, Zoom and command palette filter fields are invisible (field = dialog color, no border). Paint the find bar box in one field color; give the filter fields the sidebar search's `EdgeColor` border                                                                                                                                                         | todo   |
-| E80 | Caption minimize/maximize/restore glyphs blur (E77-1): anti-aliased outline at unsnapped offsets (`DrawCaptionSysButtonGlyph`); draw them on the pixel grid with a stroke of `max(1, round(dpi / 96))`                                                                                                                                                                                                                                                                                                                     | todo   |
 | E81 | ≡ menu button hover goes the opposite way from tabs and "+" (E77-4): alpha overlay instead of `ThemeHoverColorOn` / `ThemeSelectedColorOn`                                                                                                                                                                                                                                                                                                                                                                                 | todo   |
 
 ## Deferred
