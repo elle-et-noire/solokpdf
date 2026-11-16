@@ -6,7 +6,7 @@ D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (re
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D15, E72, F4).
+group (B76, C2, D15, E73, F4).
 
 ## Implementation and acceptance
 
@@ -79,9 +79,9 @@ All rows are done; see [history.md](history.md#completed-backlog).
 
 ## Open
 
-| ID  | Item                                                                                   | Status |
-| --- | -------------------------------------------------------------------------------------- | ------ |
-| E71 | Monkey test: seeded random UI operation sequences via `-dbg-control` (crash/hang/ASan) | doing  |
+| ID  | Item                                                                                                                                                                                                                                                                                              | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| E72 | `-dbg-control` Quit hangs on "Unsaved changes" with an uncommitted in-place FreeText: it discards before `CloseWindow`'s `CommitTabInput` re-dirties the tab. Repro: `bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-monkey.ts --no-build --seed 6` prints `quit: dialog 'Unsaved changes'` | todo   |
 
 ## Deferred
 

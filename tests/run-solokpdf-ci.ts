@@ -182,6 +182,7 @@ export const excludedTests: Record<string, string> = {
   "ad-hoc-pdfium": "mouse messages and pixel checks",
   "ad-hoc-pdfium-annots": "mouse messages and screenshots",
   "ad-hoc-pdfium-fuzz": "large external corpus",
+  "ad-hoc-monkey": "random operation sequences; outcomes depend on render timing",
   "ad-hoc-pdfium-password": "password dialog input",
   "ad-hoc-pdfium-redactions": "GUI annotation selection",
   "ad-hoc-pdfium-session": "mouse messages",

@@ -50,6 +50,29 @@ in both PDF engines. It checks that external updates preserve the input, cancel
 allows the deferred reload, and committed input stays protected until Undo
 returns the document to its clean state.
 
+### Monkey test (E71)
+
+`tests/ad-hoc-monkey.ts` drives seeded random operation sequences through
+`-dbg-control`: navigation, zoom, views, sidebars, themes, find, tab open, close,
+switch and reload, annotation creation and undo, form edits, saves and text
+queries. A crash, ReportIf exit, ASan report, request timeout, unexpected quit
+or a dialog it cannot close is a finding. The "Unsaved changes" prompt gets the
+op's recorded answer; any other dialog is cancelled and printed as a note.
+
+```powershell
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-monkey.ts --no-build --seed 1 --ops 300 --runs 5
+$env:SOLOKPDF_ENGINE = 'mupdf'   # MuPDF tabs; PDFium is the default
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-monkey.ts --no-build --replay tests/tmp/monkey/findings/<name>/ops.jsonl
+```
+
+Run `i` uses seed `seed+i`. With `SUMATRA_TEST_EXE` set to the ASan build, the
+harness supplies the ASan options above when `ASAN_OPTIONS` is unset. Each finding
+goes to `tests/tmp/monkey/findings/<engine>-<build>-seed<n>-<kind>/`: `ops.jsonl`
+up to the failing op, `app.log`, `stderr.txt` and `summary.txt`. A finding that
+replays is shrunk to `shrunk.jsonl` (`--shrink-attempts`, default 30; 0 skips);
+one that does not replay is marked so and kept unshrunk. The excluded commands
+and reasons are listed at the top of the test.
+
 ### Pending input and failed saves (SOL1–SOL3, E39)
 
 Run these individually through the hidden runner in Debug and ASan:

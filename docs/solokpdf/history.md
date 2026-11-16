@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E71 | Monkey test: seeded random UI operation sequences via `-dbg-control` (crash/hang/ASan)                                                                                                                                                                                                      | done — Add seeded monkey test of UI operations (E71); [results](#e71-monkey-test-2026-11-16)                                                                                                                                            |
 | E70 | Scheduled full suite 43763953763: ten failing tests (both engines, `issue-6055` MuPDF, `issue-2423` PDFium)                                                                                                                                                                                 | done — Record E70 scheduled-suite triage (E70); [results](#e70-scheduled-suite-failures-2026-11-15)                                                                                                                                     |
 | E69 | Push CI 43758848700: `ad-hoc-pdfium-palette-editor` finds the editor loaded after opening the palette                                                                                                                                                                                       | done — Skip annotation hit tests without annotations (E69); [results](#e69-palette-hit-test-on-the-runner-2026-11-16)                                                                                                                   |
 | E68 | Opening the command palette loads the hidden MuPDF editor on PDFium tabs to list annotations (UI thread, file-sized memory)                                                                                                                                                                 | done — Skip the editor for unannotated PDFs (E68); [results](#e68-annotation-lists-without-the-editor-2026-11-16)                                                                                                                       |
@@ -3943,3 +3944,39 @@ passed on both engines at `e6c106699`: runs
 [43817490905](https://github.com/elle-et-noire/solokpdf/actions/runs/43817490905) (PDFium) and
 [43817494165](https://github.com/elle-et-noire/solokpdf/actions/runs/43817494165) (MuPDF).
 Push CI [43817491272](https://github.com/elle-et-noire/solokpdf/actions/runs/43817491272) passed.
+
+## E71: Monkey test (2026-11-16)
+
+`tests/ad-hoc-monkey.ts` (usage in [testing.md](testing.md#monkey-test-e71)) generates
+weighted op sequences from a seed: over half of them tab lifetime and editor work
+(open, close with an answered prompt, reload, annotation creation, undo, forms,
+saves). Synthetic fixtures: an 8-page text PDF with outline and links, an
+annotated PDF, a form PDF with a calculated field, a PNG and the last saved copy.
+Each run's succeeded-request counts show the ops reach their code.
+
+| Build | Engine | Seeds | Ops per run | Result                                                       |
+| ----- | ------ | ----- | ----------- | ------------------------------------------------------------ |
+| Debug | PDFium | 1–14  | 300         | seed 6: shutdown hang (E72); earlier seeds 1, 3: harness bug |
+| Debug | MuPDF  | 1–5   | 300         | none                                                         |
+| ASan  | PDFium | 1–2   | 500         | none                                                         |
+| ASan  | MuPDF  | 1     | 500         | none                                                         |
+
+Harness bugs found and fixed:
+
+- `TestCurrentPdf search-next` without a prior search fired `ReportIf(len(findText) == 0)`
+  in `TextSearch::FindNext` (seeds 1 and 3). The UI never calls it without a term; the
+  op was removed and `CmdFindNext` covers the real path.
+- `WaitRenderIdle` with no document waits its whole timeout (`timeout-notready no-doc`),
+  which made seeds 5, 10, 12 and 13 take 60–150 s; the op now skips when no tab is open.
+- Seed 6 hung at Quit: the app showed "Unsaved changes" while closing. It replayed and
+  shrank to 42 ops ending in an in-place FreeText and a save. The harness now answers
+  dialogs during shutdown and prints a `quit: dialog` note; the cause is E72.
+
+App findings: E72 (Quit's discard precedes the close-time commit of pending input).
+No crash, assert or ASan report was found. The seed-6 hang replayed, and 30 shrink
+attempts cut it from 300 to 42 ops; render timing still varies between runs, so a
+finding that does not replay is kept unshrunk. A hang finding also keeps cdb thread
+stacks through `startup-diagnostics.ts` (`hang/` in the finding); no hang occurred
+after that was added.
+No smoke variant joined `run-solokpdf-ci.ts`: outcomes depend on render timing, so
+the test is in its skipped map.
