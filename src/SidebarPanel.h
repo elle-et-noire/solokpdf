@@ -48,6 +48,7 @@ SidebarPanel* SidebarPanelShowing(MainWindow*, SidebarView);
 bool IsSidebarViewShown(MainWindow*, SidebarView);
 void ResolveSidebarViews(MainWindow*);
 void AttachSidebarViews(MainWindow*);
+void UpdateSidebarTreeBars(MainWindow*);
 void ApplySidebarPanels(MainWindow*);
 void ShowSidebarView(MainWindow*, SidebarView);
 void HideSidebarView(MainWindow*, SidebarView);

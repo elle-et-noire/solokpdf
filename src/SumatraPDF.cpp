@@ -7508,6 +7508,7 @@ static bool RelayoutFrame(MainWindow* win, bool updateToolbars, int sidebarDx) {
         PageInfoBarSetVisible(win, false);
         // make the black/white canvas cover the entire window
         HwndMoveWindow(win->hwndCanvas, &rc);
+        UpdateSidebarTreeBars(win);
         gAfterLayout.Call(win);
         return true;
     }
@@ -7819,6 +7820,8 @@ static bool RelayoutFrame(MainWindow* win, bool updateToolbars, int sidebarDx) {
         SetWindowPos(tabHwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
         LayoutSidebarPanel(win->favoritesTabPanel);
     }
+    // a panel shown or hidden above: so are its tree's scrollbars
+    UpdateSidebarTreeBars(win);
 
     // Canvas size/position may have changed (e.g. first open shows the ToC via
     // deferred ScheduleUiUpdate after "Errors in document" was created against
@@ -14177,6 +14180,7 @@ static void PlaceSidebarOverlay(MainWindow* win) {
         SetWindowPos(hwnd, HWND_TOP, col.x, y, col.dx, dy, SWP_NOACTIVATE | SWP_SHOWWINDOW);
         y += dy;
     }
+    UpdateSidebarTreeBars(win);
 }
 
 static bool SidebarOverlayContains(MainWindow* win, HWND hwnd) {

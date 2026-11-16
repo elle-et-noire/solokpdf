@@ -52,6 +52,7 @@ import { testit as sigStatus } from "./ad-hoc-pdfium-sig-status.ts";
 import { testCtrlTShortcut, testNoHomeDefault, testTabLayout } from "./issue-6464.ts";
 import { testit as selectionOutlines } from "./ad-hoc-selection-outlines.ts";
 import { testit as f12ThumbHover } from "./ad-hoc-f12-thumb-hover.ts";
+import { testit as sidebarTreeBars } from "./ad-hoc-sidebar-tree-bars.ts";
 import { testit as testCursor } from "./ad-hoc-b59-cursor.ts";
 import { testit as issue6269 } from "./issue-6269.ts";
 import { testit as lastTabState } from "./ad-hoc-b65-last-tab.ts";
@@ -152,6 +153,7 @@ const tests: NamedTest[] = [
   ["issue-6464-no-home-default", testNoHomeDefault],
   ["ad-hoc-selection-outlines", selectionOutlines],
   ["ad-hoc-f12-thumb-hover", f12ThumbHover],
+  ["ad-hoc-sidebar-tree-bars", sidebarTreeBars],
   ["ad-hoc-pdfium-sig-status", sigStatus],
   ["ad-hoc-pdfium-memory", memory],
   ["ad-hoc-pdfium-catalog-layout", catalogLayout],

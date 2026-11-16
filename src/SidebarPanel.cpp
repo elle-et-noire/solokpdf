@@ -678,6 +678,18 @@ void AttachSidebarViews(MainWindow* win) {
         UpdateViewIcons(p, DpiGetForHwnd(p->hwnd));
         RelayoutSidebarPanel(p);
     }
+    UpdateSidebarTreeBars(win);
+}
+
+// The trees' overlay scrollbars are popups, which hiding a tree or its panel
+// leaves on screen: call after either changes
+void UpdateSidebarTreeBars(MainWindow* win) {
+    TreeView* trees[] = {win->tocTreeView, win->favTreeView};
+    for (TreeView* tree : trees) {
+        if (tree) {
+            tree->UpdateScrollbars();
+        }
+    }
 }
 
 void UpdateSidebarPanelsText(MainWindow* win) {
