@@ -3241,10 +3241,11 @@ static Pixmap* RenderFileThumbnail(CreateThumbnailFromFileData* d) {
         SafeEngineRelease(&d->engine);
         engine = CreateEngineForThumbnail(cover);
     }
-    // the cover the book itself declares, which isn't always page 1
-    if (!engine && GuessFileTypeFromName(d->filePath, true) == FileType::Epub) {
+    // the cover the book itself declares, which isn't always page 1, also over an open tab's engine
+    if (engine == d->engine && GuessFileTypeFromName(d->filePath, true) == FileType::Epub) {
         Str coverData = EpubCoverImageData(d->filePath);
         if (len(coverData) > 0) {
+            SafeEngineRelease(&d->engine);
             engine = CreateEngineImageFromData(coverData);
         }
         str::Free(coverData);
