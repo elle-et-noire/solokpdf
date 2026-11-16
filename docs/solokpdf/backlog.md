@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-16: no open items; D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-16: E77 open; D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D15, E77, F4). For a code change, choose affected tests from
+group (B76, C2, D15, E78, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -22,7 +22,35 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 
 ## Open
 
-None.
+| ID  | Item                                                                                                                      | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | ------ |
+| E77 | UI polish audit: find unnatural UI like E75 (blurred "+") and E76 (✕ far from the tab edge); [plan](#e77-ui-polish-audit) | todo   |
+
+### E77: UI polish audit
+
+Owner request (2026-11-16): find, comprehensively, any remaining UI that looks unnatural.
+Audit only; fixes become separate items after the owner reviews the findings, since
+appearance calls are theirs.
+
+- **Surfaces:** tab bar, toolbar, menu bar and menus, context menus, find bar and find
+  window, sidebars (TOC, favorites, thumbnails, layers, signatures), home page, notifications,
+  command palette, each dialog reachable without external apps, scrollbars, page info overlay,
+  annotation editor.
+- **Conditions:** 100%, 150% and 200% scaling; light, dark and the other built-in themes;
+  normal, hover, pressed, selected, focused and disabled states where they apply.
+- **Defects to look for:** blur from off-grid strokes or scaled bitmaps, uneven or excessive
+  spacing and padding, misaligned baselines and edges, inconsistent sizes between siblings,
+  clipped or truncated text, low contrast, wrong color in one theme, glyphs not centered,
+  inconsistency with the rest of the app or with Windows conventions.
+- **Method:** launch on the hidden desktop (`run-hidden.ts`, `-for-testing`), drive with
+  `-dbg-control` (`virtTree` for control rects, `TestDpi`, theme commands), capture with
+  `captureWindowPixels` / `captureWindowToPng`, and back each finding with a zoomed crop and
+  pixel measurements, as E75/E76 did. Compare with the code to name the cause.
+- **Output:** a findings list (screenshot, measurement, cause with file:line, upstream or
+  SolokPDF origin, severity, suggested fix) in a history.md E77 section, plus a short
+  summary for the owner.
+- **Execution:** areas are independent and can be split across parallel agents; that costs
+  many tokens, so the owner chooses single-agent or parallel when starting it.
 
 ## Deferred
 
