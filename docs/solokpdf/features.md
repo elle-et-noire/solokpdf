@@ -78,7 +78,7 @@ Ctrl+T opens a new Home tab like the "+" button, including when Home search has
 focus. Ctrl+Shift+T still reopens the last closed file; plain T changes theme.
 
 Home from "+", Ctrl+T or the Home command leaves the focus on its file list
-(upstream focused the search box, which hid the selection and hover outline).
+(upstream focused the search box, which hid the selection outline).
 Plain keys on Home run their shortcuts, such as T for the next theme. A search
 starts by clicking the box, Ctrl+F, or `/` with Vim keys on (E90).
 
@@ -187,11 +187,15 @@ Use the [test setup](testing.md#virtual-sidebar-trees) and
 ## Selection colors
 
 Home list rows, Home thumbnails and F12 page thumbnails use a 2-DIP rounded
-selection outline in the theme's text color. Hovering a Home entry selects it,
-as upstream does and as the F12 thumbnails in the command palette do, so the
-hovered entry takes the same outline; it shows even while the search box has
-the focus (upstream hid it then). A separate hover step would mark a second
-entry the keys never reach. Page thumbnails keep their thin
+selection outline in the theme's text color. On Home it marks the entry chosen
+by a click, the arrow keys or the filter; hovering no longer moves it (upstream
+did, so the mouse took the selection from the keys). A hovered Home entry gets
+a fill of its own, as in Explorer: the hover step on Home's background
+(`ThemeHoverColorOn`), over the outline's rect in the list and over the cell
+and caption in thumbnails, under the page image. Selected and hovered, it
+shows both. The outline hides while the search box has the focus (as upstream;
+Enter there opens nothing); the hover fill stays. A thumbnail's tooltip
+follows whichever moved last, the mouse or the keys (E93). Page thumbnails keep their thin
 frame; the selection outline sits four DPI-scaled pixels outside the page.
 The sidebar reserves room for the outline at its edges and between rows.
 The ring matches the Fluent focus visual (2 DIP in the text color), at least

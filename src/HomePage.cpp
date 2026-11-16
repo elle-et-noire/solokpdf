@@ -824,6 +824,8 @@ constexpr int kThumbsBorderDx = 1;
 #define kThumbsProgressDy DpiScale(3)
 // the selection ring sits this far outside the page
 #define kThumbsSelectionGap DpiScale(4)
+// the hover tile reaches this far around the cell and caption (E93)
+#define kThumbsHoverPad DpiScale(8)
 #define kThumbsBottomBoxDy DpiScale(50)
 #define kHomeListThumbDx DpiScale(30)
 #define kHomeListThumbDy DpiScale(40)
@@ -1004,9 +1006,12 @@ struct HomeEntryCtrl : VirtCtrl {
 // keep keyboard selection in sync
 struct HomeEntriesCtrl : VirtCtrl {
     MainWindow* win = nullptr;
-    // entry the mouse is on, -1 for none. Drives the ✕ button and the keyboard
-    // selection, which follows the mouse
+    // entry the mouse is on, -1 for none. Drives the ✕ button and the hover
+    // fill; the keyboard selection does not follow it (E93)
     int activeIdx = -1;
+    // the thumbnail tip is at activeIdx, not at the keyboard selection: the
+    // mouse moved after the keys did
+    bool tipOnHover = false;
     Point lastHoverPt{-1, -1};
     const StrVec* filterWords = nullptr;
     Vec<u8>* highlighted = nullptr;
@@ -1093,6 +1098,7 @@ static PlatformFont* HomePageFont(int size) {
 
 static void HomeSelectFromSearchReturnCol(MainWindow* win);
 static void HomePageShowSelectionTooltip(MainWindow* win);
+static void HomePageShowEntryTooltip(MainWindow* win, int idx);
 
 struct HomeSearchEdit : Edit {
     MainWindow* win = nullptr;
@@ -1900,16 +1906,6 @@ static int HomeHoverIdx(MainWindow* win) {
     return entries ? entries->activeIdx : -1;
 }
 
-// The selection outline hides while typing in the search box, unless the
-// mouse is on the selected entry: hover moves the selection there.
-static bool HomeSelectionShown(MainWindow* win) {
-    if (!HomeSearchHasFocus(win)) {
-        return true;
-    }
-    int hover = HomeHoverIdx(win);
-    return hover >= 0 && hover == win->homePageSelIdx;
-}
-
 static void DrawHomeListRow(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filterWords, Vec<u8>& highlighted,
                             PlatformFont* fontText, Color backgroundColor, bool isRtl, bool isSelected) {
     FileState* fs = thumb.fs;
@@ -2090,7 +2086,7 @@ TempStr HomeSelectionResultTemp(int* exitCodeOut) {
     Rect search = c.rcSearchBorder;
     Rect outlineFull;
     Rect outline;
-    bool showSel = !HomePageIsListView() && HomeSelectionShown(win) && sel >= 0 && sel < len(c.thumbs);
+    bool showSel = !HomePageIsListView() && !searchFocus && sel >= 0 && sel < len(c.thumbs);
     if (showSel) {
         outlineFull = HomeSelectionOutlineRect(c.thumbs[sel]);
         outline = outlineFull.Intersect(HomeOutlinePaintClip(c.rcThumbsArea, c.rcSearchBorder, c.rcTip, c.hasTip));
@@ -2112,7 +2108,7 @@ TempStr HomeSelectionResultTemp(int* exitCodeOut) {
     // whether the selected entry's outline is drawn, the entry under the mouse
     // and the selected entry's outline rect in either view (E88)
     bool hasSel = sel >= 0 && sel < len(c.thumbs);
-    int selShown = hasSel && HomeSelectionShown(win) ? 1 : 0;
+    int selShown = hasSel && !searchFocus ? 1 : 0;
     Rect selRect = hasSel ? HomeSelectionOutlineRect(c.thumbs[sel]) : Rect{};
     TempStr tail = fmt("%s selShown=%d hover=%d selRect=%s", header, selShown, HomeHoverIdx(win), RectCsvTemp(selRect));
     return finish(0, fmt("OK sel=%d entries=%d searchFocus=%d searchBox=%d search=%s outline=%s outlineFull=%s path=%s "
@@ -2331,6 +2327,8 @@ static void HomeEntryOpenClicked(MainWindow* win, VirtMouseEvent* ev) {
     if (len(entry->filePath) == 0) {
         return;
     }
+    // a click selects, so Home shows the entry selected on return
+    win->homePageSelIdx = entry->idx;
     LoadArgs args(entry->filePath, win);
     // ctrl forces always opening
     args.activateExisting = !ev->isCtrl;
@@ -2418,11 +2416,20 @@ void HomeEntryCtrl::Paint(VirtPaintCtx& ctx) {
     bool isRtl = IsUIRtl();
     PlatformFont* fontText = HomePageFont(13);
     Color backgroundColor = ThemeMainWindowBackgroundColor();
-    bool isSelected = (idx == win->homePageSelIdx) && HomeSelectionShown(win);
+    // no selection chrome while typing in the search box
+    bool isSelected = (idx == win->homePageSelIdx) && !HomeSearchHasFocus(win);
+    // the hovered entry gets a light fill of its own (E93)
+    bool isHovered = idx == entries->activeIdx;
+    if (isHovered) {
+        backgroundColor = ThemeHoverColorOn(backgroundColor);
+    }
     // ctx.clip is the entries band (vwfClipChildren on the parent): an entry
     // scrolled partially out must not paint over the header / tip band
     gfx->PushClip(ctx.clip);
     if (HomePageIsListView()) {
+        if (isHovered) {
+            gfx->FillRoundedRect(HomeSelectionOutlineRect(*t), 4, backgroundColor);
+        }
         DrawHomeListRow(gfx, *t, *entries->filterWords, *entries->highlighted, fontText, backgroundColor, isRtl,
                         isSelected);
     } else {
@@ -2499,13 +2506,14 @@ void HomeEntriesCtrl::SetActiveEntry(int idx) {
     }
     activeIdx = idx;
     UpdateCloseBtnVisibility();
-    if (idx >= 0 && idx != win->homePageSelIdx) {
-        win->homePageSelIdx = idx;
-    }
     HwndInvalidate(win->hwndCanvas);
+    // the tip follows the mouse until the keys move the selection; it is
+    // anchored to the entry, never to the cursor
     if (idx >= 0) {
-        // the tip is anchored to the active entry, never to the cursor
-        HomePageShowSelectionTooltip(win);
+        tipOnHover = true;
+        HomePageShowEntryTooltip(win, idx);
+    } else if (tipOnHover) {
+        win->DeleteToolTip();
     }
 }
 
@@ -2517,8 +2525,8 @@ HomeEntriesCtrl::HomeEntriesCtrl() {
 
 void HomeEntriesCtrl::OnMouseMove(VirtMouseEvent* ev) {
     // keyboard nav invalidates the canvas and Windows may re-send WM_MOUSEMOVE
-    // with the same coordinates: ignore those so the selection doesn't snap
-    // back under a stationary cursor
+    // with the same coordinates: ignore those so the tip doesn't jump from the
+    // selection to the entry under a stationary cursor
     if (ev->ptWindow == lastHoverPt) {
         return;
     }
@@ -2946,6 +2954,16 @@ static void HomePageSyncChrome(HomePageLayout& l) {
     od->text->SetBounds(l.openDoc->lastBounds);
 }
 
+// Hovered thumbnail's tile: its cell and caption, wide enough to hold the
+// selection ring. The page image is drawn over it, so it is never tinted.
+static Rect HomeHoverTileRect(const ThumbnailLayout& t) {
+    Rect r = t.rcCell.Union(t.rcText);
+    // less below, so it stays clear of the next row's tile
+    r.Inflate(kThumbsHoverPad, kThumbsHoverPad);
+    r.dy -= kThumbsHoverPad / 2;
+    return r;
+}
+
 static void DrawHomePageLayout(HomePageLayout& l) {
     Gfx* gfx = l.gfx;
     auto* win = l.win;
@@ -2958,6 +2976,20 @@ static void DrawHomePageLayout(HomePageLayout& l) {
         win->homePageSelIdx = nThumbs - 1;
     }
 
+    // hovered thumbnail: a tile under its page and caption, clipped like the
+    // selection outline (issue #5978)
+    HomeEntriesCtrl* entries = HomeEntries(win);
+    int hoverIdx = entries ? entries->activeIdx : -1;
+    if (!HomePageIsListView() && hoverIdx >= 0 && hoverIdx < nThumbs) {
+        Rect clip = HomeOutlinePaintClip(l.rcThumbsArea, l.rcSearchBorder, l.rcTip, l.hasTip);
+        if (!clip.IsEmpty()) {
+            gfx->PushClip(clip);
+            Color fill = ThemeHoverColorOn(ThemeMainWindowBackgroundColor());
+            gfx->FillRoundedRect(HomeHoverTileRect(l.thumbnails[hoverIdx]), DpiScale(4), fill);
+            gfx->PopClip();
+        }
+    }
+
     // the chrome tree paints everything else: search border, file entries
     // (thumbnails / list rows), tip band, header (palette / logo / help),
     // view buttons, and "Open a document..."
@@ -2968,7 +3000,7 @@ static void DrawHomePageLayout(HomePageLayout& l) {
     // band (issue #5978). A little slack above/below the thumbs band keeps the
     // first row's top curve from being cut off.
     int selIdx = win->homePageSelIdx;
-    bool showSel = !HomePageIsListView() && HomeSelectionShown(win) && selIdx >= 0 && selIdx < nThumbs;
+    bool showSel = !HomePageIsListView() && !HomeSearchHasFocus(win) && selIdx >= 0 && selIdx < nThumbs;
     if (showSel) {
         ThumbnailLayout& t = l.thumbnails[selIdx];
         if (IsHomeThumbOnScreen(t.rcPage.Union(t.rcText), l.rcThumbsArea)) {
@@ -3262,15 +3294,29 @@ static Rect HomeSelectionOutlineRect(const ThumbnailLayout& t) {
     return sel;
 }
 
-// Show/update the infotip for the keyboard-selected home thumbnail. Placed just
-// below the blue selection outline, left-aligned with the outline's left edge;
-// shifted left if it would extend past the right edge of the last outline in
-// that row.
+// Show/update the infotip for the keyboard-selected home thumbnail. It hides
+// with the selection outline while the search box has the focus.
 static void HomePageShowSelectionTooltip(MainWindow* win) {
-    if (!win || HomePageIsListView() || !HomeSelectionShown(win)) {
-        if (win) {
-            win->DeleteToolTip();
-        }
+    if (!win) {
+        return;
+    }
+    HomeEntriesCtrl* entries = HomeEntries(win);
+    if (entries) {
+        entries->tipOnHover = false;
+    }
+    if (HomeSearchHasFocus(win)) {
+        win->DeleteToolTip();
+        return;
+    }
+    HomePageShowEntryTooltip(win, win->homePageSelIdx);
+}
+
+// Infotip of the home thumbnail at idx. Placed just below the selection
+// outline's rect, left-aligned with its left edge; shifted left if it would
+// extend past the right edge of the last outline in that row.
+static void HomePageShowEntryTooltip(MainWindow* win, int idx) {
+    if (HomePageIsListView()) {
+        win->DeleteToolTip();
         return;
     }
     // never put a tip up from a window that isn't in front: track-mode tips are
@@ -3280,7 +3326,6 @@ static void HomePageShowSelectionTooltip(MainWindow* win) {
         return;
     }
     auto& c = HomeLayout(win);
-    int idx = win->homePageSelIdx;
     if (!c.valid || idx < 0 || idx >= len(c.thumbs)) {
         win->DeleteToolTip();
         return;
@@ -3353,9 +3398,17 @@ void HomePageOnWindowActivate(MainWindow* win, bool active) {
         }
         return;
     }
-    // only restore the selection tip (positioned at the active entry, not cursor)
-    if (win->IsCurrentTabAbout()) {
+    if (!win->IsCurrentTabAbout()) {
+        return;
+    }
+    // restore the tip where it was: at the hovered entry or the selection
+    HomeEntriesCtrl* entries = HomeEntries(win);
+    if (!entries || !entries->tipOnHover) {
         HomePageShowSelectionTooltip(win);
+        return;
+    }
+    if (entries->activeIdx >= 0) {
+        HomePageShowEntryTooltip(win, entries->activeIdx);
     }
 }
 
@@ -3395,8 +3448,8 @@ Str HomePageFilePathAtTemp(MainWindow* win, int x, int y) {
     return str::DupTemp(e->filePath);
 }
 
-// Mouse over a file entry: update homePageSelIdx and, in thumbnail view, show
-// the tip at that entry (not at the cursor).
+// Mouse over a file entry: make it the hovered entry and, in thumbnail view,
+// show the tip at that entry (not at the cursor).
 bool HomePageOnHover(MainWindow* win, int x, int y) {
     HomeEntriesCtrl* entries = HomeEntries(win);
     if (!entries) {
@@ -3411,6 +3464,15 @@ bool HomePageOnHover(MainWindow* win, int x, int y) {
     }
     entries->SetActiveEntry(e->idx);
     return true;
+}
+
+// A right-click on a file entry selects it, as a left click does.
+void HomePageSelectAt(MainWindow* win, int x, int y) {
+    if (!HomePageOnHover(win, x, y)) {
+        return;
+    }
+    win->homePageSelIdx = HomeEntries(win)->activeIdx;
+    HwndInvalidate(win->hwndCanvas);
 }
 
 // file of the keyboard-selected entry, empty if there's no selection

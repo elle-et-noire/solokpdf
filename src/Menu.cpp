@@ -984,7 +984,7 @@ void OnAboutContextMenu(MainWindow* win, int x, int y) {
 
     // Keep keyboard selection in sync with the right-clicked thumbnail
     if (fromClick) {
-        HomePageOnHover(win, x, y);
+        HomePageSelectAt(win, x, y);
     }
 
     FileState* fs = FileHistoryFindByPath(path);

@@ -1,6 +1,7 @@
-// E88: opening Home leaves the keyboard focus out of its search box, and
-// hovering a history entry shows its outline even while the search box has the
-// focus (list and thumbnails). E90: plain keys on Home run their shortcuts;
+// E88: opening Home leaves the keyboard focus out of its search box. E93: a
+// hovered history entry gets a fill of its own, also while the search box has
+// the focus, and the selection outline stays where the keys put it (list and
+// thumbnails, Light and Dark). E90: plain keys on Home run their shortcuts;
 // Ctrl+F, or / with Vim keys, starts a search.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -30,6 +31,8 @@ import {
 } from "./win-automation.ts";
 
 const N_FILES = 6;
+const VK_LEFT = 0x25;
+const VK_UP = 0x26;
 const VK_RIGHT = 0x27;
 const VK_DOWN = 0x28;
 const VK_4 = 0x34;
@@ -75,38 +78,92 @@ async function expectNoSearchFocus(client: ControlClient, what: string): Promise
   }
 }
 
-// With the search box focused and the keyboard selection moved off an entry,
-// hovering that entry must select it and show its outline.
+function pixel(canvas: number, x: number, y: number): number {
+  return readWindowDCRow(canvas, x, y, 1)[0] ?? 0;
+}
+
+// largest per-channel difference of two COLORREFs
+function colorDelta(a: number, b: number): number {
+  let d = 0;
+  for (let shift = 0; shift < 24; shift += 8) {
+    d = Math.max(d, Math.abs(((a >> shift) & 0xff) - ((b >> shift) & 0xff)));
+  }
+  return d;
+}
+
+const hex = (c: number) => c.toString(16).padStart(6, "0");
+
+// a point inside an entry's hover fill but outside its page / row content and
+// its selection ring (r is the entry's selection outline rect)
+function fillPoint(r: number[], mode: "list" | "thumbnails"): [number, number] {
+  const y = r[1]! + Math.floor(r[3]! / 2);
+  // list: the outline's side padding; thumbnails: just outside the ring
+  return [mode === "list" ? r[0]! + 4 : r[0]! - 2, y];
+}
+
+// Arrow keys select entry A, the mouse moves onto entry B: the outline stays
+// on A, B is hovered and filled with a light step of the Home background, not
+// over its thumbnail image. Then the search box takes the focus: the outline
+// hides (Enter there opens nothing) and B keeps its fill.
 async function checkHover(
   client: ControlClient,
   frame: number,
   canvas: number,
   mode: "list" | "thumbnails",
+  theme: string,
 ): Promise<void> {
+  const what = `${theme} ${mode}`;
   await client.homeSelection(mode);
-  await waitForHome(client, (s) => s.listView === (mode === "list") && s.entries === N_FILES, `${mode}: no layout`);
+  await waitForHome(client, (s) => s.listView === (mode === "list") && s.entries === N_FILES, `${what}: no layout`);
   await moveTestCursor(0, 0);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(1, 1));
   await activateTestFrame(client);
-  sendMessage(canvas, WM_KEYDOWN, mode === "list" ? VK_DOWN : VK_RIGHT, 0);
-  const h = await waitForHome(client, (s) => s.sel >= 0 && s.selShown, `${mode}: no keyboard selection`);
-  const idx = h.sel;
-  const r = h.selRect;
-  sendMessage(canvas, WM_KEYDOWN, mode === "list" ? VK_DOWN : VK_RIGHT, 0);
-  await waitForHome(client, (s) => s.sel === idx + 1, `${mode}: arrow did not move the selection`);
-  sendCommand(frame, cmdId("CmdFindFirst"));
-  await waitForHome(client, (s) => s.searchFocus, `${mode}: CmdFindFirst did not focus the search box`);
+  const next = mode === "list" ? VK_DOWN : VK_RIGHT;
+  const prev = mode === "list" ? VK_UP : VK_LEFT;
+  sendMessage(canvas, WM_KEYDOWN, next, 0);
+  const ha = await waitForHome(client, (s) => s.sel >= 0 && s.selShown && s.hover < 0, `${what}: no selection`);
+  const a = ha.sel;
+  const ra = ha.selRect;
+  sendMessage(canvas, WM_KEYDOWN, next, 0);
+  const hb = await waitForHome(client, (s) => s.sel === a + 1, `${what}: arrow did not move the selection`);
+  const b = hb.sel;
+  const rb = hb.selRect;
+  sendMessage(canvas, WM_KEYDOWN, prev, 0);
+  await waitForHome(client, (s) => s.sel === a, `${what}: arrow did not move the selection back`);
 
-  const x = r[0]! + Math.floor(r[2]! / 2);
-  const y = r[1]! + Math.floor(r[3]! / 2);
-  const screen = clientToScreen(canvas, x, y);
+  const bg = backgroundPixel(canvas);
+  const [ax, ay] = fillPoint(ra, mode);
+  const [bx, by] = fillPoint(rb, mode);
+  const cx = rb[0]! + Math.floor(rb[2]! / 2);
+  const cy = rb[1]! + Math.floor(rb[3]! / 2);
+  const pageBefore = pixel(canvas, cx, cy);
+  check(pixel(canvas, bx, by) === bg, `${what}: entry ${b} is filled before hover`);
+
+  const screen = clientToScreen(canvas, cx, cy);
   await moveTestCursor(screen.x, screen.y);
-  sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
-  await waitForHome(
-    client,
-    (s) => s.hover === idx && s.sel === idx && s.searchFocus && s.selShown,
-    `${mode}: hovering entry ${idx} with the search box focused shows no outline`,
-  );
+  sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(cx, cy));
+  const h = await waitForHome(client, (s) => s.hover === b, `${what}: entry ${b} is not hovered`);
+  check(h.sel === a && h.selShown, `${what}: hover moved the selection from ${a} to ${h.sel}`);
+
+  const fill = pixel(canvas, bx, by);
+  const d = colorDelta(fill, bg);
+  check(d > 0 && d <= 64, `${what}: hover fill ${hex(fill)} is not a light step of ${hex(bg)}`);
+  check(pixel(canvas, bx + 1, by) === fill, `${what}: hovered entry ${b} is outlined`);
+  check(pixel(canvas, ax, ay) === bg, `${what}: selected entry ${a} is filled`);
+  check(colorDelta(pixel(canvas, ra[0]! + 1, ay), bg) > 64, `${what}: selected entry ${a} lost its outline`);
+  if (mode === "thumbnails") {
+    check(pixel(canvas, cx, cy) === pageBefore, `${what}: hover tinted the thumbnail image`);
+  }
+
+  sendCommand(frame, cmdId("CmdFindFirst"));
+  const f = await waitForHome(client, (s) => s.searchFocus, `${what}: CmdFindFirst did not focus the search box`);
+  check(f.sel === a && !f.selShown && f.hover === b, `${what}: search focus state ${f.raw}`);
+  check(pixel(canvas, bx, by) === fill, `${what}: hover fill gone while the search box has the focus`);
+}
+
+async function checkHoverViews(client: ControlClient, frame: number, canvas: number, theme: string): Promise<void> {
+  await checkHover(client, frame, canvas, "thumbnails", theme);
+  await checkHover(client, frame, canvas, "list", theme);
 }
 
 // a canvas pixel below the entries: the Home background
@@ -116,7 +173,7 @@ function backgroundPixel(canvas: number): number {
 }
 
 export async function testit(): Promise<void> {
-  const { proc, client, frame } = await launchControlled(["-appdata", makeAppDir("ad-hoc-e88")]);
+  const { proc, client, frame } = await launchControlled(["-appdata", makeAppDir("ad-hoc-e88", "Theme = Light\n")]);
   try {
     const canvas = findCanvas(frame);
     check(canvas !== 0, "canvas not found");
@@ -126,8 +183,13 @@ export async function testit(): Promise<void> {
     check(pressed[1] === "CmdNewTab", `Ctrl+T ran ${pressed[1]}`);
     await expectNoSearchFocus(client, "Home from Ctrl+T");
 
-    await checkHover(client, frame, canvas, "thumbnails");
-    await checkHover(client, frame, canvas, "list");
+    await checkHoverViews(client, frame, canvas, "Light");
+    const light = backgroundPixel(canvas);
+    sendCommand(frame, cmdId("CmdToggleLightDarkTheme"));
+    const themeDeadline = Date.now() + THEME_WAIT_MS;
+    while (backgroundPixel(canvas) === light && Date.now() < themeDeadline) await sleep(50);
+    check(backgroundPixel(canvas) !== light, "CmdToggleLightDarkTheme did not change the theme");
+    await checkHoverViews(client, frame, canvas, "Dark");
 
     // Esc leaves the search box; a plain key then runs its shortcut (T: next
     // theme) instead of starting a search
