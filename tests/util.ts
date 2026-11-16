@@ -1176,3 +1176,26 @@ export function contrastRatio(a: number[], b: number[]): number {
   const lb = lum(b);
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
+
+// [r, g, b] of a GetPixel COLORREF (0x00bbggrr)
+export function colorRefRgb(c: number): number[] {
+  return [c & 0xff, (c >> 8) & 0xff, (c >> 16) & 0xff];
+}
+
+// E94's selection look on surface bg: a fill that stands out (selection
+// color, about 1.35:1) and an outline further along the fill's own hue that
+// shows by 3:1 (WCAG 1.4.11). "" when it holds, else what is wrong.
+export function selectionLookError(bg: number[], fill: number[], edge: number[]): string {
+  const fillK = contrastRatio(fill, bg);
+  const edgeK = contrastRatio(edge, bg);
+  const hexOf = (c: number[]) => c.map((v) => v.toString(16).padStart(2, "0")).join("");
+  const what = `bg ${hexOf(bg)} fill ${hexOf(fill)} (${fillK.toFixed(2)}) edge ${hexOf(edge)} (${edgeK.toFixed(2)})`;
+  if (fillK < 1.3) return `no selection fill: ${what}`;
+  if (edgeK < 2.95) return `outline under 3:1: ${what}`;
+  for (let i = 0; i < 3; i++) {
+    const f = fill[i]! - bg[i]!;
+    const e = edge[i]! - bg[i]!;
+    if (f * e < 0 || Math.abs(e) < Math.abs(f)) return `outline not in the fill's hue: ${what}`;
+  }
+  return "";
+}

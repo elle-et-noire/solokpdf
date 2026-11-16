@@ -518,6 +518,13 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
         int x = left + (col * (thumbDx + gap));
         Rect pageRect{x, ev->itemRect.y, thumbDx, thumbDy};
         bool isCurrent = pageNo == selectedPage;
+        Rect outline = pageRect;
+        outline.Inflate(DpiScaleByDpi(dpi, kThumbnailSelectionGap), DpiScaleByDpi(dpi, kThumbnailSelectionGap));
+        int ringDx = DpiScaleByDpi(dpi, kThumbnailSelectionWidth);
+        if (isCurrent) {
+            // the selection color around the page, inside its outline (E94)
+            ev->gfx->FillRoundedRect(outline, ringDx, ThemeSelectionBg(GetColor(kColListBg)));
+        }
         Color pageBg;
         ThemePageRenderColors(pageBg);
         ev->gfx->FillRect(pageRect, pageBg);
@@ -532,10 +539,7 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
 
         ev->gfx->DrawRect(pageRect, ThemeScrollbarThumbColor());
         if (isCurrent) {
-            Rect outline = pageRect;
-            outline.Inflate(DpiScaleByDpi(dpi, kThumbnailSelectionGap), DpiScaleByDpi(dpi, kThumbnailSelectionGap));
-            DrawSelectionOutline(ev->gfx, outline, DpiScaleByDpi(dpi, kThumbnailSelectionWidth),
-                                 DpiScaleByDpi(dpi, kThumbnailSelectionWidth), ThemeWindowTextColor());
+            DrawSelectionOutline(ev->gfx, outline, ringDx, ringDx, ThemeSelectionEdgeOn(GetColor(kColListBg)));
         }
 
         TempStr label = fmt("%d", pageNo);

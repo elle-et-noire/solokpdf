@@ -1077,6 +1077,12 @@ bool ThemeHighContrast_UnitTest() {
     ok &= ContrastRatio(ThemeSelectionBg(kColWhite), kColWhite) >= 1.35f;
     SetColorText(theme.textColor, StrL("#000000"));
     ok &= ContrastRatio(ThemeSelectionBg(kColBlack), kColBlack) >= 1.35f;
+    ok &= ContrastRatio(ThemeSelectionEdgeOn(kColWhite), kColWhite) >= 3.f;
+    // an explicit selection color keeps its hue in the outline
+    SetColorText(theme.selectionBackgroundColor, StrL("#cce4f7"));
+    Color edge = ThemeSelectionEdgeOn(kColWhite);
+    ok &= ContrastRatio(edge, kColWhite) >= 3.f && GetBlue(edge) > GetRed(edge);
+    FreeColorText(theme.selectionBackgroundColor);
     FreeColorText(theme.textColor);
     DeleteSettings(gSettings);
     gSettings = oldSettings;
@@ -1374,6 +1380,25 @@ Color ThemeInkOn(Color bg) {
         }
     }
     return away;
+}
+
+// A selection's outline on surface bg: its fill mixed toward the text color
+// until it shows by kMinInkContrast (WCAG 1.4.11), so it keeps the fill's hue.
+// The fill alone stands out by only kSelectedContrast.
+Color ThemeSelectionEdgeOn(Color bg) {
+    Color fill = ThemeSelectionBg(bg);
+    if (gUseHighContrast || ContrastRatio(fill, bg) >= kMinInkContrast) {
+        return fill;
+    }
+    Color text = ThemeWindowTextColor();
+    for (float t = kSelectionMixStep; t < 1.0f; t += kSelectionMixStep) {
+        Color c = MixColors(fill, text, t);
+        if (ContrastRatio(c, bg) >= kMinInkContrast) {
+            return c;
+        }
+    }
+    // the text itself is fainter than that
+    return EnsureContrastRatio(fill, bg, kMinInkContrast);
 }
 
 // the selected tab against the tab strip

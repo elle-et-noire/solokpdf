@@ -186,21 +186,32 @@ Use the [test setup](testing.md#virtual-sidebar-trees) and
 
 ## Selection colors
 
-Home list rows, Home thumbnails and F12 page thumbnails use a 2-DIP rounded
-selection outline in the theme's text color. On Home it marks the entry chosen
-by a click, the arrow keys or the filter; hovering no longer moves it (upstream
-did, so the mouse took the selection from the keys). A hovered Home entry gets
-a fill of its own, as in Explorer: the hover step on Home's background
-(`ThemeHoverColorOn`), over the outline's rect in the list and over the cell
-and caption in thumbnails, under the page image. Selected and hovered, it
-shows both. The outline hides while the search box has the focus (as upstream;
-Enter there opens nothing); the hover fill stays. A thumbnail's tooltip
-follows whichever moved last, the mouse or the keys (E93). Page thumbnails keep their thin
-frame; the selection outline sits four DPI-scaled pixels outside the page.
-The sidebar reserves room for the outline at its edges and between rows.
-The ring matches the Fluent focus visual (2 DIP in the text color), at least
-4.6:1 against the canvas in every built-in theme
-([E89](history.md#e89-selection-colors-review-2026-11-17)).
+Home list rows, Home thumbnails and F12 page thumbnails show a selection as
+in Windows 11 and macOS: the selection color (`ThemeSelectionBg`, from
+`SelectionBackgroundColor` when the theme sets it) behind the entry, and a
+2-DIP rounded outline in that color's own hue, mixed toward the text color
+until it stands out from the surface by 3:1 (`ThemeSelectionEdgeOn`, WCAG
+1.4.11; the fill alone is 1.35). The fill takes the hover fill's shape: the
+row in the list, the cell and caption in Home thumbnails, the gap between the
+page and its outline in F12; it never tints a page image. The selected entry's
+text takes `SelectionTextColor`, as in the bookmarks. High contrast mode uses
+the system highlight. Upstream drew a fixed blue outline on Home list rows, a
+text-color ring on Home thumbnails and a 3-px blue frame on the current F12
+page; E89 kept the text-color ring, but a 2-DIP ring in the text color is the
+Fluent keyboard focus visual, too harsh as a lasting selection mark (E94).
+
+On Home the selection marks the entry chosen by a click, the arrow keys or the
+filter; hovering no longer moves it (upstream did, so the mouse took the
+selection from the keys). A hovered Home entry gets a fill of its own, as in
+Explorer: the hover step on Home's background (`ThemeHoverColorOn`, half the
+selection step). Selected and hovered, it keeps the selection look, as the
+bookmarks do: hover adds no third shade. The selection hides while the search
+box has the focus (as upstream; Enter there opens nothing); the hover fill
+stays. A thumbnail's tooltip follows whichever moved last, the mouse or the
+keys (E93). Page thumbnails keep their thin frame; the selection outline sits
+four DPI-scaled pixels outside the page. The sidebar reserves room for the
+outline at its edges and between rows. Neither Home nor the sidebar has a
+separate keyboard focus ring.
 
 The floating selection toolbar takes the tab strip's color, so it reads as part
 of the window's chrome, with an `EdgeColor` border; where that nearly matches

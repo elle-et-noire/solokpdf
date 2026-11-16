@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ControlCommand } from "./control.ts";
-import { cmdId, makePdf, runStandalone, tmpPath, writeAppdata } from "./util.ts";
+import { type ControlClient, ControlCommand } from "./control.ts";
+import { cmdId, contrastRatio, makePdf, runStandalone, selectionLookError, tmpPath, writeAppdata } from "./util.ts";
 import { findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 import {
   captureWindowDCToPng,
@@ -18,6 +18,59 @@ function check(ok: boolean, what: string): void {
   if (!ok) throw new Error(`selection-outlines: ${what}`);
 }
 
+type PageLook = {
+  raw: string;
+  pageX: number;
+  pageY: number;
+  pageDx: number;
+  w: number;
+  bg: number[];
+  column: number[][];
+};
+
+// the sidebar column above the first (current) page's middle, from 12 px above it
+async function currentPageLook(client: ControlClient): Promise<PageLook> {
+  let raw = "";
+  let match: RegExpExecArray | null = null;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const res = await client.request(ControlCommand.TestSidebarThumbnails, []);
+    raw = String(res[1] ?? "");
+    match = /hwnd=(\d+) thumbnails=1 count=\d+ current=1.* rects=1:(-?\d+),(-?\d+),(\d+),(\d+)/.exec(raw);
+    if (res[0] === 0 && match && /rendered=[1-9]/.test(raw)) break;
+    await sleep(50);
+  }
+  check(!!match, `no first thumbnail: ${raw}`);
+  const [hwnd, pageX, pageY, pageDx] = [1, 2, 3, 4].map((i) => Number(match![i]));
+  const cap = captureWindowPixels(hwnd!);
+  check(!!cap, "capture failed");
+  check(pageY! >= 12 && pageY! < cap!.h, `outline outside sidebar: ${raw}`);
+  const x = pageX! + Math.floor(pageDx! / 2);
+  const column: number[][] = [];
+  for (let y = pageY! - 12; y < pageY!; y++) {
+    const offset = (y * cap!.w + x) * 4;
+    column.push([cap!.data[offset + 2]!, cap!.data[offset + 1]!, cap!.data[offset]!]);
+  }
+  return { raw, pageX: pageX!, pageY: pageY!, pageDx: pageDx!, w: cap!.w, bg: column[0]!, column };
+}
+
+// The current page has room for its outline at the sidebar's edge and, from
+// its frame up, the selection fill, a same-hue outline at 3:1 and the
+// sidebar (E94).
+async function checkCurrentPage(client: ControlClient, theme: string): Promise<void> {
+  const look = await currentPageLook(client);
+  check(
+    look.pageX >= 6 && look.pageX + look.pageDx + 6 <= look.w,
+    `${theme}: page outline clipped at sidebar edge: ${look.raw}`,
+  );
+  const fill = look.column[look.column.length - 1]!;
+  let edge = fill;
+  for (const c of look.column) {
+    if (contrastRatio(c, look.bg) > contrastRatio(edge, look.bg)) edge = c;
+  }
+  const err = selectionLookError(look.bg, fill, edge);
+  check(err === "", `${theme}: ${err}`);
+}
+
 export async function testit(): Promise<void> {
   setProcessDpiAware();
   const pdf = tmpPath("selection-outlines.pdf");
@@ -28,39 +81,13 @@ export async function testit(): Promise<void> {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
     sendCommandSync(frame, cmdId("CmdToggleThumbnails"));
-    let res = await client.request(ControlCommand.TestSidebarThumbnails, []);
-    let raw = String(res[1] ?? "");
-    let match = /hwnd=(\d+) thumbnails=1 count=\d+ current=1.* rects=1:(-?\d+),(-?\d+),(\d+),(\d+)/.exec(raw);
-    for (let attempt = 0; attempt < 30 && !/rendered=[1-9]/.test(raw); attempt++) {
-      await sleep(50);
-      res = await client.request(ControlCommand.TestSidebarThumbnails, []);
-      raw = String(res[1] ?? "");
-      match = /hwnd=(\d+) thumbnails=1 count=\d+ current=1.* rects=1:(-?\d+),(-?\d+),(\d+),(\d+)/.exec(raw);
-    }
-    check(res[0] === 0 && !!match, `no first thumbnail: ${raw}`);
-    const hwnd = Number(match![1]);
-    const pageX = Number(match![2]);
-    const pageDx = Number(match![4]);
-    const x = pageX + Math.floor(pageDx / 2);
-    const pageY = Number(match![3]);
-    const cap = captureWindowPixels(hwnd);
-    check(!!cap, "capture failed");
-    check(pageX >= 6 && pageX + pageDx + 6 <= cap!.w, `page outline clipped at sidebar edge: ${raw}`);
-    const pixel = (py: number) => {
-      const offset = (py * cap!.w + x) * 4;
-      return [cap!.data[offset]!, cap!.data[offset + 1]!, cap!.data[offset + 2]!];
-    };
-    check(pageY >= 12 && pageY < cap!.h, `outline outside sidebar: ${raw}`);
-    const background = pixel(pageY - 12);
-    let contrast = 0;
-    for (let y = pageY - 11; y < pageY; y++) {
-      const line = pixel(y);
-      contrast = Math.max(
-        contrast,
-        line.reduce((sum, c, i) => sum + Math.abs(c - background[i]!), 0),
-      );
-    }
-    check(contrast > 60, `no spaced outline above page: contrast=${contrast}, background=${background}`);
+    await checkCurrentPage(client, "Light");
+    // the sidebar's background before the switch, to see the theme change
+    const light = await currentPageLook(client);
+    sendCommandSync(frame, cmdId("CmdToggleLightDarkTheme"));
+    const deadline = Date.now() + 3000;
+    while ((await currentPageLook(client)).bg.join() === light.bg.join() && Date.now() < deadline) await sleep(50);
+    await checkCurrentPage(client, "Dark");
   } finally {
     await killAndWait(proc);
   }

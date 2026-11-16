@@ -2,11 +2,12 @@
 // hovered history entry gets a fill of its own, also while the search box has
 // the focus, and the selection outline stays where the keys put it (list and
 // thumbnails, Light and Dark). E90: plain keys on Home run their shortcuts;
-// Ctrl+F, or / with Vim keys, starts a search.
+// Ctrl+F, or / with Vim keys, starts a search. E94: the selected entry takes
+// the selection color with a same-hue outline at 3:1; hover is half of it.
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ControlCommand, type ControlClient, waitForHome } from "./control.ts";
-import { ROOT, SETTINGS_FILE, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { ControlCommand, type ControlClient, type HomeSelection, waitForHome } from "./control.ts";
+import { ROOT, SETTINGS_FILE, cmdId, colorRefRgb, runStandalone, selectionLookError, tmpPath } from "./util.ts";
 import {
   clientToScreen,
   getControlText,
@@ -82,16 +83,60 @@ function pixel(canvas: number, x: number, y: number): number {
   return readWindowDCRow(canvas, x, y, 1)[0] ?? 0;
 }
 
-// largest per-channel difference of two COLORREFs
-function colorDelta(a: number, b: number): number {
-  let d = 0;
-  for (let shift = 0; shift < 24; shift += 8) {
-    d = Math.max(d, Math.abs(((a >> shift) & 0xff) - ((b >> shift) & 0xff)));
+const hex = (c: number) => c.toString(16).padStart(6, "0");
+
+// the selected view button's fill, the selection color on Home's background:
+// its most common pixel other than the background
+function selectedButtonFill(canvas: number, h: HomeSelection, bg: number): number {
+  const [lx, y, dx, dy] = h.listIcon;
+  const x = h.listView ? lx! : h.views[0]!;
+  const counts = new Map<number, number>();
+  for (let yy = y! + 1; yy < y! + dy! - 1; yy++) {
+    for (const c of readWindowDCRow(canvas, x + 1, yy, dx! - 2)) {
+      if (c !== bg) counts.set(c, (counts.get(c) ?? 0) + 1);
+    }
   }
-  return d;
+  const best = [...counts].sort((a, b) => b[1] - a[1])[0];
+  check(!!best, `no selected view button at ${x},${y}`);
+  return best![0];
 }
 
-const hex = (c: number) => c.toString(16).padStart(6, "0");
+// the pixel at x, y once it satisfies ok, or after a repaint's time
+async function settledPixel(canvas: number, x: number, y: number, ok: (c: number) => boolean): Promise<number> {
+  const deadline = Date.now() + 1000;
+  let c = pixel(canvas, x, y);
+  while (!ok(c) && Date.now() < deadline) {
+    await sleep(30);
+    c = pixel(canvas, x, y);
+  }
+  return c;
+}
+
+// the selection look of the entry whose outline rect is r (E94)
+async function checkSelected(
+  canvas: number,
+  r: number[],
+  mode: "list" | "thumbnails",
+  bg: number,
+  sel: number,
+  what: string,
+): Promise<void> {
+  const [fx, fy] = fillPoint(r, mode);
+  const fill = await settledPixel(canvas, fx, fy, (c) => c === sel);
+  check(fill === sel, `${what}: selection fill ${hex(fill)} is not the selection color ${hex(sel)}`);
+  const edge = pixel(canvas, r[0]! + 1, fy);
+  const err = selectionLookError(colorRefRgb(bg), colorRefRgb(fill), colorRefRgb(edge));
+  check(err === "", `${what}: ${err}`);
+}
+
+// hover is halfway from the background to the selection color
+function checkHoverFill(fill: number, bg: number, sel: number, what: string) {
+  for (let shift = 0; shift < 24; shift += 8) {
+    const want = (((bg >> shift) & 0xff) + ((sel >> shift) & 0xff)) / 2;
+    const got = (fill >> shift) & 0xff;
+    check(Math.abs(got - want) <= 1, `${what}: hover fill ${hex(fill)} is not halfway from ${hex(bg)} to ${hex(sel)}`);
+  }
+}
 
 // a point inside an entry's hover fill but outside its page / row content and
 // its selection ring (r is the entry's selection outline rect)
@@ -101,10 +146,11 @@ function fillPoint(r: number[], mode: "list" | "thumbnails"): [number, number] {
   return [mode === "list" ? r[0]! + 4 : r[0]! - 2, y];
 }
 
-// Arrow keys select entry A, the mouse moves onto entry B: the outline stays
-// on A, B is hovered and filled with a light step of the Home background, not
-// over its thumbnail image. Then the search box takes the focus: the outline
-// hides (Enter there opens nothing) and B keeps its fill.
+// Arrow keys select entry A, the mouse moves onto entry B: the selection stays
+// on A, B is hovered and filled with half the selection step, not over its
+// thumbnail image. Hovering A keeps its selection look. Then the search box
+// takes the focus: the selection hides (Enter there opens nothing) and B keeps
+// its fill.
 async function checkHover(
   client: ControlClient,
   frame: number,
@@ -132,6 +178,8 @@ async function checkHover(
   await waitForHome(client, (s) => s.sel === a, `${what}: arrow did not move the selection back`);
 
   const bg = backgroundPixel(canvas);
+  const sel = selectedButtonFill(canvas, ha, bg);
+  await checkSelected(canvas, ra, mode, bg, sel, `${what}: selected entry ${a}`);
   const [ax, ay] = fillPoint(ra, mode);
   const [bx, by] = fillPoint(rb, mode);
   const cx = rb[0]! + Math.floor(rb[2]! / 2);
@@ -145,20 +193,36 @@ async function checkHover(
   const h = await waitForHome(client, (s) => s.hover === b, `${what}: entry ${b} is not hovered`);
   check(h.sel === a && h.selShown, `${what}: hover moved the selection from ${a} to ${h.sel}`);
 
-  const fill = pixel(canvas, bx, by);
-  const d = colorDelta(fill, bg);
-  check(d > 0 && d <= 64, `${what}: hover fill ${hex(fill)} is not a light step of ${hex(bg)}`);
+  const fill = await settledPixel(canvas, bx, by, (c) => c !== bg);
+  checkHoverFill(fill, bg, sel, `${what}: entry ${b}`);
   check(pixel(canvas, bx + 1, by) === fill, `${what}: hovered entry ${b} is outlined`);
-  check(pixel(canvas, ax, ay) === bg, `${what}: selected entry ${a} is filled`);
-  check(colorDelta(pixel(canvas, ra[0]! + 1, ay), bg) > 64, `${what}: selected entry ${a} lost its outline`);
+  await checkSelected(canvas, ra, mode, bg, sel, `${what}: selected entry ${a} next to hover`);
   if (mode === "thumbnails") {
     check(pixel(canvas, cx, cy) === pageBefore, `${what}: hover tinted the thumbnail image`);
   }
+
+  // selected and hovered: the selection look, unchanged
+  const acx = ra[0]! + Math.floor(ra[2]! / 2);
+  const acy = ra[1]! + Math.floor(ra[3]! / 2);
+  const sa = clientToScreen(canvas, acx, acy);
+  await moveTestCursor(sa.x, sa.y);
+  sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(acx, acy));
+  await waitForHome(client, (s) => s.hover === a && s.sel === a, `${what}: entry ${a} is not hovered`);
+  await checkSelected(canvas, ra, mode, bg, sel, `${what}: selected and hovered entry ${a}`);
+  if (mode === "thumbnails") {
+    // every entry is the same document
+    check(pixel(canvas, acx, acy) === pageBefore, `${what}: the selection tinted the thumbnail image`);
+  }
+  await moveTestCursor(screen.x, screen.y);
+  sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(cx, cy));
+  await waitForHome(client, (s) => s.hover === b && s.sel === a, `${what}: entry ${b} is not hovered again`);
 
   sendCommand(frame, cmdId("CmdFindFirst"));
   const f = await waitForHome(client, (s) => s.searchFocus, `${what}: CmdFindFirst did not focus the search box`);
   check(f.sel === a && !f.selShown && f.hover === b, `${what}: search focus state ${f.raw}`);
   check(pixel(canvas, bx, by) === fill, `${what}: hover fill gone while the search box has the focus`);
+  const hidden = await settledPixel(canvas, ax, ay, (c) => c === bg);
+  check(hidden === bg, `${what}: selection fill shown while the search box has the focus`);
 }
 
 async function checkHoverViews(client: ControlClient, frame: number, canvas: number, theme: string): Promise<void> {

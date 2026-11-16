@@ -1862,7 +1862,19 @@ static TempStr FileSizeForHomeListTemp(i64 size) {
 }
 
 static void DrawHomeSelectionOutline(Gfx* gfx, const Rect& r, int radius) {
-    DrawSelectionOutline(gfx, r, radius, DpiScale(2), ThemeWindowTextColor());
+    DrawSelectionOutline(gfx, r, radius, DpiScale(2), ThemeSelectionEdgeOn(ThemeMainWindowBackgroundColor()));
+}
+
+// a selected entry's text takes the selection text color, as in the bookmarks
+static Color HomeEntryTextColor(Color fill, bool isSelected) {
+    Color text = ThemeWindowTextColor();
+    return isSelected ? ThemeSelectionText(fill, text) : text;
+}
+
+// muted text (path, page count), unless the selection changed the text color
+static Color HomeEntryMutedColor(Color fill, bool isSelected) {
+    Color text = HomeEntryTextColor(fill, isSelected);
+    return text == ThemeWindowTextColor() ? ThemeWindowDarkerTextColor() : text;
 }
 
 // Give the file name the width it needs and put the directory path in what's
@@ -1932,8 +1944,9 @@ static void DrawHomeListRow(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filt
     Str path = fs->filePath;
     TempStr fileName = path::GetBaseNameTemp(path);
     u32 nameFmt = gfxTextEllipsis | gfxTextVCenter | (isRtl ? gfxTextRight : gfxTextLeft);
+    Color textCol = HomeEntryTextColor(backgroundColor, isSelected);
     DrawMaybeHighlightedText(gfx, thumb.rcListFileName, fileName, filterWords, highlighted, backgroundColor, isRtl,
-                             false, nameFmt, fontText, ThemeWindowTextColor());
+                             false, nameFmt, fontText, textCol);
 
     // directory path, right-aligned and muted, in the space the file name doesn't need.
     // Must use DrawTextW: dirPath is UTF-8; DrawTextA treated it as the system ANSI
@@ -1942,7 +1955,7 @@ static void DrawHomeListRow(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filt
         TempStr dirPath = path::GetDirTemp(path);
         u32 pathFmt = gfxTextVCenter | gfxTextPathEllipsis | (isRtl ? gfxTextLeft : gfxTextRight);
         Rect pathRect = thumb.rcListPath;
-        gfx->DrawText(dirPath, pathRect, pathFmt, fontText, ThemeWindowDarkerTextColor());
+        gfx->DrawText(dirPath, pathRect, pathFmt, fontText, HomeEntryMutedColor(backgroundColor, isSelected));
     }
 
     // file::GetSize once per row, then cache on ThumbnailLayout (scroll reuses
@@ -1951,13 +1964,13 @@ static void DrawHomeListRow(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filt
     TempStr fileSize = FileSizeForHomeListTemp(HomeFileSize(thumb));
     u32 sizeFmt = gfxTextVCenter | gfxTextEllipsis | (isRtl ? gfxTextLeft : gfxTextRight);
     Rect sizeRect = thumb.rcListSize;
-    gfx->DrawText(fileSize, sizeRect, sizeFmt, fontText, ThemeWindowTextColor());
+    gfx->DrawText(fileSize, sizeRect, sizeFmt, fontText, textCol);
 
     if (!thumb.rcListProgress.IsEmpty()) {
         TempStr progress = FormatFileStateProgressTemp(fs);
         if (len(progress) > 0) {
             u32 progFmt = gfxTextVCenter | gfxTextEllipsis | (isRtl ? gfxTextLeft : gfxTextRight);
-            gfx->DrawText(progress, thumb.rcListProgress, progFmt, fontText, ThemeWindowTextColor());
+            gfx->DrawText(progress, thumb.rcListProgress, progFmt, fontText, textCol);
         }
     }
 }
@@ -1977,7 +1990,7 @@ static void DrawHomeThumbnailShadow(Gfx* gfx, const Rect& page) {
 // one thumbnail: the page image with a hairline and a shadow, the caption
 // (with search-filter highlights) and the page count under it
 static void DrawHomeThumbnail(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filterWords, Vec<u8>& highlighted,
-                              PlatformFont* fontText, Color backgroundColor, bool isRtl) {
+                              PlatformFont* fontText, Color backgroundColor, bool isRtl, bool isSelected) {
     FileState* fs = thumb.fs;
     const Rect& page = thumb.rcPage;
     DrawHomeThumbnailShadow(gfx, page);
@@ -2011,10 +2024,10 @@ static void DrawHomeThumbnail(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& fi
     TempStr fileName = path::GetBaseNameTemp(path);
     u32 fmt = gfxTextEllipsis | (isRtl ? gfxTextRight : gfxTextLeft);
     DrawMaybeHighlightedText(gfx, rcName, fileName, filterWords, highlighted, backgroundColor, isRtl, false, fmt,
-                             fontText, ThemeWindowTextColor());
+                             fontText, HomeEntryTextColor(backgroundColor, isSelected));
     if (len(meta) > 0) {
         Rect rcMeta(rcName.x, rcName.y + rcName.dy, rcName.dx, thumb.rcText.dy - rcName.dy);
-        gfx->DrawText(meta, rcMeta, fmt, HomePageFont(12), ThemeWindowDarkerTextColor());
+        gfx->DrawText(meta, rcMeta, fmt, HomePageFont(12), HomeEntryMutedColor(backgroundColor, isSelected));
     }
 }
 
@@ -2415,25 +2428,30 @@ void HomeEntryCtrl::Paint(VirtPaintCtx& ctx) {
     Gfx* gfx = ctx.gfx;
     bool isRtl = IsUIRtl();
     PlatformFont* fontText = HomePageFont(13);
-    Color backgroundColor = ThemeMainWindowBackgroundColor();
+    Color homeBg = ThemeMainWindowBackgroundColor();
     // no selection chrome while typing in the search box
     bool isSelected = (idx == win->homePageSelIdx) && !HomeSearchHasFocus(win);
-    // the hovered entry gets a light fill of its own (E93)
+    // the hovered entry gets a light fill of its own (E93), half the selection
+    // step; a selected one keeps the selection fill, as in the bookmarks (E94)
     bool isHovered = idx == entries->activeIdx;
-    if (isHovered) {
-        backgroundColor = ThemeHoverColorOn(backgroundColor);
+    Color backgroundColor = homeBg;
+    if (isSelected) {
+        backgroundColor = ThemeSelectionBg(homeBg);
+    } else if (isHovered) {
+        backgroundColor = ThemeHoverColorOn(homeBg);
     }
     // ctx.clip is the entries band (vwfClipChildren on the parent): an entry
     // scrolled partially out must not paint over the header / tip band
     gfx->PushClip(ctx.clip);
     if (HomePageIsListView()) {
-        if (isHovered) {
+        if (isSelected || isHovered) {
             gfx->FillRoundedRect(HomeSelectionOutlineRect(*t), 4, backgroundColor);
         }
         DrawHomeListRow(gfx, *t, *entries->filterWords, *entries->highlighted, fontText, backgroundColor, isRtl,
                         isSelected);
     } else {
-        DrawHomeThumbnail(gfx, *t, *entries->filterWords, *entries->highlighted, fontText, backgroundColor, isRtl);
+        DrawHomeThumbnail(gfx, *t, *entries->filterWords, *entries->highlighted, fontText, backgroundColor, isRtl,
+                          isSelected);
     }
     gfx->PopClip();
 }
@@ -2976,18 +2994,26 @@ static void DrawHomePageLayout(HomePageLayout& l) {
         win->homePageSelIdx = nThumbs - 1;
     }
 
-    // hovered thumbnail: a tile under its page and caption, clipped like the
-    // selection outline (issue #5978)
+    int selIdx = win->homePageSelIdx;
+    bool showSel = !HomePageIsListView() && !HomeSearchHasFocus(win) && selIdx >= 0 && selIdx < nThumbs;
+
+    // hovered and selected thumbnails: a tile under the page and caption in
+    // the hover or selection color, clipped like the selection outline (issue
+    // #5978). Selected and hovered shows the selection (E94).
     HomeEntriesCtrl* entries = HomeEntries(win);
     int hoverIdx = entries ? entries->activeIdx : -1;
-    if (!HomePageIsListView() && hoverIdx >= 0 && hoverIdx < nThumbs) {
-        Rect clip = HomeOutlinePaintClip(l.rcThumbsArea, l.rcSearchBorder, l.rcTip, l.hasTip);
-        if (!clip.IsEmpty()) {
-            gfx->PushClip(clip);
-            Color fill = ThemeHoverColorOn(ThemeMainWindowBackgroundColor());
-            gfx->FillRoundedRect(HomeHoverTileRect(l.thumbnails[hoverIdx]), DpiScale(4), fill);
-            gfx->PopClip();
+    bool showHover = !HomePageIsListView() && hoverIdx >= 0 && hoverIdx < nThumbs && !(showSel && hoverIdx == selIdx);
+    Rect tileClip = HomeOutlinePaintClip(l.rcThumbsArea, l.rcSearchBorder, l.rcTip, l.hasTip);
+    if ((showHover || showSel) && !tileClip.IsEmpty()) {
+        Color homeBg = ThemeMainWindowBackgroundColor();
+        gfx->PushClip(tileClip);
+        if (showHover) {
+            gfx->FillRoundedRect(HomeHoverTileRect(l.thumbnails[hoverIdx]), DpiScale(4), ThemeHoverColorOn(homeBg));
         }
+        if (showSel) {
+            gfx->FillRoundedRect(HomeHoverTileRect(l.thumbnails[selIdx]), DpiScale(4), ThemeSelectionBg(homeBg));
+        }
+        gfx->PopClip();
     }
 
     // the chrome tree paints everything else: search border, file entries
@@ -2999,8 +3025,6 @@ static void DrawHomePageLayout(HomePageLayout& l) {
     // thumbnail, clipped so it cannot paint over the search field or the tip
     // band (issue #5978). A little slack above/below the thumbs band keeps the
     // first row's top curve from being cut off.
-    int selIdx = win->homePageSelIdx;
-    bool showSel = !HomePageIsListView() && !HomeSearchHasFocus(win) && selIdx >= 0 && selIdx < nThumbs;
     if (showSel) {
         ThumbnailLayout& t = l.thumbnails[selIdx];
         if (IsHomeThumbOnScreen(t.rcPage.Union(t.rcText), l.rcThumbsArea)) {
