@@ -924,6 +924,9 @@ void TabsCtrl::CloseTab(int idx) {
     if (!FindMainWindowByHwnd(hwnd)) {
         return;
     }
+    // the ✕ click's capture cancels leave tracking; re-arm it so leaving
+    // unfreezes the widths (posted at once if the mouse is already outside)
+    TrackMouseLeave(hwnd);
     ScheduleRepaint();
     tabBeingClosed = -1;
 }
@@ -999,6 +1002,7 @@ LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (tabWidthFrozen) {
                 tabWidthFrozen = false;
                 LayoutTabs();
+                ScheduleRepaint();
             }
             LRESULT res = 0;
             if (vroot) {
