@@ -9,8 +9,15 @@ import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
 import { assemblePdf, cmdId, EXE, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
-import { FRAME_CLASS, paletteState, sendCommand, waitForPalette } from "./win-automation.ts";
-import { sleep, waitForTopWindow } from "./winapi.ts";
+import {
+  findCanvas,
+  FRAME_CLASS,
+  moveTestCursor,
+  paletteState,
+  sendCommand,
+  waitForPalette,
+} from "./win-automation.ts";
+import { clientToScreen, getClientRect, sleep, waitForTopWindow } from "./winapi.ts";
 
 const CATALOG = "<< /Type /Catalog /Pages 2 0 R >>";
 const PAGES = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
@@ -96,6 +103,12 @@ async function check(dir: string, name: string, pdf: string | Buffer, annots: nu
       await client.waitForRenderIdle();
       if ((await editorState(client)) !== "editor=none") throw new Error(`${name}: editor loaded at open`);
       const frame = await waitForTopWindow(proc.pid!, FRAME_CLASS, 5000);
+
+      // the palette checks what is under the cursor; a hosted runner's pointer sits on the page
+      const canvas = findCanvas(frame);
+      const rc = getClientRect(canvas);
+      const center = clientToScreen(canvas, Math.floor(rc.right / 2), Math.floor(rc.bottom / 2));
+      await moveTestCursor(center.x, center.y, client);
       sendCommand(frame, cmdId("CmdCommandPalette"));
       await waitForPalette(client, frame);
 

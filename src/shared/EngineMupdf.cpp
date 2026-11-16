@@ -14472,6 +14472,10 @@ static FzPageInfo* GetPdfPageInfo(EngineMupdf* engine, int pageNo) {
 
 Annotation* EngineGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos, float padding,
                                      Annotation* preferredAnnot) {
+    // routine hit tests (palette, context menu) don't load an editor for a file without annotations
+    if (engine && !engine->MayHaveAnnotations()) {
+        return nullptr;
+    }
     EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
     if (!pi) {

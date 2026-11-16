@@ -383,7 +383,9 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 - Annotation lists (command palette, annotation list, Edit PDF mode) load the editor only
   when the open's byte scan finds an annotation other than links and widgets, or the editor
   is already loaded. Files of 32 MiB or more aren't scanned and still load it; so may an
-  encrypted file with object streams (E68, `ad-hoc-pdfium-palette-editor`).
+  encrypted file with object streams (E68, `ad-hoc-pdfium-palette-editor`). The same gate
+  keeps annotation hit tests (the command palette or a context menu with the cursor on a
+  page) from loading it (E69).
 - Applying redactions on a PDFium tab rewrites pages in the already loaded
   MuPDF editor and, as on MuPDF tabs, leaves the file unsaved and the step
   undoable. Until Save reloads the tab, PDFium draws, extracts text and lists
