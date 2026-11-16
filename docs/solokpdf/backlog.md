@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: no open items; D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-17: E91–E93 open; D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D15, E91, F4). For a code change, choose affected tests from
+group (B76, C2, D15, E94, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -23,8 +23,11 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 
 ## Open
 
-| ID  | Item | Status |
-| --- | ---- | ------ |
+| ID  | Item                                                                                                                                                                       | Status |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| E93 | Home: hover gets its own light mark; the selection outline stays on the entry chosen by click or arrow keys (Explorer style, owner 2026-11-17, after E89)                  | todo   |
+| E92 | F12 page thumbnails: hover feedback, same style as E93's Home hover (owner 2026-11-17, after E89)                                                                          | todo   |
+| E91 | Floating selection toolbar (and the annotation toolbar sharing its colors): drop shadow, so it separates from images of the card's lightness (owner 2026-11-17, after E89) | todo   |
 
 ## Deferred
 
