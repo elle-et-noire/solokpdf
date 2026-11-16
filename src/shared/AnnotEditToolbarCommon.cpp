@@ -41,7 +41,7 @@ extern "C" {
 // the floating bar takes the selection toolbar's colors: a raised surface,
 // as the command palette, with an EdgeColor border
 Color BarBg() {
-    return ThemeWindowControlBackgroundColor();
+    return ThemeRaisedColor();
 }
 
 Color BarBorderColor() {

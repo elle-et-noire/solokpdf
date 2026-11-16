@@ -1041,6 +1041,7 @@ bool ThemeHighContrast_UnitTest() {
         ok &= ThemeUsesHighContrastColors();
         ok &= ThemeMainWindowBackgroundColor() == SysWindowBgColor();
         ok &= ThemeControlBackgroundColor() == SysWindowBgColor();
+        ok &= ThemeRaisedColor() == SysWindowBgColor();
         ok &= ThemeWindowBackgroundColor() == SysWindowBgColor();
         ok &= ThemeWindowTextColor() == SysWindowTextColor();
         ok &= ThemeSelectionBg(kColWhite) == SysHighlightBgColor();
@@ -1135,12 +1136,16 @@ static Color BlendTextAndBgHalfway() {
 constexpr float kMinSecondaryTextContrast = 4.5f;
 constexpr float kMinDisabledTextContrast = 3.f;
 
-// a theme's muted color lifted to `minRatio` against the dialog background, but
-// never past the theme's own text (Solarized Dark's text is only 4.1)
+// a theme's muted color lifted to `minRatio` against the dialog background and
+// the raised surface, but never past the theme's own text (Solarized Dark's
+// text is only 4.1)
 static Color WithMinContrast(Color col, float minRatio) {
-    Color bg = ThemeWindowControlBackgroundColor();
-    float textRatio = ContrastRatio(ThemeWindowTextColor(), bg);
-    return EnsureContrastRatio(col, bg, std::min(minRatio, textRatio));
+    Color text = ThemeWindowTextColor();
+    for (Color bg : {ThemeWindowControlBackgroundColor(), ThemeRaisedColor()}) {
+        float textRatio = ContrastRatio(text, bg);
+        col = EnsureContrastRatio(col, bg, std::min(minRatio, textRatio));
+    }
+    return col;
 }
 
 Color ThemeWindowTextDisabledColor() {
@@ -1305,6 +1310,41 @@ Color ThemeSelectionText(Color bg, Color text) {
 // selected on a page: all on the canvas
 Color ThemeSelectedBackgroundColor() {
     return ThemeSelectedColorOn(ThemeCanvasColor());
+}
+
+// a floating surface against the canvas, as Fluent's flyouts: #2c2c2c on
+// #202020 (1.17) in dark mode, #f9f9f9 on #f3f3f3 (1.05) in light mode
+constexpr float kRaisedDarkContrast = 1.17f;
+constexpr float kRaisedLightContrast = 1.05f;
+
+// The topmost layer (command palette, floating toolbars), lighter than the
+// canvas as Fluent's flyouts. A theme's ControlBackgroundColor wins; else the
+// canvas mixed toward white until it stands out by the target, or until the
+// text would drop under 4.5:1 on it (Solarized Dark, Greeny).
+Color ThemeRaisedColor() {
+    if (gUseHighContrast) {
+        return SysWindowBgColor();
+    }
+    ParsedColor* own = GetParsedColor(gCurrentTheme->controlBackgroundColor);
+    if (own->parsedOk) {
+        return own->col;
+    }
+    Color canvas = ThemeCanvasColor();
+    float target = IsLightColor(canvas) ? kRaisedLightContrast : kRaisedDarkContrast;
+    Color text = ThemeWindowTextColor();
+    float minText = std::min(kMinSecondaryTextContrast, ContrastRatio(text, canvas));
+    Color res = canvas;
+    for (float t = kSelectionMixStep; t < 1.0f; t += kSelectionMixStep) {
+        Color c = MixColors(canvas, kColWhite, t);
+        if (ContrastRatio(text, c) < minText) {
+            break;
+        }
+        res = c;
+        if (ContrastRatio(c, canvas) >= target) {
+            break;
+        }
+    }
+    return res;
 }
 
 static Color ThemeOverlay(ParsedColor& setting, Color fallback, u8& alpha) {

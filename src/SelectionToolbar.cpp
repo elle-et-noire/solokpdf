@@ -84,7 +84,7 @@ static bool SelectionBoundsChanged(Rect a, Rect b, int slack) {
 // a raised surface, as the command palette: the shadow and the border set it
 // apart from the page
 static Color SelBarBg() {
-    return ThemeWindowControlBackgroundColor();
+    return ThemeRaisedColor();
 }
 
 static Color SelBarBorderColor() {

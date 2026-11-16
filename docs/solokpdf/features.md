@@ -216,11 +216,17 @@ four DPI-scaled pixels outside the page. The sidebar reserves room for the
 outline at its edges and between rows. Neither Home nor the sidebar has a
 separate keyboard focus ring.
 
-The floating selection toolbar is the topmost layer, so it takes the command
-palette's surface (`ControlBackgroundColor`, which the built-in themes leave
-to `BackgroundColor`), with an `EdgeColor` border and a drop shadow, as
-Fluent's flyouts: the shadow and the border set it apart from the page, not
-the card's color (E91). The shadow is Fluent 2's shadow8 (0 0 2px and
+The command palette and the floating selection toolbar are the topmost layer,
+so they take a raised surface (`ThemeRaisedColor`), lighter than the canvas
+as Fluent's flyouts (#2c2c2c over #202020 dark, #f9f9f9 over #f3f3f3 light).
+A theme's `ControlBackgroundColor` wins; otherwise the canvas is mixed toward
+white until it stands out by Fluent's own step, 1.17 in dark themes and 1.05
+in light ones, as long as the text keeps 4.5:1 on it: Solarized Dark (1.05)
+and Greeny (1.03) stop there. Muted text keeps its minimum contrast on both
+the canvas and the raised surface. Dialogs and other controls keep
+`ControlBackgroundColor`'s canvas fallback. On the page, the toolbar has an
+`EdgeColor` border and a drop shadow; those, not the card's color, set it
+apart from images (E91). The shadow is Fluent 2's shadow8 (0 0 2px and
 0 4px 8px), black at 12/14% and twice that in dark themes, as Fluent's; a
 flyout's larger shadow would shade the line the toolbar sits 6 DIP from.
 Shadows are not chrome, so it is not a theme color. It is painted on the

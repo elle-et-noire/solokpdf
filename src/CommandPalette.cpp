@@ -869,7 +869,7 @@ void CommandPaletteWnd::FillSwitchRow() {
     if (editQuery) {
         filter = CommandPaletteSkipWS(Str(editQuery->GetTextTemp()));
     }
-    Color colBg = ThemeWindowControlBackgroundColor();
+    Color colBg = ThemeRaisedColor();
     Color colTxt = ThemeWindowTextColor();
     Color colMuted = ThemeWindowDarkerTextColor();
     PaletteSwitch switches[kPaletteMaxSwitches];
@@ -919,7 +919,7 @@ void CommandPaletteWnd::UpdateHelpRow() {
     VecReset(helpRow->children);
     countText = nullptr;
 
-    Color colBg = ThemeWindowControlBackgroundColor();
+    Color colBg = ThemeRaisedColor();
     Color colMuted = ThemeWindowDarkerTextColor();
     PaletteHint hints[kPaletteMaxHints];
     int nHelp = PaletteHelpHints(kind, hints);
@@ -987,10 +987,13 @@ void CommandPaletteWnd::UpdateSettingHelp() {
 
 // the theme changed while the palette is open: the colors were set at creation
 void CommandPaletteWnd::UpdateColors() {
-    auto colBg = ThemeWindowControlBackgroundColor();
+    auto colBg = ThemeRaisedColor();
     auto colTxt = ThemeWindowTextColor();
-    // recolors the window and its native children (the query edit)
+    // recolors the window and its native children (the query edit), then
+    // raises them off the dialog color UpdateTheme() takes
     UpdateTheme();
+    SetColors(colTxt, colBg);
+    editQuery->SetColors(colTxt, colBg);
 
     listBox->SetColor(kColListText, colTxt);
     listBox->SetColor(kColListBg, colBg);
@@ -1030,7 +1033,7 @@ bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance)
         return false;
     }
 
-    auto colBg = ThemeWindowControlBackgroundColor();
+    auto colBg = ThemeRaisedColor();
     auto colTxt = ThemeWindowTextColor();
     SetColors(colTxt, colBg);
 

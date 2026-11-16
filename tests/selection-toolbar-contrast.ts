@@ -1,7 +1,7 @@
-// The floating selection toolbar is a raised surface: it takes the command
-// palette's color and sets itself apart from the page with a drop shadow and
-// its border, not with its own color (E91). The shadow is painted on the
-// canvas, so it has to go when the toolbar does.
+// The floating selection toolbar is a raised surface, as the command palette:
+// lighter than the canvas, which themed pages take, and set apart from the page
+// by a drop shadow and its border (E91). The shadow is painted on the canvas,
+// so it has to go when the toolbar does.
 //
 // Run: bun tests/selection-toolbar-contrast.ts [--no-build]
 
@@ -35,13 +35,7 @@ import {
 const VK_ESCAPE = 0x1b;
 const VK_END = 0x23;
 const LINE = "The quick brown fox jumps over the lazy dog";
-// the command palette's color: ControlBackgroundColor, which these themes
-// leave to BackgroundColor
-const THEMES: [string, string][] = [
-  ["Solarized Dark", "#002b36"],
-  ["Dark", "#000000"],
-  ["Light", "#f2f2f2"],
-];
+const THEMES = ["Solarized Dark", "Dark", "Light"];
 
 const hex = (c: number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
 const sum = (c: number[]) => c[0]! + c[1]! + c[2]!;
@@ -100,7 +94,7 @@ function shootFrame(frame: number): (x: number, y: number) => number[] {
   return (x, y) => pngPixel(img, x - fw.left, y - fw.top);
 }
 
-async function checkTheme(theme: string, palette: string, pdf: string): Promise<void> {
+async function checkTheme(theme: string, pdf: string): Promise<void> {
   const dir = tmpPath("selection-toolbar-contrast-appdata");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -114,9 +108,6 @@ async function checkTheme(theme: string, palette: string, pdf: string): Promise<
     await client.setNotificationsEnabled(false);
     const before = shootFrame(frame);
     const want = await selectLine(client, frame);
-    if (hex(want) !== palette) {
-      throw new Error(`selection-toolbar-contrast: ${theme}: card ${hex(want)}, not the palette's ${palette}`);
-    }
 
     const toolbar = findToolbar(proc.pid!);
     if (!toolbar) {
@@ -139,6 +130,10 @@ async function checkTheme(theme: string, palette: string, pdf: string): Promise<
     const x = Math.floor((tw.left + tw.right) / 2);
     const y = tw.bottom + 1;
     const page = before(x, y);
+    // themed pages take the canvas color, which the card rises above
+    if (sum(want) <= sum(page)) {
+      throw new Error(`selection-toolbar-contrast: ${theme}: card ${hex(want)} isn't lighter than page ${hex(page)}`);
+    }
     // on a black page no shadow can show: the border sets the card apart
     if (sum(page) > 0) {
       await waitFor(
@@ -166,8 +161,8 @@ export async function testit(): Promise<void> {
   setProcessDpiAware();
   const pdf = tmpPath("selection-toolbar-contrast.pdf");
   writeFileSync(pdf, makeTextPdf(LINE));
-  for (const [theme, palette] of THEMES) {
-    await checkTheme(theme, palette, pdf);
+  for (const theme of THEMES) {
+    await checkTheme(theme, pdf);
   }
 }
 
