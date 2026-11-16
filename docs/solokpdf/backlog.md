@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-16: E78 open; D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-17: E78 and E87 open; D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D15, E87, F4). For a code change, choose affected tests from
+group (B76, C2, D15, E88, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -26,6 +26,7 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | ID  | Item                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Status |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | E78 | `tts-engine-crash-recovery` hangs intermittently (full suite 43835416476 MuPDF timed out at 5 min; locally 2 hangs in 6 MuPDF runs, PDFium passed). Stacks in `.work/e78-tts-hang/tts-stacks.txt`: the crashed TTS thread waits in `MaybeEndCrashedThread` for `EndedThreadDumpThread`, whose `MiniDumpWriteDump` blocks in `LoadLibraryExA` on the loader lock; the UI thread sits in an ALPC call. Upstream code (`9e246efc4`, `src/base/CrashHandler.cpp:508`). Find the lock holder (`!locks`, UI stack) before fixing | todo   |
+| E87 | E85's line-drawn tree chevrons look crude next to upstream; draw the uxtheme TreeView glyphs upstream's native tree uses (`Explorer` / `DarkMode_Explorer`, hot glyph on hover)                                                                                                                                                                                                                                                                                                                                            | todo   |
 
 ## Deferred
 
