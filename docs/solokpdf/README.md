@@ -14,6 +14,10 @@ rendering output require checking their purpose and visual impact. Do not switch
 meet memory/startup targets. Font-info v2 remains probe-only because it changes
 rendered output.
 
+UI chrome follows the active theme's colors. Where upstream draws OS theme parts
+or fixed grays, keep its shape, size and position but take colors from the
+theme (owner, 2026-11-17); record the difference in [features.md](features.md).
+
 ## Status (2026-11-16)
 
 No open backlog items. D3 (suite sharding) is deferred; F1/F3 manual checks and
