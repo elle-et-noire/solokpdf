@@ -229,6 +229,15 @@ void DarkModeApplyToPopupWindow(HWND hwnd) {
     DarkMode::setWindowNotifyCustomDrawSubclass(hwnd);
 }
 
+// DarkModeApplyToPopupWindow() after a theme switch: a classic theme also has
+// to drop the dark visual styles a themed one gave the children
+void DarkModeReapplyToPopupWindow(HWND hwnd) {
+    DarkModeApplyToPopupWindow(hwnd);
+    if (gUseDarkModeLib && IsCurrentThemeDefault()) {
+        DarkMode::setChildCtrlsTheme(hwnd);
+    }
+}
+
 void DarkModeApplyToMenuWindow(HWND hwnd) {
     if (!DarkModeIsActive() || !hwnd) {
         return;

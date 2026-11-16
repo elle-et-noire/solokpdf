@@ -3,6 +3,8 @@
 //   stayed white around an f2 edit
 // - the filter fields of Advanced Settings, Keyboard Shortcuts, Zoom and the command palette have
 //   a visible border: they had the dialog's color and no border, so an empty focused one vanished
+// - the floating Find window keeps a one-color box after a theme switch (E83): its UpdateTheme
+//   recolored the combobox's edit even where the native ring stays white
 import { writeFileSync } from "node:fs";
 import { ControlCommand } from "./control.ts";
 import { cmdId, makeTextPdf, runStandalone, tmpPath, writeAppdata } from "./util.ts";
@@ -26,6 +28,11 @@ const kCases: { theme: string; dpi: number }[] = [
   { theme: "Dark", dpi: 100 },
   { theme: "Solarized Light", dpi: 100 },
   { theme: "Light", dpi: 200 },
+];
+// Find window theme switches: a Light start has no darkmodelib subclass yet, a Dark one has
+const kThemeSwitches = [
+  ["Light", "Dark", "Light"],
+  ["Dark", "Light"],
 ];
 const kDialogs = ["CmdAdvancedSettings", "CmdCustomizeShortcuts", "CmdZoomCustom", "CmdCommandPalette"];
 // the border must differ this much (gray levels) from the field inside it
@@ -170,12 +177,62 @@ async function checkCase(theme: string, dpi: number, pdf: string, errors: string
   }
 }
 
+// interior gray of an edit against its window's background just left of it
+function fieldVsWindow(owner: number, edit: number): { diff: number; desc: string } {
+  const c = captureWindowPixels(owner, "window");
+  if (!c) throw new Error("capture failed");
+  const o = getWindowRect(owner);
+  const r = getWindowRect(edit);
+  const y = r.top - o.top + Math.floor((r.bottom - r.top) / 2);
+  const field = gray(c, r.right - o.left - 4, y);
+  const bg = gray(c, r.left - o.left - 3, y);
+  return { diff: Math.abs(field - bg), desc: `pages ${field}, window ${bg}` };
+}
+
+// switch themes with the floating Find window up, starting in themes[0]: the find box stays one
+// color and the pages field follows the theme
+async function checkFindWindowThemeSwitch(pdf: string, themes: string[], errors: string[]): Promise<void> {
+  const settings = `Theme = ${themes[0]}\nSearchUIFloating = true\n`;
+  const dir = writeAppdata(`field-visibility-find-window-${themes[0]}`, settings);
+  const s = await launchControlled(["-appdata", dir, pdf]);
+  const pid = s.proc.pid!;
+  const out: string[] = [];
+  try {
+    await s.client.request(ControlCommand.SetNotificationsEnabled, [0]);
+    await s.client.waitForRenderIdle();
+    sendCommandSync(s.frame, cmdId("CmdFindFirst"));
+    await Bun.sleep(400);
+    const fw = topWindows(pid).find((w) => w.hwnd !== s.frame && visibleChildren(w.hwnd, "ComboBox").length > 0);
+    if (!fw) throw new Error("no find window");
+    const combo = visibleChildren(fw.hwnd, "ComboBox")[0]!;
+    for (const theme of themes) {
+      const tag = `find window after ${theme}`;
+      const r = await s.client.request(ControlCommand.TestInvokeCommand, [`CmdSetTheme ${theme}`]);
+      if (r[0] !== 0) throw new Error(`CmdSetTheme ${theme}: ${r[1]}`);
+      await Bun.sleep(500);
+      const t = secondToneShare(fw.hwnd, combo);
+      const p = fieldVsWindow(fw.hwnd, filterEdit(fw.hwnd));
+      out.push(`${theme}: find ${t.colors}, ${p.desc}`);
+      if (t.share > kMaxSecondTone) errors.push(`${tag}: find box is two-tone (${t.colors})`);
+      if (p.diff > kMinBorderContrast) errors.push(`${tag}: pages field kept the old theme (${p.desc})`);
+    }
+    console.log(`find window ${themes.join(" -> ")}: ${out.join("; ")}`);
+  } finally {
+    await s.client.request(ControlCommand.Quit, []).catch(() => {});
+    s.client.close();
+    await killAndWait(s.proc);
+  }
+}
+
 async function run(cases: { theme: string; dpi: number }[]): Promise<void> {
   const pdf = tmpPath("field-visibility.pdf");
   writeFileSync(pdf, makeTextPdf("field visibility"));
   const errors: string[] = [];
   for (const { theme, dpi } of cases) {
     await checkCase(theme, dpi, pdf, errors).catch((e) => errors.push(`${theme} ${dpi}%: ${e}`));
+  }
+  for (const themes of kThemeSwitches) {
+    await checkFindWindowThemeSwitch(pdf, themes, errors).catch((e) => errors.push(`find window ${themes}: ${e}`));
   }
   if (errors.length > 0) throw new Error(errors.join("\n"));
 }

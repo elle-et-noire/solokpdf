@@ -111,7 +111,8 @@ Layers lists take the canvas color too (upstream: `ControlBackgroundColor`).
 The filter fields of Advanced Settings, Keyboard Shortcuts, Zoom and the
 command palette have the sidebar search field's `EdgeColor` border and text
 margins (upstream: borderless). In the default Light theme the find bar's
-box stays native white, as its ring and drop-down button are.
+and Find window's box stays native white, as its ring and drop-down button
+are, also after a theme switch.
 
 The Windows bookmark tree uses the virtual sidebar control and follows the
 document's `Scrollbars` setting. Long titles scroll horizontally;

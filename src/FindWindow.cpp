@@ -704,11 +704,16 @@ void FindWindowWnd::SavePos() {
 // baked into an image list at the current text color, so rebuild it; the
 // controls and caption also need recoloring.
 void FindWindowWnd::ApplyDarkMode() {
-    DarkModeApplyToTitleBar(hwnd);
+    DarkModeReapplyToPopupWindow(hwnd);
 }
 
 void FindWindowWnd::UpdateTheme() {
     WindowBase::UpdateTheme();
+    // WindowBase colors every child: where the combobox ring stays native,
+    // keep its edit native too, as at creation
+    if (!DarkModeThemesControls()) {
+        edit->SetColors(kColorUnset, kColorUnset);
+    }
     UpdatePagesLabel();
     // the icons are drawn in the theme's text color, so re-render them
     UpdateButtonIcons();

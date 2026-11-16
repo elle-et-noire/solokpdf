@@ -29,6 +29,7 @@ void DarkModeApplyToWindowAndEraseBg(HWND);
 void DarkModeApplyToTitleBar(HWND);
 // a popup window, once its children exist
 void DarkModeApplyToPopupWindow(HWND);
+void DarkModeReapplyToPopupWindow(HWND);
 // the window a menu opens in
 void DarkModeApplyToMenuWindow(HWND);
 // the menu bar's rebar
