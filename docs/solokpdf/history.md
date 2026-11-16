@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E72 | `-dbg-control` Quit showed "Unsaved changes" with an uncommitted in-place FreeText or form edit                                                                                                                                                                                             | done — Commit pending input before Quit discards (E72); [results](#e72-quit-with-pending-input-2026-11-16)                                                                                                                              |
 | E71 | Monkey test: seeded random UI operation sequences via `-dbg-control` (crash/hang/ASan)                                                                                                                                                                                                      | done — Add seeded monkey test of UI operations (E71); [results](#e71-monkey-test-2026-11-16)                                                                                                                                            |
 | E70 | Scheduled full suite 43763953763: ten failing tests (both engines, `issue-6055` MuPDF, `issue-2423` PDFium)                                                                                                                                                                                 | done — Record E70 scheduled-suite triage (E70); [results](#e70-scheduled-suite-failures-2026-11-15)                                                                                                                                     |
 | E69 | Push CI 43758848700: `ad-hoc-pdfium-palette-editor` finds the editor loaded after opening the palette                                                                                                                                                                                       | done — Skip annotation hit tests without annotations (E69); [results](#e69-palette-hit-test-on-the-runner-2026-11-16)                                                                                                                   |
@@ -3980,3 +3981,19 @@ stacks through `startup-diagnostics.ts` (`hang/` in the finding); no hang occurr
 after that was added.
 No smoke variant joined `run-solokpdf-ci.ts`: outcomes depend on render timing, so
 the test is in its skipped map.
+
+## E72: Quit with pending input (2026-11-16)
+
+`ControlCmd::Quit` discarded each tab before closing, but `ResolveUnsavedChanges`
+skipped a tab that was not yet dirty. An uncommitted in-place FreeText or form text
+edit was committed later by `CloseWindow`, which made the tab dirty and showed the
+prompt. The test hook `ResolveUnsavedChanges` now commits pending input first, as
+the real prompt (`MaybeSaveAnnotations`) does; user-facing close and quit are
+unchanged.
+
+`tests/ad-hoc-quit-pending-input.ts` starts an in-place FreeText and a form text
+edit in both engines and sends Quit: all four cases showed "Unsaved changes" before
+the fix and exit without a dialog after it (7 s; in `run-solokpdf-ci.ts`). The
+seed-6 shrunk replay and `--seed 6` (300 ops) now pass with no note. The monkey test
+reports a dialog during shutdown as a `dialog` finding again; it still answers it so
+the app can exit.

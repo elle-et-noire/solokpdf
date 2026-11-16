@@ -57,7 +57,9 @@ returns the document to its clean state.
 switch and reload, annotation creation and undo, form edits, saves and text
 queries. A crash, ReportIf exit, ASan report, request timeout, unexpected quit
 or a dialog it cannot close is a finding. The "Unsaved changes" prompt gets the
-op's recorded answer; any other dialog is cancelled and printed as a note.
+op's recorded answer; any other dialog is cancelled and printed as a note. A
+dialog after Quit is answered so the app exits, and is a `dialog` finding:
+Quit never prompts (`tests/ad-hoc-quit-pending-input.ts`).
 
 ```powershell
 bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-monkey.ts --no-build --seed 1 --ops 300 --runs 5

@@ -5588,7 +5588,11 @@ static void ReloadWithSavePrompt(MainWindow* win) {
 
 // Answer the "Unsaved changes" prompt for tab without showing it (tests).
 // Discard leaves the changes in memory but lets the tab close silently.
+// Pending input is committed first, as the prompt does; closing would commit it later.
 bool ResolveUnsavedChanges(WindowTab* tab, UnsavedChangesAction action, Str newPath) {
+    if (tab && !CommitTabInput(tab)) {
+        return false;
+    }
     EngineBase* engine = tab ? tab->GetEngine() : nullptr;
     if (!engine || !EngineHasUnsavedAnnotations(engine)) {
         return true;

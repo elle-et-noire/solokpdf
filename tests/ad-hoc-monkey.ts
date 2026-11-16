@@ -675,16 +675,15 @@ async function classify(s: Session, e: unknown): Promise<{ kind: string; detail:
   return { kind, detail };
 }
 
-// Quit discards unsaved changes before closing, but closing commits pending input (an
-// in-place FreeText or form edit) first, which can make the tab dirty again and prompt.
-async function waitQuit(s: Session): Promise<number | null> {
+// Quit never prompts (E72); a dialog at shutdown is answered so the app can exit, and reported.
+async function waitQuit(s: Session, shown: string[]): Promise<number | null> {
   const deadline = Date.now() + kQuitTimeoutMs;
   while (Date.now() < deadline) {
     const code = await withTimeout(s.proc.exited, "quit", 250).catch(() => null);
     if (code !== null) return code;
     for (const dlg of dialogs(s.proc.pid)) {
       const title = getWindowText(dlg);
-      s.notes.push(`quit: dialog '${title}'`);
+      shown.push(title);
       if (title === kUnsavedTitle) postMessage(dlg, kClickButton, kBtnDiscard, 0);
       else postMessage(dlg, WM_COMMAND, kIdCancel, 0);
     }
@@ -717,7 +716,8 @@ async function runSession(dir: string, ops: Op[], logPath?: string): Promise<Out
       await request(s, ControlCommand.Quit, [], "quit");
     } catch {}
     s.client.close();
-    const code = await waitQuit(s);
+    const shown: string[] = [];
+    const code = await waitQuit(s, shown);
     if (code === null) {
       await captureStartupFailure(s.proc.pid, "quit", join(s.dir, "hang"));
       await killAndWait(s.proc);
@@ -726,6 +726,8 @@ async function runSession(dir: string, ops: Op[], logPath?: string): Promise<Out
       const stderr = await takeStderr(s.proc);
       const kind = /AddressSanitizer/.test(stderr) ? "asan" : code === DEBUG_REPORT_EXIT_CODE ? "assert" : "crash";
       failure = { kind, detail: `exit code ${code} at shutdown`, opIndex: ops.length };
+    } else if (shown.length > 0) {
+      failure = { kind: "dialog", detail: `quit showed dialog '${shown[0]}'`, opIndex: ops.length };
     }
   }
   const stderr = await takeStderr(s.proc);

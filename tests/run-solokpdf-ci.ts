@@ -82,6 +82,7 @@ import { testit as controllerDeleteHandles } from "./controller-delete-handles.t
 import { testit as renderCacheShutdown } from "./render-cache-shutdown.ts";
 import { testit as dialogTargetReentry } from "./dialog-target-reentry.ts";
 import { testit as pendingDocumentInput } from "./pending-document-input.ts";
+import { testit as quitPendingInput } from "./ad-hoc-quit-pending-input.ts";
 import { testit as atomicPdfSave } from "./atomic-pdf-save.ts";
 import { testQuick as fullPdfSave } from "./ad-hoc-pdfium-full-save.ts";
 import { testit as printCloseReentry } from "./print-close-reentry.ts";
@@ -91,6 +92,7 @@ import { testit as upstreamD14 } from "./ad-hoc-pdfium-d14.ts";
 const tests: NamedTest[] = [
   ["ad-hoc-pdfium-d14", upstreamD14],
   ["pending-document-input", pendingDocumentInput],
+  ["ad-hoc-quit-pending-input", quitPendingInput],
   ["dialog-target-reentry", dialogTargetReentry],
   ["ad-hoc-pdfium-form-hover", formHover],
   ["atomic-pdf-save", atomicPdfSave],

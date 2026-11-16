@@ -79,10 +79,9 @@ All rows are done; see [history.md](history.md#completed-backlog).
 
 ## Open
 
-| ID  | Item                                                                                                                                                                                                                                                                                              | Status |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| E72 | `-dbg-control` Quit hangs on "Unsaved changes" with an uncommitted in-place FreeText: it discards before `CloseWindow`'s `CommitTabInput` re-dirties the tab. Repro: `bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-monkey.ts --no-build --seed 6` prints `quit: dialog 'Unsaved changes'` | todo   |
-| E73 | Monkey test form ops reach the form only when its tab is current (form field 1/10, button 0/4 in seed 6); target the form tab first                                                                                                                                                               | todo   |
+| ID  | Item                                                                                                                                | Status |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| E73 | Monkey test form ops reach the form only when its tab is current (form field 1/10, button 0/4 in seed 6); target the form tab first | todo   |
 
 ## Deferred
 

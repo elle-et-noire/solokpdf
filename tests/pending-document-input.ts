@@ -23,7 +23,7 @@ const kSaveExisting = 101;
 const kSetSelection = 0x0186; // LB_SETCURSEL
 type AnnotType = "FreeText" | "Square";
 
-function annotFixture(value: string, type: AnnotType): string {
+export function annotFixture(value: string, type: AnnotType): string {
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R /AcroForm << /DR << /Font << /Helv 5 0 R >> >> >> >>",
     "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
@@ -33,7 +33,7 @@ function annotFixture(value: string, type: AnnotType): string {
   ]);
 }
 
-function fixture(value: string, type: "text" | "choice" = "text"): string {
+export function fixture(value: string, type: "text" | "choice" = "text"): string {
   const field = type === "text" ? "/FT /Tx" : `/FT /Ch /Opt [(${kOriginal}) (${kEdited}) (${kDisk})]`;
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /DR << /Font << /Helv 5 0 R >> >> >> >>",
@@ -58,7 +58,7 @@ async function state(client: ControlClient): Promise<string> {
   return String(res[1]);
 }
 
-async function startInput(client: ControlClient, canvas: number, type: "text" | "choice"): Promise<number> {
+export async function startInput(client: ControlClient, canvas: number, type: "text" | "choice"): Promise<number> {
   let editor = 0;
   // Hit testing can decline while rendering; retry until the editor opens.
   await until(async () => {
@@ -84,7 +84,12 @@ async function selectAnnot(client: ControlClient, canvas: number): Promise<void>
   }, "Annotation was not selected");
 }
 
-async function startAnnotInput(client: ControlClient, canvas: number, pid: number, type: AnnotType): Promise<number> {
+export async function startAnnotInput(
+  client: ControlClient,
+  canvas: number,
+  pid: number,
+  type: AnnotType,
+): Promise<number> {
   await selectAnnot(client, canvas);
   const dump = await state(client);
   const chip = /[=;]contents:(-?\d+),(-?\d+),(\d+),(\d+)/.exec(dump);
