@@ -95,7 +95,9 @@ button (upstream: the selected one only); non-selected tabs narrower than 100
 DIP hide it, and the pinned Home tab has none. Hovered, the ✕ steps toward
 the text color instead of turning
 white on a red circle. Minimize, maximize and close are 46 DIP wide, as Windows
-11 draws them (upstream: square, as tall as the caption).
+11 draws them (upstream: square, as tall as the caption). A hovered or pressed close
+button's red reaches the window's top and outer edges, as in Windows 11
+(upstream stopped 1–2 px short); those border pixels still resize.
 
 The menu bar beside the tabs takes the title bar color and `TextColor`; a
 hovered or open menu shows the selected tab's color. Upstream let darkmodelib

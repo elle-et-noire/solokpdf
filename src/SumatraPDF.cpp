@@ -13511,14 +13511,14 @@ static void DrawCaptionButton(MainWindow* win, HDC hdc, ButtonInfo* bi) {
             int y = rButton.y;
             int w = rButton.dx;
             int h = rButton.dy;
-            // leave the frame-border pixel visible at the outer top corner;
-            // only the outer edge borders the frame, the bottom is interior
+            // like Windows 11, red covers the frame border at the top and outer
+            // edges; the caption is inset by it for resize hit-testing
             if (isClose && !IsZoomed(win->hwndFrame)) {
+                y -= kFrameBorderSize;
+                h += kFrameBorderSize;
+                w += kFrameBorderSize;
                 if (IsUIRtl()) {
-                    x += kFrameBorderSize;
-                    w -= kFrameBorderSize;
-                } else {
-                    w -= kFrameBorderSize;
+                    x -= kFrameBorderSize;
                 }
             }
             gfx.FillRectangle(&bgBr, x, y, w, h);
