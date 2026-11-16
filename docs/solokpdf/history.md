@@ -11,7 +11,7 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 | Topic                  | Records                                                                                                                                                                                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Latest validation      | [D13/E17 hosted results](#hosted-d13e17-validation-2026-11-10), [D12 successful regular CI](#d12-hosted-evidence-2026-11-10), [E16 local ASan checks](#e16-asan-build-path-2026-11-10), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09) |
-| Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09)                                                                                                                                                                |
+| Earlier suite failures | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09), [E70 failures at `b12535517`](#e70-scheduled-suite-failures-2026-11-15)                                                                                       |
 | Merge follow-ups       | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                                   |
 | Recent implementation  | [E14 tree encapsulation](#e14-virtual-tree-encapsulation-2026-11-10), [tree layout](#virtual-tree-layout-boundary-2026-11-10), [PDFium runtime](#pdfium-runtime-boundary-2026-11-10), [key state](#keyboard-state-boundary-2026-11-10)                |
 | Earlier implementation | [E13 route checks](#e13-keyboard-route-checks-2026-11-09), [E12 input targets](#e12-input-target-classification-2026-11-09), [E11 settings](#e11-settings-application-2026-11-09), [sidebar rollout](#virtual-sidebar-rollout-2026-11-09)             |
@@ -3882,3 +3882,60 @@ test passed. With the test cursor moved to the canvas center, the test failed lo
 `MayHaveAnnotations()` is false (E68's gate), which also covers context menus. Passing:
 `ad-hoc-pdfium-palette-editor` (now with the cursor on the page), `ad-hoc-pdfium-hover`,
 `command-palette-annotations`, `ad-hoc-pdfium-annotations`.
+
+## E70: Scheduled-suite failures (2026-11-15)
+
+Scheduled run [43763953763](https://github.com/elle-et-noire/solokpdf/actions/runs/43763953763)
+(`SolokPDF full tests`, `b12535517`) failed 9 of 622 tests on PDFium and 9 of 625 on MuPDF.
+No full suite had run since D9's `99ba47b52`; D14 and E10–E68 landed in between.
+
+| Engines     | Failing tests                                                                                                                                                                   |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Both        | `session-restore-search`, `pdf-only-menu-items`, `issue-6236`, `selection-mouse-colors`, `overlay-scrollbar-theme`, `codex-provider`, `issue-6314`, `smart-scrollbars-autohide` |
+| PDFium only | `issue-2423`                                                                                                                                                                    |
+| MuPDF only  | `issue-6055`                                                                                                                                                                    |
+
+### Local triage
+
+Debug quick build with E69, 120 DPI, hidden desktop; each test alone, three runs per
+`SOLOKPDF_ENGINE`. Before → after the changes (pass counts):
+
+| Test                        | PDFium  | MuPDF   | Cause                                                                                                                      |
+| --------------------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `pdf-only-menu-items`       | 0 → 3   | 0 → 3   | stale: EPUBs offer Extract Pages since upstream #6509 (`dabe4e4cd`)                                                        |
+| `issue-6314`                | 0 → 3   | 0 → 3   | stale: upstream #6512 (`fa651624f`) added a fifth AI chat backend                                                          |
+| `smart-scrollbars-autohide` | 0 → —   | 0 → —   | stale: virtual trees (`3412a2174`) own four more overlay bars; got 6, want 2                                               |
+| `overlay-scrollbar-theme`   | 0 → —   | 0 → —   | stale: same; the first "vertical" bar was a zero-width tree bar, so the capture failed                                     |
+| `issue-6236`                | 0 → 3   | 0 → 3   | app: upstream `fb8abfba2` renders an open tab's thumbnail from its engine and skipped the EPUB's declared cover            |
+| `session-restore-search`    | 0 → 3   | 0 → 3   | app: opening the find window hides the bar (upstream `fc0b3b8b0`), which aborted a running `-search`                       |
+| `issue-6055`                | 0 → 3   | 1 → 3   | app: same; it passed only when the search finished before the window opened                                                |
+| `selection-mouse-colors`    | 0 → 3   | 0 → 3   | app: after an edit, PDFium page text waited for a mouse move, so a press panned (likely since E29); also E69's editor rule |
+| `codex-provider`            | — → 4   | — → 1   | runner: no `cl` on PATH; the test now uses vcvarsall through vswhere (passed without `cl` on PATH)                         |
+| `issue-2423`                | not run | not run | app: PDFium kept a page-final space; e57e701ae made the test selection include the last character                          |
+
+The two scrollbar tests now pick the two bars over the canvas (a probe listed four
+zero-size, hidden tree bars beside them). Their pixel checks read the screen, which fails
+on the hidden desktop ("capture failed" in all six runs after the change); the runner's
+screen captures work (`taskbar-icon-contrast` passes there).
+
+`selection-mouse-colors` failed at the drag after `CmdCreateAnnotUnderline`, as in the
+artifact: the press started no selection. With control requests between the moves (they
+read page text) it passed. Visible pages now re-extract text when the text generation
+changes. E69 left the editor unloaded on the plain mouse-down, so the test expects it only
+for the annotated file.
+
+`issue-2423` writes the clipboard and was not run locally. `-extract-text` of
+`tests/issue-2423.pdf` ended in `hello_world()` plus a space on PDFium and a line break on
+MuPDF; after the change PDFium ends in `hello_world()`. `copy-join-lines` and `issue-2239`
+pass on both engines.
+
+Also passing once per engine after the last change: `form-text-cache`, `issue-6055`,
+`session-restore-search`, `issue-6236`, `ad-hoc-pdfium-palette-editor`; `jbig2-resize-overflow`
+passes with the shared vcvars helper. The fixed suite entries moved below `issue-5978` in
+`run-almost-all.ts`; `issue-6314` and `smart-scrollbars-autohide` stay in `run-all.ts`'s
+slow list. No full suite was run.
+
+### Pending hosted recheck
+
+`smart-scrollbars-autohide`, `overlay-scrollbar-theme` (screen capture) and `issue-2423`
+(clipboard) on both engines; `codex-provider` for vcvarsall on the runner image.

@@ -79,9 +79,9 @@ All rows are done; see [history.md](history.md#completed-backlog).
 
 ## CI failures at `b12535517`
 
-| ID  | Item                                                                                                        | Status |
-| --- | ----------------------------------------------------------------------------------------------------------- | ------ |
-| E70 | Scheduled full suite 43763953763: ten failing tests (both engines, `issue-6055` MuPDF, `issue-2423` PDFium) | doing  |
+| ID  | Item                                                                                                        | Status                                                                                                                                                                         |
+| --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| E70 | Scheduled full suite 43763953763: ten failing tests (both engines, `issue-6055` MuPDF, `issue-2423` PDFium) | blocked (hosted recheck: `smart-scrollbars-autohide`, `overlay-scrollbar-theme`, `issue-2423`, `codex-provider`; [triage](history.md#e70-scheduled-suite-failures-2026-11-15)) |
 
 ## Deferred
 
