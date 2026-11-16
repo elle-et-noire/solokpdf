@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { EXE, ROOT, runStandalone, tmpPath, writeAppdata } from "./util.ts";
+import { EXE, ROOT, runStandalone, tmpPath, vcvarsPath, writeAppdata } from "./util.ts";
 
 export async function testit(): Promise<void> {
   if (process.platform !== "win32") return;
@@ -12,13 +12,20 @@ export async function testit(): Promise<void> {
   }
   const dir = tmpPath("codex-provider");
   mkdirSync(dir, { recursive: true });
-  const compile = Bun.spawnSync([
-    "cl",
-    "/nologo",
-    join(ROOT, "tests/codex-provider.c"),
-    `/Fe${join(dir, "codex.exe")}`,
-    `/Fo${join(dir, "codex.obj")}`,
-  ]);
+  const cl = `cl /nologo "${join(ROOT, "tests/codex-provider.c")}" /Fe"${join(dir, "codex.exe")}" /Fo"${join(dir, "codex.obj")}"`;
+  // without a developer prompt (hosted runner) cl comes from vcvarsall.bat
+  let script = cl;
+  if (!Bun.which("cl")) {
+    const vcvars = vcvarsPath();
+    if (!vcvars) {
+      console.log("Skipping Codex mock test: no cl on PATH and no Visual Studio C++ tools");
+      return;
+    }
+    script = `call "${vcvars}" x64 >nul && ${cl}`;
+  }
+  const bat = join(dir, "compile.bat");
+  writeFileSync(bat, `@echo off\r\n${script}\r\n`);
+  const compile = Bun.spawnSync(["cmd.exe", "/d", "/c", bat]);
   if (compile.exitCode !== 0) throw new Error(compile.stderr.toString() + compile.stdout.toString());
   const cache = join(dir, "models_cache.json");
   const catalog = (slug: string) =>

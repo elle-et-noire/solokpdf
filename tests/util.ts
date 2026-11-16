@@ -719,6 +719,33 @@ export function findGhostscript(): string {
   return "";
 }
 
+// path of Visual Studio's vcvarsall.bat, "" when no C++ tools are installed
+export function vcvarsPath(): string {
+  const vswhere = join(
+    process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)",
+    "Microsoft Visual Studio",
+    "Installer",
+    "vswhere.exe",
+  );
+  if (!existsSync(vswhere)) {
+    return "";
+  }
+  const found = Bun.spawnSync([
+    vswhere,
+    "-latest",
+    "-requires",
+    "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+    "-property",
+    "installationPath",
+  ]);
+  const root = found.stdout.toString().trim();
+  if (found.exitCode !== 0 || !root) {
+    return "";
+  }
+  const bat = join(root, "VC", "Auxiliary", "Build", "vcvarsall.bat");
+  return existsSync(bat) ? bat : "";
+}
+
 // convert a PDF to PostScript with Ghostscript
 export async function pdfToPs(gs: string, src: string, dst: string): Promise<void> {
   const proc = Bun.spawn([gs, "-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=ps2write", `-sOutputFile=${dst}`, src], {
