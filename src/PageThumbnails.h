@@ -60,6 +60,7 @@ struct PageThumbnailsCtrl : VirtListBox {
     void SelectPage(int);
     void SetCurrentPage(int);
     Rect PageRect(int pageNo);
+    int HoverPage();
 
   protected:
     int ScrollbarDx() override;
@@ -77,7 +78,11 @@ struct PageThumbnailsCtrl : VirtListBox {
     u64 sbAnimStart = 0;
     int sbAnimMs = 0;
     HWND sbAnimHwnd = nullptr;
+    // the mouse in local coords, while over the list; the hovered page follows scrolling
+    bool hasMousePt = false;
+    Point mousePt;
 
+    void UpdatePageHover(Point pt, bool inside);
     void UpdateScrollbarHover(Point pt, bool inside);
     void StopScrollbarAnim();
     static void CALLBACK ScrollbarAnimProc(HWND, UINT, UINT_PTR, DWORD);

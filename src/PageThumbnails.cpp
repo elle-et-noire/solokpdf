@@ -389,6 +389,25 @@ void PageThumbnailsCtrl::UpdateScrollbarHover(Point pt, bool inside) {
 
 void PageThumbnailsCtrl::OnThumbMouseLeave() {
     UpdateScrollbarHover({}, false);
+    UpdatePageHover({}, false);
+}
+
+// the page under the mouse, 0 for none; derived from the mouse point so a
+// scroll that moves another page under it moves the hover too
+int PageThumbnailsCtrl::HoverPage() {
+    if (!hasMousePt) {
+        return 0;
+    }
+    return std::max(PageAtPoint(mousePt), 0);
+}
+
+void PageThumbnailsCtrl::UpdatePageHover(Point pt, bool inside) {
+    int oldPage = HoverPage();
+    hasMousePt = inside;
+    mousePt = pt;
+    if (HoverPage() != oldPage) {
+        Invalidate();
+    }
 }
 
 // (Re)start from the tab's document: its pages, the current page and the dpi.
@@ -513,6 +532,8 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
     DisplayModel* dm = CurrentDoc(this);
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
     bool chapters = ShowChapterUi(dm);
+    int hoverPage = HoverPage();
+    Color listBg = GetColor(kColListBg);
     for (int pageNo = firstPage; pageNo <= lastPage; pageNo++) {
         int col = pageNo - firstPage;
         int x = left + (col * (thumbDx + gap));
@@ -523,7 +544,10 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
         int ringDx = DpiScaleByDpi(dpi, kThumbnailSelectionWidth);
         if (isCurrent) {
             // the selection color around the page, inside its outline (E94)
-            ev->gfx->FillRoundedRect(outline, ringDx, ThemeSelectionBg(GetColor(kColListBg)));
+            ev->gfx->FillRoundedRect(outline, ringDx, ThemeSelectionBg(listBg));
+        } else if (pageNo == hoverPage) {
+            // the hovered page: the hover step in the same place, as on Home (E92)
+            ev->gfx->FillRoundedRect(outline, ringDx, ThemeHoverColorOn(listBg));
         }
         Color pageBg;
         ThemePageRenderColors(pageBg);
@@ -539,7 +563,7 @@ void PageThumbnailsCtrl::DrawRow(DrawItemEvent* ev) {
 
         ev->gfx->DrawRect(pageRect, ThemeScrollbarThumbColor());
         if (isCurrent) {
-            DrawSelectionOutline(ev->gfx, outline, ringDx, ringDx, ThemeSelectionEdgeOn(GetColor(kColListBg)));
+            DrawSelectionOutline(ev->gfx, outline, ringDx, ringDx, ThemeSelectionEdgeOn(listBg));
         }
 
         TempStr label = fmt("%d", pageNo);
@@ -668,6 +692,7 @@ void PageThumbnailsCtrl::OnThumbMouseDown(VirtMouseEvent* ev) {
 
 void PageThumbnailsCtrl::OnThumbMouseMove(VirtMouseEvent* ev) {
     UpdateScrollbarHover(ev->pt, true);
+    UpdatePageHover(ev->pt, true);
     int oldScrollY = scrollY;
     VirtListBox::OnMouseMove(ev);
     if (scrollY != oldScrollY) {
