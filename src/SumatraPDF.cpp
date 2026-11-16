@@ -13549,27 +13549,18 @@ static void DrawCaptionButton(MainWindow* win, HDC hdc, ButtonInfo* bi) {
         int iconPx = DpiScale(kCaptionGlyphDip);
         DrawCaptionSysButtonGlyph(hdc, kind, rc, iconCol, iconPx);
     } else if (button == CB_MENU) {
-        SolidBrush bgBrMenu(GdiRgbFromColor(ThemeTabStripColor()));
-        gfx.FillRectangle(&bgBrMenu, rButton.x, rButton.y, rButton.dx, rButton.dy);
-
         if (win->isMenuOpen) {
             stateId = CBS_PUSHED;
         }
-        u8 buttonRGB = 1;
+        // same hover / pressed colors as the caption buttons beside it
+        Color bgc = ThemeTabStripColor();
         if (CBS_PUSHED == stateId) {
-            buttonRGB = 0;
+            bgc = ThemeSelectedColorOn(bgc);
         } else if (CBS_HOT == stateId) {
-            buttonRGB = 255;
+            bgc = ThemeHoverColorOn(bgc);
         }
-
-        if (buttonRGB != 1) {
-            if (GetLightness(ThemeWindowTextColor()) > GetLightness(ThemeTabStripColor())) {
-                buttonRGB ^= 0xff;
-            }
-            u8 buttonAlpha = u8((255 - abs((int)GetLightness(ThemeTabStripColor()) - buttonRGB)) / 2);
-            SolidBrush br(Gdiplus::Color(buttonAlpha, buttonRGB, buttonRGB, buttonRGB));
-            gfx.FillRectangle(&br, rc.x, rc.y, rc.dx, rc.dy);
-        }
+        SolidBrush bgBrMenu(GdiRgbFromColor(bgc));
+        gfx.FillRectangle(&bgBrMenu, rButton.x, rButton.y, rButton.dx, rButton.dy);
         Color c = ThemeWindowTextColor();
         u8 r, g, b;
         UnpackColor(c, r, g, b);

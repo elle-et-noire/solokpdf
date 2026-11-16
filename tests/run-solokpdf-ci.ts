@@ -86,6 +86,7 @@ import { testit as quitPendingInput } from "./ad-hoc-quit-pending-input.ts";
 import { testit as findTabSwitch } from "./ad-hoc-find-tab-switch.ts";
 import { testit as tabPlusCrisp } from "./ad-hoc-tab-plus-crisp.ts";
 import { testit as captionGlyphsCrisp } from "./ad-hoc-caption-glyphs-crisp.ts";
+import { testit as menuButtonHover } from "./ad-hoc-menu-button-hover.ts";
 import { testit as atomicPdfSave } from "./atomic-pdf-save.ts";
 import { testQuick as fullPdfSave } from "./ad-hoc-pdfium-full-save.ts";
 import { testit as printCloseReentry } from "./print-close-reentry.ts";
@@ -99,6 +100,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-find-tab-switch", findTabSwitch],
   ["ad-hoc-tab-plus-crisp", tabPlusCrisp],
   ["ad-hoc-caption-glyphs-crisp", captionGlyphsCrisp],
+  ["ad-hoc-menu-button-hover", menuButtonHover],
   ["dialog-target-reentry", dialogTargetReentry],
   ["ad-hoc-pdfium-form-hover", formHover],
   ["atomic-pdf-save", atomicPdfSave],
