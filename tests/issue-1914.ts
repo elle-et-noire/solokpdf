@@ -121,6 +121,11 @@ export async function testit(): Promise<void> {
         if (st.count === 1 && st.rects.length === 1) {
           break;
         }
+        // a toggle before the page's links are known leaves the mode at once
+        // ("No links on this page"); slow runners hit that, so toggle again
+        if (/\bactive=0\b/.test(dump)) {
+          sendCommandSync(frame, cmdId("CmdToggleKeyboardLinkFollowing"));
+        }
         await sleep(25);
       }
       if (st.page !== 1) {
