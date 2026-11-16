@@ -100,8 +100,10 @@ static WStr gSapiQueuedText;
 constexpr int kMaxSapiEngineDirs = 8;
 static WCHAR gSapiEngineDirs[kMaxSapiEngineDirs][MAX_PATH];
 static AtomicInt gSapiEngineDirCount = 0;
-// set by the crash handler after it ended a crashed voice engine thread
+// set by the crash handler when it decides to end a crashed voice engine thread
 static AtomicBool gSapiCrashed = 0;
+// set once that thread's dump is written: only then may the UI react
+static AtomicBool gSapiCrashDumped = 0;
 static bool gSapiCrashTaken = false;
 
 static void SapiClearQueued() {
@@ -1669,15 +1671,20 @@ bool TtsOnEngineCrash(void* faultAddr) {
             continue;
         }
         AtomicBoolSet(&gSapiCrashed, true);
-        TtsPostNotifyMsg();
         return true;
     }
     return false;
 }
 
+// crash handler callback, after the crashed engine thread's dump: wake the UI
+void TtsOnEngineThreadEnded() {
+    AtomicBoolSet(&gSapiCrashDumped, true);
+    TtsPostNotifyMsg();
+}
+
 // true once, on the UI thread, after a voice engine crash
 bool TtsTakeEngineCrash() {
-    if (!SapiCrashed() || gSapiCrashTaken) {
+    if (!SapiCrashed() || !AtomicBoolGet(&gSapiCrashDumped) || gSapiCrashTaken) {
         return false;
     }
     gSapiCrashTaken = true;

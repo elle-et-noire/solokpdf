@@ -136,6 +136,7 @@ float TtsGetSpeed() {
 bool TtsOnEngineCrash(void*) {
     return false;
 }
+void TtsOnEngineThreadEnded() {}
 bool TtsTakeEngineCrash() {
     return false;
 }

@@ -17057,6 +17057,7 @@ static void InstallSumatraCrashHandler(bool localOnly) {
     cfg.onCrashBegin = OnCrashBegin;
     cfg.showCrashMessage = ShowCrashHandlerMessage;
     cfg.canEndCrashedThread = TtsOnEngineCrash;
+    cfg.onCrashedThreadEnded = TtsOnEngineThreadEnded;
 
     InstallCrashHandler(cfg);
     CaptureSettings();

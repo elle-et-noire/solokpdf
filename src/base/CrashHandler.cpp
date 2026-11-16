@@ -417,6 +417,9 @@ static DWORD WINAPI CrashDumpThread(LPVOID /*data*/) {
     // off the UI thread: SymInitialize walks every loaded module (~45 ms).
     // A crash signaled meanwhile waits for it, dbghelp::Initialize serializes
     InitializeDbgHelp();
+    // MiniDumpWriteDump loads psapi.dll with the other threads suspended; already
+    // loaded, it no longer waits for a load one of them was in the middle of
+    LoadLibraryExW(L"psapi.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     WaitForSingleObject(gDumpEvent, INFINITE);
     if (!gCrashed) {
         return 0;
@@ -528,6 +531,10 @@ static void MaybeEndCrashedThread(EXCEPTION_POINTERS* exceptionInfo) {
         WaitForSingleObject(h, INFINITE);
         CloseHandle(h);
     }
+
+    // only now: a thread woken earlier can be suspended by the dump mid-LoadLibrary,
+    // and the dump's own LoadLibrary then waits for it forever
+    CallCb(gCfg.onCrashedThreadEnded);
     ExitThread(1);
 }
 

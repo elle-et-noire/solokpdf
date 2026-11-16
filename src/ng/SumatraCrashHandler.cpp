@@ -250,6 +250,7 @@ void InstallSumatraCrashHandler(bool localOnly) {
     cfg.showCrashMessage = ShowCrashHandlerMessage;
     // a SAPI voice engine that faults on its own thread ends only that thread
     cfg.canEndCrashedThread = TtsOnEngineCrash;
+    cfg.onCrashedThreadEnded = TtsOnEngineThreadEnded;
 
     InstallCrashHandler(cfg);
     logf("InstallSumatraCrashHandler: dump '%s', localOnly=%d\n", cfg.crashDumpPath, (int)localOnly);

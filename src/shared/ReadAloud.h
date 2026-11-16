@@ -62,6 +62,7 @@ void TtsSetSpeed(float speed);
 float TtsGetSpeed();
 
 bool TtsOnEngineCrash(void* faultAddr);
+void TtsOnEngineThreadEnded();
 bool TtsTakeEngineCrash();
 bool TtsEngineCrashed();
 bool TtsTestEngineCrash();

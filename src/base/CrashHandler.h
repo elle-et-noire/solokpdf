@@ -21,8 +21,11 @@ struct CrashHandlerConfig {
     void (*onCrashBegin)();
     void (*showCrashMessage)();
     // for a crash on a thread not started by our exe (or the thread pool): true if
-    // the code at faultAddr is such that ending only that thread is safe
+    // the code at faultAddr is such that ending only that thread is safe. Decides only:
+    // waking other threads waits for onCrashedThreadEnded
     bool (*canEndCrashedThread)(void* faultAddr);
+    // after that thread's dump is written, right before it ends
+    void (*onCrashedThreadEnded)();
 };
 
 void InstallCrashHandler(const CrashHandlerConfig& cfg);

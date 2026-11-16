@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E78, E88, E89 open; D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-17: E88, E89 open; D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -23,11 +23,10 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 
 ## Open
 
-| ID  | Item                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Status |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| E78 | `tts-engine-crash-recovery` hangs intermittently (full suite 43835416476 MuPDF timed out at 5 min; locally 2 hangs in 6 MuPDF runs, PDFium passed). Stacks in `.work/e78-tts-hang/tts-stacks.txt`: the crashed TTS thread waits in `MaybeEndCrashedThread` for `EndedThreadDumpThread`, whose `MiniDumpWriteDump` blocks in `LoadLibraryExA` on the loader lock; the UI thread sits in an ALPC call. Upstream code (`9e246efc4`, `src/base/CrashHandler.cpp:508`). Cause (`.work/e78-tts-hang/hang-3-26576.txt`): the crash callback wakes the UI, which loads WinRT speech DLLs; `MiniDumpWriteDump` suspends it mid-load, then loads `psapi.dll` and waits on the loader | todo   |
-| E88 | Home opens with keyboard focus in its search box, and hovering a history row shows no selection outline (owner report 2026-11-17)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | todo   |
-| E89 | UX review: is the selection outline (Home list/thumbnails, F12 page thumbnails) and the floating text-selection toolbar's color choice right? Owner question 2026-11-17; fix what the review finds wrong                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | todo   |
+| ID  | Item                                                                                                                                                                                                     | Status |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| E88 | Home opens with keyboard focus in its search box, and hovering a history row shows no selection outline (owner report 2026-11-17)                                                                        | todo   |
+| E89 | UX review: is the selection outline (Home list/thumbnails, F12 page thumbnails) and the floating text-selection toolbar's color choice right? Owner question 2026-11-17; fix what the review finds wrong | todo   |
 
 ## Deferred
 

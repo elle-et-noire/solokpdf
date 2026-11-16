@@ -540,6 +540,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   PDFium or the app, so silent memory errors aren't caught (E3 dropped:
   prebuilt PDFium isn't ASan). A passing close
   stress check is not an exhaustive proof against races.
+- A crash dump suspends every other thread, then loads `psapi.dll`, which
+  waits for any DLL load a suspended thread was in. `psapi.dll` is preloaded,
+  so the dump hangs only if a thread is suspended while holding the loader's
+  module table lock, which is rare (E78).
 
 ## Tests and CI
 
