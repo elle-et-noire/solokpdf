@@ -583,6 +583,35 @@ bool VirtTree::UpdateBars() {
     return valid();
 }
 
+// Explorer-style chevron: '>' collapsed ('<' in RTL), 'v' expanded. Gray at
+// rest, full text color while the mouse is over the tree, as TreeView does.
+void VirtTree::DrawExpander(Gfx* gfx, Rect box, bool expanded, Color color) {
+    constexpr int kHalfDip = 4;
+    constexpr u8 kRestAlpha = 180;
+    int dpi = measureDpi;
+    int half = DpiScaleByDpi(dpi, kHalfDip);
+    int depth = half / 2;
+    float stroke = (float)dpi / 96.0f;
+    u8 alpha = hotItem == TreeModel::kNullItem ? kRestAlpha : 255;
+    int cx = box.x + box.dx / 2;
+    int cy = box.y + box.dy / 2;
+
+    // tip of the chevron and its two arm ends
+    Point tip, a, b;
+    if (expanded) {
+        tip = {cx, cy + depth};
+        a = {cx - half, cy - depth};
+        b = {cx + half, cy - depth};
+    } else {
+        int dir = rtl ? -1 : 1;
+        tip = {cx + dir * depth, cy};
+        a = {cx - dir * depth, cy - half};
+        b = {cx - dir * depth, cy + half};
+    }
+    gfx->DrawLineAA(a, tip, color, stroke, alpha);
+    gfx->DrawLineAA(tip, b, color, stroke, alpha);
+}
+
 void VirtTree::Paint(VirtHostPaintEvent* ev) {
     Guard guard(this);
     u64 generation = state.generation;
@@ -623,8 +652,7 @@ void VirtTree::Paint(VirtHostPaintEvent* ev) {
         Color color = style.textColor;
         if (node.childCount > 0) {
             int iconX = rtl ? rc.dx - x : x - rowDy;
-            ev->gfx->DrawText(node.expanded ? StrL("-") : StrL("+"), {iconX, row.y, rowDy, row.dy},
-                              gfxTextCenter | gfxTextVCenter, font, color);
+            DrawExpander(ev->gfx, {iconX, row.y, rowDy, row.dy}, node.expanded, color);
         }
         int textWidth = metrics.widths[nodeIndex];
         i64 textLeft = rtl ? (i64)rc.dx - x - textWidth : x;

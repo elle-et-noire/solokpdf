@@ -164,6 +164,9 @@ Always-visible overlay bars reserve room in the tree's viewport so a revealed
 row or title stays clear of the bars.
 Rows are measured when first shown, so collapsed branches of a large outline
 cost nothing until expanded.
+Expanders are chevrons, as in upstream's Explorer-themed TreeView: `>`
+collapsed (`<` in RTL), `v` expanded; gray at rest, the text color while the
+mouse is over the tree. The prototype drew text `+` / `-`.
 
 Implementation and validation results are in
 [history.md](history.md#virtual-sidebar-rollout-2026-11-09), with prototype details

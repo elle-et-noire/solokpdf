@@ -1,6 +1,8 @@
 /* Copyright 2026 the SumatraPDF project authors (see AUTHORS file).
    License: Simplified BSD (see COPYING.BSD) */
 
+struct Gfx;
+
 enum class VirtTreeBarMode {
     Windows,
     Overlay,
@@ -155,6 +157,7 @@ struct VirtTree {
 
     void FreeAccess();
     void Paint(VirtHostPaintEvent* ev);
+    void DrawExpander(Gfx* gfx, Rect box, bool expanded, Color color);
     int WheelPixels(int wheel, i64* rest);
     void Message(VirtHostNativeMsg* ev);
     bool UpdateBars();

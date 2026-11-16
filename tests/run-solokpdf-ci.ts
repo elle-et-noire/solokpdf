@@ -88,6 +88,7 @@ import { testit as tabPlusCrisp } from "./ad-hoc-tab-plus-crisp.ts";
 import { testit as captionGlyphsCrisp } from "./ad-hoc-caption-glyphs-crisp.ts";
 import { testit as menuButtonHover } from "./ad-hoc-menu-button-hover.ts";
 import { testit as captionCloseEdge } from "./ad-hoc-caption-close-edge.ts";
+import { testit as treeChevrons } from "./ad-hoc-tree-chevrons.ts";
 import { testQuick as fieldVisibility } from "./ad-hoc-field-visibility.ts";
 import { testit as atomicPdfSave } from "./atomic-pdf-save.ts";
 import { testQuick as fullPdfSave } from "./ad-hoc-pdfium-full-save.ts";
@@ -104,6 +105,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-caption-glyphs-crisp", captionGlyphsCrisp],
   ["ad-hoc-menu-button-hover", menuButtonHover],
   ["ad-hoc-caption-close-edge", captionCloseEdge],
+  ["ad-hoc-tree-chevrons", treeChevrons],
   ["ad-hoc-field-visibility", fieldVisibility],
   ["dialog-target-reentry", dialogTargetReentry],
   ["ad-hoc-pdfium-form-hover", formHover],
