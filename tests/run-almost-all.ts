@@ -632,6 +632,7 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["selection-noop-colors", selectionNoopColors],
   ["issue-6055", issue6055],
   ["session-restore-search", sessionRestoreSearch],
   ["pdf-only-menu-items", pdfOnlyMenuItems],
@@ -1118,7 +1119,6 @@ export const tests: NamedTest[] = [
   ["taskbar-icon-contrast", taskbarIconContrast],
   ["keyboard-select-yank-empty", keyboardSelectYankEmpty],
   ["selection-font-bbox", selectionFontBbox],
-  ["selection-noop-colors", selectionNoopColors],
   ["selection-search-colors", selectionSearchColors],
   ["selection-ligature", selectionLigature],
   ["issue-4839", issue4839],

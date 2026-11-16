@@ -64,6 +64,8 @@ export async function testit(): Promise<void> {
         pressVKey(frame, 27);
         await sleep(100);
         await clickAt(canvas, x, y, 200, 0, client);
+        // a click on a PDF without annotations no longer loads the editor (E68/E69); load it as an edit would
+        await client.request(ControlCommand.TestCurrentPdf, ["editor-text", 1]);
         const editor = String((await client.request(ControlCommand.TestCurrentPdf, ["editor"]))[1] ?? "");
         if (editor !== "editor=loaded") throw new Error(`annotation editor did not load: ${editor}`);
         await client.waitForRenderIdle();
