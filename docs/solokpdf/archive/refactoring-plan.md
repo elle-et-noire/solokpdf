@@ -2,16 +2,16 @@
 
 E18–E22 は記録した検証範囲で完了（2026-11-10）。最初の基準は `9083edafe`。Win32 版が対象。
 以下は実施済みの計画と当初の完了条件を残した記録。
-[現行設計](architecture.md) と [作業状態](backlog.md#design-review) を併せて参照する。
+[現行設計](../architecture.md) と [作業状態](../backlog.md#completed-reviews) を併せて参照する。
 後続の点検は [構造とコードのレビュー計画](full-review-plan.md) で扱う。
 
-| 作業                   | 実装コミット             | 実装・検証記録                                                                                                           |
-| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| E21 色方針・実効色入力 | `8bf864e18`、`647da5a12` | [段階選択](history.md#e21-color-stage-policy-2026-11-10)、[実効色入力](history.md#e21-effective-color-inputs-2026-11-10) |
-| E19 描画結果           | `94dbfb1b1`              | [結果と検証範囲](history.md#e19-render-results-2026-11-10)                                                               |
-| E22 キャッシュ         | `47c0889e4`              | [依存・無効化と検証](history.md#e22-cache-contracts-2026-11-10)                                                          |
-| E18 読み取り契約       | `fcaec8179`              | [読み取り・編集生成の検証](history.md#e18-read-contracts-2026-11-10)                                                     |
-| E20 文書寿命           | `7d107cea8`              | [所有権・ロック順と検証](history.md#e20-document-lifetime-2026-11-10)                                                    |
+| 作業                   | 実装コミット             | 実装・検証記録                                                                                                                 |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| E21 色方針・実効色入力 | `8bf864e18`、`647da5a12` | [段階選択](../history.md#e21-color-stage-policy-2026-11-10)、[実効色入力](../history.md#e21-effective-color-inputs-2026-11-10) |
+| E19 描画結果           | `94dbfb1b1`              | [結果と検証範囲](../history.md#e19-render-results-2026-11-10)                                                                  |
+| E22 キャッシュ         | `47c0889e4`              | [依存・無効化と検証](../history.md#e22-cache-contracts-2026-11-10)                                                             |
+| E18 読み取り契約       | `fcaec8179`              | [読み取り・編集生成の検証](../history.md#e18-read-contracts-2026-11-10)                                                        |
+| E20 文書寿命           | `7d107cea8`              | [所有権・ロック順と検証](../history.md#e20-document-lifetime-2026-11-10)                                                       |
 
 目的は、描画・色処理・読み取り・編集の責務と状態を明確にし、同じ判断の重複と暗黙の前提を減らすこと。
 ファイル数や行数は完了条件にしない。描画品質・色の仕様変更は、動作を保つリファクタリングと分ける。
@@ -66,11 +66,11 @@ E18–E22 は記録した検証範囲で完了（2026-11-10）。最初の基準
 ## E21 色方針と処理順を明確にする
 
 最初の差分 `8bf864e18` で `GetPageColorPass` に通常描画と Home の中立画像の段階選択を集約した。
-Debug・Release ビルドと対象検証・画素比較は [実施記録](history.md#e21-color-stage-policy-2026-11-10) を参照する。
+Debug・Release ビルドと対象検証・画素比較は [実施記録](../history.md#e21-color-stage-policy-2026-11-10) を参照する。
 `CapturePageColors` と `PageColorInput` に実効色の取得を集約し、
 分類別のプロファイル生成へ渡す。描画結果の実施状態は E19 に残す。
 E21 の段階選択と入力化の実装・対象検証は完了。E19 の結果契約に接続した。
-結果と検証範囲は [実効色入力の記録](history.md#e21-effective-color-inputs-2026-11-10) を参照する。
+結果と検証範囲は [実効色入力の記録](../history.md#e21-effective-color-inputs-2026-11-10) を参照する。
 
 対象は `PdfDarkModeProfile.cpp`、`PdfDarkModeColor.cpp`、`Theme.cpp`、`RenderViewPage`、
 `FileThumbnailsCommon.cpp` と各エンジンの色処理入口。
@@ -93,7 +93,7 @@ E21 の段階選択と入力化の実装・対象検証は完了。E19 の結果
 `PageDrawResult` に完了・代替要求・中止・失敗と色状態を分離した。
 成功時の `RenderPageColor` と `Pixmap` の alpha 情報を呼び出し側へ渡し、
 エンジン種別・`fallbackDrawn` からの推定を除いた。注釈合成失敗も結果を破棄する。
-実装・対象検証は [E19 の記録](history.md#e19-render-results-2026-11-10) を参照する。
+実装・対象検証は [E19 の記録](../history.md#e19-render-results-2026-11-10) を参照する。
 以下は元の完了条件として残す。
 
 1. 経路判定と実行結果を区別する。既存の `PdfRenderRoute` は経路判定として使い、
@@ -131,8 +131,8 @@ E21 の段階選択と入力化の実装・対象検証は完了。E19 の結果
 `ViewPageOptions` に確定色を保持し、世代の更新・要求取得・タイル挿入をロックで対応付けた。
 実装コミットの件名は `Align render cache inputs and invalidation (E22)`。
 F12 の更新にも世代を持たせ、更新前の完了通知を破棄する。
-キャッシュごとの依存・寿命は [現行設計](architecture.md#キャッシュと無効化)、
-実装・対象検証は [E22 の記録](history.md#e22-cache-contracts-2026-11-10) を参照する。
+キャッシュごとの依存・寿命は [現行設計](../architecture.md#キャッシュと無効化)、
+実装・対象検証は [E22 の記録](../history.md#e22-cache-contracts-2026-11-10) を参照する。
 以下は元の完了条件として残す。
 
 1. 各キャッシュについて、保存する値、出力へ影響する入力、有効期間を一覧にする。
@@ -154,8 +154,8 @@ F12 の更新にも世代を持たせ、更新前の完了通知を破棄する�
 paint からの編集生成を止め、MuPDF の Try テキスト取得は文書ロック競合でも待機しない。
 編集生成が失敗したテキストも `partial` を保ち、完全なキャッシュとして扱わない。
 既存の部分テキストの再抽出、機能・権限・生成状態の区別は
-[現行契約](architecture.md#読み取り-api-の契約) に記録した。
-実装と対象検証は [E18 の記録](history.md#e18-read-contracts-2026-11-10) を参照する。
+[現行契約](../architecture.md#読み取り-api-の契約) に記録した。
+実装と対象検証は [E18 の記録](../history.md#e18-read-contracts-2026-11-10) を参照する。
 以下は元の完了条件として残す。
 
 対象は `EngineBase.{h,cpp}`、`EngineCreate.cpp`、`EnginePdfium.cpp` と呼び出し側。
@@ -176,8 +176,8 @@ paint からの編集生成を止め、MuPDF の Try テキスト取得は文書
 大きいファイルの編集・複製は同じファイル実体を独立したハンドルで開き、ストリーミングを維持する。
 編集が PDFium の所有者より長く生存する場合も入力を所有する。
 実装・対象検証は `Preserve document source lifetimes (E20)` として完了。
-所有権・状態遷移・確認したロック順は [現行設計](architecture.md#所有権と同期)、
-再現・対象検証・未確認範囲は [E20 の記録](history.md#e20-document-lifetime-2026-11-10) を参照する。
+所有権・状態遷移・確認したロック順は [現行設計](../architecture.md#所有権と同期)、
+再現・対象検証・未確認範囲は [E20 の記録](../history.md#e20-document-lifetime-2026-11-10) を参照する。
 以下は元の完了条件として残す。
 
 1. 元データ、PDFium 文書、遅延編集、描画プローブ、ページ情報、テーマ変換結果の
@@ -216,7 +216,7 @@ E20 で追加した `ad-hoc-pdfium-source-lifetime` は、元ファイルの移�
 `ad-hoc-pdfium --fallback-only` は DLL 不在時の文書フォールバックであり、ページ描画代替の検証にはならない。
 色の数値計算や base の画素処理を変える場合は、既存の単体テストを含む `bun cmd/run-unit-tests.ts -dbg` も実行する。
 
-ローカル GUI 検証は [testing.md](testing.md#local-windows-runs) の非表示デスクトップで行う。
+ローカル GUI 検証は [testing.md](../testing.md#local-windows-runs) の非表示デスクトップで行う。
 C++ 整形後に Debug をビルドし、ビルド完了後の固定した実行ファイルで対象検証を行う。
 Release ビルドは GitHub Actions のみで実行し、ローカルでは実行しない（2026-11-10 の所有者指示）。
 寿命・所有権を変えた経路はローカルの ASan でも確認する。

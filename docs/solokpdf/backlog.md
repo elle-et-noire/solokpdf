@@ -1,85 +1,28 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-15. E23–E25 are complete within the recorded review scope.
-E26–E58 are complete within their recorded validation scope.
-D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
+Work scope as of 2026-11-16: no open items; D3 deferred; F1/F3 and distribution
+out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D15, E75, F4).
+group (B76, C2, D15, E75, F4). For a code change, choose affected tests from
+[testing.md](testing.md); run full suites only when explicitly requested.
 
-## Implementation and acceptance
+## Completed reviews
 
-Completed D8–D13 and E10–E22 records are in
-[history.md](history.md#navigation). The [status page](README.md#validation-scope)
-summarizes recorded CI results and evidence limits.
+- E18–E22 design review (2026-11-10): [plan](archive/refactoring-plan.md), [current architecture](architecture.md).
+- E23–E25 structure and code review (2026-11-10): [results](archive/full-review-results.md), [criteria](architecture.md#レビューの評価観点), [E23](history.md#e23e25-structure-and-code-review-2026-11-10), [E24](history.md#e24-review-completion-2026-11-10), [E25](history.md#e25-review-synthesis-2026-11-10); fixes E26–E37.
+- F1/F3 manual checks: removed from active work by the owner on 2026-11-10, not marked passed; [procedures](testing.md#owners-manual-acceptance-f1f3).
+- SOL1–SOL3 independent review: committed in `febc58f07`; [results](archive/full-review-sol-results.md#sol1sol3-修正検証2026-11-11).
+- E38 ASan shutdown: pinned MSVC/ASan toolset; hosted run [43725820411](https://github.com/elle-et-noire/solokpdf/actions/runs/43725820411) passed at `1ed7b7f33` (2026-11-15); [results](asan-shutdown.md).
+- 2026-11-13 review of the fork diff against upstream `8b716234f` at `ce9903893` (code-traced, not reproduced): E39–E57; [structural notes](architecture.md#構造上の注意2026-11-13-レビュー).
+- 2026-11-16 performance review (code reading, no Release measurements; pixels kept identical, checked in Debug through `SOLOKPDF_PROFILE=1` phases or call counts; the Release `pdfium.dll` keeps `page`/`draw` phases representative): E60–E65.
 
-F1/F3 were removed from active work by the owner on 2026-11-10, without marking
-them passed. Their earlier procedures and pending-check records are historical.
-
-## Next steps
-
-The [2026-11-13 findings](#2026-11-13-review-findings), E58 and the 2026-11-16 performance review are done.
-Keep D3 deferred and F1/F3 and distribution outside active scope. For a code change, choose
-affected tests from [testing.md](testing.md); run full suites only when
-explicitly requested.
-
-## Design review
-
-E18–E22 are complete within their recorded validation scope. The [completed plan](refactoring-plan.md) maps each item
-to its implementation and results. The [current architecture](architecture.md)
-records the resulting responsibilities and contracts.
-
-Assess correctness, maintainability and performance using the
-[review plan's evaluation criteria](full-review-plan.md#評価観点). Operation
-paths guide investigation without limiting its scope. Record the code actually
-read; check build and test infrastructure where the investigation or a change requires them.
-
-No open implementation items remain from the E25 review.
-
-E23's mapping and E24's initial inspection are in [history.md](history.md#e23e25-structure-and-code-review-2026-11-10).
-E24's [completion](history.md#e24-review-completion-2026-11-10) records the final investigation and its limits.
-E25's [record](history.md#e25-review-synthesis-2026-11-10) records the recheck, scope correction and completed synthesis.
-Each finding's evidence, impact and original next check are in [full-review-results.md](full-review-results.md).
-The review's findings and historical priorities remain in that record.
-
-## Independent review follow-up
-
-SOL1–SOL3 are committed in `febc58f07`, within the [recorded checks](full-review-sol-results.md#sol1sol3-修正検証2026-11-11).
-The original review and its unverified branches remain recorded.
-
-E38 uses a pinned matching MSVC/ASan toolset. The independent probe and local
-save/shutdown rechecks pass; hosted run [43725820411](https://github.com/elle-et-noire/solokpdf/actions/runs/43725820411)
-passed it at `1ed7b7f33` (2026-11-15).
-[Results](asan-shutdown.md).
-
-## 2026-11-13 review findings
-
-Review of the fork diff against upstream `8b716234f` at `ce9903893`, excluding items
-recorded in [full-review-results.md](full-review-results.md) and
-[full-review-sol-results.md](full-review-sol-results.md). Every row was traced in code; none
-was built or reproduced. Confirm each with a failing test before fixing. Line numbers are at
-`ce9903893`.
-
-All rows are done; see [history.md](history.md#completed-backlog).
-
-Structural notes from the review, not work items: the color-pass decision lives in
-`GetPageColorPass`, `BuildViewDarkModeProfile` and each engine (E46 is a disagreement);
-key routing interprets `GetKeyTarget` in three places; the hidden editor's role is implied by
-how it was created and by ~45 `IfLoaded`/`Load` call sites, and redaction promotes it to
-renderer, text source and clone (E39 comes from its three-way save path).
-
-## 2026-11-16 performance review
-
-A code-reading review (Fable, 2026-11-16) without Release measurements. Each change must
-keep pixels identical and be checked in Debug through `SOLOKPDF_PROFILE=1` phases or call
-counts; `pdfium.dll` is a Release binary, so its `page`/`draw` phases are representative.
-
-All rows are done; see [history.md](history.md#completed-backlog).
+Rows and results of all of these are in [history.md](history.md#completed-backlog).
 
 ## Open
 
-None; see [history.md](history.md#completed-backlog).
+None.
 
 ## Deferred
 

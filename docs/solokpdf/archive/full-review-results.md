@@ -4,12 +4,12 @@
 E23–E25 は計画の範囲で完了。E25 の優先順位・依存関係・残件は末尾の再点検結果にまとめた。
 初回は約30分の点検。以下の関数名は調査した経路を示し、全分岐の精読を意味しない。継続点検は末尾に分けて記録する。
 以下の指摘・優先順位・変更案はレビュー時点の記録。E26–E37 は記録された検証範囲で完了した。
-各修正の内容と検証は [history](history.md#e26-automatic-reload-2026-11-10)、現在の残件は [backlog](backlog.md) を参照する。
+各修正の内容と検証は [history](../history.md#e26-automatic-reload-2026-11-10)、現在の残件は [backlog](../backlog.md) を参照する。
 
 不具合は 11 件。R1–R4・R8 は両エンジンで再現、R5–R6・R10–R11 はコード上の指摘、R7/E33 は PDFium の取得失敗注入で再現した。
 R9/E34 は保存対象の切替を Debug・ASan で再現し、Reload 中の終了再入も ASan 診断を保存した。E32 は終了待ちの契約問題として記録した。
 R1・R2 のデータ損失を最優先とする。初回の再現入力・プローブのソース・出力・実行条件は
-[検証データ](data/full-review-2026-11-10.json)に保存した。
+[検証データ](../data/full-review-2026-11-10.json)に保存した。
 
 ## E23: 入口と実装
 
@@ -145,7 +145,7 @@ E24 で確認した指摘と変更候補。継続点検の R7–R11・E32 と合
 E26 で修正済み。自動更新は未保存・入力中に保留し、更新待ちを保持する。
 手動 Reload は入力確定後の保存確認を通す。以下は修正前の指摘。
 
-- **不具合・変更する。** [Canvas.cpp:4999](../../src/Canvas.cpp#L4999) → [ReloadDocument](../../src/SumatraPDF.cpp#L2410) は、dirty を確認せず controller を置換する。
+- **不具合・変更する。** [Canvas.cpp:4999](../../../src/Canvas.cpp#L4999) → [ReloadDocument](../../../src/SumatraPDF.cpp#L2410) は、dirty を確認せず controller を置換する。
 - フォームを `NEWWORD` に変更し、別プロセスから元 PDF を `DISKWORD` の PDF で上書きすると、確認なしに `modified=0`・`canUndo=0` となる。両エンジンで各 2 回再現した。
 - 既存の source-lifetime は watcher を無効化している。form-js は保存後の値だけを確認する。
 - 最小案は `ReloadDocument` の自動更新入口で未保存時の置換を保留し、変更通知を残すこと。タイマー側だけの防止ではタブ再選択の経路を漏らす。手動 Reload は破棄の確認を通す。
@@ -153,7 +153,7 @@ E26 で修正済み。自動更新は未保存・入力中に保留し、更新�
 
 ### R2 / E27 — P1: 元パス消失時に保存確認を省略する
 
-- **不具合・変更する。** [MaybeSaveAnnotations](../../src/SumatraPDF.cpp#L5294) は `file::Exists` が false なら、未保存判定前に閉じることを許す。
+- **不具合・変更する。** [MaybeSaveAnnotations](../../../src/SumatraPDF.cpp#L5294) は `file::Exists` が false なら、未保存判定前に閉じることを許す。
 - 小さい PDF のフォーム編集後に元ファイルを移動し、`WM_CLOSE` を送ると確認なしで exit 0。同じ編集で元ファイルを残す対照例は保存確認を表示する。両エンジンで再現した。
 - source-lifetime / saveas はコピー可能性を確認するが、終了時の保存確認は検証しない。`client.quit()` は先に全タブを discard するため、この条件の検証には使えない。
 - `EngineMupdfHasUnsavedAnnotations` は既存編集のフラグを読むだけなので、パスの存在より先に判定できる。最小案は dirty 時に確認を残し、元入力を保持する場合は新規 PDF 保存を提示すること。元ファイルを失った mmap 文書の実アクセスまで無条件に許す変更は避ける。
@@ -161,9 +161,9 @@ E26 で修正済み。自動更新は未保存・入力中に保留し、更新�
 
 ### R3 / E28 — P2: 署名の途中失敗が未保存とされない変更を残す
 
-E28で修正済み。[実装・検証記録](history.md#e28-signature-rollback-2026-11-10)。以下は修正前の指摘。
+E28で修正済み。[実装・検証記録](../history.md#e28-signature-rollback-2026-11-10)。以下は修正前の指摘。
 
-- **不具合・変更する。** [PdfSign.cpp:298](../../src/shared/PdfSign.cpp#L298) は新規 widget を作り、`Prepare signature` を確定した後に画像を読む。画像エラー時は rollback せず false を返し、成功時だけ dirty を立てる（同ファイル 325–364 行）。
+- **不具合・変更する。** [PdfSign.cpp:298](../../../src/shared/PdfSign.cpp#L298) は新規 widget を作り、`Prepare signature` を確定した後に画像を読む。画像エラー時は rollback せず false を返し、成功時だけ dirty を立てる（同ファイル 325–364 行）。
 - 有効な使い捨て PFX と壊れた既存 PNG を指定してページ上に配置すると、エラー後も署名の配置候補が 1→2、`canUndo=1`・`modified=0` となる。両エンジンで UI 経由で再現した。
 - `ad-hoc-pdfium-signing` は成功・再開封・署名検証、`ad-hoc-sign-document` の失敗は変更前の誤パスワードを確認する。この途中失敗は未検証。
 - 最小案は画像等の失敗し得る入力を文書変更前に読むこと。その上で field 作成・Lock/Certify 設定・署名準備を一つの取り消せる操作にする。失敗時だけ dirty を立てる案は、失敗した操作の残骸を利用者へ渡すため採らない。
@@ -174,9 +174,9 @@ E28で修正済み。[実装・検証記録](history.md#e28-signature-rollback-2
 **E29 で修正済み。** フォーム setter の試行後と Undo/Redo で全取得済みページを無効化し、
 PDFium は editor の世代を追従する。検索の継続・件数・snippet・選択も更新する。
 受理や dirty の変更検出は E35/E36 に残し、E29 は拒否時も保守的に無効化する。
-[検証記録](history.md#e29-form-text-cache-2026-11-10)。以下は修正前の指摘。
+[検証記録](../history.md#e29-form-text-cache-2026-11-10)。以下は修正前の指摘。
 
-- **不具合・契約の欠落・変更する。** [SetWidgetValue](../../src/shared/Annotation.cpp#L626) → [MarkNotificationAsModified](../../src/shared/EngineMupdf.cpp#L13852) は表示リストを無効化するが、`EngineBase` のテキストを無効化しない。PDFium 側も独立したキャッシュを持つ。
+- **不具合・契約の欠落・変更する。** [SetWidgetValue](../../../src/shared/Annotation.cpp#L626) → [MarkNotificationAsModified](../../../src/shared/EngineMupdf.cpp#L13852) は表示リストを無効化するが、`EngineBase` のテキストを無効化しない。PDFium 側も独立したキャッシュを持つ。
 - `cached-text` で `OLDWORD` を取得してからフォームを `NEWWORD` に変更すると、値と view/print 画素は変わるが、取得文字列は旧値のまま、新値の検索は `found=0`。両エンジンで再現した。
 - `ad-hoc-pdfium-forms` と form-js は値・画素・保存を確認する。編集前の完成済みテキストを温めないため、この不整合を検出しない。
 - MuPDF 内の `InvalidateTextForPage` だけでは PDFium の外側キャッシュが残る。最小案は編集成功を共通の変更通知に集約し、編集エンジン・表示エンジン双方の文字列と検索状態を無効化すること。JS が他ページの値も変えるため、フォームは当面全取得済みページを対象にする。
@@ -185,9 +185,9 @@ PDFium は editor の世代を追従する。検索の継続・件数・snippet�
 ### R5 / E30 — P2: ネットワーク CBX の同サイズ更新を検出しない
 
 E30で修正済み。更新時刻も含めて世代を分け、コピー完了と元情報の再確認後に公開する。
-同サイズ更新・旧Clone・公開競合の[検証記録](history.md#e30-network-comic-cache-2026-11-10)。以下は修正前の指摘。
+同サイズ更新・旧Clone・公開競合の[検証記録](../history.md#e30-network-comic-cache-2026-11-10)。以下は修正前の指摘。
 
-- **コード上の不具合・変更する。** [EngineCreate.cpp:37](../../src/shared/EngineCreate.cpp#L37) のキーは path + size だけ。[同 140 行](../../src/shared/EngineCreate.cpp#L140) はキャッシュの存在だけで再利用する。`EngineCbx::CreateFromFile` も元の更新時刻を比較せずローカルコピーを開く。
+- **コード上の不具合・変更する。** [EngineCreate.cpp:37](../../../src/shared/EngineCreate.cpp#L37) のキーは path + size だけ。[同 140 行](../../../src/shared/EngineCreate.cpp#L140) はキャッシュの存在だけで再利用する。`EngineCbx::CreateFromFile` も元の更新時刻を比較せずローカルコピーを開く。
 - 同じパス・サイズの CBX が更新されても、再度開くと旧ページを読む。RAR、またはメモリ読み込み上限を超える CBX が該当する。実際の SMB 再現は未実施。
 - `cbr-network-unrar` は最初の読み込み・赤いページ・ファイル経由の解凍を確認する。管理共有がなければ skip し、更新後の再開封は確認しない。
 - 最小案は元ファイルの更新時刻も再利用条件に加えること。全内容 hash はネットワーク読み込みを再導入するため採らない。
@@ -195,9 +195,9 @@ E30で修正済み。更新時刻も含めて世代を分け、コピー完了�
 
 ### R6 / E31 — P2: 非同期 controller 破棄の thread HANDLE を閉じない
 
-E31 で修正済み。反復開閉の再現と Debug・ASan の結果は[検証記録](history.md#e31-controller-delete-handles-2026-11-10)を参照。以下はレビュー時点の指摘。
+E31 で修正済み。反復開閉の再現と Debug・ASan の結果は[検証記録](../history.md#e31-controller-delete-handles-2026-11-10)を参照。以下はレビュー時点の指摘。
 
-- **コード上の不具合・変更する。** [DeleteControllerAsync](../../src/SumatraPDF.cpp#L1170) は `StartThread` の戻り値を成功判定に使うだけで捨てる。`StartThread` は `CreateThread` の生 HANDLE を返し、自動では閉じない。
+- **コード上の不具合・変更する。** [DeleteControllerAsync](../../../src/SumatraPDF.cpp#L1170) は `StartThread` の戻り値を成功判定に使うだけで捨てる。`StartThread` は `CreateThread` の生 HANDLE を返し、自動では閉じない。
 - 描画中の文書を閉じ、非同期破棄へ進むごとに HANDLE を失う。通常の描画待ち設計を変える必要はない。
 - sidebar-thumbnails-close は終了コード、source-lifetime の HANDLE 比較は Clone の反復を確認する。controller 破棄の反復は確認していない。今回の HANDLE 増加量は未測定。
 - 最小案は戻り値を保持し、成功時に `SafeCloseThreadHandle` すること。失敗時の UI スレッド破棄への代替は維持する。
@@ -248,7 +248,7 @@ Debug をビルドした後、`bun tools/solokpdf/run-hidden.ts -- bun <path>` �
 ## E24 継続点検（2026-11-10、`0046373df`）
 
 製品コード差分なし。初回と同じ Debug exe/DLL の SHA-256 を照合した。
-追加証拠は [継続検証データ](data/full-review-followup-2026-11-10.json)。Release・全スイートは実行していない。
+追加証拠は [継続検証データ](../data/full-review-followup-2026-11-10.json)。Release・全スイートは実行していない。
 
 ### R7 / E33 — P2: 一時的な取得失敗を空テキストとして保持する
 
@@ -313,11 +313,11 @@ scratch のプローブは自動回帰試験へ登録していない。製品の
 製品コード差分なし。Debug exe・DLL と Debug ASan exe の SHA-256 は前回記録と一致した。
 GUI は非表示 desktop、`-for-testing`、専用 `-appdata` を使用した。
 以下は今回の確認結果であり、E24/E25 の完了を意味しない。
-入力・プローブのソース・結果・ログの hash は[検証データ](data/full-review-contracts-2026-11-10.json)に保存した。
+入力・プローブのソース・結果・ログの hash は[検証データ](../data/full-review-contracts-2026-11-10.json)に保存した。
 
 ### R8 / E35 — P2: 選択項目の入力拒否を成功とする
 
-**E35 で修正済み。** choice の受理結果を返す。[検証記録](history.md#e35-choice-validation-2026-11-10)。以下は修正前の指摘。
+**E35 で修正済み。** choice の受理結果を返す。[検証記録](../history.md#e35-choice-validation-2026-11-10)。以下は修正前の指摘。
 
 - **不具合・変更する。** `SetWidgetChoiceValue`（`src/shared/Annotation.cpp:687`）は `pdf_set_choice_field_value` の戻り値を捨て、常に `true` を返す。共通の `SetWidgetValue` はこれを受けて `MarkNotificationAsModified` を呼ぶ。
 - MuPDF の同関数は `pdf_set_text_field_value` の結果を返す。入力検証 JS の `event.rc = false` では値を変更せず `0` を返すため、成功通知と dirty が実際の文書変更に一致しない。
@@ -400,7 +400,7 @@ GUI はケースごとに制限時間を設け、期待されるエラーダイ�
 
 ### E32 の終了契約
 
-2026-11-10 に実装・回帰試験を完了した。[結果と検証範囲](history.md#e32-worker-shutdown-2026-11-10)。以下は修正前の比較・選定記録。
+2026-11-10 に実装・回帰試験を完了した。[結果と検証範囲](../history.md#e32-worker-shutdown-2026-11-10)。以下は修正前の比較・選定記録。
 
 `DeleteControllerAsync` → `Retire` / `AbortRendering` → `CancelRenderingBlocking` → `DeleteControllerFinish` と、
 `RenderCacheThread` / `ClearCurrentRequest` → `WaitThread` / `JoinThread`、WinMain の終了順を再確認した。
@@ -439,7 +439,7 @@ Debug/ASan は既定で cleanup、通常 Release は既定で fast exit とな�
 
 ### R11 / E37 — P1: 墨消しの部分成功を全体成功として通知する
 
-2026-11-11: E37 の修正と検証は [history.md](history.md#e37-redaction-failures-2026-11-11) を参照。以下はレビュー時点の記録。
+2026-11-11: E37 の修正と検証は [history.md](../history.md#e37-redaction-failures-2026-11-11) を参照。以下はレビュー時点の記録。
 
 - **コード上の不具合・変更する。** `RedactAllPages`（`EngineMupdf.cpp:12505–12540`）はページ取得・墨消しの失敗を continue し、`EngineMupdfApplyRedactions`（12602–12611行）は成功ページが一つでもあれば true を返す。共通 UI の `ApplyRedactionsInTab` は全体成功を通知し、残る user mark の状態も false にされる。E25 の再点検で、未削除の本文を削除完了と受け取る影響を理由に P2 から P1 へ上げた。過去の検証 JSON の優先度は当時の記録として残す。
 - 成功ページの wrapper・本文・text の無効化、dirty、Undo step と PDFium の編集側への切替は維持できる。問題は取得不能・失敗・マークなしを区別しない全体結果であり、失敗ページの本文が未処理でも成功と受け取られる。
@@ -468,7 +468,7 @@ R5/R6 はコードで欠落を特定済み、非 PDF は形式別契約を維持
 forms・form-js・redaction-undo は両エンジン、one-step は `ANNOT_UNDO_ONLY=redact` を各エンジンで実行した。
 theme-render-cancel は通常構成と、キャンセル発生自体を assert する既存 pattern 構成を実行した。
 redaction-undo / one-step の後片付けはプロセス終了を待つ寿命試験ではない。これらの通過を終了保証に使わない。
-再ビルド・今回の ASan 実行・Release・全スイートはなし。以前の結果と分けた入力・構成・時刻・hash・ログは[完了時の検証記録](data/e24-completion-2026-11-10.json)を参照する。
+再ビルド・今回の ASan 実行・Release・全スイートはなし。以前の結果と分けた入力・構成・時刻・hash・ログは[完了時の検証記録](../data/e24-completion-2026-11-10.json)を参照する。
 
 ## E25 再点検
 

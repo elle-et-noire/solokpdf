@@ -7,7 +7,7 @@
 `AGENTS.md`、`testing.md`、`full-review-plan.md` を読み、計画の Windows SolokPDF 範囲を対象とする。
 現行コードと試験の assertion を判断根拠とし、以前の完了判定・実装モデルは品質の根拠にしない。
 
-根拠・プローブ最終ソース・実行出力は [検証記録](data/full-review-sol-2026-11-11.json)。
+根拠・プローブ最終ソース・実行出力は [検証記録](../data/full-review-sol-2026-11-11.json)。
 `full-review-results.md`、`history.md` の E26–E37、各修正の検証記録、`architecture.md` と照合した。
 過去の実行結果と今回の実行を区別する。行番号は開始時 HEAD に対応する。
 
@@ -205,7 +205,7 @@ Windows build `26300.9818`、Bun `1.4.4`、PDFium有効。fixtureと両エンジ
 
 上記は開始HEAD `4d68e2f697acab9c1832cd8ab8a7c897fbad52e6` でのレビュー記録として保持する。
 その後の「修正して」により以下を実装した。未コミット。
-機械可読の記録は [sol-review-fixes-2026-11-11.json](data/sol-review-fixes-2026-11-11.json)。
+機械可読の記録は [sol-review-fixes-2026-11-11.json](../data/sol-review-fixes-2026-11-11.json)。
 
 - **SOL1**: 対象タブのフォーム・FreeText・注釈本文を `CommitTabInput` で確定してから、保存・手動再読込・終了の判断をする。
   エンジン参照を保持し、確定後にタブ・controller・engineの同一性を再検証する。

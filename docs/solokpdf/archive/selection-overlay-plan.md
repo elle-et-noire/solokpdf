@@ -2,7 +2,7 @@
 
 ## 状態（2026-11-08 実装済み）
 
-`8cd54d631` で実装した計画の記録。現在の仕様は [features.md](features.md#selection-colors) を参照する。
+`8cd54d631` で実装した計画の記録。現在の仕様は [features.md](../features.md#selection-colors) を参照する。
 テーマの `TextSelectionColor`、`SearchMatchColor`、`CurrentSearchMatchColor` に集約し、本文の文字再描画専用経路と
 旧 `FixedPageUI.SelectionColor` を削除した。Forward Search とリンク移動の強調色は別設定を維持する。
 以下は当時の実装範囲と検証項目であり、今回の文書整理で検証を再実行した記録ではない。

@@ -6,12 +6,12 @@
 `SOLOKPDF_VIRTUAL_TOC`・`SOLOKPDF_VIRTUAL_FAVORITES` の内部切り替えと、標準 TreeView 専用の描画処理を削除した。
 
 下記の実装手順は移行開始時の計画。「試作の結果」は既定化前の記録。現在の仕様は
-[features.md](features.md#virtual-sidebar-trees)、既定化の実装・検証記録は
-[history.md](history.md#virtual-sidebar-rollout-2026-11-09) にまとめる。2026-11-09 に所有者が Narrator・NVDA、
+[features.md](../features.md#virtual-sidebar-trees)、既定化の実装・検証記録は
+[history.md](../history.md#virtual-sidebar-rollout-2026-11-09) にまとめる。2026-11-09 に所有者が Narrator・NVDA、
 実モニター間の DPI 移動、標準バーのつまみ、実カーソルでのスマートバーをすべて OK と報告し、E10・F2 を完了した。
 環境詳細は未記録。[実機確認結果](tree-view-screen-reader-check.md#実施結果) を参照する。
 設定適用の問題 E11 は修正済み。[読み上げ確認手順](tree-view-screen-reader-check.md) と
-[ローカルテスト手順](testing.md#virtual-sidebar-trees) を参照する。
+[ローカルテスト手順](../testing.md#virtual-sidebar-trees) を参照する。
 
 ## レイアウトの責務（2026-11-10）
 
@@ -20,14 +20,14 @@
 新しい矩形 API は行全体と文字領域を列挙型で区別する。
 
 この時点ではモデル状態・色・方向・アクセシビリティへの直接参照が残った。この変更はレイアウト境界に限る。
-変更前後の対象テストは [検証記録](history.md#virtual-tree-layout-boundary-2026-11-10) を参照する。
+変更前後の対象テストは [検証記録](../history.md#virtual-tree-layout-boundary-2026-11-10) を参照する。
 
 ## 内部参照の整理結果（E14、2026-11-10）
 
-`bef32a49c` でコミット済み（基準は `93668ab08`）。実装・対象検証は完了。レビューも所有者が完了済みと確認した（2026-11-10、[E15](history.md#e15-refactor-review-2026-11-10)）。[検証結果](history.md#e14-virtual-tree-encapsulation-2026-11-10) を参照する。
+`bef32a49c` でコミット済み（基準は `93668ab08`）。実装・対象検証は完了。レビューも所有者が完了済みと確認した（2026-11-10、[E15](../history.md#e15-refactor-review-2026-11-10)）。[検証結果](../history.md#e14-virtual-tree-encapsulation-2026-11-10) を参照する。
 `SidebarTree.cpp` と `testcode/TestTree.cpp` から `VirtTree` の内部状態への直接参照を取り除いた。以下は実施した計画の記録。
 既存のレイアウト整理、PDFium ランタイム分離、キー状態分離は完了済みとして扱う。
-ASan ビルド手順の整理（E16）も完了。[現行手順](testing.md#asan-builds) と [次の計画](backlog.md#next-steps) を参照する。
+ASan ビルド手順の整理（E16）も完了。[現行手順](../testing.md#asan-builds) と [次の計画](../backlog.md) を参照する。
 
 ### 責務
 
@@ -51,7 +51,7 @@ ASan ビルド手順の整理（E16）も完了。[現行手順](testing.md#asan
 | 5    | `SidebarTree::TestMessage` と `TestTree.cpp` の直接参照を整理する。読み取りは必要な値だけの診断結果、再入・破棄の注入は限定したテスト用 API にする。内部フィールドと内部処理を `private` にし、全呼び出し元をビルドで確認する。 | `ad-hoc-tree-prototype`、`ad-hoc-tree-prototype --uia --delete-in-scroll-event`、`ad-hoc-tree-lifetime`、`ad-hoc-tree-reentrant` |
 | 6    | アダプターの残存参照、不要な include、API の公開範囲をレビューし、実装と検証結果を記録する。                                                                                                                                    | `ad-hoc-virtual-tree-focus`、`ad-hoc-vim-keys --tree-only`。変更がない経路のテストは再実行しない                                 |
 
-ローカル GUI テストはすべて [非表示デスクトップ](testing.md#local-windows-runs) で、サンドボックス外から実行する。
+ローカル GUI テストはすべて [非表示デスクトップ](../testing.md#local-windows-runs) で、サンドボックス外から実行する。
 C++ を整形してから Debug quick build を行い、ビルド完了後の実行ファイルで対象テストを実行する。
 寿命・通知・テスト注入の変更後は ASan でも `ad-hoc-tree-lifetime`、`ad-hoc-tree-reentrant`、
 `ad-hoc-favorites-stale-uia`、`ad-hoc-tree-prototype --uia --delete-in-scroll-event` を実行する。
@@ -137,7 +137,7 @@ Win32 TreeView を外すと、Windows が提供している読み上げ情報が
 ## 独立した設定の修正
 
 E11 で設定の適用と保存を分離した。`-for-testing` でも設定変更をメモリから適用し、既存ファイルの値へ戻さない。
-修正と検証の記録は [history.md](history.md#e11-settings-application-2026-11-09) を参照する。
+修正と検証の記録は [history.md](../history.md#e11-settings-application-2026-11-09) を参照する。
 
 ## 試作開始時の検討事項
 

@@ -135,8 +135,14 @@ bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-vim-keys.ts --tree-only --n
 ```
 
 The document-tree tests exercise the defaults without environment switches.
-Additional lifetime, UIA/MSAA, large-tree and navigation checks are listed in the
-[migration plan](tree-view-replacement-plan.md#検証). Rollout results are in
+Other tree checks: navigation `toc-native-scroll`, `toc-selection-visible`,
+`toc-expand-chapter`, `toc-tree-sent-click`, `issue-1841`, `issue-1998`, `issue-6167`;
+colors `toc-scrollbar-theme`, `toc-hover-colors`; UIA/MSAA and lifetime
+`ad-hoc-tree-uia` (also `--favorites`), `ad-hoc-tree-reentrant`,
+`ad-hoc-favorites-stale-uia`, `ad-hoc-tree-prototype --uia --delete-in-scroll-event`.
+After lifetime, notification or test-hook changes, also run the last four and
+`ad-hoc-tree-lifetime` under ASan. The
+[migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in
 [history.md](history.md#virtual-sidebar-rollout-2026-11-09). Use
 `tests/sidebar-tree.ts` for item counts, selection and row operations.
 The tree probes remain outside `run-almost-all.ts`. The regular SolokPDF CI set
@@ -291,15 +297,57 @@ GitHub requires the workflow on the default branch for
 [scheduled and manual execution](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
 The repository's default branch is `solokpdf-dev`. D13/E17 are committed as
 `9083edafe`; dated hosted status is in the [validation record](history.md#hosted-d13e17-validation-2026-11-10),
-and remaining work is in the [backlog](backlog.md#next-steps).
+and remaining work is in the [backlog](backlog.md).
 
 ### Physical tree checks
 
 Narrator/NVDA, real monitor DPI changes, native scrollbar thumb dragging and
 real-cursor smart-bar hover are manual checks. The owner reported all F2 checks
-OK on 2026-11-09; see the [procedure and results](tree-view-screen-reader-check.md).
+OK on 2026-11-09; see the [results](archive/tree-view-screen-reader-check.md#実施結果).
 Rechecks use the owner's visible desktop; automated local
 runs continue to use the hidden desktop.
+
+From the repository root, prepare the PDF and dedicated settings in
+`.work/tree-reader-check` (overwritten on each run) and launch:
+
+```powershell
+. ./tools/solokpdf/env.ps1 -Toolset v145
+bun tools/solokpdf/tree-reader-fixture.ts
+& ./out/dbg64/SumatraPDF.exe -for-testing -appdata "$PWD/.work/tree-reader-check/appdata" "$PWD/.work/tree-reader-check/tree-reader-check.pdf"
+```
+
+Build Debug first if needed with `bun cmd/solok-build.ts -quick`.
+
+Screen readers: check Narrator and NVDA separately, one enabled at a time.
+
+1. Focus the bookmarks. The tree name and `First`, `Second`, `Third` with their
+   selection state are announced.
+2. Right arrow on `Second` announces expansion, child `Nested` and its level;
+   left arrow collapses it with the state change announced.
+3. Tab/Shift+Tab move between bookmarks and favorites. The favorites tree name
+   and file name are announced; right arrow on the file name exposes
+   `First favorite` and `Third favorite` with level and selection.
+4. Up/down in favorites, then Enter goes to the selected item's page. Check the
+   keyboard context menu.
+5. Filter each tree with its search box, then clear it. Results and restored
+   items are announced.
+
+Record each reader's version, result and anything not announced or not operable.
+
+Scrollbars and DPI: use a document and settings whose bookmarks and favorites
+overflow both ways; the small reader fixture cannot reach the bar ends. Switch
+modes with the palette's `=Scrollbars`, or launch each with its own `-appdata`
+holding `Scrollbars`. Check both trees.
+
+| Target    | Operation and expected result                                                                                                     |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `windows` | Drag both thumbs with the real cursor; the end is reachable and rows match the position.                                          |
+| `overlay` | Operate both bars; the last row is not clipped and bars work after search, clear and resize.                                      |
+| `smart`   | Move the real cursor in and out; thick, thin and hidden states switch, and a hidden bar takes no input.                           |
+| `hidden`  | No bar shows; wheel and keys reach the end.                                                                                       |
+| DPI       | Move between real monitors with different scaling; row, text and bar sizes, click positions, tooltips and selection stay correct. |
+
+Simulated DPI changes or test-cursor success do not count as physical checks.
 
 ### Keyboard input (E12/E13)
 
@@ -445,14 +493,14 @@ F1/F3 from active work on 2026-11-10; neither was marked passed. The procedure b
 is retained for reference. Automated local runs follow the hidden desktop procedure above.
 
 Use `-for-testing` and a dedicated `-appdata` directory, as in the
-[tree procedure](tree-view-screen-reader-check.md#起動). Keep any custom test
+[tree procedure](#physical-tree-checks). Keep any custom test
 settings there; changes made in test mode last only for that process.
 
-| Item         | Procedure                                                              | Results                                                                               |
-| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| F1: printing | [Below](#printing-f1)                                                  | Append dated results under this section.                                              |
-| F2: trees    | [Screen readers, scrollbars and DPI](tree-view-screen-reader-check.md) | OK by owner report, 2026-11-09; [results](tree-view-screen-reader-check.md#実施結果). |
-| F3: keyboard | [Physical input checklist](keyboard-investigation.md#実機入力の確認f3) | Append dated results beside that checklist.                                           |
+| Item         | Procedure                                                              | Results                                                                                       |
+| ------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| F1: printing | [Below](#printing-f1)                                                  | Append dated results under this section.                                                      |
+| F2: trees    | [Screen readers, scrollbars and DPI](#physical-tree-checks)            | OK by owner report, 2026-11-09; [results](archive/tree-view-screen-reader-check.md#実施結果). |
+| F3: keyboard | [Physical input checklist](keyboard-investigation.md#実機入力の確認f3) | Append dated results beside that checklist.                                                   |
 
 For each result, record the date, source commit, Debug/Release, engine, Windows
 build, relevant device/software versions, settings and document used. Mark each

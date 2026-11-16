@@ -52,12 +52,11 @@ AGPL obligations; see `AUTHORS` and `COPYING`.
 
 See [SolokPDF docs](docs/solokpdf/README.md) for current status, open work,
 test setup and measurements. See the [current architecture](docs/solokpdf/architecture.md)
-and [completed design review](docs/solokpdf/refactoring-plan.md) for responsibilities and implementation records.
-The planned [structure and code review](docs/solokpdf/full-review-plan.md) assesses
-correctness, maintainability and performance, using document operations as starting points; it has not started.
+for responsibilities and contracts; finished plans and reviews are in the
+[archive](docs/solokpdf/archive/README.md).
 Bookmarks and favorites use virtual trees in Debug
 and Release, following the document's scrollbar mode. See the
-[tree migration](docs/solokpdf/tree-view-replacement-plan.md) for validation
+[tree migration](docs/solokpdf/archive/tree-view-replacement-plan.md) for validation
 results and the owner's completed physical-device checks.
 
 ## Original SumatraPDF project

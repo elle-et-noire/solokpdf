@@ -282,7 +282,7 @@ This does not bound every shutdown callback or ordinary tab-close wait.
 - Bookmarks and favorites use the [virtual-tree implementation](features.md#virtual-sidebar-trees)
   in Debug and Release, including normal launches. Both follow `Scrollbars`.
   The owner reported the screen-reader and physical-display checks OK on
-  2026-11-09 (E10/F2); [results](tree-view-screen-reader-check.md#実施結果)
+  2026-11-09 (E10/F2); [results](archive/tree-view-screen-reader-check.md#実施結果)
   distinguish that report from automated UIA/MSAA checks. Environment details
   were not recorded.
 

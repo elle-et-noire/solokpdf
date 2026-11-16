@@ -159,11 +159,11 @@ cost nothing until expanded.
 
 Implementation and validation results are in
 [history.md](history.md#virtual-sidebar-rollout-2026-11-09), with prototype details
-in the [migration plan](tree-view-replacement-plan.md). The owner reported Narrator,
+in the [migration plan](archive/tree-view-replacement-plan.md). The owner reported Narrator,
 NVDA, real monitor DPI changes, native thumb dragging and real-cursor smart-bar
 hover OK on 2026-11-09 (F2); environment details were not recorded.
 Use the [test setup](testing.md#virtual-sidebar-trees) and
-[screen-reader procedure and results](tree-view-screen-reader-check.md) for rechecks.
+[physical check procedure](testing.md#physical-tree-checks) for rechecks.
 
 ## Selection colors
 
