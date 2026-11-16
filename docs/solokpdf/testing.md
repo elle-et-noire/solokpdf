@@ -59,7 +59,9 @@ queries. A crash, ReportIf exit, ASan report, request timeout, unexpected quit
 or a dialog it cannot close is a finding. The "Unsaved changes" prompt gets the
 op's recorded answer; any other dialog is cancelled and printed as a note. A
 dialog after Quit is answered so the app exits, and is a `dialog` finding:
-Quit never prompts (`tests/ad-hoc-quit-pending-input.ts`).
+Quit never prompts (`tests/ad-hoc-quit-pending-input.ts`). Form ops first select
+the tab of `form.pdf` or a copy saved from it, opening `form.pdf` when no tab
+shows one; logs recorded before E73 replay with this targeting.
 
 ```powershell
 bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-monkey.ts --no-build --seed 1 --ops 300 --runs 5

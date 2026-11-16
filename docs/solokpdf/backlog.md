@@ -79,9 +79,7 @@ All rows are done; see [history.md](history.md#completed-backlog).
 
 ## Open
 
-| ID  | Item                                                                                                                                | Status |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| E73 | Monkey test form ops reach the form only when its tab is current (form field 1/10, button 0/4 in seed 6); target the form tab first | todo   |
+None; see [history.md](history.md#completed-backlog).
 
 ## Deferred
 

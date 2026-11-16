@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E73 | Monkey test form ops reached the form only when its tab was current                                                                                                                                                                                                                         | done — Target the form tab in monkey form ops (E73); [results](#e73-monkey-form-targeting-2026-11-16)                                                                                                                                   |
 | E72 | `-dbg-control` Quit showed "Unsaved changes" with an uncommitted in-place FreeText or form edit                                                                                                                                                                                             | done — Commit pending input before Quit discards (E72); [results](#e72-quit-with-pending-input-2026-11-16)                                                                                                                              |
 | E71 | Monkey test: seeded random UI operation sequences via `-dbg-control` (crash/hang/ASan)                                                                                                                                                                                                      | done — Add seeded monkey test of UI operations (E71); [results](#e71-monkey-test-2026-11-16)                                                                                                                                            |
 | E70 | Scheduled full suite 43763953763: ten failing tests (both engines, `issue-6055` MuPDF, `issue-2423` PDFium)                                                                                                                                                                                 | done — Record E70 scheduled-suite triage (E70); [results](#e70-scheduled-suite-failures-2026-11-15)                                                                                                                                     |
@@ -3997,3 +3998,27 @@ the fix and exit without a dialog after it (7 s; in `run-solokpdf-ci.ts`). The
 seed-6 shrunk replay and `--seed 6` (300 ops) now pass with no note. The monkey test
 reports a dialog during shutdown as a `dialog` finding again; it still answers it so
 the app can exit.
+
+## E73: Monkey form targeting (2026-11-16)
+
+`form` and `toggle` ops acted on whatever tab was current. They now select the tab
+of `form.pdf` or a copy saved from it (Save As and Save Copy from a form tab add the
+copy), opening `form.pdf` when no tab shows one. `TestSelectTab` also reports each
+tab's path (`tab=<i> path=<path>` lines). The op JSON is unchanged; older logs replay
+with the new targeting.
+
+Succeeded form requests, Debug, 300 ops, before → after:
+
+| Engine | Seed | Form field   | Form button |
+| ------ | ---- | ------------ | ----------- |
+| PDFium | 1    | 7/17 → 11/17 | 2/10 → 5/10 |
+| PDFium | 2    | 2/11 → 5/11  | 2/10 → 3/10 |
+| PDFium | 3    | 1/12 → 6/12  | 1/9 → 5/9   |
+| PDFium | 4    | 3/12 → 7/12  | 0/2 → 0/2   |
+| PDFium | 5    | 1/10 → 5/10  | 0/2 → 0/2   |
+| MuPDF  | 1    | 7/17 → 11/17 | 2/10 → 5/10 |
+
+The remaining failures are the generator's out-of-range targets, kept as negative
+cases: page 2 has one field (`no-widget`), the form has one button (`no-button
+idx=1`), and a text value set on the checkbox is rejected. No finding or note in any
+run.

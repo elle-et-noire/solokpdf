@@ -547,6 +547,45 @@ async function tabCount(s: Session): Promise<number> {
 }
 
 let gLastSaved = "";
+// form.pdf and the saved copies made from it: form ops act on one of these
+const gFormPaths = new Set<string>();
+
+const pathKey = (p: string) => p.replaceAll("/", "\\").toLowerCase();
+
+// the selected tab index and each tab's file path, from TestSelectTab's per-tab lines
+async function tabPaths(s: Session): Promise<{ idx: number; paths: string[] }> {
+  const res = await request(s, ControlCommand.TestSelectTab, [-1], "tab paths");
+  const text = String(res[1] ?? "");
+  const idx = Number(/idx=(-?\d+)/.exec(text)?.[1] ?? -1);
+  const paths = [...text.matchAll(/^tab=\d+ path=(.*)$/gm)].map((m) => pathKey(m[1]!));
+  return { idx, paths };
+}
+
+function openPath(s: Session, path: string, what: string): void {
+  try {
+    sendCopyDataW(s.frame, kDdeCopyData, `[Open("${path}", 0, 1, 0)]`);
+  } catch (e) {
+    throw new RunError("hang", `open ${what}: ${(e as Error).message}`);
+  }
+}
+
+// Makes a form document's tab current, opening form.pdf when no tab shows one.
+async function selectFormTab(s: Session): Promise<void> {
+  let t = await tabPaths(s);
+  let at = t.paths.findIndex((p) => gFormPaths.has(p));
+  if (at < 0) {
+    openPath(s, join(s.dir, "form.pdf"), "form");
+    t = await tabPaths(s);
+    at = t.paths.findIndex((p) => gFormPaths.has(p));
+  }
+  if (at >= 0 && at !== t.idx) await request(s, ControlCommand.TestSelectTab, [at], "select form tab");
+}
+
+// a save from a form tab makes another form document
+async function currentIsForm(s: Session): Promise<boolean> {
+  const t = await tabPaths(s);
+  return t.idx >= 0 && gFormPaths.has(t.paths[t.idx] ?? "");
+}
 
 async function runOp(s: Session, op: Op, i: number): Promise<void> {
   let answer: Answer = "discard";
@@ -566,11 +605,7 @@ async function runOp(s: Session, op: Op, i: number): Promise<void> {
       const path =
         op.fixture === "saved" ? gLastSaved : join(s.dir, `${op.fixture}.${op.fixture === "image" ? "png" : "pdf"}`);
       if (!path || !existsSync(path)) return;
-      try {
-        sendCopyDataW(s.frame, kDdeCopyData, `[Open("${path}", 0, 1, 0)]`);
-      } catch (e) {
-        throw new RunError("hang", `open ${op.fixture}: ${(e as Error).message}`);
-      }
+      openPath(s, path, op.fixture);
       break;
     }
     case "tab": {
@@ -594,21 +629,26 @@ async function runOp(s: Session, op: Op, i: number): Promise<void> {
       postMessage(s.frame, WM_KEYUP, op.vk, 0);
       break;
     case "form":
+      await selectFormTab(s);
       await request(s, ControlCommand.TestSetFormField, [op.page, op.idx, op.value], "form field");
       break;
     case "toggle":
+      await selectFormTab(s);
       await request(s, ControlCommand.TestToggleFormButton, [op.page, op.idx], "form button");
       break;
     case "save": {
       const dst = join(s.dir, `saved-${i}.pdf`);
+      const fromForm = op.how !== "existing" && (await currentIsForm(s));
       if (op.how === "existing") {
         await request(s, ControlCommand.ResolveUnsavedChanges, ["save"], "save");
       } else if (op.how === "as") {
         const res = await request(s, ControlCommand.ResolveUnsavedChanges, ["save-as", dst], "save as");
         if (res[0] === 0) gLastSaved = dst;
+        if (res[0] === 0 && fromForm) gFormPaths.add(pathKey(dst));
       } else {
         const res = await request(s, ControlCommand.TestSaveFileAs, [dst], "save copy");
         if (res[0] === 0 && existsSync(dst)) gLastSaved = dst;
+        if (res[0] === 0 && fromForm) gFormPaths.add(pathKey(dst));
       }
       break;
     }
@@ -643,6 +683,8 @@ async function launch(dir: string): Promise<Session> {
     env.ASAN_OPTIONS = `windows_hook_legacy_allocators=0:suppressions="${join(ROOT, "asan.supp")}"`;
   }
   gLastSaved = "";
+  gFormPaths.clear();
+  gFormPaths.add(pathKey(join(dir, "form.pdf")));
   const args = ["-appdata", dir, "-log-to-file", log, join(dir, "text.pdf"), join(dir, "annots.pdf")];
   const s = await launchControlled(args, { env });
   const session: Session = { ...s, dir, log, notes: [], stats: new Map() };

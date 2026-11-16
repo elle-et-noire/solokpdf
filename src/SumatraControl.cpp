@@ -1955,7 +1955,14 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 TabsSelect(win, idx);
             }
             int curr = win->tabsCtrl ? win->tabsCtrl->GetSelected() : -1;
-            AppendTestResult(req, 0, fmt("idx=%d count=%d", curr, nTabs));
+            // one "tab=<i> path=<path>" line per tab, so tests can find a document's tab
+            str::Builder out;
+            Vec<WindowTab*> tabs = win->Tabs();
+            out.Append(fmt("idx=%d count=%d", curr, len(tabs)));
+            for (int i = 0; i < len(tabs); i++) {
+                out.Append(fmt("\ntab=%d path=%s", i, tabs[i]->filePath));
+            }
+            AppendTestResult(req, 0, ToStrTemp(out));
             break;
         }
 
