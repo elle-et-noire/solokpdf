@@ -1593,7 +1593,9 @@ class EnginePdfium : public EngineBase {
                     *missingUnicode = true;
                 }
                 unsigned int nextCode = next >= 0 ? gPdfium.FPDFText_GetUnicode(textPage, next) : 0;
-                if ((code == '\r' && nextCode == '\n') || (code == ' ' && (nextCode == '\r' || nextCode == '\n'))) {
+                // like MuPDF, no space before a line break or at the page end
+                bool lineEnd = next < 0 || nextCode == '\r' || nextCode == '\n';
+                if ((code == '\r' && nextCode == '\n') || (code == ' ' && lineEnd)) {
                     continue;
                 }
                 if (code == ' ' && (prevCode == 0 || prevCode == '\n' || prevCode == '\r')) {
