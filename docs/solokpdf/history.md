@@ -3246,6 +3246,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | E35 | Preserve choice-field validation rejection                                                                                                                                                                                                                                                  | done — Preserve choice validation rejection (E35); [results](#e35-choice-validation-2026-11-10)                                                                                                                                         |
 | E36 | Publish committed edits after refresh failures                                                                                                                                                                                                                                              | done — Preserve committed edits after refresh (E36); [results](#e36-committed-edit-notification-2026-11-11)                                                                                                                             |
 | E37 | Report partial redaction and reconcile failed pages                                                                                                                                                                                                                                         | done — Report partial redactions (E37); [results](#e37-redaction-failures-2026-11-11)                                                                                                                                                   |
+| E74 | Monkey test crash: `--seed 7` crashed at op 296 (`TestCurrentPdf search-first`)                                                                                                                                                                                                             | done — Clear find callback on the tab it started (E74); [results](#e74-find-callback-after-tab-switch-2026-11-16)                                                                                                                       |
 | E73 | Monkey test form ops reached the form only when its tab was current                                                                                                                                                                                                                         | done — Target the form tab in monkey form ops (E73); [results](#e73-monkey-form-targeting-2026-11-16)                                                                                                                                   |
 | E72 | `-dbg-control` Quit showed "Unsaved changes" with an uncommitted in-place FreeText or form edit                                                                                                                                                                                             | done — Commit pending input before Quit discards (E72); [results](#e72-quit-with-pending-input-2026-11-16)                                                                                                                              |
 | E71 | Monkey test: seeded random UI operation sequences via `-dbg-control` (crash/hang/ASan)                                                                                                                                                                                                      | done — Add seeded monkey test of UI operations (E71); [results](#e71-monkey-test-2026-11-16)                                                                                                                                            |
@@ -4022,3 +4023,32 @@ The remaining failures are the generator's out-of-range targets, kept as negativ
 cases: page 2 has one field (`no-widget`), the form has one button (`no-button
 idx=1`), and a text value set on the checkbox is rejected. No finding or note in any
 run.
+
+## E74: Find callback after tab switch (2026-11-16)
+
+Symbolized minidump (cdbX64, `out/dbg64` symbols): AV reading `0x6f0` in
+`FindThreadData::WasCanceled` (the `logf` line) ← `ForwardProgress` ←
+`TextSearch::FindStartingAtPage` ← `FindFirst` ← `TestCurrentPdf search-first`,
+inside the Add Favorite dialog's modal loop.
+
+A find sets `progressCb` on its document's `TextSearch` to its `FindThreadData`.
+`FindEndTask` dropped it only on the current tab's document, so a find whose tab
+stopped being current before its end task ran (tab switch, E73's form-tab
+selection) left that document calling the deleted data. The next search on it
+that does not set its own callback read freed memory: the test hook, or DDE
+`GotoPageWord` when page text is not cached. `WasCanceled` also read
+`win->findCancelled` for an invalid window. Both are upstream code (2026-10-11,
+"Share find and match-count workers with ng"), not E72/E73: the ASan build from
+before E72 reports the same heap-use-after-free with the new test (freed by
+`FindEndTask`, allocated by `FindTextOnThread` from DDE `Search`).
+
+The callback is now dropped on the document the find started on, in whichever
+window tab holds it, and `WasCanceled` reads the window only when it is valid. The
+`search-first`/`search-next` test hook joins a running find first, as the UI's
+direct searches do.
+
+`tests/ad-hoc-find-tab-switch.ts` runs DDE `[Search(A)][Open(B)]`, returns to A
+and searches it. Before: Debug got `found=0` and logged the stale callback; ASan
+aborted with heap-use-after-free. After: passes in Debug (5 s, in
+`run-solokpdf-ci.ts`) and ASan. Monkey (300 ops): Debug `--seed 7` 3/3, `--seed 6
+--runs 2`, seeds 1–5 and ASan `--seed 7` pass with no finding or note.

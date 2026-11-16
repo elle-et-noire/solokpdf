@@ -59,6 +59,8 @@
 #include "base/GuessFileType.h"
 #include "FindWindow.h"
 #include "FindBar.h"
+#include "SearchAndDDE.h"
+#include "SearchAndDDECommon.h"
 #include "Toolbar.h"
 #include "LinkFollow.h"
 #include "SelectTextKeyboard.h"
@@ -2116,6 +2118,8 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             if (str::Eq(signAction, StrL("search-first")) || str::Eq(signAction, StrL("search-next"))) {
+                // like the UI's own searches, don't race a find thread on dm->textSearch
+                JoinFindThread(tab->win, false);
                 TextSearch* search = dm->textSearch;
                 Vec<TextSel>* matches = str::Eq(signAction, StrL("search-first"))
                                             ? search->FindFirst(1, StringArg(req, 1))

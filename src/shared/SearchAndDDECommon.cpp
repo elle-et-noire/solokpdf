@@ -1487,10 +1487,12 @@ struct FindThreadData {
 
     bool WasCanceled() {
         bool winValid = IsMainWindowValidAndNotClosing(win);
-        auto res = !winValid || AtomicBoolGet(&win->findCancelled);
+        // win may be freed: read findCancelled only when it is valid
+        bool cancelled = winValid && AtomicBoolGet(&win->findCancelled);
+        auto res = !winValid || cancelled;
         if (res) {
             logf("FindThreadData: WasCanceled() returns true, isMainWindowValid: %d, win->findCancelled: %d\n",
-                 (int)winValid, (int)AtomicBoolGet(&win->findCancelled));
+                 (int)winValid, (int)cancelled);
         }
         return res;
     }
@@ -2029,21 +2031,26 @@ void StartFindCount(MainWindow* win, Str text, bool matchCase, bool matchWholeWo
     d->thread = win->findCountThread;
 }
 
-// progressCb on the document's TextSearch points at ftd. Drop it before ftd is
-// deleted: a later search on the UI thread (DDE GotoPageWord) calls it.
-static void DropFindProgressCb(MainWindow* win, FindThreadData* ftd) {
-    if (!IsMainWindowValid(win)) {
+// progressCb on the TextSearch of the document the find started on points at
+// ftd. Drop it before ftd is deleted: a later search on the UI thread (DDE
+// GotoPageWord) calls it. That document need not be the current tab anymore.
+static void DropFindProgressCb(FindThreadData* ftd) {
+    if (!ftd->dm) {
         return;
     }
-    DisplayModel* dm = win->AsFixed();
-    if (!dm || !dm->textSearch) {
-        return;
+    for (MainWindow* win : gWindows) {
+        for (WindowTab* tab : win->Tabs()) {
+            DisplayModel* dm = tab->AsFixed();
+            if (dm != ftd->dm || !dm->textSearch) {
+                continue;
+            }
+            ProgressUpdateCb& cb = dm->textSearch->progressCb;
+            if ((cb.userData & ~ProgressUpdateCb::kDropsArgBit) == (uintptr_t)ftd) {
+                cb = {};
+            }
+            return;
+        }
     }
-    ProgressUpdateCb& cb = dm->textSearch->progressCb;
-    if ((cb.userData & ~ProgressUpdateCb::kDropsArgBit) != (uintptr_t)ftd) {
-        return;
-    }
-    cb = {};
 }
 
 void FindEndTask(FindEndTaskData* d) {
@@ -2054,7 +2061,7 @@ void FindEndTask(FindEndTaskData* d) {
     auto loopedAround = d->loopedAround;
 
     AutoDelete delData(d);
-    DropFindProgressCb(win, ftd);
+    DropFindProgressCb(ftd);
     if (!IsMainWindowValidAndNotClosing(win)) {
         return;
     }
@@ -2112,7 +2119,7 @@ void FindThread(FindThreadData* ftd) {
     if (!kHasThreads && (!IsMainWindowValid(win) || win->findThread != ftd->thread)) {
         // aborted or replaced since it was posted: JoinFindThread() can't wait
         // for slices, and the document may be gone
-        DropFindProgressCb(win, ftd);
+        DropFindProgressCb(ftd);
         delete ftd;
         return;
     }
