@@ -8,6 +8,7 @@ const kCaptureTimeoutMs = 15_000;
 function findCdb(): string | undefined {
   const paths = [
     Bun.which("cdb.exe"),
+    Bun.which("cdbX64.exe"),
     String.raw`C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe`,
     String.raw`C:\Program Files\Windows Kits\10\Debuggers\x64\cdb.exe`,
   ];
