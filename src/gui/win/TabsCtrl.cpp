@@ -387,8 +387,11 @@ void TabsPlusBtn::Paint(VirtPaintCtx& ctx) {
     int cx = r.x + (r.dx / 2);
     int cy = r.y + (r.dy / 2);
     int arm = r.dy / 5;
-    gfx->DrawLineAA({cx - arm, cy}, {cx + arm, cy}, col, 2.0f, 255);
-    gfx->DrawLineAA({cx, cy - arm}, {cx, cy + arm}, col, 2.0f, 255);
+    // filled 2px bars stay on the pixel grid; anti-aliased lines at integer
+    // coordinates spread over 3 half-covered rows and look blurred
+    int thick = 2;
+    gfx->FillRect({cx - arm, cy - thick / 2, arm * 2, thick}, col);
+    gfx->FillRect({cx - thick / 2, cy - arm, thick, arm * 2}, col);
 }
 
 void TabsPlusBtn::OnInvalidate() {
