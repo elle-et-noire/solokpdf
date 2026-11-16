@@ -157,7 +157,7 @@ struct VirtTree {
 
     void FreeAccess();
     void Paint(VirtHostPaintEvent* ev);
-    void DrawExpander(Gfx* gfx, Rect box, bool expanded, Color color);
+    void DrawExpander(Gfx* gfx, Rect box, bool expanded, bool hot, Color color, Color bg);
     int WheelPixels(int wheel, i64* rest);
     void Message(VirtHostNativeMsg* ev);
     bool UpdateBars();

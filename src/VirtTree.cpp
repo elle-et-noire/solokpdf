@@ -583,33 +583,60 @@ bool VirtTree::UpdateBars() {
     return valid();
 }
 
-// Explorer-style chevron: '>' collapsed ('<' in RTL), 'v' expanded. Gray at
-// rest, full text color while the mouse is over the tree, as TreeView does.
-void VirtTree::DrawExpander(Gfx* gfx, Rect box, bool expanded, Color color) {
-    constexpr int kHalfDip = 4;
-    constexpr u8 kRestAlpha = 180;
-    int dpi = measureDpi;
-    int half = DpiScaleByDpi(dpi, kHalfDip);
-    int depth = half / 2;
-    float stroke = (float)dpi / 96.0f;
-    u8 alpha = hotItem == TreeModel::kNullItem ? kRestAlpha : 255;
-    int cx = box.x + box.dx / 2;
-    int cy = box.y + box.dy / 2;
+static int CALLBACK FontFoundCb(const LOGFONTW*, const TEXTMETRICW*, DWORD, LPARAM found) {
+    *(bool*)found = true;
+    return 0;
+}
 
-    // tip of the chevron and its two arm ends
-    Point tip, a, b;
-    if (expanded) {
-        tip = {cx, cy + depth};
-        a = {cx - half, cy - depth};
-        b = {cx + half, cy - depth};
-    } else {
-        int dir = rtl ? -1 : 1;
-        tip = {cx + dir * depth, cy};
-        a = {cx - dir * depth, cy - half};
-        b = {cx - dir * depth, cy + half};
+static bool IsFontInstalled(const WCHAR* name) {
+    LOGFONTW lf{};
+    lf.lfCharSet = DEFAULT_CHARSET;
+    wcsncpy_s(lf.lfFaceName, name, _TRUNCATE);
+    bool found = false;
+    HDC dc = GetDC(nullptr);
+    EnumFontFamiliesExW(dc, &lf, FontFoundCb, (LPARAM)&found, 0);
+    ReleaseDC(nullptr, dc);
+    return found;
+}
+
+// Segoe Fluent Icons (Windows 11), or Segoe MDL2 Assets (Windows 10) with the
+// same code points; Marlett's triangles before Windows 10.
+static PlatformFont* ChevronFont(int px, bool* marlett) {
+    static int installed = -1;
+    if (installed < 0) {
+        installed = IsFontInstalled(L"Segoe Fluent Icons") ? 1 : IsFontInstalled(L"Segoe MDL2 Assets") ? 2 : 0;
     }
-    gfx->DrawLineAA(a, tip, color, stroke, alpha);
-    gfx->DrawLineAA(tip, b, color, stroke, alpha);
+    *marlett = installed == 0;
+    if (installed == 1) return GetUserGuiFont(StrL("Segoe Fluent Icons"), px);
+    if (installed == 2) return GetUserGuiFont(StrL("Segoe MDL2 Assets"), px);
+    return GetUserGuiFont(StrL("Marlett"), px);
+}
+
+static Color MixColor(Color fg, Color bg, u8 alpha) {
+    u8 r1, g1, b1, r2, g2, b2;
+    UnpackColor(fg, r1, g1, b1);
+    UnpackColor(bg, r2, g2, b2);
+    auto mix = [alpha](u8 a, u8 b) { return (u8)((a * alpha + b * (255 - alpha) + 127) / 255); };
+    return MkRgb(mix(r1, r2), mix(g1, g2), mix(b1, b2));
+}
+
+// UTF-8 of the Segoe icon font chevrons U+E70D, U+E76B, U+E76C
+#define kChevronDown "\xEE\x9C\x8D"
+#define kChevronLeft "\xEE\x9D\xAB"
+#define kChevronRight "\xEE\x9D\xAC"
+
+// Explorer-style chevron in the row's text color: ChevronRight collapsed
+// (ChevronLeft in RTL), ChevronDown expanded; softened unless the row is hot.
+void VirtTree::DrawExpander(Gfx* gfx, Rect box, bool expanded, bool hot, Color color, Color bg) {
+    constexpr int kChevronDip = 11;
+    constexpr u8 kRestAlpha = 180;
+    bool marlett = false;
+    PlatformFont* chevrons = ChevronFont(DpiScaleByDpi(measureDpi, kChevronDip), &marlett);
+    if (!chevrons) return;
+    Str glyph = expanded ? StrL(kChevronDown) : rtl ? StrL(kChevronLeft) : StrL(kChevronRight);
+    if (marlett) glyph = expanded ? StrL("6") : rtl ? StrL("3") : StrL("4");
+    Color ink = hot ? color : MixColor(color, bg, kRestAlpha);
+    gfx->DrawText(glyph, box, gfxTextCenter | gfxTextVCenter | gfxTextNoClip, chevrons, ink);
 }
 
 void VirtTree::Paint(VirtHostPaintEvent* ev) {
@@ -652,7 +679,8 @@ void VirtTree::Paint(VirtHostPaintEvent* ev) {
         Color color = style.textColor;
         if (node.childCount > 0) {
             int iconX = rtl ? rc.dx - x : x - rowDy;
-            DrawExpander(ev->gfx, {iconX, row.y, rowDy, row.dy}, node.expanded, color);
+            DrawExpander(ev->gfx, {iconX, row.y, rowDy, row.dy}, node.expanded, node.item == hotItem, color,
+                         style.bgColor);
         }
         int textWidth = metrics.widths[nodeIndex];
         i64 textLeft = rtl ? (i64)rc.dx - x - textWidth : x;
