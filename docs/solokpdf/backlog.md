@@ -6,7 +6,7 @@ D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (re
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D15, E74, F4).
+group (B76, C2, D15, E75, F4).
 
 ## Implementation and acceptance
 
@@ -79,7 +79,9 @@ All rows are done; see [history.md](history.md#completed-backlog).
 
 ## Open
 
-None; see [history.md](history.md#completed-backlog).
+| ID  | Item                                                                                                                                                                                                                                  | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| E74 | Monkey test crash: Debug PDFium `--seed 7` (as the second run of `--seed 6 --runs 2`) crashes with a minidump at op 296 (`TestCurrentPdf search-first "page 3"`); 2 of 3 runs at `eeef17c28`. No cdb locally, so the stack is unknown | todo   |
 
 ## Deferred
 
