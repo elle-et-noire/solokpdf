@@ -1,6 +1,7 @@
 // Scrollbars = overlay: switching the theme repaints the bars in the new
-// theme's colors. They are separate layered popups, which the frame's redraw
-// doesn't reach, so they kept the previous theme's colors until a scroll.
+// theme's colors. They are layered windows, which the frame's redraw doesn't
+// reach, so they kept the previous theme's colors until a scroll. As children
+// of the canvas (E97), a PrintWindow of the canvas shows them.
 //
 // Light Gray -> next theme (Dark from 3.5): the bar must go dark.
 //
@@ -8,37 +9,39 @@
 
 import { join } from "node:path";
 import { cmdId, EXE, ROOT, runStandalone, USE_NG, writeAppdata } from "./util.ts";
-import { captureScreenRegionPixels, getWindowRect, setProcessDpiAware, setTopmost, sleep } from "./winapi.ts";
+import { captureWindowPixels, getWindowRect, setProcessDpiAware, sleep } from "./winapi.ts";
 import { withControlledSumatra } from "./control.ts";
 import { canvasOverlayScrollbars, findCanvas, sendCommandSync, waitForFrame } from "./win-automation.ts";
 
 // a light bar averages well above this, a dark one well below
 const lumaSplit = 128;
 
-// average brightness of the vertical bar as shown on screen
+// average brightness of the vertical bar as drawn over the canvas
 function verticalBarLuma(frame: number, pid: number): number {
-  const bars = canvasOverlayScrollbars(pid, findCanvas(frame));
+  const canvas = findCanvas(frame);
+  const bars = canvasOverlayScrollbars(pid, canvas);
   const rects = bars.map((b) => getWindowRect(b));
   const i = rects.findIndex((r) => r.bottom - r.top > r.right - r.left);
   if (i < 0) {
     throw new Error("overlay-scrollbar-theme: no vertical overlay scrollbar");
   }
   const r = rects[i]!;
-  for (const hwnd of [frame, ...bars]) {
-    setTopmost(hwnd, true);
-  }
-  const w = r.right - r.left;
-  const h = r.bottom - r.top;
-  const px = captureScreenRegionPixels(r.left, r.top, w, h);
-  setTopmost(frame, false);
+  const c = getWindowRect(canvas);
+  const px = captureWindowPixels(canvas, "client");
   if (!px) {
     throw new Error("overlay-scrollbar-theme: capture failed");
   }
   let sum = 0;
-  for (let k = 0; k < w * h; k++) {
-    sum += (px[k * 4 + 2]! * 299 + px[k * 4 + 1]! * 587 + px[k * 4]! * 114) / 1000;
+  let n = 0;
+  for (let y = r.top - c.top; y < r.bottom - c.top; y++) {
+    for (let x = r.left - c.left; x < r.right - c.left; x++) {
+      if (x < 0 || y < 0 || x >= px.w || y >= px.h) continue;
+      const k = (y * px.w + x) * 4;
+      sum += (px.data[k + 2]! * 299 + px.data[k + 1]! * 587 + px.data[k]! * 114) / 1000;
+      n++;
+    }
   }
-  return sum / (w * h);
+  return sum / Math.max(n, 1);
 }
 
 export async function testit(): Promise<void> {

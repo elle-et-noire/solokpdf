@@ -52,6 +52,11 @@ static Rect CornerRect(OverlayScrollbar* sb) {
     return {0, rc.dy - sb->cornerDy, rc.dx, sb->cornerDy};
 }
 
+// the owner's client area in screen coordinates: the bar lies along its edge
+static Rect OwnerScreenRect(OverlayScrollbar* sb) {
+    return HwndMapRectToWindow(HwndClientRect(sb->hwndOwner), sb->hwndOwner, nullptr);
+}
+
 // Native scrollbars put a size grip in their corner when it is the bottom-right
 // corner of a resizable, not maximized frame
 static bool CornerHasGrip(OverlayScrollbar* sb) {
@@ -68,7 +73,7 @@ static bool CornerHasGrip(OverlayScrollbar* sb) {
     ClientToScreen(root, &corner);
     // the frame draws a thin border of its own inside its client area
     int slack = DpiScale(2);
-    Rect ownerRc = HwndWindowRect(sb->hwndOwner);
+    Rect ownerRc = OwnerScreenRect(sb);
     int dx = rtl ? ownerRc.x - corner.x : corner.x - (ownerRc.x + ownerRc.dx);
     return dx <= slack && corner.y - (ownerRc.y + ownerRc.dy) <= slack;
 }
@@ -89,7 +94,7 @@ static UINT ScrollMsgForType(OverlayScrollbar* sb) {
 // being in it is what turns a smart scrollbar thick, so it is always the thick
 // width, whatever width the scrollbar is drawn at right now
 static Rect GetScrollbarScreenRect(OverlayScrollbar* sb) {
-    Rect ownerRc = HwndWindowRect(sb->hwndOwner);
+    Rect ownerRc = OwnerScreenRect(sb);
     int scrollW = ScaledWidth(sb, true);
     if (IsVert(sb)) {
         bool rtl = sb->layout == OverlayScrollbar::Layout::RightToLeft;
@@ -109,31 +114,24 @@ static bool IsOrIsParentOf(HWND hwnd, HWND child) {
     return false;
 }
 
-// Sit just above the owner frame, so the bar is seen but doesn't cover the
-// windows floating over the canvas (the annotation property row, the command
-// palette). SetWindowPos inserts *after* the window it is given, so that is
-// the one directly above the frame, not the frame itself (issue #6093).
-static HWND ScrollbarZOrderAfter(OverlayScrollbar* sb) {
-    HWND root = sb->hwndOwner ? GetAncestor(sb->hwndOwner, GA_ROOT) : nullptr;
-    if (!root) {
-        return HWND_TOP;
-    }
-    HWND above = GetWindow(root, GW_HWNDPREV);
-    // skip ourselves: we are what is directly above the frame once shown
-    while (above == sb->hwnd) {
-        above = GetWindow(above, GW_HWNDPREV);
-    }
-    return above ? above : HWND_TOP;
+// the bar's own WS_VISIBLE: a hidden owner hides it from the screen, not this
+static bool BarWindowShown(OverlayScrollbar* sb) {
+    return sb->hwnd && (GetWindowLongW(sb->hwnd, GWL_STYLE) & WS_VISIBLE);
 }
 
+// over the owner's other children (form fields being edited), as the page is
+// under it; the frame's windows floating over the owner stay above it
 static void ShowScrollbarHwnd(OverlayScrollbar* sb) {
-    SetWindowPos(sb->hwnd, ScrollbarZOrderAfter(sb), 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOOWNERZORDER);
+    SetWindowPos(sb->hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 
 // Cursor is over the owner canvas, not over another top-level window covering it
 static bool MouseOverOwnerSurface(OverlayScrollbar* sb, Point pt) {
-    Rect ownerRc = HwndWindowRect(sb->hwndOwner);
+    // a hidden owner (a sidebar tree whose panel is closed) is under nothing
+    if (!HwndIsVisible(sb->hwndOwner)) {
+        return false;
+    }
+    Rect ownerRc = OwnerScreenRect(sb);
     if (!ownerRc.Contains(pt)) {
         return false;
     }
@@ -678,8 +676,9 @@ static void PaintCustomScrollbar(OverlayScrollbar* sb, HDC hdcMem, void* bits, i
 // Update the layered window with the current appearance
 static void PaintScrollbar(OverlayScrollbar* sb) {
     // an auto-hidden bar keeps its window, made transparent: painting it would
-    // bring it back with no timer left to hide it
-    if (!sb->hwnd || !HwndIsVisible(sb->hwnd) || !IsVisible(sb)) {
+    // bring it back with no timer left to hide it. A hidden owner still gets the
+    // bar painted, to be current when it shows again
+    if (!BarWindowShown(sb) || !IsVisible(sb)) {
         return;
     }
 
@@ -726,12 +725,12 @@ static void PaintScrollbar(OverlayScrollbar* sb) {
 
     POINT ptSrc = {0, 0};
     SIZE szWnd = {w, h};
-    POINT ptDst = {wrc.x, wrc.y};
     BLENDFUNCTION blend{};
     blend.BlendOp = AC_SRC_OVER;
     blend.SourceConstantAlpha = 255;
     blend.AlphaFormat = AC_SRC_ALPHA;
-    UpdateLayeredWindow(sb->hwnd, hdcScreen, &ptDst, &szWnd, hdcMem, &ptSrc, 0, &blend, ULW_ALPHA);
+    // no destination: SetWindowPos places the bar, in its owner's coordinates
+    UpdateLayeredWindow(sb->hwnd, hdcScreen, nullptr, &szWnd, hdcMem, &ptSrc, 0, &blend, ULW_ALPHA);
 
     SelectObject(hdcMem, hbmpOld);
     DeleteObject(hbmp);
@@ -772,6 +771,11 @@ void SetState(OverlayScrollbar* sb, State newState) {
     if (sb->state == newState) {
         return;
     }
+    // the owner was destroyed, taking the bar's window with it
+    if (!sb->hwnd) {
+        sb->state = newState;
+        return;
+    }
     bool wasVisible = IsVisible(sb);
     bool wasActive = IsActive(sb);
     sb->state = newState;
@@ -786,14 +790,18 @@ void SetState(OverlayScrollbar* sb, State newState) {
         }
         PaintScrollbar(sb);
     } else {
-        // Make fully transparent instead of ShowWindow(SW_HIDE) because
-        // SW_HIDE can trigger Z-order changes that hide other popups
         sb->mouseOverThumb = false;
         if (wasVisible && newState == State::SmartInvisible) {
             // auto-hide fades out; the bar is already hidden as far as the
             // rest of the code is concerned (clicks pass through it)
             sb->fadeOutStart = GetTickCount64();
             SetTimer(sb->hwnd, OverlayScrollbar::kTimerFadeOut, kHoverAnimFrameMs, nullptr);
+        } else if (newState == State::Hidden) {
+            // not needed: no window is left over the owner (a child's hiding
+            // doesn't reorder or activate other windows, as a popup's did)
+            KillTimer(sb->hwnd, OverlayScrollbar::kTimerFadeOut);
+            SetWindowPos(sb->hwnd, nullptr, 0, 0, 0, 0,
+                         SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
         } else {
             KillTimer(sb->hwnd, OverlayScrollbar::kTimerFadeOut);
             MakeLayeredWindowTransparent(sb->hwnd);
@@ -1145,17 +1153,38 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
         case WM_MOUSEACTIVATE:
             return MA_NOACTIVATE;
 
+        // a child's default passes these to the owner, which has its own cursor
+        // and context menu for the page
         case WM_SETCURSOR: {
             Point pt = HwndScreenToClient(hwnd, GetCursorPosition());
-            if (OverCornerGrip(sb, pt)) {
-                auto* cursor = sb->layout == OverlayScrollbar::Layout::RightToLeft ? IDC_SIZENESW : IDC_SIZENWSE;
-                SetCursor(GetCachedCursor(cursor));
-                return TRUE;
-            }
-            break;
+            bool grip = OverCornerGrip(sb, pt);
+            auto* cursor = sb->layout == OverlayScrollbar::Layout::RightToLeft ? IDC_SIZENESW : IDC_SIZENWSE;
+            SetCursor(GetCachedCursor(grip ? cursor : IDC_ARROW));
+            return TRUE;
         }
 
+        case WM_CONTEXTMENU:
+            return 0;
+
+        // the bar mirrors itself (`layout`); an RTL frame sets WS_EX_LAYOUTRTL on
+        // all its children, which would flip its mouse coordinates
+        case WM_STYLECHANGING:
+            if (wp == (WPARAM)GWL_EXSTYLE) {
+                ((STYLESTRUCT*)lp)->styleNew &= ~WS_EX_LAYOUTRTL;
+            }
+            break;
+
+        // the owner's destruction took the bar's window
+        case WM_NCDESTROY:
+            sb->hwnd = nullptr;
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+            break;
+
         case WM_NCHITTEST: {
+            // hidden: clicks go to the owner
+            if (!IsVisible(sb)) {
+                return HTTRANSPARENT;
+            }
             // pass through rightmost 2px of vertical scrollbar for frame resize
             if (IsVert(sb)) {
                 int x = GET_X_LPARAM(lp);
@@ -1173,6 +1202,19 @@ static LRESULT CALLBACK WndProcOverlayScrollbar(HWND hwnd, UINT msg, WPARAM wp, 
     }
 
     return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+// Runs before the owner's own handling, which may destroy the bar
+static LRESULT CALLBACK OwnerSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR id, DWORD_PTR data) {
+    auto* sb = (OverlayScrollbar*)data;
+    if (msg == WM_SIZE || (msg == WM_STYLECHANGED && wp == (WPARAM)GWL_EXSTYLE)) {
+        OverlayScrollbarUpdatePos(sb);
+    }
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, OwnerSubclassProc, id);
+        sb->ownerSubclassId = 0;
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
 static void RegisterScrollbarClass() {
@@ -1208,15 +1250,16 @@ OverlayScrollbar* OverlayScrollbarCreate(HWND hwndOwner, OverlayScrollbar::Type 
     if (sb->themed) {
         sb->thinWidth = sysWidth;
     }
-    DWORD exStyle = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
-    DWORD style = WS_POPUP;
-
-    // use the top-level ancestor as owner so the scrollbar stays above its
-    // own window but doesn't cover other application windows
-    HWND hwndTopLevel = GetAncestor(hwndOwner, GA_ROOT);
-    sb->hwnd = CreateWindowExW(exStyle, kOverlayScrollbarClass, nullptr, style, 0, 0, 1, 1, hwndTopLevel, nullptr,
+    // A child of the window it scrolls (a layered child needs Windows 8), so it
+    // shows, hides, moves and clips with it and its parents by construction
+    DWORD exStyle = WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOPARENTNOTIFY;
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS;
+    sb->hwnd = CreateWindowExW(exStyle, kOverlayScrollbarClass, nullptr, style, 0, 0, 1, 1, hwndOwner, nullptr,
                                GetModuleHandleW(nullptr), nullptr);
     SetWindowLongPtrW(sb->hwnd, GWLP_USERDATA, (LONG_PTR)sb);
+    // what it can't follow: the owner's size and layout direction place its edge
+    sb->ownerSubclassId = NextSubclassId();
+    SetWindowSubclass(hwndOwner, OwnerSubclassProc, sb->ownerSubclassId, (DWORD_PTR)sb);
 
     // Register for global mouse tracking
     VecAppend(gAllScrollbars, sb);
@@ -1236,6 +1279,9 @@ void OverlayScrollbarDestroy(OverlayScrollbar* sb) {
         StopMouseTracking();
     }
 
+    if (sb->ownerSubclassId) {
+        RemoveWindowSubclass(sb->hwndOwner, OwnerSubclassProc, sb->ownerSubclassId);
+    }
     if (sb->hwnd) {
         KillTimer(sb->hwnd, OverlayScrollbar::kTimerAutoHide);
         DestroyWindow(sb->hwnd);
@@ -1303,13 +1349,14 @@ void OverlayScrollbarGetInfo(OverlayScrollbar* sb, SCROLLINFO* si) {
     }
 }
 
-// Call when owner window moves/resizes
+// Place the bar along its owner's edge, in the owner's client coordinates.
+// Runs on the owner's resize; its moves need nothing
 void OverlayScrollbarUpdatePos(OverlayScrollbar* sb) {
     if (!sb || !sb->hwnd || !sb->hwndOwner) {
         return;
     }
 
-    Rect ownerRc = HwndWindowRect(sb->hwndOwner);
+    Rect ownerRc = HwndClientRect(sb->hwndOwner);
 
     int scrollW = ScaledWidth(sb, IsThick(sb));
     int x, y, w, h;
@@ -1363,35 +1410,12 @@ void OverlayScrollbarUpdatePos(OverlayScrollbar* sb) {
     }
     SetWindowLongPtrW(sb->hwnd, GWL_EXSTYLE, exStyle);
 
-    // SWP_NOOWNERZORDER: raising an owned popup otherwise raises the owner
-    // frame over other top-level windows (command palette, annotations).
-    UINT swpFlags = SWP_NOACTIVATE | SWP_NOOWNERZORDER;
-    HWND insertAfter = nullptr;
-    // re-show the window if the state says it should be visible
-    // (RelayoutFrame hides overlay scrollbar windows with SW_HIDE
-    // to prevent them from appearing at stale positions)
-    if (IsVisible(sb) && !HwndIsVisible(sb->hwnd)) {
-        swpFlags |= SWP_SHOWWINDOW;
-        insertAfter = ScrollbarZOrderAfter(sb);
-    } else {
-        swpFlags |= SWP_NOZORDER;
-    }
-    SetWindowPos(sb->hwnd, insertAfter, x, y, w, h, swpFlags);
+    x = HwndMapChildXForRtlParent(sb->hwndOwner, x, w);
+    SetWindowPos(sb->hwnd, nullptr, x, y, w, h, SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
-// Hide the scrollbar window without stealing activation from other windows.
-// Uses SWP_HIDEWINDOW | SWP_NOACTIVATE instead of ShowWindow(SW_HIDE).
-void OverlayScrollbarHide(OverlayScrollbar* sb) {
-    if (!sb || !sb->hwnd) {
-        return;
-    }
-    SetWindowPos(sb->hwnd, nullptr, 0, 0, 0, 0,
-                 SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
-}
-
-// Show/hide
 // Draw again in the current colors, e.g. after a theme change: the bar is a
-// layered popup, which a redraw of its owner's window tree doesn't reach
+// layered window, which a redraw of its owner's window tree doesn't reach
 void OverlayScrollbarRepaint(OverlayScrollbar* sb) {
     if (sb) {
         PaintScrollbar(sb);
@@ -1410,18 +1434,11 @@ void OverlayScrollbarShow(OverlayScrollbar* sb, bool show) {
         return;
     }
 
-    // Already painted thin/thick — nothing to do. SmartInvisible still has an
-    // IsWindowVisible layered HWND (fully transparent), so do not treat that as
-    // shown: keyboard scroll / UpdateScrollbars must re-reveal it (#5850).
-    if (IsVisible(sb) && HwndIsVisible(sb->hwnd)) {
+    // Already painted thin/thick — nothing to do. SmartInvisible still has a
+    // shown layered HWND (fully transparent), so do not treat that as shown:
+    // keyboard scroll / UpdateScrollbars must re-reveal it (#5850).
+    if (IsVisible(sb)) {
         return;
     }
-    if (!IsActive(sb) || sb->state == State::SmartInvisible) {
-        ShowScrollbarWindow(sb, false);
-        return;
-    }
-    // re-show if window was temporarily hidden (e.g. during relayout)
-    OverlayScrollbarUpdatePos(sb);
-    ShowScrollbarHwnd(sb);
-    PaintScrollbar(sb);
+    ShowScrollbarWindow(sb, false);
 }

@@ -387,8 +387,13 @@ The current page's frame is 3 px of `ScrollbarThumbColor` (upstream: a fixed
 blue); the other pages get a 1px frame in it (upstream: none, so Light's white
 pages vanished on its white sidebar).
 
-`tests/smart-scrollbars-autohide.ts` reads the bars off the screen and checks
-an auto-hidden smart bar stays hidden.
+`tests/smart-scrollbars-autohide.ts` reads the bars from a capture of the
+canvas and checks an auto-hidden smart bar stays hidden.
+
+The bars are layered child windows of the canvas or sidebar tree they scroll
+(upstream: popups over the frame), so they hide, move and clip with it (E97).
+Windows the frame floats over the canvas, such as the auto-hiding sidebar,
+cover the canvas's bars instead of the bars covering them.
 
 ## Count prefix
 

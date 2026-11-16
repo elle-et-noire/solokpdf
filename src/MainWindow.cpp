@@ -76,17 +76,10 @@ static void SafeDeleteTabsCtrl(TabsCtrl* tabsCtrl) {
     delete tabsCtrl;
 }
 
-static void OverlayScrollbarsOnWindowMoved(MainWindow* win) {
-    OverlayScrollbarUpdatePos(win->overlayScrollV);
-    OverlayScrollbarUpdatePos(win->overlayScrollH);
-}
-
 MainWindow::MainWindow(HWND hwnd) {
     hwndFrame = hwnd;
     linkHandler = new LinkHandler(this);
     cbHandler = CreateControllerCallbackHandler(this);
-    overlayScrollOnMoved = MkFunc1Void(OverlayScrollbarsOnWindowMoved);
-    RegisterOnWindowMoved(&overlayScrollOnMoved);
 }
 
 void MainWindow::RegisterOnWindowMoved(Func1List<MainWindow*>* cb) {
@@ -227,7 +220,6 @@ MainWindow::~MainWindow() {
     delete frameRateWnd;
     ReadAloudPlaybackBarDestroy(this);
     ReadingAutoScrollDestroy(this);
-    UnregisterOnWindowMoved(&overlayScrollOnMoved);
     ReportIf(onWindowMoved);
     delete infotip;
     // the views' layouts own their controls

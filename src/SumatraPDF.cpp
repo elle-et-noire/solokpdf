@@ -233,7 +233,6 @@ bool IsSessionRestoreFinished() {
 
 // returns false when the relayout was skipped (nothing layout-affecting changed)
 static bool RelayoutFrame(MainWindow* win, bool updateToolbars = true, int sidebarDx = -1);
-static void UpdateOverlayScrollbarPositions(MainWindow* win);
 
 static Str HwndName(HWND hwnd) {
     WCHAR cls[64]{};
@@ -7508,7 +7507,6 @@ static bool RelayoutFrame(MainWindow* win, bool updateToolbars, int sidebarDx) {
         PageInfoBarSetVisible(win, false);
         // make the black/white canvas cover the entire window
         HwndMoveWindow(win->hwndCanvas, &rc);
-        UpdateSidebarTreeBars(win);
         gAfterLayout.Call(win);
         return true;
     }
@@ -7520,11 +7518,6 @@ static bool RelayoutFrame(MainWindow* win, bool updateToolbars, int sidebarDx) {
         rc.dx -= 2 * kFrameBorderSize;
         rc.dy -= 2 * kFrameBorderSize;
     }
-
-    // hide overlay scrollbars before relayout so they don't appear at
-    // stale positions while child windows are being repositioned
-    OverlayScrollbarHide(win->overlayScrollV);
-    OverlayScrollbarHide(win->overlayScrollH);
 
     // Never send WM_SETREDRAW to a hidden frame: nothing paints while hidden
     // so there's nothing to suppress, and DefWindowProc's WM_SETREDRAW TRUE
@@ -7820,8 +7813,6 @@ static bool RelayoutFrame(MainWindow* win, bool updateToolbars, int sidebarDx) {
         SetWindowPos(tabHwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
         LayoutSidebarPanel(win->favoritesTabPanel);
     }
-    // a panel shown or hidden above: so are its tree's scrollbars
-    UpdateSidebarTreeBars(win);
 
     // Canvas size/position may have changed (e.g. first open shows the ToC via
     // deferred ScheduleUiUpdate after "Errors in document" was created against
@@ -7894,13 +7885,6 @@ static bool RelayoutFrame(MainWindow* win, bool updateToolbars, int sidebarDx) {
         UpdateTocSelection(win, win->ctrl->CurrentPageNo());
     }
 
-    // reposition overlay scrollbars after relayout (they were hidden at the
-    // start to prevent stale positioning); skip during fullscreen transitions
-    // where EndFrameRedrawSuppression handles this
-    if (!win->suppressFrameRedraw) {
-        UpdateOverlayScrollbarPositions(win);
-    }
-
     // float the toolbar over the canvas last, after the canvas/frame repaints
     // above, so they don't paint over it; visibility is driven by mouse
     // proximity, not by relayout
@@ -7948,15 +7932,6 @@ static void EndFrameRedrawSuppression(MainWindow* win) {
                  RDW_ERASE | RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_FRAME | RDW_UPDATENOW);
     GdiFlush();
     DwmFlush();
-}
-
-static void UpdateOverlayScrollbarPositions(MainWindow* win) {
-    if (win->overlayScrollV) {
-        OverlayScrollbarUpdatePos(win->overlayScrollV);
-    }
-    if (win->overlayScrollH) {
-        OverlayScrollbarUpdatePos(win->overlayScrollH);
-    }
 }
 
 // perform all UI work requested via ScheduleUiUpdate since the last update
@@ -8174,7 +8149,6 @@ static void ApplyMainWindowDpiChromeRefresh(MainWindow* win, HWND hwnd) {
     win->uiState.layout = {};
     RelayoutFrame(win, true, -1);
     RelayoutCaption(win);
-    UpdateOverlayScrollbarPositions(win);
     FindBarReposition(win);
     RepositionSelectionToolbar(win);
     RepositionAnnotEditToolbar(win);
@@ -14180,7 +14154,6 @@ static void PlaceSidebarOverlay(MainWindow* win) {
         SetWindowPos(hwnd, HWND_TOP, col.x, y, col.dx, dy, SWP_NOACTIVATE | SWP_SHOWWINDOW);
         y += dy;
     }
-    UpdateSidebarTreeBars(win);
 }
 
 static bool SidebarOverlayContains(MainWindow* win, HWND hwnd) {

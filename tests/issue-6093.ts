@@ -2,36 +2,16 @@
 //
 // Scrollbars = smart drew nothing: the overlay scrollbar was shown, but
 // SetWindowPos put it after (i.e. below) the main frame, so the frame painted
-// over it. It has to sit above the frame.
+// over it. It has to sit above the frame; as a child of the canvas (E97),
+// above the canvas's other children.
 //
 // Run: bun tests/issue-6093.ts [--no-build]   (or via tests/run-almost-all.ts)
 
 import { join } from "node:path";
 import { cmdId, EXE, pollUntil, ROOT, runStandalone, USE_NG, writeAppdata } from "./util.ts";
-import {
-  enumWindows,
-  getClassName,
-  getWindowPid,
-  getWindowRect,
-  isWindowAbove,
-  isWindowVisible,
-  sleep,
-} from "./winapi.ts";
+import { getParentWindow, getWindow, getWindowRect, GW_CHILD, GW_HWNDNEXT, isWindowVisible, sleep } from "./winapi.ts";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { sendCommand, waitForFrame } from "./win-automation.ts";
-
-const SCROLLBAR_CLASS = "SUMATRA_OVERLAY_SCROLLBAR";
-
-function overlayScrollbars(pid: number): number[] {
-  const res: number[] = [];
-  enumWindows((hwnd) => {
-    if (getWindowPid(hwnd) === pid && getClassName(hwnd) === SCROLLBAR_CLASS) {
-      res.push(hwnd);
-    }
-    return true;
-  });
-  return res;
-}
+import { findCanvas, overlayScrollbarWindows, sendCommand, waitForFrame } from "./win-automation.ts";
 
 export async function testit(): Promise<void> {
   const appdata = writeAppdata(
@@ -65,15 +45,20 @@ export async function testit(): Promise<void> {
       }
       await sleep(400);
 
-      const bars = overlayScrollbars(proc.pid!).filter((h) => isWindowVisible(h));
+      const bars = overlayScrollbarWindows(proc.pid!).filter((h) => isWindowVisible(h));
       if (bars.length === 0) {
         throw new Error("issue-6093: no visible overlay scrollbar after scrolling");
       }
+      // a child of the canvas, above its other children: drawn over the page (E97)
+      const canvas = findCanvas(frame);
+      const allBars = overlayScrollbarWindows(proc.pid!);
+      const above: number[] = [];
+      for (let h = getWindow(canvas, GW_CHILD); h && allBars.includes(h); h = getWindow(h, GW_HWNDNEXT)) above.push(h);
       for (const bar of bars) {
-        if (!isWindowAbove(bar, frame)) {
+        if (getParentWindow(bar) !== canvas || !above.includes(bar)) {
           const r = getWindowRect(bar);
           throw new Error(
-            `issue-6093: overlay scrollbar is behind the main window, so nothing is drawn (${JSON.stringify(r)})`,
+            `issue-6093: overlay scrollbar is not on top of the canvas, so the page may cover it (${JSON.stringify(r)})`,
           );
         }
       }

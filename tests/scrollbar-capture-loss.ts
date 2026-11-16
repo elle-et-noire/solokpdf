@@ -8,37 +8,19 @@
 import { join } from "node:path";
 import { ControlCommand, type ControlClient, withControlledSumatra } from "./control.ts";
 import { EXE, ROOT, runStandalone, USE_NG, writeAppdata } from "./util.ts";
-import { waitForFrame } from "./win-automation.ts";
-import {
-  enumWindows,
-  getClassName,
-  getClientRect,
-  getWindowPid,
-  isWindowVisible,
-  postMessage,
-  sendMessage,
-  sleep,
-  WM_LBUTTONDOWN,
-} from "./winapi.ts";
+import { overlayScrollbarWindows, waitForFrame } from "./win-automation.ts";
+import { getClientRect, isWindowVisible, postMessage, sendMessage, sleep, WM_LBUTTONDOWN } from "./winapi.ts";
 
-const SCROLLBAR_CLASS = "SUMATRA_OVERLAY_SCROLLBAR";
 const WM_CAPTURECHANGED = 0x0215;
 const MK_LBUTTON = 0x0001;
 
 function verticalScrollbar(pid: number): number {
-  let res = 0;
-  enumWindows((hwnd) => {
-    if (getWindowPid(hwnd) !== pid || getClassName(hwnd) !== SCROLLBAR_CLASS || !isWindowVisible(hwnd)) {
-      return true;
-    }
+  for (const hwnd of overlayScrollbarWindows(pid)) {
+    if (!isWindowVisible(hwnd)) continue;
     const r = getClientRect(hwnd);
-    if (r.bottom - r.top > r.right - r.left) {
-      res = hwnd;
-      return false;
-    }
-    return true;
-  });
-  return res;
+    if (r.bottom - r.top > r.right - r.left) return hwnd;
+  }
+  return 0;
 }
 
 async function currentPage(client: ControlClient): Promise<number> {

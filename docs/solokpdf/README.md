@@ -20,7 +20,8 @@ theme (owner, 2026-11-17); record the difference in [features.md](features.md).
 
 ## Status (2026-11-16)
 
-No open backlog items. D3 (suite sharding) is deferred; F1/F3 manual checks and
+Open: E98–E100, popups that follow a child window only by hand (from E97's
+audit). D3 (suite sharding) is deferred; F1/F3 manual checks and
 distribution are out of scope. Completed items and their results are in
 [history.md](history.md#completed-backlog); reviews are listed in
 [backlog.md](backlog.md#completed-reviews).

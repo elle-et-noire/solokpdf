@@ -1,8 +1,8 @@
 /* Copyright 2022 the SumatraPDF project authors (see AUTHORS file).
    License: GPLv3 */
 
-// Overlay scrollbar - a semi-transparent top-level window that acts like
-// a standard Windows scrollbar but floats over the owner window.
+// Overlay scrollbar - a semi-transparent layered child window of the window it
+// scrolls, acting like a standard Windows scrollbar drawn over it.
 
 extern bool gOverlayScrollbarSuppressThick;
 
@@ -32,8 +32,9 @@ struct OverlayScrollbar {
         AlwaysThick,    // always shown thick (Thick mode)
     };
 
-    HWND hwnd = nullptr;      // the scrollbar top-level window
-    HWND hwndOwner = nullptr; // positioned relative to this window; receives scroll messages
+    HWND hwnd = nullptr;          // the scrollbar window, a child of hwndOwner
+    HWND hwndOwner = nullptr;     // the scrolled window; receives scroll messages
+    UINT_PTR ownerSubclassId = 0; // follows hwndOwner's size (0: owner destroyed)
     Type type = Type::Vert;
     Layout layout = Layout::LeftToRight;
     Mode mode = Mode::Smart;
@@ -109,7 +110,6 @@ int OverlayScrollbarThickness(OverlayScrollbar* sb);
 
 void OverlayScrollbarShow(OverlayScrollbar* sb, bool show);
 void OverlayScrollbarRepaint(OverlayScrollbar* sb);
-void OverlayScrollbarHide(OverlayScrollbar* sb);
 
 void OverlayScrollbarNotifyScroll(OverlayScrollbar* sb);
 

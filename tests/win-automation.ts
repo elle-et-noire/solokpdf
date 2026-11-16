@@ -24,6 +24,7 @@ import {
   POINTER_FLAG_UP,
   POINTER_FLAG_UPDATE,
   waitForWindowIdle,
+  enumChildWindows,
   enumWindows,
   getClassName,
   findChildWindow,
@@ -403,20 +404,35 @@ export function findCanvas(frame: number): number {
   return findChildWindow(frame, CANVAS_CLASS);
 }
 
-// The canvas's overlay scrollbar popups: those over the canvas. Sidebar trees have
-// their own (SUMATRA_OVERLAY_SCROLLBAR too), over the sidebar or not yet placed.
-export function canvasOverlayScrollbars(pid: number, canvas: number): number[] {
-  const c = getWindowRect(canvas);
+export const OVERLAY_SCROLLBAR_CLASS = "SUMATRA_OVERLAY_SCROLLBAR";
+
+// All overlay scrollbar windows of a process: children of the window they
+// scroll (E97), or top-level popups in older builds.
+export function overlayScrollbarWindows(pid: number): number[] {
   const res: number[] = [];
-  enumWindows((hwnd) => {
-    if (getWindowPid(hwnd) !== pid || getClassName(hwnd) !== "SUMATRA_OVERLAY_SCROLLBAR") return true;
-    const r = getWindowRect(hwnd);
-    const x = (r.left + r.right) / 2;
-    const y = (r.top + r.bottom) / 2;
-    if (r.right - r.left > 1 && x >= c.left && x < c.right && y >= c.top && y < c.bottom) res.push(hwnd);
+  const visit = (hwnd: number): boolean => {
+    if (getClassName(hwnd) === OVERLAY_SCROLLBAR_CLASS) res.push(hwnd);
+    return true;
+  };
+  enumWindows((top) => {
+    if (getWindowPid(top) !== pid) return true;
+    visit(top);
+    enumChildWindows(top, visit);
     return true;
   });
   return res;
+}
+
+// The canvas's overlay scrollbars: those over the canvas. Sidebar trees have
+// their own (SUMATRA_OVERLAY_SCROLLBAR too), over the sidebar or not yet placed.
+export function canvasOverlayScrollbars(pid: number, canvas: number): number[] {
+  const c = getWindowRect(canvas);
+  return overlayScrollbarWindows(pid).filter((hwnd) => {
+    const r = getWindowRect(hwnd);
+    const x = (r.left + r.right) / 2;
+    const y = (r.top + r.bottom) / 2;
+    return r.right - r.left > 1 && x >= c.left && x < c.right && y >= c.top && y < c.bottom;
+  });
 }
 
 export function findChildByClass(parent: number, className: string): number {

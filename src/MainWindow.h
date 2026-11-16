@@ -276,10 +276,8 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     int vimCmdHistoryPos = 0;
     // ShowScrollBar sends WM_SIZE; ignore it until UpdateScrollbars finishes (issue #5969)
     bool suppressCanvasSizeUpdate = false;
-    // popups in screen coords (find bar, overlay scrollbars, selection toolbar, ...)
+    // popups in screen coords (find bar, selection toolbar, ...)
     Func1List<MainWindow*>* onWindowMoved = nullptr;
-    // MainWindow-owned node so overlay scrollbars follow the frame
-    Func1List<MainWindow*> overlayScrollOnMoved;
 
     HWND hwndToolbar = nullptr;
     ToolbarVirt* toolbarVirt = nullptr;

@@ -9,7 +9,14 @@ import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
 import { ROOT, SETTINGS_FILE, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
-import { findCanvas, killAndWait, launchControlled, sendCommand, sendCommandSync } from "./win-automation.ts";
+import {
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  overlayScrollbarWindows,
+  sendCommand,
+  sendCommandSync,
+} from "./win-automation.ts";
 import {
   captureWindowPixels,
   enumChildWindows,
@@ -74,14 +81,7 @@ function toolbarEdits(frame: number): { hwnd: number; text: string }[] {
 }
 
 function visibleOverlayScrollbars(pid: number): number {
-  let n = 0;
-  enumWindows((hwnd) => {
-    if (getWindowPid(hwnd) === pid && getClassName(hwnd) === "SUMATRA_OVERLAY_SCROLLBAR" && isWindowVisible(hwnd)) {
-      n++;
-    }
-    return true;
-  });
-  return n;
+  return overlayScrollbarWindows(pid).filter((hwnd) => isWindowVisible(hwnd)).length;
 }
 
 async function runCloseLastFile(scrollbars: string): Promise<void> {

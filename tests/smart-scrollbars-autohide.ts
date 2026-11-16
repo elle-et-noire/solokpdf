@@ -3,76 +3,68 @@
 // was painted again (the themed bars repaint each other for their shared
 // corner) and stayed on screen for good.
 //
-// The bars are layered popups, so their pixels are read off the screen: the
-// frame and the bars are raised topmost first, without taking the focus.
+// The bars are layered children of the canvas, which a PrintWindow of the
+// canvas includes (E97): it is compared with one taken with the bars' windows
+// hidden for the moment.
 //
 // Run: bun tests/smart-scrollbars-autohide.ts [--no-build]
 
 import { join } from "node:path";
 import { EXE, ROOT, runStandalone, USE_NG, writeAppdata } from "./util.ts";
 import {
-  captureScreenRegionPixels,
   captureWindowPixels,
-  enumWindows,
-  getClassName,
-  getWindowPid,
   getWindowRect,
+  isWindowVisible,
   type Rect,
   setProcessDpiAware,
-  setTopmost,
+  setWindowPos,
   sleep,
+  SWP_NOACTIVATE,
+  SWP_NOZORDER,
 } from "./winapi.ts";
 import { withControlledSumatra } from "./control.ts";
 import { canvasOverlayScrollbars, findCanvas, waitForFrame } from "./win-automation.ts";
 
-const SCROLLBAR_CLASS = "SUMATRA_OVERLAY_SCROLLBAR";
 // OverlayScrollbar::showAfterScrollMs plus slack for a slow (ASan) build
 const autoHideWaitMs = 4000;
-// pixels a hidden bar may still differ by: the frame's rounded corner clips
-// the screen there but not the PrintWindow capture. A shown bar is thousands.
+// pixels a hidden bar may still differ by. A shown bar is thousands.
 const strayPixels = 64;
+const SWP_NOSIZE = 0x0001;
+const SWP_NOMOVE = 0x0002;
+const SWP_SHOWWINDOW = 0x0040;
+const SWP_HIDEWINDOW = 0x0080;
 
-function overlayScrollbars(pid: number): number[] {
-  const res: number[] = [];
-  enumWindows((hwnd) => {
-    if (getWindowPid(hwnd) === pid && getClassName(hwnd) === SCROLLBAR_CLASS) {
-      res.push(hwnd);
-    }
-    return true;
-  });
-  return res;
+// the canvas with its bars hidden for the moment: the page alone
+function canvasWithoutBars(canvas: number, bars: number[]) {
+  const flags = SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE;
+  const shown = bars.filter((b) => isWindowVisible(b));
+  for (const b of shown) setWindowPos(b, 0, 0, 0, 0, flags | SWP_HIDEWINDOW);
+  const px = captureWindowPixels(canvas, "client");
+  for (const b of shown) setWindowPos(b, 0, 0, 0, 0, flags | SWP_SHOWWINDOW);
+  return px;
 }
 
-// Pixels of the bar's rectangle on screen that differ from the canvas painted
-// alone (PrintWindow leaves the popups out): 0 when the bar draws nothing.
-function barPixelsShown(frame: number, canvas: number, bar: number): number {
+// Pixels of the bar's rectangle that differ from the canvas painted without
+// the bars: 0 when the bar draws nothing.
+function barPixelsShown(canvas: number, bars: number[], bar: number): number {
   const r: Rect = getWindowRect(bar);
-  const w = r.right - r.left;
-  const h = r.bottom - r.top;
   const c = getWindowRect(canvas);
-  const canvasPx = captureWindowPixels(canvas, "client");
-  for (const hwnd of [frame, ...overlayScrollbars(getWindowPid(frame))]) {
-    setTopmost(hwnd, true);
-  }
-  const screenPx = captureScreenRegionPixels(r.left, r.top, w, h);
-  setTopmost(frame, false);
-  if (!canvasPx || !screenPx) {
+  const withBars = captureWindowPixels(canvas, "client");
+  const page = canvasWithoutBars(canvas, bars);
+  if (!withBars || !page) {
     throw new Error("smart-scrollbars-autohide: capture failed");
   }
   let differ = 0;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const cx = r.left - c.left + x;
-      const cy = r.top - c.top + y;
-      if (cx < 0 || cy < 0 || cx >= canvasPx.w || cy >= canvasPx.h) {
+  for (let y = r.top - c.top; y < r.bottom - c.top; y++) {
+    for (let x = r.left - c.left; x < r.right - c.left; x++) {
+      if (x < 0 || y < 0 || x >= page.w || y >= page.h) {
         continue;
       }
-      const si = (y * w + x) * 4;
-      const ci = (cy * canvasPx.w + cx) * 4;
+      const i = (y * page.w + x) * 4;
       if (
-        screenPx[si] !== canvasPx.data[ci] ||
-        screenPx[si + 1] !== canvasPx.data[ci + 1] ||
-        screenPx[si + 2] !== canvasPx.data[ci + 2]
+        withBars.data[i] !== page.data[i] ||
+        withBars.data[i + 1] !== page.data[i + 1] ||
+        withBars.data[i + 2] !== page.data[i + 2]
       ) {
         differ++;
       }
@@ -106,13 +98,13 @@ export async function testit(): Promise<void> {
       }
       // the capture has to see a shown bar, or a pass below proves nothing. Only
       // one: in a window that didn't get the focus smart bars hide right away
-      const shown = bars.map((b) => barPixelsShown(frame, canvas, b));
+      const shown = bars.map((b) => barPixelsShown(canvas, bars, b));
       if (shown.every((n) => n <= strayPixels)) {
         throw new Error(`smart-scrollbars-autohide: bars not visible after opening (${shown})`);
       }
 
       await sleep(autoHideWaitMs);
-      const after = bars.map((b) => barPixelsShown(frame, canvas, b));
+      const after = bars.map((b) => barPixelsShown(canvas, bars, b));
       if (after.some((n) => n > strayPixels)) {
         throw new Error(`smart-scrollbars-autohide: a bar still shows after auto-hide (differing pixels: ${after})`);
       }

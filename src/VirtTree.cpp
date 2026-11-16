@@ -510,24 +510,10 @@ bool VirtTree::MeasureRows() {
     return true;
 }
 
-// Whether hwnd and its parents up to the top-level window are shown. The bars
-// are popups: hiding the tree, or the sidebar panel holding it, doesn't hide
-// them. The top-level window hides its owned popups itself
-static bool ShownInRoot(HWND hwnd) {
-    HWND root = GetAncestor(hwnd, GA_ROOT);
-    for (HWND h = hwnd; h && h != root; h = GetParent(h)) {
-        if ((GetWindowLongPtrW(h, GWL_STYLE) & WS_VISIBLE) == 0) {
-            return false;
-        }
-    }
-    return true;
-}
-
 bool VirtTree::UpdateBars() {
     if (!host || !host->native) {
         return false;
     }
-    bool shown = ShownInRoot(host->native);
     Guard guard(this);
     HWND window = host->native;
     u64 generation = state.generation;
@@ -569,9 +555,7 @@ bool VirtTree::UpdateBars() {
                 OverlayScrollbar* bar = axis == 0 ? barX : barY;
                 OverlayScrollbarSetInfo(bar, &si, true);
                 if (!valid()) return false;
-                OverlayScrollbarUpdatePos(bar);
-                if (!valid()) return false;
-                OverlayScrollbarShow(bar, shown && scroll.MaxPos() > 0);
+                OverlayScrollbarShow(bar, scroll.MaxPos() > 0);
                 if (!valid()) return false;
             }
         }

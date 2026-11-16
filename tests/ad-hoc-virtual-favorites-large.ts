@@ -5,6 +5,7 @@ import { assemblePdf, cmdId, runStandalone, tmpPath, writeAppdata } from "./util
 import {
   killAndWait,
   launchControlled,
+  overlayScrollbarWindows,
   pressEnter,
   pressKey,
   sendCommand,
@@ -13,9 +14,6 @@ import {
 } from "./win-automation";
 import {
   findChildWindow,
-  enumWindows,
-  getClassName,
-  getWindowPid,
   getWindowRect,
   isWindowVisible,
   getParentWindow,
@@ -31,7 +29,6 @@ import {
 const kCount = 2000;
 const kTestState = 0x8000 + 102;
 const kOverlayMode = 1;
-const kOverlayClass = "SUMATRA_OVERLAY_SCROLLBAR";
 const kLongTitle = "long title ".repeat(40);
 
 export async function testit(): Promise<void> {
@@ -87,9 +84,8 @@ export async function testit(): Promise<void> {
       if (expected === kOverlayMode) {
         const rect = getWindowRect(hwnd);
         let barTop = rect.bottom;
-        enumWindows((bar) => {
-          if (getWindowPid(bar) !== proc.pid || getClassName(bar) !== kOverlayClass || !isWindowVisible(bar))
-            return true;
+        for (const bar of overlayScrollbarWindows(proc.pid!)) {
+          if (!isWindowVisible(bar)) continue;
           const r = getWindowRect(bar);
           if (
             r.right - r.left > r.bottom - r.top &&
@@ -99,8 +95,7 @@ export async function testit(): Promise<void> {
             r.bottom <= rect.bottom
           )
             barTop = Math.min(barTop, r.top);
-          return true;
-        });
+        }
         assert.ok(barTop < rect.bottom, "long favorite did not create a horizontal overlay bar");
         const lastBottom = rect.top + state(0) * state(3) - state(2);
         assert.ok(lastBottom <= barTop, "last favorite overlaps the horizontal overlay scrollbar");

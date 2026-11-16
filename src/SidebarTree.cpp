@@ -159,15 +159,12 @@ HWND SidebarTree::FocusHwnd() {
     return window ? window : hwnd;
 }
 
-// Follows the Scrollbars setting, and shows the bars only while the tree shows
 void SidebarTree::UpdateScrollbars() {
     VirtTreeBarMode mode = SidebarBarMode();
     if (tree.GetMode() != mode) {
         HideTip();
         tree.SetMode(mode);
-        return;
     }
-    tree.UpdateScrollbars();
 }
 
 bool SidebarTree::IsExpanded(TreeItem item) {

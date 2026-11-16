@@ -140,6 +140,9 @@ Other tree checks: navigation `toc-native-scroll`, `toc-selection-visible`,
 colors `toc-scrollbar-theme`, `toc-hover-colors`; UIA/MSAA and lifetime
 `ad-hoc-tree-uia` (also `--favorites`), `ad-hoc-tree-reentrant`,
 `ad-hoc-favorites-stale-uia`, `ad-hoc-tree-prototype --uia --delete-in-scroll-event`.
+Overlay scrollbars hiding and moving with their tree or the canvas:
+`ad-hoc-sidebar-tree-bars`; their pixels, from a PrintWindow of the canvas:
+`smart-scrollbars-autohide`, `overlay-scrollbar-theme`.
 After lifetime, notification or test-hook changes, also run the last four and
 `ad-hoc-tree-lifetime` under ASan. The
 [migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in
@@ -409,8 +412,6 @@ No new full suite was run for D8.
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ad-hoc-b68-window` foreground assertion | Skips when the never-shown desktop has no foreground window.                                                                                 |
 | `issue-6269` foreground branch           | Skips locally without CI or `SOLOKPDF_REAL_DESKTOP=1`; its background Copy branch runs.                                                      |
-| `overlay-scrollbar-theme`                | Screen-pixel assertions need a visible input desktop.                                                                                        |
-| `smart-scrollbars-autohide`              | Screen-pixel assertions need a visible input desktop.                                                                                        |
 | `taskbar-icon-contrast`                  | Skips with a message when the hidden desktop has no taskbar; compare pixels on a visible input desktop.                                      |
 | System clipboard                         | Shared by desktops in `WinSta0`; `-for-testing` uses an app-local clipboard. Real clipboard tests require CI or `SOLOKPDF_REAL_CLIPBOARD=1`. |
 
