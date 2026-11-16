@@ -711,6 +711,7 @@ void EditSetModified(Edit*, bool);
 bool EditIsModified(Edit*);
 void EditSetCueText(Edit*, Str);
 void EditSetMargins(Edit*, int left, int right);
+void EditSetFieldMargins(Edit*, HWND parent);
 void EditSetNumbersOnly(Edit*, bool);
 void EditSetPasswordVisible(Edit*, bool);
 void EditSetFocus(Edit*);

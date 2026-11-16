@@ -65,6 +65,15 @@ void EditSetMargins(Edit* e, int left, int right) {
     EditSetMargins(HwndOf(e), left, right);
 }
 
+// room between a bordered field's border and its text (DIP), as in the home
+// page's search field
+constexpr int kFieldTextPadX = 6;
+
+void EditSetFieldMargins(Edit* e, HWND parent) {
+    int pad = DpiScaleByDpi(DpiGetForHwnd(parent), kFieldTextPadX);
+    EditSetMargins(e, pad, pad);
+}
+
 void EditSetNumbersOnly(Edit* e, bool on) {
     EditSetNumbersOnly(HwndOf(e), on);
 }

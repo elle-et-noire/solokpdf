@@ -505,15 +505,6 @@ ILayout* PadSidebarTree(ILayout* item, HWND parent) {
     return new Padding(item, Insets{dy, dx, 0, dx});
 }
 
-// room between a search field's border and its text (DIP), as in the home
-// page's search field
-constexpr int kSearchTextPadX = 6;
-
-void SetSidebarSearchMargins(Edit* edit, HWND parent) {
-    int pad = DpiScaleByDpi(DpiGetForHwnd(parent), kSearchTextPadX);
-    EditSetMargins(edit, pad, pad);
-}
-
 static void UpdateViewIcons(SidebarPanel* p, int dpi) {
     int sz = RoundUp(DpiScaleByDpi(dpi, kViewIconDx), 4);
     int pad = DpiScaleByDpi(dpi, kViewIconPad);

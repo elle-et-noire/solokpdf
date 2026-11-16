@@ -11,6 +11,8 @@ struct MainWindow;
 // darkmodelib is in use and drawing something other than the classic look. For
 // the few places that have to draw differently themselves
 bool DarkModeIsActive();
+// darkmodelib paints native controls (a combobox ring and button) in the theme
+bool DarkModeThemesControls();
 // native scrollbars are drawn with the dark Explorer theme
 bool DarkModeScrollBarsAreDark();
 

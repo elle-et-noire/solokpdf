@@ -45,6 +45,10 @@ bool DarkModeIsActive() {
     return gUseDarkModeLib && DarkMode::isEnabled();
 }
 
+bool DarkModeThemesControls() {
+    return gUseDarkModeLib && !IsCurrentThemeDefault();
+}
+
 // same condition under which DarkModeApplyToNewFrame() gives the canvas
 // DarkMode_Explorer scrollbars, so drawn scrollbars can match them
 bool DarkModeScrollBarsAreDark() {

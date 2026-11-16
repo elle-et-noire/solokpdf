@@ -265,7 +265,11 @@ bool FindWindowWnd::Create(MainWindow* mainWin) {
         args.isRtl = IsUIRtl();
         args.isEditable = true;
         edit = new DropDown();
-        edit->SetColors(colTxt, colBg);
+        // a native combobox paints its ring and button white: keep the edit
+        // native too, or the box is two-tone
+        if (DarkModeThemesControls()) {
+            edit->SetColors(colTxt, colBg);
+        }
         edit->Create(args);
         CbSetCueBanner(edit, Tr("Find"));
         edit->onTextChanged = MkMethod0<FindWindowWnd, &FindWindowWnd::OnTextChanged>(this);

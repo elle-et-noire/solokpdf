@@ -1038,12 +1038,12 @@ bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance)
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
 
-    // the query line: a bare edit over a hairline
+    // the query line: a bordered edit over a hairline
     {
         Edit::CreateArgs args;
         args.parent = hwnd;
         args.isMultiLine = false;
-        args.withBorder = false;
+        args.withBorder = true;
         args.cueText = StrL("Type a command");
         args.text = prefix;
         args.font = PaletteFont(kPaletteQueryFontPx);
@@ -1053,6 +1053,7 @@ bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance)
         c->maxDx = 150;
         HWND ok = c->Create(args);
         ReportIf(!ok);
+        EditSetFieldMargins(c, hwnd);
         c->onTextChanged = MkMethod0<CommandPaletteWnd, &CommandPaletteWnd::QueryChanged>(this);
         editQuery = c;
         vbox->AddChild(new Padding(c, DpiScaledInsets(kPaletteQueryPadDy, kPalettePadDx)));

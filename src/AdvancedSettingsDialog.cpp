@@ -1375,12 +1375,12 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
     vbox->alignMain = MainAxisAlign::MainStart;
     vbox->alignCross = CrossAxisAlign::Stretch;
 
-    // the filter line: a bare edit with the count at its right end, over a hairline
+    // the filter line: a bordered edit with the count at its right end, over a hairline
     {
         Edit::CreateArgs args;
         args.parent = hwnd;
         args.isMultiLine = false;
-        args.withBorder = false;
+        args.withBorder = true;
         args.cueText = Tr("Filter settings");
         args.font = DlgUiFont(kAdvQueryFontPx);
         args.isRtl = isRtl;
@@ -1389,6 +1389,7 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
         c->maxDx = 150;
         HWND ok = c->Create(args);
         ReportIf(!ok);
+        EditSetFieldMargins(c, hwnd);
         c->onTextChanged = MkMethod0<AdvancedSettingsWnd, &AdvancedSettingsWnd::QueryChanged>(this);
         editFilter = c;
 

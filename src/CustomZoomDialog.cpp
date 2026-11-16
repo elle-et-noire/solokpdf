@@ -243,12 +243,13 @@ bool CustomZoomWnd::Create(MainWindow* mainWin) {
         Edit::CreateArgs args;
         args.parent = hwnd;
         args.font = DlgUiFont(kToolDlgQueryFontPx);
-        args.withBorder = false;
+        args.withBorder = true;
         args.selectAllOnFocus = true;
         args.isRtl = isRtl;
         editZoom = new Edit();
         editZoom->SetColors(colTxt, colBg);
         editZoom->Create(args);
+        EditSetFieldMargins(editZoom, hwnd);
         editZoom->onTextChanged = MkMethod0<CustomZoomWnd, &CustomZoomWnd::SelectLevelFromEdit>(this);
         row->AddChild(editZoom, 1);
         vbox->AddChild(new Padding(row, DpiScaledInsets(0, kToolDlgPadDx)));
@@ -291,6 +292,12 @@ bool CustomZoomWnd::Create(MainWindow* mainWin) {
         }
     }
     DoLayout();
+    // FillZoom() set the text while the field had its narrower ideal width,
+    // which scrolled it: show it from the start
+    if (editZoom) {
+        EditSetCursorPos(editZoom, 0);
+        SendMessageW(editZoom->hwnd, EM_SCROLLCARET, 0, 0);
+    }
     HwndCenterDialog(hwnd, win ? win->hwndFrame : nullptr);
     UpdateTheme();
 

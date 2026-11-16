@@ -986,7 +986,7 @@ void CreateToc(MainWindow* win) {
         filterEdit->Create(eargs);
     }
     win->tocFilterEdit = filterEdit;
-    SetSidebarSearchMargins(filterEdit, parent);
+    EditSetFieldMargins(filterEdit, parent);
     filterEdit->onTextChanged = MkFunc0(OnTocFilterTextChanged, win);
     SetWindowSubclass(filterEdit->hwnd, WndProcTocFilterEdit, NextSubclassId(), (DWORD_PTR)win);
 

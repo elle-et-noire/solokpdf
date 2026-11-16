@@ -408,10 +408,12 @@ bool ShortcutsWnd::Create(MainWindow* mainWin) {
     Edit::CreateArgs editArgs;
     editArgs.parent = hwnd;
     editArgs.font = font;
+    editArgs.withBorder = true;
     editArgs.cueText = Tr("Filter commands, descriptions, or keys");
     filter = new Edit();
     filter->SetColors(text, bg);
     filter->Create(editArgs);
+    EditSetFieldMargins(filter, hwnd);
     filter->onTextChanged = MkMethod0<ShortcutsWnd, &ShortcutsWnd::RefreshCommands>(this);
     vbox->AddChild(new Padding(filter, DpiScaledInsets(8)));
 
