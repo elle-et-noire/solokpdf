@@ -151,9 +151,11 @@ static int CloseGlyphDx(int tabDy) {
     return std::min(closeDy, tabDy);
 }
 
-// Padding between circle and tab edge; grow with the button.
-static int CloseGlyphPad(int closeDx) {
-    return std::max(DpiScale(6), closeDx / 2);
+// Padding between circle and tab edge. The ✕ is the circle's middle third, so
+// the circle's own margin already spaces it from the edge; half the circle on top
+// of that left ~18 px at 100%.
+static int CloseGlyphPad(int) {
+    return DpiScale(4);
 }
 
 // what the ✕ takes from a tab sized to its label: the glyph, its padding and
