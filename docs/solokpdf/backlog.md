@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-16: E77 and E78 open; D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-16: E78 open; D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -17,6 +17,7 @@ group (B76, C2, D15, E79, F4). For a code change, choose affected tests from
 - E38 ASan shutdown: pinned MSVC/ASan toolset; hosted run [43725820411](https://github.com/elle-et-noire/solokpdf/actions/runs/43725820411) passed at `1ed7b7f33` (2026-11-15); [results](asan-shutdown.md).
 - 2026-11-13 review of the fork diff against upstream `8b716234f` at `ce9903893` (code-traced, not reproduced): E39–E57; [structural notes](architecture.md#構造上の注意2026-11-13-レビュー).
 - 2026-11-16 performance review (code reading, no Release measurements; pixels kept identical, checked in Debug through `SOLOKPDF_PROFILE=1` phases or call counts; the Release `pdfium.dll` keeps `page`/`draw` phases representative): E60–E65.
+- 2026-11-16 UI polish audit (hidden-desktop captures at 100/150/200% and all built-in themes; no fixes, the owner picks them): [E77](history.md#e77-ui-polish-audit-2026-11-16).
 
 Rows and results of all of these are in [history.md](history.md#completed-backlog).
 
@@ -24,34 +25,7 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 
 | ID  | Item                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Status |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| E77 | UI polish audit: find unnatural UI like E75 (blurred "+") and E76 (✕ far from the tab edge); [plan](#e77-ui-polish-audit)                                                                                                                                                                                                                                                                                                                                                                                                  | todo   |
 | E78 | `tts-engine-crash-recovery` hangs intermittently (full suite 43835416476 MuPDF timed out at 5 min; locally 2 hangs in 6 MuPDF runs, PDFium passed). Stacks in `.work/e78-tts-hang/tts-stacks.txt`: the crashed TTS thread waits in `MaybeEndCrashedThread` for `EndedThreadDumpThread`, whose `MiniDumpWriteDump` blocks in `LoadLibraryExA` on the loader lock; the UI thread sits in an ALPC call. Upstream code (`9e246efc4`, `src/base/CrashHandler.cpp:508`). Find the lock holder (`!locks`, UI stack) before fixing | todo   |
-
-### E77: UI polish audit
-
-Owner request (2026-11-16): find, comprehensively, any remaining UI that looks unnatural.
-Audit only; fixes become separate items after the owner reviews the findings, since
-appearance calls are theirs.
-
-- **Surfaces:** tab bar, toolbar, menu bar and menus, context menus, find bar and find
-  window, sidebars (TOC, favorites, thumbnails, layers, signatures), home page, notifications,
-  command palette, each dialog reachable without external apps, scrollbars, page info overlay,
-  annotation editor.
-- **Conditions:** 100%, 150% and 200% scaling; light, dark and the other built-in themes;
-  normal, hover, pressed, selected, focused and disabled states where they apply.
-- **Defects to look for:** blur from off-grid strokes or scaled bitmaps, uneven or excessive
-  spacing and padding, misaligned baselines and edges, inconsistent sizes between siblings,
-  clipped or truncated text, low contrast, wrong color in one theme, glyphs not centered,
-  inconsistency with the rest of the app or with Windows conventions.
-- **Method:** launch on the hidden desktop (`run-hidden.ts`, `-for-testing`), drive with
-  `-dbg-control` (`virtTree` for control rects, `TestDpi`, theme commands), capture with
-  `captureWindowPixels` / `captureWindowToPng`, and back each finding with a zoomed crop and
-  pixel measurements, as E75/E76 did. Compare with the code to name the cause.
-- **Output:** a findings list (screenshot, measurement, cause with file:line, upstream or
-  SolokPDF origin, severity, suggested fix) in a history.md E77 section, plus a short
-  summary for the owner.
-- **Execution:** areas are independent and can be split across parallel agents; that costs
-  many tokens, so the owner chooses single-agent or parallel when starting it.
 
 ## Deferred
 
