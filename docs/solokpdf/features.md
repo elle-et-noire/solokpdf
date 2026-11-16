@@ -197,12 +197,17 @@ the focus (upstream hid it then). A separate hover step would mark a second
 entry the keys never reach. Page thumbnails keep their thin
 frame; the selection outline sits four DPI-scaled pixels outside the page.
 The sidebar reserves room for the outline at its edges and between rows.
+The ring matches the Fluent focus visual (2 DIP in the text color), at least
+4.6:1 against the canvas in every built-in theme
+([E89](history.md#e89-selection-colors-review-2026-11-17)).
 
 The floating selection toolbar takes the tab strip's color, so it reads as part
 of the window's chrome, with an `EdgeColor` border; where that nearly matches
 the page under it (contrast under 1.13: custom themes, unthemed pages), the
 page mixed toward the text color. It used the theme's `BackgroundColor`, which
 themed pages take too, so in dark themes it vanished into the page.
+Like upstream's, it has no shadow; on an image close to the card's lightness
+only the border separates them.
 The annotation editing toolbar takes the same colors. The read-aloud and
 auto-scroll bars keep the notification color but outline their buttons and
 draw their slider track in `EdgeColor` (was a fixed gray).
