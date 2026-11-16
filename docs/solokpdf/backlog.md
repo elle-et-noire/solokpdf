@@ -6,7 +6,7 @@ D3 remains deferred. Status: `todo`, `doing`, `blocked` (reason), `deferred` (re
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B76, C2, D15, E71, F4).
+group (B76, C2, D15, E72, F4).
 
 ## Implementation and acceptance
 
@@ -76,6 +76,12 @@ keep pixels identical and be checked in Debug through `SOLOKPDF_PROFILE=1` phase
 counts; `pdfium.dll` is a Release binary, so its `page`/`draw` phases are representative.
 
 All rows are done; see [history.md](history.md#completed-backlog).
+
+## Open
+
+| ID  | Item                                                                                   | Status |
+| --- | -------------------------------------------------------------------------------------- | ------ |
+| E71 | Monkey test: seeded random UI operation sequences via `-dbg-control` (crash/hang/ASan) | doing  |
 
 ## Deferred
 
