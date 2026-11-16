@@ -33,6 +33,8 @@ void HomePageInvalidateLayoutCache();
 void PickAnotherRandomTip();
 
 void HomePageFocusSearch(MainWindow* win);
+void HomePageTakeFocus(MainWindow* win);
+HWND HomePageStartTyping(MainWindow* win);
 // the start page's overlay scrollbar (`nTrackPos` for ScrollMsg::ThumbTrack)
 void HomePageOnVScroll(MainWindow* win, ScrollMsg msg, int nTrackPos);
 void HomePageMoveSelection(MainWindow* win, int dCol, int dRow);

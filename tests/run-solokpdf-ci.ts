@@ -57,6 +57,7 @@ import { testit as lastTabState } from "./ad-hoc-b65-last-tab.ts";
 import { testit as menuOwner } from "./ad-hoc-b65-menu-owner.ts";
 import { testit as rtlToast } from "./issue-6113.ts";
 import { testit as homeFocusB71 } from "./ad-hoc-b71-home-focus.ts";
+import { testit as homeFocusHover } from "./ad-hoc-e88-home-focus-hover.ts";
 import { testit as windowBehind } from "./ad-hoc-b68-window.ts";
 import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
 import { testit as hiddenDesktop } from "./ad-hoc-b69-hidden-desktop.ts";
@@ -139,6 +140,7 @@ const tests: NamedTest[] = [
   ["lint-desktop-input", lintDesktopInput],
   ["ad-hoc-b68-window", windowBehind],
   ["ad-hoc-b71-home-focus", homeFocusB71],
+  ["ad-hoc-e88-home-focus-hover", homeFocusHover],
   ["issue-6113", rtlToast],
   ["ad-hoc-b59-cursor", testCursor],
   ["issue-6269", issue6269],

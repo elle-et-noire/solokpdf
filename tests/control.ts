@@ -215,6 +215,11 @@ export type HomeSelection = {
   open: number[];
   views: number[];
   tipText: number[];
+  // the selected entry's outline is drawn; entry under the mouse (-1 none);
+  // the selected entry's outline rect in either view
+  selShown: boolean;
+  hover: number;
+  selRect: number[];
   raw: string;
 };
 
@@ -706,11 +711,14 @@ export class ControlClient {
         open: [0, 0, 0, 0],
         views: [0, 0, 0, 0],
         tipText: [0, 0, 0, 0],
+        selShown: false,
+        hover: -1,
+        selRect: [0, 0, 0, 0],
         raw,
       };
     }
     const m =
-      /OK sel=(-?\d+) entries=(\d+) searchFocus=(\d) searchBox=(\d) search=(-?\d+),(-?\d+),(-?\d+),(-?\d+) outline=(-?\d+),(-?\d+),(-?\d+),(-?\d+) outlineFull=(-?\d+),(-?\d+),(-?\d+),(-?\d+) path=(.*) listView=(\d) listIcon=(-?\d+),(-?\d+),(-?\d+),(-?\d+) thumbsArea=(-?\d+),(-?\d+),(-?\d+),(-?\d+) lastCaption=(-?\d+),(-?\d+),(-?\d+),(-?\d+) tip=(\d,-?\d+) tipRect=(-?\d+),(-?\d+),(-?\d+),(-?\d+) vbar=(\d) logo=(-?\d+),(-?\d+),(-?\d+),(-?\d+) open=(-?\d+),(-?\d+),(-?\d+),(-?\d+) views=(-?\d+),(-?\d+),(-?\d+),(-?\d+) tipText=(-?\d+),(-?\d+),(-?\d+),(-?\d+)$/.exec(
+      /OK sel=(-?\d+) entries=(\d+) searchFocus=(\d) searchBox=(\d) search=(-?\d+),(-?\d+),(-?\d+),(-?\d+) outline=(-?\d+),(-?\d+),(-?\d+),(-?\d+) outlineFull=(-?\d+),(-?\d+),(-?\d+),(-?\d+) path=(.*) listView=(\d) listIcon=(-?\d+),(-?\d+),(-?\d+),(-?\d+) thumbsArea=(-?\d+),(-?\d+),(-?\d+),(-?\d+) lastCaption=(-?\d+),(-?\d+),(-?\d+),(-?\d+) tip=(\d,-?\d+) tipRect=(-?\d+),(-?\d+),(-?\d+),(-?\d+) vbar=(\d) logo=(-?\d+),(-?\d+),(-?\d+),(-?\d+) open=(-?\d+),(-?\d+),(-?\d+),(-?\d+) views=(-?\d+),(-?\d+),(-?\d+),(-?\d+) tipText=(-?\d+),(-?\d+),(-?\d+),(-?\d+)(?: selShown=(\d) hover=(-?\d+) selRect=(-?\d+),(-?\d+),(-?\d+),(-?\d+))?$/.exec(
         raw,
       );
     if (!m) {
@@ -737,6 +745,10 @@ export class ControlClient {
       open: m.slice(41, 45).map((v) => parseInt(v, 10)),
       views: m.slice(45, 49).map((v) => parseInt(v, 10)),
       tipText: m.slice(49, 53).map((v) => parseInt(v, 10)),
+      selShown: m[53] === "1",
+      // ng doesn't report these
+      hover: m[54] ? parseInt(m[54], 10) : -1,
+      selRect: m[55] ? m.slice(55, 59).map((v) => parseInt(v, 10)) : [0, 0, 0, 0],
       raw,
     };
   }

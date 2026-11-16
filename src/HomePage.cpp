@@ -1325,14 +1325,43 @@ void HomePageInvalidateLayoutCache() {
     }
 }
 
-void HomePageFocusSearch(MainWindow* win) {
+static void HomePageShowSearch(MainWindow* win) {
     EnsureHomeSearchCreated(win);
     HomePageRelayout(win);
     if (win->homeSearch) {
         win->homeSearch->SetIsVisible(true);
+    }
+}
+
+void HomePageFocusSearch(MainWindow* win) {
+    HomePageShowSearch(win);
+    if (win->homeSearch) {
         EditSetFocus(win->homeSearch);
         EditSelectAll(win->homeSearch);
     }
+}
+
+// A newly shown Home gives the keys to the file list, not the search box
+// (upstream focused it), so the hover and keyboard outline stay visible.
+void HomePageTakeFocus(MainWindow* win) {
+    HomePageShowSearch(win);
+    HwndSetFocus(win->hwndCanvas);
+}
+
+// Moves the focus to the search box, caret at the end, for a character typed
+// on Home. Returns the box to send the key to, nullptr if there is none.
+HWND HomePageStartTyping(MainWindow* win) {
+    HomePageShowSearch(win);
+    if (!win->homeSearch) {
+        return nullptr;
+    }
+    HWND hwnd = win->homeSearch->hwnd;
+    win->DeleteToolTip();
+    EditSetFocus(win->homeSearch);
+    int n = GetWindowTextLengthW(hwnd);
+    SendMessageW(hwnd, EM_SETSEL, n, n);
+    HwndInvalidate(win->hwndCanvas);
+    return hwnd;
 }
 
 static void OffsetThumbnailLayouts(Vec<ThumbnailLayout>& thumbs, int dy) {
@@ -1881,6 +1910,22 @@ static bool HomeSearchHasFocus(MainWindow* win) {
     return win && win->homeSearch && GetFocus() == win->homeSearch->hwnd;
 }
 
+// entry under the mouse, -1 for none
+static int HomeHoverIdx(MainWindow* win) {
+    HomeEntriesCtrl* entries = HomeEntries(win);
+    return entries ? entries->activeIdx : -1;
+}
+
+// The selection outline hides while typing in the search box, unless the
+// mouse is on the selected entry: hover moves the selection there.
+static bool HomeSelectionShown(MainWindow* win) {
+    if (!HomeSearchHasFocus(win)) {
+        return true;
+    }
+    int hover = HomeHoverIdx(win);
+    return hover >= 0 && hover == win->homePageSelIdx;
+}
+
 static void DrawHomeListRow(Gfx* gfx, ThumbnailLayout& thumb, const StrVec& filterWords, Vec<u8>& highlighted,
                             PlatformFont* fontText, Color backgroundColor, bool isRtl, bool isSelected) {
     FileState* fs = thumb.fs;
@@ -2061,7 +2106,7 @@ TempStr HomeSelectionResultTemp(int* exitCodeOut) {
     Rect search = c.rcSearchBorder;
     Rect outlineFull;
     Rect outline;
-    bool showSel = !HomePageIsListView() && !searchFocus && sel >= 0 && sel < len(c.thumbs);
+    bool showSel = !HomePageIsListView() && HomeSelectionShown(win) && sel >= 0 && sel < len(c.thumbs);
     if (showSel) {
         outlineFull = HomeSelectionOutlineRect(c.thumbs[sel]);
         outline = outlineFull.Intersect(HomeOutlinePaintClip(c.rcThumbsArea, c.rcSearchBorder, c.rcTip, c.hasTip));
@@ -2080,12 +2125,18 @@ TempStr HomeSelectionResultTemp(int* exitCodeOut) {
     Rect tipText = c.hasTip ? c.rcTipText : Rect{};
     TempStr header = fmt("vbar=%d logo=%s open=%s views=%s tipText=%s", HomeVScrollShown(win) ? 1 : 0,
                          RectCsvTemp(c.rcLogo), RectCsvTemp(open), RectCsvTemp(views), RectCsvTemp(tipText));
+    // whether the selected entry's outline is drawn, the entry under the mouse
+    // and the selected entry's outline rect in either view (E88)
+    bool hasSel = sel >= 0 && sel < len(c.thumbs);
+    int selShown = hasSel && HomeSelectionShown(win) ? 1 : 0;
+    Rect selRect = hasSel ? HomeSelectionOutlineRect(c.thumbs[sel]) : Rect{};
+    TempStr tail = fmt("%s selShown=%d hover=%d selRect=%s", header, selShown, HomeHoverIdx(win), RectCsvTemp(selRect));
     return finish(0, fmt("OK sel=%d entries=%d searchFocus=%d searchBox=%d search=%s outline=%s outlineFull=%s path=%s "
                          "listView=%d listIcon=%s thumbsArea=%s lastCaption=%s tip=%d,%d tipRect=%s %s",
                          sel, len(c.thumbs), searchFocus, searchBox, RectCsvTemp(search), RectCsvTemp(outline),
                          RectCsvTemp(outlineFull), path, HomePageIsListView() ? 1 : 0, RectCsvTemp(c.rcIconListView),
                          RectCsvTemp(c.rcThumbsArea), RectCsvTemp(lastCaption), gSelectedIsPromo ? 1 : 0,
-                         gSelectedTipIdx, RectCsvTemp(tipRect), header));
+                         gSelectedTipIdx, RectCsvTemp(tipRect), tail));
 }
 
 // What the home page list drew for each row: the path, the size text as drawn,
@@ -2383,8 +2434,7 @@ void HomeEntryCtrl::Paint(VirtPaintCtx& ctx) {
     bool isRtl = IsUIRtl();
     PlatformFont* fontText = HomePageFont(13);
     Color backgroundColor = ThemeMainWindowBackgroundColor();
-    // no selection chrome while typing in the search box
-    bool isSelected = (idx == win->homePageSelIdx) && !HomeSearchHasFocus(win);
+    bool isSelected = (idx == win->homePageSelIdx) && HomeSelectionShown(win);
     // ctx.clip is the entries band (vwfClipChildren on the parent): an entry
     // scrolled partially out must not paint over the header / tip band
     gfx->PushClip(ctx.clip);
@@ -2746,6 +2796,15 @@ void HomePageDestroyChrome(MainWindow* win) {
     win->homeRoot = nullptr;
 }
 
+// The hidden test desktop has no foreground window; the active one stands in.
+static bool HomeFrameInFront(MainWindow* win) {
+    HWND fg = GetForegroundWindow();
+    if (!fg && HasTestCursorPosition()) {
+        fg = GetActiveWindow();
+    }
+    return fg == win->hwndFrame;
+}
+
 // gives the home page's virtual controls first shot at the canvas messages.
 // Returns true when the event was consumed and the caller should stop
 bool HomePageOnCanvasMessage(MainWindow* win, UINT msg, WPARAM wp, LPARAM lp, LRESULT& res) {
@@ -2760,7 +2819,7 @@ bool HomePageOnCanvasMessage(MainWindow* win, UINT msg, WPARAM wp, LPARAM lp, LR
     // theme window ends up behind the main window. Clicks are exempt: clicking
     // a background window is meant to activate it.
     bool isHoverMsg = (msg == WM_MOUSEMOVE) || (msg == WM_SETCURSOR);
-    if (isHoverMsg && GetForegroundWindow() != win->hwndFrame) {
+    if (isHoverMsg && !HomeFrameInFront(win)) {
         // thumbnail hover / tooltips stay quiet so they don't steal activation
         // from e.g. the command palette. The About dropdown is WS_EX_NOACTIVATE,
         // so hovering the logo still shows it.
@@ -2925,7 +2984,7 @@ static void DrawHomePageLayout(HomePageLayout& l) {
     // band (issue #5978). A little slack above/below the thumbs band keeps the
     // first row's top curve from being cut off.
     int selIdx = win->homePageSelIdx;
-    bool showSel = !HomePageIsListView() && !HomeSearchHasFocus(win) && selIdx >= 0 && selIdx < nThumbs;
+    bool showSel = !HomePageIsListView() && HomeSelectionShown(win) && selIdx >= 0 && selIdx < nThumbs;
     if (showSel) {
         ThumbnailLayout& t = l.thumbnails[selIdx];
         if (IsHomeThumbOnScreen(t.rcPage.Union(t.rcText), l.rcThumbsArea)) {
@@ -3224,7 +3283,7 @@ static Rect HomeSelectionOutlineRect(const ThumbnailLayout& t) {
 // shifted left if it would extend past the right edge of the last outline in
 // that row.
 static void HomePageShowSelectionTooltip(MainWindow* win) {
-    if (!win || HomePageIsListView() || HomeSearchHasFocus(win)) {
+    if (!win || HomePageIsListView() || !HomeSelectionShown(win)) {
         if (win) {
             win->DeleteToolTip();
         }

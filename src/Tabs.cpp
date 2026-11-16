@@ -602,7 +602,7 @@ void GoToHomeTab(MainWindow* win) {
     WindowTab* homeTab = FindHomeTab(win);
     if (homeTab) {
         TabsSelect(win, win->GetTabIdx(homeTab));
-        HomePageFocusSearch(win);
+        HomePageTakeFocus(win);
         return;
     }
 
@@ -612,7 +612,7 @@ void GoToHomeTab(MainWindow* win) {
     homeTab = InsertHomeTab(win, 0, kind, false);
     UpdateTabWidth(win);
     LoadModelIntoTab(homeTab);
-    HomePageFocusSearch(win);
+    HomePageTakeFocus(win);
 }
 
 // the "+" button: another Home tab after the last one. It stays out of the
@@ -631,7 +631,7 @@ void AddExtraHomeTab(MainWindow* win) {
     WindowTab* homeTab = InsertHomeTab(win, win->TabCount(), HomeTabKind::Extra, false);
     UpdateTabWidth(win);
     LoadModelIntoTab(homeTab);
-    HomePageFocusSearch(win);
+    HomePageTakeFocus(win);
 }
 
 WindowTab* AddTabToWindow(MainWindow* win, WindowTab* tab, bool deferUpdate) {

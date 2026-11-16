@@ -2,7 +2,8 @@
 // - the first Home tab is only as wide as its label plus margins
 // - a "+" after the tabs is always there and takes its space from them
 // - "+" adds a Home tab at the end, which can be closed and isn't restored
-// - that tab focuses its filter, and a file opened from it replaces it
+// - that tab gives the keys to its file list, not its filter (SolokPDF E88),
+//   and a file opened from it replaces it
 
 import { copyFileSync, writeFileSync } from "node:fs";
 import { ControlCommand, type ControlClient, type VirtCtrlInfo } from "./control.ts";
@@ -100,13 +101,16 @@ function openFile(frame: number, path: string): void {
   check(sendCopyDataW(frame, DDE_COPYDATA_ID, `[Open("${path}", 0, 1, 0)]`), "could not send Open");
 }
 
-async function expectSearchFocus(client: ControlClient): Promise<void> {
+// SolokPDF E88: a shown Home keeps the focus out of its filter (upstream focused it)
+async function expectHomeFocus(client: ControlClient): Promise<void> {
   const deadline = Date.now() + TABS_READY_MS;
   for (;;) {
-    if ((await client.homeSelection()).searchFocus) {
+    const h = await client.homeSelection();
+    if (h.ready && h.searchBox && !(await onDocument(client))) {
+      check(!h.searchFocus, "the Home filter should not have focus");
       return;
     }
-    check(Date.now() < deadline, "the Home filter should have focus");
+    check(Date.now() < deadline, "Home should be shown with its filter");
     await sleep(50);
   }
 }
@@ -133,11 +137,11 @@ async function testCtrlT(pdf: string, appdata: string): Promise<void> {
     const pressed = await client.request(ControlCommand.TestShortcutsDialog, ["press", "", "Ctrl+T"]);
     check(pressed[1] === "CmdNewTab", "Ctrl+T should open Home from a document");
     await waitForTabs(client, 3);
-    await expectSearchFocus(client);
+    await expectHomeFocus(client);
     check(!(await onDocument(client)), "Ctrl+T should select Home");
     await client.request(ControlCommand.TestShortcutsDialog, ["press", "", "Ctrl+T"]);
     await waitForTabs(client, 4);
-    await expectSearchFocus(client);
+    await expectHomeFocus(client);
   } finally {
     await killAndWait(proc);
   }
@@ -161,7 +165,7 @@ async function testOpenInHomeTab(paths: string[], appdata: string): Promise<void
 
     sendCommandSync(frame, cmdId("CmdNewTab"));
     await waitForTabs(client, 3);
-    await expectSearchFocus(client);
+    await expectHomeFocus(client);
 
     // the extra Home tab turns into the document
     openFile(frame, paths[1]!);
@@ -170,14 +174,14 @@ async function testOpenInHomeTab(paths: string[], appdata: string): Promise<void
 
     // the pinned Home tab stays: the file gets a tab of its own
     sendCommandSync(frame, cmdId("CmdGoToHomePage"));
-    await expectSearchFocus(client);
+    await expectHomeFocus(client);
     openFile(frame, paths[2]!);
     await waitForDocument(client);
     const b = await waitForTabs(client, 4);
     check(b.tabs[0]!.rect.dx === homeDx, "the pinned Home should have stayed compact");
     check(b.tabs[0]!.rect.dx * HOME_TAB_MAX_DIVISOR < b.tabs[1]!.rect.dx, "the pinned Home should still be compact");
     sendCommandSync(frame, cmdId("CmdGoToHomePage"));
-    await expectSearchFocus(client);
+    await expectHomeFocus(client);
     await waitForTabs(client, 4);
     check(!(await onDocument(client)), "the pinned Home should have stayed");
   } finally {
@@ -193,7 +197,7 @@ async function testNoHomeTab(paths: string[], appdata: string): Promise<void> {
     const docDx = (await waitForTabs(withDoc.client, 1)).tabs[0]!.rect.dx;
     sendCommandSync(withDoc.frame, cmdId("CmdNewTab"));
     await waitForTabs(withDoc.client, 2);
-    await expectSearchFocus(withDoc.client);
+    await expectHomeFocus(withDoc.client);
     openFile(withDoc.frame, paths[1]!);
     await waitForDocument(withDoc.client);
     const b = await waitForTabs(withDoc.client, 2);
@@ -202,7 +206,7 @@ async function testNoHomeTab(paths: string[], appdata: string): Promise<void> {
 
     sendCommandSync(withDoc.frame, cmdId("CmdGoToHomePage"));
     await waitForTabs(withDoc.client, 3);
-    await expectSearchFocus(withDoc.client);
+    await expectHomeFocus(withDoc.client);
     openFile(withDoc.frame, paths[2]!);
     await waitForDocument(withDoc.client);
     await waitForTabs(withDoc.client, 3);
@@ -219,7 +223,7 @@ async function testNoHomeTab(paths: string[], appdata: string): Promise<void> {
       await sleep(50);
     }
     sendCommandSync(empty.frame, cmdId("CmdNewTab"));
-    await expectSearchFocus(empty.client);
+    await expectHomeFocus(empty.client);
     openFile(empty.frame, paths[0]!);
     await waitForDocument(empty.client);
     await waitForTabs(empty.client, 1);
