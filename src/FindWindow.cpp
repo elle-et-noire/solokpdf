@@ -914,8 +914,13 @@ static void PositionFindWindow(FindWindowWnd* w) {
 }
 
 void ShowFindWindow(MainWindow* win) {
-    // one find UI at a time: SearchUIFloating can change while the bar is up
+    // one find UI at a time: SearchUIFloating can change while the bar is up.
+    // Hiding the bar aborts its search; one still running (-search) runs again in the window.
+    bool wasFinding = false;
+    bool wasCounting = false;
     if (IsFindBarVisible(win)) {
+        wasFinding = win->findThread != nullptr;
+        wasCounting = win->findCountThread != nullptr;
         HideFindBar(win);
     }
     // Capture before we re-point findEdit at this window's (possibly empty) edit.
@@ -958,11 +963,15 @@ void ShowFindWindow(MainWindow* win) {
     if (CbGetTextLen(win->findEdit) == 0 || win->findThread) {
         return;
     }
+    if (wasFinding) {
+        FindTextOnThread(win, TextSearch::Direction::Forward, win->findEdit->GetTextTemp(), true, true);
+        return;
+    }
     // finish off a completed search's rows (the compact bar built no snippets,
     // and hiding it dropped the rows), but don't start a new search: a term
     // merely restored into the box is a starting point, not a request
     bool finished = len(win->findMatches) > 0 || HasFindCountFor(win, win->findEdit->GetTextTemp());
-    if (finished && !win->findCountHasSnippets) {
+    if ((finished || wasCounting) && !win->findCountHasSnippets) {
         EnsureFindSnippets(win);
     }
 }
@@ -1194,7 +1203,9 @@ TempStr FindWindowContentsResultTemp(int* exitCodeOut) {
         return fail(StrL("NOTREADY empty-term"));
     }
     if (win->findThread || win->findCountThread || !win->findCountValid || !win->findCountHasSnippets) {
-        return fail(StrL("NOTREADY snippets"));
+        return fail(fmt("NOTREADY snippets find=%d count=%d valid=%d has=%d matches=%d", (int)!!win->findThread,
+                        (int)!!win->findCountThread, (int)win->findCountValid, (int)win->findCountHasSnippets,
+                        len(win->findMatches)));
     }
 
     int n = len(win->findMatches);
