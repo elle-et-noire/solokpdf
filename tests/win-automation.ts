@@ -403,6 +403,22 @@ export function findCanvas(frame: number): number {
   return findChildWindow(frame, CANVAS_CLASS);
 }
 
+// The canvas's overlay scrollbar popups: those over the canvas. Sidebar trees have
+// their own (SUMATRA_OVERLAY_SCROLLBAR too), over the sidebar or not yet placed.
+export function canvasOverlayScrollbars(pid: number, canvas: number): number[] {
+  const c = getWindowRect(canvas);
+  const res: number[] = [];
+  enumWindows((hwnd) => {
+    if (getWindowPid(hwnd) !== pid || getClassName(hwnd) !== "SUMATRA_OVERLAY_SCROLLBAR") return true;
+    const r = getWindowRect(hwnd);
+    const x = (r.left + r.right) / 2;
+    const y = (r.top + r.bottom) / 2;
+    if (r.right - r.left > 1 && x >= c.left && x < c.right && y >= c.top && y < c.bottom) res.push(hwnd);
+    return true;
+  });
+  return res;
+}
+
 export function findChildByClass(parent: number, className: string): number {
   const child = findChildWindow(parent, className);
   // ng draws the toolbar in the frame; there is no SUMATRA_VIRT_TOOLBAR child

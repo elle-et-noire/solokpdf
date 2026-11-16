@@ -197,8 +197,10 @@ async function check(
     }
     await drag();
     const editorAfter = String((await client.request(ControlCommand.TestCurrentPdf, ["editor"]))[1]);
-    if (engine === "pdfium" && editorAfter !== "editor=loaded")
-      throw Error(`mouse-down did not load editor: ${editorAfter}`);
+    // the mouse-down hit test loads the editor only for a file with annotations (E69)
+    const wantEditor = annotation ? "editor=loaded" : "editor=none";
+    if (engine === "pdfium" && editorAfter !== wantEditor)
+      throw Error(`mouse-down: ${editorAfter}, want ${wantEditor}`);
     await expectColored("drag");
     await client.request(ControlCommand.TestClipboardText, ["enable"]);
     sendCommandSync(frame, cmdId("CmdCopySelection"));

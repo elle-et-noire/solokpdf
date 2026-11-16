@@ -23,7 +23,7 @@ import {
   sleep,
 } from "./winapi.ts";
 import { withControlledSumatra } from "./control.ts";
-import { findCanvas, waitForFrame } from "./win-automation.ts";
+import { canvasOverlayScrollbars, findCanvas, waitForFrame } from "./win-automation.ts";
 
 const SCROLLBAR_CLASS = "SUMATRA_OVERLAY_SCROLLBAR";
 // OverlayScrollbar::showAfterScrollMs plus slack for a slow (ASan) build
@@ -100,7 +100,7 @@ export async function testit(): Promise<void> {
       await client.setNotificationsEnabled(false);
       const canvas = findCanvas(frame);
 
-      const bars = overlayScrollbars(proc.pid!);
+      const bars = canvasOverlayScrollbars(proc.pid!, canvas);
       if (bars.length !== 2) {
         throw new Error(`smart-scrollbars-autohide: want 2 overlay scrollbars, got ${bars.length}`);
       }

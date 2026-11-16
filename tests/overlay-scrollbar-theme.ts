@@ -8,37 +8,16 @@
 
 import { join } from "node:path";
 import { cmdId, EXE, ROOT, runStandalone, USE_NG, writeAppdata } from "./util.ts";
-import {
-  captureScreenRegionPixels,
-  enumWindows,
-  getClassName,
-  getWindowPid,
-  getWindowRect,
-  setProcessDpiAware,
-  setTopmost,
-  sleep,
-} from "./winapi.ts";
+import { captureScreenRegionPixels, getWindowRect, setProcessDpiAware, setTopmost, sleep } from "./winapi.ts";
 import { withControlledSumatra } from "./control.ts";
-import { sendCommandSync, waitForFrame } from "./win-automation.ts";
+import { canvasOverlayScrollbars, findCanvas, sendCommandSync, waitForFrame } from "./win-automation.ts";
 
-const SCROLLBAR_CLASS = "SUMATRA_OVERLAY_SCROLLBAR";
 // a light bar averages well above this, a dark one well below
 const lumaSplit = 128;
 
-function overlayScrollbars(pid: number): number[] {
-  const res: number[] = [];
-  enumWindows((hwnd) => {
-    if (getWindowPid(hwnd) === pid && getClassName(hwnd) === SCROLLBAR_CLASS) {
-      res.push(hwnd);
-    }
-    return true;
-  });
-  return res;
-}
-
 // average brightness of the vertical bar as shown on screen
 function verticalBarLuma(frame: number, pid: number): number {
-  const bars = overlayScrollbars(pid);
+  const bars = canvasOverlayScrollbars(pid, findCanvas(frame));
   const rects = bars.map((b) => getWindowRect(b));
   const i = rects.findIndex((r) => r.bottom - r.top > r.right - r.left);
   if (i < 0) {
