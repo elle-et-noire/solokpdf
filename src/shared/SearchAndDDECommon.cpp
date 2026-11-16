@@ -1572,6 +1572,14 @@ void InvalidateFindForTextChange(MainWindow* win) {
         return;
     }
     win->findTextGeneration = generation;
+    // the edit dropped page text: extract the visible pages again, so a press on
+    // text starts a selection without waiting for a mouse move to request it
+    int firstPage = 0;
+    int lastPage = 0;
+    GetVisiblePageRange(dm, firstPage, lastPage);
+    for (int pageNo = firstPage; pageNo > 0 && pageNo <= lastPage; pageNo++) {
+        dm->GetEngine()->RequestTextExtraction(pageNo);
+    }
     AbortFinding(win, true);
     dm->textSearch->TextSelection::Reset();
     DeleteOldSelectionInfo(win, true);
