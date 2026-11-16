@@ -111,6 +111,20 @@ struct Gfx {
 
 void DrawSelectionOutline(Gfx* gfx, const Rect& r, int radius, int thickness, Color color);
 
+// A floating card's shadow as two CSS box-shadows: one all around, one offset
+// down (Fluent's elevation shadows). Black; sizes in pixels.
+struct DropShadow {
+    int cornerRadius = 0; // as FillRoundedRect's
+    int ambientBlur = 0;
+    u8 ambientAlpha = 0;
+    int keyOffsetY = 0;
+    int keyBlur = 0;
+    u8 keyAlpha = 0;
+};
+
+Rect DropShadowBounds(const Rect& card, const DropShadow&);
+Pixmap* NewDropShadowPixmap(Size card, const DropShadow&);
+
 // Draws with plain gdi, immediately and without anti-aliasing. Kept for the
 // surfaces that interleave raw gdi drawing with Gfx drawing on the same HDC
 // (the caption frame and installer): GfxDirect2D writes to the

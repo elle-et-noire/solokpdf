@@ -1307,28 +1307,6 @@ Color ThemeSelectedBackgroundColor() {
     return ThemeSelectedColorOn(ThemeCanvasColor());
 }
 
-// a popup card against the page under it, as the tab strip against the canvas
-constexpr float kMinCardContrast = 1.13f;
-
-// A popup card over the page (the selection toolbar): the tab strip's color,
-// so the window's chrome reads as one, unless it nearly matches the page
-// (custom themes, unthemed pages); then the page mixed toward the text color.
-// Themed pages take BackgroundColor, so a card in it vanished (Solarized Dark).
-Color ThemeCardColorOn(Color page) {
-    Color strip = ThemeTabStripColor();
-    if (gUseHighContrast || ContrastRatio(strip, page) >= kMinCardContrast) {
-        return strip;
-    }
-    Color text = ThemeWindowTextColor();
-    for (float t = kSelectionMixStep; t < 1.0f; t += kSelectionMixStep) {
-        Color c = MixColors(page, text, t);
-        if (ContrastRatio(c, page) >= kMinCardContrast) {
-            return c;
-        }
-    }
-    return strip;
-}
-
 static Color ThemeOverlay(ParsedColor& setting, Color fallback, u8& alpha) {
     ParsedColor* parsed = GetParsedColor(setting);
     if (!parsed->parsedOk || str::EqI(parsed->s, StrL("unset")) || str::EqI(parsed->s, StrL("checkered"))) {

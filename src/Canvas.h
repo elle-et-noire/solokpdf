@@ -29,6 +29,21 @@ void DeleteLaserPointerCursor();
 void DrawCanvasKeyboardFocusIfNeeded(MainWindow* win, HDC hdc);
 void InvalidateCanvasKeyboardFocus(MainWindow* win);
 
+struct Pixmap;
+
+// the shadow a floating bar casts on the canvas; the bar keeps it
+struct BarShadow {
+    Rect card; // canvas coordinates; empty while the bar is hidden
+    int cornerRadius = 0;
+    Pixmap* pixmap = nullptr;
+    Size pixmapCard;
+    int pixmapStyle = 0;
+};
+
+void SetBarShadow(MainWindow*, BarShadow*, Rect card, int cornerRadius);
+void PaintBarShadow(MainWindow*, HDC, BarShadow*);
+void FreeBarShadow(BarShadow*);
+
 extern Kind kNotifAnnotation;
 
 void RegisterCanvasDropTarget(HWND hwndCanvas);

@@ -40,6 +40,113 @@ void DrawSelectionOutline(Gfx* gfx, const Rect& r, int radius, int thickness, Co
     }
 }
 
+// three box blurs of radius blur/2 come close to CSS's gaussian (sigma blur/2)
+constexpr int kShadowBlurPasses = 3;
+
+static int ShadowSpread(int blur) {
+    return kShadowBlurPasses * (blur / 2);
+}
+
+// the pixmap NewDropShadowPixmap() makes for card, placed around it
+Rect DropShadowBounds(const Rect& card, const DropShadow& s) {
+    int ambient = ShadowSpread(s.ambientBlur);
+    int key = ShadowSpread(s.keyBlur);
+    int side = std::max(ambient, key);
+    int top = std::max(ambient, key - s.keyOffsetY);
+    int bottom = std::max(ambient, key + s.keyOffsetY);
+    return {card.x - side, card.y - top, card.dx + (2 * side), card.dy + top + bottom};
+}
+
+// box blur of n values `step` apart, in place; outside counts as 0
+static void BoxBlurLine(float* v, int n, int step, int r, float* tmp) {
+    for (int i = 0; i < n; i++) {
+        tmp[i] = v[i * step];
+    }
+    float sum = 0;
+    for (int i = 0; i < std::min(r, n); i++) {
+        sum += tmp[i];
+    }
+    float scale = 1.0f / (float)((2 * r) + 1);
+    for (int i = 0; i < n; i++) {
+        if (i + r < n) {
+            sum += tmp[i + r];
+        }
+        v[i * step] = sum * scale;
+        if (i - r >= 0) {
+            sum -= tmp[i - r];
+        }
+    }
+}
+
+// coverage of the rounded rect `card` in a w x h grid, blurred
+static float* BlurredCardMask(int w, int h, Rect card, int cornerRadius, int blur) {
+    float* m = AllocArray<float>(w * h);
+    // FillRoundedRect's radius is the corner's diameter
+    float cr = (float)cornerRadius / 2.0f;
+    for (int y = card.y; y < card.Bottom(); y++) {
+        for (int x = card.x; x < card.Right(); x++) {
+            float px = (float)x + 0.5f;
+            float py = (float)y + 0.5f;
+            float cx = std::clamp(px, (float)card.x + cr, (float)card.Right() - cr);
+            float cy = std::clamp(py, (float)card.y + cr, (float)card.Bottom() - cr);
+            float dx = px - cx;
+            float dy = py - cy;
+            if ((dx * dx) + (dy * dy) <= cr * cr) {
+                m[(y * w) + x] = 1.0f;
+            }
+        }
+    }
+    int r = blur / 2;
+    if (r <= 0) {
+        return m;
+    }
+    float* tmp = AllocArray<float>(std::max(w, h));
+    for (int pass = 0; pass < kShadowBlurPasses; pass++) {
+        for (int y = 0; y < h; y++) {
+            BoxBlurLine(m + (y * w), w, 1, r, tmp);
+        }
+        for (int x = 0; x < w; x++) {
+            BoxBlurLine(m + x, h, w, r, tmp);
+        }
+    }
+    free(tmp);
+    return m;
+}
+
+// black with the shadow's alpha, premultiplied, the size of DropShadowBounds()
+Pixmap* NewDropShadowPixmap(Size card, const DropShadow& s) {
+    Rect b = DropShadowBounds(Rect(0, 0, card.dx, card.dy), s);
+    int w = b.dx;
+    int h = b.dy;
+    Pixmap* p = AllocPixmap(w, h, PixmapFormat::BGRA8, true);
+    if (!p) {
+        return nullptr;
+    }
+    p->hasAlpha = true;
+    Rect ambientCard(-b.x, -b.y, card.dx, card.dy);
+    Rect keyCard = ambientCard;
+    keyCard.y += s.keyOffsetY;
+    float* ambient = BlurredCardMask(w, h, ambientCard, s.cornerRadius, s.ambientBlur);
+    float* key = BlurredCardMask(w, h, keyCard, s.cornerRadius, s.keyBlur);
+    float aa = (float)s.ambientAlpha / 255.0f;
+    float ka = (float)s.keyAlpha / 255.0f;
+    for (int y = 0; y < h; y++) {
+        u8* d = p->data + ((size_t)y * p->stride);
+        for (int x = 0; x < w; x++, d += 4) {
+            int i = (y * w) + x;
+            // one shadow over the other
+            float a = 1.0f - ((1.0f - (aa * ambient[i])) * (1.0f - (ka * key[i])));
+            d[0] = 0;
+            d[1] = 0;
+            d[2] = 0;
+            d[3] = (u8)std::clamp((int)((a * 255.0f) + 0.5f), 0, 255);
+        }
+    }
+    free(ambient);
+    free(key);
+    return p;
+}
+
 GfxHdc::GfxHdc(HDC hdc) {
     this->hdc = hdc;
 }

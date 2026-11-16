@@ -7,6 +7,7 @@ struct El;
 } // namespace gpui
 
 struct MainWindow;
+struct BarShadow;
 
 enum class SelToolbarShow {
     Now,
@@ -23,6 +24,7 @@ void ResetSelectionToolbarDismissed(MainWindow* win);
 void RefreshSelectionToolbarIcons(MainWindow* win);
 void DeleteSelectionToolbar(MainWindow* win);
 bool IsSelectionToolbarVisible(MainWindow* win);
+BarShadow* SelectionToolbarShadow(MainWindow* win);
 gpui::El* SelectionToolbarBuild(MainWindow* win, gpui::Ctx* cx);
 TempStr SelectionToolbarLayoutDumpTemp();
 TempStr SelectionToolbarLayoutDumpTemp(MainWindow* win);

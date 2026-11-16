@@ -57,6 +57,7 @@ struct SelectionToolbar {
     DWORD lastPositionUpdateTick = 0;
     Vec<SelectionToolbarButton> buttons;
     Func1List<MainWindow*> onWindowMoved;
+    BarShadow shadow;
 };
 
 constexpr int kBtnPadX = 8; // horizontal padding inside a button
@@ -80,11 +81,10 @@ static bool SelectionBoundsChanged(Rect a, Rect b, int slack) {
     return abs(a.x - b.x) > slack || abs(a.y - b.y) > slack || abs(a.dx - b.dx) > slack || abs(a.dy - b.dy) > slack;
 }
 
-// the floating card stands out from the page under it, in the theme's colors
+// a raised surface, as the command palette: the shadow and the border set it
+// apart from the page
 static Color SelBarBg() {
-    Color page;
-    ThemePageRenderColors(page);
-    return ThemeCardColorOn(page);
+    return ThemeWindowControlBackgroundColor();
 }
 
 static Color SelBarBorderColor() {
@@ -308,6 +308,10 @@ bool IsSelectionToolbarVisible(MainWindow* win) {
     return tb && tb->host && tb->host->IsVisible();
 }
 
+BarShadow* SelectionToolbarShadow(MainWindow* win) {
+    return IsSelectionToolbarVisible(win) ? &win->selectionToolbar->shadow : nullptr;
+}
+
 // the part of the canvas a selection can show in
 Rect SelectionCanvasRect(MainWindow* win, DisplayModel*) {
     return win->canvasRc;
@@ -335,6 +339,7 @@ static bool PositionToolbar(SelectionToolbar* tb, const Rect& sel) {
     y = std::min(y, maxY);
     y = std::max(y, canvas.y);
 
+    SetBarShadow(win, &tb->shadow, Rect(x, y, w, h), kCornerRadius);
     Point p = HwndClientToScreen(win->hwndCanvas, Point(x, y));
     Rect placed(p.x, p.y, w, h);
     if (placed == tb->lastPlaced) {
@@ -628,6 +633,7 @@ void HideSelectionToolbar(MainWindow* win) {
     tb->tab = nullptr;
     tb->lastPlaced = Rect();
     tb->lastSelBounds = Rect();
+    SetBarShadow(win, &tb->shadow, Rect(), kCornerRadius);
 }
 
 // Destroy the toolbar window and free its state.
@@ -638,6 +644,8 @@ void DeleteSelectionToolbar(MainWindow* win) {
         return;
     }
     win->UnregisterOnWindowMoved(&tb->onWindowMoved);
+    SetBarShadow(win, &tb->shadow, Rect(), kCornerRadius);
+    FreeBarShadow(&tb->shadow);
     // ~VirtHost deletes the layout first: the buttons report their
     // destruction to the root
     delete tb->host;

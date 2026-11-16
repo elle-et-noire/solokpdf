@@ -216,14 +216,19 @@ four DPI-scaled pixels outside the page. The sidebar reserves room for the
 outline at its edges and between rows. Neither Home nor the sidebar has a
 separate keyboard focus ring.
 
-The floating selection toolbar takes the tab strip's color, so it reads as part
-of the window's chrome, with an `EdgeColor` border; where that nearly matches
-the page under it (contrast under 1.13: custom themes, unthemed pages), the
-page mixed toward the text color. It used the theme's `BackgroundColor`, which
-themed pages take too, so in dark themes it vanished into the page.
-Like upstream's, it has no shadow; on an image close to the card's lightness
-only the border separates them.
-The annotation editing toolbar takes the same colors. The read-aloud and
+The floating selection toolbar is the topmost layer, so it takes the command
+palette's surface (`ControlBackgroundColor`, which the built-in themes leave
+to `BackgroundColor`), with an `EdgeColor` border and a drop shadow, as
+Fluent's flyouts: the shadow and the border set it apart from the page, not
+the card's color (E91). The shadow is Fluent 2's shadow8 (0 0 2px and
+0 4px 8px), black at 12/14% and twice that in dark themes, as Fluent's; a
+flyout's larger shadow would shade the line the toolbar sits 6 DIP from.
+Shadows are not chrome, so it is not a theme color. It is painted on the
+canvas under the toolbar and goes with it. On a black page (Dark) it cannot
+show; the border alone separates there. High contrast mode has no shadow, as
+Windows. Upstream's toolbar has none; E89 gave it the tab strip's color, the
+receding window-frame layer.
+The annotation editing toolbar takes the same colors and shadow. The read-aloud and
 auto-scroll bars keep the notification color but outline their buttons and
 draw their slider track in `EdgeColor` (was a fixed gray).
 

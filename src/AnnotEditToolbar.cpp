@@ -95,6 +95,7 @@ struct AnnotEditToolbar : AnnotEditToolbarBase {
     bool editingContents = false;
     bool contentsEditClosing = false;
     Edit* contentsEdit = nullptr;
+    BarShadow shadow;
 };
 
 // Native multiline edit hosted in the VirtHost; its HWND is positioned from
@@ -1235,6 +1236,7 @@ static bool PositionToolbar(AnnotEditToolbar* tb, const Rect& annot) {
     y = std::min(y, maxY);
     y = std::max(y, canvas.y);
 
+    SetBarShadow(win, &tb->shadow, Rect(x, y, w, h), kCornerRadius);
     Point p = HwndClientToScreen(win->hwndCanvas, Point(x, y));
     Rect placed(p.x, p.y, w, h);
     if (placed == tb->lastPlaced) {
@@ -2086,6 +2088,7 @@ void HideAnnotEditToolbar(MainWindow* win) {
     gClickAnchor = {};
     tb->lastPlaced = {};
     tb->lastAnnotBounds = {};
+    SetBarShadow(win, &tb->shadow, Rect(), kCornerRadius);
     VecReset(tb->kinds);
     VecReset(tb->chips);
 }
@@ -2179,9 +2182,17 @@ void DeleteAnnotEditToolbar(MainWindow* win) {
     }
     DestroyContentsEditor(tb);
     win->UnregisterOnWindowMoved(&tb->onWindowMoved);
+    SetBarShadow(win, &tb->shadow, Rect(), kCornerRadius);
+    FreeBarShadow(&tb->shadow);
     delete tb->host;
     delete tb;
     win->annotEditToolbar = nullptr;
+}
+
+BarShadow* AnnotEditToolbarShadow(MainWindow* win) {
+    AnnotEditToolbar* tb = win ? win->annotEditToolbar : nullptr;
+    bool visible = tb && tb->host && tb->host->IsVisible();
+    return visible ? &tb->shadow : nullptr;
 }
 
 TempStr AnnotEditToolbarStateTemp(MainWindow* win) {

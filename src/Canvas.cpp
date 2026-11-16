@@ -2946,6 +2946,72 @@ static int PaintPageBitmap(HDC hdc, Rect bounds, DisplayModel* dm, int pageNo, P
     return res;
 }
 
+//--- floating bar shadows
+
+// Fluent 2's shadow8 (0 0 2px, 0 4px 8px; twice as dark in dark themes, as
+// Fluent's): a flyout's shadow16 would shade the line the bar sits 6 DIP from.
+static DropShadow BarShadowStyle(int dpi, bool dark, int cornerRadius) {
+    DropShadow s;
+    s.cornerRadius = DpiScaleByDpi(dpi, cornerRadius);
+    s.ambientBlur = DpiScaleByDpi(dpi, 2);
+    s.ambientAlpha = dark ? 61 : 31;
+    s.keyOffsetY = DpiScaleByDpi(dpi, 4);
+    s.keyBlur = DpiScaleByDpi(dpi, 8);
+    s.keyAlpha = dark ? 71 : 36;
+    return s;
+}
+
+static void InvalidateBarShadow(MainWindow* win, BarShadow* shadow) {
+    if (shadow->card.IsEmpty() || !win->hwndCanvas) {
+        return;
+    }
+    int dpi = DpiGetForHwnd(win->hwndCanvas);
+    // light and dark shadows cover the same area
+    DropShadow style = BarShadowStyle(dpi, false, shadow->cornerRadius);
+    RECT rc = ToRECT(DropShadowBounds(shadow->card, style));
+    InvalidateRect(win->hwndCanvas, &rc, FALSE);
+}
+
+// The bar moved to card (canvas coordinates; empty: hidden): repaint where its
+// shadow was and where it goes. Canvas coordinates don't change when the
+// frame moves, so dragging the window repaints nothing.
+void SetBarShadow(MainWindow* win, BarShadow* shadow, Rect card, int cornerRadius) {
+    if (shadow->card == card && shadow->cornerRadius == cornerRadius) {
+        return;
+    }
+    InvalidateBarShadow(win, shadow);
+    shadow->card = card;
+    shadow->cornerRadius = cornerRadius;
+    InvalidateBarShadow(win, shadow);
+}
+
+// High contrast mode has no shadows (borders only), as Windows.
+void PaintBarShadow(MainWindow* win, HDC hdc, BarShadow* shadow) {
+    if (!shadow || shadow->card.IsEmpty() || ThemeUsesHighContrastColors()) {
+        return;
+    }
+    int dpi = DpiGetForHwnd(win->hwndCanvas);
+    bool dark = !IsLightColor(ThemeCanvasColor());
+    DropShadow style = BarShadowStyle(dpi, dark, shadow->cornerRadius);
+    // the pixmap depends on the card's size and corners, the DPI and the theme
+    int key = (((dpi * 256) + shadow->cornerRadius) * 2) + (dark ? 1 : 0);
+    Size size(shadow->card.dx, shadow->card.dy);
+    if (!shadow->pixmap || shadow->pixmapCard != size || shadow->pixmapStyle != key) {
+        FreePixmap(shadow->pixmap);
+        shadow->pixmap = NewDropShadowPixmap(size, style);
+        shadow->pixmapCard = size;
+        shadow->pixmapStyle = key;
+    }
+    if (shadow->pixmap) {
+        BlitPixmapAlpha(shadow->pixmap, hdc, DropShadowBounds(shadow->card, style));
+    }
+}
+
+void FreeBarShadow(BarShadow* shadow) {
+    FreePixmap(shadow->pixmap);
+    shadow->pixmap = nullptr;
+}
+
 static bool DrawDocument(MainWindow* win, HDC hdc, Rect rcArea) {
     if (ReportIf(!win->AsFixed())) {
         return false;
@@ -3256,6 +3322,10 @@ static bool DrawDocument(MainWindow* win, HDC hdc, Rect rcArea) {
             PaintPdfPageBoxes(dm, hdc);
         }
     }
+    // the floating bars are over everything on the canvas
+    PaintBarShadow(win, hdc, SelectionToolbarShadow(win));
+    PaintBarShadow(win, hdc, AnnotEditToolbarShadow(win));
+
     // Empty viewport (narrow page on a canvas sized by a wider one): the last
     // frame is stale after a reload or jump. Flush the background. Issue #6136.
     if (!anyPageVisible) {

@@ -12,6 +12,7 @@ struct Annotation;
 struct Gfx;
 struct PlatformFont;
 struct StrVec;
+struct BarShadow;
 
 // the compact property row under the selected annotation ("Edit PDF" mode)
 void UpdateAnnotEditToolbar(MainWindow*);
@@ -21,6 +22,7 @@ void DeleteAnnotEditToolbar(MainWindow*);
 void SetAnnotEditToolbarClickPos(Annotation*, PointF pagePt);
 gpui::El* AnnotEditToolbarBuild(MainWindow*, gpui::Ctx*);
 TempStr AnnotEditToolbarStateTemp(MainWindow*);
+BarShadow* AnnotEditToolbarShadow(MainWindow*);
 
 // the contents editor inside the row; also what edits a free text annotation
 void StartSelectedAnnotContentsEdit(MainWindow*);

@@ -38,12 +38,10 @@ extern "C" {
 #include "AnnotEditToolbar.h"
 #include "AnnotEditToolbarCommon.h"
 
-// the floating bar takes the selection toolbar's colors: the tab strip's,
-// set apart from the page under it, with an EdgeColor border
+// the floating bar takes the selection toolbar's colors: a raised surface,
+// as the command palette, with an EdgeColor border
 Color BarBg() {
-    Color page;
-    ThemePageRenderColors(page);
-    return ThemeCardColorOn(page);
+    return ThemeWindowControlBackgroundColor();
 }
 
 Color BarBorderColor() {
