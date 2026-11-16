@@ -161,7 +161,8 @@ async function checkHover(
   const what = `${theme} ${mode}`;
   await client.homeSelection(mode);
   await waitForHome(client, (s) => s.listView === (mode === "list") && s.entries === N_FILES, `${what}: no layout`);
-  await moveTestCursor(0, 0);
+  const away = clientToScreen(canvas, 1, 1);
+  await moveTestCursor(away.x, away.y);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(1, 1));
   await activateTestFrame(client);
   const next = mode === "list" ? VK_DOWN : VK_RIGHT;
@@ -218,7 +219,11 @@ async function checkHover(
   await waitForHome(client, (s) => s.hover === b && s.sel === a, `${what}: entry ${b} is not hovered again`);
 
   sendCommand(frame, cmdId("CmdFindFirst"));
-  const f = await waitForHome(client, (s) => s.searchFocus, `${what}: CmdFindFirst did not focus the search box`);
+  await waitForHome(client, (s) => s.searchFocus, `${what}: CmdFindFirst did not focus the search box`);
+  // the move Windows makes at the physical pointer, off the test cursor, on a
+  // real desktop when the search box shows (CI)
+  postMessage(canvas, WM_MOUSEMOVE, 0, packCoords(1, 1));
+  const f = await client.homeSelection();
   check(f.sel === a && !f.selShown && f.hover === b, `${what}: search focus state ${f.raw}`);
   check(pixel(canvas, bx, by) === fill, `${what}: hover fill gone while the search box has the focus`);
   const hidden = await settledPixel(canvas, ax, ay, (c) => c === bg);

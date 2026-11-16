@@ -57,6 +57,8 @@ function findHover(pid: number): number {
 async function showByHover(client: ControlClient, canvas: number, pid: number): Promise<number> {
   const logo = centerOf(await waitNamed(client, kCanvasClass, "homeLogo"));
   const screen = clientToScreen(canvas, logo.x, logo.y);
+  const corner = clientToScreen(canvas, 0, 0);
+  await moveTestCursor(corner.x, corner.y, client);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(0, 0));
   await moveTestCursor(screen.x, screen.y, client);
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(logo.x, logo.y));

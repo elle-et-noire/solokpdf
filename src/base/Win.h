@@ -52,6 +52,7 @@ Point GetCursorPosition();
 void SetTestCursorPosition(Point);
 void ClearTestCursorPosition();
 bool HasTestCursorPosition();
+bool IsPhysicalTestMove(HWND, WPARAM, LPARAM);
 Point HwndGetCursorPos(HWND hwnd);
 Point& UnmirrorRtl(HWND hwnd, Point& p);
 bool HwndIsCursorOverWindow(HWND);

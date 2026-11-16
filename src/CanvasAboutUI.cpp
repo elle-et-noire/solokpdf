@@ -102,6 +102,10 @@ static LRESULT OnSetCursorAbout(MainWindow* win, HWND hwnd) {
 LRESULT WndProcCanvasAbout(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     int x = GET_X_LPARAM(lp);
     int y = GET_Y_LPARAM(lp);
+    // Windows can post a move at the physical pointer during a test.
+    if (msg == WM_MOUSEMOVE && IsPhysicalTestMove(hwnd, wp, lp)) {
+        return 0;
+    }
     // the home page's virtual controls (header, view buttons, "Open a
     // document...", help button) handle their own hover / click / cursor
     switch (msg) {

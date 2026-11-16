@@ -1818,6 +1818,15 @@ bool HasTestCursorPosition() {
     return hasTestCursorPosition;
 }
 
+// A move Windows made at the physical pointer while a test drives its own
+// cursor (e.g. a window shown under it). Drags pass.
+bool IsPhysicalTestMove(HWND hwnd, WPARAM wp, LPARAM lp) {
+    if (!hasTestCursorPosition || (wp & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) != 0) {
+        return false;
+    }
+    return !HwndGetCursorPos(hwnd).Eq(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+}
+
 Point GetCursorPosition() {
     if (hasTestCursorPosition) {
         return testCursorPosition;

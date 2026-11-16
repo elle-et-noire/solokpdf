@@ -4596,8 +4596,7 @@ static LRESULT WndProcCanvasFixedPageUI(MainWindow* win, HWND hwnd, UINT msg, WP
 
         case WM_MOUSEMOVE:
             // Windows can post a move at the physical pointer during a test.
-            if (HasTestCursorPosition() && (wp & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) == 0 &&
-                !HwndGetCursorPos(hwnd).Eq(x, y)) {
+            if (IsPhysicalTestMove(hwnd, wp, lp)) {
                 return 0;
             }
             OnMouseMove(win, x, y, wp);
