@@ -79,11 +79,8 @@ focus. Ctrl+Shift+T still reopens the last closed file; plain T changes theme.
 
 Home from "+", Ctrl+T or the Home command leaves the focus on its file list
 (upstream focused the search box, which hid the selection and hover outline).
-A character typed on Home goes to the search box, appended to its text, so
-typing still starts a search; Ctrl+F and clicking the box focus it as before.
-On Home, plain letters such as T therefore type instead of running their
-shortcut, as in upstream's focused box; Space and keys without a character
-keep their shortcuts. IME input starts only once the box has the focus.
+Plain keys on Home run their shortcuts, such as T for the next theme. A search
+starts by clicking the box, Ctrl+F, or `/` with Vim keys on (E90).
 
 `NoHomeTab` defaults to true: opening a file leaves no pinned Home tab behind.
 Home from "+" or the Home command is replaced when a file opens from it. Set

@@ -15345,39 +15345,11 @@ static bool IsBrowserScrollKey(WPARAM key) {
            key == VK_PRIOR || key == VK_NEXT;
 }
 
-// A character typed on Home goes to its search box, as when the box had the
-// focus on open (upstream). Space and keys without a character keep theirs.
-static bool MaybeTypeIntoHomeSearch(MSG& msg) {
-    if (msg.message != WM_KEYDOWN || IsCtrlPressed() || IsAltPressed()) {
-        return false;
-    }
-    MainWindow* win = FindMainWindowByHwnd(msg.hwnd);
-    if (!win || !win->IsCurrentTabAbout() || !IsDocKeyTarget(win, msg.hwnd)) {
-        return false;
-    }
-    // the high bit marks a dead key, which still starts a character
-    UINT ch = MapVirtualKeyW((UINT)msg.wParam, MAPVK_VK_TO_CHAR) & 0x7fffffff;
-    if (ch <= ' ') {
-        return false;
-    }
-    HWND hwndSearch = HomePageStartTyping(win);
-    if (!hwndSearch) {
-        return false;
-    }
-    msg.hwnd = hwndSearch;
-    return true;
-}
-
 static bool MaybeTranslateAccelerator(MSG& msg) {
     // TODO: why mouse events?
     bool doAccels = ((msg.message >= WM_KEYFIRST && msg.message <= WM_KEYLAST) ||
                      (msg.message >= WM_MOUSEFIRST && msg.message <= WM_MOUSELAST));
     if (!doAccels) {
-        return false;
-    }
-
-    // before Vim keys: a digit would start a count
-    if (MaybeTypeIntoHomeSearch(msg)) {
         return false;
     }
 

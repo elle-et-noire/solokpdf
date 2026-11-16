@@ -30,8 +30,6 @@ This does not bound every shutdown callback or ordinary tab-close wait.
 ## Opening files
 
 - Ctrl+T opens a new Home tab from a document or Home search (B57).
-- A shown Home keeps the focus on its file list; a typed character moves it to
-  the search box. Keys an IME processes don't, so click or Ctrl+F first (E88).
 - With default `NoHomeTab = true`, opening a file leaves no pinned Home tab;
   Home from the Home command is replaced by the opened file (B56).
 

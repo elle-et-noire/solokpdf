@@ -1348,22 +1348,6 @@ void HomePageTakeFocus(MainWindow* win) {
     HwndSetFocus(win->hwndCanvas);
 }
 
-// Moves the focus to the search box, caret at the end, for a character typed
-// on Home. Returns the box to send the key to, nullptr if there is none.
-HWND HomePageStartTyping(MainWindow* win) {
-    HomePageShowSearch(win);
-    if (!win->homeSearch) {
-        return nullptr;
-    }
-    HWND hwnd = win->homeSearch->hwnd;
-    win->DeleteToolTip();
-    EditSetFocus(win->homeSearch);
-    int n = GetWindowTextLengthW(hwnd);
-    SendMessageW(hwnd, EM_SETSEL, n, n);
-    HwndInvalidate(win->hwndCanvas);
-    return hwnd;
-}
-
 static void OffsetThumbnailLayouts(Vec<ThumbnailLayout>& thumbs, int dy) {
     if (dy == 0) {
         return;
