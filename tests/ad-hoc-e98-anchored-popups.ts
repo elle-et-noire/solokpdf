@@ -16,7 +16,8 @@
 // Automatically Scroll and read-aloud bars, selection toolbar, comment card,
 // Edit PDF annotation toolbar): frame moved -> moves along; sidebar shifts the
 // canvas -> stays inside it and comes back with it; frame minimized -> gone,
-// back at its place on restore; another tab -> gone.
+// back at its place on restore, whether Windows or the anchor layer hid it
+// (E121); another tab -> gone.
 //
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
@@ -474,17 +475,19 @@ const COMBO_CLASS = "ComboBox";
 const VK_END = 0x23;
 const E110_LINE = "The quick brown fox jumps over the lazy dog";
 
-// one line of text and, below it, a square with a comment
+// a line of text, a highlighted one off the selection, and a square with a comment
 function makeE110Pdf(): string {
-  const text = `BT /F1 18 Tf 72 700 Td (${E110_LINE}) Tj ET`;
+  const text = `BT /F1 18 Tf 72 700 Td (${E110_LINE}) Tj 0 -60 Td (Pack my box with five dozen jugs) Tj ET`;
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> " +
-      "/Contents 5 0 R /Annots [6 0 R] >>",
+      "/Contents 5 0 R /Annots [6 0 R 7 0 R] >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
     `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
     "<< /Type /Annot /Subtype /Square /Rect [72 300 300 450] /C [1 0 0] /Contents (a comment) >>",
+    "<< /Type /Annot /Subtype /Highlight /Rect [72 634 380 658] /QuadPoints [72 658 380 658 72 634 380 634] " +
+      "/C [1 1 0] >>",
   ]);
 }
 
@@ -511,18 +514,20 @@ async function barHwnd(client: ControlClient, cmd: ControlCommand): Promise<numb
   return m && isWindowVisible(+m[1]!) ? +m[1]! : 0;
 }
 
-// the square's middle in canvas coordinates, once it is on screen
-async function squareCenter(client: ControlClient): Promise<{ x: number; y: number }> {
+// a point of an annotation, fx across and half way down, in canvas
+// coordinates, once it is on screen
+async function annotPoint(client: ControlClient, type: string, fx = 0.5): Promise<{ x: number; y: number }> {
   let raw = "";
+  const re = new RegExp(`type=${type}(?:(?!type=)[\\s\\S])*?screen=(-?\\d+),(-?\\d+),(\\d+),(\\d+)`);
   const r = await pollUntil(
     async () => {
       raw = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1] ?? "");
-      return /type=Square[^\n]*screen=(-?\d+),(-?\d+),(\d+),(\d+)/.exec(raw);
+      return re.exec(raw);
     },
     (m) => !!m && +m[3]! > 0,
-    { timeoutMs: WAIT_MS, error: () => `the square is not on screen\n${raw}` },
+    { timeoutMs: WAIT_MS, error: () => `the ${type} is not on screen\n${raw}` },
   );
-  return { x: +r![1]! + Math.floor(+r![3]! / 2), y: +r![2]! + Math.floor(+r![4]! / 2) };
+  return { x: +r![1]! + Math.floor(+r![3]! * fx), y: +r![2]! + Math.floor(+r![4]! / 2) };
 }
 
 // the popup is within the canvas's width
@@ -538,6 +543,13 @@ async function waitInCanvas(find: () => number, canvas: number, what: string): P
     },
     { timeoutMs: WAIT_MS, error: (b) => `${what}: at ${show(b)}, canvas ${show(box(canvas))}` },
   );
+}
+
+// on the UI thread, so the order Windows and the anchor layer act in is fixed
+async function minimizeFrame(client: ControlClient, order: string): Promise<void> {
+  const res = await client.request(ControlCommand.TestMinimizeFrame, [order]);
+  check(res[0] === 0, `TestMinimizeFrame ${order}: ${res[1]}`);
+  check(order !== "anchor-first" || !/reshown=0\b/.test(String(res[1])), `${order}: nothing shown while minimized`);
 }
 
 type Followed = {
@@ -583,16 +595,23 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
     if (p.sidebar !== "closes") await waitAt(p.find, before, `${p.name} after the sidebar hid`);
   });
 
-  await step(`${p.name}: frame minimized`, async () => {
-    const before = await shown();
-    showWindow(frame, SW_SHOWMINNOACTIVE);
-    try {
-      await waitGone(p.find, `${p.name} with the frame minimized`);
-    } finally {
-      showWindow(frame, SW_SHOWNOACTIVATE);
-    }
-    await waitAt(p.find, before, `${p.name} after the frame was restored`);
-  });
+  // E121: Windows hides them before the frame goes iconic; shown again while it
+  // is minimized, the anchor layer sees them first. Either way they come back
+  for (const order of ["os-first", "anchor-first"]) {
+    await step(`${p.name}: frame minimized, ${order}`, async () => {
+      const before = await shown();
+      await minimizeFrame(client, order);
+      try {
+        await waitGone(p.find, `${p.name} with the frame minimized`);
+      } finally {
+        await minimizeFrame(client, "restore");
+      }
+      // the anchor layer's syncs, posted by the restore, run before this
+      // request: one Windows shows again only for its owner to hide is not back
+      await client.waitForRenderIdle();
+      await waitAt(p.find, before, `${p.name} after the frame was restored`);
+    });
+  }
 
   await step(`${p.name}: another tab`, async () => {
     await shown();
@@ -695,19 +714,22 @@ async function checkCanvasPopups(): Promise<void> {
       name: "comment card",
       find: () => shownTop(pid, CARD_CLASS),
       open: async () => {
-        const c = await squareCenter(client);
+        const c = await annotPoint(client, "Square");
         await clickAt(canvas, c.x, c.y, 0, 0, client);
       },
       sidebar: "closes",
     });
 
-    // in Edit PDF the click selects the square instead
+    // in Edit PDF a click selects an annotation. The highlight's toolbar starts
+    // at the click, which it keeps (E121). A click while a render holds the
+    // page finds no annotation (E123)
     sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
     await follows({
       name: "annotation toolbar",
       find: () => shownTop(pid, EDIT_CLASS),
       open: async () => {
-        const c = await squareCenter(client);
+        await client.waitForRenderIdle();
+        const c = await annotPoint(client, "Highlight", 0.6);
         await clickAt(canvas, c.x, c.y, 0, 0, client);
       },
       sidebar: "inside",

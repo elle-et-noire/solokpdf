@@ -405,8 +405,8 @@ cover the canvas's bars instead of the bars covering them.
 Popups that belong to a window inside the frame (the toolbar's hover
 drop-down, Home's About hover, the canvas tip, the citation hover and the
 Edit PDF hover card) move with it when the frame or the window moves, and go
-when it hides, the frame is minimized or the canvas shows another tab or
-document (upstream: they stay at their screen place). A tip shown at the
+when it hides or the canvas shows another tab or document (upstream: they
+stay at their screen place). A tip shown at the
 cursor goes when the cursor leaves the canvas. The overlay toolbar stays up
 while the cursor is in its drop-down (E98–E100).
 
@@ -415,7 +415,9 @@ and the read-aloud and Automatically Scroll bars are placed from what the
 canvas shows. They are placed again whenever the canvas moves or resizes,
 not only when the frame moves. The ones about the document go with its tab.
 The annotation toolbar no longer shows over the desktop while the window is
-minimized (E110).
+minimized (E110). These popups and the ones above hide with the minimized
+frame and come back where they were when it is restored, also one shown while
+it was minimized; the canvas tip goes (E121).
 
 ## Count prefix
 

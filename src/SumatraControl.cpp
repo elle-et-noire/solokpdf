@@ -685,6 +685,47 @@ static TempStr MarkupAnnotsResultTemp(Str action, int x, int y, int* exitCodeOut
     return finish({}, 0);
 }
 
+struct ShownOwnedPopups {
+    HWND owner = nullptr;
+    Vec<HWND> hwnds;
+};
+
+static BOOL CALLBACK CollectShownOwned(HWND hwnd, LPARAM lp) {
+    auto* d = (ShownOwnedPopups*)lp;
+    if (GetWindow(hwnd, GW_OWNER) == d->owner && HwndIsVisible(hwnd)) {
+        VecAppend(d->hwnds, hwnd);
+    }
+    return TRUE;
+}
+
+// Minimizes the frame on the UI thread, so the order the anchor layer sees is fixed.
+// Windows hides the frame's popups before the frame goes iconic; with "anchor-first"
+// they are then shown again while it is minimized, as their owners can when another
+// thread's minimize lets this one paint. The anchor layer's syncs run after this.
+// Returns how many were shown again, -1 for an unknown order.
+static int MinimizeFrameForTest(HWND frame, Str order) {
+    if (str::Eq(order, StrL("restore"))) {
+        ShowWindow(frame, SW_SHOWNOACTIVATE);
+        return 0;
+    }
+    bool reshow = str::Eq(order, StrL("anchor-first"));
+    if (!reshow && !str::Eq(order, StrL("os-first"))) {
+        return -1;
+    }
+    ShownOwnedPopups shown;
+    shown.owner = frame;
+    EnumThreadWindows(GetCurrentThreadId(), CollectShownOwned, (LPARAM)&shown);
+    ShowWindow(frame, SW_SHOWMINNOACTIVE);
+    if (!reshow) {
+        return 0;
+    }
+    for (HWND hwnd : shown.hwnds) {
+        uint flags = SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER;
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, flags);
+    }
+    return len(shown.hwnds);
+}
+
 enum class ControlCmd : u16 {
     Ping = 1,
     Quit = 2,
@@ -870,6 +911,8 @@ enum class ControlCmd : u16 {
     TestParkInLoader = 177,
     // open windows' colors against the palette; "set <theme>" first switches theme
     TestThemeWindows = 178,
+    // minimizes ("os-first" / "anchor-first") or restores ("restore") the frame on the UI thread
+    TestMinimizeFrame = 179,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1689,6 +1732,22 @@ static void ExecuteControlRequest(ControlRequest* req) {
             int exitCode = 0;
             Str res = CommandPaletteStateTemp(&exitCode);
             AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestMinimizeFrame: {
+            MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+            if (!win) {
+                AppendTestResult(req, 1, StrL("no window"));
+                break;
+            }
+            Str order = StringArg(req, 0);
+            int nShown = MinimizeFrameForTest(win->hwndFrame, order);
+            if (nShown < 0) {
+                AppendTestResult(req, 1, StrL("unknown order"));
+                break;
+            }
+            AppendTestResult(req, 0, fmt("iconic=%d reshown=%d", (int)IsIconic(win->hwndFrame), nShown));
             break;
         }
 
