@@ -713,13 +713,17 @@ enum class MinimizeFocus {
 static HWND gFocusToFrame = nullptr;
 static int gFocusedFrame = 0;
 
-// As Windows hides the frame's popup with the focus, before the frame is iconic
-// (a minimized window can't take the focus), the focus moves to the frame.
+// As Windows hides the frame's popup with the focus, the focus moves to the frame. On
+// an interactive desktop Windows moves it off the hidden active popup itself, after
+// the hide (WM_WINDOWPOSCHANGED) but within the popup's WM_SHOWWINDOW; the hidden
+// desktop has no foreground and keeps it. The frame isn't iconic yet (a minimized
+// window can't take the focus).
 static LRESULT CALLBACK FocusToFrameHook(int code, WPARAM wp, LPARAM lp) {
     auto* m = (CWPRETSTRUCT*)lp;
-    bool closing = code == HC_ACTION && m->message == WM_SHOWWINDOW && !m->wParam && m->lParam == SW_PARENTCLOSING;
+    bool hidden = code == HC_ACTION && m->message == WM_WINDOWPOSCHANGED &&
+                  (((WINDOWPOS*)m->lParam)->flags & SWP_HIDEWINDOW) && GetWindow(m->hwnd, GW_OWNER) == gFocusToFrame;
     HWND focus = GetFocus();
-    if (closing && focus && (focus == m->hwnd || IsChild(m->hwnd, focus))) {
+    if (hidden && focus && (focus == m->hwnd || IsChild(m->hwnd, focus))) {
         SetFocus(gFocusToFrame);
         gFocusedFrame += GetFocus() == gFocusToFrame ? 1 : 0;
     }

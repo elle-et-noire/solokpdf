@@ -154,7 +154,10 @@ races between the two (E121). With `away` the focus also leaves the app as the
 popups hide, as on an interactive desktop, where Windows activates another
 window; the hidden desktop has no foreground and keeps it (E136). With `frame`
 it moves to the frame as Windows hides the popup that has it, before the frame
-is iconic (E137).
+is iconic (E137). The move happens at the popup's `WM_WINDOWPOSCHANGED` hide,
+which Windows sends inside its `WM_SHOWWINDOW` (`SW_PARENTCLOSING`): on CI
+Windows moves the focus off the hidden active popup before that message
+returns, so an injection after it found none to move (E141).
 `TestMinimizeFrame hide <popup>` has the popup's owner hide it while the frame
 is minimized: it must stay hidden on restore, and the hovers must not come back
 (E124); one Esc closes while minimized (find bar, Automatically Scroll bar,
