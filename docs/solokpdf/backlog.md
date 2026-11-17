@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E111 open (spec in `.work/codex-queue/e111.md`); D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-17: E111–E113 open (order: E111, E112, E113; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B77, C2, D15, E112, F4). For a code change, choose affected tests from
+group (B77, C2, D15, E114, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -23,9 +23,11 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 
 ## Open
 
-| ID   | Item                                                                                                                                                                                       | Status |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| E111 | MuPDF "UNHANDLED EXCEPTION!" after a cancelled themed render: a `fz_catch` leaves the error unconsumed. One consuming helper plus a lint for every catch. Spec `.work/codex-queue/e111.md` | todo   |
+| ID   | Item                                                                                                                                                                                                               | Status |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| E111 | MuPDF "UNHANDLED EXCEPTION!" after a cancelled themed render: a `fz_catch` leaves the error unconsumed. One consuming helper plus a lint for every catch. Spec `.work/codex-queue/e111.md`                         | todo   |
+| E112 | Find bar follows the toolbar: it sits on the search icon but is anchored only to the canvas, so overlay toolbar auto-show/hide leaves it at the old height. Multi-window anchors. Spec `.work/codex-queue/e112.md` | todo   |
+| E113 | Flaky citation hover step ("no-link") in ad-hoc-e98-anchored-popups: find the race in the app or the test. Spec `.work/codex-queue/e113.md`                                                                        | todo   |
 
 ## Deferred
 
