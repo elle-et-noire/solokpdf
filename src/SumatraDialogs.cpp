@@ -203,20 +203,12 @@ VirtButton* NewDlgButton(HWND hwndForDpi, Str text, PlatformFont* font, DlgButto
     return b;
 }
 
-constexpr int kDlgBtnDisabledShift = 28;
-
 void SetDlgButtonEnabled(VirtButton* b, DlgButtonStyle style, bool enabled) {
     if (enabled == b->HasFlag(vwfEnabled)) {
         return;
     }
     b->SetFlag(vwfEnabled, enabled);
-    if (style == DlgButtonStyle::Filled) {
-        Color colTxt = ThemeWindowTextColor();
-        Color colBg = ThemeWindowControlBackgroundColor();
-        b->SetColor(kColBtnBg, enabled ? colTxt : AccentColor(colBg, kDlgBtnDisabledShift));
-        b->SetColor(kColBtnBorder, enabled ? colTxt : kColorTransparent);
-        b->SetColor(kColBtnTextDisabled, ThemeWindowTextDisabledColor());
-    }
+    SetVirtButtonStyle(b, style);
     b->Invalidate();
 }
 
@@ -354,14 +346,8 @@ VirtListBox* NewDlgList(int dpi, PlatformFont* font) {
     lb->font = font;
     lb->itemDy = DpiScaleByDpi(dpi, kDlgListRowDy);
     lb->showFocusRing = false;
-    SetDlgListColors(lb);
     lb->onDrawItem = MkFunc1Void<VirtListBox::DrawItemEvent*>(DrawDlgListRow);
     return lb;
-}
-
-void SetDlgListColors(VirtListBox* lb) {
-    lb->SetColor(kColListText, ThemeWindowTextColor());
-    lb->SetColor(kColListBg, ThemeWindowControlBackgroundColor());
 }
 
 // the list under a hairline, its rows' text in line with the fields

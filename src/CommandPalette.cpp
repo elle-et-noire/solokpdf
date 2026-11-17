@@ -127,7 +127,6 @@ struct CommandPaletteWnd : WindowBase, PaletteSources {
     void UpdateHelpRow();
     void UpdateCount();
     void UpdateSettingHelp();
-    void UpdateColors();
 
     void ExecuteCurrentSelection();
     bool AdvanceSelection(int dir);
@@ -869,9 +868,6 @@ void CommandPaletteWnd::FillSwitchRow() {
     if (editQuery) {
         filter = CommandPaletteSkipWS(Str(editQuery->GetTextTemp()));
     }
-    Color colBg = GetColor(kColWinBg);
-    Color colTxt = ThemeWindowTextColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PaletteSwitch switches[kPaletteMaxSwitches];
     int n = PaletteSwitches(*this, win && win->AsFixed(), switches);
     for (int i = 0; i < n; i++) {
@@ -879,7 +875,7 @@ void CommandPaletteWnd::FillSwitchRow() {
         bool active = PaletteSwitchIsActive(filter, sw.prefix);
         auto* t = new PaletteSwitchCtrl();
         InitKeyHint(t, PaletteFont(kPaletteMetaFontPx), sw.prefix, PaletteSwitchLabel(sw.label, sw.prefix),
-                    active ? colTxt : colMuted, colBg);
+                    active ? gColsRichTextRaised : gColsRichTextRaisedMuted);
         t->wnd = this;
         t->prefix = sw.prefix;
         t->onClick = MkFunc1Void(OnPaletteSwitchClicked);
@@ -919,18 +915,17 @@ void CommandPaletteWnd::UpdateHelpRow() {
     VecReset(helpRow->children);
     countText = nullptr;
 
-    Color colBg = GetColor(kColWinBg);
-    Color colMuted = ThemeWindowDarkerTextColor();
     PaletteHint hints[kPaletteMaxHints];
     int nHelp = PaletteHelpHints(kind, hints);
     for (int i = 0; i < nHelp; i++) {
-        helpRow->AddChild(NewKeyHint(PaletteFont(kPaletteHintFontPx), hints[i].key, hints[i].desc, colMuted, colBg));
+        helpRow->AddChild(
+            NewKeyHint(PaletteFont(kPaletteHintFontPx), hints[i].key, hints[i].desc, gColsRichTextRaisedMuted));
     }
     // the count at the right end
     helpRow->AddChild(new Spacer(0, 0), 1);
     countText = new VirtText({});
     countText->font = PaletteFont(kPaletteMetaFontPx);
-    countText->SetColor(kColText, colMuted);
+    countText->colorDefaults = gColsTextMuted;
     helpRow->AddChild(countText);
     UpdateCount();
 
@@ -983,31 +978,6 @@ void CommandPaletteWnd::UpdateSettingHelp() {
         comment = m->Data(idx)->settingComment;
     }
     settingHelp->SetText(comment);
-}
-
-// the theme changed while the palette is open: the colors were set at creation
-void CommandPaletteWnd::UpdateColors() {
-    // recolors the window and its native children (the query edit)
-    UpdateTheme();
-    auto colBg = GetColor(kColWinBg);
-    auto colTxt = ThemeWindowTextColor();
-
-    listBox->SetColor(kColListText, colTxt);
-    listBox->SetColor(kColListBg, colBg);
-    if (thumbnailCtrl) {
-        thumbnailCtrl->SetColor(kColListText, colTxt);
-        thumbnailCtrl->SetColor(kColListBg, colBg);
-    }
-    settingHelp->SetColor(kColRichText, colTxt);
-    settingHelp->SetColor(kColRichLink, colTxt);
-    settingHelp->SetColor(kColRichBg, colBg);
-    settingHelp->borderCol = ThemeEdgeColor();
-
-    // the help rows bake the colors into their items, so rebuild them
-    FillSwitchRow();
-    helpKind = kHelpNone;
-    UpdateHelpRow();
-    RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_ALLCHILDREN);
 }
 
 bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance) {
@@ -1080,8 +1050,7 @@ bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance)
         c->dpi = GetDpi();
         c->font = PaletteFont(kPaletteTextFontPx);
         c->itemDy = DpiScale(kPaletteRowDy);
-        c->SetColor(kColListText, colTxt);
-        c->SetColor(kColListBg, colBg);
+        c->colorDefaults = gColsListBoxRaised;
         c->padding = DpiScaledInsets(0, kPaletteInsetDx);
         c->onDoubleClick = MkMethod0<CommandPaletteWnd, &CommandPaletteWnd::OnListDoubleClick>(this);
         c->onDrawItem =
@@ -1105,10 +1074,8 @@ bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance)
     {
         auto* c = new VirtFixedLinesText();
         c->font = font;
-        c->SetColor(kColRichText, colTxt);
-        c->SetColor(kColRichLink, colTxt);
-        c->SetColor(kColRichBg, colBg);
-        c->borderCol = ThemeEdgeColor();
+        c->colorDefaults = gColsRichTextRaised;
+        c->withBorder = true;
         c->padding = DpiScaledInsets(4);
         settingHelp = c;
         auto* box = new Padding(c, DpiScaledInsets(4, 0));
@@ -1210,7 +1177,7 @@ void CommandPaletteUpdateTheme() {
     if (!wnd || !wnd->hwnd) {
         return;
     }
-    wnd->UpdateColors();
+    wnd->UpdateTheme();
 }
 
 // test hook: a refresh path that only calls UpdateTheme()

@@ -154,6 +154,24 @@ enum {
 };
 extern Color gColsWin[kColWinCount];
 
+//--- role palettes: what a virtual control means on its window's surface, as
+// the palette it paints from (its colorDefaults). Derived from the slots above
+// by GuiDeriveRolePalettes(), so a control with a role follows every theme and
+// holds no color of its own
+// secondary text: a count, a default value
+extern Color gColsTextMuted[kColTextCount];
+// rich text whose links read as the text around them: a doc comment, key hints
+extern Color gColsRichTextMuted[kColRichCount];
+extern Color gColsRichTextRaised[kColRichCount];
+extern Color gColsRichTextRaisedMuted[kColRichCount];
+// a list on a WinSurface::Raised window
+extern Color gColsListBoxRaised[kColListCount];
+// VirtButtonStyle; a disabled Filled button fades into the surface
+extern Color gColsBtnFilled[kColBtnCount];
+extern Color gColsBtnFilledOff[kColBtnCount];
+extern Color gColsBtnOutline[kColBtnCount];
+extern Color gColsBtnGhost[kColBtnCount];
+
 //--- win32 Edit
 enum {
     // the 1px frame / underline a custom-bordered Edit draws. Same color as
@@ -170,4 +188,5 @@ extern Color gColsEdit[kColEditCount];
 extern bool gGuiColorsFromSystem;
 
 void GuiSetDefaultColorsFromSystem();
+void GuiDeriveRolePalettes();
 void GuiColorsInitIfNeeded();

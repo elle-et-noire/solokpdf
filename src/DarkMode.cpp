@@ -191,6 +191,7 @@ void ThemeApplyPlatformColors() {
     gColsWin[kColWinComboText] = comboThemed ? text : kColorUnset;
     gColsWin[kColWinComboBg] = comboThemed ? ctlBg : kColorUnset;
     gColsEdit[kColEditBottomBorder] = edge;
+    GuiDeriveRolePalettes();
 }
 
 void ThemeFinishPlatformColors() {

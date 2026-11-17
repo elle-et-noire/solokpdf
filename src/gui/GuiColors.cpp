@@ -21,6 +21,16 @@ Color gColsTab[kColTabCount];
 Color gColsWin[kColWinCount];
 Color gColsEdit[kColEditCount];
 
+Color gColsTextMuted[kColTextCount];
+Color gColsRichTextMuted[kColRichCount];
+Color gColsRichTextRaised[kColRichCount];
+Color gColsRichTextRaisedMuted[kColRichCount];
+Color gColsListBoxRaised[kColListCount];
+Color gColsBtnFilled[kColBtnCount];
+Color gColsBtnFilledOff[kColBtnCount];
+Color gColsBtnOutline[kColBtnCount];
+Color gColsBtnGhost[kColBtnCount];
+
 // An override wins unless its slot is kColorUnset, which means "I didn't say".
 // kColorTransparent is a decision ("don't paint this") so it does not fall
 // through to the default.
@@ -136,4 +146,52 @@ void GuiSetDefaultColorsFromSystem() {
     gColsWin[kColWinComboBg] = kColorUnset;
 
     gColsEdit[kColEditBottomBorder] = edge;
+    GuiDeriveRolePalettes();
+}
+
+constexpr int kStyledBtnHoverShift = 14;
+// a black fill moved by 14 is still black; hover has to read as a lighter gray
+constexpr int kFilledDarkHoverShift = 48;
+constexpr int kFilledOffShift = 28;
+
+static void SetRichCols(Color* cols, Color text, Color bg) {
+    cols[kColRichText] = text;
+    cols[kColRichLink] = text;
+    cols[kColRichBg] = bg;
+}
+
+static void SetBtnCols(Color* cols, Color fg, Color bg, Color border, int hoverShift) {
+    cols[kColBtnText] = fg;
+    cols[kColBtnBg] = bg;
+    cols[kColBtnBgHover] = AccentColor(bg, hoverShift);
+    cols[kColBtnBorder] = border;
+    cols[kColBtnTextDisabled] = gColsBtn[kColBtnTextDisabled];
+}
+
+// The role palettes follow from the base slots; whoever pushes those (the
+// system defaults, an app's theme) calls this last
+void GuiDeriveRolePalettes() {
+    Color text = gColsWin[kColWinText];
+    Color muted = gColsWin[kColWinMutedText];
+    Color bg = gColsWin[kColWinBg];
+    Color raised = gColsWin[kColWinRaisedBg];
+
+    gColsTextMuted[kColText] = muted;
+    SetRichCols(gColsRichTextMuted, muted, bg);
+    SetRichCols(gColsRichTextRaised, text, raised);
+    SetRichCols(gColsRichTextRaisedMuted, muted, raised);
+    for (int i = 0; i < kColListCount; i++) {
+        gColsListBoxRaised[i] = gColsListBox[i];
+    }
+    gColsListBoxRaised[kColListBg] = raised;
+
+    // the one action filled with the text color, Cancel outlined, the quiet
+    // ones words that fill on hover. Full text color on those: a muted label
+    // is indistinguishable from the disabled one once that is lifted off the
+    // background (#6478)
+    int filledHover = IsLightColor(text) ? kStyledBtnHoverShift : kFilledDarkHoverShift;
+    SetBtnCols(gColsBtnFilled, bg, text, text, filledHover);
+    SetBtnCols(gColsBtnFilledOff, bg, AccentColor(bg, kFilledOffShift), kColorTransparent, kStyledBtnHoverShift);
+    SetBtnCols(gColsBtnOutline, text, bg, gColsLine[kColLineFg], kStyledBtnHoverShift);
+    SetBtnCols(gColsBtnGhost, text, bg, kColorTransparent, kStyledBtnHoverShift);
 }

@@ -49,7 +49,6 @@ struct ChangeThemeWnd : WindowBase {
     DocumentColorsFollowTheme startDocumentColorsFollowTheme = DocumentColorsFollowTheme::Off;
 
     bool Create(MainWindow* win);
-    void Recolor();
 
     void KeepFocus();
     void OnSelectionChanged();
@@ -156,20 +155,8 @@ void ChangeThemeWnd::ApplyPreview() {
         SetThemeByIndex(idx - 1);
     }
     UpdateTheme();
-    Recolor();
     PreviewDocumentColors();
     KeepFocus();
-}
-
-// UpdateTheme() recolors the native controls; the drawn ones follow here
-void ChangeThemeWnd::Recolor() {
-    if (listBox) {
-        SetDlgListColors(listBox);
-    }
-    labelDocumentColorsFollowTheme->SetColor(kColText, ThemeWindowTextColor());
-    SetVirtButtonStyle(btnCancel, DlgButtonStyle::Outline);
-    SetVirtButtonStyle(btnChange, DlgButtonStyle::Filled);
-    HwndInvalidate(hwnd);
 }
 
 void ChangeThemeWnd::SchedulePreview() {
@@ -201,7 +188,6 @@ void ChangeThemeWnd::OnDocumentColorsFollowThemeChanged() {
     PreviewDocumentColors();
     if (oldBg != ThemeWindowControlBackgroundColor()) {
         UpdateTheme();
-        Recolor();
     }
     KeepFocus();
 }
@@ -288,7 +274,7 @@ bool ChangeThemeWnd::Create(MainWindow* mainWin) {
     {
         HBox* row = NewDlgRow();
         labelDocumentColorsFollowTheme =
-            NewDlgLabel(Tr("Document colors follow theme"), fontText, ThemeWindowTextColor(), kToolDlgLineDy);
+            NewDlgLabel(Tr("Document colors follow theme"), fontText, kColorUnset, kToolDlgLineDy);
         row->AddChild(labelDocumentColorsFollowTheme);
         row->AddChild(new Spacer(0, 0), 1);
 
@@ -322,7 +308,6 @@ bool ChangeThemeWnd::Create(MainWindow* mainWin) {
     DoLayout();
     PositionDialog(hwnd, win->hwndFrame);
     UpdateTheme();
-    Recolor();
 
     SetIsVisible(true);
     if (documentColorsFollowThemeOnly) {

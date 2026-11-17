@@ -477,7 +477,7 @@ void PDFScriptWnd::Create(MainWindow* owner, Str path) {
     footer->alignCross = CrossAxisAlign::CrossCenter;
     footer->rtl = isRtl;
     footer->gap = DpiScale(kToolDlgGapDx);
-    footer->AddChild(NewKeyHint(fontMeta, StrL("Ctrl+Enter"), Tr("Run Script"), colMuted, colBg));
+    footer->AddChild(NewKeyHint(fontMeta, StrL("Ctrl+Enter"), Tr("Run Script"), gColsRichTextMuted));
     auto* showExamples = NewDlgButton(hwnd, Tr("Example Scripts"), fontText, DlgButtonStyle::Ghost, false);
     showExamples->onClick = MkMethod1<PDFScriptWnd, VirtMouseEvent*, &PDFScriptWnd::OnExamples>(this);
     footer->AddChild(showExamples);

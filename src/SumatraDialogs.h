@@ -134,7 +134,6 @@ ILayout* NewDlgUnderlined(ILayout* field);
 HBox* NewDlgRow();
 ILayout* NewDlgFooter(VirtButton* cancel, VirtButton* ok, VirtButton* extra = nullptr);
 VirtListBox* NewDlgList(int dpi, PlatformFont* font);
-void SetDlgListColors(VirtListBox* lb);
 ILayout* NewDlgListBox(VirtListBox* lb);
 void DrawDlgListItem(VirtListBox* lb, Gfx* gfx, Rect rc, bool selected, Str text, Str meta);
 Edit* NewDlgEdit(HWND parent, PlatformFont* font, Str text, int idealChars);

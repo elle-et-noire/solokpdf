@@ -259,10 +259,13 @@ PageThumbnailsCtrl::PageThumbnailsCtrl(MainWindow* win, PlatformFont* font, int 
     // the sidebar shows a cut-off last row: more pages are below (#6469).
     // The palette spreads whole rows over its height
     wholeRows = host == ThumbnailsHost::Palette;
-    SetColor(kColListText, ThemeWindowTextColor());
-    // the sidebar takes the canvas color (UpdateControlsColors)
-    Color bg = host == ThumbnailsHost::Sidebar ? ThemeSidebarColor() : ThemeWindowControlBackgroundColor();
-    SetColor(kColListBg, bg);
+    if (host == ThumbnailsHost::Palette) {
+        colorDefaults = gColsListBoxRaised;
+    } else {
+        // the sidebar takes the canvas color (UpdateControlsColors)
+        SetColor(kColListText, ThemeWindowTextColor());
+        SetColor(kColListBg, ThemeSidebarColor());
+    }
 
     rowsModel = new ThumbnailRowsModel();
 

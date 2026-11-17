@@ -128,23 +128,6 @@ static void UpdateCue(AnnotFilterToolbar* f) {
     EditSetCueText(f->floatWnd->edit, fmt(Tr("filter %d annotations").s, len(f->annotations)));
 }
 
-static void ApplyListColorsTo(VirtListBox* lb) {
-    if (!lb) {
-        return;
-    }
-    lb->SetColor(kColListBg, ThemeWindowControlBackgroundColor());
-    lb->SetColor(kColListText, ThemeWindowTextColor());
-}
-
-static void ApplyListColors(AnnotFilterToolbar* f) {
-    if (!f) {
-        return;
-    }
-    if (f->floatWnd) {
-        ApplyListColorsTo(f->floatWnd->listBox);
-    }
-}
-
 static ListBoxModelStrings* NewAnnotListModel(AnnotFilterToolbar* f) {
     auto* model = new ListBoxModelStrings();
     for (Annotation* annot : f->visibleAnnots) {
@@ -342,7 +325,6 @@ static void WireListBox(AnnotFilterToolbar* f, VirtListBox* lb, int dpi) {
     lb->onDrawItem = MkFunc1(OnListDrawItem, f);
     lb->onContextMenu = MkFunc1(OnListContextMenu, f);
     lb->SetFlag(vwfFocusable, false);
-    ApplyListColorsTo(lb);
 }
 
 static bool FilterHomeEndMovesList(AnnotFilterToolbar* f, int vkey, bool isCtrl) {
@@ -875,7 +857,7 @@ bool AnnotFilterWindow::Create(MainWindow* mainWin) {
         auto* c = new VirtFixedLinesText();
         c->font = GetAppFont();
         c->nLines = kAnnotNotePreviewLines;
-        c->borderCol = ThemeEdgeColor();
+        c->withBorder = true;
         c->padding = DpiScaledInsets(4);
         notePreview = c;
     }
@@ -899,10 +881,6 @@ void AnnotFilterWindow::ApplyDarkMode() {
 
 void AnnotFilterWindow::UpdateTheme() {
     WindowBase::UpdateTheme();
-    ApplyListColorsTo(listBox);
-    if (notePreview) {
-        notePreview->borderCol = ThemeEdgeColor();
-    }
     AnnotFilterToolbar* f = win ? win->annotFilterToolbar : nullptr;
     UpdateFloatButtons(f);
 }
@@ -1099,7 +1077,6 @@ void UpdateAnnotFilterToolbar(MainWindow* win) {
     if (!f) {
         return;
     }
-    ApplyListColors(f);
     if (f->floatWnd) {
         f->floatWnd->UpdateTheme();
     }

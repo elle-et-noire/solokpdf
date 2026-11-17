@@ -30,40 +30,20 @@ VirtButton* NewThemedButton(HWND hwndForDpi, Str text, PlatformFont* font, bool 
     return b;
 }
 
-constexpr int kStyledBtnHoverShift = 14;
-// a black fill moved by 14 is still black; hover has to read as a lighter gray
-constexpr int kFilledDarkHoverShift = 48;
-
-// the colors of `style` in the current gui palette
+// the palette of `style` (GuiColors.h); a disabled Filled button fades
 void SetVirtButtonStyle(VirtButton* b, VirtButtonStyle style) {
     GuiColorsInitIfNeeded();
-    Color colTxt = gColsWin[kColWinText];
-    Color colBg = gColsWin[kColWinBg];
-    Color fg = colTxt;
-    Color bg = colBg;
-    Color border = kColorTransparent;
     switch (style) {
         case VirtButtonStyle::Filled:
-            fg = colBg;
-            bg = colTxt;
-            border = colTxt;
+            b->colorDefaults = b->HasFlag(vwfEnabled) ? gColsBtnFilled : gColsBtnFilledOff;
             break;
         case VirtButtonStyle::Outline:
-            border = gColsLine[kColLineFg];
+            b->colorDefaults = gColsBtnOutline;
             break;
         case VirtButtonStyle::Ghost:
-            // full text color: a muted label is indistinguishable from the
-            // disabled one once that is lifted off the background (#6478)
+            b->colorDefaults = gColsBtnGhost;
             break;
     }
-    b->SetColor(kColBtnText, fg);
-    b->SetColor(kColBtnBg, bg);
-    int hoverShift = kStyledBtnHoverShift;
-    if (style == VirtButtonStyle::Filled && !IsLightColor(bg)) {
-        hoverShift = kFilledDarkHoverShift;
-    }
-    b->SetColor(kColBtnBgHover, AccentColor(bg, hoverShift));
-    b->SetColor(kColBtnBorder, border);
 }
 
 static Kind kindVirtCtrl = "virtCtrl";
@@ -2870,6 +2850,9 @@ void VirtText::PaintText(VirtPaintCtx& ctx, Color textColor) {
 
 VirtText* NewVirtText(const VirtTextArgs& args) {
     auto* w = new VirtText(args.s, args.font);
+    if (args.role == TextRole::Muted) {
+        w->colorDefaults = gColsTextMuted;
+    }
     if (args.textColor != kColorUnset) {
         w->SetColor(kColText, args.textColor);
     }
@@ -4172,20 +4155,17 @@ static TempStr CommandShortcutTemp(Str cmdName) {
     return gCommandsContext->GetCommandShortcutTemp(cmdName);
 }
 
-void InitKeyHint(VirtRichText* t, PlatformFont* font, Str key, Str desc, Color colTxt, Color colBg) {
+void InitKeyHint(VirtRichText* t, PlatformFont* font, Str key, Str desc, const Color* palette) {
     ParseTipInto(t, str::JoinTemp(StrL("(Kbd/"), key, StrL(") "), desc));
     t->font = font;
-    // a hint is not a link, so it takes the plain text color
-    t->SetColor(kColRichText, colTxt);
-    t->SetColor(kColRichLink, colTxt);
-    t->SetColor(kColRichBg, colBg);
+    t->colorDefaults = palette;
     int padX = DpiScale(8);
     t->padding = Insets{0, padX, 0, padX};
 }
 
-VirtRichText* NewKeyHint(PlatformFont* font, Str key, Str desc, Color colTxt, Color colBg) {
+VirtRichText* NewKeyHint(PlatformFont* font, Str key, Str desc, const Color* palette) {
     auto* t = new VirtRichText();
-    InitKeyHint(t, font, key, desc, colTxt, colBg);
+    InitKeyHint(t, font, key, desc, palette);
     return t;
 }
 
@@ -4579,8 +4559,8 @@ void VirtFixedLinesText::Paint(VirtPaintCtx& ctx) {
         ctx.gfx->FillRect(ctx.bounds, bg);
     }
     VirtRichText::Paint(ctx);
-    if (!ColorSkipsPaint(borderCol)) {
-        ctx.gfx->DrawRect(ctx.bounds, borderCol);
+    if (withBorder) {
+        ctx.gfx->DrawRect(ctx.bounds, gColsLine[kColLineFg]);
     }
     ctx.gfx->PopClip();
 }

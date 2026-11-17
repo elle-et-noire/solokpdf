@@ -1278,12 +1278,10 @@ void AdvancedSettingsWnd::UpdateHints() {
         delete c.layout;
     }
     VecReset(hintRow->children);
-    Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     AdvHint hints[kAdvMaxHints];
     int n = AdvSettingsHints(state, hints);
     for (int i = 0; i < n; i++) {
-        hintRow->AddChild(NewKeyHint(DlgUiFont(kAdvHintFontPx), hints[i].key, hints[i].desc, colMuted, colBg));
+        hintRow->AddChild(NewKeyHint(DlgUiFont(kAdvHintFontPx), hints[i].key, hints[i].desc, gColsRichTextMuted));
     }
     if (hwnd && layout) {
         DoLayout();
@@ -1297,14 +1295,6 @@ void AdvancedSettingsWnd::RefreshPreviewColors(Color oldBg) {
         return;
     }
     UpdateTheme();
-    listBox->SetColor(kColListBg, bg);
-    commentText->SetColor(kColRichBg, bg);
-    SetVirtButtonStyle(btnOpenSettingsFile, DlgButtonStyle::Ghost);
-    SetVirtButtonStyle(btnHelp, DlgButtonStyle::Ghost);
-    SetVirtButtonStyle(btnCancel, DlgButtonStyle::Outline);
-    SetVirtButtonStyle(btnSave, DlgButtonStyle::Filled);
-    hintState = -1;
-    UpdateHints();
 }
 
 void AdvancedSettingsWnd::NoteItemEdited(SettingItem* item) {
@@ -1365,7 +1355,6 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
 
     auto colBg = ThemeWindowControlBackgroundColor();
     auto colTxt = ThemeWindowTextColor();
-    auto colMuted = ThemeWindowDarkerTextColor();
     SetColors(colTxt, colBg);
     bool isRtl = IsUIRtl();
 
@@ -1397,7 +1386,7 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
         row->gap = DpiScale(kAdvGapDx);
         row->rtl = isRtl;
         row->AddChild(c, 1);
-        countText = NewVirtText({.s = {}, .font = DlgUiFont(kAdvMetaFontPx), .textColor = colMuted, .isRtl = isRtl});
+        countText = NewVirtText({.s = {}, .font = DlgUiFont(kAdvMetaFontPx), .role = TextRole::Muted, .isRtl = isRtl});
         row->AddChild(countText);
         vbox->AddChild(new Padding(row, DpiScaledInsets(kAdvQueryPadDy, kAdvPadDx)));
         vbox->AddChild(new VirtLine());
@@ -1408,8 +1397,6 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
         c->dpi = GetDpi();
         c->font = DlgUiFont(kAdvTextFontPx);
         c->itemDy = DpiScale(kAdvRowDy);
-        c->SetColor(kColListText, colTxt);
-        c->SetColor(kColListBg, colBg);
         c->padding = DpiScaledInsets(kAdvListPadDy, kAdvInsetDx);
         c->onDrawItem =
             MkMethod1<AdvancedSettingsWnd, VirtListBox::DrawItemEvent*, &AdvancedSettingsWnd::DrawListBoxItem>(this);
@@ -1436,17 +1423,16 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
         head->alignCross = CrossAxisAlign::CrossCenter;
         head->gap = DpiScale(kAdvPadDx);
         head->rtl = isRtl;
-        helpName = NewVirtText({.s = {}, .font = fontBold, .textColor = colTxt, .isRtl = isRtl, .ellipsis = true});
+        helpName = NewVirtText({.s = {}, .font = fontBold, .isRtl = isRtl, .ellipsis = true});
         head->AddChild(helpName, 1);
-        helpDefault = NewVirtText({.s = {}, .font = DlgUiFont(kAdvMetaFontPx), .textColor = colMuted, .isRtl = isRtl});
+        helpDefault =
+            NewVirtText({.s = {}, .font = DlgUiFont(kAdvMetaFontPx), .role = TextRole::Muted, .isRtl = isRtl});
         head->AddChild(helpDefault);
 
         auto* c = new VirtFixedLinesText();
         c->font = DlgUiFont(kAdvTextFontPx);
         c->nLines = kAdvHelpLines;
-        c->SetColor(kColRichText, colMuted);
-        c->SetColor(kColRichLink, colMuted);
-        c->SetColor(kColRichBg, colBg);
+        c->colorDefaults = gColsRichTextMuted;
         commentText = c;
 
         auto* box = new VBox();
@@ -1495,7 +1481,7 @@ bool AdvancedSettingsWnd::Create(MainWindow* mainWin) {
         unsavedDot->SetFlag(vwfNoHitTest, true);
         unsavedDot->SetIsVisible(false);
         unsaved->AddChild(unsavedDot);
-        unsavedText = NewVirtText({.s = {}, .font = DlgUiFont(kAdvMetaFontPx), .textColor = colTxt, .isRtl = isRtl});
+        unsavedText = NewVirtText({.s = {}, .font = DlgUiFont(kAdvMetaFontPx), .isRtl = isRtl});
         unsavedText->SetIsVisible(false);
         unsaved->AddChild(unsavedText);
         unsaved->SetVisibility(Visibility::Collapse);
@@ -1887,6 +1873,20 @@ TempStr AdvSettingsRowsResultTemp(Str action, int arg, int* exitCodeOut) {
         out.Append(fmt("editBg=%06x selected=%06x\n", (unsigned)editBg, (unsigned)selected));
         return finish(0);
     }
+    // the theme changes under the open dialog, which refreshes as after a preview
+    if (str::Eq(action, StrL("preview-light"))) {
+        Color oldBg = ThemeWindowControlBackgroundColor();
+        SetTheme(StrL("Light"));
+        wnd->RefreshPreviewColors(oldBg);
+        return finish(0);
+    }
+    if (str::Eq(action, StrL("label-colors"))) {
+        Color comment = wnd->commentText->GetColor(kColRichText);
+        out.Append(fmt("count=%06x default=%06x comment=%06x muted=%06x\n",
+                       (unsigned)wnd->countText->GetColor(kColText), (unsigned)wnd->helpDefault->GetColor(kColText),
+                       (unsigned)comment, (unsigned)ThemeWindowDarkerTextColor()));
+        return finish(0);
+    }
     if (str::Eq(action, StrL("killfocus"))) {
         if (wnd->editValue && wnd->editValue->hwnd) {
             HWND edit = wnd->editValue->hwnd;
@@ -2140,7 +2140,7 @@ bool RestrictedUseWnd::Create(MainWindow* mainWin) {
 
     auto* help = new VirtFixedLinesText();
     help->font = GetFont();
-    help->borderCol = ThemeEdgeColor();
+    help->withBorder = true;
     help->padding = DpiScaledInsets(4);
     commentText = help;
     vbox->AddChild(new Padding(help, DpiScaledInsets(4, 2)));

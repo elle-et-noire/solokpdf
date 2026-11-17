@@ -1,6 +1,7 @@
-// A native control's color role is an input to theme application (E107): a
+// A control's color role is an input to theme application (E107, E108): a
 // refresh that only calls UpdateTheme() keeps Advanced Settings' value edit on
-// the selected step, and Run PDF Script's output keeps its muted text.
+// the selected step, its muted labels follow a previewed theme, and Run PDF
+// Script's output keeps its muted text.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
@@ -45,6 +46,29 @@ async function checkAdvSettings(client: ControlClient, frame: number): Promise<v
   await advSettings(client, "cancel");
 }
 
+// E108: the muted labels follow a previewed theme
+async function checkAdvPreview(client: ControlClient, frame: number): Promise<void> {
+  sendCommandSync(frame, cmdId("CmdAdvancedSettings"));
+  await pollUntil(
+    () => advSettings(client, "state"),
+    (s) => s.includes("editing="),
+    { error: (s) => `control-color-roles: no advanced settings: ${s}` },
+  );
+  const before = await advSettings(client, "label-colors");
+  await advSettings(client, "preview-light");
+  const after = await advSettings(client, "label-colors");
+  await advSettings(client, "cancel");
+  const muted = col(after, "muted");
+  if (!muted || muted === col(before, "muted")) {
+    throw new Error(`control-color-roles: preview kept the muted color: ${before} -> ${after}`);
+  }
+  for (const name of ["count", "default", "comment"]) {
+    if (col(after, name) !== muted) {
+      throw new Error(`control-color-roles: ${name} not in the previewed muted color: ${after}`);
+    }
+  }
+}
+
 async function checkScriptOutput(client: ControlClient, frame: number): Promise<void> {
   sendCommand(frame, cmdId("CmdRunPDFScript"));
   const raw = await pollUntil(
@@ -72,6 +96,7 @@ export async function testit(): Promise<void> {
   try {
     await client.waitForRenderIdle();
     await checkAdvSettings(client, frame);
+    await checkAdvPreview(client, frame);
     await checkScriptOutput(client, frame);
     console.log("control-color-roles: OK");
   } finally {

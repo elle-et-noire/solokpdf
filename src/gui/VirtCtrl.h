@@ -612,6 +612,13 @@ enum class VirtTextAlign {
     Right
 };
 
+// what a text means on its surface: picks the palette it paints from
+// (GuiColors.h), so it follows every theme change
+enum class TextRole {
+    Normal,
+    Muted,
+};
+
 // VirtText itself can't be an aggregate - it inherits VirtCtrl, which has
 // virtual functions and a constructor - so designated initializers go through
 // this, like the CreateArgs of the HWND controls:
@@ -619,7 +626,9 @@ enum class VirtTextAlign {
 struct VirtTextArgs {
     Str s;
     PlatformFont* font = nullptr; // not owned, interned
+    // a color that is not the theme's (a fixed one); a theme color is a role
     Color textColor = kColorUnset;
+    TextRole role = TextRole::Normal;
     VirtTextAlign align = VirtTextAlign::Left;
     bool withUnderline = false;
     bool isRtl = false;
@@ -990,7 +999,8 @@ struct VirtRichText : VirtCtrl {
 // lengths come and go
 struct VirtFixedLinesText : VirtRichText {
     int nLines = 6;
-    Color borderCol = kColorUnset;
+    // framed in the line color, like every other border
+    bool withBorder = false;
 
     int FixedDy();
     int MinIntrinsicWidth(int height) override;
@@ -1003,9 +1013,10 @@ struct VirtFixedLinesText : VirtRichText {
 
 VirtRichText* ParseTip(Str s);
 void TipLinkUnderlines(TipLink* link, Vec<Rect>& out);
-// "Enter run": the key as a key cap before the words, padded 8 on each side
-void InitKeyHint(VirtRichText* t, PlatformFont* font, Str key, Str desc, Color colTxt, Color colBg);
-VirtRichText* NewKeyHint(PlatformFont* font, Str key, Str desc, Color colTxt, Color colBg);
+// "Enter run": the key as a key cap before the words, padded 8 on each side;
+// `palette` is a gColsRichText* role palette
+void InitKeyHint(VirtRichText* t, PlatformFont* font, Str key, Str desc, const Color* palette);
+VirtRichText* NewKeyHint(PlatformFont* font, Str key, Str desc, const Color* palette);
 // same, but into a VirtRichText the caller made (e.g. a subclass of it)
 void ParseTipInto(VirtRichText*, Str s);
 int TipWordCount(VirtRichText*);
