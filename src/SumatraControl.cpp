@@ -1067,6 +1067,11 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
     if (win && hwnd == win->hwndCanvas) {
         return StrL("canvas");
     }
+    // in another of the app's windows
+    HWND root = GetAncestor(hwnd, GA_ROOTOWNER);
+    if (win && root != win->hwndFrame && FindMainWindowByHwnd(root)) {
+        return StrL("other-window");
+    }
     char cls[64]{};
     GetClassNameA(hwnd, cls, dimofi(cls));
     if (str::Eq(Str(cls), StrL("SUMATRA_ABOUT_HOVER"))) {
@@ -3375,6 +3380,10 @@ static void ExecuteControlRequest(ControlRequest* req) {
             if (win && win->hwndToolbar && str::Eq(action, StrL("toolbar"))) SetFocus(win->hwndToolbar);
             if (win && str::Eq(action, StrL("activate"))) {
                 ActivateForTest(win->hwndFrame);
+            }
+            // the last window opened, as a click on it does
+            if (win && str::Eq(action, StrL("activate-last"))) {
+                ActivateForTest(gWindows[len(gWindows) - 1]->hwndFrame);
             }
             AppendTestResult(
                 req, 0,

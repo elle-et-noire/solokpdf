@@ -2115,7 +2115,8 @@ bool TrackMouseLeave(HWND hwnd) {
 //   frame minimized                         -> hidden, shown again with it, with the focus
 //                                              it had, unless its owner hid it meanwhile
 //                                              (a hover, a popup it doesn't own: dismissed).
-//                                              Its owner doesn't see it lose the focus
+//                                              Its owner doesn't see it lose the focus,
+//                                              unless the focus goes to another window
 //   anchor or an ancestor hidden            -> dismissed
 //   anchor shows other content (AnchorShows)-> dismissed
 //   cursor left the anchor (AnchorLeave)    -> dismissed
@@ -2202,12 +2203,61 @@ static bool InPopup(HWND popup, HWND hwnd) {
 }
 
 static LRESULT CALLBACK HeldFocusProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
+static LRESULT CALLBACK FocusMoveHook(int, WPARAM, LPARAM);
+
+static HHOOK gFocusMoveHook = nullptr;
+
+// FocusMoveHook watches the focus while a popup's is held
+static void SyncFocusMoveHook() {
+    bool held = false;
+    for (AnchoredPopup* ap : gAnchoredPopups) {
+        held = held || ap->focus;
+    }
+    if (held && !gFocusMoveHook) {
+        gFocusMoveHook = SetWindowsHookExW(WH_CBT, FocusMoveHook, nullptr, GetCurrentThreadId());
+    } else if (!held && gFocusMoveHook) {
+        UnhookWindowsHookEx(gFocusMoveHook);
+        gFocusMoveHook = nullptr;
+    }
+}
 
 static void ReleaseFocus(AnchoredPopup* ap) {
-    if (ap->focus) {
-        RemoveWindowSubclass(ap->focus, HeldFocusProc, ap->id);
+    if (!ap->focus) {
+        return;
     }
+    RemoveWindowSubclass(ap->focus, HeldFocusProc, ap->id);
     ap->focus = nullptr;
+    SyncFocusMoveHook();
+}
+
+// The focus goes to a window outside a held focus's frame, e.g. another of the
+// app's frames: the owner sees the loss, before the new focus gets WM_SETFOCUS as
+// for a click there. So the caret its edit destroys is still its own, not the new one's.
+static LRESULT CALLBACK FocusMoveHook(int code, WPARAM wp, LPARAM lp) {
+    LRESULT res = CallNextHookEx(nullptr, code, wp, lp);
+    HWND to = (HWND)wp;
+    if (code != HCBT_SETFOCUS || res != 0 || !to) {
+        return res;
+    }
+    HWND frame = GetAncestor(to, GA_ROOTOWNER);
+    Vec<HWND> lost;
+    for (AnchoredPopup* ap : gAnchoredPopups) {
+        if (!ap->focus || GetAncestor(ap->popup, GA_ROOTOWNER) == frame) {
+            continue;
+        }
+        // one that still has the focus gets WM_KILLFOCUS from Windows
+        if (ap->focus != (HWND)lp) {
+            VecAppend(lost, ap->focus);
+        }
+        ReleaseFocus(ap);
+    }
+    // owners may hide or destroy popups
+    for (HWND hwnd : lost) {
+        if (IsWindow(hwnd)) {
+            SendMessageW(hwnd, WM_KILLFOCUS, (WPARAM)to, 0);
+        }
+    }
+    return res;
 }
 
 // Windows moves the focus off a popup it hides, e.g. to the frame, as it does
@@ -2223,7 +2273,8 @@ static LRESULT CALLBACK HeldFocusProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
     return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
-// what has the focus in it keeps it for its owner and gets it back with the frame
+// what has the focus in it keeps it for its owner and gets it back with the frame,
+// unless the focus goes to another window meanwhile (FocusMoveHook)
 static void NoteMinimized(AnchoredPopup* ap) {
     ap->minimized = true;
     HWND focus = GetFocus();
@@ -2233,18 +2284,12 @@ static void NoteMinimized(AnchoredPopup* ap) {
     ReleaseFocus(ap);
     ap->focus = focus;
     SetWindowSubclass(focus, HeldFocusProc, ap->id, (DWORD_PTR)ap);
+    SyncFocusMoveHook();
 }
 
-// gives the focus back to focus, unless it moved to another of the app's frames meanwhile
+// gives the focus back to focus, still held: it stayed with the frame or left the app
 static void RefocusPopup(HWND popup, HWND focus) {
-    if (!IsWindow(focus) || !InPopup(popup, focus)) {
-        return;
-    }
-    HWND now = GetFocus();
-    if (now && GetAncestor(now, GA_ROOTOWNER) != GetAncestor(popup, GA_ROOTOWNER)) {
-        return;
-    }
-    if (now != focus) {
+    if (IsWindow(focus) && InPopup(popup, focus) && GetFocus() != focus) {
         SetFocus(focus);
     }
 }

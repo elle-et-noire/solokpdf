@@ -422,7 +422,8 @@ hidden, e.g. the selection toolbar after the selection was cleared; Esc on
 the minimized window closes the find bar (E138). The comment
 card and the annotation toolbar's contents edit come back open, with their
 text and the focus: losing the focus to the minimize is not a click away
-(E136, E137). Hovers (the
+(E136, E137); the focus going to another window meanwhile is: the card
+closes and the edit commits (E139). Hovers (the
 toolbar drop-down, About hover, citation hover and Edit PDF hover card) go with
 the minimize, as they do when another window activates (E124).
 

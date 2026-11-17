@@ -25,6 +25,8 @@
 //
 // E137: the annotation toolbar's contents edit is still open, with its text
 // and the focus, after a restore, whatever took the focus as the popups hid.
+// E139: the focus moved to another window while minimized: the comment card
+// closes and the contents edit commits, as for a click there.
 //
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
@@ -51,6 +53,7 @@ import {
   setProcessDpiAware,
   setWindowPos,
   postChar,
+  postMessage,
   sendText,
   showWindow,
   sleep,
@@ -62,6 +65,7 @@ import {
   SWP_NOACTIVATE,
   SWP_NOZORDER,
   VK_ESCAPE,
+  WM_CLOSE,
   WM_KEYDOWN,
   WM_MOUSEMOVE,
   WM_RBUTTONDOWN,
@@ -70,8 +74,10 @@ import {
 import {
   activateTestFrame,
   clickAt,
+  clickCanvasAway,
   findCanvas,
   findChildByClass,
+  FRAME_CLASS,
   killAndWait,
   launchControlled,
   moveTestCursor,
@@ -648,6 +654,42 @@ async function hideByOwner(client: ControlClient, popup: string): Promise<void> 
   check(res[0] === 0, `hide ${popup}: ${res[1]}`);
 }
 
+// E139: while the frame is minimized, a new window takes the focus as a click
+// on it does; `after` runs once the frame is restored without activating it
+async function focusOtherWindow(
+  client: ControlClient,
+  frame: number,
+  way: { order: string; focus: string },
+  find: () => number,
+  what: string,
+  after: () => Promise<void>,
+): Promise<void> {
+  let other = 0;
+  try {
+    await minimizedAndRestored(client, way, find, what, async () => {
+      await client.request(ControlCommand.TestInvokeCommand, ["CmdNewWindow"]);
+      other = await pollUntil(
+        () => shownTop(getWindowPid(frame), FRAME_CLASS, (h) => h !== frame),
+        (h) => h !== 0,
+        { timeoutMs: WAIT_MS, error: "no new window" },
+      );
+      const res = String((await client.request(ControlCommand.TestFocusState, ["activate-last"]))[1] ?? "");
+      check(res.includes("focus=other-window "), `the new window has no focus: ${res}`);
+    });
+    await after();
+  } finally {
+    if (other) {
+      postMessage(other, WM_CLOSE, 0, 0);
+      await pollUntil(
+        () => isWindowVisible(other),
+        (v) => !v,
+        { timeoutMs: WAIT_MS, error: "the new window did not close" },
+      );
+    }
+    await activateTestFrame(client);
+  }
+}
+
 // a hover goes with a minimize and is not back on restore (E124)
 async function checkHoverMinimized(
   client: ControlClient,
@@ -726,6 +768,20 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
     });
   }
 
+  // E139: the focus left for another window, its owner closes it, as for a click there
+  for (const way of p.focus ? FOCUS_WAYS : []) {
+    await step(`${p.name}: focus moved to another window while minimized, ${way.how}`, async () => {
+      // opened now, with the focus
+      if (p.find()) await hideByOwner(client, p.hide);
+      await waitGone(p.find, p.name);
+      await shown();
+      await focusOtherWindow(client, frame, way, p.find, p.name, async () => {
+        await clickCanvasAway(canvas);
+        await waitGone(p.find, `${p.name} after a click away`);
+      });
+    });
+  }
+
   // E124: hidden by its owner meanwhile, it stays hidden
   for (const way of MINIMIZE_WAYS) {
     await step(`${p.name}: hidden by its owner while minimized, ${way.how}`, async () => {
@@ -765,27 +821,32 @@ async function annotToolbarDump(client: ControlClient): Promise<string> {
   return /annotEditToolbar .*/.exec(raw)?.[0] ?? "";
 }
 
+// the highlight selected, its toolbar's contents edit opened
+async function openContentsEdit(client: ControlClient, canvas: number, find: () => number): Promise<number> {
+  const c = await annotPoint(client, "Highlight", 0.6);
+  await clickAt(canvas, c.x, c.y, 0, 0, client);
+  const tb = await waitShown(find, "annotation toolbar");
+  const dump = await annotToolbarDump(client);
+  const chip = /[=;]contents:(-?\d+),(-?\d+),(\d+),(\d+)/.exec(dump);
+  check(!!chip, `no contents chip: ${dump}`);
+  const r = getWindowRect(tb);
+  const x = +chip![1]! - r.left + Math.floor(+chip![3]! / 2);
+  const y = +chip![2]! - r.top + Math.floor(+chip![4]! / 2);
+  await clickAt(tb, x, y, 0, 0, client);
+  return await pollUntil(
+    () => findChildByClass(tb, "Edit"),
+    (h) => h !== 0,
+    { timeoutMs: WAIT_MS, error: "the contents edit did not open" },
+  );
+}
+
 // E137: a focus loss from the minimize doesn't commit and close the contents edit
-async function checkContentsEdit(pid: number, client: ControlClient, canvas: number): Promise<void> {
+async function checkContentsEdit(pid: number, client: ControlClient, frame: number, canvas: number): Promise<void> {
   const name = "annotation toolbar contents edit";
   const find = () => shownTop(pid, EDIT_CLASS);
   let edit = 0;
   await step(`${name}: opened`, async () => {
-    const c = await annotPoint(client, "Highlight", 0.6);
-    await clickAt(canvas, c.x, c.y, 0, 0, client);
-    const tb = await waitShown(find, "annotation toolbar");
-    const dump = await annotToolbarDump(client);
-    const chip = /[=;]contents:(-?\d+),(-?\d+),(\d+),(\d+)/.exec(dump);
-    check(!!chip, `no contents chip: ${dump}`);
-    const r = getWindowRect(tb);
-    const x = +chip![1]! - r.left + Math.floor(+chip![3]! / 2);
-    const y = +chip![2]! - r.top + Math.floor(+chip![4]! / 2);
-    await clickAt(tb, x, y, 0, 0, client);
-    edit = await pollUntil(
-      () => findChildByClass(tb, "Edit"),
-      (h) => h !== 0,
-      { timeoutMs: WAIT_MS, error: "the contents edit did not open" },
-    );
+    edit = await openContentsEdit(client, canvas, find);
     sendText(edit, CONTENTS_TEXT);
   });
   if (!edit) return;
@@ -798,6 +859,26 @@ async function checkContentsEdit(pid: number, client: ControlClient, canvas: num
       check(text === CONTENTS_TEXT, `the contents edit holds "${text}"`);
       const res = String((await client.request(ControlCommand.TestFocusState, [""]))[1] ?? "");
       check(res.includes("focus=annot-toolbar "), `${name}'s focus after the frame was restored: ${res}`);
+    });
+  }
+  // E139: the focus left for another window: committed, as for a click there
+  for (const [i, way] of FOCUS_WAYS.entries()) {
+    await step(`${name}: focus moved to another window while minimized, ${way.how}`, async () => {
+      const text = `${CONTENTS_TEXT} ${i}`;
+      const editing = (d: string) => / editing=1\b/.test(d);
+      if (!find() || !editing(await annotToolbarDump(client))) edit = await openContentsEdit(client, canvas, find);
+      sendText(edit, text);
+      await focusOtherWindow(client, frame, way, find, name, async () => {
+        await clickCanvasAway(canvas);
+        await pollUntil(
+          () => annotToolbarDump(client),
+          (d) => !editing(d),
+          { timeoutMs: WAIT_MS, error: (d) => `the contents edit is still open after a click away: ${d}` },
+        );
+      });
+      edit = await openContentsEdit(client, canvas, find);
+      const kept = getControlText(edit);
+      check(kept === text, `committed "${kept}", want "${text}"`);
     });
   }
   // deselected, the toolbar goes with the edit
@@ -920,7 +1001,7 @@ async function checkCanvasPopups(): Promise<void> {
       sidebar: "inside",
       hide: "annotation",
     });
-    await checkContentsEdit(pid, client, canvas);
+    await checkContentsEdit(pid, client, frame, canvas);
 
     // the cursor over the square shows its hover card
     await checkHoverMinimized(
