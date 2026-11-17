@@ -219,7 +219,9 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   PDFium's (every link but file-attachment ones, which a blocking read adds),
   and text MuPDF must supply returns false, so search reads such a page once,
   blocking. Once loaded, the editor answers through its own non-blocking reads
-  (B51, `ad-hoc-pdfium-try-reads`).
+  (B51, `ad-hoc-pdfium-try-reads`). Hover's element lookup tells such a page
+  (busy) from one without an element; the canvas keeps its link tip, cursor and
+  citation popup and looks again every 50 ms until the page is free (E120).
 - PDFium drops its discretionary hyphen marker from extracted text, so search
   joins split words as MuPDF does. `issue-1189` and the generated B15 search
   test cover this path without loading the editor.

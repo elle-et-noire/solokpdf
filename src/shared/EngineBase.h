@@ -26,6 +26,14 @@ enum class PageReadResult {
     UseEditor,
 };
 
+struct IPageElement;
+
+// a page element lookup that doesn't wait: busy while a render holds the page
+struct ElementAt {
+    IPageElement* el = nullptr;
+    bool busy = false;
+};
+
 #include "ChapterTable.h"
 
 struct ILinkHandler {
@@ -657,6 +665,7 @@ class EngineBase {
 
     // returns the element at a given point or nullptr if there's none
     virtual IPageElement* GetElementAtPos(int pageNo, PointF pt) = 0;
+    virtual ElementAt TryElementAtPos(int pageNo, PointF pt);
 
     virtual IPageDestination* GetNamedDest(Str name);
 
@@ -764,6 +773,7 @@ class EnginePdfProxy : public EngineBase {
     void GetBitmapRecolorSkipRects(int pageNo, float zoom, int rotation, const RectF& renderPageRect, Size bmpSize,
                                    Vec<Rect>& skipRects) override;
     IPageElement* GetElementAtPos(int pageNo, PointF pt) override;
+    ElementAt TryElementAtPos(int pageNo, PointF pt) override;
     bool HandleLink(IPageDestination* dest, ILinkHandler* lh) override;
     IPageDestination* GetNamedDest(Str name) override;
     TocTree* GetToc() override;

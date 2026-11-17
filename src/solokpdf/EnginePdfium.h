@@ -16,5 +16,4 @@ EngineBase* CreateEnginePdfiumFromData(Str data, PasswordUI* pwdUI, TempStr* err
                                        PdfiumFailure* failureOut = nullptr);
 bool EnginePdfiumIsDataBacked(EngineBase* engine);
 bool EnginePdfiumPagePathPoints(EngineBase* engine, int pageNo, Vec<PointF>& out);
-IPageElement* EnginePdfiumElementAtPosWait(EngineBase* engine, int pageNo, PointF point);
 bool EnginePdfiumHoldLock(int ms);

@@ -7959,7 +7959,11 @@ static FzPageInfo* GetFzPageInfoLocked(EngineMupdf* e, Location loc, bool loadQu
 // prevents blocking main thread due to render thread keeping the lock
 // https://github.com/sumatrapdfreader/sumatrapdf/issues/4145
 // https://github.com/sumatrapdfreader/sumatrapdf/issues/4187
-FzPageInfo* EngineMupdf::GetFzPageInfoCanFail(int pageNo) {
+// *busyOut: null because another thread held a lock
+FzPageInfo* EngineMupdf::GetFzPageInfoCanFail(int pageNo, bool* busyOut) {
+    if (busyOut) {
+        *busyOut = true;
+    }
     if (!pagesLock.TryLock()) {
         return nullptr;
     }
@@ -7973,6 +7977,9 @@ FzPageInfo* EngineMupdf::GetFzPageInfoCanFail(int pageNo) {
         renderLock.Unlock();
         pagesLock.Unlock();
         return nullptr;
+    }
+    if (busyOut) {
+        *busyOut = false;
     }
     FzPageInfo* res = GetFzPageInfoLocked(this, LocationFromPageNo(pageNo), true, nullptr);
     docLock.Unlock();
@@ -9445,8 +9452,14 @@ bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6]
 
 // don't delete the result
 IPageElement* EngineMupdf::GetElementAtPos(int pageNo, PointF pt) {
-    FzPageInfo* pageInfo = GetFzPageInfoCanFail(pageNo);
-    return FzGetElementAtPos(pageInfo, pt);
+    return TryElementAtPos(pageNo, pt).el;
+}
+
+// busy while text extraction or a render holds the page's locks
+ElementAt EngineMupdf::TryElementAtPos(int pageNo, PointF pt) {
+    bool busy = false;
+    FzPageInfo* pageInfo = GetFzPageInfoCanFail(pageNo, &busy);
+    return {FzGetElementAtPos(pageInfo, pt), busy};
 }
 
 // GetElementAtPos uses TryLock and returns null while text extraction (started

@@ -54,9 +54,7 @@ extern "C" {
 #include "ChmFile.h"
 #include "RefHover.h"
 #include "Notifications.h"
-#if defined(SOLOKPDF_PDFIUM)
-#include "solokpdf/EnginePdfium.h"
-#endif
+#include "Canvas.h"
 #include "SumatraTest.h"
 
 // internal LZX test hook, defined in chm.c but not exposed in chm.h
@@ -1170,17 +1168,6 @@ TempStr RenderSelectionsResultTemp(int* exitCodeOut) {
     return res;
 }
 
-// The element at pt, waiting for a render that holds the page's lock: the
-// hover's own lookup returns none meanwhile.
-static IPageElement* ElementAtPosWait(EngineBase* engine, int pageNo, PointF pt) {
-#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-    if (engine->kind == kindEnginePdfium) {
-        return EnginePdfiumElementAtPosWait(engine, pageNo, pt);
-    }
-#endif
-    return EngineMupdfElementAtPosWait(engine, pageNo, pt);
-}
-
 // Citation hover popup state. action "show" first opens the popup for the link
 // at canvas point (x, y), as hovering does: a test's cursor can't hold a hover.
 // Used by tests/issue-6252.ts.
@@ -1196,13 +1183,7 @@ TempStr RefHoverResultTemp(Str action, int x, int y, int* exitCodeOut) {
         }
         win->refHover->ctrl = win->ctrl;
         win->refHover->linkHandler = win->linkHandler;
-        // TryLock lookup misses while a render holds the page lock; wait instead
-        int pageNo = 0;
-        IPageElement* el = dm->GetElementAtPos({x, y}, &pageNo);
-        if (!el && dm->ValidPageNo(pageNo)) {
-            el = ElementAtPosWait(dm->GetEngine(), pageNo, dm->CvtFromScreen({x, y}, pageNo));
-        }
-        if (!RefHoverScheduleLink(win->refHover, win->hwndCanvas, dm, x, y, el, 0)) {
+        if (!ShowCitationAt(win, {x, y})) {
             if (exitCodeOut) {
                 *exitCodeOut = 1;
             }

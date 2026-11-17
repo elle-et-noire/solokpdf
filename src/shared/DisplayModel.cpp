@@ -2751,15 +2751,20 @@ static int VisiblePageAt(DisplayModel* dm, Point pt) {
 // a link or nullptr if there is no link at this position.
 // don't delete the result
 IPageElement* DisplayModel::GetElementAtPos(Point pt, int* pageNoOut) {
+    return TryElementAtPos(pt, pageNoOut).el;
+}
+
+// Like GetElementAtPos, but tells a page a render holds (busy) from one without an element.
+ElementAt DisplayModel::TryElementAtPos(Point pt, int* pageNoOut) {
     int pageNo = VisiblePageAt(this, pt);
     if (!ValidPageNo(pageNo)) {
-        return nullptr;
+        return {};
     }
     if (pageNoOut) {
         *pageNoOut = pageNo;
     }
     PointF pos = CvtFromScreen(pt, pageNo);
-    return engine->GetElementAtPos(pageNo, pos);
+    return engine->TryElementAtPos(pageNo, pos);
 }
 
 Annotation* DisplayModel::GetAnnotationAtPos(Point pt, Annotation* annot) {

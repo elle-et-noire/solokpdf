@@ -3457,29 +3457,25 @@ class EnginePdfium : public EngineBase {
         return elements;
     }
 
-    IPageElement* GetElementAtPos(int pageNo, PointF point) override {
-        return ElementAtPos(pageNo, point, EngineWait::NoWait);
-    }
+    IPageElement* GetElementAtPos(int pageNo, PointF point) override { return TryElementAtPos(pageNo, point).el; }
 
     // Hover reads PDFium's cached links and comments without opening the editor;
-    // without waiting, nothing while a render holds the lock.
-    IPageElement* ElementAtPos(int pageNo, PointF point, EngineWait wait) {
+    // busy while a render holds the lock, or the loaded editor its page.
+    ElementAt TryElementAtPos(int pageNo, PointF point) override {
         Vec<IPageElement*> links;
         if (EngineBase* redacted = RedactedEditor(pageNo)) {
-            return redacted->GetElementAtPos(pageNo, point);
+            return redacted->TryElementAtPos(pageNo, point);
         }
-        if (wait == EngineWait::Wait) {
-            gPdfiumLock.Lock();
-        } else if (!gPdfiumLock.TryLock()) {
-            return nullptr;
+        if (!gPdfiumLock.TryLock()) {
+            return {nullptr, true};
         }
         bool useMupdf = false;
         ElementsLocked(pageNo, links, &useMupdf);
         gPdfiumLock.Unlock();
         EngineBase* source = AnnotationEditor(EditorLoad::IfLoaded);
         if (source) {
-            IPageElement* edited = source->GetElementAtPos(pageNo, point);
-            if (edited) {
+            ElementAt edited = source->TryElementAtPos(pageNo, point);
+            if (edited.el || edited.busy) {
                 return edited;
             }
         }
@@ -3487,14 +3483,14 @@ class EnginePdfium : public EngineBase {
         for (int i = len(links) - 1; i >= 0; i--) {
             if (LinkContainsPoint(links[i], point)) {
                 if (links[i]->Is(kindPageElementDest)) {
-                    return links[i];
+                    return {links[i], false};
                 }
                 if (!fallback) {
                     fallback = links[i];
                 }
             }
         }
-        return fallback;
+        return {fallback, false};
     }
 
     // Image IDs differ between engines, so match page bounds before MuPDF extracts the bytes.
@@ -3983,12 +3979,6 @@ EngineBase* CreateEnginePdfiumFromData(Str data, PasswordUI* pwdUI, TempStr* err
 bool EnginePdfiumPagePathPoints(EngineBase* engine, int pageNo, Vec<PointF>& out) {
     auto* pdfium = engine && engine->kind == kindEnginePdfium ? (EnginePdfium*)engine : nullptr;
     return pdfium && pdfium->PagePathPoints(pageNo, out);
-}
-
-// The element at point, waiting for a render that holds PDFium's lock.
-IPageElement* EnginePdfiumElementAtPosWait(EngineBase* engine, int pageNo, PointF point) {
-    auto* pdfium = engine && engine->kind == kindEnginePdfium ? (EnginePdfium*)engine : nullptr;
-    return pdfium ? pdfium->ElementAtPos(pageNo, point, EngineWait::Wait) : nullptr;
 }
 
 struct PdfiumLockHold {

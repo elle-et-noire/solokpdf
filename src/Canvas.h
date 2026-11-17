@@ -73,5 +73,10 @@ constexpr uint kAnnotationResizeRerenderDelayMs = 125;
 // Debounce re-rendering the page while arrow keys move an annotation
 constexpr UINT_PTR kAnnotationNudgeTimerID = 17;
 constexpr uint kAnnotationNudgeDelayMs = 150;
+// A hover lookup met a page a render held: look again until it's free
+constexpr UINT_PTR kHoverRetryTimerID = 19;
+constexpr uint kHoverRetryDelayMs = 50;
+
+bool ShowCitationAt(MainWindow* win, Point pt);
 
 void CancelAnnotationResizeRerender(MainWindow* win);

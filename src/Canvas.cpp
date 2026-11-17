@@ -1141,6 +1141,46 @@ static void UpdateDraggedLineOrVertex(MainWindow* win, DisplayModel* dm, int x, 
     pts[idx] = dm->CvtFromScreen(screenPt, PageNo(annot));
 }
 
+// What's under the cursor isn't known while a render holds its page: look again
+// shortly rather than wait for the render on the UI thread.
+static void HoverRetryLater(MainWindow* win) {
+    SetTimer(win->hwndCanvas, kHoverRetryTimerID, kHoverRetryDelayMs, nullptr);
+}
+
+// The citation popup for canvas point pt, as the mouse moving there does.
+static void CitationHoverAt(MainWindow* win, DisplayModel* dm, Point pt) {
+    int pageNo = -1;
+    ElementAt at = dm->TryElementAtPos(pt, &pageNo);
+    if (at.busy) {
+        win->hoverRetry.citation = true;
+        HoverRetryLater(win);
+        return;
+    }
+    IPageElement* el = at.el;
+    if (el && el->Is(kindPageElementDest) && gSettings->disableLinks) {
+        el = nullptr;
+    }
+    RefHoverOnCanvasMouseMove(win->refHover, win->hwndCanvas, win->ctrl, win->linkHandler, dm, pt.x, pt.y, el, pageNo,
+                              gSettings->citationHoverDelay);
+}
+
+// Opens the citation popup for the link at canvas point pt at once, as hovering
+// it does (TestRefHover). False: no internal link there.
+bool ShowCitationAt(MainWindow* win, Point pt) {
+    DisplayModel* dm = win->AsFixed();
+    if (!dm) {
+        return false;
+    }
+    ElementAt at = dm->TryElementAtPos(pt, nullptr);
+    if (at.busy) {
+        win->hoverRetry.show = true;
+        win->hoverRetry.showPt = pt;
+        HoverRetryLater(win);
+        return true;
+    }
+    return RefHoverScheduleLink(win->refHover, win->hwndCanvas, dm, pt.x, pt.y, at.el, 0);
+}
+
 static void OnMouseMove(MainWindow* win, int x, int y, WPARAM key) {
     if (!(key & (MK_RBUTTON | MK_MBUTTON)) && MeasurementOnMove(win, Point{x, y})) {
         return;
@@ -1284,12 +1324,6 @@ static void OnMouseMove(MainWindow* win, int x, int y, WPARAM key) {
             bool highlighter = IsPlacingHighlighterAnnotation(win);
             Annotation* annot = highlighter ? nullptr : dm->GetAnnotationAtPosHover(pos, nullptr);
             bool editPdf = win->pdfAnnotationsToolbarEnabled && !highlighter;
-            int srcPageNo = -1;
-            IPageElement* el = dm->GetElementAtPos(pos, &srcPageNo);
-            if (el && el->Is(kindPageElementDest) && gSettings->disableLinks) {
-                el = nullptr;
-            }
-            int hoverDelayMs = gSettings->citationHoverDelay;
             if (annot != prev) {
                 if (editPdf) {
                     ScheduleRepaint(win, 0);
@@ -1307,8 +1341,7 @@ static void OnMouseMove(MainWindow* win, int x, int y, WPARAM key) {
                 HideAnnotationHoverOverlay(win);
             }
 
-            RefHoverOnCanvasMouseMove(win->refHover, win->hwndCanvas, win->ctrl, win->linkHandler, dm, x, y, el,
-                                      srcPageNo, hoverDelayMs);
+            CitationHoverAt(win, dm, pos);
             break;
         }
 
@@ -3467,7 +3500,14 @@ static LRESULT OnSetCursorMouseNone(MainWindow* win, HWND hwnd) {
     bool annotEditHover = annot && (win->pdfAnnotationsToolbarEnabled || selected);
 
     int pageNo = 0;
-    IPageElement* pageEl = dm->GetElementAtPos(pt, &pageNo);
+    ElementAt at = dm->TryElementAtPos(pt, &pageNo);
+    if (at.busy) {
+        // the tip and cursor stay until the retry knows what's here
+        win->hoverRetry.cursor = true;
+        HoverRetryLater(win);
+        return TRUE;
+    }
+    IPageElement* pageEl = at.el;
     if (pageEl && pageEl->Is(kindPageElementDest) && gSettings->disableLinks) {
         pageEl = nullptr;
     }
@@ -3589,6 +3629,31 @@ static LRESULT OnSetCursor(MainWindow* win, HWND hwnd) {
         }
     }
     return win->InPresentation() ? TRUE : FALSE;
+}
+
+// The hovers that met a busy page look again; one still busy asks for another retry.
+// The cursor's hovers only while it rests on the canvas, as Windows sends them.
+static void OnHoverRetry(MainWindow* win) {
+    KillTimer(win->hwndCanvas, kHoverRetryTimerID);
+    auto retry = win->hoverRetry;
+    win->hoverRetry = {};
+    DisplayModel* dm = win->AsFixed();
+    if (!dm) {
+        return;
+    }
+    if (retry.show) {
+        ShowCitationAt(win, retry.showPt);
+    }
+    Point cursor = GetCursorPosition();
+    if (win->mouseAction != MouseAction::None || HwndWindowFromPoint(cursor) != win->hwndCanvas) {
+        return;
+    }
+    if (retry.cursor) {
+        SendMessageW(win->hwndCanvas, WM_SETCURSOR, (WPARAM)win->hwndCanvas, MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
+    }
+    if (retry.citation) {
+        CitationHoverAt(win, dm, HwndScreenToClient(win->hwndCanvas, cursor));
+    }
 }
 
 static float ScaleZoomBy(MainWindow* win, float factor) {
@@ -5079,6 +5144,10 @@ static void OnTimer(MainWindow* win, HWND hwnd, WPARAM timerId) {
         case kRefHoverTimerID:
         case kRefHoverHideTimerID:
             RefHoverOnCanvasTimer(win->refHover, hwnd, win->AsFixed(), timerId);
+            break;
+
+        case kHoverRetryTimerID:
+            OnHoverRetry(win);
             break;
 
         case kLinkFollowTimerID:

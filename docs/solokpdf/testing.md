@@ -146,7 +146,8 @@ Overlay scrollbars hiding and moving with their tree or the canvas:
 Popups moving and hiding with their window (toolbar drop-down, Home's About
 hover and keyboard tip, link tip, citation hover; find bar, Automatically Scroll
 and read-aloud bars, selection and annotation toolbars, comment card):
-`ad-hoc-e98-anchored-popups`.
+`ad-hoc-e98-anchored-popups`. A link tip and citation popup hovered while a
+render holds the page's lock, on both engines: `ad-hoc-e120-busy-hover`.
 After lifetime, notification or test-hook changes, also run the last four and
 `ad-hoc-tree-lifetime` under ASan. The
 [migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in

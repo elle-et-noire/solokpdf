@@ -449,7 +449,7 @@ async function checkRefHover(): Promise<void> {
     await client.setNotificationsEnabled(false);
     const cr = getClientRect(findCanvas(frame));
     const at = ["show", Math.floor(cr.right / 2), Math.floor(cr.bottom / 3)];
-    // E113: a render holds PDFium's lock meanwhile; the link lookup waits for it
+    // E120: a render holds PDFium's lock meanwhile; the hover looks again once it's free
     const held = await client.request(ControlCommand.TestCurrentPdf, ["hold-pdfium-lock", LOCK_HOLD_MS]);
     check(held[0] === 0 || process.env.SOLOKPDF_ENGINE === "mupdf", `hold-pdfium-lock: ${held[1]}`);
     const res = await client.request(ControlCommand.TestRefHover, at);

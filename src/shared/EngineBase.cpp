@@ -1431,6 +1431,11 @@ bool EngineBase::TryExtractPageText(int pageNo, PageText* out) {
     return !out->failed;
 }
 
+// The default answers; PDF engines say busy instead of waiting for a render that holds the page.
+ElementAt EngineBase::TryElementAtPos(int pageNo, PointF pt) {
+    return {GetElementAtPos(pageNo, pt), false};
+}
+
 // The default blocks; PDF overrides can return a best-effort list. Elements stay engine-owned.
 bool EngineBase::TryGetElements(int pageNo, Vec<IPageElement*>* out) {
     *out = GetElements(pageNo);
@@ -1867,6 +1872,10 @@ void EnginePdfProxy::GetBitmapRecolorSkipRects(int pageNo, float zoom, int rotat
 
 IPageElement* EnginePdfProxy::GetElementAtPos(int pageNo, PointF pt) {
     return pdfEngine->GetElementAtPos(pageNo, pt);
+}
+
+ElementAt EnginePdfProxy::TryElementAtPos(int pageNo, PointF pt) {
+    return pdfEngine->TryElementAtPos(pageNo, pt);
 }
 
 bool EnginePdfProxy::HandleLink(IPageDestination* dest, ILinkHandler* lh) {

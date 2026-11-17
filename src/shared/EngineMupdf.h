@@ -103,6 +103,7 @@ class EngineMupdf : public EngineBase {
     Vec<IPageElement*> GetElements(int pageNo) override;
     bool TryGetElements(int pageNo, Vec<IPageElement*>* out) override;
     IPageElement* GetElementAtPos(int pageNo, PointF pt) override;
+    ElementAt TryElementAtPos(int pageNo, PointF pt) override;
     bool HandleLink(IPageDestination*, ILinkHandler*) override;
 
     RenderedBitmap* GetImageForPageElement(IPageElement*) override;
@@ -305,7 +306,7 @@ class EngineMupdf : public EngineBase {
     bool FinishLoading();
     RenderedBitmap* GetPageImage(int pageNo, RectF rect, int imageIdx);
 
-    FzPageInfo* GetFzPageInfoCanFail(int pageNo);
+    FzPageInfo* GetFzPageInfoCanFail(int pageNo, bool* busyOut = nullptr);
     FzPageInfo* GetFzPageInfoFast(int pageNo);
     FzPageInfo* GetFzPageInfo(int pageNo, bool loadQuick, fz_cookie* cookie = nullptr);
     FzPageInfo* GetFzPageInfo(Location loc, bool loadQuick, fz_cookie* cookie = nullptr);

@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E112, E115–E121 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E120, E121, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-17: E112, E115–E119, E121 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E121, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -31,7 +31,6 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | E117 | One test input command in Windows' message order; the layer owns foreground and key state under tests; remove window-code guards; CI on the hidden desktop (review: input layering, D3, D7, U1). Spec `.work/codex-queue/e117.md`                     | todo   |
 | E118 | Theme colors resolved at paint from (surface, role, state); main-window parts register their theme refresh (review: theme layering, U4). Spec `.work/codex-queue/e118.md`                                                                             | todo   |
 | E119 | Review docs and process: fz_catch conversion for upstream merges, fz-catch.h MuPDF dependency, doc claims, spec rules. Spec `.work/codex-queue/e119.md`                                                                                               | todo   |
-| E120 | Hover lookups tell busy from none: while a render holds the engine lock, link and citation tips never appear until the next move; E113 hid it from the test with a test-only wait. Spec `.work/codex-queue/e120.md`                                   | todo   |
 | E121 | Annotation toolbar off after restoring a minimized frame (flaky in ad-hoc-e98-anchored-popups): anchor dismissal resets placement state. Spec `.work/codex-queue/e121.md`                                                                             | todo   |
 
 ## Deferred

@@ -744,6 +744,13 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     // operation open, so Undo takes the whole gesture back in one step
     bool pdfEditOperationActive = false;
     RefHoverState* refHover = nullptr;
+    // hovers that met a page a render held; kHoverRetryTimerID looks again
+    struct {
+        bool cursor = false;   // the cursor and the link tip (WM_SETCURSOR)
+        bool citation = false; // the citation popup at the cursor
+        bool show = false;     // the citation popup opened at once at showPt (TestRefHover)
+        Point showPt;
+    } hoverRetry;
     // highlight rectangle for element under cursor during context menu (in page coordinates)
     RectF contextMenuHighlightRect;
     int contextMenuHighlightPageNo = 0;
