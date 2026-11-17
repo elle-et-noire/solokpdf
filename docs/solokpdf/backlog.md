@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E112, E115–E119, E122, E124–E126 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E122, E124, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-17: E112, E115–E119, E122, E124–E128 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E122, E127, E128, E124, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B77, C2, D15, E127, F4). For a code change, choose affected tests from
+group (B77, C2, D15, E129, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -35,6 +35,8 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | E124 | Anchored popups an owner hides while the frame is minimized come back on restore (Windows reshows owned popups; the layer can't see the hide). Make the owner's intent visible to the layer (E121 follow-up). Spec `.work/codex-queue/e124.md`        | todo   |
 | E125 | Annotation toolbar click point lives with the selection, not the toolbar: scrolling the page off and back re-shows it at the annotation's left edge (E121 follow-up). Spec `.work/codex-queue/e125.md`                                                | todo   |
 | E126 | Home keyboard-focus tip is dismissed on minimize and not shown on restore (E121 follow-up). Spec `.work/codex-queue/e126.md`                                                                                                                          | todo   |
+| E127 | User actions E123 missed during a render: press on text pans instead of selecting, double-click misses the word, Tab between form fields does nothing; untested form-field click. One lookup split for text too. Spec `.work/codex-queue/e127.md`     | todo   |
+| E128 | Prove the E123 action wait is short with a real cancellable render and that cancelled tiles come back; bound PDFium waits on another document's work. Spec `.work/codex-queue/e128.md`                                                                | todo   |
 
 ## Deferred
 
