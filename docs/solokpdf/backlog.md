@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-18: E112, E115–E119, E125, E126, E129–E135, E139, E140, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E139, E140, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-18: E112, E115–E119, E125, E126, E129–E135, E139, E140, E141, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E141, E139, E140, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B78, C2, D15, E141, F4). For a code change, choose affected tests from
+group (B78, C2, D15, E142, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -42,6 +42,7 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | E135 | Link context menu during a parked render once took 1938 ms (usually ~163); find the cause, tighten the bound (E128 follow-up). Spec `.work/codex-queue/e135.md`                                                                                                | todo   |
 | E139 | A popup restored without its focus (focus moved to another app frame while minimized) keeps an owner that never saw the focus loss, so click-away no longer commits/closes it (E137 follow-up). Spec `.work/codex-queue/e139.md`                               | todo   |
 | E140 | Owned popups that aren't anchored (floating find window, filter float) miss the minimize rules; make them part of owned-popup creation; lint file list, HwndIsVisible thread safety, test dumps (E138 follow-up). Spec `.work/codex-queue/e140.md`             | todo   |
+| E141 | CI red since E137: the `frame` focus injection of TestMinimizeFrame doesn't move the focus on the interactive runner (toFrame=0). Spec `.work/codex-queue/e141.md`                                                                                             | todo   |
 | B77  | `bun cmd/run-unit-tests.ts` builds via vs2022/v143 (not installed here) and rewrites vs2022/ files; make the unit-test command use the SolokPDF build and leave the tree clean. Spec `.work/codex-queue/b77.md`                                                | todo   |
 
 ## Deferred
