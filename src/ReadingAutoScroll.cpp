@@ -365,8 +365,7 @@ void BarHide(MainWindow* win) {
         return;
     }
     win->readingAutoScrollTab = nullptr;
-    SetWindowPos(win->readingAutoScrollBar->hwnd, nullptr, 0, 0, 0, 0,
-                 SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+    HideAnchoredPopup(win->readingAutoScrollBar->hwnd);
 }
 
 void BarUpdate(MainWindow* win, bool forceLayout) {

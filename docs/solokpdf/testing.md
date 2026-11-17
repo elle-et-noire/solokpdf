@@ -152,8 +152,11 @@ and read-aloud bars, selection and annotation toolbars, comment card):
 anchor layer sees them first (`anchor-first`); a minimize from another process
 races between the two (E121). With `away` the focus also leaves the app as the
 popups hide, as on an interactive desktop, where Windows activates another
-window; the hidden desktop has no foreground and keeps it (E136). A failed step
-prints what the app logged meanwhile. A link tip, citation popup, I-beam, form field
+window; the hidden desktop has no foreground and keeps it (E136).
+`TestMinimizeFrame hide <popup>` has the popup's owner hide it while the frame
+is minimized: it must stay hidden on restore, and the hovers must not come back
+(E124). `lint-anchored-hides` keeps raw hides out of files with anchored
+popups. A failed step prints what the app logged meanwhile. A link tip, citation popup, I-beam, form field
 cursor, plain-text citation and Edit PDF annotation hover while a render holds
 the page's lock, on both engines: `ad-hoc-e120-busy-hover` (E122); link
 and image context menus, image drag, Edit PDF click, link click, text

@@ -189,7 +189,7 @@ void RefHoverShowPopup(RefHoverState* s, Point screenPt) {
     }
 
     if (popupW <= 0 || popupH <= 0) {
-        ShowWindow(s->hwndPopup, SW_HIDE);
+        HideAnchoredPopup(s->hwndPopup);
         return;
     }
 
@@ -199,6 +199,7 @@ void RefHoverShowPopup(RefHoverState* s, Point screenPt) {
     AnchorArgs anchorArgs;
     anchorArgs.anchor = s->hwndCanvas;
     anchorArgs.dismiss = MkFunc0(DismissRefHover, s);
+    anchorArgs.minimize = AnchorMinimize::Dismiss;
     anchorArgs.content = s->ctrl;
     AnchorPopup(s->hwndPopup, anchorArgs);
     HwndInvalidate(s->hwndPopup, true);

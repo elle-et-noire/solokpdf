@@ -70,6 +70,14 @@ enum class AnchorLeave {
     Dismiss,
 };
 
+// what the frame's minimize does to a popup it owns
+enum class AnchorMinimize {
+    // hidden with the frame, shown again with it
+    Keep,
+    // dismissed: a hover belongs to the cursor
+    Dismiss,
+};
+
 struct AnchorArgs {
     HWND anchor = nullptr;
     // takes the popup down; unset hides its window
@@ -77,12 +85,14 @@ struct AnchorArgs {
     // places the popup after the anchor moved or resized; unset keeps its offset
     Func0 place;
     AnchorLeave leave = AnchorLeave::Keep;
+    AnchorMinimize minimize = AnchorMinimize::Keep;
     // what of the anchor the popup describes (AnchorShows); null: anything
     const void* content = nullptr;
 };
 
 void AnchorPopup(HWND popup, const AnchorArgs&);
 void AnchorShows(HWND anchor, const void* content);
+void HideAnchoredPopup(HWND popup);
 bool IsPopupHiddenWithFrame(HWND popup);
 
 //--- HWND: focus / visibility / Z-order

@@ -626,9 +626,8 @@ void HideSelectionToolbar(MainWindow* win) {
     if (!tb || !tb->host) {
         return;
     }
-    if (tb->host->IsVisible()) {
-        tb->host->Show(false);
-    }
+    // also while hidden with its minimized frame
+    tb->host->Show(false);
     if (tb->host->vroot) {
         // the mouse can't leave a hidden window, so drop the hover ourselves
         tb->host->vroot->ClearHover();

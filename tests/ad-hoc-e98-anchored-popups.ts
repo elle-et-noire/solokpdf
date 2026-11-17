@@ -17,7 +17,11 @@
 // Edit PDF annotation toolbar): frame moved -> moves along; sidebar shifts the
 // canvas -> stays inside it and comes back with it; frame minimized -> gone,
 // back at its place on restore, whether Windows or the anchor layer hid it
-// (E121); another tab -> gone.
+// (E121); hidden by its owner while minimized -> stays hidden (E124); another
+// tab -> gone.
+//
+// E124: hovers (toolbar drop-down, About hover, citation hover, Edit PDF hover
+// card) go with a minimize: they belong to the cursor.
 //
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
@@ -313,6 +317,10 @@ async function checkToolbarDropdown(pid: number, client: ControlClient, frame: n
     await waitAt(find, before, "drop-down after the frame moved back");
   });
 
+  await checkHoverMinimized(client, "toolbar drop-down", find, async () => {
+    await openMenu();
+  });
+
   await step("toolbar drop-down: overlay toolbar", async () => {
     const menu = find() || (await openMenu());
     const o0 = offset(menu);
@@ -431,6 +439,13 @@ async function checkAboutHover(pid: number, client: ControlClient, frame: number
     await moveTestCursor(p.x, p.y, client);
     sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
   };
+  // onto the logo from off it: the hover opens as the cursor enters the logo
+  const enterLogo = async () => {
+    const off = clientToScreen(canvas, 1, 1);
+    await moveTestCursor(off.x, off.y, client);
+    sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(1, 1));
+    await hoverLogo();
+  };
   await hoverLogo();
   const before = box(await waitShown(find, "About hover"));
 
@@ -444,8 +459,10 @@ async function checkAboutHover(pid: number, client: ControlClient, frame: number
     await waitAt(find, before, "About hover after the frame moved back");
   });
 
+  await checkHoverMinimized(client, "About hover", find, enterLogo);
+
   await step("About hover: Ctrl+Tab to a document", async () => {
-    if (!find()) await hoverLogo();
+    if (!find()) await enterLogo();
     await waitShown(find, "About hover");
     sendCommandSync(frame, cmdId("CmdPrevTab"));
     await waitGone(find, "About hover over the document");
@@ -473,9 +490,15 @@ async function checkRefHover(): Promise<void> {
     check(res[0] === 0, `could not show the citation popup: ${res[1]}`);
     const p = await waitRefPopup(client, "the citation popup did not open", (q) => q.visible && q.hwnd !== 0);
     const find = () => (isWindowVisible(p.hwnd) ? p.hwnd : 0);
-    const before = box(p.hwnd);
-    await whileFrameMoved(frame, () => waitAt(find, moved(before, MOVE_DX, MOVE_DY), "citation popup, frame moved"));
-    await waitAt(find, before, "citation popup after the frame moved back");
+    await step("citation hover: frame moved", async () => {
+      const before = box(p.hwnd);
+      await whileFrameMoved(frame, () => waitAt(find, moved(before, MOVE_DX, MOVE_DY), "citation popup, frame moved"));
+      await waitAt(find, before, "citation popup after the frame moved back");
+    });
+    await checkHoverMinimized(client, "citation hover", find, async () => {
+      const again = await client.request(ControlCommand.TestRefHover, at);
+      check(again[0] === 0, `could not show the citation popup: ${again[1]}`);
+    });
   } finally {
     client.close();
     await killAndWait(proc);
@@ -486,6 +509,7 @@ async function checkRefHover(): Promise<void> {
 const SEL_CLASS = "SumatraSelectionToolbar";
 const EDIT_CLASS = "SumatraAnnotEditToolbar";
 const CARD_CLASS = "SumatraAnnotTextPopup";
+const HOVER_CARD_CLASS = "SumatraAnnotationHoverOverlay";
 const BAR_CLASS = "SumatraWgDefaultWinClass";
 const COMBO_CLASS = "ComboBox";
 const VK_END = 0x23;
@@ -570,6 +594,56 @@ async function minimizeFrame(client: ControlClient, order: string, focus = ""): 
   check(order !== "anchor-first" || !/reshown=0\b/.test(String(res[1])), `${order}: nothing shown while minimized`);
 }
 
+// E121: Windows hides them before the frame goes iconic; shown again while it
+// is minimized, the anchor layer sees them first. "away": E136
+const MINIMIZE_WAYS = ["os-first", "anchor-first"].flatMap((order) => [
+  { order, focus: "", how: order },
+  { order, focus: "away", how: `${order}, focus left the app` },
+]);
+
+// minimized, `during` runs, restored. The anchor layer's syncs, posted by the
+// restore, run before the next request: one Windows shows again only for its
+// owner to hide is not back when it returns
+async function minimizedAndRestored(
+  client: ControlClient,
+  way: { order: string; focus: string },
+  find: () => number,
+  what: string,
+  during: () => Promise<void> = async () => {},
+): Promise<void> {
+  await minimizeFrame(client, way.order, way.focus);
+  try {
+    await waitGone(find, `${what} with the frame minimized`);
+    await during();
+  } finally {
+    await minimizeFrame(client, "restore");
+  }
+  await client.request(ControlCommand.Ping, []);
+}
+
+// E124: the popup's owner hides it the way the user's actions reach it
+async function hideByOwner(client: ControlClient, popup: string): Promise<void> {
+  const res = await client.request(ControlCommand.TestMinimizeFrame, ["hide", popup]);
+  check(res[0] === 0, `hide ${popup}: ${res[1]}`);
+}
+
+// a hover goes with a minimize and is not back on restore (E124)
+async function checkHoverMinimized(
+  client: ControlClient,
+  name: string,
+  find: () => number,
+  show: () => Promise<void>,
+): Promise<void> {
+  for (const way of MINIMIZE_WAYS) {
+    await step(`${name}: frame minimized, ${way.how}`, async () => {
+      if (!find()) await show();
+      await waitShown(find, name);
+      await minimizedAndRestored(client, way, find, name);
+      check(find() === 0, `${name} came back after the frame was restored`);
+    });
+  }
+}
+
 type Followed = {
   name: string;
   find: () => number;
@@ -579,6 +653,8 @@ type Followed = {
   sidebar: "inside" | "stays" | "closes";
   // TestFocusState's name for it when it has the focus, which it gets back on restore
   focus?: string;
+  // TestMinimizeFrame "hide": its owner hides it
+  hide: string;
 };
 
 async function checkFollows(p: Followed, client: ControlClient, frame: number, canvas: number): Promise<void> {
@@ -615,29 +691,25 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
     if (p.sidebar !== "closes") await waitAt(p.find, before, `${p.name} after the sidebar hid`);
   });
 
-  // E121: Windows hides them before the frame goes iconic; shown again while it
-  // is minimized, the anchor layer sees them first. Either way they come back,
-  // also when the focus left the app meanwhile (E136)
-  for (const order of ["os-first", "anchor-first"]) {
-    for (const focus of ["", "away"]) {
-      const how = focus ? `${order}, focus left the app` : order;
-      await step(`${p.name}: frame minimized, ${how}`, async () => {
-        const before = await shown();
-        await minimizeFrame(client, order, focus);
-        try {
-          await waitGone(p.find, `${p.name} with the frame minimized`);
-        } finally {
-          await minimizeFrame(client, "restore");
-        }
-        // the anchor layer's syncs, posted by the restore, run before this
-        // request: one Windows shows again only for its owner to hide is not back
-        await client.waitForRenderIdle();
-        await waitAt(p.find, before, `${p.name} after the frame was restored`);
-        if (!p.focus) return;
-        const res = String((await client.request(ControlCommand.TestFocusState, [""]))[1] ?? "");
-        check(res.includes(`focus=${p.focus} `), `${p.name}'s focus after the frame was restored: ${res}`);
-      });
-    }
+  // whichever hid them, they come back, also when the focus left the app meanwhile (E136)
+  for (const way of MINIMIZE_WAYS) {
+    await step(`${p.name}: frame minimized, ${way.how}`, async () => {
+      const before = await shown();
+      await minimizedAndRestored(client, way, p.find, p.name);
+      await waitAt(p.find, before, `${p.name} after the frame was restored`);
+      if (!p.focus) return;
+      const res = String((await client.request(ControlCommand.TestFocusState, [""]))[1] ?? "");
+      check(res.includes(`focus=${p.focus} `), `${p.name}'s focus after the frame was restored: ${res}`);
+    });
+  }
+
+  // E124: hidden by its owner meanwhile, it stays hidden
+  for (const way of MINIMIZE_WAYS) {
+    await step(`${p.name}: hidden by its owner while minimized, ${way.how}`, async () => {
+      await shown();
+      await minimizedAndRestored(client, way, p.find, p.name, () => hideByOwner(client, p.hide));
+      check(p.find() === 0, `${p.name} came back after its owner hid it`);
+    });
   }
 
   await step(`${p.name}: another tab`, async () => {
@@ -711,6 +783,7 @@ async function checkCanvasPopups(): Promise<void> {
       find: () => shownFindBar(pid, frame),
       open: async () => sendCommandSync(frame, cmdId("CmdFindFirst")),
       sidebar: "stays",
+      hide: "find",
     });
 
     let scrollBar = 0;
@@ -726,6 +799,7 @@ async function checkCanvasPopups(): Promise<void> {
         );
       },
       sidebar: "inside",
+      hide: "autoscroll",
     });
     if (scrollBar && isWindowVisible(scrollBar)) await invoke("CmdToggleAutomaticallyScroll");
 
@@ -734,6 +808,7 @@ async function checkCanvasPopups(): Promise<void> {
       find: () => shownTop(pid, SEL_CLASS),
       open: () => selectLineByKeyboard(client, frame),
       sidebar: "inside",
+      hide: "selection",
     });
 
     // a click on the square outside Edit PDF shows its comment
@@ -746,6 +821,7 @@ async function checkCanvasPopups(): Promise<void> {
       },
       sidebar: "closes",
       focus: "card",
+      hide: "card",
     });
 
     // in Edit PDF a click selects an annotation, even while a render holds the
@@ -759,7 +835,21 @@ async function checkCanvasPopups(): Promise<void> {
         await clickAt(canvas, c.x, c.y, 0, 0, client);
       },
       sidebar: "inside",
+      hide: "annotation",
     });
+
+    // the cursor over the square shows its hover card
+    await checkHoverMinimized(
+      client,
+      "Edit PDF hover card",
+      () => shownTop(pid, HOVER_CARD_CLASS),
+      async () => {
+        const c = await annotPoint(client, "Square");
+        const s = clientToScreen(canvas, c.x, c.y);
+        await moveTestCursor(s.x, s.y, client);
+        sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(c.x, c.y));
+      },
+    );
     sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
 
     const voices = /voices=(\d+)/.exec(String((await client.request(ControlCommand.TestReadAloudPlaybackBar, []))[1]));
@@ -787,6 +877,7 @@ async function checkCanvasPopups(): Promise<void> {
         sendMessage(readBar, WM_LBUTTONUP, 0, at);
       },
       sidebar: "inside",
+      hide: "readaloud",
     });
   } finally {
     client.close();
@@ -820,7 +911,7 @@ export async function testit(): Promise<void> {
     client.close();
     await killAndWait(proc);
   }
-  await step("citation hover: frame moved", checkRefHover);
+  await step("citation hover", checkRefHover);
   await step("E110 popups", checkCanvasPopups);
   check(failures.length === 0, failures.join("\n"));
   console.log("e98-anchored-popups: OK");

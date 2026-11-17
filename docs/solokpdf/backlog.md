@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-18: E112, E115–E119, E124–E126, E129–E135, E137, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E124, E137, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-18: E112, E115–E119, E125, E126, E129–E135, E137, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E137, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -31,7 +31,6 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | E117 | One test input command in Windows' message order; the layer owns foreground and key state under tests; remove window-code guards; CI on the hidden desktop (review: input layering, D3, D7, U1). Spec `.work/codex-queue/e117.md`                              | todo   |
 | E118 | Theme colors resolved at paint from (surface, role, state); main-window parts register their theme refresh (review: theme layering, U4). Spec `.work/codex-queue/e118.md`                                                                                      | todo   |
 | E119 | Review docs and process: fz_catch conversion for upstream merges, fz-catch.h MuPDF dependency, doc claims, spec rules. Spec `.work/codex-queue/e119.md`                                                                                                        | todo   |
-| E124 | Anchored popups an owner hides while the frame is minimized come back on restore (Windows reshows owned popups; the layer can't see the hide). Make the owner's intent visible to the layer (E121 follow-up). Spec `.work/codex-queue/e124.md`                 | todo   |
 | E125 | Annotation toolbar click point lives with the selection, not the toolbar: scrolling the page off and back re-shows it at the annotation's left edge (E121 follow-up). Spec `.work/codex-queue/e125.md`                                                         | todo   |
 | E126 | Home keyboard-focus tip is dismissed on minimize and not shown on restore (E121 follow-up). Spec `.work/codex-queue/e126.md`                                                                                                                                   | todo   |
 | E129 | Citation popup left by E122: its hand cursor drops busy, its show reads text blocking on the UI thread (may load the editor on PDFium), plain-text citation walk takes seconds; no unit test for the text cache Failed state. Spec `.work/codex-queue/e129.md` | todo   |

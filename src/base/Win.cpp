@@ -2106,7 +2106,8 @@ bool TrackMouseLeave(HWND hwnd) {
 //   anchor moved or resized, popup placed
 //   from content (AnchorArgs::place)        -> owner places it
 //   frame minimized                         -> hidden, shown again with it, with the focus
-//                                              it had (a popup it doesn't own: dismissed)
+//                                              it had, unless its owner hid it meanwhile
+//                                              (a hover, a popup it doesn't own: dismissed)
 //   anchor or an ancestor hidden            -> dismissed
 //   anchor shows other content (AnchorShows)-> dismissed
 //   cursor left the anchor (AnchorLeave)    -> dismissed
@@ -2114,6 +2115,8 @@ bool TrackMouseLeave(HWND hwnd) {
 // The anchor and its ancestors are subclassed. What they report is acted on
 // in a message posted to the popup, once the windows settled: a relayout hides
 // and shows them on its way, and WM_SETREDRAW clears WS_VISIBLE meanwhile.
+// Owners hide a popup with HideAnchoredPopup() (ShowAppWindow() does): hiding a
+// hidden window tells no one, and only this says it stays hidden on restore.
 
 struct AnchoredPopup {
     HWND popup = nullptr;
@@ -2211,7 +2214,14 @@ static void RefocusPopup(HWND popup, HWND focus) {
     }
 }
 
+// not shown again with its frame
+static void ForgetMinimized(AnchoredPopup* ap) {
+    ap->minimized = false;
+    ap->focus = nullptr;
+}
+
 static void DismissAnchoredPopup(AnchoredPopup* ap) {
+    ForgetMinimized(ap);
     // may destroy the popup, and ap with it
     Func0 dismiss = ap->args.dismiss;
     if (!dismiss.IsValid()) {
@@ -2226,10 +2236,17 @@ static void SyncAnchoredPopup(AnchoredPopup* ap) {
     bool left = ap->left;
     ap->left = false;
     HWND anchor = ap->args.anchor;
-    // Windows hides the popups a frame owns before it goes iconic and shows them
-    // with it again. One shown in between waits the same way: hidden, its owner's
-    // state kept for the restore, whichever of Windows and this sync came first
-    if (FrameMinimized(anchor) && GetWindow(ap->popup, GW_OWNER) == GetAncestor(anchor, GA_ROOT)) {
+    bool withFrame = FrameMinimized(anchor) && GetWindow(ap->popup, GW_OWNER) == GetAncestor(anchor, GA_ROOT);
+    // a hover goes with the minimize, also when the frame is back by now
+    bool hover = ap->args.minimize == AnchorMinimize::Dismiss;
+    if (hover && (ap->minimized || (withFrame && HwndIsVisible(ap->popup)))) {
+        DismissAnchoredPopup(ap);
+        return;
+    }
+    // Windows hides the popups a frame owns before it goes iconic. One shown in
+    // between waits the same way: hidden, its owner's state kept for the restore,
+    // whichever of Windows and this sync came first
+    if (withFrame) {
         if (HwndIsVisible(ap->popup)) {
             NoteMinimized(ap);
             HidePopup(ap->popup);
@@ -2320,6 +2337,11 @@ static LRESULT CALLBACK AnchoredPopupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
     if (msg == WM_SHOWWINDOW && !wp && lp == SW_PARENTCLOSING) {
         NoteMinimized(ap);
     }
+    // Windows shows it with its restored frame also when its owner hid it meanwhile:
+    // the sync does instead, unless it was hidden
+    if (msg == WM_SHOWWINDOW && wp && lp == SW_PARENTOPENING) {
+        return 0;
+    }
     LRESULT res = DefSubclassProc(hwnd, msg, wp, lp);
     // placed by its owner, relative to where the anchor is now. Z-order changes
     // (the frame activated) leave the place alone. One its owner places may be
@@ -2348,6 +2370,15 @@ static AnchoredPopup* FindAnchoredPopup(HWND popup) {
         }
     }
     return nullptr;
+}
+
+// Hides popup. One hidden with its minimized frame then stays hidden on restore.
+void HideAnchoredPopup(HWND popup) {
+    AnchoredPopup* ap = FindAnchoredPopup(popup);
+    if (ap) {
+        ForgetMinimized(ap);
+    }
+    ShowWindow(popup, SW_HIDE);
 }
 
 // Hidden with its minimized frame, it comes back with it: an owner doesn't

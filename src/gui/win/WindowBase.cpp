@@ -46,7 +46,12 @@ HWND AppWindowZOrder(HWND hwnd, HWND normal) {
 }
 
 void ShowAppWindow(HWND hwnd, int show) {
-    if (show != SW_HIDE && AppWindowZOrder(hwnd, nullptr) == HWND_BOTTOM) {
+    if (show == SW_HIDE) {
+        // also hidden for good if anchored and hidden with its minimized frame
+        HideAnchoredPopup(hwnd);
+        return;
+    }
+    if (AppWindowZOrder(hwnd, nullptr) == HWND_BOTTOM) {
         ::ShowWindow(hwnd, SW_SHOWNA);
         ::SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         return;

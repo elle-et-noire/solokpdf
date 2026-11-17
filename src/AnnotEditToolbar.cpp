@@ -2072,9 +2072,8 @@ void HideAnnotEditToolbar(MainWindow* win) {
         RestoreCanvasFocus(tb);
         DestroyContentsEditor(tb);
     }
-    if (tb->host->IsVisible()) {
-        tb->host->Show(false);
-    }
+    // also while hidden with its minimized frame
+    tb->host->Show(false);
     if (tb->host->vroot) {
         tb->host->vroot->ClearHover();
         tb->host->vroot->ClearPressed();
@@ -2540,6 +2539,7 @@ void UpdateAnnotationHoverOverlay(MainWindow* win) {
     AnchorArgs anchorArgs;
     anchorArgs.anchor = win->hwndCanvas;
     anchorArgs.dismiss = MkFunc0(HideAnnotationHoverOverlay, win);
+    anchorArgs.minimize = AnchorMinimize::Dismiss;
     anchorArgs.content = win->CanvasContent();
     AnchorPopup(overlay->host->native, anchorArgs);
     if (rebuild) {

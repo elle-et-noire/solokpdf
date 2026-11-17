@@ -417,7 +417,10 @@ not only when the frame moves. The ones about the document go with its tab.
 The annotation toolbar no longer shows over the desktop while the window is
 minimized (E110). These popups and the ones above hide with the minimized
 frame and come back where they were when it is restored, also one shown while
-it was minimized; the canvas tip goes (E121).
+it was minimized; the canvas tip goes (E121). One hidden meanwhile stays
+hidden, e.g. the selection toolbar after the selection was cleared. Hovers (the
+toolbar drop-down, About hover, citation hover and Edit PDF hover card) go with
+the minimize, as they do when another window activates (E124).
 
 ## Count prefix
 

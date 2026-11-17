@@ -416,8 +416,7 @@ void ReadAloudPlaybackBarHide(MainWindow* win) {
         return;
     }
     win->readAloudPlaybackBar->sessionTab = nullptr;
-    SetWindowPos(win->readAloudPlaybackBar->hwnd, nullptr, 0, 0, 0, 0,
-                 SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+    HideAnchoredPopup(win->readAloudPlaybackBar->hwnd);
 }
 
 // the tab is going away; the bar has no reason to exist without it
@@ -428,8 +427,7 @@ void ReadAloudPlaybackBarForgetTab(MainWindow* win, WindowTab* tab) {
     }
     bar->sessionTab = nullptr;
     if (bar->hwnd) {
-        SetWindowPos(bar->hwnd, nullptr, 0, 0, 0, 0,
-                     SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+        HideAnchoredPopup(bar->hwnd);
     }
 }
 

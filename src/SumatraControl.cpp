@@ -73,6 +73,7 @@
 #include "Theme.h"
 #include "PageGridDialogCommon.h"
 #include "AnnotEditToolbar.h"
+#include "AnnotTextPopup.h"
 #include "AnnotFilterToolbar.h"
 #include "Annotation.h"
 #include "Menu.h"
@@ -737,6 +738,29 @@ static int MinimizeFrameForTest(HWND frame, Str order, MinimizeFocus focus) {
     return len(shown.hwnds);
 }
 
+// What the owner of the popup does to hide it, as the user's actions reach it.
+// Returns false for an unknown popup.
+static bool HidePopupForTest(MainWindow* win, Str popup) {
+    if (str::Eq(popup, StrL("find"))) {
+        HideFindBar(win);
+    } else if (str::Eq(popup, StrL("autoscroll"))) {
+        ReadingAutoScrollStop(win);
+    } else if (str::Eq(popup, StrL("readaloud"))) {
+        ReadAloudPlaybackBarHide(win);
+    } else if (str::Eq(popup, StrL("selection"))) {
+        // Esc twice: out of keyboard selection, then the selection goes
+        StopSelectTextWithKeyboard(win);
+        DeleteOldSelectionInfo(win, true);
+    } else if (str::Eq(popup, StrL("card"))) {
+        HideAnnotationTextPopup(win);
+    } else if (str::Eq(popup, StrL("annotation")) && win->CurrentTab()) {
+        SetSelectedAnnotation(win->CurrentTab(), nullptr);
+    } else {
+        return false;
+    }
+    return true;
+}
+
 enum class ControlCmd : u16 {
     Ping = 1,
     Quit = 2,
@@ -923,7 +947,8 @@ enum class ControlCmd : u16 {
     // open windows' colors against the palette; "set <theme>" first switches theme
     TestThemeWindows = 178,
     // minimizes ("os-first" / "anchor-first") or restores ("restore") the frame on the UI thread;
-    // a second argument "away" takes the focus out of the app as the popups hide
+    // a second argument "away" takes the focus out of the app as the popups hide.
+    // "hide <popup>" has the popup's owner hide it (HidePopupForTest)
     TestMinimizeFrame = 179,
 };
 
@@ -1759,6 +1784,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             Str order = StringArg(req, 0);
+            if (str::Eq(order, StrL("hide"))) {
+                bool hidden = HidePopupForTest(win, StringArg(req, 1));
+                AppendTestResult(req, hidden ? 0 : 1, hidden ? StrL("OK") : StrL("unknown popup"));
+                break;
+            }
             bool away = str::Eq(StringArg(req, 1), StrL("away"));
             MinimizeFocus focus = away ? MinimizeFocus::Away : MinimizeFocus::Kept;
             int nShown = MinimizeFrameForTest(win->hwndFrame, order, focus);

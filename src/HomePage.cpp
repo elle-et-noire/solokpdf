@@ -2727,6 +2727,7 @@ static void ShowHomeAboutHover(MainWindow* win) {
     AnchorArgs anchorArgs;
     anchorArgs.anchor = win->hwndCanvas;
     anchorArgs.dismiss = MkFunc0(HideHomeAboutHover, win);
+    anchorArgs.minimize = AnchorMinimize::Dismiss;
     anchorArgs.content = win->CanvasContent();
     AnchorPopup(host->native, anchorArgs);
     UpdateAboutLayout(&host->vroot, host->native, {0, 0, box.dx, box.dy}, true);

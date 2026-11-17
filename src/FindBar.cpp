@@ -567,7 +567,7 @@ void DeleteFindBar(MainWindow* win) {
         win->findEdit = nullptr;
     }
     if (bar->hwnd) {
-        ShowWindow(bar->hwnd, SW_HIDE);
+        HideAnchoredPopup(bar->hwnd);
     }
     delete bar;
 }
@@ -712,7 +712,7 @@ void HideFindBar(MainWindow* win) {
         return;
     }
     AbortFinding(win, true);
-    ShowWindow(win->findBar->hwnd, SW_HIDE);
+    HideAnchoredPopup(win->findBar->hwnd);
     HwndSetFocus(win->hwndFrame);
     ScheduleRepaint(win, 0);
 }

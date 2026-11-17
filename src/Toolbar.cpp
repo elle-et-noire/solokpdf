@@ -1596,6 +1596,7 @@ static void OpenHoverDropdown(MainWindow* win, int cmdId) {
     AnchorArgs anchorArgs;
     anchorArgs.anchor = tb->host->native;
     anchorArgs.dismiss = MkFunc0(HideToolbarHoverDropdown, win);
+    anchorArgs.minimize = AnchorMinimize::Dismiss;
     AnchorPopup(host->native, anchorArgs);
 
     tb->host->KillTimer(kOpenHoverDropdownTimerId);
