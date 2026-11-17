@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E98–E100 open (order: E98–E100; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-17: E98–E100 and E108 open (order: E108, then E98–E100; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B77, C2, D15, E108, F4). For a code change, choose affected tests from
+group (B77, C2, D15, E109, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -32,6 +32,7 @@ hand-written hide and reposition calls.
 | E98  | Toolbar hover drop-down (`Toolbar.cpp`, a popup under its button): stays at its old screen place when the frame is dragged or moved by Win+arrow, and stays shown when the toolbar is hidden or the fullscreen overlay toolbar auto-hides | todo   |
 | E99  | Home About hover (`HomePage.cpp`): stays over a document after Ctrl+Tab while the cursor rests on it, and at its old place after a keyboard frame move                                                                                    | todo   |
 | E100 | Canvas infotip (a topmost track-mode tooltip): Home's keyboard-selection tip keeps its screen place when the frame moves or the sidebar shifts the canvas; a link tip can linger when the cursor leaves the canvas from it                | todo   |
+| E108 | Color roles for virtual controls: E107 left VirtCtrl overrides set once at creation (Advanced settings' muted comment, count, default help go stale on theme preview). Spec `.work/codex-queue/e108.md`                                   | todo   |
 
 ## Deferred
 
