@@ -1806,11 +1806,14 @@ int ReleaseThreadKeyState() {
 //   cursor position, message position          -> the test cursor
 //   window under a point                       -> only this thread's windows
 //   foreground on the never-shown test desktop -> the active window
-//   mouse leave tracking                       -> off; tests send WM_MOUSELEAVE
+//   mouse leave tracking                       -> emulated at the test cursor
 
 static bool hasTestCursor = false;
 static Point testCursor{};
 static HHOOK testInputHook = nullptr;
+static HHOOK testSentHook = nullptr;
+// the window tracked for leave at the test cursor, like Windows' one tracked window
+static HWND testLeaveHwnd = nullptr;
 
 // A move Windows made at the physical pointer, off the test cursor (e.g. at a
 // window shown under the pointer). Drags pass.
@@ -1824,6 +1827,20 @@ static bool IsPhysicalMove(const MSG& m) {
     return !HwndScreenToClient(m.hwnd, testCursor).Eq(GET_X_LPARAM(m.lParam), GET_Y_LPARAM(m.lParam));
 }
 
+// Like Windows, a mouse capture cancels leave tracking.
+static void CancelTestLeaveOnCapture() {
+    if (testLeaveHwnd && GetCapture()) {
+        testLeaveHwnd = nullptr;
+    }
+}
+
+static void PostTestLeave() {
+    if (testLeaveHwnd) {
+        PostMessageW(testLeaveHwnd, WM_MOUSELEAVE, 0, 0);
+        testLeaveHwnd = nullptr;
+    }
+}
+
 // Sees every message this thread retrieves, in modal loops (dialogs, menus,
 // drag and drop) too.
 static LRESULT CALLBACK TestInputHookProc(int code, WPARAM wp, LPARAM lp) {
@@ -1831,6 +1848,13 @@ static LRESULT CALLBACK TestInputHookProc(int code, WPARAM wp, LPARAM lp) {
     if (code == HC_ACTION && IsPhysicalMove(*m)) {
         m->message = WM_NULL;
     }
+    CancelTestLeaveOnCapture();
+    return CallNextHookEx(nullptr, code, wp, lp);
+}
+
+// Sees sent messages (tests send their mouse input) after they are handled.
+static LRESULT CALLBACK TestSentHookProc(int code, WPARAM wp, LPARAM lp) {
+    CancelTestLeaveOnCapture();
     return CallNextHookEx(nullptr, code, wp, lp);
 }
 
@@ -1852,16 +1876,25 @@ void SetTestCursorPosition(Point pt) {
     hasTestCursor = true;
     if (!testInputHook) {
         testInputHook = SetWindowsHookExW(WH_GETMESSAGE, TestInputHookProc, nullptr, GetCurrentThreadId());
+        testSentHook = SetWindowsHookExW(WH_CALLWNDPROCRET, TestSentHookProc, nullptr, GetCurrentThreadId());
     }
     // tracking armed at the physical pointer would post a leave that clears the test's hover
     EnumThreadWindows(GetCurrentThreadId(), CancelLeaveTrackingTree, 0);
+    if (testLeaveHwnd && HwndWindowFromPoint(pt) != testLeaveHwnd) {
+        PostTestLeave();
+    }
 }
 
 void ClearTestCursorPosition() {
     hasTestCursor = false;
+    testLeaveHwnd = nullptr;
     if (testInputHook) {
         UnhookWindowsHookEx(testInputHook);
         testInputHook = nullptr;
+    }
+    if (testSentHook) {
+        UnhookWindowsHookEx(testSentHook);
+        testSentHook = nullptr;
     }
 }
 
@@ -1971,12 +2004,27 @@ HWND HwndGetForeground() {
     return fg;
 }
 
-// Asks for WM_MOUSELEAVE for the window (TrackMouseEvent TME_LEAVE). Windows
-// tracks the physical pointer, not the test cursor: leave would come at once,
-// so tracking is off then and tests send WM_MOUSELEAVE.
+// Windows tracks the physical pointer, not the test cursor; this tracks the
+// test cursor the same way: one window, leave posted when the cursor leaves it
+// (at once if already outside), cancelled by a mouse capture.
+static bool ArmTestLeave(HWND hwnd) {
+    if (GetCapture()) {
+        return false;
+    }
+    if (testLeaveHwnd != hwnd) {
+        PostTestLeave();
+    }
+    testLeaveHwnd = hwnd;
+    if (HwndWindowFromPoint(testCursor) != hwnd) {
+        PostTestLeave();
+    }
+    return true;
+}
+
+// Asks for WM_MOUSELEAVE for the window (TrackMouseEvent TME_LEAVE).
 bool ArmMouseLeave(HWND hwnd) {
     if (hasTestCursor) {
-        return false;
+        return ArmTestLeave(hwnd);
     }
     TRACKMOUSEEVENT tme{sizeof(tme), TME_LEAVE, hwnd, 0};
     return TrackMouseEvent(&tme) != FALSE;
@@ -1986,7 +2034,7 @@ bool ArmMouseLeave(HWND hwnd) {
 // returns true if started tracking
 bool TrackMouseLeave(HWND hwnd) {
     if (hasTestCursor) {
-        return false;
+        return testLeaveHwnd != hwnd && ArmTestLeave(hwnd);
     }
     TRACKMOUSEEVENT tme{};
     tme.cbSize = sizeof(TRACKMOUSEEVENT);

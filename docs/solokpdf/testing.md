@@ -473,9 +473,10 @@ foreground goes through the app input layer in `src/base/Win.cpp`
 - the cursor and message positions are the test cursor
 - the window under a point is found among the UI thread's windows only
 - with no foreground window (the hidden desktop), the active window stands in
-- setting the cursor cancels mouse-leave tracking and none is armed; send
-  `WM_MOUSELEAVE` when the test needs that transition, after moving the test
-  cursor off the window
+- setting the cursor cancels Windows' mouse-leave tracking; the layer tracks
+  the test cursor instead, as Windows does the pointer: one window, leave
+  posted when the cursor moves off it (at once if already off), cancelled by
+  a mouse capture
 
 Raw `GetCursorPos`, `GetMessagePos`, `WindowFromPoint` and `TrackMouseEvent` stay
 inside the layer; raw `GetForegroundWindow` only where Windows activation is the

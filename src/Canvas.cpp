@@ -5438,6 +5438,12 @@ LRESULT CALLBACK WndProcCanvas(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         UpdateOverlayToolbarForMouse(win);
     }
 
+    // the capture cancelled leave tracking; re-arm so leaving clears hover
+    // (posted at once if the mouse is outside)
+    if (msg == WM_CAPTURECHANGED) {
+        ArmMouseLeave(hwnd);
+    }
+
     // messages that require win
     switch (msg) {
         case WM_TIMER:

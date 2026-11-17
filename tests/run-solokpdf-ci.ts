@@ -72,6 +72,7 @@ import { testit as tabViewB70 } from "./ad-hoc-b70-tab-view.ts";
 import { testit as lintSystemClipboard } from "./lint-system-clipboard.ts";
 import { testit as hoverB71 } from "./ad-hoc-b71-hover.ts";
 import { testit as physicalMovesE101 } from "./ad-hoc-e101-physical-moves.ts";
+import { testit as tabLeaveE103 } from "./ad-hoc-e103-tab-leave.ts";
 import { testit as positionB71 } from "./ad-hoc-b71-window-position.ts";
 import { testit as activationTraceB71 } from "./ad-hoc-b71-activation-trace.ts";
 
@@ -137,6 +138,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-b71-window-position", positionB71],
   ["ad-hoc-b71-hover", hoverB71],
   ["ad-hoc-e101-physical-moves", physicalMovesE101],
+  ["ad-hoc-e103-tab-leave", tabLeaveE103],
   ["ad-hoc-b70-tab-view", tabViewB70],
   ["ad-hoc-b70-settings", settingsB70],
   ["ad-hoc-b67-clipboard", localClipboard],

@@ -310,7 +310,6 @@ struct VirtRoot {
     bool needsLayout = true;
     // legacy single-tree hosts lay out lazily from Paint(); see SetChild()
     bool layoutInPaint = false;
-    bool trackingMouseLeave = false;
     // a touch pan in progress: where it started (window coords) and the last y
     bool panActive = false;
     Point panStart;

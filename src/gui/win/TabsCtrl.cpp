@@ -924,9 +924,6 @@ void TabsCtrl::CloseTab(int idx) {
     if (!FindMainWindowByHwnd(hwnd)) {
         return;
     }
-    // the ✕ click's capture cancels leave tracking; re-arm it so leaving
-    // unfreezes the widths (posted at once if the mouse is already outside)
-    TrackMouseLeave(hwnd);
     ScheduleRepaint();
     tabBeingClosed = -1;
 }
@@ -1130,6 +1127,9 @@ LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 draggingTab = false;
                 ImageList_EndDrag();
             }
+            // the capture cancelled leave tracking; leaving must still unfreeze
+            // widths and clear hover (posted at once if the mouse is outside)
+            ArmMouseLeave(hwnd);
             break;
         }
 

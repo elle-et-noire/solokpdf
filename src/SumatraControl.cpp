@@ -1290,6 +1290,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
             for (int i = 0; i < tabs->TabCount(); i++) {
                 out.Append(fmt("dx=%d text=%s\n", tabs->TabDx(i), tabs->GetTab(i)->text));
             }
+            out.Append(fmt("state hover=%d frozen=%d\n", tabs->tabHighlighted, (int)tabs->tabWidthFrozen));
             AppendTestResult(req, 0, ToStrTemp(out));
             break;
         }

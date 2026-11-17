@@ -1109,8 +1109,10 @@ static bool BubbleMouse(VirtCtrl* target, VirtMouseEvent& ev, bool (VirtCtrl::*h
     return false;
 }
 
+// Asks Windows whether leave is tracked instead of caching it: a mouse
+// capture cancels tracking without a WM_MOUSELEAVE.
 void VirtRoot::TrackMouseLeaveIfNeeded() {
-    if (trackingMouseLeave || !hwnd) {
+    if (!hwnd) {
         return;
     }
     // posted moves (tests) are not the real cursor; TME_LEAVE would fire
@@ -1118,7 +1120,7 @@ void VirtRoot::TrackMouseLeaveIfNeeded() {
     if (!HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
         return;
     }
-    trackingMouseLeave = ArmMouseLeave(hwnd);
+    TrackMouseLeave(hwnd);
 }
 
 // WS_EX_NOACTIVATE cannot take focus. SetFocus on it drops the foreground
@@ -1261,7 +1263,6 @@ bool VirtRoot::OnMessage(UINT msg, WPARAM wp, LPARAM lp, LRESULT& res) {
         }
 
         case WM_MOUSELEAVE:
-            trackingMouseLeave = false;
             ClearHover();
             HideTooltip();
             return false;
@@ -1278,6 +1279,9 @@ bool VirtRoot::OnMessage(UINT msg, WPARAM wp, LPARAM lp, LRESULT& res) {
                 w->OnCaptureLost();
                 w->Invalidate();
             }
+            // the capture cancelled leave tracking; re-arm so leaving clears
+            // hover (posted at once if the mouse is outside)
+            ArmMouseLeave(hwnd);
             return false; // the window may still want it
         }
 
@@ -3861,7 +3865,7 @@ bool VirtTreeOnMessage(HWND hwnd, VirtRoot* root, UINT msg, WPARAM wp, LPARAM lp
         LPARAM lp2 = inClientCoords ? UnmirrorRtlLparam(hwnd, lp) : lp;
         return root->OnMessage(msg, wp, lp2, res);
     }
-    if (msg == WM_KEYDOWN || msg == WM_CHAR) {
+    if (msg == WM_KEYDOWN || msg == WM_CHAR || msg == WM_CAPTURECHANGED) {
         return root->OnMessage(msg, wp, lp, res);
     }
     return false;

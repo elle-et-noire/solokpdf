@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E98–E100, E103 and E104 open (order: E103, E104, then E98–E100; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-17: E98–E100 and E104 open (order: E104, then E98–E100; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -32,7 +32,6 @@ hand-written hide and reposition calls.
 | E98  | Toolbar hover drop-down (`Toolbar.cpp`, a popup under its button): stays at its old screen place when the frame is dragged or moved by Win+arrow, and stays shown when the toolbar is hidden or the fullscreen overlay toolbar auto-hides | todo   |
 | E99  | Home About hover (`HomePage.cpp`): stays over a document after Ctrl+Tab while the cursor rests on it, and at its old place after a keyboard frame move                                                                                    | todo   |
 | E100 | Canvas infotip (a topmost track-mode tooltip): Home's keyboard-selection tip keeps its screen place when the frame moves or the sidebar shifts the canvas; a link tip can linger when the cursor leaves the canvas from it                | todo   |
-| E103 | Tab strip leave tracking: mouse capture cancels it; E86 re-armed it only in `CloseTab`. Enforce it where capture ends. Spec `.work/codex-queue/e103.md`                                                                                   | todo   |
 | E104 | Command palette colors: E91 overrides `UpdateTheme()`'s dialog color afterwards; make the surface color an input to theme application. Spec `.work/codex-queue/e104.md`                                                                   | todo   |
 
 ## Deferred
