@@ -93,6 +93,7 @@ const args = [
     "ConfigureRestrictedUse", "configure-restricted-use",
     "WithThumbnails", "with-thumbnails",
     "TestApp", "testapp",
+    "CrashDumpHelper", "crash-dump-helper",
 ];
 
 function generateCode(): string {

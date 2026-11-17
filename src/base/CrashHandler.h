@@ -18,6 +18,9 @@ struct CrashHandlerConfig {
     // describe the ReportIf() that fired and are empty for a crash. Everything
     // it returns must be allocated from a, which is the crash arena.
     Str (*getCrashComment)(Arena* a, Str condStr, Str fileLine, bool isCrash);
+    // runs once on a background thread at install, before any report: gathers
+    // what getCrashComment() can't ask for at crash time (it would load DLLs)
+    void (*prepareCrashInfo)();
     void (*onCrashBegin)();
     void (*showCrashMessage)();
     // for a crash on a thread not started by our exe (or the thread pool): true if
@@ -30,6 +33,7 @@ struct CrashHandlerConfig {
 
 void InstallCrashHandler(const CrashHandlerConfig& cfg);
 void UninstallCrashHandler();
+int RunCrashDumpHelper(Str arg);
 
 // pre-allocated, so that a crash doesn't have to touch the process heap
 Arena* CrashHandlerArena();

@@ -48,7 +48,7 @@ enum class Arg {
     WindowPos = 76, DumpExif = 77, DumpChm = 78, Control = 79,
     UnitTests = 80, ForAi = 81, NewWindowTabs = 82, HtmlBackend = 83,
     NoDesktopShortcut = 84, StartPerfLog = 85, LogPerfFile = 86, ConfigureRestrictedUse = 87,
-    WithThumbnails = 88, TestApp = 89,
+    WithThumbnails = 88, TestApp = 89, CrashDumpHelper = 90,
 };
 
 static SeqStrings gArgNames =
@@ -74,7 +74,7 @@ static SeqStrings gArgNames =
     "window-pos\0" "dump-exif\0" "dump-chm\0" "dbg-control\0"
     "unit-tests\0" "for-ai\0" "new-window-tabs\0" "html-backend\0"
     "no-desktop-shortcut\0" "start-perf-log\0" "log-perf-file\0" "configure-restricted-use\0"
-    "with-thumbnails\0" "testapp\0";
+    "with-thumbnails\0" "testapp\0" "crash-dump-helper\0";
 // clang-format on
 // @gen-end flags
 
@@ -686,6 +686,10 @@ static void ParseFlagNodes(Arena* a, StrNode* firstArg, Flags& i, Str toolNames)
         }
         if (arg == Arg::Control) {
             i.controlPipeName = str::Dup(a, param);
+            continue;
+        }
+        if (arg == Arg::CrashDumpHelper) {
+            i.crashDumpHelper = str::Dup(a, param);
             continue;
         }
         if ((arg == Arg::ForwardSearch1 || arg == Arg::ForwardSearch2) && AdditionalParam(nextArg)) {

@@ -199,7 +199,10 @@ static BOOL CALLBACK OpenMiniDumpCallback(void* /*param*/, PMINIDUMP_CALLBACK_IN
     }
 }
 
-void WriteMiniDump(WStr crashDumpFilePath, MINIDUMP_EXCEPTION_INFORMATION* mei, bool fullDump, Str comment) {
+// Dumps process, which may be another one: then mei's pointers must be in it
+// (ClientPointers) and comment in ours.
+void WriteMiniDump(HANDLE process, WStr crashDumpFilePath, MINIDUMP_EXCEPTION_INFORMATION* mei, bool fullDump,
+                   Str comment) {
     if (!DynMiniDumpWriteDump) {
         log(StrL("WriteMiniDump: MiniDumpWriteDump not loaded\n"));
         return;
@@ -237,7 +240,7 @@ void WriteMiniDump(WStr crashDumpFilePath, MINIDUMP_EXCEPTION_INFORMATION* mei, 
         userParam = &userInfo;
     }
 
-    BOOL ok = DynMiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, type, mei, userParam, &mci);
+    BOOL ok = DynMiniDumpWriteDump(process, GetProcessId(process), hFile, type, mei, userParam, &mci);
     if (!ok) {
         logf("WriteMiniDump: MiniDumpWriteDump failed, err=%u\n", GetLastError());
     }

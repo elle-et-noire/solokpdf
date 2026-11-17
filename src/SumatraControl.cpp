@@ -136,6 +136,56 @@ void StartActivationTrace() {
     SetWindowsHookExW(WH_CALLWNDPROC, ActivationHook, nullptr, GetCurrentThreadId());
 }
 
+using LdrNotifyFn = VOID(CALLBACK*)(ULONG reason, const void* data, void* ctx);
+using LdrRegisterNotifyFn = LONG(NTAPI*)(ULONG flags, LdrNotifyFn fn, void* ctx, void** cookie);
+
+static HANDLE gLoaderParked = nullptr;
+static DWORD gLoaderParkTid = 0;
+
+// runs inside LoadLibrary on the loading thread; never returns on the park thread
+static VOID CALLBACK ParkInLoaderNotify(ULONG, const void*, void*) {
+    if (GetCurrentThreadId() != gLoaderParkTid) {
+        return;
+    }
+    SetEvent(gLoaderParked);
+    Sleep(INFINITE);
+}
+
+static DWORD WINAPI ParkInLoaderThread(void* dll) {
+    LoadLibraryW((const WCHAR*)dll);
+    return 0;
+}
+
+// A thread that stays inside LoadLibrary, so a test can crash with the loader
+// busy, as when a crash suspends a thread mid-load.
+static Str TestParkInLoader() {
+    static const WCHAR* dlls[] = {L"mssign32.dll", L"wtsapi32.dll", L"cabinet.dll", L"dhcpcsvc.dll"};
+    const WCHAR* dll = nullptr;
+    for (const WCHAR* d : dlls) {
+        if (!GetModuleHandleW(d)) {
+            dll = d;
+            break;
+        }
+    }
+    if (!dll) {
+        return StrL("no unloaded dll to park in");
+    }
+    auto reg = (LdrRegisterNotifyFn)GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "LdrRegisterDllNotification");
+    void* cookie = nullptr;
+    if (!reg || reg(0, ParkInLoaderNotify, nullptr, &cookie) < 0) {
+        return StrL("LdrRegisterDllNotification failed");
+    }
+    gLoaderParked = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE t = CreateThread(nullptr, 0, ParkInLoaderThread, (void*)dll, CREATE_SUSPENDED, &gLoaderParkTid);
+    if (!t) {
+        return StrL("CreateThread failed");
+    }
+    ResumeThread(t);
+    CloseHandle(t);
+    bool parked = WaitForSingleObject(gLoaderParked, 10000) == WAIT_OBJECT_0;
+    return parked ? StrL("parked") : StrL("did not park");
+}
+
 static TempStr ActivationTraceTemp() {
     str::Builder out;
     unsigned start = gActivationCount > kActivationTraceSize ? gActivationCount - kActivationTraceSize : 0;
@@ -812,6 +862,8 @@ enum class ControlCmd : u16 {
     TestClipboardFormat = 174,
     TestActivationTrace = 175,
     TestControllerDelete = 176,
+    // parks a thread inside the loader for good, as one suspended mid-LoadLibrary
+    TestParkInLoader = 177,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -2585,6 +2637,16 @@ static void ExecuteControlRequest(ControlRequest* req) {
             log(StrL("ControlCmd::CrashMe\n"));
             CrashMe();
             break;
+
+        case ControlCmd::TestParkInLoader: {
+            if (!gForTesting) {
+                AppendError(req, StrL("requires -for-testing"));
+                break;
+            }
+            Str res = TestParkInLoader();
+            AppendTestResult(req, str::Eq(res, StrL("parked")) ? 0 : 1, res);
+            break;
+        }
 
         case ControlCmd::TestTtsEngineCrash: {
             Str action = StringArg(req, 0);

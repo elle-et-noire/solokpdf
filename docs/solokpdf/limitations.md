@@ -540,10 +540,14 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   PDFium or the app, so silent memory errors aren't caught (E3 dropped:
   prebuilt PDFium isn't ASan). A passing close
   stress check is not an exhaustive proof against races.
-- A crash dump suspends every other thread, then loads `psapi.dll`, which
-  waits for any DLL load a suspended thread was in. `psapi.dll` is preloaded,
-  so the dump hangs only if a thread is suspended while holding the loader's
-  module table lock, which is rare (E78).
+- Crash dumps are written by a helper process started with the app (the same
+  exe with `-crash-dump-helper`), so a thread stopped inside the loader no
+  longer hangs a crash (E102). Each instance has one more `SumatraPDF.exe`
+  process: 5.1 MB private, 13.5 MB working set in a Debug build; Release
+  not measured. The crashing process still builds the report text (from
+  pre-gathered data, without DLL loads) and, outside tests, uploads it with
+  WinINet after the dump is on disk. A crash in the first ~30 ms after
+  startup waits for the helper to start.
 
 ## Tests and CI
 

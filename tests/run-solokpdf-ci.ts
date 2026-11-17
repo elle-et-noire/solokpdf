@@ -9,6 +9,7 @@ import { testit as coexist } from "./ad-hoc-solok-coexist.ts";
 import { testit as themeSwitch } from "./ad-hoc-pdfium-theme-switch.ts";
 import { testit as thumbnailTheme } from "./ad-hoc-pdfium-thumb-theme.ts";
 import { testit as stencilMaskTheme } from "./ad-hoc-theme-stencil-mask.ts";
+import { testit as crashDumpHelper } from "./ad-hoc-crash-dump-helper.ts";
 import { testit as thumbnailsHidden } from "./ad-hoc-thumbnails-hidden.ts";
 import { testit as cad } from "./ad-hoc-pdfium-cad.ts";
 import { testit as commands } from "./ad-hoc-pdfium-commands.ts";
@@ -201,6 +202,7 @@ const tests: NamedTest[] = [
   ["keyboard-input-targets", keyboardInputTargets],
   ["ad-hoc-count-prefix", countPrefix],
   ["ad-hoc-no-update-check", noUpdateCheck],
+  ["ad-hoc-crash-dump-helper", crashDumpHelper],
 ];
 
 // Hosted runners have no dependable cursor, certificate store, or PDF corpus.

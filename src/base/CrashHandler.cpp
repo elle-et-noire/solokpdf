@@ -79,6 +79,11 @@ constexpr UINT kDebugReportTestExitCode = 105;
 // static initializers/destructors, which are bad
 static Str gSystemInfo;
 static HANDLE gDumpEvent = nullptr;
+// set by the dump thread when the report is done: its exit would wait for the loader
+static HANDLE gReportDoneEvent = nullptr;
+// set by the dump thread once prepareCrashInfo ran and the dump helper started
+static HANDLE gReadyEvent = nullptr;
+constexpr DWORD kReadyTimeoutMs = 10 * 1000;
 static ThreadHandle gDumpThread = nullptr;
 static bool gCrashed = false;
 static AtomicBool gCrashHandlerStarted = 0;
@@ -86,6 +91,8 @@ static ThreadId gCrashThreadId = 0;
 static ThreadId gDumpThreadId = 0;
 
 static MINIDUMP_EXCEPTION_INFORMATION gMei{};
+// read from fullDumpEnvVar at install: GetEnvironmentVariableA() allocates
+static bool gFullDump = false;
 static LPTOP_LEVEL_EXCEPTION_FILTER gPrevExceptionFilter = nullptr;
 // kept so UninstallCrashHandler() can remove the handler: it reads globals
 // that uninstall tears down
@@ -156,6 +163,9 @@ static bool InitializeDbgHelp();
 // arena to write into. Every report builds its text before writing its .dmp,
 // so this is where the .dmp gets its name: the text can then say where it is.
 static Str BuildCrashComment(Str condStr, Str fileLine, bool isCrash) {
+    if (gReadyEvent) {
+        WaitForSingleObject(gReadyEvent, kReadyTimeoutMs);
+    }
     gDumpPath = UniqueDumpPath();
     if (!gCfg.getCrashComment) {
         return {};
@@ -166,21 +176,88 @@ static Str BuildCrashComment(Str condStr, Str fileLine, bool isCrash) {
     return gCfg.getCrashComment(gCrashHandlerArena, condStr, fileLine, isCrash);
 }
 
+/*
+MiniDumpWriteDump() on our own process suspends every other thread and then
+needs the loader, so a thread suspended inside the loader deadlocks it. Starting
+a process at crash time isn't safe either: CreateProcess() waits for the loader
+and the process heap. So the handler starts a helper process (our exe with
+-crash-dump-helper) at install, and a crash only fills gDumpRequest and signals:
+
+  app (crashing)                          helper (RunCrashDumpHelper)
+  gDumpRequest = {thread, exception, ...}
+  SetEvent(request)  -------------------> ReadProcessMemory(app, gDumpRequest)
+  wait: done, helper gone or timeout      MiniDumpWriteDump(app, ClientPointers)
+                     <------------------- SetEvent(done)
+*/
+
+// what the helper reads from our memory; pointers are our addresses
+struct DumpRequest {
+    u64 exceptionPointers; // EXCEPTION_POINTERS*, 0 for none
+    u64 path;              // utf-8, gDumpPath
+    u64 comment;           // utf-8, the comment stream
+    u32 pathLen;
+    u32 commentLen;
+    u32 threadId;
+    u32 fullDump;
+};
+
+constexpr DWORD kHelperAppAccess = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE | SYNCHRONIZE;
+// a full dump of a large process takes seconds; past this we give up on it
+constexpr DWORD kDumpTimeoutMs = 30 * 1000;
+constexpr u32 kMaxRequestStrLen = 256 * 1024 * 1024;
+
+static DumpRequest gDumpRequest{};
+static HANDLE gHelperProcess = nullptr;
+static HANDLE gHelperRequestEvent = nullptr;
+static HANDLE gHelperDoneEvent = nullptr;
+// one request at a time: a crash can come while an ended thread's dump is written
+static HANDLE gHelperLock = nullptr;
+// set once the helper missed a request: a late "done" would answer the next one
+static AtomicBool gHelperFailed = 0;
+
+// Has the helper write the .dmp at gDumpPath. Only our memory, events and a
+// mutex: no heap, no loader. False if there is no helper or it didn't finish.
+static bool WriteDumpViaHelper(Str comment, MINIDUMP_EXCEPTION_INFORMATION* mei) {
+    if (!gHelperProcess || AtomicBoolGet(&gHelperFailed)) {
+        log(StrL("WriteDumpViaHelper: no helper\n"));
+        return false;
+    }
+    DWORD res = WaitForSingleObject(gHelperLock, kDumpTimeoutMs);
+    if (res != WAIT_OBJECT_0 && res != WAIT_ABANDONED) {
+        log(StrL("WriteDumpViaHelper: another dump is taking too long\n"));
+        return false;
+    }
+
+    gDumpRequest.exceptionPointers = mei ? (u64)(uintptr_t)mei->ExceptionPointers : 0;
+    gDumpRequest.threadId = mei ? mei->ThreadId : 0;
+    gDumpRequest.path = (u64)(uintptr_t)gDumpPath.s;
+    gDumpRequest.pathLen = (u32)len(gDumpPath);
+    gDumpRequest.comment = (u64)(uintptr_t)comment.s;
+    gDumpRequest.commentLen = (u32)len(comment);
+    gDumpRequest.fullDump = gFullDump ? 1 : 0;
+    SetEvent(gHelperRequestEvent);
+
+    HANDLE waits[2] = {gHelperDoneEvent, gHelperProcess};
+    res = WaitForMultipleObjects(dimof(waits), waits, FALSE, kDumpTimeoutMs);
+    bool ok = res == WAIT_OBJECT_0;
+    if (!ok) {
+        AtomicBoolSet(&gHelperFailed, true);
+        logf("WriteDumpViaHelper: helper failed, wait result %u\n", (uint)res);
+    }
+    ReleaseMutex(gHelperLock);
+    return ok;
+}
+
 // Writes the .dmp with logText attached as its comment stream, then uploads it
 // if shouldUpload. Writing it is unconditional: a local .dmp is useful even in
 // a build that must not send anything.
-// mei is null for a debug report (no exception to describe).
 static void WriteAndUploadMinidump(Str logText, MINIDUMP_EXCEPTION_INFORMATION* mei, bool shouldUpload) {
-    bool fullDump = false;
-    if (len(gCfg.fullDumpEnvVar) > 0) {
-        fullDump = GetEnvironmentVariableA(CStrTemp(gCfg.fullDumpEnvVar), nullptr, 0) != 0;
-    }
     if (len(gDumpPath) == 0) {
         gDumpPath = UniqueDumpPath();
     }
-    dir::CreateForFile(gDumpPath);
-    TempWStr ws = ToWStrTemp(gDumpPath);
-    dbghelp::WriteMiniDump(ws, mei, fullDump, logText);
+    if (!WriteDumpViaHelper(logText, mei)) {
+        return;
+    }
 
     if (!shouldUpload) {
         log(StrL("WriteAndUploadMinidump: skipping upload, !shouldUpload\n"));
@@ -235,108 +312,35 @@ static bool InitializeDbgHelp() {
     return true;
 }
 
-/* A thread cannot dump itself usefully. MiniDumpWriteDump() records a context
-   for the calling thread that it captured from inside dbgcore, and it's partial
-   enough that the walk off it dies right there: such a dump reads as
-   NtGetContextThread -> 0xffffffffffffffff -> dbgcore and nothing else. Every
-   *other* thread comes out fine, which is why both exception handlers below
-   hand the writing to CrashDumpThread. A debug report needs the same, more so:
-   there the thread we want *is* the one calling in.
-
-   The other half is that a debug report has no exception, so without help the
-   .dmp gets no exception stream: no .ecxr, no "interesting" thread (the
-   debugger falls back to thread 0), and every report buckets under dbgcore
-   rather than the ReportIf() that fired. So we synthesize one. */
+/* A debug report has no exception, so without help the .dmp gets no exception
+   stream: no .ecxr, no "interesting" thread (the debugger falls back to thread
+   0), and every report buckets the same. So we synthesize one. */
 
 // Customer-defined code (bit 29 set), so it can't collide with a system one.
 constexpr DWORD kDebugReportExceptionCode = 0xE0444247; // 'DBGR'
 
-struct DebugReportDumpArgs {
-    Str logText;
-    bool shouldUpload;
-    ThreadHandle hReportingThread;
-    ThreadId reportingThreadId;
-    void* exceptionAddr;
-};
-
-// Read by MiniDumpWriteDump() on the dump thread. Static so that writing a
-// report allocates nothing.
+// Read by the helper from our memory. Static so that writing a report
+// allocates nothing.
 static EXCEPTION_RECORD gDebugReportExcRec{};
 static CONTEXT gDebugReportCtx{};
 static EXCEPTION_POINTERS gDebugReportExcPtrs{};
 static MINIDUMP_EXCEPTION_INFORMATION gDebugReportMei{};
 
-// Builds the exception info for the reporting thread. Runs on the dump thread,
-// with the reporting thread suspended, so the context is consistent with the
-// stack memory the dump is about to capture.
-// ExceptionAddress is the ReportIf() site rather than the context's ip (which
-// is our own wait, a few frames down), so .exr names the assert. Note that
-// !analyze still buckets on the stack top, i.e. on our wait, so the failure
-// bucket is the same for every debug report: the Cond: line in the comment
-// stream is what tells them apart.
-static MINIDUMP_EXCEPTION_INFORMATION* CaptureReportingThreadException(const DebugReportDumpArgs* args) {
-    if (!args->hReportingThread) {
-        return nullptr;
-    }
-    if ((DWORD)-1 == SuspendThread(args->hReportingThread)) {
-        logf("CaptureReportingThreadException: SuspendThread failed, err=%u\n", GetLastError());
-        return nullptr;
-    }
-    gDebugReportCtx.ContextFlags = CONTEXT_FULL;
-    BOOL ok = GetThreadContext(args->hReportingThread, &gDebugReportCtx);
-    ResumeThread(args->hReportingThread);
-    if (!ok) {
-        logf("CaptureReportingThreadException: GetThreadContext failed, err=%u\n", GetLastError());
-        return nullptr;
-    }
-
+// Writes and uploads the debug report .dmp with this thread, here, as its
+// exception. The captured context stays valid: we wait in deeper frames while
+// the helper writes the dump.
+// ExceptionAddress is the ReportIf() site rather than the context's ip, so .exr
+// names the assert. !analyze still buckets on the stack top, i.e. here, so the
+// Cond: line in the comment stream is what tells reports apart.
+static NO_INLINE void WriteAndUploadDebugReportMinidump(Str logText, bool shouldUpload, void* exceptionAddr) {
+    RtlCaptureContext(&gDebugReportCtx);
     gDebugReportExcRec.ExceptionCode = kDebugReportExceptionCode;
-    gDebugReportExcRec.ExceptionAddress = args->exceptionAddr;
+    gDebugReportExcRec.ExceptionAddress = exceptionAddr;
     gDebugReportExcPtrs.ExceptionRecord = &gDebugReportExcRec;
     gDebugReportExcPtrs.ContextRecord = &gDebugReportCtx;
-    gDebugReportMei.ThreadId = args->reportingThreadId;
+    gDebugReportMei.ThreadId = GetCurrentThreadId();
     gDebugReportMei.ExceptionPointers = &gDebugReportExcPtrs;
-    // we're dumping our own process, so the pointers above are ours to read
-    gDebugReportMei.ClientPointers = FALSE;
-    return &gDebugReportMei;
-}
-
-static DWORD WINAPI DebugReportDumpThread(LPVOID data) {
-    auto args = (DebugReportDumpArgs*)data;
-    MINIDUMP_EXCEPTION_INFORMATION* mei = CaptureReportingThreadException(args);
-    WriteAndUploadMinidump(args->logText, mei, args->shouldUpload);
-    return 0;
-}
-
-// Writes and uploads the debug report .dmp from a thread other than this one,
-// so that this thread's stack is walkable in it. Blocks until that's done, so
-// args can live on our stack.
-static void WriteAndUploadDebugReportMinidump(Str logText, bool shouldUpload, void* exceptionAddr) {
-    DebugReportDumpArgs args{};
-    args.logText = logText;
-    args.shouldUpload = shouldUpload;
-    args.reportingThreadId = GetCurrentThreadId();
-    args.exceptionAddr = exceptionAddr;
-
-    // GetCurrentThread() is a pseudo-handle, meaningless on the dump thread
-    ThreadHandle hSelf = nullptr;
-    DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &hSelf, 0, FALSE,
-                    DUPLICATE_SAME_ACCESS);
-    args.hReportingThread = hSelf;
-
-    ThreadId tid = 0;
-    ThreadHandle h = CreateThread(nullptr, 0, DebugReportDumpThread, &args, 0, &tid);
-    if (!h) {
-        // better a dump with one bad stack than no dump
-        logf("WriteAndUploadDebugReportMinidump: CreateThread failed, err=%u\n", GetLastError());
-        WriteAndUploadMinidump(logText, nullptr, shouldUpload);
-    } else {
-        WaitForSingleObject(h, INFINITE);
-        CloseHandle(h);
-    }
-    if (hSelf) {
-        CloseHandle(hSelf);
-    }
+    WriteAndUploadMinidump(logText, &gDebugReportMei, shouldUpload);
 }
 
 // like crash report, but can be triggered without a crash
@@ -405,21 +409,22 @@ NO_INLINE void _uploadDebugReport(Str condStr, Str fileLine, bool isCrash) {
 
     logf("_uploadDebugReport: isCrash: %d\n", (int)isCrash);
 
-    // build the comment first: it walks this thread's stack, and that has to
-    // happen before we hand ourselves to the dump thread
     Str logText = BuildCrashComment(condStr, fileLine, isCrash);
     WriteAndUploadDebugReportMinidump(logText, shouldUpload, _ReturnAddress());
     log(logText);
     log(StrL("_uploadDebugReport() finished\n"));
 }
 
+static void StartDumpHelper();
+
 static DWORD WINAPI CrashDumpThread(LPVOID /*data*/) {
-    // off the UI thread: SymInitialize walks every loaded module (~45 ms).
-    // A crash signaled meanwhile waits for it, dbghelp::Initialize serializes
+    // off the UI thread: the app's crash info, the dump helper (~30 ms to start)
+    // and SymInitialize, which walks every loaded module (~45 ms). A crash
+    // signaled meanwhile waits for it, dbghelp::Initialize serializes
+    CallCb(gCfg.prepareCrashInfo);
+    StartDumpHelper();
+    SetEvent(gReadyEvent);
     InitializeDbgHelp();
-    // MiniDumpWriteDump loads psapi.dll with the other threads suspended; already
-    // loaded, it no longer waits for a load one of them was in the middle of
-    LoadLibraryExW(L"psapi.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     WaitForSingleObject(gDumpEvent, INFINITE);
     if (!gCrashed) {
         return 0;
@@ -427,24 +432,30 @@ static DWORD WINAPI CrashDumpThread(LPVOID /*data*/) {
 
     log(StrL("CrashDumpThread\n"));
     HandleCrashWithMinidump();
+    SetEvent(gReportDoneEvent);
     return 0;
 }
 
 // This is needed to intercept memory corruption reports from windows heap manager
 // https://peteronprogramming.wordpress.com/2017/07/30/crashes-you-cant-handle-easily-3-status_heap_corruption-on-windows/
 // https://phabricator.services.mozilla.com/D83753
-// writes the dump on the dump thread, shows the crash message and exits
+// reports on the dump thread, shows the crash message and exits
 static LONG HandleCrash(EXCEPTION_POINTERS* exceptionInfo, Str who) {
     logf("%s\n", who);
     gCrashed = true;
 
     gMei.ThreadId = GetCurrentThreadId();
     gMei.ExceptionPointers = exceptionInfo;
-    // per msdn (which is backed by my experience), MiniDumpWriteDump() doesn't
-    // write callstack for the calling thread correctly. We use msdn-recommended
-    // work-around of spinning a thread to do the writing
-    SetEvent(gDumpEvent);
-    WaitForSingleObject(gDumpThread, INFINITE);
+    if (GetCurrentThreadId() == gDumpThreadId) {
+        // crashed while preparing: no other thread to report for us, and
+        // nothing more gets ready
+        SetEvent(gReadyEvent);
+        HandleCrashWithMinidump();
+    } else {
+        // the dump thread has a whole stack; a stack overflow leaves this one little
+        SetEvent(gDumpEvent);
+        WaitForSingleObject(gReportDoneEvent, INFINITE);
+    }
 
     if (!gCfg.localOnly) {
         CallCb(gCfg.showCrashMessage);
@@ -496,15 +507,7 @@ static bool IsForeignThread() {
     return mod != GetModuleHandleW(nullptr) && mod != GetModuleHandleW(L"ntdll.dll");
 }
 
-static MINIDUMP_EXCEPTION_INFORMATION gEndedThreadMei{};
-static Str gEndedThreadLogText;
 static AtomicBool gEndedCrashedThread = 0;
-
-static DWORD WINAPI EndedThreadDumpThread(LPVOID /*data*/) {
-    bool shouldUpload = gCfg.uploadCrashes && !gCfg.localOnly;
-    WriteAndUploadMinidump(gEndedThreadLogText, &gEndedThreadMei, shouldUpload);
-    return 0;
-}
 
 // A third-party DLL (e.g. a SAPI voice engine) crashed on a thread it started:
 // report it, then end only that thread. Once per session; a repeat crashes.
@@ -520,20 +523,14 @@ static void MaybeEndCrashedThread(EXCEPTION_POINTERS* exceptionInfo) {
     }
 
     log(StrL("MaybeEndCrashedThread: ending crashed thread\n"));
-    gEndedThreadMei.ThreadId = GetCurrentThreadId();
-    gEndedThreadMei.ExceptionPointers = exceptionInfo;
-    gEndedThreadLogText = BuildCrashComment(StrL("crashed thread ended, process kept running"), StrL(""), true);
-    WriteCrashInfoToStdErr(gEndedThreadLogText);
+    MINIDUMP_EXCEPTION_INFORMATION mei{};
+    mei.ThreadId = GetCurrentThreadId();
+    mei.ExceptionPointers = exceptionInfo;
+    Str logText = BuildCrashComment(StrL("crashed thread ended, process kept running"), StrL(""), true);
+    WriteCrashInfoToStdErr(logText);
+    bool shouldUpload = gCfg.uploadCrashes && !gCfg.localOnly;
+    WriteAndUploadMinidump(logText, &mei, shouldUpload);
 
-    // a thread can't dump its own stack, see CrashDumpThread
-    ThreadHandle h = CreateThread(nullptr, 0, EndedThreadDumpThread, nullptr, 0, nullptr);
-    if (h) {
-        WaitForSingleObject(h, INFINITE);
-        CloseHandle(h);
-    }
-
-    // only now: a thread woken earlier can be suspended by the dump mid-LoadLibrary,
-    // and the dump's own LoadLibrary then waits for it forever
     CallCb(gCfg.onCrashedThreadEnded);
     ExitThread(1);
 }
@@ -719,6 +716,122 @@ int __cdecl _purecall() {
     return 0;
 }
 
+// Starts the helper process that writes our dumps, see WriteDumpViaHelper().
+// It inherits only our process handle and its two events.
+static void StartDumpHelper() {
+    SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
+    gHelperRequestEvent = CreateEventW(&sa, FALSE, FALSE, nullptr);
+    gHelperDoneEvent = CreateEventW(&sa, FALSE, FALSE, nullptr);
+    gHelperLock = CreateMutexW(nullptr, FALSE, nullptr);
+    HANDLE self = nullptr;
+    DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), GetCurrentProcess(), &self, kHelperAppAccess, TRUE, 0);
+    if (!gHelperRequestEvent || !gHelperDoneEvent || !gHelperLock || !self) {
+        logf("StartDumpHelper: handles failed, err=%u\n", GetLastError());
+        SafeCloseHandle(&self);
+        return;
+    }
+
+    HANDLE inherit[3] = {self, gHelperRequestEvent, gHelperDoneEvent};
+    SIZE_T attrsSize = 0;
+    InitializeProcThreadAttributeList(nullptr, 1, 0, &attrsSize);
+    auto attrs = (LPPROC_THREAD_ATTRIBUTE_LIST)AllocZero(GetTempArena(), attrsSize);
+    bool ok = InitializeProcThreadAttributeList(attrs, 1, 0, &attrsSize);
+    ok = ok && UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherit, sizeof(inherit), nullptr,
+                                         nullptr);
+
+    STARTUPINFOEXW si{};
+    si.StartupInfo.cb = sizeof(si);
+    // no std handles: a caller waiting for our stdout / stderr to close must not wait for the helper
+    si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+    si.lpAttributeList = attrs;
+    TempStr cmd =
+        fmt("\"%s\" -crash-dump-helper %lld:%lld:%lld:%lld", GetSelfExePathTemp(), (i64)(uintptr_t)self,
+            (i64)(uintptr_t)gHelperRequestEvent, (i64)(uintptr_t)gHelperDoneEvent, (i64)(uintptr_t)&gDumpRequest);
+    TempWStr cmdW = ToWStrTemp(cmd);
+    PROCESS_INFORMATION pi{};
+    DWORD flags = EXTENDED_STARTUPINFO_PRESENT;
+    ok = ok && CreateProcessW(nullptr, cmdW.s, nullptr, nullptr, TRUE, flags, nullptr, nullptr, &si.StartupInfo, &pi);
+    if (!ok) {
+        logf("StartDumpHelper: CreateProcessW failed, err=%u\n", GetLastError());
+    }
+    DeleteProcThreadAttributeList(attrs);
+    CloseHandle(self);
+    if (!ok) {
+        return;
+    }
+    CloseHandle(pi.hThread);
+    gHelperProcess = pi.hProcess;
+}
+
+static void StopDumpHelper() {
+    if (gHelperProcess) {
+        TerminateProcess(gHelperProcess, 0);
+    }
+    SafeCloseHandle(&gHelperProcess);
+    SafeCloseHandle(&gHelperRequestEvent);
+    SafeCloseHandle(&gHelperDoneEvent);
+    SafeCloseHandle(&gHelperLock);
+    AtomicBoolSet(&gHelperFailed, false);
+}
+
+// n bytes at addr in app, from the temp arena; empty if unreadable
+static Str ReadAppMemory(HANDLE app, u64 addr, u32 n) {
+    if (addr == 0 || n == 0 || n > kMaxRequestStrLen) {
+        return {};
+    }
+    char* d = AllocArray<char>(GetTempArena(), (int)n + 1);
+    SIZE_T nRead = 0;
+    if (!ReadProcessMemory(app, (void*)(uintptr_t)addr, d, n, &nRead) || nRead != n) {
+        return {};
+    }
+    return Str(d, (int)n);
+}
+
+static void WriteRequestedDump(HANDLE app, u64 requestAddr) {
+    DumpRequest req{};
+    SIZE_T nRead = 0;
+    if (!ReadProcessMemory(app, (void*)(uintptr_t)requestAddr, &req, sizeof(req), &nRead) || nRead != sizeof(req)) {
+        return;
+    }
+    Str path = ReadAppMemory(app, req.path, req.pathLen);
+    if (len(path) == 0) {
+        return;
+    }
+    Str comment = ReadAppMemory(app, req.comment, req.commentLen);
+
+    MINIDUMP_EXCEPTION_INFORMATION mei{};
+    mei.ThreadId = req.threadId;
+    mei.ExceptionPointers = (EXCEPTION_POINTERS*)(uintptr_t)req.exceptionPointers;
+    // the exception record and context are the app's memory
+    mei.ClientPointers = TRUE;
+    dir::CreateForFile(path);
+    dbghelp::WriteMiniDump(app, ToWStrTemp(path), req.exceptionPointers ? &mei : nullptr, req.fullDump != 0, comment);
+}
+
+// The helper process: writes the dumps the app that started it asks for, until
+// that app exits. arg is "<app process>:<request event>:<done event>:<request address>".
+int RunCrashDumpHelper(Str arg) {
+    StrVec parts;
+    if (Split(&parts, arg, StrL(":")) != 4) {
+        return 1;
+    }
+    HANDLE app = (HANDLE)(intptr_t)ParseInt64(parts[0]);
+    HANDLE request = (HANDLE)(intptr_t)ParseInt64(parts[1]);
+    HANDLE done = (HANDLE)(intptr_t)ParseInt64(parts[2]);
+    u64 requestAddr = (u64)ParseInt64(parts[3]);
+
+    HANDLE waits[2] = {app, request};
+    for (;;) {
+        DWORD res = WaitForMultipleObjects(dimof(waits), waits, FALSE, INFINITE);
+        if (res != WAIT_OBJECT_0 + 1) {
+            return 0;
+        }
+        WriteRequestedDump(app, requestAddr);
+        ResetTempArena();
+        SetEvent(done);
+    }
+}
+
 void InstallCrashHandler(const CrashHandlerConfig& cfg) {
     ReportIf(gDumpEvent || gDumpThread);
 
@@ -740,13 +853,16 @@ void InstallCrashHandler(const CrashHandlerConfig& cfg) {
     gCfg.crashDumpPath = str::Dup(gCrashHandlerArena, cfg.crashDumpPath);
     gCfg.submitUrl = str::Dup(gCrashHandlerArena, cfg.submitUrl);
     gCfg.fullDumpEnvVar = str::Dup(gCrashHandlerArena, cfg.fullDumpEnvVar);
+    gFullDump = len(cfg.fullDumpEnvVar) > 0 && GetEnvironmentVariableA(CStrTemp(cfg.fullDumpEnvVar), nullptr, 0) != 0;
     gCrashThreadId = 0;
     gDumpThreadId = 0;
     AtomicBoolSet(&gCrashHandlerStarted, false);
 
     BuildSystemInfo();
     gDumpEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    if (!gDumpEvent) {
+    gReportDoneEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+    gReadyEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+    if (!gDumpEvent || !gReportDoneEvent || !gReadyEvent) {
         log(StrL("InstallCrashHandler: skipping because !gDumpEvent\n"));
         return;
     }
@@ -808,6 +924,9 @@ void UninstallCrashHandler() {
 
     SafeCloseThreadHandle(&gDumpThread);
     CloseHandle(gDumpEvent);
+    SafeCloseHandle(&gReportDoneEvent);
+    SafeCloseHandle(&gReadyEvent);
+    StopDumpHelper();
     // InstallCrashHandler() asserts on both being null, so don't leave a stale
     // handle value behind
     gDumpEvent = nullptr;

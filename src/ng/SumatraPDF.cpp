@@ -22,6 +22,7 @@
 #include "base/ScopedWin.h"
 #include "base/Win.h"
 #include "base/WinDynCalls.h"
+#include "base/CrashHandler.h"
 
 #include "gui/UIModels.h"
 
@@ -7308,6 +7309,12 @@ int GpuiMain(int argc, char** argv) {
 
     gFlags = new Flags();
     ParseCommandLine(*gFlags, argc, argv);
+#if OS_WIN
+    // started by the crash handler to write our dumps: no app
+    if (len(gFlags->crashDumpHelper) > 0) {
+        return RunCrashDumpHelper(gFlags->crashDumpHelper);
+    }
+#endif
 #if OS_WASM
     // a page has no command line; `?file=` names a document in MEMFS
     if (TempStr path = WasmQueryFileTemp(); len(path) > 0) {

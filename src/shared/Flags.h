@@ -45,6 +45,7 @@ struct Flags {
     Str stressTestFilter;
     Str stressTestRanges;
     Str controlPipeName; // -dbg-control <named-pipe>
+    Str crashDumpHelper; // -crash-dump-helper <handles>, started by the crash handler
     Str upgradeFrom;
     Str dde;
     Str lang;

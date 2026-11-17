@@ -16803,6 +16803,10 @@ static void LogOsInfo() {
         (int)IsArmBuild(), CpuCoreCount());
 }
 
+// filled by PrepareCrashInfo(): at crash time both lookups would load DLLs
+static char gExeSigner[256];
+static char gWebView2Ver[64];
+
 static void GetProgramInfo(str::Builder& b) {
     TempStr exePath = GetSelfExePathTemp();
     auto fileSizeExe = GetFileSizeAsStrTemp(exePath);
@@ -16815,10 +16819,8 @@ static void GetProgramInfo(str::Builder& b) {
         auto fileSizeDll = GetFileSizeAsStrTemp(dllPath);
         b.Append(fmt("Dll: %s %s\n", dllPath, fileSizeDll));
     }
-    TempStr wv2Ver = GetWebView2VersionTemp();
-    b.Append(fmt("WebView2: %s\n", len(wv2Ver) > 0 ? wv2Ver : StrL("not installed")));
-    TempStr signer = GetExecutableSignerTemp(exePath);
-    b.Append(fmt("Signer: %s\n", signer ? signer : StrL("(not signed)")));
+    b.Append(fmt("WebView2: %s\n", gWebView2Ver[0] ? Str(gWebView2Ver) : StrL("not installed")));
+    b.Append(fmt("Signer: %s\n", gExeSigner[0] ? Str(gExeSigner) : StrL("(not signed)")));
     b.Append(fmt("BuiltOn: %s\n", BuiltOnDate()));
     Str exeType = IsDllBuild() ? StrL("dll") : StrL("static");
     Str instType = IsRunningInPortableMode() ? StrL("portable") : StrL("installed");
@@ -16985,6 +16987,12 @@ static bool IsOfficialBuild() {
     return str::Eq(signer, StrL(kOfficialSigner));
 }
 
+// the crash handler's prepareCrashInfo, on its thread
+static void PrepareCrashInfo() {
+    str::BufSet(Str(gExeSigner, dimof(gExeSigner)), GetExecutableSignerTemp(GetSelfExePathTemp()));
+    str::BufSet(Str(gWebView2Ver, dimof(gWebView2Ver)), GetWebView2VersionTemp());
+}
+
 static void InstallSumatraCrashHandler(bool localOnly) {
     if (gIsAsanBuild) {
         return;
@@ -17017,6 +17025,7 @@ static void InstallSumatraCrashHandler(bool localOnly) {
         cfg.uploadDebugReports = false;
     }
     cfg.getCrashComment = GetCrashComment;
+    cfg.prepareCrashInfo = PrepareCrashInfo;
     cfg.onCrashBegin = OnCrashBegin;
     cfg.showCrashMessage = ShowCrashHandlerMessage;
     cfg.canEndCrashedThread = TtsOnEngineCrash;
@@ -17088,26 +17097,32 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
         logf("ASAN_OPTIONS: '%s'\n", asanOpts ? asanOpts : StrL("<not set>"));
     }
 
+    Flags flags;
+    ParseFlags(GetPermArena(), GetCommandLineW(), flags, Str(gToolNames));
+    // started by our crash handler: no app at all, not even the store installer
+    if (len(flags.crashDumpHelper) > 0) {
+        return RunCrashDumpHelper(flags.crashDumpHelper);
+    }
+
     // Before the store-installer return below: everything past this point may
     // uitask::Post(), and posting before Initialize() neither runs nor frees the
     // task (see the guard in uitask::Post). Only needs a message queue, so it can
     // run this early - ahead of Ole/common controls/GDI+/mui.
     uitask::Initialize();
 
-    Flags flags;
     if (ExeHasNameOfStoreInstaller()) {
         InstallSumatraCrashHandler(false);
         logf("Running store installer\n");
-        flags.install = true;
-        flags.silent = true;
-        flags.storeInstaller = true;
-        gCli = &flags;
+        Flags installerFlags;
+        installerFlags.install = true;
+        installerFlags.silent = true;
+        installerFlags.storeInstaller = true;
+        gCli = &installerFlags;
         int ret = RunInstaller();
         uitask::Destroy();
         return ret;
     }
 
-    ParseFlags(GetPermArena(), GetCommandLineW(), flags, Str(gToolNames));
     gCli = &flags;
     gForTesting = flags.forTesting;
     if (gForTesting) {
