@@ -33,6 +33,14 @@
 // at their place with their focus on restore, closed while minimized (Esc, their
 // owner) -> stay closed.
 //
+// E142: with the focus gone to another app (`away`), the restore doesn't take it:
+// the popup gets it back once the frame is activated. A focus loss delivered to an
+// owner never moves the focus: not at once (an owner that moves it on WM_KILLFOCUS,
+// `kill-moves-focus`), not later (the contents edit's commit, also after a click into
+// another window without a minimize), also when another window takes the focus as
+// the frame is restored, before the layer's sync. The other window's page box keeps
+// its caret. Floating popups: find window, annotation list, command palette.
+//
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -636,6 +644,13 @@ const FOCUS_WAYS = [
   })),
 ];
 
+enum AwayCheck {
+  // the focus that left the app stays there through the restore (E142)
+  Kept,
+  // `during` gave the frame the focus
+  Skip,
+}
+
 // minimized, `during` runs, restored. The anchor layer's syncs, posted by the
 // restore, run before the next request: one Windows shows again only for its
 // owner to hide is not back when it returns
@@ -645,6 +660,7 @@ async function minimizedAndRestored(
   find: () => number,
   what: string,
   during: () => Promise<void> = async () => {},
+  away = AwayCheck.Kept,
 ): Promise<void> {
   try {
     await minimizeFrame(client, way.order, way.focus);
@@ -653,7 +669,85 @@ async function minimizedAndRestored(
   } finally {
     await minimizeFrame(client, "restore");
   }
+  if (way.focus !== "away" || away === AwayCheck.Skip) {
+    await client.request(ControlCommand.Ping, []);
+    return;
+  }
+  // E142: another app keeps the focus until the user activates the frame
+  const res = await focusState(client);
+  check(/ active=(away|other-window)$/.test(res), `${what}: the restore took the focus from another app: ${res}`);
+  await client.request(ControlCommand.TestFocusState, ["activate"]);
   await client.request(ControlCommand.Ping, []);
+}
+
+async function focusState(client: ControlClient, action = ""): Promise<string> {
+  return String((await client.request(ControlCommand.TestFocusState, [action]))[1] ?? "");
+}
+
+// another of the app's windows; cmd: CmdNewWindow or CmdDuplicateInNewWindow, which has a page box
+async function openOtherWindow(client: ControlClient, frame: number, cmd: string): Promise<number> {
+  await client.request(ControlCommand.TestInvokeCommand, [cmd]);
+  return await pollUntil(
+    () => shownTop(getWindowPid(frame), FRAME_CLASS, (h) => h !== frame),
+    (h) => h !== 0,
+    { timeoutMs: WAIT_MS, error: "no new window" },
+  );
+}
+
+// closed, and the frame under test active again
+async function closeOtherWindow(client: ControlClient, other: number): Promise<void> {
+  if (other) {
+    postMessage(other, WM_CLOSE, 0, 0);
+    await pollUntil(
+      () => isWindowVisible(other),
+      (v) => !v,
+      { timeoutMs: WAIT_MS, error: "the new window did not close" },
+    );
+  }
+  await activateFrame(client);
+}
+
+// the frame under test active; its popups may take the focus back
+async function activateFrame(client: ControlClient): Promise<void> {
+  await focusState(client, "activate");
+  const res = await focusState(client);
+  check(!/ active=(other-window|away)$/.test(res), `the frame under test did not activate: ${res}`);
+}
+
+// another window open while f runs, the frame under test active
+async function withOtherWindow(
+  client: ControlClient,
+  frame: number,
+  cmd: string,
+  f: () => Promise<void>,
+): Promise<void> {
+  let other = 0;
+  try {
+    other = await openOtherWindow(client, frame, cmd);
+    await activateFrame(client);
+    await f();
+  } finally {
+    await closeOtherWindow(client, other);
+  }
+}
+
+// E142: the focus another window took stays there, after the posted reactions to the loss
+async function checkFocusInOther(client: ControlClient, what: string): Promise<void> {
+  await client.request(ControlCommand.Ping, []);
+  const res = await focusState(client, "detail");
+  check(/^focus=other-window active=other-window /.test(res), `${what}: the focus left the other window: ${res}`);
+  check(/ killMoved=0\b/.test(res), `${what}: its owner moved the focus on the loss: ${res}`);
+}
+
+// E142: the focus goes straight to the other window's page box, which shows a caret
+async function focusOtherPageBox(client: ControlClient, what: string): Promise<void> {
+  await pollUntil(
+    () => focusState(client, "page-edit-last"),
+    (r) => r.startsWith("focus=other-window "),
+    { timeoutMs: WAIT_MS, error: (r) => `${what}: the other window's page box has no focus: ${r}` },
+  );
+  const res = await focusState(client, "detail");
+  check(/ caret=focus /.test(res), `${what}: the page box lost its caret: ${res}`);
 }
 
 // E124: the popup's owner hides it the way the user's actions reach it
@@ -675,26 +769,13 @@ async function focusOtherWindow(
   let other = 0;
   try {
     await minimizedAndRestored(client, way, find, what, async () => {
-      await client.request(ControlCommand.TestInvokeCommand, ["CmdNewWindow"]);
-      other = await pollUntil(
-        () => shownTop(getWindowPid(frame), FRAME_CLASS, (h) => h !== frame),
-        (h) => h !== 0,
-        { timeoutMs: WAIT_MS, error: "no new window" },
-      );
-      const res = String((await client.request(ControlCommand.TestFocusState, ["activate-last"]))[1] ?? "");
+      other = await openOtherWindow(client, frame, "CmdNewWindow");
+      const res = await focusState(client, "activate-last");
       check(res.includes("focus=other-window "), `the new window has no focus: ${res}`);
     });
     await after();
   } finally {
-    if (other) {
-      postMessage(other, WM_CLOSE, 0, 0);
-      await pollUntil(
-        () => isWindowVisible(other),
-        (v) => !v,
-        { timeoutMs: WAIT_MS, error: "the new window did not close" },
-      );
-    }
-    await activateTestFrame(client);
+    await closeOtherWindow(client, other);
   }
 }
 
@@ -803,9 +884,11 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
   for (const way of p.esc ? MINIMIZE_WAYS : []) {
     await step(`${p.name}: closed by Esc while minimized, ${way.how}`, async () => {
       await shown();
-      await minimizedAndRestored(client, way, p.find, p.name, async () => {
+      // keys reach the frame as if it had the focus, which a real Esc needs
+      const esc = async () => {
         for (let i = 0; i < p.esc!; i++) pressVKey(frame, VK_ESCAPE);
-      });
+      };
+      await minimizedAndRestored(client, way, p.find, p.name, esc, AwayCheck.Skip);
       check(p.find() === 0, `${p.name} came back after Esc closed it`);
     });
   }
@@ -889,8 +972,79 @@ async function checkContentsEdit(pid: number, client: ControlClient, frame: numb
       check(kept === text, `committed "${kept}", want "${text}"`);
     });
   }
+  await checkContentsEditFocus(client, frame, canvas, find);
   // deselected, the toolbar goes with the edit
   await hideByOwner(client, "annotation");
+}
+
+// E142: where the focus goes when the contents edit loses it to another window
+async function checkContentsEditFocus(
+  client: ControlClient,
+  frame: number,
+  canvas: number,
+  find: () => number,
+): Promise<void> {
+  const name = "annotation toolbar contents edit";
+  let edit = 0;
+  const editing = async () => / editing=1\b/.test(await annotToolbarDump(client));
+  // opened afresh, focused, holding text
+  const openWith = async (text: string) => {
+    if (find()) await hideByOwner(client, "annotation");
+    await waitGone(find, "annotation toolbar");
+    edit = await openContentsEdit(client, canvas, find);
+    sendText(edit, text);
+    const res = await focusState(client);
+    check(res.startsWith("focus=annot-toolbar "), `the contents edit has no focus: ${res}`);
+  };
+  const committed = async (text: string) => {
+    edit = await openContentsEdit(client, canvas, find);
+    const kept = getControlText(edit);
+    check(kept === text, `committed "${kept}", want "${text}"`);
+  };
+
+  await step(`${name}: a click into another window commits it there`, async () => {
+    const text = `${CONTENTS_TEXT} click`;
+    await withOtherWindow(client, frame, "CmdNewWindow", async () => {
+      await openWith(text);
+      const res = await focusState(client, "activate-last");
+      check(res.startsWith("focus=other-window "), `the new window has no focus: ${res}`);
+      await checkFocusInOther(client, name);
+      check(!(await editing()), "the contents edit is still open");
+    });
+    await committed(text);
+  });
+
+  for (const [i, way] of FOCUS_WAYS.entries()) {
+    await step(`${name}: another window takes the focus as the frame is restored, ${way.how}`, async () => {
+      const text = `${CONTENTS_TEXT} restore ${i}`;
+      await withOtherWindow(client, frame, "CmdNewWindow", async () => {
+        await openWith(text);
+        try {
+          await minimizeFrame(client, way.order, way.focus);
+          await waitGone(find, `${name} with the frame minimized`);
+        } finally {
+          await minimizeFrame(client, "restore", "last");
+        }
+        await checkFocusInOther(client, name);
+      });
+      await committed(text);
+    });
+  }
+
+  for (const [i, way] of FOCUS_WAYS.entries()) {
+    await step(`${name}: the other window's page box keeps its caret, ${way.how}`, async () => {
+      await withOtherWindow(client, frame, "CmdDuplicateInNewWindow", async () => {
+        await openWith(`${CONTENTS_TEXT} caret ${i}`);
+        try {
+          await minimizeFrame(client, way.order, way.focus);
+          await waitGone(find, `${name} with the frame minimized`);
+          await focusOtherPageBox(client, name);
+        } finally {
+          await minimizeFrame(client, "restore");
+        }
+      });
+    });
+  }
 }
 
 // keyboard caret, visual mode, End: a selection the selection toolbar shows for
@@ -1064,9 +1218,9 @@ type Floating = {
   find: () => number;
   open: () => Promise<void>;
   // TestMinimizeFrame "hide": its owner hides it
-  hide: string;
-  // TestFocusState action giving it the focus, and its name for it then
-  focus?: [string, string];
+  hide?: string;
+  // gives it the focus; TestFocusState's name for it then
+  focus?: { give: () => Promise<void>; name: string };
   // Esc presses on the frame that close it
   esc?: number;
 };
@@ -1077,8 +1231,9 @@ async function checkFloating(p: Floating, client: ControlClient, frame: number):
     if (!p.find()) await p.open();
     await waitShown(p.find, p.name);
     if (focus && p.focus) {
-      const res = String((await client.request(ControlCommand.TestFocusState, [p.focus[0]]))[1] ?? "");
-      check(res.includes(`focus=${p.focus[1]} `), `${p.name} has no focus: ${res}`);
+      await p.focus.give();
+      const res = await focusState(client);
+      check(res.includes(`focus=${p.focus.name} `), `${p.name} has no focus: ${res}`);
     }
     return box(p.find());
   };
@@ -1089,15 +1244,47 @@ async function checkFloating(p: Floating, client: ControlClient, frame: number):
       await minimizedAndRestored(client, way, p.find, p.name);
       await waitAt(p.find, before, `${p.name} after the frame was restored`);
       if (!p.focus) return;
-      const res = String((await client.request(ControlCommand.TestFocusState, [""]))[1] ?? "");
-      check(res.includes(`focus=${p.focus[1]} `), `${p.name}'s focus after the frame was restored: ${res}`);
+      const res = await focusState(client);
+      check(res.includes(`focus=${p.focus.name} `), `${p.name}'s focus after the frame was restored: ${res}`);
     });
   }
 
-  for (const way of MINIMIZE_WAYS) {
+  // E142: delivered to an owner that moves the focus on the loss
+  for (const way of p.focus ? FOCUS_WAYS.filter((w) => w.focus) : []) {
+    await step(
+      `${p.name}: another window takes the focus as the frame is restored, its owner moving it on the loss, ${way.how}`,
+      async () => {
+        await withOtherWindow(client, frame, "CmdNewWindow", async () => {
+          await shown(true);
+          await focusState(client, "kill-moves-focus");
+          try {
+            await minimizeFrame(client, way.order, way.focus);
+            await waitGone(p.find, `${p.name} with the frame minimized`);
+          } finally {
+            await minimizeFrame(client, "restore", "last");
+          }
+          await checkFocusInOther(client, p.name);
+        });
+      },
+    );
+    await step(`${p.name}: the other window's page box keeps its caret, ${way.how}`, async () => {
+      await withOtherWindow(client, frame, "CmdDuplicateInNewWindow", async () => {
+        await shown(true);
+        try {
+          await minimizeFrame(client, way.order, way.focus);
+          await waitGone(p.find, `${p.name} with the frame minimized`);
+          await focusOtherPageBox(client, p.name);
+        } finally {
+          await minimizeFrame(client, "restore");
+        }
+      });
+    });
+  }
+
+  for (const way of p.hide ? MINIMIZE_WAYS : []) {
     await step(`${p.name}: hidden by its owner while minimized, ${way.how}`, async () => {
       await shown();
-      await minimizedAndRestored(client, way, p.find, p.name, () => hideByOwner(client, p.hide));
+      await minimizedAndRestored(client, way, p.find, p.name, () => hideByOwner(client, p.hide!));
       check(p.find() === 0, `${p.name} came back after its owner hid it`);
     });
   }
@@ -1105,9 +1292,11 @@ async function checkFloating(p: Floating, client: ControlClient, frame: number):
   for (const way of p.esc ? MINIMIZE_WAYS : []) {
     await step(`${p.name}: closed by Esc while minimized, ${way.how}`, async () => {
       await shown();
-      await minimizedAndRestored(client, way, p.find, p.name, async () => {
+      // keys reach the frame as if it had the focus, which a real Esc needs
+      const esc = async () => {
         for (let i = 0; i < p.esc!; i++) pressVKey(frame, VK_ESCAPE);
-      });
+      };
+      await minimizedAndRestored(client, way, p.find, p.name, esc, AwayCheck.Skip);
       check(p.find() === 0, `${p.name} came back after Esc closed it`);
     });
   }
@@ -1134,7 +1323,7 @@ async function checkFloatingPopups(): Promise<void> {
           shownTop(pid, BAR_CLASS, (h) => owned(h) && (getWindowLong(h, GWL_STYLE) & WS_CAPTION) === WS_CAPTION),
         open: async () => sendCommandSync(frame, cmdId("CmdFindFirst")),
         hide: "find",
-        focus: ["find-edit", "find-window"],
+        focus: { give: async () => void (await focusState(client, "find-edit")), name: "find-window" },
         esc: 1,
       },
       client,
@@ -1148,7 +1337,27 @@ async function checkFloatingPopups(): Promise<void> {
           await client.request(ControlCommand.TestInvokeCommand, ["CmdFindAnnotation"]);
         },
         hide: "filter",
-        focus: ["annot-filter", "annot-filter"],
+        focus: { give: async () => void (await focusState(client, "annot-filter")), name: "annot-filter" },
+      },
+      client,
+      frame,
+    );
+    // E142: open again, it takes the focus
+    const palette = async () => sendCommandSync(frame, cmdId("CmdCommandPalette"));
+    await checkFloating(
+      {
+        name: "command palette",
+        find: () =>
+          shownTop(
+            pid,
+            BAR_CLASS,
+            (h) =>
+              owned(h) &&
+              (getWindowLong(h, GWL_STYLE) & WS_CAPTION) !== WS_CAPTION &&
+              findChildByClass(h, "Edit") !== 0,
+          ),
+        open: palette,
+        focus: { give: palette, name: "palette" },
       },
       client,
       frame,

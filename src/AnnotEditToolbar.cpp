@@ -1287,8 +1287,15 @@ static void DestroyContentsEditor(AnnotEditToolbar* tb) {
     }
 }
 
+// the focus in the toolbar goes to the canvas; one elsewhere stays, e.g. in another
+// window a click there that ended the edit gave it to
 static void RestoreCanvasFocus(AnnotEditToolbar* tb) {
-    if (tb && tb->win && tb->win->hwndCanvas) {
+    if (!tb || !tb->win || !tb->win->hwndCanvas || !tb->host || !tb->host->native) {
+        return;
+    }
+    HWND host = tb->host->native;
+    HWND focus = GetFocus();
+    if (focus == host || IsChild(host, focus)) {
         HwndSetFocus(tb->win->hwndCanvas);
     }
 }

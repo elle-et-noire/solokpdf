@@ -152,7 +152,12 @@ and read-aloud bars, selection and annotation toolbars, comment card):
 anchor layer sees them first (`anchor-first`); a minimize from another process
 races between the two (E121). With `away` the focus also leaves the app as the
 popups hide, as on an interactive desktop, where Windows activates another
-window; the hidden desktop has no foreground and keeps it (E136). With `frame`
+window; the hidden desktop has no foreground and keeps it (E136). The test
+activates a never-shown `STATIC` window that stands in for another app
+(`active=away`): not of the app's classes, it takes the focus without a
+`SetFocus()` and leaves the UI thread without an active window of its own. The restore must leave it there;
+the popup gets its focus back once `TestFocusState activate` activates the
+frame (E142). With `frame`
 it moves to the frame as Windows hides the popup that has it, before the frame
 is iconic (E137). The move happens at the popup's `WM_WINDOWPOSCHANGED` hide,
 which Windows sends inside its `WM_SHOWWINDOW` (`SW_PARENTCLOSING`): on CI
@@ -169,6 +174,15 @@ committed, as for a click there (E139). Popups the frame owns without an
 anchor (the floating find window, `SearchUIFloating = true`, and the annotation
 list) run the minimize, owner hide (`hide find`, `hide filter`) and Esc steps
 too, with their focus (`TestFocusState find-edit` / `annot-filter`) (E140).
+E142: `TestMinimizeFrame restore last` restores and activates the newest window
+in one UI-thread call, before the layer's posted sync; `TestFocusState
+kill-moves-focus` makes the focus's `WM_KILLFOCUS` move the focus to the canvas
+at once, as an owner reacting synchronously would, and `detail` reports how
+often that took (`killMoved`) and where the caret is (`caret=focus`);
+`page-edit-last` focuses the newest window's page box (opened with
+`CmdDuplicateInNewWindow`). The contents edit, the floating find window, the
+annotation list and the command palette must leave the focus in the other
+window and its page box with its caret.
 Dumps that report a popup shown (`visible=1`, `floatVisible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,
 though its owner sees it shown. A failed step prints what the app logged meanwhile. A link tip, citation popup, I-beam, form field

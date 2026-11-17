@@ -704,11 +704,36 @@ static BOOL CALLBACK CollectShownOwned(HWND hwnd, LPARAM lp) {
 enum class MinimizeFocus {
     // where it was, as on a desktop without a foreground window
     Kept,
-    // out of the app: on an interactive desktop Windows activates another window
+    // out of the app: on an interactive desktop Windows activates another app's window
     Away,
     // to the frame, as when Windows activates the owner of the active popup it hides
     Frame,
 };
+
+// Another app's window for MinimizeFocus::Away, never shown. Of a class not the app's,
+// so the owned popups layer doesn't count it as one of the app's windows. Activating it
+// takes the focus without a SetFocus() (it skips DefWindowProc's on WM_ACTIVATE), as a
+// move to another thread's window does, and leaves the UI thread without an active
+// window of its own, as on an interactive desktop
+static HWND gAwayWnd = nullptr;
+static WNDPROC gAwayStaticProc = nullptr;
+
+static LRESULT CALLBACK AwayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    if (msg == WM_ACTIVATE) {
+        return 0;
+    }
+    return CallWindowProcW(gAwayStaticProc, hwnd, msg, wp, lp);
+}
+
+static HWND AwayWindow() {
+    if (gAwayWnd) {
+        return gAwayWnd;
+    }
+    DWORD exStyle = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+    gAwayWnd = CreateWindowExW(exStyle, L"STATIC", L"", WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, nullptr, nullptr);
+    gAwayStaticProc = (WNDPROC)SetWindowLongPtrW(gAwayWnd, GWLP_WNDPROC, (LONG_PTR)AwayWndProc);
+    return gAwayWnd;
+}
 
 // MinimizeFocus::Frame: the frame, and how often the focus moved to it
 static HWND gFocusToFrame = nullptr;
@@ -759,7 +784,7 @@ static int MinimizeFrameForTest(HWND frame, Str order, MinimizeFocus focus) {
         UnhookWindowsHookEx(hook);
     }
     if (focus == MinimizeFocus::Away) {
-        SetFocus(nullptr);
+        SetActiveWindow(AwayWindow());
     }
     if (!reshow) {
         return 0;
@@ -1075,6 +1100,12 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
     if (win && root != win->hwndFrame && FindMainWindowByHwnd(root)) {
         return StrL("other-window");
     }
+    if (hwnd == gAwayWnd) {
+        return StrL("away");
+    }
+    if (CommandPaletteHwndForAccelerator(hwnd)) {
+        return StrL("palette");
+    }
     char cls[64]{};
     GetClassNameA(hwnd, cls, dimofi(cls));
     if (str::Eq(Str(cls), StrL("SUMATRA_ABOUT_HOVER"))) {
@@ -1133,6 +1164,33 @@ static TempStr AcceptSaveDialog(Str path, int* exitCodeOut) {
     PostMessageW(dialog, WM_COMMAND, IDOK, 0);
     *exitCodeOut = 0;
     return StrL("accepted");
+}
+
+// "kill-moves-focus": an owner that moves the focus to the canvas on WM_KILLFOCUS at
+// once; gKillMoved counts the moves that took
+static HWND gKillMovesTo = nullptr;
+static int gKillMoved = 0;
+
+static LRESULT CALLBACK KillMovesFocusProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR id, DWORD_PTR) {
+    if (msg != WM_KILLFOCUS) {
+        return DefSubclassProc(hwnd, msg, wp, lp);
+    }
+    RemoveWindowSubclass(hwnd, KillMovesFocusProc, id);
+    LRESULT res = DefSubclassProc(hwnd, msg, wp, lp);
+    HwndSetFocus(gKillMovesTo);
+    gKillMoved += GetFocus() == gKillMovesTo ? 1 : 0;
+    return res;
+}
+
+// the caret, by where it is: "focus" when the focus has it
+static Str CaretName(MainWindow* win) {
+    GUITHREADINFO gti{};
+    gti.cbSize = sizeof(gti);
+    GetGUIThreadInfo(GetCurrentThreadId(), &gti);
+    if (gti.hwndCaret && gti.hwndCaret == GetFocus()) {
+        return StrL("focus");
+    }
+    return FocusWindowName(gti.hwndCaret, win);
 }
 
 // Activates the frame like a user would, past the foreground lock.
@@ -1851,6 +1909,10 @@ static void ExecuteControlRequest(ControlRequest* req) {
             if (nShown < 0) {
                 AppendTestResult(req, 1, StrL("unknown order"));
                 break;
+            }
+            // the last window opened takes the focus before the restore's posted syncs run
+            if (str::Eq(order, StrL("restore")) && str::Eq(to, StrL("last"))) {
+                ActivateForTest(gWindows[len(gWindows) - 1]->hwndFrame);
             }
             AppendTestResult(
                 req, 0, fmt("iconic=%d reshown=%d toFrame=%d", (int)IsIconic(win->hwndFrame), nShown, gFocusedFrame));
@@ -3398,9 +3460,22 @@ static void ExecuteControlRequest(ControlRequest* req) {
             if (win && str::Eq(action, StrL("activate-last"))) {
                 ActivateForTest(gWindows[len(gWindows) - 1]->hwndFrame);
             }
-            AppendTestResult(
-                req, 0,
-                fmt("focus=%s active=%s", FocusWindowName(GetFocus(), win), FocusWindowName(GetActiveWindow(), win)));
+            // the page box of the last window opened, which shows a caret, as a click in it
+            MainWindow* last = len(gWindows) > 0 ? gWindows[len(gWindows) - 1] : nullptr;
+            if (last && last->pageEdit && str::Eq(action, StrL("page-edit-last"))) {
+                HwndSetFocus(last->pageEdit->hwnd);
+            }
+            if (win && str::Eq(action, StrL("kill-moves-focus")) && GetFocus()) {
+                gKillMovesTo = win->hwndCanvas;
+                gKillMoved = 0;
+                SetWindowSubclass(GetFocus(), KillMovesFocusProc, 1, 0);
+            }
+            Str state =
+                fmt("focus=%s active=%s", FocusWindowName(GetFocus(), win), FocusWindowName(GetActiveWindow(), win));
+            if (str::Eq(action, StrL("detail"))) {
+                state = fmt("%s caret=%s killMoved=%d", state, CaretName(win), gKillMoved);
+            }
+            AppendTestResult(req, 0, state);
             break;
         }
 

@@ -2118,9 +2118,10 @@ bool TrackMouseLeave(HWND hwnd) {
 // a WH_CBT hook on the UI thread). Each one a frame owns, whether its owner was set
 // at creation or later (GWLP_HWNDPARENT), follows the frame's minimize:
 //
-//   frame minimized   -> hidden, shown again with it, with the focus it had, unless its
-//                        owner hid it meanwhile. Its owner doesn't see it lose the focus,
-//                        unless the focus goes to another window
+//   frame minimized   -> hidden, shown again with it, unless its owner hid it meanwhile.
+//                        The focus it had comes back once the frame is active. Its owner
+//                        doesn't see it lose the focus, unless the focus goes to another
+//                        window first
 //
 // An anchored popup (AnchorPopup) also belongs to a child window, its anchor: a toolbar
 // button's drop-down, a tip on the canvas. Windows moves and hides a child with its
@@ -2162,7 +2163,8 @@ struct OwnedPopup {
     bool left = false;
     // hidden with its minimized frame, to be shown with it again
     bool minimized = false;
-    // it or a window in it had the focus then; its WM_KILLFOCUS is held back
+    // it or a window in it had the focus then; its WM_KILLFOCUS is held back. Kept
+    // after the restore until the frame is active
     HWND focus = nullptr;
 };
 
@@ -2176,6 +2178,8 @@ enum PopupMsg : WPARAM {
     PopupSync = 0,
     // its owner hid it
     PopupHidden = 1,
+    // its frame was activated
+    PopupRefocus = 2,
 };
 
 // the registry belongs to the thread that tracks the popups
@@ -2250,18 +2254,24 @@ static bool InPopup(HWND popup, HWND hwnd) {
 
 static LRESULT CALLBACK HeldFocusProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 static LRESULT CALLBACK FocusMoveHook(int, WPARAM, LPARAM);
+static OwnedPopup* FindOwnedPopup(HWND popup);
 static LRESULT CALLBACK AnchorChainProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 
 static HHOOK gFocusMoveHook = nullptr;
+// a held focus's loss is being delivered to its owner
+static bool gDeliveringLoss = false;
 
 // FocusMoveHook watches the focus while a popup's is held
 static void SyncFocusMoveHook() {
-    bool held = false;
+    bool held = gDeliveringLoss;
     for (OwnedPopup* ap : OwnedPopups()) {
         held = held || ap->focus;
     }
     if (held && !gFocusMoveHook) {
         gFocusMoveHook = SetWindowsHookExW(WH_CBT, FocusMoveHook, nullptr, GetCurrentThreadId());
+        if (!gFocusMoveHook) {
+            logf("SyncFocusMoveHook: SetWindowsHookEx failed: %d\n", (int)GetLastError());
+        }
     } else if (!held && gFocusMoveHook) {
         UnhookWindowsHookEx(gFocusMoveHook);
         gFocusMoveHook = nullptr;
@@ -2277,33 +2287,83 @@ static void ReleaseFocus(OwnedPopup* ap) {
     SyncFocusMoveHook();
 }
 
-// The focus goes to a window outside a held focus's frame, e.g. another of the
-// app's frames: the owner sees the loss, before the new focus gets WM_SETFOCUS as
-// for a click there. So the caret its edit destroys is still its own, not the new one's.
-static LRESULT CALLBACK FocusMoveHook(int code, WPARAM wp, LPARAM lp) {
-    LRESULT res = CallNextHookEx(nullptr, code, wp, lp);
-    HWND to = (HWND)wp;
-    if (code != HCBT_SETFOCUS || res != 0 || !to) {
-        return res;
-    }
+enum class FocusMove {
+    SetFocus,
+    // Windows activates the window, which takes the focus, also without a SetFocus()
+    Activate,
+};
+
+// The focus goes to `to`, from `from`. A held focus outside to's frame is lost, e.g. to
+// another of the app's frames: the owner sees the loss before `to` gets WM_SETFOCUS, as
+// for a click there, so the caret its edit destroys is still its own, not to's.
+// One set back in its restored popup before the frame was activated is no longer held.
+static void NoteFocusMoving(HWND to, HWND from, FocusMove how) {
     HWND frame = GetAncestor(to, GA_ROOTOWNER);
     Vec<HWND> lost;
+    // before the holds go, so the hook stays to drop the owners' focus moves
+    gDeliveringLoss = true;
     for (OwnedPopup* ap : OwnedPopups()) {
-        if (!ap->focus || GetAncestor(ap->popup, GA_ROOTOWNER) == frame) {
+        if (!ap->focus) {
+            continue;
+        }
+        if (GetAncestor(ap->popup, GA_ROOTOWNER) == frame) {
+            if (how == FocusMove::SetFocus && !ap->minimized && InPopup(ap->popup, to)) {
+                ReleaseFocus(ap);
+            }
             continue;
         }
         // one that still has the focus gets WM_KILLFOCUS from Windows
-        if (ap->focus != (HWND)lp) {
+        if (ap->focus != from) {
             VecAppend(lost, ap->focus);
         }
         ReleaseFocus(ap);
     }
-    // owners may hide or destroy popups
+    // owners may hide or destroy popups; FocusMoveHook drops their focus moves
     for (HWND hwnd : lost) {
         if (IsWindow(hwnd)) {
             SendMessageW(hwnd, WM_KILLFOCUS, (WPARAM)to, 0);
         }
     }
+    gDeliveringLoss = false;
+    SyncFocusMoveHook();
+}
+
+// a restored popup's held focus goes back once its frame is activated (RefocusWhenActive)
+static void NoteActivating(HWND hwnd) {
+    HWND frame = GetAncestor(hwnd, GA_ROOTOWNER);
+    for (OwnedPopup* ap : OwnedPopups()) {
+        if (ap->focus && !ap->minimized && PopupFrame(ap->popup) == frame) {
+            PostMessageW(ap->popup, gPopupMsg, PopupRefocus, 0);
+        }
+    }
+}
+
+// Watches the thread's focus and activation while a focus is held. Windows calls it
+// before the focus moves or a window activates. While an owner reacts to a loss, its focus
+// and activation changes are dropped: the focus goes where Windows was moving it, once.
+static LRESULT CALLBACK FocusMoveHook(int code, WPARAM wp, LPARAM lp) {
+    bool move = code == HCBT_SETFOCUS || code == HCBT_ACTIVATE;
+    if (move && gDeliveringLoss) {
+        logf("FocusMoveHook: dropped a focus or activation change made on a held focus's loss\n");
+        return 1;
+    }
+    LRESULT res = CallNextHookEx(nullptr, code, wp, lp);
+    if (res != 0 || !wp) {
+        return res;
+    }
+    if (code == HCBT_SETFOCUS) {
+        NoteFocusMoving((HWND)wp, (HWND)lp, FocusMove::SetFocus);
+        return res;
+    }
+    if (code != HCBT_ACTIVATE) {
+        return res;
+    }
+    // only the app's own windows (the registry) count as another of its windows
+    HWND hwnd = (HWND)wp;
+    if (FindOwnedPopup(hwnd)) {
+        NoteFocusMoving(hwnd, GetFocus(), FocusMove::Activate);
+    }
+    NoteActivating(hwnd);
     return res;
 }
 
@@ -2367,9 +2427,21 @@ static void NoteMinimized(OwnedPopup* ap) {
     SyncFocusMoveHook();
 }
 
-// gives the focus back to focus, still held: it stayed with the frame or left the app
-static void RefocusPopup(HWND popup, HWND focus) {
-    if (IsWindow(focus) && InPopup(popup, focus) && GetFocus() != focus) {
+// A restored popup gets its held focus back once its frame or a window it owns is
+// active. Until then the focus may be in another app: a SetFocus() would take it.
+static void RefocusWhenActive(OwnedPopup* ap) {
+    if (!ap->focus || ap->minimized) {
+        return;
+    }
+    HWND active = GetActiveWindow();
+    HWND frame = PopupFrame(ap->popup);
+    if (frame && (!active || GetAncestor(active, GA_ROOTOWNER) != frame)) {
+        return;
+    }
+    HWND focus = ap->focus;
+    ReleaseFocus(ap);
+    bool back = IsWindow(focus) && InPopup(ap->popup, focus) && IsWindowVisible(ap->popup);
+    if (back && GetFocus() != focus) {
         SetFocus(focus);
     }
 }
@@ -2408,12 +2480,11 @@ static void SyncFreePopup(OwnedPopup* ap) {
     if (!ap->minimized) {
         return;
     }
-    HWND focus = ap->focus;
-    ForgetMinimized(ap);
+    SetMinimized(ap, false);
     if (!IsWindowVisible(ap->popup)) {
         ShowPopup(ap->popup, nullptr);
     }
-    RefocusPopup(ap->popup, focus);
+    RefocusWhenActive(ap);
 }
 
 static void SyncAnchoredPopup(OwnedPopup* ap) {
@@ -2441,9 +2512,11 @@ static void SyncAnchoredPopup(OwnedPopup* ap) {
         return;
     }
     bool restored = ap->minimized;
-    HWND focus = restored ? ap->focus : nullptr;
-    ForgetMinimized(ap);
+    if (restored) {
+        SetMinimized(ap, false);
+    }
     if (!IsWindowVisible(ap->popup) && !restored) {
+        ReleaseFocus(ap);
         return;
     }
     bool stale = ap->args.content && ap->args.content != ap->anchorShows;
@@ -2459,7 +2532,7 @@ static void SyncAnchoredPopup(OwnedPopup* ap) {
         // the frame is back before Windows showed the popup
         ShowPopup(ap->popup, ap->args.place.IsValid() ? nullptr : &want);
     }
-    RefocusPopup(ap->popup, focus);
+    RefocusWhenActive(ap);
     if (ap->args.place.IsValid()) {
         Rect rc = AnchorScreenRect(anchor);
         if (rc == ap->anchorRc) {
@@ -2531,6 +2604,10 @@ static LRESULT CALLBACK OwnedPopupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
     }
     if (msg == gPopupMsg && wp == PopupHidden) {
         ForgetMinimized(ap);
+        return 0;
+    }
+    if (msg == gPopupMsg && wp == PopupRefocus) {
+        RefocusWhenActive(ap);
         return 0;
     }
     if (msg == WM_NCDESTROY) {
