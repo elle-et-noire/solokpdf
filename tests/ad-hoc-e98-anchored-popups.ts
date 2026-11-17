@@ -206,14 +206,14 @@ function describeTips(pid: number): string {
 
 let gPid = 0;
 
-async function waitShown(find: () => number, what: string): Promise<number> {
+export async function waitShown(find: () => number, what: string): Promise<number> {
   return await pollUntil(find, (h) => h !== 0, {
     timeoutMs: WAIT_MS,
     error: () => `${what}: not shown (${describeTips(gPid)})`,
   });
 }
 
-async function waitGone(find: () => number, what: string): Promise<void> {
+export async function waitGone(find: () => number, what: string): Promise<void> {
   const h = await pollUntil(find, (v) => v === 0, {
     timeoutMs: WAIT_MS,
     error: (v) => `${what}: still shown at ${show(box(v))}`,
@@ -540,7 +540,7 @@ async function checkRefHover(): Promise<void> {
 
 // E110: popups placed by their owner from the canvas's content
 const SEL_CLASS = "SumatraSelectionToolbar";
-const EDIT_CLASS = "SumatraAnnotEditToolbar";
+export const EDIT_CLASS = "SumatraAnnotEditToolbar";
 const CARD_CLASS = "SumatraAnnotTextPopup";
 const HOVER_CARD_CLASS = "SumatraAnnotationHoverOverlay";
 const BAR_CLASS = "SumatraWgDefaultWinClass";
@@ -550,7 +550,7 @@ const VK_END = 0x23;
 const E110_LINE = "The quick brown fox jumps over the lazy dog";
 
 // a line of text, a highlighted one off the selection, and a square with a comment
-function makeE110Pdf(): string {
+export function makeE110Pdf(): string {
   const text = `BT /F1 18 Tf 72 700 Td (${E110_LINE}) Tj 0 -60 Td (Pack my box with five dozen jugs) Tj ET`;
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
@@ -565,7 +565,7 @@ function makeE110Pdf(): string {
   ]);
 }
 
-function shownTop(pid: number, cls: string, ok: (h: number) => boolean = () => true): number {
+export function shownTop(pid: number, cls: string, ok: (h: number) => boolean = () => true): number {
   let found = 0;
   enumWindows((h) => {
     if (getWindowPid(h) === pid && getClassName(h) === cls && isWindowVisible(h) && ok(h)) {
@@ -578,7 +578,7 @@ function shownTop(pid: number, cls: string, ok: (h: number) => boolean = () => t
 }
 
 // the compact find bar: the frame's popup holding the search field
-function shownFindBar(pid: number, frame: number): number {
+export function shownFindBar(pid: number, frame: number): number {
   return shownTop(pid, BAR_CLASS, (h) => getWindowOwner(h) === frame && findChildByClass(h, COMBO_CLASS) !== 0);
 }
 
@@ -590,7 +590,7 @@ async function barHwnd(client: ControlClient, cmd: ControlCommand): Promise<numb
 
 // a point of an annotation, fx across and half way down, in canvas
 // coordinates, once it is on screen
-async function annotPoint(client: ControlClient, type: string, fx = 0.5): Promise<{ x: number; y: number }> {
+export async function annotPoint(client: ControlClient, type: string, fx = 0.5): Promise<{ x: number; y: number }> {
   let raw = "";
   const re = new RegExp(`type=${type}(?:(?!type=)[\\s\\S])*?screen=(-?\\d+),(-?\\d+),(\\d+),(\\d+)`);
   const r = await pollUntil(
@@ -623,7 +623,7 @@ async function waitInCanvas(find: () => number, canvas: number, what: string): P
 // "away": the focus leaves the app as the popups hide, as on an interactive
 // desktop, where Windows activates another window then (E136). "frame": it
 // moves to the frame (E137)
-async function minimizeFrame(client: ControlClient, order: string, focus = ""): Promise<void> {
+export async function minimizeFrame(client: ControlClient, order: string, focus = ""): Promise<void> {
   const res = await client.request(ControlCommand.TestMinimizeFrame, [order, focus]);
   check(res[0] === 0, `TestMinimizeFrame ${order}: ${res[1]}`);
   check(order !== "anchor-first" || !/reshown=0\b/.test(String(res[1])), `${order}: nothing shown while minimized`);
@@ -686,7 +686,7 @@ async function minimizedAndRestored(
   await client.request(ControlCommand.Ping, []);
 }
 
-async function focusState(client: ControlClient, action = ""): Promise<string> {
+export async function focusState(client: ControlClient, action = ""): Promise<string> {
   return String((await client.request(ControlCommand.TestFocusState, [action]))[1] ?? "");
 }
 
@@ -714,14 +714,14 @@ async function closeOtherWindow(client: ControlClient, other: number): Promise<v
 }
 
 // the frame under test active; its popups may take the focus back
-async function activateFrame(client: ControlClient): Promise<void> {
+export async function activateFrame(client: ControlClient): Promise<void> {
   await focusState(client, "activate");
   const res = await focusState(client);
   check(!/ active=(other-window|away)$/.test(res), `the frame under test did not activate: ${res}`);
 }
 
 // another window open while f runs, the frame under test active
-async function withOtherWindow(
+export async function withOtherWindow(
   client: ControlClient,
   frame: number,
   cmd: string,
@@ -757,7 +757,7 @@ async function focusOtherPageBox(client: ControlClient, what: string): Promise<v
 }
 
 // E124: the popup's owner hides it the way the user's actions reach it
-async function hideByOwner(client: ControlClient, popup: string): Promise<void> {
+export async function hideByOwner(client: ControlClient, popup: string): Promise<void> {
   const res = await client.request(ControlCommand.TestMinimizeFrame, ["hide", popup]);
   check(res[0] === 0, `hide ${popup}: ${res[1]}`);
 }
@@ -913,13 +913,13 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
 
 const CONTENTS_TEXT = "kept through a minimize";
 
-async function annotToolbarDump(client: ControlClient): Promise<string> {
+export async function annotToolbarDump(client: ControlClient): Promise<string> {
   const raw = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1] ?? "");
   return /annotEditToolbar .*/.exec(raw)?.[0] ?? "";
 }
 
 // the highlight selected, its toolbar's contents edit opened
-async function openContentsEdit(client: ControlClient, canvas: number, find: () => number): Promise<number> {
+export async function openContentsEdit(client: ControlClient, canvas: number, find: () => number): Promise<number> {
   const c = await annotPoint(client, "Highlight", 0.6);
   await clickAt(canvas, c.x, c.y, 0, 0, client);
   const tb = await waitShown(find, "annotation toolbar");

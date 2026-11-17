@@ -78,6 +78,7 @@ import { testit as physicalMovesE101 } from "./ad-hoc-e101-physical-moves.ts";
 import { testit as tabLeaveE103 } from "./ad-hoc-e103-tab-leave.ts";
 import { testit as leaveAfterCaptureE105 } from "./ad-hoc-e105-leave-after-capture.ts";
 import { testit as anchoredPopupsE98 } from "./ad-hoc-e98-anchored-popups.ts";
+import { testit as focusRestoresE144 } from "./ad-hoc-e144-focus-restores.ts";
 import { testit as busyHoverE120 } from "./ad-hoc-e120-busy-hover.ts";
 import { testit as busyActionsE123 } from "./ad-hoc-e123-busy-actions.ts";
 import { testit as busyRenderE128 } from "./ad-hoc-e128-busy-render.ts";
@@ -151,6 +152,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-e103-tab-leave", tabLeaveE103],
   ["ad-hoc-e105-leave-after-capture", leaveAfterCaptureE105],
   ["ad-hoc-e98-anchored-popups", anchoredPopupsE98],
+  ["ad-hoc-e144-focus-restores", focusRestoresE144],
   ["ad-hoc-e120-busy-hover", busyHoverE120],
   ["ad-hoc-e123-busy-actions", busyActionsE123],
   ["ad-hoc-e128-busy-render", busyRenderE128],

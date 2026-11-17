@@ -355,8 +355,8 @@ static void HandleEscape(AnnotFilterToolbar* f) {
         e->SetText({});
         return;
     }
-    if (f->win && f->win->hwndCanvas) {
-        HwndSetFocus(f->win->hwndCanvas);
+    if (f->win && f->floatWnd) {
+        HwndMoveFocus(f->floatWnd->hwnd, f->win->hwndCanvas);
     }
 }
 

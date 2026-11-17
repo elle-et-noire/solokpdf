@@ -994,8 +994,9 @@ void HideFindWindow(MainWindow* win) {
         }
     }
     AbortFinding(win, true);
+    // the focus in the window goes to the frame; one elsewhere stays
+    HwndMoveFocus(win->findWindow->hwnd, win->hwndFrame);
     ShowWindow(win->findWindow->hwnd, SW_HIDE);
-    HwndSetFocus(win->hwndFrame);
     ScheduleRepaint(win, 0);
 }
 

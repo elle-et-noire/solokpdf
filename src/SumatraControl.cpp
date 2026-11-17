@@ -3520,6 +3520,24 @@ static void ExecuteControlRequest(ControlRequest* req) {
             if (win && str::Eq(action, StrL("owned-popup"))) {
                 FocusOwnedForTest(win->hwndFrame);
             }
+            // Another app takes the focus: the thread's focus goes, as a move to another
+            // thread's window does (WM_KILLFOCUS without a window), then its activation. The
+            // on-screen keyboard takes the focus, the window stays active
+            if (str::Eq(action, StrL("away"))) {
+                SetFocus(nullptr);
+                SetActiveWindow(AwayWindow());
+            }
+            if (str::Eq(action, StrL("none"))) {
+                SetFocus(nullptr);
+            }
+            // a click on the frame's or the last window's caption: Windows activates it, which
+            // gives it the focus, with no SetFocus() after the loss handlers ran
+            if (win && str::Eq(action, StrL("click-frame"))) {
+                SetActiveWindow(win->hwndFrame);
+            }
+            if (last && str::Eq(action, StrL("click-last"))) {
+                SetActiveWindow(last->hwndFrame);
+            }
             if (win && str::Eq(action, StrL("kill-moves-focus")) && GetFocus()) {
                 gKillMovesTo = win->hwndCanvas;
                 gKillMoved = 0;

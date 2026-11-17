@@ -274,6 +274,7 @@ struct AdvancedSettingsWnd : WindowBase {
     void CheckDropDownClosed();
     void CloseEnumEdit(bool keepValue);
     void KeepFocus();
+    void PostedKeepFocus();
     void RelayoutInPlaceEditor();
     void OnEditValueKillFocus();
     void PostedRefocusEditValue();
@@ -647,10 +648,13 @@ void AdvancedSettingsWnd::CancelEditValue() {
     auto* tmp = editValue;
     editValue = nullptr;
     editItemIdx = -1;
+    // the focus in the edit goes to the list; one a click gave to another window stays
+    if (HwndMoveFocus(hwnd, hwnd)) {
+        SetFocusTo(listBox);
+    }
     delete tmp;
     listBox->Invalidate();
     UpdateHints();
-    SetFocusTo(listBox);
 }
 
 // show a drop-down with the allowed values over the item's value rect
@@ -773,10 +777,20 @@ void AdvancedSettingsWnd::PostedRefocusEditValue() {
     if (gAdvancedSettingsWnd != this || !editValue || !editValue->hwnd) {
         return;
     }
-    if (GetFocus() == editValue->hwnd) {
+    // the on-screen keyboard took the focus; another app or window that took it keeps it
+    HwndMoveFocus(nullptr, editValue->hwnd);
+}
+
+// destroying the combo can activate the main window after we return: the focus comes
+// back from there, not from another app or window the user went to
+void AdvancedSettingsWnd::PostedKeepFocus() {
+    if (gAdvancedSettingsWnd != this || !hwnd || !IsMainWindowValid(win)) {
         return;
     }
-    HwndSetFocus(editValue->hwnd);
+    if (HwndMoveFocus(win->hwndFrame, hwnd)) {
+        RaiseAppWindow(hwnd, WindowRaise::RestoreForeground);
+        SetFocusTo(listBox);
+    }
 }
 
 void AdvancedSettingsWnd::OnEditValueKillFocus() {
@@ -883,7 +897,7 @@ void AdvancedSettingsWnd::CloseEnumEdit(bool keepValue) {
     KeepFocus();
     SetFocusTo(listBox);
     // destroying the combo can activate the main window after we return
-    auto fn = MkMethod0<AdvancedSettingsWnd, &AdvancedSettingsWnd::KeepFocus>(this);
+    auto fn = MkMethod0<AdvancedSettingsWnd, &AdvancedSettingsWnd::PostedKeepFocus>(this);
     uitask::Post(fn, "AdvSettingsKeepFocus");
 }
 

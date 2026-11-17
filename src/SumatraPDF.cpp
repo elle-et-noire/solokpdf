@@ -10269,8 +10269,10 @@ static void RestoreFindFocusAfterHelp() {
     if (!win || !IsMainWindowValidAndNotClosing(win)) {
         return;
     }
+    // Windows activated the frame as the help window went; another window the focus went
+    // to since keeps it
     if (IsFindUIVisible(win) && win->findEdit) {
-        win->findEdit->SetFocus();
+        HwndMoveFocus(win->hwndFrame, win->findEdit->hwnd);
     }
 }
 

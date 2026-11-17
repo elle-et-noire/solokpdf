@@ -436,7 +436,10 @@ So do the keyboard help, Merge PDF and the PDF tool dialogs, and the AI chat
 splitter's drag bar; Document Properties, which the window doesn't own, stays
 on screen. A message box or file dialog taking the focus meanwhile is like
 another app: the popup keeps its state and gets the focus back once the window
-is active again (E143).
+is active again (E143). What the app does on its own, later or as an edit ends, moves the
+focus only from its own window: closing the search bar while another app or
+window has the focus leaves it there, and a click on another window that ends the
+free text box or an Advanced Settings value keeps the focus there (E144).
 
 ## Count prefix
 

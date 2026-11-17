@@ -1293,11 +1293,7 @@ static void RestoreCanvasFocus(AnnotEditToolbar* tb) {
     if (!tb || !tb->win || !tb->win->hwndCanvas || !tb->host || !tb->host->native) {
         return;
     }
-    HWND host = tb->host->native;
-    HWND focus = GetFocus();
-    if (focus == host || IsChild(host, focus)) {
-        HwndSetFocus(tb->win->hwndCanvas);
-    }
+    HwndMoveFocus(tb->host->native, tb->win->hwndCanvas);
 }
 
 static void EndContentsEdit(AnnotEditToolbar* tb, bool accept) {
@@ -1394,11 +1390,8 @@ static void PostedRefocusContents(MainWindow* win) {
     if (!tb || tb->contentsEditClosing || !tb->editingContents || !tb->contentsEdit) {
         return;
     }
-    HWND hwnd = tb->contentsEdit->hwnd;
-    if (!hwnd || GetFocus() == hwnd) {
-        return;
-    }
-    HwndSetFocus(hwnd);
+    // the on-screen keyboard took the focus; another app or window that took it keeps it
+    HwndMoveFocus(nullptr, tb->contentsEdit->hwnd);
 }
 
 static void OnContentsEditWndProc(AnnotEditToolbar* tb, ControlBase::WndProcEvent* ev) {
@@ -1851,13 +1844,14 @@ void EndFreeTextInPlaceEdit(bool accept) {
     // WM_KILLFOCUS doesn't come back through the commit path
     gInPlace = {};
     SetWindowLongPtrW(hwnd, GWLP_WNDPROC, (LONG_PTR)gInPlaceDefProc);
+    bool winOk = win && IsMainWindowValidAndNotClosing(win);
+    // the focus in the box goes to the canvas; one a click gave to another window stays
+    if (winOk) {
+        HwndMoveFocus(hwnd, win->hwndCanvas);
+    }
     DestroyWindow(hwnd);
     if (font) {
         DeleteObject(font);
-    }
-    bool winOk = win && IsMainWindowValidAndNotClosing(win);
-    if (winOk) {
-        HwndSetFocus(win->hwndCanvas);
     }
     if (accept && AnnotationIsLive(annot)) {
         // the box may be enlarged and the text set: one undo step

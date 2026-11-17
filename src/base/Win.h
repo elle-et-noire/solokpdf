@@ -106,6 +106,7 @@ bool HwndIsOnScreenKeyboard(HWND);
 bool HwndIsVisible(HWND hwnd);
 bool HwndIsOnScreen(HWND hwnd);
 HWND HwndRootOwner(HWND hwnd);
+bool HwndMoveFocus(HWND from, HWND to);
 void HwndSetVisible(HWND hwnd, bool visible);
 void HwndToForeground(HWND hwnd);
 

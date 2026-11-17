@@ -193,6 +193,14 @@ owned by nothing or by the frame and focus it, as a MessageBox does (`focus=dial
 `dialog-close` destroys it. With the contents edit held through a minimize, the
 dialog keeps the focus through the restore, the edit stays open, and it gets the
 focus back once the frame is active.
+E144: `tests/ad-hoc-e144-focus-restores.ts`. `TestFocusState away` drops the
+thread's focus and activates the stand-in for another app, as a move to another
+thread does (the minimize's `away` only activates it, which on a shown popup
+gives it the focus); `none` drops the focus with the window active, as the
+on-screen keyboard does; `click-frame` / `click-last` activate the frame or the
+newest window with `SetActiveWindow()` alone, as a caption click does:
+`activate` / `activate-last` end with a `SetFocus()` that would hide a focus
+move made in a loss handler.
 Dumps that report a popup shown (`visible=1`, `floatVisible=1`, the annotation
 toolbar's `annotEditToolbar visible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,

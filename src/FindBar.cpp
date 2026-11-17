@@ -712,8 +712,10 @@ void HideFindBar(MainWindow* win) {
         return;
     }
     AbortFinding(win, true);
+    // the focus in the bar goes to the frame; one elsewhere stays, e.g. when the bar is
+    // dismissed later, with another window focused
+    HwndMoveFocus(win->findBar->hwnd, win->hwndFrame);
     ShowWindow(win->findBar->hwnd, SW_HIDE);
-    HwndSetFocus(win->hwndFrame);
     ScheduleRepaint(win, 0);
 }
 

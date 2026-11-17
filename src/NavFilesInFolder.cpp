@@ -193,7 +193,9 @@ static void FocusNavListBox() {
     if (HwndGetForeground() != wnd->hwnd) {
         return;
     }
-    wnd->SetFocusTo(wnd->listBox);
+    if (HwndMoveFocus(wnd->hwnd, wnd->hwnd)) {
+        wnd->SetFocusTo(wnd->listBox);
+    }
 }
 
 static void ScheduleFocusNavListBox() {
@@ -530,12 +532,15 @@ void NavFilesInFolderWnd::EndEditPath(NavPathEditEnd how) {
     if (!editingPath) {
         return;
     }
-    editingPath = false; // before hiding: that fires kill-focus
+    editingPath = false; // before the focus or the hide fires kill-focus
     TempStr path = dirEdit->GetTextTemp();
+    // the focus in the edit goes to the list; one a click gave to another window stays
+    if (HwndMoveFocus(hwnd, hwnd)) {
+        SetFocusTo(listBox);
+    }
     dirEdit->SetIsVisible(false);
     // hiding the child doesn't repaint the label it covered
     HwndInvalidateRect(hwnd, PathEditRect(), true);
-    SetFocusTo(listBox);
     if (how == NavPathEditEnd::Cancel) {
         return;
     }
