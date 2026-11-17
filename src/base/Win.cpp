@@ -14,10 +14,15 @@
 #include <mlang.h>
 #include "base/Pixmap.h"
 #include "base/Win.h"
-// the owned popups layer: Win32's own calls (Win.h routes the app's here)
+// the owned popups layer: Win32's own calls (Base.h routes the app's here)
 #undef ShowWindow
+#undef ShowWindowAsync
 #undef SetWindowPos
 #undef IsWindowVisible
+#undef SetWindowPlacement
+#undef AnimateWindow
+#undef ShowOwnedPopups
+#undef DeferWindowPos
 #include "base/Launch.h"
 
 //--- subclass ids
@@ -417,6 +422,17 @@ bool HwndIsOnScreen(HWND hwnd) {
     return ::IsWindowVisible(hwnd);
 }
 
+// The top-level window at the end of hwnd's owner chain, e.g. the frame of a window
+// it owns. GetAncestor(GA_ROOTOWNER) follows GetParent(), which skips the owner of
+// an overlapped window (Merge PDF, the PDF tool dialogs).
+HWND HwndRootOwner(HWND hwnd) {
+    HWND root = GetAncestor(hwnd, GA_ROOT);
+    for (HWND owner = root; owner; owner = GetWindow(owner, GW_OWNER)) {
+        root = owner;
+    }
+    return root;
+}
+
 void HwndSetVisible(HWND hwnd, bool visible) {
     if (!visible) {
         HwndShowWindow(hwnd, SW_HIDE);
@@ -437,6 +453,10 @@ Point& UnmirrorRtl(HWND hwnd, Point& p) {
 
 static void HwndSetWindowStyle(HWND hwnd, DWORD flags, bool enable, int type) {
     DWORD style = GetWindowLongW(hwnd, type);
+    // WS_VISIBLE doesn't show or hide a top-level window: an owned one goes through
+    // ShowWindow(), which the owned popups layer sees
+    bool topLevel = type == GWL_STYLE && !(style & WS_CHILD);
+    ReportIf(topLevel && (flags & WS_VISIBLE) && HwndRootOwner(hwnd) != hwnd);
     DWORD newStyle;
     if (enable) {
         newStyle = style | flags;
@@ -2198,7 +2218,7 @@ static bool Anchored(OwnedPopup* ap) {
 
 // the frame that owns a popup, if any
 static HWND PopupFrame(HWND popup) {
-    HWND frame = GetAncestor(popup, GA_ROOTOWNER);
+    HWND frame = HwndRootOwner(popup);
     return frame != popup ? frame : nullptr;
 }
 
@@ -2297,8 +2317,13 @@ enum class FocusMove {
 // another of the app's frames: the owner sees the loss before `to` gets WM_SETFOCUS, as
 // for a click there, so the caret its edit destroys is still its own, not to's.
 // One set back in its restored popup before the frame was activated is no longer held.
+// A window of a class not the app's (MessageBox, file dialog) is like another app's:
+// the focus is held until the frame or a window of the app's it owns is active again.
 static void NoteFocusMoving(HWND to, HWND from, FocusMove how) {
-    HWND frame = GetAncestor(to, GA_ROOTOWNER);
+    if (!FindOwnedPopup(GetAncestor(to, GA_ROOT))) {
+        return;
+    }
+    HWND frame = HwndRootOwner(to);
     Vec<HWND> lost;
     // before the holds go, so the hook stays to drop the owners' focus moves
     gDeliveringLoss = true;
@@ -2306,7 +2331,7 @@ static void NoteFocusMoving(HWND to, HWND from, FocusMove how) {
         if (!ap->focus) {
             continue;
         }
-        if (GetAncestor(ap->popup, GA_ROOTOWNER) == frame) {
+        if (HwndRootOwner(ap->popup) == frame) {
             if (how == FocusMove::SetFocus && !ap->minimized && InPopup(ap->popup, to)) {
                 ReleaseFocus(ap);
             }
@@ -2330,7 +2355,7 @@ static void NoteFocusMoving(HWND to, HWND from, FocusMove how) {
 
 // a restored popup's held focus goes back once its frame is activated (RefocusWhenActive)
 static void NoteActivating(HWND hwnd) {
-    HWND frame = GetAncestor(hwnd, GA_ROOTOWNER);
+    HWND frame = HwndRootOwner(hwnd);
     for (OwnedPopup* ap : OwnedPopups()) {
         if (ap->focus && !ap->minimized && PopupFrame(ap->popup) == frame) {
             PostMessageW(ap->popup, gPopupMsg, PopupRefocus, 0);
@@ -2427,15 +2452,16 @@ static void NoteMinimized(OwnedPopup* ap) {
     SyncFocusMoveHook();
 }
 
-// A restored popup gets its held focus back once its frame or a window it owns is
-// active. Until then the focus may be in another app: a SetFocus() would take it.
+// A restored popup gets its held focus back once its frame or a window of the app's it
+// owns is active. Until then the focus may be in another app or in a dialog of a class
+// not the app's (NoteFocusMoving()): a SetFocus() would take it.
 static void RefocusWhenActive(OwnedPopup* ap) {
     if (!ap->focus || ap->minimized) {
         return;
     }
     HWND active = GetActiveWindow();
     HWND frame = PopupFrame(ap->popup);
-    if (frame && (!active || GetAncestor(active, GA_ROOTOWNER) != frame)) {
+    if (frame && (!active || HwndRootOwner(active) != frame || !FindOwnedPopup(active))) {
         return;
     }
     HWND focus = ap->focus;
@@ -2713,7 +2739,7 @@ static void NotePopupHidden(HWND hwnd) {
     }
 }
 
-// ShowWindow() for the app's code (Win.h)
+// ShowWindow() for the app's code (Base.h)
 BOOL HwndShowWindow(HWND hwnd, int cmd) {
     if (cmd == SW_HIDE) {
         NotePopupHidden(hwnd);
@@ -2721,7 +2747,15 @@ BOOL HwndShowWindow(HWND hwnd, int cmd) {
     return ShowWindow(hwnd, cmd);
 }
 
-// SetWindowPos() for the app's code (Win.h)
+// ShowWindowAsync() for the app's code (Base.h)
+BOOL HwndShowWindowAsync(HWND hwnd, int cmd) {
+    if (cmd == SW_HIDE) {
+        NotePopupHidden(hwnd);
+    }
+    return ShowWindowAsync(hwnd, cmd);
+}
+
+// SetWindowPos() for the app's code (Base.h)
 BOOL HwndSetWindowPos(HWND hwnd, HWND after, int x, int y, int dx, int dy, UINT flags) {
     if (flags & SWP_HIDEWINDOW) {
         NotePopupHidden(hwnd);
@@ -4295,14 +4329,14 @@ static const DWORD groupsToCheck[] = {
     DOMAIN_ALIAS_RID_ADMINS,
 };
 
-void DeferWinPosHelper::SetWindowPos(HWND hWnd, HWND hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags) {
+void DeferWinPosHelper::SetPos(HWND hWnd, HWND hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags) {
     if (uFlags & SWP_HIDEWINDOW) {
         NotePopupHidden(hWnd);
     }
     hdwp = ::DeferWindowPos(hdwp, hWnd, hWndInsertAfter, x, y, cx, cy, uFlags);
 }
 
-void DeferWinPosHelper::SetWindowPos(HWND hwnd, const Rect rc) {
+void DeferWinPosHelper::SetPos(HWND hwnd, const Rect rc) {
     uint flags = SWP_NOZORDER;
     hdwp = ::DeferWindowPos(hdwp, hwnd, nullptr, rc.x, rc.y, rc.dx, rc.dy, flags);
 }
@@ -4357,7 +4391,7 @@ void DeferWinPosHelper::MoveWindow(HWND hWnd, int x, int y, int cx, int cy, BOOL
     if (!bRepaint) {
         uFlags |= SWP_NOREDRAW;
     }
-    this->SetWindowPos(hWnd, nullptr, x, y, cx, cy, uFlags);
+    SetPos(hWnd, nullptr, x, y, cx, cy, uFlags);
 }
 
 // Build id of a PE file: the CodeView PDB GUID and age (what symbol servers key

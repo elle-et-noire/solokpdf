@@ -432,6 +432,11 @@ the minimize, as they do when another window activates (E124). The floating
 find window, the annotation list and the window's other popups that don't sit
 next to a control follow the same rules: back where they were, with their focus,
 unless closed meanwhile (Esc closes the find window while minimized) (E140).
+So do the keyboard help, Merge PDF and the PDF tool dialogs, and the AI chat
+splitter's drag bar; Document Properties, which the window doesn't own, stays
+on screen. A message box or file dialog taking the focus meanwhile is like
+another app: the popup keeps its state and gets the focus back once the window
+is active again (E143).
 
 ## Count prefix
 

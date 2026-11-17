@@ -2205,7 +2205,7 @@ BarShadow* AnnotEditToolbarShadow(MainWindow* win) {
 
 TempStr AnnotEditToolbarStateTemp(MainWindow* win) {
     AnnotEditToolbar* tb = win ? win->annotEditToolbar : nullptr;
-    bool visible = tb && tb->host && tb->host->IsVisible();
+    bool visible = tb && tb->host && HwndIsOnScreen(tb->host->native);
     if (!visible) {
         return fmt("annotEditToolbar visible=0 n=0 items= editing=0\n");
     }

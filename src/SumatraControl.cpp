@@ -85,6 +85,7 @@
 #include "CommandPalette.h"
 #include "PdfTools.h"
 #include "MergePdf.h"
+#include "KeyboardHelp.h"
 #include "ReadAloud.h"
 #include "ReadingAutoScroll.h"
 #include "ReadingBar.h"
@@ -735,6 +736,39 @@ static HWND AwayWindow() {
     return gAwayWnd;
 }
 
+// A dialog of a class not the app's (a MessageBox, a file dialog) on the UI thread,
+// owned by the frame or not. It takes the focus with its activation, as a dialog does
+static HWND gDialogWnd = nullptr;
+
+static void CloseDialogForTest() {
+    if (gDialogWnd) {
+        DestroyWindow(gDialogWnd);
+        gDialogWnd = nullptr;
+    }
+}
+
+static void ShowDialogForTest(HWND owner) {
+    CloseDialogForTest();
+    gDialogWnd =
+        CreateWindowExW(WS_EX_TOOLWINDOW, L"STATIC", L"", WS_POPUP, 0, 0, 1, 1, owner, nullptr, nullptr, nullptr);
+    ShowWindow(gDialogWnd, SW_SHOWNA);
+    SetFocus(gDialogWnd);
+}
+
+// the shown window the frame owns gets the focus, unless it has it
+static void FocusOwnedForTest(HWND frame) {
+    ShownOwnedPopups shown;
+    shown.owner = frame;
+    EnumThreadWindows(GetCurrentThreadId(), CollectShownOwned, (LPARAM)&shown);
+    HWND focus = GetFocus();
+    for (HWND hwnd : shown.hwnds) {
+        if (focus != hwnd && !IsChild(hwnd, focus)) {
+            HwndSetFocus(hwnd);
+        }
+        return;
+    }
+}
+
 // MinimizeFocus::Frame: the frame, and how often the focus moved to it
 static HWND gFocusToFrame = nullptr;
 static int gFocusedFrame = 0;
@@ -815,6 +849,8 @@ static bool HidePopupForTest(MainWindow* win, Str popup) {
         SetSelectedAnnotation(win->CurrentTab(), nullptr);
     } else if (str::Eq(popup, StrL("filter"))) {
         HideAnnotFilterWindow(win);
+    } else if (str::Eq(popup, StrL("help"))) {
+        CloseKeyboardHelp();
     } else {
         return false;
     }
@@ -1096,12 +1132,15 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
         return StrL("canvas");
     }
     // in another of the app's windows
-    HWND root = GetAncestor(hwnd, GA_ROOTOWNER);
+    HWND root = HwndRootOwner(hwnd);
     if (win && root != win->hwndFrame && FindMainWindowByHwnd(root)) {
         return StrL("other-window");
     }
     if (hwnd == gAwayWnd) {
         return StrL("away");
+    }
+    if (hwnd == gDialogWnd) {
+        return StrL("dialog");
     }
     if (CommandPaletteHwndForAccelerator(hwnd)) {
         return StrL("palette");
@@ -1126,6 +1165,10 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
     // the floating find window's search field
     if (win && IsFindWindowVisible(win) && win->findEdit && IsChild(win->findEdit->hwnd, hwnd)) {
         return StrL("find-window");
+    }
+    // another window the frame owns: keyboard help, Merge PDF, a PDF tool dialog
+    if (win && GetWindow(GetAncestor(hwnd, GA_ROOT), GW_OWNER) == win->hwndFrame) {
+        return StrL("owned");
     }
     return StrL("other");
 }
@@ -3464,6 +3507,18 @@ static void ExecuteControlRequest(ControlRequest* req) {
             MainWindow* last = len(gWindows) > 0 ? gWindows[len(gWindows) - 1] : nullptr;
             if (last && last->pageEdit && str::Eq(action, StrL("page-edit-last"))) {
                 HwndSetFocus(last->pageEdit->hwnd);
+            }
+            if (win && str::Eq(action, StrL("dialog"))) {
+                ShowDialogForTest(nullptr);
+            }
+            if (win && str::Eq(action, StrL("dialog-owned"))) {
+                ShowDialogForTest(win->hwndFrame);
+            }
+            if (str::Eq(action, StrL("dialog-close"))) {
+                CloseDialogForTest();
+            }
+            if (win && str::Eq(action, StrL("owned-popup"))) {
+                FocusOwnedForTest(win->hwndFrame);
             }
             if (win && str::Eq(action, StrL("kill-moves-focus")) && GetFocus()) {
                 gKillMovesTo = win->hwndCanvas;

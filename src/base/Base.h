@@ -2927,3 +2927,24 @@ void logf(const char* s, const TArgs&... args) {
 #undef lstrcmpiW
 #define lstrcmpiW dont_use_lstrcmpiW
 #endif
+
+// The app shows, hides and reads its windows through the owned popups layer
+// (base/Win.cpp, the only file that #undefs these), so a popup hidden with its
+// minimized frame can't miss a hide or read hidden. Hide paths it doesn't route
+// don't build.
+#if OS_WIN
+BOOL HwndShowWindow(HWND hwnd, int cmd);
+BOOL HwndShowWindowAsync(HWND hwnd, int cmd);
+BOOL HwndSetWindowPos(HWND hwnd, HWND after, int x, int y, int dx, int dy, UINT flags);
+bool HwndIsVisible(HWND hwnd);
+#if !defined(SUMATRA_NG)
+#define ShowWindow(hwnd, cmd) HwndShowWindow(hwnd, cmd)
+#define ShowWindowAsync(hwnd, cmd) HwndShowWindowAsync(hwnd, cmd)
+#define SetWindowPos(...) HwndSetWindowPos(__VA_ARGS__)
+#define IsWindowVisible(hwnd) HwndIsVisible(hwnd)
+#define SetWindowPlacement(...) dont_use_SetWindowPlacement_bypasses_owned_popups(__VA_ARGS__)
+#define AnimateWindow(...) dont_use_AnimateWindow_bypasses_owned_popups(__VA_ARGS__)
+#define ShowOwnedPopups(...) dont_use_ShowOwnedPopups_bypasses_owned_popups(__VA_ARGS__)
+#define DeferWindowPos(...) dont_use_DeferWindowPos_use_DeferWinPosHelper(__VA_ARGS__)
+#endif
+#endif

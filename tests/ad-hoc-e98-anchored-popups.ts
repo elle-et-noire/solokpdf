@@ -41,6 +41,11 @@
 // the frame is restored, before the layer's sync. The other window's page box keeps
 // its caret. Floating popups: find window, annotation list, command palette.
 //
+// E143: the other windows the frame owns (keyboard help, Merge PDF, a PDF tool dialog)
+// follow the same rules; Properties, which it doesn't own, stays on screen. A dialog of
+// a class not the app's (MessageBox, file dialog) is like another app: it keeps the
+// focus through the restore, no loss is delivered, the popup gets the focus back after.
+//
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -58,6 +63,7 @@ import {
   getWindowPid,
   getWindowRect,
   getWindowOwner,
+  getWindowText,
   GWL_EXSTYLE,
   GWL_STYLE,
   isWindowVisible,
@@ -120,7 +126,7 @@ const LOCK_HOLD_MS = 300;
 
 type Box = { x: number; y: number; dx: number; dy: number };
 
-const failures: string[] = [];
+export const failures: string[] = [];
 // the running app's log
 let gLog = "";
 
@@ -1045,6 +1051,45 @@ async function checkContentsEditFocus(
       });
     });
   }
+
+  // E143: a dialog of a class not the app's is like another app, owned by the frame or not
+  for (const [kind, whose] of [
+    ["dialog-owned", "the frame owns"],
+    ["dialog", "no window owns"],
+  ]) {
+    for (const [i, way] of FOCUS_WAYS.entries()) {
+      await step(`${name}: a dialog ${whose} takes the focus while minimized, ${way.how}`, async () => {
+        const text = `${CONTENTS_TEXT} ${kind} ${i}`;
+        await openWith(text);
+        try {
+          try {
+            await minimizeFrame(client, way.order, way.focus);
+            await waitGone(find, `${name} with the frame minimized`);
+            const res = await focusState(client, kind!);
+            check(res.startsWith("focus=dialog active=dialog"), `the dialog has no focus: ${res}`);
+          } finally {
+            await minimizeFrame(client, "restore");
+          }
+          await client.request(ControlCommand.Ping, []);
+          const res = await focusState(client);
+          check(res.startsWith("focus=dialog active=dialog"), `the restore took the focus from the dialog: ${res}`);
+          check(await editing(), "the contents edit closed for the dialog");
+        } finally {
+          await focusState(client, "dialog-close");
+        }
+        // Windows activates the owner of the closed dialog; else the user does
+        if (!/ active=(frame|annot-toolbar)$/.test(await focusState(client))) await activateFrame(client);
+        await pollUntil(
+          () => focusState(client),
+          (r) => r.startsWith("focus=annot-toolbar "),
+          { timeoutMs: WAIT_MS, error: (r) => `the contents edit did not get the focus back: ${r}` },
+        );
+        check(await editing(), "the contents edit closed");
+        const kept = getControlText(edit);
+        check(kept === text, `the contents edit holds "${kept}", want "${text}"`);
+      });
+    }
+  }
 }
 
 // keyboard caret, visual mode, End: a selection the selection toolbar shows for
@@ -1076,7 +1121,7 @@ function keep(h: () => number): () => number {
   return () => (h() && isWindowVisible(h()) ? h() : 0);
 }
 
-async function checkCanvasPopups(): Promise<void> {
+export async function checkCanvasPopups(): Promise<void> {
   const dir = tmpPath("ad-hoc-e110");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -1302,7 +1347,7 @@ async function checkFloating(p: Floating, client: ControlClient, frame: number):
   }
 }
 
-async function checkFloatingPopups(): Promise<void> {
+export async function checkFloatingPopups(): Promise<void> {
   const dir = tmpPath("ad-hoc-e140");
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -1368,6 +1413,179 @@ async function checkFloatingPopups(): Promise<void> {
   }
 }
 
+// E143: a shown window the frame owns, by its title
+function shownOwned(pid: number, frame: number, title: RegExp): number {
+  let found = 0;
+  enumWindows((h) => {
+    if (getWindowPid(h) !== pid || !isWindowVisible(h) || !title.test(getWindowText(h))) return true;
+    if (getWindowOwner(h) !== frame) return true;
+    found = h;
+    return false;
+  });
+  return found;
+}
+
+// closed by its close box
+async function closeWindow(find: () => number, what: string): Promise<void> {
+  const h = find();
+  if (h) postMessage(h, WM_CLOSE, 0, 0);
+  await waitGone(find, `${what} after WM_CLOSE`);
+}
+
+// E143: the windows the frame owns follow its minimize; one it doesn't own stays
+export async function checkOwnedWindows(): Promise<void> {
+  const dir = tmpPath("ad-hoc-e143");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const pdf = join(dir, "doc.pdf");
+  writeFileSync(pdf, makeE110Pdf(), "latin1");
+  const settings = ["UiLanguage = en", "CheckForUpdates = false", "RestoreSession = false"];
+  writeFileSync(join(dir, SETTINGS_FILE), settings.join("\n") + "\n");
+  const { proc, client, frame } = await launchLogged("e143", ["-appdata", dir, pdf]);
+  const pid = proc.pid!;
+  const focus = { give: async () => void (await focusState(client, "owned-popup")), name: "owned" };
+  const owned = async (p: Floating) => {
+    await checkFloating(p, client, frame);
+    await closeWindow(p.find, p.name);
+  };
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    await owned({
+      name: "keyboard help",
+      find: () => shownOwned(pid, frame, /^Keyboard Shortcuts$/),
+      open: async () => sendCommandSync(frame, cmdId("CmdToggleKeyboardHelp")),
+      hide: "help",
+      focus,
+    });
+    await owned({
+      name: "Merge PDF",
+      find: () => shownOwned(pid, frame, /^Merge PDF/),
+      open: async () => sendCommandSync(frame, cmdId("CmdMergePDF")),
+      focus,
+    });
+    await owned({
+      name: "Compress PDF",
+      find: () => shownOwned(pid, frame, /^Compress PDF/),
+      open: async () => sendCommandSync(frame, cmdId("CmdPdfCompress")),
+      focus,
+    });
+
+    // not owned: Windows and the layer leave it alone. anchor-first shows again only
+    // what the frame owns
+    const props = () => shownTop(pid, BAR_CLASS, (h) => getWindowText(h) === "Document Properties");
+    for (const way of MINIMIZE_WAYS.filter((w) => w.order === "os-first")) {
+      await step(`Properties: frame minimized, ${way.how}`, async () => {
+        if (!props()) sendCommandSync(frame, cmdId("CmdProperties"));
+        const before = box(await waitShown(props, "Properties"));
+        check(getWindowOwner(props()) !== frame, "the frame owns Properties");
+        try {
+          await minimizeFrame(client, way.order, way.focus);
+          check(props() !== 0, "Properties hid with the frame");
+        } finally {
+          await minimizeFrame(client, "restore");
+        }
+        await client.request(ControlCommand.Ping, []);
+        await waitAt(props, before, "Properties after the frame was restored");
+      });
+    }
+    await closeWindow(props, "Properties");
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
+const OVERLAY_CLASS = "SplitterResizeOverlayWnd";
+const DRAG_DX = 40;
+
+// the AI chat splitter, the frame's last one, in frame client coordinates
+async function aiChatSplitter(client: ControlClient): Promise<Box> {
+  const re = /^layout path=\S+ kind=virtCtrlSplitter visibility=0 rect=(-?\d+),(-?\d+),(\d+),(\d+)$/gm;
+  let raw = "";
+  return await pollUntil(
+    async () => {
+      raw = String((await client.request(ControlCommand.TestLayout, ["get"]))[1] ?? "");
+      let last: Box | null = null;
+      for (const m of raw.matchAll(re)) {
+        const b = { x: +m[1]!, y: +m[2]!, dx: +m[3]!, dy: +m[4]! };
+        if (b.dy > 0 && (!last || b.x > last.x)) last = b;
+      }
+      return last;
+    },
+    (b) => !!b,
+    { timeoutMs: WAIT_MS * 3, error: () => `no AI chat splitter\n${raw}` },
+  );
+}
+
+// E143: the AI chat splitter's resize overlay, a popup the frame owns while the splitter
+// is dragged, follows the minimize; the drag ending meanwhile hides it for good
+export async function checkResizeOverlay(): Promise<void> {
+  const dir = tmpPath("ad-hoc-e143-overlay");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const pdf = join(dir, "doc.pdf");
+  writeFileSync(pdf, makeE110Pdf(), "latin1");
+  // a provider that is never called: the panel only has to show
+  const settings = [
+    "UiLanguage = en",
+    "CheckForUpdates = false",
+    "RestoreSession = false",
+    "CustomAI [\n BaseURL = http://127.0.0.1:9/v1\n Model = e143\n ApiKeyEnv = SUMATRA_E143_NO_KEY\n]",
+  ];
+  writeFileSync(join(dir, SETTINGS_FILE), settings.join("\n") + "\n");
+  const { proc, client, frame } = await launchLogged("e143-overlay", ["-appdata", dir, pdf]);
+  const pid = proc.pid!;
+  const name = "resize overlay";
+  const find = () => shownTop(pid, OVERLAY_CLASS, (h) => getWindowOwner(h) === frame);
+  let at = { x: 0, y: 0 };
+  let dragging = false;
+  const mouse = async (msg: number, keys: number, x: number, y: number) => {
+    const s = clientToScreen(frame, x, y);
+    await moveTestCursor(s.x, s.y, client);
+    sendMessage(frame, msg, keys, packCoords(x, y));
+  };
+  // from the splitter's middle, which a drop moves
+  const drag = async () => {
+    if (!dragging) {
+      const r = await aiChatSplitter(client);
+      at = { x: r.x + Math.floor(r.dx / 2), y: r.y + Math.floor(r.dy / 2) };
+      await mouse(WM_LBUTTONDOWN, MK_LBUTTON, at.x, at.y);
+      await mouse(WM_MOUSEMOVE, MK_LBUTTON, at.x - DRAG_DX, at.y);
+      dragging = true;
+    }
+    return box(await waitShown(find, name));
+  };
+  const drop = async () => {
+    await mouse(WM_LBUTTONUP, 0, at.x - DRAG_DX, at.y);
+    dragging = false;
+  };
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    sendCommandSync(frame, cmdId("CmdAIChatWithCustomAPI"));
+
+    for (const way of MINIMIZE_WAYS) {
+      await step(`${name}: frame minimized, ${way.how}`, async () => {
+        const before = await drag();
+        await minimizedAndRestored(client, way, find, name);
+        await waitAt(find, before, `${name} after the frame was restored`);
+      });
+    }
+    for (const way of MINIMIZE_WAYS) {
+      await step(`${name}: the drag ended while minimized, ${way.how}`, async () => {
+        await drag();
+        await minimizedAndRestored(client, way, find, name, drop);
+        check(find() === 0, `${name} came back after the drag ended`);
+      });
+    }
+  } finally {
+    if (dragging) await drop();
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 export async function testit(): Promise<void> {
   failures.length = 0;
   setProcessDpiAware();
@@ -1397,6 +1615,8 @@ export async function testit(): Promise<void> {
   await step("citation hover", checkRefHover);
   await step("E110 popups", checkCanvasPopups);
   await step("E140 floating popups", checkFloatingPopups);
+  await step("E143 owned windows", checkOwnedWindows);
+  await step("E143 resize overlay", checkResizeOverlay);
   check(failures.length === 0, failures.join("\n"));
   console.log("e98-anchored-popups: OK");
 }

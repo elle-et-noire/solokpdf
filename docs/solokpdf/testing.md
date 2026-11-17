@@ -183,7 +183,18 @@ often that took (`killMoved`) and where the caret is (`caret=focus`);
 `CmdDuplicateInNewWindow`). The contents edit, the floating find window, the
 annotation list and the command palette must leave the focus in the other
 window and its page box with its caret.
-Dumps that report a popup shown (`visible=1`, `floatVisible=1`) read
+E143: the keyboard help, Merge PDF and Compress PDF (windows the frame owns, the last
+two overlapped) run the floating popups' steps; `TestFocusState owned-popup` focuses
+the shown one (`focus=owned`). Document Properties, not owned, stays on screen. The
+AI chat splitter's resize overlay (a custom AI provider that is never called opens
+the panel) comes back mid-drag and stays hidden when the drag ends while minimized.
+`TestFocusState dialog` / `dialog-owned` show a `STATIC` window (not the app's class)
+owned by nothing or by the frame and focus it, as a MessageBox does (`focus=dialog`);
+`dialog-close` destroys it. With the contents edit held through a minimize, the
+dialog keeps the focus through the restore, the edit stays open, and it gets the
+focus back once the frame is active.
+Dumps that report a popup shown (`visible=1`, `floatVisible=1`, the annotation
+toolbar's `annotEditToolbar visible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,
 though its owner sees it shown. A failed step prints what the app logged meanwhile. A link tip, citation popup, I-beam, form field
 cursor, plain-text citation and Edit PDF annotation hover while a render holds

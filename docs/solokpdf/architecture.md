@@ -246,6 +246,9 @@ ng も共有の基底実装とフォーム結果の呼び出し側を使う。�
   UI スレッドの `WH_CBT` フック（`TrackOwnedPopups()`、WinMain で 1 回）がアプリ自身のクラスのトップレベル窓を作成時に
   すべて登録するので、作成後に `GWLP_HWNDPARENT` で所有者を付ける浮動検索ウィンドウ・注釈一覧・キーボードヘルプ
   なども漏れない（comctl32/user32 のクラス、つまりツールチップ・メニュー・ダイアログは自分のコードで隠すので対象外）。
+  ポップアップのフレームは所有者の連鎖（`GW_OWNER`）の先、`HwndRootOwner()` で求める。`GA_ROOTOWNER` は `GetParent()` を
+  たどるので、`WS_POPUP` でない所有窓（Merge PDF、PDF ツールのダイアログ）の所有者を飛ばし、それらは復元で戻らず、
+  最小化中に表示されると出たままだった（E143）。
   Windows はフレームが所有するポップアップを最小化の前に隠し復元で再表示するので、
   最小化中に表示されたものも同層が同じように隠して復元時に戻し、所有者の配置状態を残す（どちらが先でも同じ結果、E121）。
   固定位置でないものは最小化の間だけフレームをサブクラスして復元を知る。
@@ -262,12 +265,22 @@ ng も共有の基底実装とフォーム結果の呼び出し側を使う。�
   （コンテンツ編集の確定）は、フォーカスが自分の窓にあるときだけ動かす（`RestoreCanvasFocus`）。
   配送点はポストでなくフックの中にした：ポストでは移動先が `WM_SETFOCUS` で作ったキャレットを Edit の `DestroyCaret` が
   壊す。所有者側で `SetFocus` をポストする案は、遅れて実行されてもフォーカスを奪うので採らなかった（E142）。
+  アプリのクラスでない窓（MessageBox、ファイルダイアログ）は、フレームが所有していても他アプリと同じに扱う：
+  そこへのフォーカス移動では保持を続けて喪失を渡さず、復元後もフレームかその所有するアプリの窓がアクティブに
+  なるまで戻さない。中断したダイアログを閉じれば元の編集に戻るのが自然で、所有の有無で結果が変わらない。以前は所有された
+  ダイアログからは復元でフォーカスを奪い、所有されないダイアログでは喪失を渡して編集を確定していた（E143）。
+  フォーカスとアクティブ化はどの API でも同じ `WH_CBT` フックを通るので、新しい表示・活性化の入口を足しても保持の規則は変わらない。
   最小化中に所有者が隠したものは復元しても出さない。Windows はその間にアプリが隠したものも復元時に再表示する
   （`SW_PARENTOPENING`）ので同層はそれを捨て、隠されていないものだけを自分で出し直す。隠れている窓を隠しても
-  誰にも伝わらないため、[Win.h](../../src/base/Win.h) がアプリのコードの `ShowWindow()`・`SetWindowPos()`・
-  `IsWindowVisible()` をマクロで同層の `HwndShowWindow()`・`HwndSetWindowPos()`・`HwndIsVisible()` に通す
-  （同層の Win.cpp だけが `#undef` して Win32 を直接呼ぶ）。所有者は普通に隠せばよく、ファイル一覧の lint
-  （`lint-anchored-hides`）は不要になり削除した。復元を待つ間 `HwndIsVisible()`（`VirtHost::IsVisible()` も）は
+  誰にも伝わらないため、[Base.h](../../src/base/Base.h)（全翻訳単位の先頭）がアプリのコードの `ShowWindow()`・
+  `ShowWindowAsync()`・`SetWindowPos()`・`IsWindowVisible()` をマクロで同層の `HwndShowWindow()`・
+  `HwndShowWindowAsync()`・`HwndSetWindowPos()`・`HwndIsVisible()` に通す（同層の Win.cpp だけが `#undef` して
+  Win32 を直接呼ぶ）。同層を通らない他の非表示の経路 `SetWindowPlacement()`・`AnimateWindow()`・`ShowOwnedPopups()`・
+  `DeferWindowPos()` は同じ場所で `dont_use_*` に置き換え、呼ぶとビルドが通らない（`DeferWindowPos` は同層を通る
+  `DeferWinPosHelper` を使う）。経路を足して通すより、使われていない API は塞ぐ方が単純で確実なので塞いだ（E143）。
+  所有窓の `WS_VISIBLE` を `HwndSetWindowStyle()` で切り替えると `ReportIf` する（トップレベル窓はスタイルでは
+  表示・非表示にならない）。`SetWindowLong(GWL_STYLE)` の読み書きは非表示と区別できないので見ない。
+  所有者は普通に隠せばよく、ファイル一覧の lint（`lint-anchored-hides`）は不要になり削除した。復元を待つ間 `HwndIsVisible()`（`VirtHost::IsVisible()` も）は
   表示中と答えるので、所有者の状態とそれで守った非表示は最小化で変わらない（最小化中の Esc で検索バーが閉じる、E138）。
   その印は窓のプロパティなのでどのスレッドからも読め、登録表は追跡する UI スレッドだけが触る（他スレッドからの非表示は
   `SendMessage` で窓のスレッドに渡す）。画面に出ているかは `HwndIsOnScreen()` で読み、テスト用ダンプはそちらを使う。

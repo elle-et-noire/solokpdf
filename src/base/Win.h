@@ -94,8 +94,6 @@ struct AnchorArgs {
 void TrackOwnedPopups();
 void AnchorPopup(HWND popup, const AnchorArgs&);
 void AnchorShows(HWND anchor, const void* content);
-BOOL HwndShowWindow(HWND hwnd, int cmd);
-BOOL HwndSetWindowPos(HWND hwnd, HWND after, int x, int y, int dx, int dy, UINT flags);
 
 //--- HWND: focus / visibility / Z-order
 
@@ -107,6 +105,7 @@ bool HwndIsFocused(HWND);
 bool HwndIsOnScreenKeyboard(HWND);
 bool HwndIsVisible(HWND hwnd);
 bool HwndIsOnScreen(HWND hwnd);
+HWND HwndRootOwner(HWND hwnd);
 void HwndSetVisible(HWND hwnd, bool visible);
 void HwndToForeground(HWND hwnd);
 
@@ -296,8 +295,8 @@ class DeferWinPosHelper {
     DeferWinPosHelper();
     ~DeferWinPosHelper();
     void End();
-    void SetWindowPos(HWND hwnd, Rect rc);
-    void SetWindowPos(HWND hWnd, HWND hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
+    void SetPos(HWND hwnd, Rect rc);
+    void SetPos(HWND hWnd, HWND hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
     void MoveWindow(HWND hWnd, int x, int y, int cx, int cy, BOOL bRepaint = TRUE);
     void MoveWindow(HWND hWnd, Rect r);
     void MoveWindowNoCopyBits(HWND hWnd, Rect r);
@@ -509,13 +508,5 @@ inline ULONG ComRelease(AtomicInt* refCount, F del) {
 }
 
 TempStr GetPeBuildIdTemp(Str path);
-
-// App code hides and reads popups through the owned popups layer (Win.cpp), so a
-// popup hidden with its minimized frame can't miss a hide or read hidden.
-#if !defined(SUMATRA_NG)
-#define ShowWindow(hwnd, cmd) HwndShowWindow(hwnd, cmd)
-#define SetWindowPos(...) HwndSetWindowPos(__VA_ARGS__)
-#define IsWindowVisible(hwnd) HwndIsVisible(hwnd)
-#endif
 
 #endif // OS_WIN
