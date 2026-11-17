@@ -869,7 +869,7 @@ void CommandPaletteWnd::FillSwitchRow() {
     if (editQuery) {
         filter = CommandPaletteSkipWS(Str(editQuery->GetTextTemp()));
     }
-    Color colBg = ThemeRaisedColor();
+    Color colBg = GetColor(kColWinBg);
     Color colTxt = ThemeWindowTextColor();
     Color colMuted = ThemeWindowDarkerTextColor();
     PaletteSwitch switches[kPaletteMaxSwitches];
@@ -919,7 +919,7 @@ void CommandPaletteWnd::UpdateHelpRow() {
     VecReset(helpRow->children);
     countText = nullptr;
 
-    Color colBg = ThemeRaisedColor();
+    Color colBg = GetColor(kColWinBg);
     Color colMuted = ThemeWindowDarkerTextColor();
     PaletteHint hints[kPaletteMaxHints];
     int nHelp = PaletteHelpHints(kind, hints);
@@ -987,13 +987,10 @@ void CommandPaletteWnd::UpdateSettingHelp() {
 
 // the theme changed while the palette is open: the colors were set at creation
 void CommandPaletteWnd::UpdateColors() {
-    auto colBg = ThemeRaisedColor();
-    auto colTxt = ThemeWindowTextColor();
-    // recolors the window and its native children (the query edit), then
-    // raises them off the dialog color UpdateTheme() takes
+    // recolors the window and its native children (the query edit)
     UpdateTheme();
-    SetColors(colTxt, colBg);
-    editQuery->SetColors(colTxt, colBg);
+    auto colBg = GetColor(kColWinBg);
+    auto colTxt = ThemeWindowTextColor();
 
     listBox->SetColor(kColListText, colTxt);
     listBox->SetColor(kColListBg, colBg);
@@ -1027,13 +1024,15 @@ bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance)
         args.owner = win->hwndFrame;
         args.exStyle = WS_EX_TOOLWINDOW;
         args.font = GetFont();
+        // a floating surface above the canvas, through every theme refresh
+        surface = WinSurface::Raised;
         CreateCustom(args);
     }
     if (!hwnd) {
         return false;
     }
 
-    auto colBg = ThemeRaisedColor();
+    auto colBg = GetColor(kColWinBg);
     auto colTxt = ThemeWindowTextColor();
     SetColors(colTxt, colBg);
 
@@ -1214,6 +1213,15 @@ void CommandPaletteUpdateTheme() {
     wnd->UpdateColors();
 }
 
+// test hook: a refresh path that only calls UpdateTheme()
+void CommandPaletteBaseUpdateTheme() {
+    CommandPaletteWnd* wnd = gCommandPaletteWnd;
+    if (!wnd || !wnd->hwnd) {
+        return;
+    }
+    wnd->UpdateTheme();
+}
+
 void CommandPaletteOnAnnotationsChanged() {
     CommandPaletteWnd* wnd = gCommandPaletteWnd;
     if (!wnd || !wnd->hwnd || !wnd->win) {
@@ -1331,6 +1339,8 @@ TempStr CommandPaletteStateTemp(int* exitCodeOut) {
             "annotPage=%d annotsDone=%d ",
             sel, n, qStart, qEnd, qLen, selectedCmdId, (int)IsUIRtl(), (int)wnd->thumbnailMode, thumbPage, rendered,
             nAnnots, annotPage, annotsDone));
+    out.Append(fmt("bg=%06x editBg=%06x raised=%06x ", (unsigned)wnd->bgColor, (unsigned)wnd->editQuery->bgColor,
+                   (unsigned)ThemeRaisedColor()));
     out.Append(fmt("hwnd=%p edit=%p settingHelp=%d selValue=%s selText=%s\n", (void*)wnd->hwnd,
                    (void*)wnd->editQuery->hwnd, (int)helpShown, selValue, selText));
     return finish(0);

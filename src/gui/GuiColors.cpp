@@ -127,6 +127,7 @@ void GuiSetDefaultColorsFromSystem() {
     // a custom top-level window's own surface, like the OS paints a window's
     gColsWin[kColWinText] = winText;
     gColsWin[kColWinBg] = winBg;
+    gColsWin[kColWinRaisedBg] = winBg;
 
     gColsEdit[kColEditBottomBorder] = edge;
 }

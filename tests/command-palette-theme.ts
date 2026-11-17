@@ -1,9 +1,10 @@
 // Switching the theme while the command palette is open repaints the palette
 // in the new theme: its background goes dark and the bottom hint row keeps its
-// text ("Enter run command", "Esc close").
+// text ("Enter run command", "Esc close"). The palette and its query edit stay
+// on the raised surface through every theme refresh path (E104).
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ControlClient } from "./control.ts";
+import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
 import { cmdId, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { captureWindowPixels, sleep } from "./winapi.ts";
@@ -95,6 +96,24 @@ async function waitForLook(hwnd: number, what: string, pred: (l: Look) => boolea
   throw new Error(`command-palette-theme: ${what}; palette look is ${JSON.stringify(last)}`);
 }
 
+// the palette window and the query edit paint in the raised color
+async function expectRaised(client: ControlClient, after: string): Promise<void> {
+  const deadline = Date.now() + 8_000;
+  let out = "";
+  while (Date.now() < deadline) {
+    out = (await paletteState(client)).raw;
+    const col = (name: string) => new RegExp(`\\b${name}=([0-9a-f]{6})`).exec(out)?.[1];
+    const raised = col("raised");
+    if (raised && col("bg") === raised && col("editBg") === raised) {
+      return;
+    }
+    await sleep(100);
+  }
+  throw new Error(`command-palette-theme: not on the raised surface after ${after}: ${out}`);
+}
+
+const kThemesToCycle = 4;
+
 export async function testit(): Promise<void> {
   const dir = tmpPath("command-palette-theme");
   rmSync(dir, { recursive: true, force: true });
@@ -131,6 +150,17 @@ export async function testit(): Promise<void> {
       "palette did not switch to the dark theme",
       (l) => l.bgLuma < 90 && l.hintInk > 20,
     );
+    await expectRaised(client, "the light/dark toggle");
+
+    for (let i = 0; i < kThemesToCycle; i++) {
+      sendCommandSync(frame, cmdId("CmdNextTheme"));
+      await expectRaised(client, `CmdNextTheme #${i + 1}`);
+    }
+
+    // a refresh that only re-applies the theme (WM_THEMECHANGED style)
+    await client.request(ControlCommand.TestCommandPalette, ["update-theme"]);
+    await expectRaised(client, "UpdateTheme()");
+
     console.log(`command-palette-theme: OK light=${JSON.stringify(light)} dark=${JSON.stringify(dark)}`);
   } finally {
     client.close();

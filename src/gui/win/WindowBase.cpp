@@ -508,6 +508,10 @@ WindowBase* WindowBase::AsWindowBase() {
     return this;
 }
 
+static int WinBgIdx(WinSurface surface) {
+    return surface == WinSurface::Raised ? kColWinRaisedBg : kColWinBg;
+}
+
 // What a window does when the system theme or colors changed: take the colors
 // the OS draws its own UI in and repaint. An app with a theme of its own has
 // already replaced the gui/ defaults with its palette (SumatraPDF does that in
@@ -517,7 +521,10 @@ WindowBase* WindowBase::AsWindowBase() {
 // bgColor when set, the gColsWin defaults otherwise, so a window follows the
 // palette the app pushed into GuiColors without being told its colors
 Color WindowBase::GetColor(int idx) const {
-    const Color overrides[kColWinCount] = {textColor, bgColor};
+    if (idx == kColWinBg) {
+        idx = WinBgIdx(surface);
+    }
+    const Color overrides[kColWinCount] = {textColor, bgColor, bgColor};
     return GetCol(gColsWin, overrides, idx);
 }
 
@@ -553,7 +560,8 @@ void WindowBase::UpdateTheme() {
         return;
     }
     Color colTxt = gColsWin[kColWinText];
-    Color colBg = gColsWin[kColWinBg];
+    // the surface picks the background, so every refresh path paints the same
+    Color colBg = gColsWin[WinBgIdx(surface)];
     SetColors(colTxt, colBg);
     // the native child controls carry explicit colors; the virtual ones paint
     // straight from the GuiColors defaults and need nothing

@@ -1661,6 +1661,9 @@ static void ExecuteControlRequest(ControlRequest* req) {
         }
 
         case ControlCmd::TestCommandPalette: {
+            if (str::Eq(StringArg(req, 0), StrL("update-theme"))) {
+                CommandPaletteBaseUpdateTheme();
+            }
             int exitCode = 0;
             Str res = CommandPaletteStateTemp(&exitCode);
             AppendTestResult(req, exitCode, res);

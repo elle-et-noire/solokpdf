@@ -176,6 +176,13 @@ struct HwndBase {
 extern void (*gWindowBaseApplyDarkMode)(HWND);
 extern void (*gWindowBaseSetIcon)(HWND, HICON);
 
+// the layer a window paints its background in: a dialog, or a floating
+// surface above the canvas (command palette) in gColsWin[kColWinRaisedBg]
+enum class WinSurface {
+    Dialog,
+    Raised,
+};
+
 // Base of the top-level windows (and the child windows that place themselves,
 // like the notification toasts). Not an ILayout: a window isn't positioned by a
 // parent's layout - it has a `layout` of its own children instead
@@ -340,8 +347,11 @@ struct WindowBase : HwndBase {
     // the system theme / colors changed, or the app's own theme did
     virtual void OnThemeChange();
 
+    // the layer the window sits on; picks its gColsWin background
+    WinSurface surface = WinSurface::Dialog;
+
     // kColWin* (GuiColors.h) resolved: this window's textColor / bgColor when
-    // set, the gColsWin defaults otherwise
+    // set, the gColsWin defaults for its surface otherwise
     Color GetColor(int idx) const;
 
     // the app pushed a new palette into GuiColors (its theme changed):

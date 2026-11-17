@@ -181,6 +181,7 @@ void ThemeApplyPlatformColors() {
 
     gColsWin[kColWinText] = text;
     gColsWin[kColWinBg] = ctlBg;
+    gColsWin[kColWinRaisedBg] = ThemeRaisedColor();
     gColsEdit[kColEditBottomBorder] = edge;
 }
 

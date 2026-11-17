@@ -142,6 +142,8 @@ extern Color gColsTab[kColTabCount];
 enum {
     kColWinText,
     kColWinBg,
+    // the background of a WinSurface::Raised window (a floating surface)
+    kColWinRaisedBg,
     kColWinCount,
 };
 extern Color gColsWin[kColWinCount];
