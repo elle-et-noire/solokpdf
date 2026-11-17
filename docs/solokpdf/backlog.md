@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-18: E112, E115–E119, E125, E126, E129–E135, E139, E140, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E139, E140, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-18: E112, E115–E119, E125, E126, E129–E135, E139, E140, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E139, E140, E117, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
