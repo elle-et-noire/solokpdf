@@ -1279,9 +1279,6 @@ bool VirtRoot::OnMessage(UINT msg, WPARAM wp, LPARAM lp, LRESULT& res) {
                 w->OnCaptureLost();
                 w->Invalidate();
             }
-            // the capture cancelled leave tracking; re-arm so leaving clears
-            // hover (posted at once if the mouse is outside)
-            ArmMouseLeave(hwnd);
             return false; // the window may still want it
         }
 

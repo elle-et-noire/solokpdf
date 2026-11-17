@@ -478,6 +478,12 @@ foreground goes through the app input layer in `src/base/Win.cpp`
   posted when the cursor moves off it (at once if already off), cancelled by
   a mouse capture
 
+The layer also owns leave re-arming, for real users too: a capture cancels
+leave tracking without a `WM_MOUSELEAVE`, so each window that asked for leave
+(`ArmMouseLeave` / `TrackMouseLeave`) is subclassed and re-armed when its
+capture ends (leave at once if the mouse is outside), and forgotten at
+`WM_NCDESTROY`. Window code has no re-arm of its own (E105).
+
 Raw `GetCursorPos`, `GetMessagePos`, `WindowFromPoint` and `TrackMouseEvent` stay
 inside the layer; raw `GetForegroundWindow` only where Windows activation is the
 subject (raising, `AttachThreadInput`, startup). Tests should send their own

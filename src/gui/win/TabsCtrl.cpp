@@ -1127,9 +1127,6 @@ LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 draggingTab = false;
                 ImageList_EndDrag();
             }
-            // the capture cancelled leave tracking; leaving must still unfreeze
-            // widths and clear hover (posted at once if the mouse is outside)
-            ArmMouseLeave(hwnd);
             break;
         }
 

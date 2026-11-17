@@ -1807,6 +1807,10 @@ int ReleaseThreadKeyState() {
 //   window under a point                       -> only this thread's windows
 //   foreground on the never-shown test desktop -> the active window
 //   mouse leave tracking                       -> emulated at the test cursor
+//
+// Leave tracking is re-armed here, for tests and real users alike: a mouse
+// capture cancels it without a WM_MOUSELEAVE, so when the capture of a window
+// that asked for leave ends, the layer arms it again (LeaveWatchProc).
 
 static bool hasTestCursor = false;
 static Point testCursor{};
@@ -2021,8 +2025,7 @@ static bool ArmTestLeave(HWND hwnd) {
     return true;
 }
 
-// Asks for WM_MOUSELEAVE for the window (TrackMouseEvent TME_LEAVE).
-bool ArmMouseLeave(HWND hwnd) {
+static bool ArmLeave(HWND hwnd) {
     if (hasTestCursor) {
         return ArmTestLeave(hwnd);
     }
@@ -2030,23 +2033,48 @@ bool ArmMouseLeave(HWND hwnd) {
     return TrackMouseEvent(&tme) != FALSE;
 }
 
-// ask for getting WM_MOUSELEAVE for the window unless leave is already tracked
-// returns true if started tracking
-bool TrackMouseLeave(HWND hwnd) {
+static bool IsLeaveArmed(HWND hwnd) {
     if (hasTestCursor) {
-        return testLeaveHwnd != hwnd && ArmTestLeave(hwnd);
+        return testLeaveHwnd == hwnd;
     }
-    TRACKMOUSEEVENT tme{};
-    tme.cbSize = sizeof(TRACKMOUSEEVENT);
-    tme.dwFlags = TME_QUERY;
-    tme.hwndTrack = hwnd;
+    TRACKMOUSEEVENT tme{sizeof(tme), TME_QUERY, hwnd, 0};
     TrackMouseEvent(&tme);
-    if (0 != (tme.dwFlags & TME_LEAVE)) {
-        // is already tracking
+    return (tme.dwFlags & TME_LEAVE) != 0;
+}
+
+// Subclasses each window that asked for leave. A capture cancels the tracking;
+// when the window's capture ends, re-arm it (leave posted at once if the mouse
+// is already outside). A subclass sees only these windows' messages; a thread
+// hook would see every message sent on the UI thread.
+static LRESULT CALLBACK LeaveWatchProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR id, DWORD_PTR) {
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, LeaveWatchProc, id);
+        if (testLeaveHwnd == hwnd) {
+            testLeaveHwnd = nullptr;
+        }
+        return DefSubclassProc(hwnd, msg, wp, lp);
+    }
+
+    LRESULT res = DefSubclassProc(hwnd, msg, wp, lp);
+    if (msg == WM_CAPTURECHANGED && IsWindow(hwnd)) {
+        ArmLeave(hwnd);
+    }
+    return res;
+}
+
+// Asks for WM_MOUSELEAVE for the window (TrackMouseEvent TME_LEAVE), also
+// after each mouse capture of the window ends.
+bool ArmMouseLeave(HWND hwnd) {
+    SetWindowSubclass(hwnd, LeaveWatchProc, 0, 0);
+    return ArmLeave(hwnd);
+}
+
+// ArmMouseLeave() unless leave is already tracked. Returns true if it armed.
+bool TrackMouseLeave(HWND hwnd) {
+    if (IsLeaveArmed(hwnd)) {
         return false;
     }
-    ArmMouseLeave(hwnd);
-    return true;
+    return ArmMouseLeave(hwnd);
 }
 
 //--- cursors

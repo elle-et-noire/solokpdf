@@ -1297,6 +1297,10 @@ static void OnMouseMove(MainWindow* win, int x, int y, WPARAM key) {
             }
             RemoveNotificationsForGroup(win, kNotifAnnotation);
             win->annotationUnderCursor = annot;
+            // leaving the canvas clears the hover
+            if (annot && HwndIsCursorOverWindow(win->hwndCanvas)) {
+                CanvasTrackMouseLeave(win);
+            }
             if (editPdf) {
                 UpdateAnnotationHoverOverlay(win);
             } else {
@@ -5436,12 +5440,6 @@ LRESULT CALLBACK WndProcCanvas(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // don't consume the message, just observe it
     if (msg == WM_MOUSEMOVE && win->isToolbarOverlay) {
         UpdateOverlayToolbarForMouse(win);
-    }
-
-    // the capture cancelled leave tracking; re-arm so leaving clears hover
-    // (posted at once if the mouse is outside)
-    if (msg == WM_CAPTURECHANGED) {
-        ArmMouseLeave(hwnd);
     }
 
     // messages that require win

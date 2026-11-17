@@ -435,5 +435,13 @@ TempStr ReadingAutoScrollBarStateTemp(int* exitCodeOut) {
     out.Append(fmt("speedIdx=%d speedCount=%d label=%s\n", bar->speedSlider->value, SpeedCount(),
                    bar->speedLabel ? bar->speedLabel->s : Str{}));
     out.Append(fmt("status=%s\n", bar->status ? bar->status->s : Str{}));
+    VirtCtrl* hovered = bar->vroot ? bar->vroot->hovered : nullptr;
+    Str hover = StrL("other");
+    if (!hovered) {
+        hover = StrL("none");
+    } else if (hovered == bar->btnPause) {
+        hover = StrL("pause");
+    }
+    out.Append(fmt("hover=%s\n", hover));
     return finish(0);
 }
