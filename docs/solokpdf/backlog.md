@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E112, E115–E119, E121 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E121, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-17: E112, E115–E119, E121–E123 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E121, E123, E122, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B77, C2, D15, E122, F4). For a code change, choose affected tests from
+group (B77, C2, D15, E124, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -32,6 +32,8 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | E118 | Theme colors resolved at paint from (surface, role, state); main-window parts register their theme refresh (review: theme layering, U4). Spec `.work/codex-queue/e118.md`                                                                             | todo   |
 | E119 | Review docs and process: fz_catch conversion for upstream merges, fz-catch.h MuPDF dependency, doc claims, spec rules. Spec `.work/codex-queue/e119.md`                                                                                               | todo   |
 | E121 | Annotation toolbar off after restoring a minimized frame (flaky in ad-hoc-e98-anchored-popups): anchor dismissal resets placement state. Spec `.work/codex-queue/e121.md`                                                                             | todo   |
+| E122 | Every hover query answers busy and uses the one hover retry: I-beam cursor, annotation hover, widget cursor, blocking citation text fallback (E120 audit). Spec `.work/codex-queue/e122.md`                                                           | todo   |
+| E123 | User actions during a render: link click, image drag and context menu treat a busy lookup as no element and drop the action (E120 audit). Spec `.work/codex-queue/e123.md`                                                                            | todo   |
 
 ## Deferred
 
