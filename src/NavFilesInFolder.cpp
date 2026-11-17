@@ -187,7 +187,7 @@ static void FocusNavListBox() {
     if (!wnd || !wnd->hwnd || !IsWindow(wnd->hwnd) || !wnd->listBox) {
         return;
     }
-    if (GetForegroundWindow() != wnd->hwnd) {
+    if (HwndGetForeground() != wnd->hwnd) {
         return;
     }
     wnd->SetFocusTo(wnd->listBox);

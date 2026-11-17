@@ -47,15 +47,20 @@ void HwndCenterDialog(HWND hDlg, HWND hParent = nullptr);
 Point HwndMapWindowPoint(HWND, HWND, Point);
 Point HwndClientToScreen(HWND, Point);
 Point HwndScreenToClient(HWND, Point);
-HWND HwndWindowFromPoint(Point);
-Point GetCursorPosition();
+Point& UnmirrorRtl(HWND hwnd, Point& p);
+
+//--- app input: window code reads the mouse and the foreground only here
+
 void SetTestCursorPosition(Point);
 void ClearTestCursorPosition();
-bool HasTestCursorPosition();
-bool IsPhysicalTestMove(HWND, WPARAM, LPARAM);
+Point GetCursorPosition();
 Point HwndGetCursorPos(HWND hwnd);
-Point& UnmirrorRtl(HWND hwnd, Point& p);
+Point GetMessageCursorPosition();
 bool HwndIsCursorOverWindow(HWND);
+HWND HwndWindowFromPoint(Point);
+HWND HwndGetForeground();
+bool ArmMouseLeave(HWND);
+bool TrackMouseLeave(HWND);
 
 //--- HWND: focus / visibility / Z-order
 
@@ -312,12 +317,11 @@ bool IsCtrlPressed();
 bool IsRightButtonPressed();
 int ReleaseThreadKeyState();
 
-//--- cursors / mouse tracking
+//--- cursors
 
 HCURSOR GetCachedCursor(LPWSTR id);
 void SetCursorCached(LPWSTR id);
 void DeleteCachedCursors();
-bool TrackMouseLeave(HWND);
 
 //--- handles
 

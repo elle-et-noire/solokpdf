@@ -297,10 +297,6 @@ Point HwndScreenToClient(HWND hwnd, Point p) {
     return {pt.x, pt.y};
 }
 
-HWND HwndWindowFromPoint(Point p) {
-    return WindowFromPoint(ToPOINT(p));
-}
-
 //--- HWND: focus / visibility / Z-order
 
 HWND HwndSetFocus(HWND hwnd) {
@@ -1800,36 +1796,78 @@ int ReleaseThreadKeyState() {
     return nDown;
 }
 
-//--- cursors / mouse tracking
+//--- app input
+// What the app sees of the mouse and the foreground. Window code reads them
+// only through these functions. A test drives the app with a test cursor
+// (-dbg-control TestCursorPosition) while Windows still delivers physical
+// input; the difference is handled here and nowhere else:
+//
+//   physical WM_MOUSEMOVE off the test cursor -> dropped by testInputHook
+//   cursor position, message position          -> the test cursor
+//   window under a point                       -> only this thread's windows
+//   foreground on the never-shown test desktop -> the active window
+//   mouse leave tracking                       -> off; tests send WM_MOUSELEAVE
 
-static bool hasTestCursorPosition = false;
-static Point testCursorPosition{};
+static bool hasTestCursor = false;
+static Point testCursor{};
+static HHOOK testInputHook = nullptr;
 
+// A move Windows made at the physical pointer, off the test cursor (e.g. at a
+// window shown under the pointer). Drags pass.
+static bool IsPhysicalMove(const MSG& m) {
+    if (m.message == WM_NCMOUSEMOVE) {
+        return !testCursor.Eq(GET_X_LPARAM(m.lParam), GET_Y_LPARAM(m.lParam));
+    }
+    if (m.message != WM_MOUSEMOVE || !m.hwnd || (m.wParam & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) != 0) {
+        return false;
+    }
+    return !HwndScreenToClient(m.hwnd, testCursor).Eq(GET_X_LPARAM(m.lParam), GET_Y_LPARAM(m.lParam));
+}
+
+// Sees every message this thread retrieves, in modal loops (dialogs, menus,
+// drag and drop) too.
+static LRESULT CALLBACK TestInputHookProc(int code, WPARAM wp, LPARAM lp) {
+    MSG* m = (MSG*)lp;
+    if (code == HC_ACTION && IsPhysicalMove(*m)) {
+        m->message = WM_NULL;
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
+}
+
+static BOOL CALLBACK CancelLeaveTracking(HWND hwnd, LPARAM) {
+    TRACKMOUSEEVENT tme{sizeof(tme), TME_CANCEL | TME_LEAVE, hwnd, 0};
+    TrackMouseEvent(&tme);
+    return TRUE;
+}
+
+static BOOL CALLBACK CancelLeaveTrackingTree(HWND hwnd, LPARAM lp) {
+    CancelLeaveTracking(hwnd, lp);
+    EnumChildWindows(hwnd, CancelLeaveTracking, lp);
+    return TRUE;
+}
+
+// Called on the UI thread (-dbg-control requests run there).
 void SetTestCursorPosition(Point pt) {
-    testCursorPosition = pt;
-    hasTestCursorPosition = true;
+    testCursor = pt;
+    hasTestCursor = true;
+    if (!testInputHook) {
+        testInputHook = SetWindowsHookExW(WH_GETMESSAGE, TestInputHookProc, nullptr, GetCurrentThreadId());
+    }
+    // tracking armed at the physical pointer would post a leave that clears the test's hover
+    EnumThreadWindows(GetCurrentThreadId(), CancelLeaveTrackingTree, 0);
 }
 
 void ClearTestCursorPosition() {
-    hasTestCursorPosition = false;
-}
-
-bool HasTestCursorPosition() {
-    return hasTestCursorPosition;
-}
-
-// A move Windows made at the physical pointer while a test drives its own
-// cursor (e.g. a window shown under it). Drags pass.
-bool IsPhysicalTestMove(HWND hwnd, WPARAM wp, LPARAM lp) {
-    if (!hasTestCursorPosition || (wp & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) != 0) {
-        return false;
+    hasTestCursor = false;
+    if (testInputHook) {
+        UnhookWindowsHookEx(testInputHook);
+        testInputHook = nullptr;
     }
-    return !HwndGetCursorPos(hwnd).Eq(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
 }
 
 Point GetCursorPosition() {
-    if (hasTestCursorPosition) {
-        return testCursorPosition;
+    if (hasTestCursor) {
+        return testCursor;
     }
     POINT pt{};
     GetCursorPos(&pt);
@@ -1845,6 +1883,125 @@ bool HwndIsCursorOverWindow(HWND hwnd) {
 Point HwndGetCursorPos(HWND hwnd) {
     return HwndScreenToClient(hwnd, GetCursorPosition());
 }
+
+// Where the cursor was for the message being handled (GetMessagePos()).
+Point GetMessageCursorPosition() {
+    if (hasTestCursor) {
+        return testCursor;
+    }
+    DWORD pos = GetMessagePos();
+    return {GET_X_LPARAM(pos), GET_Y_LPARAM(pos)};
+}
+
+// Takes the point like WindowFromPoint(): visible, not a disabled child, not
+// click-through, inside its region, not answering HTTRANSPARENT.
+static bool WindowTakesPoint(HWND hwnd, Point pt) {
+    DWORD style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
+    DWORD exStyle = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    if ((style & WS_VISIBLE) == 0 || (style & (WS_CHILD | WS_DISABLED)) == (WS_CHILD | WS_DISABLED)) {
+        return false;
+    }
+    if ((exStyle & (WS_EX_LAYERED | WS_EX_TRANSPARENT)) == (WS_EX_LAYERED | WS_EX_TRANSPARENT)) {
+        return false;
+    }
+    Rect rc = HwndWindowRect(hwnd);
+    if (!rc.Contains(pt)) {
+        return false;
+    }
+    HRGN rgn = CreateRectRgn(0, 0, 0, 0);
+    bool outsideRgn = GetWindowRgn(hwnd, rgn) != ERROR && !PtInRegion(rgn, pt.x - rc.x, pt.y - rc.y);
+    DeleteObject(rgn);
+    if (outsideRgn) {
+        return false;
+    }
+    // WindowFromPoint() asks only windows of the calling thread
+    if (GetWindowThreadProcessId(hwnd, nullptr) != GetCurrentThreadId()) {
+        return true;
+    }
+    return SendMessageW(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y)) != HTTRANSPARENT;
+}
+
+static HWND HitTestWindow(HWND hwnd, Point pt) {
+    if (!WindowTakesPoint(hwnd, pt)) {
+        return nullptr;
+    }
+    Point cpt = HwndScreenToClient(hwnd, pt);
+    if (IsIconic(hwnd) || !HwndClientRect(hwnd).Contains(cpt)) {
+        return hwnd;
+    }
+    for (HWND child = GetWindow(hwnd, GW_CHILD); child; child = GetWindow(child, GW_HWNDNEXT)) {
+        HWND hit = HitTestWindow(child, pt);
+        if (hit) {
+            return hit;
+        }
+    }
+    return hwnd;
+}
+
+// WindowFromPoint() among this thread's windows: a test's app windows open
+// behind other apps' windows, which must not take the test cursor.
+static HWND ThreadWindowFromPoint(Point pt) {
+    DWORD tid = GetCurrentThreadId();
+    for (HWND hwnd = GetTopWindow(nullptr); hwnd; hwnd = GetWindow(hwnd, GW_HWNDNEXT)) {
+        if (GetWindowThreadProcessId(hwnd, nullptr) != tid) {
+            continue;
+        }
+        HWND hit = HitTestWindow(hwnd, pt);
+        if (hit) {
+            return hit;
+        }
+    }
+    return nullptr;
+}
+
+HWND HwndWindowFromPoint(Point p) {
+    if (hasTestCursor) {
+        return ThreadWindowFromPoint(p);
+    }
+    return WindowFromPoint(ToPOINT(p));
+}
+
+// The hidden test desktop is never shown and has no foreground window; the
+// active one stands in.
+HWND HwndGetForeground() {
+    HWND fg = GetForegroundWindow();
+    if (!fg && hasTestCursor) {
+        fg = GetActiveWindow();
+    }
+    return fg;
+}
+
+// Asks for WM_MOUSELEAVE for the window (TrackMouseEvent TME_LEAVE). Windows
+// tracks the physical pointer, not the test cursor: leave would come at once,
+// so tracking is off then and tests send WM_MOUSELEAVE.
+bool ArmMouseLeave(HWND hwnd) {
+    if (hasTestCursor) {
+        return false;
+    }
+    TRACKMOUSEEVENT tme{sizeof(tme), TME_LEAVE, hwnd, 0};
+    return TrackMouseEvent(&tme) != FALSE;
+}
+
+// ask for getting WM_MOUSELEAVE for the window unless leave is already tracked
+// returns true if started tracking
+bool TrackMouseLeave(HWND hwnd) {
+    if (hasTestCursor) {
+        return false;
+    }
+    TRACKMOUSEEVENT tme{};
+    tme.cbSize = sizeof(TRACKMOUSEEVENT);
+    tme.dwFlags = TME_QUERY;
+    tme.hwndTrack = hwnd;
+    TrackMouseEvent(&tme);
+    if (0 != (tme.dwFlags & TME_LEAVE)) {
+        // is already tracking
+        return false;
+    }
+    ArmMouseLeave(hwnd);
+    return true;
+}
+
+//--- cursors
 
 static LPWSTR knownCursorIds[] = {IDC_ARROW,  IDC_IBEAM,    IDC_HAND,     IDC_SIZEALL, IDC_SIZEWE,
                                   IDC_SIZENS, IDC_SIZENWSE, IDC_SIZENESW, IDC_NO,      IDC_CROSS};
@@ -1903,27 +2060,6 @@ __declspec(noinline) int GetMeasurementSystem() {
         return 0;
     }
     return 1;
-}
-
-// ask for getting WM_MOUSELEAVE for the window
-// returns true if started tracking
-bool TrackMouseLeave(HWND hwnd) {
-    if (hasTestCursorPosition) {
-        return false;
-    }
-    TRACKMOUSEEVENT tme{};
-    tme.cbSize = sizeof(TRACKMOUSEEVENT);
-    tme.dwFlags = TME_QUERY;
-    tme.hwndTrack = hwnd;
-    TrackMouseEvent(&tme);
-    if (0 != (tme.dwFlags & TME_LEAVE)) {
-        // is already tracking
-        return false;
-    }
-    tme.dwFlags = TME_LEAVE;
-    tme.hwndTrack = hwnd;
-    TrackMouseEvent(&tme);
-    return true;
 }
 
 //--- handles

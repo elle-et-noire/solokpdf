@@ -2806,15 +2806,6 @@ void HomePageDestroyChrome(MainWindow* win) {
     win->homeRoot = nullptr;
 }
 
-// The hidden test desktop has no foreground window; the active one stands in.
-static bool HomeFrameInFront(MainWindow* win) {
-    HWND fg = GetForegroundWindow();
-    if (!fg && HasTestCursorPosition()) {
-        fg = GetActiveWindow();
-    }
-    return fg == win->hwndFrame;
-}
-
 // gives the home page's virtual controls first shot at the canvas messages.
 // Returns true when the event was consumed and the caller should stop
 bool HomePageOnCanvasMessage(MainWindow* win, UINT msg, WPARAM wp, LPARAM lp, LRESULT& res) {
@@ -2829,7 +2820,7 @@ bool HomePageOnCanvasMessage(MainWindow* win, UINT msg, WPARAM wp, LPARAM lp, LR
     // theme window ends up behind the main window. Clicks are exempt: clicking
     // a background window is meant to activate it.
     bool isHoverMsg = (msg == WM_MOUSEMOVE) || (msg == WM_SETCURSOR);
-    if (isHoverMsg && !HomeFrameInFront(win)) {
+    if (isHoverMsg && HwndGetForeground() != win->hwndFrame) {
         // thumbnail hover / tooltips stay quiet so they don't steal activation
         // from e.g. the command palette. The About dropdown is WS_EX_NOACTIVATE,
         // so hovering the logo still shows it.
@@ -3346,7 +3337,7 @@ static void HomePageShowEntryTooltip(MainWindow* win, int idx) {
     // never put a tip up from a window that isn't in front: track-mode tips are
     // topmost popups and showing one steals activation, which pulls the frame
     // over the command palette / Change Theme window
-    if (GetForegroundWindow() != win->hwndFrame) {
+    if (HwndGetForeground() != win->hwndFrame) {
         return;
     }
     auto& c = HomeLayout(win);
@@ -3414,7 +3405,7 @@ void HomePageOnWindowActivate(MainWindow* win, bool active) {
         win->DeleteToolTip();
         // a click in the no-activate About popup can report WA_INACTIVE while
         // the frame is still the foreground window; don't close it then
-        HWND fg = GetForegroundWindow();
+        HWND fg = HwndGetForeground();
         HomeChromeCtrl* chrome = HomeChrome(win);
         bool stillUs = fg == win->hwndFrame || (chrome && chrome->aboutHover && fg == chrome->aboutHover->native);
         if (!stillUs) {

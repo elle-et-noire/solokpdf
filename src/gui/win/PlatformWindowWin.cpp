@@ -85,10 +85,7 @@ static LRESULT CALLBACK PlatformWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
             window->onCloseRequest.Call();
             return 0;
         case WM_MOUSEMOVE: {
-            if (!HasTestCursorPosition()) {
-                TRACKMOUSEEVENT tme{sizeof(tme), TME_LEAVE, hwnd, 0};
-                TrackMouseEvent(&tme);
-            }
+            ArmMouseLeave(hwnd);
             auto ev = MakePointerEvent(window, PlatformPointerEventType::Move, wp, lp);
             window->onPointer.Call(&ev);
             return ev.didHandle ? 0 : DefWindowProcW(hwnd, msg, wp, lp);

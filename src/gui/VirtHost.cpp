@@ -118,7 +118,7 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 // foreground window: clicking an inactive window should still
                 // activate it
                 HWND frame = GetAncestor(hwnd, GA_ROOT);
-                if (frame && GetForegroundWindow() == frame) {
+                if (frame && HwndGetForeground() == frame) {
                     return MA_NOACTIVATE;
                 }
             }
@@ -141,9 +141,8 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         case WM_MOUSEMOVE: {
             // posted moves (tests) are not the real cursor; TME_LEAVE would
             // fire at once and cancel a hover the move just started
-            if (!HasTestCursorPosition() && HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
-                TRACKMOUSEEVENT tme{sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0};
-                TrackMouseEvent(&tme);
+            if (HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
+                ArmMouseLeave(hwnd);
             }
             Point pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
             UnmirrorRtl(hwnd, pt);
@@ -154,7 +153,7 @@ static LRESULT CALLBACK WndProcVirtHost(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         case WM_MOUSELEAVE:
             // SetCursorPos inside the window still posts leave. Re-arming from
             // this message posts leave again and starves timers; the next move re-arms.
-            if (!HasTestCursorPosition() && HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
+            if (HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
                 break;
             }
             host->onMouseLeave.Call();
@@ -349,9 +348,6 @@ bool VirtHost::HasFocus() const {
 }
 
 bool VirtHost::ContainsScreenPoint(Point pt) const {
-    if (HasTestCursorPosition()) {
-        return native && HwndWindowRect(native).Contains(pt);
-    }
     HWND under = HwndWindowFromPoint(pt);
     if (!under || !native) {
         return false;

@@ -135,11 +135,7 @@ static bool MouseOverOwnerSurface(OverlayScrollbar* sb, Point pt) {
     if (!ownerRc.Contains(pt)) {
         return false;
     }
-    if (HasTestCursorPosition()) {
-        return true;
-    }
-    POINT p{pt.x, pt.y};
-    HWND hit = WindowFromPoint(p);
+    HWND hit = HwndWindowFromPoint(pt);
     if (!hit) {
         return false;
     }
@@ -849,8 +845,7 @@ static void CALLBACK MouseTrackTimerProc(HWND /*hwnd*/, UINT /*msg*/, UINT_PTR /
     bool mouseMoved = (pt.x != gLastMousePos.x || pt.y != gLastMousePos.y);
     gLastMousePos = pt;
 
-    HWND hwndForeground = GetForegroundWindow();
-    if (!hwndForeground && HasTestCursorPosition()) hwndForeground = GetActiveWindow();
+    HWND hwndForeground = HwndGetForeground();
 
     for (auto* sb : gAllScrollbars) {
         if (!sb->hwnd || !sb->hwndOwner) {

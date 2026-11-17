@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { ControlCommand } from "./control.ts";
 import { assemblePdf, runStandalone, tmpPath } from "./util.ts";
-import { clientToScreen, getCursorPos, packCoords, sendMessage, sleep, WM_MOUSEMOVE } from "./winapi.ts";
+import { clientToScreen, getCursorPos, packCoords, postMessage, sendMessage, sleep, WM_MOUSEMOVE } from "./winapi.ts";
 import { findCanvas, killAndWait, launchControlled, moveTestCursor } from "./win-automation.ts";
 
 export async function testit(): Promise<void> {
@@ -37,11 +37,14 @@ export async function testit(): Promise<void> {
     await sleep(100);
     let state = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1]);
     if (!/state selected=0 hover=1/.test(state)) throw new Error(`hover missing: ${state}`);
-    sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(realX, realY));
+    // Windows posts physical moves; the app input layer drops those off the test cursor
+    postMessage(canvas, WM_MOUSEMOVE, 0, packCoords(realX, realY));
+    await client.request(ControlCommand.TestFocusState, []);
     await sleep(100);
     state = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1]);
     if (!/state selected=0 hover=1/.test(state)) throw new Error(`physical move cleared hover: ${state}`);
-    sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(0, 0));
+    postMessage(canvas, WM_MOUSEMOVE, 0, packCoords(0, 0));
+    await client.request(ControlCommand.TestFocusState, []);
     state = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1]);
     if (!/state selected=0 hover=1/.test(state)) throw new Error(`conflicting move cleared hover: ${state}`);
   } finally {

@@ -5,7 +5,7 @@ import {
   clientToScreen,
   getCursorPos,
   packCoords,
-  sendMessage,
+  postMessage,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
   WM_MOUSEMOVE,
@@ -49,9 +49,11 @@ export async function testit(): Promise<void> {
     await clickAt(canvas, target.x, target.y, 0);
     const afterClick = await scroll(client);
     if (afterClick !== before) throw new Error(`clickAt became drag: ${before} -> ${afterClick}`);
-    sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(target.x, target.y));
-    sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(far.x, far.y));
-    sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(target.x, target.y));
+    // posted in order: Windows posts the move SetCapture makes at the physical pointer
+    postMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(target.x, target.y));
+    postMessage(canvas, WM_MOUSEMOVE, 0, packCoords(far.x, far.y));
+    postMessage(canvas, WM_LBUTTONUP, 0, packCoords(target.x, target.y));
+    await client.request(ControlCommand.TestFocusState, []);
     const after = await scroll(client);
     if (after !== before) throw new Error(`capture move turned click into drag: ${before} -> ${after}`);
 

@@ -1839,7 +1839,13 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendError(req, StrL("TestSidebarCursor expects int x, int y"));
                 break;
             }
-            SetSidebarTestCursor(Point(x, y));
+            // a frame client point, as the test cursor
+            MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+            if (!win) {
+                AppendError(req, StrL("TestSidebarCursor: no window"));
+                break;
+            }
+            SetTestCursorPosition(HwndClientToScreen(win->hwndFrame, Point(x, y)));
             AppendTestResult(req, 0, StrL("OK"));
             break;
         }
@@ -2954,7 +2960,6 @@ static void ExecuteControlRequest(ControlRequest* req) {
             i32 y = 0;
             if (IntArg(req, 0, x) && IntArg(req, 1, y)) {
                 SetTestCursorPosition(Point{x, y});
-                CancelTestMouseLeaveTracking();
             } else {
                 ClearTestCursorPosition();
             }

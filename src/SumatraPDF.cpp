@@ -10292,7 +10292,7 @@ static void RestoreFindFocusAfterHelp() {
 }
 
 static HWND ManualBrowserParentFrame() {
-    if (MainWindow* win = FindMainWindowByHwnd(GetForegroundWindow())) {
+    if (MainWindow* win = FindMainWindowByHwnd(HwndGetForeground())) {
         return win->hwndFrame;
     }
     if (len(gWindows) > 0) {
@@ -14043,8 +14043,7 @@ static void UpdateCaptionOverlay(MainWindow* win, CaptionUpdate update) {
     GUITHREADINFO gui{sizeof(gui)};
     GetGUIThreadInfo(GetCurrentThreadId(), &gui);
     bool menuUp = gui.hwndActive == win->hwndFrame && (gui.flags & GUI_INMENUMODE) != 0;
-    bool overFrame = HasTestCursorPosition() ? HwndWindowRect(win->hwndFrame).Contains(cursor)
-                                             : GetAncestor(HwndWindowFromPoint(cursor), GA_ROOT) == win->hwndFrame;
+    bool overFrame = GetAncestor(HwndWindowFromPoint(cursor), GA_ROOT) == win->hwndFrame;
     bool shown = overlay && ((overFrame && pt.x >= 0 && pt.x < rc.dx && pt.y >= 0 && pt.y < hoverDy) || menuUp ||
                              GetCapture() == win->hwndFrame);
     if (update == CaptionUpdate::Mouse && shown == win->captionOverlayShown) {
@@ -14173,14 +14172,6 @@ static bool FocusIsEditBox() {
     return focus && GetClassNameW(focus, cls, dimof(cls)) > 0 && _wcsicmp(cls, WC_EDITW) == 0;
 }
 
-// frame client point the sidebar poll uses instead of the real cursor; set by
-// tests/issue-5819.ts, which can't move the cursor on a locked desktop
-static Point gSidebarTestCursor{-1, -1};
-
-void SetSidebarTestCursor(Point pt) {
-    gSidebarTestCursor = pt;
-}
-
 // SidebarAutoHide (#5819): a poll shows the floating sidebar when the mouse
 // reaches the canvas edge on the sidebar's side, or the focus moves into it
 // (F12, Tab). It hides when the mouse leaves it, or the focus does when the
@@ -14199,12 +14190,7 @@ void UpdateSidebarOverlay(MainWindow* win, SidebarOverlayUpdate update) {
 
     Point cursor = GetCursorPosition();
     Point pt = HwndScreenToClient(win->hwndFrame, cursor);
-    bool overFrame = HasTestCursorPosition() ? HwndWindowRect(win->hwndFrame).Contains(cursor)
-                                             : GetAncestor(HwndWindowFromPoint(cursor), GA_ROOT) == win->hwndFrame;
-    if (gSidebarTestCursor.x >= 0) {
-        pt = gSidebarTestCursor;
-        overFrame = true;
-    }
+    bool overFrame = GetAncestor(HwndWindowFromPoint(cursor), GA_ROOT) == win->hwndFrame;
     Rect col = win->sidebarOverlayRc;
     Rect strip = col;
     strip.dx = std::min(DpiScale(kRevealDx), col.dx);
@@ -14719,7 +14705,7 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
             break;
 
         case WM_MOUSEACTIVATE:
-            if (win && win->InPresentation() && hwnd != GetForegroundWindow()) {
+            if (win && win->InPresentation() && hwnd != HwndGetForeground()) {
                 return MA_ACTIVATEANDEAT;
             }
             return MA_ACTIVATE;

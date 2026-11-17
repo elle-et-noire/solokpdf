@@ -4595,10 +4595,6 @@ static LRESULT WndProcCanvasFixedPageUI(MainWindow* win, HWND hwnd, UINT msg, WP
             return 0;
 
         case WM_MOUSEMOVE:
-            // Windows can post a move at the physical pointer during a test.
-            if (IsPhysicalTestMove(hwnd, wp, lp)) {
-                return 0;
-            }
             OnMouseMove(win, x, y, wp);
             return 0;
 
@@ -5247,7 +5243,7 @@ static void OnDropFiles(MainWindow* win, HDROP hDrop, bool dragFinish) {
 }
 
 void OpenDownloadedPath(Str* path) {
-    MainWindow* win = FindMainWindowByHwnd(GetForegroundWindow());
+    MainWindow* win = FindMainWindowByHwnd(HwndGetForeground());
     if (!win && len(gWindows) > 0) {
         win = gWindows[0];
     }

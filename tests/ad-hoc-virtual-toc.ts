@@ -216,6 +216,7 @@ export async function testit(): Promise<void> {
     const reopen = Date.now() + 4000;
     while (Number(sendMessage(tree, TEST_STATE, 8, 0)) !== 1 && Date.now() < reopen) await sleep(50);
     assert.equal(Number(sendMessage(tree, TEST_STATE, 8, 0)), 1, "tooltip did not reopen");
+    await moveTestCursor(screen.x + 10000, screen.y, tip.client);
     sendMessage(tree, WM_MOUSELEAVE, 0, 0);
     assert.equal(Number(sendMessage(tree, TEST_STATE, 8, 0)), 0, "tooltip did not close on leave");
   } finally {

@@ -349,12 +349,11 @@ void SidebarTree::TestMessage(VirtHostNativeMsg* ev) {
                 ev->res = (LRESULT)info.barY;
                 break;
             case 18:
-                ev->res = (GetForegroundWindow() == GetAncestor(tree.Hwnd(), GA_ROOT) ? 1 : 0) |
-                          (GetCapture() ? 2 : 0) | (gOverlayScrollbarSuppressThick ? 4 : 0) |
-                          (HasTestCursorPosition() ? 8 : 0) | (info.barYOwned ? 16 : 0);
+                ev->res = (HwndGetForeground() == GetAncestor(tree.Hwnd(), GA_ROOT) ? 1 : 0) | (GetCapture() ? 2 : 0) |
+                          (gOverlayScrollbarSuppressThick ? 4 : 0) | (info.barYOwned ? 16 : 0);
                 break;
             case 19:
-                ev->res = (LRESULT)GetForegroundWindow();
+                ev->res = (LRESULT)HwndGetForeground();
                 break;
             case kSidebarCountItems:
                 ev->res = info.itemCount;

@@ -635,19 +635,6 @@ void VirtCtrl::SetRoot(VirtRoot* r) {
 
 static Vec<VirtRoot*> gLiveVirtRoots;
 
-void CancelTestMouseLeaveTracking() {
-    for (VirtRoot* root : gLiveVirtRoots) {
-        if (!root->trackingMouseLeave || !root->hwnd) {
-            continue;
-        }
-        TRACKMOUSEEVENT tme{sizeof(TRACKMOUSEEVENT)};
-        tme.dwFlags = TME_CANCEL | TME_LEAVE;
-        tme.hwndTrack = root->hwnd;
-        TrackMouseEvent(&tme);
-        root->trackingMouseLeave = false;
-    }
-}
-
 VirtRoot::VirtRoot(HWND hwnd) {
     this->hwnd = hwnd;
     VecAppend(gLiveVirtRoots, this);
@@ -1123,7 +1110,7 @@ static bool BubbleMouse(VirtCtrl* target, VirtMouseEvent& ev, bool (VirtCtrl::*h
 }
 
 void VirtRoot::TrackMouseLeaveIfNeeded() {
-    if (trackingMouseLeave || !hwnd || HasTestCursorPosition()) {
+    if (trackingMouseLeave || !hwnd) {
         return;
     }
     // posted moves (tests) are not the real cursor; TME_LEAVE would fire
@@ -1131,12 +1118,7 @@ void VirtRoot::TrackMouseLeaveIfNeeded() {
     if (!HwndWindowRect(hwnd).Contains(GetCursorPosition())) {
         return;
     }
-    TRACKMOUSEEVENT tme{sizeof(TRACKMOUSEEVENT)};
-    tme.dwFlags = TME_LEAVE;
-    tme.hwndTrack = hwnd;
-    if (TrackMouseEvent(&tme)) {
-        trackingMouseLeave = true;
-    }
+    trackingMouseLeave = ArmMouseLeave(hwnd);
 }
 
 // WS_EX_NOACTIVATE cannot take focus. SetFocus on it drops the foreground

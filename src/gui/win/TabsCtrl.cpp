@@ -938,7 +938,7 @@ void TabsCtrl::Paint(VirtPaintCtx&) {
 LRESULT TabsCtrl::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_MOUSEACTIVATE) {
         HWND frame = GetAncestor(hwnd, GA_ROOT);
-        if (frame && GetForegroundWindow() == frame) {
+        if (frame && HwndGetForeground() == frame) {
             return MA_NOACTIVATE;
         }
     }

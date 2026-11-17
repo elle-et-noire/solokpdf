@@ -460,8 +460,29 @@ desktop; this allows activation.
 
 Loading `tests/winapi.ts` makes the test process per-monitor-v2 DPI aware.
 Coordinates and captures therefore use physical pixels on scaled displays.
-The cursor override cancels Windows mouse-leave tracking; send `WM_MOUSELEAVE`
-when the test needs that transition.
+
+Window code never checks for tests. What the app sees of the mouse and the
+foreground goes through the app input layer in `src/base/Win.cpp`
+(`//--- app input`): `GetCursorPosition`, `HwndGetCursorPos`,
+`GetMessageCursorPosition`, `HwndWindowFromPoint`, `HwndGetForeground`,
+`ArmMouseLeave` and `TrackMouseLeave`. Only that layer knows a test cursor is set:
+
+- a `WM_MOUSEMOVE` / `WM_NCMOUSEMOVE` that Windows posts off the test cursor
+  (e.g. at a window shown under the physical pointer) is dropped by a
+  `WH_GETMESSAGE` hook on the UI thread, in modal loops too; drags pass
+- the cursor and message positions are the test cursor
+- the window under a point is found among the UI thread's windows only
+- with no foreground window (the hidden desktop), the active window stands in
+- setting the cursor cancels mouse-leave tracking and none is armed; send
+  `WM_MOUSELEAVE` when the test needs that transition, after moving the test
+  cursor off the window
+
+Raw `GetCursorPos`, `GetMessagePos`, `WindowFromPoint` and `TrackMouseEvent` stay
+inside the layer; raw `GetForegroundWindow` only where Windows activation is the
+subject (raising, `AttachThreadInput`, startup). Tests should send their own
+mouse moves with `sendMessage` at the test cursor; post a move only to mimic
+Windows' physical moves. `ad-hoc-e101-physical-moves` posts such moves to the
+canvas, bookmarks tree, toolbar, page thumbnails and Home.
 
 `setTestWindowLayout()` defaults to `"rightHalf"`: the right half of the work
 area, three quarters of its height. `run-almost-all.ts` selects it explicitly.
