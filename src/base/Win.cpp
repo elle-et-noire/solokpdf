@@ -2107,7 +2107,8 @@ bool TrackMouseLeave(HWND hwnd) {
 //   from content (AnchorArgs::place)        -> owner places it
 //   frame minimized                         -> hidden, shown again with it, with the focus
 //                                              it had, unless its owner hid it meanwhile
-//                                              (a hover, a popup it doesn't own: dismissed)
+//                                              (a hover, a popup it doesn't own: dismissed).
+//                                              Its owner doesn't see it lose the focus
 //   anchor or an ancestor hidden            -> dismissed
 //   anchor shows other content (AnchorShows)-> dismissed
 //   cursor left the anchor (AnchorLeave)    -> dismissed
@@ -2134,7 +2135,7 @@ struct AnchoredPopup {
     bool left = false;
     // hidden with its minimized frame, to be shown with it again
     bool minimized = false;
-    // it or a window in it had the focus then
+    // it or a window in it had the focus then; its WM_KILLFOCUS is held back
     HWND focus = nullptr;
 };
 
@@ -2191,13 +2192,38 @@ static bool InPopup(HWND popup, HWND hwnd) {
     return hwnd && (hwnd == popup || IsChild(popup, hwnd));
 }
 
-// what has the focus in it gets it back with the frame
+static LRESULT CALLBACK HeldFocusProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
+
+static void ReleaseFocus(AnchoredPopup* ap) {
+    if (ap->focus) {
+        RemoveWindowSubclass(ap->focus, HeldFocusProc, ap->id);
+    }
+    ap->focus = nullptr;
+}
+
+// Windows moves the focus off a popup it hides, e.g. to the frame, as it does
+// for a click away. Its owner, which may commit or close on that, doesn't see it.
+static LRESULT CALLBACK HeldFocusProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR data) {
+    auto* ap = (AnchoredPopup*)data;
+    if (msg == WM_KILLFOCUS && ap->minimized) {
+        return 0;
+    }
+    if (msg == WM_NCDESTROY) {
+        ReleaseFocus(ap);
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+// what has the focus in it keeps it for its owner and gets it back with the frame
 static void NoteMinimized(AnchoredPopup* ap) {
     ap->minimized = true;
     HWND focus = GetFocus();
-    if (InPopup(ap->popup, focus)) {
-        ap->focus = focus;
+    if (!InPopup(ap->popup, focus) || focus == ap->focus) {
+        return;
     }
+    ReleaseFocus(ap);
+    ap->focus = focus;
+    SetWindowSubclass(focus, HeldFocusProc, ap->id, (DWORD_PTR)ap);
 }
 
 // gives the focus back to focus, unless it moved to another of the app's frames meanwhile
@@ -2217,7 +2243,7 @@ static void RefocusPopup(HWND popup, HWND focus) {
 // not shown again with its frame
 static void ForgetMinimized(AnchoredPopup* ap) {
     ap->minimized = false;
-    ap->focus = nullptr;
+    ReleaseFocus(ap);
 }
 
 static void DismissAnchoredPopup(AnchoredPopup* ap) {
@@ -2255,8 +2281,7 @@ static void SyncAnchoredPopup(AnchoredPopup* ap) {
     }
     bool restored = ap->minimized;
     HWND focus = restored ? ap->focus : nullptr;
-    ap->minimized = false;
-    ap->focus = nullptr;
+    ForgetMinimized(ap);
     if (!HwndIsVisible(ap->popup) && !restored) {
         return;
     }
@@ -2295,6 +2320,7 @@ static LRESULT CALLBACK AnchorChainProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DW
 static LRESULT CALLBACK AnchoredPopupProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 
 static void UnanchorPopup(AnchoredPopup* ap) {
+    ReleaseFocus(ap);
     for (HWND hwnd : ap->chain) {
         RemoveWindowSubclass(hwnd, AnchorChainProc, ap->id);
     }
@@ -2379,13 +2405,6 @@ void HideAnchoredPopup(HWND popup) {
         ForgetMinimized(ap);
     }
     ShowWindow(popup, SW_HIDE);
-}
-
-// Hidden with its minimized frame, it comes back with it: an owner doesn't
-// dismiss it for what the hide does meanwhile, e.g. take its focus away.
-bool IsPopupHiddenWithFrame(HWND popup) {
-    AnchoredPopup* ap = FindAnchoredPopup(popup);
-    return ap && ap->minimized;
 }
 
 // Ties popup, where its owner just placed it, to args.anchor until either

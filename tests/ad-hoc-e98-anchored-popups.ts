@@ -23,6 +23,9 @@
 // E124: hovers (toolbar drop-down, About hover, citation hover, Edit PDF hover
 // card) go with a minimize: they belong to the cursor.
 //
+// E137: the annotation toolbar's contents edit is still open, with its text
+// and the focus, after a restore, whatever took the focus as the popups hid.
+//
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -35,6 +38,7 @@ import {
   enumWindows,
   getClassName,
   getClientRect,
+  getControlText,
   getWindowLong,
   getWindowPid,
   getWindowRect,
@@ -47,6 +51,7 @@ import {
   setProcessDpiAware,
   setWindowPos,
   postChar,
+  sendText,
   showWindow,
   sleep,
   WM_LBUTTONDOWN,
@@ -587,11 +592,16 @@ async function waitInCanvas(find: () => number, canvas: number, what: string): P
 
 // on the UI thread, so the order Windows and the anchor layer act in is fixed.
 // "away": the focus leaves the app as the popups hide, as on an interactive
-// desktop, where Windows activates another window then (E136)
+// desktop, where Windows activates another window then (E136). "frame": it
+// moves to the frame (E137)
 async function minimizeFrame(client: ControlClient, order: string, focus = ""): Promise<void> {
   const res = await client.request(ControlCommand.TestMinimizeFrame, [order, focus]);
   check(res[0] === 0, `TestMinimizeFrame ${order}: ${res[1]}`);
   check(order !== "anchor-first" || !/reshown=0\b/.test(String(res[1])), `${order}: nothing shown while minimized`);
+  check(
+    focus !== "frame" || /toFrame=[1-9]/.test(String(res[1])),
+    `${order}: the focus did not move to the frame: ${res[1]}`,
+  );
 }
 
 // E121: Windows hides them before the frame goes iconic; shown again while it
@@ -600,6 +610,16 @@ const MINIMIZE_WAYS = ["os-first", "anchor-first"].flatMap((order) => [
   { order, focus: "", how: order },
   { order, focus: "away", how: `${order}, focus left the app` },
 ]);
+
+// for a popup with the focus, also where the focus moves to the frame (E137)
+const FOCUS_WAYS = [
+  ...MINIMIZE_WAYS,
+  ...["os-first", "anchor-first"].map((order) => ({
+    order,
+    focus: "frame",
+    how: `${order}, focus moved to the frame`,
+  })),
+];
 
 // minimized, `during` runs, restored. The anchor layer's syncs, posted by the
 // restore, run before the next request: one Windows shows again only for its
@@ -611,8 +631,8 @@ async function minimizedAndRestored(
   what: string,
   during: () => Promise<void> = async () => {},
 ): Promise<void> {
-  await minimizeFrame(client, way.order, way.focus);
   try {
+    await minimizeFrame(client, way.order, way.focus);
     await waitGone(find, `${what} with the frame minimized`);
     await during();
   } finally {
@@ -692,7 +712,7 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
   });
 
   // whichever hid them, they come back, also when the focus left the app meanwhile (E136)
-  for (const way of MINIMIZE_WAYS) {
+  for (const way of p.focus ? FOCUS_WAYS : MINIMIZE_WAYS) {
     await step(`${p.name}: frame minimized, ${way.how}`, async () => {
       const before = await shown();
       await minimizedAndRestored(client, way, p.find, p.name);
@@ -722,6 +742,52 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
       await client.waitForRenderIdle();
     }
   });
+}
+
+const CONTENTS_TEXT = "kept through a minimize";
+
+async function annotToolbarDump(client: ControlClient): Promise<string> {
+  const raw = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1] ?? "");
+  return /annotEditToolbar .*/.exec(raw)?.[0] ?? "";
+}
+
+// E137: a focus loss from the minimize doesn't commit and close the contents edit
+async function checkContentsEdit(pid: number, client: ControlClient, canvas: number): Promise<void> {
+  const name = "annotation toolbar contents edit";
+  const find = () => shownTop(pid, EDIT_CLASS);
+  let edit = 0;
+  await step(`${name}: opened`, async () => {
+    const c = await annotPoint(client, "Highlight", 0.6);
+    await clickAt(canvas, c.x, c.y, 0, 0, client);
+    const tb = await waitShown(find, "annotation toolbar");
+    const dump = await annotToolbarDump(client);
+    const chip = /[=;]contents:(-?\d+),(-?\d+),(\d+),(\d+)/.exec(dump);
+    check(!!chip, `no contents chip: ${dump}`);
+    const r = getWindowRect(tb);
+    const x = +chip![1]! - r.left + Math.floor(+chip![3]! / 2);
+    const y = +chip![2]! - r.top + Math.floor(+chip![4]! / 2);
+    await clickAt(tb, x, y, 0, 0, client);
+    edit = await pollUntil(
+      () => findChildByClass(tb, "Edit"),
+      (h) => h !== 0,
+      { timeoutMs: WAIT_MS, error: "the contents edit did not open" },
+    );
+    sendText(edit, CONTENTS_TEXT);
+  });
+  if (!edit) return;
+  for (const way of FOCUS_WAYS) {
+    await step(`${name}: frame minimized, ${way.how}`, async () => {
+      await minimizedAndRestored(client, way, find, name);
+      const dump = await annotToolbarDump(client);
+      check(/ editing=1\b/.test(dump), `the contents edit closed: ${dump}`);
+      const text = getControlText(edit);
+      check(text === CONTENTS_TEXT, `the contents edit holds "${text}"`);
+      const res = String((await client.request(ControlCommand.TestFocusState, [""]))[1] ?? "");
+      check(res.includes("focus=annot-toolbar "), `${name}'s focus after the frame was restored: ${res}`);
+    });
+  }
+  // deselected, the toolbar goes with the edit
+  await hideByOwner(client, "annotation");
 }
 
 // keyboard caret, visual mode, End: a selection the selection toolbar shows for
@@ -837,6 +903,7 @@ async function checkCanvasPopups(): Promise<void> {
       sidebar: "inside",
       hide: "annotation",
     });
+    await checkContentsEdit(pid, client, canvas);
 
     // the cursor over the square shows its hover card
     await checkHoverMinimized(

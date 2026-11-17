@@ -152,9 +152,8 @@ static void OnPopupEditWndProc(AnnotTextPopup* popup, ControlBase::WndProcEvent*
         QueueHide(popup);
         return;
     }
-    // clicking anywhere else dismisses the card; hidden with its minimized
-    // frame, it loses the focus and comes back with the frame
-    if (ev->msg == WM_KILLFOCUS && !IsPopupHiddenWithFrame(popup->host->native)) {
+    if (ev->msg == WM_KILLFOCUS) {
+        // clicking anywhere else dismisses the card
         QueueHide(popup);
     }
     popup->edit->WndProc(ev);

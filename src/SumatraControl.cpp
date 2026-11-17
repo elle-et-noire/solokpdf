@@ -705,7 +705,26 @@ enum class MinimizeFocus {
     Kept,
     // out of the app: on an interactive desktop Windows activates another window
     Away,
+    // to the frame, as when Windows activates the owner of the active popup it hides
+    Frame,
 };
+
+// MinimizeFocus::Frame: the frame, and how often the focus moved to it
+static HWND gFocusToFrame = nullptr;
+static int gFocusedFrame = 0;
+
+// As Windows hides the frame's popup with the focus, before the frame is iconic
+// (a minimized window can't take the focus), the focus moves to the frame.
+static LRESULT CALLBACK FocusToFrameHook(int code, WPARAM wp, LPARAM lp) {
+    auto* m = (CWPRETSTRUCT*)lp;
+    bool closing = code == HC_ACTION && m->message == WM_SHOWWINDOW && !m->wParam && m->lParam == SW_PARENTCLOSING;
+    HWND focus = GetFocus();
+    if (closing && focus && (focus == m->hwnd || IsChild(m->hwnd, focus))) {
+        SetFocus(gFocusToFrame);
+        gFocusedFrame += GetFocus() == gFocusToFrame ? 1 : 0;
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
+}
 
 // Minimizes the frame on the UI thread, so the order the anchor layer sees is fixed.
 // Windows hides the frame's popups before the frame goes iconic; with "anchor-first"
@@ -713,6 +732,7 @@ enum class MinimizeFocus {
 // thread's minimize lets this one paint. The anchor layer's syncs run after this.
 // Returns how many were shown again, -1 for an unknown order.
 static int MinimizeFrameForTest(HWND frame, Str order, MinimizeFocus focus) {
+    gFocusedFrame = 0;
     if (str::Eq(order, StrL("restore"))) {
         ShowWindow(frame, SW_SHOWNOACTIVATE);
         return 0;
@@ -724,7 +744,15 @@ static int MinimizeFrameForTest(HWND frame, Str order, MinimizeFocus focus) {
     ShownOwnedPopups shown;
     shown.owner = frame;
     EnumThreadWindows(GetCurrentThreadId(), CollectShownOwned, (LPARAM)&shown);
+    HHOOK hook = nullptr;
+    if (focus == MinimizeFocus::Frame) {
+        gFocusToFrame = frame;
+        hook = SetWindowsHookExW(WH_CALLWNDPROCRET, FocusToFrameHook, nullptr, GetCurrentThreadId());
+    }
     ShowWindow(frame, SW_SHOWMINNOACTIVE);
+    if (hook) {
+        UnhookWindowsHookEx(hook);
+    }
     if (focus == MinimizeFocus::Away) {
         SetFocus(nullptr);
     }
@@ -947,7 +975,7 @@ enum class ControlCmd : u16 {
     // open windows' colors against the palette; "set <theme>" first switches theme
     TestThemeWindows = 178,
     // minimizes ("os-first" / "anchor-first") or restores ("restore") the frame on the UI thread;
-    // a second argument "away" takes the focus out of the app as the popups hide.
+    // a second argument "away" takes the focus out of the app as the popups hide, "frame" to the frame.
     // "hide <popup>" has the popup's owner hide it (HidePopupForTest)
     TestMinimizeFrame = 179,
 };
@@ -1044,6 +1072,10 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
     GetClassNameA(GetAncestor(hwnd, GA_ROOT), cls, dimofi(cls));
     if (str::Eq(Str(cls), StrL("SumatraAnnotTextPopup"))) {
         return StrL("card");
+    }
+    // the annotation toolbar or its contents edit
+    if (str::Eq(Str(cls), StrL("SumatraAnnotEditToolbar"))) {
+        return StrL("annot-toolbar");
     }
     return StrL("other");
 }
@@ -1789,14 +1821,20 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, hidden ? 0 : 1, hidden ? StrL("OK") : StrL("unknown popup"));
                 break;
             }
-            bool away = str::Eq(StringArg(req, 1), StrL("away"));
-            MinimizeFocus focus = away ? MinimizeFocus::Away : MinimizeFocus::Kept;
+            Str to = StringArg(req, 1);
+            MinimizeFocus focus = MinimizeFocus::Kept;
+            if (str::Eq(to, StrL("away"))) {
+                focus = MinimizeFocus::Away;
+            } else if (str::Eq(to, StrL("frame"))) {
+                focus = MinimizeFocus::Frame;
+            }
             int nShown = MinimizeFrameForTest(win->hwndFrame, order, focus);
             if (nShown < 0) {
                 AppendTestResult(req, 1, StrL("unknown order"));
                 break;
             }
-            AppendTestResult(req, 0, fmt("iconic=%d reshown=%d", (int)IsIconic(win->hwndFrame), nShown));
+            AppendTestResult(
+                req, 0, fmt("iconic=%d reshown=%d toFrame=%d", (int)IsIconic(win->hwndFrame), nShown, gFocusedFrame));
             break;
         }
 

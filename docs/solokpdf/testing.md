@@ -152,7 +152,9 @@ and read-aloud bars, selection and annotation toolbars, comment card):
 anchor layer sees them first (`anchor-first`); a minimize from another process
 races between the two (E121). With `away` the focus also leaves the app as the
 popups hide, as on an interactive desktop, where Windows activates another
-window; the hidden desktop has no foreground and keeps it (E136).
+window; the hidden desktop has no foreground and keeps it (E136). With `frame`
+it moves to the frame as Windows hides the popup that has it, before the frame
+is iconic (E137).
 `TestMinimizeFrame hide <popup>` has the popup's owner hide it while the frame
 is minimized: it must stay hidden on restore, and the hovers must not come back
 (E124). `lint-anchored-hides` keeps raw hides out of files with anchored

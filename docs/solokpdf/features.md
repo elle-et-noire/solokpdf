@@ -418,7 +418,10 @@ The annotation toolbar no longer shows over the desktop while the window is
 minimized (E110). These popups and the ones above hide with the minimized
 frame and come back where they were when it is restored, also one shown while
 it was minimized; the canvas tip goes (E121). One hidden meanwhile stays
-hidden, e.g. the selection toolbar after the selection was cleared. Hovers (the
+hidden, e.g. the selection toolbar after the selection was cleared. The comment
+card and the annotation toolbar's contents edit come back open, with their
+text and the focus: losing the focus to the minimize is not a click away
+(E136, E137). Hovers (the
 toolbar drop-down, About hover, citation hover and Edit PDF hover card) go with
 the minimize, as they do when another window activates (E124).
 
