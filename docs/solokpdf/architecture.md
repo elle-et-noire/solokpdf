@@ -249,8 +249,11 @@ ng も共有の基底実装とフォーム結果の呼び出し側を使う。�
   フォーカスは、その間に別のフレームへ移っていなければ復元時に戻す（E136）。
   最小化中に所有者が隠したものは復元しても出さない。Windows はその間にアプリが隠したものも復元時に再表示する
   （`SW_PARENTOPENING`）ので同層はそれを捨て、隠されていないものだけを自分で出し直す。隠れている窓を隠しても
-  誰にも伝わらないため、所有者は `HideAnchoredPopup()` で隠す（`ShowAppWindow(SW_HIDE)` が経由するので
-  `VirtHost::Show(false)` も同じ。`tests/lint-anchored-hides.ts`）。ホバー（ツールバーのドロップダウン、About ホバー、
+  誰にも伝わらないため、所有者は `HideAnchoredPopup()` で隠す（`ShowAppWindow(SW_HIDE)`・`HwndSetVisible()`・
+  `VirtHost::SetPos(r, false)` が経由するので `VirtHost::Show(false)` も同じ）。復元を待つ間 `HwndIsVisible()`
+  （`VirtHost::IsVisible()` も）は表示中と答えるので、所有者の状態とそれで守った非表示は最小化で変わらない
+  （最小化中の Esc で検索バーが閉じる、E138）。これを迂回するのは Win32 の直接呼び出しだけで、所有者は配置と描画に
+  HWND を要るため型では防げず、`tests/lint-anchored-hides.ts` が検査する。ホバー（ツールバーのドロップダウン、About ホバー、
   引用ホバー、注釈ホバーカード）はカーソルに属し非アクティブ化でも閉じるので、`AnchorMinimize::Dismiss` で最小化時に
   dismiss する（E124）。
   フレームが所有しないポップアップ（infotip）も dismiss する。

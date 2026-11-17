@@ -157,8 +157,9 @@ it moves to the frame as Windows hides the popup that has it, before the frame
 is iconic (E137).
 `TestMinimizeFrame hide <popup>` has the popup's owner hide it while the frame
 is minimized: it must stay hidden on restore, and the hovers must not come back
-(E124). `lint-anchored-hides` keeps raw hides out of files with anchored
-popups. A failed step prints what the app logged meanwhile. A link tip, citation popup, I-beam, form field
+(E124); one Esc closes while minimized (find bar, Automatically Scroll bar,
+selection toolbar) must too (E138). `lint-anchored-hides` keeps raw hides and
+visibility tests out of files with anchored popups. A failed step prints what the app logged meanwhile. A link tip, citation popup, I-beam, form field
 cursor, plain-text citation and Edit PDF annotation hover while a render holds
 the page's lock, on both engines: `ad-hoc-e120-busy-hover` (E122); link
 and image context menus, image drag, Edit PDF click, link click, text

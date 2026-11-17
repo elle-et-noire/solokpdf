@@ -1,12 +1,18 @@
-// Lint: owners hide anchored popups through the anchor layer (E124).
+// Lint: owners hide and test anchored popups through the anchor layer (E124, E138).
 //
 // Windows hides the popups a frame owns while it is minimized. Hiding a hidden
 // window tells no one, so the anchor layer (src/base/Win.cpp) would show it
 // again on restore. HideAnchoredPopup() tells it; ShowAppWindow(SW_HIDE),
-// VirtHost::Show(false) and WindowBase::SetIsVisible(false) go through it. In a
-// file that anchors a popup (or hides one anchored elsewhere, `companions`), a
-// raw hide is allowed only for a window that is not anchored, keyed by file and
-// enclosing function.
+// HwndSetVisible(), VirtHost::Show(false) / SetPos(r, false) and
+// WindowBase::SetIsVisible(false) go through it. HwndIsVisible() (so
+// VirtHost::IsVisible()) reports such a popup shown until the restore, so an
+// owner's state, and a hide guarded by it, don't depend on the minimize.
+//
+// Only raw Win32 calls bypass the layer. Owners need the popup's HWND to place
+// and paint it, so a handle type wouldn't rule them out. In a file that
+// anchors a popup (or hides one anchored elsewhere, `companions`), a raw hide
+// or visibility test is allowed only for a window that is not anchored, keyed
+// by file and enclosing function.
 //
 // Run standalone: bun tests/lint-anchored-hides.ts
 
@@ -23,7 +29,7 @@ const companions: Record<string, string> = {
 };
 
 const anchors = /\bAnchorPopup\s*\(/;
-const rawHide = /\bShowWindow\s*\([^;]*\bSW_HIDE\b|\bSWP_HIDEWINDOW\b|\bSetPos\s*\([^;]*,\s*false\s*\)/;
+const rawCall = /\bShowWindow\s*\([^;]*\bSW_HIDE\b|\bSWP_HIDEWINDOW\b|\bIsWindowVisible\s*\(/;
 // a function definition's first line: starts in column 0, has a '(', isn't a declaration
 const funcStart = /^[A-Za-z_][^;]*?\b([A-Za-z_~][\w:~]*)\s*\(/;
 
@@ -60,7 +66,7 @@ export async function testit(): Promise<void> {
     if (!companion && !lines.some((l) => anchors.test(l))) continue;
     const raw = text.split("\n");
     lines.forEach((line, i) => {
-      if (!rawHide.test(line)) return;
+      if (!rawCall.test(line)) return;
       const key = `${name}:${enclosingFunc(lines, i)}`;
       if (!allowed[key]) {
         violations.push(`src/${name}:${i + 1} (${key}): ${raw[i].trim()}`);
@@ -77,11 +83,12 @@ export async function testit(): Promise<void> {
   }
   if (violations.length) {
     throw new Error(
-      "raw hides in files with anchored popups; hide them with HideAnchoredPopup() (or ShowAppWindow), " +
+      "raw hides or visibility tests in files with anchored popups; use HideAnchoredPopup() (or ShowAppWindow) " +
+        "and HwndIsVisible(), " +
         `allowlists in tests/lint-anchored-hides.ts:\n${violations.join("\n")}`,
     );
   }
-  console.log("PASS: anchored popups are hidden through the anchor layer");
+  console.log("PASS: anchored popups are hidden and tested through the anchor layer");
 }
 
 if (import.meta.main) {

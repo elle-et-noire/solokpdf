@@ -18,7 +18,7 @@
 // canvas -> stays inside it and comes back with it; frame minimized -> gone,
 // back at its place on restore, whether Windows or the anchor layer hid it
 // (E121); hidden by its owner while minimized -> stays hidden (E124); another
-// tab -> gone.
+// tab -> gone. E138: closed by Esc while minimized -> stays closed.
 //
 // E124: hovers (toolbar drop-down, About hover, citation hover, Edit PDF hover
 // card) go with a minimize: they belong to the cursor.
@@ -61,6 +61,7 @@ import {
   SW_SHOWNOACTIVATE,
   SWP_NOACTIVATE,
   SWP_NOZORDER,
+  VK_ESCAPE,
   WM_KEYDOWN,
   WM_MOUSEMOVE,
   WM_RBUTTONDOWN,
@@ -675,6 +676,8 @@ type Followed = {
   focus?: string;
   // TestMinimizeFrame "hide": its owner hides it
   hide: string;
+  // Esc presses on the frame that close it
+  esc?: number;
 };
 
 async function checkFollows(p: Followed, client: ControlClient, frame: number, canvas: number): Promise<void> {
@@ -729,6 +732,17 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
       await shown();
       await minimizedAndRestored(client, way, p.find, p.name, () => hideByOwner(client, p.hide));
       check(p.find() === 0, `${p.name} came back after its owner hid it`);
+    });
+  }
+
+  // E138: its owner sees it shown while minimized, so Esc closes it then
+  for (const way of p.esc ? MINIMIZE_WAYS : []) {
+    await step(`${p.name}: closed by Esc while minimized, ${way.how}`, async () => {
+      await shown();
+      await minimizedAndRestored(client, way, p.find, p.name, async () => {
+        for (let i = 0; i < p.esc!; i++) pressVKey(frame, VK_ESCAPE);
+      });
+      check(p.find() === 0, `${p.name} came back after Esc closed it`);
     });
   }
 
@@ -850,6 +864,7 @@ async function checkCanvasPopups(): Promise<void> {
       open: async () => sendCommandSync(frame, cmdId("CmdFindFirst")),
       sidebar: "stays",
       hide: "find",
+      esc: 1,
     });
 
     let scrollBar = 0;
@@ -866,6 +881,7 @@ async function checkCanvasPopups(): Promise<void> {
       },
       sidebar: "inside",
       hide: "autoscroll",
+      esc: 1,
     });
     if (scrollBar && isWindowVisible(scrollBar)) await invoke("CmdToggleAutomaticallyScroll");
 
@@ -875,6 +891,7 @@ async function checkCanvasPopups(): Promise<void> {
       open: () => selectLineByKeyboard(client, frame),
       sidebar: "inside",
       hide: "selection",
+      esc: 2,
     });
 
     // a click on the square outside Edit PDF shows its comment

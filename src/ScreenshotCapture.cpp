@@ -94,7 +94,8 @@ static bool ShouldCaptureWindow(HWND hwnd, HWND overlayHwnd) {
     if (hwnd == overlayHwnd) {
         return false;
     }
-    if (!HwndIsVisible(hwnd)) {
+    // on screen: not a popup hidden with its minimized frame (HwndIsVisible)
+    if (!IsWindowVisible(hwnd)) {
         return false;
     }
     if (hwnd == GetDesktopWindow()) {
