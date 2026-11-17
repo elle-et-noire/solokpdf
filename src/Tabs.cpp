@@ -33,7 +33,6 @@
 #include "PagePosition.h"
 #include "ReadingAutoScroll.h"
 #include "ReadingBar.h"
-#include "SelectionToolbar.h"
 #include "Menu.h"
 #include "TableOfContents.h"
 #include "FileHistory.h"
@@ -554,7 +553,6 @@ void SaveCurrentWindowTab(MainWindow* win) {
     // results so the next tab can't show or navigate into the old document's
     // matches)
     HideFindBar(win);
-    HideSelectionToolbar(win);
     ReadingAutoScrollHideBar(win);
     ReadingBarCancelDrag(win);
 

@@ -91,7 +91,6 @@ struct AnnotEditToolbar : AnnotEditToolbarBase {
     AnnotEditKind colorPickKind = AnnotEditKind::Color;
     // non-owning, for tests; the layout tree owns them and is replaced on relayout
     Vec<AnnotEditChip*> chips;
-    Func1List<MainWindow*> onWindowMoved;
     bool editingContents = false;
     bool contentsEditClosing = false;
     Edit* contentsEdit = nullptr;
@@ -1655,8 +1654,6 @@ static AnnotEditToolbar* GetOrCreateToolbar(MainWindow* win) {
     tb->host->onPaintBackground = MkFunc1(PaintToolbarBg, tb);
     tb->host->onNativeMsg = MkFunc1(OnHostNativeMsg, tb);
     tb->font = GetScaledPlatformFont(GetAppFont(), kToolbarFontPct);
-    tb->onWindowMoved = MkFunc1Void(RepositionAnnotEditToolbar);
-    win->RegisterOnWindowMoved(&tb->onWindowMoved);
     win->annotEditToolbar = tb;
     return tb;
 }
@@ -2139,6 +2136,13 @@ void UpdateAnnotEditToolbar(MainWindow* win) {
     tb->lastAnnotBounds = bounds;
     LayoutToolbar(tb, items);
     PositionToolbar(tb, bounds);
+    // placed again when the canvas moves or resizes, goes with it or its document
+    AnchorArgs anchorArgs;
+    anchorArgs.anchor = win->hwndCanvas;
+    anchorArgs.dismiss = MkFunc0(HideAnnotEditToolbar, win);
+    anchorArgs.place = MkFunc0(RepositionAnnotEditToolbar, win);
+    anchorArgs.content = win->CanvasContent();
+    AnchorPopup(tb->host->native, anchorArgs);
     tb->host->Invalidate(false);
 }
 
@@ -2181,7 +2185,6 @@ void DeleteAnnotEditToolbar(MainWindow* win) {
         gPopupDismissedAt = 0;
     }
     DestroyContentsEditor(tb);
-    win->UnregisterOnWindowMoved(&tb->onWindowMoved);
     SetBarShadow(win, &tb->shadow, Rect(), kCornerRadius);
     FreeBarShadow(&tb->shadow);
     delete tb->host;

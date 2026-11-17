@@ -99,7 +99,7 @@ struct ToolWindowDesc {
     // point is in the window's client area, in dips
     bool (*isClientPoint)(MainWindow* owner, Point pt) = nullptr;
     // for a window docked to the frame, as orig's popups that are put back in
-    // place on the frame's WM_MOVE / WM_SIZE (RegisterOnWindowMoved): where it
+    // place when their anchor moves or resizes (AnchorArgs::place): where it
     // belongs now, in screen pixels; empty: nowhere, it is hidden. Asked when
     // the frame moved or was sized and on the shell's tick. `tw` is the
     // window asked about

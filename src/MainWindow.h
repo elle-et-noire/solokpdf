@@ -276,8 +276,6 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     int vimCmdHistoryPos = 0;
     // ShowScrollBar sends WM_SIZE; ignore it until UpdateScrollbars finishes (issue #5969)
     bool suppressCanvasSizeUpdate = false;
-    // popups in screen coords (find bar, selection toolbar, ...)
-    Func1List<MainWindow*>* onWindowMoved = nullptr;
 
     HWND hwndToolbar = nullptr;
     ToolbarVirt* toolbarVirt = nullptr;
@@ -855,10 +853,6 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     const void* CanvasContent() const;
 
     bool CreateUIAProvider();
-
-    void RegisterOnWindowMoved(Func1List<MainWindow*>* cb);
-    void UnregisterOnWindowMoved(Func1List<MainWindow*>* cb);
-    void NotifyWindowMoved();
 };
 
 bool HasOpenedDocuments(MainWindow*);

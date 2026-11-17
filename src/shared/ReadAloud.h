@@ -143,7 +143,6 @@ void ReadAloudPlaybackBarUpdateSession(WindowTab* tab);
 void ReadAloudPlaybackBarHide(MainWindow* win);
 void ReadAloudPlaybackBarForgetTab(MainWindow* win, WindowTab* tab);
 #if !defined(SUMATRA_NG)
-void ReadAloudPlaybackBarRelayout(HWND hwndCanvas);
 #endif
 void ReadAloudPlaybackBarTick(MainWindow* win);
 

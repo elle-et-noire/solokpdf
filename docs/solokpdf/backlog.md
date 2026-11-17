@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E110 and E111 open (order: E110, E111; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-17: E111 open (spec in `.work/codex-queue/e111.md`); D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -23,10 +23,9 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 
 ## Open
 
-| ID   | Item                                                                                                                                                                                                                                                  | Status |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| E110 | Remaining popups on the anchor mechanism: find bar, selection / annotation toolbars, annotation text popup, read-aloud and auto-scroll bars still follow their window by hand (`RegisterOnWindowMoved`, hide calls). Spec `.work/codex-queue/e110.md` | todo   |
-| E111 | MuPDF "UNHANDLED EXCEPTION!" after a cancelled themed render: a `fz_catch` leaves the error unconsumed. One consuming helper plus a lint for every catch. Spec `.work/codex-queue/e111.md`                                                            | todo   |
+| ID   | Item                                                                                                                                                                                       | Status |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| E111 | MuPDF "UNHANDLED EXCEPTION!" after a cancelled themed render: a `fz_catch` leaves the error unconsumed. One consuming helper plus a lint for every catch. Spec `.work/codex-queue/e111.md` | todo   |
 
 ## Deferred
 

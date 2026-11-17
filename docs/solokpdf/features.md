@@ -410,6 +410,13 @@ document (upstream: they stay at their screen place). A tip shown at the
 cursor goes when the cursor leaves the canvas. The overlay toolbar stays up
 while the cursor is in its drop-down (E98–E100).
 
+The find bar, the selection toolbar, the annotation toolbar, the comment card
+and the read-aloud and Automatically Scroll bars are placed from what the
+canvas shows. They are placed again whenever the canvas moves or resizes,
+not only when the frame moves. The ones about the document go with its tab.
+The annotation toolbar no longer shows over the desktop while the window is
+minimized (E110).
+
 ## Count prefix
 
 `KeyScrollLineAmount` sets the vertical keyboard line step (default 48 px at

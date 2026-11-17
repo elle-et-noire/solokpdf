@@ -81,7 +81,6 @@ struct FindBarWnd : WindowBase {
     // set while Layout() runs so the WM_SIZE its own SetWindowPos generates
     // doesn't re-enter Layout()
     bool inLayout = false;
-    Func1List<MainWindow*> onWindowMoved;
 
     FindBarWnd() = default;
     ~FindBarWnd() override;
@@ -130,9 +129,6 @@ static TempStr FindBarButtonTooltip(int cmd) {
 }
 
 FindBarWnd::~FindBarWnd() {
-    if (win) {
-        win->UnregisterOnWindowMoved(&onWindowMoved);
-    }
     // edit, status and buttons are owned by `layout` (deleted in ~WindowBase)
 }
 
@@ -243,9 +239,6 @@ bool FindBarWnd::Create(MainWindow* mainWin) {
 
     DarkModeApplyToPopupWindow(hwnd);
     Layout();
-
-    onWindowMoved = MkFunc1Void(FindBarReposition);
-    win->RegisterOnWindowMoved(&onWindowMoved);
     return true;
 }
 
@@ -680,6 +673,13 @@ void ShowCompactBar(MainWindow* win) {
     FindBarSetMatchWholeWordChecked(win, win->findMatchWholeWord);
     PositionFindBar(bar);
     ShowAppWindow(bar->hwnd, SW_SHOW);
+    // placed again when the canvas moves or resizes: the frame moved or the
+    // toolbar's search icon did
+    AnchorArgs anchorArgs;
+    anchorArgs.anchor = win->hwndCanvas;
+    anchorArgs.dismiss = MkFunc0(HideFindBar, win);
+    anchorArgs.place = MkFunc0(FindBarReposition, win);
+    AnchorPopup(bar->hwnd, anchorArgs);
     win->findEdit->SetFocus();
     CbEditSelectAll(win->findEdit);
     // the restored term is only a starting point, not a search request: hitting

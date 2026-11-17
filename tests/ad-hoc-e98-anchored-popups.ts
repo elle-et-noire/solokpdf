@@ -12,6 +12,12 @@
 //   Home About hover    frame moved -> moves along; Ctrl+Tab to a document -> gone
 //   citation hover      frame moved -> moves along (same flaw, found by the audit)
 //
+// E110: popups their owner places from the canvas's content (find bar,
+// Automatically Scroll and read-aloud bars, selection toolbar, comment card,
+// Edit PDF annotation toolbar): frame moved -> moves along; sidebar shifts the
+// canvas -> stays inside it and comes back with it; frame minimized -> gone,
+// back at its place on restore; another tab -> gone.
+//
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -35,8 +41,12 @@ import {
   sendMessage,
   setProcessDpiAware,
   setWindowPos,
+  postChar,
   showWindow,
   sleep,
+  WM_LBUTTONDOWN,
+  WM_LBUTTONUP,
+  MK_LBUTTON,
   SW_SHOWMINNOACTIVE,
   SW_SHOWNOACTIVATE,
   SWP_NOACTIVATE,
@@ -48,11 +58,13 @@ import {
 } from "./winapi.ts";
 import {
   activateTestFrame,
+  clickAt,
   findCanvas,
   findChildByClass,
   killAndWait,
   launchControlled,
   moveTestCursor,
+  pressVKey,
   sendCommandSync,
 } from "./win-automation.ts";
 
@@ -175,12 +187,12 @@ function moveFrame(frame: number, dx: number, dy: number): void {
 }
 
 // the frame moved by MOVE_DX, MOVE_DY while f runs, as Win+arrow or a drag does
-async function whileFrameMoved(frame: number, f: () => Promise<void>): Promise<void> {
-  moveFrame(frame, MOVE_DX, MOVE_DY);
+async function whileFrameMoved(frame: number, f: () => Promise<void>, dx = MOVE_DX, dy = MOVE_DY): Promise<void> {
+  moveFrame(frame, dx, dy);
   try {
     await f();
   } finally {
-    moveFrame(frame, -MOVE_DX, -MOVE_DY);
+    moveFrame(frame, -dx, -dy);
   }
 }
 
@@ -437,6 +449,287 @@ async function checkRefHover(): Promise<void> {
   }
 }
 
+// E110: popups placed by their owner from the canvas's content
+const SEL_CLASS = "SumatraSelectionToolbar";
+const EDIT_CLASS = "SumatraAnnotEditToolbar";
+const CARD_CLASS = "SumatraAnnotTextPopup";
+const BAR_CLASS = "SumatraWgDefaultWinClass";
+const COMBO_CLASS = "ComboBox";
+const VK_END = 0x23;
+const E110_LINE = "The quick brown fox jumps over the lazy dog";
+
+// one line of text and, below it, a square with a comment
+function makeE110Pdf(): string {
+  const text = `BT /F1 18 Tf 72 700 Td (${E110_LINE}) Tj ET`;
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> " +
+      "/Contents 5 0 R /Annots [6 0 R] >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+    "<< /Type /Annot /Subtype /Square /Rect [72 300 300 450] /C [1 0 0] /Contents (a comment) >>",
+  ]);
+}
+
+function shownTop(pid: number, cls: string, ok: (h: number) => boolean = () => true): number {
+  let found = 0;
+  enumWindows((h) => {
+    if (getWindowPid(h) === pid && getClassName(h) === cls && isWindowVisible(h) && ok(h)) {
+      found = h;
+      return false;
+    }
+    return true;
+  });
+  return found;
+}
+
+// the compact find bar: the frame's popup holding the search field
+function shownFindBar(pid: number, frame: number): number {
+  return shownTop(pid, BAR_CLASS, (h) => getWindowOwner(h) === frame && findChildByClass(h, COMBO_CLASS) !== 0);
+}
+
+async function barHwnd(client: ControlClient, cmd: ControlCommand): Promise<number> {
+  const res = await client.request(cmd, []);
+  const m = /^OK visible=1 .*hwnd=(\d+)/m.exec(String(res[1] ?? ""));
+  return m && isWindowVisible(+m[1]!) ? +m[1]! : 0;
+}
+
+// the square's middle in canvas coordinates, once it is on screen
+async function squareCenter(client: ControlClient): Promise<{ x: number; y: number }> {
+  let raw = "";
+  const r = await pollUntil(
+    async () => {
+      raw = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1] ?? "");
+      return /type=Square[^\n]*screen=(-?\d+),(-?\d+),(\d+),(\d+)/.exec(raw);
+    },
+    (m) => !!m && +m[3]! > 0,
+    { timeoutMs: WAIT_MS, error: () => `the square is not on screen\n${raw}` },
+  );
+  return { x: +r![1]! + Math.floor(+r![3]! / 2), y: +r![2]! + Math.floor(+r![4]! / 2) };
+}
+
+// the popup is within the canvas's width
+async function waitInCanvas(find: () => number, canvas: number, what: string): Promise<void> {
+  await pollUntil(
+    () => {
+      const h = find();
+      return h ? box(h) : null;
+    },
+    (b) => {
+      const c = getWindowRect(canvas);
+      return !!b && b.x >= c.left && b.x + b.dx <= c.right;
+    },
+    { timeoutMs: WAIT_MS, error: (b) => `${what}: at ${show(b)}, canvas ${show(box(canvas))}` },
+  );
+}
+
+type Followed = {
+  name: string;
+  find: () => number;
+  open: () => Promise<void>;
+  // with the sidebar shown: inside the canvas, at the frame's edge, or closed
+  // by the sidebar taking the focus
+  sidebar: "inside" | "stays" | "closes";
+};
+
+async function checkFollows(p: Followed, client: ControlClient, frame: number, canvas: number): Promise<void> {
+  const shown = async () => {
+    if (!p.find()) await p.open();
+    return box(await waitShown(p.find, p.name));
+  };
+
+  // to the left: the find bar keeps inside the work area, at the frame's right
+  await step(`${p.name}: frame moved`, async () => {
+    const before = await shown();
+    const want = moved(before, -MOVE_DX, MOVE_DY);
+    await whileFrameMoved(frame, () => waitAt(p.find, want, `${p.name}, frame moved`), -MOVE_DX, MOVE_DY);
+    await waitAt(p.find, before, `${p.name} after the frame moved back`);
+  });
+
+  await step(`${p.name}: sidebar shifts the canvas`, async () => {
+    const before = await shown();
+    const c0 = getWindowRect(canvas).left;
+    sendCommandSync(frame, cmdId("CmdFavoriteToggle"));
+    try {
+      await pollUntil(
+        () => getWindowRect(canvas).left,
+        (x) => x !== c0,
+        { timeoutMs: WAIT_MS, error: () => "the favorites sidebar did not shift the canvas" },
+      );
+      const what = `${p.name} with the sidebar shown`;
+      if (p.sidebar === "inside") await waitInCanvas(p.find, canvas, what);
+      if (p.sidebar === "stays") await waitAt(p.find, before, what);
+      if (p.sidebar === "closes") await waitGone(p.find, what);
+    } finally {
+      sendCommandSync(frame, cmdId("CmdFavoriteToggle"));
+    }
+    if (p.sidebar !== "closes") await waitAt(p.find, before, `${p.name} after the sidebar hid`);
+  });
+
+  await step(`${p.name}: frame minimized`, async () => {
+    const before = await shown();
+    showWindow(frame, SW_SHOWMINNOACTIVE);
+    try {
+      await waitGone(p.find, `${p.name} with the frame minimized`);
+    } finally {
+      showWindow(frame, SW_SHOWNOACTIVATE);
+    }
+    await waitAt(p.find, before, `${p.name} after the frame was restored`);
+  });
+
+  await step(`${p.name}: another tab`, async () => {
+    await shown();
+    sendCommandSync(frame, cmdId("CmdNextTab"));
+    try {
+      await waitGone(p.find, `${p.name} over another tab`);
+    } finally {
+      sendCommandSync(frame, cmdId("CmdPrevTab"));
+      await client.waitForRenderIdle();
+    }
+  });
+}
+
+// keyboard caret, visual mode, End: a selection the selection toolbar shows for
+async function selectLineByKeyboard(client: ControlClient, frame: number): Promise<void> {
+  const keyboardSel = async (re: RegExp, what: string) => {
+    let raw = "";
+    await pollUntil(
+      async () => {
+        raw = String((await client.request(ControlCommand.TestSelectTextKeyboard, []))[1] ?? "");
+        return re.test(raw);
+      },
+      (ok) => ok,
+      {
+        timeoutMs: WAIT_MS,
+        error: () => `${what}
+${raw}`,
+      },
+    );
+  };
+  sendCommandSync(frame, cmdId("CmdSelectTextViaKeyboard"));
+  await keyboardSel(/active=1/, "keyboard selection did not start");
+  await postChar(frame, "v");
+  await keyboardSel(/visual=1/, "visual mode did not start");
+  pressVKey(frame, VK_END);
+}
+
+// a shown window, remembered: a bar's handle comes from its owner's dump
+function keep(h: () => number): () => number {
+  return () => (h() && isWindowVisible(h()) ? h() : 0);
+}
+
+async function checkCanvasPopups(): Promise<void> {
+  const dir = tmpPath("ad-hoc-e110");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const pdf = join(dir, "doc.pdf");
+  const other = join(dir, "other.pdf");
+  writeFileSync(pdf, makeE110Pdf(), "latin1");
+  writeFileSync(other, makeE110Pdf(), "latin1");
+  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n");
+  // the document under test is the first tab, the other one follows it
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf, other]);
+  const pid = proc.pid!;
+  const invoke = async (cmd: string) => {
+    await client.request(ControlCommand.TestInvokeCommand, [cmd]);
+  };
+  const follows = async (p: Followed) => checkFollows(p, client, frame, canvas);
+  let canvas = 0;
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    sendCommandSync(frame, cmdId("CmdPrevTab"));
+    await client.waitForRenderIdle();
+    canvas = findCanvas(frame);
+    check(canvas !== 0, "canvas not found");
+
+    await follows({
+      name: "find bar",
+      find: () => shownFindBar(pid, frame),
+      open: async () => sendCommandSync(frame, cmdId("CmdFindFirst")),
+      sidebar: "stays",
+    });
+
+    let scrollBar = 0;
+    await follows({
+      name: "Automatically Scroll bar",
+      find: keep(() => scrollBar),
+      open: async () => {
+        await invoke("CmdToggleAutomaticallyScroll");
+        scrollBar = await pollUntil(
+          () => barHwnd(client, ControlCommand.TestReadingAutoScroll),
+          (h) => h !== 0,
+          { timeoutMs: WAIT_MS, error: "no Automatically Scroll bar" },
+        );
+      },
+      sidebar: "inside",
+    });
+    if (scrollBar && isWindowVisible(scrollBar)) await invoke("CmdToggleAutomaticallyScroll");
+
+    await follows({
+      name: "selection toolbar",
+      find: () => shownTop(pid, SEL_CLASS),
+      open: () => selectLineByKeyboard(client, frame),
+      sidebar: "inside",
+    });
+
+    // a click on the square outside Edit PDF shows its comment
+    await follows({
+      name: "comment card",
+      find: () => shownTop(pid, CARD_CLASS),
+      open: async () => {
+        const c = await squareCenter(client);
+        await clickAt(canvas, c.x, c.y, 0, 0, client);
+      },
+      sidebar: "closes",
+    });
+
+    // in Edit PDF the click selects the square instead
+    sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
+    await follows({
+      name: "annotation toolbar",
+      find: () => shownTop(pid, EDIT_CLASS),
+      open: async () => {
+        const c = await squareCenter(client);
+        await clickAt(canvas, c.x, c.y, 0, 0, client);
+      },
+      sidebar: "inside",
+    });
+    sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
+
+    const voices = /voices=(\d+)/.exec(String((await client.request(ControlCommand.TestReadAloudPlaybackBar, []))[1]));
+    if (!voices || +voices[1]! === 0) {
+      console.log("  skip: read-aloud bar (no TTS voices)");
+      return;
+    }
+    let readBar = 0;
+    await follows({
+      name: "read-aloud bar",
+      find: keep(() => readBar),
+      open: async () => {
+        await invoke("CmdToggleReadAloud");
+        readBar = await pollUntil(
+          () => barHwnd(client, ControlCommand.TestReadAloudPlaybackBar),
+          (h) => h !== 0,
+          { timeoutMs: WAIT_MS * 2, error: "no read-aloud bar" },
+        );
+        // paused, the bar stays up and quiet
+        const raw = String((await client.request(ControlCommand.TestReadAloudPlaybackBar, []))[1] ?? "");
+        const m = /^pause=(-?\d+),(-?\d+),(\d+),(\d+)$/m.exec(raw);
+        if (!m) return;
+        const at = packCoords(+m[1]! + Math.floor(+m[3]! / 2), +m[2]! + Math.floor(+m[4]! / 2));
+        sendMessage(readBar, WM_LBUTTONDOWN, MK_LBUTTON, at);
+        sendMessage(readBar, WM_LBUTTONUP, 0, at);
+      },
+      sidebar: "inside",
+    });
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 export async function testit(): Promise<void> {
   failures.length = 0;
   setProcessDpiAware();
@@ -464,6 +757,7 @@ export async function testit(): Promise<void> {
     await killAndWait(proc);
   }
   await step("citation hover: frame moved", checkRefHover);
+  await step("E110 popups", checkCanvasPopups);
   check(failures.length === 0, failures.join("\n"));
   console.log("e98-anchored-popups: OK");
 }

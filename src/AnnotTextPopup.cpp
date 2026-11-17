@@ -74,7 +74,6 @@ struct AnnotTextPopup {
     Size size;
     Rect lastPlaced;
     bool closing = false;
-    Func1List<MainWindow*> onWindowMoved;
 };
 
 // author on the left, date on the right, with a rule underneath. It's a single
@@ -206,8 +205,6 @@ static AnnotTextPopup* GetOrCreatePopup(MainWindow* win) {
     SetWindowLongPtrW(hwnd, GWL_STYLE, style | WS_CLIPCHILDREN);
     popup->host->onPaintBackground = MkFunc1(PaintPopupBg, popup);
     popup->host->onNativeMsg = MkFunc1(OnPopupNativeMsg, popup);
-    popup->onWindowMoved = MkFunc1Void(RepositionAnnotationTextPopup);
-    win->RegisterOnWindowMoved(&popup->onWindowMoved);
     win->annotTextPopup = popup;
     return popup;
 }
@@ -408,6 +405,13 @@ bool ShowAnnotationTextPopup(MainWindow* win, Annotation* annot) {
     // the card has the whole text; the one-line tooltip would cover it
     win->DeleteToolTip();
     popup->host->Show(true);
+    // placed again when the canvas moves or resizes, goes with it or its document
+    AnchorArgs anchorArgs;
+    anchorArgs.anchor = win->hwndCanvas;
+    anchorArgs.dismiss = MkFunc0(HideAnnotationTextPopup, win);
+    anchorArgs.place = MkFunc0(RepositionAnnotationTextPopup, win);
+    anchorArgs.content = win->CanvasContent();
+    AnchorPopup(popup->host->native, anchorArgs);
     popup->host->Invalidate(false);
     RaiseAppWindow(popup->host->native, WindowRaise::Active);
     edit->SetFocus();
@@ -459,7 +463,6 @@ void DeleteAnnotationTextPopup(MainWindow* win) {
         return;
     }
     win->annotTextPopup = nullptr;
-    win->UnregisterOnWindowMoved(&popup->onWindowMoved);
     popup->host->SetLayout(nullptr);
     delete popup->edit;
     delete popup->host;

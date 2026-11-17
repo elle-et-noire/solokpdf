@@ -2083,6 +2083,8 @@ bool TrackMouseLeave(HWND hwnd) {
 // hides a child with its parents, a popup only by hand; here, whatever did it:
 //
 //   anchor or an ancestor moved             -> popup moved as much
+//   anchor moved or resized, popup placed
+//   from content (AnchorArgs::place)        -> owner places it
 //   anchor or an ancestor hidden, frame
 //   minimized                               -> dismissed
 //   anchor shows other content (AnchorShows)-> dismissed
@@ -2101,6 +2103,8 @@ struct AnchoredPopup {
     // the popup's top-left from the anchor's client origin, and where it was
     Point offset;
     Point placed;
+    // the anchor's client area on screen when the popup was placed
+    Rect anchorRc;
     UINT_PTR id = 0;
     bool syncPosted = false;
     bool left = false;
@@ -2113,6 +2117,12 @@ static Point AnchorOrigin(HWND anchor) {
     return HwndClientToScreen(anchor, Point{});
 }
 
+static Rect AnchorScreenRect(HWND anchor) {
+    Point o = AnchorOrigin(anchor);
+    Rect r = HwndClientRect(anchor);
+    return {o.x, o.y, r.dx, r.dy};
+}
+
 static bool AnchorShown(HWND anchor) {
     return IsWindow(anchor) && HwndIsVisible(anchor) && !IsIconic(GetAncestor(anchor, GA_ROOT));
 }
@@ -2122,6 +2132,7 @@ static void NoteAnchorOffset(AnchoredPopup* ap) {
     Point o = AnchorOrigin(ap->args.anchor);
     ap->placed = {r.x, r.y};
     ap->offset = {r.x - o.x, r.y - o.y};
+    ap->anchorRc = AnchorScreenRect(ap->args.anchor);
 }
 
 static void PostAnchorSync(AnchoredPopup* ap) {
@@ -2156,6 +2167,17 @@ static void SyncAnchoredPopup(AnchoredPopup* ap) {
     bool gone = left && HwndWindowFromPoint(GetCursorPosition()) != anchor;
     if (!AnchorShown(anchor) || stale || gone) {
         DismissAnchoredPopup(ap);
+        return;
+    }
+    if (ap->args.place.IsValid()) {
+        Rect rc = AnchorScreenRect(anchor);
+        if (rc == ap->anchorRc) {
+            return;
+        }
+        ap->anchorRc = rc;
+        // may hide or destroy the popup, and ap with it
+        Func0 place = ap->args.place;
+        place.Call();
         return;
     }
     Point o = AnchorOrigin(anchor);
@@ -2210,11 +2232,16 @@ static LRESULT CALLBACK AnchoredPopupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
     }
     LRESULT res = DefSubclassProc(hwnd, msg, wp, lp);
     // placed by its owner, relative to where the anchor is now. Z-order changes
-    // (the frame activated) leave the place alone
+    // (the frame activated) leave the place alone. One its owner places may be
+    // shown again where it was, e.g. with its restored frame: placed once settled
     if (msg == WM_WINDOWPOSCHANGED && HwndIsVisible(hwnd)) {
         auto* pos = (WINDOWPOS*)lp;
+        bool shown = pos->flags & SWP_SHOWWINDOW;
         Rect r = HwndWindowRect(hwnd);
-        if ((pos->flags & SWP_SHOWWINDOW) || r.x != ap->placed.x || r.y != ap->placed.y) {
+        bool moved = r.x != ap->placed.x || r.y != ap->placed.y;
+        if (shown && ap->args.place.IsValid()) {
+            PostAnchorSync(ap);
+        } else if (shown || moved) {
             NoteAnchorOffset(ap);
         }
     }
@@ -2231,7 +2258,7 @@ static AnchoredPopup* FindAnchoredPopup(HWND popup) {
 }
 
 // Ties popup, where its owner just placed it, to args.anchor until either
-// window is destroyed. Called again on each show; the latest args apply.
+// window is destroyed. Called again on a show, the latest args apply.
 void AnchorPopup(HWND popup, const AnchorArgs& args) {
     if (!popup || !args.anchor) {
         return;

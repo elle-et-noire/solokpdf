@@ -155,7 +155,6 @@ struct ReadAloudPlaybackBar : WindowBase {
     int lastY = 0;
     int lastDx = 0;
     int lastDy = 0;
-    Func1List<MainWindow*> onWindowMoved;
 };
 
 constexpr int kBtnPadX = 10;
@@ -386,10 +385,6 @@ void ReadAloudPlaybackBar::OnPaint(WindowBase::PaintEvent* ev) {
     PaintBorderedBar(this, ev->hdc, ThemeNotificationsBackgroundColor(), kColGray);
 }
 
-static void ReadAloudPlaybackBarOnWindowMoved(ReadAloudPlaybackBar* bar, MainWindow*) {
-    RelayoutIfVisible(bar);
-}
-
 ReadAloudPlaybackBar* ReadAloudPlaybackBarEnsure(MainWindow* win) {
     if (!win || !win->hwndCanvas) {
         return nullptr;
@@ -397,8 +392,12 @@ ReadAloudPlaybackBar* ReadAloudPlaybackBarEnsure(MainWindow* win) {
     if (!win->readAloudPlaybackBar) {
         auto* bar = new ReadAloudPlaybackBar();
         bar->Create(win->hwndCanvas);
-        bar->onWindowMoved = MkFunc1(ReadAloudPlaybackBarOnWindowMoved, bar);
-        win->RegisterOnWindowMoved(&bar->onWindowMoved);
+        // spans the bottom of the canvas: placed again when it moves or resizes
+        AnchorArgs anchorArgs;
+        anchorArgs.anchor = win->hwndCanvas;
+        anchorArgs.dismiss = MkFunc0(ReadAloudPlaybackBarHide, win);
+        anchorArgs.place = MkFunc0(RelayoutIfVisible<ReadAloudPlaybackBar>, bar);
+        AnchorPopup(bar->hwnd, anchorArgs);
         win->readAloudPlaybackBar = bar;
     }
     return win->readAloudPlaybackBar;
@@ -408,7 +407,6 @@ void ReadAloudPlaybackBarDestroy(MainWindow* win) {
     if (!win || !win->readAloudPlaybackBar) {
         return;
     }
-    win->UnregisterOnWindowMoved(&win->readAloudPlaybackBar->onWindowMoved);
     delete win->readAloudPlaybackBar;
     win->readAloudPlaybackBar = nullptr;
 }
@@ -433,17 +431,6 @@ void ReadAloudPlaybackBarForgetTab(MainWindow* win, WindowTab* tab) {
         SetWindowPos(bar->hwnd, nullptr, 0, 0, 0, 0,
                      SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
     }
-}
-
-void ReadAloudPlaybackBarRelayout(HWND hwndCanvas) {
-    MainWindow* win = FindMainWindowByHwnd(hwndCanvas);
-    if (!win || !win->readAloudPlaybackBar || !win->readAloudPlaybackBar->hwnd) {
-        return;
-    }
-    if (!HwndIsVisible(win->readAloudPlaybackBar->hwnd)) {
-        return;
-    }
-    win->readAloudPlaybackBar->UpdateLayout();
 }
 
 // Highlight timer (~80ms): refresh Pause/page text without SetWindowPos.

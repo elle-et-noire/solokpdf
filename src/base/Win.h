@@ -74,6 +74,8 @@ struct AnchorArgs {
     HWND anchor = nullptr;
     // takes the popup down; unset hides its window
     Func0 dismiss;
+    // places the popup after the anchor moved or resized; unset keeps its offset
+    Func0 place;
     AnchorLeave leave = AnchorLeave::Keep;
     // what of the anchor the popup describes (AnchorShows); null: anything
     const void* content = nullptr;

@@ -5620,11 +5620,8 @@ void CloseTab(WindowTab* tab, bool quitIfLast) {
     // Dismiss find UI when closing the active tab so floating results from that
     // document cannot be clicked after a different tab is shown (issue #5807).
     // Tab switches already call HideFindBar via SaveCurrentWindowTab.
-    // Same for the floating selection/highlight toolbar: it holds a tab*
-    // and would otherwise stay on screen after the tab is gone.
     if (IsCurrentTab(win, tab)) {
         HideFindBar(win);
-        HideSelectionToolbar(win);
         HideAnnotationHoverOverlay(win);
         // cancel now, while win->ctrl still matches this tab: RemoveTab nulls
         // win->ctrl before LoadModelIntoTab cancels it, and the toolbar update
@@ -7947,10 +7944,9 @@ static void FrameUpdateUi(MainWindow* win) {
     if (didLayout) {
         // maximize/restore toggles DWM border (hide when maximized; issue #5851)
         UpdateWindowFrameBorderColor(win);
-        // re-anchor the floating find bar over the (possibly moved) search icon
+        // the find bar sits on the toolbar's search icon, which can move
+        // without the canvas (overlay toolbar hidden)
         FindBarReposition(win);
-        RepositionSelectionToolbar(win);
-        RepositionAnnotEditToolbar(win);
         if (win->IsFullScreenOrPresentation()) {
             Rect fullscreen = HwndGetFullscreenRect(win->hwndFrame);
             Rect rect = HwndWindowRect(win->hwndFrame);
@@ -7960,7 +7956,6 @@ static void FrameUpdateUi(MainWindow* win) {
             if (rect != fullscreen && rect != GetVirtualScreenRect()) {
                 uint flags = SWP_NOACTIVATE | SWP_NOZORDER;
                 SetWindowPos(win->hwndFrame, nullptr, fullscreen.x, fullscreen.y, fullscreen.dx, fullscreen.dy, flags);
-                RepositionAnnotEditToolbar(win);
             }
         }
     }
@@ -8139,9 +8134,8 @@ static void ApplyMainWindowDpiChromeRefresh(MainWindow* win, HWND hwnd) {
     win->uiState.layout = {};
     RelayoutFrame(win, true, -1);
     RelayoutCaption(win);
+    // on the recreated toolbar's search icon
     FindBarReposition(win);
-    RepositionSelectionToolbar(win);
-    RepositionAnnotEditToolbar(win);
 
     MainWindowRerender(win, true);
     uint flags = RDW_ERASE | RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW;
@@ -8675,7 +8669,6 @@ void EnterFullScreen(MainWindow* win, bool presentation) {
     gSettings->showFavorites = showFavoritesTmp;
     // ensure layout is correct after fullscreen transition
     RelayoutFrame(win);
-    RepositionAnnotEditToolbar(win);
     // show menu bar rebar after layout positions it correctly
     ShowMenuBarRebar(win);
     if (win->AsBrowser()) {
@@ -14380,7 +14373,6 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
 
         case WM_EXITSIZEMOVE:
             if (win) {
-                win->NotifyWindowMoved();
                 if (win->dpiChromeRefreshPending) {
                     PostForWindow(win, FinishDeferredMainWindowDpiRefresh, "DpiSettled");
                 } else {
@@ -14401,7 +14393,6 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
         case WM_MOVE:
             if (win) {
                 RememberDefaultWindowPosition(win);
-                win->NotifyWindowMoved();
             }
             break;
 

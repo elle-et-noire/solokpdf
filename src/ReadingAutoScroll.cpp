@@ -62,7 +62,6 @@ struct ReadingAutoScrollBar : WindowBase {
     int lastY = 0;
     int lastDx = 0;
     int lastDy = 0;
-    Func1List<MainWindow*> onWindowMoved;
 };
 
 constexpr int kBtnPadX = 10;
@@ -339,10 +338,6 @@ void ReadingAutoScrollBar::OnPaint(WindowBase::PaintEvent* ev) {
     PaintBorderedBar(this, ev->hdc, ThemeNotificationsBackgroundColor(), kColGray);
 }
 
-static void BarOnWindowMoved(ReadingAutoScrollBar* bar, MainWindow*) {
-    RelayoutIfVisible(bar);
-}
-
 ReadingAutoScrollBar* BarEnsure(MainWindow* win) {
     if (!win || !win->hwndCanvas) {
         return nullptr;
@@ -350,8 +345,12 @@ ReadingAutoScrollBar* BarEnsure(MainWindow* win) {
     if (!win->readingAutoScrollBar) {
         auto* bar = new ReadingAutoScrollBar();
         bar->Create(win->hwndCanvas);
-        bar->onWindowMoved = MkFunc1(BarOnWindowMoved, bar);
-        win->RegisterOnWindowMoved(&bar->onWindowMoved);
+        // spans the bottom of the canvas: placed again when it moves or resizes
+        AnchorArgs anchorArgs;
+        anchorArgs.anchor = win->hwndCanvas;
+        anchorArgs.dismiss = MkFunc0(ReadingAutoScrollHideBar, win);
+        anchorArgs.place = MkFunc0(RelayoutIfVisible<ReadingAutoScrollBar>, bar);
+        AnchorPopup(bar->hwnd, anchorArgs);
         win->readingAutoScrollBar = bar;
     }
     ReadingAutoScrollBar* bar = win->readingAutoScrollBar;
@@ -394,7 +393,6 @@ void ReadingAutoScrollDestroy(MainWindow* win) {
         return;
     }
     KillReadingTimer(win);
-    win->UnregisterOnWindowMoved(&win->readingAutoScrollBar->onWindowMoved);
     delete win->readingAutoScrollBar;
     win->readingAutoScrollBar = nullptr;
     win->readingAutoScrollTab = nullptr;

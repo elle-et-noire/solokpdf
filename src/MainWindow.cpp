@@ -82,25 +82,6 @@ MainWindow::MainWindow(HWND hwnd) {
     cbHandler = CreateControllerCallbackHandler(this);
 }
 
-void MainWindow::RegisterOnWindowMoved(Func1List<MainWindow*>* cb) {
-    ReportIf(!cb);
-    cb->Register(&onWindowMoved);
-}
-
-void MainWindow::UnregisterOnWindowMoved(Func1List<MainWindow*>* cb) {
-    if (!cb) {
-        return;
-    }
-    cb->Unregister(&onWindowMoved);
-}
-
-// fire onWindowMoved: popups placed in screen coords don't follow the frame on their own
-void MainWindow::NotifyWindowMoved() {
-    if (onWindowMoved) {
-        onWindowMoved->CallAll(this);
-    }
-}
-
 static WORD dotPatternBmp[8] = {0x00aa, 0x0055, 0x00aa, 0x0055, 0x00aa, 0x0055, 0x00aa, 0x0055};
 
 void CreateMovePatternLazy(MainWindow* win) {
@@ -220,7 +201,6 @@ MainWindow::~MainWindow() {
     delete frameRateWnd;
     ReadAloudPlaybackBarDestroy(this);
     ReadingAutoScrollDestroy(this);
-    ReportIf(onWindowMoved);
     delete infotip;
     // the views' layouts own their controls
     delete tocViewLayout;
@@ -342,8 +322,6 @@ void MainWindow::UpdateCanvasSize() {
     }
 
     RelayoutNotifications(hwndCanvas);
-    ReadAloudPlaybackBarRelayout(hwndCanvas);
-    ReadingAutoScrollRelayout(hwndCanvas);
 }
 
 Size MainWindow::GetViewPortSize() const {
