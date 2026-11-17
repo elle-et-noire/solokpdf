@@ -698,12 +698,20 @@ static BOOL CALLBACK CollectShownOwned(HWND hwnd, LPARAM lp) {
     return TRUE;
 }
 
+// where the focus goes as the frame's popups hide for its minimize
+enum class MinimizeFocus {
+    // where it was, as on a desktop without a foreground window
+    Kept,
+    // out of the app: on an interactive desktop Windows activates another window
+    Away,
+};
+
 // Minimizes the frame on the UI thread, so the order the anchor layer sees is fixed.
 // Windows hides the frame's popups before the frame goes iconic; with "anchor-first"
 // they are then shown again while it is minimized, as their owners can when another
 // thread's minimize lets this one paint. The anchor layer's syncs run after this.
 // Returns how many were shown again, -1 for an unknown order.
-static int MinimizeFrameForTest(HWND frame, Str order) {
+static int MinimizeFrameForTest(HWND frame, Str order, MinimizeFocus focus) {
     if (str::Eq(order, StrL("restore"))) {
         ShowWindow(frame, SW_SHOWNOACTIVATE);
         return 0;
@@ -716,6 +724,9 @@ static int MinimizeFrameForTest(HWND frame, Str order) {
     shown.owner = frame;
     EnumThreadWindows(GetCurrentThreadId(), CollectShownOwned, (LPARAM)&shown);
     ShowWindow(frame, SW_SHOWMINNOACTIVE);
+    if (focus == MinimizeFocus::Away) {
+        SetFocus(nullptr);
+    }
     if (!reshow) {
         return 0;
     }
@@ -911,7 +922,8 @@ enum class ControlCmd : u16 {
     TestParkInLoader = 177,
     // open windows' colors against the palette; "set <theme>" first switches theme
     TestThemeWindows = 178,
-    // minimizes ("os-first" / "anchor-first") or restores ("restore") the frame on the UI thread
+    // minimizes ("os-first" / "anchor-first") or restores ("restore") the frame on the UI thread;
+    // a second argument "away" takes the focus out of the app as the popups hide
     TestMinimizeFrame = 179,
 };
 
@@ -999,9 +1011,14 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
         return StrL("canvas");
     }
     char cls[64]{};
-    GetClassNameA(hwnd, cls, (int)len(cls));
+    GetClassNameA(hwnd, cls, dimofi(cls));
     if (str::Eq(Str(cls), StrL("SUMATRA_ABOUT_HOVER"))) {
         return StrL("about");
+    }
+    // the comment card or its text
+    GetClassNameA(GetAncestor(hwnd, GA_ROOT), cls, dimofi(cls));
+    if (str::Eq(Str(cls), StrL("SumatraAnnotTextPopup"))) {
+        return StrL("card");
     }
     return StrL("other");
 }
@@ -1742,7 +1759,9 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             Str order = StringArg(req, 0);
-            int nShown = MinimizeFrameForTest(win->hwndFrame, order);
+            bool away = str::Eq(StringArg(req, 1), StrL("away"));
+            MinimizeFocus focus = away ? MinimizeFocus::Away : MinimizeFocus::Kept;
+            int nShown = MinimizeFrameForTest(win->hwndFrame, order, focus);
             if (nShown < 0) {
                 AppendTestResult(req, 1, StrL("unknown order"));
                 break;

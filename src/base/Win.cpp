@@ -2105,8 +2105,8 @@ bool TrackMouseLeave(HWND hwnd) {
 //   anchor or an ancestor moved             -> popup moved as much
 //   anchor moved or resized, popup placed
 //   from content (AnchorArgs::place)        -> owner places it
-//   frame minimized                         -> hidden, shown again with it
-//                                              (a popup it doesn't own: dismissed)
+//   frame minimized                         -> hidden, shown again with it, with the focus
+//                                              it had (a popup it doesn't own: dismissed)
 //   anchor or an ancestor hidden            -> dismissed
 //   anchor shows other content (AnchorShows)-> dismissed
 //   cursor left the anchor (AnchorLeave)    -> dismissed
@@ -2131,6 +2131,8 @@ struct AnchoredPopup {
     bool left = false;
     // hidden with its minimized frame, to be shown with it again
     bool minimized = false;
+    // it or a window in it had the focus then
+    HWND focus = nullptr;
 };
 
 static Vec<AnchoredPopup*> gAnchoredPopups;
@@ -2182,6 +2184,33 @@ static void ShowPopup(HWND popup, const Point* at) {
     SetWindowPos(popup, nullptr, pt.x, pt.y, 0, 0, flags);
 }
 
+static bool InPopup(HWND popup, HWND hwnd) {
+    return hwnd && (hwnd == popup || IsChild(popup, hwnd));
+}
+
+// what has the focus in it gets it back with the frame
+static void NoteMinimized(AnchoredPopup* ap) {
+    ap->minimized = true;
+    HWND focus = GetFocus();
+    if (InPopup(ap->popup, focus)) {
+        ap->focus = focus;
+    }
+}
+
+// gives the focus back to focus, unless it moved to another of the app's frames meanwhile
+static void RefocusPopup(HWND popup, HWND focus) {
+    if (!IsWindow(focus) || !InPopup(popup, focus)) {
+        return;
+    }
+    HWND now = GetFocus();
+    if (now && GetAncestor(now, GA_ROOTOWNER) != GetAncestor(popup, GA_ROOTOWNER)) {
+        return;
+    }
+    if (now != focus) {
+        SetFocus(focus);
+    }
+}
+
 static void DismissAnchoredPopup(AnchoredPopup* ap) {
     // may destroy the popup, and ap with it
     Func0 dismiss = ap->args.dismiss;
@@ -2202,13 +2231,15 @@ static void SyncAnchoredPopup(AnchoredPopup* ap) {
     // state kept for the restore, whichever of Windows and this sync came first
     if (FrameMinimized(anchor) && GetWindow(ap->popup, GW_OWNER) == GetAncestor(anchor, GA_ROOT)) {
         if (HwndIsVisible(ap->popup)) {
-            ap->minimized = true;
+            NoteMinimized(ap);
             HidePopup(ap->popup);
         }
         return;
     }
     bool restored = ap->minimized;
+    HWND focus = restored ? ap->focus : nullptr;
     ap->minimized = false;
+    ap->focus = nullptr;
     if (!HwndIsVisible(ap->popup) && !restored) {
         return;
     }
@@ -2225,6 +2256,7 @@ static void SyncAnchoredPopup(AnchoredPopup* ap) {
         // the frame is back before Windows showed the popup
         ShowPopup(ap->popup, ap->args.place.IsValid() ? nullptr : &want);
     }
+    RefocusPopup(ap->popup, focus);
     if (ap->args.place.IsValid()) {
         Rect rc = AnchorScreenRect(anchor);
         if (rc == ap->anchorRc) {
@@ -2286,7 +2318,7 @@ static LRESULT CALLBACK AnchoredPopupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
     }
     // Windows hides it for its minimized frame
     if (msg == WM_SHOWWINDOW && !wp && lp == SW_PARENTCLOSING) {
-        ap->minimized = true;
+        NoteMinimized(ap);
     }
     LRESULT res = DefSubclassProc(hwnd, msg, wp, lp);
     // placed by its owner, relative to where the anchor is now. Z-order changes
@@ -2316,6 +2348,13 @@ static AnchoredPopup* FindAnchoredPopup(HWND popup) {
         }
     }
     return nullptr;
+}
+
+// Hidden with its minimized frame, it comes back with it: an owner doesn't
+// dismiss it for what the hide does meanwhile, e.g. take its focus away.
+bool IsPopupHiddenWithFrame(HWND popup) {
+    AnchoredPopup* ap = FindAnchoredPopup(popup);
+    return ap && ap->minimized;
 }
 
 // Ties popup, where its owner just placed it, to args.anchor until either

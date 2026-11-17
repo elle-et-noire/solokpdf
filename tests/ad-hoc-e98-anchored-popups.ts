@@ -21,7 +21,7 @@
 //
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient, waitForHome } from "./control.ts";
 import { makePdf as makeRefPdf, waitFor as waitRefPopup } from "./issue-6252.ts";
@@ -90,20 +90,36 @@ const LOCK_HOLD_MS = 300;
 type Box = { x: number; y: number; dx: number; dy: number };
 
 const failures: string[] = [];
+// the running app's log
+let gLog = "";
 
 function check(ok: boolean, what: string): void {
   if (!ok) throw new Error(what);
 }
 
-// a step's failure is recorded and the next step still runs
+function logBytes(): Buffer {
+  return gLog && existsSync(gLog) ? readFileSync(gLog) : Buffer.alloc(0);
+}
+
+// a step's failure is recorded, with what the app logged meanwhile, and the next step still runs
 async function step(what: string, f: () => Promise<void>): Promise<void> {
+  const logStart = logBytes().length;
   try {
     await f();
     console.log(`  ok: ${what}`);
   } catch (e) {
     failures.push(`${what}: ${(e as Error).message}`);
     console.log(`  FAILED: ${what}: ${(e as Error).message}`);
+    const logged = logBytes().subarray(logStart).toString("utf8").trimEnd();
+    console.log(logged ? `  app log:\n${logged}` : "  app log: (empty)");
   }
+}
+
+// launched with its log in gLog
+async function launchLogged(name: string, args: string[]) {
+  gLog = tmpPath(`${name}.log`);
+  rmSync(gLog, { force: true });
+  return await launchControlled(["-log-to-file", gLog, ...args]);
 }
 
 function box(hwnd: number): Box {
@@ -444,7 +460,7 @@ async function checkRefHover(): Promise<void> {
   const pdf = join(dir, "doc.pdf");
   writeFileSync(pdf, makeRefPdf(), "latin1");
   writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nCitationHoverDelay = 100\n");
-  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
+  const { proc, client, frame } = await launchLogged("e98-ref", ["-appdata", dir, pdf]);
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
@@ -545,9 +561,11 @@ async function waitInCanvas(find: () => number, canvas: number, what: string): P
   );
 }
 
-// on the UI thread, so the order Windows and the anchor layer act in is fixed
-async function minimizeFrame(client: ControlClient, order: string): Promise<void> {
-  const res = await client.request(ControlCommand.TestMinimizeFrame, [order]);
+// on the UI thread, so the order Windows and the anchor layer act in is fixed.
+// "away": the focus leaves the app as the popups hide, as on an interactive
+// desktop, where Windows activates another window then (E136)
+async function minimizeFrame(client: ControlClient, order: string, focus = ""): Promise<void> {
+  const res = await client.request(ControlCommand.TestMinimizeFrame, [order, focus]);
   check(res[0] === 0, `TestMinimizeFrame ${order}: ${res[1]}`);
   check(order !== "anchor-first" || !/reshown=0\b/.test(String(res[1])), `${order}: nothing shown while minimized`);
 }
@@ -559,6 +577,8 @@ type Followed = {
   // with the sidebar shown: inside the canvas, at the frame's edge, or closed
   // by the sidebar taking the focus
   sidebar: "inside" | "stays" | "closes";
+  // TestFocusState's name for it when it has the focus, which it gets back on restore
+  focus?: string;
 };
 
 async function checkFollows(p: Followed, client: ControlClient, frame: number, canvas: number): Promise<void> {
@@ -596,21 +616,28 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
   });
 
   // E121: Windows hides them before the frame goes iconic; shown again while it
-  // is minimized, the anchor layer sees them first. Either way they come back
+  // is minimized, the anchor layer sees them first. Either way they come back,
+  // also when the focus left the app meanwhile (E136)
   for (const order of ["os-first", "anchor-first"]) {
-    await step(`${p.name}: frame minimized, ${order}`, async () => {
-      const before = await shown();
-      await minimizeFrame(client, order);
-      try {
-        await waitGone(p.find, `${p.name} with the frame minimized`);
-      } finally {
-        await minimizeFrame(client, "restore");
-      }
-      // the anchor layer's syncs, posted by the restore, run before this
-      // request: one Windows shows again only for its owner to hide is not back
-      await client.waitForRenderIdle();
-      await waitAt(p.find, before, `${p.name} after the frame was restored`);
-    });
+    for (const focus of ["", "away"]) {
+      const how = focus ? `${order}, focus left the app` : order;
+      await step(`${p.name}: frame minimized, ${how}`, async () => {
+        const before = await shown();
+        await minimizeFrame(client, order, focus);
+        try {
+          await waitGone(p.find, `${p.name} with the frame minimized`);
+        } finally {
+          await minimizeFrame(client, "restore");
+        }
+        // the anchor layer's syncs, posted by the restore, run before this
+        // request: one Windows shows again only for its owner to hide is not back
+        await client.waitForRenderIdle();
+        await waitAt(p.find, before, `${p.name} after the frame was restored`);
+        if (!p.focus) return;
+        const res = String((await client.request(ControlCommand.TestFocusState, [""]))[1] ?? "");
+        check(res.includes(`focus=${p.focus} `), `${p.name}'s focus after the frame was restored: ${res}`);
+      });
+    }
   }
 
   await step(`${p.name}: another tab`, async () => {
@@ -664,7 +691,7 @@ async function checkCanvasPopups(): Promise<void> {
   writeFileSync(other, makeE110Pdf(), "latin1");
   writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n");
   // the document under test is the first tab, the other one follows it
-  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf, other]);
+  const { proc, client, frame } = await launchLogged("e98-e110", ["-appdata", dir, pdf, other]);
   const pid = proc.pid!;
   const invoke = async (cmd: string) => {
     await client.request(ControlCommand.TestInvokeCommand, [cmd]);
@@ -718,6 +745,7 @@ async function checkCanvasPopups(): Promise<void> {
         await clickAt(canvas, c.x, c.y, 0, 0, client);
       },
       sidebar: "closes",
+      focus: "card",
     });
 
     // in Edit PDF a click selects an annotation, even while a render holds the
@@ -771,7 +799,7 @@ export async function testit(): Promise<void> {
   setProcessDpiAware();
   const pdf = tmpPath("e98-link.pdf");
   writeFileSync(pdf, makeLinkPdf(), "latin1");
-  const { proc, client, frame } = await launchControlled(["-appdata", makeAppDir(), pdf]);
+  const { proc, client, frame } = await launchLogged("e98", ["-appdata", makeAppDir(), pdf]);
   const pid = proc.pid!;
   gPid = pid;
   try {

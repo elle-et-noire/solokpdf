@@ -83,6 +83,7 @@ struct AnchorArgs {
 
 void AnchorPopup(HWND popup, const AnchorArgs&);
 void AnchorShows(HWND anchor, const void* content);
+bool IsPopupHiddenWithFrame(HWND popup);
 
 //--- HWND: focus / visibility / Z-order
 
