@@ -229,10 +229,14 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   seconds later on a long document; hover reads text a page needs MuPDF for
   (widget text, missing Unicode) as PDFium's partial text, without the editor.
   A user action (link click, image drag, context menu, Edit PDF click, form
-  field click, keyboard link following) cancels the document's renders and
-  waits for the lock instead, so it finds what it would with no render
-  running; a lock held by something else (another document's render, text
-  extraction) is waited out (E123).
+  field click, following a keyboard link hint, a press or double-click on
+  text, Tab between form fields, read aloud at the cursor) cancels the
+  document's renders and waits for the lock instead, so it finds what it would
+  with no render running; a lock held by something else (another document's
+  render, text extraction) is waited out (E123, E127). An action reads text a
+  page needs MuPDF for as PDFium's partial text, without the editor, as hover
+  does. Turning keyboard link following on still skips a page a render holds,
+  and so does its relabel after scrolling.
 - PDFium drops its discretionary hyphen marker from extracted text, so search
   joins split words as MuPDF does. `issue-1189` and the generated B15 search
   test cover this path without loading the editor.

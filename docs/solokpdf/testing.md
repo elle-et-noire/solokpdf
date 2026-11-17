@@ -153,8 +153,10 @@ anchor layer sees them first (`anchor-first`); a minimize from another process
 races between the two (E121). A link tip, citation popup, I-beam, form field
 cursor, plain-text citation and Edit PDF annotation hover while a render holds
 the page's lock, on both engines: `ad-hoc-e120-busy-hover` (E122); link
-and image context menus, image drag, Edit PDF click and link click under the
-same lock: `ad-hoc-e123-busy-actions`.
+and image context menus, image drag, Edit PDF click, link click, text
+press-drag and double-click, form field click and Tab under the same lock:
+`ad-hoc-e123-busy-actions` (E127). `lint-hover-lookups` keeps hover's `Try*`
+lookups out of user actions.
 After lifetime, notification or test-hook changes, also run the last four and
 `ad-hoc-tree-lifetime` under ASan. The
 [migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in

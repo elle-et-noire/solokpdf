@@ -2763,6 +2763,17 @@ static bool FreePageForAction(DisplayModel* dm) {
 #endif
 }
 
+// Every user action's lookup (click, press, double-click, key) answers as with no
+// render running: a busy try frees the page and waits. Hover uses the Try* lookups.
+template <typename Lookup>
+static auto ForAction(DisplayModel* dm, Lookup lookup) {
+    auto hit = lookup(EngineWait::NoWait);
+    if (!hit.busy || !FreePageForAction(dm)) {
+        return hit.value;
+    }
+    return lookup(EngineWait::Wait).value;
+}
+
 // The element a user action at canvas point pt finds, as with no render running
 // (a link click, a context menu). Don't delete the result.
 IPageElement* DisplayModel::GetElementAtPos(Point pt, int* pageNoOut) {
@@ -2778,11 +2789,7 @@ IPageElement* DisplayModel::GetElementAtPos(Point pt, int* pageNoOut) {
 
 // GetElementAtPos for a page point
 IPageElement* DisplayModel::GetElementOnPage(int pageNo, PointF pos) {
-    ElementAt at = engine->ElementAtPos(pageNo, pos, EngineWait::NoWait);
-    if (!at.busy || !FreePageForAction(this)) {
-        return at.value;
-    }
-    return engine->ElementAtPos(pageNo, pos, EngineWait::Wait).value;
+    return ForAction(this, [&](EngineWait wait) { return engine->ElementAtPos(pageNo, pos, wait); });
 }
 
 // Hover's lookup: tells a page a render holds (busy) from one without an element.
@@ -2816,11 +2823,7 @@ static AnnotationAt AnnotationAtPos(DisplayModel* dm, Point pt, Annotation* anno
 
 // The annotation a user action at pt finds, as with no render running (preferring annot).
 Annotation* DisplayModel::GetAnnotationAtPos(Point pt, Annotation* annot) {
-    AnnotationAt at = AnnotationAtPos(this, pt, annot, EngineWait::NoWait);
-    if (!at.busy || !FreePageForAction(this)) {
-        return at.value;
-    }
-    return AnnotationAtPos(this, pt, annot, EngineWait::Wait).value;
+    return ForAction(this, [&](EngineWait wait) { return AnnotationAtPos(this, pt, annot, wait); });
 }
 
 // Hover's lookup: busy while a render holds the page.
@@ -2846,11 +2849,12 @@ Annotation* DisplayModel::GetWidgetAtPos(Point pt) {
         return nullptr;
     }
     PointF pos = CvtFromScreen(pt, pageNo);
-    AnnotationAt at = EngineWidgetAtPos(engine, pageNo, pos, EngineWait::NoWait);
-    if (!at.busy || !FreePageForAction(this)) {
-        return at.value;
-    }
-    return EngineWidgetAtPos(engine, pageNo, pos, EngineWait::Wait).value;
+    return ForAction(this, [&](EngineWait wait) { return EngineWidgetAtPos(engine, pageNo, pos, wait); });
+}
+
+// The form field after (Next, Tab) or before (Prev, Shift+Tab) cur that Tab edits
+Annotation* DisplayModel::GetAdjacentWidget(Annotation* cur, FieldStep step) {
+    return ForAction(this, [&](EngineWait wait) { return EngineAdjacentWidget(engine, cur, step, wait); });
 }
 
 // Hover cursor over a form field. An engine that reads its own fields answers
@@ -2874,9 +2878,19 @@ PageHit<WidgetCursorKind> DisplayModel::TryWidgetCursorAt(Point pt) {
     return {GetWidgetCursorKind(at.value), at.busy};
 }
 
-// false until the page's text has been extracted
+// A user action's IsOverText (press, double-click, read aloud at the cursor)
 bool DisplayModel::IsOverText(Point pt) {
+#if defined(SUMATRA_NG)
+    // ng's hover cursor asks here too, so it keeps hover's lookup
     return TryOverText(pt).value;
+#else
+    int pageNo = GetPageNoByPoint(pt);
+    if (!ValidPageNo(pageNo) || !Rect(Point(), viewPort.Size()).Contains(pt)) {
+        return false;
+    }
+    PointF pos = CvtFromScreen(pt, pageNo);
+    return ForAction(this, [&](EngineWait wait) { return textSelection->OverGlyph(pageNo, pos.x, pos.y, wait); });
+#endif
 }
 
 // Hover's IsOverText: busy until a background extraction has the page's text.

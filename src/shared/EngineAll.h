@@ -194,7 +194,11 @@ void EngineMupdfCancelLoadAllAnnotations(EngineBase*);
 bool EngineMupdfApplyRedactions(EngineBase*, Vec<Annotation*>& deletedOut, Vec<int>& failedPages);
 bool EngineMupdfPageRedacted(EngineBase*, int pageNo);
 EngineBase* EngineMupdfRedactedEngine(EngineBase*);
-bool EngineMupdfHoldDocLock(EngineBase*, int ms);
+enum class MupdfLock {
+    Doc,
+    Render
+};
+bool EngineMupdfHoldLock(EngineBase*, MupdfLock, int ms);
 bool EngineMupdfBeginOperation(EngineBase*, const char* name);
 void EngineMupdfEndOperation(EngineBase*);
 enum class UndoDir {
@@ -333,7 +337,15 @@ void FreePdfSigCerts(PdfSigCert*);
 #endif
 IPageElement* EngineMupdfElementAtPosWait(EngineBase* engine, int pageNo, PointF pt);
 bool EngineMupdfGetPageWidgets(EngineBase*, int pageNo, Vec<Annotation*>& out);
+// Tab or Shift+Tab between form fields
+enum class FieldStep {
+    Next,
+    Prev
+};
+AnnotationAt EngineAdjacentWidget(EngineBase*, Annotation* cur, FieldStep, EngineWait);
+#if defined(SUMATRA_NG)
 Annotation* EngineMupdfGetAdjacentWidget(EngineBase*, Annotation* cur, bool forward);
+#endif
 void EngineMupdfGetFormFieldHighlightRects(EngineBase*, int pageNo, Annotation* skip, Vec<RectF>& out);
 void EngineMupdfSetDisableJavaScript(bool disable);
 bool MupdfJavaScriptEnabled();

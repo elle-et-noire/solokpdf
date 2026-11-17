@@ -12918,21 +12918,26 @@ EngineBase* EngineMupdfRedactedEngine(EngineBase* engine) {
     return e;
 }
 
-struct HoldDocLockData {
+struct HoldLockData {
     EngineMupdf* e = nullptr;
+    MupdfLock lock = MupdfLock::Doc;
     int ms = 0;
     AtomicBool held = 0;
     AtomicRefCount refs = 2;
 };
 
-static void ReleaseHoldData(HoldDocLockData* d) {
+static void ReleaseHoldData(HoldLockData* d) {
     if (AtomicRefCountDec(&d->refs) == 0) {
         delete d;
     }
 }
 
-static void HoldDocLockThread(HoldDocLockData* d) {
-    {
+static void HoldLockThread(HoldLockData* d) {
+    if (d->lock == MupdfLock::Render) {
+        ScopedMutex renderScope(&d->e->renderLock);
+        AtomicBoolSet(&d->held, true);
+        SleepInMs(d->ms);
+    } else {
         ScopedRecursiveMutex docScope(&d->e->docLock);
         AtomicBoolSet(&d->held, true);
         SleepInMs(d->ms);
@@ -12941,18 +12946,19 @@ static void HoldDocLockThread(HoldDocLockData* d) {
     ReleaseHoldData(d);
 }
 
-// Test hook: another thread holds the editor's docLock for ms, as a long render does.
-// Returns once it is held.
-bool EngineMupdfHoldDocLock(EngineBase* engine, int ms) {
+// Test hook: another thread holds the editor's docLock or renderLock for ms, as a long
+// render does. Returns once it is held.
+bool EngineMupdfHoldLock(EngineBase* engine, MupdfLock lock, int ms) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e) {
         return false;
     }
-    auto* d = new HoldDocLockData();
+    auto* d = new HoldLockData();
     d->e = e;
+    d->lock = lock;
     d->ms = ms;
     e->AddRef();
-    ThreadHandle th = StartThread(MkFunc0<HoldDocLockData>(HoldDocLockThread, d), StrL("HoldDocLock"));
+    ThreadHandle th = StartThread(MkFunc0<HoldLockData>(HoldLockThread, d), StrL("HoldLock"));
     if (!th) {
         e->Release();
         delete d;
@@ -14346,26 +14352,26 @@ AnnotationAt EngineWidgetAtPos(EngineBase* engine, int pageNo, PointF pos, Engin
 }
 
 // Next/previous editable (text/choice, non-read-only) widget on the same page
-// as `cur`, wrapping around. Used for Tab / Shift+Tab navigation. Returns null
-// if there's no other editable field. Does not hold docLock (calls helpers that
-// take it), so it must not be called while docLock is held.
-Annotation* EngineMupdfGetAdjacentWidget(EngineBase* engine, Annotation* cur, bool forward) {
+// as `cur`, wrapping around. Used for Tab / Shift+Tab navigation. Null if
+// there's no other editable field; NoWait is busy while another thread holds
+// the page. Does not hold docLock (calls helpers that take it), so it must not
+// be called while docLock is held.
+AnnotationAt EngineAdjacentWidget(EngineBase* engine, Annotation* cur, FieldStep dir, EngineWait wait) {
     EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
-    if (!epdf) {
-        return nullptr;
+    if (!epdf || !cur) {
+        return {};
     }
-    if (!cur) {
-        return nullptr;
-    }
-    FzPageInfo* pi = GetPdfPageInfo(epdf, cur->pageNo);
+    bool busy = false;
+    FzPageInfo* pi = AnnotPageInfo(epdf, cur->pageNo, wait, &busy);
     if (!pi) {
-        return nullptr;
+        return {nullptr, busy};
     }
+    bool forward = dir == FieldStep::Next;
     Vec<Annotation*>& ws = pi->widgets;
     int n = len(ws);
     int idx = VecFind(ws, cur);
     if (n == 0 || idx < 0) {
-        return nullptr;
+        return {};
     }
     // read type/flags via mupdf directly (this file is also compiled into
     // PdfPreview/PdfFilter, which don't link Annotation.cpp's GetWidget*)
@@ -14387,11 +14393,18 @@ Annotation* EngineMupdfGetAdjacentWidget(EngineBase* engine, Annotation* cur, bo
         bool editable =
             (wt == PDF_WIDGET_TYPE_TEXT) || (wt == PDF_WIDGET_TYPE_COMBOBOX) || (wt == PDF_WIDGET_TYPE_LISTBOX);
         if (editable && !(flags & PDF_FIELD_IS_READ_ONLY)) {
-            return w;
+            return {w, false};
         }
     }
-    return nullptr;
+    return {};
 }
+
+#if defined(SUMATRA_NG)
+Annotation* EngineMupdfGetAdjacentWidget(EngineBase* engine, Annotation* cur, bool forward) {
+    FieldStep dir = forward ? FieldStep::Next : FieldStep::Prev;
+    return EngineAdjacentWidget(engine, cur, dir, EngineWait::NoWait).value;
+}
+#endif
 
 static bool FormFieldValueIsEmpty(int wt, const char* val) {
     if (!val || !val[0]) {

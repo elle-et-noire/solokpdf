@@ -2,9 +2,11 @@
 // the pointer as it would with no render running: the context menu has the
 // link's and the image's items, a press on an image starts its drag, an Edit
 // PDF click selects the annotation and a click on a link follows it.
+// E127: a press-drag on text selects it, a double-click selects the word, a
+// click on a form field edits it and Tab moves the edit to the next field.
 //
-// Test hooks hold the lock (PDFium's global lock, or MuPDF's document lock) on
-// another thread, as a render does, on both engines.
+// Test hooks hold the lock (PDFium's global lock, or MuPDF's document or render
+// lock) on another thread, as a render does, on both engines.
 //
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e123-busy-actions.ts --no-build
 
@@ -14,6 +16,7 @@ import { ControlCommand, type ControlClient } from "./control.ts";
 import { assemblePdf, cmdId, pollUntil, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 import {
   clientToScreen,
+  getControlText,
   getPopupMenuHandle,
   MK_LBUTTON,
   type MenuItem,
@@ -24,13 +27,17 @@ import {
   setProcessDpiAware,
   sleep,
   VK_ESCAPE,
+  VK_TAB,
   WM_KEYDOWN,
+  WM_LBUTTONDBLCLK,
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
+  WM_MOUSEMOVE,
 } from "./winapi.ts";
 import {
   clickAt,
   findCanvas,
+  findFormEditor,
   findSubMenu,
   killAndWait,
   launchControlled,
@@ -52,13 +59,22 @@ const SQUARE = { x0: 330, y0: 340, x1: 556, y1: 560 };
 const WEB_LINK = { x: 150, y: 700 };
 const PAGE_LINK = { x: 460, y: 700 };
 const IMAGE = { x: 173, y: 450 };
+// pages 3 and 4: "Select these words" in 36pt Helvetica, baseline at y=400; each
+// text step uses a page whose text no lookup has read yet
+const TEXT = "BT /F1 36 Tf 72 400 Td (Select these words) Tj ET";
+const DRAG_PAGE = 3;
+const WORD_PAGE = 4;
+const SELECT = { x: 80, y: 410 };
+const THESE = { x: 225, y: 410 };
+// a form page: two text fields, "alpha" above "beta"
+const ALPHA = { x: 300, y: 530 };
 
 function makePdf(): string {
   const content = "q 234 0 0 220 56 340 cm /Im0 Do Q";
   const hex = "ff0000".repeat(4);
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+    "<< /Type /Pages /Kids [3 0 R 4 0 R 10 0 R 11 0 R] /Count 4 >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Im0 6 0 R >> >> " +
       "/Contents 5 0 R /Annots [7 0 R 8 0 R 9 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
@@ -67,6 +83,23 @@ function makePdf(): string {
     "<< /Type /Annot /Subtype /Link /Rect [0 600 306 792] /Border [0 0 0] /A << /S /URI /URI (https://example.com/e123) >> >>",
     "<< /Type /Annot /Subtype /Link /Rect [306 600 612 792] /Border [0 0 0] /Dest [4 0 R /XYZ 0 792 null] >>",
     `<< /Type /Annot /Subtype /Square /Rect [${SQUARE.x0} ${SQUARE.y0} ${SQUARE.x1} ${SQUARE.y1}] /C [0 0 1] >>`,
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 12 0 R >> >> /Contents 13 0 R >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 12 0 R >> >> /Contents 13 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${TEXT.length} >>\nstream\n${TEXT}\nendstream`,
+  ]);
+}
+
+function makeFormPdf(): string {
+  const field = (name: string, y0: number, value: string) =>
+    `<< /Type /Annot /Subtype /Widget /FT /Tx /T (${name}) /V (${value}) /Rect [100 ${y0} 500 ${y0 + 60}] /P 3 0 R /F 4 /DA (/Helv 18 Tf 0 g) >>`;
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R 5 0 R] /DR << /Font << /Helv 6 0 R >> >> >> >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R 5 0 R] >>",
+    field("first", ALPHA.y - 30, "alpha"),
+    field("second", 300, "beta"),
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
   ]);
 }
 
@@ -117,6 +150,26 @@ async function contextMenuAt(canvas: number, pt: Pt, client: ControlClient): Pro
 
 function menuText(items: MenuItem[]): string {
   return items.map((it) => it.text).join(", ");
+}
+
+async function selectedText(client: ControlClient): Promise<string> {
+  const res = String((await client.request(ControlCommand.TestSelectionVars, ["${selection}"]))[1] ?? "");
+  return /^expanded=(.*)$/m.exec(res)?.[1] ?? "";
+}
+
+async function goToPage(client: ControlClient, page: number): Promise<void> {
+  const { chapter } = await client.chapterInfo();
+  const at = await client.goToLocation(chapter, page);
+  if (at.page !== page) throw new Error(`on page ${at.page}, not ${page}`);
+  await client.waitForRenderIdle();
+}
+
+// canvas point of page-1 point p, as the app maps it
+async function pagePoint(client: ControlClient, p: Pt): Promise<Pt> {
+  const res = await client.request(ControlCommand.TestCurrentPdf, ["widget-cursor", 1, p.x, 792 - p.y]);
+  const m = /pt=(-?\d+),(-?\d+)/.exec(String(res[1] ?? ""));
+  if (!m) throw new Error(`no canvas point: ${res[1]}`);
+  return { x: +m[1]!, y: +m[2]! };
 }
 
 async function check(engine: Engine, failures: string[]): Promise<void> {
@@ -190,6 +243,77 @@ async function check(engine: Engine, failures: string[]): Promise<void> {
       const page = (await client.chapterInfo()).page;
       return page === 2 ? null : `on page ${page}, not 2`;
     });
+
+    await step("text press-drag", async () => {
+      await goToPage(client, DRAG_PAGE);
+      const from = toCanvas(SELECT);
+      const to = toCanvas(THESE);
+      const s = clientToScreen(canvas, from.x, from.y);
+      await moveTestCursor(s.x, s.y, client);
+      checkHeld(await holdLock(client, elementLock), "text press-drag");
+      sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(from.x, from.y));
+      sendMessage(canvas, WM_MOUSEMOVE, MK_LBUTTON, packCoords(to.x, to.y));
+      sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(to.x, to.y));
+      const text = await selectedText(client);
+      return text.startsWith("Select th") ? null : `selected '${text}'`;
+    });
+
+    await step("text double-click", async () => {
+      await goToPage(client, WORD_PAGE);
+      const at = toCanvas(THESE);
+      const s = clientToScreen(canvas, at.x, at.y);
+      await moveTestCursor(s.x, s.y, client);
+      checkHeld(await holdLock(client, elementLock), "text double-click");
+      sendMessage(canvas, WM_LBUTTONDBLCLK, MK_LBUTTON, packCoords(at.x, at.y));
+      sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(at.x, at.y));
+      const text = await selectedText(client);
+      return text === "these" ? null : `selected '${text}'`;
+    });
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
+// a click on a form field edits it; Tab moves the edit to the next field
+async function checkForm(engine: Engine, failures: string[]): Promise<void> {
+  const dir = tmpPath(`ad-hoc-e127-form-${engine}`);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const pdf = join(dir, "form.pdf");
+  writeFileSync(pdf, makeFormPdf(), "latin1");
+  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\n");
+  const { proc, client, frame } = await launchControlled(
+    ["-appdata", dir, "-view", "single page", "-zoom", "fit page", pdf],
+    { env: { ...process.env, SOLOKPDF_ENGINE: engine } as Record<string, string> },
+  );
+  const fieldLock = engine === "pdfium" ? "hold-pdfium-lock" : "hold-editor-lock";
+  const step = (what: string, err: string | null) => {
+    if (err) failures.push(`${engine} ${what}: ${err}`);
+    console.log(`${engine} ${what}: ${err ? "FAILED" : "OK"}`);
+  };
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    const canvas = findCanvas(frame);
+    const alpha = await pagePoint(client, ALPHA);
+    await client.waitForRenderIdle();
+
+    checkHeld(await holdLock(client, fieldLock), "form click");
+    await clickAt(canvas, alpha.x, alpha.y, 0, 0, client);
+    const edit = findFormEditor(canvas);
+    const first = edit ? getControlText(edit) : "";
+    step("form click", first === "alpha" ? null : `editing '${first}' (editor=${edit})`);
+    if (!edit) return;
+
+    // the commit's re-render holds the editor's render lock as Tab looks for the next field
+    await client.waitForRenderIdle();
+    checkHeld(await holdLock(client, "hold-render-lock"), "form Tab");
+    sendMessage(edit, WM_KEYDOWN, VK_TAB, 0);
+    const next = findFormEditor(canvas);
+    const second = next ? getControlText(next) : "";
+    step("form Tab", second === "beta" ? null : `editing '${second}' (editor=${next})`);
+    if (next) sendMessage(next, WM_KEYDOWN, VK_ESCAPE, 0);
   } finally {
     client.close();
     await killAndWait(proc);
@@ -201,6 +325,8 @@ export async function testit(): Promise<void> {
   const failures: string[] = [];
   await check("pdfium", failures);
   await check("mupdf", failures);
+  await checkForm("pdfium", failures);
+  await checkForm("mupdf", failures);
   if (failures.length) throw new Error(failures.join("\n"));
 }
 

@@ -172,7 +172,7 @@ static LRESULT CALLBACK WndProcFormCtrl(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 // cur may be dead if commit triggered a document reload; only
                 // walk to the next field when the widget is still live.
                 if (dm && AnnotationIsLive(cur)) {
-                    Annotation* next = EngineMupdfGetAdjacentWidget(dm->GetEngine(), cur, !back);
+                    Annotation* next = dm->GetAdjacentWidget(cur, back ? FieldStep::Prev : FieldStep::Next);
                     if (next) {
                         StartFormFieldEdit(win, next);
                     }

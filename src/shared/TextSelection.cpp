@@ -390,14 +390,16 @@ static bool GlyphAt(EngineBase* engine, int pageNo, Rect* coords, QuadF* quads, 
     return contains(glyphIx) || contains(glyphIx - 1);
 }
 
-bool TextSelection::IsOverGlyph(int pageNo, double x, double y) {
-    Rect* coords;
+// A user action's glyph test: NoWait is busy while another thread holds the page.
+PageHit<bool> TextSelection::OverGlyph(int pageNo, double x, double y, EngineWait wait) {
+    Rect* coords = nullptr;
     QuadF* quads = nullptr;
     int textLen = 0;
-    if (!engine->TryGetTextForPage(pageNo, &textLen, &coords, &quads)) {
-        return false;
+    PageHit<Str> text = engine->TextForAction(pageNo, wait, &textLen, &coords, &quads);
+    if (text.busy) {
+        return {false, true};
     }
-    return GlyphAt(engine, pageNo, coords, quads, textLen, x, y);
+    return {coords && GlyphAt(engine, pageNo, coords, quads, textLen, x, y), false};
 }
 
 // Hover's IsOverGlyph: busy until a background extraction has the page's text.

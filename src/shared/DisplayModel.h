@@ -9,6 +9,7 @@ constexpr int kInvalidPageNo = -1;
 struct Annotation;
 struct PageRenderRequest;
 enum class AnnotationType;
+enum class FieldStep;
 
 // a media box we haven't measured yet. Measuring a page of an image collection
 // means reading the image's header off disk, which is slow on network drives,
@@ -237,6 +238,7 @@ struct DisplayModel : DocController {
     AnnotationAt TryAnnotationAtPos(Point pt, Annotation*);
     AnnotationAt TryAnnotationAtPosHover(Point pt, Annotation*);
     Annotation* GetWidgetAtPos(Point pt);
+    Annotation* GetAdjacentWidget(Annotation* cur, FieldStep step);
     PageHit<WidgetCursorKind> TryWidgetCursorAt(Point pt);
 
     int GetPageNoByPoint(Point pt);

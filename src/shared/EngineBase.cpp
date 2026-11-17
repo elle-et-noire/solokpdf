@@ -1596,6 +1596,19 @@ PageHit<Str> EngineBase::CachedTextForPage(int pageNo, int* lenOut, Rect** coord
     return {{}, started};
 }
 
+// A user action's read of the page's text, extracting it here if needed. NoWait is busy
+// while another thread holds the page; Wait waits for it. Neither loads the annotation
+// editor: text only it has stays partial, as hover's.
+PageHit<Str> EngineBase::TextForAction(int pageNo, EngineWait wait, int* lenOut, Rect** coordsOut, QuadF** quadsOut) {
+    Str text;
+    if (wait == EngineWait::Wait) {
+        ReadPageText(pageNo, TextReadMode::Prefetch, text, lenOut, coordsOut, quadsOut);
+        return {text, false};
+    }
+    bool ready = ReadPageText(pageNo, TextReadMode::Nonblocking, text, lenOut, coordsOut, quadsOut);
+    return {text, !ready};
+}
+
 // Hover's background extraction: an engine may store partial text that GetTextForPage replaces.
 void EngineBase::PrefetchTextForPage(int pageNo) {
     Str text;

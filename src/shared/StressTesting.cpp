@@ -319,7 +319,7 @@ static void MakeRandomSelection(MainWindow* win, int pageNo) {
     // try a random position in the page
     int x = rand() % 640;
     int y = rand() % 480;
-    if (dm->textSelection->IsOverGlyph(pageNo, x, y)) {
+    if (dm->textSelection->OverGlyph(pageNo, x, y, EngineWait::Wait).value) {
         dm->textSelection->StartAt(pageNo, x, y);
         dm->textSelection->SelectUpTo(pageNo, rand() % 640, rand() % 480);
     }

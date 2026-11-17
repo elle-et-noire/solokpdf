@@ -658,6 +658,7 @@ class EngineBase {
     bool TryGetTextForPage(int pageNo, int* lenOut = nullptr, Rect** coordsOut = nullptr, QuadF** quadsOut = nullptr);
     PageHit<Str> CachedTextForPage(int pageNo, int* lenOut = nullptr, Rect** coordsOut = nullptr,
                                    QuadF** quadsOut = nullptr);
+    PageHit<Str> TextForAction(int pageNo, EngineWait wait, int* lenOut, Rect** coordsOut, QuadF** quadsOut);
     void InvalidateTextForPage(int pageNo);
     void InvalidateAllText();
     int TextGeneration();

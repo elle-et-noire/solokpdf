@@ -2329,10 +2329,12 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 0, fmt("ok=%d elements=%d links=%d", (int)ok, len(els), links));
                 break;
             }
-            if (str::Eq(StringArg(req, 0), StrL("hold-editor-lock"))) {
+            if (str::Eq(StringArg(req, 0), StrL("hold-editor-lock")) ||
+                str::Eq(StringArg(req, 0), StrL("hold-render-lock"))) {
                 i32 ms = 0;
                 IntArg(req, 1, ms);
-                bool held = EngineMupdfHoldDocLock(engine, ms);
+                bool render = str::Eq(StringArg(req, 0), StrL("hold-render-lock"));
+                bool held = EngineMupdfHoldLock(engine, render ? MupdfLock::Render : MupdfLock::Doc, ms);
                 AppendTestResult(req, held ? 0 : 1, held ? StrL("held") : StrL("no editor"));
                 break;
             }
