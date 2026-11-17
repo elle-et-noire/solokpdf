@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E112–E113 open (order: E112, E113; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-17: E112–E115 open (order: E113, E112, E114, E115; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B77, C2, D15, E114, F4). For a code change, choose affected tests from
+group (B77, C2, D15, E116, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -26,7 +26,9 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | ID   | Item                                                                                                                                                                                                               | Status |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
 | E112 | Find bar follows the toolbar: it sits on the search icon but is anchored only to the canvas, so overlay toolbar auto-show/hide leaves it at the old height. Multi-window anchors. Spec `.work/codex-queue/e112.md` | todo   |
-| E113 | Flaky citation hover step ("no-link") in ad-hoc-e98-anchored-popups: find the race in the app or the test. Spec `.work/codex-queue/e113.md`                                                                        | todo   |
+| E113 | ad-hoc-e98-anchored-popups fails on CI (Home tip after frame move; Home selection tip not shown) and once locally (citation "no-link"): find the race in the app or the test. Spec `.work/codex-queue/e113.md`     | todo   |
+| E114 | Build E111's catch macros on ng Linux (WSL) and Wasm, run test_util; macOS files only re-read. Spec `.work/codex-queue/e114.md`                                                                                    | todo   |
+| E115 | Every MuPDF context logs to our log: some `fz_new_context` sites keep MuPDF's stderr callbacks. One factory plus a lint. Spec `.work/codex-queue/e115.md`                                                          | todo   |
 
 ## Deferred
 
