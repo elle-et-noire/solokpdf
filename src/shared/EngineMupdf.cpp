@@ -9462,7 +9462,7 @@ bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6]
 
 // don't delete the result
 IPageElement* EngineMupdf::GetElementAtPos(int pageNo, PointF pt) {
-    return ElementAtPos(pageNo, pt, EngineWait::NoWait).el;
+    return ElementAtPos(pageNo, pt, EngineWait::NoWait).value;
 }
 
 // NoWait: busy while text extraction or a render holds the page's locks
@@ -9475,7 +9475,7 @@ ElementAt EngineMupdf::ElementAtPos(int pageNo, PointF pt, EngineWait wait) {
 // ng's lookups that must not miss the element while a render holds the page lock
 IPageElement* EngineMupdfElementAtPosWait(EngineBase* engine, int pageNo, PointF pt) {
     EngineMupdf* epdf = AsEngineMupdf(engine);
-    return epdf ? epdf->ElementAtPos(pageNo, pt, EngineWait::Wait).el : nullptr;
+    return epdf ? epdf->ElementAtPos(pageNo, pt, EngineWait::Wait).value : nullptr;
 }
 
 Vec<IPageElement*> EngineMupdf::GetElements(int pageNo) {

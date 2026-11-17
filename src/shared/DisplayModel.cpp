@@ -2780,9 +2780,9 @@ IPageElement* DisplayModel::GetElementAtPos(Point pt, int* pageNoOut) {
 IPageElement* DisplayModel::GetElementOnPage(int pageNo, PointF pos) {
     ElementAt at = engine->ElementAtPos(pageNo, pos, EngineWait::NoWait);
     if (!at.busy || !FreePageForAction(this)) {
-        return at.el;
+        return at.value;
     }
-    return engine->ElementAtPos(pageNo, pos, EngineWait::Wait).el;
+    return engine->ElementAtPos(pageNo, pos, EngineWait::Wait).value;
 }
 
 // Hover's lookup: tells a page a render holds (busy) from one without an element.
@@ -2818,9 +2818,9 @@ static AnnotationAt AnnotationAtPos(DisplayModel* dm, Point pt, Annotation* anno
 Annotation* DisplayModel::GetAnnotationAtPos(Point pt, Annotation* annot) {
     AnnotationAt at = AnnotationAtPos(this, pt, annot, EngineWait::NoWait);
     if (!at.busy || !FreePageForAction(this)) {
-        return at.annot;
+        return at.value;
     }
-    return AnnotationAtPos(this, pt, annot, EngineWait::Wait).annot;
+    return AnnotationAtPos(this, pt, annot, EngineWait::Wait).value;
 }
 
 // Hover's lookup: busy while a render holds the page.
@@ -2828,11 +2828,12 @@ AnnotationAt DisplayModel::TryAnnotationAtPos(Point pt, Annotation* annot) {
     return AnnotationAtPos(this, pt, annot, EngineWait::NoWait);
 }
 
-Annotation* DisplayModel::GetAnnotationAtPosHover(Point pt, Annotation* annot) {
+// Hover's annotation: never loads the annotation editor.
+AnnotationAt DisplayModel::TryAnnotationAtPosHover(Point pt, Annotation* annot) {
     if (engine->HasAnnotationEditor() && !engine->AnnotationEditor(EditorLoad::IfLoaded)) {
-        return nullptr;
+        return {};
     }
-    return TryAnnotationAtPos(pt, annot).annot;
+    return TryAnnotationAtPos(pt, annot);
 }
 
 // form fields (widgets) are hit-tested separately from annotations
@@ -2847,47 +2848,49 @@ Annotation* DisplayModel::GetWidgetAtPos(Point pt) {
     PointF pos = CvtFromScreen(pt, pageNo);
     AnnotationAt at = EngineWidgetAtPos(engine, pageNo, pos, EngineWait::NoWait);
     if (!at.busy || !FreePageForAction(this)) {
-        return at.annot;
+        return at.value;
     }
-    return EngineWidgetAtPos(engine, pageNo, pos, EngineWait::Wait).annot;
+    return EngineWidgetAtPos(engine, pageNo, pos, EngineWait::Wait).value;
 }
 
 // Hover cursor over a form field. An engine that reads its own fields answers
-// without loading the annotation editor or waiting on a render.
-WidgetCursorKind DisplayModel::GetWidgetCursorAtPos(Point pt) {
+// without loading the annotation editor or waiting on a render (busy).
+PageHit<WidgetCursorKind> DisplayModel::TryWidgetCursorAt(Point pt) {
     if (AnnotationsAreDisabled()) {
-        return WidgetCursorKind::None;
+        return {};
     }
     int pageNo = VisiblePageAt(this, pt);
     if (!ValidPageNo(pageNo)) {
-        return WidgetCursorKind::None;
+        return {};
     }
     PointF pos = CvtFromScreen(pt, pageNo);
     bool found = false;
     WidgetCursorKind cursor = WidgetCursorKind::None;
     PageReadResult result = engine->TryFormWidgetAt(pageNo, pos, found, cursor);
     if (result != PageReadResult::UseEditor) {
-        return cursor;
+        return {cursor, result == PageReadResult::Pending};
     }
-    return GetWidgetCursorKind(EngineWidgetAtPos(engine, pageNo, pos, EngineWait::NoWait).annot);
+    AnnotationAt at = EngineWidgetAtPos(engine, pageNo, pos, EngineWait::NoWait);
+    return {GetWidgetCursorKind(at.value), at.busy};
 }
 
-// note: returns false for pages that haven't been rendered yet
+// false until the page's text has been extracted
 bool DisplayModel::IsOverText(Point pt) {
+    return TryOverText(pt).value;
+}
+
+// Hover's IsOverText: busy until a background extraction has the page's text.
+PageHit<bool> DisplayModel::TryOverText(Point pt) {
     int pageNo = GetPageNoByPoint(pt);
     if (!ValidPageNo(pageNo)) {
-        return false;
+        return {};
     }
     // only return visible elements (for cursor interaction)
     if (!Rect(Point(), viewPort.Size()).Contains(pt)) {
-        return false;
+        return {};
     }
-    if (!engine->HasTextForPage(pageNo)) {
-        return false;
-    }
-
     PointF pos = CvtFromScreen(pt, pageNo);
-    return textSelection->IsOverGlyph(pageNo, pos.x, pos.y);
+    return textSelection->TryOverGlyph(pageNo, pos.x, pos.y);
 }
 
 void DisplayModel::RenderVisibleParts() {

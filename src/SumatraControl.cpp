@@ -2464,13 +2464,24 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     AppendTestResult(req, 0, dm->GetWidgetAtPos(pt) ? StrL("widget=yes") : StrL("widget=no"));
                     break;
                 }
-                WidgetCursorKind kind = dm->GetWidgetCursorAtPos(pt);
-                Str name = kind == WidgetCursorKind::Text     ? StrL("text")
-                           : kind == WidgetCursorKind::Button ? StrL("button")
-                                                              : StrL("none");
-                IPageElement* el = dm->TryElementAtPos(pt, nullptr).el;
+                PageHit<WidgetCursorKind> kind = dm->TryWidgetCursorAt(pt);
+                Str name = kind.busy                                ? StrL("busy")
+                           : kind.value == WidgetCursorKind::Text   ? StrL("text")
+                           : kind.value == WidgetCursorKind::Button ? StrL("button")
+                                                                    : StrL("none");
+                IPageElement* el = dm->TryElementAtPos(pt, nullptr).value;
                 Str tip = el && el->Is(kindPageElementComment) ? el->GetValue() : StrL("-");
                 AppendTestResult(req, 0, fmt("cursor=%s tip=%s pt=%d,%d", name, tip, pt.x, pt.y));
+                break;
+            }
+            if (str::Eq(query, StrL("cursor-shape"))) {
+                // the cursor the UI thread set last (hover's I-beam, hand or arrow)
+                HCURSOR cur = GetCursor();
+                Str shape = cur == GetCachedCursor(IDC_IBEAM)   ? StrL("ibeam")
+                            : cur == GetCachedCursor(IDC_HAND)  ? StrL("hand")
+                            : cur == GetCachedCursor(IDC_ARROW) ? StrL("arrow")
+                                                                : StrL("other");
+                AppendTestResult(req, 0, fmt("cursor=%s", shape));
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("press"))) {

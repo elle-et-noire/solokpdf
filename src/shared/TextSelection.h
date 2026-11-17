@@ -3,6 +3,9 @@
 
 #include "SelectionGeometry.h"
 
+template <typename T>
+struct PageHit;
+
 // Unit for keyboard/accessibility selection extension (platform-neutral).
 // Callers map input (e.g. Shift+arrow keys) to unit + signed delta.
 enum class TextSelectUnit {
@@ -29,6 +32,7 @@ struct TextSelection {
     explicit TextSelection(EngineBase* engine);
 
     bool IsOverGlyph(int pageNo, double x, double y);
+    PageHit<bool> TryOverGlyph(int pageNo, double x, double y);
     int FindClosestGlyphAt(int pageNo, double x, double y);
     void StartAt(int pageNo, int glyphIx);
     void StartAt(int pageNo, double x, double y);

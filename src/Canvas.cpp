@@ -1141,10 +1141,16 @@ static void UpdateDraggedLineOrVertex(MainWindow* win, DisplayModel* dm, int x, 
     pts[idx] = dm->CvtFromScreen(screenPt, PageNo(annot));
 }
 
-// What's under the cursor isn't known while a render holds its page: look again
-// shortly rather than wait for the render on the UI thread.
+// What's under the cursor isn't known while a render holds its page or its text
+// isn't extracted yet: look again shortly rather than wait on the UI thread.
 static void HoverRetryLater(MainWindow* win) {
     SetTimer(win->hwndCanvas, kHoverRetryTimerID, kHoverRetryDelayMs, nullptr);
+}
+
+// the mouse-move hover met a busy page: it runs again at the cursor
+static void HoverMoveBusy(MainWindow* win) {
+    win->hoverRetry.move = true;
+    HoverRetryLater(win);
 }
 
 // The citation popup for canvas point pt, as the mouse moving there does.
@@ -1152,16 +1158,67 @@ static void CitationHoverAt(MainWindow* win, DisplayModel* dm, Point pt) {
     int pageNo = -1;
     ElementAt at = dm->TryElementAtPos(pt, &pageNo);
     if (at.busy) {
-        win->hoverRetry.citation = true;
-        HoverRetryLater(win);
+        HoverMoveBusy(win);
         return;
     }
-    IPageElement* el = at.el;
+    IPageElement* el = at.value;
     if (el && el->Is(kindPageElementDest) && gSettings->disableLinks) {
         el = nullptr;
     }
-    RefHoverOnCanvasMouseMove(win->refHover, win->hwndCanvas, win->ctrl, win->linkHandler, dm, pt.x, pt.y, el, pageNo,
-                              gSettings->citationHoverDelay);
+    bool busy = RefHoverOnCanvasMouseMove(win->refHover, win->hwndCanvas, win->ctrl, win->linkHandler, dm, pt.x, pt.y,
+                                          el, pageNo, gSettings->citationHoverDelay);
+    if (busy) {
+        HoverMoveBusy(win);
+    }
+}
+
+// Hover effects of the mouse at canvas point pos: the annotation under it (Edit PDF
+// card) and the citation popup. A busy page keeps them as they are until the retry.
+static void HoverMoveAt(MainWindow* win, DisplayModel* dm, Point pos) {
+    Annotation* prev = win->annotationUnderCursor;
+    // no hover effects for anything but the annotation being edited
+    Annotation* locked = AnnotationLockingMouse(win);
+    if (locked) {
+        AnnotationAt at = dm->TryAnnotationAtPos(pos, locked);
+        if (at.busy) {
+            HoverMoveBusy(win);
+            return;
+        }
+        win->annotationUnderCursor = at.value == locked ? locked : nullptr;
+        if (win->annotationUnderCursor != prev) {
+            ScheduleRepaint(win, 0);
+        }
+        RemoveNotificationsForGroup(win, kNotifAnnotation);
+        HideAnnotationHoverOverlay(win);
+        return;
+    }
+    // the highlighter only selects text: annotations get no hover
+    bool highlighter = IsPlacingHighlighterAnnotation(win);
+    AnnotationAt at = highlighter ? AnnotationAt{} : dm->TryAnnotationAtPosHover(pos, nullptr);
+    if (at.busy) {
+        HoverMoveBusy(win);
+        return;
+    }
+    Annotation* annot = at.value;
+    bool editPdf = win->pdfAnnotationsToolbarEnabled && !highlighter;
+    if (annot != prev) {
+        if (editPdf) {
+            ScheduleRepaint(win, 0);
+        }
+    }
+    RemoveNotificationsForGroup(win, kNotifAnnotation);
+    win->annotationUnderCursor = annot;
+    // leaving the canvas clears the hover
+    if (annot && HwndIsCursorOverWindow(win->hwndCanvas)) {
+        CanvasTrackMouseLeave(win);
+    }
+    if (editPdf) {
+        UpdateAnnotationHoverOverlay(win);
+    } else {
+        HideAnnotationHoverOverlay(win);
+    }
+
+    CitationHoverAt(win, dm, pos);
 }
 
 // Opens the citation popup for the link at canvas point pt at once, as hovering
@@ -1178,7 +1235,7 @@ bool ShowCitationAt(MainWindow* win, Point pt) {
         HoverRetryLater(win);
         return true;
     }
-    return RefHoverScheduleLink(win->refHover, win->hwndCanvas, dm, pt.x, pt.y, at.el, 0);
+    return RefHoverScheduleLink(win->refHover, win->hwndCanvas, dm, pt.x, pt.y, at.value, 0);
 }
 
 static void OnMouseMove(MainWindow* win, int x, int y, WPARAM key) {
@@ -1307,41 +1364,7 @@ static void OnMouseMove(MainWindow* win, int x, int y, WPARAM key) {
     Point prevPos = win->dragPrevPos;
     switch (win->mouseAction) {
         case MouseAction::None: {
-            Annotation* prev = win->annotationUnderCursor;
-            // no hover effects for anything but the annotation being edited
-            Annotation* locked = AnnotationLockingMouse(win);
-            if (locked) {
-                bool onLocked = dm->TryAnnotationAtPos(pos, locked).annot == locked;
-                win->annotationUnderCursor = onLocked ? locked : nullptr;
-                if (win->annotationUnderCursor != prev) {
-                    ScheduleRepaint(win, 0);
-                }
-                RemoveNotificationsForGroup(win, kNotifAnnotation);
-                HideAnnotationHoverOverlay(win);
-                break;
-            }
-            // the highlighter only selects text: annotations get no hover
-            bool highlighter = IsPlacingHighlighterAnnotation(win);
-            Annotation* annot = highlighter ? nullptr : dm->GetAnnotationAtPosHover(pos, nullptr);
-            bool editPdf = win->pdfAnnotationsToolbarEnabled && !highlighter;
-            if (annot != prev) {
-                if (editPdf) {
-                    ScheduleRepaint(win, 0);
-                }
-            }
-            RemoveNotificationsForGroup(win, kNotifAnnotation);
-            win->annotationUnderCursor = annot;
-            // leaving the canvas clears the hover
-            if (annot && HwndIsCursorOverWindow(win->hwndCanvas)) {
-                CanvasTrackMouseLeave(win);
-            }
-            if (editPdf) {
-                UpdateAnnotationHoverOverlay(win);
-            } else {
-                HideAnnotationHoverOverlay(win);
-            }
-
-            CitationHoverAt(win, dm, pos);
+            HoverMoveAt(win, dm, pos);
             break;
         }
 
@@ -3442,12 +3465,21 @@ static void OnPaintDocument(MainWindow* win) {
     win->ShowFrameRateDur(TimeSinceInMs(t));
 }
 
-static void SetTextOrArrorCursor(DisplayModel* dm, Point pt) {
-    if (dm->IsOverText(pt)) {
-        SetCursorCached(IDC_IBEAM);
-    } else {
-        SetCursorCached(IDC_ARROW);
+// false: the page's text isn't extracted yet, the cursor is left as is
+static bool SetTextOrArrorCursor(DisplayModel* dm, Point pt) {
+    PageHit<bool> text = dm->TryOverText(pt);
+    if (text.busy) {
+        return false;
     }
+    SetCursorCached(text.value ? IDC_IBEAM : IDC_ARROW);
+    return true;
+}
+
+// the tip and cursor stay until the retry knows what's under the cursor
+static LRESULT CursorHoverBusy(MainWindow* win) {
+    win->hoverRetry.cursor = true;
+    HoverRetryLater(win);
+    return TRUE;
 }
 
 // TODO: this gets called way too often
@@ -3478,47 +3510,54 @@ static LRESULT OnSetCursorMouseNone(MainWindow* win, HWND hwnd) {
     // an annotation being edited: no hover cursors or tooltips for anything else
     if (AnnotationLockingMouse(win)) {
         win->DeleteToolTip();
-        bool onSelected = dm->TryAnnotationAtPos(pt, selected).annot == selected;
-        SetCursorCached(onSelected ? IDC_HAND : IDC_ARROW);
+        AnnotationAt onSelected = dm->TryAnnotationAtPos(pt, selected);
+        if (onSelected.busy) {
+            return CursorHoverBusy(win);
+        }
+        SetCursorCached(onSelected.value == selected ? IDC_HAND : IDC_ARROW);
         return TRUE;
     }
 
     // PDF form fields: I-beam over text/choice, hand over checkbox/radio
     {
-        WidgetCursorKind kind = dm->GetWidgetCursorAtPos(pt);
-        if (kind == WidgetCursorKind::Text) {
+        PageHit<WidgetCursorKind> widget = dm->TryWidgetCursorAt(pt);
+        if (widget.busy) {
+            return CursorHoverBusy(win);
+        }
+        if (widget.value == WidgetCursorKind::Text) {
             SetCursorCached(IDC_IBEAM);
             return TRUE;
         }
-        if (kind == WidgetCursorKind::Button) {
+        if (widget.value == WidgetCursorKind::Button) {
             SetCursorCached(IDC_HAND);
             return TRUE;
         }
     }
 
-    Annotation* annot = IsPlacingHighlighterAnnotation(win) ? nullptr : dm->GetAnnotationAtPosHover(pt, selected);
+    AnnotationAt annotAt =
+        IsPlacingHighlighterAnnotation(win) ? AnnotationAt{} : dm->TryAnnotationAtPosHover(pt, selected);
+    if (annotAt.busy) {
+        return CursorHoverBusy(win);
+    }
+    Annotation* annot = annotAt.value;
     bool annotEditHover = annot && (win->pdfAnnotationsToolbarEnabled || selected);
 
     int pageNo = 0;
     ElementAt at = dm->TryElementAtPos(pt, &pageNo);
     if (at.busy) {
-        // the tip and cursor stay until the retry knows what's here
-        win->hoverRetry.cursor = true;
-        HoverRetryLater(win);
-        return TRUE;
+        return CursorHoverBusy(win);
     }
-    IPageElement* pageEl = at.el;
+    IPageElement* pageEl = at.value;
     if (pageEl && pageEl->Is(kindPageElementDest) && gSettings->disableLinks) {
         pageEl = nullptr;
     }
     if (!pageEl) {
+        win->DeleteToolTip();
         if (annotEditHover) {
             SetCursorCached(IDC_HAND);
-        } else {
-            SetTextOrArrorCursor(dm, pt);
+            return TRUE;
         }
-        win->DeleteToolTip();
-        return TRUE;
+        return SetTextOrArrorCursor(dm, pt) ? TRUE : CursorHoverBusy(win);
     }
     // The Edit PDF hover card and the text popup have the annotation's contents.
     // Do not put the old one-line comment tooltip on top of them.
@@ -3543,10 +3582,9 @@ static LRESULT OnSetCursorMouseNone(MainWindow* win, HWND hwnd) {
     // comment tooltip (issue #5329)
     if (annotEditHover || pageEl->Is(kindPageElementDest)) {
         SetCursorCached(IDC_HAND);
-    } else {
-        SetTextOrArrorCursor(dm, pt);
+        return TRUE;
     }
-    return TRUE;
+    return SetTextOrArrorCursor(dm, pt) ? TRUE : CursorHoverBusy(win);
 }
 
 static LRESULT OnSetCursor(MainWindow* win, HWND hwnd) {
@@ -3651,8 +3689,8 @@ static void OnHoverRetry(MainWindow* win) {
     if (retry.cursor) {
         SendMessageW(win->hwndCanvas, WM_SETCURSOR, (WPARAM)win->hwndCanvas, MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
     }
-    if (retry.citation) {
-        CitationHoverAt(win, dm, HwndScreenToClient(win->hwndCanvas, cursor));
+    if (retry.move) {
+        HoverMoveAt(win, dm, HwndScreenToClient(win->hwndCanvas, cursor));
     }
 }
 

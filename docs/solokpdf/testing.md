@@ -150,8 +150,9 @@ and read-aloud bars, selection and annotation toolbars, comment card):
 `TestMinimizeFrame` in both orders: Windows hides the popups first
 (`os-first`), or they are shown again while the frame is minimized and the
 anchor layer sees them first (`anchor-first`); a minimize from another process
-races between the two (E121). A link tip and citation popup hovered while a
-render holds the page's lock, on both engines: `ad-hoc-e120-busy-hover`; link
+races between the two (E121). A link tip, citation popup, I-beam, form field
+cursor, plain-text citation and Edit PDF annotation hover while a render holds
+the page's lock, on both engines: `ad-hoc-e120-busy-hover` (E122); link
 and image context menus, image drag, Edit PDF click and link click under the
 same lock: `ad-hoc-e123-busy-actions`.
 After lifetime, notification or test-hook changes, also run the last four and

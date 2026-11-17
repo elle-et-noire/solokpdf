@@ -79,21 +79,24 @@ bool RefHoverShowNoteRef(RefHoverState*& s, HWND hwndCanvas, DocController* ctrl
     return true;
 }
 
+static HWND gLastMoveHwnd = nullptr;
+static Point gLastMovePt{-1, -1};
+
 // Windows sends WM_MOUSEMOVE without the mouse moving (a window appearing under
 // a resting cursor); such a move must not cancel or replace a popup
 static bool IsRepeatedMove(HWND hwndCanvas, int x, int y) {
-    static HWND lastHwnd = nullptr;
-    static Point lastPt{-1, -1};
-    bool same = hwndCanvas == lastHwnd && lastPt.x == x && lastPt.y == y;
-    lastHwnd = hwndCanvas;
-    lastPt = Point(x, y);
+    bool same = hwndCanvas == gLastMoveHwnd && gLastMovePt.x == x && gLastMovePt.y == y;
+    gLastMoveHwnd = hwndCanvas;
+    gLastMovePt = Point(x, y);
     return same;
 }
 
-void RefHoverOnCanvasMouseMove(RefHoverState*& s, HWND hwndCanvas, DocController* ctrl, ILinkHandler* linkHandler,
+// True: a page's text isn't extracted yet and nothing changed; the caller looks
+// again at the same point, which then isn't a repeated move.
+bool RefHoverOnCanvasMouseMove(RefHoverState*& s, HWND hwndCanvas, DocController* ctrl, ILinkHandler* linkHandler,
                                DisplayModel* dm, int x, int y, IPageElement* el, int srcPageNo, int hoverDelayMs) {
     if (IsRepeatedMove(hwndCanvas, x, y)) {
-        return;
+        return false;
     }
     if (hoverDelayMs < 0) {
         // no hover popups, so a shown one is from a click on an EPUB footnote
@@ -101,21 +104,21 @@ void RefHoverOnCanvasMouseMove(RefHoverState*& s, HWND hwndCanvas, DocController
         // not shown yet stays too: Windows sends a move without the mouse
         // moving when a window appears under the cursor
         if (!s || !HwndIsVisible(s->hwndPopup)) {
-            return;
+            return false;
         }
         if (IsPopupLink(s, el)) {
             KillTimer(hwndCanvas, kRefHoverHideTimerID);
-            return;
+            return false;
         }
         RefHoverScheduleHide(s, hwndCanvas, 0);
-        return;
+        return false;
     }
 
     if (!s) {
         s = RefHoverCreate(hwndCanvas);
     }
     if (!s) {
-        return;
+        return false;
     }
     s->ctrl = ctrl;
     s->linkHandler = linkHandler;
@@ -130,7 +133,13 @@ void RefHoverOnCanvasMouseMove(RefHoverState*& s, HWND hwndCanvas, DocController
         int destPage = -1;
         float destX = -1.f, destY = -1.f;
         RectF citationSrcRect{};
-        if (RefHoverTryPlainText(s, dm->GetEngine(), srcPageNo, pagePt, destPage, destX, destY, citationSrcRect)) {
+        PageHit<bool> found = RefHoverPlainTextAt(s, dm->GetEngine(), srcPageNo, pagePt, destPage, destX, destY,
+                                                  citationSrcRect, EngineWait::NoWait);
+        if (found.busy) {
+            gLastMoveHwnd = nullptr;
+            return true;
+        }
+        if (found.value) {
             TrackMouseLeave(hwndCanvas);
             Point screenPt = HwndClientToScreen(hwndCanvas, Point(x, y));
             Rect pageScreenRect = PageScreenRectToScreen(hwndCanvas, dm, srcPageNo);
@@ -142,6 +151,7 @@ void RefHoverOnCanvasMouseMove(RefHoverState*& s, HWND hwndCanvas, DocController
     if (!scheduled) {
         RefHoverScheduleHide(s, hwndCanvas, hoverDelayMs);
     }
+    return false;
 }
 
 void RefHoverOnCanvasMouseLeave(RefHoverState* s, HWND hwndCanvas, int hoverDelayMs) {

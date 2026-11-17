@@ -869,6 +869,8 @@ enum class TextExtractionState {
     NotExtracted,
     Pending,
     Finished,
+    // background extraction failed: not started again until a blocking read or invalidation
+    Failed,
 };
 
 static bool HasPageText(const PageText& pt) {
@@ -1524,7 +1526,8 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
             ScopedMutex scope(&textCacheLock);
             TextCacheEntry* page = pageTextCache->Ensure(loc, count);
             if (page->gen == gen && page->state == TextExtractionState::Pending) {
-                page->state = TextExtractionState::NotExtracted;
+                bool background = mode == TextReadMode::Prefetch;
+                page->state = background ? TextExtractionState::Failed : TextExtractionState::NotExtracted;
             }
             text = ReturnPageText({}, lenOut, coordsOut, quadsOut);
             return false;
@@ -1561,6 +1564,36 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
 bool EngineBase::TryGetTextForPage(int pageNo, int* lenOut, Rect** coordsOut, QuadF** quadsOut) {
     Str text;
     return ReadPageText(pageNo, TextReadMode::Nonblocking, text, lenOut, coordsOut, quadsOut);
+}
+
+// The page's text as extracted so far, never extracting on this thread: busy while a
+// background extraction runs, started here when the page has none yet (hover).
+PageHit<Str> EngineBase::CachedTextForPage(int pageNo, int* lenOut, Rect** coordsOut, QuadF** quadsOut) {
+    ReturnPageText({}, lenOut, coordsOut, quadsOut);
+    TextGeneration();
+    Location loc = TextLocation(pageNo);
+    if (!loc.IsValid()) {
+        return {};
+    }
+    int count = ChapterPageCount(loc.chapter);
+    {
+        ScopedMutex scope(&textCacheLock);
+        TextCacheEntry* page = pageTextCache->Ensure(loc, count);
+        if (!page || page->state == TextExtractionState::Failed) {
+            return {};
+        }
+        // partial text stays readable while a blocking read replaces it
+        if (page->state == TextExtractionState::Finished || page->data.partial) {
+            return {ReturnPageText(page->data, lenOut, coordsOut, quadsOut), false};
+        }
+    }
+
+    // no-op while an extraction is pending
+    RequestTextExtraction(pageNo);
+    ScopedMutex scope(&textCacheLock);
+    TextCacheEntry* page = pageTextCache->Ensure(loc, count);
+    bool started = page && page->state != TextExtractionState::NotExtracted;
+    return {{}, started};
 }
 
 // Hover's background extraction: an engine may store partial text that GetTextForPage replaces.

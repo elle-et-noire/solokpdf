@@ -37,6 +37,8 @@ struct CitationCacheEntry {
     int destPage; // -1 if not found
     float destX;
     float destY;
+    // > 0: the walk stopped at this page, its text not extracted yet; it resumes there
+    int scanFrom = 0;
 };
 
 struct RefLookupCache {
@@ -63,47 +65,68 @@ enum class CitationKind {
     Number
 };
 
-// Walk pages from pageCount → srcPage looking for a bibliography entry that
-// matches the surname + year. Returns true on hit.
-static bool FindReferenceLocation(EngineBase* engine, int srcPage, Str surname, int year, CitationKind kind,
-                                  int* destPageOut, float* destXOut, float* destYOut) {
-    if (!engine || len(surname) == 0) {
-        return false;
+// pages whose extraction a waiting walk starts beyond the one it waits for
+constexpr int kTextReadAhead = 3;
+
+// A page's text. NoWait never extracts on this thread: busy until a background
+// extraction (started then) has it.
+static PageHit<Str> PageTextAt(EngineBase* engine, int pageNo, EngineWait wait, int* lenOut, Rect** coordsOut) {
+    if (wait == EngineWait::Wait) {
+        return {engine->GetTextForPage(pageNo, lenOut, coordsOut), false};
     }
-    int pageCount = engine->PageCount();
-    if (pageCount <= 0 || srcPage < 1 || srcPage > pageCount) {
-        return false;
+    return engine->CachedTextForPage(pageNo, lenOut, coordsOut);
+}
+
+// Walk pages from pageCount (or where a busy walk stopped) → srcPage looking for
+// a bibliography entry that matches the surname + year. Busy at the first page
+// whose text isn't ready; the next pages' extraction starts too.
+static PageHit<bool> FindReferenceLocation(EngineBase* engine, Str surname, CitationKind kind, EngineWait wait,
+                                           CitationCacheEntry* entry) {
+    int srcPage = entry->srcPage;
+    int pageCount = engine ? engine->PageCount() : 0;
+    int from = entry->scanFrom > 0 && entry->scanFrom <= pageCount ? entry->scanFrom : pageCount;
+    entry->scanFrom = 0;
+    if (!engine || len(surname) == 0 || pageCount <= 0 || srcPage < 1 || srcPage > pageCount) {
+        return {};
     }
 
     TempWStr surnameW = kind == CitationKind::AuthorYear ? ToWStrTemp(surname) : TempWStr{};
     if (kind == CitationKind::AuthorYear && len(surnameW) < 2) {
-        return false;
+        return {};
     }
-    for (int p = pageCount; p >= srcPage; p--) {
+    for (int p = from; p >= srcPage; p--) {
         int textLen = 0;
         Rect* coords = nullptr;
-        Str textUtf8 = engine->GetTextForPage(p, &textLen, &coords);
-        TempWStr text = RefHoverPageTextToWStrTemp(textUtf8);
+        PageHit<Str> textUtf8 = PageTextAt(engine, p, wait, &textLen, &coords);
+        if (textUtf8.busy) {
+            for (int ahead = p - 1; ahead >= srcPage && ahead >= p - kTextReadAhead; ahead--) {
+                engine->CachedTextForPage(ahead);
+            }
+            entry->scanFrom = p;
+            return {false, true};
+        }
+        TempWStr text = RefHoverPageTextToWStrTemp(textUtf8.value);
         float x = 0, y = 0;
         bool found = kind == CitationKind::Number
-                         ? FindNumericReferenceInPageText(text, coords, textLen, year, &x, &y)
-                         : FindSurnameInPageText(text, coords, textLen, surnameW, year, &x, &y);
+                         ? FindNumericReferenceInPageText(text, coords, textLen, entry->year, &x, &y)
+                         : FindSurnameInPageText(text, coords, textLen, surnameW, entry->year, &x, &y);
         if (found) {
-            *destPageOut = p;
-            *destXOut = x;
-            *destYOut = y;
-            return true;
+            entry->destPage = p;
+            entry->destX = x;
+            entry->destY = y;
+            return {true, false};
         }
     }
-    return false;
+    return {};
 }
 
-// Cache both hits and misses; only successful lookups change the outputs.
-static bool LookupOrSearch(RefHoverState* s, EngineBase* engine, int srcPage, Str surname, int year, CitationKind kind,
-                           int& destPageOut, float& destXOut, float& destYOut) {
+// Cache hits, misses and where a busy walk stopped; only successful lookups change the outputs.
+static PageHit<bool> LookupOrSearch(RefHoverState* s, EngineBase* engine, int srcPage, Str surname, int year,
+                                    CitationKind kind, EngineWait wait, int& destPageOut, float& destXOut,
+                                    float& destYOut) {
     auto& entries = s->lookupCache->entries;
-    const CitationCacheEntry* hit = nullptr;
-    for (const auto& entry : entries) {
+    CitationCacheEntry* hit = nullptr;
+    for (auto& entry : entries) {
         if (entry.year == year && entry.srcPage == srcPage && str::Eq(entry.surname, surname)) {
             hit = &entry;
             break;
@@ -112,28 +135,43 @@ static bool LookupOrSearch(RefHoverState* s, EngineBase* engine, int srcPage, St
     if (!hit) {
         int pageCount = engine->PageCount();
         if (kind == CitationKind::Number && (pageCount <= 0 || srcPage < 1 || srcPage > pageCount)) {
-            return false;
+            return {};
         }
         CitationCacheEntry entry{str::Dup(surname), year, srcPage, -1, 0.f, 0.f};
-        FindReferenceLocation(engine, srcPage, surname, year, kind, &entry.destPage, &entry.destX, &entry.destY);
         VecAppend(entries, entry);
         hit = &VecLast(entries);
+        hit->scanFrom = pageCount;
+    }
+    if (hit->scanFrom > 0) {
+        PageHit<bool> found = FindReferenceLocation(engine, surname, kind, wait, hit);
+        if (found.busy) {
+            return found;
+        }
     }
     if (hit->destPage <= 0) {
-        return false;
+        return {};
     }
     destPageOut = hit->destPage;
     destXOut = hit->destX;
     destYOut = hit->destY;
-    return true;
+    return {true, false};
+}
+
+// ng's hover: waits for the pages' text
+bool RefHoverTryPlainText(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
+                          float& destXOut, float& destYOut, RectF& srcRectOut) {
+    return RefHoverPlainTextAt(s, engine, srcPage, pagePos, destPageOut, destXOut, destYOut, srcRectOut,
+                               EngineWait::Wait)
+        .value;
 }
 
 // Resolve numeric or author-year citations, caching hits and misses.
 // Keep source bounds so separate occurrences get separate hover popups.
-bool RefHoverTryPlainText(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
-                          float& destXOut, float& destYOut, RectF& srcRectOut) {
+// NoWait: busy until the pages' text is extracted in the background.
+PageHit<bool> RefHoverPlainTextAt(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
+                                  float& destXOut, float& destYOut, RectF& srcRectOut, EngineWait wait) {
     if (!s || !engine || srcPage <= 0) {
-        return false;
+        return {};
     }
     Rect srcRect{};
 
@@ -143,27 +181,34 @@ bool RefHoverTryPlainText(RefHoverState* s, EngineBase* engine, int srcPage, Poi
 
     int textLen = 0;
     Rect* coords = nullptr;
-    TempWStr text = RefHoverPageTextToWStrTemp(engine->GetTextForPage(srcPage, &textLen, &coords));
+    PageHit<Str> srcText = PageTextAt(engine, srcPage, wait, &textLen, &coords);
+    if (srcText.busy) {
+        return {false, true};
+    }
+    TempWStr text = RefHoverPageTextToWStrTemp(srcText.value);
 
     // Try bracketed numbers before ambiguous author-year citations.
     int num = 0;
     if (DetectNumericCitationInPageText(text, coords, textLen, pagePos, &num, &srcRect)) {
         // Numeric keys cannot collide with surnames.
-        if (LookupOrSearch(s, engine, srcPage, fmt("[%d]", num), num, CitationKind::Number, destPageOut, destXOut,
-                           destYOut)) {
+        PageHit<bool> found = LookupOrSearch(s, engine, srcPage, fmt("[%d]", num), num, CitationKind::Number, wait,
+                                             destPageOut, destXOut, destYOut);
+        if (found.value) {
             srcRectOut = ToRectF(srcRect);
-            return true;
+        }
+        if (found.value || found.busy) {
+            return found;
         }
     }
 
     Str surname;
     int year = 0;
     if (!DetectCitationInPageText(text, coords, textLen, pagePos, &surname, &year, &srcRect)) {
-        return false;
+        return {};
     }
 
-    bool result =
-        LookupOrSearch(s, engine, srcPage, surname, year, CitationKind::AuthorYear, destPageOut, destXOut, destYOut);
+    PageHit<bool> found = LookupOrSearch(s, engine, srcPage, surname, year, CitationKind::AuthorYear, wait, destPageOut,
+                                         destXOut, destYOut);
 
     // Fallback: if surname has multiple space-separated parts and the full
     // form didn't match, try each part as a prefix in descending-length
@@ -173,7 +218,7 @@ bool RefHoverTryPlainText(RefHoverState* s, EngineBase* engine, int srcPage, Poi
     //   2. PDF text extraction split a single-word surname by dropping a
     //      glyph ("Bash b" for "Bashab") — the longest fragment ("Bash")
     //      prefix-matches the real surname in the bibliography.
-    if (!result && str::ContainsChar(surname, ' ')) {
+    if (!found.value && !found.busy && str::ContainsChar(surname, ' ')) {
         constexpr int kMaxParts = 8;
         Str parts[kMaxParts];
         int nParts = 0;
@@ -193,17 +238,17 @@ bool RefHoverTryPlainText(RefHoverState* s, EngineBase* engine, int srcPage, Poi
                 }
             }
         }
-        for (int i = 0; i < nParts && !result; i++) {
-            result = LookupOrSearch(s, engine, srcPage, parts[i], year, CitationKind::AuthorYear, destPageOut, destXOut,
-                                    destYOut);
+        for (int i = 0; i < nParts && !found.value && !found.busy; i++) {
+            found = LookupOrSearch(s, engine, srcPage, parts[i], year, CitationKind::AuthorYear, wait, destPageOut,
+                                   destXOut, destYOut);
         }
     }
 
-    if (result) {
+    if (found.value) {
         srcRectOut = ToRectF(srcRect);
     }
     str::Free(surname);
-    return result;
+    return found;
 }
 
 // Extract the source link text and find its matching anchor on destPage.

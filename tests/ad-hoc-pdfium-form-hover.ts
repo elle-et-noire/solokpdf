@@ -59,12 +59,12 @@ async function query(client: ControlClient, args: (string | number)[]): Promise<
   return String(res[1]);
 }
 
-// Hover gives up while a render holds the engine's lock and reports no field, so retry a miss.
+// Hover answers busy while a render holds the engine's lock, so ask again.
 async function widgetCursor(client: ControlClient, x: number, y: number): Promise<string> {
   let res = "";
   for (let i = 0; i < 4; i++) {
     res = await query(client, ["widget-cursor", 1, x, y]);
-    if (!res.startsWith("cursor=none tip=- ")) break;
+    if (!res.startsWith("cursor=busy ") && !res.startsWith("cursor=none tip=- ")) break;
     await Bun.sleep(50);
   }
   return res;

@@ -3458,7 +3458,7 @@ class EnginePdfium : public EngineBase {
     }
 
     IPageElement* GetElementAtPos(int pageNo, PointF point) override {
-        return ElementAtPos(pageNo, point, EngineWait::NoWait).el;
+        return ElementAtPos(pageNo, point, EngineWait::NoWait).value;
     }
 
     // Reads PDFium's cached links and comments without opening the editor. NoWait:
@@ -3479,7 +3479,7 @@ class EnginePdfium : public EngineBase {
         EngineBase* source = AnnotationEditor(EditorLoad::IfLoaded);
         if (source) {
             ElementAt edited = source->ElementAtPos(pageNo, point, wait);
-            if (edited.el || edited.busy) {
+            if (edited.value || edited.busy) {
                 return edited;
             }
         }

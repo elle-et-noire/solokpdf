@@ -15,6 +15,9 @@ struct El;
 #endif
 
 class EngineBase;
+enum class EngineWait;
+template <typename T>
+struct PageHit;
 struct DocController;
 struct DisplayModel;
 struct ILinkHandler;
@@ -186,7 +189,7 @@ bool RefHoverScheduleLink(RefHoverState* s, HWND hwndCanvas, DisplayModel* dm, i
                           int delayMs);
 bool RefHoverShowNoteRef(RefHoverState*& s, HWND hwndCanvas, DocController* ctrl, ILinkHandler* linkHandler,
                          DisplayModel* dm, int x, int y, IPageElement* el);
-void RefHoverOnCanvasMouseMove(RefHoverState*& s, HWND hwndCanvas, DocController* ctrl, ILinkHandler* linkHandler,
+bool RefHoverOnCanvasMouseMove(RefHoverState*& s, HWND hwndCanvas, DocController* ctrl, ILinkHandler* linkHandler,
                                DisplayModel* dm, int x, int y, IPageElement* el, int srcPageNo, int hoverDelayMs);
 void RefHoverOnCanvasMouseLeave(RefHoverState* s, HWND hwndCanvas, int hoverDelayMs);
 void RefHoverOnCanvasLeftButtonDown(RefHoverState* s, HWND hwndCanvas);
@@ -241,6 +244,8 @@ bool ShouldSearchNextPage(RectF mediabox, float destY);
 
 bool RefHoverTryPlainText(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
                           float& destXOut, float& destYOut, RectF& srcRectOut);
+PageHit<bool> RefHoverPlainTextAt(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
+                                  float& destXOut, float& destYOut, RectF& srcRectOut, EngineWait wait);
 
 void RefHoverFreeLookupCache(RefHoverState* s);
 

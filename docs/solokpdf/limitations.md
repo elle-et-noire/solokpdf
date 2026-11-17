@@ -219,9 +219,15 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   PDFium's (every link but file-attachment ones, which a blocking read adds),
   and text MuPDF must supply returns false, so search reads such a page once,
   blocking. Once loaded, the editor answers through its own non-blocking reads
-  (B51, `ad-hoc-pdfium-try-reads`). Hover's element lookup tells such a page
-  (busy) from one without an element; the canvas keeps its link tip, cursor and
-  citation popup and looks again every 50 ms until the page is free (E120).
+  (B51, `ad-hoc-pdfium-try-reads`). Hover's lookups (element, annotation, form
+  field cursor, I-beam text, plain-text citation) tell such a page (busy) from
+  one without anything; text not extracted yet is busy too, while a background
+  extraction runs. The canvas keeps its cursor, link tip, annotation card and
+  citation popup and looks again every 50 ms until the answer is known (E120,
+  E122). A plain-text citation the walk can't resolve from extracted pages waits
+  for them in the background, a few pages at a time, so its popup can come
+  seconds later on a long document; hover reads text a page needs MuPDF for
+  (widget text, missing Unicode) as PDFium's partial text, without the editor.
   A user action (link click, image drag, context menu, Edit PDF click, form
   field click, keyboard link following) cancels the document's renders and
   waits for the lock instead, so it finds what it would with no render

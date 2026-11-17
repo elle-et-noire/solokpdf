@@ -35,17 +35,17 @@ enum class EngineWait {
     NoWait
 };
 
-// a page element lookup; busy only for EngineWait::NoWait
-struct ElementAt {
-    IPageElement* el = nullptr;
+// a page lookup's answer; busy (value unknown) only for EngineWait::NoWait or
+// text not extracted yet. Hover looks again on busy.
+template <typename T>
+struct PageHit {
+    T value{};
     bool busy = false;
 };
 
-// an annotation or form field lookup; busy only for EngineWait::NoWait
-struct AnnotationAt {
-    Annotation* annot = nullptr;
-    bool busy = false;
-};
+using ElementAt = PageHit<IPageElement*>;
+// an annotation or form field
+using AnnotationAt = PageHit<Annotation*>;
 
 #include "ChapterTable.h"
 
@@ -656,6 +656,8 @@ class EngineBase {
     void PrefetchTextForPage(int pageNo);
     Str GetTextForPage(int pageNo, int* lenOut = nullptr, Rect** coordsOut = nullptr, QuadF** quadsOut = nullptr);
     bool TryGetTextForPage(int pageNo, int* lenOut = nullptr, Rect** coordsOut = nullptr, QuadF** quadsOut = nullptr);
+    PageHit<Str> CachedTextForPage(int pageNo, int* lenOut = nullptr, Rect** coordsOut = nullptr,
+                                   QuadF** quadsOut = nullptr);
     void InvalidateTextForPage(int pageNo);
     void InvalidateAllText();
     int TextGeneration();

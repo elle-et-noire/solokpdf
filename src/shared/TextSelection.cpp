@@ -375,14 +375,7 @@ static void FillResultRects(TextSelection* ts, int pageNo, int glyph, int length
     FillSelectionRects(&ts->result, pageNo, coords, textLen, glyph, length, mediabox, quads);
 }
 
-bool TextSelection::IsOverGlyph(int pageNo, double x, double y) {
-    Rect* coords;
-    QuadF* quads = nullptr;
-    int textLen = 0;
-    if (!engine->TryGetTextForPage(pageNo, &textLen, &coords, &quads)) {
-        return false;
-    }
-
+static bool GlyphAt(EngineBase* engine, int pageNo, Rect* coords, QuadF* quads, int textLen, double x, double y) {
     int glyphIx = FindClosestGlyphIn(engine, pageNo, coords, quads, textLen, x, y);
     PointF ptf((float)x, (float)y);
     Point pt = ToPoint(ptf);
@@ -395,6 +388,28 @@ bool TextSelection::IsOverGlyph(int pageNo, double x, double y) {
     // when over the right half of a glyph, FindClosestGlyphIn returns the
     // index of the next glyph, in which case glyphIx must be decremented
     return contains(glyphIx) || contains(glyphIx - 1);
+}
+
+bool TextSelection::IsOverGlyph(int pageNo, double x, double y) {
+    Rect* coords;
+    QuadF* quads = nullptr;
+    int textLen = 0;
+    if (!engine->TryGetTextForPage(pageNo, &textLen, &coords, &quads)) {
+        return false;
+    }
+    return GlyphAt(engine, pageNo, coords, quads, textLen, x, y);
+}
+
+// Hover's IsOverGlyph: busy until a background extraction has the page's text.
+PageHit<bool> TextSelection::TryOverGlyph(int pageNo, double x, double y) {
+    Rect* coords = nullptr;
+    QuadF* quads = nullptr;
+    int textLen = 0;
+    PageHit<Str> text = engine->CachedTextForPage(pageNo, &textLen, &coords, &quads);
+    if (text.busy) {
+        return {false, true};
+    }
+    return {coords && GlyphAt(engine, pageNo, coords, quads, textLen, x, y), false};
 }
 
 void TextSelection::StartAt(int pageNo, int glyphIx) {

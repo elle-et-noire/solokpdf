@@ -46,7 +46,7 @@ static IPageElement* PopupElementAt(RefHoverState* s, PointF pagePt, PopupHit hi
     if (dm && dm->GetEngine() == s->hitEngine) {
         return dm->GetElementOnPage(pageNo, pagePt);
     }
-    return s->hitEngine->ElementAtPos(pageNo, pagePt, EngineWait::Wait).el;
+    return s->hitEngine->ElementAtPos(pageNo, pagePt, EngineWait::Wait).value;
 }
 
 static IPageDestination* LaunchLinkAtPagePt(RefHoverState* s, PointF pagePt, PopupHit hit) {
