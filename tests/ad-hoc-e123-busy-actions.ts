@@ -50,26 +50,26 @@ import {
 const HOLD_MS = 1000;
 const WAIT_MS = 5000;
 
-type Engine = "pdfium" | "mupdf";
-type Pt = { x: number; y: number };
+export type Engine = "pdfium" | "mupdf";
+export type Pt = { x: number; y: number };
 
 // page 1, in PDF points: a web link and a link to page 2 side by side at the
 // top, an image and a square annotation side by side below them
 const SQUARE = { x0: 330, y0: 340, x1: 556, y1: 560 };
-const WEB_LINK = { x: 150, y: 700 };
-const PAGE_LINK = { x: 460, y: 700 };
+export const WEB_LINK = { x: 150, y: 700 };
+export const PAGE_LINK = { x: 460, y: 700 };
 const IMAGE = { x: 173, y: 450 };
 // pages 3 and 4: "Select these words" in 36pt Helvetica, baseline at y=400; each
 // text step uses a page whose text no lookup has read yet
 const TEXT = "BT /F1 36 Tf 72 400 Td (Select these words) Tj ET";
-const DRAG_PAGE = 3;
-const WORD_PAGE = 4;
-const SELECT = { x: 80, y: 410 };
-const THESE = { x: 225, y: 410 };
+export const DRAG_PAGE = 3;
+export const WORD_PAGE = 4;
+export const SELECT = { x: 80, y: 410 };
+export const THESE = { x: 225, y: 410 };
 // a form page: two text fields, "alpha" above "beta"
-const ALPHA = { x: 300, y: 530 };
+export const ALPHA = { x: 300, y: 530 };
 
-function makePdf(): string {
+export function makePdf(): string {
   const content = "q 234 0 0 220 56 340 cm /Im0 Do Q";
   const hex = "ff0000".repeat(4);
   return assemblePdf([
@@ -90,7 +90,7 @@ function makePdf(): string {
   ]);
 }
 
-function makeFormPdf(): string {
+export function makeFormPdf(): string {
   const field = (name: string, y0: number, value: string) =>
     `<< /Type /Annot /Subtype /Widget /FT /Tx /T (${name}) /V (${value}) /Rect [100 ${y0} 500 ${y0 + 60}] /P 3 0 R /F 4 /DA (/Helv 18 Tf 0 g) >>`;
   return assemblePdf([
@@ -108,7 +108,7 @@ async function markupState(client: ControlClient): Promise<string> {
 }
 
 // canvas point of page-1 point p, from where the square is on screen
-async function pageToCanvas(client: ControlClient): Promise<(p: Pt) => Pt> {
+export async function pageToCanvas(client: ControlClient): Promise<(p: Pt) => Pt> {
   const re = /type=Square(?:(?!type=)[\s\S])*?screen=(-?\d+),(-?\d+),(\d+),(\d+)/;
   const m = await pollUntil(
     async () => re.exec(await markupState(client)),
@@ -148,16 +148,16 @@ async function contextMenuAt(canvas: number, pt: Pt, client: ControlClient): Pro
   return items;
 }
 
-function menuText(items: MenuItem[]): string {
+export function menuText(items: MenuItem[]): string {
   return items.map((it) => it.text).join(", ");
 }
 
-async function selectedText(client: ControlClient): Promise<string> {
+export async function selectedText(client: ControlClient): Promise<string> {
   const res = String((await client.request(ControlCommand.TestSelectionVars, ["${selection}"]))[1] ?? "");
   return /^expanded=(.*)$/m.exec(res)?.[1] ?? "";
 }
 
-async function goToPage(client: ControlClient, page: number): Promise<void> {
+export async function goToPage(client: ControlClient, page: number): Promise<void> {
   const { chapter } = await client.chapterInfo();
   const at = await client.goToLocation(chapter, page);
   if (at.page !== page) throw new Error(`on page ${at.page}, not ${page}`);
@@ -165,7 +165,7 @@ async function goToPage(client: ControlClient, page: number): Promise<void> {
 }
 
 // canvas point of page-1 point p, as the app maps it
-async function pagePoint(client: ControlClient, p: Pt): Promise<Pt> {
+export async function pagePoint(client: ControlClient, p: Pt): Promise<Pt> {
   const res = await client.request(ControlCommand.TestCurrentPdf, ["widget-cursor", 1, p.x, 792 - p.y]);
   const m = /pt=(-?\d+),(-?\d+)/.exec(String(res[1] ?? ""));
   if (!m) throw new Error(`no canvas point: ${res[1]}`);

@@ -181,7 +181,8 @@ EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI,
 EngineBase* CreateEngineMupdfFromHandle(HANDLE file, Str path, PasswordUI* pwdUI);
 #endif
 bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target,
-                                const DarkModeProfile* profile);
+                                const DarkModeProfile* profile, AbortCookie* cookie);
+AbortCookie* NewMupdfAbortCookie();
 Str LoadEmbeddedPDFFile(Str path);
 TempStr ParseEmbeddedStreamNumber(Str path, int* streamNoOut);
 Annotation* EngineMupdfCreateAnnotation(EngineBase*, int pageNo, PointF pos, AnnotCreateArgs* args);

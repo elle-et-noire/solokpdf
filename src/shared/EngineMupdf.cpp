@@ -215,6 +215,15 @@ class FitzAbortCookie : public AbortCookie {
     void* GetData() override { return (void*)&cookie; }
 };
 
+// For EngineMupdfDrawAnnotations: another engine's render cancels its MuPDF pass with it.
+AbortCookie* NewMupdfAbortCookie() {
+    return new FitzAbortCookie();
+}
+
+static bool FzCookieCanceled(void* cookie) {
+    return ((fz_cookie*)cookie)->abort != 0;
+}
+
 // copy of fz_is_external_link without ctx
 static bool IsExternalLink(Str uri) {
     if (len(uri) == 0) {
@@ -4610,9 +4619,9 @@ class TextFailureEngine : public EnginePdfProxy {
         return result;
     }
     PageText ExtractPrefetchText(int pageNo) override { return ExtractPageText(pageNo); }
-    bool TryExtractPageText(int pageNo, PageText* out) override {
+    PageReadResult TryExtractPageText(int pageNo, PageText* out) override {
         *out = ExtractPageText(pageNo);
-        return !out->failed;
+        return out->failed ? PageReadResult::Pending : PageReadResult::Ready;
     }
 };
 
@@ -9281,6 +9290,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
         // same image -- crashes seen in template_image_compose_opt with use-
         // after-free. Hold renderLock to serialize.
         ScopedMutex rls(&renderLock);
+        TestRenderPark(RenderPark::Contents, pageNo, FzCookieCanceled, fzcookie);
         fz_try(ctx) {
             ClearRenderedPagePixmap(ctx, target.fz, args);
             dev = fz_new_draw_device(ctx, ctm, target.fz);
@@ -9409,9 +9419,9 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
 }
 
 // Draws the page's annotations over pixels another engine (EnginePdfium) rendered. m (a b c d e f)
-// maps page space to them; pixmap is BGRA, premultiplied if it has alpha.
+// maps page space to them; pixmap is BGRA, premultiplied if it has alpha. cookie (optional) cancels it.
 bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target,
-                                const DarkModeProfile* profile) {
+                                const DarkModeProfile* profile, AbortCookie* cookie) {
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
     WCHAR fail[2]{};
     if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_TEST_ANNOTATION_FAILURE", fail, dimofi(fail)) == 1 &&
@@ -9429,28 +9439,36 @@ bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6]
     }
     auto* ctx = e->Ctx();
     const char* usage = target == RenderTarget::Print ? "Print" : "View";
+    fz_cookie* fzcookie = cookie ? (fz_cookie*)cookie->GetData() : nullptr;
     fz_pixmap* pix = nullptr;
     fz_device* dev = nullptr;
+    fz_device* drawDev = nullptr;
     bool ok = false;
     fz_var(pix);
     fz_var(dev);
+    fz_var(drawDev);
     fz_var(ok);
     // like RenderPage: an edit on the UI thread rewrites the objects this reads
     ScopedMutex renderScope(&e->renderLock);
     ScopedRecursiveMutex docScope(&e->docLock);
+    TestRenderPark(RenderPark::Annotations, pageNo, FzCookieCanceled, fzcookie);
     fz_try(ctx) {
         pdf_page* page = pdf_page_from_fz_page(ctx, pi->page);
         pix = fz_new_pixmap_with_data(ctx, fz_device_bgr(ctx), pixmap->width, pixmap->height, nullptr, 1,
                                       pixmap->stride, pixmap->data);
-        dev = fz_new_draw_device(ctx, fz_identity, pix);
+        drawDev = dev = fz_new_draw_device(ctx, fz_identity, pix);
         dev = PdfDrawWrap(ctx, dev, profile, fz_identity, fz_make_irect(0, 0, pixmap->width, pixmap->height));
         fz_matrix ctm = fz_make_matrix(m[0], m[1], m[2], m[3], m[4], m[5]);
         if (page) {
-            pdf_run_page_annots_with_usage(ctx, page, dev, ctm, usage, nullptr);
-            pdf_run_page_widgets_with_usage(ctx, page, dev, ctm, usage, nullptr);
+            pdf_run_page_annots_with_usage(ctx, page, dev, ctm, usage, fzcookie);
+            pdf_run_page_widgets_with_usage(ctx, page, dev, ctm, usage, fzcookie);
         }
-        fz_close_device(ctx, dev);
-        ok = true;
+        if (RenderAborted(fzcookie)) {
+            UnhookAbortedDevices(drawDev, dev);
+        } else {
+            fz_close_device(ctx, dev);
+            ok = true;
+        }
     }
     fz_always(ctx) {
         fz_drop_device(ctx, dev);
@@ -9971,19 +9989,19 @@ PageText EngineMupdf::ExtractPageText(int pageNo) {
     return ExtractPageTextLocked(this, pageInfo);
 }
 
-bool EngineMupdf::TryExtractPageText(int pageNo, PageText* out) {
+PageReadResult EngineMupdf::TryExtractPageText(int pageNo, PageText* out) {
     *out = {};
     if (!pagesLock.TryLock()) {
-        return false;
+        return PageReadResult::Pending;
     }
     if (!renderLock.TryLock()) {
         pagesLock.Unlock();
-        return false;
+        return PageReadResult::Pending;
     }
     if (!docLock.TryLock()) {
         renderLock.Unlock();
         pagesLock.Unlock();
-        return false;
+        return PageReadResult::Pending;
     }
     defer {
         docLock.Unlock();
@@ -9993,12 +10011,12 @@ bool EngineMupdf::TryExtractPageText(int pageNo, PageText* out) {
         renderLock.Unlock();
         pagesLock.Unlock();
         *out = {};
-        return false;
+        return PageReadResult::Pending;
     }
     *out = ExtractPageTextLocked(this, pageInfo);
     renderLock.Unlock();
     pagesLock.Unlock();
-    return !out->failed;
+    return out->failed ? PageReadResult::Pending : PageReadResult::Ready;
 }
 
 void EngineMupdf::ReleaseTextExtractionThreadContext() {

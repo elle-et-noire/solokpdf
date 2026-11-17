@@ -17,6 +17,7 @@
 #include "base/GuessFileType.h"
 #include "EngineAll.h"
 #include "DisplayModel.h"
+#include "RenderCache.h"
 #include "MainWindow.h"
 #include "Annotation.h"
 #include "SumatraPDF.h"
@@ -129,6 +130,13 @@ void CommitFormFieldEdit(bool save) {
         DeleteObject(font);
     }
     FormEditResult result;
+    // a render drawing the annotations holds the editor's lock the edit takes: cancel it, as
+    // undo does, so the edit waits only until its next cancellation check
+    DisplayModel* dm = win ? win->AsFixed() : nullptr;
+    bool cancel = save && widget && dm && gRenderCache;
+    if (cancel) {
+        gRenderCache->AbortRendering(dm);
+    }
     if (save && widget) {
         result = isChoice ? SetWidgetChoiceValue(widget, text) : SetWidgetTextValue(widget, text);
     }
@@ -143,6 +151,9 @@ void CommitFormFieldEdit(bool save) {
             // state now, otherwise it only updates on the next repaint trigger
             // (tab switch, resize)
             ToolbarUpdateStateForWindow(win, false);
+        } else if (cancel && win->AsFixed()) {
+            // the canceled tiles
+            win->AsFixed()->RepaintDisplay();
         }
     }
     gCommitting = false;

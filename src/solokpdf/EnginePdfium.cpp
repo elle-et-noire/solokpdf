@@ -352,14 +352,22 @@ class PdfiumCookie : public AbortCookie {
   public:
     AtomicInt aborted = 0;
     IFSDK_PAUSE pause{};
+    // cancels the editor's annotation pass over the tile; set before the cookie is published
+    AbortCookie* annots = nullptr;
     PdfiumCookie() {
         pause.version = 1;
         pause.user = this;
         pause.NeedToPauseNow = NeedPause;
     }
+    ~PdfiumCookie() override { delete annots; }
     static bool IsCanceled(void* user) { return AtomicIntGet(&((PdfiumCookie*)user)->aborted) != 0; }
     static FPDF_BOOL NeedPause(IFSDK_PAUSE* pause) { return IsCanceled(pause->user); }
-    void Abort() override { AtomicIntSet(&aborted, 1); }
+    void Abort() override {
+        AtomicIntSet(&aborted, 1);
+        if (annots) {
+            annots->Abort();
+        }
+    }
     void* GetData() override { return &pause; }
 };
 
@@ -2955,6 +2963,9 @@ class EnginePdfium : public EngineBase {
             }
         }
         profile.Mark(StrL("page"));
+        if (args.cookie_out) {
+            TestRenderPark(RenderPark::Contents, args.pageNo, PdfiumCookie::IsCanceled, cookie);
+        }
         if (PdfiumCookie::IsCanceled(cookie)) {
             profile.Mark(StrL("canceled-page"));
             return {DrawStatus::Canceled};
@@ -3052,6 +3063,7 @@ class EnginePdfium : public EngineBase {
         PdfiumCookie* cookie = &localCookie;
         if (args.cookie_out) {
             cookie = new PdfiumCookie();
+            cookie->annots = NewMupdfAbortCookie();
             *args.cookie_out = cookie;
         }
         RectF box = LockedMediabox(args.pageNo);
@@ -3135,7 +3147,8 @@ class EnginePdfium : public EngineBase {
         if (annotEditor && !hideAnnotations) {
             float m[6];
             TileMatrix(args.pageNo, args.zoom, args.rotation, x, y, full, m);
-            bool drawn = EngineMupdfDrawAnnotations(annotEditor, args.pageNo, m, pixmap, args.target, args.darkProfile);
+            bool drawn = EngineMupdfDrawAnnotations(annotEditor, args.pageNo, m, pixmap, args.target, args.darkProfile,
+                                                    cookie->annots);
             profile.Mark(StrL("annotations"));
             if (!drawn) {
                 FreePixmap(pixmap);
@@ -3291,31 +3304,38 @@ class EnginePdfium : public EngineBase {
     // Hover's prefetch never loads the editor: without it, text MuPDF must supply is left partial.
     PageText ExtractPrefetchText(int pageNo) override { return ExtractText(pageNo, EditorLoad::IfLoaded); }
 
-    // False while a render owns the lock or the text needs the editor, which can't load here:
-    // the I-beam hover only reads cached text and search then reads the page once, blocking.
-    bool TryExtractPageText(int pageNo, PageText* out) override {
+    // Pending while a render owns the lock. UseEditor, with PDFium's partial text, when the text
+    // needs the editor, which can't load here: the I-beam hover only reads cached text and
+    // search then reads the page once, blocking.
+    PageReadResult TryExtractPageText(int pageNo, PageText* out) override {
         if (EngineBase* source = TextEditor(pageNo)) {
             return source->TryExtractPageText(pageNo, out);
         }
         *out = {};
         if (!gPdfiumLock.TryLock()) {
-            return false;
+            return PageReadResult::Pending;
         }
         bool needsEditor = false;
         PageText text = TextLocked(pageNo, &needsEditor);
         gPdfiumLock.Unlock();
         if (text.failed) {
             FreePageText(&text);
-            return false;
+            return PageReadResult::Pending;
         }
         if (!needsEditor) {
             *out = text;
-            return true;
+            return PageReadResult::Ready;
         }
-        FreePageText(&text);
-        EngineBase* editor = AnnotationEditor(EditorLoad::IfLoaded);
-        return editor && editor->TryExtractPageText(pageNo, out);
+        if (EngineBase* editor = AnnotationEditor(EditorLoad::IfLoaded)) {
+            FreePageText(&text);
+            return editor->TryExtractPageText(pageNo, out);
+        }
+        text.partial = true;
+        *out = text;
+        return PageReadResult::UseEditor;
     }
+
+    const void* PageLockId() override { return &gPdfiumLock; }
 
     PageText ExtractText(int pageNo, EditorLoad load) {
         if (EngineBase* source = TextEditor(pageNo)) {

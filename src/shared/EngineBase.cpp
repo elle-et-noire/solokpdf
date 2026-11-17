@@ -865,6 +865,48 @@ RenderPageArgs::RenderPageArgs(int pageNo, float zoom, int rotation, RectF* page
                                AbortCookie** cookie_out)
     : pageNo(pageNo), zoom(zoom), rotation(rotation), pageRect(pageRect), target(target), cookie_out(cookie_out) {}
 
+static AtomicInt gRenderParkAt;
+static AtomicInt gRenderParkPage;
+static AtomicBool gRenderParkTaken;
+static AtomicInt gRenderParkMs;
+static AtomicInt gRenderParked;
+static AtomicInt gRenderParkCanceled;
+static AtomicInt gRenderParkExpired;
+
+// Test hook: the next render of pageNo to reach `at` parks there for up to ms (see TestRenderPark).
+void TestArmRenderPark(RenderPark at, int pageNo, int ms) {
+    AtomicIntSet(&gRenderParkPage, pageNo);
+    AtomicIntSet(&gRenderParkMs, ms);
+    AtomicIntSet(&gRenderParked, 0);
+    AtomicIntSet(&gRenderParkCanceled, 0);
+    AtomicIntSet(&gRenderParkExpired, 0);
+    AtomicBoolSet(&gRenderParkTaken, false);
+    AtomicIntSet(&gRenderParkAt, (int)at);
+}
+
+// A slow render between two checks of its cookie, for tests: the armed render stays here,
+// holding its locks, and checks isCanceled every millisecond until canceled or the time is up.
+void TestRenderPark(RenderPark at, int pageNo, bool (*isCanceled)(void*), void* cancelData) {
+    if (AtomicIntGet(&gRenderParkAt) != (int)at || AtomicIntGet(&gRenderParkPage) != pageNo || !cancelData ||
+        AtomicBoolSwap(&gRenderParkTaken, true)) {
+        return;
+    }
+    AtomicIntSet(&gRenderParked, 1);
+    u64 end = GetTickCount64() + (u64)AtomicIntGet(&gRenderParkMs);
+    while (!isCanceled(cancelData) && GetTickCount64() < end) {
+        SleepInMs(1);
+    }
+    bool canceled = isCanceled(cancelData);
+    AtomicIntSet(canceled ? &gRenderParkCanceled : &gRenderParkExpired, 1);
+    AtomicIntSet(&gRenderParked, 0);
+}
+
+TempStr TestRenderParkStateTemp() {
+    bool armed = AtomicIntGet(&gRenderParkAt) != (int)RenderPark::Off && !AtomicBoolGet(&gRenderParkTaken);
+    return fmt("armed=%d parked=%d canceled=%d expired=%d", (int)armed, AtomicIntGet(&gRenderParked),
+               AtomicIntGet(&gRenderParkCanceled), AtomicIntGet(&gRenderParkExpired));
+}
+
 enum class TextExtractionState {
     NotExtracted,
     Pending,
@@ -1427,15 +1469,22 @@ void EngineBase::RequestTextExtraction(int pageNo) {
     delete data;
 }
 
-// The default blocks; PDF overrides decline on contention or unavailable full text.
-bool EngineBase::TryExtractPageText(int pageNo, PageText* out) {
+// The default blocks; PDF overrides are Pending while another thread holds the page and
+// UseEditor, with the partial text in *out, when only the unloaded editor has all of it.
+PageReadResult EngineBase::TryExtractPageText(int pageNo, PageText* out) {
     *out = ExtractPageText(pageNo);
-    return !out->failed;
+    return out->failed ? PageReadResult::Pending : PageReadResult::Ready;
 }
 
 // The default answers; PDF engines say busy instead of waiting for a render that holds the page.
 ElementAt EngineBase::ElementAtPos(int pageNo, PointF pt, EngineWait) {
     return {GetElementAtPos(pageNo, pt), false};
+}
+
+// Identifies the lock page lookups and renders take: engines returning the same one block
+// each other's lookups (PDFium's is process-wide).
+const void* EngineBase::PageLockId() {
+    return this;
 }
 
 // The default blocks; PDF overrides can return a best-effort list. Elements stay engine-owned.
@@ -1516,10 +1565,14 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
             extracted = ExtractPageText(pageNo);
         } else if (mode == TextReadMode::Prefetch) {
             extracted = ExtractPrefetchText(pageNo);
-        } else if (!TryExtractPageText(pageNo, &extracted)) {
-            FreePageText(&extracted);
-            text = ReturnPageText({}, lenOut, coordsOut, quadsOut);
-            return false;
+        } else {
+            PageReadResult res = TryExtractPageText(pageNo, &extracted);
+            bool keepPartial = res == PageReadResult::UseEditor && mode == TextReadMode::Action;
+            if (res != PageReadResult::Ready && !keepPartial) {
+                FreePageText(&extracted);
+                text = ReturnPageText({}, lenOut, coordsOut, quadsOut);
+                return false;
+            }
         }
         if (extracted.failed) {
             FreePageText(&extracted);
@@ -1605,7 +1658,7 @@ PageHit<Str> EngineBase::TextForAction(int pageNo, EngineWait wait, int* lenOut,
         ReadPageText(pageNo, TextReadMode::Prefetch, text, lenOut, coordsOut, quadsOut);
         return {text, false};
     }
-    bool ready = ReadPageText(pageNo, TextReadMode::Nonblocking, text, lenOut, coordsOut, quadsOut);
+    bool ready = ReadPageText(pageNo, TextReadMode::Action, text, lenOut, coordsOut, quadsOut);
     return {text, !ready};
 }
 
@@ -1879,7 +1932,7 @@ bool EnginePdfProxy::TryGetElements(int pageNo, Vec<IPageElement*>* out) {
     return pdfEngine->TryGetElements(pageNo, out);
 }
 
-bool EnginePdfProxy::TryExtractPageText(int pageNo, PageText* out) {
+PageReadResult EnginePdfProxy::TryExtractPageText(int pageNo, PageText* out) {
     return pdfEngine->TryExtractPageText(pageNo, out);
 }
 
@@ -1922,6 +1975,10 @@ IPageElement* EnginePdfProxy::GetElementAtPos(int pageNo, PointF pt) {
 
 ElementAt EnginePdfProxy::ElementAtPos(int pageNo, PointF pt, EngineWait wait) {
     return pdfEngine->ElementAtPos(pageNo, pt, wait);
+}
+
+const void* EnginePdfProxy::PageLockId() {
+    return pdfEngine->PageLockId();
 }
 
 bool EnginePdfProxy::HandleLink(IPageDestination* dest, ILinkHandler* lh) {

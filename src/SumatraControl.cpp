@@ -2314,9 +2314,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 }
                 if (str::Eq(StringArg(req, 0), StrL("try-text"))) {
                     PageText text;
-                    bool ok = engine->TryExtractPageText(pageNo, &text);
+                    PageReadResult res = engine->TryExtractPageText(pageNo, &text);
+                    bool ok = res == PageReadResult::Ready;
                     AppendTestResult(req, 0,
-                                     fmt("ok=%d chars=%d partial=%d", (int)ok, text.nCodepoints, (int)text.partial));
+                                     fmt("ok=%d use-editor=%d chars=%d partial=%d", (int)ok,
+                                         (int)(res == PageReadResult::UseEditor), text.nCodepoints, (int)text.partial));
                     FreePageText(&text);
                     break;
                 }
@@ -2336,6 +2338,38 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 bool render = str::Eq(StringArg(req, 0), StrL("hold-render-lock"));
                 bool held = EngineMupdfHoldLock(engine, render ? MupdfLock::Render : MupdfLock::Doc, ms);
                 AppendTestResult(req, held ? 0 : 1, held ? StrL("held") : StrL("no editor"));
+                break;
+            }
+            if (str::Eq(StringArg(req, 0), StrL("park-render")) || str::Eq(StringArg(req, 0), StrL("park-state"))) {
+                // park-render ms stage [window], park-state [window]: the current tab of gWindows[window]
+                bool arm = str::Eq(StringArg(req, 0), StrL("park-render"));
+                i32 winIdx = 0;
+                IntArg(req, arm ? 3 : 1, winIdx);
+                MainWindow* win = winIdx >= 0 && winIdx < len(gWindows) ? gWindows[winIdx] : nullptr;
+                DisplayModel* target = win ? win->AsFixed() : nullptr;
+                if (!target || !gRenderCache) {
+                    AppendTestResult(req, 1, StrL("no document"));
+                    break;
+                }
+                if (arm) {
+                    // renders the visible tiles again; the first of the current page to reach the stage
+                    // parks there for ms
+                    i32 ms = 0;
+                    IntArg(req, 1, ms);
+                    bool annots = str::Eq(StringArg(req, 2), StrL("annotations"));
+                    TestArmRenderPark(annots ? RenderPark::Annotations : RenderPark::Contents, target->CurrentPageNo(),
+                                      ms);
+                    gRenderCache->InvalidateAll(target);
+                    target->RepaintDisplay();
+                    AppendTestResult(req, 0, StrL("armed"));
+                    break;
+                }
+                // doesn't paint: tiles=1 only once the app rendered the visible tiles on its own
+                bool tiles = !gRenderCache->IsBusyFor(target) && gRenderCache->VisibleTargetTilesReady(target);
+                bool text = target->GetEngine()->HasTextForPage(target->CurrentPageNo());
+                AppendTestResult(req, 0,
+                                 fmt("%s tiles=%d frees=%d text=%d windows=%d", TestRenderParkStateTemp(), (int)tiles,
+                                     target->actionPageFrees, (int)text, len(gWindows)));
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("hold-pdfium-lock"))) {

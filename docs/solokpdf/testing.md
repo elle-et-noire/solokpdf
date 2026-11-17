@@ -155,8 +155,13 @@ cursor, plain-text citation and Edit PDF annotation hover while a render holds
 the page's lock, on both engines: `ad-hoc-e120-busy-hover` (E122); link
 and image context menus, image drag, Edit PDF click, link click, text
 press-drag and double-click, form field click and Tab under the same lock:
-`ad-hoc-e123-busy-actions` (E127). `lint-hover-lookups` keeps hover's `Try*`
-lookups out of user actions.
+`ad-hoc-e123-busy-actions` (E127). `ad-hoc-e128-busy-render` parks a real
+render at its cancellation check (`park-render`) instead of holding the lock:
+a context menu, an empty click, a link click, text press-drag, double-click and
+form Tab on both engines and a click while another window's PDFium render holds
+the lock finish well before the park ends, cancel it and get the tiles back
+with no input (`park-state` doesn't paint). `lint-hover-lookups` keeps hover's
+`Try*` lookups out of user actions.
 After lifetime, notification or test-hook changes, also run the last four and
 `ad-hoc-tree-lifetime` under ASan. The
 [migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in

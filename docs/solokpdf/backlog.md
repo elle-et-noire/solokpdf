@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-18: E112, E115–E119, E124–E126, E128–E130, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E128, E131, E129, E130, E132, B77, E124, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-18: E112, E115–E119, E124–E126, E129–E132, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E131, E129, E130, E132, B77, E124, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -34,7 +34,6 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | E124 | Anchored popups an owner hides while the frame is minimized come back on restore (Windows reshows owned popups; the layer can't see the hide). Make the owner's intent visible to the layer (E121 follow-up). Spec `.work/codex-queue/e124.md`                 | todo   |
 | E125 | Annotation toolbar click point lives with the selection, not the toolbar: scrolling the page off and back re-shows it at the annotation's left edge (E121 follow-up). Spec `.work/codex-queue/e125.md`                                                         | todo   |
 | E126 | Home keyboard-focus tip is dismissed on minimize and not shown on restore (E121 follow-up). Spec `.work/codex-queue/e126.md`                                                                                                                                   | todo   |
-| E128 | Prove the E123 action wait is short with a real cancellable render and that cancelled tiles come back; bound PDFium waits on another document's work. Spec `.work/codex-queue/e128.md`                                                                         | todo   |
 | E129 | Citation popup left by E122: its hand cursor drops busy, its show reads text blocking on the UI thread (may load the editor on PDFium), plain-text citation walk takes seconds; no unit test for the text cache Failed state. Spec `.work/codex-queue/e129.md` | todo   |
 | E130 | Measurement tool snap points take engine locks blocking on the UI thread on the first move over a page (E122 audit). Spec `.work/codex-queue/e130.md`                                                                                                          | todo   |
 | E131 | Keyboard link following turned on during a render says "No links on this page" and leaves; relabel after scroll skips busy pages (E127 follow-up). Spec `.work/codex-queue/e131.md`                                                                            | todo   |

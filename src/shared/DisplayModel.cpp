@@ -2747,18 +2747,27 @@ static int VisiblePageAt(DisplayModel* dm, Point pt) {
     return pageNo;
 }
 
-// A user action's lookup met a page another thread holds (busy): cancel this
-// document's renders so waiting for the lock stays short; the repaint renders
-// them again. ng's hover uses the Get* lookups, so they don't wait there.
+// A user action's lookup met a page another thread holds (busy): cancel the renders
+// that may hold its lock, this document's and those of documents sharing the lock, so
+// the wait lasts until their next cancellation check; the repaints render them again.
+// ng's hover uses the Get* lookups, so they don't wait there.
 static bool FreePageForAction(DisplayModel* dm) {
 #if defined(SUMATRA_NG)
     (void)dm;
     return false;
 #else
+    dm->actionPageFrees++;
+    Vec<DisplayModel*> others;
     if (gRenderCache) {
-        gRenderCache->AbortRendering(dm);
+        gRenderCache->AbortForAction(dm, others);
     }
     dm->RepaintDisplay();
+    for (DisplayModel* other : others) {
+        // a retired model's window is gone
+        if (IsDisplayModelValid(other)) {
+            other->RepaintDisplay();
+        }
+    }
     return true;
 #endif
 }

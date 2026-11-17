@@ -231,12 +231,23 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   A user action (link click, image drag, context menu, Edit PDF click, form
   field click, following a keyboard link hint, a press or double-click on
   text, Tab between form fields, read aloud at the cursor) cancels the
-  document's renders and waits for the lock instead, so it finds what it would
-  with no render running; a lock held by something else (another document's
-  render, text extraction) is waited out (E123, E127). An action reads text a
-  page needs MuPDF for as PDFium's partial text, without the editor, as hover
-  does. Turning keyboard link following on still skips a page a render holds,
-  and so does its relabel after scrolling.
+  renders that may hold the lock and waits for it instead, so it finds what it
+  would with no render running (E123, E127). Those are the document's renders
+  and, on PDFium, whose lock is process-wide, those of documents in other
+  windows; a form field commit cancels the renders drawing annotations with the
+  editor first. The wait lasts until the render's next cancellation check
+  (PDFium's pause callback between drawing steps, MuPDF's cookie per display
+  list node or annotation), and every canceled tile is rendered again without
+  input (E128). Work without a cancellation check is waited out: one page of a
+  sidebar or Home thumbnail, a citation preview, print band or export render,
+  one page of text extraction (PDFium has no way to stop it), MuPDF's display
+  list build, PDFium's form widget pass, and a single long drawing step. Print
+  is not canceled: that would fail the job. An action reads text a page needs
+  MuPDF for as PDFium's partial text, without the editor, as hover does, and
+  without canceling renders when nothing holds the page. Turning keyboard link
+  following on still skips a page a render holds, and so does its relabel after
+  scrolling. Other UI-thread annotation edits still wait for a render's
+  annotation pass.
 - PDFium drops its discretionary hyphen marker from extracted text, so search
   joins split words as MuPDF does. `issue-1189` and the generated B15 search
   test cover this path without loading the editor.

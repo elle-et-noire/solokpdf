@@ -80,6 +80,7 @@ import { testit as leaveAfterCaptureE105 } from "./ad-hoc-e105-leave-after-captu
 import { testit as anchoredPopupsE98 } from "./ad-hoc-e98-anchored-popups.ts";
 import { testit as busyHoverE120 } from "./ad-hoc-e120-busy-hover.ts";
 import { testit as busyActionsE123 } from "./ad-hoc-e123-busy-actions.ts";
+import { testit as busyRenderE128 } from "./ad-hoc-e128-busy-render.ts";
 import { testit as controlColorRoles } from "./control-color-roles.ts";
 import { testit as themeOpenWindows } from "./theme-open-windows.ts";
 import { testit as positionB71 } from "./ad-hoc-b71-window-position.ts";
@@ -152,6 +153,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-e98-anchored-popups", anchoredPopupsE98],
   ["ad-hoc-e120-busy-hover", busyHoverE120],
   ["ad-hoc-e123-busy-actions", busyActionsE123],
+  ["ad-hoc-e128-busy-render", busyRenderE128],
   ["control-color-roles", controlColorRoles],
   ["theme-open-windows", themeOpenWindows],
   ["ad-hoc-b70-tab-view", tabViewB70],

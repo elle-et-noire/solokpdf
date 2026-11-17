@@ -1487,6 +1487,29 @@ void RenderCache::AbortRendering(DisplayModel* dm) {
     }
 }
 
+// A user action waits for dm's page lock: cancel every render that may hold it or take it
+// first, dm's and those of other documents whose engines share the lock (PDFium's is
+// process-wide). others gets those documents, to render again.
+void RenderCache::AbortForAction(DisplayModel* dm, Vec<DisplayModel*>& others) {
+    ScopedRecursiveMutex scope(&requestAccess);
+    AbortRendering(dm);
+    const void* lock = dm->GetEngine()->PageLockId();
+    auto add = [&](DisplayModel* other) {
+        if (other && other != dm && other->GetEngine()->PageLockId() == lock && !VecContains(others, other)) {
+            VecAppend(others, other);
+        }
+    };
+    for (int i = 0; i < nRenderThreads; i++) {
+        add(curReqs[i] ? curReqs[i]->dm : nullptr);
+    }
+    for (int i = 0; i < requestCount; i++) {
+        add(requests[i].dm);
+    }
+    for (DisplayModel* other : others) {
+        AbortRendering(other);
+    }
+}
+
 void RenderCache::ClearQueueForDisplayModel(DisplayModel* dm, int pageNo, TilePosition* tile) {
     ScopedRecursiveMutex scope(&requestAccess);
     int reqCount = requestCount;

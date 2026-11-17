@@ -221,6 +221,7 @@ struct RenderCache {
                 const Func1<PageRenderRequest*>& callback);
     void CancelRenderingBlocking(DisplayModel* dm);
     void AbortRendering(DisplayModel* dm);
+    void AbortForAction(DisplayModel* dm, Vec<DisplayModel*>& others);
     bool IsRenderingFor(DisplayModel* dm);
     bool IsBusyFor(DisplayModel* dm);
     // one line on what the render threads and the cache are doing, for the

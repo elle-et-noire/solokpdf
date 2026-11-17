@@ -459,6 +459,8 @@ struct DisplayModel : DocController {
 
     /* allow resizing a window without triggering a new rendering (needed for window destruction) */
     bool pauseRendering = false;
+    // how often a user action found a page busy and canceled renders to wait for it (tests)
+    int actionPageFrees = 0;
 
     bool pendingRelayout = false;
     bool inSetViewPortSize = false;

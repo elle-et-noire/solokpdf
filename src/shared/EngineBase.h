@@ -492,6 +492,18 @@ class AbortCookie {
     virtual void* GetData() = 0;
 };
 
+// where a test-parked render waits, holding the locks it renders under
+enum class RenderPark {
+    Off,
+    // the engine's page lock: PDFium's process-wide one, MuPDF's renderLock
+    Contents,
+    // the annotation editor's locks, drawing annotations over PDFium's tile
+    Annotations,
+};
+void TestArmRenderPark(RenderPark at, int pageNo, int ms);
+void TestRenderPark(RenderPark at, int pageNo, bool (*isCanceled)(void*), void* cancelData);
+TempStr TestRenderParkStateTemp();
+
 struct DarkModeProfile;
 
 enum class RenderPageColor {
@@ -648,7 +660,7 @@ class EngineBase {
     // coordinates of the individual glyphs)
     // caller needs to free() the result and *coordsOut (if coordsOut is non-nullptr)
     virtual PageText ExtractPageText(int) { return {}; }
-    virtual bool TryExtractPageText(int pageNo, PageText* out);
+    virtual PageReadResult TryExtractPageText(int pageNo, PageText* out);
     virtual PageText ExtractPrefetchText(int pageNo) { return ExtractPageText(pageNo); }
 
     bool HasTextForPage(int pageNo);
@@ -682,6 +694,7 @@ class EngineBase {
     // returns the element at a given point or nullptr if there's none
     virtual IPageElement* GetElementAtPos(int pageNo, PointF pt) = 0;
     virtual ElementAt ElementAtPos(int pageNo, PointF pt, EngineWait wait);
+    virtual const void* PageLockId();
 
     virtual IPageDestination* GetNamedDest(Str name);
 
@@ -756,7 +769,9 @@ class EngineBase {
     enum class TextReadMode {
         Blocking,
         Nonblocking,
-        Prefetch
+        Prefetch,
+        // nonblocking, and text that needs the editor stays partial, as a prefetch leaves it
+        Action
     };
     bool ReadPageText(int pageNo, TextReadMode mode, Str& text, int* lenOut, Rect** coordsOut, QuadF** quadsOut);
     Location TextLocation(int pageNo);
@@ -778,7 +793,7 @@ class EnginePdfProxy : public EngineBase {
     RenderedBitmap* GetImageForPageElement(IPageElement* ipel) override;
     Str GetImageDataForPageElement(IPageElement* ipel) override;
     bool TryGetElements(int pageNo, Vec<IPageElement*>* out) override;
-    bool TryExtractPageText(int pageNo, PageText* out) override;
+    PageReadResult TryExtractPageText(int pageNo, PageText* out) override;
     PageText ExtractPrefetchText(int pageNo) override;
     void ReleaseTextExtractionThreadContext() override;
     void GetPdfPageBoxes(int pageNo, Vec<PdfPageBox>& out) override;
@@ -790,6 +805,7 @@ class EnginePdfProxy : public EngineBase {
                                    Vec<Rect>& skipRects) override;
     IPageElement* GetElementAtPos(int pageNo, PointF pt) override;
     ElementAt ElementAtPos(int pageNo, PointF pt, EngineWait wait) override;
+    const void* PageLockId() override;
     bool HandleLink(IPageDestination* dest, ILinkHandler* lh) override;
     IPageDestination* GetNamedDest(Str name) override;
     TocTree* GetToc() override;
