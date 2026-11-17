@@ -899,12 +899,6 @@ void AnnotFilterWindow::ApplyDarkMode() {
 
 void AnnotFilterWindow::UpdateTheme() {
     WindowBase::UpdateTheme();
-    auto colBg = ThemeWindowControlBackgroundColor();
-    auto colTxt = ThemeWindowTextColor();
-    SetColors(colTxt, colBg);
-    if (edit) {
-        edit->SetColors(colTxt, colBg);
-    }
     ApplyListColorsTo(listBox);
     if (notePreview) {
         notePreview->borderCol = ThemeEdgeColor();

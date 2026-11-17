@@ -524,8 +524,37 @@ Color WindowBase::GetColor(int idx) const {
     if (idx == kColWinBg) {
         idx = WinBgIdx(surface);
     }
-    const Color overrides[kColWinCount] = {textColor, bgColor, bgColor};
+    Color overrides[kColWinCount];
+    for (Color& c : overrides) {
+        c = kColorUnset;
+    }
+    overrides[kColWinText] = textColor;
+    overrides[kColWinBg] = bgColor;
+    overrides[kColWinRaisedBg] = bgColor;
     return GetCol(gColsWin, overrides, idx);
+}
+
+// A control's colors follow from its role on the surface, so creation and every
+// theme refresh paint it the same, and nothing recolors it afterwards
+void WindowBase::ColorControl(ControlBase* c) const {
+    bool raised = surface == WinSurface::Raised;
+    Color txt = gColsWin[kColWinText];
+    Color bg = gColsWin[WinBgIdx(surface)];
+    switch (c->role) {
+        case ControlRole::Surface:
+            break;
+        case ControlRole::Muted:
+            txt = gColsWin[kColWinMutedText];
+            break;
+        case ControlRole::Selected:
+            bg = gColsWin[raised ? kColWinRaisedSelectedBg : kColWinSelectedBg];
+            break;
+        case ControlRole::ComboField:
+            txt = gColsWin[kColWinComboText];
+            bg = gColsWin[kColWinComboBg];
+            break;
+    }
+    c->SetColors(txt, bg);
 }
 
 void (*gWindowBaseApplyDarkMode)(HWND) = nullptr;
@@ -537,16 +566,11 @@ void WindowBase::ApplyDarkMode() {
     }
 }
 
-struct RecolorChildrenCtx {
-    Color txt = kColorUnset;
-    Color bg = kColorUnset;
-};
-
 static BOOL CALLBACK RecolorChildProc(HWND hwnd, LPARAM lp) {
-    auto* ctx = (RecolorChildrenCtx*)lp;
+    auto* w = (const WindowBase*)lp;
     ControlBase* c = ControlFromHwnd(hwnd);
     if (c) {
-        c->SetColors(ctx->txt, ctx->bg);
+        w->ColorControl(c);
     }
     return TRUE;
 }
@@ -563,10 +587,9 @@ void WindowBase::UpdateTheme() {
     // the surface picks the background, so every refresh path paints the same
     Color colBg = gColsWin[WinBgIdx(surface)];
     SetColors(colTxt, colBg);
-    // the native child controls carry explicit colors; the virtual ones paint
-    // straight from the GuiColors defaults and need nothing
-    RecolorChildrenCtx ctx{colTxt, colBg};
-    EnumChildWindows(hwnd, RecolorChildProc, (LPARAM)&ctx);
+    // the native child controls carry explicit colors, by role; the virtual
+    // ones paint straight from the GuiColors defaults and need nothing
+    EnumChildWindows(hwnd, RecolorChildProc, (LPARAM)this);
     ApplyDarkMode();
     RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_ALLCHILDREN);
 }

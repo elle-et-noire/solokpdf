@@ -86,7 +86,7 @@ struct PDFScriptWnd : WindowBase {
         str::Free(input);
     }
     VirtText* NewLabel(Str s, PlatformFont* font, Color col, int dy = 0, int dx = 0);
-    Edit* NewEdit(Str text, PlatformFont* font, Color col, bool isMultiLine = false);
+    Edit* NewEdit(Str text, PlatformFont* font, ControlRole role, bool isMultiLine = false);
     void AddArg(Str value, Str hint);
     void SetArgLabel(ScriptArgRow* row, int idx, Str hint);
     void LayoutArgs();
@@ -165,7 +165,7 @@ VirtText* PDFScriptWnd::NewLabel(Str s, PlatformFont* font, Color col, int dy, i
 }
 
 // a bare edit, in the dialog's colors
-Edit* PDFScriptWnd::NewEdit(Str text, PlatformFont* font, Color col, bool isMultiLine) {
+Edit* PDFScriptWnd::NewEdit(Str text, PlatformFont* font, ControlRole role, bool isMultiLine) {
     Edit::CreateArgs args;
     args.parent = hwnd;
     args.withBorder = false;
@@ -175,7 +175,8 @@ Edit* PDFScriptWnd::NewEdit(Str text, PlatformFont* font, Color col, bool isMult
     args.isMultiLine = isMultiLine;
     args.noWrap = isMultiLine;
     auto* e = new Edit();
-    e->SetColors(col, colBg);
+    e->role = role;
+    ColorControl(e);
     e->Create(args);
     return e;
 }
@@ -217,7 +218,7 @@ void PDFScriptWnd::AddArg(Str value, Str hint) {
     VirtText* label = NewLabel({}, fontText, colMuted, kToolDlgRowDy, kScriptLabelDx);
     label->SetFlag(vwfNoHitTest, true);
     row->AddChild(label);
-    Edit* edit = NewEdit(value, fontText, colTxt);
+    Edit* edit = NewEdit(value, fontText, ControlRole::Surface);
     auto* underlined = new VBox();
     underlined->alignCross = CrossAxisAlign::Stretch;
     underlined->AddChild(edit);
@@ -455,14 +456,14 @@ void PDFScriptWnd::Create(MainWindow* owner, Str path) {
     body->AddChild(new VirtLine());
 
     // the source takes what the window has left
-    script = NewEdit({}, fontCode, colTxt, true);
+    script = NewEdit({}, fontCode, ControlRole::Surface, true);
     body->AddChild(new Padding(script, DpiScaledInsets(kToolDlgFilesPadDy, kToolDlgPadDx)), 1);
 
     // the output, muted, once a run produced some
     outputLine = new VirtLine();
     outputLine->SetVisibility(Visibility::Collapse);
     body->AddChild(outputLine);
-    output = NewEdit({}, fontOutput, colMuted, true);
+    output = NewEdit({}, fontOutput, ControlRole::Muted, true);
     SendMessageW(output->hwnd, EM_SETREADONLY, TRUE, 0);
     output->idealSizeLines = kScriptOutputLines;
     output->SetIsVisible(false);
@@ -561,6 +562,10 @@ TempStr PDFScriptTestTemp(Str action, int idx, int* exitCodeOut) {
         QueueDeleteScriptArg(w->rows[len(w->rows) - 1]);
     } else if (str::Eq(action, StrL("run"))) {
         w->OnRun();
+    } else if (str::Eq(action, StrL("colors"))) {
+        *exitCodeOut = 0;
+        return fmt("OK outputText=%06x muted=%06x", (unsigned)w->output->textColor,
+                   (unsigned)ThemeWindowDarkerTextColor());
     } else if (!str::Eq(action, StrL("state"))) {
         return fmt("ERR unknown-action %s", action);
     }

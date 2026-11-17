@@ -452,6 +452,7 @@ import { testit as issue6373 } from "./issue-6373.ts";
 import { testit as findFloatSwitchResults } from "./find-float-switch-results.ts";
 import { testit as signCertify } from "./sign-certify.ts";
 import { testit as commandPaletteTheme } from "./command-palette-theme.ts";
+import { testit as controlColorRoles } from "./control-color-roles.ts";
 import { testit as commandPaletteDeleteTab } from "./command-palette-delete-tab.ts";
 import { testit as issue6104 } from "./issue-6104.ts";
 import { testit as issue6106 } from "./issue-6106.ts";
@@ -1083,6 +1084,7 @@ export const tests: NamedTest[] = [
   ["issue-6367", issue6367],
   ["find-float-switch-results", findFloatSwitchResults],
   ["command-palette-theme", commandPaletteTheme],
+  ["control-color-roles", controlColorRoles],
   ["command-palette-delete-tab", commandPaletteDeleteTab],
   ["issue-6104", issue6104],
   ["issue-6106", issue6106],

@@ -265,11 +265,8 @@ bool FindWindowWnd::Create(MainWindow* mainWin) {
         args.isRtl = IsUIRtl();
         args.isEditable = true;
         edit = new DropDown();
-        // a native combobox paints its ring and button white: keep the edit
-        // native too, or the box is two-tone
-        if (DarkModeThemesControls()) {
-            edit->SetColors(colTxt, colBg);
-        }
+        edit->role = ControlRole::ComboField;
+        ColorControl(edit);
         edit->Create(args);
         CbSetCueBanner(edit, Tr("Find"));
         edit->onTextChanged = MkMethod0<FindWindowWnd, &FindWindowWnd::OnTextChanged>(this);
@@ -709,11 +706,6 @@ void FindWindowWnd::ApplyDarkMode() {
 
 void FindWindowWnd::UpdateTheme() {
     WindowBase::UpdateTheme();
-    // WindowBase colors every child: where the combobox ring stays native,
-    // keep its edit native too, as at creation
-    if (!DarkModeThemesControls()) {
-        edit->SetColors(kColorUnset, kColorUnset);
-    }
     UpdatePagesLabel();
     // the icons are drawn in the theme's text color, so re-render them
     UpdateButtonIcons();

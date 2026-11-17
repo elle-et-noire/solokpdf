@@ -128,6 +128,12 @@ void GuiSetDefaultColorsFromSystem() {
     gColsWin[kColWinText] = winText;
     gColsWin[kColWinBg] = winBg;
     gColsWin[kColWinRaisedBg] = winBg;
+    gColsWin[kColWinMutedText] = disabledText;
+    gColsWin[kColWinSelectedBg] = AccentColor(winBg, 25);
+    gColsWin[kColWinRaisedSelectedBg] = AccentColor(winBg, 25);
+    // the system's own combobox colors
+    gColsWin[kColWinComboText] = kColorUnset;
+    gColsWin[kColWinComboBg] = kColorUnset;
 
     gColsEdit[kColEditBottomBorder] = edge;
 }

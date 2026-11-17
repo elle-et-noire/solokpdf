@@ -144,6 +144,12 @@ enum {
     kColWinBg,
     // the background of a WinSurface::Raised window (a floating surface)
     kColWinRaisedBg,
+    // the ControlRole colors (WinGui.h)
+    kColWinMutedText,
+    kColWinSelectedBg,
+    kColWinRaisedSelectedBg,
+    kColWinComboText,
+    kColWinComboBg,
     kColWinCount,
 };
 extern Color gColsWin[kColWinCount];

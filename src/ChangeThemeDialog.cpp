@@ -163,7 +163,6 @@ void ChangeThemeWnd::ApplyPreview() {
 
 // UpdateTheme() recolors the native controls; the drawn ones follow here
 void ChangeThemeWnd::Recolor() {
-    SetColors(ThemeWindowTextColor(), ThemeWindowControlBackgroundColor());
     if (listBox) {
         SetDlgListColors(listBox);
     }

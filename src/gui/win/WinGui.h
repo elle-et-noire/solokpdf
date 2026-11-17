@@ -183,6 +183,19 @@ enum class WinSurface {
     Raised,
 };
 
+// what a native control shows on its window's surface. An input to
+// WindowBase::UpdateTheme(), which resolves it from gColsWin on every refresh
+enum class ControlRole {
+    // text on the surface
+    Surface,
+    // secondary text (a script's output)
+    Muted,
+    // a field at the surface's selection step (an in-place value editor)
+    Selected,
+    // the edit of a native combobox: system colors where the ring stays native
+    ComboField,
+};
+
 // Base of the top-level windows (and the child windows that place themselves,
 // like the notification toasts). Not an ILayout: a window isn't positioned by a
 // parent's layout - it has a `layout` of its own children instead
@@ -353,6 +366,8 @@ struct WindowBase : HwndBase {
     // kColWin* (GuiColors.h) resolved: this window's textColor / bgColor when
     // set, the gColsWin defaults for its surface otherwise
     Color GetColor(int idx) const;
+    // colors `c` for its role on this window's surface
+    void ColorControl(ControlBase* c) const;
 
     // the app pushed a new palette into GuiColors (its theme changed):
     // re-apply the gColsWin colors to this window and its native child
@@ -567,6 +582,9 @@ struct ControlBase : ILayout, HwndBase {
     ControlBase();
 
     operator HWND() const { return hwnd; }
+
+    // its colors on the parent's surface; WindowBase::ColorControl() applies it
+    ControlRole role = ControlRole::Surface;
 
     ControlBase* AsControlBase() override;
     LRESULT OnMessage(HWND, UINT, WPARAM, LPARAM) override;

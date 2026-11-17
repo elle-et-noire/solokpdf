@@ -603,7 +603,8 @@ void AdvancedSettingsWnd::BeginEditValue(int idx) {
     args.font = listBox->font;
     args.text = FormatSettingValueTemp(item);
     auto* c = new Edit();
-    c->SetColors(ThemeWindowTextColor(), ThemeSelectedColorOn(ThemeWindowControlBackgroundColor()));
+    c->role = ControlRole::Selected;
+    ColorControl(c);
     // Suppress re-entrant CancelEditValue while Create/show/focus pump messages.
     editCreating = true;
     pendingCancelEdit = false;
@@ -1298,9 +1299,6 @@ void AdvancedSettingsWnd::RefreshPreviewColors(Color oldBg) {
     UpdateTheme();
     listBox->SetColor(kColListBg, bg);
     commentText->SetColor(kColRichBg, bg);
-    if (editValue) {
-        editValue->SetColors(ThemeWindowTextColor(), ThemeSelectedColorOn(bg));
-    }
     SetVirtButtonStyle(btnOpenSettingsFile, DlgButtonStyle::Ghost);
     SetVirtButtonStyle(btnHelp, DlgButtonStyle::Ghost);
     SetVirtButtonStyle(btnCancel, DlgButtonStyle::Outline);
@@ -1877,6 +1875,16 @@ TempStr AdvSettingsRowsResultTemp(Str action, int arg, int* exitCodeOut) {
         }
         wnd->BeginEditValue(idx);
         out.Append(fmt("editing=%d\n", wnd->editValue ? 1 : 0));
+        return finish(0);
+    }
+    // "update-theme": a refresh path that only calls UpdateTheme()
+    if (str::Eq(action, StrL("colors")) || str::Eq(action, StrL("update-theme"))) {
+        if (str::Eq(action, StrL("update-theme"))) {
+            wnd->UpdateTheme();
+        }
+        Color editBg = wnd->editValue ? wnd->editValue->bgColor : kColorUnset;
+        Color selected = ThemeSelectedColorOn(ThemeWindowControlBackgroundColor());
+        out.Append(fmt("editBg=%06x selected=%06x\n", (unsigned)editBg, (unsigned)selected));
         return finish(0);
     }
     if (str::Eq(action, StrL("killfocus"))) {
