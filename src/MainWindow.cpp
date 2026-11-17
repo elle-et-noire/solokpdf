@@ -424,11 +424,13 @@ static void DeleteInfotip(const MainWindow* win) {
 }
 
 // The tip describes the canvas: it moves with it and goes with it or its
-// content. One at the cursor also goes when the cursor leaves the canvas.
-static void AnchorInfotip(const MainWindow* win, AnchorLeave leave) {
+// content. One at the cursor also goes when the cursor leaves the canvas;
+// one placed from content is placed again (place) when the canvas resizes.
+static void AnchorInfotip(const MainWindow* win, AnchorLeave leave, const Func0& place) {
     AnchorArgs args;
     args.anchor = win->hwndCanvas;
     args.dismiss = MkFunc0(DeleteInfotip, win);
+    args.place = place;
     args.leave = leave;
     args.content = win->CanvasContent();
     AnchorPopup(win->infotip->hwnd, args);
@@ -442,18 +444,20 @@ void MainWindow::ShowToolTip(Str text, Rect& rc, bool multiline) const {
         return;
     }
     infotip->SetSingle(text, rc, multiline);
-    AnchorInfotip(this, AnchorLeave::Dismiss);
+    AnchorInfotip(this, AnchorLeave::Dismiss, Func0{});
 }
 
-// Track-mode tip at a fixed screen position (keyboard home-page selection).
+// Track-mode tip at a fixed screen position (keyboard home-page selection),
+// shown again by place once the canvas moved or resized.
 // maxRightScreen > 0 clamps the bubble so it does not extend past that x.
-void MainWindow::ShowToolTipAt(Str text, const Rect& rc, Point screenPos, bool multiline, int maxRightScreen) const {
+void MainWindow::ShowToolTipAt(Str text, const Rect& rc, Point screenPos, const Func0& place, bool multiline,
+                               int maxRightScreen) const {
     if (len(text) == 0 || IsIconic(hwndFrame)) {
         DeleteToolTip();
         return;
     }
     infotip->SetSingleAt(text, rc, screenPos, multiline, maxRightScreen);
-    AnchorInfotip(this, AnchorLeave::Keep);
+    AnchorInfotip(this, AnchorLeave::Keep, place);
 }
 
 void MainWindow::DeleteToolTip() const {

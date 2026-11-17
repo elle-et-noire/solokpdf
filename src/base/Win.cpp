@@ -1802,10 +1802,13 @@ int ReleaseThreadKeyState() {
 // (-dbg-control TestCursorPosition) while Windows still delivers physical
 // input; the difference is handled here and nowhere else:
 //
-//   physical WM_MOUSEMOVE off the test cursor -> dropped by testInputHook
+//   physical WM_MOUSEMOVE off the test cursor -> dropped by testMouseHook with
+//                                                the WM_SETCURSOR Windows sends
+//                                                for it; posted, by testInputHook
 //   cursor position, message position          -> the test cursor
 //   window under a point                       -> only this thread's windows
-//   foreground on the never-shown test desktop -> the active window
+//   foreground                                 -> the active window, whatever
+//                                                another app on the desktop does
 //   mouse leave tracking                       -> emulated at the test cursor
 //
 // Leave tracking is re-armed here, for tests and real users alike: a mouse
@@ -1815,6 +1818,7 @@ int ReleaseThreadKeyState() {
 static bool hasTestCursor = false;
 static Point testCursor{};
 static HHOOK testInputHook = nullptr;
+static HHOOK testMouseHook = nullptr;
 static HHOOK testSentHook = nullptr;
 // the window tracked for leave at the test cursor, like Windows' one tracked window
 static HWND testLeaveHwnd = nullptr;
@@ -1856,6 +1860,18 @@ static LRESULT CALLBACK TestInputHookProc(int code, WPARAM wp, LPARAM lp) {
     return CallNextHookEx(nullptr, code, wp, lp);
 }
 
+// Sees mouse input Windows takes from its queue before it sends WM_SETCURSOR to
+// the window under the pointer, whose handler would read the test cursor
+// elsewhere. Tests post or send their input, which never comes this way.
+static LRESULT CALLBACK TestMouseHookProc(int code, WPARAM wp, LPARAM lp) {
+    auto* mh = (MOUSEHOOKSTRUCT*)lp;
+    bool move = wp == WM_MOUSEMOVE || wp == WM_NCMOUSEMOVE;
+    if (code >= 0 && move && !testCursor.Eq(mh->pt.x, mh->pt.y)) {
+        return 1;
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
+}
+
 // Sees sent messages (tests send their mouse input) after they are handled.
 static LRESULT CALLBACK TestSentHookProc(int code, WPARAM wp, LPARAM lp) {
     CancelTestLeaveOnCapture();
@@ -1881,6 +1897,7 @@ void SetTestCursorPosition(Point pt) {
     if (!testInputHook) {
         testInputHook = SetWindowsHookExW(WH_GETMESSAGE, TestInputHookProc, nullptr, GetCurrentThreadId());
         testSentHook = SetWindowsHookExW(WH_CALLWNDPROCRET, TestSentHookProc, nullptr, GetCurrentThreadId());
+        testMouseHook = SetWindowsHookExW(WH_MOUSE, TestMouseHookProc, nullptr, GetCurrentThreadId());
     }
     // tracking armed at the physical pointer would post a leave that clears the test's hover
     EnumThreadWindows(GetCurrentThreadId(), CancelLeaveTrackingTree, 0);
@@ -1899,6 +1916,10 @@ void ClearTestCursorPosition() {
     if (testSentHook) {
         UnhookWindowsHookEx(testSentHook);
         testSentHook = nullptr;
+    }
+    if (testMouseHook) {
+        UnhookWindowsHookEx(testMouseHook);
+        testMouseHook = nullptr;
     }
 }
 
@@ -1998,14 +2019,13 @@ HWND HwndWindowFromPoint(Point p) {
     return WindowFromPoint(ToPOINT(p));
 }
 
-// The hidden test desktop is never shown and has no foreground window; the
-// active one stands in.
+// Under a test cursor the active window stands in: the hidden test desktop
+// has no foreground window, and on CI another app may be in front.
 HWND HwndGetForeground() {
-    HWND fg = GetForegroundWindow();
-    if (!fg && hasTestCursor) {
-        fg = GetActiveWindow();
+    if (hasTestCursor) {
+        return GetActiveWindow();
     }
-    return fg;
+    return GetForegroundWindow();
 }
 
 // Windows tracks the physical pointer, not the test cursor; this tracks the

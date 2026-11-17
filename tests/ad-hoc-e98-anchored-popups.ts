@@ -84,6 +84,7 @@ const MOVE_DY = 40;
 const WAIT_MS = 3000;
 // kDelayToolbarHide
 const OVERLAY_HIDE_MS = 500;
+const LOCK_HOLD_MS = 300;
 
 type Box = { x: number; y: number; dx: number; dy: number };
 
@@ -345,22 +346,34 @@ async function checkHomeTip(pid: number, client: ControlClient, frame: number, c
   const find = () => shownTip(pid);
   await waitShown(find, "Home selection tip");
 
-  // the tip's offset from the selected entry's outline, on screen
-  const offset = async () => {
+  // the selected entry's outline, on screen
+  const outline = async (): Promise<Box> => {
     const s = await client.homeSelection();
-    const o = clientToScreen(canvas, s.selRect[0]!, s.selRect[1]!);
-    return { x: o.x, y: o.y };
+    const [x, y, dx, dy] = s.selRect;
+    const o = clientToScreen(canvas, x!, y!);
+    return { x: o.x, y: o.y, dx: dx!, dy: dy! };
   };
-  const o0 = await offset();
-  const t0 = box(find());
-  const want = async () => {
-    const o = await offset();
-    return moved(t0, o.x - o0.x, o.y - o0.y);
+  const gapY = box(find()).y - (await outline()).y;
+  // E113: Home places the tip again from the entry: just below it, starting at
+  // its left edge or shifted left to stay inside the row and the work area
+  const waitUnder = async (what: string) => {
+    let last = "";
+    await pollUntil(
+      async () => {
+        const h = find();
+        const o = await outline();
+        const b = h ? box(h) : null;
+        last = `tip at ${show(b)}, entry at ${show(o)}`;
+        return !!b && Math.abs(b.y - o.y - gapY) <= 1 && b.x <= o.x + 1 && b.x + b.dx > o.x;
+      },
+      (ok) => ok,
+      { timeoutMs: WAIT_MS, error: () => `${what}: ${last}` },
+    );
   };
 
   await step("Home tip: frame moved", async () => {
-    await whileFrameMoved(frame, async () => waitAt(find, await want(), "Home tip, frame moved"));
-    await waitAt(find, await want(), "Home tip after the frame moved back");
+    await whileFrameMoved(frame, () => waitUnder("Home tip, frame moved"));
+    await waitUnder("Home tip after the frame moved back");
   });
 
   await step("Home tip: sidebar shifts the canvas", async () => {
@@ -372,7 +385,7 @@ async function checkHomeTip(pid: number, client: ControlClient, frame: number, c
         (x) => x !== c0,
         { timeoutMs: WAIT_MS, error: () => "the favorites sidebar did not shift the canvas" },
       );
-      await waitAt(find, await want(), "Home tip with the sidebar shown");
+      await waitUnder("Home tip with the sidebar shown");
     } finally {
       sendCommandSync(frame, cmdId("CmdFavoriteToggle"));
     }
@@ -436,6 +449,9 @@ async function checkRefHover(): Promise<void> {
     await client.setNotificationsEnabled(false);
     const cr = getClientRect(findCanvas(frame));
     const at = ["show", Math.floor(cr.right / 2), Math.floor(cr.bottom / 3)];
+    // E113: a render holds PDFium's lock meanwhile; the link lookup waits for it
+    const held = await client.request(ControlCommand.TestCurrentPdf, ["hold-pdfium-lock", LOCK_HOLD_MS]);
+    check(held[0] === 0 || process.env.SOLOKPDF_ENGINE === "mupdf", `hold-pdfium-lock: ${held[1]}`);
     const res = await client.request(ControlCommand.TestRefHover, at);
     check(res[0] === 0, `could not show the citation popup: ${res[1]}`);
     const p = await waitRefPopup(client, "the citation popup did not open", (q) => q.visible && q.hwnd !== 0);

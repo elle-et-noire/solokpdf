@@ -91,6 +91,9 @@
 #include "PerfLog.h"
 #include "BrightnessContrastDialogCommon.h"
 #include "OpenFromUrlCommon.h"
+#if defined(SOLOKPDF_PDFIUM)
+#include "solokpdf/EnginePdfium.h"
+#endif
 #include "SumatraControl.h"
 #include "SumatraControlCommon.h"
 
@@ -2272,6 +2275,16 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 IntArg(req, 1, ms);
                 bool held = EngineMupdfHoldDocLock(engine, ms);
                 AppendTestResult(req, held ? 0 : 1, held ? StrL("held") : StrL("no editor"));
+                break;
+            }
+            if (str::Eq(StringArg(req, 0), StrL("hold-pdfium-lock"))) {
+                i32 ms = 0;
+                IntArg(req, 1, ms);
+                bool held = false;
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+                held = engine->kind == kindEnginePdfium && EnginePdfiumHoldLock(ms);
+#endif
+                AppendTestResult(req, held ? 0 : 1, held ? StrL("held") : StrL("not pdfium"));
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("clone-page")) ||

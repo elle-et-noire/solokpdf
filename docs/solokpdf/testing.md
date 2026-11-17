@@ -471,12 +471,17 @@ foreground goes through the app input layer in `src/base/Win.cpp`
 `GetMessageCursorPosition`, `HwndWindowFromPoint`, `HwndGetForeground`,
 `ArmMouseLeave` and `TrackMouseLeave`. Only that layer knows a test cursor is set:
 
-- a `WM_MOUSEMOVE` / `WM_NCMOUSEMOVE` that Windows posts off the test cursor
-  (e.g. at a window shown under the physical pointer) is dropped by a
-  `WH_GETMESSAGE` hook on the UI thread, in modal loops too; drags pass
+- a `WM_MOUSEMOVE` / `WM_NCMOUSEMOVE` that Windows makes off the test cursor
+  (e.g. at a window shown or moved under the physical pointer) is dropped by a
+  `WH_MOUSE` hook on the UI thread before Windows sends `WM_SETCURSOR` for it
+  to the window under the pointer (E113: Home's tip went on CI, where that
+  pointer rests on the frame); a posted one is dropped by a `WH_GETMESSAGE`
+  hook, in modal loops too; drags pass. The pointer is shared by desktops: the
+  hidden desktop gets these moves too, wherever the owner's mouse is
 - the cursor and message positions are the test cursor
 - the window under a point is found among the UI thread's windows only
-- with no foreground window (the hidden desktop), the active window stands in
+- the foreground is the active window: another app in front on CI doesn't
+  change what the app sees, as on the hidden desktop, which has none
 - setting the cursor cancels Windows' mouse-leave tracking; the layer tracks
   the test cursor instead, as Windows does the pointer: one window, leave
   posted when the cursor moves off it (at once if already off), cancelled by

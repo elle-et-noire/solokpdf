@@ -3458,12 +3458,19 @@ class EnginePdfium : public EngineBase {
     }
 
     IPageElement* GetElementAtPos(int pageNo, PointF point) override {
+        return ElementAtPos(pageNo, point, EngineWait::NoWait);
+    }
+
+    // Hover reads PDFium's cached links and comments without opening the editor;
+    // without waiting, nothing while a render holds the lock.
+    IPageElement* ElementAtPos(int pageNo, PointF point, EngineWait wait) {
         Vec<IPageElement*> links;
         if (EngineBase* redacted = RedactedEditor(pageNo)) {
             return redacted->GetElementAtPos(pageNo, point);
         }
-        // Hover reads PDFium's cached links and comments without opening the editor.
-        if (!gPdfiumLock.TryLock()) {
+        if (wait == EngineWait::Wait) {
+            gPdfiumLock.Lock();
+        } else if (!gPdfiumLock.TryLock()) {
             return nullptr;
         }
         bool useMupdf = false;
@@ -3976,6 +3983,39 @@ EngineBase* CreateEnginePdfiumFromData(Str data, PasswordUI* pwdUI, TempStr* err
 bool EnginePdfiumPagePathPoints(EngineBase* engine, int pageNo, Vec<PointF>& out) {
     auto* pdfium = engine && engine->kind == kindEnginePdfium ? (EnginePdfium*)engine : nullptr;
     return pdfium && pdfium->PagePathPoints(pageNo, out);
+}
+
+// The element at point, waiting for a render that holds PDFium's lock.
+IPageElement* EnginePdfiumElementAtPosWait(EngineBase* engine, int pageNo, PointF point) {
+    auto* pdfium = engine && engine->kind == kindEnginePdfium ? (EnginePdfium*)engine : nullptr;
+    return pdfium ? pdfium->ElementAtPos(pageNo, point, EngineWait::Wait) : nullptr;
+}
+
+struct PdfiumLockHold {
+    int ms = 0;
+    HANDLE held = nullptr;
+};
+
+static void HoldPdfiumLockThread(PdfiumLockHold* d) {
+    int ms = d->ms;
+    HANDLE held = d->held;
+    ScopedMutex lock(&gPdfiumLock);
+    // d belongs to the caller again from here
+    SetEvent(held);
+    SleepInMs(ms);
+}
+
+// Test hook: another thread holds PDFium's lock for ms, as a render does.
+// Returns once it is held.
+bool EnginePdfiumHoldLock(int ms) {
+    PdfiumLockHold d{ms, CreateEventW(nullptr, TRUE, FALSE, nullptr)};
+    if (!d.held) {
+        return false;
+    }
+    RunAsync(MkFunc0<PdfiumLockHold>(HoldPdfiumLockThread, &d), StrL("HoldPdfiumLock"));
+    WaitForSingleObject(d.held, INFINITE);
+    CloseHandle(d.held);
+    return true;
 }
 
 bool EnginePdfiumIsDataBacked(EngineBase* engine) {

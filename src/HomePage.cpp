@@ -1108,6 +1108,7 @@ static PlatformFont* HomePageFont(int size) {
 static void HomeSelectFromSearchReturnCol(MainWindow* win);
 static void HomePageShowSelectionTooltip(MainWindow* win);
 static void HomePageShowEntryTooltip(MainWindow* win, int idx);
+static void HomePagePlaceTip(MainWindow* win);
 
 struct HomeSearchEdit : Edit {
     MainWindow* win = nullptr;
@@ -3400,7 +3401,7 @@ static void HomePageShowEntryTooltip(MainWindow* win, int idx) {
     POINT tr{rightEdgeClient, tipClientY};
     ClientToScreen(hwnd, &tl);
     ClientToScreen(hwnd, &tr);
-    win->ShowToolTipAt(tip, outline, Point(tl.x, tl.y), false, tr.x);
+    win->ShowToolTipAt(tip, outline, Point(tl.x, tl.y), MkFunc0(HomePagePlaceTip, win), false, tr.x);
 }
 
 // select the first entry, e.g. after the filter changed the list
@@ -3431,7 +3432,12 @@ void HomePageOnWindowActivate(MainWindow* win, bool active) {
     if (!win->IsCurrentTabAbout()) {
         return;
     }
-    // restore the tip where it was: at the hovered entry or the selection
+    HomePagePlaceTip(win);
+}
+
+// The tip at the hovered entry or the selection, where the layout has it now:
+// after activation, or once the canvas moved or resized and entries reflowed.
+static void HomePagePlaceTip(MainWindow* win) {
     HomeEntriesCtrl* entries = HomeEntries(win);
     if (!entries || !entries->tipOnHover) {
         HomePageShowSelectionTooltip(win);
