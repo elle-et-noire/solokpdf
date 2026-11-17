@@ -380,6 +380,22 @@ static bool PasteWithCRLF(HWND hwnd) {
     return true;
 }
 
+// Focuses hwnd attached to the foreground thread's input, so the click
+// takes focus while another app is in the foreground.
+static void SetFocusAttached(HWND hwnd) {
+    HWND hwndFg = GetForegroundWindow();
+    DWORD fgTid = hwndFg ? GetWindowThreadProcessId(hwndFg, nullptr) : 0;
+    DWORD ourTid = GetCurrentThreadId();
+    bool attached = false;
+    if (fgTid && fgTid != ourTid) {
+        attached = AttachThreadInput(ourTid, fgTid, TRUE) != 0;
+    }
+    ::SetFocus(hwnd);
+    if (attached) {
+        AttachThreadInput(ourTid, fgTid, FALSE);
+    }
+}
+
 void Edit::WndProc(ControlBase::WndProcEvent* ev) {
     HWND hwnd = ev->hwnd;
     UINT msg = ev->msg;
@@ -457,17 +473,7 @@ void Edit::WndProc(ControlBase::WndProcEvent* ev) {
             if (selectAllOnFocus) {
                 delaySelectAll = !HwndIsFocused(hwnd);
                 if (delaySelectAll) {
-                    HWND hwndFg = GetForegroundWindow();
-                    DWORD fgTid = hwndFg ? GetWindowThreadProcessId(hwndFg, nullptr) : 0;
-                    DWORD ourTid = GetCurrentThreadId();
-                    bool attached = false;
-                    if (fgTid && fgTid != ourTid) {
-                        attached = AttachThreadInput(ourTid, fgTid, TRUE) != 0;
-                    }
-                    ::SetFocus(hwnd);
-                    if (attached) {
-                        AttachThreadInput(ourTid, fgTid, FALSE);
-                    }
+                    SetFocusAttached(hwnd);
                 }
             }
             break;

@@ -412,7 +412,7 @@ static WindowTab* FindTabByEngineForCache(EngineBase* engine) {
 }
 
 static WindowTab* CurrentTabForCache() {
-    HWND fg = GetForegroundWindow();
+    HWND fg = HwndGetForeground();
     for (MainWindow* win : gWindows) {
         if (win->hwndFrame == fg) {
             return win->CurrentTab();
@@ -659,7 +659,7 @@ Str HwndPasswordUI::GetPassword(Str path, u8* fileDigest, u8 decryptionKeyOut[32
     // check if the window is still valid as it might have been closed by now
     if (!IsWindow(hwnd)) {
         ReportIf(true);
-        hwnd = GetForegroundWindow();
+        hwnd = HwndGetForeground();
     }
     // make sure that the password dialog is visible
     if (!gForTesting) {
@@ -17056,6 +17056,20 @@ static void LogNonDefaultExtsAsync() {
     SafeCloseThreadHandle(&thread);
 }
 
+// the cursor is on the monitor the user launched from. GetForegroundWindow
+// / HWND_DESKTOP report the *primary* monitor, which made the first
+// layout 2.5× too big when starting on a 100% screen next to a 250%
+// primary (discussion #4831).
+static void SetStartupDpi() {
+    POINT pt{};
+    if (GetCursorPos(&pt)) {
+        int dpi = DpiGetForPoint(pt.x, pt.y);
+        DpiSet(dpi, dpi);
+    } else {
+        DpiSetFromHwnd(GetDesktopWindow());
+    }
+}
+
 int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevInstance*/, _In_ LPSTR /*lpCmdLine*/,
                      _In_ int /*nCmdShow*/) {
     int exitCode = 1; // by default it's error
@@ -17179,19 +17193,7 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
         // TODO: only if AttachConsole() succeeds?
         gLogToConsole = true;
     }
-    {
-        // the cursor is on the monitor the user launched from. GetForegroundWindow
-        // / HWND_DESKTOP report the *primary* monitor, which made the first
-        // layout 2.5× too big when starting on a 100% screen next to a 250%
-        // primary (discussion #4831).
-        POINT pt{};
-        if (GetCursorPos(&pt)) {
-            int dpi = DpiGetForPoint(pt.x, pt.y);
-            DpiSet(dpi, dpi);
-        } else {
-            DpiSetFromHwnd(GetDesktopWindow());
-        }
-    }
+    SetStartupDpi();
 
     bool isInstaller = flags.install || flags.runInstallNow || flags.fastInstall || IsInstallerAndNamedAsSuch();
     if (flags.justExtractFiles) {

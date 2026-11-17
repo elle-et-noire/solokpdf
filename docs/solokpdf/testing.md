@@ -486,7 +486,9 @@ capture ends (leave at once if the mouse is outside), and forgotten at
 
 Raw `GetCursorPos`, `GetMessagePos`, `WindowFromPoint` and `TrackMouseEvent` stay
 inside the layer; raw `GetForegroundWindow` only where Windows activation is the
-subject (raising, `AttachThreadInput`, startup). Tests should send their own
+subject (raising, `AttachThreadInput`, startup). `tests/lint-app-input.ts`
+enforces this: a raw call elsewhere in `src/` fails unless its file and
+function are in the lint's allowlist with a reason. Tests should send their own
 mouse moves with `sendMessage` at the test cursor; post a move only to mimic
 Windows' physical moves. `ad-hoc-e101-physical-moves` posts such moves to the
 canvas, bookmarks tree, toolbar, page thumbnails and Home.

@@ -23,6 +23,7 @@ import { testit as customAIUI } from "./custom-ai-ui.ts";
 import { testit as customAI } from "./custom-ai.ts";
 import { testit as lintCommandIds } from "./lint-command-ids.ts";
 import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
+import { testit as lintAppInput } from "./lint-app-input.ts";
 import { testit as lintSystemClipboard } from "./lint-system-clipboard.ts";
 import { testit as closedStdout } from "./closed-stdout.ts";
 import { testit as keyboardIme } from "./keyboard-ime.ts";
@@ -853,6 +854,7 @@ export const tests: NamedTest[] = [
   // --- no Sumatra process -------------------------------------------------
   ["lint-command-ids", lintCommandIds],
   ["lint-desktop-input", lintDesktopInput],
+  ["lint-app-input", lintAppInput],
   ["lint-system-clipboard", lintSystemClipboard],
   ["lint-control-ids", lintControlIds],
   ["lint-posted-tasks", lintPostedTasks],

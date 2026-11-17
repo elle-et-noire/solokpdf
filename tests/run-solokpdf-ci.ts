@@ -64,6 +64,7 @@ import { testit as homeFocusB71 } from "./ad-hoc-b71-home-focus.ts";
 import { testit as homeFocusHover } from "./ad-hoc-e88-home-focus-hover.ts";
 import { testit as windowBehind } from "./ad-hoc-b68-window.ts";
 import { testit as lintDesktopInput } from "./lint-desktop-input.ts";
+import { testit as lintAppInput } from "./lint-app-input.ts";
 import { testit as hiddenDesktop } from "./ad-hoc-b69-hidden-desktop.ts";
 import { testit as shellLaunch } from "./ad-hoc-b69-shell-launch.ts";
 import { testit as localClipboard } from "./ad-hoc-b67-clipboard.ts";
@@ -148,6 +149,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-b69-hidden-desktop", hiddenDesktop],
   ["ad-hoc-b69-shell-launch", shellLaunch],
   ["lint-desktop-input", lintDesktopInput],
+  ["lint-app-input", lintAppInput],
   ["ad-hoc-b68-window", windowBehind],
   ["ad-hoc-b71-home-focus", homeFocusB71],
   ["ad-hoc-e88-home-focus-hover", homeFocusHover],

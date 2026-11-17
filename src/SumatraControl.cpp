@@ -993,6 +993,22 @@ static TempStr AcceptSaveDialog(Str path, int* exitCodeOut) {
     return StrL("accepted");
 }
 
+// Activates the frame like a user would, past the foreground lock.
+static void ActivateForTest(HWND hwndFrame) {
+    gTestActivating = true;
+    HWND fg = GetForegroundWindow();
+    DWORD fgThread = fg ? GetWindowThreadProcessId(fg, nullptr) : 0;
+    DWORD uiThread = GetCurrentThreadId();
+    bool attached = fgThread && fgThread != uiThread && AttachThreadInput(uiThread, fgThread, TRUE);
+    SetForegroundWindow(hwndFrame);
+    SetActiveWindow(hwndFrame);
+    SetFocus(hwndFrame);
+    if (attached) {
+        AttachThreadInput(uiThread, fgThread, FALSE);
+    }
+    gTestActivating = false;
+}
+
 static void ExecuteControlRequest(ControlRequest* req) {
     // test commands create engines, which need GDI+ and a few gSettings fields
     AutoGdiPlusShutdown gdiPlus;
@@ -3127,18 +3143,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
             if (win && win->pageEdit && str::Eq(action, StrL("page-edit"))) SetFocus(win->pageEdit->hwnd);
             if (win && win->hwndToolbar && str::Eq(action, StrL("toolbar"))) SetFocus(win->hwndToolbar);
             if (win && str::Eq(action, StrL("activate"))) {
-                gTestActivating = true;
-                HWND fg = GetForegroundWindow();
-                DWORD fgThread = fg ? GetWindowThreadProcessId(fg, nullptr) : 0;
-                DWORD uiThread = GetCurrentThreadId();
-                bool attached = fgThread && fgThread != uiThread && AttachThreadInput(uiThread, fgThread, TRUE);
-                SetForegroundWindow(win->hwndFrame);
-                SetActiveWindow(win->hwndFrame);
-                SetFocus(win->hwndFrame);
-                if (attached) {
-                    AttachThreadInput(uiThread, fgThread, FALSE);
-                }
-                gTestActivating = false;
+                ActivateForTest(win->hwndFrame);
             }
             AppendTestResult(
                 req, 0,
