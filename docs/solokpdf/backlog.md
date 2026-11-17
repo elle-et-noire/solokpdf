@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E98–E100 open (specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-17: E98–E100 and E105–E107 open (order: E105, E106, E107, then E98–E100; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B77, C2, D15, E105, F4). For a code change, choose affected tests from
+group (B77, C2, D15, E108, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -32,6 +32,9 @@ hand-written hide and reposition calls.
 | E98  | Toolbar hover drop-down (`Toolbar.cpp`, a popup under its button): stays at its old screen place when the frame is dragged or moved by Win+arrow, and stays shown when the toolbar is hidden or the fullscreen overlay toolbar auto-hides | todo   |
 | E99  | Home About hover (`HomePage.cpp`): stays over a document after Ctrl+Tab while the cursor rests on it, and at its old place after a keyboard frame move                                                                                    | todo   |
 | E100 | Canvas infotip (a topmost track-mode tooltip): Home's keyboard-selection tip keeps its screen place when the frame moves or the sidebar shifts the canvas; a link tip can linger when the cursor leaves the canvas from it                | todo   |
+| E105 | Leave re-arm in the input layer: E103 re-arms at WM_CAPTURECHANGED in three windows; any new window must remember it. Make `src/base/Win.cpp`'s app input layer own it. Spec `.work/codex-queue/e105.md`                                  | todo   |
+| E106 | Lint raw input APIs: nothing stops code bypassing E101's layer (GetCursorPos, GetForegroundWindow, TrackMouseEvent...). Fail on them outside the layer, allowlist activation code. Spec `.work/codex-queue/e106.md`                       | todo   |
+| E107 | Theme color roles for child controls: AdvancedSettingsDialog recolors its value edit after `UpdateTheme()`, E104's pattern on a control. Audit and make roles a theme input. Spec `.work/codex-queue/e107.md`                             | todo   |
 
 ## Deferred
 
