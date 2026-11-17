@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E112–E115 open (order: E113, E112, E114, E115; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-17: E112–E119 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E113, E116, E117, E112, E118, E115, E119, E114 (blocked); specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B77, C2, D15, E116, F4). For a code change, choose affected tests from
+group (B77, C2, D15, E120, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -23,12 +23,16 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 
 ## Open
 
-| ID   | Item                                                                                                                                                                                                               | Status |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| E112 | Find bar follows the toolbar: it sits on the search icon but is anchored only to the canvas, so overlay toolbar auto-show/hide leaves it at the old height. Multi-window anchors. Spec `.work/codex-queue/e112.md` | todo   |
-| E113 | ad-hoc-e98-anchored-popups fails on CI (Home tip after frame move; Home selection tip not shown) and once locally (citation "no-link"): find the race in the app or the test. Spec `.work/codex-queue/e113.md`     | todo   |
-| E114 | Build E111's catch macros on ng Linux (WSL) and Wasm, run test_util; macOS files only re-read. Spec `.work/codex-queue/e114.md`                                                                                    | todo   |
-| E115 | Every MuPDF context logs to our log: some `fz_new_context` sites keep MuPDF's stderr callbacks. One factory plus a lint. Spec `.work/codex-queue/e115.md`                                                          | todo   |
+| ID   | Item                                                                                                                                                                                                                                                  | Status                                                        |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| E112 | Anchors as functions: re-place popups on any geometry change under the frame and notify content changes once, instead of naming windows (find bar on the toolbar icon, paint-path scroll following, polled content). Spec `.work/codex-queue/e112.md` | todo                                                          |
+| E113 | ad-hoc-e98-anchored-popups fails on CI (Home tip after frame move; Home selection tip not shown) and once locally (citation "no-link"): find the race in the app or the test. Spec `.work/codex-queue/e113.md`                                        | todo                                                          |
+| E114 | Build E111's catch macros on ng Linux (WSL) and Wasm. Spec `.work/codex-queue/e114.md`                                                                                                                                                                | blocked (owner: freeze ng, or keep it building with a CI job) |
+| E115 | Every MuPDF context logs to our log: some `fz_new_context` sites keep MuPDF's stderr callbacks. One factory plus a lint. Spec `.work/codex-queue/e115.md`                                                                                             | todo                                                          |
+| E116 | Crash path ends and dumps by construction: fallback without the helper, no INFINITE wait or allocation before the dump, non-inheritable handles (review D4–D6, U5). Spec `.work/codex-queue/e116.md`                                                  | todo                                                          |
+| E117 | One test input command in Windows' message order; the layer owns foreground and key state under tests; remove window-code guards; CI on the hidden desktop (review: input layering, D3, D7, U1). Spec `.work/codex-queue/e117.md`                     | todo                                                          |
+| E118 | Theme colors resolved at paint from (surface, role, state); main-window parts register their theme refresh (review: theme layering, U4). Spec `.work/codex-queue/e118.md`                                                                             | todo                                                          |
+| E119 | Review docs and process: fz_catch conversion for upstream merges, fz-catch.h MuPDF dependency, doc claims, spec rules. Spec `.work/codex-queue/e119.md`                                                                                               | todo                                                          |
 
 ## Deferred
 
