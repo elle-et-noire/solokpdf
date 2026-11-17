@@ -22,6 +22,7 @@ Color gColsWin[kColWinCount];
 Color gColsEdit[kColEditCount];
 
 Color gColsTextMuted[kColTextCount];
+Color gColsTextDisabled[kColTextCount];
 Color gColsRichTextMuted[kColRichCount];
 Color gColsRichTextRaised[kColRichCount];
 Color gColsRichTextRaisedMuted[kColRichCount];
@@ -138,6 +139,7 @@ void GuiSetDefaultColorsFromSystem() {
     gColsWin[kColWinText] = winText;
     gColsWin[kColWinBg] = winBg;
     gColsWin[kColWinRaisedBg] = winBg;
+    gColsWin[kColWinMainBg] = winBg;
     gColsWin[kColWinMutedText] = disabledText;
     gColsWin[kColWinSelectedBg] = AccentColor(winBg, 25);
     gColsWin[kColWinRaisedSelectedBg] = AccentColor(winBg, 25);
@@ -177,6 +179,7 @@ void GuiDeriveRolePalettes() {
     Color raised = gColsWin[kColWinRaisedBg];
 
     gColsTextMuted[kColText] = muted;
+    gColsTextDisabled[kColText] = gColsBtn[kColBtnTextDisabled];
     SetRichCols(gColsRichTextMuted, muted, bg);
     SetRichCols(gColsRichTextRaised, text, raised);
     SetRichCols(gColsRichTextRaisedMuted, muted, raised);

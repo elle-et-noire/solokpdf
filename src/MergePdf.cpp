@@ -249,7 +249,6 @@ struct MergePdfWnd : WindowBase {
     MergeLegend* legend = nullptr;
     Color colTxt = kColorUnset;
     Color colBg = kColorUnset;
-    Color colMuted = kColorUnset;
     PlatformFont* fontText = nullptr;
     PlatformFont* fontMeta = nullptr;
     bool tornDown = false;
@@ -386,8 +385,6 @@ MergeGrid::MergeGrid(MergePdfWnd* wnd, MergeSources* sources, PlatformFont* font
     int pad = gap * 3 / 4;
     padding = {pad, pad, pad, pad};
     showFocusRing = false;
-    SetColor(kColListText, ThemeWindowTextColor());
-    SetColor(kColListBg, ThemeWindowControlBackgroundColor());
 
     rowsModel = new MergeRowsModel();
     SetModel(rowsModel);
@@ -1494,7 +1491,7 @@ void MergePdfWnd::PaintInfo(VirtPaintCtx* ctx) {
     TempStr s = InfoTemp();
     Rect r = ctx->content;
     ctx->gfx->PushClip(ctx->clip.Intersect(r));
-    ctx->gfx->DrawText(s, r, gfxTextVCenter, fontMeta, colMuted);
+    ctx->gfx->DrawText(s, r, gfxTextVCenter, fontMeta, ThemeWindowDarkerTextColor());
     ctx->gfx->PopClip();
 }
 
@@ -1570,7 +1567,7 @@ void MergePdfWnd::PaintLegend(VirtPaintCtx* ctx) {
         int nameX = rtl ? r.x : r.x + dot + gap;
         ctx->gfx->FillEllipse({dotX, r.y + ((r.dy - dot) / 2), dot, dot}, src->color);
         ctx->gfx->DrawText(path::GetBaseNameTemp(src->path), {nameX, r.y, r.dx - dot - gap, r.dy}, gfxTextVCenter,
-                           fontMeta, colMuted);
+                           fontMeta, ThemeWindowDarkerTextColor());
     }
     ctx->gfx->PopClip();
 }
@@ -1631,7 +1628,6 @@ struct InsertPosWnd : WindowBase {
     Edit* editPage = nullptr;
     Color colTxt = kColorUnset;
     Color colBg = kColorUnset;
-    Color colMuted = kColorUnset;
 
     bool Create(HWND owner, Str what, int nItems, int afterPage);
     Checkbox* NewRadio(Str text, bool checked, bool groupStart);
@@ -1691,7 +1687,6 @@ bool InsertPosWnd::Create(HWND owner, Str what, int n, int afterPage) {
     onClose = MkFunc1Void(OnInsertPosClose);
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
-    colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontQuery = DlgUiFont(kToolDlgQueryFontPx);
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     PlatformFont* fontMeta = DlgUiFont(kToolDlgMetaFontPx);
@@ -1716,11 +1711,8 @@ bool InsertPosWnd::Create(HWND owner, Str what, int n, int afterPage) {
     vbox->alignCross = CrossAxisAlign::Stretch;
 
     // what is added, in the larger font
-    VirtText* header = NewVirtText({.s = fmt(Tr("Insert '%s':").s, what),
-                                    .font = fontQuery,
-                                    .textColor = colTxt,
-                                    .isRtl = isRtl,
-                                    .ellipsis = true});
+    VirtText* header =
+        NewVirtText({.s = fmt(Tr("Insert '%s':").s, what), .font = fontQuery, .isRtl = isRtl, .ellipsis = true});
     int headerPad = std::max(0, (DpiScale(kToolDlgLineDy) - PlatformFontLineHeight(fontQuery)) / 2);
     vbox->AddChild(new Padding(header, Insets{headerPad, DpiScale(kToolDlgPadDx), headerPad, DpiScale(kToolDlgPadDx)}));
     vbox->AddChild(new VirtLine());
@@ -1771,7 +1763,7 @@ bool InsertPosWnd::Create(HWND owner, Str what, int n, int afterPage) {
     rowAfter->AddChild(underlined);
     rowAfter->AddChild(new Spacer(DpiScale(kToolDlgGapDx), 0));
     rowAfter->AddChild(
-        NewVirtText({.s = fmt(Tr("(of %d)").s, nItems), .font = fontMeta, .textColor = colMuted, .isRtl = isRtl}));
+        NewVirtText({.s = fmt(Tr("(of %d)").s, nItems), .font = fontMeta, .role = TextRole::Muted, .isRtl = isRtl}));
     vbox->AddChild(new Padding(choices, DpiScaledInsets(kToolDlgFilesPadDy, kToolDlgPadDx)));
 
     // Cancel and the one filled Add, on the right
@@ -2028,7 +2020,6 @@ bool MergePdfWnd::Create(MainWindow* w, WindowTab* tab) {
 
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
-    colMuted = ThemeWindowDarkerTextColor();
     fontText = DlgUiFont(kToolDlgTextFontPx);
     fontMeta = DlgUiFont(kToolDlgMetaFontPx);
     SetFont(fontText);
@@ -2066,10 +2057,6 @@ bool MergePdfWnd::Create(MainWindow* w, WindowTab* tab) {
     btnRestore = NewDlgButton(hwnd, Tr("Restore"), fontText, DlgButtonStyle::Ghost, false);
     btnRestore->onClick = MkMethod1<MergePdfWnd, VirtMouseEvent*, &MergePdfWnd::OnRestore>(this);
     footer->AddChild(btnRestore);
-    // the quiet buttons are muted already: disabled, they fade further
-    for (VirtButton* b : {btnAdd, btnRemove, btnRestore}) {
-        b->SetColor(kColBtnTextDisabled, AccentColor(colBg, kToolDlgFaintShift));
-    }
     info = new VirtCustom();
     info->idealSize = {0, PlatformFontMeasureText(fontMeta, StrL("M")).dy};
     info->onPaint = MkFunc1(PaintMergeInfo, this);

@@ -245,8 +245,8 @@ void SizeToLayout(WindowBase* w, ILayout* layout, int minDx, int minDy, HWND cen
 }
 
 // a label centered in a line `dy` dips high
-VirtText* NewDlgLabel(Str s, PlatformFont* font, Color col, int dy, bool prefix) {
-    VirtText* t = NewVirtText({.s = s, .font = font, .textColor = col, .isRtl = IsUIRtl(), .prefix = prefix});
+VirtText* NewDlgLabel(Str s, PlatformFont* font, TextRole role, int dy, bool prefix) {
+    VirtText* t = NewVirtText({.s = s, .font = font, .role = role, .isRtl = IsUIRtl(), .prefix = prefix});
     int lineDy = PlatformFontLineHeight(font);
     t->padding.top = std::max(0, (DpiScale(dy) - lineDy) / 2);
     t->padding.bottom = std::max(0, DpiScale(dy) - lineDy - t->padding.top);
@@ -256,8 +256,8 @@ VirtText* NewDlgLabel(Str s, PlatformFont* font, Color col, int dy, bool prefix)
 constexpr int kDlgCaptionPadDy = 14;
 
 // muted text over the line it describes, cut with ... when too long
-VirtText* NewDlgCaption(Str s, PlatformFont* font, Color col) {
-    VirtText* t = NewVirtText({.s = s, .font = font, .textColor = col, .isRtl = IsUIRtl(), .ellipsis = true});
+VirtText* NewDlgCaption(Str s, PlatformFont* font, TextRole role) {
+    VirtText* t = NewVirtText({.s = s, .font = font, .role = role, .isRtl = IsUIRtl(), .ellipsis = true});
     int padDx = DpiScale(kToolDlgPadDx);
     t->padding = Insets{DpiScale(kDlgCaptionPadDy), padDx, 0, padDx};
     return t;

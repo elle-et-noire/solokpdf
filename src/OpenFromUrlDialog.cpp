@@ -87,7 +87,6 @@ bool OpenFromUrlWnd::Create(MainWindow* win) {
     this->win = win;
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     SetFont(fontText);
     if (!CreateToolDialog(this, win ? win->hwndFrame : nullptr, Tr("Open from URL"), fontText, colTxt, colBg)) {
@@ -96,7 +95,7 @@ bool OpenFromUrlWnd::Create(MainWindow* win) {
 
     auto* vbox = new VBox();
     vbox->alignCross = CrossAxisAlign::Stretch;
-    vbox->AddChild(NewDlgCaption(Tr("URL of a document to download and open:"), fontText, colMuted));
+    vbox->AddChild(NewDlgCaption(Tr("URL of a document to download and open:"), fontText, TextRole::Muted));
 
     // the URL, in the larger font
     editUrl = NewDlgEdit(hwnd, DlgUiFont(kToolDlgQueryFontPx), {}, 0);
@@ -105,7 +104,7 @@ bool OpenFromUrlWnd::Create(MainWindow* win) {
 
     // the folder: the remembered one, else the Downloads folder
     HBox* row = NewDlgFieldRow();
-    row->AddChild(NewDlgLabel(Tr("Save to"), fontText, colMuted, kToolDlgRowDy));
+    row->AddChild(NewDlgLabel(Tr("Save to"), fontText, TextRole::Muted, kToolDlgRowDy));
     editDir = NewDlgEdit(hwnd, fontText, DownloadDirTemp(), 0);
     row->AddChild(NewDlgUnderlined(editDir), 1);
     btnBrowse = NewDlgButton(hwnd, Tr("Browse..."), fontText, DlgButtonStyle::Ghost, false);

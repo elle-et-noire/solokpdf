@@ -176,11 +176,13 @@ struct HwndBase {
 extern void (*gWindowBaseApplyDarkMode)(HWND);
 extern void (*gWindowBaseSetIcon)(HWND, HICON);
 
-// the layer a window paints its background in: a dialog, or a floating
-// surface above the canvas (command palette) in gColsWin[kColWinRaisedBg]
+// the layer a window paints its background in: a dialog, a floating
+// surface above the canvas (command palette) in gColsWin[kColWinRaisedBg], or
+// the main window's background (a browser window around a page)
 enum class WinSurface {
     Dialog,
     Raised,
+    Main,
 };
 
 // what a native control shows on its window's surface. An input to
@@ -362,6 +364,8 @@ struct WindowBase : HwndBase {
 
     // the layer the window sits on; picks its gColsWin background
     WinSurface surface = WinSurface::Dialog;
+    // CreateCustomArgs::icon, re-applied by UpdateTheme()
+    HICON icon = nullptr;
 
     // kColWin* (GuiColors.h) resolved: this window's textColor / bgColor when
     // set, the gColsWin defaults for its surface otherwise
@@ -486,6 +490,8 @@ void RelayoutIfVisible(T* bar) {
 }
 
 bool PreTranslateMessage(MSG& msg);
+void UpdateThemeAllWindows();
+void AppendWindowThemeDump(str::Builder& out);
 
 // Base of the controls that a layout positions: the win32 controls (Static,
 // Button, Edit, ...) and custom HWND hosts. Virtual-only controls (TabsCtrl,

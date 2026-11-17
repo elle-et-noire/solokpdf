@@ -232,6 +232,7 @@ struct ImageEditWindow : WindowBase {
     void OnSize(WindowBase::SizeEvent* ev);
     void OnDpiChanged(WindowBase::DpiChangedEvent* ev);
     void OnActivate(WindowBase::ActivateEvent* ev);
+    void ApplyDarkMode() override;
     void OnDestroy(WindowBase::DestroyEvent* ev);
     void OnSetCursor(WindowBase::SetCursorEvent* ev);
 };
@@ -1623,6 +1624,13 @@ void ImageEditWindow::OnDpiChanged(WindowBase::DpiChangedEvent* ev) {
     ev->didHandle = true;
 }
 
+// the host's flavor of dark mode, on creation and on every theme change
+void ImageEditWindow::ApplyDarkMode() {
+    if (gImageEditHost.ApplyDarkMode) {
+        gImageEditHost.ApplyDarkMode(hwnd);
+    }
+}
+
 // modeless dialog: route Alt+<mnemonic> / Tab via IsDialogMessage in main loop
 void ImageEditWindow::OnActivate(WindowBase::ActivateEvent* ev) {
     if (ev->state == WA_INACTIVE) {
@@ -2213,7 +2221,7 @@ void ShowImageEditWindow(HWND parent, ImageEditMode mode, Str filePath, Rendered
         ew->staticPathLabel = NewVirtText({
             .s = filePath ? filePath : Str{},
             .font = ew->font,
-            .textColor = gColsBtn[kColBtnTextDisabled],
+            .role = TextRole::Disabled,
             .pathEllipsis = true,
         });
     }
@@ -2230,7 +2238,7 @@ void ShowImageEditWindow(HWND parent, ImageEditMode mode, Str filePath, Rendered
     ew->staticInfoLabel = NewVirtText({
         .s = infoStr,
         .font = ew->font,
-        .textColor = gColsBtn[kColBtnTextDisabled],
+        .role = TextRole::Disabled,
         .ellipsis = true,
     });
 
@@ -2335,9 +2343,7 @@ void ShowImageEditWindow(HWND parent, ImageEditMode mode, Str filePath, Rendered
 
     HwndCenterDialog(hwnd, parent);
     HwndEnsureOnScreen(hwnd);
-    if (gImageEditHost.ApplyDarkMode) {
-        gImageEditHost.ApplyDarkMode(hwnd);
-    }
+    ew->UpdateTheme();
     HideKeyboardCues(hwnd);
     ew->SetIsVisible(true);
     SetCurrentModelessDialog(hwnd);

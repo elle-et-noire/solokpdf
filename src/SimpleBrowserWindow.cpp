@@ -155,10 +155,9 @@ HWND SimpleBrowserWindow::Create(const SimpleBrowserCreateArgs& args) {
     // LayoutControls sizes the nav row to its natural height and the webview
     // into the leftover client area, not a full-client DoLayout
     autoLayout = false;
-    Color backgroundColor = args.backgroundColor;
-    if (ColorSkipsPaint(backgroundColor)) {
-        backgroundColor = ThemeWindowBackgroundColor();
-    }
+    // the page's surface: the main window's background
+    surface = WinSurface::Main;
+    Color backgroundColor = ThemeWindowBackgroundColor();
     // Set the colors before creating the HWND so its first paint cannot fall
     // back to the white class brush while the WebView initializes.
     SetColors(ThemeWindowTextColor(), backgroundColor);
@@ -201,7 +200,6 @@ HWND SimpleBrowserWindow::Create(const SimpleBrowserCreateArgs& args) {
         btnForward->SetIsEnabled(false);
         urlText = NewVirtText({
             .font = font,
-            .textColor = ThemeWindowTextColor(),
             // keep the file name visible when the url doesn't fit
             .pathEllipsis = true,
         });

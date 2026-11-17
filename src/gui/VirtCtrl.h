@@ -251,6 +251,7 @@ bool IsVirtCtrlOfKind(VirtCtrl*, Kind);
 void CollectVirtCtrls(ILayout* root, Vec<VirtCtrl*>& out);
 void AppendVirtTreeDump(str::Builder& out, Str classFilter);
 bool AppendVirtHit(str::Builder& out, Str className, int x, int y);
+void AppendVirtTextColors(str::Builder& out, VirtRoot* root);
 
 // One stop in a window's Tab ring: exactly one of the two is set. The ring is
 // the layout order, so an Edit and a virtual button sitting in the same VBox
@@ -617,6 +618,7 @@ enum class VirtTextAlign {
 enum class TextRole {
     Normal,
     Muted,
+    Disabled,
 };
 
 // VirtText itself can't be an aggregate - it inherits VirtCtrl, which has
@@ -677,6 +679,7 @@ struct VirtText : VirtCtrl {
 };
 
 VirtText* NewVirtText(const VirtTextArgs&);
+void SetTextRole(VirtText*, TextRole);
 
 char MnemonicCharInStr(Str s);
 

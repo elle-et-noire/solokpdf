@@ -50,7 +50,6 @@ struct GoToPageWnd : WindowBase {
     PlatformFont* fontMeta = nullptr;
     Color colTxt = kColorUnset;
     Color colBg = kColorUnset;
-    Color colMuted = kColorUnset;
     Vec<VirtText*> labels;
 
     bool Create(MainWindow* win);
@@ -146,7 +145,7 @@ static void OnDestroy(WindowBase::DestroyEvent* /*ev*/) {
 // a line: the label muted, the field in the larger font, "(of N)" at the end
 Edit* GoToPageWnd::AddLine(VBox* vbox, Str label, Str text, bool numbersOnly, VirtText** ofOut, int ofCount) {
     HBox* row = NewDlgRow();
-    VirtText* t = NewDlgLabel(label, fontText, colMuted, kToolDlgLineDy, true);
+    VirtText* t = NewDlgLabel(label, fontText, TextRole::Muted, kToolDlgLineDy, true);
     VecAppend(labels, t);
     row->AddChild(t);
 
@@ -164,8 +163,8 @@ Edit* GoToPageWnd::AddLine(VBox* vbox, Str label, Str text, bool numbersOnly, Vi
     e->Create(args);
     row->AddChild(e, 1);
 
-    *ofOut =
-        NewVirtText({.s = fmt(Tr("(of %d)").s, ofCount), .font = fontMeta, .textColor = colMuted, .isRtl = IsUIRtl()});
+    *ofOut = NewVirtText(
+        {.s = fmt(Tr("(of %d)").s, ofCount), .font = fontMeta, .role = TextRole::Muted, .isRtl = IsUIRtl()});
     row->AddChild(*ofOut);
     vbox->AddChild(new Padding(row, DpiScaledInsets(0, kToolDlgPadDx)));
     return e;
@@ -194,7 +193,6 @@ bool GoToPageWnd::Create(MainWindow* mainWin) {
 
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
-    colMuted = ThemeWindowDarkerTextColor();
     fontText = DlgUiFont(kToolDlgTextFontPx);
     fontQuery = DlgUiFont(kToolDlgQueryFontPx);
     fontMeta = DlgUiFont(kToolDlgMetaFontPx);

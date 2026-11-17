@@ -131,7 +131,6 @@ struct PdfToolDialog : WindowBase {
     int nLines = 0;
     Color colTxt = kColorUnset;
     Color colBg = kColorUnset;
-    Color colMuted = kColorUnset;
     PlatformFont* fontText = nullptr;
     PlatformFont* fontQuery = nullptr;
     PlatformFont* fontMeta = nullptr;
@@ -142,7 +141,7 @@ struct PdfToolDialog : WindowBase {
 
     bool CreateToolDialog(MainWindow*, WindowTab*, Str title);
     HBox* NewRow();
-    VirtText* NewLabel(Str s, PlatformFont* font, Color col, int dy = 0, int dx = 0);
+    VirtText* NewLabel(Str s, PlatformFont* font, TextRole role, int dy = 0, int dx = 0);
     Edit* NewEdit(Str text, PlatformFont* font, bool isPassword = false);
     HBox* AddLine(Str label);
     Edit* AddLineEdit(Str text, bool isPassword = false);
@@ -213,7 +212,6 @@ bool PdfToolDialog::CreateToolDialog(MainWindow* w, WindowTab* tab, Str title) {
     srcPath = str::Dup(tab->filePath);
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
-    colMuted = ThemeWindowDarkerTextColor();
     closeOnEsc = true;
     onClose = MkFunc1Void(PdfToolDialogOnClose);
 
@@ -249,8 +247,8 @@ HBox* PdfToolDialog::NewRow() {
 
 // `dy`: the label pads itself to that height, and so sets its row's;
 // `dx`: the label column's width
-VirtText* PdfToolDialog::NewLabel(Str s, PlatformFont* font, Color col, int dy, int dx) {
-    VirtText* t = NewVirtText({.s = s, .font = font, .textColor = col, .isRtl = IsUIRtl()});
+VirtText* PdfToolDialog::NewLabel(Str s, PlatformFont* font, TextRole role, int dy, int dx) {
+    VirtText* t = NewVirtText({.s = s, .font = font, .role = role, .isRtl = IsUIRtl()});
     if (dy > 0) {
         int lineDy = PlatformFontLineHeight(font);
         t->padding.top = std::max(0, (DpiScale(dy) - lineDy) / 2);
@@ -283,7 +281,7 @@ Edit* PdfToolDialog::NewEdit(Str text, PlatformFont* font, bool isPassword) {
 // a line of the top section: its label, then what the caller adds
 HBox* PdfToolDialog::AddLine(Str label) {
     HBox* row = NewRow();
-    row->AddChild(NewLabel(label, fontText, colMuted, kToolDlgLineDy, kToolDlgLabelDx));
+    row->AddChild(NewLabel(label, fontText, TextRole::Muted, kToolDlgLineDy, kToolDlgLabelDx));
     mainBox->AddChild(new Padding(row, DpiScaledInsets(0, kToolDlgPadDx)));
     lastLine = row;
     nLines++;
@@ -298,7 +296,7 @@ Edit* PdfToolDialog::AddLineEdit(Str text, bool isPassword) {
 }
 
 VirtText* PdfToolDialog::AddLineMeta() {
-    metaText = NewLabel({}, fontMeta, colMuted);
+    metaText = NewLabel({}, fontMeta, TextRole::Muted);
     lastLine->AddChild(metaText);
     return metaText;
 }
@@ -309,7 +307,7 @@ void PdfToolDialog::SetMeta(Str s, bool ok) {
         return;
     }
     metaText->SetText(s);
-    metaText->SetColor(kColText, ok ? colMuted : AccentColor(colMuted, kToolDlgFaintShift));
+    SetTextRole(metaText, ok ? TextRole::Muted : TextRole::Disabled);
     if (layout) {
         DoLayout(); // the text's width changed
     }
@@ -327,10 +325,12 @@ static void PaintSrcPath(PdfToolDialog* dlg, VirtPaintCtx* ctx) {
     int dirDx = std::min(ctx->gfx->MeasureText(dir, font).dx, r.dx - nameDx);
     u32 flags = gfxTextVCenter;
     if (dirDx > 0) {
-        ctx->gfx->DrawText(dir, {r.x, r.y, dirDx, r.dy}, flags | gfxTextPathEllipsis, font, dlg->colMuted);
+        ctx->gfx->DrawText(dir, {r.x, r.y, dirDx, r.dy}, flags | gfxTextPathEllipsis, font,
+                           ThemeWindowDarkerTextColor());
     }
     dirDx = std::max(dirDx, 0);
-    ctx->gfx->DrawText(name, {r.x + dirDx, r.y, r.dx - dirDx, r.dy}, flags | gfxTextEllipsis, font, dlg->colTxt);
+    ctx->gfx->DrawText(name, {r.x + dirDx, r.y, r.dx - dirDx, r.dy}, flags | gfxTextEllipsis, font,
+                       ThemeWindowTextColor());
 }
 
 // PNG / JPEG / BMP / GIF, as the Save Image dialog has them
@@ -363,7 +363,7 @@ void PdfToolDialog::AddFilesBlock(Str destPath, WStr filter, WStr defExt, bool w
     box->alignCross = CrossAxisAlign::Stretch;
 
     HBox* from = NewRow();
-    from->AddChild(NewLabel(Tr("From"), fontText, colMuted, kToolDlgRowDy, kToolDlgLabelDx));
+    from->AddChild(NewLabel(Tr("From"), fontText, TextRole::Muted, kToolDlgRowDy, kToolDlgLabelDx));
     auto* path = new VirtCustom();
     path->idealSize = {PlatformFontMeasureText(fontText, srcPath).dx, PlatformFontLineHeight(fontText)};
     path->onPaint = MkFunc1(PaintSrcPath, this);
@@ -371,7 +371,7 @@ void PdfToolDialog::AddFilesBlock(Str destPath, WStr filter, WStr defExt, bool w
     box->AddChild(from);
 
     HBox* save = NewRow();
-    save->AddChild(NewLabel(Tr("Save as"), fontText, colMuted, kToolDlgRowDy, kToolDlgLabelDx));
+    save->AddChild(NewLabel(Tr("Save as"), fontText, TextRole::Muted, kToolDlgRowDy, kToolDlgLabelDx));
     destEdit = NewEdit(destPath, fontText);
     // the source path lines up with the destination's text
     from->AddChild(new Padding(path, Insets{0, 0, 0, destEdit->GetLeftTextMargin()}), 1);
@@ -398,7 +398,7 @@ void PdfToolDialog::AddFilesBlock(Str destPath, WStr filter, WStr defExt, bool w
 void PdfToolDialog::AddFooter(Str actionText, Str hint, Str footerBtnText) {
     HBox* row = NewRow();
     if (hint) {
-        hintText = NewLabel(hint, fontMeta, colMuted);
+        hintText = NewLabel(hint, fontMeta, TextRole::Muted);
         row->AddChild(hintText);
     }
     if (footerBtnText) {
@@ -1584,11 +1584,11 @@ void ConvertPdfToImagesDialog::UpdateExisting(bool pagesOk) {
     }
     if (nExisting > 0) {
         hintText->SetText(ExistingImagesTextTemp(nExisting));
-        hintText->SetColor(kColText, colTxt);
+        SetTextRole(hintText, TextRole::Normal);
         actionBtn->SetText(Tr("Overwrite"));
     } else {
         hintText->SetText(Tr("Use <N> for the page number"));
-        hintText->SetColor(kColText, colMuted);
+        SetTextRole(hintText, TextRole::Muted);
         actionBtn->SetText(Tr("Convert"));
     }
     footerBtn->SetIsVisible(nExisting > 0);

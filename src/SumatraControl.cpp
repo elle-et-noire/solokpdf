@@ -70,6 +70,7 @@
 #include "AIChatCommon.h"
 #include "AIChatPanel.h"
 #include "SumatraDialogs.h"
+#include "Theme.h"
 #include "PageGridDialogCommon.h"
 #include "AnnotEditToolbar.h"
 #include "AnnotFilterToolbar.h"
@@ -864,6 +865,8 @@ enum class ControlCmd : u16 {
     TestControllerDelete = 176,
     // parks a thread inside the loader for good, as one suspended mid-LoadLibrary
     TestParkInLoader = 177,
+    // open windows' colors against the palette; "set <theme>" first switches theme
+    TestThemeWindows = 178,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -1683,6 +1686,16 @@ static void ExecuteControlRequest(ControlRequest* req) {
             int exitCode = 0;
             Str res = CommandPaletteStateTemp(&exitCode);
             AppendTestResult(req, exitCode, res);
+            break;
+        }
+
+        case ControlCmd::TestThemeWindows: {
+            if (str::Eq(StringArg(req, 0), StrL("set"))) {
+                SetTheme(StringArg(req, 1));
+            }
+            str::Builder out;
+            AppendWindowThemeDump(out);
+            AppendTestResult(req, 0, ToStrTemp(out));
             break;
         }
 

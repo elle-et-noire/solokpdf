@@ -409,6 +409,15 @@ LRESULT HwndBase::FinalWindowProc(UINT msg, WPARAM wparam, LPARAM lparam) {
     return ::DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
+// the app may swap the icon, e.g. for one tinted to the theme
+static void SetAppIcon(HWND hwnd, HICON icon) {
+    if (gWindowBaseSetIcon) {
+        gWindowBaseSetIcon(hwnd, icon);
+    } else {
+        HwndSetIcon(hwnd, icon);
+    }
+}
+
 HWND HwndBase::CreateCustomHwnd(const CreateCustomArgs& args, WStr defaultClassName) {
     font = args.font;
 
@@ -479,12 +488,7 @@ HWND HwndBase::CreateCustomHwnd(const CreateCustomArgs& args, WStr defaultClassN
     // trigger creating a backgroundBrush
     SetColors(kColorNoChange, args.bgColor);
     if (args.icon) {
-        // the app may swap its icon, e.g. for one tinted to the theme
-        if (gWindowBaseSetIcon) {
-            gWindowBaseSetIcon(hwnd, args.icon);
-        } else {
-            HwndSetIcon(hwnd, args.icon);
-        }
+        SetAppIcon(hwnd, args.icon);
     }
     if (style & WS_VISIBLE) {
         if (style & WS_MAXIMIZE)
@@ -509,7 +513,14 @@ WindowBase* WindowBase::AsWindowBase() {
 }
 
 static int WinBgIdx(WinSurface surface) {
-    return surface == WinSurface::Raised ? kColWinRaisedBg : kColWinBg;
+    switch (surface) {
+        case WinSurface::Raised:
+            return kColWinRaisedBg;
+        case WinSurface::Main:
+            return kColWinMainBg;
+        default:
+            return kColWinBg;
+    }
 }
 
 // What a window does when the system theme or colors changed: take the colors
@@ -531,6 +542,7 @@ Color WindowBase::GetColor(int idx) const {
     overrides[kColWinText] = textColor;
     overrides[kColWinBg] = bgColor;
     overrides[kColWinRaisedBg] = bgColor;
+    overrides[kColWinMainBg] = bgColor;
     return GetCol(gColsWin, overrides, idx);
 }
 
@@ -591,6 +603,10 @@ void WindowBase::UpdateTheme() {
     // ones paint straight from the GuiColors defaults and need nothing
     EnumChildWindows(hwnd, RecolorChildProc, (LPARAM)this);
     ApplyDarkMode();
+    // a themed icon is drawn in the theme's colors
+    if (icon) {
+        SetAppIcon(hwnd, icon);
+    }
     RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_ALLCHILDREN);
 }
 
@@ -603,6 +619,57 @@ void WindowBase::OnThemeChange() {
     }
     uint flags = RDW_ERASE | RDW_INVALIDATE | RDW_ALLCHILDREN;
     RedrawWindow(hwnd, nullptr, nullptr, flags);
+}
+
+// What a theme change reaches: every top-level or owned WindowBase of this
+// thread, from the HWND list, so no window has to be named to follow the theme.
+// A child window is part of its parent's surface and repaints with it
+static void CollectThemedHwnds(Vec<HWND>& out) {
+    DWORD tid = GetCurrentThreadId();
+    for (auto& e : gHwndToWnd) {
+        if (!e.wnd->AsWindowBase() || !IsWindow(e.hwnd)) {
+            continue;
+        }
+        if (GetWindowThreadProcessId(e.hwnd, nullptr) != tid) {
+            continue;
+        }
+        if (GetWindowLongW(e.hwnd, GWL_STYLE) & WS_CHILD) {
+            continue;
+        }
+        VecAppend(out, e.hwnd);
+    }
+}
+
+// The app pushed a new palette into GuiColors: refresh every window. Looked up
+// again per HWND: one window's UpdateTheme() may destroy another
+void UpdateThemeAllWindows() {
+    Vec<HWND> hwnds;
+    CollectThemedHwnds(hwnds);
+    for (HWND hwnd : hwnds) {
+        WindowBase* w = WindowBaseFromHwnd(hwnd);
+        if (w) {
+            w->UpdateTheme();
+        }
+    }
+}
+
+// test: each visible window's background against its surface's palette slot,
+// and the colors its virtual texts paint in
+void AppendWindowThemeDump(str::Builder& out) {
+    out.Append(fmt("palette text=%06x muted=%06x disabled=%06x\n", (unsigned)gColsWin[kColWinText],
+                   (unsigned)gColsWin[kColWinMutedText], (unsigned)gColsBtn[kColBtnTextDisabled]));
+    Vec<HWND> hwnds;
+    CollectThemedHwnds(hwnds);
+    for (HWND hwnd : hwnds) {
+        WindowBase* w = WindowBaseFromHwnd(hwnd);
+        if (!w || !IsWindowVisible(hwnd)) {
+            continue;
+        }
+        Color want = gColsWin[WinBgIdx(w->surface)];
+        out.Append(fmt("win hwnd=%d title=%s bg=%06x want=%06x\n", (i64)(uintptr_t)hwnd, HwndGetTextTemp(hwnd),
+                       (unsigned)w->bgColor, (unsigned)want));
+        AppendVirtTextColors(out, w->vroot);
+    }
 }
 
 // shared by WindowBase and ControlBase: run the onWndProc hook, then WndProcDefault
@@ -645,6 +712,7 @@ LRESULT WindowBase::OnMessage(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 }
 
 HWND WindowBase::CreateCustom(const CreateCustomArgs& args) {
+    icon = args.icon;
     return CreateCustomHwnd(args, kDefaultClassName);
 }
 

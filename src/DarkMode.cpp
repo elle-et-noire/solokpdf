@@ -182,6 +182,7 @@ void ThemeApplyPlatformColors() {
     gColsWin[kColWinText] = text;
     gColsWin[kColWinBg] = ctlBg;
     gColsWin[kColWinRaisedBg] = ThemeRaisedColor();
+    gColsWin[kColWinMainBg] = ThemeMainWindowBackgroundColor();
     gColsWin[kColWinMutedText] = ThemeWindowDarkerTextColor();
     gColsWin[kColWinSelectedBg] = btnSel;
     gColsWin[kColWinRaisedSelectedBg] = ThemeSelectedColorOn(ThemeRaisedColor());

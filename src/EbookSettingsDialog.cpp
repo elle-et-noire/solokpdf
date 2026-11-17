@@ -401,7 +401,6 @@ bool EbookSettingsWnd::Create(MainWindow* mainWin) {
     win = mainWin;
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     SetFont(fontText);
     bool isRtl = IsUIRtl();
@@ -413,7 +412,7 @@ bool EbookSettingsWnd::Create(MainWindow* mainWin) {
     vbox->alignCross = CrossAxisAlign::Stretch;
 
     // the font, then its size, the margin and the line spacing
-    auto label = [&](Str s) { return NewDlgLabel(s, fontText, colMuted, kToolDlgRowDy); };
+    auto label = [&](Str s) { return NewDlgLabel(s, fontText, TextRole::Muted, kToolDlgRowDy); };
     auto numberField = [&]() { return NewDlgEdit(hwnd, fontText, {}, kEbookNumChars); };
     auto* fields = new VBox();
     fields->alignCross = CrossAxisAlign::Stretch;

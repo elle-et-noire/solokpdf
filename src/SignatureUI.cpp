@@ -238,7 +238,8 @@ void UpdateSignaturesCtrl(MainWindow* win) {
 
 // beside an icon, so without the dialog caption's insets
 static VirtText* NewSigCaption(Str s, PlatformFont* font, Color col) {
-    VirtText* t = NewDlgCaption(s, font, col);
+    VirtText* t = NewDlgCaption(s, font, TextRole::Normal);
+    t->SetColor(kColText, col);
     t->padding = Insets{};
     return t;
 }

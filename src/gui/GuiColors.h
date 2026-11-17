@@ -144,6 +144,8 @@ enum {
     kColWinBg,
     // the background of a WinSurface::Raised window (a floating surface)
     kColWinRaisedBg,
+    // the background of a WinSurface::Main window (the main window's)
+    kColWinMainBg,
     // the ControlRole colors (WinGui.h)
     kColWinMutedText,
     kColWinSelectedBg,
@@ -160,6 +162,8 @@ extern Color gColsWin[kColWinCount];
 // holds no color of its own
 // secondary text: a count, a default value
 extern Color gColsTextMuted[kColTextCount];
+// text for what can't be used now: a hint to an inactive field
+extern Color gColsTextDisabled[kColTextCount];
 // rich text whose links read as the text around them: a doc comment, key hints
 extern Color gColsRichTextMuted[kColRichCount];
 extern Color gColsRichTextRaised[kColRichCount];

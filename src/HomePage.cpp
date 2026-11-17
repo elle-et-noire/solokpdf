@@ -40,9 +40,6 @@
 #include "PagePosition.h"
 #include "HomePage.h"
 #include "HomePageCommon.h"
-#if defined(SOLOKPDF_PDFIUM)
-#include "solokpdf/AppIconTheme.h"
-#endif
 
 // how the shared tip code (TipText.cpp) opens a url link
 static void OpenTipUrl(Str url) {
@@ -131,7 +128,12 @@ constexpr int kHomeBrandGap = 10;
 
 constexpr int kLayoutLtr = 0;
 
-static ATOM gAtomAbout;
+// the About window: WndProcAbout in a WindowBase, so theme changes reach it
+struct AboutWnd : WindowBase {
+    void ApplyDarkMode() override;
+};
+
+static AboutWnd* gAboutWnd = nullptr;
 static HWND gHwndAbout;
 static VirtRoot* gAboutRoot = nullptr;
 static Tooltip* gAboutTooltip = nullptr;
@@ -710,6 +712,10 @@ static LRESULT CALLBACK WndProcAbout(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
             gAboutRoot = nullptr;
             ReportIf(!gHwndAbout);
             gHwndAbout = nullptr;
+            if (gAboutWnd) {
+                gAboutWnd->ScheduleDelete();
+                gAboutWnd = nullptr;
+            }
             break;
 
         default:
@@ -720,42 +726,45 @@ static LRESULT CALLBACK WndProcAbout(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
 
 constexpr const WCHAR* kAboutClassName = L"SUMATRA_PDF_ABOUT";
 
+void AboutWnd::ApplyDarkMode() {
+    DarkModeApplyToTitleBar(hwnd);
+}
+
+static void AboutOnWndProc(WindowBase::WndProcEvent* ev) {
+    ev->result = WndProcAbout(ev->hwnd, ev->msg, ev->wparam, ev->lparam);
+    ev->didHandle = true;
+}
+
 void ShowAboutWindow(MainWindow* win) {
     if (gHwndAbout) {
         RaiseAppWindow(gHwndAbout, WindowRaise::Active);
         return;
     }
 
-    if (!gAtomAbout) {
-        WNDCLASSEX wcex;
-        FillWndClassEx(wcex, kAboutClassName, WndProcAbout);
-        HMODULE h = GetModuleHandleW(nullptr);
-        wcex.hIcon = LoadIcon(h, MAKEINTRESOURCE(GetAppIconID()));
-        gAtomAbout = RegisterClassEx(&wcex);
-        ReportIf(!gAtomAbout);
-    }
-
-    WCHAR* title = CWStrTemp(fmt(Tr("About %s").s, StrL(kAppName)));
-    DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
-    int x = CW_USEDEFAULT;
-    int y = CW_USEDEFAULT;
-    int dx = CW_USEDEFAULT;
-    int dy = CW_USEDEFAULT;
-    HINSTANCE h = GetModuleHandleW(nullptr);
-    gHwndAbout = CreateWindowExW(0, kAboutClassName, title, style, x, y, dx, dy, nullptr, nullptr, h, nullptr);
+    auto* wnd = new AboutWnd();
+    // painted in the main window's background (DrawAbout)
+    wnd->surface = WinSurface::Main;
+    wnd->onWndProc = MkFunc1Void(AboutOnWndProc);
+    CreateCustomArgs args;
+    args.className = WStr(kAboutClassName);
+    args.title = fmt(Tr("About %s").s, StrL(kAppName));
+    args.style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
+    args.visible = false;
+    args.icon = LoadIcon(GetModuleHandleW(nullptr), MAKEINTRESOURCE(GetAppIconID()));
+    gAboutWnd = wnd;
+    gHwndAbout = wnd->CreateCustom(args);
     if (!gHwndAbout) {
+        gAboutWnd = nullptr;
+        delete wnd;
         return;
     }
-#if defined(SOLOKPDF_PDFIUM)
-    ApplyThemedAppIcon(gHwndAbout);
-#endif
 
     HwndSetRtl(gHwndAbout, IsUIRtl());
 
     // the client area is the box
     AboutCtrl* about = UpdateAboutLayout(&gAboutRoot, gHwndAbout, HwndClientRect(gHwndAbout));
-    dx = about->aboutRect.dx;
-    dy = about->aboutRect.dy;
+    int dx = about->aboutRect.dx;
+    int dy = about->aboutRect.dy;
 
     // resize the new window to just match these dimensions
     Rect wRc = HwndWindowRect(gHwndAbout);

@@ -483,7 +483,6 @@ bool SelectionTranslateWnd::Create(HWND owner, Str selText, Str title) {
     bool isRtl = IsUIRtl();
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     PlatformFont* fontMeta = DlgUiFont(kToolDlgMetaFontPx);
     SetFont(fontText);
@@ -532,7 +531,7 @@ bool SelectionTranslateWnd::Create(HWND owner, Str selText, Str title) {
     {
         auto* result = new VBox();
         result->alignCross = CrossAxisAlign::Stretch;
-        staticResultLabel = NewDlgLabel(Tr("Translation:"), fontMeta, colMuted, kToolDlgRowDy);
+        staticResultLabel = NewDlgLabel(Tr("Translation:"), fontMeta, TextRole::Muted, kToolDlgRowDy);
         staticResultLabel->SetVisibility(Visibility::Collapse);
         result->AddChild(staticResultLabel);
 
@@ -575,7 +574,7 @@ bool SelectionTranslateWnd::Create(HWND owner, Str selText, Str title) {
             d->Create(args);
             return d;
         };
-        auto label = [&](Str s) { return NewDlgLabel(s, fontText, colMuted, kToolDlgRowDy); };
+        auto label = [&](Str s) { return NewDlgLabel(s, fontText, TextRole::Muted, kToolDlgRowDy); };
 
         HBox* engineRow = NewDlgFieldRow();
         staticPrompt = label(Tr("Translate with"));

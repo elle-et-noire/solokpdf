@@ -393,7 +393,6 @@ bool PageGridWnd::Create(MainWindow* mainWin) {
     win = mainWin;
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     PlatformFont* fontMeta = DlgUiFont(kToolDlgMetaFontPx);
     SetFont(fontText);
@@ -406,13 +405,13 @@ bool PageGridWnd::Create(MainWindow* mainWin) {
     Vec<VirtText*> labels;
     auto addRow = [&](VBox* box, Str label, ILayout* ctrl, int flex) {
         HBox* row = NewDlgFieldRow();
-        VirtText* t = NewDlgLabel(label, fontText, colMuted, kToolDlgRowDy);
+        VirtText* t = NewDlgLabel(label, fontText, TextRole::Muted, kToolDlgRowDy);
         VecAppend(labels, t);
         row->AddChild(t);
         row->AddChild(ctrl, flex);
         box->AddChild(row);
     };
-    auto addHeader = [&](VBox* box, Str s) { box->AddChild(NewDlgLabel(s, fontMeta, colMuted, kToolDlgRowDy)); };
+    auto addHeader = [&](VBox* box, Str s) { box->AddChild(NewDlgLabel(s, fontMeta, TextRole::Muted, kToolDlgRowDy)); };
     auto makeEdit = [&]() {
         Edit* e = NewDlgEdit(hwnd, fontText, {}, kGridNumChars);
         e->onTextChanged = MkMethod0<PageGridWnd, &PageGridWnd::ApplyLive>(this);

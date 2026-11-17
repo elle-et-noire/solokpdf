@@ -1172,14 +1172,6 @@ void RunCommandPalette(MainWindow* win, Str prefix, int smartTabAdvance) {
     gHwndToActivateOnClose = win->hwndFrame;
 }
 
-void CommandPaletteUpdateTheme() {
-    CommandPaletteWnd* wnd = gCommandPaletteWnd;
-    if (!wnd || !wnd->hwnd) {
-        return;
-    }
-    wnd->UpdateTheme();
-}
-
 // test hook: a refresh path that only calls UpdateTheme()
 void CommandPaletteBaseUpdateTheme() {
     CommandPaletteWnd* wnd = gCommandPaletteWnd;

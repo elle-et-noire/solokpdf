@@ -87,6 +87,7 @@ struct FindBarWnd : WindowBase {
     ~FindBarWnd() override;
 
     bool Create(MainWindow* win);
+    void ApplyDarkMode() override;
     void CreateButtons();
     void UpdateButtonIcons(int dpi = 0);
     void BuildLayout();
@@ -172,6 +173,11 @@ void FindBarWnd::CreateButtons() {
         btns[i] = b;
     }
     UpdateButtonIcons();
+}
+
+// a popup's dark mode, as at creation, when a theme refresh re-applies it
+void FindBarWnd::ApplyDarkMode() {
+    DarkModeReapplyToPopupWindow(hwnd);
 }
 
 bool FindBarWnd::Create(MainWindow* mainWin) {

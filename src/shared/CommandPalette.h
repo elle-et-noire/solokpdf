@@ -45,6 +45,5 @@ TempStr CommandPaletteStateTemp(int* exitCodeOut);
 
 #if OS_WIN
 HWND CommandPaletteHwndForAccelerator(HWND hwnd);
-void CommandPaletteUpdateTheme();
 void CommandPaletteBaseUpdateTheme();
 #endif

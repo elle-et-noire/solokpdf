@@ -3266,7 +3266,6 @@ void UpdateAfterThemeChange() {
         RebuildMenuBarForWindow(win);
         UpdateToolbarAfterThemeChange(win);
         RecreateFindBar(win);
-        UpdateFindWindowTheme(win);
         RefreshSelectionToolbarIcons(win);
         RefreshAnnotEditToolbar(win);
         RefreshAnnotationHoverOverlay(win);
@@ -3286,7 +3285,8 @@ void UpdateAfterThemeChange() {
         OverlayScrollbarRepaint(win->overlayScrollV);
         OverlayScrollbarRepaint(win->overlayScrollH);
     }
-    CommandPaletteUpdateTheme();
+    // every dialog, palette and tool window, whoever opened it
+    UpdateThemeAllWindows();
     UpdateDocumentColors();
 }
 
@@ -10523,7 +10523,6 @@ void LaunchDocumentation(Str docURI) {
         args.pos = ManualBrowserPlacementRect(parentFrame);
         args.resourceProvider = ManualResourceProvider();
         args.resourceUriPrefix = kManualVirtualHostW;
-        args.backgroundColor = ThemeWindowBackgroundColor();
         gManualBrowserWindow = SimpleBrowserWindowCreate(args);
         if (gManualBrowserWindow != nullptr) {
             // No closeOnEsc, not even with EscToExit: the page uses Esc to

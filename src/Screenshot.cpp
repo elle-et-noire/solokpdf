@@ -315,7 +315,7 @@ bool SetHotkeyWnd::Create(HWND owner) {
 
     auto* vbox = new VBox();
     vbox->alignCross = CrossAxisAlign::Stretch;
-    prompt = NewDlgCaption(Tr("Press a key combination:"), fontText, ThemeWindowDarkerTextColor());
+    prompt = NewDlgCaption(Tr("Press a key combination:"), fontText, TextRole::Muted);
     vbox->AddChild(prompt);
     {
         // the combination, a key-cap a key, on a line of its own

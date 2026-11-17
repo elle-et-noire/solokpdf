@@ -623,7 +623,6 @@ bool SignDocumentWnd::Create(MainWindow* mainWin) {
     CollectFields();
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     PlatformFont* fontMeta = DlgUiFont(kToolDlgMetaFontPx);
     SetFont(fontText);
@@ -641,7 +640,7 @@ bool SignDocumentWnd::Create(MainWindow* mainWin) {
     };
     auto addRow = [&](VBox* box, Str label, ILayout* ctrl) {
         HBox* row = NewDlgFieldRow();
-        VirtText* t = NewDlgLabel(label, fontText, colMuted, kToolDlgRowDy, true);
+        VirtText* t = NewDlgLabel(label, fontText, TextRole::Muted, kToolDlgRowDy, true);
         VecAppend(labels, t);
         row->AddChild(t);
         row->AddChild(ctrl, 1);
@@ -709,7 +708,7 @@ bool SignDocumentWnd::Create(MainWindow* mainWin) {
 
     // what the signature shows, two checkboxes a row
     VBox* look = newSection();
-    look->AddChild(NewDlgLabel(Tr("Appearance:"), fontMeta, colMuted, kToolDlgRowDy));
+    look->AddChild(NewDlgLabel(Tr("Appearance:"), fontMeta, TextRole::Muted, kToolDlgRowDy));
     auto addPair = [&](Checkbox* left, Checkbox* right) {
         HBox* row = NewDlgFieldRow();
         row->AddChild(left, 1);

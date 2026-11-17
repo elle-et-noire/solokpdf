@@ -8,6 +8,7 @@ struct FrameRateWnd : WindowBase {
     ~FrameRateWnd() override;
 
     bool Create(HWND hwndAssociatedWith);
+    void UpdateTheme() override;
 
     void ShowFrameRate(int frameRate);
     void ShowFrameRateDur(double durMs);

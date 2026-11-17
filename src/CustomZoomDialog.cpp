@@ -225,7 +225,6 @@ bool CustomZoomWnd::Create(MainWindow* mainWin) {
 
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     fontText = DlgUiFont(kToolDlgTextFontPx);
     SetFont(fontText);
     bool isRtl = IsUIRtl();
@@ -239,7 +238,7 @@ bool CustomZoomWnd::Create(MainWindow* mainWin) {
     // the zoom, in the larger font
     {
         HBox* row = NewDlgRow();
-        row->AddChild(NewDlgLabel(Tr("&Magnification:"), fontText, colMuted, kToolDlgLineDy, true));
+        row->AddChild(NewDlgLabel(Tr("&Magnification:"), fontText, TextRole::Muted, kToolDlgLineDy, true));
         Edit::CreateArgs args;
         args.parent = hwnd;
         args.font = DlgUiFont(kToolDlgQueryFontPx);

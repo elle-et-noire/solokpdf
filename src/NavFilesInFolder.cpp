@@ -120,7 +120,10 @@ struct NavFilesInFolderWnd : WindowBase {
     void OnFocus(WindowBase::FocusEvent* ev);
 
     bool Create(MainWindow* win, Str filePath);
-    void CreateNavButtons(Color fg, Color bg);
+    void CreateNavButtons();
+    void RenderNavIcons();
+    void UpdateTheme() override;
+    void ApplyDarkMode() override;
     bool IsHome() const;
     void SetDir(Str dir, Str selectPath, int selectIdx = -1, NavListReset reset = NavListReset::Clear);
     void Navigate(Str dir, Str selectPath = {});
@@ -906,23 +909,44 @@ static void NavButtonClicked(NavFilesInFolderWnd* w, VirtMouseEvent* ev) {
     w->SetFocusTo(w->listBox);
 }
 
-void NavFilesInFolderWnd::CreateNavButtons(Color fg, Color bg) {
-    static const char* icons[NavBtnCount] = {gIconNavigateBack, gIconNavigateForward, gIconArrowUp, gIconHome};
+void NavFilesInFolderWnd::CreateNavButtons() {
     Str tips[NavBtnCount] = {fmt("%s (Alt + Left)", Tr("Back")), fmt("%s (Alt + Right)", Tr("Forward")),
                              fmt("%s (Alt + Up, Backspace)", Tr("Up")), Tr("Home")};
-    int isz = RoundUp(DpiScale(16), 4);
     int pad = DpiScale(4);
-    Color dis = ThemeWindowTextDisabledColor();
     for (int i = 0; i < NavBtnCount; i++) {
         auto* b = new VirtIconButton();
         b->id = i + 1; // 0 is "no id"
         b->padding = Insets{pad, pad, pad, pad};
         b->SetTooltip(tips[i]);
-        b->pixmap = GetCachedPixmapForSvg(Str(icons[i]), isz, isz, fg, bg);
-        b->pixmapDisabled = GetCachedPixmapForSvg(Str(icons[i]), isz, isz, dis, bg);
         b->onClick = MkFunc1(NavButtonClicked, this);
         navBtns[i] = b;
     }
+    RenderNavIcons();
+}
+
+// the icons are drawn in the theme's colors, so each theme renders its own
+void NavFilesInFolderWnd::RenderNavIcons() {
+    static const char* icons[NavBtnCount] = {gIconNavigateBack, gIconNavigateForward, gIconArrowUp, gIconHome};
+    int isz = RoundUp(DpiScale(16), 4);
+    Color fg = ThemeWindowTextColor();
+    Color bg = ThemeWindowControlBackgroundColor();
+    Color dis = ThemeWindowTextDisabledColor();
+    for (int i = 0; i < NavBtnCount; i++) {
+        VirtIconButton* b = navBtns[i];
+        b->pixmap = GetCachedPixmapForSvg(Str(icons[i]), isz, isz, fg, bg);
+        b->pixmapDisabled = GetCachedPixmapForSvg(Str(icons[i]), isz, isz, dis, bg);
+        b->Invalidate();
+    }
+}
+
+void NavFilesInFolderWnd::UpdateTheme() {
+    WindowBase::UpdateTheme();
+    RenderNavIcons();
+}
+
+// top-level (no owner) so Alt-Tab switches between this and the main window
+void NavFilesInFolderWnd::ApplyDarkMode() {
+    DarkModeApplyToTitleBar(hwnd);
 }
 
 // after activate: refresh dir listing and put focus on the list (Alt-Tab)
@@ -1149,13 +1173,10 @@ bool NavFilesInFolderWnd::Create(MainWindow* mainWin, Str filePath) {
     if (!hwnd) {
         return false;
     }
-    // top-level (no owner) so Alt-Tab switches between this and the main window
-    DarkModeApplyToTitleBar(hwnd);
-
     auto colBg = ThemeWindowControlBackgroundColor();
     auto colTxt = ThemeWindowTextColor();
     SetColors(colTxt, colBg);
-    CreateNavButtons(colTxt, colBg);
+    CreateNavButtons();
 
     auto* vbox = new VBox();
     vbox->alignMain = MainAxisAlign::MainStart;
@@ -1235,9 +1256,7 @@ bool NavFilesInFolderWnd::Create(MainWindow* mainWin, Str filePath) {
         auto* k = new VirtRichText();
         ParseTipInto(k, hints);
         k->font = helpFont;
-        k->SetColor(kColRichText, colTxt);
-        k->SetColor(kColRichLink, colTxt);
-        k->SetColor(kColRichBg, colBg);
+        k->colorDefaults = gColsRichTextMuted;
         auto* center = new Align(k);
         center->HAlign = AlignCenter;
         vbox->AddChild(new Padding(center, Insets{DpiScale(4), 0, 0, 0}));
@@ -1275,6 +1294,7 @@ bool NavFilesInFolderWnd::Create(MainWindow* mainWin, Str filePath) {
         SelectAndEnsureVisible(listBox, selIdx);
     }
 
+    UpdateTheme();
     SetIsVisible(true);
     SetFocusTo(listBox);
     return true;

@@ -248,7 +248,6 @@ bool AddFavoriteWnd::Create(MainWindow* win, FavDlgMode modeIn, Str path, int pa
 
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     SetFont(fontText);
     bool isRtl = IsUIRtl();
@@ -261,7 +260,7 @@ bool AddFavoriteWnd::Create(MainWindow* win, FavDlgMode modeIn, Str path, int pa
     vbox->alignCross = CrossAxisAlign::Stretch;
 
     if (isAdd) {
-        label = NewDlgCaption(FavoritePromptTemp(pageLabel), fontText, colMuted);
+        label = NewDlgCaption(FavoritePromptTemp(pageLabel), fontText, TextRole::Muted);
         vbox->AddChild(label);
 
         // the name, in the larger font
@@ -291,7 +290,7 @@ bool AddFavoriteWnd::Create(MainWindow* win, FavDlgMode modeIn, Str path, int pa
     // the selected favorite's name, and what can be done to it
     {
         HBox* row = NewDlgFieldRow();
-        row->AddChild(NewDlgLabel(Tr("Name:"), fontText, colMuted, kToolDlgRowDy));
+        row->AddChild(NewDlgLabel(Tr("Name:"), fontText, TextRole::Muted, kToolDlgRowDy));
         editRename = NewDlgEdit(hwnd, fontText, {}, 0);
         row->AddChild(NewDlgUnderlined(editRename), 1);
         btnRename = NewFavButton(this, Tr("Rename"), fontText);

@@ -136,7 +136,6 @@ bool BrightnessContrastWnd::Create(MainWindow* mainWin) {
 
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     SetFont(fontText);
     bool isRtl = IsUIRtl();
@@ -163,13 +162,13 @@ bool BrightnessContrastWnd::Create(MainWindow* mainWin) {
     };
     for (auto& spec : specs) {
         HBox* row = NewDlgFieldRow();
-        VirtText* label = NewDlgLabel(spec.label, fontText, colMuted, kToolDlgRowDy, true);
+        VirtText* label = NewDlgLabel(spec.label, fontText, TextRole::Muted, kToolDlgRowDy, true);
         VecAppend(labels, label);
         row->AddChild(label);
         *spec.slider = NewAdjustSlider(this, spec.initial);
         row->AddChild(*spec.slider, 1);
         // wide enough for "-100"
-        *spec.value = NewVirtText({.s = StrL("-100"), .font = fontText, .textColor = colMuted, .isRtl = isRtl});
+        *spec.value = NewVirtText({.s = StrL("-100"), .font = fontText, .role = TextRole::Muted, .isRtl = isRtl});
         row->AddChild(*spec.value);
         rows->AddChild(row);
     }

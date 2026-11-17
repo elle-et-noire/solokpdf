@@ -848,7 +848,6 @@ bool ChangeColorWnd::Create(MainWindow* mainWin) {
     win = mainWin;
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     SetFont(fontText);
     bool isRtl = IsUIRtl();
@@ -880,7 +879,7 @@ bool ChangeColorWnd::Create(MainWindow* mainWin) {
     Vec<VirtText*> labels;
     {
         HBox* row = NewDlgFieldRow();
-        opacityLabel = NewDlgLabel(Tr("Opacity:"), fontText, colMuted, kToolDlgRowDy);
+        opacityLabel = NewDlgLabel(Tr("Opacity:"), fontText, TextRole::Muted, kToolDlgRowDy);
         VecAppend(labels, opacityLabel);
         row->AddChild(opacityLabel);
         auto* sl = new VirtSlider();
@@ -890,14 +889,14 @@ bool ChangeColorWnd::Create(MainWindow* mainWin) {
         sl->onValueChanged = MkMethod0<ChangeColorWnd, &ChangeColorWnd::OnOpacityChanged>(this);
         opacitySlider = sl;
         row->AddChild(sl, 1);
-        opacityValue = NewVirtText({.s = StrL("255"), .font = fontText, .textColor = colMuted, .isRtl = isRtl});
+        opacityValue = NewVirtText({.s = StrL("255"), .font = fontText, .role = TextRole::Muted, .isRtl = isRtl});
         row->AddChild(opacityValue);
         opacityRow = row;
         picker->AddChild(row);
     }
     {
         HBox* row = NewDlgFieldRow();
-        labelRgb = NewDlgLabel(Tr("RGB:"), fontText, colMuted, kToolDlgRowDy);
+        labelRgb = NewDlgLabel(Tr("RGB:"), fontText, TextRole::Muted, kToolDlgRowDy);
         VecAppend(labels, labelRgb);
         row->AddChild(labelRgb);
         editRgb = NewDlgEdit(hwnd, fontText, {}, kColorRgbChars);

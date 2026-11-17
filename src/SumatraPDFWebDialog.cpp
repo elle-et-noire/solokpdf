@@ -283,8 +283,8 @@ static void ClearSumatraPDFWebWnd() {
     gSumatraPDFWebWnd = nullptr;
 }
 
-static VirtText* NewOnlineNote(Str s, PlatformFont* font, Color col) {
-    VirtText* t = NewVirtText({.s = s, .font = font, .textColor = col, .isRtl = IsUIRtl()});
+static VirtText* NewOnlineNote(Str s, PlatformFont* font, TextRole role) {
+    VirtText* t = NewVirtText({.s = s, .font = font, .role = role, .isRtl = IsUIRtl()});
     int pad = DpiScale(kToolDlgPadDx);
     t->padding = Insets{DpiScale(6), pad, 0, pad};
     return t;
@@ -943,7 +943,6 @@ bool SumatraPDFWebWnd::Create(MainWindow* mainWin) {
     win = mainWin;
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     SetFont(fontText);
     bool isRtl = IsUIRtl();
@@ -955,14 +954,14 @@ bool SumatraPDFWebWnd::Create(MainWindow* mainWin) {
 
     auto* vbox = new VBox();
     vbox->alignCross = CrossAxisAlign::Stretch;
-    vbox->AddChild(NewOnlineNote(Tr("Log in in the browser, then paste the API key here."), fontText, colMuted));
-    vbox->AddChild(NewOnlineNote(Tr("The key is a password for the files on the account."), fontText, colMuted));
+    vbox->AddChild(NewOnlineNote(Tr("Log in in the browser, then paste the API key here."), fontText, TextRole::Muted));
+    vbox->AddChild(NewOnlineNote(Tr("The key is a password for the files on the account."), fontText, TextRole::Muted));
     vbox->AddChild(
         NewOnlineNote(Tr("Forget key removes it from this computer. To revoke it, use the button on the website."),
-                      fontText, colMuted));
+                      fontText, TextRole::Muted));
     vbox->AddChild(NewOnlineNote(
         Tr("This is a copy. Edits stay on this computer until you upload again. Save does not update SumatraPDF Web."),
-        fontText, colMuted));
+        fontText, TextRole::Muted));
 
     edit = NewDlgEdit(hwnd, fontText, saved, kOnlineApiKeyLen);
     Insets fieldPad = DpiScaledInsets(8, kToolDlgPadDx, 4, kToolDlgPadDx);
@@ -977,7 +976,7 @@ bool SumatraPDFWebWnd::Create(MainWindow* mainWin) {
     listBox->onSelectionChanged = MkMethod0<SumatraPDFWebWnd, &SumatraPDFWebWnd::OnFileSel>(this);
     vbox->AddChild(NewDlgListBox(listBox));
 
-    status = NewVirtText({.s = {}, .font = fontText, .textColor = colTxt, .isRtl = isRtl, .ellipsis = true});
+    status = NewVirtText({.s = {}, .font = fontText, .isRtl = isRtl, .ellipsis = true});
     int pad = DpiScale(kToolDlgPadDx);
     status->padding = Insets{DpiScale(8), pad, DpiScale(4), pad};
     vbox->AddChild(status);

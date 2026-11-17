@@ -274,7 +274,7 @@ bool ChangeThemeWnd::Create(MainWindow* mainWin) {
     {
         HBox* row = NewDlgRow();
         labelDocumentColorsFollowTheme =
-            NewDlgLabel(Tr("Document colors follow theme"), fontText, kColorUnset, kToolDlgLineDy);
+            NewDlgLabel(Tr("Document colors follow theme"), fontText, TextRole::Normal, kToolDlgLineDy);
         row->AddChild(labelDocumentColorsFollowTheme);
         row->AddChild(new Spacer(0, 0), 1);
 

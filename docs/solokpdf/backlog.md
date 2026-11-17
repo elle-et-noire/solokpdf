@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E98–E100 and E109 open (order: E109, then E98–E100; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-17: E98–E100 open (specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -32,7 +32,6 @@ hand-written hide and reposition calls.
 | E98  | Toolbar hover drop-down (`Toolbar.cpp`, a popup under its button): stays at its old screen place when the frame is dragged or moved by Win+arrow, and stays shown when the toolbar is hidden or the fullscreen overlay toolbar auto-hides | todo   |
 | E99  | Home About hover (`HomePage.cpp`): stays over a document after Ctrl+Tab while the cursor rests on it, and at its old place after a keyboard frame move                                                                                    | todo   |
 | E100 | Canvas infotip (a topmost track-mode tooltip): Home's keyboard-selection tip keeps its screen place when the frame moves or the sidebar shifts the canvas; a link tip can linger when the cursor leaves the canvas from it                | todo   |
-| E109 | Theme changes reach every open window: `UpdateAfterThemeChange()` is a hand-written list; dialogs not on it (MergePdf, PdfTools, GoToPage, ...) keep the old theme. Make the fan-out structural. Spec `.work/codex-queue/e109.md`         | todo   |
 
 ## Deferred
 

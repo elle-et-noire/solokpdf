@@ -97,6 +97,7 @@ struct ShortcutsWnd : WindowBase {
     bool capturing = false;
 
     bool Create(MainWindow* mainWin);
+    void ApplyDarkMode() override;
     int SelectedCommand() const;
     int DraftForKey(const KeyShortcut& key) const;
     int OwnerOfKey(const KeyShortcut& key) const;
@@ -379,6 +380,11 @@ void ShortcutsWnd::OnOk(VirtMouseEvent*) {
     ApplySettingsChanges();
 }
 
+// a popup's dark mode, on creation and on every theme change
+void ShortcutsWnd::ApplyDarkMode() {
+    DarkModeReapplyToPopupWindow(hwnd);
+}
+
 bool ShortcutsWnd::Create(MainWindow* mainWin) {
     win = mainWin;
     for (Shortcut* sc : *gSettings->shortcuts) {
@@ -426,8 +432,8 @@ bool ShortcutsWnd::Create(MainWindow* mainWin) {
     commands->onSelectionChanged = MkMethod0<ShortcutsWnd, &ShortcutsWnd::RefreshBindings>(this);
     vbox->AddChild(commands, 1);
 
-    captureHint = NewDlgLabel(Tr("Select a command and press Add key..."), font, ThemeWindowTextDisabledColor(),
-                              DpiScale(kToolDlgRowDy));
+    captureHint =
+        NewDlgLabel(Tr("Select a command and press Add key..."), font, TextRole::Disabled, DpiScale(kToolDlgRowDy));
     vbox->AddChild(new Padding(captureHint, DpiScaledInsets(4, 8)));
 
     bindings = new VirtListBox();
@@ -440,8 +446,8 @@ bool ShortcutsWnd::Create(MainWindow* mainWin) {
     vbox->AddChild(bindings);
 
     auto* argRow = NewDlgFieldRow();
-    argRow->AddChild(NewDlgLabel(Tr("Command &argument (optional):"), font, ThemeWindowTextDisabledColor(),
-                                 DpiScale(kToolDlgRowDy), true));
+    argRow->AddChild(
+        NewDlgLabel(Tr("Command &argument (optional):"), font, TextRole::Disabled, DpiScale(kToolDlgRowDy), true));
     editArgs.cueText = Tr("e.g. 4 for CmdScrollDown 4");
     argument = new Edit();
     argument->SetColors(text, bg);
@@ -475,7 +481,6 @@ bool ShortcutsWnd::Create(MainWindow* mainWin) {
     DoLayout(HwndClientRect(hwnd).Size());
     HwndCenterDialog(hwnd, win->hwndFrame);
     UpdateTheme();
-    DarkModeApplyToPopupWindow(hwnd);
     SetIsVisible(true);
     HwndSetFocus(filter->hwnd);
     return true;

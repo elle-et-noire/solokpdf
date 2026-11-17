@@ -2848,11 +2848,25 @@ void VirtText::PaintText(VirtPaintCtx& ctx, Color textColor) {
     }
 }
 
+// a text's role picks the palette it paints from; an explicit kColText stays
+void SetTextRole(VirtText* t, TextRole role) {
+    switch (role) {
+        case TextRole::Normal:
+            t->colorDefaults = gColsText;
+            break;
+        case TextRole::Muted:
+            t->colorDefaults = gColsTextMuted;
+            break;
+        case TextRole::Disabled:
+            t->colorDefaults = gColsTextDisabled;
+            break;
+    }
+    t->Invalidate();
+}
+
 VirtText* NewVirtText(const VirtTextArgs& args) {
     auto* w = new VirtText(args.s, args.font);
-    if (args.role == TextRole::Muted) {
-        w->colorDefaults = gColsTextMuted;
-    }
+    SetTextRole(w, args.role);
     if (args.textColor != kColorUnset) {
         w->SetColor(kColText, args.textColor);
     }
@@ -3651,6 +3665,35 @@ VirtText* AsVirtText(ILayout* l) {
         return (VirtText*)l;
     }
     return nullptr;
+}
+
+// test: "text col=<hex> s=<text>" per visible text or link under root (not a
+// button: its text color is its style's), to check a theme change reached it
+static void AppendTextColors(str::Builder& out, VirtCtrl* w, int depth) {
+    if (!w || depth > 32 || !w->IsVisible()) {
+        return;
+    }
+    VirtText* text = AsVirtText(w);
+    if (text && w->GetKind() != kindVirtCtrlButton) {
+        out.Append(fmt("text col=%06x s=", (unsigned)text->GetColor(kColText)));
+        AppendSanitized(out, text->s);
+        out.AppendChar('\n');
+    }
+    if (w->HasFlag(vwfPaintsOwnChildren)) {
+        return;
+    }
+    for (VirtCtrl* c : w->children) {
+        AppendTextColors(out, c, depth + 1);
+    }
+}
+
+void AppendVirtTextColors(str::Builder& out, VirtRoot* root) {
+    if (!root) {
+        return;
+    }
+    for (VirtCtrl* w : root->tops) {
+        AppendTextColors(out, w, 0);
+    }
 }
 
 VirtButton* AsVirtButton(ILayout* l) {

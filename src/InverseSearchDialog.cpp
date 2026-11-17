@@ -119,7 +119,7 @@ bool InverseSearchWnd::Create(MainWindow* mainWin) {
     auto* vbox = new VBox();
     vbox->alignCross = CrossAxisAlign::Stretch;
     label = NewDlgCaption(Tr("Enter the command line to invoke when you double-click on the PDF document:"), fontText,
-                          ThemeWindowDarkerTextColor());
+                          TextRole::Muted);
     vbox->AddChild(label);
 
     DropDown::CreateArgs args;

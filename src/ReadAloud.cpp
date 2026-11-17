@@ -141,6 +141,7 @@ struct ReadAloudPlaybackBar : WindowBase {
     void SyncColors();
     void UpdateLayout(bool forceLayout = false);
     void OnPaint(WindowBase::PaintEvent* ev);
+    void UpdateTheme() override;
 
     WindowTab* sessionTab = nullptr;
     HWND hwndCanvas = nullptr;
@@ -372,6 +373,12 @@ void ReadAloudPlaybackBar::UpdateLayout(bool forceLayout) {
         dbgtts("bar-layout force=%d samePos=%d\n", (int)forceLayout, (int)samePos);
         DoLayout({barDx, barDy});
     }
+}
+
+// on the notification surface, not a dialog's: its colors are resolved as it
+// paints, so a theme change only repaints it
+void ReadAloudPlaybackBar::UpdateTheme() {
+    HwndScheduleRepaint(hwnd);
 }
 
 void ReadAloudPlaybackBar::OnPaint(WindowBase::PaintEvent* ev) {

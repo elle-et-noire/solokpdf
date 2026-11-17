@@ -117,3 +117,6 @@ FrameRateWnd::~FrameRateWnd() {
 int FrameRateFromDuration(double durMs) {
     return (int)(double(1000) / durMs);
 }
+
+// white on black, whatever the theme
+void FrameRateWnd::UpdateTheme() {}

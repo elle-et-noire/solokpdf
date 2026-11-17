@@ -103,7 +103,6 @@ void GetPasswordWnd::OnOk(VirtMouseEvent*) {
 bool GetPasswordWnd::Create() {
     Color colTxt = ThemeWindowTextColor();
     Color colBg = ThemeWindowControlBackgroundColor();
-    Color colMuted = ThemeWindowDarkerTextColor();
     PlatformFont* fontText = DlgUiFont(kToolDlgTextFontPx);
     PlatformFont* fontQuery = DlgUiFont(kToolDlgQueryFontPx);
     SetFont(fontText);
@@ -114,12 +113,12 @@ bool GetPasswordWnd::Create() {
 
     auto* vbox = new VBox();
     vbox->alignCross = CrossAxisAlign::Stretch;
-    vbox->AddChild(NewDlgCaption(fmt(Tr("Enter password for %s").s, fileName), fontText, colMuted));
+    vbox->AddChild(NewDlgCaption(fmt(Tr("Enter password for %s").s, fileName), fontText, TextRole::Muted));
 
     // the password, in the larger font
     {
         HBox* row = NewDlgRow();
-        row->AddChild(NewDlgLabel(Tr("&Password:"), fontText, colMuted, kToolDlgLineDy, true));
+        row->AddChild(NewDlgLabel(Tr("&Password:"), fontText, TextRole::Muted, kToolDlgLineDy, true));
         Edit::CreateArgs args;
         args.parent = hwnd;
         args.font = fontQuery;

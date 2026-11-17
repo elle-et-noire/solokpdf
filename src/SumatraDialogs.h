@@ -10,6 +10,7 @@ struct Gfx;
 struct Checkbox;
 struct PlatformFont;
 struct WindowBase;
+enum class TextRole;
 enum class VirtButtonStyle;
 
 void ShowAddFavoriteDialog(MainWindow* win, Str filePath, int pageNo, Str pageLabel, Str name);
@@ -128,8 +129,8 @@ void SetDlgButtonEnabled(VirtButton* b, DlgButtonStyle style, bool enabled);
 PlatformFont* DlgUiFont(int px);
 bool CreateToolDialog(WindowBase* w, HWND owner, Str title, PlatformFont* font, Color txt, Color bg);
 void SizeToLayout(WindowBase* w, ILayout* layout, int minDx, int minDy, HWND centerOn);
-VirtText* NewDlgLabel(Str s, PlatformFont* font, Color col, int dy, bool prefix = false);
-VirtText* NewDlgCaption(Str s, PlatformFont* font, Color col);
+VirtText* NewDlgLabel(Str s, PlatformFont* font, TextRole role, int dy, bool prefix = false);
+VirtText* NewDlgCaption(Str s, PlatformFont* font, TextRole role);
 ILayout* NewDlgUnderlined(ILayout* field);
 HBox* NewDlgRow();
 ILayout* NewDlgFooter(VirtButton* cancel, VirtButton* ok, VirtButton* extra = nullptr);

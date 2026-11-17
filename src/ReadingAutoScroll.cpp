@@ -47,6 +47,7 @@ struct ReadingAutoScrollBar : WindowBase {
     void SyncColors();
     void UpdateLayout(bool forceLayout = false);
     void OnPaint(WindowBase::PaintEvent* ev);
+    void UpdateTheme() override;
 
     HWND hwndCanvas = nullptr;
     VirtButton* btnPause = nullptr;
@@ -325,6 +326,12 @@ void ReadingAutoScrollBar::UpdateLayout(bool forceLayout) {
     if (!samePos || forceLayout) {
         DoLayout({barDx, barDy});
     }
+}
+
+// on the notification surface, not a dialog's: its colors are resolved as it
+// paints, so a theme change only repaints it
+void ReadingAutoScrollBar::UpdateTheme() {
+    HwndScheduleRepaint(hwnd);
 }
 
 void ReadingAutoScrollBar::OnPaint(WindowBase::PaintEvent* ev) {
