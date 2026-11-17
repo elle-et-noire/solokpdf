@@ -201,6 +201,13 @@ on-screen keyboard does; `click-frame` / `click-last` activate the frame or the
 newest window with `SetActiveWindow()` alone, as a caption click does:
 `activate` / `activate-last` end with a `SetFocus()` that would hide a focus
 move made in a loss handler.
+E146: `TestFocusState click-hwnd <hwnd>` activates that window as a caption click
+does (Advanced Settings isn't owned by the frame, so `activate` doesn't bring its
+edit back); `page-navigating` calls the frame's `FocusFrame(false)` as a CHM or
+Markdown page's `OnBeforeNavigate` does (IE navigates asynchronously and the CHM
+fixture has one page); an Edit in an unowned window reads `other-edit`. A DDE
+open loads synchronously here, so `LoadModelIntoTab`'s focus is tested through
+`TestSelectTab`.
 E145: while minimized, the test sends Run PDF Script `WM_SETREDRAW` FALSE/TRUE and
 sets `WS_VISIBLE` with `SetWindowLong` from its own process; the dialog must stay off
 screen and come back at its place with the focus. Windows doesn't hide that dialog

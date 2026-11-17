@@ -17,8 +17,6 @@ const allowed: Record<string, string> = {
   "base/Win.cpp:HwndSetFocusForce": "AttachThreadInput to the foreground thread to take focus",
   "base/Win.cpp:InitConsoleState": "startup: the console window to restore after attaching",
   "SumatraPDF.cpp:SetStartupDpi": "startup DPI from the cursor's monitor, before any test cursor",
-  "CommandPalette.cpp:SafeDeleteCommandPaletteWnd": "re-raises the owner unless another app took activation",
-  "NavFilesInFolder.cpp:SafeDeleteNavFilesWnd": "re-raises the owner unless another app took activation",
   "gui/win/PlatformWindowWin.cpp:PlatformWindowActivateIfForeground": "raises unless another app took activation",
   "gui/win/Edit.cpp:SetFocusAttached": "AttachThreadInput to the foreground thread to take focus",
   "SumatraControl.cpp:ActivateForTest": "-dbg-control activate: attaches thread input and raises the window",

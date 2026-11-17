@@ -273,7 +273,7 @@ struct AdvancedSettingsWnd : WindowBase {
     void OnEnumDropDownClosed();
     void CheckDropDownClosed();
     void CloseEnumEdit(bool keepValue);
-    void KeepFocus();
+    bool KeepFocus();
     void PostedKeepFocus();
     void RelayoutInPlaceEditor();
     void OnEditValueKillFocus();
@@ -735,23 +735,19 @@ void AdvancedSettingsWnd::BeginEditEnum(int idx) {
     }
 }
 
-// Previewing a value (or the combo list closing) can activate the main
-// window. Put the user back in this dialog; if the list is still open,
-// leave the caret on the combo.
-void AdvancedSettingsWnd::KeepFocus() {
-    if (gAdvancedSettingsWnd != this || !hwnd) {
-        return;
+// Previewing a value (or the combo list closing) can activate the main window, or leave
+// no focus. Put the user back in this dialog, on the combo while its list is open; another
+// app or window the focus went to keeps it.
+bool AdvancedSettingsWnd::KeepFocus() {
+    if (gAdvancedSettingsWnd != this || !hwnd || !IsMainWindowValid(win)) {
+        return false;
+    }
+    HWND to = dropDownValue && dropDownValue->hwnd ? dropDownValue->hwnd : hwnd;
+    if (HwndThreadFocus() == to || (!HwndMoveFocus(win->hwndFrame, to) && !HwndMoveFocus(nullptr, to))) {
+        return false;
     }
     RaiseAppWindow(hwnd, WindowRaise::RestoreForeground);
-    HWND focused = ::GetFocus();
-    if (focused == hwnd || ::IsChild(hwnd, focused)) {
-        return;
-    }
-    if (dropDownValue && dropDownValue->hwnd) {
-        HwndSetFocus(dropDownValue->hwnd);
-        return;
-    }
-    HwndSetFocus(hwnd);
+    return true;
 }
 
 void AdvancedSettingsWnd::RelayoutInPlaceEditor() {
@@ -777,18 +773,13 @@ void AdvancedSettingsWnd::PostedRefocusEditValue() {
     if (gAdvancedSettingsWnd != this || !editValue || !editValue->hwnd) {
         return;
     }
-    // the on-screen keyboard took the focus; another app or window that took it keeps it
-    HwndMoveFocus(nullptr, editValue->hwnd);
+    // the on-screen keyboard or another app took the focus; a window of ours that took it keeps it
+    HwndRefocusWhenActive(editValue->hwnd);
 }
 
-// destroying the combo can activate the main window after we return: the focus comes
-// back from there, not from another app or window the user went to
+// destroying the combo can activate the main window after we return
 void AdvancedSettingsWnd::PostedKeepFocus() {
-    if (gAdvancedSettingsWnd != this || !hwnd || !IsMainWindowValid(win)) {
-        return;
-    }
-    if (HwndMoveFocus(win->hwndFrame, hwnd)) {
-        RaiseAppWindow(hwnd, WindowRaise::RestoreForeground);
+    if (KeepFocus()) {
         SetFocusTo(listBox);
     }
 }
@@ -890,12 +881,17 @@ void AdvancedSettingsWnd::CloseEnumEdit(bool keepValue) {
     }
     editItemIdx = -1;
     commonEdit = CommonEdit::None;
+    // the focus in the combo goes to the list; one elsewhere stays
+    if (HwndMoveFocus(hwnd, hwnd)) {
+        SetFocusTo(listBox);
+    }
     delete tmp;
     RefreshPreviewColors(oldBg);
     listBox->Invalidate();
     UpdateHints();
-    KeepFocus();
-    SetFocusTo(listBox);
+    if (KeepFocus()) {
+        SetFocusTo(listBox);
+    }
     // destroying the combo can activate the main window after we return
     auto fn = MkMethod0<AdvancedSettingsWnd, &AdvancedSettingsWnd::PostedKeepFocus>(this);
     uitask::Post(fn, "AdvSettingsKeepFocus");

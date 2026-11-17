@@ -13,8 +13,13 @@
 // caret goes. A click on the canvas activating the frame refocuses the contents edit, then
 // takes the focus from it: committed, as for a click away.
 //
-// `away` activates a window standing for another app; `click-frame` / `click-last`
-// activate a frame as a click on its caption does, with no SetFocus() after.
+// E146: the rest of the deferred moves: Advanced Settings' drop-down closed by the loss,
+// a Change Theme preview, a tab shown, a web page navigating, the command palette
+// closed. The contents and Advanced Settings edits get the focus another app took back
+// once their window is active again, as after a minimize.
+//
+// `away` activates a window standing for another app; `click-frame` / `click-last` /
+// `click-hwnd` activate a window as a click on its caption does, with no SetFocus() after.
 //
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e144-focus-restores.ts --no-build
 
@@ -39,6 +44,10 @@ import {
 import { cmdId, pollUntil, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 import {
   enumWindows,
+  sendCopyDataW,
+  VK_DOWN,
+  VK_ESCAPE,
+  WM_KEYDOWN,
   getControlText,
   getWindowPid,
   getWindowText,
@@ -50,9 +59,19 @@ import {
   WM_CLOSE,
   WM_COMMAND,
 } from "./winapi.ts";
-import { clickCanvasAway, findCanvas, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import {
+  clickCanvasAway,
+  findCanvas,
+  killAndWait,
+  launchControlled,
+  sendCommand,
+  sendCommandSync,
+  waitForPalette,
+} from "./win-automation.ts";
 
 const WAIT_MS = 3000;
+// WM_COPYDATA id of a DDE command
+const DDE_COPYDATA = 0x44646557;
 const failures: string[] = [];
 
 function check(ok: boolean, what: string): void {
@@ -123,6 +142,34 @@ async function editing(client: ControlClient): Promise<boolean> {
   return / editing=1\b/.test(await annotToolbarDump(client));
 }
 
+// activated as a click on its caption does
+async function clickTop(client: ControlClient, hwnd: number): Promise<void> {
+  await client.request(ControlCommand.TestFocusState, ["click-hwnd", hwnd]);
+}
+
+async function themeColors(client: ControlClient): Promise<string> {
+  const dump = String((await client.request(ControlCommand.TestThemeWindows, [""]))[1] ?? "");
+  return dump.split("\n")[0] ?? "";
+}
+
+async function currentTab(client: ControlClient): Promise<string> {
+  return String((await client.request(ControlCommand.TestCurrentTab, []))[1] ?? "");
+}
+
+// opened in a new tab of `frame` as another app asks for it, without the focus
+async function openInTab(client: ControlClient, frame: number, path: string, page: number): Promise<void> {
+  sendCopyDataW(frame, DDE_COPYDATA, `[Open("${path}", 0, 0, 0)]`);
+  await pollUntil(
+    () => currentTab(client),
+    (r) => r.startsWith(`path=${path} page=${page}`),
+    { timeoutMs: WAIT_MS, error: (r) => `${path} not loaded: ${r}` },
+  );
+}
+
+async function paletteOpen(client: ControlClient): Promise<boolean> {
+  return (await client.request(ControlCommand.TestCommandPalette, []))[0] === 0;
+}
+
 export async function testit(): Promise<void> {
   failures.length = 0;
   setProcessDpiAware();
@@ -131,6 +178,8 @@ export async function testit(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "doc.pdf");
   writeFileSync(pdf, makeE110Pdf(), "latin1");
+  const pdf2 = join(dir, "doc2.pdf");
+  writeFileSync(pdf2, makeE110Pdf(), "latin1");
   writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n");
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   const pid = proc.pid!;
@@ -187,12 +236,18 @@ export async function testit(): Promise<void> {
       return edit;
     };
 
-    await step("contents edit: another app takes the focus", async () => {
+    await step("contents edit: another app takes the focus, back with the frame", async () => {
       await openEdit("away");
       await focusState(client, "away");
       checkAway(await settled(client), "after the loss");
       check(await editing(client), "the contents edit closed");
       await activateFrame(client);
+      await pollUntil(
+        () => settled(client),
+        (r) => r.startsWith("focus=annot-toolbar "),
+        { timeoutMs: WAIT_MS, error: (r) => `the contents edit did not get the focus back: ${r}` },
+      );
+      check(await editing(client), "the contents edit closed on the way back");
     });
 
     await step("contents edit: the on-screen keyboard takes the focus", async () => {
@@ -256,14 +311,83 @@ export async function testit(): Promise<void> {
       check((await advSettings(client, "state")).includes("editing=0"), "the value edit is still open");
     });
 
-    await step("Advanced Settings edit: another app takes the focus", async () => {
+    const advWnd = topWindow(pid, "Advanced Settings");
+    await step("Advanced Settings edit: another app takes the focus, back with the dialog", async () => {
       check((await advSettings(client, "edit")).includes("editing=1"), "the value edit did not open");
       await focusState(client, "away");
       checkAway(await settled(client), "after the loss");
       check((await advSettings(client, "state")).includes("editing=1"), "the value edit closed");
+      await clickTop(client, advWnd);
+      await pollUntil(
+        () => settled(client),
+        (r) => r.startsWith("focus=other-edit "),
+        { timeoutMs: WAIT_MS, error: (r) => `the value edit did not get the focus back: ${r}` },
+      );
+      check((await advSettings(client, "state")).includes("editing=1"), "the value edit closed on the way back");
+    });
+
+    // the loss closes the list; the posted close and the combo's end leave the focus there
+    await step("Advanced Settings drop-down: another app takes the focus", async () => {
+      await clickTop(client, advWnd);
+      const res = await client.request(ControlCommand.TestAdvSettingsRows, ["open-choice", 0]);
+      check(res[0] === 0, `the drop-down did not open: ${res[1]}`);
+      await focusState(client, "away");
+      checkAway(await settled(client), "after the loss");
     });
     await advSettings(client, "cancel");
     await activateFrame(client);
+
+    await step("Change Theme: a preview after another app took the focus", async () => {
+      sendCommandSync(frame, cmdId("CmdChangeTheme"));
+      const dlg = topWindow(pid, "Change Theme");
+      check(dlg !== 0, "the Change Theme dialog did not open");
+      try {
+        const colors = await themeColors(client);
+        postMessage(dlg, WM_KEYDOWN, VK_DOWN, 0);
+        await focusState(client, "away");
+        await pollUntil(
+          () => themeColors(client),
+          (c) => c !== colors,
+          { timeoutMs: WAIT_MS, error: "the next theme was not previewed" },
+        );
+        checkAway(await settled(client), "after the preview");
+      } finally {
+        postMessage(dlg, WM_CLOSE, 0, 0);
+        await waitGone(() => topWindow(pid, "Change Theme"), "Change Theme dialog");
+      }
+    });
+    await activateFrame(client);
+
+    await step("command palette: closed after another app took the focus", async () => {
+      sendCommand(frame, cmdId("CmdCommandPalette"));
+      const { edit } = await waitForPalette(client, frame);
+      check(edit !== 0, "the palette did not open");
+      await focusState(client, "away");
+      postMessage(edit, WM_KEYDOWN, VK_ESCAPE, 0);
+      await pollUntil(
+        () => paletteOpen(client),
+        (o) => !o,
+        { timeoutMs: WAIT_MS, error: "the palette did not close" },
+      );
+      checkAway(await settled(client), "closed");
+    });
+    await activateFrame(client);
+
+    await step("command palette: closed with the focus, the frame gets it", async () => {
+      sendCommand(frame, cmdId("CmdCommandPalette"));
+      const { edit } = await waitForPalette(client, frame);
+      check(edit !== 0, "the palette did not open");
+      const opened = await focusState(client);
+      check(opened.startsWith("focus=palette "), `the palette has no focus: ${opened}`);
+      postMessage(edit, WM_KEYDOWN, VK_ESCAPE, 0);
+      await pollUntil(
+        () => paletteOpen(client),
+        (o) => !o,
+        { timeoutMs: WAIT_MS, error: "the palette did not close" },
+      );
+      const res = await settled(client);
+      check(/^focus=frame active=frame /.test(res), `the frame did not get the focus: ${res}`);
+    });
 
     await step("Navigate Files path edit: a click on the frame's caption", async () => {
       await client.request(ControlCommand.TestInvokeCommand, ["CmdNavigateFilesInFolder"]);
@@ -275,6 +399,37 @@ export async function testit(): Promise<void> {
     });
     const nav = topWindow(pid, "Navigate Files in Folder");
     if (nav) postMessage(nav, WM_CLOSE, 0, 0);
+    await activateFrame(client);
+
+    await step("document loaded: another app has the focus", async () => {
+      await focusState(client, "away");
+      await openInTab(client, frame, pdf2, 1);
+      checkAway(await settled(client), "loaded");
+    });
+    await activateFrame(client);
+
+    // a tab shown for the app (the palette's close, an async load) and a web page's
+    // navigation (CHM, Markdown): the frame without a focus takes it (startup, script
+    // dropping it), another app's stays
+    const deferred = [
+      { what: "tab shown", run: (i: number) => client.request(ControlCommand.TestSelectTab, [i % 2]) },
+      { what: "web page navigating", run: () => focusState(client, "page-navigating") },
+    ];
+    for (const d of deferred) {
+      await step(`${d.what}: the frame active, no focus`, async () => {
+        await focusState(client, "none");
+        await d.run(0);
+        const res = await settled(client);
+        check(/^focus=(frame|canvas) active=frame /.test(res), `the frame did not get the focus: ${res}`);
+      });
+
+      await step(`${d.what}: another app has the focus`, async () => {
+        await focusState(client, "away");
+        await d.run(1);
+        checkAway(await settled(client), d.what);
+      });
+      await activateFrame(client);
+    }
   } finally {
     client.close();
     await killAndWait(proc);

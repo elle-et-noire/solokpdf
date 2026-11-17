@@ -1170,6 +1170,10 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
     if (win && GetWindow(GetAncestor(hwnd, GA_ROOT), GW_OWNER) == win->hwndFrame) {
         return StrL("owned");
     }
+    // an edit in an unowned window: the Advanced Settings value
+    if (str::Eq(HwndGetClassName(hwnd), StrL("Edit"))) {
+        return StrL("other-edit");
+    }
     return StrL("other");
 }
 
@@ -3537,6 +3541,15 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             if (last && str::Eq(action, StrL("click-last"))) {
                 SetActiveWindow(last->hwndFrame);
+            }
+            // a CHM or Markdown page starts navigating (OnBeforeNavigate), maybe long after its load
+            if (win && win->cbHandler && str::Eq(action, StrL("page-navigating"))) {
+                win->cbHandler->FocusFrame(false);
+            }
+            // a click on the caption of the app's window given as the second argument
+            i32 clicked = 0;
+            if (str::Eq(action, StrL("click-hwnd")) && IntArg(req, 1, clicked)) {
+                SetActiveWindow((HWND)(intptr_t)clicked);
             }
             if (win && str::Eq(action, StrL("kill-moves-focus")) && GetFocus()) {
                 gKillMovesTo = win->hwndCanvas;

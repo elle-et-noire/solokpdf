@@ -1223,10 +1223,15 @@ static bool WaitForPendingControllerDeletes() {
     return true;
 }
 
+// `always`: a click in the document's web view. Else a navigation, maybe long after the
+// input: JavaScript dropping the focus doesn't leave the frame without it, and another app
+// or window that has it keeps it.
 void ControllerCallbackHandler::FocusFrame(bool always) {
-    if (always || !FindMainWindowByHwnd(GetFocus())) {
+    if (always) {
         HwndSetFocus(win->hwndFrame);
+        return;
     }
+    HwndMoveFocus(nullptr, win->hwndFrame);
 }
 
 void ControllerCallbackHandler::SaveDownload(Str url, Str data) {
@@ -4498,6 +4503,21 @@ MainWindow* LoadDocument(MainWindow* win, Str path) {
     return LoadDocument(&args);
 }
 
+// The document shown, maybe after an async load: the focus in the frame goes to it, and
+// with no focus on the thread, its frame active or none (startup, nothing activated yet),
+// the frame takes it. Another window or app that has it keeps it. True if the frame has it.
+static bool FocusFrameForDocument(MainWindow* win) {
+    HWND frame = win->hwndFrame;
+    if (HwndMoveFocus(frame, frame)) {
+        return true;
+    }
+    if (!GetActiveWindow() && !HwndThreadFocus()) {
+        HwndSetFocus(frame);
+        return HwndThreadFocus() == frame;
+    }
+    return HwndMoveFocus(nullptr, frame);
+}
+
 // Loads document data into the MainWindow.
 void LoadModelIntoTab(WindowTab* tab) {
     if (!tab) {
@@ -4565,7 +4585,9 @@ void LoadModelIntoTab(WindowTab* tab) {
             win->favTreeView->ExpandAll();
             RedrawWindow(win->favTreeView->hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_ALLCHILDREN);
         }
-        EditSetFocus(win->favFilterEdit);
+        if (FocusFrameForDocument(win)) {
+            EditSetFocus(win->favFilterEdit);
+        }
         EditSetCursorPosAtEnd(win->favFilterEdit);
         ReadingAutoScrollSyncToTab(tab);
         return;
@@ -4653,7 +4675,7 @@ void LoadModelIntoTab(WindowTab* tab) {
         win->uiaProvider->OnSelectionChanged();
     }
 
-    HwndSetFocus(win->hwndFrame);
+    FocusFrameForDocument(win);
     if (tab->type == WindowTab::Type::None) {
         logf("LoadModelIntoTab: tab 0x%p has Type::None, skipping reload\n", tab);
     } else if (!tab->IsAboutTab()) {
@@ -14210,7 +14232,7 @@ void UpdateSidebarOverlay(MainWindow* win, SidebarOverlayUpdate update) {
     win->sidebarOverlayShown = false;
     // keys must not go to a hidden tree
     if (focusIn) {
-        HwndSetFocus(win->hwndCanvas);
+        HwndMoveFocus(win->hwndFrame, win->hwndCanvas);
     }
     PlaceSidebarOverlay(win);
 }

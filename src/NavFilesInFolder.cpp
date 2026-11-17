@@ -165,14 +165,12 @@ static void SafeDeleteNavFilesWnd() {
     }
     auto* tmp = gNavFilesWnd;
     gNavFilesWnd = nullptr;
-    delete tmp;
-    if (gHwndToActivateOnNavClose) {
-        HWND fg = GetForegroundWindow();
-        if (!fg || fg == gHwndToActivateOnNavClose) {
-            RaiseAppWindow(gHwndToActivateOnNavClose, WindowRaise::Active);
-        }
-        gHwndToActivateOnNavClose = nullptr;
+    // the focus in the window goes to the frame, activating it; one elsewhere stays
+    if (gHwndToActivateOnNavClose && tmp->hwnd) {
+        HwndMoveFocus(tmp->hwnd, gHwndToActivateOnNavClose);
     }
+    gHwndToActivateOnNavClose = nullptr;
+    delete tmp;
 }
 
 static void ScheduleDeleteNavFilesWnd() {

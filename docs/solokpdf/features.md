@@ -440,6 +440,11 @@ is active again (E143). What the app does on its own, later or as an edit ends, 
 focus only from its own window: closing the search bar while another app or
 window has the focus leaves it there, and a click on another window that ends the
 free text box or an Advanced Settings value keeps the focus there (E144).
+The same holds for Advanced Settings' drop-down closing, a Change Theme preview,
+a tab shown or a CHM / Markdown page navigating for the app, and the command
+palette or Navigate Files closing. A contents or Advanced Settings value edit
+whose focus another app took gets it back once its window (the dialog, for
+Advanced Settings) is active again, as after a minimize (E146).
 
 ## Count prefix
 

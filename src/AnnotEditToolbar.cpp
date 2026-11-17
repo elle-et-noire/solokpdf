@@ -1390,8 +1390,8 @@ static void PostedRefocusContents(MainWindow* win) {
     if (!tb || tb->contentsEditClosing || !tb->editingContents || !tb->contentsEdit) {
         return;
     }
-    // the on-screen keyboard took the focus; another app or window that took it keeps it
-    HwndMoveFocus(nullptr, tb->contentsEdit->hwnd);
+    // the on-screen keyboard or another app took the focus; a window of ours that took it keeps it
+    HwndRefocusWhenActive(tb->contentsEdit->hwnd);
 }
 
 static void OnContentsEditWndProc(AnnotEditToolbar* tb, ControlBase::WndProcEvent* ev) {

@@ -256,14 +256,13 @@ void SafeDeleteCommandPaletteWnd() {
     MainWindow* win = gCommandPaletteWnd->win;
     auto* tmp = gCommandPaletteWnd;
     gCommandPaletteWnd = nullptr;
-    delete tmp;
-    if (gHwndToActivateOnClose) {
-        HWND fg = GetForegroundWindow();
-        if (!fg || fg == gHwndToActivateOnClose) {
-            RaiseAppWindow(gHwndToActivateOnClose, WindowRaise::Active);
-        }
-        gHwndToActivateOnClose = nullptr;
+    // the focus in the palette goes to the window it picked, activating it; one another
+    // app or window took meanwhile stays
+    if (gHwndToActivateOnClose && tmp->hwnd) {
+        HwndMoveFocus(tmp->hwnd, gHwndToActivateOnClose);
     }
+    gHwndToActivateOnClose = nullptr;
+    delete tmp;
     if (gTabToSelectOnClose) {
         WindowTab* tab = gTabToSelectOnClose;
         gTabToSelectOnClose = nullptr;

@@ -26,6 +26,7 @@ const allowed: Record<string, string> = {
   "ad-hoc-4600-notif.ts:foreground-notif": "notification pixel checks",
   "ad-hoc-4600-perfile.ts:foreground-import": "per-file pixel checks import",
   "ad-hoc-4600-perfile.ts:foreground-perfile": "per-file pixel checks",
+  "lint-posted-tasks.ts:focus-names": "names the app's deferred focus moves lint looks for in src/",
 };
 
 const desktopInput =

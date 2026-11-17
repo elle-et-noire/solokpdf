@@ -120,15 +120,15 @@ void ChangeThemeWnd::PreviewDocumentColors() {
 
 // Picking a theme refreshes the whole app: the main window's toolbar, find bar,
 // menu bar and AI chat webview are rebuilt, and some of that takes the keyboard
-// focus. The user is working in this dialog, so take the focus back (a focus
-// that is already on one of our controls, e.g. the drop-down, stays put)
+// focus. The user is working in this dialog, so take the focus back from the main
+// window, or when none has it (one on our controls, e.g. the drop-down, stays put; another
+// app or window the user went to, e.g. while the preview waited, keeps it)
 void ChangeThemeWnd::KeepFocus() {
-    RaiseAppWindow(hwnd, WindowRaise::RestoreForeground);
-    HWND focused = ::GetFocus();
-    if (focused == hwnd || ::IsChild(hwnd, focused)) {
-        return;
+    HWND frame = IsMainWindowValid(win) ? win->hwndFrame : nullptr;
+    bool moved = (frame && HwndMoveFocus(frame, hwnd)) || HwndMoveFocus(nullptr, hwnd);
+    if (moved) {
+        RaiseAppWindow(hwnd, WindowRaise::RestoreForeground);
     }
-    HwndSetFocus(hwnd);
 }
 
 void ChangeThemeWnd::KillPreviewTimer() {

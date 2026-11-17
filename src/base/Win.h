@@ -107,6 +107,7 @@ bool HwndIsVisible(HWND hwnd);
 bool HwndIsOnScreen(HWND hwnd);
 HWND HwndRootOwner(HWND hwnd);
 bool HwndMoveFocus(HWND from, HWND to);
+void HwndRefocusWhenActive(HWND to);
 void HwndSetVisible(HWND hwnd, bool visible);
 void HwndToForeground(HWND hwnd);
 
