@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E112, E115–E119, E122–E123 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E123, E122, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-17: E112, E115–E119, E122–E126 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E123, E122, E124, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B77, C2, D15, E124, F4). For a code change, choose affected tests from
+group (B77, C2, D15, E127, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -33,6 +33,9 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | E119 | Review docs and process: fz_catch conversion for upstream merges, fz-catch.h MuPDF dependency, doc claims, spec rules. Spec `.work/codex-queue/e119.md`                                                                                               | todo   |
 | E122 | Every hover query answers busy and uses the one hover retry: I-beam cursor, annotation hover, widget cursor, blocking citation text fallback (E120 audit). Spec `.work/codex-queue/e122.md`                                                           | todo   |
 | E123 | User actions during a render: link click, image drag, context menu and the Edit PDF click that selects an annotation (E121) treat a busy lookup as no element and drop the action (E120 audit). Spec `.work/codex-queue/e123.md`                      | todo   |
+| E124 | Anchored popups an owner hides while the frame is minimized come back on restore (Windows reshows owned popups; the layer can't see the hide). Make the owner's intent visible to the layer (E121 follow-up). Spec `.work/codex-queue/e124.md`        | todo   |
+| E125 | Annotation toolbar click point lives with the selection, not the toolbar: scrolling the page off and back re-shows it at the annotation's left edge (E121 follow-up). Spec `.work/codex-queue/e125.md`                                                | todo   |
+| E126 | Home keyboard-focus tip is dismissed on minimize and not shown on restore (E121 follow-up). Spec `.work/codex-queue/e126.md`                                                                                                                          | todo   |
 
 ## Deferred
 
