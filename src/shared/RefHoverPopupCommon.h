@@ -3,7 +3,11 @@
 
 // --- shared by RefHoverPopupCommon.cpp and each app's RefHoverPopup.cpp ---
 
-IPageDestination* LaunchLinkAtPopupPt(RefHoverState* s, int clientX, int clientY);
+enum class PopupHit {
+    Hover,
+    Click
+};
+IPageDestination* LaunchLinkAtPopupPt(RefHoverState* s, int clientX, int clientY, PopupHit hit = PopupHit::Hover);
 bool RefHoverIsInternalLink(IPageElement* el, DisplayModel* dm);
 
 // WHEEL_DELTA, the unit RefHoverWheelScroll counts notches in

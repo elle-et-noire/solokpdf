@@ -80,7 +80,7 @@ static LRESULT CALLBACK RefHoverWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
         if (s) {
             int cx = GET_X_LPARAM(lp);
             int cy = GET_Y_LPARAM(lp);
-            IPageDestination* dest = LaunchLinkAtPopupPt(s, cx, cy);
+            IPageDestination* dest = LaunchLinkAtPopupPt(s, cx, cy, PopupHit::Click);
             if (dest) {
                 RefHoverHandlePopupClick(s, dest);
             }

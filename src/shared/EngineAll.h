@@ -201,10 +201,6 @@ enum class UndoDir {
     Undo,
     Redo
 };
-enum class EngineWait {
-    Wait,
-    NoWait
-};
 bool EngineCanUndoRedo(EngineBase*, UndoDir, EngineWait);
 bool EngineUndoRedo(EngineBase*, UndoDir, Vec<Annotation*>& removedOut);
 void EngineMupdfRefreshModifiedState(EngineBase*);
@@ -443,5 +439,5 @@ bool EngineHasUnsavedAnnotations(EngineBase*);
 bool EngineHasRedactMarks(EngineBase*);
 bool EngineHasRedactMarksNoWait(EngineBase*);
 bool EngineHasUserRedactMarks(EngineBase*);
-Annotation* EngineGetAnnotationAtPos(EngineBase*, int pageNo, PointF pos, float padding, Annotation*);
-Annotation* EngineGetWidgetAtPos(EngineBase*, int pageNo, PointF pos);
+AnnotationAt EngineAnnotationAtPos(EngineBase*, int pageNo, PointF pos, float padding, Annotation*, EngineWait);
+AnnotationAt EngineWidgetAtPos(EngineBase*, int pageNo, PointF pos, EngineWait);

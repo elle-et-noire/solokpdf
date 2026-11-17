@@ -3457,16 +3457,20 @@ class EnginePdfium : public EngineBase {
         return elements;
     }
 
-    IPageElement* GetElementAtPos(int pageNo, PointF point) override { return TryElementAtPos(pageNo, point).el; }
+    IPageElement* GetElementAtPos(int pageNo, PointF point) override {
+        return ElementAtPos(pageNo, point, EngineWait::NoWait).el;
+    }
 
-    // Hover reads PDFium's cached links and comments without opening the editor;
+    // Reads PDFium's cached links and comments without opening the editor. NoWait:
     // busy while a render holds the lock, or the loaded editor its page.
-    ElementAt TryElementAtPos(int pageNo, PointF point) override {
+    ElementAt ElementAtPos(int pageNo, PointF point, EngineWait wait) override {
         Vec<IPageElement*> links;
         if (EngineBase* redacted = RedactedEditor(pageNo)) {
-            return redacted->TryElementAtPos(pageNo, point);
+            return redacted->ElementAtPos(pageNo, point, wait);
         }
-        if (!gPdfiumLock.TryLock()) {
+        if (wait == EngineWait::Wait) {
+            gPdfiumLock.Lock();
+        } else if (!gPdfiumLock.TryLock()) {
             return {nullptr, true};
         }
         bool useMupdf = false;
@@ -3474,7 +3478,7 @@ class EnginePdfium : public EngineBase {
         gPdfiumLock.Unlock();
         EngineBase* source = AnnotationEditor(EditorLoad::IfLoaded);
         if (source) {
-            ElementAt edited = source->TryElementAtPos(pageNo, point);
+            ElementAt edited = source->ElementAtPos(pageNo, point, wait);
             if (edited.el || edited.busy) {
                 return edited;
             }

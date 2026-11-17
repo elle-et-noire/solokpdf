@@ -8020,6 +8020,16 @@ FzPageInfo* EngineMupdf::GetFzPageInfo(Location loc, bool loadQuick, fz_cookie* 
     return GetFzPageInfoLocked(this, loc, loadQuick, cookie);
 }
 
+// A page's info for a lookup. NoWait gives up while another thread holds the
+// page's locks (*busyOut); Wait waits for them.
+static FzPageInfo* PdfPageInfo(EngineMupdf* e, int pageNo, EngineWait wait, bool* busyOut) {
+    *busyOut = false;
+    if (wait == EngineWait::Wait) {
+        return e->GetFzPageInfo(pageNo, true, nullptr);
+    }
+    return e->GetFzPageInfoCanFail(pageNo, busyOut);
+}
+
 // hot path (Transform/CvtToScreen/GetTileRes for every PDF page render), so
 // avoid pagesLock when the answer doesn't need it: a reflow doc shares one
 // mediabox across every page, and a single-chapter (non-reflow) doc's page
@@ -9452,26 +9462,20 @@ bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6]
 
 // don't delete the result
 IPageElement* EngineMupdf::GetElementAtPos(int pageNo, PointF pt) {
-    return TryElementAtPos(pageNo, pt).el;
+    return ElementAtPos(pageNo, pt, EngineWait::NoWait).el;
 }
 
-// busy while text extraction or a render holds the page's locks
-ElementAt EngineMupdf::TryElementAtPos(int pageNo, PointF pt) {
+// NoWait: busy while text extraction or a render holds the page's locks
+ElementAt EngineMupdf::ElementAtPos(int pageNo, PointF pt, EngineWait wait) {
     bool busy = false;
-    FzPageInfo* pageInfo = GetFzPageInfoCanFail(pageNo, &busy);
+    FzPageInfo* pageInfo = PdfPageInfo(this, pageNo, wait, &busy);
     return {FzGetElementAtPos(pageInfo, pt), busy};
 }
 
-// GetElementAtPos uses TryLock and returns null while text extraction (started
-// by the mouse-move that precedes a click) holds the page lock. Callers that
-// must not miss the element wait instead.
+// ng's lookups that must not miss the element while a render holds the page lock
 IPageElement* EngineMupdfElementAtPosWait(EngineBase* engine, int pageNo, PointF pt) {
     EngineMupdf* epdf = AsEngineMupdf(engine);
-    if (!epdf) {
-        return nullptr;
-    }
-    FzPageInfo* pageInfo = epdf->GetFzPageInfo(pageNo, true, nullptr);
-    return FzGetElementAtPos(pageInfo, pt);
+    return epdf ? epdf->ElementAtPos(pageNo, pt, EngineWait::Wait).el : nullptr;
 }
 
 Vec<IPageElement*> EngineMupdf::GetElements(int pageNo) {
@@ -14292,37 +14296,53 @@ static FzPageInfo* GetPdfPageInfo(EngineMupdf* engine, int pageNo) {
     return engine->GetFzPageInfoCanFail(pageNo);
 }
 
-Annotation* EngineGetAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos, float padding,
-                                     Annotation* preferredAnnot) {
-    // routine hit tests (palette, context menu) don't load an editor for a file without annotations
-    if (engine && !engine->MayHaveAnnotations()) {
-        return nullptr;
-    }
-    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
-    FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
-    if (!pi) {
-        return nullptr;
-    }
-
-    ScopedRecursiveMutex cs(&epdf->docLock);
-    return FindAnnotAtPos(pi->annotations, pos, padding, preferredAnnot);
+static FzPageInfo* AnnotPageInfo(EngineMupdf* epdf, int pageNo, EngineWait wait, bool* busyOut) {
+    *busyOut = false;
+    return epdf && epdf->pdfdoc ? PdfPageInfo(epdf, pageNo, wait, busyOut) : nullptr;
 }
 
-// Like EngineGetAnnotationAtPos but for form fields (widgets), which live
-// in their own list. Returns the smallest widget containing pos, or null.
-Annotation* EngineGetWidgetAtPos(EngineBase* engine, int pageNo, PointF pos) {
-    bool found = true;
-    WidgetCursorKind cursor{};
-    if (engine && engine->FormWidgetAt(pageNo, pos, found, cursor) && !found) {
-        return nullptr;
+AnnotationAt EngineAnnotationAtPos(EngineBase* engine, int pageNo, PointF pos, float padding,
+                                   Annotation* preferredAnnot, EngineWait wait) {
+    // routine hit tests (palette, context menu) don't load an editor for a file without annotations
+    if (engine && !engine->MayHaveAnnotations()) {
+        return {};
     }
     EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
-    FzPageInfo* pi = GetPdfPageInfo(epdf, pageNo);
+    bool busy = false;
+    FzPageInfo* pi = AnnotPageInfo(epdf, pageNo, wait, &busy);
     if (!pi) {
-        return nullptr;
+        return {nullptr, busy};
+    }
+
+    ScopedRecursiveMutex cs(&epdf->docLock);
+    return {FindAnnotAtPos(pi->annotations, pos, padding, preferredAnnot), false};
+}
+
+// Like EngineAnnotationAtPos but for form fields (widgets), which live
+// in their own list: the smallest widget containing pos.
+AnnotationAt EngineWidgetAtPos(EngineBase* engine, int pageNo, PointF pos, EngineWait wait) {
+    bool found = true;
+    WidgetCursorKind cursor{};
+    if (engine && wait == EngineWait::Wait && engine->FormWidgetAt(pageNo, pos, found, cursor) && !found) {
+        return {};
+    }
+    if (engine && wait == EngineWait::NoWait) {
+        PageReadResult read = engine->TryFormWidgetAt(pageNo, pos, found, cursor);
+        if (read == PageReadResult::Pending) {
+            return {nullptr, true};
+        }
+        if (read == PageReadResult::Ready && !found) {
+            return {};
+        }
+    }
+    EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
+    bool busy = false;
+    FzPageInfo* pi = AnnotPageInfo(epdf, pageNo, wait, &busy);
+    if (!pi) {
+        return {nullptr, busy};
     }
     ScopedRecursiveMutex cs(&epdf->docLock);
-    return FindAnnotAtPos(pi->widgets, pos, 0);
+    return {FindAnnotAtPos(pi->widgets, pos, 0), false};
 }
 
 // Next/previous editable (text/choice, non-read-only) widget on the same page

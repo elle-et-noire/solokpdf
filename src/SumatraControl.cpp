@@ -2468,9 +2468,17 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 Str name = kind == WidgetCursorKind::Text     ? StrL("text")
                            : kind == WidgetCursorKind::Button ? StrL("button")
                                                               : StrL("none");
-                IPageElement* el = dm->GetElementAtPos(pt, nullptr);
+                IPageElement* el = dm->TryElementAtPos(pt, nullptr).el;
                 Str tip = el && el->Is(kindPageElementComment) ? el->GetValue() : StrL("-");
                 AppendTestResult(req, 0, fmt("cursor=%s tip=%s pt=%d,%d", name, tip, pt.x, pt.y));
+                break;
+            }
+            if (str::Eq(StringArg(req, 0), StrL("press"))) {
+                // what the last button-down found under the pointer
+                MainWindow* w = gWindows[0];
+                AppendTestResult(
+                    req, 0,
+                    fmt("link=%d image=%d", (int)(w->linkOnLastButtonDown != nullptr), (int)w->imageDragPending));
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("sync"))) {

@@ -1311,7 +1311,7 @@ static void OnMouseMove(MainWindow* win, int x, int y, WPARAM key) {
             // no hover effects for anything but the annotation being edited
             Annotation* locked = AnnotationLockingMouse(win);
             if (locked) {
-                bool onLocked = dm->GetAnnotationAtPos(pos, locked) == locked;
+                bool onLocked = dm->TryAnnotationAtPos(pos, locked).annot == locked;
                 win->annotationUnderCursor = onLocked ? locked : nullptr;
                 if (win->annotationUnderCursor != prev) {
                     ScheduleRepaint(win, 0);
@@ -3478,7 +3478,7 @@ static LRESULT OnSetCursorMouseNone(MainWindow* win, HWND hwnd) {
     // an annotation being edited: no hover cursors or tooltips for anything else
     if (AnnotationLockingMouse(win)) {
         win->DeleteToolTip();
-        bool onSelected = dm->GetAnnotationAtPos(pt, selected) == selected;
+        bool onSelected = dm->TryAnnotationAtPos(pt, selected).annot == selected;
         SetCursorCached(onSelected ? IDC_HAND : IDC_ARROW);
         return TRUE;
     }

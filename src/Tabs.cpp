@@ -352,7 +352,7 @@ static void TabsContextMenu(TabsCtrl* tabsCtrl, VirtMouseEvent* ev) {
     // from the current tab that NewAppCommandCtx() keys off. Without a context
     // command availability is evaluated against an empty (no-document) state,
     // which removes almost every item (leaving only "Restore Tab Group").
-    BuildMenuCtx* ctx = NewBuildMenuCtx(tabUnderMouse, Point{0, 0});
+    BuildMenuCtx* ctx = NewBuildMenuCtx(tabUnderMouse);
     ctx->tab = tabUnderMouse;
     ctx->isDocLoaded = true; // tabUnderMouse is a real (non-about) document tab
     ctx->filePath = tabUnderMouse->filePath;

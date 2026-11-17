@@ -297,7 +297,7 @@ void ToolbarUpdateStateForWindow(MainWindow* win, bool setButtonsVisibility) {
     bool visibilityChanged = false;
     // One command ctx for the whole pass. Building it per button used to call
     // HasToc() (and page hit-testing) once per toolbar item during load.
-    auto* ctx = NewBuildMenuCtx(win->CurrentTab(), Point{0, 0});
+    auto* ctx = NewBuildMenuCtx(win->CurrentTab());
     AutoCall delCtx(DeleteBuildMenuCtx, ctx);
     for (int i = 0; i < n; i++) {
         auto& tb = GetToolbarButtonInfoByIdx(i);
@@ -1844,7 +1844,7 @@ static void UpdateZoomHoverDropdown(MainWindow* win) {
 // The Save button's drop-down: the three ways to end an editing session.
 static void BuildSaveHoverMenu(MainWindow* win, ToolbarHoverBuildEvent* ev) {
     WindowTab* tab = win ? win->CurrentTab() : nullptr;
-    auto* ctx = NewBuildMenuCtx(tab, Point{0, 0});
+    auto* ctx = NewBuildMenuCtx(tab);
     AutoCall delCtx(DeleteBuildMenuCtx, ctx);
     bool dirty = ctx->hasUnsavedAnnotations;
 

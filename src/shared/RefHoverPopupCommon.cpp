@@ -36,11 +36,24 @@ static bool PopupClientToPagePt(RefHoverState* s, int clientX, int clientY, Poin
     return true;
 }
 
-static IPageDestination* LaunchLinkAtPagePt(RefHoverState* s, PointF pagePt) {
+// The element at pagePt: hover's lookup, or a click's, as with no render running.
+static IPageElement* PopupElementAt(RefHoverState* s, PointF pagePt, PopupHit hit) {
+    int pageNo = s->displayed.destPage;
+    if (hit == PopupHit::Hover) {
+        return s->hitEngine->GetElementAtPos(pageNo, pagePt);
+    }
+    DisplayModel* dm = s->ctrl ? s->ctrl->AsFixed() : nullptr;
+    if (dm && dm->GetEngine() == s->hitEngine) {
+        return dm->GetElementOnPage(pageNo, pagePt);
+    }
+    return s->hitEngine->ElementAtPos(pageNo, pagePt, EngineWait::Wait).el;
+}
+
+static IPageDestination* LaunchLinkAtPagePt(RefHoverState* s, PointF pagePt, PopupHit hit) {
     if (!s || !s->hitEngine || s->displayed.destPage <= 0) {
         return nullptr;
     }
-    IPageElement* el = s->hitEngine->GetElementAtPos(s->displayed.destPage, pagePt);
+    IPageElement* el = PopupElementAt(s, pagePt, hit);
     if (!el || !el->Is(kindPageElementDest)) {
         return nullptr;
     }
@@ -51,12 +64,12 @@ static IPageDestination* LaunchLinkAtPagePt(RefHoverState* s, PointF pagePt) {
     return dest;
 }
 
-IPageDestination* LaunchLinkAtPopupPt(RefHoverState* s, int clientX, int clientY) {
+IPageDestination* LaunchLinkAtPopupPt(RefHoverState* s, int clientX, int clientY, PopupHit hit) {
     PointF pagePt;
     if (!PopupClientToPagePt(s, clientX, clientY, pagePt)) {
         return nullptr;
     }
-    return LaunchLinkAtPagePt(s, pagePt);
+    return LaunchLinkAtPagePt(s, pagePt, hit);
 }
 
 bool RefHoverRerenderDisplayedRegion(RefHoverState* s, EngineBase* engine, int page, RectF region) {

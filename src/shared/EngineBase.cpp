@@ -1432,7 +1432,7 @@ bool EngineBase::TryExtractPageText(int pageNo, PageText* out) {
 }
 
 // The default answers; PDF engines say busy instead of waiting for a render that holds the page.
-ElementAt EngineBase::TryElementAtPos(int pageNo, PointF pt) {
+ElementAt EngineBase::ElementAtPos(int pageNo, PointF pt, EngineWait) {
     return {GetElementAtPos(pageNo, pt), false};
 }
 
@@ -1874,8 +1874,8 @@ IPageElement* EnginePdfProxy::GetElementAtPos(int pageNo, PointF pt) {
     return pdfEngine->GetElementAtPos(pageNo, pt);
 }
 
-ElementAt EnginePdfProxy::TryElementAtPos(int pageNo, PointF pt) {
-    return pdfEngine->TryElementAtPos(pageNo, pt);
+ElementAt EnginePdfProxy::ElementAtPos(int pageNo, PointF pt, EngineWait wait) {
+    return pdfEngine->ElementAtPos(pageNo, pt, wait);
 }
 
 bool EnginePdfProxy::HandleLink(IPageDestination* dest, ILinkHandler* lh) {

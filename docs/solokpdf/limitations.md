@@ -222,6 +222,11 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   (B51, `ad-hoc-pdfium-try-reads`). Hover's element lookup tells such a page
   (busy) from one without an element; the canvas keeps its link tip, cursor and
   citation popup and looks again every 50 ms until the page is free (E120).
+  A user action (link click, image drag, context menu, Edit PDF click, form
+  field click, keyboard link following) cancels the document's renders and
+  waits for the lock instead, so it finds what it would with no render
+  running; a lock held by something else (another document's render, text
+  extraction) is waited out (E123).
 - PDFium drops its discretionary hyphen marker from extracted text, so search
   joins split words as MuPDF does. `issue-1189` and the generated B15 search
   test cover this path without loading the editor.

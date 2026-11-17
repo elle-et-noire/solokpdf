@@ -151,7 +151,9 @@ and read-aloud bars, selection and annotation toolbars, comment card):
 (`os-first`), or they are shown again while the frame is minimized and the
 anchor layer sees them first (`anchor-first`); a minimize from another process
 races between the two (E121). A link tip and citation popup hovered while a
-render holds the page's lock, on both engines: `ad-hoc-e120-busy-hover`.
+render holds the page's lock, on both engines: `ad-hoc-e120-busy-hover`; link
+and image context menus, image drag, Edit PDF click and link click under the
+same lock: `ad-hoc-e123-busy-actions`.
 After lifetime, notification or test-hook changes, also run the last four and
 `ad-hoc-tree-lifetime` under ASan. The
 [migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in

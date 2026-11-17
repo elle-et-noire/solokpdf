@@ -321,7 +321,7 @@ static void FollowKeyboardLinkTarget(MainWindow* win, const KeyboardLinkTarget& 
     // re-resolve the element instead of holding a pointer: the elements belong
     // to the engine's page cache and can be freed under us (reload, page evicted)
     PointF center(target.rect.x + (target.rect.dx / 2), target.rect.y + (target.rect.dy / 2));
-    IPageElement* el = dm->GetEngine()->GetElementAtPos(target.pageNo, center);
+    IPageElement* el = dm->GetElementOnPage(target.pageNo, center);
     if (!el) {
         return;
     }

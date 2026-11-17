@@ -103,7 +103,7 @@ class EngineMupdf : public EngineBase {
     Vec<IPageElement*> GetElements(int pageNo) override;
     bool TryGetElements(int pageNo, Vec<IPageElement*>* out) override;
     IPageElement* GetElementAtPos(int pageNo, PointF pt) override;
-    ElementAt TryElementAtPos(int pageNo, PointF pt) override;
+    ElementAt ElementAtPos(int pageNo, PointF pt, EngineWait wait) override;
     bool HandleLink(IPageDestination*, ILinkHandler*) override;
 
     RenderedBitmap* GetImageForPageElement(IPageElement*) override;

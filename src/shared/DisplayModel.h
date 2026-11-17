@@ -228,10 +228,12 @@ struct DisplayModel : DocController {
     Str GetTextInRegion(int pageNo, RectF region) const;
     bool IsOverText(Point pt);
     IPageElement* GetElementAtPos(Point pt, int* pageNoOut);
+    IPageElement* GetElementOnPage(int pageNo, PointF pos);
     ElementAt TryElementAtPos(Point pt, int* pageNoOut);
     // annotation marks are drawn this many pixels outside the bounds
     static constexpr int kAnnotMarkPadding = 4;
     Annotation* GetAnnotationAtPos(Point pt, Annotation*);
+    AnnotationAt TryAnnotationAtPos(Point pt, Annotation*);
     Annotation* GetAnnotationAtPosHover(Point pt, Annotation*);
     Annotation* GetWidgetAtPos(Point pt);
     WidgetCursorKind GetWidgetCursorAtPos(Point pt);

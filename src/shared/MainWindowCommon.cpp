@@ -177,6 +177,16 @@ bool HasOpenedDocuments(MainWindow* win) {
     return false;
 }
 
+BuildMenuCtx* NewBuildMenuCtx(WindowTab* tab) {
+    auto* ctx = new AppCommandCtx;
+    if (tab && tab->win) {
+        *ctx = NewAppCommandCtx(tab->win);
+    } else if (tab) {
+        ctx->tab = tab;
+    }
+    return ctx;
+}
+
 BuildMenuCtx* NewBuildMenuCtx(WindowTab* tab, Point pt) {
     auto* ctx = new AppCommandCtx;
     if (tab && tab->win) {
@@ -449,10 +459,27 @@ void PopulateTabCloseFlags(AppCommandCtx& ctx) {
     SetTabCloseFlags(ctx);
 }
 
-AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
+// What a user action at the cursor finds there, as with no render running.
+static void FillUnderCursor(AppCommandCtx& ctx, MainWindow* win, DisplayModel* dm) {
+    ctx.annotationUnderCursor = AnnotationUnderCursor(win, dm, ctx.cursorPos);
+    IPageElement* pageEl = dm->GetElementAtPos(ctx.cursorPos, nullptr);
+    if (pageEl) {
+        Str value = pageEl->GetValue();
+        ctx.cursorOnLinkTarget = pageEl->Is(kindPageElementDest) && PageDestHasAddress(pageEl->AsLink());
+        ctx.cursorOnComment = value && pageEl->Is(kindPageElementComment);
+        ctx.cursorOnImage = pageEl->Is(kindPageElementImage);
+    }
+    if (ctx.annotationUnderCursor) {
+        ctx.cursorOnComment = !str::IsEmptyOrWhiteSpace(Contents(ctx.annotationUnderCursor));
+    }
+}
+
+// cursorPos: the canvas point of a context menu or the palette; null for the
+// toolbar and menu bar, which have nothing under the cursor
+static AppCommandCtx NewCommandCtx(MainWindow* win, const Point* cursorPos) {
     AppCommandCtx ctx;
     ctx.win = win;
-    ctx.cursorPos = cursorPos;
+    ctx.cursorPos = cursorPos ? *cursorPos : Point{};
     if (!win) {
         return ctx;
     }
@@ -518,17 +545,9 @@ AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
         ctx.hasUserRedactMarks = EngineHasUserRedactMarks(engine);
         ctx.canUndo = EngineCanUndoRedo(engine, UndoDir::Undo, EngineWait::NoWait);
         ctx.canRedo = EngineCanUndoRedo(engine, UndoDir::Redo, EngineWait::NoWait);
-        ctx.isCursorOnPage = dm->GetPageNoByPoint(cursorPos) > 0;
-        ctx.annotationUnderCursor = AnnotationUnderCursor(win, dm, cursorPos);
-        IPageElement* pageEl = dm->GetElementAtPos(cursorPos, nullptr);
-        if (pageEl) {
-            Str value = pageEl->GetValue();
-            ctx.cursorOnLinkTarget = pageEl->Is(kindPageElementDest) && PageDestHasAddress(pageEl->AsLink());
-            ctx.cursorOnComment = value && pageEl->Is(kindPageElementComment);
-            ctx.cursorOnImage = pageEl->Is(kindPageElementImage);
-        }
-        if (ctx.annotationUnderCursor) {
-            ctx.cursorOnComment = !str::IsEmptyOrWhiteSpace(Contents(ctx.annotationUnderCursor));
+        ctx.isCursorOnPage = dm->GetPageNoByPoint(ctx.cursorPos) > 0;
+        if (cursorPos) {
+            FillUnderCursor(ctx, win, dm);
         }
     }
 
@@ -539,4 +558,12 @@ AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
 
     PopulateTabCloseFlags(ctx);
     return ctx;
+}
+
+AppCommandCtx NewAppCommandCtx(MainWindow* win) {
+    return NewCommandCtx(win, nullptr);
+}
+
+AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos) {
+    return NewCommandCtx(win, &cursorPos);
 }

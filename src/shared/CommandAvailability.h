@@ -99,7 +99,8 @@ struct AppCommandCtx {
 
 using BuildMenuCtx = AppCommandCtx;
 
-AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos = {});
+AppCommandCtx NewAppCommandCtx(MainWindow* win);
+AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos);
 
 CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, CommandSurface surface);
 
@@ -107,6 +108,7 @@ bool CmdWorksWithoutDocument(int cmdId);
 
 void GetCommandIdState(AppCommandCtx* ctx, int cmdId, bool* removeOut, bool* disableOut);
 
+BuildMenuCtx* NewBuildMenuCtx(WindowTab* tab);
 BuildMenuCtx* NewBuildMenuCtx(WindowTab* tab, Point pt);
 void DeleteBuildMenuCtx(BuildMenuCtx* ctx);
 

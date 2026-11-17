@@ -807,7 +807,7 @@ static void MenuUpdatePrintItem(MainWindow* win, HMENU menu, bool disableOnly = 
 
 static void RebuildFileMenu(WindowTab* tab, HMENU menu) {
     MenuEmpty(menu);
-    auto* ctx = NewBuildMenuCtx(tab, Point{0, 0});
+    auto* ctx = NewBuildMenuCtx(tab);
     AutoDelete delCtx(ctx);
     BuildMenuFromDef(menuDefFile, menu, ctx);
     DynamicPartOfFileMenu(menu, ctx);
@@ -1449,7 +1449,7 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
 HMENU BuildMenu(MainWindow* win) {
     WindowTab* tab = win->CurrentTab();
 
-    auto* ctx = NewBuildMenuCtx(tab, Point{0, 0});
+    auto* ctx = NewBuildMenuCtx(tab);
     AutoDelete delCtx(ctx);
     HMENU mainMenu = BuildMenuFromDef(menuDefMenubar, CreateMenu(), ctx);
     // BuildMenuFromDef just set the global to this window's submenu
@@ -1471,7 +1471,7 @@ void UpdateAppMenu(MainWindow* win, HMENU m) {
         // document-dependent commands when no document is loaded, and a null ctx
         // looks like "no document" -- which dropped CmdFavoriteAdd/CmdFavoriteDel
         // from the rebuilt menu, so RebuildFavMenu's MenuSetText then failed
-        auto* ctx = NewBuildMenuCtx(win->CurrentTab(), Point{0, 0});
+        auto* ctx = NewBuildMenuCtx(win->CurrentTab());
         AutoDelete delCtx(ctx);
         BuildMenuFromDef(menuDefFavorites, m, ctx);
         RebuildFavMenu(win, m);

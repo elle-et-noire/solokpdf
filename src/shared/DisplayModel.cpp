@@ -2747,14 +2747,45 @@ static int VisiblePageAt(DisplayModel* dm, Point pt) {
     return pageNo;
 }
 
-// Given position 'x'/'y' in the draw area, returns a structure describing
-// a link or nullptr if there is no link at this position.
-// don't delete the result
-IPageElement* DisplayModel::GetElementAtPos(Point pt, int* pageNoOut) {
-    return TryElementAtPos(pt, pageNoOut).el;
+// A user action's lookup met a page another thread holds (busy): cancel this
+// document's renders so waiting for the lock stays short; the repaint renders
+// them again. ng's hover uses the Get* lookups, so they don't wait there.
+static bool FreePageForAction(DisplayModel* dm) {
+#if defined(SUMATRA_NG)
+    (void)dm;
+    return false;
+#else
+    if (gRenderCache) {
+        gRenderCache->AbortRendering(dm);
+    }
+    dm->RepaintDisplay();
+    return true;
+#endif
 }
 
-// Like GetElementAtPos, but tells a page a render holds (busy) from one without an element.
+// The element a user action at canvas point pt finds, as with no render running
+// (a link click, a context menu). Don't delete the result.
+IPageElement* DisplayModel::GetElementAtPos(Point pt, int* pageNoOut) {
+    int pageNo = VisiblePageAt(this, pt);
+    if (!ValidPageNo(pageNo)) {
+        return nullptr;
+    }
+    if (pageNoOut) {
+        *pageNoOut = pageNo;
+    }
+    return GetElementOnPage(pageNo, CvtFromScreen(pt, pageNo));
+}
+
+// GetElementAtPos for a page point
+IPageElement* DisplayModel::GetElementOnPage(int pageNo, PointF pos) {
+    ElementAt at = engine->ElementAtPos(pageNo, pos, EngineWait::NoWait);
+    if (!at.busy || !FreePageForAction(this)) {
+        return at.el;
+    }
+    return engine->ElementAtPos(pageNo, pos, EngineWait::Wait).el;
+}
+
+// Hover's lookup: tells a page a render holds (busy) from one without an element.
 ElementAt DisplayModel::TryElementAtPos(Point pt, int* pageNoOut) {
     int pageNo = VisiblePageAt(this, pt);
     if (!ValidPageNo(pageNo)) {
@@ -2764,30 +2795,44 @@ ElementAt DisplayModel::TryElementAtPos(Point pt, int* pageNoOut) {
         *pageNoOut = pageNo;
     }
     PointF pos = CvtFromScreen(pt, pageNo);
-    return engine->TryElementAtPos(pageNo, pos);
+    return engine->ElementAtPos(pageNo, pos, EngineWait::NoWait);
 }
 
-Annotation* DisplayModel::GetAnnotationAtPos(Point pt, Annotation* annot) {
+static AnnotationAt AnnotationAtPos(DisplayModel* dm, Point pt, Annotation* annot, EngineWait wait) {
     if (AnnotationsAreDisabled()) {
-        return nullptr;
+        return {};
     }
-    int pageNo = VisiblePageAt(this, pt);
-    if (!ValidPageNo(pageNo)) {
-        return nullptr;
+    int pageNo = VisiblePageAt(dm, pt);
+    if (!dm->ValidPageNo(pageNo)) {
+        return {};
     }
 
     // hit the drawn mark, not just the bounds: thin lines are sub-pixel when zoomed out
-    PointF pos = CvtFromScreen(pt, pageNo);
-    float zoom = getZoomSafe(this, pageNo, GetPageInfo(pageNo));
-    float padding = (float)kAnnotMarkPadding / zoom;
-    return EngineGetAnnotationAtPos(engine, pageNo, pos, padding, annot);
+    PointF pos = dm->CvtFromScreen(pt, pageNo);
+    float zoom = getZoomSafe(dm, pageNo, dm->GetPageInfo(pageNo));
+    float padding = (float)DisplayModel::kAnnotMarkPadding / zoom;
+    return EngineAnnotationAtPos(dm->GetEngine(), pageNo, pos, padding, annot, wait);
+}
+
+// The annotation a user action at pt finds, as with no render running (preferring annot).
+Annotation* DisplayModel::GetAnnotationAtPos(Point pt, Annotation* annot) {
+    AnnotationAt at = AnnotationAtPos(this, pt, annot, EngineWait::NoWait);
+    if (!at.busy || !FreePageForAction(this)) {
+        return at.annot;
+    }
+    return AnnotationAtPos(this, pt, annot, EngineWait::Wait).annot;
+}
+
+// Hover's lookup: busy while a render holds the page.
+AnnotationAt DisplayModel::TryAnnotationAtPos(Point pt, Annotation* annot) {
+    return AnnotationAtPos(this, pt, annot, EngineWait::NoWait);
 }
 
 Annotation* DisplayModel::GetAnnotationAtPosHover(Point pt, Annotation* annot) {
     if (engine->HasAnnotationEditor() && !engine->AnnotationEditor(EditorLoad::IfLoaded)) {
         return nullptr;
     }
-    return GetAnnotationAtPos(pt, annot);
+    return TryAnnotationAtPos(pt, annot).annot;
 }
 
 // form fields (widgets) are hit-tested separately from annotations
@@ -2800,7 +2845,11 @@ Annotation* DisplayModel::GetWidgetAtPos(Point pt) {
         return nullptr;
     }
     PointF pos = CvtFromScreen(pt, pageNo);
-    return EngineGetWidgetAtPos(engine, pageNo, pos);
+    AnnotationAt at = EngineWidgetAtPos(engine, pageNo, pos, EngineWait::NoWait);
+    if (!at.busy || !FreePageForAction(this)) {
+        return at.annot;
+    }
+    return EngineWidgetAtPos(engine, pageNo, pos, EngineWait::Wait).annot;
 }
 
 // Hover cursor over a form field. An engine that reads its own fields answers
@@ -2820,7 +2869,7 @@ WidgetCursorKind DisplayModel::GetWidgetCursorAtPos(Point pt) {
     if (result != PageReadResult::UseEditor) {
         return cursor;
     }
-    return GetWidgetCursorKind(EngineGetWidgetAtPos(engine, pageNo, pos));
+    return GetWidgetCursorKind(EngineWidgetAtPos(engine, pageNo, pos, EngineWait::NoWait).annot);
 }
 
 // note: returns false for pages that haven't been rendered yet

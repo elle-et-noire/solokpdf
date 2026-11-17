@@ -720,15 +720,13 @@ async function checkCanvasPopups(): Promise<void> {
       sidebar: "closes",
     });
 
-    // in Edit PDF a click selects an annotation. The highlight's toolbar starts
-    // at the click, which it keeps (E121). A click while a render holds the
-    // page finds no annotation (E123)
+    // in Edit PDF a click selects an annotation, even while a render holds the
+    // page (E123). The highlight's toolbar starts at the click, which it keeps (E121)
     sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
     await follows({
       name: "annotation toolbar",
       find: () => shownTop(pid, EDIT_CLASS),
       open: async () => {
-        await client.waitForRenderIdle();
         const c = await annotPoint(client, "Highlight", 0.6);
         await clickAt(canvas, c.x, c.y, 0, 0, client);
       },

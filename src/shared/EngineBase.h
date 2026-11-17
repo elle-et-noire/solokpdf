@@ -27,10 +27,23 @@ enum class PageReadResult {
 };
 
 struct IPageElement;
+struct Annotation;
 
-// a page element lookup that doesn't wait: busy while a render holds the page
+// NoWait: a lookup answers busy while another thread (a render) holds the page
+enum class EngineWait {
+    Wait,
+    NoWait
+};
+
+// a page element lookup; busy only for EngineWait::NoWait
 struct ElementAt {
     IPageElement* el = nullptr;
+    bool busy = false;
+};
+
+// an annotation or form field lookup; busy only for EngineWait::NoWait
+struct AnnotationAt {
+    Annotation* annot = nullptr;
     bool busy = false;
 };
 
@@ -665,7 +678,7 @@ class EngineBase {
 
     // returns the element at a given point or nullptr if there's none
     virtual IPageElement* GetElementAtPos(int pageNo, PointF pt) = 0;
-    virtual ElementAt TryElementAtPos(int pageNo, PointF pt);
+    virtual ElementAt ElementAtPos(int pageNo, PointF pt, EngineWait wait);
 
     virtual IPageDestination* GetNamedDest(Str name);
 
@@ -773,7 +786,7 @@ class EnginePdfProxy : public EngineBase {
     void GetBitmapRecolorSkipRects(int pageNo, float zoom, int rotation, const RectF& renderPageRect, Size bmpSize,
                                    Vec<Rect>& skipRects) override;
     IPageElement* GetElementAtPos(int pageNo, PointF pt) override;
-    ElementAt TryElementAtPos(int pageNo, PointF pt) override;
+    ElementAt ElementAtPos(int pageNo, PointF pt, EngineWait wait) override;
     bool HandleLink(IPageDestination* dest, ILinkHandler* lh) override;
     IPageDestination* GetNamedDest(Str name) override;
     TocTree* GetToc() override;
