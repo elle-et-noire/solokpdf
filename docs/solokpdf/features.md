@@ -400,6 +400,16 @@ The bars are layered child windows of the canvas or sidebar tree they scroll
 Windows the frame floats over the canvas, such as the auto-hiding sidebar,
 cover the canvas's bars instead of the bars covering them.
 
+## Popups over a window
+
+Popups that belong to a window inside the frame (the toolbar's hover
+drop-down, Home's About hover, the canvas tip, the citation hover and the
+Edit PDF hover card) move with it when the frame or the window moves, and go
+when it hides, the frame is minimized or the canvas shows another tab or
+document (upstream: they stay at their screen place). A tip shown at the
+cursor goes when the cursor leaves the canvas. The overlay toolbar stays up
+while the cursor is in its drop-down (E98–E100).
+
 ## Count prefix
 
 `KeyScrollLineAmount` sets the vertical keyboard line step (default 48 px at

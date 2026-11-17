@@ -852,6 +852,7 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     void ShowToolTip(Str text, Rect& rc, bool multiline = false) const;
     void ShowToolTipAt(Str text, const Rect& rc, Point screenPos, bool multiline = false, int maxRightScreen = 0) const;
     void DeleteToolTip() const;
+    const void* CanvasContent() const;
 
     bool CreateUIAProvider();
 

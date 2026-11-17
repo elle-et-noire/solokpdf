@@ -2077,6 +2077,204 @@ bool TrackMouseLeave(HWND hwnd) {
     return ArmMouseLeave(hwnd);
 }
 
+//--- anchored popups
+// A popup (top-level, screen coordinates) that belongs to a child window, its
+// anchor: a toolbar button's drop-down, a tip on the canvas. Windows moves and
+// hides a child with its parents, a popup only by hand; here, whatever did it:
+//
+//   anchor or an ancestor moved             -> popup moved as much
+//   anchor or an ancestor hidden, frame
+//   minimized                               -> dismissed
+//   anchor shows other content (AnchorShows)-> dismissed
+//   cursor left the anchor (AnchorLeave)    -> dismissed
+//
+// The anchor and its ancestors are subclassed. What they report is acted on
+// in a message posted to the popup, once the windows settled: a relayout hides
+// and shows them on its way, and WM_SETREDRAW clears WS_VISIBLE meanwhile.
+
+struct AnchoredPopup {
+    HWND popup = nullptr;
+    AnchorArgs args;
+    // the anchor and its ancestors, subclassed
+    Vec<HWND> chain;
+    const void* anchorShows = nullptr;
+    // the popup's top-left from the anchor's client origin, and where it was
+    Point offset;
+    Point placed;
+    UINT_PTR id = 0;
+    bool syncPosted = false;
+    bool left = false;
+};
+
+static Vec<AnchoredPopup*> gAnchoredPopups;
+static UINT gAnchorSyncMsg = 0;
+
+static Point AnchorOrigin(HWND anchor) {
+    return HwndClientToScreen(anchor, Point{});
+}
+
+static bool AnchorShown(HWND anchor) {
+    return IsWindow(anchor) && HwndIsVisible(anchor) && !IsIconic(GetAncestor(anchor, GA_ROOT));
+}
+
+static void NoteAnchorOffset(AnchoredPopup* ap) {
+    Rect r = HwndWindowRect(ap->popup);
+    Point o = AnchorOrigin(ap->args.anchor);
+    ap->placed = {r.x, r.y};
+    ap->offset = {r.x - o.x, r.y - o.y};
+}
+
+static void PostAnchorSync(AnchoredPopup* ap) {
+    if (ap->syncPosted || !HwndIsVisible(ap->popup)) {
+        return;
+    }
+    ap->syncPosted = true;
+    PostMessageW(ap->popup, gAnchorSyncMsg, 0, 0);
+}
+
+static void DismissAnchoredPopup(AnchoredPopup* ap) {
+    // may destroy the popup, and ap with it
+    Func0 dismiss = ap->args.dismiss;
+    if (!dismiss.IsValid()) {
+        SetWindowPos(ap->popup, nullptr, 0, 0, 0, 0,
+                     SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+        return;
+    }
+    dismiss.Call();
+}
+
+static void SyncAnchoredPopup(AnchoredPopup* ap) {
+    ap->syncPosted = false;
+    bool left = ap->left;
+    ap->left = false;
+    if (!HwndIsVisible(ap->popup)) {
+        return;
+    }
+    HWND anchor = ap->args.anchor;
+    bool stale = ap->args.content && ap->args.content != ap->anchorShows;
+    // back over the anchor by now: the leave is stale
+    bool gone = left && HwndWindowFromPoint(GetCursorPosition()) != anchor;
+    if (!AnchorShown(anchor) || stale || gone) {
+        DismissAnchoredPopup(ap);
+        return;
+    }
+    Point o = AnchorOrigin(anchor);
+    Point want{o.x + ap->offset.x, o.y + ap->offset.y};
+    Rect r = HwndWindowRect(ap->popup);
+    if (want.x != r.x || want.y != r.y) {
+        SetWindowPos(ap->popup, nullptr, want.x, want.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+}
+
+static LRESULT CALLBACK AnchorChainProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
+static LRESULT CALLBACK AnchoredPopupProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
+
+static void UnanchorPopup(AnchoredPopup* ap) {
+    for (HWND hwnd : ap->chain) {
+        RemoveWindowSubclass(hwnd, AnchorChainProc, ap->id);
+    }
+    RemoveWindowSubclass(ap->popup, AnchoredPopupProc, ap->id);
+    VecRemove(gAnchoredPopups, ap);
+    delete ap;
+}
+
+static LRESULT CALLBACK AnchorChainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR data) {
+    auto* ap = (AnchoredPopup*)data;
+    switch (msg) {
+        case WM_WINDOWPOSCHANGED:
+            PostAnchorSync(ap);
+            break;
+        case WM_MOUSELEAVE:
+            if (hwnd == ap->args.anchor && ap->args.leave == AnchorLeave::Dismiss) {
+                ap->left = true;
+                PostAnchorSync(ap);
+            }
+            break;
+        case WM_NCDESTROY:
+            // the owner of the popup takes it down with the window
+            UnanchorPopup(ap);
+            break;
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+static LRESULT CALLBACK AnchoredPopupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR data) {
+    auto* ap = (AnchoredPopup*)data;
+    if (msg == gAnchorSyncMsg) {
+        SyncAnchoredPopup(ap);
+        return 0;
+    }
+    if (msg == WM_NCDESTROY) {
+        UnanchorPopup(ap);
+        return DefSubclassProc(hwnd, msg, wp, lp);
+    }
+    LRESULT res = DefSubclassProc(hwnd, msg, wp, lp);
+    // placed by its owner, relative to where the anchor is now. Z-order changes
+    // (the frame activated) leave the place alone
+    if (msg == WM_WINDOWPOSCHANGED && HwndIsVisible(hwnd)) {
+        auto* pos = (WINDOWPOS*)lp;
+        Rect r = HwndWindowRect(hwnd);
+        if ((pos->flags & SWP_SHOWWINDOW) || r.x != ap->placed.x || r.y != ap->placed.y) {
+            NoteAnchorOffset(ap);
+        }
+    }
+    return res;
+}
+
+static AnchoredPopup* FindAnchoredPopup(HWND popup) {
+    for (AnchoredPopup* ap : gAnchoredPopups) {
+        if (ap->popup == popup) {
+            return ap;
+        }
+    }
+    return nullptr;
+}
+
+// Ties popup, where its owner just placed it, to args.anchor until either
+// window is destroyed. Called again on each show; the latest args apply.
+void AnchorPopup(HWND popup, const AnchorArgs& args) {
+    if (!popup || !args.anchor) {
+        return;
+    }
+    if (!gAnchorSyncMsg) {
+        gAnchorSyncMsg = RegisterWindowMessageW(L"SumatraAnchoredPopupSync");
+    }
+    AnchoredPopup* ap = FindAnchoredPopup(popup);
+    if (ap && ap->args.anchor != args.anchor) {
+        UnanchorPopup(ap);
+        ap = nullptr;
+    }
+    if (!ap) {
+        ap = new AnchoredPopup();
+        ap->popup = popup;
+        ap->id = NextSubclassId();
+        for (HWND hwnd = args.anchor; hwnd; hwnd = (GetWindowStyle(hwnd) & WS_CHILD) ? GetParent(hwnd) : nullptr) {
+            VecAppend(ap->chain, hwnd);
+            SetWindowSubclass(hwnd, AnchorChainProc, ap->id, (DWORD_PTR)ap);
+        }
+        SetWindowSubclass(popup, AnchoredPopupProc, ap->id, (DWORD_PTR)ap);
+        VecAppend(gAnchoredPopups, ap);
+    }
+    ap->args = args;
+    ap->anchorShows = args.content;
+    ap->left = false;
+    NoteAnchorOffset(ap);
+    if (args.leave == AnchorLeave::Dismiss) {
+        TrackMouseLeave(args.anchor);
+    }
+}
+
+// The anchor shows content now: popups describing something else go.
+void AnchorShows(HWND anchor, const void* content) {
+    for (AnchoredPopup* ap : gAnchoredPopups) {
+        if (ap->args.anchor != anchor || !ap->args.content || ap->anchorShows == content) {
+            continue;
+        }
+        ap->anchorShows = content;
+        PostAnchorSync(ap);
+    }
+}
+
 //--- cursors
 
 static LPWSTR knownCursorIds[] = {IDC_ARROW,  IDC_IBEAM,    IDC_HAND,     IDC_SIZEALL, IDC_SIZEWE,

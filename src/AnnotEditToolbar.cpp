@@ -2534,6 +2534,12 @@ void UpdateAnnotationHoverOverlay(MainWindow* win) {
         return;
     }
     overlay->host->Show(true);
+    // moves with the canvas, goes with it or its document
+    AnchorArgs anchorArgs;
+    anchorArgs.anchor = win->hwndCanvas;
+    anchorArgs.dismiss = MkFunc0(HideAnnotationHoverOverlay, win);
+    anchorArgs.content = win->CanvasContent();
+    AnchorPopup(overlay->host->native, anchorArgs);
     if (rebuild) {
         overlay->host->Invalidate(false);
     }

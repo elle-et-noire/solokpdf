@@ -441,6 +441,21 @@ void MainWindow::MoveDocBy(int dx, int dy) const {
     CurrentTab()->MoveDocBy(dx, dy);
 }
 
+static void DeleteInfotip(const MainWindow* win) {
+    win->DeleteToolTip();
+}
+
+// The tip describes the canvas: it moves with it and goes with it or its
+// content. One at the cursor also goes when the cursor leaves the canvas.
+static void AnchorInfotip(const MainWindow* win, AnchorLeave leave) {
+    AnchorArgs args;
+    args.anchor = win->hwndCanvas;
+    args.dismiss = MkFunc0(DeleteInfotip, win);
+    args.leave = leave;
+    args.content = win->CanvasContent();
+    AnchorPopup(win->infotip->hwnd, args);
+}
+
 void MainWindow::ShowToolTip(Str text, Rect& rc, bool multiline) const {
     if (len(text) == 0 || IsIconic(hwndFrame)) {
         // Track-mode tips are WS_EX_TOPMOST popups; never show while minimized
@@ -449,6 +464,7 @@ void MainWindow::ShowToolTip(Str text, Rect& rc, bool multiline) const {
         return;
     }
     infotip->SetSingle(text, rc, multiline);
+    AnchorInfotip(this, AnchorLeave::Dismiss);
 }
 
 // Track-mode tip at a fixed screen position (keyboard home-page selection).
@@ -459,10 +475,20 @@ void MainWindow::ShowToolTipAt(Str text, const Rect& rc, Point screenPos, bool m
         return;
     }
     infotip->SetSingleAt(text, rc, screenPos, multiline, maxRightScreen);
+    AnchorInfotip(this, AnchorLeave::Keep);
 }
 
 void MainWindow::DeleteToolTip() const {
     infotip->Delete();
+}
+
+// What the canvas shows: the document, or the tab when it has none (Home).
+// Popups describing it go when it changes (AnchorShows).
+const void* MainWindow::CanvasContent() const {
+    if (ctrl) {
+        return ctrl;
+    }
+    return CurrentTab();
 }
 
 bool MainWindow::CreateUIAProvider() {

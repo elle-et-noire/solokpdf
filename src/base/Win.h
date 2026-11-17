@@ -62,6 +62,26 @@ HWND HwndGetForeground();
 bool ArmMouseLeave(HWND);
 bool TrackMouseLeave(HWND);
 
+//--- anchored popups: a top-level popup that belongs to a child window
+
+// what the cursor leaving the anchor does to the popup
+enum class AnchorLeave {
+    Keep,
+    Dismiss,
+};
+
+struct AnchorArgs {
+    HWND anchor = nullptr;
+    // takes the popup down; unset hides its window
+    Func0 dismiss;
+    AnchorLeave leave = AnchorLeave::Keep;
+    // what of the anchor the popup describes (AnchorShows); null: anything
+    const void* content = nullptr;
+};
+
+void AnchorPopup(HWND popup, const AnchorArgs&);
+void AnchorShows(HWND anchor, const void* content);
+
 //--- HWND: focus / visibility / Z-order
 
 HWND HwndSetFocus(HWND hwnd);

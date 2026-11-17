@@ -18,10 +18,9 @@ UI chrome follows the active theme's colors. Where upstream draws OS theme parts
 or fixed grays, keep its shape, size and position but take colors from the
 theme (owner, 2026-11-17); record the difference in [features.md](features.md).
 
-## Status (2026-11-16)
+## Status (2026-11-17)
 
-Open: E98–E100, popups that follow a child window only by hand (from E97's
-audit). D3 (suite sharding) is deferred; F1/F3 manual checks and
+No open items. D3 (suite sharding) is deferred; F1/F3 manual checks and
 distribution are out of scope. Completed items and their results are in
 [history.md](history.md#completed-backlog); reviews are listed in
 [backlog.md](backlog.md#completed-reviews).

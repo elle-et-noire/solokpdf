@@ -1,0 +1,471 @@
+// E98-E100: popups that belong to a child window (toolbar hover drop-down,
+// Home's About hover, the canvas infotip) are top-level windows in screen
+// coordinates. They must show only while their window does and stay at their
+// place next to it, whatever moved or hid it:
+//
+//   toolbar drop-down   frame moved, toolbar becomes the overlay -> moves along;
+//                       overlay toolbar auto-hides, toolbar hidden -> gone;
+//                       the cursor in it keeps the overlay toolbar
+//   canvas infotip      link tip: cursor leaves the canvas -> gone
+//                       Home's keyboard tip: frame moved, sidebar shifts the
+//                       canvas -> moves along; frame minimized -> gone
+//   Home About hover    frame moved -> moves along; Ctrl+Tab to a document -> gone
+//   citation hover      frame moved -> moves along (same flaw, found by the audit)
+//
+// Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
+
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { ControlCommand, type ControlClient, waitForHome } from "./control.ts";
+import { makePdf as makeRefPdf, waitFor as waitRefPopup } from "./issue-6252.ts";
+import { assemblePdf, cmdId, pollUntil, ROOT, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
+import {
+  clientToScreen,
+  enumWindows,
+  getClassName,
+  getClientRect,
+  getWindowLong,
+  getWindowPid,
+  getWindowRect,
+  getWindowOwner,
+  GWL_EXSTYLE,
+  isWindowVisible,
+  MK_RBUTTON,
+  packCoords,
+  sendMessage,
+  setProcessDpiAware,
+  setWindowPos,
+  showWindow,
+  sleep,
+  SW_SHOWMINNOACTIVE,
+  SW_SHOWNOACTIVATE,
+  SWP_NOACTIVATE,
+  SWP_NOZORDER,
+  WM_KEYDOWN,
+  WM_MOUSEMOVE,
+  WM_RBUTTONDOWN,
+  WM_RBUTTONUP,
+} from "./winapi.ts";
+import {
+  activateTestFrame,
+  findCanvas,
+  findChildByClass,
+  killAndWait,
+  launchControlled,
+  moveTestCursor,
+  sendCommandSync,
+} from "./win-automation.ts";
+
+const TOOLBAR_CLASS = "SUMATRA_VIRT_TOOLBAR";
+const MENU_CLASS = "SumatraToolbarHoverMenu";
+const ABOUT_CLASS = "SUMATRA_ABOUT_HOVER";
+const TIP_CLASS = "tooltips_class32";
+const LINK_URL = "https://example.com/e100";
+const N_FILES = 6;
+const WS_EX_TOPMOST = 0x8;
+const SWP_NOSIZE = 0x0001;
+const WM_SETCURSOR = 0x0020;
+const HTCLIENT = 1;
+const VK_RIGHT = 0x27;
+const MOVE_DX = 60;
+const MOVE_DY = 40;
+const WAIT_MS = 3000;
+// kDelayToolbarHide
+const OVERLAY_HIDE_MS = 500;
+
+type Box = { x: number; y: number; dx: number; dy: number };
+
+const failures: string[] = [];
+
+function check(ok: boolean, what: string): void {
+  if (!ok) throw new Error(what);
+}
+
+// a step's failure is recorded and the next step still runs
+async function step(what: string, f: () => Promise<void>): Promise<void> {
+  try {
+    await f();
+    console.log(`  ok: ${what}`);
+  } catch (e) {
+    failures.push(`${what}: ${(e as Error).message}`);
+    console.log(`  FAILED: ${what}: ${(e as Error).message}`);
+  }
+}
+
+function box(hwnd: number): Box {
+  const r = getWindowRect(hwnd);
+  return { x: r.left, y: r.top, dx: r.right - r.left, dy: r.bottom - r.top };
+}
+
+const show = (b: Box | null) => (b ? `${b.x},${b.y} ${b.dx}x${b.dy}` : "none");
+
+function shownTopWindow(pid: number, cls: string): number {
+  let found = 0;
+  enumWindows((h) => {
+    if (getWindowPid(h) === pid && getClassName(h) === cls && isWindowVisible(h)) {
+      found = h;
+      return false;
+    }
+    return true;
+  });
+  return found;
+}
+
+// the canvas infotip: the shown topmost tooltip with no owner (the toolbar's
+// and the tabs' tips are owned by their windows). Another process can't read
+// a tooltip's text.
+function shownTip(pid: number): number {
+  let found = 0;
+  enumWindows((h) => {
+    if (getWindowPid(h) !== pid || getClassName(h) !== TIP_CLASS || !isWindowVisible(h)) return true;
+    if ((getWindowLong(h, GWL_EXSTYLE) & WS_EX_TOPMOST) === 0 || getWindowOwner(h) !== 0) return true;
+    found = h;
+    return false;
+  });
+  return found;
+}
+
+// the shown tooltips, for a failure message
+function describeTips(pid: number): string {
+  const out: string[] = [];
+  enumWindows((h) => {
+    if (getWindowPid(h) === pid && getClassName(h) === TIP_CLASS && isWindowVisible(h)) {
+      out.push(`${show(box(h))} owner=${getWindowOwner(h)}`);
+    }
+    return true;
+  });
+  return out.join("; ") || "no tooltips";
+}
+
+let gPid = 0;
+
+async function waitShown(find: () => number, what: string): Promise<number> {
+  return await pollUntil(find, (h) => h !== 0, {
+    timeoutMs: WAIT_MS,
+    error: () => `${what}: not shown (${describeTips(gPid)})`,
+  });
+}
+
+async function waitGone(find: () => number, what: string): Promise<void> {
+  const h = await pollUntil(find, (v) => v === 0, {
+    timeoutMs: WAIT_MS,
+    error: (v) => `${what}: still shown at ${show(box(v))}`,
+  });
+  check(h === 0, what);
+}
+
+// the popup is at `want`, give or take a pixel
+async function waitAt(find: () => number, want: Box, what: string): Promise<void> {
+  const near = (b: Box) => Math.abs(b.x - want.x) <= 1 && Math.abs(b.y - want.y) <= 1;
+  await pollUntil(
+    () => {
+      const h = find();
+      return h ? box(h) : null;
+    },
+    (b) => !!b && near(b),
+    { timeoutMs: WAIT_MS, error: (b) => `${what}: at ${show(b)}, want ${show(want)}` },
+  );
+}
+
+const moved = (b: Box, dx: number, dy: number): Box => ({ ...b, x: b.x + dx, y: b.y + dy });
+
+function moveFrame(frame: number, dx: number, dy: number): void {
+  const r = getWindowRect(frame);
+  setWindowPos(frame, r.left + dx, r.top + dy, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+// the frame moved by MOVE_DX, MOVE_DY while f runs, as Win+arrow or a drag does
+async function whileFrameMoved(frame: number, f: () => Promise<void>): Promise<void> {
+  moveFrame(frame, MOVE_DX, MOVE_DY);
+  try {
+    await f();
+  } finally {
+    moveFrame(frame, -MOVE_DX, -MOVE_DY);
+  }
+}
+
+function makeLinkPdf(): string {
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R] >>",
+    `<< /Type /Annot /Subtype /Link /Rect [0 0 612 792] /Border [0 0 0] /A << /S /URI /URI (${LINK_URL}) >> >>`,
+  ]);
+}
+
+// Home lists N_FILES documents, and the link document once it is open
+function makeAppDir(): string {
+  const dir = tmpPath("ad-hoc-e98");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(join(dir, "sub"), { recursive: true });
+  const src = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
+  const states: string[] = [];
+  for (let i = 0; i < N_FILES; i++) {
+    const p = join(dir, "sub", `doc-${String(i).padStart(2, "0")}.pdf`);
+    copyFileSync(src, p);
+    states.push(`\t[\n\t\tFilePath = ${p}\n\t\tOpenCount = ${N_FILES - i}\n\t]`);
+  }
+  writeFileSync(
+    join(dir, SETTINGS_FILE),
+    "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = true\n" +
+      `Theme = Light\nHomePageViewMode = thumbnails\nFileStates [\n${states.join("\n")}\n]\n`,
+  );
+  return dir;
+}
+
+async function mainButton(client: ControlClient, cmd: number): Promise<Box> {
+  const raw = String((await client.request(ControlCommand.TestToolbarButtons, []))[1] ?? "");
+  const re = /^idx=\d+ cmd=(\d+) hidden=(\d) rect=(-?\d+),(-?\d+),(-?\d+),(-?\d+)/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    if (+m[1]! === cmd && m[2] === "0") {
+      return { x: +m[3]!, y: +m[4]!, dx: +m[5]! - +m[3]!, dy: +m[6]! - +m[4]! };
+    }
+  }
+  throw new Error(`no toolbar button for command ${cmd}`);
+}
+
+// E100: a link's tip goes when the cursor leaves the canvas from the link
+async function checkLinkTipLeave(pid: number, client: ControlClient, frame: number, canvas: number): Promise<void> {
+  const cr = getClientRect(canvas);
+  const cx = Math.floor(cr.right / 2);
+  const cy = Math.floor(cr.bottom / 2);
+  const on = clientToScreen(canvas, cx, cy);
+  await moveTestCursor(on.x, on.y, client);
+  sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(cx, cy));
+  sendMessage(canvas, WM_SETCURSOR, canvas, packCoords(HTCLIENT, WM_MOUSEMOVE));
+  await waitShown(() => shownTip(pid), "link tip");
+
+  // onto the toolbar, which says nothing to the canvas
+  const toolbar = findChildByClass(frame, TOOLBAR_CLASS);
+  const tr = getClientRect(toolbar);
+  const off = clientToScreen(toolbar, 4, Math.floor(tr.bottom / 2));
+  await moveTestCursor(off.x, off.y, client);
+  sendMessage(toolbar, WM_MOUSEMOVE, 0, packCoords(4, Math.floor(tr.bottom / 2)));
+  await waitGone(() => shownTip(pid), "link tip after the cursor left the canvas");
+}
+
+// E98: the drop-down moves with the frame and the toolbar, and goes with the
+// toolbar. CmdToggleToolbar cycles shown -> overlay (auto-hides) -> hidden.
+async function checkToolbarDropdown(pid: number, client: ControlClient, frame: number, canvas: number): Promise<void> {
+  const toolbar = findChildByClass(frame, TOOLBAR_CLASS);
+  check(toolbar !== 0, "no toolbar");
+  const find = () => shownTopWindow(pid, MENU_CLASS);
+  const cr = getClientRect(canvas);
+
+  // right-click the Zoom In button: a sticky drop-down, no close timer
+  const openMenu = async () => {
+    const b = await mainButton(client, cmdId("CmdZoomIn"));
+    const x = b.x + Math.floor(b.dx / 2);
+    const y = b.y + Math.floor(b.dy / 2);
+    const s = clientToScreen(toolbar, x, y);
+    await moveTestCursor(s.x, s.y, client);
+    sendMessage(toolbar, WM_RBUTTONDOWN, MK_RBUTTON, packCoords(x, y));
+    sendMessage(toolbar, WM_RBUTTONUP, 0, packCoords(x, y));
+    return await waitShown(find, "zoom drop-down");
+  };
+  // the cursor on the canvas: x, y in canvas client coordinates
+  const cursorOnCanvas = async (x: number, y: number) => {
+    const s = clientToScreen(canvas, x, y);
+    await moveTestCursor(s.x, s.y, client);
+    sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
+  };
+  // the drop-down's place from the toolbar's
+  const offset = (menu: number) => {
+    const m = getWindowRect(menu);
+    const t = getWindowRect(toolbar);
+    return { x: m.left - t.left, y: m.top - t.top };
+  };
+
+  await step("toolbar drop-down: frame moved", async () => {
+    const before = box(await openMenu());
+    await whileFrameMoved(frame, () => waitAt(find, moved(before, MOVE_DX, MOVE_DY), "drop-down, frame moved"));
+    await waitAt(find, before, "drop-down after the frame moved back");
+  });
+
+  await step("toolbar drop-down: overlay toolbar", async () => {
+    const menu = find() || (await openMenu());
+    const o0 = offset(menu);
+    const t0 = getWindowRect(toolbar);
+    sendCommandSync(frame, cmdId("CmdToggleToolbar"));
+    await pollUntil(
+      () => getWindowRect(toolbar).left,
+      (x) => x !== t0.left,
+      { timeoutMs: WAIT_MS, error: () => "the overlay toolbar did not move" },
+    );
+    const t = getWindowRect(toolbar);
+    await waitAt(find, { ...box(menu), x: t.left + o0.x, y: t.top + o0.y }, "drop-down on the overlay toolbar");
+
+    // the cursor in the drop-down keeps the overlay toolbar, and so the drop-down
+    const m = box(find());
+    await moveTestCursor(m.x + Math.floor(m.dx / 2), m.y + Math.floor(m.dy / 2), client);
+    await sleep(OVERLAY_HIDE_MS * 2);
+    check(isWindowVisible(toolbar) && find() !== 0, "the overlay toolbar hid with the cursor in its drop-down");
+
+    // the cursor elsewhere: the toolbar auto-hides, the drop-down with it
+    await cursorOnCanvas(Math.floor(cr.right / 2), Math.floor(cr.bottom / 2));
+    await waitGone(find, "drop-down after the overlay toolbar auto-hid");
+  });
+
+  await step("toolbar drop-down: toolbar hidden", async () => {
+    // reveal the overlay toolbar from the top of the canvas
+    await cursorOnCanvas(Math.floor(cr.right / 2), 2);
+    await pollUntil(
+      () => isWindowVisible(toolbar),
+      (v) => v,
+      { timeoutMs: WAIT_MS, error: () => "the overlay toolbar did not show" },
+    );
+    await openMenu();
+    sendCommandSync(frame, cmdId("CmdToggleToolbar"));
+    await waitGone(find, "drop-down with the toolbar hidden");
+  });
+  sendCommandSync(frame, cmdId("CmdToggleToolbar"));
+}
+
+// E100: Home's keyboard-selection tip stays under the selected entry
+async function checkHomeTip(pid: number, client: ControlClient, frame: number, canvas: number): Promise<void> {
+  await activateTestFrame(client);
+  const away = clientToScreen(canvas, 1, 1);
+  await moveTestCursor(away.x, away.y, client);
+  sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(1, 1));
+  sendMessage(canvas, WM_KEYDOWN, VK_RIGHT, 0);
+  await waitForHome(client, (s) => s.sel >= 0 && s.selShown, "no keyboard selection");
+  const find = () => shownTip(pid);
+  await waitShown(find, "Home selection tip");
+
+  // the tip's offset from the selected entry's outline, on screen
+  const offset = async () => {
+    const s = await client.homeSelection();
+    const o = clientToScreen(canvas, s.selRect[0]!, s.selRect[1]!);
+    return { x: o.x, y: o.y };
+  };
+  const o0 = await offset();
+  const t0 = box(find());
+  const want = async () => {
+    const o = await offset();
+    return moved(t0, o.x - o0.x, o.y - o0.y);
+  };
+
+  await step("Home tip: frame moved", async () => {
+    await whileFrameMoved(frame, async () => waitAt(find, await want(), "Home tip, frame moved"));
+    await waitAt(find, await want(), "Home tip after the frame moved back");
+  });
+
+  await step("Home tip: sidebar shifts the canvas", async () => {
+    const c0 = getWindowRect(canvas).left;
+    sendCommandSync(frame, cmdId("CmdFavoriteToggle"));
+    try {
+      await pollUntil(
+        async () => getWindowRect(canvas).left,
+        (x) => x !== c0,
+        { timeoutMs: WAIT_MS, error: () => "the favorites sidebar did not shift the canvas" },
+      );
+      await waitAt(find, await want(), "Home tip with the sidebar shown");
+    } finally {
+      sendCommandSync(frame, cmdId("CmdFavoriteToggle"));
+    }
+  });
+
+  await step("Home tip: frame minimized", async () => {
+    if (!find()) sendMessage(canvas, WM_KEYDOWN, VK_RIGHT, 0);
+    showWindow(frame, SW_SHOWMINNOACTIVE);
+    try {
+      await waitGone(() => shownTip(pid), "Home tip with the frame minimized");
+    } finally {
+      showWindow(frame, SW_SHOWNOACTIVATE);
+    }
+  });
+}
+
+// E99: the About hover moves with the frame and goes with Home
+async function checkAboutHover(pid: number, client: ControlClient, frame: number, canvas: number): Promise<void> {
+  const find = () => shownTopWindow(pid, ABOUT_CLASS);
+  const hoverLogo = async () => {
+    const s = await client.homeSelection();
+    const [lx, ly, ldx, ldy] = s.logo;
+    const x = lx! + Math.floor(ldx! / 2);
+    const y = ly! + Math.floor(ldy! / 2);
+    const p = clientToScreen(canvas, x, y);
+    await moveTestCursor(p.x, p.y, client);
+    sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
+  };
+  await hoverLogo();
+  const before = box(await waitShown(find, "About hover"));
+
+  await step("About hover: frame moved", async () => {
+    // the cursor rides along on the logo, which keeps the hover up
+    await whileFrameMoved(frame, async () => {
+      await hoverLogo();
+      await waitAt(find, moved(before, MOVE_DX, MOVE_DY), "About hover, frame moved");
+    });
+    await hoverLogo();
+    await waitAt(find, before, "About hover after the frame moved back");
+  });
+
+  await step("About hover: Ctrl+Tab to a document", async () => {
+    if (!find()) await hoverLogo();
+    await waitShown(find, "About hover");
+    sendCommandSync(frame, cmdId("CmdPrevTab"));
+    await waitGone(find, "About hover over the document");
+  });
+}
+
+// the citation hover popup, opened by TestRefHover (see issue-6252)
+async function checkRefHover(): Promise<void> {
+  const dir = tmpPath("ad-hoc-e98-refhover");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const pdf = join(dir, "doc.pdf");
+  writeFileSync(pdf, makeRefPdf(), "latin1");
+  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nCitationHoverDelay = 100\n");
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    const cr = getClientRect(findCanvas(frame));
+    const at = ["show", Math.floor(cr.right / 2), Math.floor(cr.bottom / 3)];
+    const res = await client.request(ControlCommand.TestRefHover, at);
+    check(res[0] === 0, `could not show the citation popup: ${res[1]}`);
+    const p = await waitRefPopup(client, "the citation popup did not open", (q) => q.visible && q.hwnd !== 0);
+    const find = () => (isWindowVisible(p.hwnd) ? p.hwnd : 0);
+    const before = box(p.hwnd);
+    await whileFrameMoved(frame, () => waitAt(find, moved(before, MOVE_DX, MOVE_DY), "citation popup, frame moved"));
+    await waitAt(find, before, "citation popup after the frame moved back");
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
+export async function testit(): Promise<void> {
+  failures.length = 0;
+  setProcessDpiAware();
+  const pdf = tmpPath("e98-link.pdf");
+  writeFileSync(pdf, makeLinkPdf(), "latin1");
+  const { proc, client, frame } = await launchControlled(["-appdata", makeAppDir(), pdf]);
+  const pid = proc.pid!;
+  gPid = pid;
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    const canvas = findCanvas(frame);
+    check(canvas !== 0, "canvas not found");
+
+    await step("link tip: cursor leaves the canvas", () => checkLinkTipLeave(pid, client, frame, canvas));
+    await checkToolbarDropdown(pid, client, frame, canvas);
+
+    // a Home tab after the document's tab
+    sendCommandSync(frame, cmdId("CmdNewTab"));
+    await waitForHome(client, (s) => s.entries === N_FILES + 1, "Home not ready");
+    await checkHomeTip(pid, client, frame, canvas);
+    await checkAboutHover(pid, client, frame, canvas);
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+  await step("citation hover: frame moved", checkRefHover);
+  check(failures.length === 0, failures.join("\n"));
+  console.log("e98-anchored-popups: OK");
+}
+
+if (import.meta.main) await runStandalone(testit);

@@ -563,8 +563,9 @@ static bool OverlayToolbarShouldShowForCursor(MainWindow* win) {
     Rect band(canvas.x, bandY, canvas.dx, tb.dy + my);
     bool inBand = band.Contains(Point(ptFrame.x, ptFrame.y));
 
-    // also keep shown while the cursor is over the toolbar window itself
-    return inBand || ToolbarHost(win)->ContainsScreenPoint(pt);
+    // also keep shown while the cursor is over the toolbar window itself, or
+    // its drop-down, which goes when the toolbar hides
+    return inBand || ToolbarHost(win)->ContainsScreenPoint(pt) || ToolbarHoverDropdownContainsScreenPoint(win, pt);
 }
 
 // the overlay toolbar must not vanish while it owns the keyboard focus (e.g.
@@ -1591,6 +1592,11 @@ static void OpenHoverDropdown(MainWindow* win, int cmdId) {
     tb->hoverPendingCmdId = 0;
     NoteHoverButtonMove(tb);
     host->SetPos(r, true);
+    // follows the toolbar when the frame moves, goes when the toolbar hides
+    AnchorArgs anchorArgs;
+    anchorArgs.anchor = tb->host->native;
+    anchorArgs.dismiss = MkFunc0(HideToolbarHoverDropdown, win);
+    AnchorPopup(host->native, anchorArgs);
 
     tb->host->KillTimer(kOpenHoverDropdownTimerId);
     tb->host->KillTimer(kCloseHoverDropdownTimerId);

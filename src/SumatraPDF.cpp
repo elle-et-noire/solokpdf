@@ -2096,9 +2096,6 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
     // the new document paints its theme background until its first page renders
     tab->everPaintedPage = false;
 
-    // Reload/replace swaps the document; clear any tip for the previous page.
-    win->DeleteToolTip();
-
     // Drop find-match coords / match-count cache for the previous engine (reload
     // or replace). Find UI text is kept; count restarts against the new engine
     // if find is still open. Must run after win->ctrl points at the new document.
@@ -3558,10 +3555,6 @@ MainWindow* LoadDocumentFinish(LoadArgs* args) {
         args->targetTab = targetTab;
     }
 
-    // Clear any tip from the previous document/tab (LoadModelIntoTab also does
-    // this on tab switch; cover the first open / about-page case here too).
-    win->DeleteToolTip();
-
     if (targetTab) {
         ReportIf(!IsCurrentTab(win, targetTab));
         if (!IsCurrentTab(win, targetTab)) {
@@ -4515,9 +4508,6 @@ void LoadModelIntoTab(WindowTab* tab) {
     ReadingAutoScrollHideBar(win);
     CloseMeasurement(win);
     ReadingBarCancelDrag(win);
-    // Document content is about to change; drop any page-element / about-page tip
-    // so it cannot linger over the new document.
-    win->DeleteToolTip();
     // the link-hint overlay and the selection caret belong to the outgoing
     // document
     StopKeyboardLinkFollowing(win);
@@ -14364,10 +14354,6 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
 
         case WM_SIZE:
             if (win && SIZE_MINIMIZED == wp) {
-                // Track-mode canvas tips (home file path, page links) are
-                // topmost popups and must be dismissed on minimize or they
-                // stick on the desktop (issue #5928).
-                win->DeleteToolTip();
                 ReadingAutoScrollOnMinimize(win, true);
                 break;
             }

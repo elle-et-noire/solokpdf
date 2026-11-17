@@ -143,6 +143,8 @@ colors `toc-scrollbar-theme`, `toc-hover-colors`; UIA/MSAA and lifetime
 Overlay scrollbars hiding and moving with their tree or the canvas:
 `ad-hoc-sidebar-tree-bars`; their pixels, from a PrintWindow of the canvas:
 `smart-scrollbars-autohide`, `overlay-scrollbar-theme`.
+Popups moving and hiding with their window (toolbar drop-down, Home's About
+hover and keyboard tip, link tip, citation hover): `ad-hoc-e98-anchored-popups`.
 After lifetime, notification or test-hook changes, also run the last four and
 `ad-hoc-tree-lifetime` under ASan. The
 [migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in

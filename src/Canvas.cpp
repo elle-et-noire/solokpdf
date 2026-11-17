@@ -5384,6 +5384,11 @@ LRESULT CALLBACK WndProcCanvas(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
 
     MainWindow* win = FindMainWindowByHwnd(hwnd);
+    // whatever switched tabs or documents, the canvas shows them from here on;
+    // a tab switch repaints it
+    if (win) {
+        AnchorShows(hwnd, win->CanvasContent());
+    }
     switch (msg) {
         case WM_DROPFILES:
             ReportIf(lp != 0 && lp != 1);

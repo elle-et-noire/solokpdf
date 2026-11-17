@@ -119,6 +119,10 @@ bool RefHoverPopupCreate(RefHoverState* s, HWND hwndCanvas) {
     return true;
 }
 
+static void DismissRefHover(RefHoverState* s) {
+    RefHoverHide(s, s->hwndCanvas);
+}
+
 void RefHoverShowPopup(RefHoverState* s, Point screenPt) {
     if (!s || !s->hwndPopup || !s->bmp) {
         return;
@@ -191,6 +195,12 @@ void RefHoverShowPopup(RefHoverState* s, Point screenPt) {
 
     SetWindowPos(s->hwndPopup, AppWindowZOrder(s->hwndPopup, HWND_TOPMOST), x, y, popupW, popupH,
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    // moves with the canvas, goes with it or its document
+    AnchorArgs anchorArgs;
+    anchorArgs.anchor = s->hwndCanvas;
+    anchorArgs.dismiss = MkFunc0(DismissRefHover, s);
+    anchorArgs.content = s->ctrl;
+    AnchorPopup(s->hwndPopup, anchorArgs);
     HwndInvalidate(s->hwndPopup, true);
 }
 

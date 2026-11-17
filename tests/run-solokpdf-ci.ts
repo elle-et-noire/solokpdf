@@ -75,6 +75,7 @@ import { testit as hoverB71 } from "./ad-hoc-b71-hover.ts";
 import { testit as physicalMovesE101 } from "./ad-hoc-e101-physical-moves.ts";
 import { testit as tabLeaveE103 } from "./ad-hoc-e103-tab-leave.ts";
 import { testit as leaveAfterCaptureE105 } from "./ad-hoc-e105-leave-after-capture.ts";
+import { testit as anchoredPopupsE98 } from "./ad-hoc-e98-anchored-popups.ts";
 import { testit as controlColorRoles } from "./control-color-roles.ts";
 import { testit as themeOpenWindows } from "./theme-open-windows.ts";
 import { testit as positionB71 } from "./ad-hoc-b71-window-position.ts";
@@ -144,6 +145,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-e101-physical-moves", physicalMovesE101],
   ["ad-hoc-e103-tab-leave", tabLeaveE103],
   ["ad-hoc-e105-leave-after-capture", leaveAfterCaptureE105],
+  ["ad-hoc-e98-anchored-popups", anchoredPopupsE98],
   ["control-color-roles", controlColorRoles],
   ["theme-open-windows", themeOpenWindows],
   ["ad-hoc-b70-tab-view", tabViewB70],

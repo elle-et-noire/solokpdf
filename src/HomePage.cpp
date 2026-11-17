@@ -2722,6 +2722,12 @@ static void ShowHomeAboutHover(MainWindow* win) {
     Rect pos{logoScreen.x + ((logoScreen.dx - box.dx) / 2), logoScreen.Bottom(), box.dx, box.dy};
     pos = ShiftRectToWorkArea(pos, win->hwndCanvas, true);
     host->SetPos(pos, true);
+    // moves with the canvas, goes with it or with Home
+    AnchorArgs anchorArgs;
+    anchorArgs.anchor = win->hwndCanvas;
+    anchorArgs.dismiss = MkFunc0(HideHomeAboutHover, win);
+    anchorArgs.content = win->CanvasContent();
+    AnchorPopup(host->native, anchorArgs);
     UpdateAboutLayout(&host->vroot, host->native, {0, 0, box.dx, box.dy}, true);
     host->Invalidate();
 }
