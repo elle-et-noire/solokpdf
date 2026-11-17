@@ -201,6 +201,12 @@ on-screen keyboard does; `click-frame` / `click-last` activate the frame or the
 newest window with `SetActiveWindow()` alone, as a caption click does:
 `activate` / `activate-last` end with a `SetFocus()` that would hide a focus
 move made in a loss handler.
+E145: while minimized, the test sends Run PDF Script `WM_SETREDRAW` FALSE/TRUE and
+sets `WS_VISIBLE` with `SetWindowLong` from its own process; the dialog must stay off
+screen and come back at its place with the focus. Windows doesn't hide that dialog
+with the frame (the layer's sync does), so the `frame` way, which moves the focus as
+Windows hides a popup, doesn't apply to it. The examples come from the website
+checkout (`scripts.js`); without it the list is empty and the `pick` action fails.
 Dumps that report a popup shown (`visible=1`, `floatVisible=1`, the annotation
 toolbar's `annotEditToolbar visible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,

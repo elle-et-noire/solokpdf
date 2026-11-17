@@ -46,6 +46,9 @@
 // a class not the app's (MessageBox, file dialog) is like another app: it keeps the
 // focus through the restore, no loss is delivered, the popup gets the focus back after.
 //
+// E145: one waiting for the restore stays off screen when WS_VISIBLE is set without a
+// show (WM_SETREDRAW TRUE, a style write).
+//
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -71,6 +74,7 @@ import {
   packCoords,
   sendMessage,
   setProcessDpiAware,
+  setWindowLong,
   setWindowPos,
   postChar,
   postMessage,
@@ -103,6 +107,7 @@ import {
   launchControlled,
   moveTestCursor,
   pressVKey,
+  sendCommand,
   sendCommandSync,
 } from "./win-automation.ts";
 
@@ -113,6 +118,8 @@ const TIP_CLASS = "tooltips_class32";
 const LINK_URL = "https://example.com/e100";
 const N_FILES = 6;
 const WS_EX_TOPMOST = 0x8;
+const WS_VISIBLE = 0x10000000;
+const WM_SETREDRAW = 0x000b;
 const SWP_NOSIZE = 0x0001;
 const WM_SETCURSOR = 0x0020;
 const HTCLIENT = 1;
@@ -1432,6 +1439,45 @@ async function closeWindow(find: () => number, what: string): Promise<void> {
   await waitGone(find, `${what} after WM_CLOSE`);
 }
 
+// E145: a window hidden with the frame isn't put back on screen by setting WS_VISIBLE
+// without a show: WM_SETREDRAW TRUE (what Run PDF Script's example pick sends a window
+// it reads as shown) or a style write
+async function checkStaysHidden(pid: number, client: ControlClient, frame: number): Promise<void> {
+  const name = "Run PDF Script";
+  const find = () => shownOwned(pid, frame, /^Run PDF Script$/);
+  const redraw = async (h: number) => {
+    sendMessage(h, WM_SETREDRAW, 0, 0);
+    sendMessage(h, WM_SETREDRAW, 1, 0);
+  };
+  const styleWrite = async (h: number) => void setWindowLong(h, GWL_STYLE, getWindowLong(h, GWL_STYLE) | WS_VISIBLE);
+  const writes = [
+    { what: "WM_SETREDRAW TRUE", write: redraw },
+    { what: "a style write sets WS_VISIBLE", write: styleWrite },
+  ];
+  // Windows doesn't hide it with the frame, the layer's sync does: no "frame" way, which
+  // moves the focus as Windows hides it
+  for (const w of writes) {
+    for (const way of MINIMIZE_WAYS) {
+      await step(`${name}: ${w.what} while minimized, ${way.how}`, async () => {
+        if (!find()) sendCommand(frame, cmdId("CmdRunPDFScript"));
+        const hwnd = await waitShown(find, name);
+        const before = box(hwnd);
+        const res = await focusState(client, "owned-popup");
+        check(res.includes("focus=owned "), `${name} has no focus: ${res}`);
+        const during = async () => {
+          await w.write(hwnd);
+          check(!isWindowVisible(hwnd), `${name} is on screen with the frame minimized after ${w.what}`);
+        };
+        await minimizedAndRestored(client, way, find, name, during);
+        await waitAt(find, before, `${name} after the frame was restored`);
+        const after = await focusState(client);
+        check(after.includes("focus=owned "), `${name}'s focus after the frame was restored: ${after}`);
+      });
+    }
+  }
+  await closeWindow(find, name);
+}
+
 // E143: the windows the frame owns follow its minimize; one it doesn't own stays
 export async function checkOwnedWindows(): Promise<void> {
   const dir = tmpPath("ad-hoc-e143");
@@ -1470,6 +1516,7 @@ export async function checkOwnedWindows(): Promise<void> {
       open: async () => sendCommandSync(frame, cmdId("CmdPdfCompress")),
       focus,
     });
+    await checkStaysHidden(pid, client, frame);
 
     // not owned: Windows and the layer leave it alone. anchor-first shows again only
     // what the frame owns

@@ -288,8 +288,23 @@ ng も共有の基底実装とフォーム結果の呼び出し側を使う。�
   Win32 を直接呼ぶ）。同層を通らない他の非表示の経路 `SetWindowPlacement()`・`AnimateWindow()`・`ShowOwnedPopups()`・
   `DeferWindowPos()` は同じ場所で `dont_use_*` に置き換え、呼ぶとビルドが通らない（`DeferWindowPos` は同層を通る
   `DeferWinPosHelper` を使う）。経路を足して通すより、使われていない API は塞ぐ方が単純で確実なので塞いだ（E143）。
+  マクロはオブジェクト形式なので `(ShowWindow)(...)`・`&ShowWindow` も同層へ行く。Base.h は `<windows.h>` の前に
+  これらの名前を別名にするので、winuser.h はどのインポートライブラリにもない名前で宣言し、`#undef` しても呼べる
+  Win32 関数がない（ビルドが通らない）。実関数は Win.cpp だけが自分で宣言する。`<windows.h>` が Base.h より先だと
+  `#error` になる（E145）。
   所有窓の `WS_VISIBLE` を `HwndSetWindowStyle()` で切り替えると `ReportIf` する（トップレベル窓はスタイルでは
-  表示・非表示にならない）。`SetWindowLong(GWL_STYLE)` の読み書きは非表示と区別できないので見ない。
+  表示・非表示にならない）。復元を待つ間、`WS_VISIBLE` を立てられるのは同層の表示だけ：ポップアップのサブクラスが
+  `WM_SETREDRAW TRUE`（DefWindowProc が `WS_VISIBLE` を立てる）を捨て、`WM_STYLECHANGING` で新しいスタイルから
+  `WS_VISIBLE` を外す。トップレベル窓に `WM_SETREDRAW` を送るのは Run PDF Script の例の切り替え（選択・リセット）だけで、隠れている間は
+  入力が届かないので今は起きない。`SetWindowLong(GWL_STYLE)` で `WS_VISIBLE` を消す書き込みは、隠れている窓では
+  前後のスタイルが同じで、他のビットの読み書きと区別できない（隠れている窓を隠すのと同じ）ので見えない。アプリの
+  生の `GWL_STYLE` 書き込みはどれも直前に読んだスタイルの他のビット（`WS_CLIPCHILDREN`、スクロールバー、フレームの
+  枠）だけを変える（E145）。
+  comctl32/user32 のクラスの窓は登録しない。フレームが所有するモードレスのものはない：ダイアログ（MessageBox、
+  TaskDialog、ファイル・印刷ダイアログ）とメニューはモーダルで、閉じれば破棄され再表示されない。ツールチップ
+  （`Tooltip`、`tooltips_class32`）とコンボのドロップダウン（`ComboLBox`）は所有者なしのトップレベル窓なので、
+  Windows はフレームの最小化で隠さず再表示もしない（infotip は `AnchorPopup()` で登録される）。サイドバーの木は
+  `VirtTree` で comctl32 のツールチップを持たない（E145、実行中の窓の列挙で確認）。
   所有者は普通に隠せばよく、ファイル一覧の lint（`lint-anchored-hides`）は不要になり削除した。復元を待つ間 `HwndIsVisible()`（`VirtHost::IsVisible()` も）は
   表示中と答えるので、所有者の状態とそれで守った非表示は最小化で変わらない（最小化中の Esc で検索バーが閉じる、E138）。
   その印は窓のプロパティなのでどのスレッドからも読め、登録表は追跡する UI スレッドだけが触る（他スレッドからの非表示は

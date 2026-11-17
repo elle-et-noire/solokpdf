@@ -148,6 +148,21 @@
 #include <math.h>
 
 #if OS_WIN
+#if !defined(SUMATRA_NG)
+#if defined(_WINUSER_)
+#error "base/Base.h must come before <windows.h>"
+#endif
+// winuser.h declares the window APIs the owned popups layer routes (end of this file)
+// under names no import library has: after an #undef there is nothing to call
+#define ShowWindow ShowWindow_is_routed
+#define ShowWindowAsync ShowWindowAsync_is_routed
+#define SetWindowPos SetWindowPos_is_routed
+#define IsWindowVisible IsWindowVisible_is_routed
+#define SetWindowPlacement SetWindowPlacement_is_routed
+#define AnimateWindow AnimateWindow_is_routed
+#define ShowOwnedPopups ShowOwnedPopups_is_routed
+#define DeferWindowPos DeferWindowPos_is_routed
+#endif
 #define NOMINMAX
 #include <winsock2.h> // must include before <windows.h>
 #include <windows.h>
@@ -2929,22 +2944,30 @@ void logf(const char* s, const TArgs&... args) {
 #endif
 
 // The app shows, hides and reads its windows through the owned popups layer
-// (base/Win.cpp, the only file that #undefs these), so a popup hidden with its
-// minimized frame can't miss a hide or read hidden. Hide paths it doesn't route
-// don't build.
+// (base/Win.cpp, the only file that declares the Win32 ones), so a popup hidden with
+// its minimized frame can't miss a hide or read hidden. Hide paths it doesn't route
+// don't build. Object-like, so (ShowWindow)(...) and &ShowWindow are routed too.
 #if OS_WIN
 BOOL HwndShowWindow(HWND hwnd, int cmd);
 BOOL HwndShowWindowAsync(HWND hwnd, int cmd);
 BOOL HwndSetWindowPos(HWND hwnd, HWND after, int x, int y, int dx, int dy, UINT flags);
 bool HwndIsVisible(HWND hwnd);
 #if !defined(SUMATRA_NG)
-#define ShowWindow(hwnd, cmd) HwndShowWindow(hwnd, cmd)
-#define ShowWindowAsync(hwnd, cmd) HwndShowWindowAsync(hwnd, cmd)
-#define SetWindowPos(...) HwndSetWindowPos(__VA_ARGS__)
-#define IsWindowVisible(hwnd) HwndIsVisible(hwnd)
-#define SetWindowPlacement(...) dont_use_SetWindowPlacement_bypasses_owned_popups(__VA_ARGS__)
-#define AnimateWindow(...) dont_use_AnimateWindow_bypasses_owned_popups(__VA_ARGS__)
-#define ShowOwnedPopups(...) dont_use_ShowOwnedPopups_bypasses_owned_popups(__VA_ARGS__)
-#define DeferWindowPos(...) dont_use_DeferWindowPos_use_DeferWinPosHelper(__VA_ARGS__)
+#undef ShowWindow
+#undef ShowWindowAsync
+#undef SetWindowPos
+#undef IsWindowVisible
+#undef SetWindowPlacement
+#undef AnimateWindow
+#undef ShowOwnedPopups
+#undef DeferWindowPos
+#define ShowWindow HwndShowWindow
+#define ShowWindowAsync HwndShowWindowAsync
+#define SetWindowPos HwndSetWindowPos
+#define IsWindowVisible HwndIsVisible
+#define SetWindowPlacement dont_use_SetWindowPlacement_bypasses_owned_popups
+#define AnimateWindow dont_use_AnimateWindow_bypasses_owned_popups
+#define ShowOwnedPopups dont_use_ShowOwnedPopups_bypasses_owned_popups
+#define DeferWindowPos dont_use_DeferWindowPos_use_DeferWinPosHelper
 #endif
 #endif

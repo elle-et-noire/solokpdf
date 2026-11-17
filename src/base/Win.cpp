@@ -14,15 +14,23 @@
 #include <mlang.h>
 #include "base/Pixmap.h"
 #include "base/Win.h"
-// the owned popups layer: Win32's own calls (Base.h routes the app's here)
+// the owned popups layer: Win32's own calls (Base.h routes the app's here and hides
+// winuser.h's declarations)
 #undef ShowWindow
 #undef ShowWindowAsync
 #undef SetWindowPos
 #undef IsWindowVisible
 #undef SetWindowPlacement
-#undef AnimateWindow
-#undef ShowOwnedPopups
 #undef DeferWindowPos
+extern "C" {
+WINUSERAPI BOOL WINAPI ShowWindow(HWND hWnd, int nCmdShow);
+WINUSERAPI BOOL WINAPI ShowWindowAsync(HWND hWnd, int nCmdShow);
+WINUSERAPI BOOL WINAPI SetWindowPos(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags);
+WINUSERAPI BOOL WINAPI IsWindowVisible(HWND hWnd);
+WINUSERAPI BOOL WINAPI SetWindowPlacement(HWND hWnd, const WINDOWPLACEMENT* lpwndpl);
+WINUSERAPI HDWP WINAPI DeferWindowPos(HDWP hWinPosInfo, HWND hWnd, HWND hWndInsertAfter, int x, int y, int cx, int cy,
+                                      UINT uFlags);
+}
 #include "base/Launch.h"
 
 //--- subclass ids
@@ -2186,7 +2194,7 @@ bool TrackMouseLeave(HWND hwnd) {
 // minimized. What they report is acted on in a message posted to the popup, once the
 // windows settled: a relayout hides and shows them on its way, and WM_SETREDRAW clears
 // WS_VISIBLE meanwhile.
-// Hiding a hidden window tells no one. Win.h routes the app's ShowWindow(),
+// Hiding a hidden window tells no one. Base.h routes the app's ShowWindow(),
 // SetWindowPos() and IsWindowVisible() here: a hide while minimized keeps the popup
 // hidden on restore, and a read reports it shown while it waits for the restore, so its
 // owner's state, and whether it hides it, don't depend on the minimize. That mark is a
@@ -2694,6 +2702,14 @@ static LRESULT CALLBACK OwnedPopupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
     if (msg == WM_NCDESTROY) {
         UntrackPopup(ap);
         return DefSubclassProc(hwnd, msg, wp, lp);
+    }
+    // While it waits for the restore, only the layer shows it: WS_VISIBLE set without a
+    // show (WM_SETREDRAW TRUE, a style write) would put it on screen with its frame minimized
+    if (ap->minimized && msg == WM_SETREDRAW && wp) {
+        return 0;
+    }
+    if (ap->minimized && msg == WM_STYLECHANGING && (int)wp == GWL_STYLE) {
+        ((STYLESTRUCT*)lp)->styleNew &= ~WS_VISIBLE;
     }
     // Windows hides it for its minimized frame
     if (msg == WM_SHOWWINDOW && !wp && lp == SW_PARENTCLOSING) {
