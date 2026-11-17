@@ -1,4 +1,4 @@
-// Lint: every MuPDF catch in src/ consumes its error through src/shared/mupdf/fz-catch.h.
+// Lint: every MuPDF catch in src/ (outside the frozen src/ng) consumes its error through src/shared/mupdf/fz-catch.h.
 //
 // A fz_catch() that leaves the error pending makes the next throw or fz_drop_context()
 // on that context print "UNHANDLED EXCEPTION!" (E111: a canceled themed render). The

@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: E112–E119 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E113, E116, E117, E112, E118, E115, E119, E114 (blocked); specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-17: E112, E113, E115–E119 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E113, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -23,16 +23,15 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 
 ## Open
 
-| ID   | Item                                                                                                                                                                                                                                                  | Status                                                        |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| E112 | Anchors as functions: re-place popups on any geometry change under the frame and notify content changes once, instead of naming windows (find bar on the toolbar icon, paint-path scroll following, polled content). Spec `.work/codex-queue/e112.md` | todo                                                          |
-| E113 | ad-hoc-e98-anchored-popups fails on CI (Home tip after frame move; Home selection tip not shown) and once locally (citation "no-link"): find the race in the app or the test. Spec `.work/codex-queue/e113.md`                                        | todo                                                          |
-| E114 | Build E111's catch macros on ng Linux (WSL) and Wasm. Spec `.work/codex-queue/e114.md`                                                                                                                                                                | blocked (owner: freeze ng, or keep it building with a CI job) |
-| E115 | Every MuPDF context logs to our log: some `fz_new_context` sites keep MuPDF's stderr callbacks. One factory plus a lint. Spec `.work/codex-queue/e115.md`                                                                                             | todo                                                          |
-| E116 | Crash path ends and dumps by construction: fallback without the helper, no INFINITE wait or allocation before the dump, non-inheritable handles (review D4–D6, U5). Spec `.work/codex-queue/e116.md`                                                  | todo                                                          |
-| E117 | One test input command in Windows' message order; the layer owns foreground and key state under tests; remove window-code guards; CI on the hidden desktop (review: input layering, D3, D7, U1). Spec `.work/codex-queue/e117.md`                     | todo                                                          |
-| E118 | Theme colors resolved at paint from (surface, role, state); main-window parts register their theme refresh (review: theme layering, U4). Spec `.work/codex-queue/e118.md`                                                                             | todo                                                          |
-| E119 | Review docs and process: fz_catch conversion for upstream merges, fz-catch.h MuPDF dependency, doc claims, spec rules. Spec `.work/codex-queue/e119.md`                                                                                               | todo                                                          |
+| ID   | Item                                                                                                                                                                                                                                                  | Status |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| E112 | Anchors as functions: re-place popups on any geometry change under the frame and notify content changes once, instead of naming windows (find bar on the toolbar icon, paint-path scroll following, polled content). Spec `.work/codex-queue/e112.md` | todo   |
+| E113 | ad-hoc-e98-anchored-popups fails on CI (Home tip after frame move; Home selection tip not shown) and once locally (citation "no-link"): find the race in the app or the test. Spec `.work/codex-queue/e113.md`                                        | todo   |
+| E115 | Every MuPDF context logs to our log: some `fz_new_context` sites keep MuPDF's stderr callbacks. One factory plus a lint. Spec `.work/codex-queue/e115.md`                                                                                             | todo   |
+| E116 | Crash path ends and dumps by construction: fallback without the helper, no INFINITE wait or allocation before the dump, non-inheritable handles (review D4–D6, U5). Spec `.work/codex-queue/e116.md`                                                  | todo   |
+| E117 | One test input command in Windows' message order; the layer owns foreground and key state under tests; remove window-code guards; CI on the hidden desktop (review: input layering, D3, D7, U1). Spec `.work/codex-queue/e117.md`                     | todo   |
+| E118 | Theme colors resolved at paint from (surface, role, state); main-window parts register their theme refresh (review: theme layering, U4). Spec `.work/codex-queue/e118.md`                                                                             | todo   |
+| E119 | Review docs and process: fz_catch conversion for upstream merges, fz-catch.h MuPDF dependency, doc claims, spec rules. Spec `.work/codex-queue/e119.md`                                                                                               | todo   |
 
 ## Deferred
 
@@ -42,20 +41,21 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 
 ## Dropped
 
-| ID  | Item                                                | Reason                                                                                         |
-| --- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| B21 | PDFium CAD enhance                                  | PDFium has no render control for it; the command is hidden on PDFium tabs                      |
-| B27 | PDFium external images                              | PDFium has no external-stream loader; such PDFs are rare                                       |
-| B62 | Widget action query gate                            | PDFium cannot read widget `/S`; MuPDF query median: 1.2 ms small, 2.5 ms 35 MiB                |
-| D2  | Compile cache (sccache) for CI builds               | gains uncertain (no PCH or `/MP` caching); CI takes ~20 min                                    |
-| E3  | ASan build of the app with PDFium for the fuzz test | prebuilt PDFium isn't ASan                                                                     |
-| B73 | Free the render probe's MuPDF parse                 | ~7 MiB on a 113k-object file is cheaper than ~16 ms per later first page visit (2026-11-06)    |
-| E9  | Raise selected-row contrast (Solarized Dark 3.49:1) | selection colors are a deliberate cross-theme scheme; theme text itself is 4.75:1 (2026-11-06) |
-| E4  | Transparent-page compositing parity                 | rare documents                                                                                 |
+| ID   | Item                                                | Reason                                                                                         |
+| ---- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| B21  | PDFium CAD enhance                                  | PDFium has no render control for it; the command is hidden on PDFium tabs                      |
+| B27  | PDFium external images                              | PDFium has no external-stream loader; such PDFs are rare                                       |
+| B62  | Widget action query gate                            | PDFium cannot read widget `/S`; MuPDF query median: 1.2 ms small, 2.5 ms 35 MiB                |
+| D2   | Compile cache (sccache) for CI builds               | gains uncertain (no PCH or `/MP` caching); CI takes ~20 min                                    |
+| E3   | ASan build of the app with PDFium for the fuzz test | prebuilt PDFium isn't ASan                                                                     |
+| B73  | Free the render probe's MuPDF parse                 | ~7 MiB on a 113k-object file is cheaper than ~16 ms per later first page visit (2026-11-06)    |
+| E9   | Raise selected-row contrast (Solarized Dark 3.49:1) | selection colors are a deliberate cross-theme scheme; theme text itself is 4.75:1 (2026-11-06) |
+| E114 | Build E111 catch macros on ng Linux/Wasm            | ng frozen (owner, 2026-11-17)                                                                  |
+| E4   | Transparent-page compositing parity                 | rare documents                                                                                 |
 
 ## Not planned
 
-XFA editing and GoToE (unsupported in both engines); `src/ng/`; distribution
+XFA editing and GoToE (unsupported in both engines); `src/ng/`, frozen (owner, 2026-11-17): not built, tested or linted here; shared changes are not verified on ng; distribution
 (GitHub Releases, update checks, release criteria): the owner has no plans to
 distribute. Explorer thumbnails/preview (needs DLL registration; little value
 for one user). The default-app association already works through
