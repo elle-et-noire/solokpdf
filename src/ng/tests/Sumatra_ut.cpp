@@ -40,6 +40,7 @@ extern "C" {
 #include <mupdf/fitz.h>
 #include <mupdf/ucdn.h>
 }
+#include "mupdf/fz-catch.h"
 #include "mupdf/noto_sumatra.h"
 #include "EmbeddedResources.h"
 
@@ -134,7 +135,7 @@ static void OpenMarkdownWithSystemFonts(fz_context* ctx) {
     fz_always(ctx) {
         fz_drop_document(ctx, doc);
     }
-    fz_catch(ctx) {
+    fz_catch_report(ctx) {
         failed = 1;
     }
     file::Delete(mdPath);

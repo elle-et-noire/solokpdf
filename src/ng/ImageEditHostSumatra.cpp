@@ -36,6 +36,7 @@
 
 extern "C" {
 #include "mupdf/fitz.h"
+#include "mupdf/fz-catch.h"
 }
 
 #include "SumatraLog.h"
@@ -108,7 +109,7 @@ static bool SavePixmapAsJpeg(Pixmap* px, Str destPath) {
     fz_always(ctx) {
         fz_drop_pixmap(ctx, fzPix);
     }
-    fz_catch(ctx) {
+    fz_catch_ignore(ctx, "logged here") {
         logf("SavePixmapAsJpeg: %s\n", Str(fz_caught_message(ctx)));
     }
     fz_drop_context(ctx);

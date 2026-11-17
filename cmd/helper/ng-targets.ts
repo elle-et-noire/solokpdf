@@ -1443,7 +1443,7 @@ export const targets: Target[] = [
     name: "test_mupdf",
     kind: "console",
     sources: ["src/ng/tools/test_mupdf.cpp"],
-    includes: ["ext/mupdf/include"],
+    includes: ["src/ng", "ext/mupdf/include"],
     deps: ["mupdf"],
     winLibs: [
       "advapi32.lib",

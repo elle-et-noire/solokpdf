@@ -7,6 +7,7 @@
 
 #include "mupdf/fitz.h"
 #include "mupdf/pdf.h"
+#include "mupdf/fz-catch.h"
 #include "pkcs7_mac.h"
 
 #include <Security/Security.h>
@@ -99,9 +100,7 @@ static const unsigned char* ber_to_der(fz_context* ctx, fz_buffer* out, const un
     fz_always(ctx) {
         fz_drop_buffer(ctx, body);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return p;
 }
 
@@ -175,9 +174,8 @@ static pdf_pkcs7_distinguished_name* cert_distinguished_name(fz_context* ctx, Se
     fz_always(ctx) {
         CFRelease(cert);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         pdf_signature_drop_distinguished_name(ctx, dn);
-        fz_rethrow(ctx);
     }
     return dn;
 }
@@ -255,8 +253,7 @@ static int signer_create_digest(fz_context* ctx, pdf_pkcs7_signer* signer, fz_st
         }
         CFRelease(enc);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         res = 0;
     }
     return res;
@@ -342,11 +339,10 @@ pdf_pkcs7_signer* pkcs7_mac_read_pfx(fz_context* ctx, const char* pfile, const c
         }
         fz_drop_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         if (signer) {
             drop_signer(ctx, &signer->base);
         }
-        fz_rethrow(ctx);
     }
     return &signer->base;
 }
@@ -410,8 +406,7 @@ static CMSDecoderRef decode_signature(fz_context* ctx, fz_stream* in, const unsi
             CFRelease(content);
         }
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         st = errSecDecode;
     }
     if (st != errSecSuccess) {

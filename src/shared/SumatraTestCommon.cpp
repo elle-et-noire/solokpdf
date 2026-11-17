@@ -10,6 +10,7 @@
 extern "C" {
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
+#include "mupdf/fz-catch.h"
 }
 
 #include "gui/UIModels.h"
@@ -1241,9 +1242,8 @@ TempStr SignRollbackResultTemp(EngineBase* engine, Str action, Str cert, Str pas
             }
         }
     }
-    fz_catch(ctx) {
+    fz_catch_report(ctx) {
         out.Append(fmt("ERROR %s", Str(fz_caught_message(ctx))));
-        fz_report_error(ctx);
     }
     return ToStrTemp(out);
 }
@@ -1428,8 +1428,7 @@ TempStr CmykImageSaveResultTemp(Str jpegPath, Str tiffPath, int* exitCodeOut) {
             jpegSrc = Str((char*)data, (int)n);
         }
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         jpegSrc = {};
     }
     if (jpegSrc) {

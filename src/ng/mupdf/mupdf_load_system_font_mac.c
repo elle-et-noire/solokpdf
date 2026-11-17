@@ -3,6 +3,7 @@
 
 #include "mupdf/fitz.h"
 #include "mupdf/ucdn.h"
+#include "mupdf/fz-catch.h"
 #include "mupdf/font_common.h"
 
 #include <CoreText/CoreText.h>
@@ -174,9 +175,7 @@ static fz_font* load_ct_font_data(fz_context* ctx, const char* name, CTFontRef c
         fz_drop_buffer(ctx, buffer);
         free(font_data);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return font;
 }
 

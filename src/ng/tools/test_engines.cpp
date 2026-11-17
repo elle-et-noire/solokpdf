@@ -14,6 +14,7 @@
 
 extern "C" {
 #include <mupdf/fitz.h>
+#include "mupdf/fz-catch.h"
 }
 
 #include "Settings.h"
@@ -141,7 +142,7 @@ static bool SavePixmapAsPng(Pixmap* pixmap, Str path) {
     fz_always(ctx) {
         fz_drop_pixmap(ctx, fzPix);
     }
-    fz_catch(ctx) {
+    fz_catch_ignore(ctx, "printed here") {
         printf("SavePixmapAsPng: %s\n", fz_caught_message(ctx));
     }
     fz_drop_context(ctx);

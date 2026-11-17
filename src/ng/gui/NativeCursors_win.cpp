@@ -15,6 +15,7 @@
 #include "gui/Dpi.h"
 
 #include <mupdf/fitz.h>
+#include "mupdf/fz-catch.h"
 
 #include "gui/UIModels.h"
 #include "Settings.h"
@@ -77,9 +78,8 @@ static fz_pixmap* RenderSvgToFzPixmap(fz_context* ctx, Str svgData, int dx, int 
         fz_drop_display_list(ctx, list);
         fz_drop_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
+    fz_catch_report(ctx) {
         fz_drop_pixmap(ctx, pixmap);
-        fz_report_error(ctx);
         logf("CreateSvgPlacementCursor: rendering svg icon failed with: '%s'\n", Str(fz_caught_message(ctx)));
         return nullptr;
     }

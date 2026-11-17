@@ -5,6 +5,7 @@
 
 #include "mupdf/fitz.h"
 #include "mupdf/pdf.h"
+#include "fz-catch.h"
 
 #include "pkcs7-windows.h"
 
@@ -278,7 +279,7 @@ static pdf_signature_error windows_check_digest(fz_context* ctx, pdf_pkcs7_verif
     fz_try(ctx) {
         content = fz_read_all(ctx, stm, 4096);
     }
-    fz_catch(ctx) {
+    fz_catch_ignore(ctx, "warned here") {
         fz_warn(ctx, "pkcs7-windows check_digest: fz_read failed: %s", fz_caught_message(ctx));
         return PDF_SIGNATURE_ERROR_UNKNOWN;
     }
@@ -384,7 +385,7 @@ static pdf_pkcs7_distinguished_name* windows_get_signatory(fz_context* ctx, pdf_
         dn->email = get_name_string(ctx, cert, szOID_RSA_emailAddr);
         dn->c = get_name_string(ctx, cert, szOID_COUNTRY_NAME);
     }
-    fz_catch(ctx) {
+    fz_catch_report(ctx) {
         pdf_signature_drop_distinguished_name(ctx, dn);
         dn = NULL;
     }
@@ -466,9 +467,8 @@ static pdf_pkcs7_distinguished_name* windows_get_signing_name(fz_context* ctx, p
         dn->email = get_name_string(ctx, s->cert, szOID_RSA_emailAddr);
         dn->c = get_name_string(ctx, s->cert, szOID_COUNTRY_NAME);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         pdf_signature_drop_distinguished_name(ctx, dn);
-        fz_rethrow(ctx);
     }
     return dn;
 }
@@ -528,9 +528,7 @@ static int windows_create_digest(fz_context* ctx, pdf_pkcs7_signer* signer, fz_s
     fz_always(ctx) {
         fz_drop_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return res;
 }
 
@@ -671,14 +669,13 @@ static pdf_pkcs7_signer* pkcs7_windows_read_pfx_imp(fz_context* ctx, const char*
         fz_free(ctx, pwW);
         fz_drop_buffer(ctx, owned);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         if (cert) {
             CertFreeCertificateContext(cert);
         }
         if (hStore) {
             CertCloseStore(hStore, 0);
         }
-        fz_rethrow(ctx);
     }
     return &signer->base;
 }
@@ -725,14 +722,13 @@ pdf_pkcs7_signer* pkcs7_windows_read_store(fz_context* ctx, const char* thumbpri
         hStore = NULL;
         cert = NULL;
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         if (cert) {
             CertFreeCertificateContext(cert);
         }
         if (hStore) {
             CertCloseStore(hStore, 0);
         }
-        fz_rethrow(ctx);
     }
     return &signer->base;
 }

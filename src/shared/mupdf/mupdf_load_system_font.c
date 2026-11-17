@@ -5,6 +5,7 @@
 #include "mupdf/ucdn.h"
 #include "font_common.h"
 #include "mupdf/pdf.h"
+#include "fz-catch.h"
 
 #ifdef _WIN32
 
@@ -531,8 +532,7 @@ static void parseTTF(fz_context* ctx, fz_stream* file, int offset, int index, co
                 read_ttf_string(ctx, file, tblOffset, &ttRecordBE, szPSName, sizeof(szPSName));
             }
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
+        fz_catch_report(ctx) {
             fz_warn(ctx, "ignoring face name decoding fonterror");
         }
     }
@@ -590,9 +590,7 @@ static void parseTTFs(fz_context* ctx, const char* path) {
     fz_always(ctx) {
         fz_drop_stream(ctx, file);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static void parseTTCs(fz_context* ctx, const char* path) {
@@ -625,9 +623,7 @@ static void parseTTCs(fz_context* ctx, const char* path) {
         fz_free(ctx, offsettableBE);
         fz_drop_stream(ctx, file);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static void extend_system_font_list(fz_context* ctx, const WCHAR* path) {
@@ -664,10 +660,7 @@ static void extend_system_font_list(fz_context* ctx, const WCHAR* path) {
                     parseTTFs(ctx, szPathUtf8);
                 }
             }
-            fz_catch(ctx) {
-                fz_ignore_error(ctx);
-                // ignore errors occurring while parsing a given font file
-            }
+            fz_catch_ignore(ctx, "a broken font file is skipped") {}
         }
     } while (FindNextFile(hList, &FileData));
     FindClose(hList);
@@ -779,9 +772,7 @@ static fz_font* load_windows_font_by_name(fz_context* ctx, const char* orig_name
         fz_try(ctx) {
             create_system_font_list(ctx);
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
-        }
+        fz_catch_report(ctx) {}
     }
     LeaveCriticalSection(&cs_fonts);
 
@@ -890,9 +881,7 @@ ExitNoFree:
     fz_always(ctx) {
         fz_drop_buffer(ctx, buffer);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return font;
 }
 
@@ -1018,9 +1007,7 @@ static fz_font* load_windows_cjk_font(fz_context* ctx, const char* fontname, int
             font = load_windows_font_by_name(ctx, WindowsCjkUiFont(ros), 0);
         }
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 
     return font;
 }
@@ -1267,9 +1254,7 @@ static fz_font* load_linux_font_match(fz_context* ctx, const char* name, int bol
     fz_always(ctx) {
         FcPatternDestroy(match);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return font;
 }
 

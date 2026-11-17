@@ -11,6 +11,7 @@
 
 extern "C" {
 #include <mupdf/pdf.h>
+#include "mupdf/fz-catch.h"
 }
 
 // 8x8 PDF path streams used by pdf_write_icon_appearance (text / file / sound)
@@ -392,8 +393,7 @@ static fz_path* ParseMupdfIconPath(fz_context* ctx, const char* s) {
             }
         }
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         fz_drop_path(ctx, path);
         return nullptr;
     }
@@ -478,8 +478,7 @@ static Pixmap* RenderMupdfAnnotIcon(Str name, Color fg, int dx, int dy) {
         fz_drop_pixmap(ctx, fzpx);
         fz_drop_path(ctx, path);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         logf("RenderMupdfAnnotIcon(%s) failed\n", name);
         FreePixmap(px);
         return nullptr;

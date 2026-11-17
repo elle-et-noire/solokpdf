@@ -5,6 +5,7 @@
 
 extern "C" {
 #include <mupdf/fitz.h>
+#include "mupdf/fz-catch.h"
 }
 
 #include "PdfDarkMode.h"
@@ -219,7 +220,7 @@ static ImageStats SampleImageStats(fz_context* ctx, fz_image* image) {
             fz_drop_pixmap(ctx, pix);
         }
     }
-    fz_catch(ctx) {
+    fz_catch_report(ctx) {
         stats = ImageStats{};
     }
     return stats;

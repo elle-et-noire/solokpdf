@@ -8,6 +8,7 @@
 
 extern "C" {
 #include <mupdf/pdf.h>
+#include "mupdf/fz-catch.h"
 }
 
 #include "gui/UIModels.h"
@@ -47,10 +48,7 @@ static fz_image* FzImageFromRgbData(fz_context* ctx, u8* data, int width, int he
     fz_always(ctx) {
         fz_drop_pixmap(ctx, pixmap);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return image;
 }
 
@@ -140,8 +138,7 @@ PdfCreator::PdfCreator() {
     fz_try(ctx) {
         doc = pdf_create_document(ctx);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         doc = nullptr;
     }
 }
@@ -192,9 +189,8 @@ bool PdfCreator::AddPageFromFzImage(fz_image* image, float imgDpi) const {
         fz_drop_buffer(ctx, contents);
         fz_drop_device(ctx, dev);
     }
-    fz_catch(ctx) {
+    fz_catch_report(ctx) {
         ok = false;
-        fz_report_error(ctx);
     }
     return ok;
 }
@@ -212,8 +208,7 @@ static bool AddPageFromHBITMAP(PdfCreator* c, HBITMAP hbmp, Size size, float img
         ok = c->AddPageFromFzImage(image, imgDpi);
         fz_drop_image(c->ctx, image);
     }
-    fz_catch(c->ctx) {
-        fz_report_error(c->ctx);
+    fz_catch_report(c->ctx) {
         return false;
     }
     return ok;
@@ -254,8 +249,7 @@ bool PdfCreator::AddPageFromPixmap(Pixmap* px, float imgDpi) {
         ok = AddPageFromFzImage(image, imgDpi);
         fz_drop_image(ctx, image);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         return false;
     }
     return ok;
@@ -274,8 +268,7 @@ bool PdfCreator::AddPageFromImageData(Str data, float imgDpi) const {
         fz_buffer* buf = fz_new_buffer_from_copied_data(ctx, (u8*)data.s, (size_t)data.len);
         img = fz_new_image_from_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         img = nullptr;
     }
     if (!img) {
@@ -308,8 +301,7 @@ bool PdfCreator::SetProperty(DocProp prop, Str value) const {
         pdf_obj* valobj = pdf_new_text_string(ctx, CStrTemp(value));
         pdf_dict_puts_drop(ctx, info, name.s, valobj);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         return false;
     }
     return true;
@@ -355,8 +347,7 @@ bool PdfCreator::SaveToFile(Str filePath) const {
         opts.do_compress_images = 1;
         SavePdfFile(ctx, doc, filePath, &opts);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         return false;
     }
     return true;

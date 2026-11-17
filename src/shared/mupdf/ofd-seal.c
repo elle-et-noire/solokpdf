@@ -2,6 +2,7 @@
    License: GPLv3 */
 
 #include "mupdf/fitz.h"
+#include "fz-catch.h"
 #include "ofd-crypto.h"
 #include "ofd-seal.h"
 
@@ -398,9 +399,7 @@ static void ofd_verify_pkcs7(fz_context* ctx, ofd_der input, const unsigned char
     fz_always(ctx) {
         fz_free(ctx, attrs_copy);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 // content is tbs, SM3(tbs), or SM3(tbs) as base64 text (older writers)
@@ -442,9 +441,7 @@ void ofd_verify_signed_value(fz_context* ctx, fz_buffer* signed_value, int is_se
             ofd_set_problem(out, "the signature has no certificate");
         }
     }
-    fz_catch(ctx) {
-        fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-        fz_report_error(ctx);
+    fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
         out->signature = OFD_CHECK_UNCHECKED;
         ofd_set_problem(out, "the signature data couldn't be read");
     }
@@ -488,6 +485,7 @@ static void ofd_cert_split(fz_context* ctx, ofd_der cert, ofd_cert_parts* p) {
 int ofd_cert_issued_by(fz_context* ctx, const unsigned char* cert, size_t cert_len, const unsigned char* issuer,
                        size_t issuer_len) {
     int ok = 0;
+    int code = 0;
     fz_try(ctx) {
         ofd_cert_parts c, i;
         ofd_cert_split(ctx, (ofd_der){cert, cert_len}, &c);
@@ -497,9 +495,8 @@ int ofd_cert_issued_by(fz_context* ctx, const unsigned char* cert, size_t cert_l
              ofd_der_is(c.alg, oid_sm2_sm3, sizeof(oid_sm2_sm3)) && ofd_parse_sm2_sig(ctx, c.sig, 1, r, s) &&
              ofd_sm2_verify(i.key, c.tbs.data, c.tbs.len, r, s);
     }
-    fz_catch(ctx) {
-        fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-        fz_ignore_error(ctx);
+    fz_catch_code(ctx, code) {
+        if (code == FZ_ERROR_SYSTEM) fz_rethrow_caught(ctx, code);
         ok = 0;
     }
     return ok;

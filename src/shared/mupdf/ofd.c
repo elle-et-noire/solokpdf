@@ -2,6 +2,7 @@
    License: GPLv3 */
 
 #include "mupdf/fitz.h"
+#include "fz-catch.h"
 #include <ctype.h>
 #include "ofd-crypto.h"
 #include "ofd-decrypt.h"
@@ -208,9 +209,8 @@ static void ofd_index_ids(fz_context* ctx, ofd_document* doc, ofd_resource* res,
             fz_try(ctx) {
                 fz_hash_insert(ctx, doc->ids, &key, entry);
             }
-            fz_catch(ctx) {
+            fz_catch_rethrow(ctx) {
                 fz_free(ctx, entry);
-                fz_rethrow(ctx);
             }
         }
         ofd_index_ids(ctx, doc, res, fz_xml_down(node), depth + 1);
@@ -236,9 +236,8 @@ static void ofd_load_resources(fz_context* ctx, ofd_document* doc, fz_xml* paren
         fz_try(ctx) {
             res = fz_malloc_struct(ctx, ofd_resource);
         }
-        fz_catch(ctx) {
+        fz_catch_rethrow(ctx) {
             fz_drop_xml(ctx, xml);
-            fz_rethrow(ctx);
         }
         res->xml = xml;
         res->next = doc->resources;
@@ -455,9 +454,7 @@ static ofd_font_entry* ofd_font(fz_context* ctx, ofd_document* doc, fz_xml* node
         fz_always(ctx) {
             fz_drop_buffer(ctx, buffer);
         }
-        fz_catch(ctx) {
-            fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-            fz_report_error(ctx);
+        fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
             fz_warn(ctx, "Cannot load OFD font; using a substitute");
         }
     }
@@ -519,9 +516,8 @@ static ofd_cgt* ofd_load_cgts(fz_context* ctx, fz_xml* node, int* count_out) {
             }
         }
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         ofd_drop_cgts(ctx, cgts, n);
-        fz_rethrow(ctx);
     }
     *count_out = n;
     return cgts;
@@ -610,9 +606,8 @@ static fz_text* ofd_make_text(fz_context* ctx, ofd_document* doc, fz_xml* node) 
     fz_always(ctx) {
         ofd_drop_cgts(ctx, cgts, ncgts);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_text(ctx, text);
-        fz_rethrow(ctx);
     }
     return text;
 }
@@ -655,9 +650,7 @@ static void ofd_draw_text(fz_context* ctx, ofd_document* doc, fz_xml* node, fz_d
         fz_drop_stroke_state(ctx, stroke);
         fz_drop_text(ctx, text);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 // SVG-style elliptical arc from the current point to (x, y), as cubic Beziers of at most 90 degrees.
@@ -757,9 +750,8 @@ static fz_path* ofd_make_path(fz_context* ctx, fz_xml* node) {
             }
         }
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_path(ctx, path);
-        fz_rethrow(ctx);
     }
     return path;
 }
@@ -838,9 +830,7 @@ static void ofd_gradient(fz_context* ctx, ofd_document* doc, fz_xml* node, fz_de
     fz_always(ctx) {
         fz_drop_shade(ctx, shade);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 enum {
@@ -926,9 +916,7 @@ static void ofd_mesh(fz_context* ctx, ofd_document* doc, fz_xml* node, fz_device
         fz_drop_buffer(ctx, data);
         fz_drop_shade(ctx, shade);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static void ofd_brush(fz_context* ctx, ofd_document* doc, fz_xml* color, fz_device* dev, fz_rect area, fz_matrix ctm,
@@ -961,23 +949,17 @@ static void ofd_brush(fz_context* ctx, ofd_document* doc, fz_xml* color, fz_devi
             fz_always(ctx) {
                 doc->links_tail = links_tail;
             }
-            fz_catch(ctx) {
-                fz_rethrow(ctx);
-            }
+            fz_catch_rethrow(ctx) {}
         }
         fz_always(ctx) {
             fz_end_tile(ctx, dev);
         }
-        fz_catch(ctx) {
-            fz_rethrow(ctx);
-        }
+        fz_catch_rethrow(ctx) {}
     }
     fz_always(ctx) {
         fz_end_group(ctx, dev);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 // Paints a brush inside a clip the caller pushed, popping it even on errors.
@@ -989,9 +971,7 @@ static void ofd_brush_clipped(fz_context* ctx, ofd_document* doc, fz_xml* color,
     fz_always(ctx) {
         fz_pop_clip(ctx, dev);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static void ofd_draw_path(fz_context* ctx, ofd_document* doc, fz_xml* node, fz_device* dev, fz_matrix ctm,
@@ -1032,9 +1012,7 @@ static void ofd_draw_path(fz_context* ctx, ofd_document* doc, fz_xml* node, fz_d
         fz_drop_stroke_state(ctx, stroke);
         fz_drop_path(ctx, path);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static void ofd_draw_image(fz_context* ctx, ofd_document* doc, fz_xml* node, fz_device* dev, fz_matrix ctm) {
@@ -1056,9 +1034,7 @@ static void ofd_draw_image(fz_context* ctx, ofd_document* doc, fz_xml* node, fz_
         fz_drop_image(ctx, image);
         fz_drop_buffer(ctx, buffer);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static void ofd_clip_area(fz_context* ctx, ofd_document* doc, fz_xml* area, fz_device* dev, fz_matrix base,
@@ -1087,9 +1063,7 @@ static void ofd_clip_area(fz_context* ctx, ofd_document* doc, fz_xml* area, fz_d
             fz_drop_stroke_state(ctx, stroke);
             fz_drop_path(ctx, path);
         }
-        fz_catch(ctx) {
-            fz_rethrow(ctx);
-        }
+        fz_catch_rethrow(ctx) {}
     }
     shape = ofd_child(area, "Text");
     if (shape) {
@@ -1101,9 +1075,7 @@ static void ofd_clip_area(fz_context* ctx, ofd_document* doc, fz_xml* area, fz_d
         fz_always(ctx) {
             fz_drop_text(ctx, text);
         }
-        fz_catch(ctx) {
-            fz_rethrow(ctx);
-        }
+        fz_catch_rethrow(ctx) {}
     }
 }
 
@@ -1124,9 +1096,7 @@ static void ofd_apply_clips(fz_context* ctx, ofd_document* doc, fz_xml* node, fz
             fz_try(ctx) {
                 ofd_clip_area(ctx, doc, area, dev, base, paint);
             }
-            fz_catch(ctx) {
-                fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-                fz_report_error(ctx);
+            fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
                 fz_warn(ctx, "Skipping OFD clip area");
             }
         }
@@ -1212,9 +1182,7 @@ static void ofd_draw_tree(fz_context* ctx, ofd_document* doc, fz_xml* node, fz_d
             if (grouped) fz_end_group(ctx, dev);
             while (clips-- > 0) fz_pop_clip(ctx, dev);
         }
-        fz_catch(ctx) {
-            fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-            fz_report_error(ctx);
+        fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
             fz_warn(ctx, "Skipping OFD %s", fz_xml_tag(node));
         }
     }
@@ -1225,10 +1193,8 @@ static void ofd_draw_nodes(fz_context* ctx, ofd_document* doc, fz_xml* node, fz_
     ofd_draw_tree(ctx, doc, node, dev, ctm, depth, paint);
 }
 
-// Logs a non-fatal error so an optional part (template, annotation, seal) doesn't fail the page.
+// Notes a skipped optional part (template, annotation, seal) whose error didn't fail the page.
 static void ofd_skip(fz_context* ctx, const char* what) {
-    fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-    fz_report_error(ctx);
     fz_warn(ctx, "Skipping OFD %s", what);
 }
 
@@ -1255,7 +1221,7 @@ static void ofd_templates(fz_context* ctx, ofd_document* doc, fz_xml* page, fz_d
         fz_always(ctx) {
             fz_drop_xml(ctx, xml);
         }
-        fz_catch(ctx) {
+        fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
             ofd_skip(ctx, "template");
         }
     }
@@ -1286,9 +1252,8 @@ static fz_link* ofd_load_links(fz_context* ctx, fz_page* page) {
             tail = &(*tail)->next;
         }
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_link(ctx, head);
-        fz_rethrow(ctx);
     }
     return head;
 }
@@ -1329,9 +1294,7 @@ static void ofd_annots(fz_context* ctx, ofd_document* doc, const char* page_id, 
         fz_drop_xml(ctx, annots);
         fz_drop_xml(ctx, index);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static void ofd_draw_seal(fz_context* ctx, ofd_document* doc, fz_xml* stamp, const char* value_path, fz_device* dev,
@@ -1403,9 +1366,7 @@ static void ofd_draw_seal(fz_context* ctx, ofd_document* doc, fz_xml* stamp, con
         fz_drop_buffer(ctx, picture);
         fz_drop_buffer(ctx, signed_value);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static void ofd_signature(fz_context* ctx, ofd_document* doc, const char* signature_path, const char* page_id,
@@ -1424,9 +1385,7 @@ static void ofd_signature(fz_context* ctx, ofd_document* doc, const char* signat
     fz_always(ctx) {
         fz_drop_xml(ctx, xml);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static void ofd_signatures(fz_context* ctx, ofd_document* doc, const char* page_id, fz_device* dev, fz_matrix ctm) {
@@ -1440,9 +1399,7 @@ static void ofd_signatures(fz_context* ctx, ofd_document* doc, const char* page_
                 ofd_resolve(ctx, path, doc->signatures, fz_xml_att(node, "BaseLoc"));
                 ofd_signature(ctx, doc, path, page_id, dev, ctm);
             }
-            fz_catch(ctx) {
-                fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-                fz_report_error(ctx);
+            fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
                 fz_warn(ctx, "Cannot draw OFD signature appearance");
             }
         }
@@ -1450,9 +1407,7 @@ static void ofd_signatures(fz_context* ctx, ofd_document* doc, const char* page_
     fz_always(ctx) {
         fz_drop_xml(ctx, index);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 static fz_xml* ofd_page_entry(ofd_document* doc, int number) {
@@ -1506,14 +1461,14 @@ static fz_page* ofd_load_page(fz_context* ctx, fz_document* doc_, int chapter, i
         fz_try(ctx) {
             ofd_annots(ctx, doc, fz_xml_att(entry, "ID"), dev, ctm);
         }
-        fz_catch(ctx) {
+        fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
             ofd_skip(ctx, "annotations");
         }
         doc->links_tail = NULL; // a seal's links would be another document's
         fz_try(ctx) {
             ofd_signatures(ctx, doc, fz_xml_att(entry, "ID"), dev, ctm);
         }
-        fz_catch(ctx) {
+        fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
             ofd_skip(ctx, "signatures");
         }
         fz_close_device(ctx, dev);
@@ -1523,9 +1478,8 @@ static fz_page* ofd_load_page(fz_context* ctx, fz_document* doc_, int chapter, i
         fz_drop_device(ctx, dev);
         fz_drop_xml(ctx, xml);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_page(ctx, &page->super);
-        fz_rethrow(ctx);
     }
     return &page->super;
 }
@@ -1581,9 +1535,8 @@ static fz_outline* ofd_new_outline(fz_context* ctx, const char* title, int page)
         fz_snprintf(uri, sizeof(uri), "#page=%d", page + 1);
         item->uri = fz_strdup(ctx, uri);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_outline(ctx, item);
-        fz_rethrow(ctx);
     }
     return item;
 }
@@ -1607,9 +1560,8 @@ static fz_outline* ofd_outline_elems(fz_context* ctx, ofd_package* pkg, int doc_
             tail = &(*tail)->next;
         }
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_outline(ctx, head);
-        fz_rethrow(ctx);
     }
     return head;
 }
@@ -1639,9 +1591,8 @@ static fz_outline* ofd_load_outline(fz_context* ctx, fz_document* doc_) {
             tail = &(*tail)->next;
         }
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_outline(ctx, head);
-        fz_rethrow(ctx);
     }
     return head;
 }
@@ -1710,14 +1661,16 @@ static void ofd_open_bodies(fz_context* ctx, ofd_package* pkg) {
         if (!ofd_is(body, "DocBody")) continue;
         ofd_document* doc = &pkg->docs[pkg->ndocs];
         doc->archive = pkg->archive;
+        int code = 0;
         fz_try(ctx) {
             ofd_open_body(ctx, doc, body);
             ++pkg->ndocs;
         }
-        fz_catch(ctx) {
+        fz_catch_code(ctx, code) {
             ofd_drop_body(ctx, doc);
             memset(doc, 0, sizeof(*doc));
-            if (n == 1) fz_rethrow(ctx);
+            if (n == 1 || code == FZ_ERROR_SYSTEM) fz_rethrow_caught(ctx, code);
+            fz_report_caught(ctx, code);
             ofd_skip(ctx, "document");
         }
     }
@@ -1763,9 +1716,8 @@ static fz_document* ofd_open_document(fz_context* ctx, const fz_document_handler
             ofd_open_bodies(ctx, pkg);
         }
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_document(ctx, &pkg->super);
-        fz_rethrow(ctx);
     }
     return &pkg->super;
 }
@@ -1797,9 +1749,7 @@ static void ofd_each_attachment(fz_context* ctx, ofd_package* pkg, ofd_attachmen
         fz_always(ctx) {
             fz_drop_xml(ctx, list);
         }
-        fz_catch(ctx) {
-            fz_rethrow(ctx);
-        }
+        fz_catch_rethrow(ctx) {}
         if (stop) return;
     }
 }
@@ -1838,9 +1788,8 @@ fz_outline* ofd_load_attachments(fz_context* ctx, fz_document* doc) {
     fz_try(ctx) {
         ofd_each_attachment(ctx, (ofd_package*)doc, ofd_outline_attachment, &tail);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_outline(ctx, head);
-        fz_rethrow(ctx);
     }
     return head;
 }
@@ -1892,7 +1841,7 @@ int ofd_count_signatures(fz_context* ctx, fz_document* doc_) {
         fz_always(ctx) {
             fz_drop_xml(ctx, index);
         }
-        fz_catch(ctx) {
+        fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
             ofd_skip(ctx, "signatures");
         }
     }
@@ -1952,9 +1901,7 @@ static int ofd_reference_matches(fz_context* ctx, ofd_document* doc, const char*
         fz_drop_buffer(ctx, expected);
         fz_drop_buffer(ctx, data);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return ok;
 }
 
@@ -2029,9 +1976,7 @@ static void ofd_check_signature(fz_context* ctx, ofd_package* pkg, int chapter, 
         fz_drop_buffer(ctx, value);
         fz_drop_buffer(ctx, tbs);
     }
-    fz_catch(ctx) {
-        fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-        fz_report_error(ctx);
+    fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
         if (!info->check.problem) info->check.problem = "the signature couldn't be read";
     }
 }
@@ -2097,9 +2042,7 @@ static void ofd_check_integrity(fz_context* ctx, ofd_package* pkg, ofd_signature
         fz_drop_buffer(ctx, value);
         fz_drop_buffer(ctx, manifest);
     }
-    fz_catch(ctx) {
-        fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-        fz_report_error(ctx);
+    fz_catch_report_except(ctx, FZ_ERROR_SYSTEM) {
         if (!info->check.problem) info->check.problem = "the integrity protection couldn't be read";
     }
 }
@@ -2144,9 +2087,8 @@ ofd_signature_info* ofd_check_signatures(fz_context* ctx, fz_document* doc_) {
     fz_always(ctx) {
         fz_drop_xml(ctx, index);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         ofd_drop_signature_infos(ctx, head);
-        fz_rethrow(ctx);
     }
     return head;
 }
@@ -2165,9 +2107,7 @@ static int ofd_recognize(fz_context* ctx, const fz_document_handler* handler, fz
     fz_always(ctx) {
         fz_drop_archive(ctx, archive);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return score;
 }
 

@@ -10,6 +10,7 @@
 //                   -> entriesmap.dat:  EncryptEntry Path="/OFD.xml" EPath="/OFD.dat"
 
 #include "mupdf/fitz.h"
+#include "fz-catch.h"
 #include "ofd-crypto.h"
 #include "ofd-decrypt.h"
 
@@ -138,6 +139,7 @@ static fz_xml* parse_entries_map(fz_context* ctx, fz_buffer* map, const unsigned
     for (int attempt = 0; attempt < 2 && !xml; ++attempt) {
         fz_buffer* buf = attempt == 0 ? plain : map;
         if (!buf) continue;
+        int code = 0;
         fz_try(ctx) {
             xml = fz_parse_xml(ctx, buf, 0);
             fz_xml* root = fz_xml_root(xml);
@@ -146,9 +148,8 @@ static fz_xml* parse_entries_map(fz_context* ctx, fz_buffer* map, const unsigned
                 xml = NULL;
             }
         }
-        fz_catch(ctx) {
-            fz_rethrow_if(ctx, FZ_ERROR_SYSTEM);
-            fz_ignore_error(ctx);
+        fz_catch_code(ctx, code) {
+            if (code == FZ_ERROR_SYSTEM) fz_rethrow_caught(ctx, code);
             xml = NULL;
         }
     }
@@ -197,9 +198,7 @@ static int recover_key(fz_context* ctx, fz_xml* seed, fz_buffer* map, const char
             fz_drop_buffer(ctx, wk);
             fz_drop_buffer(ctx, ivb);
         }
-        fz_catch(ctx) {
-            fz_rethrow(ctx);
-        }
+        fz_catch_rethrow(ctx) {}
         if (ok) return 1;
     }
     return 0;
@@ -288,9 +287,8 @@ static fz_archive* decrypt_layer(fz_context* ctx, fz_archive* src, const char* p
         fz_drop_xml(ctx, seed);
         fz_drop_xml(ctx, encryptions);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_archive(ctx, out ? &out->super : NULL);
-        fz_rethrow(ctx);
     }
     return out ? &out->super : NULL;
 }
@@ -307,9 +305,7 @@ fz_archive* ofd_decrypt_package(fz_context* ctx, fz_archive* archive, const char
         fz_always(ctx) {
             fz_drop_archive(ctx, current);
         }
-        fz_catch(ctx) {
-            fz_rethrow(ctx);
-        }
+        fz_catch_rethrow(ctx) {}
         current = next;
         if (!current) return NULL;
     }

@@ -12,6 +12,7 @@
 
 extern "C" {
 #include "mupdf/fitz.h"
+#include "mupdf/fz-catch.h"
 #include "../../ext/mupdf/source/fitz/color-imp.h"
 }
 
@@ -443,8 +444,7 @@ static Pixmap* PixmapFromImageData(fz_context* ctx, const u8* data, size_t n) {
         fz_drop_image(ctx, img);
         fz_drop_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         fz_drop_pixmap(ctx, pix);
         return nullptr;
     }
@@ -515,8 +515,7 @@ bool DecodeJpegToCmyk(Str jpeg, int& w, int& h, int& stride, Vec<u8>& samples) {
         fz_drop_image(ctx, img);
         fz_drop_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         ok = false;
         VecReset(samples);
         w = 0;
@@ -581,8 +580,7 @@ static Pixmap* PixmapFromFzPixmap(fz_context* ctx, fz_pixmap* pix) {
         fz_drop_pixmap(ctx, bgr);
         fz_drop_pixmap(ctx, pix);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         FreePixmap(px);
         return nullptr;
     }
@@ -1069,9 +1067,7 @@ static Vec<Pixmap*> PixmapsFromTiffData(Str data) {
     fz_always(ctx) {
         fz_drop_pixmap(ctx, pix);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
-    }
+    fz_catch_report(ctx) {}
     fz_drop_context_windows(ctx);
     return res;
 }

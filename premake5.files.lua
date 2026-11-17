@@ -697,6 +697,7 @@ function mupdf_files()
   files {
     "src/shared/mupdf/fonts_map.c",
     "src/shared/mupdf/font_common.h",
+    "src/shared/mupdf/fz-catch.h",
     "src/shared/mupdf/mupdf_load_system_font.c",
     "src/shared/mupdf/noto_sumatra.c",
     "src/shared/mupdf/noto_sumatra.h",

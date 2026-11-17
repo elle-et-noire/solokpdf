@@ -130,6 +130,9 @@ bool EngineBase_UnitTestPartialTextFinal();
 bool PdfDarkMode_UnitTestThumbnailPass();
 bool EngineBase_UnitTestTextFailure();
 bool EngineMupdf_UnitTestDoi();
+#if defined(SOLOKPDF_PDFIUM)
+bool EngineMupdf_UnitTestThemeCancel();
+#endif
 bool Accelerators_UnitTestFolderNavIsSafe();
 bool AccelTestCustomScope();
 bool Accelerators_UnitTestTreeTakesLetters();
@@ -678,6 +681,9 @@ int RunAppUnitTests(bool forAi) {
     utassert(PdfDarkMode_UnitTestThumbnailPass());
     utassert(EngineBase_UnitTestTextFailure());
     utassert(EngineMupdf_UnitTestDoi());
+#if defined(SOLOKPDF_PDFIUM)
+    utassert(EngineMupdf_UnitTestThemeCancel());
+#endif
     utassert(Accelerators_UnitTestFolderNavIsSafe());
     utassert(AccelTestCustomScope());
     utassert(Accelerators_UnitTestTreeTakesLetters());

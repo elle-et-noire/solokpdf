@@ -8,6 +8,7 @@
 
 #include "mupdf/fitz.h"
 #include "mupdf/pdf.h"
+#include "mupdf/fz-catch.h"
 
 // Not empty: the linker would fold empty ones into mupdf's default lock
 // functions, and fz_clone_context() refuses a context that has those.
@@ -75,7 +76,7 @@ static int JsFaultTest(const char* path, JsFault fault) {
             pdf_js_set_console(ctx, pdf, &gThrowingConsole, ctx);
         }
     }
-    fz_catch(ctx) {
+    fz_catch_ignore(ctx, "printed here") {
         fprintf(stderr, "%s: %s\n", path, fz_caught_message(ctx));
         return 1;
     }
@@ -89,7 +90,7 @@ static int JsFaultTest(const char* path, JsFault fault) {
     fz_try(clone) {
         fz_drop_page(clone, fz_load_page(clone, doc, 0));
     }
-    fz_catch(clone) {
+    fz_catch_ignore(clone, "printed here") {
         fprintf(stderr, "%s: %s\n", path, fz_caught_message(clone));
         // running out of memory may fail the page, but on the caller's context
         res = fault == JsFault::ValueCopyOom ? 0 : 1;
@@ -174,7 +175,7 @@ static int ColorFilterTest(ColorResources resourceMode) {
         fz_drop_buffer(ctx, contents);
         pdf_drop_document(ctx, doc);
     }
-    fz_catch(ctx) {
+    fz_catch_ignore(ctx, "printed here") {
         fprintf(stderr, "color filter: %s\n", fz_caught_message(ctx));
     }
     fz_drop_context(ctx);
@@ -344,7 +345,7 @@ static int SharedColorTest(const char* path, ColorContent content, const char* o
             fz_try(ctx) {
                 pdf_write_snapshot_suffix(ctx, doc, writer);
             }
-            fz_catch(ctx) {
+            fz_catch_ignore(ctx, "the rejection is the expected result") {
                 rejected = 1;
             }
             if (!rejected) {
@@ -461,7 +462,7 @@ static int SharedColorTest(const char* path, ColorContent content, const char* o
         fz_drop_buffer(ctx, output);
         fz_drop_buffer(ctx, suffix);
     }
-    fz_catch(ctx) {
+    fz_catch_ignore(ctx, "printed here") {
         fprintf(stderr, "shared color filter: %s\n", fz_caught_message(ctx));
         result = 1;
     }
@@ -548,7 +549,7 @@ int main(int argc, char** argv) {
     fz_always(ctx) {
         fz_drop_document(ctx, doc);
     }
-    fz_catch(ctx) {
+    fz_catch_ignore(ctx, "printed here") {
         fprintf(stderr, "%s: %s\n", argv[1], fz_caught_message(ctx));
         fz_drop_context(ctx);
         return 1;

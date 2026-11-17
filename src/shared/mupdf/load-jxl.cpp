@@ -1,5 +1,6 @@
 #include "base/Base.h"
 #include "mupdf/fitz.h"
+#include "fz-catch.h"
 #include "jxl.h"
 extern "C" {
 #include "pixmap-imp.h"
@@ -58,9 +59,7 @@ static fz_pixmap* ReadJxl(fz_context* ctx, const unsigned char* data, size_t siz
                 fz_always(ctx) {
                     fz_drop_buffer(ctx, icc);
                 }
-                fz_catch(ctx) {
-                    fz_rethrow(ctx);
-                }
+                fz_catch_rethrow(ctx) {}
             } else {
                 *cs = fz_keep_colorspace(ctx, gray ? fz_device_gray(ctx) : fz_device_rgb(ctx));
                 jxl_ctx_set_srgb_output(decoder, 1);
@@ -81,9 +80,8 @@ static fz_pixmap* ReadJxl(fz_context* ctx, const unsigned char* data, size_t siz
         jxl_doc_close(doc);
         jxl_ctx_free(decoder);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_pixmap(ctx, pix);
-        fz_rethrow(ctx);
     }
     return pix;
 }
@@ -100,9 +98,7 @@ fz_pixmap* fz_load_jxl(fz_context* ctx, const unsigned char* data, size_t size, 
     fz_always(ctx) {
         fz_drop_colorspace(ctx, cs);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return pix;
 }
 
@@ -112,10 +108,9 @@ void fz_load_jxl_info(fz_context* ctx, const unsigned char* data, size_t size, i
     fz_try(ctx) {
         ReadJxl(ctx, data, size, nullptr, JxlRead::Info, w, h, cs);
     }
-    fz_catch(ctx) {
+    fz_catch_rethrow(ctx) {
         fz_drop_colorspace(ctx, *cs);
         *cs = nullptr;
-        fz_rethrow(ctx);
     }
     *xres = *yres = kJxlDpi;
 }
@@ -142,8 +137,6 @@ fz_image* fz_new_jxl_image(fz_context* ctx, fz_buffer* buffer, fz_colorspace* de
         fz_drop_colorspace(ctx, cs);
         fz_drop_compressed_buffer(ctx, compressed);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return image;
 }

@@ -109,6 +109,8 @@ Undo で元文書へ戻る場合は、保持したテーマ変換結果を再利
 パスワード問い合わせ中は `gPdfiumLock` を解放する。ダイアログのメッセージ処理中に
 他の PDFium 操作が再入し得るため、この順序も設計の一部である。
 
+`src/` の MuPDF の catch は [fz-catch.h](../../src/shared/mupdf/fz-catch.h) の `fz_catch_*` だけを使い、エラーを必ず消費するか再送出する（E111、`tests/lint-fz-catch.ts`）。
+
 ### 元データと借用の寿命
 
 `dataBacked` は添付 PDF などの入力元を表し、メモリ保持の有無とは異なる。

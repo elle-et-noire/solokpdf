@@ -10,6 +10,7 @@
 
 extern "C" {
 #include <mupdf/pdf.h>
+#include "mupdf/fz-catch.h"
 }
 
 #include "gui/UIModels.h"
@@ -183,9 +184,7 @@ static T ReadAnnot(Annotation* annot, T fallback, Read read) {
     fz_try(access.ctx) {
         fallback = read(access.ctx, access.annot);
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
-    }
+    fz_catch_report(access.ctx) {}
     return fallback;
 }
 
@@ -216,8 +215,7 @@ static bool UpdateAnnotIf(Annotation* annot, Update update) {
                 annot->bounds = PdfAnnotBounds(access.ctx, access.annot);
             }
         }
-        fz_catch(access.ctx) {
-            fz_report_error(access.ctx);
+        fz_catch_report(access.ctx) {
             if (changed && !begun) {
                 engine->annotRefreshFailed = true;
             }
@@ -268,8 +266,7 @@ RectF GetBounds(Annotation* annot) {
     fz_try(access.ctx) {
         rc = PdfAnnotBounds(access.ctx, access.annot);
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
+    fz_catch_report(access.ctx) {
         logf("GetBounds(): pdf_bound_annot() failed\n");
     }
     annot->bounds = rc;
@@ -378,8 +375,7 @@ void SetRect(Annotation* annot, RectF r) {
             }
             pdf_update_annot(ctx, a);
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
+        fz_catch_report(ctx) {
             // can happen for non-moveable annotations
             failed = true;
             logf("SetRect(): pdf_set_annot_rect() or pdf_update_annot() failed\n");
@@ -492,9 +488,7 @@ Vec<RectF> GetQuadPointsAsRect(Annotation* annot) {
             VecAppend(res, ToRectF(fz_rect_from_quad(q)));
         }
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
-    }
+    fz_catch_report(access.ctx) {}
     return res;
 }
 
@@ -521,8 +515,7 @@ static void RefreshFormField(fz_context* ctx, EngineMupdf* e, pdf_annot* a, Form
         pdf_update_annot(ctx, a);
         UpdateFormFieldPage(ctx, a);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         result.refreshFailed = true;
     }
     if (begun) {
@@ -531,8 +524,7 @@ static void RefreshFormField(fz_context* ctx, EngineMupdf* e, pdf_annot* a, Form
             fz_try(ctx) {
                 pdf_name_operation(ctx, e->pdfdoc, "Update form field");
             }
-            fz_catch(ctx) {
-                fz_report_error(ctx);
+            fz_catch_report(ctx) {
                 result.refreshFailed = true;
             }
         }
@@ -620,9 +612,8 @@ FormEditResult ToggleFormButton(Annotation* annot) {
                     pdf_set_field_value(ctx, e->pdfdoc, grp, val, 0);
                     pdf_end_operation(ctx, e->pdfdoc);
                 }
-                fz_catch(ctx) {
+                fz_catch_rethrow(ctx) {
                     pdf_abandon_operation(ctx, e->pdfdoc);
-                    fz_rethrow(ctx);
                 }
                 result.accepted = true;
                 result.changed = pdf_operation_has_changes(ctx, e->pdfdoc) != 0;
@@ -638,8 +629,7 @@ FormEditResult ToggleFormButton(Annotation* annot) {
                 RefreshFormField(ctx, e, a, result);
             }
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
+        fz_catch_report(ctx) {
             logf("ToggleFormButton(): mupdf calls failed\n");
             result.refreshFailed = result.changed;
         }
@@ -727,8 +717,7 @@ static FormEditResult SetWidgetValue(Annotation* annot, Str value, Str operation
             begun = false;
             RefreshFormField(ctx, e, a, result);
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
+        fz_catch_report(ctx) {
             logf("%s(): mupdf calls failed\n", operation);
             result.refreshFailed = setterDone;
         }
@@ -771,9 +760,7 @@ void GetWidgetChoiceOptions(Annotation* annot, StrVec& out) {
             fz_free(access.ctx, (void*)opts);
         }
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
-    }
+    fz_catch_report(access.ctx) {}
 }
 
 // set a choice field's value to one of its options; returns true if applied.
@@ -837,8 +824,7 @@ void DeleteAnnotation(Annotation* annot) {
             page = pdf_annot_page(ctx, a);
             pdf_delete_annot(ctx, page, a);
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
+        fz_catch_report(ctx) {
             failed = true;
         }
     }
@@ -876,9 +862,7 @@ void SetModificationDateToNow(Annotation* annot) {
     fz_try(access.ctx) {
         pdf_set_annot_modification_date(access.ctx, access.annot, time(nullptr));
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
-    }
+    fz_catch_report(access.ctx) {}
 }
 
 // return empty if no icon
@@ -932,9 +916,7 @@ bool HasEmbeddedFile(Annotation* annot) {
         pdf_obj* fs = FilespecDict(access.ctx, access.annot);
         ok = fs && pdf_is_embedded_file(access.ctx, fs);
     }
-    fz_catch(access.ctx) {
-        fz_ignore_error(access.ctx);
-    }
+    fz_catch_ignore(access.ctx, "a broken filespec has no embedded file") {}
     return ok;
 }
 
@@ -954,8 +936,7 @@ Str EmbeddedFileNameTemp(Annotation* annot) {
             }
         }
     }
-    fz_catch(access.ctx) {
-        fz_ignore_error(access.ctx);
+    fz_catch_ignore(access.ctx, "a broken filespec has no file name") {
         name = {};
     }
     return name;
@@ -978,8 +959,7 @@ Str LoadEmbeddedFile(Annotation* annot) {
             }
         }
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
+    fz_catch_report(access.ctx) {
         logf("LoadEmbeddedFile() failed\n");
     }
     return res;
@@ -1018,8 +998,7 @@ bool SetEmbeddedFileFromPath(Annotation* annot, Str path) {
             fz_drop_buffer(ctx, buf);
             pdf_drop_obj(ctx, fs);
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
+        fz_catch_report(ctx) {
             logf("SetEmbeddedFileFromPath() failed\n");
             ok = false;
         }
@@ -1082,9 +1061,7 @@ static PdfColor PdfColorFromFloat(fz_context* ctx, int n, float color[4]) {
             fz_convert_color(ctx, fz_device_cmyk(ctx), color, fz_device_rgb(ctx), rgb, nullptr,
                              fz_default_color_params);
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
-        }
+        fz_catch_report(ctx) {}
         return MkPdfColorFromFloat(rgb[0], rgb[1], rgb[2]);
     }
     ReportIf(true);
@@ -1441,8 +1418,7 @@ void GetLineEndingStyles(Annotation* annot, int* start, int* end) {
     fz_try(access.ctx) {
         pdf_annot_line_ending_styles(access.ctx, access.annot, &leStart, &leEnd);
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
+    fz_catch_report(access.ctx) {
         logf("GetLineEndingStyles: pdf_annot_line_ending_styles() failed\n");
     }
     if (start) {
@@ -1468,8 +1444,7 @@ bool GetLinePoints(Annotation* annot, PointF& start, PointF& end) {
         pdf_annot_line(access.ctx, access.annot, &aPt, &bPt);
         ok = true;
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
+    fz_catch_report(access.ctx) {
         logf("GetLinePoints: pdf_annot_line() failed\n");
     }
     if (!ok) {
@@ -1493,8 +1468,7 @@ void SetLinePoints(Annotation* annot, PointF start, PointF end) {
             pdf_set_annot_line(access.ctx, access.annot, fz_point{start.x, start.y}, fz_point{end.x, end.y});
             pdf_update_annot(access.ctx, access.annot);
         }
-        fz_catch(access.ctx) {
-            fz_report_error(access.ctx);
+        fz_catch_report(access.ctx) {
             failed = true;
             logf("SetLinePoints: pdf_set_annot_line() failed\n");
         }
@@ -1523,8 +1497,7 @@ Vec<PointF> GetVertices(Annotation* annot) {
             VecAppend(res, {p.x, p.y});
         }
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
+    fz_catch_report(access.ctx) {
         logf("GetVertices: pdf_annot_vertex() failed\n");
         VecReset(res);
     }
@@ -1554,8 +1527,7 @@ void SetVertices(Annotation* annot, const Vec<PointF>& points) {
             pdf_set_annot_vertices(access.ctx, access.annot, len(pts), pts.els);
             pdf_update_annot(access.ctx, access.annot);
         }
-        fz_catch(access.ctx) {
-            fz_report_error(access.ctx);
+        fz_catch_report(access.ctx) {
             failed = true;
             logf("SetVertices: pdf_set_annot_vertices() failed\n");
         }
@@ -1585,8 +1557,7 @@ void GetInkList(Annotation* annot, Vec<int>& strokeCounts, Vec<PointF>& points) 
             }
         }
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
+    fz_catch_report(access.ctx) {
         logf("GetInkList: pdf_annot_ink_list() failed\n");
         VecReset(strokeCounts);
         VecReset(points);
@@ -1679,8 +1650,7 @@ InkEraseResult EraseAnnotationInk(Annotation* annot, PointF pt, float radius) {
             pdf_set_annot_ink_list(access.ctx, access.annot, len(strokeCounts), strokeCounts.els, pts.els);
             pdf_update_annot(access.ctx, access.annot);
         }
-        fz_catch(access.ctx) {
-            fz_report_error(access.ctx);
+        fz_catch_report(access.ctx) {
             failed = true;
             logf("EraseAnnotationInk: pdf_set_annot_ink_list() failed\n");
         }
@@ -2042,9 +2012,7 @@ Annotation* EngineMupdfCreateAnnotation(EngineBase* engine, int pageNo, PointF p
                     fz_drop_pixmap(ctx, rgbPix);
                     fz_drop_pixmap(ctx, pix);
                 }
-                fz_catch(ctx) {
-                    fz_rethrow(ctx);
-                }
+                fz_catch_rethrow(ctx) {}
             }
             // e.g. [CmdCreateAnnotPolyLine borderwidth=2] (#6208)
             if (args->borderWidth >= 0 && AnnotationSupportsBorder(typ)) {
@@ -2106,8 +2074,7 @@ Annotation* EngineMupdfCreateAnnotation(EngineBase* engine, int pageNo, PointF p
             }
             pdf_update_annot(ctx, annot);
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
+        fz_catch_report(ctx) {
             if (annot) {
                 // Unlink + drop page ref, then drop our keep from create.
                 // Must not fall through to the success-path pdf_drop_annot.
@@ -2225,8 +2192,7 @@ static Pixmap* PixmapFromRgbFzPixmap(fz_context* ctx, fz_pixmap* src) {
     fz_try(ctx) {
         rgb = fz_convert_pixmap(ctx, src, fz_device_rgb(ctx), nullptr, nullptr, fz_default_color_params, 1);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         rgb = nullptr;
     }
     fz_pixmap* use = rgb ? rgb : src;
@@ -2286,8 +2252,7 @@ static Pixmap* GetStampImage(Annotation* annot) {
     fz_always(ctx) {
         fz_drop_image(ctx, img);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         fz_drop_pixmap(ctx, pix);
         pix = nullptr;
     }
@@ -2315,8 +2280,7 @@ static RectF GetAnnotRect(Annotation* annot) {
     fz_try(access.ctx) {
         rc = pdf_annot_rect(access.ctx, access.annot);
     }
-    fz_catch(access.ctx) {
-        fz_report_error(access.ctx);
+    fz_catch_report(access.ctx) {
         ok = false;
     }
     if (!ok) {
@@ -2343,9 +2307,7 @@ static fz_rect GetRectDiff(Annotation* annot) {
         fz_always(ctx) {
             pdf_annot_pop_local_xref(ctx, a);
         }
-        fz_catch(ctx) {
-            fz_rethrow(ctx);
-        }
+        fz_catch_rethrow(ctx) {}
         return rd;
     });
 }

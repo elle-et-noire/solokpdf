@@ -21,6 +21,7 @@
 
 extern "C" {
 #include <mupdf/pdf.h>
+#include "mupdf/fz-catch.h"
 #include "../../ext/mupdf/source/pdf/pdf-annot-imp.h"
 #if OS_WIN
 #include "mupdf/pkcs7-windows.h"
@@ -68,8 +69,7 @@ bool IsUnsignedSignatureWidget(Annotation* widget, TempStr* fieldNameOut) {
             }
         }
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         res = false;
     }
     return res;
@@ -93,8 +93,7 @@ void EngineMupdfGetUnsignedSignatureFields(EngineBase* engine, StrVec& names, Ve
     fz_try(ctx) {
         nSigFields = pdf_count_signatures(ctx, epdf->pdfdoc);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         return;
     }
     if (nSigFields == 0) {
@@ -126,9 +125,7 @@ void EngineMupdfGetUnsignedSignatureFields(EngineBase* engine, StrVec& names, Ve
     fz_always(ctx) {
         fz_drop_page(ctx, (fz_page*)page);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
-    }
+    fz_catch_report(ctx) {}
 }
 
 // signatures already applied; a certifying signature has to be the first one
@@ -162,9 +159,7 @@ int EngineMupdfCountSignedSignatures(EngineBase* engine) {
     fz_always(ctx) {
         fz_drop_page(ctx, (fz_page*)page);
     }
-    fz_catch(ctx) {
-        fz_ignore_error(ctx);
-    }
+    fz_catch_ignore(ctx, "unreadable pages hold no signatures") {}
     return n;
 }
 
@@ -233,9 +228,7 @@ static pdf_annot* FindUnsignedSignatureWidget(fz_context* ctx, pdf_document* doc
     fz_always(ctx) {
         fz_drop_page(ctx, (fz_page*)page);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
     return found;
 }
 
@@ -395,7 +388,7 @@ bool EngineMupdfSignDocument(EngineBase* engine, const PdfSignArgs& args, Str* e
             TestSignFailure(ctx, SignStage::Registered);
             pdf_end_operation(ctx, epdf->pdfdoc);
         }
-        fz_catch(ctx) {
+        fz_catch_rethrow(ctx) {
             // Pending signers and loaded widgets live outside the object journal.
             epdf->modifiedAnnotations = true;
             if (widget) {
@@ -412,7 +405,6 @@ bool EngineMupdfSignDocument(EngineBase* engine, const PdfSignArgs& args, Str* e
             epdf->pdfdoc->resynth_required = 1;
             epdf->pdfdoc->recalculate = recalculate;
             epdf->modifiedAnnotations = modified;
-            fz_rethrow(ctx);
         }
         ok = true;
     }
@@ -424,8 +416,7 @@ bool EngineMupdfSignDocument(EngineBase* engine, const PdfSignArgs& args, Str* e
         fz_drop_page(ctx, (fz_page*)page);
         pdf_drop_signer(ctx, signer);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         if (errOut) {
             *errOut = str::Dup(Str(fz_caught_message(ctx)));
         }

@@ -20,6 +20,7 @@
 
 extern "C" {
 #include <mupdf/fitz.h>
+#include "mupdf/fz-catch.h"
 }
 
 #include "ImageReader.h"
@@ -271,8 +272,7 @@ static u8* AllocFzDecodeDst(void* user, int dx, int dy, bool hasAlpha, int* stri
     fz_try(ctx) {
         d->pix = fz_new_pixmap(ctx, fz_device_rgb(ctx), dx, dy, nullptr, hasAlpha ? 1 : 0);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         return nullptr;
     }
     *stride = (int)d->pix->stride;
@@ -321,8 +321,7 @@ static fz_image* FzImageFromDecoder(fz_context* ctx, Str data, DecodeRgbIntoFn d
     fz_always(ctx) {
         fz_drop_pixmap(ctx, dst.pix);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         img = nullptr;
     }
     return img;
@@ -365,8 +364,7 @@ fz_image* EngineImages::LoadFzImageForPage(fz_context* ctx, int pageNo) {
     fz_always(ctx) {
         fz_drop_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         img = nullptr;
     }
     return img;
@@ -421,8 +419,7 @@ static Size ImageSizeFromDataPortable(Str data, bool partial = false) {
         fz_drop_image(ctx, img);
         fz_drop_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         res = {};
     }
     fz_drop_context_windows(ctx);
@@ -474,8 +471,7 @@ static Pixmap* FzPixmapToPixmap(fz_context* ctx, fz_pixmap* pixmap) {
     fz_try(ctx) {
         bgr = fz_convert_pixmap(ctx, pixmap, fz_device_bgr(ctx), nullptr, nullptr, fz_default_color_params, 1);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         return nullptr;
     }
     if (!bgr || !bgr->samples) {
@@ -555,8 +551,7 @@ static Pixmap* FzImageToPixmap(fz_context* ctx, fz_image* img) {
     fz_try(ctx) {
         pixmap = fz_get_pixmap_from_image(ctx, img, nullptr, nullptr, nullptr, nullptr);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         return nullptr;
     }
     if (!pixmap) {
@@ -799,9 +794,7 @@ Pixmap* EngineImages::RenderPage(RenderPageArgs& args) {
                 scaled = ScaleDecodedToTile(ctx, decoded, ctm, reqW, reqH, mediaScreen, screen);
             }
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
-        }
+        fz_catch_report(ctx) {}
         if (subPtr && !scaled) {
             // decoded area doesn't cover the tile; use the Pixmap path below
             fz_drop_pixmap(ctx, decoded);
@@ -2857,8 +2850,7 @@ fz_image* EngineCbx::LoadFzImageForPage(fz_context* ctx, int pageNo) {
     fz_always(ctx) {
         fz_drop_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
+    fz_catch_report(ctx) {
         img = nullptr;
     }
     return img;

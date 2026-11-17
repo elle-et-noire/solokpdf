@@ -6,6 +6,7 @@
 extern "C" {
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
+#include "mupdf/fz-catch.h"
 }
 
 #include "PdfCad.h"
@@ -91,9 +92,7 @@ static void WithXmpData(fz_context* ctx, pdf_obj* meta, Fn consume) {
     fz_always(ctx) {
         fz_drop_buffer(ctx, buf);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
-    }
+    fz_catch_report(ctx) {}
 }
 
 // PDF/E is the ISO profile for engineering documents; its marker alone is proof.
@@ -277,9 +276,7 @@ static float CadImageWhiteFraction(fz_context* ctx, fz_image* image) {
     fz_always(ctx) {
         fz_drop_pixmap(ctx, pix);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
-    }
+    fz_catch_report(ctx) {}
     return res;
 }
 
@@ -351,9 +348,7 @@ static void AnalyzePage(fz_context* ctx, pdf_document* doc, int pageNo, CadPageS
         fz_drop_device(ctx, dev);
         fz_drop_page(ctx, (fz_page*)page);
     }
-    fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
+    fz_catch_rethrow(ctx) {}
 }
 
 // Score page content: CAD drawings are dominated by thin, gray, unfilled
@@ -496,9 +491,7 @@ CadDetectResult DetectCadPdf(fz_context* ctx, pdf_document* doc) {
         fz_always(ctx) {
             fz_drop_page(ctx, (fz_page*)page);
         }
-        fz_catch(ctx) {
-            fz_report_error(ctx);
-        }
+        fz_catch_report(ctx) {}
     }
 
     bool rasterDominant = false;
@@ -508,9 +501,7 @@ CadDetectResult DetectCadPdf(fz_context* ctx, pdf_document* doc) {
     fz_try(ctx) {
         heuristicScore = ScoreHeuristic(ctx, doc, pageCount, maxPageSide, &rasterDominant, &hairlineVector);
     }
-    fz_catch(ctx) {
-        fz_report_error(ctx);
-    }
+    fz_catch_report(ctx) {}
     res.score = heuristicScore + metadataScore;
     res.rasterDominant = rasterDominant;
     res.hairlineVector = hairlineVector;
