@@ -162,7 +162,7 @@ struct PdfiumPage {
     bool attachmentLinksLoaded = false;
     bool useMupdfElements = false;
     Vec<IPageElement*> links;
-    // photos a themed page keeps in their colors, in page space
+    // pictures (IsPdfPicture) a themed page keeps in their colors, in page space
     bool imagesLoaded = false;
     Vec<RectF> images;
     bool imageElementsLoaded = false;
@@ -1189,18 +1189,37 @@ class EnginePdfium : public EngineBase {
         return RectF::FromXY(ToPage(page, info, left, bottom), ToPage(page, info, right, top));
     }
 
-    // Caller holds gPdfiumLock. Finds the photos a themed page keeps in their colors, like
-    // EngineMupdf; thin strips and 1-bit images (drawn like text) recolor with the page.
+    // Caller holds gPdfiumLock.
     void CollectImages(FPDF_PAGE page, PdfiumPage* info) {
         info->imagesLoaded = true;
-        FS_MATRIX identity{1, 0, 0, 1, 0, 0};
-        int n = gPdfium.FPDFPage_CountObjects(page);
-        for (int i = 0; i < n; i++) {
-            AddImages(page, info, gPdfium.FPDFPage_GetObject(page, i), identity, 0);
-        }
+        CollectPictures(page, info, info->images);
     }
 
-    void AddImageElement(FPDF_PAGE page, PdfiumPage* info, FPDF_PAGEOBJECT obj, const FS_MATRIX& parent, int depth) {
+    // Caller holds gPdfiumLock. obj's traits for IsPdfPicture. PDFium draws an image without a color
+    // space as a 1 bpp stencil mask. A JPX image has its colors in the codestream; reading its
+    // metadata would decode it. A load failure (0 bpp) stays a picture.
+    static PdfImageTraits ImageTraits(FPDF_PAGE page, FPDF_PAGEOBJECT obj) {
+        PdfImageTraits traits;
+        int nFilters = gPdfium.FPDFImageObj_GetImageFilterCount(obj);
+        for (int i = 0; i < nFilters; i++) {
+            char filter[32]{};
+            unsigned long size = gPdfium.FPDFImageObj_GetImageFilter(obj, i, filter, sizeof(filter));
+            if (size <= sizeof(filter) && str::Eq(Str(filter), StrL("JPXDecode"))) {
+                return traits;
+            }
+        }
+        FPDF_IMAGEOBJ_METADATA meta{};
+        if (gPdfium.FPDFImageObj_GetImageMetadata(obj, page, &meta)) {
+            traits.stencilMask = meta.bits_per_pixel == 1 && meta.colorspace == FPDF_COLORSPACE_UNKNOWN;
+        }
+        return traits;
+    }
+
+    // Caller holds gPdfiumLock. Appends the visible page rects of obj's pictures, as EngineMupdf finds
+    // them: what a themed page keeps in its colors and what the image elements are. Images in form
+    // XObjects are in form space, which `parent` maps to the page.
+    void AddPictures(FPDF_PAGE page, PdfiumPage* info, FPDF_PAGEOBJECT obj, const FS_MATRIX& parent, int depth,
+                     Vec<RectF>& pictures) {
         constexpr int kMaxFormDepth = 16;
         FS_MATRIX m{};
         if (!obj || !gPdfium.FPDFPageObj_GetMatrix(obj, &m)) {
@@ -1211,14 +1230,15 @@ class EnginePdfium : public EngineBase {
         if (type == FPDF_PAGEOBJ_FORM && depth < kMaxFormDepth) {
             int n = gPdfium.FPDFFormObj_CountObjects(obj);
             for (int i = 0; i < n; i++) {
-                AddImageElement(page, info, gPdfium.FPDFFormObj_GetObject(obj, (unsigned long)i), m, depth + 1);
+                AddPictures(page, info, gPdfium.FPDFFormObj_GetObject(obj, (unsigned long)i), m, depth + 1, pictures);
             }
             return;
         }
-        if (type != FPDF_PAGEOBJ_IMAGE) {
+        if (type != FPDF_PAGEOBJ_IMAGE || !IsPdfPicture(ImageTraits(page, obj))) {
             return;
         }
 
+        // an image fills the unit square of its matrix
         PointF c[4];
         double unit[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
         for (int i = 0; i < 4; i++) {
@@ -1228,12 +1248,18 @@ class EnginePdfium : public EngineBase {
         RectF pageBounds(0, 0, info->size.dx, info->size.dy);
         RectF rect = RectF::FromXY(c[0], c[3]).Union(RectF::FromXY(c[1], c[2])).Intersect(pageBounds);
         rect = ClipToPaths(page, info, obj, parent, rect);
-        if (rect.IsEmpty()) {
-            return;
+        if (!rect.IsEmpty()) {
+            VecAppend(pictures, rect);
         }
-        auto* element = new PageElementImage();
-        element->rect = rect;
-        VecAppend(info->imageElements, (IPageElement*)element);
+    }
+
+    // Caller holds gPdfiumLock.
+    void CollectPictures(FPDF_PAGE page, PdfiumPage* info, Vec<RectF>& pictures) {
+        FS_MATRIX identity{1, 0, 0, 1, 0, 0};
+        int n = gPdfium.FPDFPage_CountObjects(page);
+        for (int i = 0; i < n; i++) {
+            AddPictures(page, info, gPdfium.FPDFPage_GetObject(page, i), identity, 0, pictures);
+        }
     }
 
     // Caller holds gPdfiumLock. rect cut to obj's clip paths, as MuPDF clips image elements (#6441).
@@ -1268,46 +1294,13 @@ class EnginePdfium : public EngineBase {
 
     void CollectImageElements(FPDF_PAGE page, int pageNo, PdfiumPage* info) {
         info->imageElementsLoaded = true;
-        FS_MATRIX identity{1, 0, 0, 1, 0, 0};
-        int n = gPdfium.FPDFPage_CountObjects(page);
-        for (int i = 0; i < n; i++) {
-            AddImageElement(page, info, gPdfium.FPDFPage_GetObject(page, i), identity, 0);
-        }
-        for (IPageElement* element : info->imageElements) {
+        Vec<RectF> pictures;
+        CollectPictures(page, info, pictures);
+        for (RectF& rect : pictures) {
+            auto* element = new PageElementImage();
             element->pageNo = pageNo;
-        }
-    }
-
-    // Images in form XObjects are in form space, so `parent` maps it to the page.
-    void AddImages(FPDF_PAGE page, PdfiumPage* info, FPDF_PAGEOBJECT obj, const FS_MATRIX& parent, int depth) {
-        constexpr int kMaxFormDepth = 16;
-        FS_MATRIX m{};
-        if (!obj || !gPdfium.FPDFPageObj_GetMatrix(obj, &m)) {
-            return;
-        }
-        m = ConcatMatrix(m, parent);
-        int type = gPdfium.FPDFPageObj_GetType(obj);
-        if (type == FPDF_PAGEOBJ_FORM && depth < kMaxFormDepth) {
-            int n = gPdfium.FPDFFormObj_CountObjects(obj);
-            for (int i = 0; i < n; i++) {
-                AddImages(page, info, gPdfium.FPDFFormObj_GetObject(obj, (unsigned long)i), m, depth + 1);
-            }
-            return;
-        }
-        if (type != FPDF_PAGEOBJ_IMAGE) {
-            return;
-        }
-        // an image fills the unit square of its matrix
-        PointF c[4];
-        double unit[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
-        for (int i = 0; i < 4; i++) {
-            double ux = unit[i][0], uy = unit[i][1];
-            c[i] = ToPage(page, info, m.a * ux + m.c * uy + m.e, m.b * ux + m.d * uy + m.f);
-        }
-        RectF pageBounds(0, 0, info->size.dx, info->size.dy);
-        RectF r = RectF::FromXY(c[0], c[3]).Union(RectF::FromXY(c[1], c[2])).Intersect(pageBounds);
-        if (!r.IsEmpty()) {
-            VecAppend(info->images, r);
+            element->rect = rect;
+            VecAppend(info->imageElements, (IPageElement*)element);
         }
     }
 

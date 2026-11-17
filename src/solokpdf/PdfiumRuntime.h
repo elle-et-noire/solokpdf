@@ -67,6 +67,8 @@
     X(FPDFPage_GetArtBox)                  \
     X(FPDFFormObj_CountObjects)            \
     X(FPDFFormObj_GetObject)               \
+    X(FPDFImageObj_GetImageFilterCount)    \
+    X(FPDFImageObj_GetImageFilter)         \
     X(FPDFImageObj_GetImageMetadata)       \
     X(FPDFImageObj_GetImagePixelSize)      \
     X(FPDFImageObj_GetBitmap)              \

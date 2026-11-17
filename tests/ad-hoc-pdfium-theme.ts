@@ -34,6 +34,7 @@ const kInlineMaskImage = [16, 128, 240];
 const kAnnotationImage = [230, 80, 180];
 const kSoftMaskedImage = [255, 255, 0];
 const kMinSmallImagePixels = 50;
+const kMaxKeptMaskPixels = 5;
 const kDarkShadeMidpoint = [65, 95, 102];
 
 // 8x8 solid RGB image
@@ -340,9 +341,10 @@ export async function testit(): Promise<void> {
     if (smart.green < kMinPhotoPixels) failures.push(`${name}: form photo recolored (${smart.png})`);
     if (smart.backdrop < kMinPhotoPixels) failures.push(`${name}: figure backdrop recolored (${smart.png})`);
     if (smart.smallImage < kMinSmallImagePixels) failures.push(`${name}: small image recolored (${smart.png})`);
-    if (smart.maskImage < kMinSmallImagePixels) failures.push(`${name}: image mask recolored (${smart.png})`);
-    if (smart.inlineMaskImage < kMinSmallImagePixels)
-      failures.push(`${name}: inline image mask recolored (${smart.png})`);
+    // a stencil mask paints its fill color, themed like a path's (B76)
+    if (smart.maskImage > kMaxKeptMaskPixels) failures.push(`${name}: image mask kept its paint (${smart.png})`);
+    if (smart.inlineMaskImage > kMaxKeptMaskPixels)
+      failures.push(`${name}: inline image mask kept its paint (${smart.png})`);
     if (smart.softMaskedImage < kMinSmallImagePixels)
       failures.push(`${name}: soft-masked image recolored (${smart.png})`);
     if (theme === "Solarized Dark" && smart.halfMaskedImage < kMinSmallImagePixels)
@@ -359,6 +361,8 @@ export async function testit(): Promise<void> {
   if (legacy.red >= kMinPhotoPixels) failures.push(`legacy: photo kept its colors (${legacy.png})`);
   const off = await capture("Solarized Dark", "off");
   if (off.softMaskedImage < kMinSmallImagePixels) failures.push(`off: soft-masked fixture missing (${off.png})`);
+  if (off.maskImage < kMinSmallImagePixels || off.inlineMaskImage < kMinSmallImagePixels)
+    failures.push(`off: image mask fixture missing (${off.png})`);
   if (off.annotation < 30) failures.push(`off: annotation text missing (${off.png})`);
   if (!USE_NG) {
     try {

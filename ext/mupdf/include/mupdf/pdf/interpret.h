@@ -475,6 +475,7 @@ typedef struct
 	int repeated_image_rewrite;
 	int preserve_image_masks;
 	int reject_uncolored_strokes;
+	int reject_inherited_colors;
 } pdf_color_filter_options;
 
 pdf_processor *

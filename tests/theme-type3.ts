@@ -63,8 +63,11 @@ async function check(alpha: number, mask: boolean): Promise<void> {
               : alpha === 1
                 ? [131, 148, 150]
                 : [66, 96, 102];
-          const imageColor =
-            theme === "Light" && alpha !== 1 ? [249, 121, 121] : alpha === 1 ? [255, 0, 0] : [128, 22, 27];
+          // a stencil mask paints its fill color, themed like a path's (B76); a picture keeps its red
+          const text = theme === "Light" ? [0, 0, 0] : [131, 148, 150];
+          const paper = theme === "Light" ? [242, 242, 242] : [0, 43, 54];
+          const paint = mask ? [paper[0]!, text[1]!, text[2]!] : [255, 0, 0];
+          const imageColor = alpha === 1 ? paint : paint.map((v, c) => Math.round((v + paper[c]!) / 2));
           let themed = 0,
             red = 0,
             left = img.w,

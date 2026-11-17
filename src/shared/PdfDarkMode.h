@@ -64,6 +64,19 @@ struct DarkModeProfile {
     u32 hash = 0;
 };
 
+// What a PDF image object paints, as each engine reads it. A stencil mask (/ImageMask, or no
+// color space: dvips/Ghostscript rules, bitonal scans) paints the fill color through its shape.
+struct PdfImageTraits {
+    bool stencilMask = false;
+    bool hasColorSpace = true;
+};
+
+// The one rule every engine applies (B76): only a picture keeps its colors on a themed page, is
+// spared by the bitmap recolor and is an image element; a stencil mask's paint is themed like a path.
+inline bool IsPdfPicture(const PdfImageTraits& image) {
+    return !image.stencilMask && image.hasColorSpace;
+}
+
 bool GetPreservePdfImagesInDarkMode();
 void SetPreservePdfImagesInDarkMode(bool preserve);
 static constexpr int kPreservePdfImagesMinSize = 72;

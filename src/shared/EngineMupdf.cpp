@@ -2382,14 +2382,20 @@ static void FzLinkifyPageText(FzPageInfo* pageInfo, fz_stext_page* stext) {
 // image: a cropped photo is drawn masked by a clip (#6441)
 constexpr int kImageTextPageFlags = FZ_STEXT_PRESERVE_IMAGES | FZ_STEXT_CLIP;
 
-// a block whose image is entirely clipped away isn't shown
+static PdfImageTraits FzImageTraits(fz_image* image) {
+    PdfImageTraits traits;
+    traits.stencilMask = image->imagemask;
+    traits.hasColorSpace = image->colorspace != nullptr;
+    return traits;
+}
+
+// a block whose image is entirely clipped away isn't shown; a stencil mask
+// isn't a picture (#1480)
 static bool IsVisibleImageBlock(fz_stext_block* block) {
     if (block->type != FZ_STEXT_BLOCK_IMAGE || fz_is_empty_rect(block->bbox)) {
         return false;
     }
-    // no colorspace = stencil mask painted with the fill color, not a
-    // picture (#1480)
-    return block->u.i.image->colorspace != nullptr;
+    return IsPdfPicture(FzImageTraits(block->u.i.image));
 }
 
 static void FzFindImagePositions(fz_context* ctx, int pageNo, Location loc, Vec<FitzPageImageInfo*>& images,
@@ -2524,22 +2530,24 @@ static void fz_img_collect_add(fz_context* ctx, fz_device* dev, fz_rect rect, bo
     }
 }
 
-static void fz_img_collect_fill_image(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix ctm, float /*alpha*/,
-                                      fz_color_params /*colorParams*/) {
-    fz_img_collect_add(ctx, dev, fz_transform_rect(fz_unit_rect, ctm), false, image);
+// only pictures: a stencil mask's paint is themed, not preserved (#5806)
+static void fz_img_collect_image(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix ctm) {
+    if (IsPdfPicture(FzImageTraits(image))) {
+        fz_img_collect_add(ctx, dev, fz_transform_rect(fz_unit_rect, ctm), false, image);
+    }
 }
 
-// Image masks are knockouts / stencil shapes, not photos, so dark-mode preserve
-// must not treat them as artwork (#5806). Ignoring them is the whole job: this
-// used to call fz_img_collect_add() with clip=true, which pushed a clip that
-// nothing ever pops - fill_image_mask is not a clipping operation and has no
-// matching pop_clip, unlike clip_image_mask below. Every mask on a page then
-// narrowed the rect of every image drawn after it (often below the preserve
-// min size, so a full-page image stopped being preserved and got recolored)
-// and left d->top too high for the rest of the page (#5887).
-static void fz_img_collect_fill_image_mask(fz_context* /*ctx*/, fz_device* /*dev*/, fz_image* /*img*/,
-                                           fz_matrix /*ctm*/, fz_colorspace* /*cs*/, const float* /*color*/,
-                                           float /*alpha*/, fz_color_params /*colorParams*/) {}
+static void fz_img_collect_fill_image(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix ctm, float /*alpha*/,
+                                      fz_color_params /*colorParams*/) {
+    fz_img_collect_image(ctx, dev, image, ctm);
+}
+
+// not a clip: nothing pops one after fill_image_mask, unlike clip_image_mask (#5887)
+static void fz_img_collect_fill_image_mask(fz_context* ctx, fz_device* dev, fz_image* img, fz_matrix ctm,
+                                           fz_colorspace* /*cs*/, const float* /*color*/, float /*alpha*/,
+                                           fz_color_params /*colorParams*/) {
+    fz_img_collect_image(ctx, dev, img, ctm);
+}
 
 static void fz_img_collect_clip_path(fz_context* ctx, fz_device* dev, const fz_path* path, int /*evenOdd*/,
                                      fz_matrix ctm, fz_rect /*scissor*/) {
@@ -7333,7 +7341,11 @@ PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, 
         colors.opaque = &colorContext;
         colors.color_rewrite = ThemePdfColor;
         colors.shade_rewrite = ThemePdfShade;
-        colors.preserve_image_masks = 1;
+        // a stencil mask takes the themed fill color, as MuPDF's view draws it
+        PdfImageTraits stencil;
+        stencil.stencilMask = true;
+        colors.preserve_image_masks = IsPdfPicture(stencil);
+        colors.reject_inherited_colors = 1;
         // PDFium loses the tint of uncolored pattern strokes.
         colors.reject_uncolored_strokes = 1;
         pdf_filter_factory filters[2]{};
@@ -8814,7 +8826,6 @@ struct PdfDrawDevice {
     fz_matrix view;
     fz_irect bounds;
     int maskDepth;
-    int imageClipDepth;
     const PdfRenderSource* cancelSource;
 };
 
@@ -8829,19 +8840,13 @@ static void CheckDrawCancel([[maybe_unused]] fz_context* ctx, [[maybe_unused]] f
 
 static bool KeepDrawColor(fz_device* dev) {
     auto* theme = (PdfDrawDevice*)dev;
-    return !theme->recolor || theme->maskDepth || theme->imageClipDepth;
+    return !theme->recolor || theme->maskDepth;
 }
 
 static void PdfFillImage(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix m, float alpha,
                          fz_color_params params) {
     CheckDrawCancel(ctx, dev);
     fz_fill_image(ctx, dev->passthrough, image, m, alpha, params);
-}
-
-static void PdfFillImageMask(fz_context* ctx, fz_device* dev, fz_image* image, fz_matrix m, fz_colorspace* cs,
-                             const float* color, float alpha, fz_color_params params) {
-    CheckDrawCancel(ctx, dev);
-    fz_fill_image_mask(ctx, dev->passthrough, image, m, cs, color, alpha, params);
 }
 
 static void ThemeDrawColor(fz_context* ctx, PdfDrawDevice* dev, fz_colorspace* cs, const float* color,
@@ -8855,6 +8860,19 @@ static void ThemeDrawColor(fz_context* ctx, PdfDrawDevice* dev, fz_colorspace* c
     result[0] = GetRed(mapped) / 255.f;
     result[1] = GetGreen(mapped) / 255.f;
     result[2] = GetBlue(mapped) / 255.f;
+}
+
+// a stencil mask paints its fill color, themed like a path's
+static void ThemeFillImageMask(fz_context* ctx, fz_device* d, fz_image* image, fz_matrix m, fz_colorspace* cs,
+                               const float* color, float alpha, fz_color_params params) {
+    CheckDrawCancel(ctx, d);
+    if (KeepDrawColor(d) || IsPdfPicture(FzImageTraits(image))) {
+        fz_fill_image_mask(ctx, d->passthrough, image, m, cs, color, alpha, params);
+        return;
+    }
+    float rgb[3];
+    ThemeDrawColor(ctx, (PdfDrawDevice*)d, cs, color, params, rgb);
+    fz_fill_image_mask(ctx, d->passthrough, image, m, fz_device_rgb(ctx), rgb, alpha, params);
 }
 
 static void ThemeFillPath(fz_context* ctx, fz_device* d, const fz_path* path, int evenOdd, fz_matrix m,
@@ -9031,57 +9049,20 @@ static void ThemeBeginMask(fz_context* ctx, fz_device* d, fz_rect area, int lumi
 }
 
 static void ThemeEndMask(fz_context* ctx, fz_device* d, fz_function* fn) {
-    auto* theme = (PdfDrawDevice*)d;
-    if (theme->imageClipDepth) {
-        theme->imageClipDepth++;
-    }
     fz_end_mask_tr(ctx, d->passthrough, fn);
-    theme->maskDepth--;
-}
-
-static void ThemePushClip(fz_device* d) {
-    auto* theme = (PdfDrawDevice*)d;
-    if (theme->imageClipDepth) {
-        theme->imageClipDepth++;
-    }
+    ((PdfDrawDevice*)d)->maskDepth--;
 }
 
 static void ThemeClipPath(fz_context* ctx, fz_device* d, const fz_path* path, int evenOdd, fz_matrix m,
                           fz_rect scissor) {
     CheckDrawCancel(ctx, d);
-    ThemePushClip(d);
     fz_clip_path(ctx, d->passthrough, path, evenOdd, m, scissor);
 }
 
 static void ThemeClipStrokePath(fz_context* ctx, fz_device* d, const fz_path* path, const fz_stroke_state* stroke,
                                 fz_matrix m, fz_rect scissor) {
     CheckDrawCancel(ctx, d);
-    ThemePushClip(d);
     fz_clip_stroke_path(ctx, d->passthrough, path, stroke, m, scissor);
-}
-
-static void ThemeClipText(fz_context* ctx, fz_device* d, const fz_text* text, fz_matrix m, fz_rect scissor) {
-    ThemePushClip(d);
-    fz_clip_text(ctx, d->passthrough, text, m, scissor);
-}
-
-static void ThemeClipStrokeText(fz_context* ctx, fz_device* d, const fz_text* text, const fz_stroke_state* stroke,
-                                fz_matrix m, fz_rect scissor) {
-    ThemePushClip(d);
-    fz_clip_stroke_text(ctx, d->passthrough, text, stroke, m, scissor);
-}
-
-static void ThemeClipImageMask(fz_context* ctx, fz_device* d, fz_image* image, fz_matrix m, fz_rect scissor) {
-    ((PdfDrawDevice*)d)->imageClipDepth++;
-    fz_clip_image_mask(ctx, d->passthrough, image, m, scissor);
-}
-
-static void ThemePopClip(fz_context* ctx, fz_device* d) {
-    auto* theme = (PdfDrawDevice*)d;
-    if (theme->imageClipDepth) {
-        theme->imageClipDepth--;
-    }
-    fz_pop_clip(ctx, d->passthrough);
 }
 
 static int ThemeBeginTile(fz_context* ctx, fz_device* d, fz_rect area, fz_rect view, float xstep, float ystep,
@@ -9113,15 +9094,11 @@ static fz_device* PdfDrawWrap(fz_context* ctx, fz_device* target, const DarkMode
     dev->super.stroke_text = ThemeStrokeText;
     dev->super.fill_shade = ThemeFillShade;
     dev->super.fill_image = PdfFillImage;
-    dev->super.fill_image_mask = PdfFillImageMask;
+    dev->super.fill_image_mask = ThemeFillImageMask;
     dev->super.begin_mask = ThemeBeginMask;
     dev->super.end_mask = ThemeEndMask;
     dev->super.clip_path = ThemeClipPath;
     dev->super.clip_stroke_path = ThemeClipStrokePath;
-    dev->super.clip_text = ThemeClipText;
-    dev->super.clip_stroke_text = ThemeClipStrokeText;
-    dev->super.clip_image_mask = ThemeClipImageMask;
-    dev->super.pop_clip = ThemePopClip;
     dev->super.begin_tile = ThemeBeginTile;
     fz_drop_device(ctx, target);
     return &dev->super;

@@ -441,7 +441,7 @@ mark_stroke(fz_context *ctx, pdf_color_processor *p)
 {
 	float zero[FZ_MAX_COLORS] = { 0 };
 
-	if (p->global_options->is_form && p->options->preserve_image_masks)
+	if (p->global_options->is_form && p->options->reject_inherited_colors)
 		fz_throw(ctx, FZ_ERROR_UNSUPPORTED, "cannot rewrite inherited form stroke color");
 	rewrite_cs(ctx, p, PDF_NAME(DeviceGray), 1, zero, 1);
 
@@ -453,7 +453,7 @@ mark_fill(fz_context *ctx, pdf_color_processor *p)
 {
 	float zero[FZ_MAX_COLORS] = { 0 };
 
-	if (p->global_options->is_form && p->options->preserve_image_masks)
+	if (p->global_options->is_form && p->options->reject_inherited_colors)
 		fz_throw(ctx, FZ_ERROR_UNSUPPORTED, "cannot rewrite inherited form fill color");
 	rewrite_cs(ctx, p, PDF_NAME(DeviceGray), 1, zero, 0);
 

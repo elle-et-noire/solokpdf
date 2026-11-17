@@ -114,7 +114,7 @@ SolokPDF patches apply after upstream's numbered ones, in this order.
 | `solok-0017-pdf-incremental-output-bias` | retain PDF prefix offsets when writing incremental output streams |
 | `solok-0018-pdf-mask-filter-identity` | recognize color filters across DLL boundaries |
 | `solok-0019-pdf-pattern-stroke-colors` | let callers reject uncolored pattern strokes unsupported by their renderer |
-| `solok-0020-pdf-color-form-inheritance` | reject isolated color filtering when a Form inherits painting colors |
+| `solok-0020-pdf-color-form-inheritance` | `reject_inherited_colors`: reject isolated color filtering when a Form inherits painting colors |
 | `solok-0021-pdf-signature-rollback` | preserve redo on abandoned operations, remove pending signers safely and propagate signature-widget creation failures |
 | `solok-0022-pdf-operation-changes` | expose changes in the current journal operation |
 | `solok-0023-pdf-drop-empty-increment` | drop an increment undo emptied, so a pending signature below it is still saved |

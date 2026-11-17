@@ -74,10 +74,12 @@ export async function testit(): Promise<void> {
   ];
   for (const engine of USE_NG ? ["mupdf"] : ["mupdf", "pdfium"]) {
     const cases = [
+      // stencil masks in a Form keep the paint set before it, themed like a path's (B76): red, blue (a link
+      // color) and the black bar
       () =>
         check(engine, "inherited-mask", formPdf(), [
-          [255, 0, 0],
-          [0, 0, 255],
+          [0, 148, 150],
+          [38, 139, 210],
           [131, 148, 150],
         ]),
       ...patterns.map(

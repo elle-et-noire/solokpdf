@@ -298,6 +298,10 @@ including where text overlaps images. PDFium uses a temporary per-page snapshot
 for this; see [limitations](limitations.md) for its fallback. Home and page
 thumbnails use cached image bounding rectangles during recoloring.
 
+A stencil mask (`/ImageMask`, e.g. the rules dvips and Ghostscript write) paints
+its fill color like a path, so it takes theme colors and is not an image element.
+Both engines apply this one rule (`IsPdfPicture`, B76).
+
 Pages with uncolored pattern strokes, or colored Type 3 glyphs under a fill
 alpha below 1, use MuPDF in every color mode, so `off` also retains their
 original colors and transparency. Renderer selection is cached independently
@@ -340,7 +344,8 @@ sidebar, tabs, toolbar and title bar too.
 
 `tests/ad-hoc-pdfium-theme.ts` checks a dark and a light theme: no white paper,
 both photos untouched, a figure's gray backdrop recolored, and `legacy` recoloring
-photos; it fails on the previous build.
+photos; it fails on the previous build. `ad-hoc-theme-stencil-mask` checks black
+stencil-mask rules take the theme text color in the view and on Home, on both engines.
 
 `ad-hoc-pdfium-theme-switch` keeps one PDFium tab open through dark → light →
 dark, then smart → legacy → off → smart. Photo and paper counts return to their

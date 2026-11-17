@@ -109,36 +109,34 @@ async function checkPatternMask(engine: string, maskFirst: boolean): Promise<voi
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf], { env: { SOLOKPDF_ENGINE: engine } });
   try {
     await client.setNotificationsEnabled(false);
+    // the stencil mask paints the pattern themed like the shape's (B76)
     const checkCurrent = async (expected: number[], tag: string) => {
       await client.waitForRenderIdle();
       const path = join(dir, `${tag}.png`);
       if (!captureWindowToPng(findCanvas(frame), path)) throw new Error("capture failed");
       const img = loadPng(path);
-      let red = 0;
-      let left = img.w;
+      const near = (p: number) => expected.every((v, c) => Math.abs(img.data[p + c]! - v) <= 10);
+      // painted: the shape (130..180) and the mask's stripes (50..130 x 20..100, page space)
+      let painted = 0;
       let top = img.h;
       let right = -1;
+      let bottom = -1;
       for (let i = 0; i < img.w * img.h; i++) {
-        const p = i * img.nComp;
-        if (img.data[p]! >= 247 && img.data[p + 1]! <= 8 && img.data[p + 2]! <= 8) {
-          const x = i % img.w;
-          const y = Math.floor(i / img.w);
-          left = Math.min(left, x);
-          right = Math.max(right, x);
-          top = Math.min(top, y);
-          red++;
-        }
+        if (!near(i * img.nComp)) continue;
+        const x = i % img.w;
+        const y = Math.floor(i / img.w);
+        right = Math.max(right, x);
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+        painted++;
       }
-      if (red < 500) throw new Error(`${engine}/${tag}: pattern image mask changed color (${red} pixels)`);
-      const scale = (right - left + 1) / 80;
-      const x = Math.floor(left + (155 - 50) * scale);
-      const y = Math.floor(top - (155 - 100) * scale);
-      if (x >= img.w || y < 0) throw new Error(`${engine}/${tag}: pattern sample is outside canvas`);
-      const p = (y * img.w + x) * img.nComp;
-      const rgb = Array.from(img.data.subarray(p, p + 3));
-      if (rgb.some((v, i) => Math.abs(v - expected[i]!) > 10))
-        throw new Error(`${engine}/${tag}: shared pattern not themed (mask first: ${maskFirst}, ${rgb})`);
-      console.log(`${engine}/${tag}: pattern image mask preserved (${red} pixels)`);
+      if (painted < 500) throw new Error(`${engine}/${tag}: pattern not themed (mask first: ${maskFirst})`);
+      const scale = (bottom - top + 1) / 160;
+      const at = (px: number, py: number) =>
+        (Math.floor(top + (180 - py) * scale) * img.w + Math.floor(right - (180 - px) * scale)) * img.nComp;
+      if (!near(at(155, 155))) throw new Error(`${engine}/${tag}: shared pattern shape not themed`);
+      if (!near(at(65, 55))) throw new Error(`${engine}/${tag}: pattern image mask not themed like the shape`);
+      console.log(`${engine}/${tag}: pattern image mask themed (${painted} pixels)`);
     };
     await checkCurrent([0, 148, 150], "dark");
     for (const [theme, expected] of [
@@ -172,18 +170,24 @@ async function checkShadeMask(engine: string): Promise<void> {
     const path = join(dir, "canvas.png");
     if (!captureWindowToPng(findCanvas(frame), path)) throw new Error("capture failed");
     const img = loadPng(path);
+    // the stencil mask paints the red-to-green gradient themed like a shaded path's (B76): blue stays the
+    // theme text's 150 while red runs from near 0 (left stripe) to near 131 (right stripe)
     let red = 0;
-    let middle = 0;
+    let themedLeft = 0;
+    let themedRight = 0;
     for (let i = 0; i < img.w * img.h; i++) {
       const p = i * img.nComp;
       const r = img.data[p]!;
       const g = img.data[p + 1]!;
       const b = img.data[p + 2]!;
       if (r > 220 && g < 50 && b < 10) red++;
-      if (r > 85 && g > 85 && b < 10) middle++;
+      if (Math.abs(b - 150) >= 10) continue;
+      if (r < 40) themedLeft++;
+      if (r > 100) themedRight++;
     }
-    if (red < 200 || middle < 500) throw new Error(`${engine}: shade image mask changed (${red}, ${middle})`);
-    console.log(`${engine}: shade image mask preserved (${red}, ${middle} pixels)`);
+    if (red > 5 || themedLeft < 200 || themedRight < 200)
+      throw new Error(`${engine}: shade image mask not themed (${red}, ${themedLeft}, ${themedRight})`);
+    console.log(`${engine}: shade image mask themed (${themedLeft}, ${themedRight} pixels)`);
     await client.quit();
     await proc.exited;
   } finally {

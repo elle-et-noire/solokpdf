@@ -1,6 +1,6 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-17: B76, E98–E100 and E102–E104 open (order: B76, E102, E103, E104, then E98–E100; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
+Work scope as of 2026-11-17: E98–E100 and E102–E104 open (order: E102, E103, E104, then E98–E100; specs in `.work/codex-queue/<id>.md`); D3 deferred; F1/F3 and distribution
 out of scope. Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
@@ -35,7 +35,6 @@ hand-written hide and reposition calls.
 | E102 | Write crash dumps out of process: in-process `MiniDumpWriteDump` suspends threads and then needs the loader, so a thread suspended in the loader still deadlocks it (E78 only removed our trigger). Spec `.work/codex-queue/e102.md`      | todo   |
 | E103 | Tab strip leave tracking: mouse capture cancels it; E86 re-armed it only in `CloseTab`. Enforce it where capture ends. Spec `.work/codex-queue/e103.md`                                                                                   | todo   |
 | E104 | Command palette colors: E91 overrides `UpdateTheme()`'s dialog color afterwards; make the surface color an input to theme application. Spec `.work/codex-queue/e104.md`                                                                   | todo   |
-| B76  | Theme colors skip stencil-mask rules on PDFium pages (owner, 06RJ eq. 19 fraction bar, footnote rule): PDFium's image collector keeps masks MuPDF ignores. One shared image rule for all engines. Spec `.work/codex-queue/b76.md`         | todo   |
 
 ## Deferred
 
