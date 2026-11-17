@@ -92,7 +92,7 @@ void RefHoverHide(RefHoverState* s, HWND hwndCanvas) {
     RefHoverDropQueuedRender(s);
     // also while hidden with its minimized frame
     if (s->hwndPopup) {
-        HideAnchoredPopup(s->hwndPopup);
+        ShowWindow(s->hwndPopup, SW_HIDE);
         s->displayed.destPage = -1;
     }
     RefHoverReleaseShown(s);
@@ -137,7 +137,7 @@ void RefHoverOnHideTimer(RefHoverState* s, HWND hwndCanvas) {
             return;
         }
     }
-    HideAnchoredPopup(s->hwndPopup);
+    ShowWindow(s->hwndPopup, SW_HIDE);
     s->displayed.destPage = -1;
 }
 

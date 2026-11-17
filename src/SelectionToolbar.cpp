@@ -401,7 +401,7 @@ TempStr SelectionToolbarLayoutDumpTemp() {
 
     MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
     SelectionToolbar* tb = win ? GetOrCreateToolbar(win) : nullptr;
-    bool visible = tb && tb->host && tb->host->IsVisible();
+    bool visible = tb && tb->host && HwndIsOnScreen(tb->host->native);
     out.Append(fmt("visible=%d\n", visible ? 1 : 0));
     NotificationWnd* notif = win ? GetNotificationForGroup(win, kNotifCopiedToClipboard) : nullptr;
     out.Append(fmt("notif=%s\n", notif ? NotificationGetMessageTemp(notif) : TempStr(StrL(""))));

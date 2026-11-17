@@ -76,6 +76,7 @@
 #include "AnnotTextPopup.h"
 #include "AnnotFilterToolbar.h"
 #include "Annotation.h"
+#include "AnnotFilterToolbarCommon.h"
 #include "Menu.h"
 #include "EngineAll.h"
 #include "EutlTrust.h"
@@ -693,7 +694,7 @@ struct ShownOwnedPopups {
 
 static BOOL CALLBACK CollectShownOwned(HWND hwnd, LPARAM lp) {
     auto* d = (ShownOwnedPopups*)lp;
-    if (GetWindow(hwnd, GW_OWNER) == d->owner && HwndIsVisible(hwnd)) {
+    if (GetWindow(hwnd, GW_OWNER) == d->owner && HwndIsOnScreen(hwnd)) {
         VecAppend(d->hwnds, hwnd);
     }
     return TRUE;
@@ -787,6 +788,8 @@ static bool HidePopupForTest(MainWindow* win, Str popup) {
         HideAnnotationTextPopup(win);
     } else if (str::Eq(popup, StrL("annotation")) && win->CurrentTab()) {
         SetSelectedAnnotation(win->CurrentTab(), nullptr);
+    } else if (str::Eq(popup, StrL("filter"))) {
+        HideAnnotFilterWindow(win);
     } else {
         return false;
     }
@@ -1085,6 +1088,13 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
     // the annotation toolbar or its contents edit
     if (str::Eq(Str(cls), StrL("SumatraAnnotEditToolbar"))) {
         return StrL("annot-toolbar");
+    }
+    if (str::Eq(Str(cls), StrL("SUMATRA_ANNOT_FILTER_WND"))) {
+        return StrL("annot-filter");
+    }
+    // the floating find window's search field
+    if (win && IsFindWindowVisible(win) && win->findEdit && IsChild(win->findEdit->hwnd, hwnd)) {
+        return StrL("find-window");
     }
     return StrL("other");
 }
@@ -3378,6 +3388,9 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             if (win && win->pageEdit && str::Eq(action, StrL("page-edit"))) SetFocus(win->pageEdit->hwnd);
             if (win && win->hwndToolbar && str::Eq(action, StrL("toolbar"))) SetFocus(win->hwndToolbar);
+            if (win && win->findEdit && str::Eq(action, StrL("find-edit"))) win->findEdit->SetFocus();
+            // shown again, the annotation list focuses its filter
+            if (win && str::Eq(action, StrL("annot-filter"))) ShowAnnotFilterWindow(win);
             if (win && str::Eq(action, StrL("activate"))) {
                 ActivateForTest(win->hwndFrame);
             }

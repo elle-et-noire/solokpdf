@@ -425,7 +425,10 @@ text and the focus: losing the focus to the minimize is not a click away
 (E136, E137); the focus going to another window meanwhile is: the card
 closes and the edit commits (E139). Hovers (the
 toolbar drop-down, About hover, citation hover and Edit PDF hover card) go with
-the minimize, as they do when another window activates (E124).
+the minimize, as they do when another window activates (E124). The floating
+find window, the annotation list and the window's other popups that don't sit
+next to a control follow the same rules: back where they were, with their focus,
+unless closed meanwhile (Esc closes the find window while minimized) (E140).
 
 ## Count prefix
 

@@ -305,10 +305,6 @@ void VirtHost::SetPos(Rect r, bool visible) {
     UINT flags = SWP_NOACTIVATE;
     flags |= visible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
     SetWindowPos(native, AppWindowZOrder(native, HWND_TOP), r.x, r.y, r.dx, r.dy, flags);
-    if (!visible) {
-        // also hidden for good if anchored and hidden with its minimized frame
-        HideAnchoredPopup(native);
-    }
 }
 
 void VirtHost::SetBounds(Rect r) {

@@ -28,6 +28,11 @@
 // E139: the focus moved to another window while minimized: the comment card
 // closes and the contents edit commits, as for a click there.
 //
+// E140: popups the frame owns that aren't anchored (floating find window,
+// annotation list) follow the same minimize rules: hidden with the frame, back
+// at their place with their focus on restore, closed while minimized (Esc, their
+// owner) -> stay closed.
+//
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -46,6 +51,7 @@ import {
   getWindowRect,
   getWindowOwner,
   GWL_EXSTYLE,
+  GWL_STYLE,
   isWindowVisible,
   MK_RBUTTON,
   packCoords,
@@ -70,6 +76,7 @@ import {
   WM_MOUSEMOVE,
   WM_RBUTTONDOWN,
   WM_RBUTTONUP,
+  WS_CAPTION,
 } from "./winapi.ts";
 import {
   activateTestFrame,
@@ -524,6 +531,7 @@ const CARD_CLASS = "SumatraAnnotTextPopup";
 const HOVER_CARD_CLASS = "SumatraAnnotationHoverOverlay";
 const BAR_CLASS = "SumatraWgDefaultWinClass";
 const COMBO_CLASS = "ComboBox";
+const FILTER_CLASS = "SUMATRA_ANNOT_FILTER_WND";
 const VK_END = 0x23;
 const E110_LINE = "The quick brown fox jumps over the lazy dog";
 
@@ -759,7 +767,7 @@ async function checkFollows(p: Followed, client: ControlClient, frame: number, c
   // whichever hid them, they come back, also when the focus left the app meanwhile (E136)
   for (const way of p.focus ? FOCUS_WAYS : MINIMIZE_WAYS) {
     await step(`${p.name}: frame minimized, ${way.how}`, async () => {
-      const before = await shown();
+      const before = await shown(true);
       await minimizedAndRestored(client, way, p.find, p.name);
       await waitAt(p.find, before, `${p.name} after the frame was restored`);
       if (!p.focus) return;
@@ -1050,6 +1058,107 @@ async function checkCanvasPopups(): Promise<void> {
   }
 }
 
+// E140: a popup the frame owns but no child window anchors
+type Floating = {
+  name: string;
+  find: () => number;
+  open: () => Promise<void>;
+  // TestMinimizeFrame "hide": its owner hides it
+  hide: string;
+  // TestFocusState action giving it the focus, and its name for it then
+  focus?: [string, string];
+  // Esc presses on the frame that close it
+  esc?: number;
+};
+
+async function checkFloating(p: Floating, client: ControlClient, frame: number): Promise<void> {
+  // with the focus for the focus steps
+  const shown = async (focus = false) => {
+    if (!p.find()) await p.open();
+    await waitShown(p.find, p.name);
+    if (focus && p.focus) {
+      const res = String((await client.request(ControlCommand.TestFocusState, [p.focus[0]]))[1] ?? "");
+      check(res.includes(`focus=${p.focus[1]} `), `${p.name} has no focus: ${res}`);
+    }
+    return box(p.find());
+  };
+
+  for (const way of p.focus ? FOCUS_WAYS : MINIMIZE_WAYS) {
+    await step(`${p.name}: frame minimized, ${way.how}`, async () => {
+      const before = await shown(true);
+      await minimizedAndRestored(client, way, p.find, p.name);
+      await waitAt(p.find, before, `${p.name} after the frame was restored`);
+      if (!p.focus) return;
+      const res = String((await client.request(ControlCommand.TestFocusState, [""]))[1] ?? "");
+      check(res.includes(`focus=${p.focus[1]} `), `${p.name}'s focus after the frame was restored: ${res}`);
+    });
+  }
+
+  for (const way of MINIMIZE_WAYS) {
+    await step(`${p.name}: hidden by its owner while minimized, ${way.how}`, async () => {
+      await shown();
+      await minimizedAndRestored(client, way, p.find, p.name, () => hideByOwner(client, p.hide));
+      check(p.find() === 0, `${p.name} came back after its owner hid it`);
+    });
+  }
+
+  for (const way of p.esc ? MINIMIZE_WAYS : []) {
+    await step(`${p.name}: closed by Esc while minimized, ${way.how}`, async () => {
+      await shown();
+      await minimizedAndRestored(client, way, p.find, p.name, async () => {
+        for (let i = 0; i < p.esc!; i++) pressVKey(frame, VK_ESCAPE);
+      });
+      check(p.find() === 0, `${p.name} came back after Esc closed it`);
+    });
+  }
+}
+
+async function checkFloatingPopups(): Promise<void> {
+  const dir = tmpPath("ad-hoc-e140");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const pdf = join(dir, "doc.pdf");
+  writeFileSync(pdf, makeE110Pdf(), "latin1");
+  const settings = ["UiLanguage = en", "CheckForUpdates = false", "RestoreSession = false", "SearchUIFloating = true"];
+  writeFileSync(join(dir, SETTINGS_FILE), settings.join("\n") + "\n");
+  const { proc, client, frame } = await launchLogged("e140", ["-appdata", dir, pdf]);
+  const pid = proc.pid!;
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    const owned = (h: number) => getWindowOwner(h) === frame;
+    await checkFloating(
+      {
+        name: "floating find window",
+        find: () =>
+          shownTop(pid, BAR_CLASS, (h) => owned(h) && (getWindowLong(h, GWL_STYLE) & WS_CAPTION) === WS_CAPTION),
+        open: async () => sendCommandSync(frame, cmdId("CmdFindFirst")),
+        hide: "find",
+        focus: ["find-edit", "find-window"],
+        esc: 1,
+      },
+      client,
+      frame,
+    );
+    await checkFloating(
+      {
+        name: "annotation list",
+        find: () => shownTop(pid, FILTER_CLASS, owned),
+        open: async () => {
+          await client.request(ControlCommand.TestInvokeCommand, ["CmdFindAnnotation"]);
+        },
+        hide: "filter",
+        focus: ["annot-filter", "annot-filter"],
+      },
+      client,
+      frame,
+    );
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 export async function testit(): Promise<void> {
   failures.length = 0;
   setProcessDpiAware();
@@ -1078,6 +1187,7 @@ export async function testit(): Promise<void> {
   }
   await step("citation hover", checkRefHover);
   await step("E110 popups", checkCanvasPopups);
+  await step("E140 floating popups", checkFloatingPopups);
   check(failures.length === 0, failures.join("\n"));
   console.log("e98-anchored-popups: OK");
 }

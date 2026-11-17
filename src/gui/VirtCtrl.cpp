@@ -787,7 +787,7 @@ static void AppendVirtCtrl(str::Builder& out, Str cls, HWND hwnd, VirtCtrl* w, i
 }
 
 static bool VirtRootMatches(VirtRoot* root, Str classFilter, Str& clsOut) {
-    if (!root || !root->hwnd || !IsWindow(root->hwnd) || !IsWindowVisible(root->hwnd)) {
+    if (!root || !root->hwnd || !IsWindow(root->hwnd) || !HwndIsOnScreen(root->hwnd)) {
         return false;
     }
     clsOut = VirtClassTemp(root->hwnd);

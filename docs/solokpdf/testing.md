@@ -165,8 +165,13 @@ selection toolbar) must too (E138). With the comment card or the contents edit
 focused, a new window takes the focus while the frame is minimized
 (`TestFocusState activate-last`, as a click on it; `focus=other-window`) and
 the frame comes back without activating: the card is closed and the edit
-committed, as for a click there (E139). `lint-anchored-hides` keeps raw hides and
-visibility tests out of files with anchored popups. A failed step prints what the app logged meanwhile. A link tip, citation popup, I-beam, form field
+committed, as for a click there (E139). Popups the frame owns without an
+anchor (the floating find window, `SearchUIFloating = true`, and the annotation
+list) run the minimize, owner hide (`hide find`, `hide filter`) and Esc steps
+too, with their focus (`TestFocusState find-edit` / `annot-filter`) (E140).
+Dumps that report a popup shown (`visible=1`, `floatVisible=1`) read
+`HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,
+though its owner sees it shown. A failed step prints what the app logged meanwhile. A link tip, citation popup, I-beam, form field
 cursor, plain-text citation and Edit PDF annotation hover while a render holds
 the page's lock, on both engines: `ad-hoc-e120-busy-hover` (E122); link
 and image context menus, image drag, Edit PDF click, link click, text

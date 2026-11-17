@@ -365,7 +365,7 @@ void BarHide(MainWindow* win) {
         return;
     }
     win->readingAutoScrollTab = nullptr;
-    HideAnchoredPopup(win->readingAutoScrollBar->hwnd);
+    ShowWindow(win->readingAutoScrollBar->hwnd, SW_HIDE);
 }
 
 void BarUpdate(MainWindow* win, bool forceLayout) {
@@ -418,7 +418,7 @@ TempStr ReadingAutoScrollBarStateTemp(int* exitCodeOut) {
     int pages = dm ? dm->PageCount() : 0;
     ReadingAutoScrollBar* bar = win->readingAutoScrollBar;
     bool on = tab != nullptr;
-    if (!on || !bar || !bar->hwnd || !HwndIsVisible(bar->hwnd) || !bar->btnPause || !bar->btnStop ||
+    if (!on || !bar || !bar->hwnd || !HwndIsOnScreen(bar->hwnd) || !bar->btnPause || !bar->btnStop ||
         !bar->speedSlider) {
         out.Append(fmt("NOTREADY no-bar on=%d scrollY=%d\n", (int)on, scrollY));
         return finish(2);

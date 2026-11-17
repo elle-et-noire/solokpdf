@@ -17099,6 +17099,8 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     // task (see the guard in uitask::Post). Only needs a message queue, so it can
     // run this early - ahead of Ole/common controls/GDI+/mui.
     uitask::Initialize();
+    // before the UI thread creates windows
+    TrackOwnedPopups();
 
     if (ExeHasNameOfStoreInstaller()) {
         InstallSumatraCrashHandler(false);

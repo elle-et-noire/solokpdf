@@ -14,6 +14,10 @@
 #include <mlang.h>
 #include "base/Pixmap.h"
 #include "base/Win.h"
+// the owned popups layer: Win32's own calls (Win.h routes the app's here)
+#undef ShowWindow
+#undef SetWindowPos
+#undef IsWindowVisible
 #include "base/Launch.h"
 
 //--- subclass ids
@@ -402,15 +406,20 @@ void HwndToForeground(HWND hwnd) {
 
 static bool IsHiddenWithFrame(HWND hwnd);
 
-// Also an anchored popup hidden with its minimized frame: like a child window's,
-// its visibility doesn't change with the frame's minimize.
+// Also a popup hidden with its minimized frame: like a child window's, its
+// visibility doesn't change with the frame's minimize. Safe on any thread.
 bool HwndIsVisible(HWND hwnd) {
     return ::IsWindowVisible(hwnd) || IsHiddenWithFrame(hwnd);
 }
 
+// Shown now, unlike a popup hidden with its minimized frame (HwndIsVisible()).
+bool HwndIsOnScreen(HWND hwnd) {
+    return ::IsWindowVisible(hwnd);
+}
+
 void HwndSetVisible(HWND hwnd, bool visible) {
     if (!visible) {
-        HideAnchoredPopup(hwnd);
+        HwndShowWindow(hwnd, SW_HIDE);
         return;
     }
     if (!HwndIsVisible(hwnd)) {
@@ -2104,35 +2113,43 @@ bool TrackMouseLeave(HWND hwnd) {
     return ArmMouseLeave(hwnd);
 }
 
-//--- anchored popups
-// A popup (top-level, screen coordinates) that belongs to a child window, its
-// anchor: a toolbar button's drop-down, a tip on the canvas. Windows moves and
-// hides a child with its parents, a popup only by hand; here, whatever did it:
+//--- owned popups
+// The app's top-level windows are registered as they are created (TrackOwnedPopups(),
+// a WH_CBT hook on the UI thread). Each one a frame owns, whether its owner was set
+// at creation or later (GWLP_HWNDPARENT), follows the frame's minimize:
+//
+//   frame minimized   -> hidden, shown again with it, with the focus it had, unless its
+//                        owner hid it meanwhile. Its owner doesn't see it lose the focus,
+//                        unless the focus goes to another window
+//
+// An anchored popup (AnchorPopup) also belongs to a child window, its anchor: a toolbar
+// button's drop-down, a tip on the canvas. Windows moves and hides a child with its
+// parents, a popup only by hand; here, whatever did it:
 //
 //   anchor or an ancestor moved             -> popup moved as much
 //   anchor moved or resized, popup placed
 //   from content (AnchorArgs::place)        -> owner places it
-//   frame minimized                         -> hidden, shown again with it, with the focus
-//                                              it had, unless its owner hid it meanwhile
-//                                              (a hover, a popup it doesn't own: dismissed).
-//                                              Its owner doesn't see it lose the focus,
-//                                              unless the focus goes to another window
+//   frame minimized: a hover, a popup it
+//   doesn't own                             -> dismissed
 //   anchor or an ancestor hidden            -> dismissed
 //   anchor shows other content (AnchorShows)-> dismissed
 //   cursor left the anchor (AnchorLeave)    -> dismissed
 //
-// The anchor and its ancestors are subclassed. What they report is acted on
-// in a message posted to the popup, once the windows settled: a relayout hides
-// and shows them on its way, and WM_SETREDRAW clears WS_VISIBLE meanwhile.
-// Owners hide a popup with HideAnchoredPopup() (ShowAppWindow(), HwndSetVisible()
-// do): hiding a hidden window tells no one, and only this says it stays hidden
-// on restore. HwndIsVisible() reports it shown while it waits for the restore,
-// so its owner's state, and whether it hides it, don't depend on the minimize.
+// The anchor and its ancestors are subclassed, a free popup's frame while it is
+// minimized. What they report is acted on in a message posted to the popup, once the
+// windows settled: a relayout hides and shows them on its way, and WM_SETREDRAW clears
+// WS_VISIBLE meanwhile.
+// Hiding a hidden window tells no one. Win.h routes the app's ShowWindow(),
+// SetWindowPos() and IsWindowVisible() here: a hide while minimized keeps the popup
+// hidden on restore, and a read reports it shown while it waits for the restore, so its
+// owner's state, and whether it hides it, don't depend on the minimize. That mark is a
+// window property, readable on any thread; the registry is the UI thread's.
 
-struct AnchoredPopup {
+struct OwnedPopup {
     HWND popup = nullptr;
+    // anchored by AnchorPopup(); args.anchor is null for a free popup
     AnchorArgs args;
-    // the anchor and its ancestors, subclassed
+    // subclassed: the anchor and its ancestors, or a free popup's minimized frame
     Vec<HWND> chain;
     const void* anchorShows = nullptr;
     // the popup's top-left from the anchor's client origin, and where it was
@@ -2149,8 +2166,37 @@ struct AnchoredPopup {
     HWND focus = nullptr;
 };
 
-static Vec<AnchoredPopup*> gAnchoredPopups;
-static UINT gAnchorSyncMsg = 0;
+static Vec<OwnedPopup*> gOwnedPopups;
+static DWORD gPopupThread = 0;
+// posted to a popup: wParam is a PopupMsg
+static UINT gPopupMsg = 0;
+static const WCHAR* kHiddenWithFrameProp = L"SumatraHiddenWithFrame";
+
+enum PopupMsg : WPARAM {
+    PopupSync = 0,
+    // its owner hid it
+    PopupHidden = 1,
+};
+
+// the registry belongs to the thread that tracks the popups
+static Vec<OwnedPopup*>& OwnedPopups() {
+    ReportIf(gPopupThread && GetCurrentThreadId() != gPopupThread);
+    return gOwnedPopups;
+}
+
+static bool IsHiddenWithFrame(HWND hwnd) {
+    return GetPropW(hwnd, kHiddenWithFrameProp) != nullptr;
+}
+
+static bool Anchored(OwnedPopup* ap) {
+    return ap->args.anchor != nullptr;
+}
+
+// the frame that owns a popup, if any
+static HWND PopupFrame(HWND popup) {
+    HWND frame = GetAncestor(popup, GA_ROOTOWNER);
+    return frame != popup ? frame : nullptr;
+}
 
 static Point AnchorOrigin(HWND anchor) {
     return HwndClientToScreen(anchor, Point{});
@@ -2170,7 +2216,7 @@ static bool AnchorShown(HWND anchor) {
     return IsWindow(anchor) && IsWindowVisible(anchor) && !FrameMinimized(anchor);
 }
 
-static void NoteAnchorOffset(AnchoredPopup* ap) {
+static void NoteAnchorOffset(OwnedPopup* ap) {
     Rect r = HwndWindowRect(ap->popup);
     Point o = AnchorOrigin(ap->args.anchor);
     ap->placed = {r.x, r.y};
@@ -2178,12 +2224,12 @@ static void NoteAnchorOffset(AnchoredPopup* ap) {
     ap->anchorRc = AnchorScreenRect(ap->args.anchor);
 }
 
-static void PostAnchorSync(AnchoredPopup* ap) {
+static void PostAnchorSync(OwnedPopup* ap) {
     if (ap->syncPosted || (!IsWindowVisible(ap->popup) && !ap->minimized)) {
         return;
     }
     ap->syncPosted = true;
-    PostMessageW(ap->popup, gAnchorSyncMsg, 0, 0);
+    PostMessageW(ap->popup, gPopupMsg, PopupSync, 0);
 }
 
 static void HidePopup(HWND popup) {
@@ -2204,13 +2250,14 @@ static bool InPopup(HWND popup, HWND hwnd) {
 
 static LRESULT CALLBACK HeldFocusProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 static LRESULT CALLBACK FocusMoveHook(int, WPARAM, LPARAM);
+static LRESULT CALLBACK AnchorChainProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 
 static HHOOK gFocusMoveHook = nullptr;
 
 // FocusMoveHook watches the focus while a popup's is held
 static void SyncFocusMoveHook() {
     bool held = false;
-    for (AnchoredPopup* ap : gAnchoredPopups) {
+    for (OwnedPopup* ap : OwnedPopups()) {
         held = held || ap->focus;
     }
     if (held && !gFocusMoveHook) {
@@ -2221,7 +2268,7 @@ static void SyncFocusMoveHook() {
     }
 }
 
-static void ReleaseFocus(AnchoredPopup* ap) {
+static void ReleaseFocus(OwnedPopup* ap) {
     if (!ap->focus) {
         return;
     }
@@ -2241,7 +2288,7 @@ static LRESULT CALLBACK FocusMoveHook(int code, WPARAM wp, LPARAM lp) {
     }
     HWND frame = GetAncestor(to, GA_ROOTOWNER);
     Vec<HWND> lost;
-    for (AnchoredPopup* ap : gAnchoredPopups) {
+    for (OwnedPopup* ap : OwnedPopups()) {
         if (!ap->focus || GetAncestor(ap->popup, GA_ROOTOWNER) == frame) {
             continue;
         }
@@ -2263,7 +2310,7 @@ static LRESULT CALLBACK FocusMoveHook(int code, WPARAM wp, LPARAM lp) {
 // Windows moves the focus off a popup it hides, e.g. to the frame, as it does
 // for a click away. Its owner, which may commit or close on that, doesn't see it.
 static LRESULT CALLBACK HeldFocusProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR data) {
-    auto* ap = (AnchoredPopup*)data;
+    auto* ap = (OwnedPopup*)data;
     if (msg == WM_KILLFOCUS && ap->minimized) {
         return 0;
     }
@@ -2273,10 +2320,43 @@ static LRESULT CALLBACK HeldFocusProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
     return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
+static void ClearChain(OwnedPopup* ap) {
+    for (HWND hwnd : ap->chain) {
+        RemoveWindowSubclass(hwnd, AnchorChainProc, ap->id);
+    }
+    VecClear(ap->chain);
+}
+
+static void SubclassChain(OwnedPopup* ap, HWND hwnd) {
+    VecAppend(ap->chain, hwnd);
+    SetWindowSubclass(hwnd, AnchorChainProc, ap->id, (DWORD_PTR)ap);
+}
+
+// hidden or shown with its minimized frame; HwndIsVisible() reads the mark
+static void SetMinimized(OwnedPopup* ap, bool minimized) {
+    ap->minimized = minimized;
+    if (minimized) {
+        SetPropW(ap->popup, kHiddenWithFrameProp, (HANDLE)1);
+    } else {
+        RemovePropW(ap->popup, kHiddenWithFrameProp);
+    }
+    if (Anchored(ap)) {
+        return;
+    }
+    // a free popup learns of the restore from its frame
+    ClearChain(ap);
+    HWND frame = PopupFrame(ap->popup);
+    if (minimized && frame) {
+        SubclassChain(ap, frame);
+    }
+}
+
 // what has the focus in it keeps it for its owner and gets it back with the frame,
 // unless the focus goes to another window meanwhile (FocusMoveHook)
-static void NoteMinimized(AnchoredPopup* ap) {
-    ap->minimized = true;
+static void NoteMinimized(OwnedPopup* ap) {
+    if (!ap->minimized) {
+        SetMinimized(ap, true);
+    }
     HWND focus = GetFocus();
     if (!InPopup(ap->popup, focus) || focus == ap->focus) {
         return;
@@ -2295,12 +2375,14 @@ static void RefocusPopup(HWND popup, HWND focus) {
 }
 
 // not shown again with its frame
-static void ForgetMinimized(AnchoredPopup* ap) {
-    ap->minimized = false;
+static void ForgetMinimized(OwnedPopup* ap) {
+    if (ap->minimized) {
+        SetMinimized(ap, false);
+    }
     ReleaseFocus(ap);
 }
 
-static void DismissAnchoredPopup(AnchoredPopup* ap) {
+static void DismissAnchoredPopup(OwnedPopup* ap) {
     ForgetMinimized(ap);
     // may destroy the popup, and ap with it
     Func0 dismiss = ap->args.dismiss;
@@ -2311,8 +2393,35 @@ static void DismissAnchoredPopup(AnchoredPopup* ap) {
     dismiss.Call();
 }
 
-static void SyncAnchoredPopup(AnchoredPopup* ap) {
+// Windows hides the popups a frame owns before it goes iconic. One shown in
+// between waits the same way: hidden, its owner's state kept for the restore,
+// whichever of Windows and this sync came first
+static void SyncFreePopup(OwnedPopup* ap) {
+    HWND frame = PopupFrame(ap->popup);
+    if (frame && IsIconic(frame)) {
+        if (IsWindowVisible(ap->popup)) {
+            NoteMinimized(ap);
+            HidePopup(ap->popup);
+        }
+        return;
+    }
+    if (!ap->minimized) {
+        return;
+    }
+    HWND focus = ap->focus;
+    ForgetMinimized(ap);
+    if (!IsWindowVisible(ap->popup)) {
+        ShowPopup(ap->popup, nullptr);
+    }
+    RefocusPopup(ap->popup, focus);
+}
+
+static void SyncAnchoredPopup(OwnedPopup* ap) {
     ap->syncPosted = false;
+    if (!Anchored(ap)) {
+        SyncFreePopup(ap);
+        return;
+    }
     bool left = ap->left;
     ap->left = false;
     HWND anchor = ap->args.anchor;
@@ -2323,9 +2432,7 @@ static void SyncAnchoredPopup(AnchoredPopup* ap) {
         DismissAnchoredPopup(ap);
         return;
     }
-    // Windows hides the popups a frame owns before it goes iconic. One shown in
-    // between waits the same way: hidden, its owner's state kept for the restore,
-    // whichever of Windows and this sync came first
+    // as for a free popup
     if (withFrame) {
         if (IsWindowVisible(ap->popup)) {
             NoteMinimized(ap);
@@ -2370,21 +2477,30 @@ static void SyncAnchoredPopup(AnchoredPopup* ap) {
     }
 }
 
-static LRESULT CALLBACK AnchorChainProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
-static LRESULT CALLBACK AnchoredPopupProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
+static LRESULT CALLBACK OwnedPopupProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 
-static void UnanchorPopup(AnchoredPopup* ap) {
-    ReleaseFocus(ap);
-    for (HWND hwnd : ap->chain) {
-        RemoveWindowSubclass(hwnd, AnchorChainProc, ap->id);
+// a free popup again
+static void UnanchorPopup(OwnedPopup* ap) {
+    ClearChain(ap);
+    ap->args = {};
+    ap->anchorShows = nullptr;
+    ap->left = false;
+    if (ap->minimized) {
+        SetMinimized(ap, true);
     }
-    RemoveWindowSubclass(ap->popup, AnchoredPopupProc, ap->id);
-    VecRemove(gAnchoredPopups, ap);
+}
+
+static void UntrackPopup(OwnedPopup* ap) {
+    ReleaseFocus(ap);
+    ClearChain(ap);
+    RemovePropW(ap->popup, kHiddenWithFrameProp);
+    RemoveWindowSubclass(ap->popup, OwnedPopupProc, ap->id);
+    VecRemove(OwnedPopups(), ap);
     delete ap;
 }
 
 static LRESULT CALLBACK AnchorChainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR data) {
-    auto* ap = (AnchoredPopup*)data;
+    auto* ap = (OwnedPopup*)data;
     switch (msg) {
         case WM_WINDOWPOSCHANGED:
             PostAnchorSync(ap);
@@ -2396,21 +2512,29 @@ static LRESULT CALLBACK AnchorChainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
             }
             break;
         case WM_NCDESTROY:
-            // the owner of the popup takes it down with the window
-            UnanchorPopup(ap);
+            if (Anchored(ap)) {
+                // the owner of the popup takes it down with the window
+                UnanchorPopup(ap);
+            } else {
+                ClearChain(ap);
+            }
             break;
     }
     return DefSubclassProc(hwnd, msg, wp, lp);
 }
 
-static LRESULT CALLBACK AnchoredPopupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR data) {
-    auto* ap = (AnchoredPopup*)data;
-    if (msg == gAnchorSyncMsg) {
+static LRESULT CALLBACK OwnedPopupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR data) {
+    auto* ap = (OwnedPopup*)data;
+    if (msg == gPopupMsg && wp == PopupSync) {
         SyncAnchoredPopup(ap);
         return 0;
     }
+    if (msg == gPopupMsg && wp == PopupHidden) {
+        ForgetMinimized(ap);
+        return 0;
+    }
     if (msg == WM_NCDESTROY) {
-        UnanchorPopup(ap);
+        UntrackPopup(ap);
         return DefSubclassProc(hwnd, msg, wp, lp);
     }
     // Windows hides it for its minimized frame
@@ -2423,28 +2547,36 @@ static LRESULT CALLBACK AnchoredPopupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
         return 0;
     }
     LRESULT res = DefSubclassProc(hwnd, msg, wp, lp);
+    if (msg != WM_WINDOWPOSCHANGED || !IsWindowVisible(hwnd)) {
+        return res;
+    }
+    auto* pos = (WINDOWPOS*)lp;
+    bool shown = pos->flags & SWP_SHOWWINDOW;
+    // Any show is checked once settled: Windows shows one again with its frame,
+    // its owner may while the frame is minimized
+    if (!Anchored(ap)) {
+        if (shown && PopupFrame(hwnd)) {
+            PostAnchorSync(ap);
+        }
+        return res;
+    }
     // placed by its owner, relative to where the anchor is now. Z-order changes
     // (the frame activated) leave the place alone. One its owner places may be
     // shown again where it was, e.g. with its restored frame: placed once settled.
-    // Any show is checked once settled: Windows shows one again with its frame
-    if (msg == WM_WINDOWPOSCHANGED && IsWindowVisible(hwnd)) {
-        auto* pos = (WINDOWPOS*)lp;
-        bool shown = pos->flags & SWP_SHOWWINDOW;
-        Rect r = HwndWindowRect(hwnd);
-        bool moved = r.x != ap->placed.x || r.y != ap->placed.y;
-        bool place = ap->args.place.IsValid();
-        if ((shown && !place) || (moved && !shown)) {
-            NoteAnchorOffset(ap);
-        }
-        if (shown) {
-            PostAnchorSync(ap);
-        }
+    Rect r = HwndWindowRect(hwnd);
+    bool moved = r.x != ap->placed.x || r.y != ap->placed.y;
+    bool place = ap->args.place.IsValid();
+    if ((shown && !place) || (moved && !shown)) {
+        NoteAnchorOffset(ap);
+    }
+    if (shown) {
+        PostAnchorSync(ap);
     }
     return res;
 }
 
-static AnchoredPopup* FindAnchoredPopup(HWND popup) {
-    for (AnchoredPopup* ap : gAnchoredPopups) {
+static OwnedPopup* FindOwnedPopup(HWND popup) {
+    for (OwnedPopup* ap : OwnedPopups()) {
         if (ap->popup == popup) {
             return ap;
         }
@@ -2452,18 +2584,72 @@ static AnchoredPopup* FindAnchoredPopup(HWND popup) {
     return nullptr;
 }
 
-static bool IsHiddenWithFrame(HWND hwnd) {
-    AnchoredPopup* ap = FindAnchoredPopup(hwnd);
-    return ap && ap->minimized;
+static OwnedPopup* TrackPopup(HWND popup) {
+    auto* ap = new OwnedPopup();
+    ap->popup = popup;
+    ap->id = NextSubclassId();
+    SetWindowSubclass(popup, OwnedPopupProc, ap->id, (DWORD_PTR)ap);
+    VecAppend(OwnedPopups(), ap);
+    return ap;
 }
 
-// Hides popup. One hidden with its minimized frame then stays hidden on restore.
-void HideAnchoredPopup(HWND popup) {
-    AnchoredPopup* ap = FindAnchoredPopup(popup);
-    if (ap) {
-        ForgetMinimized(ap);
+// a window class of the app's: its code hides the window through this layer
+static bool IsAppWindowClass(HWND hwnd) {
+    static HMODULE self = nullptr;
+    if (!self) {
+        uint flags = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
+        GetModuleHandleExW(flags, (LPCWSTR)&IsAppWindowClass, &self);
     }
-    ShowWindow(popup, SW_HIDE);
+    auto mod = (HMODULE)GetClassLongPtrW(hwnd, GCLP_HMODULE);
+    return mod == self || mod == GetModuleHandleW(nullptr);
+}
+
+// every top-level window of the app's, before it gets WM_NCCREATE
+static LRESULT CALLBACK PopupCreateHook(int code, WPARAM wp, LPARAM lp) {
+    if (code == HCBT_CREATEWND) {
+        auto hwnd = (HWND)wp;
+        CREATESTRUCTW* cs = ((CBT_CREATEWNDW*)lp)->lpcs;
+        bool topLevel = !(cs->style & WS_CHILD) && cs->hwndParent != HWND_MESSAGE;
+        if (topLevel && IsAppWindowClass(hwnd)) {
+            TrackPopup(hwnd);
+        }
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
+}
+
+// Called once, on the UI thread, before it creates windows.
+void TrackOwnedPopups() {
+    ReportIf(gPopupThread);
+    gPopupThread = GetCurrentThreadId();
+    gPopupMsg = RegisterWindowMessageW(L"SumatraOwnedPopupMsg");
+    HHOOK hook = SetWindowsHookExW(WH_CBT, PopupCreateHook, nullptr, gPopupThread);
+    if (!hook) {
+        logf("TrackOwnedPopups: SetWindowsHookEx failed: %d\n", (int)GetLastError());
+    }
+}
+
+// a hide of a popup hidden with its minimized frame: it stays hidden on restore
+static void NotePopupHidden(HWND hwnd) {
+    if (hwnd && IsHiddenWithFrame(hwnd)) {
+        // on the popup's thread
+        SendMessageW(hwnd, gPopupMsg, PopupHidden, 0);
+    }
+}
+
+// ShowWindow() for the app's code (Win.h)
+BOOL HwndShowWindow(HWND hwnd, int cmd) {
+    if (cmd == SW_HIDE) {
+        NotePopupHidden(hwnd);
+    }
+    return ShowWindow(hwnd, cmd);
+}
+
+// SetWindowPos() for the app's code (Win.h)
+BOOL HwndSetWindowPos(HWND hwnd, HWND after, int x, int y, int dx, int dy, UINT flags) {
+    if (flags & SWP_HIDEWINDOW) {
+        NotePopupHidden(hwnd);
+    }
+    return SetWindowPos(hwnd, after, x, y, dx, dy, flags);
 }
 
 // Ties popup, where its owner just placed it, to args.anchor until either
@@ -2472,24 +2658,19 @@ void AnchorPopup(HWND popup, const AnchorArgs& args) {
     if (!popup || !args.anchor) {
         return;
     }
-    if (!gAnchorSyncMsg) {
-        gAnchorSyncMsg = RegisterWindowMessageW(L"SumatraAnchoredPopupSync");
+    if (!gPopupMsg) {
+        gPopupMsg = RegisterWindowMessageW(L"SumatraOwnedPopupMsg");
     }
-    AnchoredPopup* ap = FindAnchoredPopup(popup);
-    if (ap && ap->args.anchor != args.anchor) {
-        UnanchorPopup(ap);
-        ap = nullptr;
-    }
+    // not the app's, or created before TrackOwnedPopups()
+    OwnedPopup* ap = FindOwnedPopup(popup);
     if (!ap) {
-        ap = new AnchoredPopup();
-        ap->popup = popup;
-        ap->id = NextSubclassId();
+        ap = TrackPopup(popup);
+    }
+    if (ap->args.anchor != args.anchor) {
+        ClearChain(ap);
         for (HWND hwnd = args.anchor; hwnd; hwnd = (GetWindowStyle(hwnd) & WS_CHILD) ? GetParent(hwnd) : nullptr) {
-            VecAppend(ap->chain, hwnd);
-            SetWindowSubclass(hwnd, AnchorChainProc, ap->id, (DWORD_PTR)ap);
+            SubclassChain(ap, hwnd);
         }
-        SetWindowSubclass(popup, AnchoredPopupProc, ap->id, (DWORD_PTR)ap);
-        VecAppend(gAnchoredPopups, ap);
     }
     ap->args = args;
     ap->anchorShows = args.content;
@@ -2504,7 +2685,7 @@ void AnchorPopup(HWND popup, const AnchorArgs& args) {
 
 // The anchor shows content now: popups describing something else go.
 void AnchorShows(HWND anchor, const void* content) {
-    for (AnchoredPopup* ap : gAnchoredPopups) {
+    for (OwnedPopup* ap : OwnedPopups()) {
         if (ap->args.anchor != anchor || !ap->args.content || ap->anchorShows == content) {
             continue;
         }
@@ -4038,6 +4219,9 @@ static const DWORD groupsToCheck[] = {
 };
 
 void DeferWinPosHelper::SetWindowPos(HWND hWnd, HWND hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags) {
+    if (uFlags & SWP_HIDEWINDOW) {
+        NotePopupHidden(hWnd);
+    }
     hdwp = ::DeferWindowPos(hdwp, hWnd, hWndInsertAfter, x, y, cx, cy, uFlags);
 }
 

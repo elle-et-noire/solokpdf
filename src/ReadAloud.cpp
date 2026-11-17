@@ -416,7 +416,7 @@ void ReadAloudPlaybackBarHide(MainWindow* win) {
         return;
     }
     win->readAloudPlaybackBar->sessionTab = nullptr;
-    HideAnchoredPopup(win->readAloudPlaybackBar->hwnd);
+    ShowWindow(win->readAloudPlaybackBar->hwnd, SW_HIDE);
 }
 
 // the tab is going away; the bar has no reason to exist without it
@@ -427,7 +427,7 @@ void ReadAloudPlaybackBarForgetTab(MainWindow* win, WindowTab* tab) {
     }
     bar->sessionTab = nullptr;
     if (bar->hwnd) {
-        HideAnchoredPopup(bar->hwnd);
+        ShowWindow(bar->hwnd, SW_HIDE);
     }
 }
 
@@ -512,7 +512,7 @@ TempStr ReadAloudPlaybackBarStateTemp(int* exitCodeOut) {
     }
     MainWindow* win = gWindows[0];
     ReadAloudPlaybackBar* bar = win->readAloudPlaybackBar;
-    if (!bar || !bar->hwnd || !HwndIsVisible(bar->hwnd) || !bar->btnPause || !bar->btnStop || !bar->speedSlider ||
+    if (!bar || !bar->hwnd || !HwndIsOnScreen(bar->hwnd) || !bar->btnPause || !bar->btnStop || !bar->speedSlider ||
         !bar->speedLabel) {
         out.Append(StrL("NOTREADY no-bar\n"));
         return finish(2);

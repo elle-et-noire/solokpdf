@@ -1182,7 +1182,7 @@ void PaintAnnotFilterWindow(MainWindow* win) {
 
 TempStr AnnotFilterToolbarStateTemp(MainWindow* win) {
     AnnotFilterToolbar* f = win ? win->annotFilterToolbar : nullptr;
-    bool floatVisible = f && f->floatWnd && f->floatWnd->hwnd && HwndIsVisible(f->floatWnd->hwnd);
+    bool floatVisible = f && f->floatWnd && f->floatWnd->hwnd && HwndIsOnScreen(f->floatWnd->hwnd);
     int nAll = f ? len(f->annotations) : 0;
     int nVisible = f ? len(f->visibleAnnots) : 0;
     VirtListBox* lb = ActiveList(f);

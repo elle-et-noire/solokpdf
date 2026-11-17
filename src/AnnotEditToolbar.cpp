@@ -2577,7 +2577,7 @@ void DeleteAnnotationHoverOverlay(MainWindow* win) {
 
 TempStr AnnotationHoverOverlayStateTemp(MainWindow* win) {
     AnnotationHoverOverlay* overlay = win ? win->annotationHoverOverlay : nullptr;
-    bool visible = overlay && overlay->host && overlay->host->IsVisible();
+    bool visible = overlay && overlay->host && HwndIsOnScreen(overlay->host->native);
     if (!visible) {
         return StrL("overlay visible=0\n");
     }

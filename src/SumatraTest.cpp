@@ -1213,7 +1213,7 @@ TempStr RefHoverResultTemp(Str action, int x, int y, int* exitCodeOut) {
         return fmt("ERROR no-noteref page=%d", pageNo);
     }
     RefHoverState* s = win ? win->refHover : nullptr;
-    if (!s || !s->hwndPopup || !HwndIsVisible(s->hwndPopup)) {
+    if (!s || !s->hwndPopup || !HwndIsOnScreen(s->hwndPopup)) {
         return fmt("OK visible=0");
     }
     auto& d = s->displayed;

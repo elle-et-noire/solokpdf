@@ -62,7 +62,8 @@ HWND HwndGetForeground();
 bool ArmMouseLeave(HWND);
 bool TrackMouseLeave(HWND);
 
-//--- anchored popups: a top-level popup that belongs to a child window
+//--- owned popups: a frame's top-level popups follow its minimize; an anchored
+//--- one also belongs to a child window
 
 // what the cursor leaving the anchor does to the popup
 enum class AnchorLeave {
@@ -90,9 +91,11 @@ struct AnchorArgs {
     const void* content = nullptr;
 };
 
+void TrackOwnedPopups();
 void AnchorPopup(HWND popup, const AnchorArgs&);
 void AnchorShows(HWND anchor, const void* content);
-void HideAnchoredPopup(HWND popup);
+BOOL HwndShowWindow(HWND hwnd, int cmd);
+BOOL HwndSetWindowPos(HWND hwnd, HWND after, int x, int y, int dx, int dy, UINT flags);
 
 //--- HWND: focus / visibility / Z-order
 
@@ -103,6 +106,7 @@ bool HwndSetFocusForce(HWND hwnd);
 bool HwndIsFocused(HWND);
 bool HwndIsOnScreenKeyboard(HWND);
 bool HwndIsVisible(HWND hwnd);
+bool HwndIsOnScreen(HWND hwnd);
 void HwndSetVisible(HWND hwnd, bool visible);
 void HwndToForeground(HWND hwnd);
 
@@ -505,5 +509,13 @@ inline ULONG ComRelease(AtomicInt* refCount, F del) {
 }
 
 TempStr GetPeBuildIdTemp(Str path);
+
+// App code hides and reads popups through the owned popups layer (Win.cpp), so a
+// popup hidden with its minimized frame can't miss a hide or read hidden.
+#if !defined(SUMATRA_NG)
+#define ShowWindow(hwnd, cmd) HwndShowWindow(hwnd, cmd)
+#define SetWindowPos(...) HwndSetWindowPos(__VA_ARGS__)
+#define IsWindowVisible(hwnd) HwndIsVisible(hwnd)
+#endif
 
 #endif // OS_WIN

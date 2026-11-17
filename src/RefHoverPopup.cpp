@@ -189,7 +189,7 @@ void RefHoverShowPopup(RefHoverState* s, Point screenPt) {
     }
 
     if (popupW <= 0 || popupH <= 0) {
-        HideAnchoredPopup(s->hwndPopup);
+        ShowWindow(s->hwndPopup, SW_HIDE);
         return;
     }
 
