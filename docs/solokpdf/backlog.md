@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-18: E112, E115–E119, E125, E126, E129–E135, E138, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E138, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-18: E112, E115–E119, E125, E126, E129–E135, E138, E139, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E138, E139, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E117, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B78, C2, D15, E139, F4). For a code change, choose affected tests from
+group (B78, C2, D15, E140, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -41,6 +41,7 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | E134 | UI-thread annotation access waits on the editor lock without canceling renders; put the cancel in the lock acquisition, not call sites (E128 follow-up). Spec `.work/codex-queue/e134.md`                                                                                    | todo   |
 | E135 | Link context menu during a parked render once took 1938 ms (usually ~163); find the cause, tighten the bound (E128 follow-up). Spec `.work/codex-queue/e135.md`                                                                                                              | todo   |
 | E138 | Owners read anchored popup visibility as state and see hidden while minimized (Esc doesn't close a minimized find bar, which returns on restore); one layer query and an owner handle type instead of lint-anchored-hides (E124 follow-up). Spec `.work/codex-queue/e138.md` | todo   |
+| E139 | A popup restored without its focus (focus moved to another app frame while minimized) keeps an owner that never saw the focus loss, so click-away no longer commits/closes it (E137 follow-up). Spec `.work/codex-queue/e139.md`                                             | todo   |
 | B77  | `bun cmd/run-unit-tests.ts` builds via vs2022/v143 (not installed here) and rewrites vs2022/ files; make the unit-test command use the SolokPDF build and leave the tree clean. Spec `.work/codex-queue/b77.md`                                                              | todo   |
 
 ## Deferred
