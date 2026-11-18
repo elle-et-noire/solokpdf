@@ -70,7 +70,7 @@ constexpr int kTextReadAhead = 3;
 
 // A page's text. NoWait never extracts on this thread: busy until a background
 // extraction (started then) has it.
-static PageHit<Str> PageTextAt(EngineBase* engine, int pageNo, EngineWait wait, int* lenOut, Rect** coordsOut) {
+PageHit<Str> RefHoverTextAt(EngineBase* engine, int pageNo, EngineWait wait, int* lenOut, Rect** coordsOut) {
     if (wait == EngineWait::Wait) {
         return {engine->GetTextForPage(pageNo, lenOut, coordsOut), false};
     }
@@ -97,7 +97,7 @@ static PageHit<bool> FindReferenceLocation(EngineBase* engine, Str surname, Cita
     for (int p = from; p >= srcPage; p--) {
         int textLen = 0;
         Rect* coords = nullptr;
-        PageHit<Str> textUtf8 = PageTextAt(engine, p, wait, &textLen, &coords);
+        PageHit<Str> textUtf8 = RefHoverTextAt(engine, p, wait, &textLen, &coords);
         if (textUtf8.busy) {
             for (int ahead = p - 1; ahead >= srcPage && ahead >= p - kTextReadAhead; ahead--) {
                 engine->CachedTextForPage(ahead);
@@ -157,19 +157,12 @@ static PageHit<bool> LookupOrSearch(RefHoverState* s, EngineBase* engine, int sr
     return {true, false};
 }
 
-// ng's hover: waits for the pages' text
-bool RefHoverTryPlainText(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
-                          float& destXOut, float& destYOut, RectF& srcRectOut) {
-    return RefHoverPlainTextAt(s, engine, srcPage, pagePos, destPageOut, destXOut, destYOut, srcRectOut,
-                               EngineWait::Wait)
-        .value;
-}
-
 // Resolve numeric or author-year citations, caching hits and misses.
 // Keep source bounds so separate occurrences get separate hover popups.
 // NoWait: busy until the pages' text is extracted in the background.
-PageHit<bool> RefHoverPlainTextAt(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
-                                  float& destXOut, float& destYOut, RectF& srcRectOut, EngineWait wait) {
+static PageHit<bool> ReadPlainCitation(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos,
+                                       int& destPageOut, float& destXOut, float& destYOut, RectF& srcRectOut,
+                                       EngineWait wait) {
     if (!s || !engine || srcPage <= 0) {
         return {};
     }
@@ -181,7 +174,7 @@ PageHit<bool> RefHoverPlainTextAt(RefHoverState* s, EngineBase* engine, int srcP
 
     int textLen = 0;
     Rect* coords = nullptr;
-    PageHit<Str> srcText = PageTextAt(engine, srcPage, wait, &textLen, &coords);
+    PageHit<Str> srcText = RefHoverTextAt(engine, srcPage, wait, &textLen, &coords);
     if (srcText.busy) {
         return {false, true};
     }
@@ -251,19 +244,36 @@ PageHit<bool> RefHoverPlainTextAt(RefHoverState* s, EngineBase* engine, int srcP
     return found;
 }
 
+HoverResult<bool> RefHoverPlainTextAt(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos,
+                                      int& destPageOut, float& destXOut, float& destYOut, RectF& srcRectOut) {
+    return HoverResult(ReadPlainCitation(s, engine, srcPage, pagePos, destPageOut, destXOut, destYOut, srcRectOut,
+                                         EngineWait::NoWait));
+}
+
+// ng's hover waits for extraction.
+bool RefHoverTryPlainText(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
+                          float& destXOut, float& destYOut, RectF& srcRectOut) {
+    return ReadPlainCitation(s, engine, srcPage, pagePos, destPageOut, destXOut, destYOut, srcRectOut, EngineWait::Wait)
+        .value;
+}
+
 // Extract the source link text and find its matching anchor on destPage.
 // Best only tries the highest-ranked candidate to avoid common-word matches.
-float RefHoverResolveDestYFromSourceText(EngineBase* engine, int srcPage, RectF srcRect, int destPage,
-                                         RefHoverTextMatch match) {
+PageHit<float> RefHoverDestY(EngineBase* engine, int srcPage, RectF srcRect, int destPage, EngineWait wait,
+                             RefHoverTextMatch match) {
+    constexpr PageHit<float> missing{-1.f, false};
     if (srcPage <= 0 || destPage <= 0 || srcRect.dx <= 0.f || srcRect.dy <= 0.f) {
-        return -1.f;
+        return missing;
     }
     int srcLen = 0;
     Rect* srcCoords = nullptr;
-    Str srcTextUtf8 = engine->GetTextForPage(srcPage, &srcLen, &srcCoords);
-    TempWStr srcText = RefHoverPageTextToWStrTemp(srcTextUtf8);
+    PageHit<Str> source = RefHoverTextAt(engine, srcPage, wait, &srcLen, &srcCoords);
+    if (source.busy) {
+        return {-1.f, true};
+    }
+    TempWStr srcText = RefHoverPageTextToWStrTemp(source.value);
     if (len(srcText) == 0 || srcLen <= 0 || !srcCoords) {
-        return -1.f;
+        return missing;
     }
     int srcL = (int)srcRect.x - 2;
     int srcT = (int)srcRect.y - 2;
@@ -313,7 +323,7 @@ float RefHoverResolveDestYFromSourceText(EngineBase* engine, int srcPage, RectF 
         cands[ncands++] = {start, count, flanked};
     }
     if (ncands == 0) {
-        return -1.f;
+        return missing;
     }
     for (int i = 0; i < ncands - 1; i++) {
         for (int j = i + 1; j < ncands; j++) {
@@ -327,10 +337,13 @@ float RefHoverResolveDestYFromSourceText(EngineBase* engine, int srcPage, RectF 
 
     int destLen = 0;
     Rect* destCoords = nullptr;
-    Str destTextUtf8 = engine->GetTextForPage(destPage, &destLen, &destCoords);
-    TempWStr destText = RefHoverPageTextToWStrTemp(destTextUtf8);
+    PageHit<Str> dest = RefHoverTextAt(engine, destPage, wait, &destLen, &destCoords);
+    if (dest.busy) {
+        return {-1.f, true};
+    }
+    TempWStr destText = RefHoverPageTextToWStrTemp(dest.value);
     if (len(destText) == 0 || destLen <= 0 || !destCoords) {
-        return -1.f;
+        return missing;
     }
     auto isLineStartMatch = [&](int idx) -> bool {
         int sy = destCoords[idx].y;
@@ -384,11 +397,11 @@ float RefHoverResolveDestYFromSourceText(EngineBase* engine, int srcPage, RectF 
         }
         int bestY = lineStart.y >= 0 ? lineStart.y : other.y;
         if (bestY >= 0) {
-            return (float)bestY;
+            return {(float)bestY, false};
         }
         if (match == RefHoverTextMatch::Best) {
             break;
         }
     }
-    return -1.f;
+    return missing;
 }

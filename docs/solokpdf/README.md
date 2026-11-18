@@ -23,35 +23,27 @@ theme (owner, 2026-11-17); record the difference in [features.md](features.md).
 [Backlog](backlog.md) is the source of truth for open, deferred and excluded
 work. Completed results are in [history.md](history.md#completed-backlog).
 Current behavior and its limits are in [features.md](features.md) and
-[limitations.md](limitations.md); the [upstream merge status](upstream-merges.md#current-status-2026-11-15)
-records the last merge.
+[limitations.md](limitations.md). The last upstream merge incorporated
+`b1a8e2257` (D14). [Merge record](upstream-merges.md#current-status-2026-11-15)
 
-### Validation scope
+### Validation as of 2026-11-18
 
-The CI release job builds the portable ZIP and checks a PDFium open from a fresh
-extraction before upload. The feature suite runs on Debug. The historical
-results below apply to their listed revisions. Run IDs were checked on 2026-11-16.
+Reviewed revision `4751ec07a` on `solokpdf-dev`. PDFium is pinned to
+`158.0.8111.0`. [Pin](../../cmd/solok-pdfium-pin.json)
 
-| Check                                                     | Tested revision                       | Recorded result                                                                                                                                                                                                                                                                                                                                                                        |
-| --------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Regular CI (`solokpdf-ci.yml`, push)                      | `7d107cea8`, `8915cc2b7`              | At `7d107cea8` (D13): 105115 unit tests, 70/70 feature tests; [results](history.md#hosted-d13e17-validation-2026-11-10). Passed at `e6c106699` ([43817491272](https://github.com/elle-et-noire/solokpdf/actions/runs/43817491272), [E70](history.md#hosted-recheck)) and at `8915cc2b7` after E74 ([43832273025](https://github.com/elle-et-noire/solokpdf/actions/runs/43832273025)). |
-| Full suite (`solokpdf-full-tests.yml`, weekly and manual) | `b12535517`, `e6c106699`              | Scheduled run 43763953763 at `b12535517` failed 9 tests per engine; fixed or updated in [E70](history.md#e70-scheduled-suite-failures-2026-11-15). Four rechecked hosted at `e6c106699`, the rest locally. No full run since.                                                                                                                                                          |
-| ASan (`solokpdf-asan.yml`, weekly and manual)             | `00fa812cd`, `83d0ec657`, `1ed7b7f33` | E17 manual run passed at `00fa812cd`; [results](history.md#hosted-d13e17-validation-2026-11-10). Scheduled run 42914570299 passed at `83d0ec657` (2026-11-10). E38 manual run [43725820411](https://github.com/elle-et-noire/solokpdf/actions/runs/43725820411) passed at `1ed7b7f33` with the pinned toolset; [results](asan-shutdown.md).                                            |
-| Monkey test (E71, local only)                             | E71–E74 commits                       | Debug and ASan seeds on both engines; findings E72–E74 fixed; [results](history.md#e71-monkey-test-2026-11-16), [usage](testing.md#monkey-test-e71). Not in CI: outcomes depend on render timing.                                                                                                                                                                                      |
-| F2 physical tree checks                                   | Build unspecified                     | Owner reported all checks OK; [record and evidence limits](archive/tree-view-screen-reader-check.md#実施結果).                                                                                                                                                                                                                                                                         |
+| Check             | Tested revision | Result                                                                                                                                                                                                                                              |
+| ----------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Regular CI        | `4751ec07a`     | Debug build, PDFium cache migration, unit and feature tests passed. Release built, opened a PDF with PDFium from the extracted ZIP and uploaded the artifact. [Run 44310309155](https://github.com/elle-et-noire/solokpdf/actions/runs/44310309155) |
+| Hosted full suite | `b12535517`     | Last scheduled run failed nine tests per engine. E70 records the fixes and targeted rechecks. Validation for the current revision remains open (D15). [Run 43763953763](https://github.com/elle-et-noire/solokpdf/actions/runs/43763953763)         |
+| Hosted ASan       | `1ffb2fae1`     | Latest scheduled run passed its targeted save/shutdown, tree lifetime and PDFium fallback tests. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44203231694](https://github.com/elle-et-noire/solokpdf/actions/runs/44203231694)         |
 
-Remaining evidence limits (2026-11-16):
-
-- The prebuilt PDFium DLL is not ASan-instrumented.
-- The earlier baseline thumbnail capture instability is unresolved; later
-  targeted runs passed. See the [E22 record](history.md#e22-cache-contracts-2026-11-10).
-- F1 printing and F3 physical keyboard checks were excluded by owner instruction
-  on 2026-11-10, without being marked passed. F2 passed by owner report;
-  its build and environment details were not supplied.
-- The monkey test samples seeded sequences; it does not establish coverage.
-
-Earlier suites, local checks and refactor validation remain in
-[history.md](history.md#navigation). Test procedures are in [testing.md](testing.md).
+The [November 18 record](history.md#hosted-validation-and-status-review-2026-11-18)
+includes the preceding CI failures and later full-workflow dispatches.
+The [backlog](backlog.md) tracks remaining work and intermittent observations.
+Local seeded stress checks are in the [monkey-test record](history.md#e71-monkey-test-2026-11-16).
+The owner reported that F2 tree checks passed, with build and environment
+unspecified. F1 printing and F3 physical input are outside active scope and
+remain unverified. [Manual acceptance record](testing.md#owners-manual-acceptance-f1f3)
 
 ## Resuming work
 

@@ -88,6 +88,7 @@ void RefHoverHide(RefHoverState* s, HWND hwndCanvas) {
     KillTimer(hwndCanvas, kRefHoverTimerID);
     KillTimer(hwndCanvas, kRefHoverHideTimerID);
     s->pending.destPage = -1;
+    s->textHoverSince = 0;
     s->renderGen++;
     RefHoverDropQueuedRender(s);
     // also while hidden with its minimized frame
@@ -110,6 +111,7 @@ void RefHoverScheduleHide(RefHoverState* s, HWND hwndCanvas, int delayMs) {
     }
     KillTimer(hwndCanvas, kRefHoverTimerID);
     s->pending.destPage = -1;
+    s->textHoverSince = 0;
     s->renderGen++;
     RefHoverDropQueuedRender(s);
     if (!s->hwndPopup || !HwndIsVisible(s->hwndPopup)) {

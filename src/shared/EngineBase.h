@@ -43,6 +43,23 @@ struct PageHit {
     bool busy = false;
 };
 
+template <typename T>
+class [[nodiscard]] HoverResult {
+    PageHit<T> hit{};
+
+  public:
+    HoverResult() = default;
+    explicit HoverResult(const PageHit<T>& hit) : hit(hit) {}
+
+    [[nodiscard]] bool Read(T& value) const {
+        if (hit.busy) {
+            return false;
+        }
+        value = hit.value;
+        return true;
+    }
+};
+
 using ElementAt = PageHit<IPageElement*>;
 using PageElementsHit = PageHit<Vec<IPageElement*>>;
 // an annotation or form field

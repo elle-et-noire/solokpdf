@@ -14,6 +14,9 @@ of the vendored tree at all.
 version recorded for mupdf in `ext/versions.txt`. Paths in the patches are
 relative to `ext/mupdf`, so `-p1` from inside that directory.
 
+On each MuPDF update, check that the [app catch helper](../../src/shared/mupdf/fz-catch.h)
+can restore `ctx->error.errcode` and that `fz_ignore_error` preserves the caught message.
+
 ## The patches
 
 | Patch | What |

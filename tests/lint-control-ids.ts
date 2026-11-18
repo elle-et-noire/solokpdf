@@ -7,7 +7,7 @@
 // the other with no error. A command may exist in only some of them; when two
 // define the same name or the same id, they must agree.
 //
-// Run standalone: bun tests/lint-control-ids.ts  (also runs in run-almost-all.ts)
+// Run standalone: bun tests/lint-control-ids.ts [-ng]  (also runs in run-almost-all.ts)
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -40,10 +40,14 @@ function parseIds(relPath: string, start: RegExp, sep: "=" | ":"): Map<string, n
 export async function testit(): Promise<void> {
   const tables: [string, Map<string, number>][] = [
     ["orig", parseIds("src/SumatraControl.cpp", /enum class ControlCmd[^{]*\{/, "=")],
-    ["ng", parseIds("src/ng/SumatraControl.cpp", /enum class ControlCmd[^{]*\{/, "=")],
     ["tests/control.ts", parseIds("tests/control.ts", /export enum ControlCommand\s*\{/, "=")],
-    ["cmd/ng-dbg-control.ts", parseIds("cmd/ng-dbg-control.ts", /controlCommands[^{]*\{/, ":")],
   ];
+  if (process.argv.includes("-ng") || process.platform === "darwin") {
+    tables.push(
+      ["ng", parseIds("src/ng/SumatraControl.cpp", /enum class ControlCmd[^{]*\{/, "=")],
+      ["cmd/ng-dbg-control.ts", parseIds("cmd/ng-dbg-control.ts", /controlCommands[^{]*\{/, ":")],
+    );
+  }
   const problems: string[] = [];
   for (let i = 0; i < tables.length; i++) {
     for (let j = i + 1; j < tables.length; j++) {

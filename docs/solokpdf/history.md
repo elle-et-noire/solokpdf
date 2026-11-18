@@ -3,14 +3,13 @@
 Measurement and work log, oldest first. Current behavior is in
 [features.md](features.md) and [limitations.md](limitations.md); open items are in [backlog.md](backlog.md).
 Condensed measurements are in [data/](data/).
-The [current status](README.md#status-2026-11-16) distinguishes completed
-follow-ups from the failures and pending checks recorded at earlier revisions.
+The [current status](README.md#status) summarizes the latest verification.
 
 ## Navigation
 
 | Topic                           | Records                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Latest validation               | [E70 hosted recheck](#hosted-recheck), [E38 hosted ASan](#e38-runtime-correction-2026-11-11), [D13/E17 hosted results](#hosted-d13e17-validation-2026-11-10), [D12 successful regular CI](#d12-hosted-evidence-2026-11-10), [E16 local ASan checks](#e16-asan-build-path-2026-11-10), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Earlier validation              | [E70 hosted recheck](#hosted-recheck), [E38 hosted ASan](#e38-runtime-correction-2026-11-11), [D13/E17 hosted results](#hosted-d13e17-validation-2026-11-10), [D12 successful regular CI](#d12-hosted-evidence-2026-11-10), [E16 local ASan checks](#e16-asan-build-path-2026-11-10), [F2 owner acceptance](#virtual-sidebar-acceptance-2026-11-09)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Earlier suite failures          | [D9 failures at `99ba47b52` and local triage](#d9-scheduled-suite-failures-2026-11-09), [E70 failures at `b12535517`](#e70-scheduled-suite-failures-2026-11-15)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Merge follow-ups                | [D10 Light/Dark review](#d10-merged-ui-review-2026-11-09), [D11 MuPDF patch verification](#d11-mupdf-patch-verification-2026-11-09)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | UI polish audit (2026-11-16)    | [E77 findings](#e77-ui-polish-audit-2026-11-16)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -25,8 +24,9 @@ follow-ups from the failures and pending checks recorded at earlier revisions.
 | Project origin                  | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Completed work                  | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [finished plans](archive/README.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
-The latest CI additions and local checks are recorded under
-[D13/E17](#ci-coverage-expansion-2026-11-10).
+See the [November 18 status review](#hosted-validation-and-status-review-2026-11-18)
+for the latest CI results and [D13/E17](#ci-coverage-expansion-2026-11-10)
+for the original coverage expansion.
 The completed E18–E37 reviews and fixes have these records:
 
 - E21: [Color-stage selection](#e21-color-stage-policy-2026-11-10) and
@@ -3411,11 +3411,109 @@ three consecutive runs.
 
 #### Earlier fixes
 
-| ID   | Commit                                                     | Verification                                                                                                                                                                                                                            |
-| ---- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E131 | `8471a3d26` Keep keyboard link hints during renders (E131) | Both engines recover link hints after activation and scrolling with a busy render or an unprepared page. E131 and E128 passed in Debug and ASan.                                                                                        |
-| E116 | `723ea95c7` Bound crash reporting and shutdown (E116)      | Debug crash-dump and TTS recovery tests passed. The tests stalled the reporter and the helper and exercised the minimal dump with the helper unavailable and the loader held. DbgHelp read the faulting thread and instruction address. |
-| B77  | `7aeb82059` Run SolokPDF unit tests from its build (B77)   | The hidden-desktop Debug unit command passed 106,007 tests. Git status and hashes of all 71 tracked vs2022 files matched before and after.                                                                                              |
+| ID   | Commit                                                     | Verification                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E131 | `8471a3d26` Keep keyboard link hints during renders (E131) | Both engines recover link hints after activation and scrolling with a busy render or an unprepared page. MuPDF publishes page readiness after text-link extraction and clears the released text pointer before retrying a canceled load. E131 and E128 passed in Debug and ASan, including PDFium with and without its editor.                                                                                                                                                                                               |
+| E116 | `723ea95c7` Bound crash reporting and shutdown (E116)      | Debug crash-dump and TTS recovery tests passed. Coverage includes a stalled reporter, a stalled helper with the faulting thread suspended, a missing helper while the loader is held, and restoration of the previous exception filter. The fallback test checks the faulting thread, instruction address and CPU context.                                                                                                                                                                                                   |
+| B77  | `7aeb82059` Run SolokPDF unit tests from its build (B77)   | The hidden-desktop Debug unit command passed 106,007 tests. Git status and hashes of all 71 tracked vs2022 files matched before and after.                                                                                                                                                                                                                                                                                                                                                                                   |
+| E119 | 2026-11-18 documentation audit                             | Recorded the [MuPDF merge procedure](upstream-merges.md#merging-mupdf-error-handlers) and corrected the scope of [theme refresh and owned-popup handling](architecture.md#ui-と入力). Added the [review criteria](architecture.md#レビューの評価観点) to tracked docs. `lint-fz-catch` and `lint-app-input` passed.                                                                                                                                                                                                          |
+| E152 | Win32 and shared lint scope                                | `lint-fz-catch` prunes `src/ng` before recursion. `lint-control-ids` compares Win32 and its test client in SolokPDF runs. `-ng` and macOS runs also compare the ng tables. An isolated fixture failed on ng-only violations before the change and passed after it. Shared raw catches and Win32 wire-ID mismatches still fail. Both lints passed on the checkout.                                                                                                                                                            |
+| E115 | MuPDF context logging                                      | All app contexts use `NewMupdfContext`, including image/icon decoders, the document engine, PDFium render probes and the auxiliary geometry, theme, export and inspection paths. The document and image clone sites inherit both callbacks. The lint rejects direct creation. The probe's warning and error reached stderr only before the change. Both reached the app log afterward and 105,843 Debug assertions passed. The theme-cancel fixture passed for theme conversion and uncolored pattern strokes.               |
+| E134 | Annotation edit lock waits                                 | Color and contents updates waited about 3.35 s each for the parked render to expire before the change. Afterward they took 16–22 ms, canceled the render, and redrew on both engines. Edit lock acquisition handles the direct MuPDF engine and PDFium's MuPDF editor. The parked-render action and form Tab tests, cross-window PDFium contention, `annot-undo-one-step`, and `pdf-edit-toolbar-interaction` also passed in Debug. `form-text-cache` covered form edits and Undo/Redo on both engines. E128 passed in ASan. |
+| E132 | Typed hover results                                        | Win32 display and citation hover return an explicit result whose value is available after a successful read. Shared engine internals still use their wait mode. Compiler probes rejected a hover result at an action call and detected a discarded read status. Both engines passed E120, E123, E128 and `form-text-cache` in Debug, and E128 and E131 in ASan.                                                                                                                                                              |
+| E129 | Nonblocking citation previews                              | The show timer reads the hover cache and retries while extraction runs on a worker. The hover and tab-lifetime checks passed on both engines in Debug and ASan. See the [timings and failure test](#e129-citation-preview).                                                                                                                                                                                                                                                                                                  |
+
+## Hosted validation and status review (2026-11-18)
+
+At `4751ec07a`, the Debug build, cache migration, unit tests and feature
+tests passed. Release built, opened a PDF with PDFium from the extracted
+portable ZIP and uploaded the artifact. Job and step results were available.
+[Debug job](https://github.com/elle-et-noire/solokpdf/actions/runs/44310309155/job/134822409345)
+[Release job](https://github.com/elle-et-noire/solokpdf/actions/runs/44310309155/job/134822409704)
+
+At `f2a55e754`, the E128 link click during another window's PDFium render
+stayed on page 1. The portable ZIP check also failed before the upload step.
+`4751ec07a` sets the test cursor before the click, injects a stray move to
+check that the press survives, and resolves Windows' short TEMP path before
+extraction. Both checks passed on the next hosted run.
+[Earlier run](https://github.com/elle-et-noire/solokpdf/actions/runs/44304399388)
+
+The last scheduled full suite failed nine tests per engine at `b12535517`.
+E70 records fixes and targeted rechecks at `e6c106699`. The November 16 manual
+dispatches both built Debug at `542cc4098` and failed in `Run tests` with an empty
+test filter. Both jobs uploaded their test output.
+[E70 record](#e70-scheduled-suite-failures-2026-11-15)
+
+| Run                                                                                                | Engine | Result                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [43835410857](https://github.com/elle-et-noire/solokpdf/actions/runs/43835410857/job/133190682159) | PDFium | 1 of 622 failed, 13 excluded. `selection-noop-colors` expected an annotation editor in its PDFium case and got `editor=none`.                                  |
+| [43835416476](https://github.com/elle-et-noire/solokpdf/actions/runs/43835416476/job/133190699941) | MuPDF  | 2 of 625 failed, 10 excluded. The PDFium case of `selection-noop-colors` also got `editor=none`. `tts-engine-crash-recovery` hit the five-minute test timeout. |
+
+The latest scheduled ASan run passed at `1ffb2fae1`, before the repository-review
+changes. D15 tracks verification on the current code.
+[ASan run](https://github.com/elle-et-noire/solokpdf/actions/runs/44203231694)
+
+The current Debug build passed `selection-noop-colors` and
+`tts-engine-crash-recovery` individually on the hidden desktop. TTS also
+passed with `SOLOKPDF_ENGINE=mupdf`. `8223cc79a` already made the selection
+test load the annotation editor explicitly.
+
+### E150 modal restore and E151 navigation
+
+- Run 44274089888 captured the style-write case. The simulated handoff
+  destroyed its stand-in, leaving no foreground window. Windows then activated
+  the restored frame. [Run](https://github.com/elle-et-noire/solokpdf/actions/runs/44274089888)
+- Run 44278206810 passed all Run PDF Script handoffs with another process in
+  the foreground. Add Favorite still used the stand-in and failed.
+  [Run](https://github.com/elle-et-noire/solokpdf/actions/runs/44278206810)
+- At `e415e93a4` the external-foreground check covered all three modal dialogs
+  and the full anchored-popup test passed. The E144 test failed separately
+  after activating the frame and clearing focus. Neither Markdown nor CHM
+  reported a page-c request. Both navigation checks had passed in the two
+  preceding runs. The latest regular run passed the feature suite.
+  The cause of the missed requests remains open (E151).
+  [Run](https://github.com/elle-et-noire/solokpdf/actions/runs/44280943472)
+
+Both layouts of the E98 test and the E144 focus test passed locally on the
+hidden desktop. The Run PDF Script fixture exercises example selection while
+the dialog is hidden, where the code skips the top-level redraw toggle. A
+separate test sends the top-level redraw and style messages directly.
+
+The E151 trace now records Next Page command receipt, logical page changes,
+browser navigation and served URLs alongside foreground, activation and focus.
+The instrumented E144 case passed in `rightHalf` with both engine settings and
+in `workArea`. The browser requested page c after reaching logical page 3,
+and each frame regained focus. The hosted failure still needs a trace from the
+interactive desktop.
+
+### E129 citation preview
+
+With a cold destination and its engine lock held, the old show timer waited
+for release. In the hidden-desktop Debug test the updated timer returned in
+0.1 ms on PDFium and 0.5 ms on MuPDF. The 50-page plain-text case displayed
+54 ms and 81 ms after the reference appeared in the text cache, respectively.
+The run kept the PDFium editor unloaded and showed no stale popup after tab
+switch or document close with extraction pending. A unit fixture confirmed
+that a failed background extraction is terminal until the cache is invalidated.
+ASan passed both engines with the standard slow-build timeout multiplier.
+The popup appeared 55 ms and 54 ms after the reference was observed in the
+cache on PDFium and MuPDF, respectively. The final Debug unit run passed
+105,991 assertions.
+
+### Popup and theme baselines
+
+The current hidden-desktop Debug run passed `ad-hoc-e98-anchored-popups` in
+`rightHalf` and `workArea`, including the separate Run PDF Script example
+selection, redraw and style-write cases. `theme-open-windows` and
+`control-color-roles` passed as the baseline for E118.
+
+### E135 link-menu latency
+
+One action took 1,938 ms. Two hidden-desktop Debug series of 30 attempts per
+engine passed all 120 attempts. In the instrumented series, median, 95th
+percentile and maximum were 82/83/166 ms on PDFium and 82/83/163 ms on
+MuPDF, including the test's 80 ms poll. Observed lock waits were at most
+16 ms at roughly 16 ms clock resolution. The outlier's cause remains unknown.
 
 ## SOL1–SOL3 corrections (2026-11-11)
 

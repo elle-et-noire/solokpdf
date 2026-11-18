@@ -21,6 +21,7 @@ extern "C" {
 #include "AvifReader.h"
 #include "JxlReader.h"
 #include "WebpReader.h"
+#include "mupdf/fz-context.h"
 
 #if OS_LINUX
 #include <gdk-pixbuf/gdk-pixbuf.h>
@@ -342,27 +343,15 @@ static void fz_unlock_context_cs(void* user, int lock) {
     ctx->mutexes[lock].Unlock();
 }
 
-// route mupdf's warnings/errors through our log() instead of the default
-// callback, which does fputs() to stderr; that first fputs makes the CRT
-// allocate a stdio buffer it never frees, which shows up as a leak.
-// mupdf hands us the message without the newline its default callback prints
-static void fz_log_cb(void* /*user*/, const char* msg) {
-    Str msgStr = Str(msg);
-    if (!str::EndsWith(msgStr, StrL("\n"))) {
-        msgStr = str::JoinTemp(msgStr, StrL("\n"));
-    }
-    log(msgStr);
-}
-
 fz_context* fz_new_context_windows(size_t maxStore) {
     auto* c = new MupdfContext();
     c->fz_locks_ctx.user = c;
     c->fz_locks_ctx.lock = fz_lock_context_cs;
     c->fz_locks_ctx.unlock = fz_unlock_context_cs;
-    c->ctx = fz_new_context(nullptr, &c->fz_locks_ctx, maxStore);
-    if (c->ctx) {
-        fz_set_warning_callback(c->ctx, fz_log_cb, nullptr);
-        fz_set_error_callback(c->ctx, fz_log_cb, nullptr);
+    c->ctx = NewMupdfContext(maxStore, &c->fz_locks_ctx);
+    if (!c->ctx) {
+        delete c;
+        return nullptr;
     }
     return c->ctx;
 }

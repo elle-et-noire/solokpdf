@@ -8,6 +8,8 @@
 
 #include "DocController.h"
 #include "EngineBase.h"
+#include "Settings.h"
+#include "DisplayModel.h"
 #include "RefHover.h"
 
 enum class MissingEntry {
@@ -16,14 +18,17 @@ enum class MissingEntry {
 };
 
 // the page's text with watermark glyphs dropped and glyphs snapped to lines
-static TempWStr RegionTextTemp(EngineBase* engine, int pageNo, Rect** coordsOut) {
+static PageHit<WStr> RegionTextTemp(EngineBase* engine, int pageNo, EngineWait wait, Rect** coordsOut) {
     Rect* coords = nullptr;
     int textLen = 0;
-    Str textUtf8 = engine->GetTextForPage(pageNo, &textLen, &coords);
-    TempWStr text = RefHoverPageTextToWStrTemp(textUtf8);
+    PageHit<Str> textUtf8 = RefHoverTextAt(engine, pageNo, wait, &textLen, &coords);
+    if (textUtf8.busy) {
+        return {{}, true};
+    }
+    TempWStr text = RefHoverPageTextToWStrTemp(textUtf8.value);
     *coordsOut = coords;
     if (!coords || len(text) == 0) {
-        return text;
+        return {text, false};
     }
     WCHAR* cleanText = AllocArrayTemp<WCHAR>(textLen);
     Rect* cleanCoords = AllocArrayTemp<Rect>(textLen);
@@ -31,22 +36,29 @@ static TempWStr RegionTextTemp(EngineBase* engine, int pageNo, Rect** coordsOut)
     Rect* normCoords = AllocArrayTemp<Rect>(cleanLen);
     NormalizeGlyphLines(cleanCoords, normCoords, cleanLen);
     *coordsOut = normCoords;
-    return WStr(cleanText, cleanLen);
+    return {WStr(cleanText, cleanLen), false};
 }
 
-static RectF DetectNoteRegion(EngineBase* engine, int pageNo, RectF mediabox, float destY) {
+static PageHit<RectF> DetectNoteRegion(EngineBase* engine, int pageNo, RectF mediabox, float destY, EngineWait wait) {
     AutoArenaSavepoint tempScope;
     Rect* coords = nullptr;
-    TempWStr text = RegionTextTemp(engine, pageNo, &coords);
-    return NoteBox(mediabox, destY, text, coords);
+    auto text = RegionTextTemp(engine, pageNo, wait, &coords);
+    if (text.busy) {
+        return {{}, true};
+    }
+    return {NoteBox(mediabox, destY, text.value, coords), false};
 }
 
-static RectF DetectRegion(EngineBase* engine, int pageNo, RectF mediabox, float destX, float destY, RectF* continuation,
-                          MissingEntry missingEntry) {
+static PageHit<RectF> DetectRegion(EngineBase* engine, int pageNo, RectF mediabox, float destX, float destY,
+                                   RectF* continuation, MissingEntry missingEntry, EngineWait wait) {
     AutoArenaSavepoint tempScope;
 
     Rect* normCoords = nullptr;
-    TempWStr text = RegionTextTemp(engine, pageNo, &normCoords);
+    auto result = RegionTextTemp(engine, pageNo, wait, &normCoords);
+    if (result.busy) {
+        return {{}, true};
+    }
+    WStr text = result.value;
 
     RectF region = DetectEquationBox(text, normCoords, mediabox, destX, destY);
     if (region.dx <= 0.f || region.dy <= 0.f) {
@@ -55,35 +67,38 @@ static RectF DetectRegion(EngineBase* engine, int pageNo, RectF mediabox, float 
     if ((region.dx <= 0.f || region.dy <= 0.f) && missingEntry == MissingEntry::Landscape) {
         region = LandscapeBox(mediabox, destX, destY, text, normCoords);
     }
-    return region;
+    return {region, false};
 }
 
-// pageZoom is the destination page's current display zoom (px-per-pt) —
-// used as the initial render zoom so popup text height matches the page.
-void RefHoverOnTimer(RefHoverState* s, EngineBase* engine, float pageZoom) {
+// Returns false while a page's text is being extracted in the background.
+bool RefHoverOnTimer(RefHoverState* s, EngineBase* engine, float pageZoom, DisplayModel* dm) {
     if (!s || !engine || s->pending.destPage <= 0) {
-        return;
+        return true;
     }
-    if (s->hitEngine != engine) {
-        if (s->hitEngine) {
-            s->hitEngine->Release();
+    EngineWait wait = dm ? EngineWait::NoWait : EngineWait::Wait;
+    auto mediaBox = [&](int pageNo) {
+        if (!dm) {
+            return engine->PageMediabox(pageNo);
         }
-        s->hitEngine = engine;
-        engine->AddRef();
-    }
+        PageInfo* page = dm->GetPageInfo(pageNo);
+        return page && !page->mediaBox.IsEmpty() ? page->mediaBox : dm->estimatedMediaBox;
+    };
     int destPage = s->pending.destPage;
     float destX = s->pending.destX;
     float destY = s->pending.destY;
 
-    RectF mediabox = engine->PageMediabox(destPage);
+    RectF mediabox = mediaBox(destPage);
     if (mediabox.dx <= 0.f || mediabox.dy <= 0.f) {
-        return;
+        return true;
     }
     if (destY <= 0.f || destY >= mediabox.dy - 1.f) {
         destY = 0.f;
-        float resolved = RefHoverResolveDestYFromSourceText(engine, s->pending.srcPage, s->pending.srcRect, destPage);
-        if (resolved >= 0.f) {
-            destY = resolved;
+        auto resolved = RefHoverDestY(engine, s->pending.srcPage, s->pending.srcRect, destPage, wait);
+        if (resolved.busy) {
+            return false;
+        }
+        if (resolved.value >= 0.f) {
+            destY = resolved.value;
             destX = std::max(destX, 0.f);
         }
     }
@@ -99,39 +114,67 @@ void RefHoverOnTimer(RefHoverState* s, EngineBase* engine, float pageZoom) {
     // "[63]"): a second crop, stitched below `region` in the delivered
     // bitmap. Empty (dx/dy <= 0) otherwise.
     RectF continuation{};
-    RectF noteRegion = s->pending.noteRef ? DetectNoteRegion(engine, destPage, mediabox, destY) : RectF{};
-    if (noteRegion.dx > 0.f && noteRegion.dy > 0.f) {
-        region = noteRegion;
+    PageHit<RectF> note;
+    if (s->pending.noteRef) {
+        note = DetectNoteRegion(engine, destPage, mediabox, destY, wait);
+        if (note.busy) {
+            return false;
+        }
+    }
+    if (!note.value.IsEmpty()) {
+        region = note.value;
     } else if (useLinkZoom) {
         region = RectF{0.f, destY, mediabox.dx, mediabox.dy - destY};
     } else {
-        region = DetectRegion(engine, destPage, mediabox, destX, destY, &continuation, MissingEntry::Empty);
+        auto entry = DetectRegion(engine, destPage, mediabox, destX, destY, &continuation, MissingEntry::Empty, wait);
+        if (entry.busy) {
+            return false;
+        }
+        region = entry.value;
         bool regionEmpty = region.dx <= 0.f || region.dy <= 0.f;
         bool searchNext = regionEmpty || ShouldSearchNextPage(mediabox, destY);
         if (searchNext && !regionEmpty) {
-            float currentY = RefHoverResolveDestYFromSourceText(engine, s->pending.srcPage, s->pending.srcRect,
-                                                                destPage, RefHoverTextMatch::Best);
-            searchNext = currentY < 0.f;
+            auto current =
+                RefHoverDestY(engine, s->pending.srcPage, s->pending.srcRect, destPage, wait, RefHoverTextMatch::Best);
+            if (current.busy) {
+                return false;
+            }
+            searchNext = current.value < 0.f;
         }
 
         float nextY = -1.f;
         if (searchNext) {
             int nextPage = destPage + 1;
             if (nextPage <= engine->PageCount()) {
-                nextY = RefHoverResolveDestYFromSourceText(engine, s->pending.srcPage, s->pending.srcRect, nextPage,
-                                                           RefHoverTextMatch::Best);
+                auto next = RefHoverDestY(engine, s->pending.srcPage, s->pending.srcRect, nextPage, wait,
+                                          RefHoverTextMatch::Best);
+                if (next.busy) {
+                    return false;
+                }
+                nextY = next.value;
             }
             if (nextY >= 0.f) {
                 destPage = nextPage;
                 destY = nextY;
                 destX = std::max(destX, 0.f);
-                mediabox = engine->PageMediabox(destPage);
-                region = DetectRegion(engine, destPage, mediabox, destX, destY, &continuation, MissingEntry::Landscape);
+                mediabox = mediaBox(destPage);
             }
         }
-        if (regionEmpty && nextY < 0.f) {
-            region = DetectRegion(engine, destPage, mediabox, destX, destY, &continuation, MissingEntry::Landscape);
+        if (regionEmpty || nextY >= 0.f) {
+            auto fallback =
+                DetectRegion(engine, destPage, mediabox, destX, destY, &continuation, MissingEntry::Landscape, wait);
+            if (fallback.busy) {
+                return false;
+            }
+            region = fallback.value;
         }
+    }
+    if (s->hitEngine != engine) {
+        if (s->hitEngine) {
+            s->hitEngine->Release();
+        }
+        s->hitEngine = engine;
+        engine->AddRef();
     }
     bool hasContinuation = continuation.dx > 0.f && continuation.dy > 0.f;
     s->displayed.userZoom = 1.f;
@@ -206,4 +249,5 @@ void RefHoverOnTimer(RefHoverState* s, EngineBase* engine, float pageZoom) {
     req.srcPageRaw = s->pending.srcPage;
     req.srcRectRaw = s->pending.srcRect;
     RefHoverRequestRender(s, engine, req);
+    return true;
 }

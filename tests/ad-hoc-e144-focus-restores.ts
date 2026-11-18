@@ -66,6 +66,7 @@ import {
   sendMessage,
   sendText,
   setProcessDpiAware,
+  setTestWindowLayout,
   WM_CLOSE,
   WM_COMMAND,
   clientToScreen,
@@ -111,7 +112,7 @@ async function settled(client: ControlClient): Promise<string> {
 
 // another app has the focus after `what`
 function checkAway(res: string, what: string): void {
-  check(/^focus=(none|away) active=away /.test(res), `${what}: the focus left the other app: ${res}`);
+  check(/^focus=(none|away) active=away\b/.test(res), `${what}: the focus left the other app: ${res}`);
 }
 
 function topWindow(pid: number, title: string): number {
@@ -562,6 +563,8 @@ export async function testit(): Promise<void> {
       { kind: "CHM", path: chm, ext: "html" },
     ];
     for (const doc of webDocs) {
+      const started = await client.request(ControlCommand.TestActivationTrace, ["start-focus"]);
+      check(started[1] === "OK", `${doc.kind}: navigation diagnostics did not start`);
       const navigated = async (name: string) => {
         const page = new RegExp(`(^|/)${name}\\.${doc.ext}$`, "m");
         await pollUntil(
@@ -570,23 +573,37 @@ export async function testit(): Promise<void> {
           { timeoutMs: WAIT_MS * 5, error: (r) => `${doc.kind} page ${name} not shown: ${r}` },
         );
       };
-      await openInTab(client, frame, doc.path, 1);
-      await navigated("a");
-      await activateFrame(client);
-      await step(`${doc.kind} page navigated: another app has the focus`, async () => {
-        await focusState(client, "away");
-        sendCommand(frame, cmdId("CmdGoToNextPage"));
-        await navigated("b");
-        checkAway(await settled(client), "navigated");
-      });
-      await activateFrame(client);
-      await step(`${doc.kind} page navigated: the frame active, no focus`, async () => {
-        await focusState(client, "none");
-        sendCommand(frame, cmdId("CmdGoToNextPage"));
-        await navigated("c");
-        const res = await settled(client);
-        check(/^focus=(frame|canvas) active=frame /.test(res), `the frame did not get the focus: ${res}`);
-      });
+      const nextPage = () => {
+        check(postMessage(frame, WM_COMMAND, cmdId("CmdGoToNextPage"), 0), `${doc.kind}: posting Next Page failed`);
+      };
+      const failureCount = failures.length;
+      try {
+        await openInTab(client, frame, doc.path, 1);
+        await navigated("a");
+        await activateFrame(client);
+        await step(`${doc.kind} page navigated: another app has the focus`, async () => {
+          checkAway(await focusState(client, "away"), "before navigating");
+          nextPage();
+          await navigated("b");
+          await client.request(ControlCommand.TestMarkdownServed, ["trace"]);
+          checkAway(await settled(client), "navigated");
+        });
+        await activateFrame(client);
+        await step(`${doc.kind} page navigated: the frame active, no focus`, async () => {
+          const before = await focusState(client, "none");
+          check(/^focus=none active=frame\b/.test(before), `could not clear focus before navigating: ${before}`);
+          nextPage();
+          await navigated("c");
+          const res = await settled(client);
+          check(/^focus=(frame|canvas) active=frame /.test(res), `the frame did not get the focus: ${res}`);
+        });
+      } finally {
+        await client.request(ControlCommand.TestMarkdownServed, ["trace"]);
+        const [, trace] = await client.request(ControlCommand.TestActivationTrace, ["stop-focus"]);
+        if (failures.length > failureCount || process.argv.includes("--trace-navigation")) {
+          console.log(`${doc.kind}\n${trace}`);
+        }
+      }
     }
   } finally {
     client.close();
@@ -596,4 +613,7 @@ export async function testit(): Promise<void> {
   console.log("e144-focus-restores: OK");
 }
 
-if (import.meta.main) await runStandalone(testit);
+if (import.meta.main) {
+  if (process.argv.includes("--work-area")) setTestWindowLayout("workArea");
+  await runStandalone(testit);
+}

@@ -214,6 +214,7 @@ FormEditResult SetWidgetChoiceValue(Annotation*, Str value);
 FormEditResult ToggleFormButton(Annotation*);
 
 bool AnnotationIsLive(Annotation*);
+bool AnnotationIsLiveForEdit(Annotation*);
 
 void DeleteAnnotation(Annotation*);
 bool AnnotationCanBeMoved(AnnotationType);

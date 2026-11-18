@@ -208,6 +208,7 @@ enum class MupdfLock {
     Render
 };
 bool EngineMupdfHoldLock(EngineBase*, MupdfLock, int ms);
+void SetMupdfEditWaitHook(void (*hook)(EngineBase*));
 bool EngineMupdfBeginOperation(EngineBase*, const char* name);
 void EngineMupdfEndOperation(EngineBase*);
 enum class UndoDir {

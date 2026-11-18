@@ -129,12 +129,14 @@ struct FocusTraceEntry {
     bool background;
     uintptr_t wp;
     uintptr_t lp;
+    u64 ticks;
+    char url[256];
 };
 static FocusTraceEntry gFocusTrace[kFocusTraceSize];
 static unsigned gFocusTraceCount = 0;
 static bool gTraceFocus = false;
 
-static void TraceFocus(Str event, HWND hwnd = nullptr, uintptr_t wp = 0, uintptr_t lp = 0) {
+static void TraceFocus(Str event, HWND hwnd = nullptr, uintptr_t wp = 0, uintptr_t lp = 0, Str url = {}) {
     if (!gTraceFocus) {
         return;
     }
@@ -143,9 +145,15 @@ static void TraceFocus(Str event, HWND hwnd = nullptr, uintptr_t wp = 0, uintptr
     if (foreground) {
         GetWindowThreadProcessId(foreground, &pid);
     }
-    gFocusTrace[gFocusTraceCount++ % kFocusTraceSize] = {
-        event, hwnd, foreground, pid, GetActiveWindow(), GetFocus(), gAppInBackground, wp, lp,
+    auto& entry = gFocusTrace[gFocusTraceCount++ % kFocusTraceSize];
+    entry = {
+        event, hwnd, foreground, pid, GetActiveWindow(), GetFocus(), gAppInBackground, wp, lp, GetTickCount64(), {},
     };
+    str::BufSet(Str(entry.url, dimof(entry.url)), url);
+}
+
+void TraceTestPageNav(Str event, HWND hwnd, int value, Str url) {
+    TraceFocus(event, hwnd, value, 0, url);
 }
 
 static void TraceFocusMessage(const CWPSTRUCT& msg) {
@@ -202,9 +210,10 @@ static TempStr FocusTraceTemp() {
         Str foreground = !e.foreground ? StrL("none") : e.foregroundPid == ownPid ? StrL("app") : StrL("other");
         out.Append(
             fmt("%u %s hwnd=0x%llx wp=0x%llx lp=0x%llx foreground=%s/0x%llx/%u active=0x%llx focus=0x%llx "
-                "testBackground=%d\n",
+                "testBackground=%d ms=%llu url=%s\n",
                 i, e.event, (u64)(uintptr_t)e.hwnd, (u64)e.wp, (u64)e.lp, foreground, (u64)(uintptr_t)e.foreground,
-                (uint)e.foregroundPid, (u64)(uintptr_t)e.active, (u64)(uintptr_t)e.focus, (int)e.background));
+                (uint)e.foregroundPid, (u64)(uintptr_t)e.active, (u64)(uintptr_t)e.focus, (int)e.background, e.ticks,
+                Str(e.url)));
     }
     return ToStrTemp(out);
 }
@@ -2419,6 +2428,9 @@ static void ExecuteControlRequest(ControlRequest* req) {
         case ControlCmd::TestMarkdownServed: {
             int exitCode = 0;
             Str res = MarkdownServedResultTemp(&exitCode);
+            if (gTraceFocus && str::Eq(StringArg(req, 0), StrL("trace"))) {
+                TraceTestPageNav(StrL("served-snapshot"), nullptr, exitCode, res);
+            }
             AppendTestResult(req, exitCode, res);
             break;
         }
@@ -2634,6 +2646,21 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
 #if IS_DEBUG
+            if (gForTesting && str::Eq(signAction, StrL("edit-selected-annotation"))) {
+                Annotation* annot = tab->selectedAnnotation;
+                if (!annot) {
+                    AppendTestResult(req, 1, StrL("no selected annotation"));
+                    break;
+                }
+                Str edit = StringArg(req, 1);
+                bool changed = str::Eq(edit, StrL("color")) ? SetColor(annot, MkPdfColor(255, 0, 0, 255))
+                                                            : SetContents(annot, edit);
+                if (changed) {
+                    MainWindowRerender(tab->win);
+                }
+                AppendTestResult(req, 0, fmt("changed=%d", (int)changed));
+                break;
+            }
             if (str::Eq(signAction, StrL("set-annot-contents"))) {
                 if (!gForTesting) {
                     AppendTestResult(req, 1, StrL("testing only"));
@@ -2701,11 +2728,21 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             if (str::Eq(signAction, StrL("prefetch-text")) || str::Eq(signAction, StrL("cached-text")) ||
-                str::Eq(signAction, StrL("editor-text"))) {
+                str::Eq(signAction, StrL("editor-text")) || str::Eq(signAction, StrL("has-cached-text")) ||
+                (gForTesting && str::Eq(signAction, StrL("reset-cached-text")))) {
                 i32 pageNo = 0;
                 IntArg(req, 1, pageNo);
                 if (pageNo < 1 || pageNo > engine->PageCount()) {
                     AppendTestResult(req, 1, StrL("invalid page"));
+                    break;
+                }
+                if (str::Eq(signAction, StrL("has-cached-text"))) {
+                    AppendTestResult(req, 0, fmt("ready=%d", (int)engine->HasTextForPage(pageNo)));
+                    break;
+                }
+                if (str::Eq(signAction, StrL("reset-cached-text"))) {
+                    engine->InvalidateTextForPage(pageNo);
+                    AppendTestResult(req, 0, StrL("OK"));
                     break;
                 }
                 int chars = 0;
@@ -2950,13 +2987,15 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     AppendTestResult(req, 0, dm->GetWidgetAtPos(pt) ? StrL("widget=yes") : StrL("widget=no"));
                     break;
                 }
-                PageHit<WidgetCursorKind> kind = dm->TryWidgetCursorAt(pt);
-                Str name = kind.busy                                ? StrL("busy")
-                           : kind.value == WidgetCursorKind::Text   ? StrL("text")
-                           : kind.value == WidgetCursorKind::Button ? StrL("button")
-                                                                    : StrL("none");
-                IPageElement* el = dm->TryElementAtPos(pt, nullptr).value;
-                Str tip = el && el->Is(kindPageElementComment) ? el->GetValue() : StrL("-");
+                WidgetCursorKind kind;
+                bool haveKind = dm->TryWidgetCursorAt(pt).Read(kind);
+                Str name = !haveKind                          ? StrL("busy")
+                           : kind == WidgetCursorKind::Text   ? StrL("text")
+                           : kind == WidgetCursorKind::Button ? StrL("button")
+                                                              : StrL("none");
+                IPageElement* el;
+                bool haveElement = dm->TryElementAtPos(pt, nullptr).Read(el);
+                Str tip = haveElement && el && el->Is(kindPageElementComment) ? el->GetValue() : StrL("-");
                 AppendTestResult(req, 0, fmt("cursor=%s tip=%s pt=%d,%d", name, tip, pt.x, pt.y));
                 break;
             }

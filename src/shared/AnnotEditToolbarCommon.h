@@ -97,7 +97,11 @@ void DetachAnnotationFromEditors(Annotation* annot);
 void ChipThicknessPicked(AnnotEditToolbarBase* tb, int width);
 void ChipOpacityPicked(AnnotEditToolbarBase* tb, int percent);
 void ChipTextSizePicked(AnnotEditToolbarBase* tb, int size);
-Annotation* LiveToolbarAnnot(AnnotEditToolbarBase* tb);
+enum class ToolbarAnnotAccess {
+    Read,
+    Edit
+};
+Annotation* LiveToolbarAnnot(AnnotEditToolbarBase* tb, ToolbarAnnotAccess access = ToolbarAnnotAccess::Read);
 AnnotEditKind ChipColorKind(AnnotEditToolbarBase* tb);
 void ChipColorPicked(AnnotEditToolbarBase* tb, Color col);
 

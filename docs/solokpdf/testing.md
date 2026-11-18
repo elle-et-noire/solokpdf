@@ -49,6 +49,10 @@ files, notices and README after a fresh extraction. It launches the extracted
 app, opens a sample PDF and checks the log and package manifest against the
 PDFium pin.
 
+The smoke test uses the resolved Windows TEMP directory before extracting
+the ZIP. On hosted Windows, TEMP can be an 8.3 path while the app reports the
+expanded path.
+
 ### PDFium pin
 
 Update the release tag, version and published Windows x64 asset SHA-256 in
@@ -301,6 +305,11 @@ Add Favorite and Zoom run Run PDF Script's minimize steps (Go to page opens no d
 with the toolbar shown). `TestMarkdownServed` also lists a CHM document's served urls;
 `tests/chm-fixture.ts` writes a multi-page CHM (`makeChmPages`), so e144 navigates CHM
 pages as it does Markdown ones. `TestFocusState` names the frame's page box `page-box`.
+For E151, `ad-hoc-e144-focus-restores --trace-navigation` prints the frame's
+Next Page receipt, logical page changes, browser requests and completion, served
+URLs, and foreground, active and focus windows in one sequence. Failures print
+it automatically. Add `--work-area` to run the standalone test in the hosted
+suite's layout on the hidden desktop.
 Dumps that report a popup shown (`visible=1`, `floatVisible=1`, the annotation
 toolbar's `annotEditToolbar visible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,
@@ -694,6 +703,15 @@ Run app-launching tests outside the Codex sandbox or any similarly restricted
 runner. Inside it, WebView2 crashes with an
 `msedgewebview2.exe - アプリケーション エラー` dialog and tests report
 `browser not ready`.
+
+## Hosted full suite
+
+The [full-test workflow](../../.github/workflows/solokpdf-full-tests.yml)
+runs Debug on PDFium and MuPDF in the weekly matrix. A manual dispatch
+selects one engine. Leave `tests` empty for the full suite or provide a
+comma-separated list for a targeted recheck. For a two-engine manual result,
+record the two run IDs and the tested commit. The runner logs tests excluded
+for each engine. [Current validation](README.md#status)
 
 ## Owner's manual acceptance (F1–F3)
 

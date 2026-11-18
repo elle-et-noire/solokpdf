@@ -240,20 +240,20 @@ struct DisplayModel : DocController {
 
     Str GetTextInRegion(int pageNo, RectF region) const;
     bool IsOverText(Point pt);
-    PageHit<bool> TryOverText(Point pt);
+    HoverResult<bool> TryOverText(Point pt);
     IPageElement* GetElementAtPos(Point pt, int* pageNoOut);
     IPageElement* GetElementOnPage(int pageNo, PointF pos);
     Vec<IPageElement*> GetElementsOnPage(int pageNo);
-    PageElementsHit TryElementsOnPage(int pageNo);
-    ElementAt TryElementAtPos(Point pt, int* pageNoOut);
+    HoverResult<Vec<IPageElement*>> TryElementsOnPage(int pageNo);
+    HoverResult<IPageElement*> TryElementAtPos(Point pt, int* pageNoOut);
     // annotation marks are drawn this many pixels outside the bounds
     static constexpr int kAnnotMarkPadding = 4;
     Annotation* GetAnnotationAtPos(Point pt, Annotation*);
-    AnnotationAt TryAnnotationAtPos(Point pt, Annotation*);
-    AnnotationAt TryAnnotationAtPosHover(Point pt, Annotation*);
+    HoverResult<Annotation*> TryAnnotationAtPos(Point pt, Annotation*);
+    HoverResult<Annotation*> TryAnnotationAtPosHover(Point pt, Annotation*);
     Annotation* GetWidgetAtPos(Point pt);
     Annotation* GetAdjacentWidget(Annotation* cur, FieldStep step);
-    PageHit<WidgetCursorKind> TryWidgetCursorAt(Point pt);
+    HoverResult<WidgetCursorKind> TryWidgetCursorAt(Point pt);
 
     int GetPageNoByPoint(Point pt);
     Point CvtToScreen(int pageNo, PointF pt);

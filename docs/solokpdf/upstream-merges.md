@@ -9,6 +9,23 @@ D8–D13 remain complete within their recorded scope.
 Records below are oldest first. Later results update the validation recorded
 at each merge; they do not establish that every test passes at current HEAD.
 
+## Merging MuPDF error handlers
+
+After an upstream merge, run `bun tests/lint-fz-catch.ts` and review new or
+changed app-side catches. Preserve cleanup, return values and selective
+rethrows when choosing a helper. [Helper definitions](../../src/shared/mupdf/fz-catch.h)
+
+- Use `fz_catch_report` to report errors and silently consume cancellation.
+- Use `fz_catch_report_except` to rethrow one specified code and report the others.
+- Use `fz_catch_ignore` for an expected failure. Give the reason in the string argument.
+- Use `fz_catch_code` when the handler needs the code. Report or propagate it
+  with `fz_report_caught` or `fz_rethrow_caught` where required.
+- Use `fz_catch_rethrow` for cleanup followed by unconditional propagation.
+  Let execution reach the end of its body to run the rethrow.
+
+On a MuPDF update, check the catch helper's dependency on MuPDF's error
+state. [Patch ledger](../../ext/patches/README.md)
+
 ## Assessment (2026-10-29)
 
 At `ece895b27`, `upstream/master` at `a30e4d642` was 71 commits ahead of the

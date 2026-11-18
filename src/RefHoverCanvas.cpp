@@ -14,6 +14,7 @@
 #include "DisplayMode.h"
 #include "EngineBase.h"
 #include "DisplayModel.h"
+#include "Canvas.h"
 #include "RefHover.h"
 #include "RefHoverPopupCommon.h"
 
@@ -125,6 +126,7 @@ bool RefHoverOnCanvasMouseMove(RefHoverState*& s, HWND hwndCanvas, DocController
 
     bool scheduled = false;
     if (RefHoverScheduleLink(s, hwndCanvas, dm, x, y, el, hoverDelayMs)) {
+        s->textHoverSince = 0;
         TrackMouseLeave(hwndCanvas);
         scheduled = true;
     } else if (srcPageNo > 0) {
@@ -133,20 +135,29 @@ bool RefHoverOnCanvasMouseMove(RefHoverState*& s, HWND hwndCanvas, DocController
         int destPage = -1;
         float destX = -1.f, destY = -1.f;
         RectF citationSrcRect{};
-        PageHit<bool> found = RefHoverPlainTextAt(s, dm->GetEngine(), srcPageNo, pagePt, destPage, destX, destY,
-                                                  citationSrcRect, EngineWait::NoWait);
-        if (found.busy) {
+        u64 now = GetTickCount64();
+        Point cursor{x, y};
+        if (!s->textHoverSince || s->textHoverPt != cursor) {
+            s->textHoverSince = now;
+            s->textHoverPt = cursor;
+        }
+        bool found = false;
+        auto hit = RefHoverPlainTextAt(s, dm->GetEngine(), srcPageNo, pagePt, destPage, destX, destY, citationSrcRect);
+        if (!hit.Read(found)) {
             gLastMoveHwnd = nullptr;
             return true;
         }
-        if (found.value) {
+        if (found) {
             TrackMouseLeave(hwndCanvas);
             Point screenPt = HwndClientToScreen(hwndCanvas, Point(x, y));
             Rect pageScreenRect = PageScreenRectToScreen(hwndCanvas, dm, srcPageNo);
-            RefHoverSchedule(s, hwndCanvas, hoverDelayMs, screenPt, destPage, destX, destY, 0.f, srcPageNo,
+            u64 elapsed = now - s->textHoverSince;
+            int remaining = elapsed >= (u64)hoverDelayMs ? 0 : hoverDelayMs - (int)elapsed;
+            RefHoverSchedule(s, hwndCanvas, remaining, screenPt, destPage, destX, destY, 0.f, srcPageNo,
                              citationSrcRect, pageScreenRect);
             scheduled = true;
         }
+        s->textHoverSince = 0;
     }
     if (!scheduled) {
         RefHoverScheduleHide(s, hwndCanvas, hoverDelayMs);
@@ -173,9 +184,12 @@ bool RefHoverOnCanvasTimer(RefHoverState* s, HWND hwndCanvas, DisplayModel* dm, 
             RefHoverHide(s, hwndCanvas);
             return true;
         }
-        float pageZoom = dm->GetZoomReal(destPage);
+        const PageInfo* page = dm->GetPageInfo(destPage);
+        float pageZoom = page->zoomReal > 0 ? page->zoomReal : dm->zoomReal;
         KillTimer(hwndCanvas, kRefHoverTimerID);
-        RefHoverOnTimer(s, dm->GetEngine(), pageZoom);
+        if (!RefHoverOnTimer(s, dm->GetEngine(), pageZoom, dm)) {
+            SetTimer(hwndCanvas, kRefHoverTimerID, kHoverRetryDelayMs, nullptr);
+        }
         return true;
     }
     if (timerId == kRefHoverHideTimerID) {

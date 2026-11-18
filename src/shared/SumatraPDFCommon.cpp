@@ -2741,9 +2741,11 @@ void UndoRedoInTab(WindowTab* tab, bool redo) {
     CancelAnnotationPlacement(win);
     CancelDrag(win);
     SetSelectedAnnotation(tab, nullptr);
+#if defined(SUMATRA_NG)
     if (gRenderCache) {
         gRenderCache->AbortRendering(dm);
     }
+#endif
 
     Vec<Annotation*> removed;
     bool ok = EngineUndoRedo(engine, dir, removed);

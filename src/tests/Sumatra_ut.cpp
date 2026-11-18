@@ -45,6 +45,7 @@
 
 // must be last to over-write assert()
 #include "base/tests/UtAssert.h"
+#include "SumatraLog.h"
 
 // in src/shared/tests/SumatraCommon_ut.cpp
 void BenchRangeTest();
@@ -132,6 +133,20 @@ bool EngineBase_UnitTestTextFailure();
 bool EngineMupdf_UnitTestDoi();
 #if defined(SOLOKPDF_PDFIUM)
 bool EngineMupdf_UnitTestThemeCancel();
+bool MupdfTestProbeMessages();
+
+static void TestMupdfProbeLog() {
+    utassert(MupdfTestProbeMessages());
+    TempStr path = GetTempFilePathTemp(StrL("mupdf-probe-log"));
+    utassert(WriteCurrentLogToFile(path));
+    Str saved = file::ReadFile(path);
+    file::Delete(path);
+    bool warning = str::Contains(saved, StrL("SolokPDF probe warning test"));
+    bool error = str::Contains(saved, StrL("SolokPDF probe error test"));
+    str::Free(saved);
+    utassert(warning);
+    utassert(error);
+}
 #endif
 bool Accelerators_UnitTestFolderNavIsSafe();
 bool AccelTestCustomScope();
@@ -683,6 +698,7 @@ int RunAppUnitTests(bool forAi) {
     utassert(EngineMupdf_UnitTestDoi());
 #if defined(SOLOKPDF_PDFIUM)
     utassert(EngineMupdf_UnitTestThemeCancel());
+    TestMupdfProbeLog();
 #endif
     utassert(Accelerators_UnitTestFolderNavIsSafe());
     utassert(AccelTestCustomScope());

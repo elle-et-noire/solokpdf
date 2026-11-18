@@ -8,6 +8,7 @@ extern "C" {
 #include "mupdf/fz-catch.h"
 }
 
+#include "mupdf/fz-context.h"
 #include "PdfDarkMode.h"
 
 struct ImageStats {
@@ -356,7 +357,7 @@ bool PdfDarkModeShouldPreserveImagePixels(const u8* data, int w, int h, int stri
 
 #if IS_DEBUG
 bool PdfDarkModeImageStats_UnitTest() {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
     fz_pixmap* pix = fz_new_pixmap(ctx, fz_device_rgb(ctx), 40, 40, nullptr, 1);
     fz_clear_pixmap_with_value(ctx, pix, 255);
     memset(pix->samples + 39 * pix->stride, 0, 40 * pix->n);

@@ -188,6 +188,28 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   but violates the PDFium render path and large-file memory/locking rules
   (B27 dropped: such PDFs are rare).
 
+## Engine contention (E133)
+
+Page actions can wait on MuPDF's per-document `pagesLock`, `renderLock` and
+`docLock`, acquired in that order when nested, or PDFium's process-wide
+`gPdfiumLock`. A PDFium tab can also wait on its MuPDF editor's document lock.
+PDFium theme preparation uses `themeLock` and takes `probeLock` or
+`gPdfiumLock` beneath it. The page read's lock identity determines which
+canvas renders it cancels.
+
+| Producer                     | Locks held and cancellation points                                                                                                                                                                                                                                                                                                                                      | Recovery                                                                                                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Canvas tiles                 | PDFium holds `gPdfiumLock` for page acquisition, progressive drawing and widgets. The pause callback checks cancellation during progressive drawing. MuPDF holds its page and document locks for page preparation or edits; display-list replay checks a cookie and can run without those locks. PDFium's MuPDF editor pass uses the same cookie chain for annotations. | `AbortForAction` cancels canvas requests and schedules repaint, including other PDFium tabs sharing the lock.                                                               |
+| Home and F12 thumbnails      | The Home cover renders on the open engine. F12 can render on that engine or a clone. PDFium clones share `gPdfiumLock`. The F12 worker checks cancellation between thumbnails; its `RenderPage` call has no cookie.                                                                                                                                                     | F12 discards stale results by generation and its active controller starts the next batch. The Home completion callback releases the engine and accounts for missing output. |
+| Citation popup               | The worker renders the destination and optional continuation on the open engine. The render calls have no cookie.                                                                                                                                                                                                                                                       | Hide invalidates the result by generation. The worker finishes and the latest queued request can proceed.                                                                   |
+| MuPDF display-list build     | A cold build runs the page under `renderLock` and `docLock` via `fz_new_display_list_from_page`, without a cookie.                                                                                                                                                                                                                                                      | Only a complete list can be reused. The later replay already checks cancellation.                                                                                           |
+| Page text and PDFium widgets | Text prefetch holds `gPdfiumLock` through `FPDFText_LoadPage`, glyph extraction and annotation inspection. MuPDF extraction nests `pagesLock`, `renderLock` and `docLock`. `FPDF_FFLDraw` and `FPDFText_LoadPage` have no pause callback. The tile checks before and after widget drawing.                                                                              | Finished text, including a failed extraction, updates the cache. Canceled tiles discard their bitmap and repaint.                                                           |
+| Printing and PDF writes      | Printing uses a clone and checks between bands and inside supported renders via the print cookie. The action cancellation path leaves the print job running. PDF writers can hold `docLock` through a MuPDF write.                                                                                                                                                      | A user-canceled print aborts the spool job. PDF save keeps its existing failure and temporary-file handling.                                                                |
+
+E133 still needs deterministic holds for each producer, recovery checks and
+timings. The PDFium calls without pause callbacks and a cold MuPDF display-list
+build have no measured duration bound.
+
 ## Text, search and selection
 
 - D14 joins horizontal left-to-right paragraph wraps using PDFium glyph geometry
@@ -592,13 +614,8 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 ## Tests and CI
 
-The scheduled run at `99ba47b52` passed 574/584 tests on PDFium and 577/587
-on MuPDF. Its [11 distinct failures](history.md#d9-scheduled-suite-failures-2026-11-09)
-were triaged in D9; all eleven targets passed three hosted runs per engine
-across `b24b868b9` and `4ad4c30ae`. See the [results](history.md#hosted-triage).
-No full suite was rerun. D8's startup,
-palette, tab-view and 100% DPI checks are complete; dated evidence is in the
-[audit](history.md#d8-hosted-validation-audit-2026-11-09).
+Hosted results apply to their recorded revisions. See the [validation summary](README.md#status)
+for current coverage and [D15](backlog.md#open) for pending full and ASan runs.
 
 Control connections allow 30 seconds, scaled for ASan. Startup timeouts capture
 diagnostics; the old timeout cause remains unknown. The palette helper locates

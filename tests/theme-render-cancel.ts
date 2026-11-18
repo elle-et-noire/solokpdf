@@ -50,7 +50,7 @@ export async function testit(): Promise<void> {
     if (patternStrokes && !/PDFium profile: render .*canceled-or-failed=/.test(readFileSync(log, "utf8"))) {
       throw new Error("pattern render completed before cancellation was exercised");
     }
-    if ((await takeStderr(proc)).includes("UNHANDLED EXCEPTION")) {
+    if ([readFileSync(log, "utf8"), await takeStderr(proc)].some((s) => s.includes("UNHANDLED EXCEPTION"))) {
       throw new Error("render cancellation left an unhandled MuPDF exception");
     }
   } finally {

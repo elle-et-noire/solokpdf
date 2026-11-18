@@ -24,7 +24,9 @@ const allowed: Record<string, string> = {
   "RefHoverCanvas.cpp:RefHoverOnCanvasMouseMove": "hover: citation popup",
   "SumatraControl.cpp:ExecuteControlRequest": "-dbg-control: reports hover's view (widget-cursor)",
   "shared/MainWindowCommon.cpp:NewCommandCtx": "menu and toolbar state, rebuilt on every page change",
-  "shared/RefHoverText.cpp:PageTextAt": "hover: plain-text citation fallback",
+  "shared/RefHoverShow.cpp:RefHoverOnTimer": "hover: popup crop's text read",
+  "shared/RefHoverText.cpp:RefHoverTextAt": "hover: citation lookup and popup crop",
+  "shared/RefHoverText.cpp:RefHoverPlainTextAt": "hover: cached text for citation lookup",
   "shared/RefHoverText.cpp:FindReferenceLocation": "hover: plain-text citation fallback",
   "shared/LinkFollow.cpp:RecomputeLinkHints": "keyboard link hints: the scroll branch retries on busy",
 };
@@ -39,7 +41,7 @@ const lookupLayer = new Set([
 ]);
 
 const hoverLookup =
-  /\b(?:TryOverText|TryOverGlyph|TryElementAtPos|TryElementsOnPage|TryAnnotationAtPos|TryAnnotationAtPosHover|TryWidgetCursorAt|CachedTextForPage)\s*\(|\bEngineWait::NoWait\b/;
+  /\b(?:TryOverText|TryOverGlyph|TryElementAtPos|TryElementsOnPage|TryAnnotationAtPos|TryAnnotationAtPosHover|TryWidgetCursorAt|CachedTextForPage|RefHoverPlainTextAt)\s*\(|\bEngineWait::NoWait\b/;
 // a function definition's first line: starts in column 0, has a '(', isn't a declaration
 const funcStart = /^[A-Za-z_][^;]*?\b([A-Za-z_~][\w:~]*)\s*\(/;
 

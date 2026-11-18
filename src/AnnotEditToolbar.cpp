@@ -1301,7 +1301,7 @@ static void EndContentsEdit(AnnotEditToolbar* tb, bool accept) {
         return;
     }
     WindowTab* tab = tb->tab;
-    Annotation* annot = LiveToolbarAnnot(tb);
+    Annotation* annot = accept ? LiveToolbarAnnot(tb, ToolbarAnnotAccess::Edit) : nullptr;
     TempStr newText{};
     if (accept && tb->contentsEdit && annot) {
         newText = tb->contentsEdit->GetTextTemp();
@@ -1853,7 +1853,7 @@ void EndFreeTextInPlaceEdit(bool accept) {
     if (font) {
         DeleteObject(font);
     }
-    if (accept && AnnotationIsLive(annot)) {
+    if (accept && AnnotationIsLiveForEdit(annot)) {
         // the box may be enlarged and the text set: one undo step
         ScopedEngineOperation op(annot->engine, "Edit text");
         DisplayModel* dm = winOk ? win->AsFixed() : nullptr;

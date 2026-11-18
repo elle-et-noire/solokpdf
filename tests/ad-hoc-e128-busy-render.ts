@@ -28,6 +28,7 @@ import {
   pageToCanvas,
   type Pt,
   SELECT,
+  SQUARE,
   selectedText,
   THESE,
   WEB_LINK,
@@ -88,8 +89,13 @@ function field(state: string, name: string): number {
 }
 
 // renders the current page again and waits until the render is parked holding its locks
-async function parkRender(client: ControlClient, stage: Stage = "contents", window = 0): Promise<void> {
-  await testPdf(client, ["park-render", PARK_MS, stage, window]);
+async function parkRender(
+  client: ControlClient,
+  stage: Stage = "contents",
+  window = 0,
+  duration = PARK_MS,
+): Promise<void> {
+  await testPdf(client, ["park-render", duration, stage, window]);
   await pollUntil(
     () => testPdf(client, ["park-state"]),
     (s) => field(s, "parked") === 1,
@@ -230,6 +236,28 @@ async function checkActions(engine: Engine, failures: string[]): Promise<void> {
   }
 }
 
+async function checkAnnotEdits(engine: Engine, failures: string[]): Promise<void> {
+  const { proc, client, frame } = await launch(engine, "annotation-edits", [{ file: "doc.pdf", pdf: makePdf() }]);
+  try {
+    await client.waitForRenderIdle();
+    sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
+    const canvas = findCanvas(frame);
+    const square = (await pageToCanvas(client))({ x: (SQUARE.x0 + SQUARE.x1) / 2, y: (SQUARE.y0 + SQUARE.y1) / 2 });
+    await clickAt(canvas, square.x, square.y);
+    for (const edit of ["color", "Changed contents"]) {
+      await client.waitForRenderIdle();
+      await parkRender(client, engine === "pdfium" ? "annotations" : "contents", 0, WAIT_MS / 3);
+      const start = Date.now();
+      const answer = await testPdf(client, ["edit-selected-annotation", edit]);
+      const err = answer === "changed=1" ? await checkCanceled(client, Date.now() - start) : answer;
+      report(failures, `${engine} annotation ${edit}`, err);
+    }
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 // Tab moves the edit to the next field while the field commit's re-render holds the
 // next-field lookup's locks: MuPDF's renderLock, or on PDFium the editor's, drawing the
 // annotations over PDFium's tile
@@ -362,6 +390,11 @@ async function checkNeedsEditorText(failures: string[]): Promise<void> {
 export async function testit(): Promise<void> {
   setProcessDpiAware();
   const failures: string[] = [];
+  for (const engine of ["pdfium", "mupdf"] as const) await checkAnnotEdits(engine, failures);
+  if (process.argv.includes("--annotation-edits-only")) {
+    if (failures.length) throw new Error(failures.join("\n"));
+    return;
+  }
   for (const engine of ["pdfium", "mupdf"] as Engine[]) {
     await checkActions(engine, failures);
     await checkFormTab(engine, failures);

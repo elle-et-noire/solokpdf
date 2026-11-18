@@ -411,6 +411,25 @@ static WindowTab* FindTabByEngineForCache(EngineBase* engine) {
     return nullptr;
 }
 
+static void CancelRendersForEdit(EngineBase* editor) {
+    if (!gRenderCache) {
+        return;
+    }
+    for (MainWindow* win : gWindows) {
+        for (WindowTab* tab : win->Tabs()) {
+            auto* dm = tab->AsFixed();
+            EngineBase* engine = dm ? dm->GetEngine() : nullptr;
+            if (!engine || (engine != editor && engine->AnnotationEditor(EditorLoad::IfLoaded) != editor)) {
+                continue;
+            }
+            gRenderCache->AbortRendering(dm);
+            if (tab == win->CurrentTab()) {
+                HwndScheduleRepaint(win->hwndCanvas);
+            }
+        }
+    }
+}
+
 static WindowTab* CurrentTabForCache() {
     HWND fg = HwndGetForeground();
     for (MainWindow* win : gWindows) {
@@ -10952,6 +10971,9 @@ static void SetTabAnnotsView(MainWindow* win, WindowTab* tab, AnnotsView view) {
 
 static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     int cmdId = LOWORD(wp);
+    if (cmdId == CmdGoToNextPage && win && win->ctrl && win->ctrl->AsBrowser()) {
+        TraceTestPageNav(StrL("next-page-command"), hwnd, win->ctrl->CurrentPageNo());
+    }
     int invokedCmdId = cmdId;
     bool isAnnotationPlacementCommit = HIWORD(wp) == kAnnotationPlacementCommandCode;
 
@@ -11942,6 +11964,9 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
                 } else {
                     ctrl->GoToNextPage();
                 }
+            }
+            if (cmdId == CmdGoToNextPage && ctrl->AsBrowser()) {
+                TraceTestPageNav(StrL("next-page-result"), hwnd, ctrl->CurrentPageNo());
             }
             OnDocumentVerticalScrollIntent(win, cmdId == CmdGoToNextPage);
             ReadAloudOnUserViewChanged(win);
@@ -17435,6 +17460,7 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
     LogNonDefaultExtsAsync();
 
     gRenderCache = new RenderCache();
+    SetMupdfEditWaitHook(CancelRendersForEdit);
     gFindTabByEngine = FindTabByEngineForCache;
     gCurrentTabForCache = CurrentTabForCache;
     InstallLayoutNotifHooks();
@@ -18049,6 +18075,7 @@ Exit:
     FreeAcceleratorTables();
 
     FileWatcherWaitForShutdown();
+    SetMupdfEditWaitHook(nullptr);
     delete gRenderCache;
 
     // must be after uitask::Destroy() because we might have queued ReloadSettings()

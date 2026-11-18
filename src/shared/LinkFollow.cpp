@@ -211,13 +211,13 @@ static bool RecomputeLinkHints(MainWindow* win, [[maybe_unused]] LinkHintRead re
             continue;
         }
 #else
-        PageElementsHit hit = read == LinkHintRead::Action ? PageElementsHit{dm->GetElementsOnPage(pageNo)}
-                                                           : dm->TryElementsOnPage(pageNo);
+        Vec<IPageElement*> els;
         // Assign hints only once all visible pages answer, so their labels agree.
-        if (hit.busy) {
+        if (read == LinkHintRead::Action) {
+            els = dm->GetElementsOnPage(pageNo);
+        } else if (!dm->TryElementsOnPage(pageNo).Read(els)) {
             return false;
         }
-        const auto& els = hit.value;
 #endif
         for (IPageElement* el : els) {
             if (!el->IsLink()) {

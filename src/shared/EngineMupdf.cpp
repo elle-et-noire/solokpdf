@@ -50,6 +50,7 @@ extern "C" {
 #include "EbookDoc.h"
 #include "Settings.h"
 #include "PdfSave.h"
+#include "mupdf/fz-context.h"
 #include "SumatraConfig.h"
 #include "EngineMupdf.h"
 
@@ -3729,14 +3730,6 @@ static void FzDbgWrite(fz_context*, void*, const void* data, size_t n) {
 // unbuffered and stateless, so every context can share it
 static fz_output gFzDbgOut = {nullptr, FzDbgWrite};
 
-static void InstallFitzErrorCallbacks(EngineMupdf* engine, fz_context* ctx) {
-    fz_set_warning_callback(ctx, fz_print_cb, (void*)engine);
-    fz_set_error_callback(ctx, fz_print_cb, (void*)engine);
-    // mupdf's debug output (form JavaScript errors, console.println) defaults
-    // to stderr, which a GUI app doesn't have: the failed write throws
-    fz_set_stddbg(ctx, &gFzDbgOut);
-}
-
 struct ContextThreadID {
     EngineMupdf* engine = nullptr;
     fz_context* ctx = nullptr;
@@ -3746,6 +3739,17 @@ struct ContextThreadID {
 static Vec<ContextThreadID> gPerThreadContexts;
 static Mutex gPerThreadContextsCs;
 static AtomicInt gEngineCount = 0;
+static void (*gMupdfEditWait)(EngineBase*) = nullptr;
+
+void SetMupdfEditWaitHook(void (*hook)(EngineBase*)) {
+    gMupdfEditWait = hook;
+}
+
+void NotifyMupdfEditWait(EngineBase* engine) {
+    if (uitask::IsMainUIThread() && gMupdfEditWait) {
+        gMupdfEditWait(engine);
+    }
+}
 
 static void InitializeEngineMupdf() {
     AtomicIntInc(&gEngineCount);
@@ -3839,14 +3843,14 @@ EngineMupdf::EngineMupdf() {
     fz_locks_ctx.user = this;
     fz_locks_ctx.lock = fz_lock_context_cs;
     fz_locks_ctx.unlock = fz_unlock_context_cs;
-    _ctx = fz_new_context(nullptr, &fz_locks_ctx, FZ_STORE_DEFAULT);
+    _ctx = NewMupdfContext(FZ_STORE_DEFAULT, &fz_locks_ctx, fz_print_cb, this);
     if (!_ctx) {
         // can happen when out of memory. Load() will fail
         log(StrL("EngineMupdf: fz_new_context() failed\n"));
         return;
     }
-    InstallFitzErrorCallbacks(this, _ctx);
-
+    // Form JavaScript output must not write to stderr in a GUI app.
+    fz_set_stddbg(_ctx, &gFzDbgOut);
 #if OS_WIN
     install_load_windows_font_funcs(_ctx);
 #elif OS_LINUX
@@ -4652,6 +4656,7 @@ class TextFailureEngine : public EnginePdfProxy {
     TextFailureEngine() { pageCount = 1; }
     EngineBase* Clone() override { return nullptr; }
     bool SaveFileAs(Str) override { return false; }
+    void ReleaseThreadContext() override {}
     PageText ExtractPageText(int) override {
         calls++;
         PageText result;
@@ -4693,6 +4698,17 @@ bool EngineBase_UnitTestTextFailure() {
     ok = ok && !engine->TryGetTextForPage(1);
     engine->fail = false;
     ok = ok && str::Eq(engine->GetTextForPage(1), StrL("recovered")) && engine->calls == 7;
+    engine->InvalidateTextForPage(1);
+    engine->fail = true;
+    auto start = TimeGet();
+    PageHit<Str> hover = engine->CachedTextForPage(1);
+    while (hover.busy && TimeSinceInMs(start) < 2000) {
+        SleepInMs(1);
+        hover = engine->CachedTextForPage(1);
+    }
+    ok = ok && !hover.busy && len(hover.value) == 0 && engine->calls == 8;
+    hover = engine->CachedTextForPage(1);
+    ok = ok && !hover.busy && len(hover.value) == 0 && engine->calls == 8;
     engine->Release();
     return ok;
 }
@@ -6959,13 +6975,17 @@ void TrimPdfRenderProbe(PdfRenderProbe* probe) {
     fz_purge_glyph_cache(probe->ctx);
 }
 
-PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password) {
+static fz_context* NewPdfProbeContext() {
     // the probe also draws MuPDF-route tiles; a small store bounds what they keep until trimmed
     constexpr size_t kProbeStoreBytes = 32 << 20;
+    return NewMupdfContext(kProbeStoreBytes);
+}
+
+PdfRenderProbe* NewPdfRenderProbe(const PdfRenderSource& source, Str password) {
     auto* probe = new PdfRenderProbe();
     probe->source = source;
     probe->input.source = &probe->source;
-    probe->ctx = fz_new_context(nullptr, nullptr, kProbeStoreBytes);
+    probe->ctx = NewPdfProbeContext();
     fz_context* ctx = probe->ctx;
     if (!ctx) {
         delete probe;
@@ -7379,7 +7399,7 @@ static PdfThemeSnapshot ThemePdfPage(fz_context* ctx, const PdfRenderSource& sou
 
 PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, int pageNo,
                                    const DarkModeProfile& profile) {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
     if (!ctx) {
         return {};
     }
@@ -7389,6 +7409,20 @@ PdfThemeSnapshot PdfThemePageMupdf(const PdfRenderSource& source, Str password, 
 }
 
 #if IS_DEBUG
+bool MupdfTestProbeMessages() {
+    fz_context* ctx = NewPdfProbeContext();
+    if (!ctx) {
+        return false;
+    }
+    fz_warn(ctx, "SolokPDF probe warning test");
+    fz_try(ctx) {
+        fz_throw(ctx, FZ_ERROR_GENERIC, "SolokPDF probe error test");
+    }
+    fz_catch_report(ctx) {}
+    fz_drop_context(ctx);
+    return true;
+}
+
 static bool ThemeCancelAlways(void*) {
     return true;
 }
@@ -7401,7 +7435,7 @@ static void ThemeCancelWarning(void* user, const char* message) {
 
 // A canceled themed render leaves no error pending on its context (E111).
 bool EngineMupdf_UnitTestThemeCancel() {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
     bool unhandled = false;
     fz_set_warning_callback(ctx, ThemeCancelWarning, &unhandled);
     PdfRenderSource source{nullptr, 1024, nullptr, nullptr, ThemeCancelAlways};
@@ -7416,7 +7450,7 @@ bool EngineMupdf_UnitTestThemeCancel() {
 
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 bool PdfViewerPrintPrefsMupdf(const PdfRenderSource& source, Str password, PdfViewerPrintPrefs& prefs) {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
     if (!ctx) {
         return false;
     }
@@ -7430,7 +7464,7 @@ bool PdfViewerPrintPrefsMupdf(const PdfRenderSource& source, Str password, PdfVi
 
 // Read uncommon page geometry once; ordinary PDFium pages do not open a MuPDF document.
 bool PdfPageGeometryMupdf(Str path, Str data, Str password, int pageCount, Vec<PdfPageGeometry>& out) {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
     if (!ctx) {
         return false;
     }
@@ -7487,7 +7521,7 @@ static int NamedActionTarget(fz_context* ctx, pdf_obj* action, int pageIdx, int 
 // reads them from the probe's parse instead of opening the file.
 void PdfLinksMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, Str password, int pageNo,
                    Vec<PdfLinkMupdf>& links) {
-    fz_context* ctx = probe ? probe->ctx : fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = probe ? probe->ctx : NewMupdfContext(FZ_STORE_DEFAULT);
     if (!ctx) {
         return;
     }
@@ -7576,7 +7610,7 @@ int PdfOpenActionPageMupdf(PdfRenderProbe* probe, PageLayout* layout) {
 
 // Same format as EngineMupdf::decryptionKey: hex of the file's MD5 then the crypt key.
 TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password) {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
     if (!ctx) {
         return {};
     }
@@ -9168,7 +9202,7 @@ bool PdfRenderMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, Str pa
     if (!pixmap || pixmap->format != PixmapFormat::BGRA8) {
         return false;
     }
-    fz_context* ctx = probe ? probe->ctx : fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = probe ? probe->ctx : NewMupdfContext(FZ_STORE_DEFAULT);
     if (!ctx) {
         return false;
     }
@@ -13552,7 +13586,7 @@ bool EngineMupdfBeginOperation(EngineBase* engine, const char* name) {
     }
 #endif
     auto* ctx = e->Ctx();
-    ScopedRecursiveMutex docScope(&e->docLock);
+    ScopedMupdfEditLock docScope(e, &e->docLock);
     bool active = false;
     fz_var(active);
     fz_try(ctx) {
@@ -13570,7 +13604,7 @@ void EngineMupdfEndOperation(EngineBase* engine) {
         return;
     }
     auto* ctx = e->Ctx();
-    ScopedRecursiveMutex docScope(&e->docLock);
+    ScopedMupdfEditLock docScope(e, &e->docLock);
     fz_try(ctx) {
         pdf_end_operation(ctx, e->pdfdoc);
         e->journalNesting--;
@@ -13620,12 +13654,17 @@ static int UndoPosNoWait(EngineMupdf* e, int* stepsOut) {
 
 bool EngineCanUndoRedo(EngineBase* engine, UndoDir dir, EngineWait wait) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
-    int steps = 0;
-    int pos = wait == EngineWait::Wait ? EngineMupdfUndoPos(e, &steps) : UndoPosNoWait(e, &steps);
-    if (dir == UndoDir::Undo) {
-        return pos > 0 && !(wait == EngineWait::Wait ? SignatureUndoBlocked(e) : e->undoBlockedSeen);
+    if (!e) {
+        return false;
     }
-    return pos >= 0 && pos < steps;
+    int steps = 0;
+    if (wait == EngineWait::NoWait) {
+        int pos = UndoPosNoWait(e, &steps);
+        return dir == UndoDir::Undo ? pos > 0 && !e->undoBlockedSeen : pos >= 0 && pos < steps;
+    }
+    ScopedMupdfEditLock lock(e, &e->docLock);
+    int pos = EngineMupdfUndoPos(e, &steps);
+    return dir == UndoDir::Undo ? pos > 0 && !SignatureUndoBlocked(e) : pos >= 0 && pos < steps;
 }
 
 static Annotation* FindWrapperForPdfAnnot(const Vec<Annotation*>& annots, pdf_annot* a) {
@@ -13692,8 +13731,8 @@ static void ResyncWrapperList(EngineMupdf* e, int pageNo, Vec<Annotation*>& wrap
 // every cached rendering of the page.
 static void SyncPagesAfterUndoRedo(EngineMupdf* e, Vec<Annotation*>& removedOut) {
     auto* ctx = e->Ctx();
-    ScopedRecursiveMutex pagesScope(&e->pagesLock);
-    ScopedMutex renderScope(&e->renderLock);
+    ScopedMupdfEditLock pagesScope(e, &e->pagesLock);
+    ScopedMupdfEditLock renderScope(e, &e->renderLock);
     ForEachPageInfo(e, [&](FzPageInfo* pi) {
         if (!pi || !pi->page) {
             return;
@@ -13702,7 +13741,7 @@ static void SyncPagesAfterUndoRedo(EngineMupdf* e, Vec<Annotation*>& removedOut)
             Vec<pdf_annot*> liveAnnots;
             Vec<pdf_annot*> liveWidgets;
             {
-                ScopedRecursiveMutex docScope(&e->docLock);
+                ScopedMupdfEditLock docScope(e, &e->docLock);
                 bool ok = false;
                 fz_var(ok);
                 fz_try(ctx) {
@@ -13723,7 +13762,7 @@ static void SyncPagesAfterUndoRedo(EngineMupdf* e, Vec<Annotation*>& removedOut)
             ResyncWrapperList(e, pi->pageNo, pi->annotations, liveAnnots, removedOut);
             ResyncWrapperList(e, pi->pageNo, pi->widgets, liveWidgets, removedOut);
             {
-                ScopedRecursiveMutex docScope(&e->docLock);
+                ScopedMupdfEditLock docScope(e, &e->docLock);
                 RebuildCommentsFromAnnotations(ctx, pi);
             }
         }
@@ -13764,7 +13803,7 @@ bool EngineMupdfMergePdfs(const Vec<PdfMergeSource>& srcs, const Vec<PdfMergePag
     if (len(srcs) == 0 || nPages == 0 || len(destPath) == 0) {
         return false;
     }
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
     if (!ctx) {
         return false;
     }
@@ -13870,7 +13909,7 @@ bool EngineUndoRedo(EngineBase* engine, UndoDir dir, Vec<Annotation*>& removedOu
     auto* ctx = e->Ctx();
     bool ok = false;
     {
-        ScopedRecursiveMutex docScope(&e->docLock);
+        ScopedMupdfEditLock docScope(e, &e->docLock);
         int disallow = e->pdfdoc->disallow_new_increments;
         fz_try(ctx) {
             if (redo) {
@@ -14613,8 +14652,8 @@ void MarkNotificationAsModified(EngineMupdf* e, Annotation* annot) {
 }
 
 void InvalidateFormPages(EngineMupdf* e) {
-    ScopedRecursiveMutex pagesScope(&e->pagesLock);
-    ScopedMutex renderScope(&e->renderLock);
+    ScopedMupdfEditLock pagesScope(e, &e->pagesLock);
+    ScopedMupdfEditLock renderScope(e, &e->renderLock);
     fz_context* ctx = e->Ctx();
     ForEachPageInfo(e, [ctx](FzPageInfo* pi) {
         if (pi->displayList) {
@@ -14651,7 +14690,7 @@ NO_INLINE void MarkNotificationAsModified(EngineMupdf* e, Annotation* annot, Ann
     // to annotations inside mupdf but we don't want loose the identity
     // so on add /remove we update the list manually
     // on change we assume Annotation* lives inside EngineMupdf
-    ScopedRecursiveMutex scope(&e->pagesLock);
+    ScopedMupdfEditLock scope(e, &e->pagesLock);
     FzPageInfo* pageInfo = e->PageInfoByPageNo(pageNo);
 
     if (change == AnnotationChange::Remove) {
@@ -14676,7 +14715,7 @@ NO_INLINE void MarkNotificationAsModified(EngineMupdf* e, Annotation* annot, Ann
     }
     {
         auto* ctx = e->Ctx();
-        ScopedRecursiveMutex ctxScope(&e->docLock);
+        ScopedMupdfEditLock ctxScope(e, &e->docLock);
         RebuildCommentsFromAnnotations(ctx, pageInfo);
     }
     pageInfo->elementsNeedRebuilding = true;
@@ -14685,7 +14724,7 @@ NO_INLINE void MarkNotificationAsModified(EngineMupdf* e, Annotation* annot, Ann
     // render rebuilds with the new state.
     {
         auto* ctx = e->Ctx();
-        ScopedMutex rl(&e->renderLock);
+        ScopedMupdfEditLock rl(e, &e->renderLock);
         if (pageInfo->displayList) {
             fz_drop_display_list(ctx, pageInfo->displayList);
             pageInfo->displayList = nullptr;
@@ -14772,7 +14811,7 @@ static void outline_to_buffer_rec(fz_context* ctx, fz_output* out, fz_outline* o
 }
 
 TempStr EngineMupdfGetPdfOutline(Str path) {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_UNLIMITED);
     if (!ctx) {
         return {};
     }
@@ -14876,7 +14915,7 @@ static void AddEbookOutline(fz_context* ctx, fz_document* doc, fz_outline_iterat
 // of fontSize points and writes them as a PDF that keeps the text, links and
 // ToC (issue #6480). Returns the number of pages, 0 on failure.
 int EngineMupdfEbookToPdf(Str srcPath, Str dstPath, float pageDx, float pageDy, float fontSize) {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
     if (!ctx) {
         return 0;
     }
@@ -15195,7 +15234,7 @@ bool EngineMupdfExtractPagesToPdf(EngineBase* engine, const Vec<int>& pages, Str
 }
 
 TempStr EngineMupdfGetPdfInfo(Str path, Str password) {
-    fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+    fz_context* ctx = NewMupdfContext(FZ_STORE_UNLIMITED);
     if (!ctx) {
         return {};
     }

@@ -868,7 +868,7 @@ void ChipTextSizePicked(AnnotEditToolbarBase* tb, int size) {
 // tb->annot is non-owning. Save/reload frees the wrapper and only
 // tab->selectedAnnotation is cleared in that path, so compare that first
 // and never call AnnotationIsLive on tb->annot alone.
-Annotation* LiveToolbarAnnot(AnnotEditToolbarBase* tb) {
+Annotation* LiveToolbarAnnot(AnnotEditToolbarBase* tb, ToolbarAnnotAccess access) {
     if (!tb || !tb->win) {
         return nullptr;
     }
@@ -877,7 +877,8 @@ Annotation* LiveToolbarAnnot(AnnotEditToolbarBase* tb) {
     if (!annot || annot != tb->annot || tab != tb->tab) {
         return nullptr;
     }
-    if (!AnnotationIsLive(annot)) {
+    bool live = access == ToolbarAnnotAccess::Edit ? AnnotationIsLiveForEdit(annot) : AnnotationIsLive(annot);
+    if (!live) {
         return nullptr;
     }
     return annot;
@@ -1042,7 +1043,7 @@ TempStr AnnotEditorLayoutResultTemp(int, int, int* exitCodeOut, int) {
 void ChipColorPicked(AnnotEditToolbarBase* tb, Color col) {
     WindowTab* tab = tb->tab;
     Annotation* annot = tab ? tab->selectedAnnotation : nullptr;
-    if (!AnnotationIsLive(annot) || annot != tb->annot) {
+    if (annot != tb->annot || !AnnotationIsLiveForEdit(annot)) {
         return;
     }
     AnnotationType type = Type(annot);

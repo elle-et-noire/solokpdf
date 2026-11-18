@@ -133,12 +133,12 @@ Str AnnotationReadableNameTemp(AnnotationType tp) {
 }
 
 // annot is still owned by EngineMupdf (markup or form widget list).
-static bool IsAnnotationInEngine(EngineMupdf* e, Annotation* annot) {
+static bool IsAnnotationInEngine(EngineMupdf* e, Annotation* annot, MupdfLockWait wait = MupdfLockWait::Normal) {
     if (!e || !annot) {
         return false;
     }
     int pageNo = annot->pageNo;
-    ScopedRecursiveMutex scope(&e->pagesLock);
+    ScopedMupdfEditLock scope(e, &e->pagesLock, wait);
     FzPageInfo* pageInfo = e->PageInfoByPageNo(pageNo);
     if (!pageInfo) {
         return false;
@@ -156,12 +156,17 @@ bool AnnotationIsLive(Annotation* annot) {
     return IsAnnotationInEngine(annot->engine, annot);
 }
 
+bool AnnotationIsLiveForEdit(Annotation* annot) {
+    return annot && annot->pdfannot && IsAnnotationInEngine(annot->engine, annot, MupdfLockWait::Editing);
+}
+
 struct AnnotAccess {
     fz_context* ctx;
     pdf_annot* annot;
-    ScopedRecursiveMutex lock;
+    ScopedMupdfEditLock<RecursiveMutex> lock;
 
-    explicit AnnotAccess(Annotation* a) : ctx(a->engine->Ctx()), annot(a->pdfannot), lock(&a->engine->docLock) {}
+    explicit AnnotAccess(Annotation* a, MupdfLockWait wait = MupdfLockWait::Normal)
+        : ctx(a->engine->Ctx()), annot(a->pdfannot), lock(a->engine, &a->engine->docLock, wait) {}
 };
 
 static void TestAnnotUpdateFailure(fz_context* ctx) {
@@ -190,7 +195,7 @@ static T ReadAnnot(Annotation* annot, T fallback, Read read) {
 
 template <typename Update>
 static bool UpdateAnnotIf(Annotation* annot, Update update) {
-    if (!AnnotationIsLive(annot)) {
+    if (!AnnotationIsLiveForEdit(annot)) {
         return false;
     }
     EngineMupdf* engine = annot->engine;
@@ -199,7 +204,7 @@ static bool UpdateAnnotIf(Annotation* annot, Update update) {
     fz_var(changed);
     fz_var(begun);
     {
-        AnnotAccess access(annot);
+        AnnotAccess access(annot, MupdfLockWait::Editing);
         fz_try(access.ctx) {
             pdf_begin_operation(access.ctx, engine->pdfdoc, "Edit annotation");
             begun = true;
@@ -689,7 +694,7 @@ int GetWidgetMaxLen(Annotation* annot) {
 
 template <typename SetValue>
 static FormEditResult SetWidgetValue(Annotation* annot, Str value, Str operation, SetValue setValue) {
-    if (!AnnotationIsLive(annot) || annot->type != AnnotationType::Widget) {
+    if (!AnnotationIsLiveForEdit(annot) || annot->type != AnnotationType::Widget) {
         return {};
     }
     EngineMupdf* e = annot->engine;
@@ -706,7 +711,7 @@ static FormEditResult SetWidgetValue(Annotation* annot, Str value, Str operation
         // field's format/calculate JS, which mupdf executes (and rethrows
         // errors) on _ctx -- the fz_try must be on that same context.
         auto* ctx = e->BaseCtx();
-        ScopedRecursiveMutex cs(&e->docLock);
+        ScopedMupdfEditLock cs(e, &e->docLock);
         fz_try(ctx) {
             pdf_begin_operation(ctx, e->pdfdoc, "Edit form field");
             begun = true;
@@ -778,13 +783,12 @@ Str Contents(Annotation* annot) {
 
 bool SetContents(Annotation* annot, Str sv) {
     ReportIf(!annot);
-    Str currValue = Contents(annot);
-    if (str::Eq(sv, currValue)) {
-        return false;
-    }
-    TempStr valueZ = str::DupTemp(sv);
-    return UpdateAnnot(annot, [valueZ](fz_context* ctx, pdf_annot* a) {
-        pdf_set_annot_contents(ctx, a, len(valueZ) == 0 ? "" : valueZ.s);
+    return UpdateAnnotIf(annot, [sv](fz_context* ctx, pdf_annot* a) {
+        if (str::Eq(sv, Str(pdf_annot_contents(ctx, a)))) {
+            return false;
+        }
+        pdf_set_annot_contents(ctx, a, len(sv) == 0 ? "" : CStrTemp(sv));
+        return true;
     });
 }
 

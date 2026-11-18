@@ -12,9 +12,10 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { goToPage } from "./ad-hoc-e123-busy-actions.ts";
 import { ControlCommand, type ControlClient } from "./control.ts";
 import { popupState, waitFor as waitPopup } from "./issue-6252.ts";
-import { assemblePdf, cmdId, pollUntil, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
+import { assemblePdf, cmdId, pollUntil, runStandalone, SETTINGS_FILE, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
 import {
   clientToScreen,
   enumWindows,
@@ -30,6 +31,9 @@ import { findCanvas, killAndWait, launchControlled, moveTestCursor, sendCommandS
 
 const TIP_CLASS = "tooltips_class32";
 const WM_SETCURSOR = 0x0020;
+const WM_TIMER = 0x0113;
+const REF_HOVER_TIMER = 9; // kRefHoverTimerID
+const LINK_DEST_PAGE = 4;
 const HTCLIENT = 1;
 const HOLD_MS = 800;
 // a message the UI thread handles while the lock is held must not wait for it
@@ -38,18 +42,20 @@ const WAIT_MS = 3000;
 
 type Engine = "pdfium" | "mupdf";
 
-// page 1: a web link over the top half, a link to page 2 over the bottom half
+// Leave the internal link's destination outside the initial render range.
 function makePdf(): string {
   const text = "BT /F1 10 Tf 72 700 Td (Reference entry) Tj ET";
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+    "<< /Type /Pages /Kids [3 0 R 9 0 R 10 0 R 4 0 R] /Count 4 >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [7 0 R 8 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
     `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
     "<< /Type /Annot /Subtype /Link /Rect [0 396 612 792] /Border [0 0 0] /A << /S /URI /URI (https://example.com/e120) >> >>",
     "<< /Type /Annot /Subtype /Link /Rect [0 0 612 396] /Border [0 0 0] /Dest [4 0 R /XYZ 72 720 null] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
   ]);
 }
 
@@ -95,7 +101,7 @@ async function check(engine: Engine): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "doc.pdf");
   writeFileSync(pdf, makePdf(), "latin1");
-  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nCitationHoverDelay = 100\n");
+  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nCitationHoverDelay = 300\n");
   const { proc, client, frame } = await launchControlled(
     ["-appdata", dir, "-view", "single page", "-zoom", "fit page", pdf],
     { env: { ...process.env, SOLOKPDF_ENGINE: engine } as Record<string, string> },
@@ -119,13 +125,50 @@ async function check(engine: Engine): Promise<void> {
     );
     console.log(`${engine}: link tip OK`);
 
+    // Look up the link before taking the lock. Fire the show timer while the
+    // destination's first text extraction would block on that lock.
+    const citationY = Math.floor((cr.bottom * 3) / 4);
+    await hoverAt(client, canvas, x, citationY, `${engine} citation timer`);
+    start = await holdLock(client, engine);
+    const beforeTimer = performance.now();
+    sendMessage(canvas, WM_TIMER, REF_HOVER_TIMER, 0);
+    const timerMs = performance.now() - beforeTimer;
+    if (timerMs > MAX_HANDLE_MS) throw new Error(`${engine}: citation timer waited ${timerMs.toFixed(0)} ms`);
+    checkHeld(start, `${engine} citation timer`);
+    if ((await popupState(client)).visible) throw new Error(`${engine}: popup shown before extraction`);
+    await waitPopup(client, `${engine}: popup missing after timer retry`, (p) => p.visible);
+    if (engine === "pdfium" && (await testQuery(client, ["editor"])) !== "editor=none") {
+      throw new Error("citation timer loaded the editor");
+    }
+    console.log(`${engine}: cold citation timer returned in ${timerMs.toFixed(1)} ms`);
+    await hoverAt(client, canvas, 1, 1, `${engine} move away from citation`);
+    await waitPopup(client, `${engine}: popup stayed after moving away`, (p) => !p.visible);
+
     // the internal link's citation popup
     start = await holdLock(client, engine);
-    await hoverAt(client, canvas, x, Math.floor((cr.bottom * 3) / 4), `${engine} citation`);
+    await hoverAt(client, canvas, x, citationY, `${engine} citation`);
     if (Date.now() - start >= HOLD_MS) throw new Error(`${engine} citation: the lock was released too early`);
     if ((await popupState(client)).visible) throw new Error(`${engine} citation: shown while the lock was held`);
     await waitPopup(client, `${engine} citation: not shown after the lock was released`, (p) => p.visible);
     console.log(`${engine}: citation popup OK`);
+
+    for (const command of ["CmdNewTab", "CmdClose"]) {
+      await hoverAt(client, canvas, 1, 1, `${engine} ${command}: move away`);
+      await waitPopup(client, `${engine} ${command}: previous popup stayed visible`, (p) => !p.visible);
+      await testQuery(client, ["reset-cached-text", LINK_DEST_PAGE]);
+      await hoverAt(client, canvas, x, citationY, `${engine} ${command}: schedule citation`);
+      const heldAt = await holdLock(client, engine);
+      sendMessage(canvas, WM_TIMER, REF_HOVER_TIMER, 0);
+      checkHeld(heldAt, `${engine} ${command}: extraction pending`);
+      sendCommandSync(frame, cmdId(command));
+      const watchUntil = Date.now() + HOLD_MS;
+      while (Date.now() < watchUntil) {
+        if ((await popupState(client)).visible) throw new Error(`${engine} ${command}: stale citation popup`);
+        await Bun.sleep(25);
+      }
+      if (command === "CmdNewTab") sendCommandSync(frame, cmdId("CmdPrevTab"));
+    }
+    console.log(`${engine}: pending citation stayed hidden after tab switch and document close`);
   } finally {
     client.close();
     await killAndWait(proc);
@@ -139,6 +182,9 @@ async function check(engine: Engine): Promise<void> {
 const FILLER = "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore";
 const DENSE = `${FILLER} et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi`;
 const PAGES = 50;
+const REFERENCE_PAGE = 2;
+const COLD_TEXT_PAGE = 3;
+const DENSE_TOP = 780;
 const PAGE_H = 792;
 const CITE = { x: 103, y: 700 };
 const TEXT = { x: 80, y: 640 };
@@ -146,7 +192,7 @@ const SQUARE = { x0: 72, y0: 250, x1: 280, y1: 350 };
 const FIELD = { x0: 330, y0: 250, x1: 540, y1: 300 };
 const EMPTY = { x: 450, y: 120 };
 // the plain-text citation reads every page's text: allow for extracting them all
-const CITE_WAIT_MS = 20_000;
+const CITE_WAIT_MS = 20_000 * SLOW_BUILD_FACTOR;
 
 function lines(top: number, n: number, size = 11, text = FILLER, x = 72): string {
   return `BT /F1 ${size} Tf ${size + 1} TL ${x} ${top} Td (${text}) Tj ${`(${text}) ' `.repeat(n - 1)}ET`;
@@ -174,7 +220,7 @@ function makeE122Pdf(): string {
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 ${PAGE_H}] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R /Annots [8 0 R 9 0 R] >>`,
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
     stream(page1),
-    stream(lines(780, 125, 5, DENSE, 20)),
+    stream(lines(DENSE_TOP, 125, 5, DENSE, 20)),
     stream(ref),
     `<< /Type /Annot /Subtype /Square /Rect [${SQUARE.x0} ${SQUARE.y0} ${SQUARE.x1} ${SQUARE.y1}] /C [0 0 1] /Contents (E122 note) >>`,
     `<< /Type /Annot /Subtype /Widget /F 4 /P 3 0 R /DA (/Helv 12 Tf 0 g) /FT /Tx /T (name) /Rect [${FIELD.x0} ${FIELD.y0} ${FIELD.x1} ${FIELD.y1}] >>`,
@@ -258,9 +304,8 @@ async function checkE122(engine: Engine, failures: string[]): Promise<void> {
 
     // the first hover over a page whose text isn't extracted yet
     await step("I-beam before extraction", async () => {
-      // hovering page 2 anywhere would start its extraction
       await arrowAt("I-beam before extraction");
-      sendCommandSync(frame, cmdId("CmdGoToNextPage"));
+      await goToPage(client, COLD_TEXT_PAGE);
       // a render of a page next to it would make the hover busy and look again anyway
       await pollUntil(
         () => client.waitForRenderIdle(),
@@ -268,11 +313,11 @@ async function checkE122(engine: Engine, failures: string[]): Promise<void> {
         { timeoutMs: WAIT_MS, error: (info) => `renders don't stop: ${info}` },
       );
       try {
-        const pt = await toCanvas(client, TEXT.x, TEXT.y + 4, 2);
+        const pt = await toCanvas(client, 24, DENSE_TOP + 2, COLD_TEXT_PAGE);
         await hoverAt(client, canvas, pt.x, pt.y, "I-beam before extraction");
         await waitCursor(client, "ibeam", "I-beam before extraction");
       } finally {
-        sendCommandSync(frame, cmdId("CmdGoToPrevPage"));
+        await goToPage(client, 1);
       }
     });
 
@@ -292,24 +337,35 @@ async function checkE122(engine: Engine, failures: string[]): Promise<void> {
     });
 
     await step("plain-text citation", async () => {
+      const referenceReady = async () => (await testQuery(client, ["has-cached-text", REFERENCE_PAGE])) === "ready=1";
+      if (await referenceReady()) throw new Error("reference text was already cached");
       const start = await holdLock(client, engine);
       await hoverAt(client, canvas, cite.x, cite.y, "plain-text citation");
       checkHeld(start, "plain-text citation");
       if ((await popupState(client)).visible) throw new Error("shown while the lock was held");
       // the popup comes once the pages' text is read; the UI thread never waits for it
       let maxMs = 0;
+      let readyAt = 0;
       await pollUntil(
         async () => {
           const t = Date.now();
           sendMessage(canvas, 0, 0, 0);
           maxMs = Math.max(maxMs, Date.now() - t);
           if (maxMs > MAX_HANDLE_MS) throw new Error(`the UI thread was busy for ${maxMs} ms`);
+          if (!readyAt && (await referenceReady())) readyAt = Date.now();
           return (await popupState(client)).visible;
         },
         (v) => v,
-        { timeoutMs: CITE_WAIT_MS, error: "not shown after the lock was released" },
+        {
+          timeoutMs: CITE_WAIT_MS,
+          intervalMs: 25,
+          error: () => `popup missing after ${CITE_WAIT_MS} ms (reference text ${readyAt ? "cached" : "pending"})`,
+        },
       );
-      console.log(`${engine} plain-text citation: shown after ${Date.now() - start} ms, UI busy ${maxMs} ms at most`);
+      if (!readyAt) throw new Error("popup was shown before the reference text was cached");
+      console.log(
+        `${engine} plain-text citation: ${Date.now() - readyAt} ms after text was cached, UI busy ${maxMs} ms at most`,
+      );
       if (engine === "pdfium") {
         const editor = await testQuery(client, ["editor"]);
         if (editor !== "editor=none") throw new Error(`hover loaded the MuPDF editor (${editor})`);

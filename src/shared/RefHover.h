@@ -18,6 +18,8 @@ class EngineBase;
 enum class EngineWait;
 template <typename T>
 struct PageHit;
+template <typename T>
+class HoverResult;
 struct DocController;
 struct DisplayModel;
 struct ILinkHandler;
@@ -51,6 +53,8 @@ struct RefHoverState {
 #else
     HWND hwndPopup = nullptr;
     HWND hwndCanvas = nullptr;
+    Point textHoverPt;
+    u64 textHoverSince = 0;
 #endif
     // kept current by Canvas on mouse-move so popup clicks can open links
     DocController* ctrl = nullptr;
@@ -208,7 +212,7 @@ void RefHoverOnWheel(RefHoverState* s, EngineBase* engine, UINT msg, WPARAM wp, 
 #endif
 
 void RefHoverHandlePopupClick(RefHoverState* s, IPageDestination* dest);
-void RefHoverOnTimer(RefHoverState* s, EngineBase* engine, float pageZoom);
+bool RefHoverOnTimer(RefHoverState* s, EngineBase* engine, float pageZoom, DisplayModel* dm = nullptr);
 int RefHoverPopupWidthCap(RefHoverState* s, int minWidth);
 // a RefHoverWheelZoom anchor off the popup: zoom around the content's center
 const Point kRefHoverNoAnchor{-1, -1};
@@ -244,8 +248,8 @@ bool ShouldSearchNextPage(RectF mediabox, float destY);
 
 bool RefHoverTryPlainText(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
                           float& destXOut, float& destYOut, RectF& srcRectOut);
-PageHit<bool> RefHoverPlainTextAt(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos, int& destPageOut,
-                                  float& destXOut, float& destYOut, RectF& srcRectOut, EngineWait wait);
+HoverResult<bool> RefHoverPlainTextAt(RefHoverState* s, EngineBase* engine, int srcPage, Point pagePos,
+                                      int& destPageOut, float& destXOut, float& destYOut, RectF& srcRectOut);
 
 void RefHoverFreeLookupCache(RefHoverState* s);
 
@@ -254,8 +258,9 @@ enum class RefHoverTextMatch {
     Best,
 };
 
-float RefHoverResolveDestYFromSourceText(EngineBase* engine, int srcPage, RectF srcRect, int destPage,
-                                         RefHoverTextMatch match = RefHoverTextMatch::Any);
+PageHit<Str> RefHoverTextAt(EngineBase* engine, int pageNo, EngineWait wait, int* lenOut, Rect** coordsOut);
+PageHit<float> RefHoverDestY(EngineBase* engine, int srcPage, RectF srcRect, int destPage, EngineWait wait,
+                             RefHoverTextMatch match = RefHoverTextMatch::Any);
 
 //--- citation pattern matching (RefHoverTextDetect.cpp)
 

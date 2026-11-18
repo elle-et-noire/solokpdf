@@ -1140,12 +1140,11 @@ static void HoverMoveBusy(MainWindow* win) {
 // The citation popup for canvas point pt, as the mouse moving there does.
 static void CitationHoverAt(MainWindow* win, DisplayModel* dm, Point pt) {
     int pageNo = -1;
-    ElementAt at = dm->TryElementAtPos(pt, &pageNo);
-    if (at.busy) {
+    IPageElement* el = nullptr;
+    if (!dm->TryElementAtPos(pt, &pageNo).Read(el)) {
         HoverMoveBusy(win);
         return;
     }
-    IPageElement* el = at.value;
     if (el && el->Is(kindPageElementDest) && gSettings->disableLinks) {
         el = nullptr;
     }
@@ -1163,12 +1162,12 @@ static void HoverMoveAt(MainWindow* win, DisplayModel* dm, Point pos) {
     // no hover effects for anything but the annotation being edited
     Annotation* locked = AnnotationLockingMouse(win);
     if (locked) {
-        AnnotationAt at = dm->TryAnnotationAtPos(pos, locked);
-        if (at.busy) {
+        Annotation* hit = nullptr;
+        if (!dm->TryAnnotationAtPos(pos, locked).Read(hit)) {
             HoverMoveBusy(win);
             return;
         }
-        win->annotationUnderCursor = at.value == locked ? locked : nullptr;
+        win->annotationUnderCursor = hit == locked ? locked : nullptr;
         if (win->annotationUnderCursor != prev) {
             ScheduleRepaint(win, 0);
         }
@@ -1178,12 +1177,11 @@ static void HoverMoveAt(MainWindow* win, DisplayModel* dm, Point pos) {
     }
     // the highlighter only selects text: annotations get no hover
     bool highlighter = IsPlacingHighlighterAnnotation(win);
-    AnnotationAt at = highlighter ? AnnotationAt{} : dm->TryAnnotationAtPosHover(pos, nullptr);
-    if (at.busy) {
+    Annotation* annot = nullptr;
+    if (!highlighter && !dm->TryAnnotationAtPosHover(pos, nullptr).Read(annot)) {
         HoverMoveBusy(win);
         return;
     }
-    Annotation* annot = at.value;
     bool editPdf = win->pdfAnnotationsToolbarEnabled && !highlighter;
     if (annot != prev) {
         if (editPdf) {
@@ -1212,14 +1210,14 @@ bool ShowCitationAt(MainWindow* win, Point pt) {
     if (!dm) {
         return false;
     }
-    ElementAt at = dm->TryElementAtPos(pt, nullptr);
-    if (at.busy) {
+    IPageElement* link = nullptr;
+    if (!dm->TryElementAtPos(pt, nullptr).Read(link)) {
         win->hoverRetry.show = true;
         win->hoverRetry.showPt = pt;
         HoverRetryLater(win);
         return true;
     }
-    return RefHoverScheduleLink(win->refHover, win->hwndCanvas, dm, pt.x, pt.y, at.value, 0);
+    return RefHoverScheduleLink(win->refHover, win->hwndCanvas, dm, pt.x, pt.y, link, 0);
 }
 
 static bool MeasurementHoverAt(MainWindow* win, Point pt) {
@@ -3460,11 +3458,11 @@ static void OnPaintDocument(MainWindow* win) {
 
 // false: the page's text isn't extracted yet, the cursor is left as is
 static bool SetTextOrArrorCursor(DisplayModel* dm, Point pt) {
-    PageHit<bool> text = dm->TryOverText(pt);
-    if (text.busy) {
+    bool text = false;
+    if (!dm->TryOverText(pt).Read(text)) {
         return false;
     }
-    SetCursorCached(text.value ? IDC_IBEAM : IDC_ARROW);
+    SetCursorCached(text ? IDC_IBEAM : IDC_ARROW);
     return true;
 }
 
@@ -3503,44 +3501,41 @@ static LRESULT OnSetCursorMouseNone(MainWindow* win, HWND hwnd) {
     // an annotation being edited: no hover cursors or tooltips for anything else
     if (AnnotationLockingMouse(win)) {
         win->DeleteToolTip();
-        AnnotationAt onSelected = dm->TryAnnotationAtPos(pt, selected);
-        if (onSelected.busy) {
+        Annotation* onSelected = nullptr;
+        if (!dm->TryAnnotationAtPos(pt, selected).Read(onSelected)) {
             return CursorHoverBusy(win);
         }
-        SetCursorCached(onSelected.value == selected ? IDC_HAND : IDC_ARROW);
+        SetCursorCached(onSelected == selected ? IDC_HAND : IDC_ARROW);
         return TRUE;
     }
 
     // PDF form fields: I-beam over text/choice, hand over checkbox/radio
     {
-        PageHit<WidgetCursorKind> widget = dm->TryWidgetCursorAt(pt);
-        if (widget.busy) {
+        WidgetCursorKind widget;
+        if (!dm->TryWidgetCursorAt(pt).Read(widget)) {
             return CursorHoverBusy(win);
         }
-        if (widget.value == WidgetCursorKind::Text) {
+        if (widget == WidgetCursorKind::Text) {
             SetCursorCached(IDC_IBEAM);
             return TRUE;
         }
-        if (widget.value == WidgetCursorKind::Button) {
+        if (widget == WidgetCursorKind::Button) {
             SetCursorCached(IDC_HAND);
             return TRUE;
         }
     }
 
-    AnnotationAt annotAt =
-        IsPlacingHighlighterAnnotation(win) ? AnnotationAt{} : dm->TryAnnotationAtPosHover(pt, selected);
-    if (annotAt.busy) {
+    Annotation* annot = nullptr;
+    if (!IsPlacingHighlighterAnnotation(win) && !dm->TryAnnotationAtPosHover(pt, selected).Read(annot)) {
         return CursorHoverBusy(win);
     }
-    Annotation* annot = annotAt.value;
     bool annotEditHover = annot && (win->pdfAnnotationsToolbarEnabled || selected);
 
     int pageNo = 0;
-    ElementAt at = dm->TryElementAtPos(pt, &pageNo);
-    if (at.busy) {
+    IPageElement* pageEl = nullptr;
+    if (!dm->TryElementAtPos(pt, &pageNo).Read(pageEl)) {
         return CursorHoverBusy(win);
     }
-    IPageElement* pageEl = at.value;
     if (pageEl && pageEl->Is(kindPageElementDest) && gSettings->disableLinks) {
         pageEl = nullptr;
     }

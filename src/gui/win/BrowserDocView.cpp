@@ -14,6 +14,7 @@
 
 #include "AppTools.h"
 #include "Accelerators.h"
+#include "SumatraControl.h"
 #include "gui/BrowserView.h"
 #include "gui/win/BrowserDocView.h"
 #include "BrowserViewCommon.h"
@@ -155,6 +156,7 @@ bool BrowserDocView::ResourceGet(void* ctx, Str path, WebViewResourceResult* res
         return false;
     }
     Str data = view->cb->GetDataForUrl(path);
+    TraceTestPageNav(StrL("browser-resource"), view->hwndParent, len(data), path);
     if (len(data) == 0) {
         return false;
     }
@@ -171,6 +173,7 @@ bool BrowserDocView::NavigationStarting(void* ctx, Str url, bool newWindow) {
         return false;
     }
     bool allow = view->cb->OnBeforeNavigate(url, newWindow);
+    TraceTestPageNav(StrL("browser-starting"), view->hwndParent, allow, url);
     // drop the previous page's position so GetScrollPos() does not keep a stale
     // y while the new document (or hash) is still applying
     if (allow && !newWindow) {
@@ -181,6 +184,7 @@ bool BrowserDocView::NavigationStarting(void* ctx, Str url, bool newWindow) {
 
 void BrowserDocView::NavigationCompleted(void* ctx, Str url, bool success) {
     auto* view = (BrowserDocView*)ctx;
+    if (view) TraceTestPageNav(StrL("browser-completed"), view->hwndParent, success, url);
     if (!view || !view->cb || !success || len(url) == 0) {
         return;
     }
@@ -452,6 +456,7 @@ void BrowserDocView::NavigateToDataUrl(Str url) {
     if (len(url) == 0) {
         return;
     }
+    TraceTestPageNav(StrL("browser-request"), hwndParent, (int)backend, url);
     if (backend == Backend::WebView2 && wv) {
         TempStr fullUrl = url;
         if (!str::StartsWith(url, virtualHost)) {

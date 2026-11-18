@@ -7,6 +7,30 @@ struct Annotation;
 enum class AnnotationChange;
 enum class FileType : u8;
 
+enum class MupdfLockWait {
+    Normal,
+    Editing
+};
+
+void NotifyMupdfEditWait(EngineBase* engine);
+
+template <typename MutexType>
+struct ScopedMupdfEditLock : NonCopyable {
+    MutexType* mutex;
+
+    ScopedMupdfEditLock(EngineBase* engine, MutexType* lock, MupdfLockWait wait = MupdfLockWait::Editing)
+        : mutex(lock) {
+        if (wait == MupdfLockWait::Editing) {
+            if (mutex->TryLock()) {
+                return;
+            }
+            NotifyMupdfEditWait(engine);
+        }
+        mutex->Lock();
+    }
+    ~ScopedMupdfEditLock() { mutex->Unlock(); }
+};
+
 struct FitzPageImageInfo {
     fz_rect rect = fz_unit_rect;
     fz_matrix transform;

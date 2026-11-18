@@ -9,7 +9,7 @@
 // Run standalone: bun tests/lint-fz-catch.ts
 
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 const helperFile = "shared/mupdf/fz-catch.h";
 
@@ -19,6 +19,8 @@ const allowed: Record<string, string> = {
 };
 
 const rawCatch = /\bfz_catch\s*\(/;
+const rawContext = /\bfz_new_context(?:_imp)?\s*\(/;
+const contextFactory = "shared/mupdf/fz-context.h:NewMupdfContext";
 const rawErrorCall =
   /\b(?:fz_report_error|fz_ignore_error|fz_convert_error|fz_rethrow|fz_rethrow_if|fz_rethrow_unless|fz_morph_error|fz_caught)\s*\(/;
 const ignoreWithReason = /\bfz_catch_ignore\s*\([^,()]+,\s*"[^"]+"\s*\)/;
@@ -60,11 +62,16 @@ export async function testit(): Promise<void> {
   const srcDir = join(import.meta.dir, "..", "src");
   const violations: string[] = [];
   const seen = new Set<string>();
-  const files = readdirSync(srcDir, { recursive: true }) as string[];
-  for (const f of files) {
-    const name = f.replaceAll("\\", "/");
+  const files = readdirSync(srcDir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(srcDir, entry.name);
+    if (!entry.isDirectory()) return [path];
+    if (entry.name === "ng") return [];
+    return readdirSync(path, { recursive: true }).map((name) => join(path, name));
+  });
+  for (const path of files) {
+    const name = relative(srcDir, path).replaceAll("\\", "/");
     if (name === helperFile || !/\.(?:c|cpp|h|m|mm)$/.test(name)) continue;
-    const text = readFileSync(join(srcDir, name), "utf-8");
+    const text = readFileSync(path, "utf-8");
     const raw = text.split("\n");
     const code = stripComments(text);
     const lines = code.split("\n");
@@ -72,6 +79,9 @@ export async function testit(): Promise<void> {
     lines.forEach((line, i) => {
       const where = `src/${name}:${i + 1}: ${raw[i].trim()}`;
       if (rawCatch.test(line)) violations.push(`raw fz_catch: ${where}`);
+      if (rawContext.test(line) && `${name}:${enclosingFunc(lines, i)}` !== contextFactory) {
+        violations.push(`MuPDF context must be created through a logging factory: ${where}`);
+      }
       if (/\bfz_catch_ignore\s*\(/.test(line) && !ignoreWithReason.test(raw[i])) {
         violations.push(`fz_catch_ignore needs a reason string: ${where}`);
       }
@@ -99,11 +109,10 @@ export async function testit(): Promise<void> {
   }
   if (violations.length) {
     throw new Error(
-      `MuPDF catches must consume through src/${helperFile} (or be allowlisted in tests/lint-fz-catch.ts):\n` +
-        violations.join("\n"),
+      `Use src/${helperFile} for MuPDF catches and a logging factory for contexts:\n${violations.join("\n")}`,
     );
   }
-  console.log("PASS: every MuPDF catch in src/ consumes its error");
+  console.log("PASS: Win32 and shared MuPDF catches consume their errors");
 }
 
 if (import.meta.main) {

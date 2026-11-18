@@ -55,7 +55,7 @@ export type Pt = { x: number; y: number };
 
 // page 1, in PDF points: a web link and a link to page 2 side by side at the
 // top, an image and a square annotation side by side below them
-const SQUARE = { x0: 330, y0: 340, x1: 556, y1: 560 };
+export const SQUARE = { x0: 330, y0: 340, x1: 556, y1: 560 };
 export const WEB_LINK = { x: 150, y: 700 };
 export const PAGE_LINK = { x: 460, y: 700 };
 const IMAGE = { x: 173, y: 450 };
