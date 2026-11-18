@@ -17,18 +17,6 @@
 #include "base/Win.h"
 #include "base/CrashHandler.h"
 
-/* Note: we cannot use standard malloc()/free()/new()/delete() in crash handler.
-For multi-thread safety, there is a per-heap lock taken by HeapAlloc() etc.
-It's possible that a crash originates from  inside such functions after a lock
-has been taken. If we then try to allocate memory from the same heap, we'll
-deadlock and won't send crash report.
-For that reason we create a heap used only for crash handler and must only
-allocate, directly or indirectly, from that heap.
-I'm not sure what happens if a Windows function (e.g. http calls) has to
-allocate memory. I assume it'll use GetProcessHeap() heap and further assume
-that CRT creates its own heap for malloc()/free() etc. so that while a deadlock
-is still possible, the probability should be greatly reduced. */
-
 static Arena* gCrashHandlerArena = nullptr;
 
 // everything app-specific, handed to us by InstallCrashHandler()
@@ -81,46 +69,53 @@ static Str gSystemInfo;
 static HANDLE gDumpEvent = nullptr;
 // set by the dump thread when the report is done: its exit would wait for the loader
 static HANDLE gReportDoneEvent = nullptr;
-// set by the dump thread once prepareCrashInfo ran and the dump helper started
+static HANDLE gHelperReadyEvent = nullptr;
+// set by the dump thread once prepareCrashInfo ran
 static HANDLE gReadyEvent = nullptr;
 constexpr DWORD kReadyTimeoutMs = 10 * 1000;
+constexpr DWORD kReportTimeoutMs = 8 * 1000;
 static ThreadHandle gDumpThread = nullptr;
-static bool gCrashed = false;
-static AtomicBool gCrashHandlerStarted = 0;
-static ThreadId gCrashThreadId = 0;
+enum CrashState {
+    Stopped,
+    Idle,
+    Handling
+};
+static AtomicInt gCrashState = Stopped;
+static AtomicInt gCrashThreadId = 0;
 static ThreadId gDumpThreadId = 0;
 
 static MINIDUMP_EXCEPTION_INFORMATION gMei{};
+struct CrashPath {
+    Str path;
+    WStr wide;
+    WStr fallbackTemp;
+};
+static CrashPath gCrashPaths[2]; // a recovered voice engine crash can precede a fatal one
+static unsigned gCrashCount = 0;
+static CrashPath* gCrashPath = nullptr;
+static MINIDUMP_SYSTEM_INFO gDumpSystemInfo{};
+static bool gRawDumpWritten = false;
+static bool gMayRecover = false;
+static bool gRecovered = false;
+static ULONGLONG gReportDeadline = 0;
+static HMODULE gExeModule = nullptr;
+static HMODULE gNtdllModule = nullptr;
 // read from fullDumpEnvVar at install: GetEnvironmentVariableA() allocates
 static bool gFullDump = false;
+enum class CrashTestMode {
+    Normal,
+    ReportStop,
+    HeapLock,
+    NoHelper,
+    HelperStop,
+};
+static CrashTestMode gCrashTestMode = CrashTestMode::Normal;
+static HANDLE gCrashTestHeap = nullptr;
 static LPTOP_LEVEL_EXCEPTION_FILTER gPrevExceptionFilter = nullptr;
+static bool gExceptionFilterInstalled = false;
 // kept so UninstallCrashHandler() can remove the handler: it reads globals
 // that uninstall tears down
 static PVOID gVectoredHandler = nullptr;
-
-static bool TryStartCrashHandling(Str handlerName) {
-    if (!AtomicBoolSwap(&gCrashHandlerStarted, true)) {
-        gCrashThreadId = GetCurrentThreadId();
-        CallCb(gCfg.onCrashBegin);
-        return true;
-    }
-
-    OutputDebugStringA(CStrTemp(handlerName));
-    OutputDebugStringA(": ignoring nested crash\n");
-
-    ThreadId threadId = GetCurrentThreadId();
-    if (threadId == gCrashThreadId || threadId == gDumpThreadId) {
-        TerminateProcess(GetCurrentProcess(), 1);
-    }
-
-    if (gDumpThread) {
-        WaitForSingleObject(gDumpThread, INFINITE);
-    }
-
-    // The first crash handler will show the crash message and terminate the process.
-    Sleep(INFINITE);
-    return false;
-}
 
 static void WriteCrashInfoToStdErr(Str d) {
     if (len(d) == 0) {
@@ -135,7 +130,7 @@ static void WriteCrashInfoToStdErr(Str d) {
 }
 
 // path of the .dmp the report being built goes to, see BuildCrashComment()
-static Str gDumpPath;
+static thread_local Str gDumpPath;
 
 // crashDumpPath with "-<unix epoch in minutes>" before the extension, so a
 // dump doesn't overwrite earlier ones: sumatrapdfcrash-29871234.dmp. A second
@@ -159,9 +154,7 @@ Str CrashHandlerDumpPath() {
 
 static bool InitializeDbgHelp();
 
-// The report text is the app's to write; we only say when and give it the
-// arena to write into. Every report builds its text before writing its .dmp,
-// so this is where the .dmp gets its name: the text can then say where it is.
+// ReportIf can select a path here. Fatal crashes use a preallocated path.
 static Str BuildCrashComment(Str condStr, Str fileLine, bool isCrash) {
     if (gReadyEvent) {
         WaitForSingleObject(gReadyEvent, kReadyTimeoutMs);
@@ -190,23 +183,38 @@ and the process heap. So the handler starts a helper process (our exe with
                      <------------------- SetEvent(done)
 */
 
+enum class DumpKind : u32 {
+    DebugReport,
+    Crash,
+    TestHelperStop
+};
+
 // what the helper reads from our memory; pointers are our addresses
 struct DumpRequest {
     u64 exceptionPointers; // EXCEPTION_POINTERS*, 0 for none
     u64 path;              // utf-8, gDumpPath
     u64 comment;           // utf-8, the comment stream
+    ULONGLONG deadline;
     u32 pathLen;
     u32 commentLen;
     u32 threadId;
     u32 fullDump;
+    DumpKind kind;
 };
 
-constexpr DWORD kHelperAppAccess = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE | SYNCHRONIZE;
+struct DumpHelperEvents {
+    u64 request;
+    u64 done;
+};
+
+constexpr DWORD kHelperAppAccess =
+    PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE | PROCESS_TERMINATE | SYNCHRONIZE;
 // a full dump of a large process takes seconds; past this we give up on it
 constexpr DWORD kDumpTimeoutMs = 30 * 1000;
 constexpr u32 kMaxRequestStrLen = 256 * 1024 * 1024;
 
 static DumpRequest gDumpRequest{};
+static DumpHelperEvents gRemoteEvents{};
 static HANDLE gHelperProcess = nullptr;
 static HANDLE gHelperRequestEvent = nullptr;
 static HANDLE gHelperDoneEvent = nullptr;
@@ -215,83 +223,77 @@ static HANDLE gHelperLock = nullptr;
 // set once the helper missed a request: a late "done" would answer the next one
 static AtomicBool gHelperFailed = 0;
 
+static DWORD TimeLeft(ULONGLONG deadline) {
+    ULONGLONG now = GetTickCount64();
+    if (now >= deadline) {
+        return 0;
+    }
+    ULONGLONG remaining = deadline - now;
+    return remaining > kDumpTimeoutMs ? kDumpTimeoutMs : (DWORD)remaining;
+}
+
 // Has the helper write the .dmp at gDumpPath. Only our memory, events and a
 // mutex: no heap, no loader. False if there is no helper or it didn't finish.
-static bool WriteDumpViaHelper(Str comment, MINIDUMP_EXCEPTION_INFORMATION* mei) {
+static bool WriteDumpViaHelper(Str path, Str comment, const MINIDUMP_EXCEPTION_INFORMATION* mei, DumpKind kind,
+                               ULONGLONG deadline) {
     if (!gHelperProcess || AtomicBoolGet(&gHelperFailed)) {
-        log(StrL("WriteDumpViaHelper: no helper\n"));
         return false;
     }
-    DWORD res = WaitForSingleObject(gHelperLock, kDumpTimeoutMs);
+    DWORD res = WaitForSingleObject(gHelperLock, TimeLeft(deadline));
     if (res != WAIT_OBJECT_0 && res != WAIT_ABANDONED) {
-        log(StrL("WriteDumpViaHelper: another dump is taking too long\n"));
+        return false;
+    }
+
+    if (AtomicBoolGet(&gHelperFailed) || TimeLeft(deadline) == 0) {
+        ReleaseMutex(gHelperLock);
         return false;
     }
 
     gDumpRequest.exceptionPointers = mei ? (u64)(uintptr_t)mei->ExceptionPointers : 0;
     gDumpRequest.threadId = mei ? mei->ThreadId : 0;
-    gDumpRequest.path = (u64)(uintptr_t)gDumpPath.s;
-    gDumpRequest.pathLen = (u32)len(gDumpPath);
+    gDumpRequest.path = (u64)(uintptr_t)path.s;
+    gDumpRequest.pathLen = (u32)len(path);
     gDumpRequest.comment = (u64)(uintptr_t)comment.s;
     gDumpRequest.commentLen = (u32)len(comment);
     gDumpRequest.fullDump = gFullDump ? 1 : 0;
+    gDumpRequest.kind = kind;
+    gDumpRequest.deadline = deadline;
     SetEvent(gHelperRequestEvent);
 
     HANDLE waits[2] = {gHelperDoneEvent, gHelperProcess};
-    res = WaitForMultipleObjects(dimof(waits), waits, FALSE, kDumpTimeoutMs);
+    res = WaitForMultipleObjects(dimof(waits), waits, FALSE, TimeLeft(deadline));
     bool ok = res == WAIT_OBJECT_0;
     if (!ok) {
         AtomicBoolSet(&gHelperFailed, true);
-        logf("WriteDumpViaHelper: helper failed, wait result %u\n", (uint)res);
     }
     ReleaseMutex(gHelperLock);
     return ok;
 }
 
-// Writes the .dmp with logText attached as its comment stream, then uploads it
-// if shouldUpload. Writing it is unconditional: a local .dmp is useful even in
-// a build that must not send anything.
-static void WriteAndUploadMinidump(Str logText, MINIDUMP_EXCEPTION_INFORMATION* mei, bool shouldUpload) {
-    if (len(gDumpPath) == 0) {
-        gDumpPath = UniqueDumpPath();
-    }
-    if (!WriteDumpViaHelper(logText, mei)) {
-        return;
-    }
-
+static void UploadMinidump(bool shouldUpload) {
     if (!shouldUpload) {
-        log(StrL("WriteAndUploadMinidump: skipping upload, !shouldUpload\n"));
+        log(StrL("UploadMinidump: skipping upload, !shouldUpload\n"));
         return;
     }
     if (IsDebuggerPresent()) {
-        log(StrL("WriteAndUploadMinidump: skipping upload, debugger present\n"));
+        log(StrL("UploadMinidump: skipping upload, debugger present\n"));
         return;
     }
     if (len(gCfg.submitUrl) == 0) {
-        log(StrL("WriteAndUploadMinidump: skipping upload, no submit url\n"));
+        log(StrL("UploadMinidump: skipping upload, no submit url\n"));
         return;
     }
 
     Str dump = file::ReadFileWithArena(gDumpPath, gCrashHandlerArena);
     if (len(dump) == 0) {
-        log(StrL("WriteAndUploadMinidump: empty dump, not uploading\n"));
+        log(StrL("UploadMinidump: empty dump, not uploading\n"));
         return;
     }
 
     HttpRsp rsp;
     bool ok = HttpPostUrl(gCfg.submitUrl, StrL("application/octet-stream"), {}, dump, &rsp);
-    logf("WriteAndUploadMinidump: upload ok=%d status=%u err=%u bytes=%d url=%s\n", (int)ok,
-         (unsigned)rsp.httpStatusCode, (unsigned)rsp.error, dump.len, gCfg.submitUrl);
-}
-
-static void HandleCrashWithMinidump() {
-    log(StrL("HandleCrashWithMinidump\n"));
-
-    // localOnly is a run that must not talk to the network (tests, control pipe)
-    bool shouldUpload = gCfg.uploadCrashes && !gCfg.localOnly;
-    Str logText = BuildCrashComment(Str(), StrL(""), true);
-    WriteCrashInfoToStdErr(logText);
-    WriteAndUploadMinidump(logText, &gMei, shouldUpload);
+    logf("UploadMinidump: ok=%d status=%u err=%u bytes=%d url=%s\n", (int)ok, (unsigned)rsp.httpStatusCode,
+         (unsigned)rsp.error, dump.len, gCfg.submitUrl);
 }
 
 // Symbols are only ever the .pdb sitting next to the .exe (a local build); we
@@ -340,7 +342,10 @@ static NO_INLINE void WriteAndUploadDebugReportMinidump(Str logText, bool should
     gDebugReportExcPtrs.ContextRecord = &gDebugReportCtx;
     gDebugReportMei.ThreadId = GetCurrentThreadId();
     gDebugReportMei.ExceptionPointers = &gDebugReportExcPtrs;
-    WriteAndUploadMinidump(logText, &gDebugReportMei, shouldUpload);
+    if (WriteDumpViaHelper(gDumpPath, logText, &gDebugReportMei, DumpKind::DebugReport,
+                           GetTickCount64() + kDumpTimeoutMs)) {
+        UploadMinidump(shouldUpload);
+    }
 }
 
 // like crash report, but can be triggered without a crash
@@ -416,49 +421,191 @@ NO_INLINE void _uploadDebugReport(Str condStr, Str fileLine, bool isCrash) {
 }
 
 static void StartDumpHelper();
+static bool CanEndCrashedThread();
+
+static bool WriteDumpFile(HANDLE process, Str path, MINIDUMP_EXCEPTION_INFORMATION* mei, bool fullDump, Str comment) {
+    dir::CreateForFile(path);
+    TempWStr stage = ToWStrTemp(fmt("%s-%u.tmp", path, GetCurrentProcessId()));
+    bool ok = dbghelp::WriteMiniDump(process, stage, mei, fullDump, comment);
+    if (ok) {
+        DWORD flags = MOVEFILE_WRITE_THROUGH | (comment ? MOVEFILE_REPLACE_EXISTING : 0);
+        ok = MoveFileExW(stage.s, ToWStrTemp(path).s, flags);
+    }
+    if (!ok) {
+        DeleteFileW(stage.s);
+    }
+    return ok;
+}
+
+struct FallbackDump {
+    struct ThreadList {
+        ULONG32 count;
+        MINIDUMP_THREAD thread;
+    };
+    MINIDUMP_HEADER header;
+    MINIDUMP_DIRECTORY streams[4];
+    MINIDUMP_SYSTEM_INFO system;
+    MINIDUMP_EXCEPTION_STREAM exception;
+    ThreadList threads;
+    CONTEXT context;
+};
+static_assert(offsetof(FallbackDump::ThreadList, thread) == offsetof(MINIDUMP_THREAD_LIST, Threads));
+
+static bool WriteDumpBytes(HANDLE file, const void* data, DWORD size) {
+    DWORD written = 0;
+    return WriteFile(file, data, size, &written, nullptr) && written == size;
+}
+
+// DbgHelp can suspend the thread enforcing the deadline. This fallback writes
+// the fault context directly and never suspends threads or walks the loader.
+static bool WriteFallbackDump(Str comment) {
+    FallbackDump dump{};
+    dump.header.Signature = MINIDUMP_SIGNATURE;
+    dump.header.Version = MINIDUMP_VERSION;
+    dump.header.NumberOfStreams = comment ? 4 : 3;
+    dump.header.StreamDirectoryRva = offsetof(FallbackDump, streams);
+    dump.streams[0] = {SystemInfoStream, {sizeof(dump.system), offsetof(FallbackDump, system)}};
+    dump.streams[1] = {ExceptionStream, {sizeof(dump.exception), offsetof(FallbackDump, exception)}};
+    dump.streams[2] = {ThreadListStream, {sizeof(dump.threads), offsetof(FallbackDump, threads)}};
+    dump.streams[3] = {CommentStreamA, {(ULONG32)len(comment) + 1, sizeof(dump)}};
+
+    dump.system = gDumpSystemInfo;
+    dump.context = *gMei.ExceptionPointers->ContextRecord;
+    dump.exception.ThreadId = gMei.ThreadId;
+    dump.exception.ThreadContext = {sizeof(dump.context), offsetof(FallbackDump, context)};
+    const EXCEPTION_RECORD& record = *gMei.ExceptionPointers->ExceptionRecord;
+    auto& ex = dump.exception.ExceptionRecord;
+    ex.ExceptionCode = record.ExceptionCode;
+    ex.ExceptionFlags = record.ExceptionFlags;
+    ex.ExceptionAddress = (u64)(uintptr_t)record.ExceptionAddress;
+    ex.NumberParameters = record.NumberParameters;
+    if (ex.NumberParameters > dimof(ex.ExceptionInformation)) {
+        ex.NumberParameters = dimof(ex.ExceptionInformation);
+    }
+    for (DWORD i = 0; i < ex.NumberParameters; i++) {
+        ex.ExceptionInformation[i] = record.ExceptionInformation[i];
+    }
+    dump.threads.count = 1;
+    dump.threads.thread.ThreadId = gMei.ThreadId;
+    dump.threads.thread.ThreadContext = dump.exception.ThreadContext;
+
+    const WCHAR* temp = gCrashPath->fallbackTemp.s;
+    HANDLE file = CreateFileW(temp, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+    bool ok = WriteDumpBytes(file, &dump, sizeof(dump));
+    if (ok && comment) {
+        const char end = 0;
+        ok = WriteDumpBytes(file, comment.s, len(comment)) && WriteDumpBytes(file, &end, sizeof(end));
+    }
+    CloseHandle(file);
+    if (ok) {
+        DWORD flags = MOVEFILE_WRITE_THROUGH | (comment ? MOVEFILE_REPLACE_EXISTING : 0);
+        ok = MoveFileExW(temp, gCrashPath->wide.s, flags);
+    }
+    if (!ok) {
+        DeleteFileW(temp);
+    }
+    return ok;
+}
+
+// A raw dump is already safe on disk if the report, upload or dialog stalls.
+static void FinishCrashReport() {
+    gDumpPath = gCrashPath->path;
+    bool usedHelper = gRawDumpWritten;
+    bool haveDump = usedHelper || WriteFallbackDump({});
+    if (gCrashTestMode == CrashTestMode::ReportStop) {
+        Sleep(INFINITE);
+    }
+    if (gCrashTestMode == CrashTestMode::HeapLock) {
+        void* probe = HeapAlloc(gCrashTestHeap, 0, 64);
+        HeapFree(gCrashTestHeap, 0, probe);
+    }
+
+    bool recover = gMayRecover && CanEndCrashedThread();
+    if (!recover) {
+        CallCb(gCfg.onCrashBegin);
+    }
+    Str cond = recover ? StrL("crashed thread ended, process kept running") : Str{};
+    Str comment = gCfg.getCrashComment ? gCfg.getCrashComment(gCrashHandlerArena, cond, {}, true) : Str{};
+    WriteCrashInfoToStdErr(comment);
+    if (haveDump && len(comment) > 0) {
+        if (usedHelper) {
+            WriteDumpViaHelper(gDumpPath, comment, &gMei, DumpKind::Crash, gReportDeadline);
+        } else {
+            WriteFallbackDump(comment);
+        }
+    }
+    if (haveDump) {
+        UploadMinidump(gCfg.uploadCrashes && !gCfg.localOnly);
+    }
+    if (recover) {
+        CallCb(gCfg.onCrashedThreadEnded);
+    } else if (!gCfg.localOnly) {
+        CallCb(gCfg.showCrashMessage);
+    }
+    gRecovered = recover;
+}
 
 static DWORD WINAPI CrashDumpThread(LPVOID /*data*/) {
     // off the UI thread: the app's crash info, the dump helper (~30 ms to start)
     // and SymInitialize, which walks every loaded module (~45 ms). A crash
     // signaled meanwhile waits for it, dbghelp::Initialize serializes
-    CallCb(gCfg.prepareCrashInfo);
     StartDumpHelper();
+    SetEvent(gHelperReadyEvent);
+    dir::CreateForFile(gCrashPaths[0].path);
+    CallCb(gCfg.prepareCrashInfo);
     SetEvent(gReadyEvent);
     InitializeDbgHelp();
-    WaitForSingleObject(gDumpEvent, INFINITE);
-    if (!gCrashed) {
-        return 0;
+    while (WaitForSingleObject(gDumpEvent, INFINITE) == WAIT_OBJECT_0 && AtomicIntGet(&gCrashState) == Handling) {
+        FinishCrashReport();
+        SetEvent(gReportDoneEvent);
     }
-
-    log(StrL("CrashDumpThread\n"));
-    HandleCrashWithMinidump();
-    SetEvent(gReportDoneEvent);
     return 0;
 }
 
 // This is needed to intercept memory corruption reports from windows heap manager
 // https://peteronprogramming.wordpress.com/2017/07/30/crashes-you-cant-handle-easily-3-status_heap_corruption-on-windows/
 // https://phabricator.services.mozilla.com/D83753
-// reports on the dump thread, shows the crash message and exits
-static LONG HandleCrash(EXCEPTION_POINTERS* exceptionInfo, Str who) {
-    logf("%s\n", who);
-    gCrashed = true;
-
-    gMei.ThreadId = GetCurrentThreadId();
-    gMei.ExceptionPointers = exceptionInfo;
-    if (GetCurrentThreadId() == gDumpThreadId) {
-        // crashed while preparing: no other thread to report for us, and
-        // nothing more gets ready
-        SetEvent(gReadyEvent);
-        HandleCrashWithMinidump();
-    } else {
-        // the dump thread has a whole stack; a stack overflow leaves this one little
-        SetEvent(gDumpEvent);
-        WaitForSingleObject(gReportDoneEvent, INFINITE);
+static LONG HandleCrash(EXCEPTION_POINTERS* exceptionInfo, bool mayRecover) {
+    DWORD threadId = GetCurrentThreadId();
+    LONG previous = InterlockedCompareExchange(&gCrashState, Handling, Idle);
+    if (previous == Stopped) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+    if (previous == Handling) {
+        if (threadId != (DWORD)AtomicIntGet(&gCrashThreadId) && threadId != gDumpThreadId) {
+            WaitForSingleObject(GetCurrentProcess(), kReadyTimeoutMs + kDumpTimeoutMs + kReportTimeoutMs);
+        }
+        TerminateProcess(GetCurrentProcess(), 1);
+        return EXCEPTION_CONTINUE_SEARCH;
     }
 
-    if (!gCfg.localOnly) {
-        CallCb(gCfg.showCrashMessage);
+    AtomicIntSet(&gCrashThreadId, (int)threadId);
+    gCrashPath = &gCrashPaths[gCrashCount++];
+    gMei.ThreadId = threadId;
+    gMei.ExceptionPointers = exceptionInfo;
+    gMayRecover = mayRecover;
+    gRecovered = false;
+
+    DWORD readyMs = threadId == gDumpThreadId ? 0 : kReadyTimeoutMs;
+    gRawDumpWritten = false;
+    if (WaitForSingleObject(gHelperReadyEvent, readyMs) == WAIT_OBJECT_0) {
+        constexpr DWORD kTestHelperTimeoutMs = 3000;
+        bool testStop = gCrashTestMode == CrashTestMode::HelperStop;
+        auto kind = testStop ? DumpKind::TestHelperStop : DumpKind::Crash;
+        DWORD timeout = testStop ? kTestHelperTimeoutMs : kDumpTimeoutMs;
+        gRawDumpWritten = WriteDumpViaHelper(gCrashPath->path, {}, &gMei, kind, GetTickCount64() + timeout);
+    }
+    if (threadId != gDumpThreadId) {
+        gReportDeadline = GetTickCount64() + kReportTimeoutMs;
+        ResetEvent(gReportDoneEvent);
+        SetEvent(gDumpEvent);
+        if (WaitForSingleObject(gReportDoneEvent, TimeLeft(gReportDeadline)) == WAIT_OBJECT_0 && gRecovered) {
+            AtomicIntSet(&gCrashState, Idle);
+            ExitThread(1);
+        }
     }
     TerminateProcess(GetCurrentProcess(), 1);
     return EXCEPTION_CONTINUE_SEARCH;
@@ -469,87 +616,50 @@ static LONG WINAPI CrashDumpVectoredExceptionHandler(EXCEPTION_POINTERS* excepti
         return EXCEPTION_CONTINUE_SEARCH;
     }
 
-    if (!TryStartCrashHandling(StrL("CrashDumpVectoredExceptionHandler"))) {
-        return EXCEPTION_CONTINUE_SEARCH; // Note: or should TerminateProcess()?
-    }
-
-    return HandleCrash(exceptionInfo, StrL("CrashDumpVectoredExceptionHandler"));
+    return HandleCrash(exceptionInfo, false);
 }
 
 // there is no documented Win32 API for a thread's start address
-static void* CurrentThreadStartAddr() {
+static void* ThreadStartAddr(DWORD tid) {
     using NtQueryInfoThreadFn = LONG(WINAPI*)(HANDLE, int, void*, ULONG, ULONG*);
     constexpr int kThreadQuerySetWin32StartAddress = 9;
-    HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
     auto queryInfo =
-        ntdll ? reinterpret_cast<NtQueryInfoThreadFn>(GetProcAddress(ntdll, "NtQueryInformationThread")) : nullptr;
+        gNtdllModule ? reinterpret_cast<NtQueryInfoThreadFn>(GetProcAddress(gNtdllModule, "NtQueryInformationThread"))
+                     : nullptr;
     if (!queryInfo) {
         return nullptr;
     }
     void* addr = nullptr;
-    LONG status = queryInfo(GetCurrentThread(), kThreadQuerySetWin32StartAddress, (void*)&addr, sizeof(addr), nullptr);
+    HANDLE thread = OpenThread(THREAD_QUERY_INFORMATION, FALSE, tid);
+    if (!thread) {
+        return nullptr;
+    }
+    LONG status = queryInfo(thread, kThreadQuerySetWin32StartAddress, (void*)&addr, sizeof(addr), nullptr);
+    CloseHandle(thread);
     return status >= 0 ? addr : nullptr;
 }
 
-static HMODULE ModuleFromAddr(void* addr) {
-    HMODULE mod = nullptr;
-    DWORD flags = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
-    GetModuleHandleExW(flags, (LPCWSTR)addr, &mod);
-    return mod;
-}
-
 // our threads and thread pool workers (they run our callbacks) must not be ended
-static bool IsForeignThread() {
-    HMODULE mod = ModuleFromAddr(CurrentThreadStartAddr());
-    if (!mod) {
+static bool CanEndCrashedThread() {
+    if (gCrashCount != 1 || !gCfg.canEndCrashedThread) {
         return false;
     }
-    return mod != GetModuleHandleW(nullptr) && mod != GetModuleHandleW(L"ntdll.dll");
-}
-
-static AtomicBool gEndedCrashedThread = 0;
-
-// A third-party DLL (e.g. a SAPI voice engine) crashed on a thread it started:
-// report it, then end only that thread. Once per session; a repeat crashes.
-static void MaybeEndCrashedThread(EXCEPTION_POINTERS* exceptionInfo) {
-    if (!gCfg.canEndCrashedThread || !IsForeignThread()) {
-        return;
+    void* start = ThreadStartAddr(gMei.ThreadId);
+    MEMORY_BASIC_INFORMATION info{};
+    if (!start || !VirtualQuery(start, &info, sizeof(info)) || info.Type != MEM_IMAGE) {
+        return false;
     }
-    if (!gCfg.canEndCrashedThread(exceptionInfo->ExceptionRecord->ExceptionAddress)) {
-        return;
+    if (info.AllocationBase == gExeModule || info.AllocationBase == gNtdllModule) {
+        return false;
     }
-    if (AtomicBoolSwap(&gEndedCrashedThread, true)) {
-        return;
-    }
-
-    log(StrL("MaybeEndCrashedThread: ending crashed thread\n"));
-    MINIDUMP_EXCEPTION_INFORMATION mei{};
-    mei.ThreadId = GetCurrentThreadId();
-    mei.ExceptionPointers = exceptionInfo;
-    Str logText = BuildCrashComment(StrL("crashed thread ended, process kept running"), StrL(""), true);
-    WriteCrashInfoToStdErr(logText);
-    bool shouldUpload = gCfg.uploadCrashes && !gCfg.localOnly;
-    WriteAndUploadMinidump(logText, &mei, shouldUpload);
-
-    CallCb(gCfg.onCrashedThreadEnded);
-    ExitThread(1);
+    return gCfg.canEndCrashedThread(gMei.ExceptionPointers->ExceptionRecord->ExceptionAddress);
 }
 
 static LONG WINAPI CrashDumpExceptionHandler(EXCEPTION_POINTERS* exceptionInfo) {
     if (!exceptionInfo || (EXCEPTION_BREAKPOINT == exceptionInfo->ExceptionRecord->ExceptionCode)) {
-        log(
-            StrL("CrashDumpExceptionHandler: exiting because !exceptionInfo || EXCEPTION_BREAKPOINT == "
-                 "exceptionInfo->ExceptionRecord->ExceptionCode\n"));
         return EXCEPTION_CONTINUE_SEARCH;
     }
-
-    MaybeEndCrashedThread(exceptionInfo);
-
-    if (!TryStartCrashHandling(StrL("CrashDumpExceptionHandler"))) {
-        return EXCEPTION_CONTINUE_SEARCH; // Note: or should TerminateProcess()?
-    }
-
-    return HandleCrash(exceptionInfo, StrL("CrashDumpExceptionHandler"));
+    return HandleCrash(exceptionInfo, true);
 }
 
 static void GetOsVersion() {
@@ -717,61 +827,61 @@ int __cdecl _purecall() {
 }
 
 // Starts the helper process that writes our dumps, see WriteDumpViaHelper().
-// It inherits only our process handle and its two events.
+// Start suspended and duplicate the events into this child only.
 static void StartDumpHelper() {
-    SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
-    gHelperRequestEvent = CreateEventW(&sa, FALSE, FALSE, nullptr);
-    gHelperDoneEvent = CreateEventW(&sa, FALSE, FALSE, nullptr);
+    if (gCrashTestMode == CrashTestMode::NoHelper) {
+        return;
+    }
+    gHelperRequestEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    gHelperDoneEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     gHelperLock = CreateMutexW(nullptr, FALSE, nullptr);
-    HANDLE self = nullptr;
-    DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), GetCurrentProcess(), &self, kHelperAppAccess, TRUE, 0);
-    if (!gHelperRequestEvent || !gHelperDoneEvent || !gHelperLock || !self) {
+    if (!gHelperRequestEvent || !gHelperDoneEvent || !gHelperLock) {
         logf("StartDumpHelper: handles failed, err=%u\n", GetLastError());
-        SafeCloseHandle(&self);
         return;
     }
 
-    HANDLE inherit[3] = {self, gHelperRequestEvent, gHelperDoneEvent};
-    SIZE_T attrsSize = 0;
-    InitializeProcThreadAttributeList(nullptr, 1, 0, &attrsSize);
-    auto attrs = (LPPROC_THREAD_ATTRIBUTE_LIST)AllocZero(GetTempArena(), attrsSize);
-    bool ok = InitializeProcThreadAttributeList(attrs, 1, 0, &attrsSize);
-    ok = ok && UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherit, sizeof(inherit), nullptr,
-                                         nullptr);
-
-    STARTUPINFOEXW si{};
-    si.StartupInfo.cb = sizeof(si);
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
     // no std handles: a caller waiting for our stdout / stderr to close must not wait for the helper
-    si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-    si.lpAttributeList = attrs;
-    TempStr cmd =
-        fmt("\"%s\" -crash-dump-helper %lld:%lld:%lld:%lld", GetSelfExePathTemp(), (i64)(uintptr_t)self,
-            (i64)(uintptr_t)gHelperRequestEvent, (i64)(uintptr_t)gHelperDoneEvent, (i64)(uintptr_t)&gDumpRequest);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    TempStr cmd = fmt("\"%s\" -crash-dump-helper %u:%lld:%lld", GetSelfExePathTemp(), GetCurrentProcessId(),
+                      (i64)(uintptr_t)&gRemoteEvents, (i64)(uintptr_t)&gDumpRequest);
     TempWStr cmdW = ToWStrTemp(cmd);
     PROCESS_INFORMATION pi{};
-    DWORD flags = EXTENDED_STARTUPINFO_PRESENT;
-    ok = ok && CreateProcessW(nullptr, cmdW.s, nullptr, nullptr, TRUE, flags, nullptr, nullptr, &si.StartupInfo, &pi);
-    if (!ok) {
+    if (!CreateProcessW(nullptr, cmdW.s, nullptr, nullptr, FALSE, CREATE_SUSPENDED, nullptr, nullptr, &si, &pi)) {
         logf("StartDumpHelper: CreateProcessW failed, err=%u\n", GetLastError());
+        return;
     }
-    DeleteProcThreadAttributeList(attrs);
-    CloseHandle(self);
-    if (!ok) {
+
+    HANDLE request = nullptr;
+    HANDLE done = nullptr;
+    HANDLE self = GetCurrentProcess();
+    bool ok = DuplicateHandle(self, gHelperRequestEvent, pi.hProcess, &request, SYNCHRONIZE, FALSE, 0) &&
+              DuplicateHandle(self, gHelperDoneEvent, pi.hProcess, &done, EVENT_MODIFY_STATE, FALSE, 0);
+    gRemoteEvents = {(u64)(uintptr_t)request, (u64)(uintptr_t)done};
+    if (!ok || ResumeThread(pi.hThread) == (DWORD)-1) {
+        TerminateProcess(pi.hProcess, 1);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
         return;
     }
     CloseHandle(pi.hThread);
     gHelperProcess = pi.hProcess;
 }
 
-static void StopDumpHelper() {
+static bool StopDumpHelper(DWORD timeoutMs) {
     if (gHelperProcess) {
         TerminateProcess(gHelperProcess, 0);
+        if (WaitForSingleObject(gHelperProcess, timeoutMs) != WAIT_OBJECT_0) {
+            return false;
+        }
     }
     SafeCloseHandle(&gHelperProcess);
     SafeCloseHandle(&gHelperRequestEvent);
     SafeCloseHandle(&gHelperDoneEvent);
     SafeCloseHandle(&gHelperLock);
     AtomicBoolSet(&gHelperFailed, false);
+    return true;
 }
 
 // n bytes at addr in app, from the temp arena; empty if unreadable
@@ -784,18 +894,28 @@ static Str ReadAppMemory(HANDLE app, u64 addr, u32 n) {
     if (!ReadProcessMemory(app, (void*)(uintptr_t)addr, d, n, &nRead) || nRead != n) {
         return {};
     }
+    d[n] = 0;
     return Str(d, (int)n);
 }
 
-static void WriteRequestedDump(HANDLE app, u64 requestAddr) {
-    DumpRequest req{};
-    SIZE_T nRead = 0;
-    if (!ReadProcessMemory(app, (void*)(uintptr_t)requestAddr, &req, sizeof(req), &nRead) || nRead != sizeof(req)) {
-        return;
-    }
+static bool WriteRequestedDump(HANDLE app, const DumpRequest& req) {
     Str path = ReadAppMemory(app, req.path, req.pathLen);
     if (len(path) == 0) {
-        return;
+        return false;
+    }
+    if (req.kind == DumpKind::TestHelperStop) {
+        HANDLE thread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_QUERY_LIMITED_INFORMATION, FALSE, req.threadId);
+        if (thread && GetProcessIdOfThread(thread) == GetProcessId(app) && SuspendThread(thread) != (DWORD)-1) {
+            TempWStr marker = ToWStrTemp(fmt("%s.suspended", path));
+            HANDLE file =
+                CreateFileW(marker.s, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (file != INVALID_HANDLE_VALUE) {
+                CloseHandle(file);
+            }
+            Sleep(INFINITE);
+        }
+        SafeCloseHandle(&thread);
+        return false;
     }
     Str comment = ReadAppMemory(app, req.comment, req.commentLen);
 
@@ -804,21 +924,61 @@ static void WriteRequestedDump(HANDLE app, u64 requestAddr) {
     mei.ExceptionPointers = (EXCEPTION_POINTERS*)(uintptr_t)req.exceptionPointers;
     // the exception record and context are the app's memory
     mei.ClientPointers = TRUE;
-    dir::CreateForFile(path);
-    dbghelp::WriteMiniDump(app, ToWStrTemp(path), req.exceptionPointers ? &mei : nullptr, req.fullDump != 0, comment);
+    return WriteDumpFile(app, path, req.exceptionPointers ? &mei : nullptr, req.fullDump != 0, comment);
+}
+
+struct DumpWork {
+    HANDLE app;
+    const DumpRequest& request;
+};
+
+static DWORD WINAPI DumpWorker(void* data) {
+    const auto& work = *(DumpWork*)data;
+    bool ok = WriteRequestedDump(work.app, work.request);
+    DestroyTempArena();
+    return ok ? 0 : 1;
+}
+
+// DbgHelp may suspend the target, including the thread enforcing its deadline.
+static bool WriteWatchedDump(HANDLE app, const DumpRequest& request) {
+    DumpWork work{app, request};
+    HANDLE writer = CreateThread(nullptr, 0, DumpWorker, &work, 0, nullptr);
+    if (!writer) {
+        return false;
+    }
+    HANDLE waits[] = {writer, app};
+    DWORD wait = WaitForMultipleObjects(dimof(waits), waits, FALSE, TimeLeft(request.deadline));
+    if (wait != WAIT_OBJECT_0) {
+        if (wait != WAIT_OBJECT_0 + 1) {
+            TerminateProcess(app, 1);
+        }
+        // A stuck writer can still be using the request on our stack.
+        TerminateProcess(GetCurrentProcess(), 1);
+        return false;
+    }
+    DWORD exitCode = 1;
+    GetExitCodeThread(writer, &exitCode);
+    CloseHandle(writer);
+    return exitCode == 0;
 }
 
 // The helper process: writes the dumps the app that started it asks for, until
-// that app exits. arg is "<app process>:<request event>:<done event>:<request address>".
+// that app exits. arg is "<app pid>:<events address>:<request address>".
 int RunCrashDumpHelper(Str arg) {
     StrVec parts;
-    if (Split(&parts, arg, StrL(":")) != 4) {
+    if (Split(&parts, arg, StrL(":")) != 3) {
         return 1;
     }
-    HANDLE app = (HANDLE)(intptr_t)ParseInt64(parts[0]);
-    HANDLE request = (HANDLE)(intptr_t)ParseInt64(parts[1]);
-    HANDLE done = (HANDLE)(intptr_t)ParseInt64(parts[2]);
-    u64 requestAddr = (u64)ParseInt64(parts[3]);
+    HANDLE app = OpenProcess(kHelperAppAccess, FALSE, (DWORD)ParseInt64(parts[0]));
+    const void* eventsAddr = (void*)(uintptr_t)ParseInt64(parts[1]);
+    u64 requestAddr = (u64)ParseInt64(parts[2]);
+    DumpHelperEvents events{};
+    SIZE_T nRead = 0;
+    if (!app || !ReadProcessMemory(app, eventsAddr, &events, sizeof(events), &nRead) || nRead != sizeof(events)) {
+        return 1;
+    }
+    HANDLE request = (HANDLE)(uintptr_t)events.request;
+    HANDLE done = (HANDLE)(uintptr_t)events.done;
 
     HANDLE waits[2] = {app, request};
     for (;;) {
@@ -826,14 +986,66 @@ int RunCrashDumpHelper(Str arg) {
         if (res != WAIT_OBJECT_0 + 1) {
             return 0;
         }
-        WriteRequestedDump(app, requestAddr);
-        ResetTempArena();
+        DumpRequest req{};
+        if (!ReadProcessMemory(app, (void*)(uintptr_t)requestAddr, &req, sizeof(req), &nRead) || nRead != sizeof(req)) {
+            return 1;
+        }
+        if (req.kind == DumpKind::DebugReport) {
+            if (!WriteRequestedDump(app, req)) {
+                return 1;
+            }
+            ResetTempArena();
+        } else if (!WriteWatchedDump(app, req)) {
+            return 1;
+        }
         SetEvent(done);
+    }
+}
+
+static void PrepareFallbackInfo() {
+    SYSTEM_INFO info{};
+    OSVERSIONINFOEX version{};
+    GetSystemInfo(&info);
+    GetOsVersion(version);
+    gDumpSystemInfo.ProcessorArchitecture = info.wProcessorArchitecture;
+    gDumpSystemInfo.ProcessorLevel = info.wProcessorLevel;
+    gDumpSystemInfo.ProcessorRevision = info.wProcessorRevision;
+    DWORD processors = info.dwNumberOfProcessors;
+    gDumpSystemInfo.NumberOfProcessors = processors < UCHAR_MAX ? (UCHAR)processors : UCHAR_MAX;
+    gDumpSystemInfo.ProductType = version.wProductType;
+    gDumpSystemInfo.MajorVersion = version.dwMajorVersion;
+    gDumpSystemInfo.MinorVersion = version.dwMinorVersion;
+    gDumpSystemInfo.BuildNumber = version.dwBuildNumber;
+    gDumpSystemInfo.PlatformId = version.dwPlatformId;
+}
+
+static void PrepareDumpPaths(Str path) {
+    Str ext = path::GetExtTemp(path);
+    Str base(path.s, len(path) - len(ext));
+    GUID guid{};
+    WCHAR idText[39];
+    i64 now = UnixTimeMsNow();
+    Str id;
+    if (SUCCEEDED(CoCreateGuid(&guid)) && StringFromGUID2(guid, idText, dimofi(idText))) {
+        id = ToUtf8Temp(WStr(idText + 1, dimofi(idText) - 3));
+    } else {
+        id = fmt("%lld-%u", now, GetCurrentProcessId());
+    }
+    i64 minutes = now / (60 * 1000);
+    Arena* a = gCrashHandlerArena;
+    for (int i = 0; i < dimofi(gCrashPaths); i++) {
+        Str out = str::Format(a, "%s-%d-%s-%d%s", base, minutes, id, i + 1, ext);
+        WStr wide = wstr::Dup(a, ToWStrTemp(out));
+        WStr temp = wstr::Dup(a, ToWStrTemp(fmt("%s.fallback.tmp", out)));
+        gCrashPaths[i] = {out, wide, temp};
     }
 }
 
 void InstallCrashHandler(const CrashHandlerConfig& cfg) {
     ReportIf(gDumpEvent || gDumpThread);
+    if (gDumpEvent || gDumpThread) {
+        return;
+    }
 
     if (len(cfg.crashDumpPath) == 0) {
         log(StrL("InstallCrashHandler: skipping because !crashDumpPath\n"));
@@ -849,29 +1061,62 @@ void InstallCrashHandler(const CrashHandlerConfig& cfg) {
     logf("InstallCrashHandler:\n  crashDumpPath: '%s'\n  submitUrl: '%s'\n", cfg.crashDumpPath, cfg.submitUrl);
 
     gCfg = cfg;
-    // the caller's strings can be temporary, ours must outlive any crash
-    gCfg.crashDumpPath = str::Dup(gCrashHandlerArena, cfg.crashDumpPath);
+    gCrashTestMode = CrashTestMode::Normal;
+    if (cfg.forTesting) {
+        char mode[20]{};
+        GetEnvironmentVariableA("SOLOKPDF_TEST_CRASH_HANDLER", mode, dimof(mode));
+        if (str::Eq(Str(mode), StrL("report-stop"))) {
+            gCrashTestMode = CrashTestMode::ReportStop;
+        } else if (str::Eq(Str(mode), StrL("heap-lock"))) {
+            gCrashTestMode = CrashTestMode::HeapLock;
+            constexpr SIZE_T kTestHeapSize = 64 * 1024;
+            gCrashTestHeap = HeapCreate(0, kTestHeapSize, kTestHeapSize);
+        } else if (str::Eq(Str(mode), StrL("no-helper"))) {
+            gCrashTestMode = CrashTestMode::NoHelper;
+        } else if (str::Eq(Str(mode), StrL("helper-stop"))) {
+            gCrashTestMode = CrashTestMode::HelperStop;
+        }
+    }
+    Str dumpPath = cfg.crashDumpPath;
+    if (cfg.forTesting) {
+        WCHAR dir[MAX_PATH];
+        DWORD n = GetEnvironmentVariableW(L"SOLOKPDF_TEST_CRASH_DIR", dir, dimof(dir));
+        if (n > 0 && n < dimof(dir)) {
+            dumpPath = path::JoinTemp(ToUtf8Temp(WStr(dir, (int)n)), StrL("sumatrapdfcrash.dmp"));
+        }
+    }
+    // The faulting thread never formats or checks its path on disk.
+    gCfg.crashDumpPath = str::Dup(gCrashHandlerArena, dumpPath);
+    PrepareDumpPaths(dumpPath);
+    PrepareFallbackInfo();
     gCfg.submitUrl = str::Dup(gCrashHandlerArena, cfg.submitUrl);
     gCfg.fullDumpEnvVar = str::Dup(gCrashHandlerArena, cfg.fullDumpEnvVar);
     gFullDump = len(cfg.fullDumpEnvVar) > 0 && GetEnvironmentVariableA(CStrTemp(cfg.fullDumpEnvVar), nullptr, 0) != 0;
-    gCrashThreadId = 0;
+    gCrashCount = 0;
+    AtomicIntSet(&gCrashThreadId, 0);
     gDumpThreadId = 0;
-    AtomicBoolSet(&gCrashHandlerStarted, false);
+    gExeModule = GetModuleHandleW(nullptr);
+    gNtdllModule = GetModuleHandleW(L"ntdll.dll");
 
     BuildSystemInfo();
     gDumpEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
     gReportDoneEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+    gHelperReadyEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
     gReadyEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
-    if (!gDumpEvent || !gReportDoneEvent || !gReadyEvent) {
+    if (!gDumpEvent || !gReportDoneEvent || !gHelperReadyEvent || !gReadyEvent) {
         log(StrL("InstallCrashHandler: skipping because !gDumpEvent\n"));
+        UninstallCrashHandler();
         return;
     }
     gDumpThread = CreateThread(nullptr, 0, CrashDumpThread, nullptr, 0, &gDumpThreadId);
     if (!gDumpThread) {
         log(StrL("InstallCrashHandler: skipping because !gDumpThread\n"));
+        UninstallCrashHandler();
         return;
     }
+    AtomicIntSet(&gCrashState, Idle);
     gPrevExceptionFilter = SetUnhandledExceptionFilter(CrashDumpExceptionHandler);
+    gExceptionFilterInstalled = true;
     // 1 means that our handler will be called first, 0 would be: last
     gVectoredHandler = AddVectoredExceptionHandler(1, CrashDumpVectoredExceptionHandler);
 
@@ -904,12 +1149,13 @@ void InstallCrashHandler(const CrashHandlerConfig& cfg) {
 }
 
 void UninstallCrashHandler() {
-    if (!gDumpEvent || !gDumpThread) {
+    if (InterlockedCompareExchange(&gCrashState, Stopped, Idle) == Handling) {
         return;
     }
 
-    if (gPrevExceptionFilter) {
+    if (gExceptionFilterInstalled) {
         SetUnhandledExceptionFilter(gPrevExceptionFilter);
+        gExceptionFilterInstalled = false;
     }
     // must go before we close the handles it waits on: left registered, it
     // would run on a heap corruption during shutdown and SetEvent() / wait on
@@ -919,17 +1165,27 @@ void UninstallCrashHandler() {
         gVectoredHandler = nullptr;
     }
 
-    SetEvent(gDumpEvent);
-    WaitForSingleObject(gDumpThread, 1000); // 1 sec
+    constexpr DWORD kShutdownWaitMs = 1000;
+    if (gDumpThread) {
+        SetEvent(gDumpEvent);
+        // Leave the configuration and events alive if preparation is still using them.
+        if (WaitForSingleObject(gDumpThread, kShutdownWaitMs) != WAIT_OBJECT_0) {
+            return;
+        }
+    }
+    if (!StopDumpHelper(kShutdownWaitMs)) {
+        return;
+    }
 
     SafeCloseThreadHandle(&gDumpThread);
-    CloseHandle(gDumpEvent);
+    SafeCloseHandle(&gDumpEvent);
     SafeCloseHandle(&gReportDoneEvent);
+    SafeCloseHandle(&gHelperReadyEvent);
     SafeCloseHandle(&gReadyEvent);
-    StopDumpHelper();
-    // InstallCrashHandler() asserts on both being null, so don't leave a stale
-    // handle value behind
-    gDumpEvent = nullptr;
+    if (gCrashTestHeap) {
+        HeapDestroy(gCrashTestHeap);
+        gCrashTestHeap = nullptr;
+    }
 
     // those are allocated from gCrashHandlerArena so are freed by ArenaDelete()
     gSystemInfo = {};
@@ -937,9 +1193,35 @@ void UninstallCrashHandler() {
     ArenaDelete(gCrashHandlerArena);
     gCrashInfo = nullptr;
     gCrashHandlerArena = nullptr;
-    gCrashThreadId = 0;
     gDumpThreadId = 0;
-    AtomicBoolSet(&gCrashHandlerStarted, false);
+    gDumpPath = {};
+}
+
+HANDLE CrashHandlerTestHeap() {
+    return gCrashTestHeap;
+}
+
+bool CrashTestHandlesPrivate() {
+    if (!gCfg.forTesting || WaitForSingleObject(gHelperReadyEvent, kReadyTimeoutMs) != WAIT_OBJECT_0) {
+        return false;
+    }
+    HANDLE handles[] = {gHelperProcess, gHelperRequestEvent, gHelperDoneEvent, gHelperLock};
+    for (HANDLE handle : handles) {
+        DWORD flags = 0;
+        if (!GetHandleInformation(handle, &flags) || (flags & HANDLE_FLAG_INHERIT)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool CrashTestRestoreFilter() {
+    if (!gCfg.forTesting || !gExceptionFilterInstalled) {
+        return false;
+    }
+    LPTOP_LEVEL_EXCEPTION_FILTER expected = gPrevExceptionFilter;
+    UninstallCrashHandler();
+    return SetUnhandledExceptionFilter(expected) == expected;
 }
 
 #endif // OS_WIN

@@ -189,6 +189,7 @@ export enum ControlCommand {
   TestParkInLoader = 177,
   TestThemeWindows = 178,
   TestMinimizeFrame = 179,
+  TestCrashHandler = 180,
 }
 
 export type ControlArg = number | string | Uint8Array | ControlArg[];

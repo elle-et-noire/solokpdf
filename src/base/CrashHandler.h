@@ -1,9 +1,7 @@
 /* Copyright 2026 the SumatraPDF project authors (see AUTHORS file).
    License: Simplified BSD (see COPYING.BSD) */
 
-// Everything app-specific the crash handler needs. Callbacks are optional
-// (null is fine) and run on the crashing thread, so they must not allocate
-// from the process heap.
+// Crash callbacks run on a worker after the primary dump request.
 struct CrashHandlerConfig {
     Str crashDumpPath;
     Str submitUrl;      // full url the .dmp is POSTed to, query included; empty disables upload
@@ -34,6 +32,12 @@ struct CrashHandlerConfig {
 void InstallCrashHandler(const CrashHandlerConfig& cfg);
 void UninstallCrashHandler();
 int RunCrashDumpHelper(Str arg);
+
+#if OS_WIN
+HANDLE CrashHandlerTestHeap();
+bool CrashTestHandlesPrivate();
+bool CrashTestRestoreFilter();
+#endif
 
 // pre-allocated, so that a crash doesn't have to touch the process heap
 Arena* CrashHandlerArena();

@@ -573,11 +573,18 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 - Crash dumps are written by a helper process started with the app (the same
   exe with `-crash-dump-helper`), so a thread stopped inside the loader no
   longer hangs a crash (E102). Each instance has one more `SumatraPDF.exe`
-  process: 5.1 MB private, 13.5 MB working set in a Debug build; Release
-  not measured. The crashing process still builds the report text (from
-  pre-gathered data, without DLL loads) and, outside tests, uploads it with
-  WinINet after the dump is on disk. A crash in the first ~30 ms after
-  startup waits for the helper to start.
+  process. The E102 Debug build used 5.1 MB private and 13.5 MB working set
+  for the helper.
+- The helper saves the primary dump before the app builds the crash report
+  (E116). A completed report can add the usual embedded comment and upload
+  the dump. The fatal handler allows up to 10 seconds for helper startup,
+  30 seconds for the primary dump and 8 seconds for reporting, including the
+  crash dialog. The app terminates when reporting finishes or its time expires.
+  The helper enforces the deadline if its dump writer suspends the app.
+  If the helper is unavailable, the report worker attempts a smaller in-process
+  dump with the faulting thread, its exception and registers. It avoids
+  DbgHelp's thread suspension and DLL loading. A very early crash may precede
+  worker readiness, and unavailable storage can prevent writing any dump.
 
 ## Tests and CI
 

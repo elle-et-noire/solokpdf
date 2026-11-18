@@ -201,18 +201,18 @@ static BOOL CALLBACK OpenMiniDumpCallback(void* /*param*/, PMINIDUMP_CALLBACK_IN
 
 // Dumps process, which may be another one: then mei's pointers must be in it
 // (ClientPointers) and comment in ours.
-void WriteMiniDump(HANDLE process, WStr crashDumpFilePath, MINIDUMP_EXCEPTION_INFORMATION* mei, bool fullDump,
+bool WriteMiniDump(HANDLE process, WStr crashDumpFilePath, MINIDUMP_EXCEPTION_INFORMATION* mei, bool fullDump,
                    Str comment) {
     if (!DynMiniDumpWriteDump) {
         log(StrL("WriteMiniDump: MiniDumpWriteDump not loaded\n"));
-        return;
+        return false;
     }
 
     HANDLE hFile = CreateFileW(crashDumpFilePath.s, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
                                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, nullptr);
     if (INVALID_HANDLE_VALUE == hFile) {
         logf("WriteMiniDump: CreateFileW failed, err=%u\n", GetLastError());
-        return;
+        return false;
     }
 
     // MiniDumpWithThreadInfo adds the real thread start address and TEB for
@@ -246,6 +246,7 @@ void WriteMiniDump(HANDLE process, WStr crashDumpFilePath, MINIDUMP_EXCEPTION_IN
     }
 
     CloseHandle(hFile);
+    return ok != FALSE;
 }
 
 // note: without NO_INLINE it would be mis-compiled to return false in release builds

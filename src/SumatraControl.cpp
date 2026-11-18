@@ -2,6 +2,7 @@
    License: GPLv3 */
 
 #include "base/Base.h"
+#include "base/CrashHandler.h"
 #include "base/AutoWin.h"
 #include "base/UITask.h"
 #include "base/Win.h"
@@ -285,6 +286,50 @@ static Str TestParkInLoader() {
     CloseHandle(t);
     bool parked = WaitForSingleObject(gLoaderParked, 10000) == WAIT_OBJECT_0;
     return parked ? StrL("parked") : StrL("did not park");
+}
+
+static DWORD WINAPI ParkInHeapThread(void* ready) {
+    if (!HeapLock(GetProcessHeap())) {
+        CloseHandle((HANDLE)ready);
+        return 0;
+    }
+    if (HeapLock(CrashHandlerTestHeap())) {
+        SetEvent((HANDLE)ready);
+        CloseHandle((HANDLE)ready);
+        Sleep(INFINITE);
+    }
+    CloseHandle((HANDLE)ready);
+    HeapUnlock(GetProcessHeap());
+    return 0;
+}
+
+static void TestCrashWithHeapLocked() {
+    if (!CrashHandlerTestHeap()) {
+        return;
+    }
+    HANDLE ready = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!ready) {
+        return;
+    }
+    HANDLE workerReady = nullptr;
+    HANDLE self = GetCurrentProcess();
+    if (!DuplicateHandle(self, ready, self, &workerReady, EVENT_MODIFY_STATE, FALSE, 0)) {
+        CloseHandle(ready);
+        return;
+    }
+    HANDLE thread = CreateThread(nullptr, 0, ParkInHeapThread, workerReady, 0, nullptr);
+    if (!thread) {
+        CloseHandle(workerReady);
+        CloseHandle(ready);
+        return;
+    }
+    HANDLE waits[] = {ready, thread};
+    DWORD res = WaitForMultipleObjects(dimof(waits), waits, FALSE, 5000);
+    if (res == WAIT_OBJECT_0) {
+        CrashMe();
+    }
+    CloseHandle(thread);
+    CloseHandle(ready);
 }
 
 static TempStr ActivationTraceTemp() {
@@ -1184,6 +1229,7 @@ enum class ControlCmd : u16 {
     // a second argument "away" takes the focus out of the app as the popups hide, "frame" to the frame.
     // "hide <popup>" has the popup's owner hide it (HidePopupForTest)
     TestMinimizeFrame = 179,
+    TestCrashHandler = 180,
 };
 
 static_assert((u16)ControlCmd::Quit == (u16)ControlFrameCmd::Quit);
@@ -3200,6 +3246,24 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             Str res = TestParkInLoader();
             AppendTestResult(req, str::Eq(res, StrL("parked")) ? 0 : 1, res);
+            break;
+        }
+
+        case ControlCmd::TestCrashHandler: {
+            if (!gForTesting) {
+                AppendError(req, StrL("requires -for-testing"));
+                break;
+            }
+            Str action = StringArg(req, 0);
+            bool ok = false;
+            if (str::Eq(action, StrL("heap-lock"))) {
+                TestCrashWithHeapLocked();
+            } else if (str::Eq(action, StrL("private-handles"))) {
+                ok = CrashTestHandlesPrivate();
+            } else if (str::Eq(action, StrL("restore-filter"))) {
+                ok = CrashTestRestoreFilter();
+            }
+            AppendTestResult(req, ok ? 0 : 1, action);
             break;
         }
 
