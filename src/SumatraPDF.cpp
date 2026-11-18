@@ -3619,6 +3619,10 @@ MainWindow* LoadDocumentFinish(LoadArgs* args) {
     if (!IsMainWindowValidAndNotClosing(win)) {
         return nullptr;
     }
+    // as for a tab shown (FocusFrameForDocument): the active frame without a focus takes it
+    if (!lazyLoad) {
+        HwndMoveFocus(nullptr, win->hwndFrame);
+    }
 
     if (gPluginMode) {
         // hide the menu for embedded documents opened from the plugin

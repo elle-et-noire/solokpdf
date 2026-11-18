@@ -18,8 +18,14 @@
 // closed. The contents and Advanced Settings edits get the focus another app took back
 // once their window is active again, as after a minimize.
 //
+// E149: the click that reactivates a window decides the focus: a held refocus runs as the
+// activation ends, before the click, not after it. Holds of the app's deactivation outlast
+// another of its windows' activation. A document loaded with no focus focuses its frame,
+// as does a Markdown page navigated to.
+//
 // `away` activates a window standing for another app; `click-frame` / `click-last` /
-// `click-hwnd` activate a window as a click on its caption does, with no SetFocus() after.
+// `click-hwnd` activate a window as a click on its caption does, with no SetFocus() after;
+// `activating-click`, as a click in it does: activation, the click, then posted messages.
 //
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e144-focus-restores.ts --no-build
 
@@ -58,12 +64,14 @@ import {
   setProcessDpiAware,
   WM_CLOSE,
   WM_COMMAND,
+  clientToScreen,
+  getClientRect,
 } from "./winapi.ts";
 import {
-  clickCanvasAway,
   findCanvas,
   killAndWait,
   launchControlled,
+  moveTestCursor,
   sendCommand,
   sendCommandSync,
   waitForPalette,
@@ -166,6 +174,19 @@ async function openInTab(client: ControlClient, frame: number, path: string, pag
   );
 }
 
+// a click at (x, y) in hwnd, whose window isn't active, in the order Windows takes it
+async function activatingClick(client: ControlClient, hwnd: number, x: number, y: number): Promise<void> {
+  const at = clientToScreen(hwnd, x, y);
+  await moveTestCursor(at.x, at.y, client);
+  await client.request(ControlCommand.TestFocusState, ["activating-click", hwnd, packCoords(x, y)]);
+}
+
+// a click on the canvas away from the page's annotations
+async function activatingCanvasClick(client: ControlClient, canvas: number): Promise<void> {
+  const rc = getClientRect(canvas);
+  await activatingClick(client, canvas, Math.max(1, rc.right - 40), Math.max(1, rc.bottom - 40));
+}
+
 async function paletteOpen(client: ControlClient): Promise<boolean> {
   return (await client.request(ControlCommand.TestCommandPalette, []))[0] === 0;
 }
@@ -180,6 +201,8 @@ export async function testit(): Promise<void> {
   writeFileSync(pdf, makeE110Pdf(), "latin1");
   const pdf2 = join(dir, "doc2.pdf");
   writeFileSync(pdf2, makeE110Pdf(), "latin1");
+  const pdf3 = join(dir, "doc3.pdf");
+  writeFileSync(pdf3, makeE110Pdf(), "latin1");
   writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n");
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   const pid = proc.pid!;
@@ -225,6 +248,23 @@ export async function testit(): Promise<void> {
       });
     }
 
+    // E149: the click's focus stays; the find box doesn't get it back after the click
+    await step("find bar: a click on the canvas activates the restored frame", async () => {
+      await openFind();
+      try {
+        await minimizeFrame(client, "os-first", "away");
+        await waitGone(findBar, "find bar with the frame minimized");
+      } finally {
+        await minimizeFrame(client, "restore");
+      }
+      checkAway(await settled(client), "restored");
+      await activatingCanvasClick(client, canvas);
+      const res = await settled(client);
+      check(/^focus=(frame|canvas) active=frame /.test(res), `the click did not keep the focus: ${res}`);
+      check(!/ caret=owned /.test(res), `the find box kept its caret: ${res}`);
+    });
+    if (findBar()) await hideByOwner(client, "find");
+
     sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
     const openEdit = async (text: string) => {
       if (toolbar()) await hideByOwner(client, "annotation");
@@ -261,18 +301,8 @@ export async function testit(): Promise<void> {
       check(await editing(client), "the contents edit closed");
     });
 
-    await step("contents edit: a click on the canvas activates the restored frame", async () => {
-      const text = "clicked away";
-      await openEdit(text);
-      try {
-        await minimizeFrame(client, "os-first", "away");
-        await waitGone(toolbar, "annotation toolbar with the frame minimized");
-      } finally {
-        await minimizeFrame(client, "restore");
-      }
-      checkAway(await settled(client), "restored");
-      await focusState(client, "activate");
-      await clickCanvasAway(canvas);
+    // the click took the focus from the contents edit: committed, as for a click away
+    const clickCommits = async (text: string) => {
       await pollUntil(
         () => editing(client),
         (e) => !e,
@@ -283,6 +313,30 @@ export async function testit(): Promise<void> {
       const edit = await openContentsEdit(client, canvas, toolbar);
       const kept = getControlText(edit);
       check(kept === text, `committed "${kept}", want "${text}"`);
+    };
+
+    await step("contents edit: a click on the canvas activates the restored frame", async () => {
+      const text = "clicked away";
+      await openEdit(text);
+      try {
+        await minimizeFrame(client, "os-first", "away");
+        await waitGone(toolbar, "annotation toolbar with the frame minimized");
+      } finally {
+        await minimizeFrame(client, "restore");
+      }
+      checkAway(await settled(client), "restored");
+      await activatingCanvasClick(client, canvas);
+      await clickCommits(text);
+    });
+
+    // E149: the frame activated by a click on the canvas after another app took the focus
+    await step("contents edit: a click on the canvas reactivates the frame", async () => {
+      const text = "reactivated";
+      await openEdit(text);
+      await focusState(client, "away");
+      checkAway(await settled(client), "after the loss");
+      await activatingCanvasClick(client, canvas);
+      await clickCommits(text);
     });
     if (toolbar()) await hideByOwner(client, "annotation");
 
@@ -324,6 +378,37 @@ export async function testit(): Promise<void> {
         { timeoutMs: WAIT_MS, error: (r) => `the value edit did not get the focus back: ${r}` },
       );
       check((await advSettings(client, "state")).includes("editing=1"), "the value edit closed on the way back");
+    });
+
+    // E149: the main window activated on the way back keeps the hold
+    await step("Advanced Settings edit: another app takes the focus, back through the frame", async () => {
+      check((await advSettings(client, "edit")).includes("editing=1"), "the value edit did not open");
+      await focusState(client, "away");
+      checkAway(await settled(client), "after the loss");
+      await activateFrame(client);
+      await clickTop(client, advWnd);
+      await pollUntil(
+        () => settled(client),
+        (r) => r.startsWith("focus=other-edit "),
+        { timeoutMs: WAIT_MS, error: (r) => `the value edit did not get the focus back: ${r}` },
+      );
+      check((await advSettings(client, "state")).includes("editing=1"), "the value edit closed on the way back");
+    });
+
+    // E149: a click on the edited row's name, in the list, a virtual control: the dialog
+    // window takes the focus after the refocus, the edit stays open
+    await step("Advanced Settings edit: a click on the list reactivates the dialog", async () => {
+      check((await advSettings(client, "edit")).includes("editing=1"), "the value edit did not open");
+      await focusState(client, "away");
+      checkAway(await settled(client), "after the loss");
+      const geom = await advSettings(client, "geom");
+      const row = /\beditRow=(\d+)/.exec(geom)?.[1];
+      const r = new RegExp(`row=${row} rect=(-?\\d+),(-?\\d+),(\\d+),(\\d+)`).exec(geom);
+      check(r !== null, `the edited row is not shown: ${geom}`);
+      await activatingClick(client, advWnd, Number(r![1]) + 4, Number(r![2]) + Math.floor(Number(r![4]) / 2));
+      const res = await settled(client);
+      check(/^focus=other active=other /.test(res), `the click did not keep the focus: ${res}`);
+      check((await advSettings(client, "state")).includes("editing=1"), "the value edit closed");
     });
 
     // the loss closes the list; the posted close and the combo's end leave the focus there
@@ -408,6 +493,14 @@ export async function testit(): Promise<void> {
     });
     await activateFrame(client);
 
+    // E149: a document another app asks for, the frame active with no focus
+    await step("document loaded: the frame active, no focus", async () => {
+      await focusState(client, "none");
+      await openInTab(client, frame, pdf3, 1);
+      const res = await settled(client);
+      check(/^focus=(frame|canvas) active=frame /.test(res), `the frame did not get the focus: ${res}`);
+    });
+
     // a tab shown for the app (the palette's close, an async load) and a web page's
     // navigation (CHM, Markdown): the frame without a focus takes it (startup, script
     // dropping it), another app's stays
@@ -430,6 +523,38 @@ export async function testit(): Promise<void> {
       });
       await activateFrame(client);
     }
+
+    // E149: a Markdown document's real navigation. The page counts as current at once; its
+    // url served by the app shows the web view navigated (OnBeforeNavigate ran)
+    const mdDir = join(dir, "md");
+    mkdirSync(mdDir, { recursive: true });
+    const md = join(mdDir, "a.md");
+    for (const name of ["a", "b", "c"]) writeFileSync(join(mdDir, `${name}.md`), `# ${name}\n`);
+    const navigated = async (name: string) => {
+      const page = new RegExp(`(^|/)${name}\\.(md|html)$`, "m");
+      await pollUntil(
+        async () => String((await client.request(ControlCommand.TestMarkdownServed, []))[1] ?? ""),
+        (r) => page.test(r),
+        { timeoutMs: WAIT_MS * 5, error: (r) => `${name}.md not shown: ${r}` },
+      );
+    };
+    await openInTab(client, frame, md, 1);
+    await navigated("a");
+    await activateFrame(client);
+    await step("Markdown page navigated: another app has the focus", async () => {
+      await focusState(client, "away");
+      sendCommand(frame, cmdId("CmdGoToNextPage"));
+      await navigated("b");
+      checkAway(await settled(client), "navigated");
+    });
+    await activateFrame(client);
+    await step("Markdown page navigated: the frame active, no focus", async () => {
+      await focusState(client, "none");
+      sendCommand(frame, cmdId("CmdGoToNextPage"));
+      await navigated("c");
+      const res = await settled(client);
+      check(/^focus=(frame|canvas) active=frame /.test(res), `the frame did not get the focus: ${res}`);
+    });
   } finally {
     client.close();
     await killAndWait(proc);

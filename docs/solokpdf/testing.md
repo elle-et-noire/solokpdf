@@ -226,6 +226,15 @@ dialog step starts with `activate-owned`; without it the `frame` way then `away`
 reproduced CI's "focus=none active=none" and "the restore took the focus from another
 app: focus=owned active=owned". The dialog has no kept way: with the app in the
 foreground Windows never leaves it active.
+E149: `TestFocusState activating-click <hwnd> <packed client point>` models a click
+that activates the window's root: Windows activates it as the thread takes the click
+from its input queue, so the click comes before anything the activation posted. The
+request posts `WM_LBUTTONDOWN`/`UP`, then activates the root (foreground, no
+`SetFocus()`). `activate` and a later click put the click after the posted refocus,
+an order a real click never has. After `away` (`SetFocus(nullptr)`), `click-frame`
+leaves the frame active with no focus, which a real caption click doesn't; use
+`activate`. Markdown navigation is done once the page's url is served
+(`TestMarkdownServed`): the page counts as current before the web view navigates.
 Dumps that report a popup shown (`visible=1`, `floatVisible=1`, the annotation
 toolbar's `annotEditToolbar visible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,

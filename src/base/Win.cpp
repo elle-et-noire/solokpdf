@@ -2177,7 +2177,11 @@ bool TrackMouseLeave(HWND hwnd) {
 //                        doesn't see it lose the focus, unless the focus goes to another
 //                        window first or doesn't come back (hidden by its owner meanwhile)
 //   app deactivated   -> the focus its owner keeps for it (HwndRefocusWhenActive) comes
-//                        back the same way, once its frame (or it, unowned) is active
+//                        back the same way, once its frame (or it, unowned) is active,
+//                        also after another of the app's windows was
+//
+// A held focus comes back as the activation ends, before the input that follows it: the
+// click that activated the window then moves the focus as on an active window.
 //
 // An anchored popup (AnchorPopup) also belongs to a child window, its anchor: a toolbar
 // button's drop-down, a tip on the canvas. Windows moves and hides a child with its
@@ -2224,8 +2228,11 @@ struct OwnedPopup {
     HWND focus = nullptr;
     // Windows moved the focus off `focus` while it was held: its owner hasn't seen the loss
     bool lost = false;
-    // its window was activated, the refocus is posted: activation focuses the popup itself
-    bool refocusPosted = false;
+    // its owner saw the loss (HwndRefocusWhenActive): the focus its window gets back
+    bool sawLoss = false;
+    // its window was activated: the refocus runs before the thread's next input, or as
+    // posted. Activation focuses the popup itself meanwhile
+    bool refocusPending = false;
 };
 
 static Vec<OwnedPopup*> gOwnedPopups;
@@ -2314,28 +2321,39 @@ static bool InPopup(HWND popup, HWND hwnd) {
 
 static LRESULT CALLBACK HeldFocusProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 static LRESULT CALLBACK FocusMoveHook(int, WPARAM, LPARAM);
+static LRESULT CALLBACK RefocusInputHook(int, WPARAM, LPARAM);
 static OwnedPopup* FindOwnedPopup(HWND popup);
+static void RefocusWhenActive(OwnedPopup* ap);
 static LRESULT CALLBACK AnchorChainProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 
 static HHOOK gFocusMoveHook = nullptr;
+static HHOOK gRefocusInputHook = nullptr;
 // a held focus's loss is being delivered to its owner
 static bool gDeliveringLoss = false;
 
-// FocusMoveHook watches the focus while a popup's is held
-static void SyncFocusMoveHook() {
+static void SyncHook(HHOOK& hook, bool want, int type, HOOKPROC proc) {
+    if (want && !hook) {
+        hook = SetWindowsHookExW(type, proc, nullptr, GetCurrentThreadId());
+        if (!hook) {
+            logf("SyncFocusHooks: SetWindowsHookEx failed: %d\n", (int)GetLastError());
+        }
+    } else if (!want && hook) {
+        UnhookWindowsHookEx(hook);
+        hook = nullptr;
+    }
+}
+
+// FocusMoveHook watches the focus while a popup's is held, RefocusInputHook the input
+// while a refocus is pending
+static void SyncFocusHooks() {
     bool held = gDeliveringLoss;
+    bool pending = false;
     for (OwnedPopup* ap : OwnedPopups()) {
         held = held || ap->focus;
+        pending = pending || ap->refocusPending;
     }
-    if (held && !gFocusMoveHook) {
-        gFocusMoveHook = SetWindowsHookExW(WH_CBT, FocusMoveHook, nullptr, GetCurrentThreadId());
-        if (!gFocusMoveHook) {
-            logf("SyncFocusMoveHook: SetWindowsHookEx failed: %d\n", (int)GetLastError());
-        }
-    } else if (!held && gFocusMoveHook) {
-        UnhookWindowsHookEx(gFocusMoveHook);
-        gFocusMoveHook = nullptr;
-    }
+    SyncHook(gFocusMoveHook, held, WH_CBT, FocusMoveHook);
+    SyncHook(gRefocusInputHook, pending, WH_GETMESSAGE, RefocusInputHook);
 }
 
 static void ReleaseFocus(OwnedPopup* ap) {
@@ -2345,8 +2363,9 @@ static void ReleaseFocus(OwnedPopup* ap) {
     RemoveWindowSubclass(ap->focus, HeldFocusProc, ap->id);
     ap->focus = nullptr;
     ap->lost = false;
-    ap->refocusPosted = false;
-    SyncFocusMoveHook();
+    ap->sawLoss = false;
+    ap->refocusPending = false;
+    SyncFocusHooks();
 }
 
 // The hold ends with the focus elsewhere. The owner gets the loss Windows sent while it
@@ -2363,7 +2382,7 @@ static void DropHold(OwnedPopup* ap) {
     ReleaseFocus(ap);
     SendMessageW(hwnd, WM_KILLFOCUS, (WPARAM)GetFocus(), 0);
     gDeliveringLoss = delivering;
-    SyncFocusMoveHook();
+    SyncFocusHooks();
 }
 
 enum class FocusMove {
@@ -2391,10 +2410,14 @@ static void NoteFocusMoving(HWND to, FocusMove how) {
             continue;
         }
         if (HwndRootOwner(ap->popup) == frame) {
-            bool activating = ap->refocusPosted && to == ap->popup;
+            bool activating = ap->refocusPending && to == ap->popup;
             if (how == FocusMove::SetFocus && !ap->minimized && InPopup(ap->popup, to) && !activating) {
                 ReleaseFocus(ap);
             }
+            continue;
+        }
+        // the focus its window gets back stays held
+        if (ap->sawLoss) {
             continue;
         }
         // one that still has the focus gets WM_KILLFOCUS from Windows, one that lost it now
@@ -2410,18 +2433,51 @@ static void NoteFocusMoving(HWND to, FocusMove how) {
         }
     }
     gDeliveringLoss = false;
-    SyncFocusMoveHook();
+    SyncFocusHooks();
 }
 
-// a held focus goes back once its frame (or unowned popup) is activated (RefocusWhenActive)
+// A held focus goes back once its frame (or unowned popup) is activated
+// (RefocusWhenActive): before the input that follows, or as posted with none.
 static void NoteActivating(HWND hwnd) {
     HWND root = HwndRootOwner(hwnd);
     for (OwnedPopup* ap : OwnedPopups()) {
         if (ap->focus && !ap->minimized && HwndRootOwner(ap->popup) == root) {
-            ap->refocusPosted = true;
+            ap->refocusPending = true;
             PostMessageW(ap->popup, gPopupMsg, PopupRefocus, 0);
         }
     }
+    SyncFocusHooks();
+}
+
+static bool IsInputMessage(UINT msg) {
+    bool key = msg >= WM_KEYFIRST && msg <= WM_KEYLAST;
+    bool mouse = msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST;
+    bool ncMouse = msg >= WM_NCMOUSEMOVE && msg <= WM_NCXBUTTONDBLCLK;
+    return key || mouse || ncMouse;
+}
+
+// The thread takes its first input since an activation: the click that activated the
+// window comes out of the queue after the activation, ahead of what it posted. The
+// refocus runs first, so the click decides the focus.
+static LRESULT CALLBACK RefocusInputHook(int code, WPARAM wp, LPARAM lp) {
+    auto* m = (MSG*)lp;
+    if (code != HC_ACTION || wp != PM_REMOVE || !IsInputMessage(m->message)) {
+        return CallNextHookEx(nullptr, code, wp, lp);
+    }
+    Vec<HWND> pending;
+    for (OwnedPopup* ap : OwnedPopups()) {
+        if (ap->refocusPending) {
+            VecAppend(pending, ap->popup);
+        }
+    }
+    // owners may hide or destroy popups
+    for (HWND popup : pending) {
+        OwnedPopup* ap = FindOwnedPopup(popup);
+        if (ap && ap->refocusPending) {
+            RefocusWhenActive(ap);
+        }
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
 }
 
 // Watches the thread's focus and activation while a focus is held. Windows calls it
@@ -2514,7 +2570,7 @@ static void NoteMinimized(OwnedPopup* ap) {
     DropHold(ap);
     ap->focus = focus;
     SetWindowSubclass(focus, HeldFocusProc, ap->id, (DWORD_PTR)ap);
-    SyncFocusMoveHook();
+    SyncFocusHooks();
 }
 
 // A restored popup gets its held focus back once its frame or a window of the app's it
@@ -2522,7 +2578,8 @@ static void NoteMinimized(OwnedPopup* ap) {
 // frame, or the popup if no frame owns it, is. Until then the focus may be in another app
 // or in a dialog of a class not the app's (NoteFocusMoving()): a SetFocus() would take it.
 static void RefocusWhenActive(OwnedPopup* ap) {
-    ap->refocusPosted = false;
+    ap->refocusPending = false;
+    SyncFocusHooks();
     if (!ap->focus || ap->minimized) {
         return;
     }
@@ -2560,8 +2617,9 @@ void HwndRefocusWhenActive(HWND to) {
     }
     DropHold(ap);
     ap->focus = to;
+    ap->sawLoss = true;
     SetWindowSubclass(to, HeldFocusProc, ap->id, (DWORD_PTR)ap);
-    SyncFocusMoveHook();
+    SyncFocusHooks();
 }
 
 // not shown again with its frame

@@ -1277,9 +1277,16 @@ static Str CaretName(MainWindow* win) {
     return FocusWindowName(gti.hwndCaret, win);
 }
 
+enum class TestActivation {
+    // then focuses the window
+    Focus,
+    // the focus is where the activation left it, for the click that activated it
+    NoFocus,
+};
+
 // Activates the window like a user would, past the foreground lock: the app is in the
 // foreground.
-static void ActivateForTest(HWND hwndFrame) {
+static void ActivateForTest(HWND hwndFrame, TestActivation how = TestActivation::Focus) {
     gTestActivating = true;
     gAppInBackground = false;
     HWND fg = GetForegroundWindow();
@@ -1288,7 +1295,9 @@ static void ActivateForTest(HWND hwndFrame) {
     bool attached = fgThread && fgThread != uiThread && AttachThreadInput(uiThread, fgThread, TRUE);
     SetForegroundWindow(hwndFrame);
     SetActiveWindow(hwndFrame);
-    SetFocus(hwndFrame);
+    if (how == TestActivation::Focus) {
+        SetFocus(hwndFrame);
+    }
     if (attached) {
         AttachThreadInput(uiThread, fgThread, FALSE);
     }
@@ -3595,6 +3604,17 @@ static void ExecuteControlRequest(ControlRequest* req) {
             i32 clicked = 0;
             if (str::Eq(action, StrL("click-hwnd")) && IntArg(req, 1, clicked)) {
                 SetActiveWindow((HWND)(intptr_t)clicked);
+            }
+            // A click at the third argument (client coordinates, packed) in the window given as
+            // the second, whose root isn't active: Windows activates the root as the thread takes
+            // the click from its input queue, the window gets the click, then what the
+            // activation posted runs
+            i32 at = 0;
+            if (str::Eq(action, StrL("activating-click")) && IntArg(req, 1, clicked) && IntArg(req, 2, at)) {
+                auto target = (HWND)(intptr_t)clicked;
+                PostMessageW(target, WM_LBUTTONDOWN, MK_LBUTTON, at);
+                PostMessageW(target, WM_LBUTTONUP, 0, at);
+                ActivateForTest(GetAncestor(target, GA_ROOT), TestActivation::NoFocus);
             }
             if (win && str::Eq(action, StrL("kill-moves-focus")) && GetFocus()) {
                 gKillMovesTo = win->hwndCanvas;

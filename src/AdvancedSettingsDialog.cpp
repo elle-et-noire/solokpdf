@@ -1935,8 +1935,18 @@ TempStr AdvSettingsRowsResultTemp(Str action, int arg, int* exitCodeOut) {
     // whole rows, so the strip below the last one is background and must stay
     // that way however far the list is scrolled
     Rect cr = lb->ContentRectInWindow();
-    out.Append(fmt("OK content=%d,%d,%d,%d itemDy=%d usableDy=%d scrollY=%d maxScrollY=%d items=%d\n", cr.x, cr.y,
-                   cr.dx, cr.dy, itemDy, lb->UsableDy(), lb->scrollY, lb->MaxScrollY(), lb->ItemsCount()));
+    // the first row of the setting being edited, if any
+    int editRow = -1;
+    int nRows = wnd->model && wnd->editItemIdx >= 0 ? len(wnd->model->rows) : 0;
+    for (int i = 0; i < nRows; i++) {
+        if (wnd->model->rows[i].itemIdx == wnd->editItemIdx) {
+            editRow = i;
+            break;
+        }
+    }
+    out.Append(fmt("OK content=%d,%d,%d,%d itemDy=%d usableDy=%d scrollY=%d maxScrollY=%d items=%d editRow=%d\n", cr.x,
+                   cr.y, cr.dx, cr.dy, itemDy, lb->UsableDy(), lb->scrollY, lb->MaxScrollY(), lb->ItemsCount(),
+                   editRow));
     Vec<AdvSettingsRowRec> drawn;
     RecordAdvSettingsRows(wnd, drawn);
     for (const AdvSettingsRowRec& rec : drawn) {
