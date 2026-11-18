@@ -70,6 +70,7 @@ import {
   getClassName,
   getClientRect,
   getControlText,
+  getForegroundWindow,
   getWindowLong,
   getWindowPid,
   getWindowRect,
@@ -674,6 +675,13 @@ enum AwayCheck {
   Skip,
 }
 
+type ForegroundFixture = { client: ControlClient; frame: number };
+
+function checkForeground(hwnd: number, what: string): void {
+  const actual = getForegroundWindow();
+  check(actual === hwnd, `${what}: expected foreground ${hwnd}, got ${actual}`);
+}
+
 // minimized, `during` runs, restored. The anchor layer's syncs, posted by the
 // restore, run before the next request: one Windows shows again only for its
 // owner to hide is not back when it returns
@@ -685,16 +693,28 @@ async function minimizedAndRestored(
   during: () => Promise<void> = async () => {},
   away = AwayCheck.Kept,
   duringTrace = "",
+  foreground?: ForegroundFixture,
 ): Promise<void> {
   let minimized = "";
   let trace = "";
   try {
     minimized = await minimizeFrame(client, way.order, way.focus);
     await waitGone(find, `${what} with the frame minimized`);
+    if (foreground) {
+      await activateTestFrame(foreground.client);
+      checkForeground(foreground.frame, `${what} before changing the hidden window`);
+    }
     trace = duringTrace;
     await during();
   } finally {
     await minimizeFrame(client, "restore", "", trace);
+  }
+  if (foreground) {
+    await client.request(ControlCommand.Ping, []);
+    checkForeground(foreground.frame, `${what} after restoring the frame`);
+    await client.request(ControlCommand.TestFocusState, ["activate"]);
+    await client.request(ControlCommand.Ping, []);
+    return;
   }
   // E148: its frame disabled by a modal dialog, Windows gave the activation to another app
   const leftApp = /leftApp=[1-9]/.test(minimized);
@@ -1469,7 +1489,12 @@ const WM_SETREDRAW = 0x000b;
 // E145: a window hidden with the frame isn't put back on screen by setting WS_VISIBLE
 // without a show: WM_SETREDRAW TRUE (what Run PDF Script's example pick sends a window
 // it reads as shown) or a style write
-async function checkStaysHidden(pid: number, client: ControlClient, frame: number): Promise<void> {
+async function checkStaysHidden(
+  pid: number,
+  client: ControlClient,
+  frame: number,
+  foreground?: ForegroundFixture,
+): Promise<void> {
   const name = "Run PDF Script";
   const find = () => shownOwned(pid, frame, /^Run PDF Script$/);
   const examples = tmpPath("ad-hoc-e147-scripts.js");
@@ -1509,6 +1534,7 @@ async function checkStaysHidden(pid: number, client: ControlClient, frame: numbe
         event: w.event,
         trace: w.trace,
       },
+      foreground,
     );
   }
   await closeWindow(find, name);
@@ -1533,6 +1559,7 @@ async function checkModalMinimized(
   frame: number,
   m: Modal,
   action?: MinimizedAction,
+  foreground?: ForegroundFixture,
 ): Promise<void> {
   const ways = FOCUS_WAYS.filter((w) => w.focus).map((w) =>
     w.focus === "frame" ? { ...w, how: `${w.order}, the activation left the app` } : w,
@@ -1554,6 +1581,7 @@ async function checkModalMinimized(
           action && (() => action.during(hwnd)),
           AwayCheck.Kept,
           action?.trace,
+          way.focus === "frame" ? foreground : undefined,
         );
         await waitAt(m.find, before, `${m.name} after the frame was restored`);
         const after = await focusState(client);
@@ -1608,6 +1636,22 @@ export async function checkOwnedWindows(): Promise<void> {
   writeFileSync(pdf, makeE110Pdf(), "latin1");
   const settings = ["UiLanguage = en", "CheckForUpdates = false", "RestoreSession = false"];
   writeFileSync(join(dir, SETTINGS_FILE), settings.join("\n") + "\n");
+  // A separate input queue can retain the real foreground on the hosted desktop.
+  const interactive =
+    !process.env.SOLOKPDF_HIDDEN_DESKTOP &&
+    (process.env.CI || process.env.GITHUB_ACTIONS || process.env.SOLOKPDF_REAL_DESKTOP === "1");
+  const foreground = interactive ? await launchControlled([]) : undefined;
+  try {
+    await checkOwnedInSession(dir, pdf, foreground);
+  } finally {
+    if (foreground) {
+      foreground.client.close();
+      await killAndWait(foreground.proc);
+    }
+  }
+}
+
+async function checkOwnedInSession(dir: string, pdf: string, foreground?: ForegroundFixture): Promise<void> {
   const { proc, client, frame } = await launchLogged("e143", ["-appdata", dir, pdf]);
   const pid = proc.pid!;
   const focus = { give: async () => void (await focusState(client, "owned-popup")), name: "owned" };
@@ -1637,7 +1681,7 @@ export async function checkOwnedWindows(): Promise<void> {
       open: async () => sendCommandSync(frame, cmdId("CmdPdfCompress")),
       focus,
     });
-    await checkStaysHidden(pid, client, frame);
+    await checkStaysHidden(pid, client, frame, foreground);
     // E147: other modal dialogs
     for (const m of [
       { name: "Add Favorite", find: () => shownOwned(pid, frame, /^Add Favorite$/), cmd: "CmdFavoriteAdd" },
