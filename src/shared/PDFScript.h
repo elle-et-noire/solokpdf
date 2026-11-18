@@ -12,6 +12,7 @@ struct PDFScriptResult {
 int PDFScriptCount();
 Str PDFScriptName(int index);
 Str PDFScriptSource(int index);
+bool LoadPDFScriptsForTest(Str path);
 TempStr PDFScriptOutputPath(Str input);
 void GetPDFScriptArgs(Str script, Str input, StrVec& values, StrVec& hints);
 TempStr ExpandPDFScript(Str script, const StrVec& args);

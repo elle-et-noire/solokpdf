@@ -451,6 +451,7 @@ void SidebarTree::ShowTip() {
         args.parent = tree.Hwnd();
         args.font = tree.GetFont();
         args.isRtl = tree.GetDirection() == TreeDirection::RightToLeft;
+        args.dismiss = MkMethod0<SidebarTree, &SidebarTree::HideTip>(this);
         if (!tooltip->Create(args)) {
             delete tooltip;
             tooltip = nullptr;

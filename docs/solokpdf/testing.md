@@ -208,10 +208,12 @@ Markdown page's `OnBeforeNavigate` does (IE navigates asynchronously and the CHM
 fixture has one page); an Edit in an unowned window reads `other-edit`. A DDE
 open loads synchronously here, so `LoadModelIntoTab`'s focus is tested through
 `TestSelectTab`.
-E145: while minimized, the test sends Run PDF Script `WM_SETREDRAW` FALSE/TRUE and
-sets `WS_VISIBLE` with `SetWindowLong` from its own process; the dialog must stay off
-screen and come back at its place with the focus. The examples come from the website
-checkout (`scripts.js`); without it the list is empty and the `pick` action fails.
+E145: while minimized, the test picks a Run PDF Script example (its redraw goes off
+and on: `WM_SETREDRAW` TRUE) and sets `WS_VISIBLE` with `SetWindowLong` from its own
+process; the dialog must stay off screen and come back at its place with the focus.
+The app's examples come from the website checkout (`scripts.js`), which CI and most
+local trees lack: `TestPdfScript load-examples -1 <path>`, before the dialog opens,
+takes them from a bundle in that format, which the test writes (E147).
 E148: Run PDF Script is modal, its frame disabled. Windows hides it with the frame
 (`SW_PARENTCLOSING`, as other owned windows) and, on the foreground queue, activates
 the next window, which can't be a disabled frame: another app gets the activation, the
@@ -235,6 +237,15 @@ an order a real click never has. After `away` (`SetFocus(nullptr)`), `click-fram
 leaves the frame active with no focus, which a real caption click doesn't; use
 `activate`. Markdown navigation is done once the page's url is served
 (`TestMarkdownServed`): the page counts as current before the web view navigates.
+E147: tips (`Tooltip`) are unowned topmost popups: Windows doesn't hide them with the
+frame, and `anchor-first` shows again only what the frame owns, so tips of the frame's
+own windows (toolbar, bookmarks tree) run the `os-first` ways; the About hover's link
+tip, whose window the frame owns, runs both orders. Its finder takes the tip below the
+link: once the restored frame is activated, Home's keyboard selection tip shows. Modal
+Add Favorite and Zoom run Run PDF Script's minimize steps (Go to page opens no dialog
+with the toolbar shown). `TestMarkdownServed` also lists a CHM document's served urls;
+`tests/chm-fixture.ts` writes a multi-page CHM (`makeChmPages`), so e144 navigates CHM
+pages as it does Markdown ones. `TestFocusState` names the frame's page box `page-box`.
 Dumps that report a popup shown (`visible=1`, `floatVisible=1`, the annotation
 toolbar's `annotEditToolbar visible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,

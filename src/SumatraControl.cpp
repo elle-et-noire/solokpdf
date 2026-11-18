@@ -1168,6 +1168,9 @@ static Str FocusWindowName(HWND hwnd, MainWindow* win) {
     if (win && hwnd == win->hwndCanvas) {
         return StrL("canvas");
     }
+    if (win && win->pageEdit && hwnd == win->pageEdit->hwnd) {
+        return StrL("page-box");
+    }
     // in another of the app's windows
     HWND root = HwndRootOwner(hwnd);
     if (win && root != win->hwndFrame && FindMainWindowByHwnd(root)) {
@@ -2888,7 +2891,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
             i32 idx = -1;
             IntArg(req, 1, idx);
             int exitCode = 0;
-            Str res = PDFScriptTestTemp(StringArg(req, 0), idx, &exitCode);
+            Str res = PDFScriptTestTemp(StringArg(req, 0), idx, StringArg(req, 2), &exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }

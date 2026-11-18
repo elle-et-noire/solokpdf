@@ -881,6 +881,7 @@ void VirtRoot::UpdateTooltip(Point ptWindow) {
     if (!tooltip && hwnd) {
         Tooltip::CreateArgs args;
         args.parent = hwnd;
+        args.dismiss = MkMethod0<VirtRoot, &VirtRoot::HideTooltip>(this);
         tooltip = new Tooltip();
         tooltip->Create(args);
     }

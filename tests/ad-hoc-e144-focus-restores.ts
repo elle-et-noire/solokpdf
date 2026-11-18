@@ -23,6 +23,9 @@
 // another of its windows' activation. A document loaded with no focus focuses its frame,
 // as does a Markdown page navigated to.
 //
+// E147: a click on the page box keeps its focus and caret; a CHM page navigated to
+// focuses the frame as a Markdown one does.
+//
 // `away` activates a window standing for another app; `click-frame` / `click-last` /
 // `click-hwnd` activate a window as a click on its caption does, with no SetFocus() after;
 // `activating-click`, as a click in it does: activation, the click, then posted messages.
@@ -47,6 +50,7 @@ import {
   waitShown,
   withOtherWindow,
 } from "./ad-hoc-e98-anchored-popups.ts";
+import { makeChmPages } from "./chm-fixture.ts";
 import { cmdId, pollUntil, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 import {
   enumWindows,
@@ -65,6 +69,8 @@ import {
   WM_CLOSE,
   WM_COMMAND,
   clientToScreen,
+  findChildWindow,
+  findVisibleChildWindow,
   getClientRect,
 } from "./winapi.ts";
 import {
@@ -78,6 +84,7 @@ import {
 } from "./win-automation.ts";
 
 const WAIT_MS = 3000;
+const TOOLBAR_CLASS = "SUMATRA_VIRT_TOOLBAR";
 // WM_COPYDATA id of a DDE command
 const DDE_COPYDATA = 0x44646557;
 const failures: string[] = [];
@@ -262,6 +269,24 @@ export async function testit(): Promise<void> {
       const res = await settled(client);
       check(/^focus=(frame|canvas) active=frame /.test(res), `the click did not keep the focus: ${res}`);
       check(!/ caret=owned /.test(res), `the find box kept its caret: ${res}`);
+    });
+    if (findBar()) await hideByOwner(client, "find");
+
+    // E147: an edit the click focuses itself, which shows its caret
+    await step("find bar: a click on the page box activates the restored frame", async () => {
+      await openFind();
+      try {
+        await minimizeFrame(client, "os-first", "away");
+        await waitGone(findBar, "find bar with the frame minimized");
+      } finally {
+        await minimizeFrame(client, "restore");
+      }
+      checkAway(await settled(client), "restored");
+      const pageBox = findVisibleChildWindow(findChildWindow(frame, TOOLBAR_CLASS), "Edit");
+      check(pageBox !== 0, "no page box");
+      await activatingClick(client, pageBox, 4, Math.floor(getClientRect(pageBox).bottom / 2));
+      const res = await settled(client);
+      check(/^focus=page-box active=frame caret=focus /.test(res), `the click did not keep the focus: ${res}`);
     });
     if (findBar()) await hideByOwner(client, "find");
 
@@ -524,37 +549,45 @@ export async function testit(): Promise<void> {
       await activateFrame(client);
     }
 
-    // E149: a Markdown document's real navigation. The page counts as current at once; its
-    // url served by the app shows the web view navigated (OnBeforeNavigate ran)
+    // E149: a Markdown document's real navigation, E147: a CHM document's. The page counts
+    // as current at once; its url served by the app shows the web view navigated
+    // (OnBeforeNavigate ran)
     const mdDir = join(dir, "md");
     mkdirSync(mdDir, { recursive: true });
-    const md = join(mdDir, "a.md");
     for (const name of ["a", "b", "c"]) writeFileSync(join(mdDir, `${name}.md`), `# ${name}\n`);
-    const navigated = async (name: string) => {
-      const page = new RegExp(`(^|/)${name}\\.(md|html)$`, "m");
-      await pollUntil(
-        async () => String((await client.request(ControlCommand.TestMarkdownServed, []))[1] ?? ""),
-        (r) => page.test(r),
-        { timeoutMs: WAIT_MS * 5, error: (r) => `${name}.md not shown: ${r}` },
-      );
-    };
-    await openInTab(client, frame, md, 1);
-    await navigated("a");
-    await activateFrame(client);
-    await step("Markdown page navigated: another app has the focus", async () => {
-      await focusState(client, "away");
-      sendCommand(frame, cmdId("CmdGoToNextPage"));
-      await navigated("b");
-      checkAway(await settled(client), "navigated");
-    });
-    await activateFrame(client);
-    await step("Markdown page navigated: the frame active, no focus", async () => {
-      await focusState(client, "none");
-      sendCommand(frame, cmdId("CmdGoToNextPage"));
-      await navigated("c");
-      const res = await settled(client);
-      check(/^focus=(frame|canvas) active=frame /.test(res), `the frame did not get the focus: ${res}`);
-    });
+    const chm = join(dir, "pages.chm");
+    writeFileSync(chm, makeChmPages("E147", ["a", "b", "c"]));
+    const webDocs = [
+      { kind: "Markdown", path: join(mdDir, "a.md"), ext: "(md|html)" },
+      { kind: "CHM", path: chm, ext: "html" },
+    ];
+    for (const doc of webDocs) {
+      const navigated = async (name: string) => {
+        const page = new RegExp(`(^|/)${name}\\.${doc.ext}$`, "m");
+        await pollUntil(
+          async () => String((await client.request(ControlCommand.TestMarkdownServed, []))[1] ?? ""),
+          (r) => page.test(r),
+          { timeoutMs: WAIT_MS * 5, error: (r) => `${doc.kind} page ${name} not shown: ${r}` },
+        );
+      };
+      await openInTab(client, frame, doc.path, 1);
+      await navigated("a");
+      await activateFrame(client);
+      await step(`${doc.kind} page navigated: another app has the focus`, async () => {
+        await focusState(client, "away");
+        sendCommand(frame, cmdId("CmdGoToNextPage"));
+        await navigated("b");
+        checkAway(await settled(client), "navigated");
+      });
+      await activateFrame(client);
+      await step(`${doc.kind} page navigated: the frame active, no focus`, async () => {
+        await focusState(client, "none");
+        sendCommand(frame, cmdId("CmdGoToNextPage"));
+        await navigated("c");
+        const res = await settled(client);
+        check(/^focus=(frame|canvas) active=frame /.test(res), `the frame did not get the focus: ${res}`);
+      });
+    }
   } finally {
     client.close();
     await killAndWait(proc);

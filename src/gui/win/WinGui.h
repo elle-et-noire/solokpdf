@@ -693,6 +693,8 @@ struct Tooltip : ControlBase {
         HWND parent = nullptr;
         PlatformFont* font = nullptr;
         bool isRtl = false;
+        // takes the tip down when its window can't show it; unset: Delete()
+        Func0 dismiss;
     };
 
     Tooltip();
@@ -719,6 +721,7 @@ struct Tooltip : ControlBase {
 
     // window this tooltip is associated with
     HWND parent = nullptr;
+    Func0 dismiss;
 
     Vec<int> tooltipIds;
     Str lastText;

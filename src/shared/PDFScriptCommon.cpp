@@ -18,17 +18,12 @@ extern char** environ;
 
 static StrVec gScriptNames;
 static StrVec gScriptSources;
+static bool gScriptsLoaded = false;
 
-static void LoadPDFScripts() {
-    static bool loaded = false;
-    if (loaded) return;
-    loaded = true;
-    int size = 0;
-    u8* data = GetEmbeddedFileData(StrL("scripts.js"), &size);
-    if (!data) return;
+// a scripts.js bundle: scripts separated by "// ---" lines
+static void ParsePDFScripts(Str bundle) {
     StrVec sources;
-    Split(&sources, Str((char*)data, size), StrL("// ---"));
-    free(data);
+    Split(&sources, bundle, StrL("// ---"));
 
     const Str prefix = StrL("// Info:");
     for (Str source : sources) {
@@ -53,6 +48,29 @@ static void LoadPDFScripts() {
         if (len(name) == 0) name = fmt("Script %d", len(gScriptNames) + 1);
         gScriptNames.Append(name);
     }
+}
+
+static void LoadPDFScripts() {
+    if (gScriptsLoaded) return;
+    gScriptsLoaded = true;
+    int size = 0;
+    u8* data = GetEmbeddedFileData(StrL("scripts.js"), &size);
+    if (!data) return;
+    ParsePDFScripts(Str((char*)data, size));
+    free(data);
+}
+
+// Tests: the examples come from the bundle at path, also without the website checkout
+// the embedded ones come from.
+bool LoadPDFScriptsForTest(Str path) {
+    Str bundle = file::ReadFile(path);
+    if (!bundle.s) return false;
+    gScriptNames.Reset();
+    gScriptSources.Reset();
+    gScriptsLoaded = true;
+    ParsePDFScripts(bundle);
+    str::Free(bundle);
+    return true;
 }
 
 int PDFScriptCount() {

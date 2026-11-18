@@ -52,6 +52,10 @@
 // E148: a modal dialog, its frame disabled, loses the activation to another app as it
 // hides with the frame; the restore leaves it there until the user activates the app.
 //
+// E147: a tip (toolbar, bookmarks tree, About hover link) goes with a minimize and is not
+// back on restore. Modal Add Favorite and Zoom go and come back as Run PDF Script does,
+// whose example pick runs for real with examples the test writes.
+//
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -62,6 +66,7 @@ import { assemblePdf, cmdId, pollUntil, ROOT, runStandalone, SETTINGS_FILE, tmpP
 import {
   clientToScreen,
   enumWindows,
+  findChildWindow,
   getClassName,
   getClientRect,
   getControlText,
@@ -94,6 +99,7 @@ import {
   VK_ESCAPE,
   WM_CLOSE,
   WM_KEYDOWN,
+  WM_MOUSELEAVE,
   WM_MOUSEMOVE,
   WM_RBUTTONDOWN,
   WM_RBUTTONUP,
@@ -122,7 +128,6 @@ const LINK_URL = "https://example.com/e100";
 const N_FILES = 6;
 const WS_EX_TOPMOST = 0x8;
 const WS_VISIBLE = 0x10000000;
-const WM_SETREDRAW = 0x000b;
 const SWP_NOSIZE = 0x0001;
 const WM_SETCURSOR = 0x0020;
 const HTCLIENT = 1;
@@ -191,11 +196,12 @@ function shownTopWindow(pid: number, cls: string): number {
 // the canvas infotip: the shown topmost tooltip with no owner (the toolbar's
 // and the tabs' tips are owned by their windows). Another process can't read
 // a tooltip's text.
-function shownTip(pid: number): number {
+function shownTip(pid: number, where: (h: number) => boolean = () => true): number {
   let found = 0;
   enumWindows((h) => {
     if (getWindowPid(h) !== pid || getClassName(h) !== TIP_CLASS || !isWindowVisible(h)) return true;
     if ((getWindowLong(h, GWL_EXSTYLE) & WS_EX_TOPMOST) === 0 || getWindowOwner(h) !== 0) return true;
+    if (!where(h)) return true;
     found = h;
     return false;
   });
@@ -806,8 +812,9 @@ async function checkHoverMinimized(
   name: string,
   find: () => number,
   show: () => Promise<void>,
+  ways = MINIMIZE_WAYS,
 ): Promise<void> {
-  for (const way of MINIMIZE_WAYS) {
+  for (const way of ways) {
     await step(`${name}: frame minimized, ${way.how}`, async () => {
       if (!find()) await show();
       await waitShown(find, name);
@@ -1447,49 +1454,83 @@ async function closeWindow(find: () => number, what: string): Promise<void> {
   await waitGone(find, `${what} after WM_CLOSE`);
 }
 
+// E147: Run PDF Script's examples for the test, written by it: the app's come from the
+// website checkout, which CI doesn't have. Two, so a pick changes the script
+const SCRIPT_EXAMPLES = [
+  "// Info: Print the page count.\nprint(Document.openDocument(scriptArgs[0]).countPages());",
+  "// Info: Print the first page's bounds.\nprint(Document.openDocument(scriptArgs[0]).loadPage(0).getBounds());",
+].join("\n// ---\n");
+
 // E145: a window hidden with the frame isn't put back on screen by setting WS_VISIBLE
 // without a show: WM_SETREDRAW TRUE (what Run PDF Script's example pick sends a window
 // it reads as shown) or a style write
 async function checkStaysHidden(pid: number, client: ControlClient, frame: number): Promise<void> {
   const name = "Run PDF Script";
   const find = () => shownOwned(pid, frame, /^Run PDF Script$/);
-  const redraw = async (h: number) => {
-    sendMessage(h, WM_SETREDRAW, 0, 0);
-    sendMessage(h, WM_SETREDRAW, 1, 0);
+  const examples = tmpPath("ad-hoc-e147-scripts.js");
+  writeFileSync(examples, SCRIPT_EXAMPLES + "\n");
+  const loaded = await client.request(ControlCommand.TestPdfScript, ["load-examples", -1, examples]);
+  check(loaded[0] === 0 && /examples=2\b/.test(String(loaded[1])), `examples not loaded: ${loaded[1]}`);
+  // E147: the example list's real path, which suspends and resumes the dialog's redraw
+  let picked = 0;
+  const pick = async () => {
+    picked = 1 - picked;
+    const res = await client.request(ControlCommand.TestPdfScript, ["pick", picked]);
+    check(res[0] === 0 && String(res[1]).includes(` sel=${picked} `), `pick ${picked}: ${res[1]}`);
   };
   const styleWrite = async (h: number) => void setWindowLong(h, GWL_STYLE, getWindowLong(h, GWL_STYLE) | WS_VISIBLE);
   const writes = [
-    { what: "WM_SETREDRAW TRUE", write: redraw },
+    { what: "an example picked (WM_SETREDRAW TRUE)", write: pick },
     { what: "a style write sets WS_VISIBLE", write: styleWrite },
   ];
-  // E148: it's modal, its frame disabled. With the app in the foreground Windows gives the
-  // activation to another app as it hides the dialog with the frame: the "frame" way, the
-  // same on both desktops. Without a foreground the hidden desktop leaves the dialog
-  // active, so no kept way. A step starts with a click on it: in the background Windows
-  // moves no activation and the stand-in can't take it
+  for (const w of writes) {
+    const during = async (hwnd: number) => {
+      await w.write(hwnd);
+      check(!isWindowVisible(hwnd), `${name} is on screen with the frame minimized after ${w.what}`);
+    };
+    await checkModalMinimized(
+      client,
+      frame,
+      { name, find, cmd: "CmdRunPDFScript" },
+      `${w.what} while minimized`,
+      during,
+    );
+  }
+  await closeWindow(find, name);
+}
+
+type Modal = { name: string; find: () => number; cmd: string };
+
+// E148: a modal dialog, its frame disabled, goes with the frame and is back at its place
+// with the focus. With the app in the foreground Windows gives the activation to another
+// app as it hides the dialog with the frame: the "frame" way, the same on both desktops.
+// Without a foreground the hidden desktop leaves the dialog active, so no kept way. A step
+// starts with a click on it: in the background Windows moves no activation and the
+// stand-in can't take it. `during` runs while minimized
+async function checkModalMinimized(
+  client: ControlClient,
+  frame: number,
+  m: Modal,
+  what = "frame minimized",
+  during: (hwnd: number) => Promise<void> = async () => {},
+): Promise<void> {
   const ways = FOCUS_WAYS.filter((w) => w.focus).map((w) =>
     w.focus === "frame" ? { ...w, how: `${w.order}, the activation left the app` } : w,
   );
-  for (const w of writes) {
-    for (const way of ways) {
-      await step(`${name}: ${w.what} while minimized, ${way.how}`, async () => {
-        if (!find()) sendCommand(frame, cmdId("CmdRunPDFScript"));
-        const hwnd = await waitShown(find, name);
-        const before = box(hwnd);
-        const res = await focusState(client, "activate-owned");
-        check(res.includes("focus=owned "), `${name} has no focus: ${res}`);
-        const during = async () => {
-          await w.write(hwnd);
-          check(!isWindowVisible(hwnd), `${name} is on screen with the frame minimized after ${w.what}`);
-        };
-        await minimizedAndRestored(client, way, find, name, during);
-        await waitAt(find, before, `${name} after the frame was restored`);
-        const after = await focusState(client);
-        check(after.includes("focus=owned "), `${name}'s focus after the frame was restored: ${after}`);
-      });
-    }
+  for (const way of ways) {
+    await step(`${m.name}: ${what}, ${way.how}`, async () => {
+      // posted: the dialog runs its own message loop
+      if (!m.find()) sendCommand(frame, cmdId(m.cmd));
+      const hwnd = await waitShown(m.find, m.name);
+      const before = box(hwnd);
+      const res = await focusState(client, "activate-owned");
+      check(res.includes("focus=owned "), `${m.name} has no focus: ${res}`);
+      await minimizedAndRestored(client, way, m.find, m.name, () => during(hwnd));
+      await waitAt(m.find, before, `${m.name} after the frame was restored`);
+      const after = await focusState(client);
+      check(after.includes("focus=owned "), `${m.name}'s focus after the frame was restored: ${after}`);
+    });
   }
-  await closeWindow(find, name);
 }
 
 // E143: the windows the frame owns follow its minimize; one it doesn't own stays
@@ -1531,6 +1572,14 @@ export async function checkOwnedWindows(): Promise<void> {
       focus,
     });
     await checkStaysHidden(pid, client, frame);
+    // E147: other modal dialogs
+    for (const m of [
+      { name: "Add Favorite", find: () => shownOwned(pid, frame, /^Add Favorite$/), cmd: "CmdFavoriteAdd" },
+      { name: "Zoom", find: () => shownOwned(pid, frame, /^Zoom$/), cmd: "CmdZoomCustom" },
+    ]) {
+      await checkModalMinimized(client, frame, m);
+      await closeWindow(m.find, m.name);
+    }
 
     // not owned: Windows and the layer leave it alone. anchor-first shows again only
     // what the frame owns
@@ -1647,6 +1696,116 @@ export async function checkResizeOverlay(): Promise<void> {
   }
 }
 
+const TREE_CLASS = "SumatraVirtualBookmarksTree";
+// SidebarTree's test message and its row height field
+const TREE_STATE = 0x8000 + 102;
+const TREE_ROW_DY = 3;
+
+// one bookmark, too long for the sidebar in any layout: its row shows a tip
+function makeTocPdf(): string {
+  const title = "A bookmark with a title far too long to fit into the sidebar ".repeat(4).trimEnd();
+  return assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R /Outlines 3 0 R >>",
+    "<< /Type /Pages /Count 1 /Kids [4 0 R] >>",
+    "<< /Type /Outlines /First 5 0 R /Last 5 0 R /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+    `<< /Title (${title}) /Parent 3 0 R /Dest [4 0 R /Fit] >>`,
+  ]);
+}
+
+// E147: a tip shown at the minimize goes with the frame and is not back on restore. A tip
+// has no owner: Windows doesn't hide it with the frame, and anchor-first shows again only
+// what the frame owns, so it runs where the tip's window is a popup the frame owns
+export async function checkTips(): Promise<void> {
+  const dir = tmpPath("ad-hoc-e147");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const pdf = join(dir, "toc.pdf");
+  writeFileSync(pdf, makeTocPdf(), "latin1");
+  const settings = ["UiLanguage = en", "CheckForUpdates = false", "RestoreSession = false", "ShowToc = true"];
+  writeFileSync(join(dir, SETTINGS_FILE), settings.join("\n") + "\n");
+  const { proc, client, frame } = await launchLogged("e147", ["-appdata", dir, pdf]);
+  const pid = proc.pid!;
+  gPid = pid;
+  const find = () => shownTip(pid);
+  const osFirst = MINIMIZE_WAYS.filter((w) => w.order === "os-first");
+  // the cursor at (x, y) in hwnd's client area, as Windows reports its arrival
+  const hover = async (hwnd: number, x: number, y: number) => {
+    const s = clientToScreen(hwnd, x, y);
+    await moveTestCursor(s.x, s.y, client);
+    sendMessage(hwnd, WM_MOUSEMOVE, 0, packCoords(x, y));
+    sendMessage(hwnd, WM_SETCURSOR, hwnd, packCoords(HTCLIENT, WM_MOUSEMOVE));
+  };
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    const canvas = findCanvas(frame);
+    check(canvas !== 0, "canvas not found");
+
+    // a toolbar button's tip, a virtual control's
+    const toolbar = findChildByClass(frame, TOOLBAR_CLASS);
+    check(toolbar !== 0, "no toolbar");
+    await checkHoverMinimized(
+      client,
+      "toolbar tip",
+      find,
+      async () => {
+        const b = await mainButton(client, cmdId("CmdZoomIn"));
+        await hover(toolbar, b.x + Math.floor(b.dx / 2), b.y + Math.floor(b.dy / 2));
+      },
+      osFirst,
+    );
+    sendMessage(toolbar, WM_MOUSELEAVE, 0, 0);
+    await waitGone(find, "toolbar tip after the cursor left");
+
+    // the bookmark's tip, after the tree's hover delay
+    const tree = findChildWindow(frame, TREE_CLASS);
+    check(tree !== 0, "no bookmarks tree");
+    await checkHoverMinimized(
+      client,
+      "bookmarks tip",
+      find,
+      async () => {
+        const rowDy = Number(sendMessage(tree, TREE_STATE, TREE_ROW_DY, 0));
+        sendMessage(tree, WM_MOUSELEAVE, 0, 0);
+        await hover(tree, 10, Math.floor(rowDy / 2));
+      },
+      osFirst,
+    );
+    sendMessage(tree, WM_MOUSELEAVE, 0, 0);
+    await waitGone(find, "bookmarks tip after the cursor left");
+
+    // a link's tip in Home's About hover, a popup the frame owns
+    sendCommandSync(frame, cmdId("CmdNewTab"));
+    await waitForHome(client, (s) => s.logo[2]! > 0, "Home not ready");
+    const aboutHover = () => shownTopWindow(pid, ABOUT_CLASS);
+    // not Home's keyboard selection tip, which shows once the restored frame focuses Home
+    let linkTip = 0;
+    const findLinkTip = () => (linkTip && isWindowVisible(linkTip) ? linkTip : 0);
+    const showLinkTip = async () => {
+      if (!aboutHover()) {
+        const [lx, ly, ldx, ldy] = (await client.homeSelection()).logo;
+        await hover(canvas, 1, 1);
+        await hover(canvas, lx! + Math.floor(ldx! / 2), ly! + Math.floor(ldy! / 2));
+      }
+      const host = await waitShown(aboutHover, "About hover");
+      // a web link: its tip is the url, shown below the cursor
+      const links = (await client.virtTree(ABOUT_CLASS)).filter((c) => /link/i.test(c.kind) && c.name !== "aboutCopy");
+      check(links.length > 0, "the About hover shows no web link");
+      const r = links[0]!.rect;
+      const at = { x: r.x + Math.floor(r.dx / 2), y: r.y + Math.floor(r.dy / 2) };
+      await hover(host, at.x, at.y);
+      const cursorY = clientToScreen(host, at.x, at.y).y;
+      const below = (h: number) => box(h).y > cursorY && box(h).y < cursorY + r.dy * 3;
+      linkTip = await waitShown(() => shownTip(pid, below), "About hover link tip");
+    };
+    await checkHoverMinimized(client, "About hover link tip", findLinkTip, showLinkTip);
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 export async function testit(): Promise<void> {
   failures.length = 0;
   setProcessDpiAware();
@@ -1678,6 +1837,7 @@ export async function testit(): Promise<void> {
   await step("E140 floating popups", checkFloatingPopups);
   await step("E143 owned windows", checkOwnedWindows);
   await step("E143 resize overlay", checkResizeOverlay);
+  await step("E147 tips", checkTips);
   check(failures.length === 0, failures.join("\n"));
   console.log("e98-anchored-popups: OK");
 }

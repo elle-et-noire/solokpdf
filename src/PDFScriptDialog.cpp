@@ -538,9 +538,20 @@ void PDFScriptWnd::Create(MainWindow* owner, Str path) {
 // -dbg-control, what the drawn buttons do: "examples" shows / hides the list,
 // "pick" selects example `idx`, "add" / "remove" add an argument row or remove
 // the last one, "run" runs the script, "state" only reports. The reply has the
-// Add argument button's screen rect.
-TempStr PDFScriptTestTemp(Str action, int idx, int* exitCodeOut) {
+// Add argument button's screen rect. Before the dialog opens, "load-examples"
+// takes its examples from the scripts.js bundle at `path`.
+TempStr PDFScriptTestTemp(Str action, int idx, Str path, int* exitCodeOut) {
     *exitCodeOut = 2;
+    if (str::Eq(action, StrL("load-examples"))) {
+        if (gScriptWnd) {
+            return str::DupTemp(StrL("ERR dialog-open"));
+        }
+        if (!LoadPDFScriptsForTest(path)) {
+            return fmt("ERR no-file %s", path);
+        }
+        *exitCodeOut = 0;
+        return fmt("OK examples=%d", PDFScriptCount());
+    }
     PDFScriptWnd* w = gScriptWnd;
     if (!w || !w->examples) {
         return str::DupTemp(StrL("NOTREADY no-dialog"));

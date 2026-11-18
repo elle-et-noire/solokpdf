@@ -831,11 +831,11 @@ TempStr MarkdownFollowLinkResultTemp(Str href, bool follow, int* exitCodeOut) {
     return ToStrTemp(out);
 }
 
-// Urls the current markdown document's browser view was served, one per line,
+// Urls the current Markdown or CHM document's browser view was served, one per line,
 // so a test can see what the page loaded. Used by tests/issue-6380.ts.
 TempStr MarkdownServedResultTemp(int* exitCodeOut) {
     MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
-    MarkdownModel* mm = win && win->ctrl ? win->ctrl->AsMarkdown() : nullptr;
+    BrowserDocController* mm = win && win->ctrl ? win->ctrl->AsBrowser() : nullptr;
     if (exitCodeOut) {
         *exitCodeOut = mm ? 0 : 2;
     }

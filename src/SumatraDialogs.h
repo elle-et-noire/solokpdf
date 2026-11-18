@@ -117,7 +117,7 @@ struct Print_Advanced_Data {
 };
 
 void ShowPDFScriptDialog(MainWindow* win);
-TempStr PDFScriptTestTemp(Str action, int idx, int* exitCodeOut);
+TempStr PDFScriptTestTemp(Str action, int idx, Str path, int* exitCodeOut);
 
 // the buttons of the redrawn dialogs: the one action filled with the text
 // color, Cancel outlined, the quiet ones plain words that fill on hover

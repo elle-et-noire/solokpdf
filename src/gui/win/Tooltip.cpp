@@ -206,6 +206,20 @@ static void TooltipTrackActivateAtCursor(HWND hwndTT, HWND owner, int id) {
     TooltipTrackActivateAtScreen(hwndTT, owner, id, x, y);
 }
 
+static void DeleteTip(Tooltip* tt) {
+    tt->Delete();
+}
+
+// A tip is an unowned topmost popup: Windows leaves it on screen when its window hides or
+// its frame is minimized. The owned popups layer takes it down then, and moves it along.
+static void AnchorTip(Tooltip* tt) {
+    AnchorArgs args;
+    args.anchor = tt->parent;
+    args.dismiss = tt->dismiss.IsValid() ? tt->dismiss : MkFunc0(DeleteTip, tt);
+    args.minimize = AnchorMinimize::Dismiss;
+    AnchorPopup(tt->hwnd, args);
+}
+
 Tooltip::Tooltip() {
     kind = kindTooltip;
 }
@@ -225,6 +239,7 @@ HWND Tooltip::Create(const CreateArgs& args) {
     cargs.visible = false;
 
     parent = args.parent;
+    dismiss = args.dismiss;
 
     ControlBase::CreateControl(cargs);
     SetDelayTime(TTDT_AUTOPOP, 32767);
@@ -301,6 +316,7 @@ int Tooltip::SetSingle(Str s, const Rect& rc, bool multiline) {
     }
     str::ReplaceWithCopy(&lastText, s);
     TooltipTrackActivateAtCursor(hwnd, parent, id);
+    AnchorTip(this);
     return id;
 }
 
@@ -339,6 +355,7 @@ int Tooltip::SetSingleAt(Str s, const Rect& rc, Point screenPos, bool multiline,
     }
     ClampTipPosToWorkArea(x, y, tipSz);
     TooltipTrackActivateAtScreen(hwnd, parent, id, x, y);
+    AnchorTip(this);
     return id;
 }
 

@@ -331,7 +331,9 @@ ng も共有の基底実装とフォーム結果の呼び出し側を使う。�
   comctl32/user32 のクラスの窓は登録しない。フレームが所有するモードレスのものはない：ダイアログ（MessageBox、
   TaskDialog、ファイル・印刷ダイアログ）とメニューはモーダルで、閉じれば破棄され再表示されない。ツールチップ
   （`Tooltip`、`tooltips_class32`）とコンボのドロップダウン（`ComboLBox`）は所有者なしのトップレベル窓なので、
-  Windows はフレームの最小化で隠さず再表示もしない（infotip は `AnchorPopup()` で登録される）。サイドバーの木は
+  Windows はフレームの最小化で隠さず再表示もしない。`Tooltip` は表示のたびに自分の窓（`parent`）へ `AnchorPopup()` し、
+  窓が隠れるかフレームが最小化されると所有者の `dismiss`（`VirtRoot::HideTooltip()`、`SidebarTree::HideTip()`、既定は
+  `Delete()`）で閉じる（E147。infotip は表示後に自分の引数で登録し直す）。サイドバーの木は
   `VirtTree` で comctl32 のツールチップを持たない（E145、実行中の窓の列挙で確認）。
   所有者は普通に隠せばよく、ファイル一覧の lint（`lint-anchored-hides`）は不要になり削除した。復元を待つ間 `HwndIsVisible()`（`VirtHost::IsVisible()` も）は
   表示中と答えるので、所有者の状態とそれで守った非表示は最小化で変わらない（最小化中の Esc で検索バーが閉じる、E138）。
