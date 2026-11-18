@@ -34,7 +34,7 @@ This creates ./out/dbg64/SumatraPDF.exe executable. The static build target is S
 MinGW/Wine builds are retired. Use the native ng Linux build, including WSL
 Ubuntu from Windows: `bun cmd/ng-build.ts -linux -dbg`.
 
-Unit tests are compiled into `SumatraPDF.exe` in **debug builds only** and run with `-unit-tests`. To run them with AI-friendly diagnostics, run `bun cmd/run-unit-tests.ts -dbg` (or `-32` / `-asan`). It builds the debug exe, runs it with `-unit-tests -for-ai`, captures output under the matching `out/<config>/unit-tests-*.txt`, and prints assertion/crash callstacks without waiting for debugger UI.
+Unit tests are compiled into `SumatraPDF.exe` in **debug builds only** and run with `-unit-tests`. For SolokPDF, use the [hidden-desktop unit-test command](docs/solokpdf/testing.md#unit-tests). For upstream builds, run `bun cmd/run-unit-tests.ts -dbg` (or `-32` / `-asan`). The runner uses `-for-ai`, captures output under the matching `out/<config>/unit-tests-*.txt`, and prints assertion/crash callstacks without waiting for debugger UI.
 
 To debug run: `windbgx -Q -o -g ./out/dbg64/SumatraPDF.exe`
 
@@ -428,7 +428,7 @@ Instead, run only what the change can plausibly break:
 - a named issue fix → `bun tests/issue-<number>.ts`
 - a change to code an existing test covers → that test, found by grepping `tests/` for the
   feature, command id, or setting name involved
-- base/unit-test work → `bun cmd/run-unit-tests.ts -dbg`
+- base/unit-test work → [SolokPDF unit tests](docs/solokpdf/testing.md#unit-tests) or `bun cmd/run-unit-tests.ts -dbg` for upstream
 - nothing covers it → say so instead of running everything as a substitute. A targeted
   manual check (launch with `-for-testing`, screenshot, probe log) is worth more than a
   green suite that never touched the code.

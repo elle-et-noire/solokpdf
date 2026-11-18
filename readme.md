@@ -29,6 +29,7 @@ For ASan, `bun cmd/solok-build.ts -asan` builds `SumatraPDF-static.exe` and
 stages PDFium and the ASan runtime in `out/dbg64_asan/`; see the
 [ASan test procedure](docs/solokpdf/testing.md#asan-builds).
 Run app-launching tests through the [hidden-desktop runner](docs/solokpdf/testing.md).
+Use the [SolokPDF unit-test command](docs/solokpdf/testing.md#unit-tests) for unit tests.
 Keep `-for-testing` on ad-hoc launches; physical checks follow the
 [owner's manual acceptance procedure](docs/solokpdf/testing.md#owners-manual-acceptance-f1f3).
 

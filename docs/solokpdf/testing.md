@@ -34,6 +34,19 @@ The B69 probe (`tests/ad-hoc-b69-hidden-desktop.ts`) creates a visible window
 and checks its desktop name against the input desktop. Run it first when
 checking the runner. Local app tests must never run on the owner's desktop.
 
+### Unit tests
+
+```powershell
+. ./tools/solokpdf/env.ps1
+bun tools/solokpdf/run-hidden.ts -- bun cmd/run-unit-tests.ts -solok -dbg
+```
+
+`-solok` uses the SolokPDF build wrapper and writes the test output to
+`out/dbg64/unit-tests-dbg.txt`. Pass `-asan` in place of `-dbg` for the x64
+ASan build and `out/dbg64_asan/unit-tests-asan.txt`. The runner passes
+`-unit-tests -for-ai -for-testing` and requires both a zero exit code and
+the unit-test pass summary.
+
 ### Dialog targets (E34)
 
 Run `tests/dialog-target-reentry.ts` in Debug and ASan through the hidden runner.

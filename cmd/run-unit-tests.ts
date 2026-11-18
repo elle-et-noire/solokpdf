@@ -6,30 +6,25 @@ import { detectVisualStudio2026, runLogged } from "./util";
 type BuildKind = "dbg" | "dbg32" | "asan";
 
 function usage(): never {
-  throw new Error("usage: bun cmd/run-unit-tests.ts [-dbg | -32 | -asan]");
+  throw new Error("usage: bun cmd/run-unit-tests.ts [-solok] [-dbg | -32 | -asan]");
 }
 
-function parseArgs(): BuildKind {
-  let kind: BuildKind = "dbg";
-  let seen = false;
+function parseArgs(): { kind: BuildKind; solok: boolean } {
+  let kind: BuildKind | undefined;
+  let solok = false;
   for (const arg of process.argv.slice(2)) {
-    if (arg === "-dbg") {
-      if (seen) usage();
-      kind = "dbg";
-      seen = true;
-    } else if (arg === "-32") {
-      if (seen) usage();
-      kind = "dbg32";
-      seen = true;
-    } else if (arg === "-asan") {
-      if (seen) usage();
-      kind = "asan";
-      seen = true;
-    } else {
-      usage();
+    if (arg === "-solok") {
+      if (solok) usage();
+      solok = true;
+      continue;
     }
+    if (kind) usage();
+    if (arg === "-dbg") kind = "dbg";
+    else if (arg === "-32") kind = "dbg32";
+    else if (arg === "-asan") kind = "asan";
+    else usage();
   }
-  return kind;
+  return { kind: kind ?? "dbg", solok };
 }
 
 function copyAsanRuntime(vsRoot: string, outDir: string): void {
@@ -82,8 +77,12 @@ function tail(s: string, maxLines: number): string {
   return lines.slice(Math.max(0, lines.length - maxLines)).join("\n");
 }
 
-async function runAndCapture(exe: string, cwd: string, logPath: string): Promise<{ exitCode: number; output: string }> {
-  const proc = Bun.spawn([exe, "-unit-tests", "-for-ai"], {
+async function runAndCapture(
+  args: string[],
+  cwd: string,
+  logPath: string,
+): Promise<{ exitCode: number; output: string }> {
+  const proc = Bun.spawn(args, {
     cwd,
     stdout: "pipe",
     stderr: "pipe",
@@ -99,9 +98,7 @@ async function runAndCapture(exe: string, cwd: string, logPath: string): Promise
   return { exitCode, output };
 }
 
-async function main() {
-  const kind = parseArgs();
-  const { platform, target, exeName, outDir, logName } = configFor(kind);
+async function buildUpstream(kind: BuildKind, { platform, target, outDir }: UnitTestConfig): Promise<void> {
   const toolsDir = kind === "asan" ? process.env.SUMATRA_ASAN_TOOLS : undefined;
   const toolArgs = asanMsbuildArgs(toolsDir);
   const { msbuildPath, vsRoot } = detectVisualStudio2026(toolsDir);
@@ -120,11 +117,28 @@ async function main() {
   if (kind === "asan") {
     copyAsanRuntime(vsRoot, outDir);
   }
+}
+
+async function main() {
+  const { kind, solok } = parseArgs();
+  const config = configFor(kind);
+  const { exeName, outDir, logName } = config;
+  if (solok) {
+    if (kind === "dbg32") throw new Error("SolokPDF pins an x64 PDFium build. Use -dbg or -asan with -solok.");
+    if (!process.env.SOLOKPDF_HIDDEN_DESKTOP) {
+      throw new Error("Run local SolokPDF unit tests through tools/solokpdf/run-hidden.ts.");
+    }
+    await runLogged(process.execPath, ["cmd/solok-build.ts", kind === "asan" ? "-asan" : "-dbg"]);
+  } else {
+    await buildUpstream(kind, config);
+  }
 
   mkdirSync(outDir, { recursive: true });
   const exe = join(process.cwd(), outDir, exeName);
   const logPath = join(process.cwd(), outDir, logName);
-  const { exitCode, output } = await runAndCapture(exe, outDir, logPath);
+  const args = [exe, "-unit-tests", "-for-ai"];
+  if (solok) args.push("-for-testing");
+  const { exitCode, output } = await runAndCapture(args, outDir, logPath);
 
   console.log(`${exeName} -unit-tests exit code: ${exitCode}`);
   console.log(`output: ${logPath}`);
