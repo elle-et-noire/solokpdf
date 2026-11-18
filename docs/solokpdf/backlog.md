@@ -1,11 +1,11 @@
 # SolokPDF backlog
 
-Work scope as of 2026-11-18: E112, E115–E119, E125, E126, E129–E135, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E117, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
+Work scope as of 2026-11-18: E112, E115–E119, E125, E126, E129–E135, E150, B77 open; order after the 2026-11-17 review (`.work/codex-queue/review-2026-11-17.md`): E150, E117, E131, E135, E134, E133, E129, E130, E132, B77, E125, E126, E116, E112, E118, E115, E119; specs in `.work/codex-queue/<id>.md`; D3 deferred; F1/F3 and distribution out of scope.
 Status: `todo`, `doing`, `blocked` (reason), `deferred` (reason).
 When an item lands, move its row with the commit subject to
 [history.md](history.md#completed-backlog); behavior goes in
 [features.md](features.md) or [limitations.md](limitations.md). New items take the next free ID in their
-group (B78, C2, D15, E150, F4). For a code change, choose affected tests from
+group (B78, C2, D15, E151, F4). For a code change, choose affected tests from
 [testing.md](testing.md); run full suites only when explicitly requested.
 
 ## Completed reviews
@@ -40,6 +40,7 @@ Rows and results of all of these are in [history.md](history.md#completed-backlo
 | E133 | Make all engine work an action can wait on cancellable: cookie-less renders (thumbnails, previews, export), MuPDF display-list build, PDFium FFLDraw, text extraction/search (E128 follow-up). Spec `.work/codex-queue/e133.md`                                                                                       | todo   |
 | E134 | UI-thread annotation access waits on the editor lock without canceling renders; put the cancel in the lock acquisition, not call sites (E128 follow-up). Spec `.work/codex-queue/e134.md`                                                                                                                             | todo   |
 | E135 | Link context menu during a parked render once took 1938 ms (usually ~163); find the cause, tighten the bound (E128 follow-up). Spec `.work/codex-queue/e135.md`                                                                                                                                                       | todo   |
+| E150 | CI red since E149: Run PDF Script anchor-first restore "took the focus from another app" on the interactive runner (E148 passed). Spec `.work/codex-queue/e150.md`                                                                                                                                                    | todo   |
 | B77  | `bun cmd/run-unit-tests.ts` builds via vs2022/v143 (not installed here) and rewrites vs2022/ files; make the unit-test command use the SolokPDF build and leave the tree clean. Spec `.work/codex-queue/b77.md`                                                                                                       | todo   |
 
 ## Deferred
