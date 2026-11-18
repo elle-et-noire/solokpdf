@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pdfiumOpenLog, pdfiumPin } from "../cmd/solok-fetch-pdfium";
@@ -8,7 +17,8 @@ import { ControlCommand, withControlledSumatra } from "./control.ts";
 const root = resolve(import.meta.dir, "..");
 
 export async function testit(zip: string): Promise<void> {
-  const work = mkdtempSync(join(tmpdir(), "SolokPDF portable "));
+  // Windows can supply TEMP as an 8.3 alias, which SolokPDF expands when opening the PDF.
+  const work = mkdtempSync(join(realpathSync.native(tmpdir()), "SolokPDF portable "));
   try {
     const extracted = join(work, "extracted");
     mkdirSync(extracted);

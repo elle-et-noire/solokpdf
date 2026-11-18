@@ -275,7 +275,6 @@ async function checkOtherWindow(failures: string[]): Promise<void> {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
     const canvas = findCanvas(frame);
-    const link = (await pageToCanvas(client))(PAGE_LINK);
     sendCommandSync(frame, cmdId("CmdDuplicateInNewWindow"));
     await pollUntil(
       () => testPdf(client, ["park-state", 1]).catch(() => ""),
@@ -283,13 +282,19 @@ async function checkOtherWindow(failures: string[]): Promise<void> {
       { timeoutMs: WAIT_MS, error: "the second window didn't render" },
     );
 
+    const link = (await pageToCanvas(client))(PAGE_LINK);
+    const screen = clientToScreen(canvas, link.x, link.y);
+    await moveTestCursor(screen.x, screen.y, client);
     await parkRender(client, "contents", 1);
     const start = Date.now();
     sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(link.x, link.y));
+    // An unrelated Windows mouse move during the click must leave the link pressed.
+    postMessage(canvas, WM_MOUSEMOVE, 0, packCoords(0, 0));
+    const state = await testPdf(client, ["park-state", 1]);
     sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(link.x, link.y));
     const elapsed = Date.now() - start;
     const page = (await client.chapterInfo()).page;
-    let err = page === 2 ? null : `on page ${page}, not 2`;
+    let err = page === 2 ? null : `on page ${page}, not 2 (${state})`;
     err ??= await checkCanceled(client, elapsed, 1);
     report(failures, what, err);
   } finally {

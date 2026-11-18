@@ -117,6 +117,7 @@ import { testit as printCloseReentry } from "./print-close-reentry.ts";
 import { testit as upstreamD14 } from "./ad-hoc-pdfium-d14.ts";
 
 const tests: NamedTest[] = [
+  ["ad-hoc-e128-busy-render", busyRenderE128],
   ["ad-hoc-pdfium-d14", upstreamD14],
   ["pending-document-input", pendingDocumentInput],
   ["ad-hoc-quit-pending-input", quitPendingInput],
@@ -157,7 +158,6 @@ const tests: NamedTest[] = [
   ["ad-hoc-e144-focus-restores", focusRestoresE144],
   ["ad-hoc-e120-busy-hover", busyHoverE120],
   ["ad-hoc-e123-busy-actions", busyActionsE123],
-  ["ad-hoc-e128-busy-render", busyRenderE128],
   ["ad-hoc-e130-measurement-hover", measurementHoverE130],
   ["ad-hoc-e131-link-hints", linkHintsE131],
   ["control-color-roles", controlColorRoles],
