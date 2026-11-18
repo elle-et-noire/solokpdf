@@ -707,7 +707,8 @@ enum class MinimizeFocus {
     Kept,
     // out of the app: on an interactive desktop Windows activates another app's window
     Away,
-    // to the frame, as when Windows activates the owner of the active popup it hides
+    // where Windows moves it off the active popup it hides on an interactive desktop: to
+    // the frame, or out of the app when a modal dialog disabled the frame
     Frame,
 };
 
@@ -755,35 +756,68 @@ static void ShowDialogForTest(HWND owner) {
     SetFocus(gDialogWnd);
 }
 
-// the shown window the frame owns gets the focus, unless it has it
-static void FocusOwnedForTest(HWND frame) {
+// the first shown window the frame owns, if any
+static HWND ShownOwnedForTest(HWND frame) {
     ShownOwnedPopups shown;
     shown.owner = frame;
     EnumThreadWindows(GetCurrentThreadId(), CollectShownOwned, (LPARAM)&shown);
+    return len(shown.hwnds) > 0 ? shown.hwnds[0] : nullptr;
+}
+
+// the shown window the frame owns gets the focus, unless it has it
+static void FocusOwnedForTest(HWND frame) {
+    HWND hwnd = ShownOwnedForTest(frame);
     HWND focus = GetFocus();
-    for (HWND hwnd : shown.hwnds) {
-        if (focus != hwnd && !IsChild(hwnd, focus)) {
-            HwndSetFocus(hwnd);
-        }
-        return;
+    if (hwnd && focus != hwnd && !IsChild(hwnd, focus)) {
+        HwndSetFocus(hwnd);
     }
 }
 
-// MinimizeFocus::Frame: the frame, and how often the focus moved to it
-static HWND gFocusToFrame = nullptr;
-static int gFocusedFrame = 0;
+// Windows gave the activation to another app: the app is in the background until the
+// user activates it (ActivateForTest). The hidden desktop has no foreground, so the
+// test keeps it: Windows moves the activation off a hidden active window only on the
+// foreground queue, and SetActiveWindow() doesn't activate in a background app.
+static bool gAppInBackground = false;
 
-// As Windows hides the frame's popup with the focus, the focus moves to the frame. On
-// an interactive desktop Windows moves it off the hidden active popup itself, after
-// the hide (WM_WINDOWPOSCHANGED) but within the popup's WM_SHOWWINDOW; the hidden
-// desktop has no foreground and keeps it. The frame isn't iconic yet (a minimized
-// window can't take the focus).
-static LRESULT CALLBACK FocusToFrameHook(int code, WPARAM wp, LPARAM lp) {
+// MinimizeFocus::Frame / Away: the frame, how often the focus moved to it and how
+// often the activation left the app
+static HWND gFocusToFrame = nullptr;
+static MinimizeFocus gHideFocus = MinimizeFocus::Kept;
+static int gFocusedFrame = 0;
+static int gLeftApp = 0;
+
+// Windows activates another app's window: Away's stand-in, else one the app doesn't
+// know. Activated and destroyed, it leaves the thread without an active window.
+static void ActivationLeavesApp(MinimizeFocus focus) {
+    if (focus == MinimizeFocus::Away) {
+        SetActiveWindow(AwayWindow());
+    } else {
+        HWND other =
+            CreateWindowExW(WS_EX_TOOLWINDOW, L"STATIC", L"", WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, nullptr, nullptr);
+        SetActiveWindow(other);
+        DestroyWindow(other);
+    }
+    gAppInBackground = true;
+    gLeftApp++;
+}
+
+// As Windows hides the frame's popup with the focus, it activates the next window: the
+// frame, or another app's when a modal dialog disabled the frame. On an interactive
+// desktop Windows does it after the hide (WM_WINDOWPOSCHANGED) but within the popup's
+// WM_SHOWWINDOW; the hidden desktop has no foreground and keeps it. The frame isn't
+// iconic yet (a minimized window can't take the focus). Away's stand-in takes the
+// activation from an enabled frame after the minimize.
+static LRESULT CALLBACK HideActivationHook(int code, WPARAM wp, LPARAM lp) {
     auto* m = (CWPRETSTRUCT*)lp;
     bool hidden = code == HC_ACTION && m->message == WM_WINDOWPOSCHANGED &&
                   (((WINDOWPOS*)m->lParam)->flags & SWP_HIDEWINDOW) && GetWindow(m->hwnd, GW_OWNER) == gFocusToFrame;
     HWND focus = GetFocus();
-    if (hidden && focus && (focus == m->hwnd || IsChild(m->hwnd, focus))) {
+    if (!hidden || !focus || (focus != m->hwnd && !IsChild(m->hwnd, focus))) {
+        return CallNextHookEx(nullptr, code, wp, lp);
+    }
+    if (!IsWindowEnabled(gFocusToFrame)) {
+        ActivationLeavesApp(gHideFocus);
+    } else if (gHideFocus == MinimizeFocus::Frame) {
         SetFocus(gFocusToFrame);
         gFocusedFrame += GetFocus() == gFocusToFrame ? 1 : 0;
     }
@@ -797,6 +831,7 @@ static LRESULT CALLBACK FocusToFrameHook(int code, WPARAM wp, LPARAM lp) {
 // Returns how many were shown again, -1 for an unknown order.
 static int MinimizeFrameForTest(HWND frame, Str order, MinimizeFocus focus) {
     gFocusedFrame = 0;
+    gLeftApp = 0;
     if (str::Eq(order, StrL("restore"))) {
         ShowWindow(frame, SW_SHOWNOACTIVATE);
         return 0;
@@ -809,15 +844,17 @@ static int MinimizeFrameForTest(HWND frame, Str order, MinimizeFocus focus) {
     shown.owner = frame;
     EnumThreadWindows(GetCurrentThreadId(), CollectShownOwned, (LPARAM)&shown);
     HHOOK hook = nullptr;
-    if (focus == MinimizeFocus::Frame) {
+    if (focus != MinimizeFocus::Kept && !gAppInBackground) {
         gFocusToFrame = frame;
-        hook = SetWindowsHookExW(WH_CALLWNDPROCRET, FocusToFrameHook, nullptr, GetCurrentThreadId());
+        gHideFocus = focus;
+        hook = SetWindowsHookExW(WH_CALLWNDPROCRET, HideActivationHook, nullptr, GetCurrentThreadId());
     }
     ShowWindow(frame, SW_SHOWMINNOACTIVE);
     if (hook) {
         UnhookWindowsHookEx(hook);
     }
-    if (focus == MinimizeFocus::Away) {
+    // in the background another app has the activation already
+    if (focus == MinimizeFocus::Away && !gAppInBackground) {
         SetActiveWindow(AwayWindow());
     }
     if (!reshow) {
@@ -1240,9 +1277,11 @@ static Str CaretName(MainWindow* win) {
     return FocusWindowName(gti.hwndCaret, win);
 }
 
-// Activates the frame like a user would, past the foreground lock.
+// Activates the window like a user would, past the foreground lock: the app is in the
+// foreground.
 static void ActivateForTest(HWND hwndFrame) {
     gTestActivating = true;
+    gAppInBackground = false;
     HWND fg = GetForegroundWindow();
     DWORD fgThread = fg ? GetWindowThreadProcessId(fg, nullptr) : 0;
     DWORD uiThread = GetCurrentThreadId();
@@ -1961,8 +2000,9 @@ static void ExecuteControlRequest(ControlRequest* req) {
             if (str::Eq(order, StrL("restore")) && str::Eq(to, StrL("last"))) {
                 ActivateForTest(gWindows[len(gWindows) - 1]->hwndFrame);
             }
-            AppendTestResult(
-                req, 0, fmt("iconic=%d reshown=%d toFrame=%d", (int)IsIconic(win->hwndFrame), nShown, gFocusedFrame));
+            AppendTestResult(req, 0,
+                             fmt("iconic=%d reshown=%d toFrame=%d leftApp=%d", (int)IsIconic(win->hwndFrame), nShown,
+                                 gFocusedFrame, gLeftApp));
             break;
         }
 
@@ -3523,6 +3563,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
             }
             if (win && str::Eq(action, StrL("owned-popup"))) {
                 FocusOwnedForTest(win->hwndFrame);
+            }
+            // a click on the shown window the frame owns, e.g. a modal dialog
+            HWND owned = win && str::Eq(action, StrL("activate-owned")) ? ShownOwnedForTest(win->hwndFrame) : nullptr;
+            if (owned) {
+                ActivateForTest(owned);
             }
             // Another app takes the focus: the thread's focus goes, as a move to another
             // thread's window does (WM_KILLFOCUS without a window), then its activation. The

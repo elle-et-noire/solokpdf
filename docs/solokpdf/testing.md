@@ -210,10 +210,22 @@ open loads synchronously here, so `LoadModelIntoTab`'s focus is tested through
 `TestSelectTab`.
 E145: while minimized, the test sends Run PDF Script `WM_SETREDRAW` FALSE/TRUE and
 sets `WS_VISIBLE` with `SetWindowLong` from its own process; the dialog must stay off
-screen and come back at its place with the focus. Windows doesn't hide that dialog
-with the frame (the layer's sync does), so the `frame` way, which moves the focus as
-Windows hides a popup, doesn't apply to it. The examples come from the website
+screen and come back at its place with the focus. The examples come from the website
 checkout (`scripts.js`); without it the list is empty and the `pick` action fails.
+E148: Run PDF Script is modal, its frame disabled. Windows hides it with the frame
+(`SW_PARENTCLOSING`, as other owned windows) and, on the foreground queue, activates
+the next window, which can't be a disabled frame: another app gets the activation, the
+app goes to the background and the restore leaves it there. The hidden desktop has no
+foreground and keeps the dialog active. The `frame` way models that move: its hook
+activates and destroys a window not the app's (`active=none`), or the `away` stand-in at
+the hide, and reports `leftApp=1`. The control layer then keeps the app in the
+background until `activate` / `activate-owned` (a click on the shown window the frame
+owns): Windows moves no activation off a background queue's hidden window, and
+`SetActiveWindow()` doesn't activate there, so the `away` stand-in is skipped. Each
+dialog step starts with `activate-owned`; without it the `frame` way then `away`
+reproduced CI's "focus=none active=none" and "the restore took the focus from another
+app: focus=owned active=owned". The dialog has no kept way: with the app in the
+foreground Windows never leaves it active.
 Dumps that report a popup shown (`visible=1`, `floatVisible=1`, the annotation
 toolbar's `annotEditToolbar visible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,

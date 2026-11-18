@@ -49,6 +49,9 @@
 // E145: one waiting for the restore stays off screen when WS_VISIBLE is set without a
 // show (WM_SETREDRAW TRUE, a style write).
 //
+// E148: a modal dialog, its frame disabled, loses the activation to another app as it
+// hides with the frame; the restore leaves it there until the user activates the app.
+//
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e98-anchored-popups.ts --no-build
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -629,15 +632,16 @@ async function waitInCanvas(find: () => number, canvas: number, what: string): P
 // on the UI thread, so the order Windows and the anchor layer act in is fixed.
 // "away": the focus leaves the app as the popups hide, as on an interactive
 // desktop, where Windows activates another window then (E136). "frame": it
-// moves to the frame (E137)
-export async function minimizeFrame(client: ControlClient, order: string, focus = ""): Promise<void> {
+// moves to the frame (E137), or out of the app if a modal dialog disabled it (E148)
+export async function minimizeFrame(client: ControlClient, order: string, focus = ""): Promise<string> {
   const res = await client.request(ControlCommand.TestMinimizeFrame, [order, focus]);
   check(res[0] === 0, `TestMinimizeFrame ${order}: ${res[1]}`);
   check(order !== "anchor-first" || !/reshown=0\b/.test(String(res[1])), `${order}: nothing shown while minimized`);
   check(
-    focus !== "frame" || /toFrame=[1-9]/.test(String(res[1])),
-    `${order}: the focus did not move to the frame: ${res[1]}`,
+    focus !== "frame" || /toFrame=[1-9]|leftApp=[1-9]/.test(String(res[1])),
+    `${order}: the focus did not leave the hidden popup: ${res[1]}`,
   );
+  return String(res[1]);
 }
 
 // E121: Windows hides them before the frame goes iconic; shown again while it
@@ -675,20 +679,24 @@ async function minimizedAndRestored(
   during: () => Promise<void> = async () => {},
   away = AwayCheck.Kept,
 ): Promise<void> {
+  let minimized = "";
   try {
-    await minimizeFrame(client, way.order, way.focus);
+    minimized = await minimizeFrame(client, way.order, way.focus);
     await waitGone(find, `${what} with the frame minimized`);
     await during();
   } finally {
     await minimizeFrame(client, "restore");
   }
-  if (way.focus !== "away" || away === AwayCheck.Skip) {
+  // E148: its frame disabled by a modal dialog, Windows gave the activation to another app
+  const leftApp = /leftApp=[1-9]/.test(minimized);
+  if ((way.focus !== "away" && !leftApp) || away === AwayCheck.Skip) {
     await client.request(ControlCommand.Ping, []);
     return;
   }
   // E142: another app keeps the focus until the user activates the frame
   const res = await focusState(client);
-  check(/ active=(away|other-window)$/.test(res), `${what}: the restore took the focus from another app: ${res}`);
+  const other = way.focus === "away" ? / active=(away|other-window)$/ : /^focus=none active=none$/;
+  check(other.test(res), `${what}: the restore took the focus from another app: ${res}`);
   await client.request(ControlCommand.TestFocusState, ["activate"]);
   await client.request(ControlCommand.Ping, []);
 }
@@ -1454,15 +1462,21 @@ async function checkStaysHidden(pid: number, client: ControlClient, frame: numbe
     { what: "WM_SETREDRAW TRUE", write: redraw },
     { what: "a style write sets WS_VISIBLE", write: styleWrite },
   ];
-  // Windows doesn't hide it with the frame, the layer's sync does: no "frame" way, which
-  // moves the focus as Windows hides it
+  // E148: it's modal, its frame disabled. With the app in the foreground Windows gives the
+  // activation to another app as it hides the dialog with the frame: the "frame" way, the
+  // same on both desktops. Without a foreground the hidden desktop leaves the dialog
+  // active, so no kept way. A step starts with a click on it: in the background Windows
+  // moves no activation and the stand-in can't take it
+  const ways = FOCUS_WAYS.filter((w) => w.focus).map((w) =>
+    w.focus === "frame" ? { ...w, how: `${w.order}, the activation left the app` } : w,
+  );
   for (const w of writes) {
-    for (const way of MINIMIZE_WAYS) {
+    for (const way of ways) {
       await step(`${name}: ${w.what} while minimized, ${way.how}`, async () => {
         if (!find()) sendCommand(frame, cmdId("CmdRunPDFScript"));
         const hwnd = await waitShown(find, name);
         const before = box(hwnd);
-        const res = await focusState(client, "owned-popup");
+        const res = await focusState(client, "activate-owned");
         check(res.includes("focus=owned "), `${name} has no focus: ${res}`);
         const during = async () => {
           await w.write(hwnd);
