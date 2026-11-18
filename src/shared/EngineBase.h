@@ -44,6 +44,7 @@ struct PageHit {
 };
 
 using ElementAt = PageHit<IPageElement*>;
+using PageElementsHit = PageHit<Vec<IPageElement*>>;
 // an annotation or form field
 using AnnotationAt = PageHit<Annotation*>;
 
@@ -690,6 +691,7 @@ class EngineBase {
     // caller must delete the Vec but not the elements inside the vector
     virtual Vec<IPageElement*> GetElements(int pageNo) = 0;
     virtual bool TryGetElements(int pageNo, Vec<IPageElement*>* out);
+    virtual PageElementsHit ElementsOnPage(int pageNo, EngineWait wait);
 
     // returns the element at a given point or nullptr if there's none
     virtual IPageElement* GetElementAtPos(int pageNo, PointF pt) = 0;
@@ -793,6 +795,7 @@ class EnginePdfProxy : public EngineBase {
     RenderedBitmap* GetImageForPageElement(IPageElement* ipel) override;
     Str GetImageDataForPageElement(IPageElement* ipel) override;
     bool TryGetElements(int pageNo, Vec<IPageElement*>* out) override;
+    PageElementsHit ElementsOnPage(int pageNo, EngineWait wait) override;
     PageReadResult TryExtractPageText(int pageNo, PageText* out) override;
     PageText ExtractPrefetchText(int pageNo) override;
     void ReleaseTextExtractionThreadContext() override;

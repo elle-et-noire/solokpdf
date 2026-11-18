@@ -2801,6 +2801,14 @@ IPageElement* DisplayModel::GetElementOnPage(int pageNo, PointF pos) {
     return ForAction(this, [&](EngineWait wait) { return engine->ElementAtPos(pageNo, pos, wait); });
 }
 
+Vec<IPageElement*> DisplayModel::GetElementsOnPage(int pageNo) {
+    return ForAction(this, [&](EngineWait wait) { return engine->ElementsOnPage(pageNo, wait); });
+}
+
+PageElementsHit DisplayModel::TryElementsOnPage(int pageNo) {
+    return engine->ElementsOnPage(pageNo, EngineWait::NoWait);
+}
+
 // Hover's lookup: tells a page a render holds (busy) from one without an element.
 ElementAt DisplayModel::TryElementAtPos(Point pt, int* pageNoOut) {
     int pageNo = VisiblePageAt(this, pt);

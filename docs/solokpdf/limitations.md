@@ -213,7 +213,7 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   Attention 15, BERT 16, Japanese IPA 64. `TestCurrentPdf editor` stayed
   `none` after every page (B14 check); no narrowing was needed.
 - `TryGetElements` and `TryExtractPageText` skip a page whose render holds the
-  PDFium lock, as MuPDF does, so link outlines, link recompute and the I-beam
+  PDFium lock, as MuPDF does, so link outlines and the I-beam
   hover don't wait for a render on the UI thread (B11). They keep the lock they
   probed and never load the hidden editor: until it is loaded, elements are
   PDFium's (every link but file-attachment ones, which a blocking read adds),
@@ -229,8 +229,8 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   seconds later on a long document; hover reads text a page needs MuPDF for
   (widget text, missing Unicode) as PDFium's partial text, without the editor.
   A user action (link click, image drag, context menu, Edit PDF click, form
-  field click, following a keyboard link hint, a press or double-click on
-  text, Tab between form fields, read aloud at the cursor) cancels the
+  field click, turning on keyboard link hints or following one, a press or
+  double-click on text, Tab between form fields, read aloud at the cursor) cancels the
   renders that may hold the lock and waits for it instead, so it finds what it
   would with no render running (E123, E127). Those are the document's renders
   and, on PDFium, whose lock is process-wide, those of documents in other
@@ -244,10 +244,12 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   list build, PDFium's form widget pass, and a single long drawing step. Print
   is not canceled: that would fail the job. An action reads text a page needs
   MuPDF for as PDFium's partial text, without the editor, as hover does, and
-  without canceling renders when nothing holds the page. Turning keyboard link
-  following on still skips a page a render holds, and so does its relabel after
-  scrolling. Other UI-thread annotation edits still wait for a render's
-  annotation pass.
+  without canceling renders when the page is ready. Starting keyboard link
+  hints loads any unprepared MuPDF page it needs. After scrolling, the canvas
+  waits for scrolling to settle, then uses the same 50 ms retry as hover
+  until every visible page's links are ready. PDFium leaves the hidden editor
+  unloaded for both lookups (E131). Other UI-thread annotation edits still wait
+  for a render's annotation pass.
 - PDFium drops its discretionary hyphen marker from extracted text, so search
   joins split words as MuPDF does. `issue-1189` and the generated B15 search
   test cover this path without loading the editor.

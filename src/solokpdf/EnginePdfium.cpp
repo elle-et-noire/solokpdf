@@ -3443,19 +3443,28 @@ class EnginePdfium : public EngineBase {
         return !info->useMupdfElements && (!info->hasFileAttachments || info->attachmentLinksLoaded);
     }
 
-    // Paint's link outlines and link recompute skip a page while its render owns the lock.
+    bool ReadOwnElements(int pageNo, EngineWait wait, Vec<IPageElement*>& out, bool* useMupdf) {
+        if (wait == EngineWait::Wait) {
+            gPdfiumLock.Lock();
+        } else if (!gPdfiumLock.TryLock()) {
+            return false;
+        }
+        ElementsLocked(pageNo, out, useMupdf);
+        gPdfiumLock.Unlock();
+        return true;
+    }
+
+    // Paint's link outlines skip a page while its render owns the lock.
     // Attachment targets resolve only when followed.
     bool TryGetElements(int pageNo, Vec<IPageElement*>* out) override {
         if (EngineBase* redacted = RedactedEditor(pageNo)) {
             return redacted->TryGetElements(pageNo, out);
         }
-        *out = Vec<IPageElement*>();
-        if (!gPdfiumLock.TryLock()) {
+        VecReset(*out);
+        bool useMupdf = false;
+        if (!ReadOwnElements(pageNo, EngineWait::NoWait, *out, &useMupdf)) {
             return false;
         }
-        bool useMupdf = false;
-        ElementsLocked(pageNo, *out, &useMupdf);
-        gPdfiumLock.Unlock();
         EngineBase* source = useMupdf ? AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
         Vec<IPageElement*> mupdf;
         // empty until the editor loaded the page
@@ -3463,6 +3472,35 @@ class EnginePdfium : public EngineBase {
             *out = mupdf;
         }
         return true;
+    }
+
+    // Use the same sources as link outlines, even when the action must wait.
+    PageElementsHit ElementsOnPage(int pageNo, EngineWait wait) override {
+        if (EngineBase* redacted = RedactedEditor(pageNo)) {
+            return redacted->ElementsOnPage(pageNo, wait);
+        }
+        PageElementsHit hit;
+        bool useMupdf = false;
+        if (!ReadOwnElements(pageNo, wait, hit.value, &useMupdf)) {
+            hit.busy = true;
+            return hit;
+        }
+        EngineBase* source = useMupdf ? AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
+        if (!source) {
+            return hit;
+        }
+        // Ordinary tiles render in PDFium. An existing editor's page may never
+        // be fully loaded, so prefer its elements only when already cached.
+        Vec<IPageElement*> mupdf;
+        if (wait == EngineWait::Wait) {
+            mupdf = source->GetElements(pageNo);
+        } else if (!source->TryGetElements(pageNo, &mupdf)) {
+            hit.busy = true;
+        }
+        if (len(mupdf) > 0) {
+            hit.value = mupdf;
+        }
+        return hit;
     }
 
     Vec<IPageElement*> PageElements(PdfiumPage* info) {

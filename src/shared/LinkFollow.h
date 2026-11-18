@@ -18,7 +18,7 @@ bool KeyboardLinkFollowingCapturesKey(MainWindow*, int vk);
 bool KeyboardLinkFollowingOnChar(MainWindow*, int key);
 void KeyboardLinkFollowingViewportChanged(MainWindow*);
 void KeyboardLinkFollowingViewportChanged(MainWindow*, int elapsedMs);
-void KeyboardLinkFollowingRecompute(MainWindow*);
+bool KeyboardLinkFollowingRecompute(MainWindow*);
 void PaintKeyboardLinkTargets(MainWindow*, Gfx*);
 void PaintKeyboardLinkTargets(MainWindow*, gpui::PaintCtx*);
 

@@ -184,14 +184,18 @@ static int CmpTargetsInReadingOrder(const ScreenTarget* a, const ScreenTarget* b
     return 0;
 }
 
-void KeyboardLinkFollowingRecompute(MainWindow* win) {
+enum class LinkHintRead {
+    Action,
+    Scroll
+};
+
+static bool RecomputeLinkHints(MainWindow* win, [[maybe_unused]] LinkHintRead read) {
     VecReset(win->linkFollowTargets);
     win->linkFollowInputLen = 0;
     if (!KeyboardLinkFollowingActive(win) || !CanFollowLinksWithKeyboard(win)) {
-        return;
+        return true;
     }
     DisplayModel* dm = win->AsFixed();
-    EngineBase* engine = dm->GetEngine();
     Rect viewPort(Point(), dm->GetViewPort().Size());
 
     Vec<ScreenTarget> found;
@@ -201,12 +205,20 @@ void KeyboardLinkFollowingRecompute(MainWindow* win) {
         if (!pi || !pi->isShown || pi->visibleRatio <= 0.0f) {
             continue;
         }
-        // TryGetElements so a busy render thread holding pagesLock can't stall
-        // the UI here; a page we miss is picked up by the next recompute
+#if defined(SUMATRA_NG)
         Vec<IPageElement*> els;
-        if (!engine->TryGetElements(pageNo, &els)) {
+        if (!dm->GetEngine()->TryGetElements(pageNo, &els)) {
             continue;
         }
+#else
+        PageElementsHit hit = read == LinkHintRead::Action ? PageElementsHit{dm->GetElementsOnPage(pageNo)}
+                                                           : dm->TryElementsOnPage(pageNo);
+        // Assign hints only once all visible pages answer, so their labels agree.
+        if (hit.busy) {
+            return false;
+        }
+        const auto& els = hit.value;
+#endif
         for (IPageElement* el : els) {
             if (!el->IsLink()) {
                 continue;
@@ -233,6 +245,11 @@ void KeyboardLinkFollowingRecompute(MainWindow* win) {
     } else {
         AssignLinkHints(win->linkFollowTargets, kLinkHintChars, LenL(kLinkHintChars));
     }
+    return true;
+}
+
+bool KeyboardLinkFollowingRecompute(MainWindow* win) {
+    return RecomputeLinkHints(win, LinkHintRead::Scroll);
 }
 
 // returns true if the mode was on (and is now off), so callers can tell whether
@@ -249,6 +266,7 @@ bool StopKeyboardLinkFollowing(MainWindow* win) {
     win->linkFollowInputLen = 0;
 #if !defined(SUMATRA_NG)
     KillTimer(win->hwndCanvas, kLinkFollowTimerID);
+    win->hoverRetry.linkHints = false;
 #endif
     win->RedrawCanvas();
     return true;
@@ -262,7 +280,7 @@ void ToggleKeyboardLinkFollowing(MainWindow* win) {
         return;
     }
     win->linkFollowActive = true;
-    KeyboardLinkFollowingRecompute(win);
+    RecomputeLinkHints(win, LinkHintRead::Action);
     if (len(win->linkFollowTargets) == 0) {
         // nothing to follow: don't leave the user in a mode with no feedback
         StopKeyboardLinkFollowing(win);
@@ -308,6 +326,7 @@ void KeyboardLinkFollowingViewportChanged(MainWindow* win) {
         StopKeyboardLinkFollowing(win);
         return;
     }
+    win->hoverRetry.linkHints = false;
     SetTimer(win->hwndCanvas, kLinkFollowTimerID, kLinkFollowRecomputeDelayInMs, nullptr);
 }
 #endif

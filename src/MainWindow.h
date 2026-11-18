@@ -750,6 +750,7 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
         bool cursor = false; // the cursor and the link tip (WM_SETCURSOR)
         bool move = false;   // the mouse-move hover: annotation card, citation popup
         bool show = false;   // the citation popup opened at once at showPt (TestRefHover)
+        bool linkHints = false;
         Point showPt;
     } hoverRetry;
     // highlight rectangle for element under cursor during context menu (in page coordinates)

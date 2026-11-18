@@ -7877,8 +7877,9 @@ static FzPageInfo* GetFzPageInfoLocked(EngineMupdf* e, Location loc, bool loadQu
     if (loadQuick || pageInfo->fullyLoaded) {
         return pageInfo;
     }
-
-    pageInfo->fullyLoaded = true;
+    if (cookie && cookie->abort) {
+        return nullptr;
+    }
 
     fz_stext_page* stext = nullptr;
     fz_var(stext);
@@ -7891,12 +7892,20 @@ static FzPageInfo* GetFzPageInfoLocked(EngineMupdf* e, Location loc, bool loadQu
         stext = NewStextPage(ctx, page, &opts, cookie, StextRun::Contents, list);
         // a list built before the chapter's layout finished is empty, while the
         // page would already run with content: don't cache that as the text
-        if (list && stext && !stext->first_block) {
+        if (list && stext && !stext->first_block && !(cookie && cookie->abort)) {
             fz_drop_stext_page(ctx, stext);
+            stext = nullptr;
             stext = NewStextPage(ctx, page, &opts, cookie, StextRun::Contents, nullptr);
         }
     }
     fz_catch_report(ctx) {}
+    // A canceled extraction would publish incomplete text links for later lookups.
+    if (cookie && cookie->abort) {
+        fz_drop_stext_page(ctx, stext);
+        return nullptr;
+    }
+    pageInfo->fullyLoaded = true;
+
     fz_link* link = fz_load_links(ctx, page);
     link = FixupPageLinks(link);
     if (e->pdfdoc) {
@@ -9497,6 +9506,7 @@ IPageElement* EngineMupdfElementAtPosWait(EngineBase* engine, int pageNo, PointF
 }
 
 Vec<IPageElement*> EngineMupdf::GetElements(int pageNo) {
+    ScopedRecursiveMutex scope(&pagesLock);
     auto* pageInfo = GetFzPageInfoFast(pageNo);
     if (!pageInfo) {
         return Vec<IPageElement*>();
@@ -9506,25 +9516,47 @@ Vec<IPageElement*> EngineMupdf::GetElements(int pageNo) {
     return pageInfo->allElements;
 }
 
-// The UI thread draws link boxes from here on every repaint, and pagesLock can
-// be held for the length of an image decode by a render thread that is itself
-// queued on renderLock. Skip the decoration for this paint rather than freeze
-// the window; the next repaint draws it.
+enum class ElementsRead {
+    Ready,
+    Pending,
+    Locked
+};
+
+static ElementsRead TryLoadedElements(EngineMupdf* engine, int pageNo, Vec<IPageElement*>& out) {
+    VecReset(out);
+    if (!engine->pagesLock.TryLock()) {
+        return ElementsRead::Locked;
+    }
+    ReportIf(pageNo < 1 || pageNo > engine->pageCount);
+    FzPageInfo* pageInfo = engine->PageInfoByPageNo(pageNo);
+    bool ready = pageInfo && pageInfo->page && pageInfo->fullyLoaded;
+    if (ready) {
+        BuildElementsInfo(pageInfo);
+        out = pageInfo->allElements;
+    }
+    engine->pagesLock.Unlock();
+    return ready ? ElementsRead::Ready : ElementsRead::Pending;
+}
+
+// Link outlines can skip a page until the next repaint.
 bool EngineMupdf::TryGetElements(int pageNo, Vec<IPageElement*>* out) {
-    *out = Vec<IPageElement*>();
-    if (!pagesLock.TryLock()) {
-        return false;
+    return TryLoadedElements(this, pageNo, *out) != ElementsRead::Locked;
+}
+
+// Even with pagesLock free, a page a render hasn't fully loaded must be read or retried.
+PageElementsHit EngineMupdf::ElementsOnPage(int pageNo, EngineWait wait) {
+    if (wait == EngineWait::NoWait) {
+        PageElementsHit hit;
+        hit.busy = TryLoadedElements(this, pageNo, hit.value) != ElementsRead::Ready;
+        return hit;
     }
-    ReportIf(pageNo < 1 || pageNo > pageCount);
-    if (pageNo >= 1 && pageNo <= pageCount) {
-        FzPageInfo* pageInfo = PageInfoByPageNo(pageNo);
-        if (pageInfo && pageInfo->page && pageInfo->fullyLoaded) {
-            BuildElementsInfo(pageInfo);
-            *out = pageInfo->allElements;
-        }
+    ScopedRecursiveMutex scope(&pagesLock);
+    FzPageInfo* pageInfo = GetFzPageInfo(pageNo, false);
+    if (!pageInfo || !pageInfo->fullyLoaded) {
+        return {};
     }
-    pagesLock.Unlock();
-    return true;
+    BuildElementsInfo(pageInfo);
+    return {pageInfo->allElements};
 }
 
 // resolves a PageDestinationMupdf lazily: for a chaptered doc, dest->loc is
@@ -12950,22 +12982,31 @@ static void ReleaseHoldData(HoldLockData* d) {
     }
 }
 
+template <typename MutexType>
+static void HoldTestLock(HoldLockData* d, MutexType& lock) {
+    lock.Lock();
+    AtomicBoolSet(&d->held, true);
+    SleepInMs(d->ms);
+    lock.Unlock();
+}
+
 static void HoldLockThread(HoldLockData* d) {
-    if (d->lock == MupdfLock::Render) {
-        ScopedMutex renderScope(&d->e->renderLock);
-        AtomicBoolSet(&d->held, true);
-        SleepInMs(d->ms);
-    } else {
-        ScopedRecursiveMutex docScope(&d->e->docLock);
-        AtomicBoolSet(&d->held, true);
-        SleepInMs(d->ms);
+    switch (d->lock) {
+        case MupdfLock::Doc:
+            HoldTestLock(d, d->e->docLock);
+            break;
+        case MupdfLock::Pages:
+            HoldTestLock(d, d->e->pagesLock);
+            break;
+        case MupdfLock::Render:
+            HoldTestLock(d, d->e->renderLock);
+            break;
     }
     d->e->Release();
     ReleaseHoldData(d);
 }
 
-// Test hook: another thread holds the editor's docLock or renderLock for ms, as a long
-// render does. Returns once it is held.
+// Hold the selected MuPDF lock on another thread, as a render does.
 bool EngineMupdfHoldLock(EngineBase* engine, MupdfLock lock, int ms) {
     EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
     if (!e) {

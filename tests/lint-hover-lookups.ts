@@ -26,6 +26,7 @@ const allowed: Record<string, string> = {
   "shared/MainWindowCommon.cpp:NewCommandCtx": "menu and toolbar state, rebuilt on every page change",
   "shared/RefHoverText.cpp:PageTextAt": "hover: plain-text citation fallback",
   "shared/RefHoverText.cpp:FindReferenceLocation": "hover: plain-text citation fallback",
+  "shared/LinkFollow.cpp:RecomputeLinkHints": "keyboard link hints: the scroll branch retries on busy",
 };
 
 // the files that define the lookups (the one place the action / hover rule lives)
@@ -38,7 +39,7 @@ const lookupLayer = new Set([
 ]);
 
 const hoverLookup =
-  /\b(?:TryOverText|TryOverGlyph|TryElementAtPos|TryAnnotationAtPos|TryAnnotationAtPosHover|TryWidgetCursorAt|CachedTextForPage)\s*\(|\bEngineWait::NoWait\b/;
+  /\b(?:TryOverText|TryOverGlyph|TryElementAtPos|TryElementsOnPage|TryAnnotationAtPos|TryAnnotationAtPosHover|TryWidgetCursorAt|CachedTextForPage)\s*\(|\bEngineWait::NoWait\b/;
 // a function definition's first line: starts in column 0, has a '(', isn't a declaration
 const funcStart = /^[A-Za-z_][^;]*?\b([A-Za-z_~][\w:~]*)\s*\(/;
 

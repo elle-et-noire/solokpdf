@@ -197,6 +197,7 @@ bool EngineMupdfPageRedacted(EngineBase*, int pageNo);
 EngineBase* EngineMupdfRedactedEngine(EngineBase*);
 enum class MupdfLock {
     Doc,
+    Pages,
     Render
 };
 bool EngineMupdfHoldLock(EngineBase*, MupdfLock, int ms);

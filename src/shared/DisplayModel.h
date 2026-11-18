@@ -231,6 +231,8 @@ struct DisplayModel : DocController {
     PageHit<bool> TryOverText(Point pt);
     IPageElement* GetElementAtPos(Point pt, int* pageNoOut);
     IPageElement* GetElementOnPage(int pageNo, PointF pos);
+    Vec<IPageElement*> GetElementsOnPage(int pageNo);
+    PageElementsHit TryElementsOnPage(int pageNo);
     ElementAt TryElementAtPos(Point pt, int* pageNoOut);
     // annotation marks are drawn this many pixels outside the bounds
     static constexpr int kAnnotMarkPadding = 4;

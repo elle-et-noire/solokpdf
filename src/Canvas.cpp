@@ -3669,7 +3669,19 @@ static LRESULT OnSetCursor(MainWindow* win, HWND hwnd) {
     return win->InPresentation() ? TRUE : FALSE;
 }
 
-// The hovers that met a busy page look again; one still busy asks for another retry.
+static void RefreshLinkHints(MainWindow* win) {
+    bool hadHints = len(win->linkFollowTargets) > 0;
+    if (!KeyboardLinkFollowingRecompute(win)) {
+        win->hoverRetry.linkHints = true;
+        HoverRetryLater(win);
+        if (!hadHints) {
+            return;
+        }
+    }
+    ScheduleRepaint(win, 0);
+}
+
+// The lookups that met a busy page run again; one still busy asks for another retry.
 // The cursor's hovers only while it rests on the canvas, as Windows sends them.
 static void OnHoverRetry(MainWindow* win) {
     KillTimer(win->hwndCanvas, kHoverRetryTimerID);
@@ -3678,6 +3690,9 @@ static void OnHoverRetry(MainWindow* win) {
     DisplayModel* dm = win->AsFixed();
     if (!dm) {
         return;
+    }
+    if (retry.linkHints) {
+        RefreshLinkHints(win);
     }
     if (retry.show) {
         ShowCitationAt(win, retry.showPt);
@@ -5191,8 +5206,7 @@ static void OnTimer(MainWindow* win, HWND hwnd, WPARAM timerId) {
         case kLinkFollowTimerID:
             // scrolling settled: relabel the links that are on screen now
             KillTimer(hwnd, kLinkFollowTimerID);
-            KeyboardLinkFollowingRecompute(win);
-            ScheduleRepaint(win, 0);
+            RefreshLinkHints(win);
             break;
 
         case kTextSelectCaretTimerID:

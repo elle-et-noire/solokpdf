@@ -1493,6 +1493,11 @@ bool EngineBase::TryGetElements(int pageNo, Vec<IPageElement*>* out) {
     return true;
 }
 
+// Keyboard links need a complete list; a pending read must not look like an empty list.
+PageElementsHit EngineBase::ElementsOnPage(int pageNo, EngineWait) {
+    return {GetElements(pageNo)};
+}
+
 // Capability only: neither editor load state nor document permissions.
 bool EngineBase::HasAnnotationEditor() {
     return false;
@@ -1930,6 +1935,10 @@ Str EnginePdfProxy::GetImageDataForPageElement(IPageElement* ipel) {
 
 bool EnginePdfProxy::TryGetElements(int pageNo, Vec<IPageElement*>* out) {
     return pdfEngine->TryGetElements(pageNo, out);
+}
+
+PageElementsHit EnginePdfProxy::ElementsOnPage(int pageNo, EngineWait wait) {
+    return pdfEngine->ElementsOnPage(pageNo, wait);
 }
 
 PageReadResult EnginePdfProxy::TryExtractPageText(int pageNo, PageText* out) {

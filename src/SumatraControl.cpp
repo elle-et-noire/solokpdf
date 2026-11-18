@@ -2677,8 +2677,10 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 0, fmt("chars=%d text=%s", chars, text));
                 break;
             }
-            if (str::Eq(StringArg(req, 0), StrL("try-text")) || str::Eq(StringArg(req, 0), StrL("try-elements"))) {
-                // the non-blocking reads paint, link following, search and hover use
+            bool tryEditorElements = str::Eq(StringArg(req, 0), StrL("try-editor-elements"));
+            if (str::Eq(StringArg(req, 0), StrL("try-text")) || str::Eq(StringArg(req, 0), StrL("try-elements")) ||
+                tryEditorElements) {
+                // The non-blocking reads paint, search and hover use.
                 i32 pageNo = 0;
                 IntArg(req, 1, pageNo);
                 if (pageNo < 1 || pageNo > engine->PageCount()) {
@@ -2695,8 +2697,13 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     FreePageText(&text);
                     break;
                 }
+                EngineBase* source = tryEditorElements ? engine->AnnotationEditor(EditorLoad::IfLoaded) : engine;
+                if (!source) {
+                    AppendTestResult(req, 1, StrL("no editor"));
+                    break;
+                }
                 Vec<IPageElement*> els;
-                bool ok = engine->TryGetElements(pageNo, &els);
+                bool ok = source->TryGetElements(pageNo, &els);
                 int links = 0;
                 for (IPageElement* el : els) {
                     links += el && el->IsLink() ? 1 : 0;
@@ -2705,11 +2712,18 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("hold-editor-lock")) ||
+                str::Eq(StringArg(req, 0), StrL("hold-pages-lock")) ||
                 str::Eq(StringArg(req, 0), StrL("hold-render-lock"))) {
                 i32 ms = 0;
                 IntArg(req, 1, ms);
-                bool render = str::Eq(StringArg(req, 0), StrL("hold-render-lock"));
-                bool held = EngineMupdfHoldLock(engine, render ? MupdfLock::Render : MupdfLock::Doc, ms);
+                Str action = StringArg(req, 0);
+                MupdfLock lock = MupdfLock::Doc;
+                if (str::Eq(action, StrL("hold-pages-lock"))) {
+                    lock = MupdfLock::Pages;
+                } else if (str::Eq(action, StrL("hold-render-lock"))) {
+                    lock = MupdfLock::Render;
+                }
+                bool held = EngineMupdfHoldLock(engine, lock, ms);
                 AppendTestResult(req, held ? 0 : 1, held ? StrL("held") : StrL("no editor"));
                 break;
             }
