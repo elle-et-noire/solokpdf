@@ -224,10 +224,11 @@ On the hidden desktop an active window and focus can coexist with
 `foreground=none`. In run 44274089888 the synthetic handoff destroyed its
 stand-in, leaving no foreground window. Windows made the restored frame the
 foreground during `ShowWindow`, before the test explicitly reactivated it.
-The hosted Run PDF Script handoff cases now activate a second SolokPDF process
-while the frame is minimized and verify that its window stays in the foreground
-through the restore. The hidden-desktop cases still exercise the simulated
-handoff and the dialog's focus after reactivation.
+The hosted modal handoff cases activate a second SolokPDF process while the
+frame is minimized and verify that its window stays in the foreground through
+the restore. This covers Run PDF Script, Add Favorite and Zoom. The
+hidden-desktop cases exercise the simulated handoff and verify the dialog's
+focus after reactivation.
 
 E148: Run PDF Script is modal, its frame disabled. Windows hides it with the frame
 (`SW_PARENTCLOSING`, as other owned windows) and, on the foreground queue, activates

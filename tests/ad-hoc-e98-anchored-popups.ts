@@ -1570,6 +1570,7 @@ async function checkModalMinimized(
       if (!m.find()) sendCommand(frame, cmdId(m.cmd));
       const hwnd = await waitShown(m.find, m.name);
       const before = box(hwnd);
+      const external = way.focus === "frame" ? foreground : undefined;
       const run = async () => {
         const res = await focusState(client, "activate-owned");
         check(res.includes("focus=owned "), `${m.name} has no focus: ${res}`);
@@ -1581,13 +1582,13 @@ async function checkModalMinimized(
           action && (() => action.during(hwnd)),
           AwayCheck.Kept,
           action?.trace,
-          way.focus === "frame" ? foreground : undefined,
+          external,
         );
         await waitAt(m.find, before, `${m.name} after the frame was restored`);
         const after = await focusState(client);
         check(after.includes("focus=owned "), `${m.name}'s focus after the frame was restored: ${after}`);
       };
-      if (!action) return run();
+      if (!action && !external) return run();
 
       const [, started] = await client.request(ControlCommand.TestActivationTrace, ["start-focus"]);
       check(started === "OK", `${m.name}: activation diagnostics did not start`);
@@ -1603,7 +1604,7 @@ async function checkModalMinimized(
       });
       const trace = String(focusTrace ?? "");
       if (failure) throw new Error(`${(failure as Error).message}\n${trace}`);
-      if (way.order !== "anchor-first" || way.focus !== "frame") return;
+      if (!action || way.order !== "anchor-first" || way.focus !== "frame") return;
 
       const minimized = trace.indexOf("minimize-end ");
       const restore = trace.indexOf("restore-begin ");
@@ -1687,7 +1688,7 @@ async function checkOwnedInSession(dir: string, pdf: string, foreground?: Foregr
       { name: "Add Favorite", find: () => shownOwned(pid, frame, /^Add Favorite$/), cmd: "CmdFavoriteAdd" },
       { name: "Zoom", find: () => shownOwned(pid, frame, /^Zoom$/), cmd: "CmdZoomCustom" },
     ]) {
-      await checkModalMinimized(client, frame, m);
+      await checkModalMinimized(client, frame, m, undefined, foreground);
       await closeWindow(m.find, m.name);
     }
 
