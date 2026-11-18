@@ -3362,6 +3362,14 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | --- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | F2  | Virtual-tree screen readers, monitor DPI changes, native thumb and real smart-bar hover | done — owner reported all checks OK, 2026-11-09; [results](archive/tree-view-screen-reader-check.md#実施結果); build and environment details not provided |
 
+### November 18 review fixes
+
+| ID   | Commit                                                     | Verification                                                                                                                                                                                                                            |
+| ---- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E131 | `8471a3d26` Keep keyboard link hints during renders (E131) | Both engines recover link hints after activation and scrolling with a busy render or an unprepared page. E131 and E128 passed in Debug and ASan.                                                                                        |
+| E116 | `723ea95c7` Bound crash reporting and shutdown (E116)      | Debug crash-dump and TTS recovery tests passed. The tests stalled the reporter and the helper and exercised the minimal dump with the helper unavailable and the loader held. DbgHelp read the faulting thread and instruction address. |
+| B77  | `7aeb82059` Run SolokPDF unit tests from its build (B77)   | The hidden-desktop Debug unit command passed 106,007 tests. Git status and hashes of all 71 tracked vs2022 files matched before and after.                                                                                              |
+
 ## SOL1–SOL3 corrections (2026-11-11)
 
 Implemented on `4d68e2f69` after the independent review; not committed.

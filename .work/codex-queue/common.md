@@ -31,8 +31,7 @@ General rules for this task (SolokPDF, C:\work\solokpdf):
   HTML, CHM, help) crashes with an error dialog on the owner's desktop and
   "browser not ready" in tests. Never run them inside the sandbox. Never run
   an app-launching test on the owner's visible desktop; use `run-hidden.ts`.
-- Time matters: don't build Release or take timing measurements unless the
-  task explicitly asks for them; one Release build at most when it does.
+- Build Release only in GitHub Actions. Use Debug or ASan locally.
   Don't re-run unchanged passing tests; run each targeted test once after the
   final change.
   Run only the targeted tests named or clearly related; no full suites.
@@ -47,12 +46,7 @@ General rules for this task (SolokPDF, C:\work\solokpdf):
   tests/run-solokpdf-ci.ts.
 - Move the item's row from docs/solokpdf/backlog.md to the "Completed backlog" of docs/solokpdf/history.md (status done + commit
   subject) and the matching text in docs/solokpdf/limitations.md.
-- Commit locally, one commit per backlog item (do NOT push), AGENTS.md
-  commit rules, each message ending with:
-
-  Co-Authored-By: Codex <noreply@openai.com>
-
-  prompt: 計画的に、網羅的にやって（バックログ <ID>）
+- Commit only on explicit user instruction. Follow the repository commit rules.
 
 - Final report: per item, what failed before, what changed, test results,
   anything left (and set that item to blocked with the reason if you could

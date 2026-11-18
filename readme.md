@@ -35,9 +35,7 @@ Keep `-for-testing` on ad-hoc launches; physical checks follow the
 
 PDFium is the default for PDFs in this build. Set `$env:SOLOKPDF_ENGINE='mupdf'`
 to compare using the same UI. Non-PDF formats retain their existing engines.
-PDFium failure reports its cause and falls back to MuPDF. One PDF is not kept
-open by both engines during normal PDFium viewing; the MuPDF DLL remains for
-other formats and shared functionality.
+PDFium failure reports its cause and falls back to MuPDF. PDFium normally draws the page. A separate MuPDF parse can be retained for page routing and link queries.
 
 PDFium also opens password-protected PDFs, attached PDFs, `.p7m` and Kindle
 Print Replica. Annotations, forms, document JavaScript, signatures, redaction,
