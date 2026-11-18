@@ -114,10 +114,104 @@ static ActivationEntry gActivationTrace[kActivationTraceSize];
 static unsigned gActivationCount;
 static bool gTestFocusGuard = false;
 static bool gTestActivating = false;
+// The hidden desktop needs an explicit handoff when the app loses activation.
+static bool gAppInBackground = false;
+
+static constexpr unsigned kFocusTraceSize = 128;
+struct FocusTraceEntry {
+    Str event;
+    HWND hwnd;
+    HWND foreground;
+    DWORD foregroundPid;
+    HWND active;
+    HWND focus;
+    bool background;
+    uintptr_t wp;
+    uintptr_t lp;
+};
+static FocusTraceEntry gFocusTrace[kFocusTraceSize];
+static unsigned gFocusTraceCount = 0;
+static bool gTraceFocus = false;
+
+static void TraceFocus(Str event, HWND hwnd = nullptr, uintptr_t wp = 0, uintptr_t lp = 0) {
+    if (!gTraceFocus) {
+        return;
+    }
+    HWND foreground = GetForegroundWindow();
+    DWORD pid = 0;
+    if (foreground) {
+        GetWindowThreadProcessId(foreground, &pid);
+    }
+    gFocusTrace[gFocusTraceCount++ % kFocusTraceSize] = {
+        event, hwnd, foreground, pid, GetActiveWindow(), GetFocus(), gAppInBackground, wp, lp,
+    };
+}
+
+static void TraceFocusMessage(const CWPSTRUCT& msg) {
+    if (!gTraceFocus) {
+        return;
+    }
+    switch (msg.message) {
+        case WM_ACTIVATEAPP:
+            TraceFocus(StrL("WM_ACTIVATEAPP"), msg.hwnd, msg.wParam, msg.lParam);
+            break;
+        case WM_ACTIVATE:
+            TraceFocus(StrL("WM_ACTIVATE"), msg.hwnd, msg.wParam, msg.lParam);
+            break;
+        case WM_SETFOCUS:
+            TraceFocus(StrL("WM_SETFOCUS"), msg.hwnd, msg.wParam);
+            break;
+        case WM_KILLFOCUS:
+            TraceFocus(StrL("WM_KILLFOCUS"), msg.hwnd, msg.wParam);
+            break;
+        case WM_SHOWWINDOW:
+            if (!(GetWindowLongPtrW(msg.hwnd, GWL_STYLE) & WS_CHILD)) {
+                TraceFocus(StrL("WM_SHOWWINDOW"), msg.hwnd, msg.wParam, msg.lParam);
+            }
+            break;
+        case WM_WINDOWPOSCHANGED: {
+            auto* pos = (WINDOWPOS*)msg.lParam;
+            if ((pos->flags & (SWP_SHOWWINDOW | SWP_HIDEWINDOW)) &&
+                !(GetWindowLongPtrW(msg.hwnd, GWL_STYLE) & WS_CHILD)) {
+                TraceFocus(StrL("WM_WINDOWPOSCHANGED"), msg.hwnd, pos->flags);
+            }
+            break;
+        }
+        case WM_SETREDRAW:
+            TraceFocus(StrL("WM_SETREDRAW"), msg.hwnd, msg.wParam);
+            break;
+        case WM_STYLECHANGED: {
+            auto* style = (STYLESTRUCT*)msg.lParam;
+            if ((int)msg.wParam == GWL_STYLE && !(style->styleNew & WS_CHILD) &&
+                ((style->styleOld ^ style->styleNew) & WS_VISIBLE)) {
+                TraceFocus(StrL("WM_STYLECHANGED"), msg.hwnd, style->styleOld, style->styleNew);
+            }
+            break;
+        }
+    }
+}
+
+static TempStr FocusTraceTemp() {
+    str::Builder out;
+    out.Append(StrL("focus trace\n"));
+    DWORD ownPid = GetCurrentProcessId();
+    unsigned start = gFocusTraceCount > kFocusTraceSize ? gFocusTraceCount - kFocusTraceSize : 0;
+    for (unsigned i = start; i < gFocusTraceCount; i++) {
+        const auto& e = gFocusTrace[i % kFocusTraceSize];
+        Str foreground = !e.foreground ? StrL("none") : e.foregroundPid == ownPid ? StrL("app") : StrL("other");
+        out.Append(
+            fmt("%u %s hwnd=0x%llx wp=0x%llx lp=0x%llx foreground=%s/0x%llx/%u active=0x%llx focus=0x%llx "
+                "testBackground=%d\n",
+                i, e.event, (u64)(uintptr_t)e.hwnd, (u64)e.wp, (u64)e.lp, foreground, (u64)(uintptr_t)e.foreground,
+                (uint)e.foregroundPid, (u64)(uintptr_t)e.active, (u64)(uintptr_t)e.focus, (int)e.background));
+    }
+    return ToStrTemp(out);
+}
 
 static LRESULT CALLBACK ActivationHook(int code, WPARAM wp, LPARAM lp) {
     if (code >= 0) {
         auto* msg = (CWPSTRUCT*)lp;
+        TraceFocusMessage(*msg);
         if (gTestFocusGuard && !gTestActivating && msg->message == WM_WINDOWPOSCHANGING &&
             !(GetWindowLongPtrW(msg->hwnd, GWL_STYLE) & WS_CHILD)) {
             ((WINDOWPOS*)msg->lParam)->flags |= SWP_NOACTIVATE;
@@ -773,12 +867,6 @@ static void FocusOwnedForTest(HWND frame) {
     }
 }
 
-// Windows gave the activation to another app: the app is in the background until the
-// user activates it (ActivateForTest). The hidden desktop has no foreground, so the
-// test keeps it: Windows moves the activation off a hidden active window only on the
-// foreground queue, and SetActiveWindow() doesn't activate in a background app.
-static bool gAppInBackground = false;
-
 // MinimizeFocus::Frame / Away: the frame, how often the focus moved to it and how
 // often the activation left the app
 static HWND gFocusToFrame = nullptr;
@@ -789,6 +877,7 @@ static int gLeftApp = 0;
 // Windows activates another app's window: Away's stand-in, else one the app doesn't
 // know. Activated and destroyed, it leaves the thread without an active window.
 static void ActivationLeavesApp(MinimizeFocus focus) {
+    TraceFocus(StrL("handoff-begin"), gFocusToFrame);
     if (focus == MinimizeFocus::Away) {
         SetActiveWindow(AwayWindow());
     } else {
@@ -799,6 +888,7 @@ static void ActivationLeavesApp(MinimizeFocus focus) {
     }
     gAppInBackground = true;
     gLeftApp++;
+    TraceFocus(StrL("handoff-end"), gFocusToFrame);
 }
 
 // As Windows hides the frame's popup with the focus, it activates the next window: the
@@ -812,6 +902,9 @@ static LRESULT CALLBACK HideActivationHook(int code, WPARAM wp, LPARAM lp) {
     bool hidden = code == HC_ACTION && m->message == WM_WINDOWPOSCHANGED &&
                   (((WINDOWPOS*)m->lParam)->flags & SWP_HIDEWINDOW) && GetWindow(m->hwnd, GW_OWNER) == gFocusToFrame;
     HWND focus = GetFocus();
+    if (hidden) {
+        TraceFocus(StrL("hide-hook"), m->hwnd);
+    }
     if (!hidden || !focus || (focus != m->hwnd && !IsChild(m->hwnd, focus))) {
         return CallNextHookEx(nullptr, code, wp, lp);
     }
@@ -833,7 +926,9 @@ static int MinimizeFrameForTest(HWND frame, Str order, MinimizeFocus focus) {
     gFocusedFrame = 0;
     gLeftApp = 0;
     if (str::Eq(order, StrL("restore"))) {
+        TraceFocus(StrL("restore-begin"), frame);
         ShowWindow(frame, SW_SHOWNOACTIVATE);
+        TraceFocus(StrL("restore-end"), frame);
         return 0;
     }
     bool reshow = str::Eq(order, StrL("anchor-first"));
@@ -849,20 +944,26 @@ static int MinimizeFrameForTest(HWND frame, Str order, MinimizeFocus focus) {
         gHideFocus = focus;
         hook = SetWindowsHookExW(WH_CALLWNDPROCRET, HideActivationHook, nullptr, GetCurrentThreadId());
     }
+    TraceFocus(StrL("minimize-begin"), frame);
     ShowWindow(frame, SW_SHOWMINNOACTIVE);
+    TraceFocus(StrL("minimize-end"), frame);
     if (hook) {
         UnhookWindowsHookEx(hook);
     }
     // in the background another app has the activation already
     if (focus == MinimizeFocus::Away && !gAppInBackground) {
+        TraceFocus(StrL("away-begin"), frame);
         SetActiveWindow(AwayWindow());
+        TraceFocus(StrL("away-end"), frame);
     }
     if (!reshow) {
         return 0;
     }
     for (HWND hwnd : shown.hwnds) {
         uint flags = SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER;
+        TraceFocus(StrL("reshow-begin"), hwnd);
         SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, flags);
+        TraceFocus(StrL("reshow-end"), hwnd);
     }
     return len(shown.hwnds);
 }
@@ -1290,6 +1391,7 @@ enum class TestActivation {
 // Activates the window like a user would, past the foreground lock: the app is in the
 // foreground.
 static void ActivateForTest(HWND hwndFrame, TestActivation how = TestActivation::Focus) {
+    TraceFocus(StrL("activate-begin"), hwndFrame);
     gTestActivating = true;
     gAppInBackground = false;
     HWND fg = GetForegroundWindow();
@@ -1305,6 +1407,7 @@ static void ActivateForTest(HWND hwndFrame, TestActivation how = TestActivation:
         AttachThreadInput(uiThread, fgThread, FALSE);
     }
     gTestActivating = false;
+    TraceFocus(StrL("activate-end"), hwndFrame);
 }
 
 static void ExecuteControlRequest(ControlRequest* req) {
@@ -2002,6 +2105,9 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 focus = MinimizeFocus::Away;
             } else if (str::Eq(to, StrL("frame"))) {
                 focus = MinimizeFocus::Frame;
+            }
+            if (str::Eq(order, StrL("restore")) && str::Eq(StringArg(req, 2), StrL("style-written"))) {
+                TraceFocus(StrL("style-written"));
             }
             int nShown = MinimizeFrameForTest(win->hwndFrame, order, focus);
             if (nShown < 0) {
@@ -2890,8 +2996,16 @@ static void ExecuteControlRequest(ControlRequest* req) {
         case ControlCmd::TestPdfScript: {
             i32 idx = -1;
             IntArg(req, 1, idx);
+            Str action = StringArg(req, 0);
+            bool pick = str::Eq(action, StrL("pick"));
+            if (pick) {
+                TraceFocus(StrL("pick-begin"), nullptr, idx);
+            }
             int exitCode = 0;
-            Str res = PDFScriptTestTemp(StringArg(req, 0), idx, StringArg(req, 2), &exitCode);
+            Str res = PDFScriptTestTemp(action, idx, StringArg(req, 2), &exitCode);
+            if (pick) {
+                TraceFocus(StrL("pick-end"), nullptr, exitCode);
+            }
             AppendTestResult(req, exitCode, res);
             break;
         }
@@ -3522,7 +3636,19 @@ static void ExecuteControlRequest(ControlRequest* req) {
         }
 
         case ControlCmd::TestActivationTrace: {
-            AppendTestResult(req, 0, gForTesting ? ActivationTraceTemp() : StrL(""));
+            Str action = StringArg(req, 0);
+            if (gForTesting && str::Eq(action, StrL("start-focus"))) {
+                gFocusTraceCount = 0;
+                gTraceFocus = true;
+                TraceFocus(StrL("start"));
+                AppendTestResult(req, 0, StrL("OK"));
+            } else if (gForTesting && str::Eq(action, StrL("stop-focus"))) {
+                TraceFocus(StrL("stop"));
+                gTraceFocus = false;
+                AppendTestResult(req, 0, FocusTraceTemp());
+            } else {
+                AppendTestResult(req, 0, gForTesting ? ActivationTraceTemp() : StrL(""));
+            }
             break;
         }
 
@@ -3617,6 +3743,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 auto target = (HWND)(intptr_t)clicked;
                 PostMessageW(target, WM_LBUTTONDOWN, MK_LBUTTON, at);
                 PostMessageW(target, WM_LBUTTONUP, 0, at);
+                TraceFocus(StrL("click-posted"), target, at);
                 ActivateForTest(GetAncestor(target, GA_ROOT), TestActivation::NoFocus);
             }
             if (win && str::Eq(action, StrL("kill-moves-focus")) && GetFocus()) {
@@ -3629,6 +3756,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
             if (str::Eq(action, StrL("detail"))) {
                 state = fmt("%s caret=%s killMoved=%d", state, CaretName(win), gKillMoved);
             }
+            TraceFocus(StrL("focus-state"));
             AppendTestResult(req, 0, state);
             break;
         }

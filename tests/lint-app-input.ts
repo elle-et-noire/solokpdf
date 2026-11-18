@@ -20,6 +20,7 @@ const allowed: Record<string, string> = {
   "gui/win/PlatformWindowWin.cpp:PlatformWindowActivateIfForeground": "raises unless another app took activation",
   "gui/win/Edit.cpp:SetFocusAttached": "AttachThreadInput to the foreground thread to take focus",
   "SumatraControl.cpp:ActivateForTest": "-dbg-control activate: attaches thread input and raises the window",
+  "SumatraControl.cpp:TraceFocus": "records actual foreground independently of test activation and focus",
   "ScreenshotCapture.cpp:TakeScreenshots": "window to re-activate after a hotkey screenshot",
   "shared/ExplorerQuickLook.cpp:ApplyExplorerQuickLookChrome": "places the preview on Explorer's monitor",
   "shared/ExplorerQuickLook.cpp:ExplorerTopLevel": "system-wide: is Explorer the foreground app",

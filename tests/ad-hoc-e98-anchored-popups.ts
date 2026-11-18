@@ -639,8 +639,8 @@ async function waitInCanvas(find: () => number, canvas: number, what: string): P
 // "away": the focus leaves the app as the popups hide, as on an interactive
 // desktop, where Windows activates another window then (E136). "frame": it
 // moves to the frame (E137), or out of the app if a modal dialog disabled it (E148)
-export async function minimizeFrame(client: ControlClient, order: string, focus = ""): Promise<string> {
-  const res = await client.request(ControlCommand.TestMinimizeFrame, [order, focus]);
+export async function minimizeFrame(client: ControlClient, order: string, focus = "", trace = ""): Promise<string> {
+  const res = await client.request(ControlCommand.TestMinimizeFrame, [order, focus, trace]);
   check(res[0] === 0, `TestMinimizeFrame ${order}: ${res[1]}`);
   check(order !== "anchor-first" || !/reshown=0\b/.test(String(res[1])), `${order}: nothing shown while minimized`);
   check(
@@ -684,14 +684,17 @@ async function minimizedAndRestored(
   what: string,
   during: () => Promise<void> = async () => {},
   away = AwayCheck.Kept,
+  duringTrace = "",
 ): Promise<void> {
   let minimized = "";
+  let trace = "";
   try {
     minimized = await minimizeFrame(client, way.order, way.focus);
     await waitGone(find, `${what} with the frame minimized`);
+    trace = duringTrace;
     await during();
   } finally {
-    await minimizeFrame(client, "restore");
+    await minimizeFrame(client, "restore", "", trace);
   }
   // E148: its frame disabled by a modal dialog, Windows gave the activation to another app
   const leftApp = /leftApp=[1-9]/.test(minimized);
@@ -1461,6 +1464,8 @@ const SCRIPT_EXAMPLES = [
   "// Info: Print the first page's bounds.\nprint(Document.openDocument(scriptArgs[0]).loadPage(0).getBounds());",
 ].join("\n// ---\n");
 
+const WM_SETREDRAW = 0x000b;
+
 // E145: a window hidden with the frame isn't put back on screen by setting WS_VISIBLE
 // without a show: WM_SETREDRAW TRUE (what Run PDF Script's example pick sends a window
 // it reads as shown) or a style write
@@ -1471,7 +1476,12 @@ async function checkStaysHidden(pid: number, client: ControlClient, frame: numbe
   writeFileSync(examples, SCRIPT_EXAMPLES + "\n");
   const loaded = await client.request(ControlCommand.TestPdfScript, ["load-examples", -1, examples]);
   check(loaded[0] === 0 && /examples=2\b/.test(String(loaded[1])), `examples not loaded: ${loaded[1]}`);
-  // E147: the example list's real path, which suspends and resumes the dialog's redraw
+  // A hidden dialog's example pick skips its top-level redraw toggle. Exercise the
+  // direct pair from E149 as well as the example list's normal path.
+  const redraw = async (h: number) => {
+    sendMessage(h, WM_SETREDRAW, 0, 0);
+    sendMessage(h, WM_SETREDRAW, 1, 0);
+  };
   let picked = 0;
   const pick = async () => {
     picked = 1 - picked;
@@ -1480,8 +1490,9 @@ async function checkStaysHidden(pid: number, client: ControlClient, frame: numbe
   };
   const styleWrite = async (h: number) => void setWindowLong(h, GWL_STYLE, getWindowLong(h, GWL_STYLE) | WS_VISIBLE);
   const writes = [
-    { what: "an example picked (WM_SETREDRAW TRUE)", write: pick },
-    { what: "a style write sets WS_VISIBLE", write: styleWrite },
+    { what: "WM_SETREDRAW TRUE", write: redraw, event: (h: string) => `WM_SETREDRAW hwnd=${h} wp=0x1 ` },
+    { what: "a style write sets WS_VISIBLE", write: styleWrite, event: () => "style-written ", trace: "style-written" },
+    { what: "an example picked", write: pick, event: () => "pick-end " },
   ];
   for (const w of writes) {
     const during = async (hwnd: number) => {
@@ -1492,14 +1503,24 @@ async function checkStaysHidden(pid: number, client: ControlClient, frame: numbe
       client,
       frame,
       { name, find, cmd: "CmdRunPDFScript" },
-      `${w.what} while minimized`,
-      during,
+      {
+        what: `${w.what} while minimized`,
+        during,
+        event: w.event,
+        trace: w.trace,
+      },
     );
   }
   await closeWindow(find, name);
 }
 
 type Modal = { name: string; find: () => number; cmd: string };
+type MinimizedAction = {
+  what: string;
+  during: (hwnd: number) => Promise<void>;
+  event: (hwnd: string) => string;
+  trace?: string;
+};
 
 // E148: a modal dialog, its frame disabled, goes with the frame and is back at its place
 // with the focus. With the app in the foreground Windows gives the activation to another
@@ -1511,24 +1532,69 @@ async function checkModalMinimized(
   client: ControlClient,
   frame: number,
   m: Modal,
-  what = "frame minimized",
-  during: (hwnd: number) => Promise<void> = async () => {},
+  action?: MinimizedAction,
 ): Promise<void> {
   const ways = FOCUS_WAYS.filter((w) => w.focus).map((w) =>
     w.focus === "frame" ? { ...w, how: `${w.order}, the activation left the app` } : w,
   );
   for (const way of ways) {
-    await step(`${m.name}: ${what}, ${way.how}`, async () => {
+    await step(`${m.name}: ${action?.what ?? "frame minimized"}, ${way.how}`, async () => {
       // posted: the dialog runs its own message loop
       if (!m.find()) sendCommand(frame, cmdId(m.cmd));
       const hwnd = await waitShown(m.find, m.name);
       const before = box(hwnd);
-      const res = await focusState(client, "activate-owned");
-      check(res.includes("focus=owned "), `${m.name} has no focus: ${res}`);
-      await minimizedAndRestored(client, way, m.find, m.name, () => during(hwnd));
-      await waitAt(m.find, before, `${m.name} after the frame was restored`);
-      const after = await focusState(client);
-      check(after.includes("focus=owned "), `${m.name}'s focus after the frame was restored: ${after}`);
+      const run = async () => {
+        const res = await focusState(client, "activate-owned");
+        check(res.includes("focus=owned "), `${m.name} has no focus: ${res}`);
+        await minimizedAndRestored(
+          client,
+          way,
+          m.find,
+          m.name,
+          action && (() => action.during(hwnd)),
+          AwayCheck.Kept,
+          action?.trace,
+        );
+        await waitAt(m.find, before, `${m.name} after the frame was restored`);
+        const after = await focusState(client);
+        check(after.includes("focus=owned "), `${m.name}'s focus after the frame was restored: ${after}`);
+      };
+      if (!action) return run();
+
+      const [, started] = await client.request(ControlCommand.TestActivationTrace, ["start-focus"]);
+      check(started === "OK", `${m.name}: activation diagnostics did not start`);
+      let failure: unknown;
+      try {
+        await run();
+      } catch (error) {
+        failure = error;
+      }
+      const [, focusTrace] = await client.request(ControlCommand.TestActivationTrace, ["stop-focus"]).catch((error) => {
+        if (!failure) throw error;
+        return [1, `focus trace unavailable: ${error}`];
+      });
+      const trace = String(focusTrace ?? "");
+      if (failure) throw new Error(`${(failure as Error).message}\n${trace}`);
+      if (way.order !== "anchor-first" || way.focus !== "frame") return;
+
+      const minimized = trace.indexOf("minimize-end ");
+      const restore = trace.indexOf("restore-begin ");
+      const reshow = trace.indexOf("reshow-begin ");
+      const event = trace.indexOf(action.event(`0x${hwnd.toString(16)}`), reshow);
+      check(
+        /foreground=(none|app|other)\b.* active=0x[\da-f]+ focus=0x[\da-f]+/.test(trace) &&
+          minimized >= 0 &&
+          reshow > minimized &&
+          event > reshow &&
+          restore > event,
+        `missing activation diagnostics for ${m.name}: ${action.what}\n${trace}`,
+      );
+      if (process.env.SOLOKPDF_HIDDEN_DESKTOP) {
+        check(
+          /activate-end .* foreground=none\/0x0\/0 active=0x[1-9a-f][\da-f]* focus=0x[1-9a-f][\da-f]*/.test(trace),
+          `${m.name}: activation should have thread focus without foreground on the hidden desktop:\n${trace}`,
+        );
+      }
     });
   }
 }

@@ -27,8 +27,8 @@ bun tools/solokpdf/run-hidden.ts -- bun tests/issue-1914.ts --no-build
 
 `--timeout-ms=N` before `--` changes the default ten-minute limit. Run the
 test process itself through the runner, so any Bun child it launches inherits
-the desktop. Keep `-for-testing` on ad-hoc app launches. Hosted CI still uses
-its own invisible desktop.
+the desktop. Keep `-for-testing` on ad-hoc app launches. SolokPDF CI runs its
+feature tests directly on the hosted Windows desktop.
 
 The B69 probe (`tests/ad-hoc-b69-hidden-desktop.ts`) creates a visible window
 and checks its desktop name against the input desktop. Run it first when
@@ -208,12 +208,23 @@ Markdown page's `OnBeforeNavigate` does (IE navigates asynchronously and the CHM
 fixture has one page); an Edit in an unowned window reads `other-edit`. A DDE
 open loads synchronously here, so `LoadModelIntoTab`'s focus is tested through
 `TestSelectTab`.
-E145: while minimized, the test picks a Run PDF Script example (its redraw goes off
-and on: `WM_SETREDRAW` TRUE) and sets `WS_VISIBLE` with `SetWindowLong` from its own
-process; the dialog must stay off screen and come back at its place with the focus.
-The app's examples come from the website checkout (`scripts.js`), which CI and most
-local trees lack: `TestPdfScript load-examples -1 <path>`, before the dialog opens,
-takes them from a bundle in that format, which the test writes (E147).
+E145/E150: while Run PDF Script is minimized, the test sends the dialog
+`WM_SETREDRAW` FALSE/TRUE and separately sets `WS_VISIBLE` with `SetWindowLong`.
+It also picks a script example through the dialog's normal path (E147), which
+skips the dialog's redraw toggle while hidden. The dialog must stay off screen
+and come back at its place with the focus. `TestPdfScript load-examples -1 <path>`
+loads the fixture before the dialog opens.
+
+Run PDF Script minimize and restore failures include the `TestActivationTrace start-focus` /
+`stop-focus` output. Each entry records the desktop foreground window and PID
+(`none`, `app` or `other`), the UI thread's active and focus HWNDs, and the test's
+simulated background flag. The sequence includes minimize, handoff, reshow,
+redraw, and restore. The restore request also marks the external style write.
+On the hidden desktop an active window and focus can coexist with
+`foreground=none`. A hosted failure with `foreground=other` and app-local focus
+calls for investigation of the test model. A switch to `foreground=app` before
+explicit reactivation records a desktop foreground change.
+
 E148: Run PDF Script is modal, its frame disabled. Windows hides it with the frame
 (`SW_PARENTCLOSING`, as other owned windows) and, on the foreground queue, activates
 the next window, which can't be a disabled frame: another app gets the activation, the
