@@ -1,40 +1,130 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import pin from "./solok-pdfium-pin.json";
 
-// GitHub release asset digest, not a hash obtained from the downloaded archive.
+const asset = "pdfium-win-x64.tgz";
+const manifest = "solok-pin.json";
+const dll = "bin/pdfium.dll";
+const headers = "include/fpdfview.h";
+const versionHeader = "include/solok_pdfium_version.h";
 export const pdfiumPin = {
-  tag: "chromium/8111",
-  version: "158.0.8111.0",
-  url: "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8111/pdfium-win-x64.tgz",
-  sha256: "3452d11031050ec65e57f180215b57b9e6d465e3fbedafa8a77ad90885c7d23e",
+  ...pin,
+  url: `https://github.com/bblanchon/pdfium-binaries/releases/download/${pin.tag}/${asset}`,
 };
+export const pdfiumOpenLog = `PDFium ${pdfiumPin.version}: opened`;
 
-export async function fetchPdfium(): Promise<string> {
+function sha256(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function readCached(path: string): Buffer | undefined {
+  try {
+    return readFileSync(path);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+  }
+}
+
+async function pdfiumArchive(legacy: string, pin: typeof pdfiumPin): Promise<Buffer> {
+  // Migrate a matching flat cache without changing it or requiring the network.
+  const previous = readCached(legacy);
+  if (previous && sha256(previous) === pin.sha256) return previous;
+  const response = await fetch(pin.url);
+  if (!response.ok) throw new Error(`PDFium download failed: HTTP ${response.status}`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const digest = sha256(bytes);
+  if (digest !== pin.sha256) throw new Error(`PDFium SHA-256 mismatch: ${digest}`);
+  return bytes;
+}
+
+function publishFile(source: string, target: string, bytes: Buffer): void {
+  if (readCached(target)?.equals(bytes)) return;
+  try {
+    renameSync(source, target);
+  } catch (error) {
+    if (!readCached(target)?.equals(bytes)) throw error;
+  }
+}
+
+function packageFiles(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => relative(dir, join(entry.parentPath, entry.name)));
+}
+
+function publishPackage(staging: string, dir: string): void {
+  try {
+    renameSync(staging, dir);
+    return;
+  } catch (error) {
+    if (!existsSync(dir)) throw error;
+  }
+  // Repair only changed files so unchanged headers retain their timestamps.
+  // Parallel repairs publish the same verified bytes one file at a time.
+  const files = new Set(packageFiles(staging));
+  for (const file of files) {
+    const source = join(staging, file);
+    const target = join(dir, file);
+    mkdirSync(dirname(target), { recursive: true });
+    publishFile(source, target, readFileSync(source));
+  }
+  for (const file of packageFiles(dir)) {
+    if (!files.has(file)) rmSync(join(dir, file), { force: true });
+  }
+}
+
+export async function fetchPdfium({
+  cacheDir = resolve(import.meta.dir, "../.work/pdfium"),
+  pin = pdfiumPin,
+} = {}): Promise<string> {
   if (process.platform !== "win32" || process.arch !== "x64") {
-    throw new Error("This experiment requires native Windows x64.");
+    throw new Error("The pinned PDFium package requires native Windows x64.");
   }
-  const dir = resolve(".work/pdfium");
-  mkdirSync(dir, { recursive: true });
-  const archive = join(dir, "pdfium-win-x64.tgz");
-  let bytes: Uint8Array;
-  if (existsSync(archive)) {
-    bytes = readFileSync(archive);
-  } else {
-    const response = await fetch(pdfiumPin.url);
-    if (!response.ok) throw new Error(`PDFium download failed: HTTP ${response.status}`);
-    bytes = new Uint8Array(await response.arrayBuffer());
+  // Keep this location in sync with engines_files() in premake5.files.lua.
+  const dir = join(cacheDir, `${pin.tag.replaceAll("/", "-")}-${pin.version}-${pin.sha256}`);
+  const archive = join(cacheDir, `${pin.sha256}-${asset}`);
+  const cached = readCached(archive);
+  const verified = cached && sha256(cached) === pin.sha256;
+  const bytes = verified ? cached : await pdfiumArchive(join(cacheDir, asset), pin);
+  mkdirSync(cacheDir, { recursive: true });
+  const work = mkdtempSync(join(cacheDir, ".extract-"));
+  try {
+    if (!verified) {
+      // Retain the verified archive even if extraction is interrupted.
+      const incoming = join(work, asset);
+      writeFileSync(incoming, bytes);
+      publishFile(incoming, archive, bytes);
+    }
+    const staging = join(work, "package");
+    mkdirSync(staging);
+    const tar = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe");
+    const unpack = Bun.spawn([tar, "-xzf", "-", "-C", staging], {
+      stdin: bytes,
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    if ((await unpack.exited) !== 0) throw new Error("PDFium archive extraction failed");
+    for (const file of [headers, dll]) {
+      if (!existsSync(join(staging, file))) throw new Error(`PDFium archive is missing ${file}`);
+    }
+    writeFileSync(join(staging, versionHeader), `#define SOLOKPDF_PDFIUM_VERSION "${pin.version}"\n`);
+    writeFileSync(join(staging, manifest), JSON.stringify(pin, null, 2) + "\n");
+    publishPackage(staging, dir);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
   }
-  const digest = createHash("sha256").update(bytes).digest("hex");
-  if (digest !== pdfiumPin.sha256) throw new Error(`PDFium SHA-256 mismatch: ${digest}`);
-  writeFileSync(archive, bytes);
-  const unpack = Bun.spawnSync(["tar.exe", "-xzf", archive, "-C", dir], { stdout: "inherit", stderr: "inherit" });
-  if (unpack.exitCode !== 0) throw new Error("PDFium archive extraction failed");
-  for (const file of ["include/fpdfview.h", "bin/pdfium.dll"]) {
-    if (!existsSync(join(dir, file))) throw new Error(`PDFium archive is missing ${file}`);
-  }
-  writeFileSync(join(dir, "solok-pin.json"), JSON.stringify(pdfiumPin, null, 2) + "\n");
-  console.log(`Verified ${pdfiumPin.version}, no V8: ${digest}`);
+  console.log(`Verified ${pin.version}, no V8: ${pin.sha256}`);
   return dir;
 }
 

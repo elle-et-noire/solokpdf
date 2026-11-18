@@ -1,3 +1,4 @@
+import { pdfiumOpenLog } from "../../cmd/solok-fetch-pdfium";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -362,7 +363,7 @@ try {
             },
           );
           const text = readFileSync(log, "utf8");
-          if (!text.includes("PDFium 158.0.8111.0: opened") || text.includes("Using MuPDF fallback"))
+          if (!text.includes(pdfiumOpenLog) || text.includes("Using MuPDF fallback"))
             throw new Error(`PDFium was not used: ${log}`);
           save();
           if (holdSeconds && run === 0) {

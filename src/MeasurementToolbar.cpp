@@ -71,6 +71,36 @@ struct Measurement {
     PointF pts[3];
 };
 
+struct SnapKey {
+    EngineBase* engine;
+    int pageNo;
+    Location loc;
+    int generation;
+
+    bool operator==(const SnapKey&) const = default;
+};
+
+struct SnapPoint {
+    PointF point;
+    int order;
+};
+
+struct SnapPage {
+    SnapKey key;
+    Vec<SnapPoint> points;
+    bool swapAxes = false;
+    bool ok = false;
+    AtomicRefCount refs = 1;
+
+    explicit SnapPage(const SnapKey& key) : key(key) {}
+};
+
+static void ReleaseSnapPage(SnapPage* page) {
+    if (page && AtomicRefCountDec(&page->refs) == 0) {
+        delete page;
+    }
+}
+
 struct MeasurementToolbar : WindowBase {
     MainWindow* win = nullptr;
     DropDown* mode = nullptr;
@@ -95,15 +125,15 @@ struct MeasurementToolbar : WindowBase {
     Measurement calib;
     bool haveCalib = false;
 
-    // snap points of one page, computed when that page is first hovered
-    int snapPageNo = 0;
-    Vec<PointF> snapPts;
+    SnapPage* snapPage = nullptr;
+    ThreadHandle snapWorker = nullptr;
     PointF lastPt;
 
     double scale = 1;
     Str unit;
 
-    ~MeasurementToolbar() override { str::Free(unit); }
+    ~MeasurementToolbar() override;
+    void ClearSnapPage();
     bool Create(MainWindow*);
     void SetMode();
     void Update();
@@ -115,6 +145,17 @@ struct MeasurementToolbar : WindowBase {
     double DefaultScale();
     void SaveScale();
 };
+
+MeasurementToolbar::~MeasurementToolbar() {
+    ClearSnapPage();
+    str::Free(unit);
+}
+
+void MeasurementToolbar::ClearSnapPage() {
+    SafeCloseThreadHandle(&snapWorker);
+    ReleaseSnapPage(snapPage);
+    snapPage = nullptr;
+}
 
 static int PointsNeeded(MeasureTool tool) {
     return tool == MeasureTool::Radius ? 3 : 2;
@@ -519,6 +560,8 @@ void CloseMeasurement(MainWindow* win) {
     }
     auto* bar = win->measurementToolbar;
     win->measurementToolbar = nullptr;
+    win->hoverRetry.measurement = false;
+    bar->ClearSnapPage();
     bar->win = nullptr;
     bar->SetIsVisible(false);
     bar->ScheduleDelete();
@@ -546,40 +589,157 @@ static double ScreenToPageDist(DisplayModel* dm, int pageNo, Point pt, int px) {
     return Dist(a, b);
 }
 
-// the points a measurement snaps to; a PDFium tab reads its own page's paths
-static void PagePathPoints(EngineBase* engine, int pageNo, Vec<PointF>& out) {
+static bool PagePathPoints(const SnapKey& key, Vec<PointF>& out) {
 #if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
-    if (engine->kind == kindEnginePdfium) {
-        EnginePdfiumPagePathPoints(engine, pageNo, out);
-        return;
+    if (key.engine->kind == kindEnginePdfium) {
+        return EnginePdfiumPagePathPoints(key.engine, key.pageNo, out);
     }
 #endif
-    EngineMupdfPagePathPoints(engine, pageNo, out);
+    return EngineMupdfPagePathPoints(key.engine, key.loc, out);
 }
 
-// pt (on the screen) as a page point, moved to the nearest line end in reach
-static PointF SnappedPoint(MeasurementToolbar* bar, DisplayModel* dm, int pageNo, Point pt) {
+static SnapKey SnapKeyForPage(DisplayModel* dm, int pageNo) {
+    EngineBase* engine = dm->GetEngine();
+    return {engine, pageNo, dm->GetPageInfo(pageNo)->loc, engine->ElementsGeneration()};
+}
+
+static void IndexSnapPoints(SnapPage* page, const Vec<PointF>& points) {
+    VecReserve(page->points, len(points));
+    float minX = FLT_MAX, minY = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX;
+    for (int i = 0; i < len(points); ++i) {
+        PointF p = points[i];
+        if (!isfinite(p.x) || !isfinite(p.y)) {
+            continue;
+        }
+        minX = std::min(minX, p.x);
+        minY = std::min(minY, p.y);
+        maxX = std::max(maxX, p.x);
+        maxY = std::max(maxY, p.y);
+        VecAppend(page->points, SnapPoint{p, i});
+    }
+    page->swapAxes = maxY - minY > maxX - minX;
+    if (page->swapAxes) {
+        for (SnapPoint& p : page->points) {
+            std::swap(p.point.x, p.point.y);
+        }
+    }
+    VecSort(page->points, [](const SnapPoint* a, const SnapPoint* b) {
+        return (a->point.x > b->point.x) - (a->point.x < b->point.x);
+    });
+}
+
+static void ReadSnapPage(SnapPage* page) {
+    Vec<PointF> points;
+    const SnapKey& key = page->key;
+    if (!PagePathPoints(key, points) || key.engine->ElementsGeneration() != key.generation) {
+        return;
+    }
+    IndexSnapPoints(page, points);
+    page->ok = true;
+}
+
+static void ReadSnapWorker(SnapPage* page) {
+    EngineBase* engine = page->key.engine;
+    if (engine->ElementsGeneration() == page->key.generation) {
+        ReadSnapPage(page);
+        auto* editor = engine->HasAnnotationEditor() ? engine->AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
+        if (editor && editor != engine) {
+            editor->ReleaseThreadContext();
+        }
+        engine->ReleaseThreadContext();
+    }
+    engine->Release();
+    ReleaseSnapPage(page);
+    AtomicIntDec(&gDangerousThreadCount);
+}
+
+static PageHit<const SnapPage*> TrySnapPage(MeasurementToolbar* bar, const SnapKey& key) {
+    // One outstanding read per toolbar. The worker never retains a window pointer.
+    if (bar->snapWorker && !WaitThread(bar->snapWorker, 0)) {
+        return {nullptr, true};
+    }
+    SafeCloseThreadHandle(&bar->snapWorker);
+    if (bar->snapPage && bar->snapPage->key == key) {
+        return {bar->snapPage};
+    }
+    bar->ClearSnapPage();
+    auto* page = new SnapPage{key};
+    bar->snapPage = page;
+    AtomicRefCountAdd(&page->refs);
+    key.engine->AddRef();
+    AtomicIntInc(&gDangerousThreadCount);
+    bar->snapWorker = StartThread(MkFunc0(ReadSnapWorker, page), StrL("measurement"));
+    if (!bar->snapWorker) {
+        // The display model still owns the engine.
+        key.engine->Release();
+        ReleaseSnapPage(page);
+        bar->ClearSnapPage();
+        AtomicIntDec(&gDangerousThreadCount);
+        return {};
+    }
+    return {nullptr, true};
+}
+
+static const SnapPage* GetSnapPage(MeasurementToolbar* bar, const SnapKey& key) {
+    if (bar->snapPage && bar->snapPage->key == key) {
+        if ((!bar->snapWorker || JoinThread(&bar->snapWorker, -1)) && bar->snapPage->ok) {
+            return bar->snapPage;
+        }
+    }
+    bar->ClearSnapPage();
+    bar->snapPage = new SnapPage{key};
+    ReadSnapPage(bar->snapPage);
+    return bar->snapPage;
+}
+
+static PointF NearestSnap(const SnapPage* page, PointF p, double reach) {
+    if (!page || !page->ok) {
+        return p;
+    }
+    if (page->swapAxes) {
+        std::swap(p.x, p.y);
+    }
+    int first = 0;
+    int end = len(page->points);
+    while (first < end) {
+        int mid = first + (end - first) / 2;
+        if (page->points[mid].point.x < p.x - reach) {
+            first = mid + 1;
+        } else {
+            end = mid;
+        }
+    }
+    double best = reach * reach;
+    PointF res = p;
+    int order = -1;
+    for (int i = first; i < len(page->points); ++i) {
+        const SnapPoint& candidate = page->points[i];
+        PointF q = candidate.point;
+        double dx = (double)q.x - p.x;
+        if (dx > reach) {
+            break;
+        }
+        double dy = (double)q.y - p.y;
+        double d = dx * dx + dy * dy;
+        if (d < best || (d == best && candidate.order > order)) {
+            best = d;
+            order = candidate.order;
+            res = q;
+        }
+    }
+    if (page->swapAxes) {
+        std::swap(res.x, res.y);
+    }
+    return res;
+}
+
+static PointF SnappedClick(MeasurementToolbar* bar, DisplayModel* dm, int pageNo, Point pt) {
     PointF p = dm->CvtFromScreen(pt, pageNo);
     if (!bar->snap->IsChecked()) {
         return p;
     }
-    if (bar->snapPageNo != pageNo) {
-        bar->snapPageNo = pageNo;
-        PagePathPoints(dm->GetEngine(), pageNo, bar->snapPts);
-    }
-    double reach = ScreenToPageDist(dm, pageNo, pt, DpiScale(kSnapPx));
-    double best = reach * reach;
-    PointF res = p;
-    for (PointF q : bar->snapPts) {
-        double dx = (double)q.x - p.x;
-        double dy = (double)q.y - p.y;
-        double d = (dx * dx) + (dy * dy);
-        if (d <= best) {
-            best = d;
-            res = q;
-        }
-    }
-    return res;
+    const SnapPage* page = GetSnapPage(bar, SnapKeyForPage(dm, pageNo));
+    return NearestSnap(page, p, ScreenToPageDist(dm, pageNo, pt, DpiScale(kSnapPx)));
 }
 
 static double DistToSegment(PointF p, PointF a, PointF b) {
@@ -671,7 +831,7 @@ bool MeasurementOnClick(MainWindow* win, Point pt, bool ctrl) {
         // a measurement stays on the page it started on
         return true;
     }
-    PointF p = SnappedPoint(bar, dm, pageNo, pt);
+    PointF p = SnappedClick(bar, dm, pageNo, pt);
     bar->lastPt = p;
     if (bar->nPts == 0) {
         bar->cur = {};
@@ -694,19 +854,31 @@ bool MeasurementOnClick(MainWindow* win, Point pt, bool ctrl) {
     return true;
 }
 
-bool MeasurementOnMove(MainWindow* win, Point pt) {
+MeasurementHover MeasurementOnMove(MainWindow* win, Point pt) {
     auto* bar = win->measurementToolbar;
     DisplayModel* dm = win->AsFixed();
     if (!bar || !dm || win->mouseAction != MouseAction::None) {
-        return false;
+        return MeasurementHover::Unclaimed;
     }
     SetCursor(LoadCursorW(nullptr, IDC_CROSS));
-    if (bar->nPts > 0 && dm->GetPageNoByPoint(pt) == bar->cur.pageNo) {
-        bar->hover = SnappedPoint(bar, dm, bar->cur.pageNo, pt);
+    int pageNo = bar->cur.pageNo;
+    const PageInfo* pi = bar->nPts > 0 ? dm->GetPageInfo(pageNo) : nullptr;
+    PageView view;
+    if (!pi || !pi->isShown || !pi->pageOnScreen.Contains(pt) || !dm->GetPageView(pageNo, view)) {
+        return MeasurementHover::Handled;
+    }
+    PointF p = view.FromScreen(pt);
+    PageHit<const SnapPage*> hit;
+    if (bar->snap->IsChecked()) {
+        hit = TrySnapPage(bar, SnapKeyForPage(dm, pageNo));
+        p = NearestSnap(hit.value, p, DpiScale(kSnapPx) / (double)view.zoom);
+    }
+    if (!bar->haveHover || bar->hover != p) {
+        bar->hover = p;
         bar->haveHover = true;
         bar->Update();
     }
-    return true;
+    return hit.busy ? MeasurementHover::Busy : MeasurementHover::Handled;
 }
 
 //--- drawing
@@ -722,21 +894,19 @@ static void DrawLabel(MeasurementToolbar* bar, Gfx* gfx, Str text, Point at) {
     gfx->DrawText(text, r, gfxTextCenter | gfxTextVCenter, bar->labelFont, kColMeasure);
 }
 
-static void DrawCross(DisplayModel* dm, Gfx* gfx, int pageNo, PointF p) {
-    Point s = dm->CvtToScreen(pageNo, p);
+static void DrawCross(Gfx* gfx, Point s) {
     int c = DpiScale(5);
     gfx->DrawLineAA({s.x - c, s.y}, {s.x + c, s.y}, kColMeasure, 1.5f);
     gfx->DrawLineAA({s.x, s.y - c}, {s.x, s.y + c}, kColMeasure, 1.5f);
 }
 
-static void PaintOne(MeasurementToolbar* bar, DisplayModel* dm, Gfx* gfx, const Measurement& m, bool inProgress) {
+static void PaintOne(MeasurementToolbar* bar, const PageView& view, Gfx* gfx, const Measurement& m, bool inProgress) {
     PointF pts[3];
     int n = MeasurementPoints(bar, m, inProgress, pts);
-    int pageNo = m.pageNo;
     float w = (float)DpiScale(2);
-    auto toScreen = [&](PointF p) { return dm->CvtToScreen(pageNo, p); };
+    auto toScreen = [&](PointF p) { return view.ToScreen(p); };
     for (int i = 0; i < n; i++) {
-        DrawCross(dm, gfx, pageNo, pts[i]);
+        DrawCross(gfx, toScreen(pts[i]));
     }
     if (n < 2) {
         return;
@@ -785,13 +955,13 @@ static void PaintOne(MeasurementToolbar* bar, DisplayModel* dm, Gfx* gfx, const 
             Point cs = toScreen(c);
             Point mid = toScreen(pts[2]);
             gfx->DrawLineAA(cs, mid, kColMeasure, 1.0f, 128);
-            DrawCross(dm, gfx, pageNo, c);
+            DrawCross(gfx, cs);
             DrawLabel(bar, gfx, text, Point{(cs.x + mid.x) / 2, (cs.y + mid.y) / 2});
             break;
         }
         case MeasureTool::Guide: {
             // as long as the page is wide, both ways; the page clip cuts it
-            RectF page = dm->GetEngine()->PageMediabox(pageNo);
+            RectF page = view.mediaBox;
             double l = Dist(pts[0], pts[1]);
             if (l <= 0) {
                 break;
@@ -814,12 +984,13 @@ void PaintMeasurement(MainWindow* win, Gfx* gfx) {
         return;
     }
     auto paint = [&](const Measurement& m, bool inProgress) {
-        if (!dm->PageVisible(m.pageNo)) {
+        PageView view;
+        if (!dm->PageVisible(m.pageNo) || !dm->GetPageView(m.pageNo, view)) {
             return;
         }
-        Rect page = dm->CvtToScreen(m.pageNo, dm->GetEngine()->PageMediabox(m.pageNo));
+        Rect page = Rect::FromXY(view.ToScreen(view.mediaBox.TL()), view.ToScreen(view.mediaBox.BR()));
         gfx->PushClip(page);
-        PaintOne(bar, dm, gfx, m, inProgress);
+        PaintOne(bar, view, gfx, m, inProgress);
         gfx->PopClip();
     };
     for (const Measurement& m : bar->done) {

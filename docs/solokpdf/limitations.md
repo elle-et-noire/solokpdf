@@ -287,13 +287,17 @@ This does not bound every shutdown callback or ordinary tab-close wait.
 - PDFium enumerates image bounds for cursor hit testing and the Selected Image
   menu, cut to clip paths and the page as MuPDF's (`issue-6441`). Copy and
   Save resolve the matching image through the lazy MuPDF editor, preserving
-  orientation and CMYK JPEG/TIFF data without changing PDFium rendering.
+  orientation and CMYK JPEG/TIFF data without changing PDFium rendering. If the
+  engines enumerate different placement counts, extraction fails rather than
+  returning another image.
   `tests/ad-hoc-pdfium-images.ts` checks extraction and orientation;
   `tests/issue-6360.ts` checks the context menu and clipboard.
 
-- Measure snaps to PDFium's path points: segment ends and curve end points,
-  through form XObjects, in the same page coordinates as MuPDF's
-  (`issue-750`, D7). Mirror Pages, Trim Pages To Selection, Read Columns, Count
+- Measure snaps to PDFium path endpoints, including those in form XObjects.
+  After Apply Redactions it uses the edited page's geometry until Undo or reload.
+  Hover collects and indexes points on a worker. A click waits for the current
+  page's points so it can place the measurement accurately (`issue-750`, E130).
+  Mirror Pages, Trim Pages To Selection, Read Columns, Count
   Words and Show Selected Text work from PDFium's text and page geometry
   (`issue-6221`, `issue-3585`, `read-columns`, `issue-6489`, `issue-6496`).
   Read Columns fits and centers a column on the page area, beside the room

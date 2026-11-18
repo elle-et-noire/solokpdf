@@ -174,3 +174,5 @@ struct PdfiumRuntime {
 
 extern Mutex gPdfiumLock;
 extern PdfiumRuntime gPdfium;
+
+Str PdfiumVersion();

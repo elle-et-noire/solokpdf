@@ -179,6 +179,13 @@ class EngineCachedPdf : public EnginePdfProxy {
 EngineBase* CreateEngineMupdfFromData(Str data, Str nameHint, PasswordUI* pwdUI, Str path = {});
 #if OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 EngineBase* CreateEngineMupdfFromHandle(HANDLE file, Str path, PasswordUI* pwdUI);
+struct PdfImagePlacement {
+    QuadF corners;
+    SizeF tolerance;
+
+    bool Matches(QuadF) const;
+};
+IPageElement* EngineMupdfImageOccurrence(EngineBase*, int pageNo, const PdfImagePlacement&, int occurrence, int count);
 #endif
 bool EngineMupdfDrawAnnotations(EngineBase* engine, int pageNo, const float m[6], Pixmap* pixmap, RenderTarget target,
                                 const DarkModeProfile* profile, AbortCookie* cookie);
@@ -383,7 +390,7 @@ bool EngineMupdfHasLayers(EngineBase*);
 void EngineMupdfGetLayerRows(EngineBase*, Vec<PdfLayerRow*>& out);
 bool EngineMupdfToggleLayerRow(EngineBase*, int row);
 TempStr EngineMupdfChangedLayerStatesTemp(EngineBase*);
-bool EngineMupdfPagePathPoints(EngineBase*, int pageNo, Vec<PointF>& out);
+bool EngineMupdfPagePathPoints(EngineBase*, Location, Vec<PointF>& out);
 Str EngineMupdfImageAsPng(EngineBase*, int pageNo, int imageIdx);
 bool EngineMupdfReplaceImage(EngineBase*, int pageNo, int imageIdx, Str imageData);
 void EngineMupdfSetLayerStates(EngineBase*, Str states);

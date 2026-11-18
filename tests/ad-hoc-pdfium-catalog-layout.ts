@@ -1,3 +1,4 @@
+import { pdfiumOpenLog } from "../cmd/solok-fetch-pdfium";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
@@ -78,7 +79,7 @@ async function openLog(dir: string, name: string, pdf: string | Buffer, catalog:
     ["-appdata", dir, "-log-to-file", log, path],
   );
   const output = readFileSync(log, "utf8");
-  if (!output.includes("PDFium 158.0.8111.0: opened")) throw new Error(`${name}: not PDFium`);
+  if (!output.includes(pdfiumOpenLog)) throw new Error(`${name}: not PDFium`);
   if (output.includes(QUERY_LOG) !== catalog) throw new Error(`${name}: catalog query ran=${!catalog}`);
 }
 

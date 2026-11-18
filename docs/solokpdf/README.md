@@ -18,29 +18,19 @@ UI chrome follows the active theme's colors. Where upstream draws OS theme parts
 or fixed grays, keep its shape, size and position but take colors from the
 theme (owner, 2026-11-17); record the difference in [features.md](features.md).
 
-## Status (2026-11-17)
+## Status
 
-No open items. D3 (suite sharding) is deferred; F1/F3 manual checks and
-distribution are out of scope. Completed items and their results are in
-[history.md](history.md#completed-backlog); reviews are listed in
-[backlog.md](backlog.md#completed-reviews).
-
-| Area           | Current state                                                                                                                             | Details                                                                                                                                                                |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PDF engine     | PDFium renders PDFs; MuPDF is the fallback and lazy editor.                                                                               | [Limitations](limitations.md), [annotations](annotations.md), [forms](forms.md)                                                                                        |
-| Upstream       | Merged through `b1a8e2257` on 2026-11-15 (D14); local validation is recorded in the merge result.                                         | [Merge status](upstream-merges.md#current-status-2026-11-15)                                                                                                           |
-| Text selection | Theme-colored translucent overlays; selection-only glyph rendering removed.                                                               | [Current colors](features.md#selection-colors), [implementation record](archive/selection-overlay-plan.md)                                                             |
-| Sidebar trees  | Virtual bookmarks and favorites are the default in Debug and Release; the owner reported all F2 checks OK on 2026-11-09 (E10 complete).   | [Behavior](features.md#virtual-sidebar-trees), [tests](testing.md#virtual-sidebar-trees), [migration record](archive/tree-view-replacement-plan.md)                    |
-| Keyboard input | E12 classification, E13 route checks and count/prefix state separation implemented.                                                       | [Current routing and results](keyboard-investigation.md)                                                                                                               |
-| Settings       | Palette and settings-screen changes apply in memory; `-for-testing` keeps the settings file unchanged (E11).                              | [Behavior](features.md#settings), [validation](history.md#e11-settings-application-2026-11-09)                                                                         |
-| Refactoring    | Tree, runtime and key-state separation (E15), plus rendering/read/lifetime contracts (E18–E22), are complete within their recorded scope. | [Current architecture](architecture.md), [completed plan](archive/refactoring-plan.md), [E15 review](history.md#e15-refactor-review-2026-11-10)                        |
-| Code review    | E23–E25, SOL1–SOL3, the 2026-11-13 review (E39–E57) and the 2026-11-16 performance review (E60–E65) are done.                             | [Completed reviews](backlog.md#completed-reviews), [criteria](architecture.md#レビューの評価観点), [structural notes](architecture.md#構造上の注意2026-11-13-レビュー) |
+[Backlog](backlog.md) is the source of truth for open, deferred and excluded
+work. Completed results are in [history.md](history.md#completed-backlog).
+Current behavior and its limits are in [features.md](features.md) and
+[limitations.md](limitations.md); the [upstream merge status](upstream-merges.md#current-status-2026-11-15)
+records the last merge.
 
 ### Validation scope
 
-Results apply only to the tested revisions and checks. Release is built and
-packaged by CI, not feature-tested. Run IDs were checked against GitHub's run
-list on 2026-11-16.
+The CI release job builds the portable ZIP and checks a PDFium open from a fresh
+extraction before upload. The feature suite runs on Debug. The historical
+results below apply to their listed revisions. Run IDs were checked on 2026-11-16.
 
 | Check                                                     | Tested revision                       | Recorded result                                                                                                                                                                                                                                                                                                                                                                        |
 | --------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -117,5 +107,5 @@ When a plan or review record is finished, move its current-state content to
 the current docs, `git mv` it to `archive/` and add a line to
 [archive/README.md](archive/README.md).
 Record upstream merges in `upstream-merges.md` and measurements in `data/`.
-Update this status when the default behavior or active work changes. Keep test
-results dated and distinguish automated checks from pending manual checks.
+Keep active scope only in the backlog; link to it here rather than copying status.
+Keep test results dated and distinguish automated checks from pending manual checks.

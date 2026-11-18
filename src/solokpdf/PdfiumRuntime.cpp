@@ -3,6 +3,7 @@
 #include "base/Base.h"
 #include "base/File.h"
 #include <fpdf_sysfontinfo.h>
+#include <solok_pdfium_version.h>
 #include "PdfiumFontCache.h"
 #include "PdfiumRuntime.h"
 
@@ -11,7 +12,10 @@ Mutex gPdfiumLock;
 PdfiumRuntime gPdfium;
 
 static constexpr int kPdfiumConfigVersion = 2;
-static constexpr Str kPdfiumVersion = StrL("158.0.8111.0");
+
+Str PdfiumVersion() {
+    return StrL(SOLOKPDF_PDFIUM_VERSION);
+}
 
 // The engine holds gPdfiumLock across lifetime changes and document work.
 bool PdfiumRuntime::Acquire(TempStr* error) {
@@ -84,6 +88,6 @@ void PdfiumRuntime::InstallFontCache() {
         return;
     }
     TempStr path = path::JoinTemp(fontCacheDir, StrL("pdfium-fonts.cache"));
-    fontCache = PdfiumFontCacheNew(defaultFontInfo, path, kPdfiumVersion);
+    fontCache = PdfiumFontCacheNew(defaultFontInfo, path, PdfiumVersion());
     FPDF_SetSystemFontInfo(PdfiumFontCacheInfo(fontCache));
 }

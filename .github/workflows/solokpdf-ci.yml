@@ -31,10 +31,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+      - name: Test PDFium cache migration
+        run: bun tests/solok-pdfium-pin.ts
       - uses: actions/cache@v5
         with:
           path: .work/pdfium
-          key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
+          key: pdfium-win-x64-${{ hashFiles('cmd/solok-pdfium-pin.json', 'cmd/solok-fetch-pdfium.ts') }}
       - name: Build debug
         run: bun cmd/solok-build.ts -dbg
       - name: Run unit tests
@@ -76,9 +78,11 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .work/pdfium
-          key: pdfium-win-x64-${{ hashFiles('cmd/solok-fetch-pdfium.ts') }}
+          key: pdfium-win-x64-${{ hashFiles('cmd/solok-pdfium-pin.json', 'cmd/solok-fetch-pdfium.ts') }}
       - name: Build release
         run: bun cmd/solok-build.ts -rel
+      - name: Test extracted portable ZIP
+        run: bun tests/ad-hoc-solok-portable.ts out/SolokPDF-experimental-x64.zip
       - name: Upload portable ZIP
         uses: actions/upload-artifact@v6
         with:

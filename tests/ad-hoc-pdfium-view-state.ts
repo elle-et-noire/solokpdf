@@ -1,5 +1,6 @@
 // Opt-in PDFium check: a restored session tab and a reopened history file keep
 // their page, zoom and scroll position, as with MuPDF. Build with solok-build.ts, then use --no-build.
+import { pdfiumOpenLog } from "../cmd/solok-fetch-pdfium";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assemblePdf, runStandalone, tmpPath } from "./util.ts";
@@ -101,7 +102,7 @@ async function roundTrip(engine: string, where: "session" | "history"): Promise<
   const exitCode = await proc.exited;
   if (exitCode !== 0) throw new Error(`${engine}/${where}: exit code ${exitCode}`);
 
-  const opened = readFileSync(log, "utf8").includes("PDFium 158.0.8111.0: opened");
+  const opened = readFileSync(log, "utf8").includes(pdfiumOpenLog);
   if (opened !== (engine === "pdfium")) throw new Error(`${engine}/${where}: wrong engine, see ${log}`);
   return savedView(readFileSync(settings, "utf8"), where);
 }

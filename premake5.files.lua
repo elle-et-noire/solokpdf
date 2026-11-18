@@ -633,7 +633,9 @@ end
 function engines_files()
   if _OPTIONS["with-pdfium"] then
     defines { "SOLOKPDF_PDFIUM" }
-    includedirs { ".work/pdfium/include" }
+    local pin = json.decode(io.readfile("cmd/solok-pdfium-pin.json"))
+    local pin_dir = pin.tag:gsub("/", "-") .. "-" .. pin.version .. "-" .. pin.sha256
+    includedirs { path.join(".work/pdfium", pin_dir, "include") }
     files { "src/solokpdf/EnginePdfium.*", "src/solokpdf/PdfiumRuntime.*", "src/solokpdf/PdfiumFontCache.*", "src/solokpdf/AppIconTheme.*", "src/solokpdf/AppIconPaths.h" }
   end
   files_in_dir("src", {

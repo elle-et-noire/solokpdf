@@ -1193,7 +1193,7 @@ static void WordCountThread(WordCountThreadData* d) {
             lastPost = TimeGet();
         }
     }
-    d->engine->ReleaseTextExtractionThreadContext();
+    d->engine->ReleaseThreadContext();
     d->engine->Release();
     delete d;
     AtomicIntDec(&gDangerousThreadCount);

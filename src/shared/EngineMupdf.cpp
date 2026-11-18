@@ -2419,6 +2419,51 @@ static void FzFindImagePositions(fz_context* ctx, int pageNo, Location loc, Vec<
     }
 }
 
+#if OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+bool PdfImagePlacement::Matches(QuadF other) const {
+    auto closeEnough = [](float a, float b, float quantization) {
+        constexpr float kMatrixTolerance = 1.f / (1 << 20);
+        return fabsf(a - b) <= quantization + kMatrixTolerance * std::max(fabsf(a), fabsf(b));
+    };
+    auto samePoint = [&](PointF a, PointF b) {
+        return closeEnough(a.x, b.x, tolerance.dx) && closeEnough(a.y, b.y, tolerance.dy);
+    };
+    return samePoint(corners.ul, other.ul) && samePoint(corners.ur, other.ur) && samePoint(corners.ll, other.ll) &&
+           samePoint(corners.lr, other.lr);
+}
+
+IPageElement* EngineMupdfImageOccurrence(EngineBase* engine, int pageNo, const PdfImagePlacement& placement,
+                                         int occurrence, int count) {
+    auto* source = AsEngineMupdf(engine);
+    if (!source) {
+        return nullptr;
+    }
+    ScopedRecursiveMutex lock(&source->pagesLock);
+    auto* page = source->GetFzPageInfo(pageNo, false);
+    if (!page || !page->fullyLoaded) {
+        return nullptr;
+    }
+
+    // MuPDF's image cache is in paint order. Clips can change the visible rectangle.
+    IPageElement* match = nullptr;
+    int matches = 0;
+    for (auto* image : page->images) {
+        auto point = [&](float x, float y) {
+            fz_point p = fz_transform_point_xy(x, y, image->transform);
+            return PointF(p.x, p.y);
+        };
+        QuadF corners{point(0, 0), point(1, 0), point(0, 1), point(1, 1)};
+        if (!placement.Matches(corners)) {
+            continue;
+        }
+        if (matches++ == occurrence) {
+            match = image->imageElement;
+        }
+    }
+    return matches == count ? match : nullptr;
+}
+#endif
+
 static fz_stext_page* FzLoadImageTextPage(fz_context* ctx, FzPageInfo* pageInfo) {
     fz_stext_options opts = NewTextPageOptions(kImageTextPageFlags);
     fz_stext_page* stext = nullptr;
@@ -6115,7 +6160,7 @@ static void HeadingTocBuildFinished(EngineMupdf* e) {
 static void HeadingTocBuildThread(EngineMupdf* e) {
     int idCounter = 0;
     TocItem* headings = GenerateTocFromHeadings(e, idCounter);
-    e->ReleaseTextExtractionThreadContext();
+    e->ReleaseThreadContext();
     if (AtomicIntGet(&e->headingTocCancel)) {
         FreeTocItemRec(e->arena, headings);
         AtomicIntDec(&gDangerousThreadCount);
@@ -8558,25 +8603,31 @@ static void PathPointsStrokePath(fz_context* ctx, fz_device* dev, const fz_path*
 
 // The end and corner points of the lines and curves drawn on a page, in page
 // coordinates (as PageMediabox). Empty for a scan, which has no paths.
-bool EngineMupdfPagePathPoints(EngineBase* engine, int pageNo, Vec<PointF>& out) {
+bool EngineMupdfPagePathPoints(EngineBase* engine, Location loc, Vec<PointF>& out) {
     VecReset(out);
     EngineMupdf* epdf = AsEngineMupdf(engine);
-    if (!epdf) {
+    if (!epdf || !loc.IsValid()) {
         return false;
     }
     auto* ctx = epdf->Ctx();
-    FzPageInfo* pageInfo = epdf->GetFzPageInfo(pageNo, false);
-    if (!pageInfo) {
-        return false;
-    }
-    fz_rect pagerect;
+    fz_rect pagerect = fz_empty_rect;
     fz_display_list* list = nullptr;
     {
-        // as in PageContentBox()
+        ScopedRecursiveMutex pagesScope(&epdf->pagesLock);
         ScopedMutex scope(&epdf->renderLock);
         ScopedRecursiveMutex docScope(&epdf->docLock);
-        pagerect = fz_bound_page(ctx, pageInfo->page);
-        list = GetOrBuildPageDisplayList(pageInfo, ctx);
+        auto* pi = GetFzPageInfoLocked(epdf, loc, true, nullptr);
+        if (!pi) {
+            return false;
+        }
+        fz_var(pagerect);
+        fz_try(ctx) {
+            pagerect = fz_bound_page(ctx, pi->page);
+        }
+        fz_catch_report(ctx) {
+            return false;
+        }
+        list = GetOrBuildPageDisplayList(pi, ctx);
     }
     if (!list) {
         return false;
@@ -8590,6 +8641,7 @@ bool EngineMupdfPagePathPoints(EngineBase* engine, int pageNo, Vec<PointF>& out)
         d->super.stroke_path = PathPointsStrokePath;
         d->out = &out;
         dev = &d->super;
+        // A retained list can replay outside the page locks. This device never decodes images.
         fz_run_display_list(ctx, list, dev, fz_identity, pagerect, nullptr);
         fz_close_device(ctx, dev);
     }
@@ -9768,6 +9820,11 @@ Str EngineMupdf::GetImageDataForPageElement(IPageElement* ipel) {
 }
 
 bool EngineMupdf::BenchLoadPage(int pageNo) {
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (gForTesting && GetEnvironmentVariableW(L"SOLOKPDF_TEST_FAIL_BENCH_LOAD", nullptr, 0) != 0) {
+        return false;
+    }
+#endif
     return GetFzPageInfo(pageNo, false) != nullptr;
 }
 
@@ -10051,7 +10108,7 @@ PageReadResult EngineMupdf::TryExtractPageText(int pageNo, PageText* out) {
     return out->failed ? PageReadResult::Pending : PageReadResult::Ready;
 }
 
-void EngineMupdf::ReleaseTextExtractionThreadContext() {
+void EngineMupdf::ReleaseThreadContext() {
     ReleasePerThreadContext(this);
 }
 
@@ -12710,7 +12767,7 @@ static void AnnotLoadThread(EngineMupdf* e) {
         nSincePost += LoadAnnotsForPageNo(e, i);
         maybePost(false);
     }
-    e->ReleaseTextExtractionThreadContext();
+    e->ReleaseThreadContext();
     if (AtomicIntGet(&e->annotLoadCancel)) {
         AtomicIntDec(&gDangerousThreadCount);
         e->Release();

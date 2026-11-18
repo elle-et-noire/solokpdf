@@ -1,3 +1,4 @@
+import { pdfiumOpenLog } from "../cmd/solok-fetch-pdfium";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
@@ -86,7 +87,7 @@ export async function testit(): Promise<void> {
     { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
   );
   const output = readFileSync(log, "utf8");
-  if (!output.includes("PDFium 158.0.8111.0: opened") || output.includes("Using MuPDF fallback")) {
+  if (!output.includes(pdfiumOpenLog) || output.includes("Using MuPDF fallback")) {
     throw new Error("Remembered password did not reopen in PDFium");
   }
   const check = Bun.spawnSync([EXE, "clean", "-p", password, "-D", extracted, join(dir, "extracted-plain.pdf")]);
@@ -171,7 +172,7 @@ export async function testit(): Promise<void> {
       { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
     );
     const reopened = readFileSync(reopenedLog, "utf8");
-    if (engine === "pdfium" && !reopened.includes("PDFium 158.0.8111.0: opened")) {
+    if (engine === "pdfium" && !reopened.includes(pdfiumOpenLog)) {
       throw new Error("Remembered password reopened outside PDFium");
     }
     if (reopened.includes("Using MuPDF fallback")) throw new Error(`${engine}: unexpected fallback`);

@@ -151,29 +151,13 @@ static void StartTextDragDrop(MainWindow* win) {
 // Longest edge of the proportional drag-out thumbnail (logical px; DPI-scaled).
 constexpr int kDragImageThumbnailSize = 220;
 
-// page elements are freed when the page content changes (redaction, image
-// replace): a pointer kept across that must not be used. A PDFium tab hands out
-// its editor's elements too, which the editor frees
-static int ElementsGen(DisplayModel* dm) {
-    if (!dm) {
-        return 0;
-    }
-    EngineBase* engine = dm->GetEngine();
-    int gen = AtomicIntGet(&engine->elementsGeneration);
-    EngineBase* editor = engine->HasAnnotationEditor() ? engine->AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
-    if (editor && editor != engine) {
-        gen += AtomicIntGet(&editor->elementsGeneration);
-    }
-    return gen;
-}
-
 static void StartImageDragDrop(MainWindow* win) {
     DisplayModel* dm = win->AsFixed();
     if (!dm) {
         return;
     }
     IPageElement* el = win->imageDragElement;
-    if (!el || win->imageDragElementGen != ElementsGen(dm)) {
+    if (!el || win->imageDragElementGen != dm->GetEngine()->ElementsGeneration()) {
         return;
     }
     RenderedBitmap* rb = dm->GetEngine()->GetImageForPageElement(el);
@@ -1238,8 +1222,17 @@ bool ShowCitationAt(MainWindow* win, Point pt) {
     return RefHoverScheduleLink(win->refHover, win->hwndCanvas, dm, pt.x, pt.y, at.value, 0);
 }
 
+static bool MeasurementHoverAt(MainWindow* win, Point pt) {
+    auto hit = MeasurementOnMove(win, pt);
+    if (hit == MeasurementHover::Busy) {
+        win->hoverRetry.measurement = true;
+        HoverRetryLater(win);
+    }
+    return hit != MeasurementHover::Unclaimed;
+}
+
 static void OnMouseMove(MainWindow* win, int x, int y, WPARAM key) {
-    if (!(key & (MK_RBUTTON | MK_MBUTTON)) && MeasurementOnMove(win, Point{x, y})) {
+    if (!(key & (MK_RBUTTON | MK_MBUTTON)) && MeasurementHoverAt(win, Point{x, y})) {
         return;
     }
     if (ReadingBarOnMouseMove(win, x, y)) {
@@ -1788,7 +1781,7 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y, WPARAM key) {
         IPageElement* pageEl = dm->GetElementAtPos(pt, nullptr);
         if (pageEl && pageEl->Is(kindPageElementDest) && !gSettings->disableLinks) {
             win->linkOnLastButtonDown = pageEl;
-            win->linkOnLastButtonDownGen = ElementsGen(dm);
+            win->linkOnLastButtonDownGen = dm->GetEngine()->ElementsGeneration();
         }
     }
 
@@ -1860,7 +1853,7 @@ static void OnMouseLeftButtonDown(MainWindow* win, int x, int y, WPARAM key) {
         if (pageEl && pageEl->Is(kindPageElementImage) && !IsFullPageImage(dm, pageEl, elPageNo)) {
             win->imageDragPending = true;
             win->imageDragElement = pageEl;
-            win->imageDragElementGen = ElementsGen(dm);
+            win->imageDragElementGen = dm->GetEngine()->ElementsGeneration();
             win->imageDragPageNo = elPageNo;
             win->linkOnLastButtonDown = nullptr;
             SetCapture(win->hwndCanvas);
@@ -1982,7 +1975,7 @@ static void OnMouseLeftButtonUp(MainWindow* win, int x, int y, WPARAM key) {
     PointF ptPage = dm->CvtFromScreen(pt, pageNo);
 
     IPageElement* link = win->linkOnLastButtonDown;
-    if (win->linkOnLastButtonDownGen != ElementsGen(dm)) {
+    if (win->linkOnLastButtonDownGen != dm->GetEngine()->ElementsGeneration()) {
         link = nullptr;
     }
     win->linkOnLastButtonDown = nullptr;
@@ -3704,8 +3697,12 @@ static void OnHoverRetry(MainWindow* win) {
     if (retry.cursor) {
         SendMessageW(win->hwndCanvas, WM_SETCURSOR, (WPARAM)win->hwndCanvas, MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
     }
-    if (retry.move) {
-        HoverMoveAt(win, dm, HwndScreenToClient(win->hwndCanvas, cursor));
+    Point pt = HwndScreenToClient(win->hwndCanvas, cursor);
+    if (retry.measurement) {
+        MeasurementHoverAt(win, pt);
+    }
+    if (retry.move && !win->measurementToolbar) {
+        HoverMoveAt(win, dm, pt);
     }
 }
 

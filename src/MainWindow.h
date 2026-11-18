@@ -751,6 +751,7 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
         bool move = false;   // the mouse-move hover: annotation card, citation popup
         bool show = false;   // the citation popup opened at once at showPt (TestRefHover)
         bool linkHints = false;
+        bool measurement = false;
         Point showPt;
     } hoverRetry;
     // highlight rectangle for element under cursor during context menu (in page coordinates)

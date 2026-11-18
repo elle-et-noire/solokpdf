@@ -15,20 +15,21 @@ import { findCanvas, killAndWait, launchControlled, sendCommandSync } from "./wi
 const kTag = "ad-hoc-pdfium-redaction-undo";
 const SECRET = "SECRETWORD";
 
-// 24pt "SECRETWORD KEEPWORD"; the mark covers SECRETWORD (x 72..245)
+// The mark covers SECRETWORD and the first of two lines. A link covers the first line.
 function makePdf(): string {
-  const content = `BT /F1 24 Tf 72 700 Td (${SECRET} KEEPWORD) Tj ET`;
+  const content = `BT /F1 24 Tf 72 700 Td (${SECRET} KEEPWORD) Tj ET\n1 w 100 710 m 170 710 l S\n320 710 m 380 710 l S`;
   const content2 = "BT /F1 24 Tf 72 700 Td (PAGETWO) Tj ET";
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Count 2 /Kids [3 0 R 7 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> " +
-      "/Contents 5 0 R /Annots [6 0 R] >>",
+      "/Contents 5 0 R /Annots [6 0 R 9 0 R] >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
     `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
     "<< /Type /Annot /Subtype /Redact /P 3 0 R /Rect [66 690 247 725] /QuadPoints [66 725 247 725 66 690 247 690] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 8 0 R >>",
     `<< /Length ${content2.length} >>\nstream\n${content2}\nendstream`,
+    "<< /Type /Annot /Subtype /Link /Rect [98 707 172 713] /A << /S /URI /URI (https://example.invalid/) >> >>",
   ]);
 }
 
@@ -70,6 +71,26 @@ async function found(client: ControlClient): Promise<boolean> {
     throw new Error(`${kTag}: search: ${String(res[1])}`);
   }
   return m[1] === "1";
+}
+
+async function checkSnap(client: ControlClient, x: number, expected: number, step: string): Promise<void> {
+  const [status, result] = await client.request(ControlCommand.TestMeasurement, ["click", 1, x + 3, 84]);
+  const measured = Number(/\bx=([^ ]+)/.exec(String(result))?.[1]);
+  if (status !== 0 || !Number.isFinite(measured) || Math.abs(measured - expected) > 1) {
+    throw new Error(`${kTag}: ${step}: expected snap x=${expected}, got ${result}`);
+  }
+}
+
+async function checkLinks(
+  client: ControlClient,
+  expected: number,
+  load: "normal" | "fail-load" = "normal",
+): Promise<void> {
+  const [status, result] = await client.request(ControlCommand.TestCurrentPdf, ["get-elements", 1, load]);
+  if (status !== 0 || Number(/\blinks=(\d+)/.exec(String(result))?.[1]) !== expected) {
+    const read = load === "fail-load" ? "failed page load" : "page elements";
+    throw new Error(`${kTag}: ${read}: expected ${expected} links, got ${result}`);
+  }
 }
 
 // How long a non-blocking read of pageNo takes while another thread holds the editor's
@@ -133,6 +154,12 @@ async function runEngine(engine: string): Promise<void> {
     if (!printBefore.text.includes(SECRET)) {
       throw new Error(`${kTag} ${engine}: print copy before applying: ${printBefore.raw}`);
     }
+    await client.request(ControlCommand.TestInvokeCommand, ["CmdMeasure"]);
+    await checkSnap(client, 100, 100, `${engine} before Apply Redactions`);
+    await checkSnap(client, 320, 320, `${engine} before Apply Redactions`);
+    if (engine === "pdfium") {
+      await checkLinks(client, 1);
+    }
 
     sendCommandSync(frame, cmdId("CmdApplyRedactions"));
     s = await waitState(client, (st) => st.annotations === 0, "applying did not remove the mark");
@@ -142,6 +169,15 @@ async function runEngine(engine: string): Promise<void> {
     if (!readFileSync(pdf).equals(original)) {
       throw new Error(`${kTag} ${engine}: applying must not write the file before Save`);
     }
+    if (engine === "pdfium") {
+      const [, faults] = await client.request(ControlCommand.TestCurrentPdf, ["redact-faults"]);
+      if (faults === "supported") {
+        await checkLinks(client, 0, "fail-load");
+      }
+      await checkLinks(client, 0);
+    }
+    await checkSnap(client, 100, 103, `${engine} after Apply Redactions`);
+    await checkSnap(client, 320, 320, `${engine} after Apply Redactions`);
     const printApplied = await printed(client);
     if (
       printApplied.text.includes(SECRET) ||
@@ -173,6 +209,11 @@ async function runEngine(engine: string): Promise<void> {
     if (!s.text.includes(SECRET) || s.modified || s.canUndo) {
       throw new Error(`${kTag} ${engine}: undo must restore the original page\n${s.raw}`);
     }
+    await checkSnap(client, 100, 100, `${engine} after Undo`);
+    await checkSnap(client, 320, 320, `${engine} after Undo`);
+    if (engine === "pdfium") {
+      await checkLinks(client, 1);
+    }
     const printUndone = await printed(client);
     if (!printUndone.text.includes(SECRET)) {
       throw new Error(`${kTag} ${engine}: print after undo: ${printUndone.raw}`);
@@ -196,6 +237,11 @@ async function runEngine(engine: string): Promise<void> {
     s = await waitState(client, (st) => st.annotations === 0, "redo did not apply again");
     if (s.text.includes(SECRET)) {
       throw new Error(`${kTag} ${engine}: redo must remove the text again\n${s.raw}`);
+    }
+    await checkSnap(client, 100, 103, `${engine} after Redo`);
+    await checkSnap(client, 320, 320, `${engine} after Redo`);
+    if (engine === "pdfium") {
+      await checkLinks(client, 0);
     }
     console.log(`${kTag} ${engine}: OK (dark pixels ${before} -> ${applied})`);
   } finally {

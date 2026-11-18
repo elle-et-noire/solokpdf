@@ -152,6 +152,10 @@ struct PageDrawResult {
     RenderPageColor color = RenderPageColor::Original;
 };
 
+struct PdfiumImageElement : PageElementImage {
+    QuadF placement;
+};
+
 struct PdfiumPage {
     SizeF size;
     PdfRenderRoute renderRoute = PdfRenderRoute::Unchecked;
@@ -166,7 +170,7 @@ struct PdfiumPage {
     bool imagesLoaded = false;
     Vec<RectF> images;
     bool imageElementsLoaded = false;
-    Vec<IPageElement*> imageElements;
+    Vec<PdfiumImageElement*> imageElements;
     // empty fillable form fields, in page space, until the editor holds field values
     bool formRectsLoaded = false;
     Vec<RectF> formRects;
@@ -1183,8 +1187,9 @@ class EnginePdfium : public EngineBase {
         return p;
     }
 
+    static constexpr int kCoordScale = 1 << 20;
+
     PointF ToPage(FPDF_PAGE page, PdfiumPage* info, double x, double y) {
-        constexpr int kCoordScale = 1 << 20;
         int px = 0, py = 0;
         if (!gPdfium.FPDF_PageToDevice(page, 0, 0, kCoordScale, kCoordScale, 0, x, y, &px, &py)) {
             return {};
@@ -1200,7 +1205,7 @@ class EnginePdfium : public EngineBase {
     // Caller holds gPdfiumLock.
     void CollectImages(FPDF_PAGE page, PdfiumPage* info) {
         info->imagesLoaded = true;
-        CollectPictures(page, info, info->images);
+        CollectPictures(page, info, [&](RectF rect, QuadF) { VecAppend(info->images, rect); });
     }
 
     // Caller holds gPdfiumLock. obj's traits for IsPdfPicture. PDFium draws an image without a color
@@ -1226,8 +1231,9 @@ class EnginePdfium : public EngineBase {
     // Caller holds gPdfiumLock. Appends the visible page rects of obj's pictures, as EngineMupdf finds
     // them: what a themed page keeps in its colors and what the image elements are. Images in form
     // XObjects are in form space, which `parent` maps to the page.
+    template <typename AppendPicture>
     void AddPictures(FPDF_PAGE page, PdfiumPage* info, FPDF_PAGEOBJECT obj, const FS_MATRIX& parent, int depth,
-                     Vec<RectF>& pictures) {
+                     const AppendPicture& append) {
         constexpr int kMaxFormDepth = 16;
         FS_MATRIX m{};
         if (!obj || !gPdfium.FPDFPageObj_GetMatrix(obj, &m)) {
@@ -1238,7 +1244,7 @@ class EnginePdfium : public EngineBase {
         if (type == FPDF_PAGEOBJ_FORM && depth < kMaxFormDepth) {
             int n = gPdfium.FPDFFormObj_CountObjects(obj);
             for (int i = 0; i < n; i++) {
-                AddPictures(page, info, gPdfium.FPDFFormObj_GetObject(obj, (unsigned long)i), m, depth + 1, pictures);
+                AddPictures(page, info, gPdfium.FPDFFormObj_GetObject(obj, (unsigned long)i), m, depth + 1, append);
             }
             return;
         }
@@ -1257,16 +1263,18 @@ class EnginePdfium : public EngineBase {
         RectF rect = RectF::FromXY(c[0], c[3]).Union(RectF::FromXY(c[1], c[2])).Intersect(pageBounds);
         rect = ClipToPaths(page, info, obj, parent, rect);
         if (!rect.IsEmpty()) {
-            VecAppend(pictures, rect);
+            // PDF coordinates store images bottom-up.
+            append(rect, QuadF{c[2], c[3], c[0], c[1]});
         }
     }
 
     // Caller holds gPdfiumLock.
-    void CollectPictures(FPDF_PAGE page, PdfiumPage* info, Vec<RectF>& pictures) {
+    template <typename AppendPicture>
+    void CollectPictures(FPDF_PAGE page, PdfiumPage* info, const AppendPicture& append) {
         FS_MATRIX identity{1, 0, 0, 1, 0, 0};
         int n = gPdfium.FPDFPage_CountObjects(page);
         for (int i = 0; i < n; i++) {
-            AddPictures(page, info, gPdfium.FPDFPage_GetObject(page, i), identity, 0, pictures);
+            AddPictures(page, info, gPdfium.FPDFPage_GetObject(page, i), identity, 0, append);
         }
     }
 
@@ -1302,14 +1310,13 @@ class EnginePdfium : public EngineBase {
 
     void CollectImageElements(FPDF_PAGE page, int pageNo, PdfiumPage* info) {
         info->imageElementsLoaded = true;
-        Vec<RectF> pictures;
-        CollectPictures(page, info, pictures);
-        for (RectF& rect : pictures) {
-            auto* element = new PageElementImage();
+        CollectPictures(page, info, [&](RectF rect, QuadF placement) {
+            auto* element = new PdfiumImageElement();
             element->pageNo = pageNo;
             element->rect = rect;
-            VecAppend(info->imageElements, (IPageElement*)element);
-        }
+            element->placement = placement;
+            VecAppend(info->imageElements, element);
+        });
     }
 
     struct PdfiumDest : PageDestination {
@@ -2070,9 +2077,11 @@ class EnginePdfium : public EngineBase {
   public:
     bool IsDataBacked() const { return dataBacked; }
 
-    // The end and corner points of the page's vector paths, in page coordinates, as
-    // EngineMupdfPagePathPoints() reads them: the measuring tool snaps to them.
+    // The measuring tool snaps to the end and corner points of the displayed vector paths.
     bool PagePathPoints(int pageNo, Vec<PointF>& out) {
+        if (EngineBase* redacted = RedactedEditor(pageNo)) {
+            return EngineMupdfPagePathPoints(redacted, LocFromPageNo(pageNo), out);
+        }
         VecReset(out);
         ScopedMutex lock(&gPdfiumLock);
         PdfiumPage* info = Page(pageNo);
@@ -2353,7 +2362,7 @@ class EnginePdfium : public EngineBase {
         profile.Mark(StrL("info"));
         LoadPageLabels();
         profile.Mark(StrL("labels"));
-        logf("PDFium 158.0.8111.0: opened '%s', %d pages; no MuPDF document\n", path, pageCount);
+        logf("PDFium %s: opened '%s', %d pages; no MuPDF document\n", PdfiumVersion(), path, pageCount);
         return true;
     }
 
@@ -3392,8 +3401,10 @@ class EnginePdfium : public EngineBase {
     }
 
     Vec<IPageElement*> GetElements(int pageNo) override {
-        EngineBase* redacted = RedactedEditor(pageNo);
-        if (redacted && redacted->BenchLoadPage(pageNo)) {
+        if (EngineBase* redacted = RedactedEditor(pageNo)) {
+            if (!redacted->BenchLoadPage(pageNo)) {
+                return Vec<IPageElement*>();
+            }
             return redacted->GetElements(pageNo);
         }
         bool useMupdf = false;
@@ -3555,43 +3566,62 @@ class EnginePdfium : public EngineBase {
         return {fallback, false};
     }
 
-    // Image IDs differ between engines, so match page bounds before MuPDF extracts the bytes.
-    IPageElement* MupdfImage(IPageElement* element) {
+    EngineBase* ImageEditor(IPageElement*& element) {
         if (!element || element->GetKind() != kindPageElementImage) {
             return nullptr;
         }
+        // Edited pages and editor hit tests already return the editor's own image element.
+        if (element->loc.IsValid()) {
+            return AnnotationEditor(EditorLoad::IfLoaded);
+        }
         int pageNo = element->pageNo;
+        PdfImagePlacement placement;
+        int occurrence = -1;
+        int count = 0;
+        {
+            ScopedMutex lock(&gPdfiumLock);
+            PdfiumPage* info = Page(pageNo);
+            if (!info) {
+                return nullptr;
+            }
+            PdfiumImageElement* image = nullptr;
+            for (auto* candidate : info->imageElements) {
+                if (candidate == element) {
+                    image = candidate;
+                    break;
+                }
+            }
+            if (!image) {
+                return nullptr;
+            }
+            constexpr float kPageTolerance = 2.f / kCoordScale;
+            placement = {image->placement, {info->size.dx * kPageTolerance, info->size.dy * kPageTolerance}};
+            for (auto* candidate : info->imageElements) {
+                if (candidate == image) {
+                    occurrence = count;
+                }
+                if (placement.Matches(candidate->placement)) {
+                    count++;
+                }
+            }
+        }
         EngineBase* source = AnnotationEditor(EditorLoad::Load);
-        if (!source || !source->BenchLoadPage(pageNo)) {
+        if (!source) {
             return nullptr;
         }
-
-        IPageElement* match = nullptr;
-        float bestArea = 0;
-        for (IPageElement* candidate : source->GetElements(pageNo)) {
-            if (candidate->GetKind() != kindPageElementImage) {
-                continue;
-            }
-            RectF overlap = candidate->rect.Intersect(element->rect);
-            float area = overlap.dx * overlap.dy;
-            if (area > bestArea) {
-                bestArea = area;
-                match = candidate;
-            }
-        }
-        return match;
+        // A coincident placement can draw different images. Keep its occurrence in paint order.
+        element = EngineMupdfImageOccurrence(source, pageNo, placement, occurrence, count);
+        return element ? source : nullptr;
     }
 
     RenderedBitmap* GetImageForPageElement(IPageElement* element) override {
-        IPageElement* image = MupdfImage(element);
-        EngineBase* source = AnnotationEditor(EditorLoad::IfLoaded);
-        return image && source ? source->GetImageForPageElement(image) : nullptr;
+        EngineBase* source = ImageEditor(element);
+        return source ? source->GetImageForPageElement(element) : nullptr;
     }
 
     Str GetImageDataForPageElement(IPageElement* element) override {
-        IPageElement* image = MupdfImage(element);
-        EngineBase* source = AnnotationEditor(EditorLoad::IfLoaded);
-        return image && source ? source->GetImageDataForPageElement(image) : Str{};
+        EngineBase* source = ImageEditor(element);
+        return source ? source->GetImageDataForPageElement(element) : Str{};
     }
 
     IPageDestination* GetNamedDest(Str name) override {

@@ -1,4 +1,5 @@
 // Opt-in backend check. Build with cmd/solok-build.ts, then run with --no-build.
+import { pdfiumOpenLog } from "../cmd/solok-fetch-pdfium";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -234,7 +235,7 @@ async function expectDestsMatchMupdf(): Promise<void> {
     throw new Error(`Link tooltip or file link missing:\n${pdfium}`);
   }
   if (!/page=2 src=10,285,130,15 /.test(pdfium)) throw new Error(`NextPage link missing:\n${pdfium}`);
-  if (!readFileSync(tmpPath("pdfium/dests-pdfium.log"), "utf8").includes("PDFium 158.0.8111.0: opened")) {
+  if (!readFileSync(tmpPath("pdfium/dests-pdfium.log"), "utf8").includes(pdfiumOpenLog)) {
     throw new Error("PDFium did not open the destinations fixture");
   }
   console.log("PDFium destinations match MuPDF");
@@ -399,7 +400,7 @@ async function expectOpenAction(): Promise<void> {
       ["-appdata", tmpPath("pdfium/settings"), "-log-to-file", log, path],
       { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
     );
-    if (!readFileSync(log, "utf8").includes("PDFium 158.0.8111.0: opened")) throw new Error(`${name}: not PDFium`);
+    if (!readFileSync(log, "utf8").includes(pdfiumOpenLog)) throw new Error(`${name}: not PDFium`);
   }
   console.log("PDFium honors /OpenAction");
 }
@@ -429,7 +430,7 @@ async function expectPassword(source: string): Promise<void> {
     { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
   );
   const output = readFileSync(log, "utf8");
-  const opened = output.split("\n").filter((l) => l.includes("PDFium 158.0.8111.0: opened") && l.includes("encrypted"));
+  const opened = output.split("\n").filter((l) => l.includes(pdfiumOpenLog) && l.includes("encrypted"));
   if (opened.length < 2 || output.includes("Using MuPDF fallback")) {
     throw new Error(`Encrypted PDF did not open in PDFium only. See ${log}`);
   }
@@ -641,7 +642,7 @@ export async function testit(): Promise<void> {
     { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
   );
   const output = readFileSync(log, "utf8");
-  if (!output.includes("PDFium 158.0.8111.0: opened") || output.includes("Using MuPDF fallback")) {
+  if (!output.includes(pdfiumOpenLog) || output.includes("Using MuPDF fallback")) {
     throw new Error(`PDFium backend was not used. See ${log}`);
   }
   if (readFileSync(sentinel, "utf8") !== "SumatraPDF settings sentinel\n") {

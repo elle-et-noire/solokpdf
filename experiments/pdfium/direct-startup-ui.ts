@@ -1,3 +1,4 @@
+import { pdfiumOpenLog } from "../../cmd/solok-fetch-pdfium";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -315,7 +316,7 @@ async function main() {
     const appLog = readFileSync(log, "utf8");
     if (
       engine.startsWith("pdfium") &&
-      (!appLog.includes("PDFium 158.0.8111.0: opened") || appLog.includes("Using MuPDF fallback"))
+      (!appLog.includes(pdfiumOpenLog) || appLog.includes("Using MuPDF fallback"))
     )
       throw new Error("PDFium was not used");
     row.fontCache = /PdfiumFontCache: (\w+)/.exec(appLog)?.[1] ?? null;

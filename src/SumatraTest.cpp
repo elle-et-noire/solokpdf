@@ -883,7 +883,8 @@ static void SavePixmapAsBmp(Pixmap* px, Str bmpPath) {
     file::WriteFile(bmpPath, ToStrTemp(out));
 }
 
-TempStr ImageOrientationResultTemp(Str pdfPath, int pageNo, Str bmpPath, int* exitCodeOut) {
+TempStr ImageOrientationResultTemp(Str pdfPath, int pageNo, int imageIndex, Str bmpPath, Str dataPath,
+                                   int* exitCodeOut) {
     str::Builder out;
     auto fail = [&](Str msg) -> TempStr {
         if (exitCodeOut) {
@@ -904,7 +905,7 @@ TempStr ImageOrientationResultTemp(Str pdfPath, int pageNo, Str bmpPath, int* ex
     IPageElement* imgEl = nullptr;
     Vec<IPageElement*> els = engine->GetElements(pageNo);
     for (IPageElement* el : els) {
-        if (el && el->Is(kindPageElementImage)) {
+        if (el && el->Is(kindPageElementImage) && imageIndex-- == 0) {
             imgEl = el;
             break;
         }
@@ -916,10 +917,15 @@ TempStr ImageOrientationResultTemp(Str pdfPath, int pageNo, Str bmpPath, int* ex
     RenderedBitmap* bmp = engine->GetImageForPageElement(imgEl);
     Str origData = engine->GetImageDataForPageElement(imgEl);
     int dataLen = len(origData);
+    bool wroteData = len(dataPath) == 0 || file::WriteFile(dataPath, origData);
     str::Free(origData);
     SafeEngineRelease(&engine);
     if (!bmp) {
         return fail(StrL("ERROR no-image"));
+    }
+    if (!wroteData) {
+        delete bmp;
+        return fail(StrL("ERROR write-image-data-failed"));
     }
     Pixmap* px = PixmapToBgra(PixmapFromRenderedBitmap(bmp)); // takes ownership of bmp
     if (!px || !px->data) {

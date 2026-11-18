@@ -2723,10 +2723,10 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, 0, fmt("chars=%d text=%s", chars, text));
                 break;
             }
+            bool getElements = str::Eq(signAction, StrL("get-elements"));
             bool tryEditorElements = str::Eq(StringArg(req, 0), StrL("try-editor-elements"));
             if (str::Eq(StringArg(req, 0), StrL("try-text")) || str::Eq(StringArg(req, 0), StrL("try-elements")) ||
-                tryEditorElements) {
-                // The non-blocking reads paint, search and hover use.
+                tryEditorElements || getElements) {
                 i32 pageNo = 0;
                 IntArg(req, 1, pageNo);
                 if (pageNo < 1 || pageNo > engine->PageCount()) {
@@ -2749,7 +2749,24 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     break;
                 }
                 Vec<IPageElement*> els;
-                bool ok = source->TryGetElements(pageNo, &els);
+                bool ok = true;
+                if (getElements) {
+#if IS_DEBUG && defined(SOLOKPDF_PDFIUM)
+                    constexpr const WCHAR* kFailLoad = L"SOLOKPDF_TEST_FAIL_BENCH_LOAD";
+                    bool failLoad = gForTesting && str::Eq(StringArg(req, 2), StrL("fail-load"));
+                    if (failLoad) {
+                        SetEnvironmentVariableW(kFailLoad, L"1");
+                    }
+                    defer {
+                        if (failLoad) {
+                            SetEnvironmentVariableW(kFailLoad, nullptr);
+                        }
+                    };
+#endif
+                    els = source->GetElements(pageNo);
+                } else {
+                    ok = source->TryGetElements(pageNo, &els);
+                }
                 int links = 0;
                 for (IPageElement* el : els) {
                     links += el && el->IsLink() ? 1 : 0;
@@ -3136,8 +3153,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             Str bmpPath = StringArg(req, 2); // optional
+            i32 imageIndex = 0;
+            IntArg(req, 3, imageIndex);       // optional
+            Str dataPath = StringArg(req, 4); // optional original bytes
             int exitCode = 0;
-            Str res = ImageOrientationResultTemp(pdfPath, pageNo, bmpPath, &exitCode);
+            Str res = ImageOrientationResultTemp(pdfPath, pageNo, imageIndex, bmpPath, dataPath, &exitCode);
             AppendTestResult(req, exitCode, res);
             break;
         }

@@ -1,4 +1,5 @@
 // Opt-in PDFium session check: build with solok-build.ts, then use --no-build.
+import { pdfiumOpenLog } from "../cmd/solok-fetch-pdfium";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
@@ -86,7 +87,7 @@ export async function testit(): Promise<void> {
       throw new Error("Group not persisted");
     if (readFileSync(sentinel, "utf8") !== "untouched\n") throw new Error("SumatraPDF settings changed");
     const output = readFileSync(log, "utf8");
-    if (!output.includes("PDFium 158.0.8111.0: opened") || output.includes("Using MuPDF fallback")) {
+    if (!output.includes(pdfiumOpenLog) || output.includes("Using MuPDF fallback")) {
       throw new Error(`PDFium not used: ${log}`);
     }
     if (stage === "group") writeFileSync(settings, saved.replace(/^RestoreSession = false$/m, "RestoreSession = true"));

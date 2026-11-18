@@ -2669,6 +2669,43 @@ static float getZoomSafe(DisplayModel* dm, int pageNo, const PageInfo* pageInfo)
     return 1.f;
 }
 
+// The engine transform's translation cancels when the layout box is aligned
+// to the screen rectangle. Use the layout's geometry to avoid reading the engine.
+bool DisplayModel::GetPageView(int pageNo, PageView& out) const {
+    const PageInfo* pi = GetPageInfo(pageNo);
+    if (!pi || pi->zoomReal <= 0 || (!IsMediaBoxKnown(pi->mediaBox) && !useLazyMediaBoxes)) {
+        return false;
+    }
+    RectF box = PageMediaBoxForLayout(pageNo);
+    int rot = PageRotation(pageNo);
+    float zoom = pi->zoomReal;
+    PointF tl = TransformPagePoint(box.TL(), {}, zoom, rot, TransformDir::ToScreen);
+    PointF br = TransformPagePoint(box.BR(), {}, zoom, rot, TransformDir::ToScreen);
+    RectF media = IsMediaBoxKnown(pi->mediaBox) ? pi->mediaBox : box;
+    out = {pi->pageOnScreen, media, RectF::FromXY(tl, br).TL(), zoom, rot, mirror};
+    return true;
+}
+
+Point PageView::ToScreen(PointF pt) const {
+    PointF p = TransformPagePoint(pt, {}, zoom, rotation, TransformDir::ToScreen);
+    p.x -= origin.x;
+    p.y -= origin.y;
+    if (mirror) {
+        p.x = (float)screen.dx - p.x;
+    }
+    return ToPoint(PointF(p.x + 0.499f + (float)screen.x, p.y + 0.499f + (float)screen.y));
+}
+
+PointF PageView::FromScreen(Point pt) const {
+    PointF p((float)pt.x - 0.499f - (float)screen.x, (float)pt.y - 0.499f - (float)screen.y);
+    if (mirror) {
+        p.x = (float)screen.dx - p.x;
+    }
+    p.x += origin.x;
+    p.y += origin.y;
+    return TransformPagePoint(p, {}, zoom, rotation, TransformDir::ToPage);
+}
+
 Point DisplayModel::CvtToScreen(int pageNo, PointF pt) {
     PageInfo* pageInfo = GetPageInfo(pageNo);
     if (!pageInfo) {

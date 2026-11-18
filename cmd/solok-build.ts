@@ -1,5 +1,6 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { copyFileSync } from "node:fs";
+import { join } from "node:path";
+import { packageSolokPdf } from "./helper/solok-portable";
 import { fetchPdfium } from "./solok-fetch-pdfium";
 import { detectVisualStudio2026, runLogged } from "./util";
 
@@ -13,7 +14,6 @@ if (config === "-asan") {
   process.env.SUMATRA_ASAN_TOOLS = await fetchAsanTools();
 }
 const pdfium = await fetchPdfium();
-if (!existsSync(join(pdfium, "include/fpdfview.h"))) throw new Error("PDFium headers are missing");
 // vs2022/ stays upstream's; the PDFium projects go to the ignored vs2026/
 await runLogged(join("bin", "premake5.exe"), ["--with-pdfium", "vs2026"]);
 
@@ -42,79 +42,5 @@ if (config === "-asan") {
 
 const portable = join("out", config === "-rel" ? "solokpdf-portable" : "solokpdf-dev");
 const zip = join("out", config === "-rel" ? "SolokPDF-experimental-x64.zip" : "SolokPDF-experimental-debug-x64.zip");
-mkdirSync(portable, { recursive: true });
-
-// paths relative to the portable folder; the ZIP holds exactly these
-const packaged: string[] = [];
-function copyIn(source: string, dest: string): void {
-  const target = join(portable, dest);
-  mkdirSync(dirname(target), { recursive: true });
-  copyFileSync(source, target);
-  packaged.push(dest);
-}
-
-// the PDB stays next to the exe for debugging but is too big to ship
-if (existsSync(join(out, "SumatraPDF.pdb"))) copyFileSync(join(out, "SumatraPDF.pdb"), join(portable, "SolokPDF.pdb"));
-for (const name of ["SumatraPDF.exe", "libsumatrapdf.dll", "sumatrapdf-tool.exe", "pdfium.dll"]) {
-  const source = join(out, name);
-  if (!existsSync(source)) continue;
-  copyIn(source, name.replace("SumatraPDF", "SolokPDF"));
-}
-for (const name of [
-  "AUTHORS",
-  "COPYING",
-  "COPYING.BSD",
-  "COPYING.AGPL",
-  "readme.md",
-  "docs/solokpdf/README.md",
-  "docs/solokpdf/limitations.md",
-  "docs/solokpdf/features.md",
-  "docs/solokpdf/history.md",
-  "docs/solokpdf/data/benchmark-2026-10-24.json",
-  "docs/solokpdf/data/benchmark-release-2026-10-25.json",
-  "docs/solokpdf/data/benchmark-lazy-dest-2026-10-25.json",
-  "docs/solokpdf/data/profile-2026-10-25.json",
-  "docs/solokpdf/data/memory-2026-10-26.json",
-]) {
-  if (existsSync(name)) copyIn(name, name);
-}
-function copyNotices(dir: string): void {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      copyNotices(path);
-    } else if (
-      /^(copying|licen[sc]e|copyright|notice)([._\-\d].*)?$/i.test(entry.name) ||
-      entry.name === "FTL.TXT" ||
-      entry.name === "lzma.txt"
-    ) {
-      copyIn(path, join("licenses/upstream", path));
-    }
-  }
-}
-copyNotices("ext");
-copyIn(join(pdfium, "LICENSE"), "licenses/pdfium/LICENSE");
-for (const entry of readdirSync(join(pdfium, "licenses"), { recursive: true, withFileTypes: true })) {
-  if (!entry.isFile()) continue;
-  const path = join(entry.parentPath, entry.name);
-  copyIn(path, join("licenses/pdfium", relative(join(pdfium, "licenses"), path)));
-}
-copyIn(join(pdfium, "solok-pin.json"), "licenses/pdfium/solok-pin.json");
-writeFileSync(
-  join(portable, "README-DEV.txt"),
-  "SolokPDF experimental portable build, derived from SumatraPDF.\nPDFium is the default PDF backend. Set SOLOKPDF_ENGINE=mupdf for comparison.\nSee docs/solokpdf/limitations.md in the source checkout for limitations and tests.\nUpstream binary updates are disabled. Default-app association works through Applications\\SolokPDF.exe; installer behavior is unvalidated.\n",
-);
-packaged.push("README-DEV.txt");
-
-// Windows' bsdtar writes ZIPs; Git's GNU tar can't
-const list = join("out", "solokpdf-zip-files.txt");
-writeFileSync(list, packaged.map((p) => p.replaceAll("\\", "/")).join("\n") + "\n");
-const tmpZip = `${zip}.new`;
-rmSync(tmpZip, { force: true });
-const tar = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe");
-await runLogged(tar, ["--format", "zip", "-c", "-f", resolve(tmpZip), "-C", portable, "-T", resolve(list)]);
-renameSync(tmpZip, zip);
-rmSync(list);
-
+await packageSolokPdf(out, pdfium, portable, zip);
 console.log(`SolokPDF development build: ${portable}/SolokPDF.exe. Use -for-testing for ad-hoc launches.`);
-console.log(`Portable ZIP: ${zip} (${packaged.length} files)`);

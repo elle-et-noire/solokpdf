@@ -82,6 +82,7 @@ import { testit as focusRestoresE144 } from "./ad-hoc-e144-focus-restores.ts";
 import { testit as busyHoverE120 } from "./ad-hoc-e120-busy-hover.ts";
 import { testit as busyActionsE123 } from "./ad-hoc-e123-busy-actions.ts";
 import { testit as busyRenderE128 } from "./ad-hoc-e128-busy-render.ts";
+import { testit as measurementHoverE130 } from "./ad-hoc-e130-measurement-hover.ts";
 import { testit as linkHintsE131 } from "./ad-hoc-e131-link-hints.ts";
 import { testit as controlColorRoles } from "./control-color-roles.ts";
 import { testit as themeOpenWindows } from "./theme-open-windows.ts";
@@ -157,6 +158,7 @@ const tests: NamedTest[] = [
   ["ad-hoc-e120-busy-hover", busyHoverE120],
   ["ad-hoc-e123-busy-actions", busyActionsE123],
   ["ad-hoc-e128-busy-render", busyRenderE128],
+  ["ad-hoc-e130-measurement-hover", measurementHoverE130],
   ["ad-hoc-e131-link-hints", linkHintsE131],
   ["control-color-roles", controlColorRoles],
   ["theme-open-windows", themeOpenWindows],

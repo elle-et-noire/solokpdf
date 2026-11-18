@@ -60,6 +60,18 @@ struct PageInfo {
     Location loc;
 };
 
+struct PageView {
+    Rect screen;
+    RectF mediaBox;
+    PointF origin;
+    float zoom = 0;
+    int rotation = 0;
+    bool mirror = false;
+
+    Point ToScreen(PointF) const;
+    PointF FromScreen(Point) const;
+};
+
 /* The current scroll state (needed for saving/restoring the scroll position) */
 /* coordinates are in user space units (per page) */
 struct ScrollState {
@@ -248,6 +260,7 @@ struct DisplayModel : DocController {
     Rect CvtToScreen(int pageNo, RectF r);
     PointF CvtFromScreen(Point pt, int pageNo = kInvalidPageNo);
     RectF CvtFromScreen(Rect r, int pageNo = kInvalidPageNo);
+    bool GetPageView(int pageNo, PageView& out) const;
 
     bool ShowResultRectToScreen(Vec<TextSel>* res);
     bool ScrollScreenToRect(int pageNo, Rect rec);

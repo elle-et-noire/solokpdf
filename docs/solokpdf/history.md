@@ -3364,6 +3364,53 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 
 ### November 18 review fixes
 
+#### Repository review implementation
+
+The work proceeded in six steps.
+
+1. Preserve image selection across engines.
+2. Read the edited page after Apply Redactions.
+3. Keep measurement hover responsive under engine contention (E130).
+4. Move the acceptance criteria for 14 locally referenced specifications into the tracked backlog.
+5. Validate the extracted portable ZIP before CI upload.
+6. Use one PDFium pin for dependency retrieval, build identity and log-based checks.
+
+The hidden-desktop Debug image test first returned the wrong bitmap and JPEG
+bytes for overlapping images. After matching image placement and paint order,
+all six selections passed, including coincident and form-clipped images. The
+CMYK, orientation and `issue-6441` checks passed. The Save menu wrote the
+original JPEG on both an ordinary page and a page with an applied redaction.
+
+After Apply Redactions, measurement originally snapped to a removed line and
+a forced editor page-load failure returned a removed link. The regression now
+checks edited geometry, failed element reads, Undo and Redo. It passed on
+PDFium and MuPDF, as did `issue-750`. `redact-partial` also passed.
+
+E130 moved hover's snap-point collection off the UI thread and indexed nearest-point
+lookups. In the final hidden-desktop Debug sample, UI waits fell from about 800 ms
+to 1.4 ms on PDFium and 1.5 ms on MuPDF. For 440,000 points and 200 queries, linear lookup took
+464–510 ms and indexed lookup 8.9–11.3 ms across three runs per engine, with
+zero differing results. The final E130 test passed on both engines in Debug
+and ASan, including a page switch and window close during point collection.
+The stationary preview snapped after lock release, and the rotation, trim
+and resize checks passed. The ASan redaction Undo test also passed.
+
+The portable ZIP check launched a fresh extraction of the 64-file Debug ZIP,
+opened page 1 with PDFium and exited cleanly. Replacing `pdfium.dll` with an
+invalid DLL still allowed MuPDF to open the sample, and the check rejected
+that archive. Packaging tests also rejected missing runtime or license files.
+
+The pin regression exercised an upgrade with a populated flat cache, concurrent
+publication and recovery from a missing header, an altered DLL and a bad archive.
+The production pin stayed at `158.0.8111.0`. The existing local archive supplied
+the new cache layout offline. Both native probes compiled with the pinned headers.
+Quick, Debug and ASan builds passed. The final Debug ZIP passed the extraction
+check. Three font-cache samples produced identical pixels with caching off,
+cold and warm. Two independent processes repaired the synthetic cache in
+three consecutive runs.
+
+#### Earlier fixes
+
 | ID   | Commit                                                     | Verification                                                                                                                                                                                                                            |
 | ---- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | E131 | `8471a3d26` Keep keyboard link hints during renders (E131) | Both engines recover link hints after activation and scrolling with a busy render or an unprepared page. E131 and E128 passed in Debug and ASan.                                                                                        |

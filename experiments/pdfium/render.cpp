@@ -8,6 +8,7 @@
 #include <math.h>
 #include <fpdfview.h>
 #include <fpdf_sysfontinfo.h>
+#include <solok_pdfium_version.h>
 
 #define PDF_API(X)                    \
     X(FPDF_InitLibraryWithConfig)     \
@@ -344,8 +345,8 @@ int wmain(int argc, wchar_t** argv) {
     }
     PdfRuntime pdf;
     if (!pdf.api.Load(dllPath)) return 1;
-    printf("{\n\"engine\":\"pdfium-158.0.8111.0\",\"renderer\":\"build-default (AGG)\",\"flags\":%d,\"dpi\":%.6f,\n",
-           flags, dpi);
+    printf("{\n\"engine\":\"pdfium-%s\",\"renderer\":\"build-default (AGG)\",\"flags\":%d,\"dpi\":%.6f,\n",
+           SOLOKPDF_PDFIUM_VERSION, flags, dpi);
     if (gdiEnum) TimeGdiEnum();
     Memory("before_init");
     double start = NowMs();

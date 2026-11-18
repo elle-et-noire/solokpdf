@@ -34,6 +34,32 @@ The B69 probe (`tests/ad-hoc-b69-hidden-desktop.ts`) creates a visible window
 and checks its desktop name against the input desktop. Run it first when
 checking the runner. Local app tests must never run on the owner's desktop.
 
+### Portable ZIP
+
+Build and test the Debug ZIP locally.
+
+```powershell
+. ./tools/solokpdf/env.ps1
+bun cmd/solok-build.ts -dbg
+bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-solok-portable.ts out/SolokPDF-experimental-debug-x64.zip
+```
+
+The release job runs the same check before upload. It verifies the runtime
+files, notices and README after a fresh extraction. It launches the extracted
+app, opens a sample PDF and checks the log and package manifest against the
+PDFium pin.
+
+### PDFium pin
+
+Update the release tag, version and published Windows x64 asset SHA-256 in
+[`cmd/solok-pdfium-pin.json`](../../cmd/solok-pdfium-pin.json). The build
+and native probe use the pinned headers and DLL, and the app and benchmark
+checks use the same version. A populated `.work/pdfium` cache can stay in
+place. If the cached archive matches the new digest, the build works offline.
+
+Run `bun tests/solok-pdfium-pin.ts` to test cache migration and repair without
+network access. Then build and check the extracted Debug ZIP as shown above.
+
 ### Unit tests
 
 ```powershell

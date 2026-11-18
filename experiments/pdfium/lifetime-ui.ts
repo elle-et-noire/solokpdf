@@ -1,3 +1,4 @@
+import { pdfiumOpenLog } from "../../cmd/solok-fetch-pdfium";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -228,7 +229,7 @@ try {
       { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium", SOLOKPDF_PROFILE: "0" }, connectTimeoutMs: 30000 },
     );
     const text = readFileSync(log, "utf8");
-    if (!text.includes("PDFium 158.0.8111.0: opened") || text.includes("Using MuPDF fallback"))
+    if (!text.includes(pdfiumOpenLog) || text.includes("Using MuPDF fallback"))
       throw new Error("Wrong engine");
     save();
   }

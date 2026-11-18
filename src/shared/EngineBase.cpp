@@ -1400,7 +1400,7 @@ struct TextExtractionThreadData {
 
 static void ExtractTextThread(TextExtractionThreadData* data) {
     data->engine->PrefetchTextForPage(data->pageNo);
-    data->engine->ReleaseTextExtractionThreadContext();
+    data->engine->ReleaseThreadContext();
     data->engine->Release();
     delete data;
     AtomicIntDec(&gDangerousThreadCount);
@@ -1496,6 +1496,16 @@ bool EngineBase::TryGetElements(int pageNo, Vec<IPageElement*>* out) {
 // Keyboard links need a complete list; a pending read must not look like an empty list.
 PageElementsHit EngineBase::ElementsOnPage(int pageNo, EngineWait) {
     return {GetElements(pageNo)};
+}
+
+// A content edit can invalidate both the display engine's and the editor's page data.
+int EngineBase::ElementsGeneration() {
+    int gen = AtomicIntGet(&elementsGeneration);
+    EngineBase* editor = HasAnnotationEditor() ? AnnotationEditor(EditorLoad::IfLoaded) : nullptr;
+    if (editor && editor != this) {
+        gen += AtomicIntGet(&editor->elementsGeneration);
+    }
+    return gen;
 }
 
 // Capability only: neither editor load state nor document permissions.
@@ -1949,8 +1959,8 @@ PageText EnginePdfProxy::ExtractPrefetchText(int pageNo) {
     return pdfEngine->ExtractPrefetchText(pageNo);
 }
 
-void EnginePdfProxy::ReleaseTextExtractionThreadContext() {
-    pdfEngine->ReleaseTextExtractionThreadContext();
+void EnginePdfProxy::ReleaseThreadContext() {
+    pdfEngine->ReleaseThreadContext();
 }
 
 void EnginePdfProxy::GetPdfPageBoxes(int pageNo, Vec<PdfPageBox>& out) {
