@@ -12276,6 +12276,31 @@ bool EngineMupdfCanSave(EngineBase* engine) {
     return e && e->pdfdoc && (e->fileBytes || e->sourceRetained || file::Exists(e->FilePath()));
 }
 
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+// Let the test queue input while the UI thread holds docLock for a write.
+static bool TestWaitForPdfWrite() {
+    WCHAR release[MAX_PATH];
+    if (!gForTesting) {
+        return false;
+    }
+    DWORD n = GetEnvironmentVariableW(L"SOLOKPDF_TEST_PDF_WRITE_RELEASE", release, dimofi(release));
+    if (n == 0 || n >= dimofi(release)) {
+        return false;
+    }
+    TempStr path = ToUtf8Temp(WStr(release, (int)n));
+    log(StrL("TestPdfWrite: waiting\n"));
+    auto start = TimeGet();
+    while (!file::Exists(path)) {
+        if (TimeSinceInMs(start) >= 10000) {
+            log(StrL("TestPdfWrite: timed out\n"));
+            return false;
+        }
+        Sleep(10);
+    }
+    return true;
+}
+#endif
+
 // re-save current pdf document using mupdf (as opposed to just saving the data)
 // this is used after the PDF was modified by the user (e.g. by adding / changing
 // annotations).
@@ -12340,11 +12365,20 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
         if (inPlace && !save_opts.do_incremental && !epdf->fileBytes) {
             fz_throw(ctx, FZ_ERROR_SYSTEM, "cannot retain source for full PDF save");
         }
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+        bool traceWrite = TestWaitForPdfWrite();
+        auto writeStart = traceWrite ? TimeGet() : TimeStamp{};
+#endif
         if (fromMemory) {
             SaveIncrementalFromMemory(epdf, path, &save_opts);
         } else {
             SavePdfFile(ctx, epdf->pdfdoc, path, &save_opts);
         }
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+        if (traceWrite) {
+            logf("TestPdfWrite: completed in %.3f ms\n", TimeSinceInMs(writeStart));
+        }
+#endif
         ok = true;
         auto dur = TimeSinceInMs(timeStart);
         i64 size = file::GetSize(path);
@@ -12389,7 +12423,16 @@ bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
     save_opts.do_compress = 1;
     bool ok = false;
     fz_try(ctx) {
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+        bool traceWrite = TestWaitForPdfWrite();
+        auto writeStart = traceWrite ? TimeGet() : TimeStamp{};
+#endif
         SavePdfFile(ctx, epdf->pdfdoc, path, &save_opts);
+#if IS_DEBUG && OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+        if (traceWrite) {
+            logf("TestPdfWrite: completed in %.3f ms\n", TimeSinceInMs(writeStart));
+        }
+#endif
         ok = true;
     }
     fz_catch_report(ctx) {

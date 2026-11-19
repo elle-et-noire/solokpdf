@@ -3638,6 +3638,44 @@ interactive desktop.
 - **E155.** The link menu showed Copy Link Address on both engines on the
   hidden desktop in Debug and ASan. The new diagnostics await a hosted run.
 
+### Hosted backlog verification (2026-11-20)
+
+- **E155.** At `962e827b4`, hosted `ad-hoc-e128-busy-render` passed. The
+  artifacts contain Copy Link Address in the menu and record its process ID,
+  popup, command and timestamps. The menu took 1,137 ms on PDFium and 163 ms
+  on MuPDF. [Run 44560012960](https://github.com/elle-et-noire/solokpdf/actions/runs/44560012960)
+- **E117.** The same run passed the Go to page edit and button reactivation
+  and the owned dialog cases with a separate process in the foreground. Two
+  Debug runs of the popup test on a hidden desktop in `workArea` also passed.
+- **E125.** The only failure in the 119 feature tests was the annotation
+  toolbar still visible at `433,232` after Page Down in a `1024x720` window.
+  Suspending canvas redraw reproduced it locally with page 2 already active.
+  The toolbar now follows viewport updates. The regression checks that Page
+  Down hides it before the next paint and that returning to page 1 restores
+  the click position. Both Debug engines passed at `1024x720`, as did
+  `issue-6111` and `pdf-edit-toolbar-interaction`. The full popup test passed
+  in Debug `workArea`. The annotation case passed in ASan `workArea` on both
+  engines. Hosted verification of the fix remains open.
+- **D15.** The same run passed Release, the portable ZIP smoke test, the
+  Debug build and unit tests. The most recent full Debug runs still cover
+  `542cc4098`, and the most recent ASan run covers `1ffb2fae1`.
+
+### E133 input queued behind a PDF write
+
+The two-page fixture queues Page Down at the write boundary while the UI
+thread holds the document lock. All four cases saved the edited annotation
+and reached page 2 in Debug and ASan. Measured write times exclude the test
+pause and the in-place reload. The full copy includes atomic publication.
+
+| Engine | Debug incremental | Debug copy | ASan incremental | ASan copy |
+| ------ | ----------------- | ---------- | ---------------- | --------- |
+| PDFium | 6.374 ms          | 7.221 ms   | 6.677 ms         | 7.652 ms  |
+| MuPDF  | 6.205 ms          | 6.037 ms   | 5.892 ms         | 7.695 ms  |
+
+The final combined change passed again, measuring 6.4–8.8 ms per write.
+All 20 existing `atomic-pdf-save` cases also passed in both builds.
+[Test procedure](testing.md#pending-input-and-failed-saves-sol1sol3-e39)
+
 ### E125 annotation toolbar position
 
 Scrolling away and back moved the toolbar 126 pixels left of the original

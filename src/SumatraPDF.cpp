@@ -1419,6 +1419,8 @@ void ControllerCallbackHandler::UpdateScrollbars(DisplayModel* dm, Size canvas) 
         if (win->hwndCanvas && !(HwndClientRect(win->hwndCanvas) == rcBefore)) {
             win->UpdateCanvasSize();
         }
+        // Follow the viewport even when canvas painting is deferred.
+        RepositionAnnotEditToolbar(win);
     };
 
     bool hideScrollbar = ScrollbarsAreHidden();

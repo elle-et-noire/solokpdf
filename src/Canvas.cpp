@@ -3322,7 +3322,6 @@ static bool DrawDocument(MainWindow* win, HDC hdc, Rect rcArea) {
     PaintHoveredAnnotationMark(win, hdc, dm);
     RepositionAnnotationHoverOverlay(win);
     RepositionAnnotationTextPopup(win);
-    RepositionAnnotEditToolbar(win);
     RepositionFreeTextInPlaceEdit(win);
     PaintCurrentEditAnnotationMark(tab, hdc, dm);
     if (ShowPageGrid() && !win->InPresentation()) {

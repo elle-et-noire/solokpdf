@@ -1,16 +1,18 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
 import { assemblePdf, EXE, makeTextPdf, pollUntil, runStandalone, tmpPath, USE_NG } from "./util.ts";
-import { FRAME_CLASS } from "./win-automation.ts";
+import { findCanvas, FRAME_CLASS } from "./win-automation.ts";
 import {
   findTopWindow,
   isWindowVisible,
   observeProcessExit,
   postMessage,
   sendCopyDataW,
+  VK_NEXT,
   waitForTopWindow,
   WM_CLOSE,
+  WM_KEYDOWN,
 } from "./winapi.ts";
 
 async function check(engine: string, size: "small" | "big" | "merge" | "copy", failure: string): Promise<boolean> {
@@ -117,8 +119,85 @@ async function check(engine: string, size: "small" | "big" | "merge" | "copy", f
   return ran;
 }
 
+async function checkQueuedInput(engine: string, action: "save-result" | "save-copy"): Promise<void> {
+  const label = `${engine}-${action}`;
+  const dir = tmpPath(`atomic-pdf-save/${label}`);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const source = join(dir, "source.pdf");
+  const dest = action === "save-copy" ? join(dir, "copy.pdf") : source;
+  const log = join(dir, "app.log");
+  const release = join(dir, "release-write");
+  const original = assemblePdf([
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] /MediaBox [0 0 400 400] >>",
+    "<< /Type /Page /Parent 2 0 R /Annots [5 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R >>",
+    "<< /Type /Annot /Subtype /Square /P 3 0 R /Rect [72 50 150 100] /Contents (ORIGINAL) >>",
+  ]);
+  writeFileSync(source, original, "latin1");
+
+  await withControlledSumatra(
+    EXE,
+    async (client, proc) => {
+      const canvas = findCanvas(await waitForTopWindow(proc.pid!, FRAME_CLASS));
+      await client.waitForRenderIdle();
+      const [, pdf] = await client.request(ControlCommand.TestCurrentPdf);
+      const kind = engine === "pdfium" ? "enginePdfium" : "enginePdf";
+      if (!String(pdf).startsWith(`engine=${kind} `)) throw new Error(`${label}: unexpected engine: ${pdf}`);
+      if ((await client.chapterInfo()).page !== 1) throw new Error(`${label}: expected page 1`);
+      const [, edit] = await client.request(ControlCommand.TestCurrentPdf, ["set-annot-contents", "PDF WRITE EDIT"]);
+      if (!String(edit).includes("changed=1")) throw new Error(`${label}: ${edit}`);
+
+      const readLog = () => readFileSync(log, "utf8");
+      const saving = client.request(ControlCommand.TestCurrentPdf, [action, dest]);
+      try {
+        await pollUntil(readLog, (s) => s.includes("TestPdfWrite: waiting"), {
+          error: `${label}: PDF write did not reach the gate`,
+        });
+        if (action === "save-copy" ? existsSync(dest) : readFileSync(dest, "latin1") !== original) {
+          throw new Error(`${label}: destination changed before the write`);
+        }
+        if (!postMessage(canvas, WM_KEYDOWN, VK_NEXT, 0)) throw new Error(`${label}: could not queue Page Down`);
+      } finally {
+        writeFileSync(release, "");
+        const [, saved] = await saving;
+        if (!String(saved).startsWith("saved=1")) throw new Error(`${label}: ${saved}`);
+      }
+
+      const page = await pollUntil(
+        () => client.chapterInfo(),
+        (info) => info.page === 2,
+        {
+          error: `${label}: queued Page Down did not reach page 2`,
+        },
+      );
+      const logged = readLog();
+      const write = /TestPdfWrite: completed in (\d+\.\d+) ms/.exec(logged);
+      if (!write) throw new Error(`${label}: missing write timing`);
+      if (action === "save-result" && !logged.includes("incremental: 1,")) {
+        throw new Error(`${label}: expected an incremental write`);
+      }
+      if (!readFileSync(dest, "latin1").includes("PDF WRITE EDIT")) throw new Error(`${label}: edit was not saved`);
+      if (action === "save-copy" && readFileSync(source, "latin1") !== original) {
+        throw new Error(`${label}: saving a copy changed the source`);
+      }
+      console.log(`${label}: write ${write[1]} ms, queued Page Down reached page ${page.page}`);
+    },
+    ["-appdata", join(dir, "settings"), "-log-to-file", log, "-view", "single page", "-zoom", "fit page", source],
+    { env: { ...process.env, SOLOKPDF_ENGINE: engine, SOLOKPDF_TEST_PDF_WRITE_RELEASE: release } },
+  );
+}
+
 export async function testit(): Promise<void> {
   if (USE_NG) return;
+  if (process.argv.includes("--queued-input-only")) {
+    for (const engine of ["pdfium", "mupdf"]) {
+      await checkQueuedInput(engine, "save-result");
+      await checkQueuedInput(engine, "save-copy");
+    }
+    return;
+  }
   for (const engine of ["pdfium", "mupdf"]) {
     for (const size of engine === "pdfium"
       ? (["small", "big", "merge", "copy"] as const)

@@ -209,10 +209,14 @@ renders that use the same lock.
 
 Timed holds cover widget drawing, text prefetch and a print band. The widget
 test verifies cancellation after the pause. Text prefetch publishes the text
-after the lock is released. The print test uses an in-memory target.
+after the lock is released. The print test uses an in-memory target. Input queued
+at the start of a PDF write is dispatched after the UI thread returns to the
+message loop. The two-page fixture measured 5.9–8.8 ms per write, with times
+varying by document and storage. [E133 results](history.md#e133-input-queued-behind-a-pdf-write)
+
 Opening a bulk cover's PDFium document precedes the render cookie. Native
 non-interruptible PDFium calls, PDF serialization and MuPDF's interval
-between abort checks have no measured duration bound.
+between abort checks have no established duration bound.
 
 ## Text, search and selection
 

@@ -146,6 +146,11 @@ Debug-only failures require `-for-testing`; Release/ng skip them.
 `ATOMIC_SAVE_CASE=<engine>-<small|big|merge|copy>-<w|r|p|f|empty>` selects one case;
 `copy` uses `f`, `p` and empty (success).
 
+For E133, run `atomic-pdf-save` with `--queued-input-only` in Debug or ASan.
+It queues Page Down while the UI thread holds the document lock, then checks
+the saved annotation and page change. It measures incremental saves and full
+copies on both engines, excluding the test's wait before each write.
+
 `ad-hoc-pdfium-full-save` applies redactions to generated small and 33 MiB PDFs
 in both engines. It injects a partial-output failure, denies replacement with a
 read-only target, compares original bytes, checks the failure warning and dirty
