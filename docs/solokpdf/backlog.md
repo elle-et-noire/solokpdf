@@ -9,7 +9,7 @@ See the [remaining work plan](remaining-work-plan.md) for sequencing, dependenci
   evidence for the full and ASan workflows at the current revision (D15).
 - Address UI waits when engine work holds a lock (E133). E135 has
   one latency outlier with no confirmed cause.
-- Continue popup geometry and focus work under E112, E117, E125 and E126.
+- Continue popup geometry and focus work under E112 and E117.
   The corrected external-foreground case (E150) is under observation.
 
 Completed work and evidence go in [history.md](history.md#completed-backlog).
@@ -24,12 +24,10 @@ For code changes, select affected tests from [testing.md](testing.md).
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | D15  | Record full hosted Debug runs on PDFium and MuPDF and a separate hosted ASan run at the current revision, including run IDs and exclusions. [Hosted follow-up](history.md#backlog-follow-up-2026-11-19)                                                                                        | todo        |
 | E151 | The hosted trace isolated a late WebView2 completion. The fix passed on both formats and in both hidden layouts. Verify the fixed revision on hosted Windows. [Evidence](history.md#backlog-follow-up-2026-11-19)                                                                              | in progress |
-| E112 | Follow popup geometry through scrolling, zoom and view changes. The find bar follows toolbar movement and visibility through the anchor layer. Verify one dismissal on content replacement and measure re-evaluation cost.                                                                     | in progress |
+| E112 | The find bar follows toolbar movement and visibility and stays in place through scrolling, zoom and view changes. Verify one dismissal on content replacement and measure re-evaluation cost. [Results](history.md#backlog-follow-up-2026-11-19)                                               | in progress |
 | E117 | Model Windows mouse message order, foreground, focus, key state and capture in the test input layer. The client-click helper honors `WM_MOUSEACTIVATE`. Extend modal and owned-popup coverage in both layouts and on hosted Windows. [Local evidence](history.md#backlog-follow-up-2026-11-19) | in progress |
 | E118 | Resolve theme colors at paint from surface, role and state; refresh main-window parts without a per-part list. Test raised buttons and selected controls on the Main surface and compare theme screenshots.                                                                                    | todo        |
-| E125 | A selected annotation's toolbar returns to its original click position after scrolling off and back, minimizing or switching tabs; changing selection clears its anchor.                                                                                                                       | todo        |
-| E126 | A Home keyboard-focus tip returns after minimize and restore while focus remains; hover tips still follow the cursor. Test both minimize orders.                                                                                                                                               | todo        |
-| E133 | Verify cancellation, recovery and timing for the remaining producers in the [lock inventory](limitations.md#engine-contention-e133). Cold MuPDF display lists, sidebar thumbnails, citation previews and single Home covers pass. [Results](history.md#backlog-follow-up-2026-11-19)           | in progress |
+| E133 | Verify cancellation, recovery and timing for the remaining producers in the [lock inventory](limitations.md#engine-contention-e133). Cold MuPDF display lists, sidebar thumbnails, citation previews and single and bulk Home covers pass. [Results](history.md#backlog-follow-up-2026-11-19)  | in progress |
 | E154 | Decouple Esc dismissal from notification replacement groups. The notification layer selects and closes the visible target in priority order. Check zoom, theme cycling and stacked notifications. [Plan](remaining-work-plan.md#e154-通知の上書きと-esc)                                       | todo        |
 | E155 | Hosted E128 reported an empty PDFium link-menu listing while a render was parked. Capture command delivery, popup ownership and menu contents. Verify Copy Link Address appears on the hosted runner. [Failed run](https://github.com/elle-et-noire/solokpdf/actions/runs/44469257975)         | todo        |
 

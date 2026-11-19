@@ -3495,6 +3495,11 @@ interactive desktop.
   GitHub still reports `039e4ec60` as the latest regular CI revision.
   It has no run for the local E151 fix.
   [Run 44469257975](https://github.com/elle-et-noire/solokpdf/actions/runs/44469257975)
+- **E155.** The hosted failure lists no menu items. The log omits the
+  delivery result and popup handle. The test artifact requires GitHub
+  authentication to download, so the available log cannot establish where
+  the menu path stopped.
+  [Run 44469257975](https://github.com/elle-et-noire/solokpdf/actions/runs/44469257975)
 - **E151.** In run 44469257975, CHM reached logical page 2 and served page b.
   A late successful completion for page a then reset the page to 1. The next
   command requested b again. Run 44284454164 also timed out on CHM page c.
@@ -3524,10 +3529,18 @@ interactive desktop.
   | Citation context menu | 163 / 163 ms         | 327 / 245 ms        |
   | Home cover click      | 31 / 19 ms           | 33 / 25 ms          |
 
-  Menu timings include the test's window poll. Bulk Home regeneration and the
-  remaining lock producers are tracked in the [lock inventory](limitations.md#engine-contention-e133).
+  Menu timings include the test's window poll. The remaining lock producers are
+  tracked in the [lock inventory](limitations.md#engine-contention-e133).
   Debug also passed `sidebar-thumbnails`, `ad-hoc-pdfium-thumb-theme`,
   `ad-hoc-e120-busy-hover` and `issue-6252`.
+
+- **E133 bulk Home regeneration.** A parked PDFium cover held the click for
+  9,932 ms until the park expired. The worker now cancels via the render cookie
+  and retries the cover after the UI action. Both covers saved without further
+  input. The click took 6 ms in Debug and 31 ms in ASan. MuPDF kept rendering its
+  separate document while the click took 3 ms in Debug and 6 ms in ASan.
+  Debug passed `ad-hoc-e128-busy-render` and `issue-5817`. ASan passed
+  `ad-hoc-e128-busy-render --bulk-home-only` on both engines.
 
 - **E117.** The simulated click on the selection toolbar ran Copy and
   wrongly made the toolbar active. The input helper now moves the test
@@ -3535,13 +3548,37 @@ interactive desktop.
   hidden layouts, Copy reached the toolbar and left activation with the
   other window. The canvas and page-box reactivation cases also passed.
   The Go to page modal restored its geometry and focus in both minimize
-  orders in both layouts. The real-foreground branch awaits hosted Windows.
+  orders in both layouts. A reactivating click also reached the restored page edit
+  and collapsed its text selection in both layouts. The real-foreground branch
+  awaits hosted Windows.
 - **E112.** Moving the toolbar alone by 40 pixels left the find bar at its
   previous position. The anchor layer now watches the toolbar's position and
   visibility. `ad-hoc-e98-anchored-popups` passed in both hidden layouts in
   Debug and in `workArea` in ASan. The find bar followed the move,
   used frame placement while the toolbar was hidden, and returned to the
-  search button when the toolbar reappeared.
+  search button when the toolbar reappeared. The bar kept its position through
+  zoom, page scrolling and continuous view changes in both hidden layouts in
+  Debug. Dismissal counts and placement timing remain open.
+
+### E125 annotation toolbar position
+
+Scrolling away and back moved the toolbar 126 pixels left of the original
+click. Switching tabs cleared the selection. The tab now retains the selection
+and its page-coordinate click. The toolbar uses that position again when it
+reappears. A different selection uses its own bounds.
+`ad-hoc-e98-anchored-popups --annotation-anchor-only` passed on both engines in
+both Debug layouts and in ASan `workArea`. `pdf-edit-toolbar-interaction` passed
+on both engines in Debug.
+
+### E126 Home keyboard tooltip
+
+The keyboard selection stayed visible after restore, but its tooltip remained
+hidden. Home now restores the tooltip for the same selection while its frame is
+active. A changed selection discards the old tooltip. Minimize clears the
+hovered entry so the next mouse movement can show its tooltip again.
+`ad-hoc-e98-anchored-popups --home-tip-only` passed in both Debug layouts,
+including both minimize orders, selection change and cursor leave.
+`ad-hoc-e88-home-focus-hover` also passed in Debug.
 
 ### E129 citation preview
 

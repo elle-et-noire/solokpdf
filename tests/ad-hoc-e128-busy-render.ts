@@ -49,6 +49,7 @@ import {
   sendMessage,
   setProcessDpiAware,
   VK_ESCAPE,
+  VK_RETURN,
   VK_TAB,
   WM_KEYDOWN,
   WM_LBUTTONDBLCLK,
@@ -64,8 +65,11 @@ import {
   launchControlled,
   moveTestCursor,
   openContextMenu,
+  paletteSetText,
+  paletteState,
   sendCommandSync,
   waitForContextMenu,
+  waitForPalette,
 } from "./win-automation.ts";
 
 // a parked render that isn't canceled holds the page this long
@@ -551,9 +555,92 @@ async function checkHomeThumbnail(engine: Engine, failures: string[]): Promise<v
   }
 }
 
+async function checkBulkHomeThumbnails(engine: Engine, failures: string[]): Promise<void> {
+  const docs = ["first.pdf", "second.pdf"].map((file) => ({ file, pdf: makePdf() }));
+  const { proc, client, frame, dir } = await launch(
+    engine,
+    "bulk-home-thumbnails",
+    docs,
+    "ShowStartPage = true\nRememberOpenedFiles = true\nHomePageViewMode = thumbnails\nThumbnailsType = full\n",
+  );
+  try {
+    await goToPage(client, WORD_PAGE);
+    await client.waitForRenderIdle();
+    const cache = join(dir, "sumatrapdfcache");
+    const completed = () =>
+      existsSync(cache)
+        ? readdirSync(cache).filter((name) => name.endsWith(".png") && existsSync(join(cache, `${name}.theme`)))
+        : [];
+    const covers = await pollUntil(completed, (names) => names.length === docs.length, {
+      timeoutMs: WAIT_MS,
+      error: "initial Home covers missing",
+    });
+    const holdMs = engine === "pdfium" ? BOUND_MS * 2 : 3000 * SLOW_BUILD_FACTOR;
+    await testPdf(client, ["park-render", holdMs, "contents", 0, 1, "any"]);
+    sendCommandSync(frame, cmdId("CmdCommandPalette"));
+    const palette = await waitForPalette(client, frame);
+    const setting = "=ThumbnailsType = legacy";
+    await paletteSetText(client, palette, setting);
+    await pollUntil(
+      () => paletteState(client),
+      (s) => s.queryLen === setting.length && s.items === 1,
+      {
+        timeoutMs: WAIT_MS,
+        error: "thumbnail setting missing from the palette",
+      },
+    );
+    postMessage(palette.edit, WM_KEYDOWN, VK_RETURN, 0);
+    await pollUntil(
+      () => testPdf(client, ["park-state"]),
+      (s) => field(s, "parked") === 1,
+      {
+        timeoutMs: WAIT_MS,
+        error: "bulk Home cover did not park",
+      },
+    );
+    if (completed().length !== 0) throw new Error("bulk Home regeneration did not clear the previous covers");
+    postMessage(palette.edit, WM_KEYDOWN, VK_ESCAPE, 0);
+    await pollUntil(
+      () => paletteState(client),
+      (s) => !s.open,
+      { timeoutMs: WAIT_MS, error: "palette did not close" },
+    );
+
+    const canvas = findCanvas(frame);
+    const { right, bottom } = getClientRect(canvas);
+    const start = Date.now();
+    await clickAt(canvas, Math.floor(right / 2), Math.floor(bottom / 2), 0, 0, client);
+    const elapsed = Date.now() - start;
+    let err: string | null;
+    if (engine === "pdfium") {
+      err = await checkCanceled(client, elapsed);
+    } else {
+      // MuPDF opens a separate document for each batch cover, with its own locks.
+      const state = await testPdf(client, ["park-state"]);
+      console.log(`  action took ${elapsed} ms`);
+      err = elapsed < BOUND_MS && field(state, "parked") === 1 ? null : `action took ${elapsed} ms (${state})`;
+    }
+    if (!err) {
+      await pollUntil(completed, (names) => covers.every((name) => names.includes(name)), {
+        timeoutMs: BOUND_MS * 2 + WAIT_MS,
+        error: "bulk Home regeneration did not save both covers",
+      });
+    }
+    report(failures, `${engine} bulk Home thumbnails`, err);
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 export async function testit(): Promise<void> {
   setProcessDpiAware();
   const failures: string[] = [];
+  if (process.argv.includes("--bulk-home-only")) {
+    for (const engine of ["pdfium", "mupdf"] as const) await checkBulkHomeThumbnails(engine, failures);
+    if (failures.length) throw new Error(failures.join("\n"));
+    return;
+  }
   if (process.argv.includes("--home-thumbnail-only")) {
     for (const engine of ["pdfium", "mupdf"] as const) await checkHomeThumbnail(engine, failures);
     if (failures.length) throw new Error(failures.join("\n"));
@@ -589,6 +676,7 @@ export async function testit(): Promise<void> {
   for (const engine of ["pdfium", "mupdf"] as const) await checkThumbnails(engine, failures);
   for (const engine of ["pdfium", "mupdf"] as const) await checkCitationRender(engine, failures);
   for (const engine of ["pdfium", "mupdf"] as const) await checkHomeThumbnail(engine, failures);
+  for (const engine of ["pdfium", "mupdf"] as const) await checkBulkHomeThumbnails(engine, failures);
   if (failures.length) throw new Error(failures.join("\n"));
 }
 

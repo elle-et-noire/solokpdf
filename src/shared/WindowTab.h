@@ -131,6 +131,9 @@ struct WindowTab {
     TabState* tabState = nullptr; // when lazy loading
     Annotation* selectedAnnotation = nullptr;
 #if !defined(SUMATRA_NG)
+    PointF selectedAnnotClick;
+    bool hasSelectedAnnotClick = false;
+    void ClearAnnotationSelection();
     HWND hwndPDFInfo = nullptr;
     HWND hwndPDFOutline = nullptr;
 #endif

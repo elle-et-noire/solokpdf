@@ -70,6 +70,7 @@ import {
   getClassName,
   getClientRect,
   getControlText,
+  getFocusedHwnd,
   getForegroundWindow,
   getParentWindow,
   getWindowLong,
@@ -95,7 +96,6 @@ import {
   WM_LBUTTONDOWN,
   WM_LBUTTONUP,
   MK_LBUTTON,
-  SW_SHOWMINNOACTIVE,
   SW_SHOWNOACTIVATE,
   SWP_NOACTIVATE,
   SWP_NOZORDER,
@@ -469,14 +469,71 @@ async function checkHomeTip(pid: number, client: ControlClient, frame: number, c
     }
   });
 
-  await step("Home tip: frame minimized", async () => {
-    if (!find()) sendMessage(canvas, WM_KEYDOWN, VK_RIGHT, 0);
-    showWindow(frame, SW_SHOWMINNOACTIVE);
+  for (const order of ["os-first", "anchor-first"]) {
+    await step(`Home tip: keyboard selection after ${order} minimize`, async () => {
+      if (!find()) sendMessage(canvas, WM_KEYDOWN, VK_RIGHT, 0);
+      const tip = await waitShown(find, "Home tip before minimize");
+      const before = await client.homeSelection();
+      check((await focusState(client)).endsWith("active=frame"), "Home frame is inactive before minimize");
+      try {
+        // The native canvas tooltip has no owner, so Windows does not reshow it.
+        const [code, result] = await client.request(ControlCommand.TestMinimizeFrame, [order]);
+        check(code === 0, `TestMinimizeFrame ${order}: ${result}`);
+        await waitGone(find, "Home tip with the frame minimized");
+        if (order === "anchor-first") {
+          showWindow(tip, SW_SHOWNOACTIVATE);
+          await waitGone(find, "Home tip shown while the frame is minimized");
+        }
+      } finally {
+        await minimizeFrame(client, "restore");
+      }
+      const after = await client.homeSelection();
+      check(after.sel === before.sel && after.selShown, `Home selection changed: ${before.sel} to ${after.sel}`);
+      const focusAfter = await focusState(client);
+      check(/^focus=(frame|canvas|none) active=frame$/.test(focusAfter), `focus left Home: ${focusAfter}`);
+      await waitUnder("Home tip after the frame was restored");
+    });
+  }
+  await step("Home tip: changing selection while minimized discards the old tip", async () => {
+    const { sel, entries } = await client.homeSelection();
+    await minimizeFrame(client, "os-first");
     try {
-      await waitGone(() => shownTip(pid), "Home tip with the frame minimized");
+      await waitGone(find, "Home tip with the frame minimized");
+      const VK_LEFT = 0x25;
+      sendMessage(canvas, WM_KEYDOWN, sel + 1 < entries ? VK_RIGHT : VK_LEFT, 0);
+      await waitForHome(client, (s) => s.sel !== sel, "Home selection did not change while minimized");
     } finally {
-      showWindow(frame, SW_SHOWNOACTIVATE);
+      await minimizeFrame(client, "restore");
     }
+    await client.request(ControlCommand.Ping, []);
+    check(find() === 0, "the old Home tip returned for a different selection");
+  });
+
+  await step("Home tip: hover follows the cursor after restore", async () => {
+    const [x, y, dx, dy] = (await client.homeSelection()).selRect;
+    const outside = clientToScreen(canvas, -1, 1);
+    const hoverAt = async (cx: number, cy: number) => {
+      const pt = clientToScreen(canvas, cx, cy);
+      await moveTestCursor(pt.x, pt.y, client);
+      sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(cx, cy));
+    };
+    const hoverSelected = () => hoverAt(x! + Math.floor(dx! / 2), y! + Math.floor(dy! / 2));
+    await hoverSelected();
+    await waitShown(find, "Home hover tip");
+    await minimizeFrame(client, "os-first");
+    try {
+      await waitGone(find, "Home hover tip with the frame minimized");
+      await moveTestCursor(outside.x, outside.y, client);
+    } finally {
+      await minimizeFrame(client, "restore");
+    }
+    await client.request(ControlCommand.Ping, []);
+    check(find() === 0, "the Home hover tip returned with the cursor away");
+    await hoverSelected();
+    await waitUnder("Home hover tip under the cursor's entry after restore");
+    await moveTestCursor(outside.x, outside.y, client);
+    sendMessage(canvas, WM_MOUSELEAVE, 0, 0);
+    await waitGone(find, "Home hover tip after the cursor left the entry");
   });
 }
 
@@ -570,11 +627,11 @@ const VK_END = 0x23;
 const E110_LINE = "The quick brown fox jumps over the lazy dog";
 
 // a line of text, a highlighted one off the selection, and a square with a comment
-export function makeE110Pdf(): string {
+export function makeE110Pdf(withBlankPage = false): string {
   const text = `BT /F1 18 Tf 72 700 Td (${E110_LINE}) Tj 0 -60 Td (Pack my box with five dozen jugs) Tj ET`;
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    withBlankPage ? "<< /Type /Pages /Count 2 /Kids [3 0 R 8 0 R] >>" : "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> " +
       "/Contents 5 0 R /Annots [6 0 R 7 0 R] >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
@@ -582,6 +639,7 @@ export function makeE110Pdf(): string {
     "<< /Type /Annot /Subtype /Square /Rect [72 300 300 450] /C [1 0 0] /Contents (a comment) >>",
     "<< /Type /Annot /Subtype /Highlight /Rect [72 634 380 658] /QuadPoints [72 658 380 658 72 634 380 634] " +
       "/C [1 1 0] >>",
+    ...(withBlankPage ? ["<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>"] : []),
   ]);
 }
 
@@ -1169,6 +1227,75 @@ function keep(h: () => number): () => number {
   return () => (h() && isWindowVisible(h()) ? h() : 0);
 }
 
+async function checkAnnotClickAnchor(): Promise<void> {
+  const dir = tmpPath("ad-hoc-e125");
+  mkdirSync(dir, { recursive: true });
+  const pdf = join(dir, "annot.pdf");
+  const other = join(dir, "other.pdf");
+  writeFileSync(pdf, makeE110Pdf(true), "latin1");
+  writeFileSync(other, makeE110Pdf(), "latin1");
+  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n");
+  const { proc, client, frame } = await launchLogged("e125", [
+    "-appdata",
+    dir,
+    "-zoom",
+    "fit page",
+    "-view",
+    "single page",
+    pdf,
+    other,
+  ]);
+  const find = () => shownTop(proc.pid!, EDIT_CLASS);
+  const run = (cmd: string) => sendCommandSync(frame, cmdId(cmd));
+  try {
+    await client.waitForRenderIdle();
+    run("CmdPrevTab");
+    await client.waitForRenderIdle();
+    run("CmdToggleEditPDF");
+    const canvas = findCanvas(frame);
+    const click = await annotPoint(client, "Highlight", 0.45);
+    await clickAt(canvas, click.x, click.y, 0, 0, client);
+    const before = box(await waitShown(find, "highlight toolbar"));
+    check(
+      Math.abs(before.x - clientToScreen(canvas, click.x, click.y).x) <= 1,
+      "highlight toolbar did not start at the click",
+    );
+
+    await step("annotation toolbar: click position after scrolling off and back", async () => {
+      run("CmdScrollDownPage");
+      await waitGone(find, "toolbar offscreen");
+      run("CmdGoToFirstPage");
+      await waitAt(find, before, "toolbar after scrolling back");
+    });
+    for (const order of ["os-first", "anchor-first"]) {
+      await step(`annotation toolbar: click position after ${order} minimize`, async () => {
+        await minimizedAndRestored(client, { order, focus: "" }, find, "highlight toolbar");
+        await waitAt(find, before, "toolbar after restore");
+      });
+    }
+    await step("annotation toolbar: click position after changing tabs", async () => {
+      run("CmdNextTab");
+      await waitGone(find, "highlight toolbar over another tab");
+      run("CmdPrevTab");
+      await waitAt(find, before, "highlight toolbar after returning to its tab");
+    });
+    await step("annotation toolbar: a different selection uses its own bounds", async () => {
+      pressVKey(frame, VK_ESCAPE);
+      await waitGone(find, "deselected highlight toolbar");
+      const square = await annotPoint(client, "Square", 0);
+      await clickAt(canvas, square.x + 5, square.y, 0, 0, client);
+      const placed = box(await waitShown(find, "square toolbar"));
+      check(
+        Math.abs(placed.x - clientToScreen(canvas, square.x, square.y).x) <= 1,
+        "square toolbar did not use the square bounds",
+      );
+    });
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 export async function checkCanvasPopups(): Promise<void> {
   const dir = tmpPath("ad-hoc-e110");
   rmSync(dir, { recursive: true, force: true });
@@ -1239,6 +1366,37 @@ export async function checkCanvasPopups(): Promise<void> {
       } finally {
         moveToolbar(0);
         showWindow(toolbar, SW_SHOWNOACTIVATE);
+        await hideByOwner(client, "find");
+      }
+    });
+
+    await step("find bar: canvas scroll, zoom and view mode", async () => {
+      const find = () => shownFindBar(pid, frame);
+      const display = async () => String((await client.request(ControlCommand.TestDisplayMode, ["get"]))[1]);
+      const scroll = async () => String((await client.request(ControlCommand.TestScrollState, []))[1]);
+      sendCommandSync(frame, cmdId("CmdFindFirst"));
+      const before = box(await waitShown(find, "find bar"));
+      const original = await display();
+      let modeChanged = false;
+      try {
+        sendCommandSync(frame, cmdId("CmdZoom200"));
+        check((await display()).includes("zoom=200"), "zoom did not change to 200%");
+        await waitAt(find, before, "find bar after zooming");
+
+        const scrollBefore = await scroll();
+        sendCommandSync(frame, cmdId("CmdScrollDownHalfPage"));
+        await pollUntil(scroll, (s) => s !== scrollBefore, { timeoutMs: WAIT_MS, error: "the page did not scroll" });
+        await waitAt(find, before, "find bar after scrolling");
+
+        const atZoom = await display();
+        sendCommandSync(frame, cmdId("CmdToggleContinuousView"));
+        modeChanged = true;
+        check((await display()) !== atZoom, "the view mode did not change");
+        await waitAt(find, before, "find bar after changing view mode");
+      } finally {
+        if (modeChanged) sendCommandSync(frame, cmdId("CmdToggleContinuousView"));
+        const zoom = original.includes("zoom=fit width") ? "CmdZoomFitWidth" : "CmdZoomFitPage";
+        sendCommandSync(frame, cmdId(zoom));
         await hideByOwner(client, "find");
       }
     });
@@ -1739,6 +1897,36 @@ async function checkOwnedInSession(dir: string, pdf: string, foreground?: Foregr
     sendCommandSync(frame, cmdId("CmdToggleToolbar"));
     const goToPage = { name: "Go to page", find: () => shownOwned(pid, frame, /^Go to page$/), cmd: "CmdGoToPage" };
     await checkModalMinimized(client, frame, goToPage, undefined, foreground);
+    await step("Go to page: reactivating click reaches the page edit", async () => {
+      const EM_GETSEL = 0x00b0;
+      const EM_SETSEL = 0x00b1;
+      const dialog = await waitShown(goToPage.find, goToPage.name);
+      const edit = findChildByClass(dialog, "Edit");
+      check(edit !== 0, "no page edit");
+      sendMessage(edit, EM_SETSEL, 0, -1);
+      const before = await focusState(client, "away");
+      check(before.endsWith("active=away"), `the dialog is still active: ${before}`);
+      const { right, bottom } = getClientRect(edit);
+      const at = packCoords(Math.floor(right / 2), Math.floor(bottom / 2));
+      const [code, result] = await client.request(ControlCommand.TestFocusState, ["activating-click", edit, at]);
+      check(code === 0, `click on the page edit: ${result}`);
+      await pollUntil(
+        () => getFocusedHwnd(dialog),
+        (hwnd) => hwnd === edit,
+        {
+          timeoutMs: WAIT_MS,
+          error: (hwnd) => `page edit ${edit} did not receive focus, got ${hwnd}`,
+        },
+      );
+      await pollUntil(
+        () => Number(sendMessage(edit, EM_GETSEL, 0, 0)),
+        (sel) => (sel & 0xffff) === sel >>> 16,
+        {
+          timeoutMs: WAIT_MS,
+          error: "the reactivating click did not clear the page edit selection",
+        },
+      );
+    });
     await closeWindow(goToPage.find, goToPage.name);
     sendCommandSync(frame, cmdId("CmdToggleToolbar"));
 
@@ -1975,9 +2163,20 @@ export async function testit(): Promise<void> {
     check(failures.length === 0, failures.join("\n"));
     return;
   }
+  if (process.argv.includes("--canvas-popups-only")) {
+    await checkCanvasPopups();
+    check(failures.length === 0, failures.join("\n"));
+    return;
+  }
+  if (process.argv.includes("--annotation-anchor-only")) {
+    await checkAnnotClickAnchor();
+    check(failures.length === 0, failures.join("\n"));
+    return;
+  }
   const pdf = tmpPath("e98-link.pdf");
   writeFileSync(pdf, makeLinkPdf(), "latin1");
   const { proc, client, frame } = await launchLogged("e98", ["-appdata", makeAppDir(), pdf]);
+  const homeOnly = process.argv.includes("--home-tip-only");
   const pid = proc.pid!;
   gPid = pid;
   try {
@@ -1986,20 +2185,27 @@ export async function testit(): Promise<void> {
     const canvas = findCanvas(frame);
     check(canvas !== 0, "canvas not found");
 
-    await step("link tip: cursor leaves the canvas", () => checkLinkTipLeave(pid, client, frame, canvas));
-    await checkToolbarDropdown(pid, client, frame, canvas);
+    if (!homeOnly) {
+      await step("link tip: cursor leaves the canvas", () => checkLinkTipLeave(pid, client, frame, canvas));
+      await checkToolbarDropdown(pid, client, frame, canvas);
+    }
 
     // a Home tab after the document's tab
     sendCommandSync(frame, cmdId("CmdNewTab"));
     await waitForHome(client, (s) => s.entries === N_FILES + 1, "Home not ready");
     await checkHomeTip(pid, client, frame, canvas);
-    await checkAboutHover(pid, client, frame, canvas);
+    if (!homeOnly) await checkAboutHover(pid, client, frame, canvas);
   } finally {
     client.close();
     await killAndWait(proc);
   }
+  if (homeOnly) {
+    check(failures.length === 0, failures.join("\n"));
+    return;
+  }
   await step("citation hover", checkRefHover);
   await step("E110 popups", checkCanvasPopups);
+  await step("E125 annotation toolbar position", checkAnnotClickAnchor);
   await step("E140 floating popups", checkFloatingPopups);
   await step("E143 owned windows", checkOwnedWindows);
   await step("E143 resize overlay", checkResizeOverlay);

@@ -1021,6 +1021,7 @@ struct HomeEntriesCtrl : VirtCtrl {
     // the thumbnail tip is at activeIdx, not at the keyboard selection: the
     // mouse moved after the keys did
     bool tipOnHover = false;
+    int tipRestoreIdx = -1;
     Point lastHoverPt{-1, -1};
     const StrVec* filterWords = nullptr;
     Vec<u8>* highlighted = nullptr;
@@ -3411,12 +3412,50 @@ void HomePageSelectFirst(MainWindow* win) {
     win->homePageSearchReturnCol = 0;
 }
 
+static void RestoreKeyboardTip(MainWindow* win) {
+    HomeEntriesCtrl* entries = HomeEntries(win);
+    if (!entries || IsIconic(win->hwndFrame)) {
+        return;
+    }
+    int idx = entries->tipRestoreIdx;
+    entries->tipRestoreIdx = -1;
+    HWND focus = GetFocus();
+    if (idx >= 0 && idx == win->homePageSelIdx && win->IsCurrentTabAbout() && !entries->tipOnHover &&
+        (!focus || focus == win->hwndCanvas || focus == win->hwndFrame)) {
+        HomePageShowSelectionTooltip(win);
+    }
+}
+
+void HomePageOnFrameResize(MainWindow* win) {
+    HomeEntriesCtrl* entries = HomeEntries(win);
+    if (!entries) {
+        return;
+    }
+    if (!win->IsCurrentTabAbout()) {
+        entries->tipRestoreIdx = -1;
+        return;
+    }
+    if (IsIconic(win->hwndFrame)) {
+        if (entries->tipOnHover) {
+            entries->lastHoverPt = {-1, -1};
+            HomePageClearActiveEntry(win);
+        } else if (HwndIsOnScreen(win->infotip->hwnd)) {
+            entries->tipRestoreIdx = win->homePageSelIdx;
+        }
+    } else if (entries->tipRestoreIdx >= 0) {
+        PostForWindow(win, RestoreKeyboardTip, "RestoreHomeKeyboardTip");
+    }
+}
+
 // hide keyboard-selection tip on deactivate; restore it when the frame is active
 void HomePageOnWindowActivate(MainWindow* win, bool active) {
     if (!win) {
         return;
     }
     if (!active || IsIconic(win->hwndFrame)) {
+        if (IsIconic(win->hwndFrame)) {
+            HomePageOnFrameResize(win);
+        }
         // Also when the frame is iconic: activate can fire while minimized and
         // ClientToScreen then pins the tip at the top-left of the desktop (#5928).
         win->DeleteToolTip();

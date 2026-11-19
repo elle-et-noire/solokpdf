@@ -59,6 +59,7 @@ void HomePageUpdateSearchColors(MainWindow* win);
 void HomePageOnDpiChanged(MainWindow* win, int dpi);
 void HomePageDestroySearch(MainWindow* win);
 bool HomePageOnCanvasMessage(MainWindow* win, UINT msg, WPARAM wp, LPARAM lp, LRESULT& res);
+void HomePageOnFrameResize(MainWindow* win);
 void HomePageOnWindowActivate(MainWindow* win, bool active);
 bool HomePageOnHover(MainWindow* win, int x, int y);
 void HomePageSelectAt(MainWindow* win, int x, int y);

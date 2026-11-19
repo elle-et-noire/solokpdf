@@ -1563,10 +1563,10 @@ static void OpenOrSelectEditAnnotation(WindowTab* tab, Annotation* annot, Point 
     }
     DisplayModel* dm = tab->win ? tab->win->AsFixed() : nullptr;
     if (dm && AnnotationIsTextMarkup(annot->type)) {
-        // the toolbar starts at the click, not at the (maybe multi-line) bounds
-        SetAnnotEditToolbarClickPos(annot, dm->CvtFromScreen(clickPt, PageNo(annot)));
+        SetSelectedAnnotAt(tab, annot, dm->CvtFromScreen(clickPt, PageNo(annot)));
+    } else {
+        SetSelectedAnnotation(tab, annot);
     }
-    SetSelectedAnnotation(tab, annot);
     HideAnnotationHoverOverlay(tab->win);
 }
 

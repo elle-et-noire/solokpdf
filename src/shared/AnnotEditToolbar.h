@@ -19,7 +19,11 @@ void UpdateAnnotEditToolbar(MainWindow*);
 void HideAnnotEditToolbar(MainWindow*);
 void RefreshAnnotEditToolbar(MainWindow*);
 void DeleteAnnotEditToolbar(MainWindow*);
+#if defined(SUMATRA_NG)
 void SetAnnotEditToolbarClickPos(Annotation*, PointF pagePt);
+#else
+void SetSelectedAnnotAt(WindowTab*, Annotation*, PointF pagePt);
+#endif
 gpui::El* AnnotEditToolbarBuild(MainWindow*, gpui::Ctx*);
 TempStr AnnotEditToolbarStateTemp(MainWindow*);
 BarShadow* AnnotEditToolbarShadow(MainWindow*);

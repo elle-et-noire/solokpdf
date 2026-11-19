@@ -38,6 +38,13 @@ WindowTab::WindowTab(MainWindow* win) {
     this->win = win;
 }
 
+#if !defined(SUMATRA_NG)
+void WindowTab::ClearAnnotationSelection() {
+    selectedAnnotation = nullptr;
+    hasSelectedAnnotClick = false;
+}
+#endif
+
 // our open-cache copy goes when its last tab does: a moved or duplicated tab
 // shows the same copy (issue #6481)
 static void DeleteOpenCacheCopyOf(WindowTab* self, Str path) {

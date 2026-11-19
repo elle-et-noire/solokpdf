@@ -3248,19 +3248,18 @@ static Pixmap* RenderEngineThumbnail(EngineBase* engine, CreateThumbnailFromFile
 
 static Pixmap* RenderHomePageThumb(EngineBase* engine, CreateThumbnailFromFileData* d) {
 #if !defined(SUMATRA_NG)
-    if (d->batchGen == 0) {
-        BackgroundPageRender background(engine);
-        Pixmap* bmp = RenderEngineThumbnail(engine, d, &background);
-        d->canceled = background.FinishPage();
-        if (d->canceled) {
-            FreePixmap(bmp);
-            VecReset(d->skipRects);
-            return nullptr;
-        }
-        return bmp;
+    BackgroundPageRender background(engine);
+    Pixmap* bmp = RenderEngineThumbnail(engine, d, &background);
+    d->canceled = background.FinishPage();
+    if (d->canceled) {
+        FreePixmap(bmp);
+        VecReset(d->skipRects);
+        return nullptr;
     }
-#endif
+    return bmp;
+#else
     return RenderEngineThumbnail(engine, d);
+#endif
 }
 
 // Keep the engine for a retry if a page action interrupts the thumbnail.
@@ -3393,6 +3392,7 @@ struct RegenerateThumbnailsData {
     Vec<CreateThumbnailFromFileData*> files;
     ThumbnailsToMake which = ThumbnailsToMake::All;
     int gen = 0;
+    int next = -1;
 };
 
 // bumped by each regenerate batch: an older one still running stops, and its
@@ -3500,26 +3500,39 @@ static void RegenerateThumbnailsDone() {
     ThumbnailThreadFinished();
 }
 
+static void RunThumbnailBatch(RegenerateThumbnailsData* data);
+
 // renders one file at a time; each finished thumbnail is set and shown on
 // the UI thread before the next file starts
 static void RegenerateThumbnailsThread(RegenerateThumbnailsData* data) {
-    DropCachedThumbnailFiles(data);
-    logf("RegenerateThumbnailsThread: %d files\n", len(data->files));
+    if (data->next < 0) {
+        DropCachedThumbnailFiles(data);
+        data->next = 0;
+        logf("RegenerateThumbnailsThread: %d files\n", len(data->files));
+    }
     int total = len(data->files);
-    int done = 0;
-    for (CreateThumbnailFromFileData* d : data->files) {
-        done++;
+    for (; data->next < total; data->next++) {
+        CreateThumbnailFromFileData* d = data->files[data->next];
         if (IsThumbnailBatchStale(data->gen) || !DocumentIsThere(d->filePath)) {
             SkipThumbnailFile(d);
             ResetTempArena();
             continue;
         }
-        auto* p = new ThumbnailProgress();
-        p->name = str::Dup(path::GetBaseNameTemp(d->filePath));
-        p->done = done;
-        p->total = total;
-        uitask::Post(MkFunc0<ThumbnailProgress>(ShowThumbnailProgress, p), "ThumbnailProgress");
+        if (!d->canceled) {
+            auto* p = new ThumbnailProgress();
+            p->name = str::Dup(path::GetBaseNameTemp(d->filePath));
+            p->done = data->next + 1;
+            p->total = total;
+            uitask::Post(MkFunc0<ThumbnailProgress>(ShowThumbnailProgress, p), "ThumbnailProgress");
+        }
+        d->canceled = false;
         d->bmp = RenderFileThumbnail(d);
+        if (d->canceled) {
+            // Let the waiting page action finish before retrying this cover.
+            uitask::Post(MkFunc0<RegenerateThumbnailsData>(RunThumbnailBatch, data), "ResumeThumbnailBatch");
+            DestroyTempArena();
+            return;
+        }
         auto fn = MkFunc0<CreateThumbnailFromFileData>(CreateThumbnailFromFileFinish, d);
         uitask::Post(fn, "SetThumbnailFromFile");
         ResetTempArena();
@@ -3529,15 +3542,19 @@ static void RegenerateThumbnailsThread(RegenerateThumbnailsData* data) {
     DestroyTempArena();
 }
 
+static void RunThumbnailBatch(RegenerateThumbnailsData* data) {
+    auto fn = MkFunc0<RegenerateThumbnailsData>(RegenerateThumbnailsThread, data);
+    RunAsync(fn, StrL("RegenerateThumbnails"));
+}
+
 // a batch started here supersedes the one still running
 static void StartRegenerateThumbnails(RegenerateThumbnailsData* data) {
     data->gen = AtomicIntInc(&gThumbnailBatchGen);
     for (CreateThumbnailFromFileData* d : data->files) {
         d->batchGen = data->gen;
     }
-    auto fn = MkFunc0<RegenerateThumbnailsData>(RegenerateThumbnailsThread, data);
     ThumbnailThreadStarted();
-    RunAsync(fn, StrL("RegenerateThumbnails"));
+    RunThumbnailBatch(data);
 }
 
 // the cached thumbnails were made for the other ThumbnailsType: drop them and

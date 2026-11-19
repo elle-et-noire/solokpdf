@@ -416,10 +416,13 @@ canvas shows. They are placed again whenever the canvas moves or resizes,
 not only when the frame moves. The ones about the document go with its tab.
 The compact find bar also follows the toolbar's search button when the toolbar
 moves on its own. It uses the frame for placement while the toolbar is hidden.
+The annotation toolbar keeps the original markup click position when the
+selection scrolls out of view or its tab is switched away and back (E125).
 The annotation toolbar no longer shows over the desktop while the window is
 minimized (E110). These popups and the ones above hide with the minimized
 frame and come back where they were when it is restored, also one shown while
-it was minimized; the canvas tip goes (E121). One hidden meanwhile stays
+it was minimized (E121). Home's keyboard tooltip returns for the same selection
+while the frame is active (E126). One hidden meanwhile stays
 hidden, e.g. the selection toolbar after the selection was cleared; Esc on
 the minimized window closes the find bar (E138). The comment
 card and the annotation toolbar's contents edit come back open, with their

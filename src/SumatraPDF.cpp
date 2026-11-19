@@ -2119,6 +2119,10 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
     AbortFinding(args->win, true);
 
     DocController* prevCtrl = win->ctrl;
+    if (tab->ctrl != ctrl && tab->selectedAnnotation) {
+        CloseAnnotationUiForTab(tab);
+        tab->ClearAnnotationSelection();
+    }
     tab->ctrl = ctrl;
     win->ctrl = tab->ctrl;
     // a Discard answered for the previous document doesn't cover this one
@@ -2638,7 +2642,7 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
     // Clear those pointers before a replacement controller is opened (or a
     // manual reload is about to replace the document with an error page).
     CloseAnnotationUiForTab(tab);
-    tab->selectedAnnotation = nullptr;
+    tab->ClearAnnotationSelection();
     EndPdfEditOperation(win);
     win->annotationBeingDragged = nullptr;
     win->annotationBeingResized = false;
@@ -5058,10 +5062,12 @@ static void CloseDocumentInCurrentTab(MainWindow* win, bool keepUIEnabled, bool 
     if (win->uiaProvider) {
         win->uiaProvider->OnDocumentUnload();
     }
-    win->ctrl = nullptr;
     WindowTab* currentTab = win->CurrentTab();
+    if (!deleteModel && currentTab && currentTab->selectedAnnotation) {
+        HideAnnotEditToolbar(win);
+    }
+    win->ctrl = nullptr;
     if (currentTab) {
-        currentTab->selectedAnnotation = nullptr;
         bool hadReading = !deleteModel && (GetReadAloudSourceTab() == currentTab || CanContinueReadAloud(currentTab));
         ResetReadAloudStateForTab(currentTab);
         if (hadReading && win->hwndCanvas) {
@@ -5070,6 +5076,7 @@ static void CloseDocumentInCurrentTab(MainWindow* win, bool keepUIEnabled, bool 
         // Compact toolbar / filter list hold non-owning Annotation* into the
         // engine about to die.
         if (deleteModel) {
+            currentTab->ClearAnnotationSelection();
             CloseAnnotationUiForTab(currentTab);
         }
     }
@@ -14405,6 +14412,7 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
 
         case WM_SIZE:
             if (win && SIZE_MINIMIZED == wp) {
+                HomePageOnFrameResize(win);
                 ReadingAutoScrollOnMinimize(win, true);
                 break;
             }
@@ -14416,6 +14424,7 @@ static LRESULT CALLBACK WndProcSumatraFrame(HWND hwnd, UINT msg, WPARAM wp, LPAR
                 // the scheduled update relayouts only when the size actually
                 // changed, and a burst of WM_SIZE does the work once
                 ScheduleUiUpdate(win);
+                HomePageOnFrameResize(win);
             }
             break;
 

@@ -963,7 +963,11 @@ void DetachAnnotationFromUI(Annotation* annot) {
         for (int i = 0; i < nTabs; i++) {
             WindowTab* t = win->GetTab(i);
             if (t && t->selectedAnnotation == annot) {
+#if defined(SUMATRA_NG)
                 t->selectedAnnotation = nullptr;
+#else
+                t->ClearAnnotationSelection();
+#endif
                 HideAnnotEditToolbar(win);
             }
         }

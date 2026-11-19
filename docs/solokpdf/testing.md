@@ -343,6 +343,13 @@ that the build is cancelled and the missing tile is rendered again.
 workers during rendering on PDFium and MuPDF. A click or context menu cancels
 the render. The tests wait for the sidebar pages, the citation popup or the
 Home cache file to return without further input.
+`--bulk-home-only` changes `ThumbnailsType` while viewing a different page. The
+click cancels a PDFium cover and both covers regenerate. MuPDF's separate
+cover document keeps rendering while the click proceeds.
+`ad-hoc-e98-anchored-popups --annotation-anchor-only` checks the markup click
+position after scrolling, minimize and tab switches. `--home-tip-only` checks
+keyboard and hover tooltips through minimize and restore. Add `--work-area`
+to run either test with the full work area.
 After lifetime, notification or test-hook changes, also run the last four and
 `ad-hoc-tree-lifetime` under ASan. The
 [migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in

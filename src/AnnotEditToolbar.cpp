@@ -1196,20 +1196,6 @@ static void RaiseToolbarHost(AnnotEditToolbar* tb) {
     SetWindowPos(tb->host->native, ToolbarZ(tb), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 
-// where a text markup annotation was clicked to select it, in page
-// coordinates so it follows scrolling and zoom. A highlight can span many
-// lines, so the toolbar starts at the click, not at the bounds' left edge.
-struct AnnotEditClickAnchor {
-    Annotation* annot = nullptr;
-    PointF pt;
-};
-static AnnotEditClickAnchor gClickAnchor;
-
-void SetAnnotEditToolbarClickPos(Annotation* annot, PointF pagePt) {
-    gClickAnchor.annot = annot;
-    gClickAnchor.pt = pagePt;
-}
-
 static bool PositionToolbar(AnnotEditToolbar* tb, const Rect& annot) {
     MainWindow* win = tb->win;
     Rect canvas = HwndClientRect(win->hwndCanvas);
@@ -1219,8 +1205,8 @@ static bool PositionToolbar(AnnotEditToolbar* tb, const Rect& annot) {
 
     int x = annot.x;
     DisplayModel* dm = win->AsFixed();
-    if (dm && tb->annot && gClickAnchor.annot == tb->annot) {
-        x = dm->CvtToScreen(PageNo(tb->annot), gClickAnchor.pt).x;
+    if (dm && tb->annot && tb->tab && tb->tab->hasSelectedAnnotClick) {
+        x = dm->CvtToScreen(PageNo(tb->annot), tb->tab->selectedAnnotClick).x;
     }
     int y = annot.y + annot.dy + gap;
     if (y + h > canvas.y + canvas.dy) {
@@ -2081,7 +2067,6 @@ void HideAnnotEditToolbar(MainWindow* win) {
     }
     tb->tab = nullptr;
     tb->annot = nullptr;
-    gClickAnchor = {};
     tb->lastPlaced = {};
     tb->lastAnnotBounds = {};
     SetBarShadow(win, &tb->shadow, Rect(), kCornerRadius);
@@ -2591,7 +2576,13 @@ TempStr AnnotationHoverOverlayStateTemp(MainWindow* win) {
     return ToStrTemp(out);
 }
 
-void SetSelectedAnnotation(WindowTab* tab, Annotation* annot) {
+static void SelectAnnotation(WindowTab* tab, Annotation* annot, const PointF* pagePt) {
+    if (pagePt) {
+        tab->selectedAnnotClick = *pagePt;
+        tab->hasSelectedAnnotClick = true;
+    } else if (annot != tab->selectedAnnotation) {
+        tab->hasSelectedAnnotClick = false;
+    }
     MainWindow* win = tab->win;
     if (annot == tab->selectedAnnotation) {
         MainWindowRerender(win);
@@ -2605,6 +2596,15 @@ void SetSelectedAnnotation(WindowTab* tab, Annotation* annot) {
     ScheduleShowSelectedAnnotationView(tab);
     UpdateAnnotEditToolbar(win);
     UpdateAnnotFilterToolbar(win);
+}
+
+void SetSelectedAnnotation(WindowTab* tab, Annotation* annot) {
+    SelectAnnotation(tab, annot, nullptr);
+}
+
+// A text markup can span many lines. Anchor its toolbar at the click in page coordinates.
+void SetSelectedAnnotAt(WindowTab* tab, Annotation* annot, PointF pagePt) {
+    SelectAnnotation(tab, annot, &pagePt);
 }
 
 // orig reports canvas pixels as they are
