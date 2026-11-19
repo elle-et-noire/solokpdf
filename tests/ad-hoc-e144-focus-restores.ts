@@ -44,6 +44,8 @@ import {
   makeE110Pdf,
   minimizeFrame,
   openContentsEdit,
+  SEL_CLASS,
+  selectLineByKeyboard,
   shownFindBar,
   shownTop,
   waitGone,
@@ -51,6 +53,7 @@ import {
   withOtherWindow,
 } from "./ad-hoc-e98-anchored-popups.ts";
 import { makeChmPages } from "./chm-fixture.ts";
+import { getTestClipboardText } from "./test-clipboard.ts";
 import { cmdId, pollUntil, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 import {
   enumWindows,
@@ -69,7 +72,6 @@ import {
   setTestWindowLayout,
   WM_CLOSE,
   WM_COMMAND,
-  clientToScreen,
   findChildWindow,
   findVisibleChildWindow,
   getClientRect,
@@ -78,7 +80,7 @@ import {
   findCanvas,
   killAndWait,
   launchControlled,
-  moveTestCursor,
+  pressVKey,
   sendCommand,
   sendCommandSync,
   waitForPalette,
@@ -182,11 +184,14 @@ async function openInTab(client: ControlClient, frame: number, path: string, pag
   );
 }
 
-// a click at (x, y) in hwnd, whose window isn't active, in the order Windows takes it
+// A click at (x, y) with native mouse activation before the button messages.
 async function activatingClick(client: ControlClient, hwnd: number, x: number, y: number): Promise<void> {
-  const at = clientToScreen(hwnd, x, y);
-  await moveTestCursor(at.x, at.y, client);
-  await client.request(ControlCommand.TestFocusState, ["activating-click", hwnd, packCoords(x, y)]);
+  const [code, result] = await client.request(ControlCommand.TestFocusState, [
+    "activating-click",
+    hwnd,
+    packCoords(x, y),
+  ]);
+  check(code === 0, `click at (${x}, ${y}): ${result}`);
 }
 
 // a click on the canvas away from the page's annotations
@@ -211,7 +216,10 @@ export async function testit(): Promise<void> {
   writeFileSync(pdf2, makeE110Pdf(), "latin1");
   const pdf3 = join(dir, "doc3.pdf");
   writeFileSync(pdf3, makeE110Pdf(), "latin1");
-  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n");
+  writeFileSync(
+    join(dir, SETTINGS_FILE),
+    "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nSelectionToolbarLayout = CmdCopySelection\n",
+  );
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   const pid = proc.pid!;
   const findBar = () => shownFindBar(pid, frame);
@@ -290,6 +298,24 @@ export async function testit(): Promise<void> {
       check(/^focus=page-box active=frame caret=focus /.test(res), `the click did not keep the focus: ${res}`);
     });
     if (findBar()) await hideByOwner(client, "find");
+
+    await step("selection toolbar: Copy leaves activation with the other window", async () => {
+      const selectionToolbar = () => shownTop(pid, SEL_CLASS);
+      await activateFrame(client);
+      try {
+        await selectLineByKeyboard(client, frame);
+        const popup = await waitShown(selectionToolbar, "selection toolbar");
+        const r = getClientRect(popup);
+        checkAway(await focusState(client, "away"), "before Copy");
+        await activatingClick(client, popup, Math.floor(r.right / 2), Math.floor(r.bottom / 2));
+        await waitGone(selectionToolbar, "selection toolbar after Copy");
+        check((await getTestClipboardText(client)).includes("The quick brown fox"), "Copy did not reach the toolbar");
+        checkAway(await settled(client), "after Copy");
+      } finally {
+        await activateFrame(client);
+        pressVKey(frame, VK_ESCAPE);
+      }
+    });
 
     sendCommandSync(frame, cmdId("CmdToggleEditPDF"));
     const openEdit = async (text: string) => {

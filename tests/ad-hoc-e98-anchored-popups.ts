@@ -83,6 +83,7 @@ import {
   packCoords,
   sendMessage,
   setProcessDpiAware,
+  setTestWindowLayout,
   setWindowLong,
   setWindowPos,
   postChar,
@@ -556,7 +557,7 @@ async function checkRefHover(): Promise<void> {
 }
 
 // E110: popups placed by their owner from the canvas's content
-const SEL_CLASS = "SumatraSelectionToolbar";
+export const SEL_CLASS = "SumatraSelectionToolbar";
 export const EDIT_CLASS = "SumatraAnnotEditToolbar";
 const CARD_CLASS = "SumatraAnnotTextPopup";
 const HOVER_CARD_CLASS = "SumatraAnnotationHoverOverlay";
@@ -1138,7 +1139,7 @@ async function checkContentsEditFocus(
 }
 
 // keyboard caret, visual mode, End: a selection the selection toolbar shows for
-async function selectLineByKeyboard(client: ControlClient, frame: number): Promise<void> {
+export async function selectLineByKeyboard(client: ControlClient, frame: number): Promise<void> {
   const keyboardSel = async (re: RegExp, what: string) => {
     let raw = "";
     await pollUntil(
@@ -1691,6 +1692,13 @@ async function checkOwnedInSession(dir: string, pdf: string, foreground?: Foregr
       await checkModalMinimized(client, frame, m, undefined, foreground);
       await closeWindow(m.find, m.name);
     }
+    // With the toolbar hidden, Go to page opens a modal instead of focusing its page box.
+    sendCommandSync(frame, cmdId("CmdToggleToolbar"));
+    sendCommandSync(frame, cmdId("CmdToggleToolbar"));
+    const goToPage = { name: "Go to page", find: () => shownOwned(pid, frame, /^Go to page$/), cmd: "CmdGoToPage" };
+    await checkModalMinimized(client, frame, goToPage, undefined, foreground);
+    await closeWindow(goToPage.find, goToPage.name);
+    sendCommandSync(frame, cmdId("CmdToggleToolbar"));
 
     // not owned: Windows and the layer leave it alone. anchor-first shows again only
     // what the frame owns
@@ -1920,6 +1928,11 @@ export async function checkTips(): Promise<void> {
 export async function testit(): Promise<void> {
   failures.length = 0;
   setProcessDpiAware();
+  if (process.argv.includes("--owned-windows-only")) {
+    await checkOwnedWindows();
+    check(failures.length === 0, failures.join("\n"));
+    return;
+  }
   const pdf = tmpPath("e98-link.pdf");
   writeFileSync(pdf, makeLinkPdf(), "latin1");
   const { proc, client, frame } = await launchLogged("e98", ["-appdata", makeAppDir(), pdf]);
@@ -1953,4 +1966,7 @@ export async function testit(): Promise<void> {
   console.log("e98-anchored-popups: OK");
 }
 
-if (import.meta.main) await runStandalone(testit);
+if (import.meta.main) {
+  if (process.argv.includes("--work-area")) setTestWindowLayout("workArea");
+  await runStandalone(testit);
+}

@@ -1466,6 +1466,38 @@ static void ActivateForTest(HWND hwndFrame, TestActivation how = TestActivation:
     TraceFocus(StrL("activate-end"), hwndFrame);
 }
 
+static bool PostTestClientClick(HWND target, LPARAM at) {
+    if (GetWindowThreadProcessId(target, nullptr) != GetCurrentThreadId()) {
+        return false;
+    }
+    Point pt = HwndClientToScreen(target, {GET_X_LPARAM(at), GET_Y_LPARAM(at)});
+    SetTestCursorPosition(pt);
+    LRESULT hit = SendMessageW(target, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
+    if (hit != HTCLIENT) {
+        return false;
+    }
+    HWND root = GetAncestor(target, GA_ROOT);
+    LRESULT action = MA_NOACTIVATE;
+    if (root != GetActiveWindow()) {
+        action = SendMessageW(target, WM_MOUSEACTIVATE, (WPARAM)root, MAKELPARAM(hit, WM_LBUTTONDOWN));
+        TraceFocus(StrL("mouse-activate"), target, action);
+    }
+
+    // Queue the click before activation handlers post their follow-up work.
+    bool eatDown = action == MA_ACTIVATEANDEAT || action == MA_NOACTIVATEANDEAT;
+    if (!eatDown && !PostMessageW(target, WM_LBUTTONDOWN, MK_LBUTTON, at)) {
+        return false;
+    }
+    if (!PostMessageW(target, WM_LBUTTONUP, 0, at)) {
+        return false;
+    }
+    TraceFocus(StrL("click-posted"), target, at);
+    if (action == MA_ACTIVATE || action == MA_ACTIVATEANDEAT) {
+        ActivateForTest(root, TestActivation::NoFocus);
+    }
+    return true;
+}
+
 static void ExecuteControlRequest(ControlRequest* req) {
     // test commands create engines, which need GDI+ and a few gSettings fields
     AutoGdiPlusShutdown gdiPlus;
@@ -3893,17 +3925,13 @@ static void ExecuteControlRequest(ControlRequest* req) {
             if (str::Eq(action, StrL("click-hwnd")) && IntArg(req, 1, clicked)) {
                 SetActiveWindow((HWND)(intptr_t)clicked);
             }
-            // A click at the third argument (client coordinates, packed) in the window given as
-            // the second, whose root isn't active: Windows activates the root as the thread takes
-            // the click from its input queue, the window gets the click, then what the
-            // activation posted runs
             i32 at = 0;
             if (str::Eq(action, StrL("activating-click")) && IntArg(req, 1, clicked) && IntArg(req, 2, at)) {
                 auto target = (HWND)(intptr_t)clicked;
-                PostMessageW(target, WM_LBUTTONDOWN, MK_LBUTTON, at);
-                PostMessageW(target, WM_LBUTTONUP, 0, at);
-                TraceFocus(StrL("click-posted"), target, at);
-                ActivateForTest(GetAncestor(target, GA_ROOT), TestActivation::NoFocus);
+                if (!PostTestClientClick(target, at)) {
+                    AppendTestResult(req, 1, StrL("client click was not queued"));
+                    break;
+                }
             }
             if (win && str::Eq(action, StrL("kill-moves-focus")) && GetFocus()) {
                 gKillMovesTo = win->hwndCanvas;
