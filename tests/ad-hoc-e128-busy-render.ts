@@ -37,6 +37,7 @@ import {
 import { assemblePdf, cmdId, pollUntil, runStandalone, SETTINGS_FILE, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
 import {
   clientToScreen,
+  getClientRect,
   getControlText,
   getPopupMenuHandle,
   MK_LBUTTON,
@@ -258,6 +259,39 @@ async function checkAnnotEdits(engine: Engine, failures: string[]): Promise<void
   }
 }
 
+async function checkDisplayList(failures: string[]): Promise<void> {
+  const { proc, client, frame } = await launch("mupdf", "display-list", [{ file: "doc.pdf", pdf: makePdf() }]);
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    const canvas = findCanvas(frame);
+    const rc = getClientRect(canvas);
+    const x = Math.floor(rc.right / 2);
+    const y = Math.floor(rc.bottom / 4);
+    const pt = clientToScreen(canvas, x, y);
+    await moveTestCursor(pt.x, pt.y, client);
+    const { chapter } = await client.chapterInfo();
+    await testPdf(client, ["park-render", BOUND_MS * 2, "display-list", 0, WORD_PAGE]);
+    const at = await client.goToLocation(chapter, WORD_PAGE);
+    if (at.page !== WORD_PAGE) throw new Error(`on page ${at.page}, expected ${WORD_PAGE}`);
+    await pollUntil(
+      () => testPdf(client, ["park-state"]),
+      (s) => field(s, "parked") === 1,
+      {
+        timeoutMs: WAIT_MS,
+        error: "the cold display list did not park",
+      },
+    );
+    const start = Date.now();
+    sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(x, y));
+    sendMessage(canvas, WM_LBUTTONUP, 0, packCoords(x, y));
+    report(failures, "mupdf cold display list", await checkCanceled(client, Date.now() - start));
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 // Tab moves the edit to the next field while the field commit's re-render holds the
 // next-field lookup's locks: MuPDF's renderLock, or on PDFium the editor's, drawing the
 // annotations over PDFium's tile
@@ -390,6 +424,11 @@ async function checkNeedsEditorText(failures: string[]): Promise<void> {
 export async function testit(): Promise<void> {
   setProcessDpiAware();
   const failures: string[] = [];
+  if (process.argv.includes("--display-list-only")) {
+    await checkDisplayList(failures);
+    if (failures.length) throw new Error(failures.join("\n"));
+    return;
+  }
   for (const engine of ["pdfium", "mupdf"] as const) await checkAnnotEdits(engine, failures);
   if (process.argv.includes("--annotation-edits-only")) {
     if (failures.length) throw new Error(failures.join("\n"));
@@ -401,6 +440,7 @@ export async function testit(): Promise<void> {
   }
   await checkOtherWindow(failures);
   await checkNeedsEditorText(failures);
+  await checkDisplayList(failures);
   if (failures.length) throw new Error(failures.join("\n"));
 }
 

@@ -8228,25 +8228,39 @@ void EngineMupdf::GetPdfPageBoxes(int pageNo, Vec<PdfPageBox>& out) {
     }
 }
 
-// returns a kept reference to the cached "View" display list for the page,
-// building+caching it on first call. Caller must fz_drop_display_list when done.
-// must be called with pi->renderLock held (this both protects pi->displayList
-// and serializes the page-running done by fz_new_display_list_from_page).
-static fz_display_list* GetOrBuildPageDisplayList(FzPageInfo* pi, fz_context* ctx) {
-    if (!pi->displayList) {
-        fz_display_list* list = nullptr;
-        fz_try(ctx) {
-            list = fz_new_display_list_from_page(ctx, pi->page);
-        }
-        fz_catch_report(ctx) {
-            list = nullptr;
-        }
-        pi->displayList = list;
+// Caller holds renderLock and docLock and drops the returned reference.
+static fz_display_list* GetOrBuildPageDisplayList(FzPageInfo* pi, fz_context* ctx, fz_cookie* cookie = nullptr) {
+    if (pi->displayList) {
+        return fz_keep_display_list(ctx, pi->displayList);
     }
-    if (!pi->displayList) {
+    if (cookie && cookie->abort) {
         return nullptr;
     }
-    return fz_keep_display_list(ctx, pi->displayList);
+
+    fz_display_list* list = nullptr;
+    fz_device* dev = nullptr;
+    fz_var(list);
+    fz_var(dev);
+    fz_try(ctx) {
+        list = fz_new_display_list(ctx, fz_bound_page(ctx, pi->page));
+        dev = fz_new_list_device(ctx, list);
+        fz_run_page(ctx, pi->page, dev, fz_identity, cookie);
+        fz_close_device(ctx, dev);
+    }
+    fz_always(ctx) {
+        fz_drop_device(ctx, dev);
+    }
+    fz_catch_report(ctx) {
+        fz_drop_display_list(ctx, list);
+        return nullptr;
+    }
+    // MuPDF can return normally after an abort with a partial list.
+    if (cookie && cookie->abort) {
+        fz_drop_display_list(ctx, list);
+        return nullptr;
+    }
+    pi->displayList = list;
+    return fz_keep_display_list(ctx, list);
 }
 
 // Like fz_new_bbox_device(), but bounds what is actually *visible on the page*,
@@ -9324,8 +9338,7 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
     // like the AA level, min line width is per-thread-context state
     CadMinLineWidthScope cadMinLineWidth(ctx, zoom, CadEnhanceActive(), cadHairlineVector);
 
-    // The "View" rendering (no Print, no hideAnnotations) is what
-    // fz_new_display_list_from_page produces; safe to cache and re-run lock-free.
+    // Only normal View rendering shares this display list.
     bool useCache = (args.target == RenderTarget::View) && !hideAnnotations;
 
     fz_rect pRect;
@@ -9352,8 +9365,16 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
         ibounds = fz_round_rect(fz_transform_rect(pRect, ctm));
 
         if (useCache) {
-            keptList = GetOrBuildPageDisplayList(pageInfo, ctx);
+            if (!pageInfo->displayList) {
+                TestRenderPark(RenderPark::DisplayList, pageNo, FzCookieCanceled, fzcookie);
+            }
+            keptList = GetOrBuildPageDisplayList(pageInfo, ctx, fzcookie);
         }
+    }
+
+    if (fzcookie && fzcookie->abort) {
+        fz_drop_display_list(ctx, keptList);
+        return nullptr;
     }
 
     // the text and links of the page, loaded here, on the render thread, so

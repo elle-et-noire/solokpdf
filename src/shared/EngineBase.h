@@ -517,6 +517,7 @@ enum class RenderPark {
     Contents,
     // the annotation editor's locks, drawing annotations over PDFium's tile
     Annotations,
+    DisplayList,
 };
 void TestArmRenderPark(RenderPark at, int pageNo, int ms);
 void TestRenderPark(RenderPark at, int pageNo, bool (*isCanceled)(void*), void* cancelData);

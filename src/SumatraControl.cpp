@@ -2841,7 +2841,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("park-render")) || str::Eq(StringArg(req, 0), StrL("park-state"))) {
-                // park-render ms stage [window], park-state [window]: the current tab of gWindows[window]
+                // park-render ms stage [window] [page], park-state [window]
                 bool arm = str::Eq(StringArg(req, 0), StrL("park-render"));
                 i32 winIdx = 0;
                 IntArg(req, arm ? 3 : 1, winIdx);
@@ -2856,11 +2856,20 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     // parks there for ms
                     i32 ms = 0;
                     IntArg(req, 1, ms);
-                    bool annots = str::Eq(StringArg(req, 2), StrL("annotations"));
-                    TestArmRenderPark(annots ? RenderPark::Annotations : RenderPark::Contents, target->CurrentPageNo(),
-                                      ms);
-                    gRenderCache->InvalidateAll(target);
-                    target->RepaintDisplay();
+                    i32 page = target->CurrentPageNo();
+                    IntArg(req, 4, page);
+                    Str stage = StringArg(req, 2);
+                    RenderPark at = RenderPark::Contents;
+                    if (str::Eq(stage, StrL("annotations"))) {
+                        at = RenderPark::Annotations;
+                    } else if (str::Eq(stage, StrL("display-list"))) {
+                        at = RenderPark::DisplayList;
+                    }
+                    TestArmRenderPark(at, page, ms);
+                    if (page == target->CurrentPageNo()) {
+                        gRenderCache->InvalidateAll(target);
+                        target->RepaintDisplay();
+                    }
                     AppendTestResult(req, 0, StrL("armed"));
                     break;
                 }
