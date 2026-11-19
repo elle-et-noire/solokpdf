@@ -11,10 +11,21 @@ import {
   launchControlled,
   paletteState,
   paletteSetText,
+  pressEscape,
   sendCommand,
+  sendCommandSync,
   waitForPalette,
 } from "./win-automation.ts";
-import { captureWindowToPng, enumWindows, getWindowText, postMessage, setProcessDpiAware, sleep } from "./winapi.ts";
+import {
+  captureWindowToPng,
+  enumChildWindows,
+  enumWindows,
+  getWindowText,
+  isWindowVisible,
+  postMessage,
+  setProcessDpiAware,
+  sleep,
+} from "./winapi.ts";
 
 const WM_KEYDOWN = 0x0100;
 const VK_RETURN = 0x0d;
@@ -76,6 +87,22 @@ function writeSettings(dir: string, theme: string) {
 
 function pressT(frame: number) {
   postMessage(findCanvas(frame), WM_KEYDOWN, VK_T, 0);
+}
+
+async function expectEscDismisses(frame: number, command: string, title: string) {
+  sendCommandSync(frame, cmdId(command));
+  let notification = 0;
+  enumChildWindows(findCanvas(frame), (hwnd) => {
+    if (!isWindowVisible(hwnd) || getWindowText(hwnd) !== title) return true;
+    notification = hwnd;
+    return false;
+  });
+  if (!notification) throw new Error(`${command}: notification "${title}" did not appear`);
+
+  await pressEscape(frame);
+  if (!isWindowVisible(frame)) throw new Error(`${command}: Esc closed the window`);
+  if (isWindowVisible(notification)) throw new Error(`${command}: Esc left "${title}" visible`);
+  console.log(`${command}: Esc dismissed "${title}"`);
 }
 
 export async function testit(): Promise<void> {
@@ -169,6 +196,11 @@ async function checkCycleWraps(dir: string, pdf: string): Promise<string[]> {
     pressT(frame);
     f = await expectCorner(frame, dir, "wrap-next", lightBg);
     if (f) failures.push(f);
+
+    await client.setNotificationsEnabled(true);
+    await expectEscDismisses(frame, "CmdZoom125", "Zoom: 125%");
+    await expectEscDismisses(frame, "CmdPrevTheme", "Sepia");
+    await expectEscDismisses(frame, "CmdNextTheme", "Light");
 
     await client.quit();
     await proc.exited;

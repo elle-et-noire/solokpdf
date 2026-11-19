@@ -1912,6 +1912,19 @@ void ShowViewModeNotification(MainWindow* win, int cmdId) {
     ShowNotification(args);
 }
 
+void CycleThemeWithNotification(MainWindow* win, int step) {
+    Str name = CycleTheme(step);
+    ScheduleSaveSettings();
+
+    NotificationCreateArgs args;
+    args.win = win;
+    args.msg = name;
+    args.groupId = kNotifZoomOrView;
+    args.timeoutMs = kNotifDefaultTimeOut;
+    args.plainText = true;
+    ShowNotification(args);
+}
+
 // Zoom so that the current selection (Ctrl + drag rectangle or selected text)
 // fills the window, and centre it. The selection itself is left alone so it can
 // still be copied afterwards, and a navigation point is added first so Back

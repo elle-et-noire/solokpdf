@@ -6077,11 +6077,9 @@ void ExecuteCmd(MainWindow* win, int cmdId) {
             break;
 
         case CmdNextTheme:
-        case CmdPrevTheme: {
-            Str name = CycleTheme(cmdId == CmdNextTheme ? 1 : -1);
-            ScheduleSaveSettings();
-            ShowPlainNotification(win, name);
-        } break;
+        case CmdPrevTheme:
+            CycleThemeWithNotification(win, cmdId == CmdNextTheme ? 1 : -1);
+            break;
 
         case CmdToggleEngineeringDrawingEnhance:
             if (dm) {

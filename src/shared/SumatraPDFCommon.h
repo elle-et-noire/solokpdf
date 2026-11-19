@@ -118,6 +118,7 @@ extern Kind kNotifNextFileHint;
 void ToggleContinuousView(MainWindow* win);
 void ShowZoomNotification(MainWindow* win, float zoomLevel);
 void ShowViewModeNotification(MainWindow* win, int cmdId);
+void CycleThemeWithNotification(MainWindow* win, int step);
 void ZoomToSelection(MainWindow* win);
 void TrimPagesToSelection(MainWindow* win);
 void ShowWholePages(MainWindow* win);
