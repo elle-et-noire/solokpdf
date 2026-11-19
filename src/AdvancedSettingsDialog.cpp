@@ -939,7 +939,7 @@ void AdvancedSettingsWnd::ActivateItem(int lbIdx) {
         NoteItemEdited(item);
         if (str::Eq(item->name, StrL("EnableTeXEnhancements"))) {
             CollectRows();
-            listBox->SetModel(model);
+            listBox->SetModel(model, ListViewport::Keep);
         }
         listBox->Invalidate();
         return;

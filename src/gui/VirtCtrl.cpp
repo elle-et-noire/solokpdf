@@ -1505,20 +1505,20 @@ void VirtScroll::ScrollIntoView(VirtCtrl* w) {
     }
 }
 
-// scrolls `self` three lines per wheel notch
-template <typename T>
-static void WheelScroll(T* self, VirtMouseEvent* ev) {
-    if (ev->wheelDelta == 0) {
-        return;
-    }
-    int lines = -(ev->wheelDelta * 3) / WHEEL_DELTA;
-    if (self->ScrollBy(lines * self->lineDy)) {
-        ev->didHandle = true;
-    }
+// Keep fractions of a pixel so small deltas add up to a full notch.
+static int WheelPixels(int delta, int line, int page, int& rest) {
+    UINT lines = 3;
+    SystemParametersInfoW(SPI_GETWHEELSCROLLLINES, 0, &lines, 0);
+    i64 step = lines == WHEEL_PAGESCROLL ? page : (i64)lines * line;
+    i64 total = rest - delta * step;
+    rest = (int)(total % WHEEL_DELTA);
+    return (int)(total / WHEEL_DELTA);
 }
 
 void VirtScroll::OnMouseWheel(VirtMouseEvent* ev) {
-    WheelScroll(this, ev);
+    int page = std::max(0, bounds.dy - padding.top - padding.bottom);
+    int dy = WheelPixels(ev->wheelDelta, lineDy, page, wheelRest);
+    ev->didHandle = dy != 0 && ScrollBy(dy);
 }
 
 // the content follows the finger
@@ -1709,7 +1709,8 @@ bool ScrollBox::ScrollPage(int dir) {
 }
 
 void ScrollBox::OnMouseWheel(VirtMouseEvent* ev) {
-    WheelScroll(this, ev);
+    int dy = WheelPixels(ev->wheelDelta, lineDy, bounds.dy, wheelRest);
+    ev->didHandle = dy != 0 && ScrollBy(dy);
 }
 
 void ScrollBox::OnVScroll(WPARAM wp) {
@@ -1758,6 +1759,7 @@ void ScrollBox::UpdateScrollbar() {
 //--- VirtListBox
 
 static Kind kindVirtCtrlListBox = "virtCtrlListBox";
+VirtListScrollbar* (*gCreateListScrollbar)(VirtListBox*) = nullptr;
 
 VirtListBox::VirtListBox() {
     onMouseDown = MkMethod1<VirtListBox, VirtMouseEvent*, &VirtListBox::OnMouseDown>(this);
@@ -1779,7 +1781,22 @@ VirtListBox::VirtListBox() {
 }
 
 VirtListBox::~VirtListBox() {
+    delete appScrollbar;
     delete model;
+}
+
+void VirtListBox::UpdateAppScrollbar() {
+    if (!appScrollbar && scrollbar == ListScrollbar::App && gCreateListScrollbar && GetHwnd() && MaxScrollY() > 0) {
+        appScrollbar = gCreateListScrollbar(this);
+    }
+    if (appScrollbar) {
+        appScrollbar->Update();
+    }
+}
+
+void VirtListBox::SetIsVisible(bool visible) {
+    VirtCtrl::SetIsVisible(visible);
+    UpdateAppScrollbar();
 }
 
 // scaling has to work before the tree is attached to a window, which is when
@@ -1797,12 +1814,14 @@ int VirtListBox::GetItemHeight() {
     if (itemDy > 0) {
         return itemDy;
     }
-    Size sz = PlatformFontMeasureText(font, StrL("Ag"));
-    int dy = sz.dy + DpiScaleByDpi(GetDpi(), 4);
-    if (dy < 1) {
-        dy = 1;
+    int currentDpi = GetDpi();
+    if (font != measuredFont || currentDpi != measuredDpi) {
+        measuredFont = font;
+        measuredDpi = currentDpi;
+        Size sz = PlatformFontMeasureText(font, StrL("Ag"));
+        measuredItemDy = std::max(1, sz.dy + DpiScaleByDpi(currentDpi, 4));
     }
-    return dy;
+    return measuredItemDy;
 }
 
 int VirtListBox::ViewportDy() {
@@ -1832,7 +1851,7 @@ int VirtListBox::ScrollbarDx() {
     if (MaxScrollY() <= 0) {
         return 0;
     }
-    return DpiScaleByDpi(GetDpi(), 10);
+    return appScrollbar ? appScrollbar->Width() : DpiScaleByDpi(GetDpi(), 10);
 }
 
 Rect VirtListBox::ContentRectLocal() {
@@ -1850,6 +1869,9 @@ Rect VirtListBox::ItemsRectLocal() {
 }
 
 Rect VirtListBox::ScrollbarRectLocal() {
+    if (appScrollbar) {
+        return {};
+    }
     int dx = ScrollbarDx();
     if (dx == 0) {
         return {};
@@ -1899,6 +1921,7 @@ void VirtListBox::SetBounds(Rect r) {
         pendingVisibleIdx = -1;
         EnsureVisible(idx);
     }
+    UpdateAppScrollbar();
 }
 
 bool VirtListBox::ScrollTo(int y) {
@@ -2131,7 +2154,7 @@ void VirtListBox::ApplyNav(int idx, bool ctrl, bool shift) {
     onSelectionChanged.Call();
 }
 
-void VirtListBox::SetModel(ListBoxModel* m) {
+void VirtListBox::SetModel(ListBoxModel* m, ListViewport viewport) {
     if (model && (model != m)) {
         delete model;
     }
@@ -2139,8 +2162,7 @@ void VirtListBox::SetModel(ListBoxModel* m) {
     selIdx = -1;
     anchorIdx = -1;
     VecReset(selected);
-    // the items are new even when the model object is the same one refilled
-    scrollY = 0;
+    scrollY = viewport == ListViewport::Keep ? ClampI(scrollY, 0, MaxScrollY()) : 0;
     Invalidate();
 }
 
@@ -2176,6 +2198,8 @@ Rect VirtListBox::ItemRect(int idx) {
 }
 
 void VirtListBox::Paint(VirtPaintCtx& ctx) {
+    // Paint the thumb once with the list when wheel messages arrive in a burst.
+    UpdateAppScrollbar();
     Color colBg = GetColor(kColListBg);
     ctx.gfx->FillRect(ctx.bounds, colBg);
     int n = ItemsCount();
@@ -2323,13 +2347,8 @@ void VirtListBox::OnCaptureLost() {
 }
 
 void VirtListBox::OnMouseWheel(VirtMouseEvent* ev) {
-    if (ev->wheelDelta == 0) {
-        return;
-    }
-    int lines = -(ev->wheelDelta * 3) / WHEEL_DELTA;
-    if (ScrollBy(lines * GetItemHeight())) {
-        ev->didHandle = true;
-    }
+    int dy = WheelPixels(ev->wheelDelta, GetItemHeight(), UsableDy(), wheelRest);
+    ev->didHandle = ScrollBy(dy);
 }
 
 // the rows follow the finger

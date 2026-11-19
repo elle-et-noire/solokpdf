@@ -38,6 +38,9 @@ struct OverlayScrollbar {
     Type type = Type::Vert;
     Layout layout = Layout::LeftToRight;
     Mode mode = Mode::Smart;
+    // Optional scrollable area in the owner's physical client coordinates.
+    Rect area;
+    bool hasArea = false;
 
     // scroll state (mirrors SCROLLINFO)
     int nMin = 0;
@@ -106,6 +109,7 @@ void OverlayScrollbarSetInfo(OverlayScrollbar* sb, const SCROLLINFO* si, bool re
 void OverlayScrollbarGetInfo(OverlayScrollbar* sb, SCROLLINFO* si);
 
 void OverlayScrollbarUpdatePos(OverlayScrollbar* sb);
+void OverlayScrollbarSetArea(OverlayScrollbar* sb, Rect area);
 int OverlayScrollbarThickness(OverlayScrollbar* sb);
 
 void OverlayScrollbarShow(OverlayScrollbar* sb, bool show);
@@ -116,3 +120,12 @@ void OverlayScrollbarNotifyScroll(OverlayScrollbar* sb);
 void OverlayScrollbarSetMode(OverlayScrollbar* sb, OverlayScrollbar::Mode mode);
 
 bool IsOverlayScrollbarVisible(OverlayScrollbar* sb);
+
+enum class ListScrollbarMode {
+    Windows,
+    Smart,
+    Overlay,
+    Hidden
+};
+void SetListScrollbarMode(ListScrollbarMode);
+void RepaintListScrollbars();

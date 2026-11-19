@@ -381,7 +381,7 @@ static void ApplyRemoveItem(RemoveItemOp* op) {
     auto* m = (ListBoxModelCP*)wnd->listBox->model;
     Str filter = CommandPaletteSkipWS(Str(wnd->editQuery->GetTextTemp()));
     FilterPaletteStrings(*wnd, filter, m->strings);
-    wnd->listBox->SetModel(m);
+    wnd->listBox->SetModel(m, ListViewport::Keep);
 
     int n = m->ItemsCount();
     if (n == 0) {
@@ -1205,13 +1205,14 @@ void CommandPaletteOnAnnotationsChanged() {
         return;
     }
     Annotation* keep = nullptr;
+    int scrollY = wnd->listBox->scrollY;
     int sel = wnd->listBox->GetCurrentSelection();
     if (sel >= 0 && sel < m->ItemsCount()) {
         ItemDataCP* data = m->Data(sel);
         keep = data ? data->annot : nullptr;
     }
     FilterPaletteStrings(*wnd, filter, m->strings);
-    wnd->listBox->SetModel(m);
+    wnd->listBox->SetModel(m, ListViewport::Keep);
     wnd->UpdateHelpRow();
     int n = m->ItemsCount();
     if (n == 0) {
@@ -1227,7 +1228,9 @@ void CommandPaletteOnAnnotationsChanged() {
             }
         }
     }
-    CommandPaletteSetCurrentSelection(wnd, idx);
+    wnd->listBox->SetCurrentSelection(idx);
+    wnd->listBox->ScrollTo(scrollY);
+    wnd->OnSelectionChange();
 }
 
 HWND CommandPaletteHwndForAccelerator(HWND hwnd) {

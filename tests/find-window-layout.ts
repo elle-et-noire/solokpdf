@@ -2,25 +2,43 @@
 // hit count, so moving to the last result cannot resize the search combo box.
 import { writeFileSync } from "node:fs";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { runStandalone, tmpPath, USE_NG } from "./util.ts";
-import { killAndWait, launchControlled } from "./win-automation.ts";
+import { cmdId, runStandalone, tmpPath, USE_NG, writeAppdata } from "./util.ts";
 import {
+  clickAt,
+  killAndWait,
+  launchControlled,
+  moveTestCursor,
+  pressEnter,
+  pressKey,
+  sendCommand,
+  waitToolWindow,
+} from "./win-automation.ts";
+import {
+  clientToScreen,
   enumWindows,
   enumChildWindows,
   findChildWindow,
+  getClientRect,
   getClassName,
   getParentWindow,
   getWindowPid,
   getWindowRect,
   getWindowText,
+  isWindowVisible,
+  packCoords,
   postMessage,
   sendMessage,
   sendText,
   sleep,
+  VK_DOWN,
   VK_END,
   VK_HOME,
   VK_RETURN,
+  VK_UP,
   WM_KEYDOWN,
+  WM_LBUTTONDOWN,
+  WM_LBUTTONUP,
+  WM_MOUSEMOVE,
 } from "./winapi.ts";
 
 const query = "needle";
@@ -70,6 +88,70 @@ function buildPdf(): Buffer {
   return Buffer.from(pdf, "latin1");
 }
 
+async function checkResultBars(client: ControlClient, frame: number, findWindow: number): Promise<void> {
+  const WM_VSCROLL = 0x0115;
+  const SB_TOP = 6;
+  const SB_BOTTOM = 7;
+  const state = async () => String((await client.request(ControlCommand.TestFindResultsOrder, [query, 1]))[1]);
+  const native = () => findChildWindow(findWindow, "ScrollBar") || findChildWindow(findWindow, "SCROLLBAR");
+  const overlay = () => findChildWindow(findWindow, "SUMATRA_OVERLAY_SCROLLBAR");
+  const assertPosition = async (atTop: boolean) => {
+    const result = /sel=(\d+) .* scroll=(\d+)/.exec(await state());
+    if (!result || Number(result[1]) !== 0 || (Number(result[2]) === 0) !== atTop) {
+      throw new Error(
+        `find results scrollbar expected top=${atTop}, got selection=${result?.[1]} scroll=${result?.[2]}`,
+      );
+    }
+  };
+  const changeMode = async (key: number) => {
+    sendCommand(frame, cmdId("CmdChangeScrollbar"));
+    const dialog = await waitToolWindow(client, getWindowPid(frame), "changescrollbar", { title: "Change Scrollbar" });
+    if (!dialog) throw new Error("scrollbar settings dialog missing");
+    await pressKey(dialog, key, 50);
+    await pressEnter(dialog);
+  };
+
+  const bar = native();
+  if (!bar || !isWindowVisible(bar) || overlay()) throw new Error("find results native scrollbar missing");
+  sendMessage(findWindow, WM_VSCROLL, SB_BOTTOM, bar);
+  await assertPosition(false);
+  sendMessage(findWindow, WM_VSCROLL, SB_TOP, bar);
+  await assertPosition(true);
+
+  // The dialog orders the modes Windows, Smart, Overlay, Hidden.
+  await changeMode(VK_DOWN);
+  const overlayBar = overlay();
+  if (!overlayBar || native()) throw new Error("find results smart scrollbar missing");
+  await changeMode(VK_DOWN);
+  if (overlay() !== overlayBar || !isWindowVisible(overlayBar))
+    throw new Error("find results overlay scrollbar missing");
+  const rect = getClientRect(overlayBar);
+  await clickAt(overlayBar, Math.floor(rect.right / 2), rect.bottom - 3, 20, 0, client);
+  await assertPosition(false);
+  sendMessage(findWindow, WM_VSCROLL, SB_TOP, overlayBar);
+  await assertPosition(true);
+
+  const thumbX = Math.floor(rect.right / 2);
+  const thumbY = rect.right + 6;
+  const dragY = Math.floor(rect.bottom / 2);
+  const start = clientToScreen(overlayBar, thumbX, thumbY);
+  await moveTestCursor(start.x, start.y, client);
+  const MK_LBUTTON = 1;
+  sendMessage(overlayBar, WM_LBUTTONDOWN, MK_LBUTTON, packCoords(thumbX, thumbY));
+  const end = clientToScreen(overlayBar, thumbX, dragY);
+  await moveTestCursor(end.x, end.y, client);
+  sendMessage(overlayBar, WM_MOUSEMOVE, MK_LBUTTON, packCoords(thumbX, dragY));
+  sendMessage(overlayBar, WM_LBUTTONUP, 0, packCoords(thumbX, dragY));
+  await assertPosition(false);
+  sendMessage(findWindow, WM_VSCROLL, SB_TOP, overlayBar);
+  await assertPosition(true);
+
+  await changeMode(VK_UP);
+  await changeMode(VK_END);
+  if (overlay() || native()) throw new Error("find results scrollbar is visible in hidden mode");
+  await checkResultWheel(client, findWindow);
+}
+
 async function waitForSelection(client: ControlClient, expected: number, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let raw = "";
@@ -100,6 +182,29 @@ async function waitForPage(client: ControlClient, expected: number, timeoutMs = 
     await sleep(50);
   }
   throw new Error(`find-window-layout: page did not reach ${expected}: ${raw}`);
+}
+
+async function checkResultWheel(client: ControlClient, findWindow: number): Promise<void> {
+  const WM_MOUSEWHEEL = 0x020a;
+  const state = async () => String((await client.request(ControlCommand.TestFindResultsOrder, [query, 1]))[1]);
+  const before = await state();
+  const results = /scroll=(\d+) results=(\d+),(\d+),(\d+),(\d+)/.exec(before);
+  if (!results) throw new Error(`find results geometry missing: ${before}`);
+  const [, scroll, x, y, w, h] = results.map(Number);
+  const pt = clientToScreen(findWindow, Math.floor(x + w / 2), Math.floor(y + h / 2));
+  const lp = ((pt.y & 0xffff) << 16) | (pt.x & 0xffff);
+  // Four quarter-notch messages should scroll as far as one full notch.
+  sendMessage(findWindow, WM_MOUSEWHEEL, (-30 & 0xffff) << 16, lp);
+  if (await state().then((s) => s.includes(`scroll=${scroll} `))) {
+    throw new Error("find results ignored a quarter-notch wheel delta");
+  }
+  for (let i = 0; i < 3; i++) sendMessage(findWindow, WM_MOUSEWHEEL, (-30 & 0xffff) << 16, lp);
+  const after = await state();
+  sendMessage(findWindow, WM_MOUSEWHEEL, 120 << 16, lp);
+  const restored = await state();
+  if (!after.includes("sel=0 ") || !restored.includes(`scroll=${scroll} `)) {
+    throw new Error("find results wheel deltas did not cancel or changed the selection");
+  }
 }
 
 function findWindowByTitle(pid: number, title: string): number {
@@ -238,7 +343,10 @@ export async function testit(): Promise<void> {
   const pdf = tmpPath("find-window-layout.pdf");
   writeFileSync(pdf, buildPdf());
 
-  const { proc, client, frame } = await launchControlled([pdf]);
+  const appdata = USE_NG
+    ? []
+    : ["-appdata", writeAppdata("find-window-layout", "UiLanguage = en\nScrollbars = windows\n")];
+  const { proc, client, frame } = await launchControlled([...appdata, pdf]);
   try {
     await client.waitForRenderIdle();
     await waitForSelection(client, 0);
@@ -254,6 +362,8 @@ export async function testit(): Promise<void> {
     if (!combo || !searchEdit || !pagesEdit) {
       throw new Error("find-window-layout: find controls not found");
     }
+    await checkResultWheel(client, findWindow);
+    await checkResultBars(client, frame, findWindow);
     const initial = getWindowRect(combo);
 
     // Home in the page-range edit must move its caret, not the result selection.

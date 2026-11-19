@@ -63,10 +63,10 @@ struct LayersCtrl : VirtListBox {
 };
 
 // re-read from the engine: rows follow the current tab and what toggling changed
-static void ReloadRows(LayersCtrl* c) {
+static void ReloadRows(LayersCtrl* c, ListViewport viewport) {
     DeleteVecMembers(c->rows->rows);
     EngineMupdfGetLayerRows(TabEngine(c->win->CurrentTab()), c->rows->rows);
-    c->SetModel(c->rows);
+    c->SetModel(c->rows, viewport);
     c->Invalidate();
 }
 
@@ -192,7 +192,7 @@ void UpdateLayersCtrl(MainWindow* win) {
         return;
     }
     c->SetCurrentSelection(-1);
-    ReloadRows(c);
+    ReloadRows(c, ListViewport::Reset);
 }
 
 // Turns the layer of a Layers view row on or off and shows the pages with it.
@@ -204,7 +204,7 @@ bool ToggleLayerRow(MainWindow* win, int row) {
     }
     if (LayersCtrl* c = win->layersCtrl) {
         int sel = c->GetCurrentSelection();
-        ReloadRows(c);
+        ReloadRows(c, ListViewport::Keep);
         c->SetCurrentSelection(sel);
     }
     MainWindowRerender(win);

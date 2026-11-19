@@ -210,7 +210,7 @@ struct VirtCtrl : ILayout {
 
     // same names as ControlBase's, so code that shows / hides / disables a
     // control doesn't care which kind it got
-    void SetIsVisible(bool);
+    virtual void SetIsVisible(bool);
     bool IsVisible() const;
     void SetIsEnabled(bool);
     bool IsEnabled() const;
@@ -383,6 +383,7 @@ struct VirtScroll : VirtCtrl {
   private:
     int lastNotifiedY = -1;
     int lastNotifiedDy = -1;
+    int wheelRest = 0;
 
     void UpdateScrollbar();
     void NotifyVisibleRange();
@@ -417,7 +418,27 @@ struct ScrollBox : VirtCtrl {
     void OnVScroll(WPARAM);
 
   private:
+    int wheelRest = 0;
     void UpdateScrollbar();
+};
+
+struct VirtListBox;
+
+struct VirtListScrollbar {
+    virtual ~VirtListScrollbar() = default;
+    virtual int Width() = 0;
+    virtual void Update() = 0;
+};
+
+extern VirtListScrollbar* (*gCreateListScrollbar)(VirtListBox*);
+
+enum class ListViewport {
+    Reset,
+    Keep
+};
+enum class ListScrollbar {
+    App,
+    Custom
 };
 
 // A list of rows: it owns the model, the selection and the scroll position, and
@@ -467,12 +488,14 @@ struct VirtListBox : VirtCtrl {
     bool showFocusRing = false;
     // false: rows cut by the viewport's edges are shown too
     bool wholeRows = true;
+    ListScrollbar scrollbar = ListScrollbar::App;
 
     VirtListBox();
     ~VirtListBox() override;
 
     Size GetIdealSize() override;
     void SetBounds(Rect) override;
+    void SetIsVisible(bool) override;
     void Paint(VirtPaintCtx&) override;
     void OnMouseDown(VirtMouseEvent*);
     void OnMouseUp(VirtMouseEvent*);
@@ -485,7 +508,7 @@ struct VirtListBox : VirtCtrl {
 
     // for efficiency you can re-use the model: get it, change the data, call
     // SetModel() again
-    void SetModel(ListBoxModel*);
+    void SetModel(ListBoxModel*, ListViewport = ListViewport::Reset);
     int ItemsCount();
     int GetItemHeight();
     int GetCurrentSelection();
@@ -519,6 +542,11 @@ struct VirtListBox : VirtCtrl {
     Rect ThumbRectLocal();
 
   private:
+    VirtListScrollbar* appScrollbar = nullptr;
+    int wheelRest = 0;
+    PlatformFont* measuredFont = nullptr;
+    int measuredDpi = 0;
+    int measuredItemDy = 0;
     int selIdx = -1;
     int anchorIdx = -1;
     Vec<u8> selected;
@@ -530,6 +558,7 @@ struct VirtListBox : VirtCtrl {
     int dragStartScrollY = 0;
 
     void EnsureSelectedSize();
+    void UpdateAppScrollbar();
     void ApplyClick(int idx, bool ctrl, bool shift);
     void ApplyNav(int idx, bool ctrl, bool shift);
     Rect ContentRectLocal();

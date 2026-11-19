@@ -197,6 +197,7 @@ void ThemeApplyPlatformColors() {
 
 void ThemeFinishPlatformColors() {
     DarkModeRememberTreeViewStyle();
+    RepaintListScrollbars();
 }
 
 void DarkModeApplyToWindow(HWND hwnd) {

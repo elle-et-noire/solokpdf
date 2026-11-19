@@ -259,6 +259,7 @@ PageThumbnailsCtrl::PageThumbnailsCtrl(MainWindow* win, PlatformFont* font, int 
     // the sidebar shows a cut-off last row: more pages are below (#6469).
     // The palette spreads whole rows over its height
     wholeRows = host == ThumbnailsHost::Palette;
+    scrollbar = ListScrollbar::Custom;
     if (host == ThumbnailsHost::Palette) {
         colorDefaults = gColsListBoxRaised;
     } else {

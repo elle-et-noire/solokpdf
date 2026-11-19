@@ -6,6 +6,12 @@
 #include "base/Pixmap.h"
 #include "gui/Dpi.h"
 #include "base/Win.h"
+#include "gui/UIModels.h"
+#include "gui/Layout.h"
+#include "gui/PlatformFont.h"
+#include "gui/Gfx.h"
+#include "gui/GuiColors.h"
+#include "gui/VirtCtrl.h"
 
 #include "Theme.h"
 #include "DarkMode.h"
@@ -54,7 +60,13 @@ static Rect CornerRect(OverlayScrollbar* sb) {
 
 // the owner's client area in screen coordinates: the bar lies along its edge
 static Rect OwnerScreenRect(OverlayScrollbar* sb) {
-    return HwndMapRectToWindow(HwndClientRect(sb->hwndOwner), sb->hwndOwner, nullptr);
+    Rect area = sb->hasArea ? sb->area : HwndClientRect(sb->hwndOwner);
+    return HwndMapLtrClientRectToScreen(sb->hwndOwner, area);
+}
+
+static bool SharesCorner(OverlayScrollbar* a, OverlayScrollbar* b) {
+    return a->hwndOwner == b->hwndOwner && a->type != b->type && a->hasArea == b->hasArea &&
+           (!a->hasArea || a->area == b->area);
 }
 
 // Native scrollbars put a size grip in their corner when it is the bottom-right
@@ -83,7 +95,7 @@ static bool OverCornerGrip(OverlayScrollbar* sb, Point pt) {
 }
 
 static void SendScrollMsg(OverlayScrollbar* sb, UINT scrollMsg, WPARAM wp) {
-    SendMessageW(sb->hwndOwner, scrollMsg, wp, 0);
+    SendMessageW(sb->hwndOwner, scrollMsg, wp, sb->hasArea ? (LPARAM)sb->hwnd : 0);
 }
 
 static UINT ScrollMsgForType(OverlayScrollbar* sb) {
@@ -812,7 +824,7 @@ void SetState(OverlayScrollbar* sb, State newState) {
     // themed bars share the corner square, which depends on both being needed
     if (sb->themed && wasActive != IsActive(sb)) {
         for (auto* other : gAllScrollbars) {
-            if (other != sb && other->hwndOwner == sb->hwndOwner) {
+            if (SharesCorner(sb, other)) {
                 OverlayScrollbarUpdatePos(other);
                 PaintScrollbar(other);
             }
@@ -1351,7 +1363,7 @@ void OverlayScrollbarUpdatePos(OverlayScrollbar* sb) {
         return;
     }
 
-    Rect ownerRc = HwndClientRect(sb->hwndOwner);
+    Rect ownerRc = sb->hasArea ? sb->area : HwndClientRect(sb->hwndOwner);
 
     int scrollW = ScaledWidth(sb, IsThick(sb));
     int x, y, w, h;
@@ -1359,7 +1371,7 @@ void OverlayScrollbarUpdatePos(OverlayScrollbar* sb) {
     // Check if the sibling scrollbar (other orientation, same owner) is thick
     bool siblingThick = false;
     for (auto* other : gAllScrollbars) {
-        if (other != sb && other->hwndOwner == sb->hwndOwner && IsThick(other)) {
+        if (SharesCorner(sb, other) && IsThick(other)) {
             siblingThick = true;
             break;
         }
@@ -1375,7 +1387,7 @@ void OverlayScrollbarUpdatePos(OverlayScrollbar* sb) {
         // sibling just before that one hides too
         bool siblingActive = false;
         for (auto* other : gAllScrollbars) {
-            if (other != sb && other->hwndOwner == sb->hwndOwner && IsActive(other)) {
+            if (SharesCorner(sb, other) && IsActive(other)) {
                 siblingActive = true;
             }
         }
@@ -1409,6 +1421,16 @@ void OverlayScrollbarUpdatePos(OverlayScrollbar* sb) {
     SetWindowPos(sb->hwnd, nullptr, x, y, w, h, SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
+void OverlayScrollbarSetArea(OverlayScrollbar* sb, Rect area) {
+    if (sb->hasArea && sb->area == area) {
+        return;
+    }
+    sb->hasArea = true;
+    sb->area = area;
+    OverlayScrollbarUpdatePos(sb);
+    OverlayScrollbarRepaint(sb);
+}
+
 // Draw again in the current colors, e.g. after a theme change: the bar is a
 // layered window, which a redraw of its owner's window tree doesn't reach
 void OverlayScrollbarRepaint(OverlayScrollbar* sb) {
@@ -1436,4 +1458,207 @@ void OverlayScrollbarShow(OverlayScrollbar* sb, bool show) {
         return;
     }
     ShowScrollbarWindow(sb, false);
+}
+
+struct ListScrollbarImpl;
+static Vec<ListScrollbarImpl*> gListScrollbars;
+static ListScrollbarMode gListScrollbarMode = ListScrollbarMode::Windows;
+
+struct ListScrollbarImpl : VirtListScrollbar {
+    VirtListBox* list;
+    HWND owner = nullptr;
+    UINT_PTR subclass = 0;
+    OverlayScrollbar* overlay = nullptr;
+    HWND native = nullptr;
+    Rect nativeRect;
+    int dpi = 0;
+    int nativeWidth = 0;
+
+    explicit ListScrollbarImpl(VirtListBox* list);
+    ~ListScrollbarImpl() override;
+    int Width() override;
+    void Update() override;
+    void Repaint();
+    void Detach();
+    void SetMode(int newDpi);
+    void OnScroll(WPARAM wp);
+    static LRESULT CALLBACK OwnerProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
+};
+
+ListScrollbarImpl::ListScrollbarImpl(VirtListBox* list) : list(list) {
+    VecAppend(gListScrollbars, this);
+}
+
+ListScrollbarImpl::~ListScrollbarImpl() {
+    VecRemove(gListScrollbars, this);
+    Detach();
+}
+
+void ListScrollbarImpl::Detach() {
+    if (owner) {
+        RemoveWindowSubclass(owner, OwnerProc, subclass);
+        owner = nullptr;
+    }
+    OverlayScrollbarDestroy(overlay);
+    overlay = nullptr;
+    HwndDestroyWindowSafe(&native);
+    nativeRect = {};
+}
+
+LRESULT CALLBACK ListScrollbarImpl::OwnerProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR id, DWORD_PTR data) {
+    auto* bar = (ListScrollbarImpl*)data;
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, OwnerProc, id);
+        bar->owner = nullptr;
+        bar->native = nullptr;
+    }
+    if (msg == WM_VSCROLL && lp && ((HWND)lp == bar->native || (bar->overlay && (HWND)lp == bar->overlay->hwnd))) {
+        bar->OnScroll(wp);
+        return 0;
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+int ListScrollbarImpl::Width() {
+    return overlay ? OverlayScrollbarThickness(overlay) : native ? nativeWidth : 0;
+}
+
+void ListScrollbarImpl::SetMode(int newDpi) {
+    bool useOverlay =
+        gListScrollbarMode == ListScrollbarMode::Smart || gListScrollbarMode == ListScrollbarMode::Overlay;
+    if (overlay && (!useOverlay || newDpi != dpi)) {
+        auto* old = overlay;
+        overlay = nullptr;
+        OverlayScrollbarDestroy(old);
+    }
+    if (native && gListScrollbarMode != ListScrollbarMode::Windows) {
+        HwndDestroyWindowSafe(&native);
+        nativeRect = {};
+    }
+    if (useOverlay) {
+        auto mode = gListScrollbarMode == ListScrollbarMode::Smart ? OverlayScrollbar::Mode::Smart
+                                                                   : OverlayScrollbar::Mode::Thick;
+        if (!overlay) {
+            overlay = OverlayScrollbarCreate(owner, OverlayScrollbar::Type::Vert, mode);
+        }
+        OverlayScrollbarSetMode(overlay, mode);
+    } else if (gListScrollbarMode == ListScrollbarMode::Windows && !native) {
+        native = CreateWindowExW(WS_EX_NOPARENTNOTIFY, WC_SCROLLBARW, nullptr, WS_CHILD | SBS_VERT, 0, 0, 0, 0, owner,
+                                 nullptr, GetModuleHandleW(nullptr), nullptr);
+        Repaint();
+    }
+    if (newDpi != dpi) {
+        dpi = newDpi;
+        nativeWidth = DpiGetSystemMetrics(SM_CXVSCROLL, dpi);
+    }
+}
+
+void ListScrollbarImpl::Repaint() {
+    if (native) {
+        SetWindowTheme(native, DarkModeScrollBarsAreDark() ? L"DarkMode_Explorer" : nullptr, nullptr);
+    }
+    OverlayScrollbarRepaint(overlay);
+}
+
+void ListScrollbarImpl::Update() {
+    HWND nextOwner = list->GetHwnd();
+    if (nextOwner != owner) {
+        Detach();
+        subclass = NextSubclassId();
+        if (nextOwner && SetWindowSubclass(nextOwner, OwnerProc, subclass, (DWORD_PTR)this)) {
+            owner = nextOwner;
+        }
+    }
+    if (!owner) {
+        return;
+    }
+
+    DpiScope scope(owner);
+    SetMode(DpiGet());
+    Rect area = list->ContentRectInWindow().Intersect(list->VisibleRectInWindow());
+    int page = list->UsableDy();
+    int end = list->MaxScrollY();
+    int dx = Width();
+    if (!list->IsVisible() || dx <= 0 || end <= 0 || page <= 0 || area.dx <= dx || area.dy <= 0) {
+        if (native && !nativeRect.IsEmpty()) {
+            nativeRect = {};
+            ShowWindow(native, SW_HIDE);
+        }
+        OverlayScrollbarShow(overlay, false);
+        return;
+    }
+
+    SCROLLINFO si{sizeof(si), SIF_RANGE | SIF_PAGE | SIF_POS, 0, end + page - 1, (UINT)page, list->scrollY};
+    if (overlay) {
+        OverlayScrollbarSetArea(overlay, area);
+        OverlayScrollbarSetInfo(overlay, &si, !overlay->isDragging);
+        if (!IsActive(overlay)) {
+            OverlayScrollbarShow(overlay, true);
+        }
+        return;
+    }
+
+    SCROLLINFO current{sizeof(current), si.fMask};
+    if (!GetScrollInfo(native, SB_CTL, &current) || current.nMax != si.nMax || current.nPage != si.nPage ||
+        current.nPos != si.nPos) {
+        SetScrollInfo(native, SB_CTL, &si, TRUE);
+    }
+    int x = HwndMapChildXForRtlParent(owner, area.Right() - dx, dx);
+    Rect rect{x, area.y, dx, area.dy};
+    if (!(rect == nativeRect)) {
+        nativeRect = rect;
+        SetWindowPos(native, nullptr, rect.x, rect.y, rect.dx, rect.dy, SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW);
+    }
+}
+
+void ListScrollbarImpl::OnScroll(WPARAM wp) {
+    switch (LOWORD(wp)) {
+        case SB_LINEUP:
+            list->ScrollBy(-list->GetItemHeight());
+            break;
+        case SB_LINEDOWN:
+            list->ScrollBy(list->GetItemHeight());
+            break;
+        case SB_PAGEUP:
+            list->ScrollBy(-list->UsableDy());
+            break;
+        case SB_PAGEDOWN:
+            list->ScrollBy(list->UsableDy());
+            break;
+        case SB_TOP:
+            list->ScrollTo(0);
+            break;
+        case SB_BOTTOM:
+            list->ScrollTo(list->MaxScrollY());
+            break;
+        case SB_THUMBTRACK:
+        case SB_THUMBPOSITION: {
+            SCROLLINFO si{sizeof(si), SIF_TRACKPOS};
+            if (overlay) {
+                OverlayScrollbarGetInfo(overlay, &si);
+                list->ScrollTo(si.nTrackPos);
+            } else if (GetScrollInfo(native, SB_CTL, &si)) {
+                list->ScrollTo(si.nTrackPos);
+            }
+            break;
+        }
+    }
+}
+
+void SetListScrollbarMode(ListScrollbarMode mode) {
+    gCreateListScrollbar = [](VirtListBox* list) -> VirtListScrollbar* { return new ListScrollbarImpl(list); };
+    if (gListScrollbarMode == mode) {
+        return;
+    }
+    gListScrollbarMode = mode;
+    for (auto* bar : gListScrollbars) {
+        bar->Update();
+        bar->list->Invalidate();
+    }
+}
+
+void RepaintListScrollbars() {
+    for (auto* bar : gListScrollbars) {
+        bar->Repaint();
+    }
 }

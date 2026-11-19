@@ -1381,6 +1381,12 @@ OverlayScrollbar::Mode ScrollbarsOverlayMode() {
     return OverlayScrollbar::Mode::Smart;
 }
 
+static void UpdateListScrollbarMode() {
+    constexpr ListScrollbarMode modes[] = {ListScrollbarMode::Windows, ListScrollbarMode::Smart,
+                                           ListScrollbarMode::Overlay, ListScrollbarMode::Hidden};
+    SetListScrollbarMode(modes[ScrollbarModeFromPrefs()]);
+}
+
 // Reverse the content-row HBox so the sidebar is on the right. RTL frames
 // already mirror via WS_EX_LAYOUTRTL, so don't also reverse the HBox.
 static bool SidebarOnRightLayout() {
@@ -4914,6 +4920,7 @@ void UpdateDocumentColors() {
 }
 
 void UpdateFixedPageScrollbarsVisibility() {
+    UpdateListScrollbarMode();
     bool showOverlayScrollbar = ScrollbarsUseOverlay();
     auto mode = ScrollbarsOverlayMode();
     for (MainWindow* w : gWindows) {
@@ -17471,6 +17478,7 @@ int APIENTRY WinMain(_In_ HINSTANCE /*hInstance*/, _In_opt_ HINSTANCE /*hPrevIns
 
     LoadSettings();
     UpdateSettings(flags);
+    UpdateListScrollbarMode();
 #if defined(SOLOKPDF_PDFIUM)
     SetPdfiumFontCacheDir(GetAppDataDirTemp());
     if (PdfiumRequested()) {

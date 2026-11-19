@@ -49,7 +49,7 @@ constexpr int kSelectionDebounceTimerId = 1;
 struct AnnotFilterToolbar;
 struct AnnotFilterWindow;
 
-static void RebuildList(AnnotFilterToolbar*);
+static void RebuildList(AnnotFilterToolbar*, ListViewport viewport = ListViewport::Reset);
 static void UpdateCue(AnnotFilterToolbar*);
 static void ApplySelectionNow(AnnotFilterToolbar*);
 static void ScheduleSelection(AnnotFilterToolbar*);
@@ -137,12 +137,17 @@ static ListBoxModelStrings* NewAnnotListModel(AnnotFilterToolbar* f) {
 }
 
 static void ApplyVisibleToList(AnnotFilterToolbar* f, VirtListBox* lb, Annotation* caret,
-                               const Vec<Annotation*>& keepSel, int prevScrollY) {
+                               const Vec<Annotation*>& keepSel, int prevScrollY, ListViewport viewport) {
     if (!lb) {
         return;
     }
     lb->SetModel(NewAnnotListModel(f));
     lb->ScrollTo(prevScrollY);
+    defer {
+        if (viewport == ListViewport::Keep) {
+            lb->ScrollTo(prevScrollY);
+        }
+    };
     int caretIdx = caret ? VecFind(f->visibleAnnots, caret) : -1;
     if (caretIdx < 0) {
         Annotation* keep = FilterTab(f) ? FilterTab(f)->selectedAnnotation : nullptr;
@@ -169,7 +174,7 @@ static void ApplyVisibleToList(AnnotFilterToolbar* f, VirtListBox* lb, Annotatio
     }
 }
 
-static void RebuildList(AnnotFilterToolbar* f) {
+static void RebuildList(AnnotFilterToolbar* f, ListViewport viewport) {
     if (!f) {
         return;
     }
@@ -197,7 +202,7 @@ static void RebuildList(AnnotFilterToolbar* f) {
         }
     }
     if (f->floatWnd) {
-        ApplyVisibleToList(f, f->floatWnd->listBox, caret, keepSel, prevScrollY);
+        ApplyVisibleToList(f, f->floatWnd->listBox, caret, keepSel, prevScrollY, viewport);
     }
     UpdateCue(f);
     if (f->floatWnd && f->floatWnd->listBox) {
@@ -1126,7 +1131,7 @@ void RefreshAnnotFilterAnnotations(MainWindow* win) {
         return;
     }
     LoadAnnotations(f);
-    RebuildList(f);
+    RebuildList(f, ListViewport::Keep);
     UpdateFloatButtons(f);
 }
 

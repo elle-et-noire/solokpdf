@@ -36,9 +36,9 @@
 #include "Translations.h"
 #include "Theme.h"
 #include "DarkMode.h"
-#include "FindWindow.h"
 #include "AppHelpersCommon.h"
 #include "FindWindowCommon.h"
+#include "FindWindow.h"
 
 constexpr int kFindWinMinEditDx = 48;
 
@@ -93,6 +93,9 @@ struct FindWindowWnd : WindowBase {
     // One-shot: RefreshResults consumes and clears it. <= 0: nothing saved
     int savedSelPage = -1;
     int savedSelGlyph = -1;
+    int savedTopPage = -1;
+    int savedTopGlyph = -1;
+    int savedTopOffset = 0;
     // programmatic SetText must not kick find-as-you-type (CLI -search restore)
     bool suppressTextChanged = false;
 
@@ -306,8 +309,8 @@ bool FindWindowWnd::Create(MainWindow* mainWin) {
 
     {
         auto* c = new VirtListBox();
-        c->dpi = GetDpi();
         c->font = platformFont;
+        c->dpi = GetDpi();
         c->onDrawItem = MkMethod1<FindWindowWnd, VirtListBox::DrawItemEvent*, &FindWindowWnd::DrawResultItem>(this);
         c->onSelectionChanged = MkMethod0<FindWindowWnd, &FindWindowWnd::OnResultSelected>(this);
         c->onDoubleClick = MkMethod0<FindWindowWnd, &FindWindowWnd::OnResultSelected>(this);
@@ -489,6 +492,13 @@ void FindWindowWnd::RefreshResults(bool allowNavigation) {
             OnResultSelected();
         }
     }
+    if (savedTopPage > 0) {
+        int top = FindMatchIndex(win, savedTopPage, savedTopGlyph);
+        savedTopPage = -1;
+        if (top >= 0) {
+            results->ScrollTo(top * results->GetItemHeight() + savedTopOffset);
+        }
+    }
 }
 
 void FindWindowWnd::DrawResultItem(VirtListBox::DrawItemEvent* ev) {
@@ -497,7 +507,6 @@ void FindWindowWnd::DrawResultItem(VirtListBox::DrawItemEvent* ev) {
         return;
     }
     Gfx* gfx = ev->gfx;
-    HWND hwndList = lb->GetHwnd();
     Rect rc = ev->itemRect;
 
     // clip the whole row so a partially visible last item (LBS_NOINTEGRALHEIGHT)
@@ -528,7 +537,7 @@ void FindWindowWnd::DrawResultItem(VirtListBox::DrawItemEvent* ev) {
     // stays stable while the window is resized; long snippets ellipsize into it
     // instead of fighting a per-row measured width (#5692 / #5796).
     const FindMatch& fm = win->findMatches[ev->itemIndex];
-    TempStr pageStr = fmt("%s", win->ctrl->GetPageLabeTemp(fm.startPage));
+    TempStr pageStr = win->ctrl->GetPageLabeTemp(fm.startPage);
     int pageGap = DpiScale(10);
     int pageColDx = DpiScale(40);
     Size pageSize = gfx->MeasureText(pageStr, lb->font);
@@ -592,6 +601,17 @@ void FindWindowWnd::OnResultSelected() {
 void FindWindowWnd::SaveSelectedMatch() {
     savedSelPage = -1;
     savedSelGlyph = -1;
+    savedTopPage = -1;
+    if (results && len(win->findMatches) > 0) {
+        int rowHeight = results->GetItemHeight();
+        int top = results->scrollY / rowHeight;
+        if (top < len(win->findMatches)) {
+            const FindMatch& fm = win->findMatches[top];
+            savedTopPage = fm.startPage;
+            savedTopGlyph = fm.startGlyph;
+            savedTopOffset = results->scrollY % rowHeight;
+        }
+    }
     int idx = results ? results->GetCurrentSelection() : -1;
     if (idx < 0 || idx >= len(win->findMatches)) {
         return;
@@ -1167,7 +1187,9 @@ TempStr FindResultsOrderResultTemp(Str term, int startPage, int* exitCodeOut) {
         out.Append(fmt(" prev=%d,%d,%d,%d next=%d,%d,%d,%d", prev.x, prev.y, prev.dx, prev.dy, next.x, next.y, next.dx,
                        next.dy));
     }
-    out.AppendChar('\n');
+    Rect resultsRect = fw->results->lastBounds;
+    out.Append(fmt(" scroll=%d results=%d,%d,%d,%d\n", fw->results->scrollY, resultsRect.x, resultsRect.y,
+                   resultsRect.dx, resultsRect.dy));
     if (exitCodeOut) {
         *exitCodeOut = 0;
     }
