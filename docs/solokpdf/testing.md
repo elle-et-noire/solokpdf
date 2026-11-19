@@ -287,29 +287,40 @@ dialog step starts with `activate-owned`; without it the `frame` way then `away`
 reproduced CI's "focus=none active=none" and "the restore took the focus from another
 app: focus=owned active=owned". The dialog has no kept way: with the app in the
 foreground Windows never leaves it active.
-E149: `TestFocusState activating-click <hwnd> <packed client point>` models a click
-that activates the window's root: Windows activates it as the thread takes the click
-from its input queue, so the click comes before anything the activation posted. The
-request posts `WM_LBUTTONDOWN`/`UP`, then activates the root (foreground, no
-`SetFocus()`). `activate` and a later click put the click after the posted refocus,
-an order a real click never has. After `away` (`SetFocus(nullptr)`), `click-frame`
-leaves the frame active with no focus, which a real caption click doesn't; use
-`activate`. Markdown navigation is done once the page's url is served
-(`TestMarkdownServed`): the page counts as current before the web view navigates.
+E149/E117: `TestFocusState activating-click <hwnd> <packed client point>` moves
+the test cursor, checks `WM_NCHITTEST` and consults `WM_MOUSEACTIVATE` on the
+target when its root is inactive. The button messages are queued before any
+required root activation, so the click runs before work posted by activation.
+The selection toolbar's Copy case checks that the click reaches the toolbar
+and the other window stays active. The existing canvas and page-box cases
+check that the reactivating click sets focus. After `away` (`SetFocus(nullptr)`),
+use `activate` to focus the frame. Markdown navigation is observed once the
+page's URL is served (`TestMarkdownServed`).
+[Win32 `WM_MOUSEACTIVATE`](https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mouseactivate)
 E147: tips (`Tooltip`) are unowned topmost popups: Windows doesn't hide them with the
 frame, and `anchor-first` shows again only what the frame owns, so tips of the frame's
 own windows (toolbar, bookmarks tree) run the `os-first` ways; the About hover's link
 tip, whose window the frame owns, runs both orders. Its finder takes the tip below the
 link: once the restored frame is activated, Home's keyboard selection tip shows. Modal
-Add Favorite and Zoom run Run PDF Script's minimize steps (Go to page opens no dialog
-with the toolbar shown). `TestMarkdownServed` also lists a CHM document's served urls;
+Add Favorite, Zoom and Go to page run the modal minimize steps. The test hides
+the toolbar to open Go to page. Run only the owned-window cases with
+`ad-hoc-e98-anchored-popups --owned-windows-only`, adding `--work-area` for the
+hosted layout. `TestMarkdownServed` also lists a CHM document's served urls;
 `tests/chm-fixture.ts` writes a multi-page CHM (`makeChmPages`), so e144 navigates CHM
 pages as it does Markdown ones. `TestFocusState` names the frame's page box `page-box`.
 For E151, `ad-hoc-e144-focus-restores --trace-navigation` prints the frame's
 Next Page receipt, logical page changes, browser requests and completion, served
-URLs, and foreground, active and focus windows in one sequence. Failures print
-it automatically. Add `--work-area` to run the standalone test in the hosted
-suite's layout on the hidden desktop.
+URLs, and foreground, active and focus windows in one sequence. On failure or
+with that flag, the test also saves `markdown-navigation.txt` or
+`chm-navigation.txt` under `ad-hoc-e144/` in the test output. The existing
+CI failure artifact includes these files. Add `--work-area` to run the standalone
+test in the hosted suite's layout on the hidden desktop.
+The Debug test replays page a's older WebView2 completion after page b is served.
+It checks that logical page b is retained before requesting page c and checking focus.
+[WebView2 navigation events](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/navigation-events)
+For E112, `ad-hoc-e98-anchored-popups` moves and hides the toolbar independently
+of the canvas. It checks the find bar's placement on the toolbar and its
+fallback to the frame, then checks that showing the toolbar restores placement.
 Dumps that report a popup shown (`visible=1`, `floatVisible=1`, the annotation
 toolbar's `annotEditToolbar visible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,
@@ -325,6 +336,9 @@ form Tab on both engines and a click while another window's PDFium render holds
 the lock finish well before the park ends, cancel it and get the tiles back
 with no input (`park-state` doesn't paint). `lint-hover-lookups` keeps hover's
 `Try*` lookups out of user actions.
+`ad-hoc-e128-busy-render --display-list-only` parks the first MuPDF render of
+a cold page before display-list construction, clicks the page and verifies
+that the build is cancelled and the missing tile is rendered again.
 After lifetime, notification or test-hook changes, also run the last four and
 `ad-hoc-tree-lifetime` under ASan. The
 [migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in

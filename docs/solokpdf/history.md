@@ -3486,6 +3486,44 @@ in `workArea`. The browser requested page c after reaching logical page 3,
 and each frame regained focus. The hosted failure still needs a trace from the
 interactive desktop.
 
+### Backlog follow-up (2026-11-19)
+
+- **D15.** The latest hosted full and ASan results are still the runs above.
+  At `039e4ec60`, the regular CI Debug build and unit tests passed, feature
+  tests failed, and Release passed. The failed cases were the E128 PDFium
+  link menu (E155) and the E144 CHM page transition (E151).
+  [Run 44469257975](https://github.com/elle-et-noire/solokpdf/actions/runs/44469257975)
+- **E151.** In run 44469257975, CHM reached logical page 2 and served page b.
+  A late successful completion for page a then reset the page to 1. The next
+  command requested b again. Run 44284454164 also timed out on CHM page c.
+  Replaying that callback locally reset both Markdown and CHM to page 1 and
+  prevented the next command from reaching c. WebView2 document views now
+  discard completions for older navigation IDs. In Debug, both formats kept
+  page b during the replay, then served c and restored frame focus in both
+  hidden layouts with both engine settings. The test also saves navigation
+  traces in the CI failure artifact. The fixed revision awaits hosted CI.
+  [Trace run](https://github.com/elle-et-noire/solokpdf/actions/runs/44469257975)
+  [Earlier run](https://github.com/elle-et-noire/solokpdf/actions/runs/44284454164)
+- **E133.** A click during a parked cold MuPDF display-list build waited
+  10,002 ms and the park expired. With the tile's cookie passed into the build,
+  the click took 18 ms in Debug and 29 ms in ASan. The build cancelled and
+  the missing tile rendered again. The rest of `ad-hoc-e128-busy-render`
+  passed in both builds. The timing measures the injected cancellation
+  boundary. MuPDF's interval between checks during page processing varies.
+- **E117.** The simulated click on the selection toolbar ran Copy and
+  wrongly made the toolbar active. The input helper now moves the test
+  cursor, verifies the client hit and honors `WM_MOUSEACTIVATE`. In both
+  hidden layouts, Copy reached the toolbar and left activation with the
+  other window. The canvas and page-box reactivation cases also passed.
+  The Go to page modal restored its geometry and focus in both minimize
+  orders in both layouts. The real-foreground branch awaits hosted Windows.
+- **E112.** Moving the toolbar alone by 40 pixels left the find bar at its
+  previous position. The anchor layer now watches the toolbar's position and
+  visibility. `ad-hoc-e98-anchored-popups` passed in both hidden layouts in
+  Debug and in `workArea` in ASan. The find bar followed the move,
+  used frame placement while the toolbar was hidden, and returned to the
+  search button when the toolbar reappeared.
+
 ### E129 citation preview
 
 With a cold destination and its engine lock held, the old show timer waited

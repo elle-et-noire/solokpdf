@@ -414,6 +414,8 @@ The find bar, the selection toolbar, the annotation toolbar, the comment card
 and the read-aloud and Automatically Scroll bars are placed from what the
 canvas shows. They are placed again whenever the canvas moves or resizes,
 not only when the frame moves. The ones about the document go with its tab.
+The compact find bar also follows the toolbar's search button when the toolbar
+moves on its own. It uses the frame for placement while the toolbar is hidden.
 The annotation toolbar no longer shows over the desktop while the window is
 minimized (E110). These popups and the ones above hide with the minimized
 frame and come back where they were when it is restored, also one shown while
