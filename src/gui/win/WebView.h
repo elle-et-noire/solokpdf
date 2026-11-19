@@ -37,6 +37,7 @@ struct WebViewEvents {
     void* ctx = nullptr;
     bool (*navigationStarting)(void* ctx, Str url, bool newWindow) = nullptr;
     void (*navigationCompleted)(void* ctx, Str url, bool success) = nullptr;
+    bool latestNavigationOnly = false;
     void (*historyChanged)(void* ctx, bool canGoBack, bool canGoForward) = nullptr;
     // maps an accelerator key press inside the webview to an app command id to
     // post (WM_COMMAND) to the top-level window, or 0 to leave it to the
@@ -106,6 +107,10 @@ struct WebviewWnd : WindowBase {
     void RemoveInitScript(int token);
     void OnInitScriptAdded(int token, const WCHAR* id);
     void Navigate(Str url);
+    void NotifyNavigationComplete(u64 id, Str url, bool success);
+#if defined(DEBUG)
+    bool ReplayOldNavigation(Str url);
+#endif
     void Bind(Str name);
     void Resolve(Str id, int status, Str resultJson);
     void OnJsCall(Str msg);
@@ -171,6 +176,10 @@ struct WebviewWnd : WindowBase {
     WStr resourceUriPrefix;
     WebViewResourceProvider resourceProvider;
     WebViewEvents events;
+    u64 latestNavigationId = 0;
+#if defined(DEBUG)
+    u64 previousNavigationId = 0;
+#endif
     bool forwardAppAccelerators = true;
     bool allowClipboardRead = false;
     Color defaultBackgroundColor = kColorTransparent;

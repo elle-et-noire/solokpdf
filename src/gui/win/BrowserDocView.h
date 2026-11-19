@@ -4,6 +4,10 @@
 struct HtmlWindowCallback;
 struct WebViewResourceResult;
 struct BrowserWebviewWnd;
+#if defined(DEBUG)
+struct BrowserView;
+bool ReplayOldBrowserNavigation(BrowserView*, Str url);
+#endif
 
 // Which embedded browser hosts the document. Auto = WebView2 when installed.
 enum class HtmlBackend {
@@ -18,6 +22,9 @@ void SetHtmlBackend(HtmlBackend);
 // WebView2 when available, otherwise IE.
 class BrowserDocView {
     friend struct BrowserWebviewWnd;
+#if defined(DEBUG)
+    friend bool ReplayOldBrowserNavigation(BrowserView*, Str url);
+#endif
 
   public:
     bool canGoBack = false;

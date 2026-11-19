@@ -562,7 +562,11 @@ export async function testit(): Promise<void> {
       { kind: "Markdown", path: join(mdDir, "a.md"), ext: "(md|html)" },
       { kind: "CHM", path: chm, ext: "html" },
     ];
+    const saveTrace = process.argv.includes("--trace-navigation");
     for (const doc of webDocs) {
+      const tracePath = join(dir, `${doc.kind.toLowerCase()}-navigation.txt`);
+      const failureCount = failures.length;
+      let finished = false;
       const started = await client.request(ControlCommand.TestActivationTrace, ["start-focus"]);
       check(started[1] === "OK", `${doc.kind}: navigation diagnostics did not start`);
       const navigated = async (name: string) => {
@@ -576,7 +580,6 @@ export async function testit(): Promise<void> {
       const nextPage = () => {
         check(postMessage(frame, WM_COMMAND, cmdId("CmdGoToNextPage"), 0), `${doc.kind}: posting Next Page failed`);
       };
-      const failureCount = failures.length;
       try {
         await openInTab(client, frame, doc.path, 1);
         await navigated("a");
@@ -585,6 +588,8 @@ export async function testit(): Promise<void> {
           checkAway(await focusState(client, "away"), "before navigating");
           nextPage();
           await navigated("b");
+          const [code, page] = await client.request(ControlCommand.TestMarkdownServed, ["replay-completion", "a.html"]);
+          check(code === 0 && page === "2", `${doc.kind}: late page a completion changed page b (${code}, ${page})`);
           await client.request(ControlCommand.TestMarkdownServed, ["trace"]);
           checkAway(await settled(client), "navigated");
         });
@@ -597,11 +602,16 @@ export async function testit(): Promise<void> {
           const res = await settled(client);
           check(/^focus=(frame|canvas) active=frame /.test(res), `the frame did not get the focus: ${res}`);
         });
+        finished = true;
       } finally {
-        await client.request(ControlCommand.TestMarkdownServed, ["trace"]);
-        const [, trace] = await client.request(ControlCommand.TestActivationTrace, ["stop-focus"]);
-        if (failures.length > failureCount || process.argv.includes("--trace-navigation")) {
-          console.log(`${doc.kind}\n${trace}`);
+        try {
+          await client.request(ControlCommand.TestMarkdownServed, ["trace"]);
+        } finally {
+          const [, trace] = await client.request(ControlCommand.TestActivationTrace, ["stop-focus"]);
+          if (!finished || failures.length > failureCount || saveTrace) {
+            writeFileSync(tracePath, `${doc.kind}\n${failures.slice(failureCount).join("\n")}\n${trace}\n`);
+            console.log(`${doc.kind}\n${trace}`);
+          }
         }
       }
     }

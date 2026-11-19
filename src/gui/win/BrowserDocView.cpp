@@ -363,6 +363,7 @@ bool BrowserDocView::CreateWebView2() {
     wv->events.ctx = this;
     wv->events.navigationStarting = NavigationStarting;
     wv->events.navigationCompleted = NavigationCompleted;
+    wv->events.latestNavigationOnly = true;
     wv->events.historyChanged = HistoryChanged;
     wv->events.resolveAccelCmd = ChmResolveAccelCmd;
     wv->events.jsNotify = BrowserWebviewWnd::OnJsNotifyCb;
@@ -746,6 +747,13 @@ struct BrowserView {
     BrowserDocView* view = nullptr;
     BrowserViewCallbackAdapter adapter;
 };
+
+#if defined(DEBUG)
+bool ReplayOldBrowserNavigation(BrowserView* bv, Str url) {
+    auto* view = bv ? bv->view : nullptr;
+    return view && view->wv && view->wv->ReplayOldNavigation(url);
+}
+#endif
 
 bool BrowserViewAvailable() {
     return true;

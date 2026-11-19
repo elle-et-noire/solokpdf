@@ -20,6 +20,7 @@
 #include "gui/VirtCtrl.h"
 #include "gui/win/WinGui.h"
 #include "gui/win/TabsCtrl.h"
+#include "gui/win/BrowserDocView.h"
 
 #include "Settings.h"
 #include "DisplayMode.h"
@@ -2426,9 +2427,21 @@ static void ExecuteControlRequest(ControlRequest* req) {
         }
 
         case ControlCmd::TestMarkdownServed: {
+            Str action = StringArg(req, 0);
+#if defined(DEBUG)
+            if (gForTesting && str::Eq(action, StrL("replay-completion"))) {
+                MainWindow* win = len(gWindows) ? gWindows[0] : nullptr;
+                BrowserDocController* browser = win && win->ctrl ? win->ctrl->AsBrowser() : nullptr;
+                Str url = StringArg(req, 1);
+                bool replayed = browser && url && ReplayOldBrowserNavigation(browser->docView, url);
+                AppendTestResult(req, replayed ? 0 : 2,
+                                 replayed ? fmt("%d", browser->CurrentPageNo()) : StrL("no previous navigation"));
+                break;
+            }
+#endif
             int exitCode = 0;
             Str res = MarkdownServedResultTemp(&exitCode);
-            if (gTraceFocus && str::Eq(StringArg(req, 0), StrL("trace"))) {
+            if (gTraceFocus && str::Eq(action, StrL("trace"))) {
                 TraceTestPageNav(StrL("served-snapshot"), nullptr, exitCode, res);
             }
             AppendTestResult(req, exitCode, res);

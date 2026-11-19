@@ -509,9 +509,18 @@ class webview2_navigation_starting_handler : public ICoreWebView2NavigationStart
         if (len(url) == 0) {
             return S_OK;
         }
+        bool trackLatest = m_wnd->events.latestNavigationOnly;
         bool allow = m_wnd->events.navigationStarting(m_wnd->events.ctx, url, false);
         if (!allow) {
             args->put_Cancel(TRUE);
+        } else if (trackLatest) {
+            UINT64 id = 0;
+            if (SUCCEEDED(args->get_NavigationId(&id)) && id != m_wnd->latestNavigationId) {
+#if defined(DEBUG)
+                m_wnd->previousNavigationId = m_wnd->latestNavigationId;
+#endif
+                m_wnd->latestNavigationId = id;
+            }
         }
         return S_OK;
     }
@@ -520,6 +529,24 @@ class webview2_navigation_starting_handler : public ICoreWebView2NavigationStart
     WebviewWnd* m_wnd = nullptr;
     ULONG m_refCount = 1;
 };
+
+void WebviewWnd::NotifyNavigationComplete(u64 id, Str url, bool success) {
+    // A late completion must not replace the page a newer navigation is loading.
+    if (events.latestNavigationOnly && id && latestNavigationId && id != latestNavigationId) {
+        return;
+    }
+    events.navigationCompleted(events.ctx, url, success);
+}
+
+#if defined(DEBUG)
+bool WebviewWnd::ReplayOldNavigation(Str url) {
+    if (!previousNavigationId || !events.navigationCompleted) {
+        return false;
+    }
+    NotifyNavigationComplete(previousNavigationId, url, true);
+    return true;
+}
+#endif
 
 class webview2_navigation_completed_handler : public ICoreWebView2NavigationCompletedEventHandler {
   public:
@@ -560,7 +587,9 @@ class webview2_navigation_completed_handler : public ICoreWebView2NavigationComp
             CoTaskMemFree(uri);
         }
         if (url) {
-            m_wnd->events.navigationCompleted(m_wnd->events.ctx, url, success != FALSE);
+            UINT64 id = 0;
+            args->get_NavigationId(&id);
+            m_wnd->NotifyNavigationComplete(id, url, success != FALSE);
         }
         UpdateWebViewHistory(m_wnd);
         return S_OK;
