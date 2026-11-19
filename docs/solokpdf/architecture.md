@@ -224,6 +224,9 @@ ng も共有の基底実装とフォーム結果の呼び出し側を使う。�
 
 ## UI と入力
 
+- 通知は `ShowNotification()` で作成し、`groupId` が上書きの単位を決める。フレームの Esc 処理も
+  同じ ID を優先順に照合する。テーマ切り替えとズームの通知は `kNotifZoomOrView` を共有する。
+  [通知の管理](../../src/Notifications.cpp) · [Esc の処理](../../src/SumatraPDF.cpp)
 - `SidebarTree` は既存 `TreeView` API と仮想ツリーの変換、設定から表示モードへの変換、
   サイドバーの下余白 4 DIP とツールチップを担当する。
   `VirtTree` がモデル世代・選択・展開・行情報、色・方向、フォント・DPI に応じた再計測・バー更新、

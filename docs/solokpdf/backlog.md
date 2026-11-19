@@ -15,7 +15,7 @@ See the [remaining work plan](remaining-work-plan.md) for sequencing, dependenci
 Completed work and evidence go in [history.md](history.md#completed-backlog).
 Record new failures here with a trigger, observable outcome and acceptance
 check. Add behavior changes to [features.md](features.md) or
-[limitations.md](limitations.md). Next free IDs are B78, C2, D16, E154 and F4.
+[limitations.md](limitations.md). Next free IDs are B78, C2, D16, E155 and F4.
 For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
@@ -30,6 +30,7 @@ For code changes, select affected tests from [testing.md](testing.md).
 | E125 | A selected annotation's toolbar returns to its original click position after scrolling off and back, minimizing or switching tabs; changing selection clears its anchor.                                                                                                                    | todo        |
 | E126 | A Home keyboard-focus tip returns after minimize and restore while focus remains; hover tips still follow the cursor. Test both minimize orders.                                                                                                                                            | todo        |
 | E133 | The [lock and producer inventory](limitations.md#engine-contention-e133) is recorded. Add cancellation and recovery checks with deterministic contention for each remaining producer, and measure the waits and cancellation boundaries.                                                    | in progress |
+| E154 | Decouple Esc dismissal from notification replacement groups. The notification layer selects and closes the visible target in priority order. Check zoom, theme cycling and stacked notifications. [Plan](remaining-work-plan.md#e154-通知の上書きと-esc)                                    | todo        |
 
 ## Watch
 
