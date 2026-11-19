@@ -28,19 +28,19 @@ Current behavior and its limits are in [features.md](features.md) and
 
 ### Validation as of 2026-11-20
 
-Reviewed revision `c1f07fea0` on `solokpdf-dev`. PDFium is pinned to
+Reviewed revision `1a2d483c7` on `solokpdf-dev`. PDFium is pinned to
 `158.0.8111.0`. [Pin](../../cmd/solok-pdfium-pin.json)
 
 | Check             | Tested revision | Result                                                                                                                                                                                                                                                                                           |
 | ----------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Regular CI        | `6c8946da4`     | Debug unit and feature steps passed, including E125. Release built and passed the extracted ZIP smoke test. [Run 44584401119](https://github.com/elle-et-noire/solokpdf/actions/runs/44584401119)                                                                                                |
+| Regular CI        | `1a2d483c7`     | Debug unit tests passed and 117 of 119 feature tests passed. Release built and passed the extracted ZIP smoke test. [Run 44612148249](https://github.com/elle-et-noire/solokpdf/actions/runs/44612148249)                                                                                        |
 | Hosted full suite | `c1f07fea0`     | PDFium failed 36 of 627 tests. MuPDF failed 51 of 630. Most failures were reports of app processes still present after tests. [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44597677524) · [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44597684214) |
 | Hosted ASan       | `c1f07fea0`     | Passed save/shutdown, tree lifetime and PDFium fallback tests. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44597692905](https://github.com/elle-et-noire/solokpdf/actions/runs/44597692905)                                                                                        |
 
 The [D15 record](history.md#d15-hosted-verification-at-c1f07fea0-2026-11-20)
 lists the failed assertions and suite exclusions.
-The [targeted rechecks](history.md#d15-targeted-rechecks-2026-11-20) record
-the local fixes and verification.
+The [regular CI follow-up](history.md#d15-regular-ci-follow-up-at-1a2d483c7-2026-11-20)
+records the two Debug feature failures and their fixes.
 The [backlog](backlog.md) tracks remaining work and intermittent observations.
 Local seeded stress checks are in the [monkey-test record](history.md#e71-monkey-test-2026-11-16).
 The owner reported that F2 tree checks passed, with build and environment

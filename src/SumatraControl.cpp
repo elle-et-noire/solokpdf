@@ -3059,7 +3059,12 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     AppendTestResult(req, 1, StrL("invalid page"));
                     break;
                 }
-                IPageElement* el = engine->GetElementAtPos(pageNo, PointF((float)x, (float)y));
+                ElementAt hit = engine->ElementAtPos(pageNo, PointF((float)x, (float)y), EngineWait::NoWait);
+                if (hit.busy) {
+                    AppendTestResult(req, 2, StrL("busy"));
+                    break;
+                }
+                IPageElement* el = hit.value;
                 IPageDestination* dest = el ? el->AsLink() : nullptr;
                 if (str::Eq(query, StrL("follow-element"))) {
                     bool followed = dest && dm->HandleLink(dest, gWindows[0]->linkHandler);
@@ -3454,6 +3459,18 @@ static void ExecuteControlRequest(ControlRequest* req) {
 
         case ControlCmd::TestCanvasFlags: {
             Str action = StringArg(req, 0);
+            if (str::EqI(action, StrL("scroll-annotation-toolbar"))) {
+                MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+                DisplayModel* dm = win ? win->AsFixed() : nullptr;
+                if (!dm) {
+                    AppendTestResult(req, 1, StrL("no document"));
+                    break;
+                }
+                // Sample the toolbar before the scroll's queued repaint.
+                HwndSendCommand(win->hwndFrame, CmdScrollDownPage);
+                AppendTestResult(req, 0, fmt("page=%d %s", dm->CurrentPageNo(), AnnotEditToolbarStateTemp(win)));
+                break;
+            }
             if (str::EqI(action, StrL("set-grid"))) {
                 i32 on = 0;
                 IntArg(req, 1, on);

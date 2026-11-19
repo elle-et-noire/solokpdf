@@ -5,8 +5,10 @@ See the [remaining work plan](remaining-work-plan.md) for sequencing, dependenci
 
 ## Triage (2026-11-20)
 
-- Recheck `issue-6151`, `issue-6194` and the post-test process check on hosted
-  Windows. [Local results](history.md#d15-targeted-rechecks-2026-11-20)
+- Both engines passed the hosted recheck of `issue-6151`, `issue-6194` and the
+  post-test process check. The popup and PDFium review fixes passed locally.
+  Verify the fixes in regular CI before the full D15 runs.
+  [Follow-up](history.md#d15-regular-ci-follow-up-at-1a2d483c7-2026-11-20)
 
 Completed work and evidence go in [history.md](history.md#completed-backlog).
 Record new failures here with a trigger, observable outcome and acceptance

@@ -1,19 +1,25 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient, withControlledSumatra } from "./control.ts";
-import { assemblePdf, cmdId, EXE, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
+import { assemblePdf, cmdId, EXE, pollUntil, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { findCanvas, FRAME_CLASS } from "./win-automation.ts";
 import { getWindowText, packCoords, sendMessage, sendCopyDataW, waitForTopWindow, WM_COMMAND } from "./winapi.ts";
 
 const OPEN_DATA_ID = 0x44646557;
+const ELEMENT_BUSY = 2;
+const LOCK_HOLD_MS = 1000;
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==",
   "base64",
 ).toString("latin1");
 
-async function query(client: ControlClient, page: number, x: number, y: number): Promise<string> {
-  const res = await client.request(ControlCommand.TestCurrentPdf, ["element", page, x, y]);
-  if (res[0] !== 0) throw new Error(`element ${page} ${x},${y}: ${res[1]}`);
+async function lookup(client: ControlClient, action: "element" | "follow-element", x: number, y: number) {
+  const res = await pollUntil(
+    () => client.request(ControlCommand.TestCurrentPdf, [action, 1, x, y]),
+    ([status, result]) => status !== ELEMENT_BUSY || result !== "busy",
+    { error: `${action} ${x},${y}: PDF element lookup stayed busy` },
+  );
+  if (res[0] !== 0) throw new Error(`${action} ${x},${y}: ${res[1]}`);
   return String(res[1]);
 }
 
@@ -66,13 +72,14 @@ export async function testit(): Promise<void> {
       if (!canvas) throw new Error("canvas missing");
       if (!sendCopyDataW(frame, OPEN_DATA_ID, `[Open("${plain}", 0, 1, 0)]`)) throw new Error("open plain failed");
       await client.waitForRenderIdle();
-      if (!(await query(client, 1, 200, 200)).includes("kind=none")) throw new Error("plain page has a hover target");
+      if (!(await lookup(client, "element", 200, 200)).includes("kind=none"))
+        throw new Error("plain page has a hover target");
       const before = await client.request(ControlCommand.TestCurrentPdf, ["editor"]);
       if (before[1] !== "editor=none") throw new Error(`plain hover loaded editor: ${before[1]}`);
       const [px, py] = await point(client, 200, 200);
       sendMessage(frame, WM_COMMAND, cmdId("CmdCreateAnnotText"), packCoords(px, py));
       await client.waitForRenderIdle();
-      const created = await query(client, 1, 200, 200);
+      const created = await lookup(client, "element", 200, 200);
       if (!created.includes("kind=comment") || !created.includes("value=Author: B63")) {
         throw new Error(`new comment invisible: ${created}`);
       }
@@ -80,18 +87,23 @@ export async function testit(): Promise<void> {
       if (!sendCopyDataW(frame, OPEN_DATA_ID, `[Open("${annotated}", 0, 1, 0)]`))
         throw new Error("open annotated failed");
       await client.waitForRenderIdle();
-      const overlap = await query(client, 1, 130, 92);
+      const overlap = await lookup(client, "element", 130, 92);
       if (!overlap.includes("kind=link")) throw new Error(`comment masks link: ${overlap}`);
-      const normalized = await query(client, 1, 460, 82);
+      const [held, lock] = await client.request(ControlCommand.TestCurrentPdf, ["hold-pdfium-lock", LOCK_HOLD_MS]);
+      if (held !== 0) throw new Error(`hold PDFium lock: ${lock}`);
+      const [status, busy] = await client.request(ControlCommand.TestCurrentPdf, ["element", 1, 460, 82]);
+      if (status !== ELEMENT_BUSY || busy !== "busy") {
+        throw new Error(`expected busy comment lookup, got ${status}: ${busy}`);
+      }
+      const normalized = await lookup(client, "element", 460, 82);
       if (!normalized.includes("value=one\n two") || normalized.includes("two \r")) {
         throw new Error(`comment newlines differ: ${JSON.stringify(normalized)}`);
       }
-      const attachment = await query(client, 1, 210, 202);
+      const attachment = await lookup(client, "element", 210, 202);
       if (!attachment.includes("target=embedded")) throw new Error(`attachment has no hit target: ${attachment}`);
       const editor = await client.request(ControlCommand.TestCurrentPdf, ["editor"]);
       if (editor[1] !== "editor=none") throw new Error(`attachment hover loaded editor: ${editor[1]}`);
-      const followed = await client.request(ControlCommand.TestCurrentPdf, ["follow-element", 1, 210, 202]);
-      if (followed[0] !== 0) throw new Error(`attachment click did not resolve: ${followed[1]}`);
+      await lookup(client, "follow-element", 210, 202);
       await client.waitForRenderIdle();
       if (!getWindowText(frame).includes("image002.png")) throw new Error("attachment click did not open image002.png");
     },

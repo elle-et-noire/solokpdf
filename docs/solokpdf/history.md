@@ -3722,6 +3722,31 @@ and `issue-5040`. PDFium also excluded `issue-5937`, `issue-3731`, and
 
 D15 remains open for hosted verification of these changes.
 
+### D15 regular CI follow-up at `1a2d483c7` (2026-11-20)
+
+The Debug build and unit tests passed. Release built and passed the extracted
+ZIP smoke test. The Debug feature step passed 117 of 119 tests.
+[Regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/44612148249)
+
+- `ad-hoc-e98-anchored-popups` lost the annotation toolbar before Page Down.
+  `WM_SETREDRAW` can clear the canvas's `WS_VISIBLE` flag while a popup sync
+  is pending. The test now sends Page Down and samples the toolbar in the
+  same UI request, before the queued canvas repaint.
+- `ad-hoc-pdfium-review` received `kind=none` at a comment. Holding the
+  PDFium lock reproduced that result. The element probe now reports a busy
+  lookup, and the test retries that result after confirming it under lock.
+
+The Debug build and hover lookup lint passed locally. On the hidden desktop,
+the popup test passed three times per engine in `workArea`. Its annotation
+case also passed in `rightHalf` and at 1024×720 on both engines. The PDFium
+review test passed three runs with the final lock contention check.
+
+The previous D15 fixes passed hosted Debug at `1a2d483c7`. Both engines ran
+`issue-6151`, `issue-6194` and `issue-6144` at 1024×720 without a process leak
+report. Same-revision full Debug and ASan verification remains open.
+[PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629587531) ·
+[MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629592648)
+
 ### E133 input queued behind a PDF write
 
 The two-page fixture queues Page Down at the write boundary while the UI

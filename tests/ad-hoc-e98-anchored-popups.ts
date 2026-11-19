@@ -1263,18 +1263,12 @@ async function checkAnnotClickAnchor(): Promise<void> {
     );
 
     await step("annotation toolbar: click position after scrolling off and back", async () => {
-      // The toolbar must hide before the next canvas paint.
-      sendMessage(canvas, WM_SETREDRAW, 0, 0);
       try {
-        check(!!find(), "toolbar hid when canvas redraw was suspended");
-        run("CmdScrollDownPage");
+        const [code, state] = await client.request(ControlCommand.TestCanvasFlags, ["scroll-annotation-toolbar"]);
+        check(code === 0, `Page Down failed: ${state}`);
+        check(/^page=2 annotEditToolbar visible=0\b/.test(String(state)), `toolbar state before repaint: ${state}`);
         await waitGone(find, "toolbar offscreen");
-        check((await client.chapterInfo()).page === 2, "Page Down did not reach the blank page");
-      } catch (cause) {
-        const [, scroll] = await client.request(ControlCommand.TestScrollState);
-        throw new Error(`${(cause as Error).message}; canvas ${show(box(canvas))}; ${scroll}`);
       } finally {
-        sendMessage(canvas, WM_SETREDRAW, 1, 0);
         run("CmdGoToFirstPage");
       }
       await waitAt(find, before, "toolbar after scrolling back");
