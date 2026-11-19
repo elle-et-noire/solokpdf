@@ -491,6 +491,7 @@ void RelayoutIfVisible(T* bar) {
 
 bool PreTranslateMessage(MSG& msg);
 void UpdateThemeAllWindows();
+void WatchWindowTheme(HWND, Func0);
 void AppendWindowThemeDump(str::Builder& out);
 
 // Base of the controls that a layout positions: the win32 controls (Static,

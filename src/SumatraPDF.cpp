@@ -34,6 +34,7 @@
 
 #include "gui/PlatformFont.h"
 #include "gui/Gfx.h"
+#include "gui/GuiColors.h"
 #include "gui/VirtCtrl.h"
 #include "gui/win/TabsCtrl.h"
 
@@ -2887,6 +2888,18 @@ static void CreateFrameLayout(MainWindow* win) {
     FrameSyncSplitters(win);
 }
 
+static void UpdateSidebarSplitters(MainWindow* win) {
+    Color bg = ThemeSidebarColor();
+    Color hover = ThemeHoverColorOn(bg);
+    VirtSplitter* splitters[] = {win->sidebarSplitter, win->sidebarPanelsSplitter, win->sidebarMiddleSplitter};
+    for (VirtSplitter* splitter : splitters) {
+        if (splitter) {
+            splitter->SetColor(kColSplitterBg, bg);
+            splitter->SetColor(kColSplitterBgHover, hover);
+        }
+    }
+}
+
 static void CreateSidebar(MainWindow* win) {
     win->sidebarSplitter = NewFrameSplitter(SplitterType::Vert, true);
     win->sidebarSplitter->thickness = kSplitterDx;
@@ -2906,6 +2919,7 @@ static void CreateSidebar(MainWindow* win) {
     win->sidebarMiddleSplitter->thickness = kSplitterDy;
     win->sidebarMiddleSplitter->onMove = MkFunc1Void(OnMiddleSplitterMove);
     FrameSyncSplitters(win);
+    UpdateSidebarSplitters(win);
 
     CreateFrameLayout(win);
 
@@ -3306,28 +3320,21 @@ void UpdateAfterThemeChange() {
         win->brControlBgColor = CreateSolidBrush(ThemeControlBackgroundColor());
 
         RebuildMenuBarForWindow(win);
-        UpdateToolbarAfterThemeChange(win);
-        RefreshSelectionToolbarIcons(win);
-        RefreshAnnotEditToolbar(win);
-        RefreshAnnotationHoverOverlay(win);
-        UpdateAIChatTheme(win);
         DarkModeApplyToFrameAfterThemeChange(win);
-        // after darkmodelib, which recolors the sidebar trees and fields
-        UpdateControlsColors(win);
+        UpdateSidebarSplitters(win);
         UpdateWindowFrameBorderColor(win);
 #if defined(SOLOKPDF_PDFIUM)
         ApplyThemedAppIcon(win->hwndFrame);
 #endif
+    }
+    UpdateThemeAllWindows();
+    for (auto* win : gWindows) {
         // TODO: this only rerenders canvas, not frame, even with
         // includingNonClientArea == true.
         MainWindowRerender(win, true);
         uint flags = RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN;
         RedrawWindow(win->hwndFrame, nullptr, nullptr, flags);
-        OverlayScrollbarRepaint(win->overlayScrollV);
-        OverlayScrollbarRepaint(win->overlayScrollH);
     }
-    // every dialog, palette and tool window, whoever opened it
-    UpdateThemeAllWindows();
     UpdateDocumentColors();
 }
 
@@ -3337,7 +3344,10 @@ void ReloadSettingsUpdateWindows(bool showToolbarBefore) {
             ShowOrHideToolbar(win);
         }
         UpdateFavoritesTree(win);
-        UpdateControlsColors(win);
+        // Settings can change the colors of the current theme without switching themes.
+        UpdateSidebarSplitters(win);
+        UpdateTocColors(win);
+        UpdateFavColors(win);
         if (DisplayModel* dm = win->AsFixed()) {
             int dpi = win->frameDpi > 0 ? win->frameDpi : DpiGetForHwnd(win->hwndFrame);
             dm->SetUiDpi(dpi);

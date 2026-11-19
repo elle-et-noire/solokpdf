@@ -533,6 +533,7 @@ enum class RenderPark {
     Annotations,
     DisplayList,
     Widgets,
+    Text,
 };
 enum class RenderParkMode {
     Abortable,

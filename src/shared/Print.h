@@ -100,3 +100,8 @@ enum class PrintUI {
 void PrintCurrentFile(MainWindow* win, bool waitForCompletion = false, bool selectionByDefault = false,
                       PrintUI ui = PrintUI::Auto);
 void AbortPrinting(MainWindow* win);
+
+#if OS_WIN && IS_DEBUG
+bool TestStartPrintBand(EngineBase* engine, int page, int ms);
+TempStr TestPrintBandStateTemp();
+#endif

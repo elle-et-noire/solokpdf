@@ -355,8 +355,9 @@ ng も共有の基底実装とフォーム結果の呼び出し側を使う。�
   [Win.cpp](../../src/base/Win.cpp) の app input 層だけが読み、テストカーソルの扱いもそこに閉じる（E101、[testing.md](testing.md)）。
   キャプチャで切れた離脱追跡の再設定も同層が持ち、離脱を求めた窓をサブクラスしてキャプチャ終了時に再設定する（E105）。
 - テーマ変更時は `UpdateThemeAllWindows()` が HWND 登録表を走査し、現在の UI スレッドのトップレベル `WindowBase` に
-  `UpdateTheme()` を呼ぶ。所有窓も対象に含む。子窓は親と一緒に再描画され、メインウィンドウの部品は
-  `UpdateAfterThemeChange()` が更新する（E109）。[WindowBase.cpp](../../src/gui/win/WindowBase.cpp)
+  `UpdateTheme()` を呼ぶ。所有窓も対象に含む。ネイティブの子窓やレイヤードウィンドウは、固有の色更新を作成時に
+  `WatchWindowTheme()` で登録する。登録は HWND の破棄時に解除される。フレームはメニューバーや枠を更新し、部品の
+  更新後に再描画する（E109、E118）。[WindowBase.cpp](../../src/gui/win/WindowBase.cpp)
 - `MainWindow::GetKeyTarget` が入力先を分類し、`SumatraPDF.cpp` がメッセージを配送する。
   `VimKeys.cpp` が優先順位と実行を扱い、`KeyInputState` は回数・接頭キーの状態だけを持つ。
   送り先 HWND と実フォーカスは別に判定する。

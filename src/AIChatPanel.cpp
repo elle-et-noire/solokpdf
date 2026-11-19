@@ -1015,6 +1015,7 @@ void CreateAIChatPanel(MainWindow* win) {
 
     win->aiChatBoxSubclassId = NextSubclassId();
     SetWindowSubclass(win->hwndAiChatBox, WndProcAIChatBox, win->aiChatBoxSubclassId, (DWORD_PTR)win);
+    WatchWindowTheme(win->hwndAiChatBox, MkFunc0(UpdateAIChatTheme, win));
 
     // layout: label, session combo, webview area (flex), input row, options row
     {

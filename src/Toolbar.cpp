@@ -2823,6 +2823,7 @@ void CreateToolbar(MainWindow* win) {
     tb->platformFont = GetUserGuiFont({}, newSize);
     win->toolbarVirt = tb;
     win->hwndToolbar = host->native;
+    WatchWindowTheme(host->native, MkFunc0(UpdateToolbarAfterThemeChange, win));
     host->SetFont(tb->platformFont);
 
     BuildToolbarLayout(win);

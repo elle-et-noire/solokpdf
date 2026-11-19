@@ -1181,6 +1181,10 @@ static void PlaceHomeSearchEdit(MainWindow* win, const Rect& rcSearchBorder) {
     win->homeSearchLayout->SetBounds(rcEdit);
 }
 
+static void UpdateHomeSearchColors(HomeSearchEdit* edit) {
+    edit->SetColors(ThemeWindowTextColor(), ThemeControlBackgroundColor());
+}
+
 static void EnsureHomeSearchCreated(MainWindow* win) {
     if (win->homeSearch) {
         UpdateHomeSearchCueBanner(win);
@@ -1198,7 +1202,8 @@ static void EnsureHomeSearchCreated(MainWindow* win) {
     e->Create(args);
     // Edit::Create wired Edit::WndProc; re-route to HomeSearchEdit for Esc/Down/wheel
     e->onWndProc = MkMethod1<HomeSearchEdit, ControlBase::WndProcEvent*, &HomeSearchEdit::WndProc>(e);
-    e->SetColors(ThemeWindowTextColor(), ThemeControlBackgroundColor());
+    UpdateHomeSearchColors(e);
+    WatchWindowTheme(e->hwnd, MkFunc0(UpdateHomeSearchColors, e));
     e->onTextChanged = MkFunc0(HomeSearchTextChanged, win);
     e->onFocus = MkFunc0(HomeSearchFocusChanged, win);
     e->onKillFocus = MkFunc0(HomeSearchFocusChanged, win);
@@ -1241,14 +1246,6 @@ void HomePageDestroySearch(MainWindow* win) {
     win->homeSearch = nullptr;
     // the layout owns the edit
     delete layout;
-}
-
-// after a theme change; the edit paints itself from these (see
-// Edit::OnMessageReflect and the reflection in WndProcCanvas)
-void HomePageUpdateSearchColors(MainWindow* win) {
-    if (win->homeSearch) {
-        win->homeSearch->SetColors(ThemeWindowTextColor(), ThemeControlBackgroundColor());
-    }
 }
 
 // The search edit survives while the frame moves between monitors. Its HFONT

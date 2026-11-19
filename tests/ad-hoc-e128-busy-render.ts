@@ -371,6 +371,64 @@ async function checkWidgetBoundary(failures: string[]): Promise<void> {
   }
 }
 
+type Worker = "prefetch" | "print-band";
+
+async function checkWorkerDuringLink(engine: Engine, worker: Worker, failures: string[]): Promise<void> {
+  const { proc, client, frame } = await launch(engine, worker, [{ file: "doc.pdf", pdf: makePdf() }]);
+  try {
+    await client.waitForRenderIdle();
+    await client.setNotificationsEnabled(false);
+    const canvas = findCanvas(frame);
+    const at = (await pageToCanvas(client))(PAGE_LINK);
+    const screen = clientToScreen(canvas, at.x, at.y);
+    await moveTestCursor(screen.x, screen.y, client);
+
+    const holdMs = (worker === "prefetch" ? 1000 : 2000) * SLOW_BUILD_FACTOR;
+    await testPdf(client, [`park-${worker}`, WORD_PAGE, holdMs]);
+    await pollUntil(
+      () => testPdf(client, ["park-state"]),
+      (s) => field(s, "parked") === 1,
+      { timeoutMs: WAIT_MS, error: `${worker} did not hold the engine lock` },
+    );
+    const start = performance.now();
+    const coords = packCoords(at.x, at.y);
+    sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, coords);
+    sendMessage(canvas, WM_LBUTTONUP, 0, coords);
+    const elapsed = Math.round(performance.now() - start);
+    console.log(`  action took ${elapsed} ms (hold ${holdMs} ms)`);
+    const state = await testPdf(client, ["park-state"]);
+    const page = (await client.chapterInfo()).page;
+    const waits = worker === "prefetch" || engine === "pdfium";
+    if (page !== 2 || elapsed >= BOUND_MS || field(state, waits ? "expired" : "parked") !== 1) {
+      report(failures, `${engine} link click during ${worker}`, `page=${page} elapsed=${elapsed} (${state})`);
+      return;
+    }
+    let err: string | null = null;
+    if (worker === "prefetch") {
+      await pollUntil(
+        () => testPdf(client, ["has-cached-text", WORD_PAGE]),
+        (s) => field(s, "ready") === 1,
+        { timeoutMs: WAIT_MS, error: "prefetch did not publish text" },
+      );
+      const text = await testPdf(client, ["cached-text", WORD_PAGE]);
+      if (!text.includes("Select these words")) err = text;
+    } else {
+      const result = await pollUntil(
+        () => testPdf(client, ["print-band-state"]),
+        (s) => s !== "running",
+        { timeoutMs: WAIT_MS, error: "print band did not finish" },
+      );
+      if (result !== "painted") err = `print band ${result}`;
+    }
+    const done = await testPdf(client, ["park-state"]);
+    if (field(done, "expired") !== 1 || field(done, "canceled") !== 0) err ??= done;
+    report(failures, `${engine} link click during ${worker}`, err);
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 // PDFium's lock is process-wide: a click in one window cancels the render of a document in
 // another window that holds it, and that window renders its tiles again (a background tab
 // renders nothing: switching tabs cancels its renders)
@@ -674,6 +732,12 @@ async function checkBulkHomeThumbnails(engine: Engine, failures: string[]): Prom
 export async function testit(): Promise<void> {
   setProcessDpiAware();
   const failures: string[] = [];
+  if (process.argv.includes("--text-prefetch-only") || process.argv.includes("--print-band-only")) {
+    const worker: Worker = process.argv.includes("--print-band-only") ? "print-band" : "prefetch";
+    for (const engine of ["pdfium", "mupdf"] as const) await checkWorkerDuringLink(engine, worker, failures);
+    if (failures.length) throw new Error(failures.join("\n"));
+    return;
+  }
   if (process.argv.includes("--widgets-only")) {
     await checkWidgetBoundary(failures);
     if (failures.length) throw new Error(failures.join("\n"));
@@ -719,6 +783,10 @@ export async function testit(): Promise<void> {
     await checkFormTab(engine, failures);
   }
   await checkWidgetBoundary(failures);
+  for (const engine of ["pdfium", "mupdf"] as const) {
+    await checkWorkerDuringLink(engine, "prefetch", failures);
+    await checkWorkerDuringLink(engine, "print-band", failures);
+  }
   await checkOtherWindow(failures);
   await checkNeedsEditorText(failures);
   await checkDisplayList(failures);

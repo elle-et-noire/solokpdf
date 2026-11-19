@@ -37,9 +37,9 @@ void CreateToc(MainWindow*);
 void RefreshTocTreeIfNeeded(MainWindow*);
 void UpdateTocExpansionState(Vec<int>& tocState, TreeView*, TocTree*);
 bool CanShowThumbnails(WindowTab*);
+void UpdateTocColors(MainWindow*);
 void UpdateSidebarThumbnails(MainWindow*);
 void SidebarPagesChanged(MainWindow*);
 void ClearSidebarThumbnails(MainWindow*);
-void UpdateSidebarColors(MainWindow*);
 bool ThumbnailsTakeKey(MainWindow*, HWND, WPARAM key);
 #endif

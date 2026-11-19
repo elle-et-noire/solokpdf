@@ -584,6 +584,18 @@ static void TocContextMenu(ContextMenuEvent* ev) {
 
 static void OnTocItemFont(TreeView::ItemFontEvent*);
 static void OnTocItemStyle(TreeView::ItemStyleEvent*);
+static void UpdateSidebarColors(MainWindow*);
+
+void UpdateTocColors(MainWindow* win) {
+    if (!win->tocTreeView) {
+        return;
+    }
+    Color text = ThemeWindowTextColor();
+    win->tocTreeView->SetColors(text, ThemeSidebarColor());
+    win->tocFilterEdit->SetColors(text, ThemeControlBackgroundColor());
+    win->tocFilterEdit->SetCueColor(ThemeWindowTextDisabledColor());
+    UpdateSidebarColors(win);
+}
 
 void LoadTocTree(MainWindow* win) {
     WindowTab* tab = win->CurrentTab();
@@ -622,7 +634,7 @@ void LoadTocTree(MainWindow* win) {
     TreeView* treeView = win->tocTreeView;
     treeView->SetDirection(isRTL ? TreeDirection::RightToLeft : TreeDirection::LeftToRight);
 
-    UpdateControlsColors(win);
+    UpdateTocColors(win);
     SetInitialExpandState(tocTree->root, tab->tocState);
     AutoExpandTopLevelItems(tocTree->root->child);
 
@@ -1024,7 +1036,8 @@ void CreateToc(MainWindow* win) {
     CreateSignaturesCtrl(win);
     CreateLayersCtrl(win);
 
-    UpdateControlsColors(win);
+    UpdateTocColors(win);
+    WatchWindowTheme(treeView->hwnd, MkFunc0(UpdateTocColors, win));
 }
 
 //--- Thumbnails view
@@ -1033,7 +1046,7 @@ bool CanShowThumbnails(WindowTab* tab) {
     return tab && tab->IsDocLoaded() && tab->AsFixed();
 }
 
-void UpdateSidebarColors(MainWindow* win) {
+static void UpdateSidebarColors(MainWindow* win) {
     if (!win->pageThumbs) {
         return;
     }

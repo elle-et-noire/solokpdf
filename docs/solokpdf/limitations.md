@@ -204,14 +204,15 @@ renders that use the same lock.
 | Citation popup               | The worker passes a render cookie for the destination and optional continuation on the open engine.                                                                                                                                                                                                                                           | The current request retries after cancellation. Hiding the popup or queuing a newer request invalidates the interrupted request.                                                                       |
 | MuPDF display-list build     | A cold build runs the page under `renderLock` and `docLock`. A canvas tile passes its abort cookie through to `fz_run_page`. Synchronous geometry queries still build without a cookie.                                                                                                                                                       | A cancelled build discards its partial list. The next tile builds the list again and renders it.                                                                                                       |
 | Page text and PDFium widgets | Text prefetch holds `gPdfiumLock` through `FPDFText_LoadPage`, glyph extraction and annotation inspection. MuPDF extraction nests `pagesLock`, `renderLock` and `docLock`. `FPDF_FFLDraw` and `FPDFText_LoadPage` have no pause callback. The tile checks before and after widget drawing.                                                    | Finished text, including a failed extraction, updates the cache. Canceled tiles discard their bitmap and repaint.                                                                                      |
-| Printing and PDF writes      | Printing uses a clone and checks between bands and inside supported renders via the print cookie. The action cancellation path leaves the print job running. PDF writers can hold `docLock` through a MuPDF write.                                                                                                                            | A user-canceled print aborts the spool job. PDF save keeps its existing failure and temporary-file handling.                                                                                           |
+| Printing                     | The print worker normally uses a clone. A PDFium clone shares `gPdfiumLock`. A MuPDF clone has independent locks. If cloning and reopening fail, printing can use the open engine. Printing checks its own cookie between bands and inside supported renders.                                                                                 | A page action leaves the print job running. A user-canceled print aborts the spool job.                                                                                                                |
+| PDF writes                   | Saving live annotations and taking a snapshot for a PDF tool run on the UI thread and hold the MuPDF document lock through serialization. The lock belongs to the editor on a PDFium tab. An unmodified PDFium Save As copies source bytes without the PDFium page lock.                                                                      | Save uses its existing failure and temporary-file handling.                                                                                                                                            |
 
-E133 still needs deterministic holds, recovery checks and timings for text
-prefetch, printing and PDF writes. The widget test uses a timed pause under
-the PDFium lock and verifies that cancellation takes effect after the pause.
-Opening a bulk cover's PDFium document precedes the render cookie. PDFium calls
-without pause callbacks and MuPDF's interval between abort checks have no
-measured duration bound.
+Timed holds cover widget drawing, text prefetch and a print band. The widget
+test verifies cancellation after the pause. Text prefetch publishes the text
+after the lock is released. The print test uses an in-memory target.
+Opening a bulk cover's PDFium document precedes the render cookie. Native
+non-interruptible PDFium calls, PDF serialization and MuPDF's interval
+between abort checks have no measured duration bound.
 
 ## Text, search and selection
 

@@ -759,46 +759,6 @@ void MainWindow::ShowFrameRateDur(double durMs) {
     frameRateWnd->ShowFrameRateDur(durMs);
 }
 
-// The sidebar takes the canvas color; its search fields the control
-// background, so they read as fields.
-void UpdateControlsColors(MainWindow* win) {
-    Color bgCol = ThemeSidebarColor();
-    Color editBgCol = ThemeControlBackgroundColor();
-    Color txtCol = ThemeWindowTextColor();
-    Color cueCol = ThemeWindowTextDisabledColor();
-
-    // logf("retrieved doc colors in tree control: 0x%x 0x%x\n", treeTxtCol, treeBgCol);
-
-    VirtSplitter* splitters[] = {win->sidebarSplitter, win->sidebarPanelsSplitter, win->sidebarMiddleSplitter};
-    for (VirtSplitter* s : splitters) {
-        if (s) {
-            s->SetColor(kColSplitterBg, bgCol);
-            s->SetColor(kColSplitterBgHover, ThemeHoverColorOn(bgCol));
-        }
-    }
-
-    if (win->tocTreeView) {
-        win->tocTreeView->SetColors(txtCol, bgCol);
-
-        if (win->tocFilterEdit) {
-            win->tocFilterEdit->SetColors(txtCol, editBgCol);
-            win->tocFilterEdit->SetCueColor(cueCol);
-        }
-        UpdateSidebarColors(win);
-    }
-
-    HomePageUpdateSearchColors(win);
-
-    auto* favTreeView = win->favTreeView;
-    if (favTreeView) {
-        favTreeView->SetColors(txtCol, bgCol);
-        if (win->favFilterEdit) {
-            win->favFilterEdit->SetColors(txtCol, editBgCol);
-            win->favFilterEdit->SetCueColor(cueCol);
-        }
-    }
-}
-
 HWND MainWindowHwnd(MainWindow* win) {
     return win ? win->hwndFrame : nullptr;
 }

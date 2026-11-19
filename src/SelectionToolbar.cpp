@@ -378,6 +378,7 @@ static SelectionToolbar* GetOrCreateToolbar(MainWindow* win) {
         return nullptr;
     }
     tb->host->onPaintBackground = MkFunc1(PaintToolbar, tb);
+    WatchWindowTheme(tb->host->native, MkFunc0(RefreshSelectionToolbarIcons, win));
     tb->font = GetScaledPlatformFont(GetAppFont(), kToolbarFontPct);
     win->selectionToolbar = tb;
     return tb;

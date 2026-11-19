@@ -12,6 +12,7 @@
 #include "gui/Gfx.h"
 #include "gui/GuiColors.h"
 #include "gui/VirtCtrl.h"
+#include "gui/win/WinGui.h"
 
 #include "Theme.h"
 #include "DarkMode.h"
@@ -1264,6 +1265,7 @@ OverlayScrollbar* OverlayScrollbarCreate(HWND hwndOwner, OverlayScrollbar::Type 
     sb->hwnd = CreateWindowExW(exStyle, kOverlayScrollbarClass, nullptr, style, 0, 0, 1, 1, hwndOwner, nullptr,
                                GetModuleHandleW(nullptr), nullptr);
     SetWindowLongPtrW(sb->hwnd, GWLP_USERDATA, (LONG_PTR)sb);
+    WatchWindowTheme(sb->hwnd, MkFunc0(OverlayScrollbarRepaint, sb));
     // what it can't follow: the owner's size and layout direction place its edge
     sb->ownerSubclassId = NextSubclassId();
     SetWindowSubclass(hwndOwner, OwnerSubclassProc, sb->ownerSubclassId, (DWORD_PTR)sb);

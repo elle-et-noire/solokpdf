@@ -9456,6 +9456,11 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
     // failed. Run the page directly under per-page lock.
     ScopedMutex cs(&renderLock);
 
+#if IS_DEBUG
+    if (args.target == RenderTarget::Print) {
+        TestRenderPark(RenderPark::Contents, pageNo, FzCookieCanceled, fzcookie);
+    }
+#endif
     page = pageInfo->page;
     if (!page) {
         return nullptr;
@@ -10102,6 +10107,9 @@ static PageText ExtractPageTextLocked(EngineMupdf* e, FzPageInfo* pageInfo) {
     // runs the whole page, annotations included, and text extraction happens on
     // a background thread while the UI thread can be editing those annotations
     ScopedRecursiveMutex docScope(&e->docLock);
+#if IS_DEBUG
+    TestRenderPark(RenderPark::Text, pageInfo->pageNo, nullptr, nullptr);
+#endif
     fz_stext_page* stext = nullptr;
     fz_var(stext);
     fz_stext_options opts = NewTextPageOptions();

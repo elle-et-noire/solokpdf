@@ -275,7 +275,7 @@ PageThumbnailsCtrl::PageThumbnailsCtrl(MainWindow* win, PlatformFont* font, int 
     if (host == ThumbnailsHost::Palette) {
         colorDefaults = gColsListBoxRaised;
     } else {
-        // the sidebar takes the canvas color (UpdateControlsColors)
+        // Use the sidebar palette for thumbnails in the frame.
         SetColor(kColListText, ThemeWindowTextColor());
         SetColor(kColListBg, ThemeSidebarColor());
     }

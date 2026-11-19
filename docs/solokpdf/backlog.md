@@ -7,9 +7,9 @@ See the [remaining work plan](remaining-work-plan.md) for sequencing, dependenci
 
 - Recheck the Go to page dialog and link menu with the new tests on hosted Windows.
   Record full and ASan workflow results at the same revision (D15).
-- Address UI waits when engine work holds a lock (E133). E135 has
-  one latency outlier with no confirmed cause.
-- Continue test input and main-window theme refresh work (E117, E118).
+- Measure input queued behind a PDF write (E133). E135 has one latency
+  outlier with no confirmed cause.
+- Verify the real-foreground path on hosted Windows (E117).
 
 Completed work and evidence go in [history.md](history.md#completed-backlog).
 Record new failures here with a trigger, observable outcome and acceptance
@@ -19,13 +19,12 @@ For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-| ID   | Acceptance criteria                                                                                                                                                                                                                                                 | Status      |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| D15  | Record full hosted Debug runs on PDFium and MuPDF and a separate hosted ASan run at the same revision, including run IDs and exclusions. [Hosted results](history.md#backlog-verification-2026-11-20)                                                               | todo        |
-| E117 | Model Windows mouse message order, foreground, focus, key state and capture in the test input layer. Verify the revised Go to page reactivation check and the real-foreground branch on hosted Windows. [Local results](history.md#backlog-verification-2026-11-20) | in progress |
-| E118 | Styled buttons and selected native controls resolve surface colors. The compact find bar updates through `WindowBase`. Move the remaining main-window theme refresh calls to their owners. [Results](history.md#backlog-verification-2026-11-20)                    | in progress |
-| E133 | Verify text prefetch, printing and PDF writes in the [lock inventory](limitations.md#engine-contention-e133). The PDFium widget-drawing cancellation boundary and tile recovery have a targeted test. [Results](history.md#backlog-verification-2026-11-20)         | in progress |
-| E155 | Copy Link Address passed on hosted Windows at `8d2acf324`. Check the new command, popup and menu trace on the hosted runner if the empty listing recurs. [Results](history.md#backlog-verification-2026-11-20)                                                      | in progress |
+| ID   | Acceptance criteria                                                                                                                                                                                                                                                  | Status      |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| D15  | Record full hosted Debug runs on PDFium and MuPDF and a separate hosted ASan run at the same revision, including run IDs and exclusions. [Hosted results](history.md#backlog-follow-up-2026-11-20)                                                                   | todo        |
+| E117 | Model Windows mouse message order, foreground, focus, key state and capture in the test input layer. Verify Go to page reactivation and the real-foreground branch on hosted Windows. [Local results](history.md#backlog-follow-up-2026-11-20)                       | in progress |
+| E133 | Measure the time spent in a PDF write and verify input queued behind it. Targeted tests cover the text prefetch, print band and widget boundaries in the [lock inventory](limitations.md#engine-contention-e133). [Results](history.md#backlog-follow-up-2026-11-20) | in progress |
+| E155 | Copy Link Address passed on hosted Windows at `8d2acf324`. Verify the new diagnostics on hosted Windows and use them if the empty listing recurs. [Results](history.md#backlog-follow-up-2026-11-20)                                                                 | in progress |
 
 ## Watch
 

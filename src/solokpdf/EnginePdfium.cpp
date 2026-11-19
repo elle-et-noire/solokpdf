@@ -3357,6 +3357,9 @@ class EnginePdfium : public EngineBase {
         {
             ScopedMutex lock(&gPdfiumLock);
             profile.Mark(StrL("lock"));
+#if IS_DEBUG
+            TestRenderPark(RenderPark::Text, pageNo, nullptr, nullptr);
+#endif
             result = TextLocked(pageNo, &needsEditor);
         }
         if (needsEditor) {

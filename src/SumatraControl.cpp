@@ -86,6 +86,7 @@
 #include "LayersUI.h"
 #include "CommandPalette.h"
 #include "PdfTools.h"
+#include "Print.h"
 #include "MergePdf.h"
 #include "KeyboardHelp.h"
 #include "ReadAloud.h"
@@ -2933,6 +2934,37 @@ static void ExecuteControlRequest(ControlRequest* req) {
                                      target->actionPageFrees, (int)text, len(gWindows)));
                 break;
             }
+#if IS_DEBUG
+            if (gForTesting && str::Eq(signAction, StrL("print-band-state"))) {
+                AppendTestResult(req, 0, TestPrintBandStateTemp());
+                break;
+            }
+            if (gForTesting && str::Eq(signAction, StrL("park-print-band"))) {
+                i32 page = 0;
+                i32 ms = 0;
+                IntArg(req, 1, page);
+                IntArg(req, 2, ms);
+                bool started =
+                    page >= 1 && page <= engine->PageCount() && ms > 0 && TestStartPrintBand(engine, page, ms);
+                AppendTestResult(req, started ? 0 : 1, started ? StrL("armed") : StrL("could not start print band"));
+                break;
+            }
+            if (gForTesting && str::Eq(signAction, StrL("park-prefetch"))) {
+                i32 page = 0;
+                i32 ms = 0;
+                IntArg(req, 1, page);
+                IntArg(req, 2, ms);
+                if (page < 1 || page > engine->PageCount() || ms <= 0) {
+                    AppendTestResult(req, 1, StrL("invalid page or duration"));
+                    break;
+                }
+                engine->InvalidateTextForPage(page);
+                TestArmRenderPark(RenderPark::Text, page, ms, RenderParkMode::Any);
+                engine->RequestTextExtraction(page);
+                AppendTestResult(req, 0, StrL("armed"));
+                break;
+            }
+#endif
             if (str::Eq(StringArg(req, 0), StrL("hold-pdfium-lock"))) {
                 i32 ms = 0;
                 IntArg(req, 1, ms);

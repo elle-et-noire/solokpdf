@@ -55,7 +55,6 @@ void HomePageOnMouseWheel(MainWindow* win, int delta);
 // native home scrollbar: a frame paint lost at startup stays black until
 // something else invalidates the non-client area (#6462)
 void HomePageRepaintWinScrollbar(MainWindow* win);
-void HomePageUpdateSearchColors(MainWindow* win);
 void HomePageOnDpiChanged(MainWindow* win, int dpi);
 void HomePageDestroySearch(MainWindow* win);
 bool HomePageOnCanvasMessage(MainWindow* win, UINT msg, WPARAM wp, LPARAM lp, LRESULT& res);

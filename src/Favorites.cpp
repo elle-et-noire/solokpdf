@@ -531,6 +531,16 @@ static void FavTreeContextMenu(ContextMenuEvent* ev) {
 }
 
 // The Favorites view; a sidebar panel or the Favorites tab shows it (SidebarPanel.cpp)
+void UpdateFavColors(MainWindow* win) {
+    if (!win->favTreeView) {
+        return;
+    }
+    Color text = ThemeWindowTextColor();
+    win->favTreeView->SetColors(text, ThemeSidebarColor());
+    win->favFilterEdit->SetColors(text, ThemeControlBackgroundColor());
+    win->favFilterEdit->SetCueColor(ThemeWindowTextDisabledColor());
+}
+
 void CreateFavorites(MainWindow* win) {
     HWND parent = win->sidebarBottom->hwnd;
     auto* filterEdit = new Edit();
@@ -576,5 +586,6 @@ void CreateFavorites(MainWindow* win) {
     vbox->AddChild(PadSidebarTree(treeView, parent), 1);
     win->favViewLayout = vbox;
 
-    UpdateControlsColors(win);
+    UpdateFavColors(win);
+    WatchWindowTheme(treeView->hwnd, MkFunc0(UpdateFavColors, win));
 }

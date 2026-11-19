@@ -1638,6 +1638,7 @@ static AnnotEditToolbar* GetOrCreateToolbar(MainWindow* win) {
     SetWindowLongPtrW(hwnd, GWL_STYLE, style | WS_CLIPCHILDREN);
     tb->host->onPaintBackground = MkFunc1(PaintToolbarBg, tb);
     tb->host->onNativeMsg = MkFunc1(OnHostNativeMsg, tb);
+    WatchWindowTheme(hwnd, MkFunc0(RefreshAnnotEditToolbar, win));
     tb->font = GetScaledPlatformFont(GetAppFont(), kToolbarFontPct);
     win->annotEditToolbar = tb;
     return tb;
@@ -2370,6 +2371,7 @@ static AnnotationHoverOverlay* GetOrCreateAnnotationHoverOverlay(MainWindow* win
     }
     overlay->host->onPaintBackground = MkFunc1(PaintAnnotationHoverOverlay, overlay);
     overlay->host->onNativeMsg = MkFunc1(AnnotationHoverNativeMsg, overlay);
+    WatchWindowTheme(overlay->host->native, MkFunc0(RefreshAnnotationHoverOverlay, win));
     win->annotationHoverOverlay = overlay;
     return overlay;
 }

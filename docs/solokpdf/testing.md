@@ -343,6 +343,12 @@ a cold page before display-list construction, clicks the page and verifies
 that the build is cancelled and the missing tile is rendered again.
 `--widgets-only` injects a non-interruptible pause at PDFium widget drawing and
 checks the form click and tile recovery after cancellation reaches the boundary.
+`--text-prefetch-only` parks a worker while it holds the page locks in each
+engine. A link click proceeds after release, and the prefetched text remains
+available in the cache. `--print-band-only` parks a print clone during a real
+band render and checks for ink in a memory bitmap. The PDFium click waits for
+the shared lock, and the MuPDF click proceeds while the independent clone is
+still parked. Both print renders complete.
 `--link-menu-only` checks Copy Link Address and writes `link-menu-trace.txt`
 with command delivery, popup and menu handles, owner, and menu contents.
 `--thumbnails-only`, `--citation-only` and `--home-thumbnail-only` park those

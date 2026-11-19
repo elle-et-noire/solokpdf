@@ -3606,6 +3606,38 @@ interactive desktop.
   [Passing run](https://github.com/elle-et-noire/solokpdf/actions/runs/44538783397)
   [Failed run](https://github.com/elle-et-noire/solokpdf/actions/runs/44469257975)
 
+### Backlog follow-up (2026-11-20)
+
+- **D15.** Hosted CI still ends at `8d2acf324`. The Go to page and menu
+  diagnostics are in local commit `dbcbc7350`. The latest full runs cover
+  `542cc4098` and the latest ASan run covers `1ffb2fae1`.
+  [PDFium full](https://github.com/elle-et-noire/solokpdf/actions/runs/43835410857)
+  [MuPDF full](https://github.com/elle-et-noire/solokpdf/actions/runs/43835416476)
+  [ASan](https://github.com/elle-et-noire/solokpdf/actions/runs/44203231694)
+- **E117.** The Go to page edit and button received reactivating clicks in
+  both hidden desktop layouts in Debug and in `workArea` in ASan. The
+  separate-process foreground check awaits hosted Windows.
+- **E118.** The main toolbar, selection and annotation popups, AI panel, Home
+  search edit, sidebar and layered scrollbars register their own theme refresh.
+  Destroying the HWND removes the registration. The main window updates the
+  frame and its splitters. A settings reload still refreshes the sidebar colors
+  when the selected theme is unchanged. The targeted Debug checks passed for
+  open windows, color roles, overlay and bookmark scrollbars, bookmark hover,
+  favorites, Home and external settings reload, Find and annotation toolbars.
+  Open window and overlay scrollbar checks also passed in ASan.
+- **E133.** With a 1,000 ms text prefetch hold, the link click took about 1 s on
+  both engines. It reached page 2 and the worker published the expected text.
+  With a 2,000 ms print band hold, the PDFium click took 1,939–1,963 ms and the
+  MuPDF click took 8–14 ms. Both workers painted ink in memory. ASan measured
+  3,994–4,010 ms for prefetch with a 4,000 ms hold. With an 8,000 ms print
+  hold, the click took 7,957 ms on PDFium and 14 ms on MuPDF.
+  The 20 atomic-save cases and both engines' print-close cases passed in
+  Debug and ASan. Annotation saves and snapshots of the live document serialize
+  on the UI thread. Timing an actual PDF write and verifying input queued
+  behind it remain open.
+- **E155.** The link menu showed Copy Link Address on both engines on the
+  hidden desktop in Debug and ASan. The new diagnostics await a hosted run.
+
 ### E125 annotation toolbar position
 
 Scrolling away and back moved the toolbar 126 pixels left of the original

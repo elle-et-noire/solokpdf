@@ -903,6 +903,92 @@ static bool PrintPageInBands(EngineBase& engine, HDC hdc, int pageNo, float zoom
     return anyOk;
 }
 
+#if IS_DEBUG
+enum class TestPrintBandState {
+    Idle,
+    Running,
+    Painted,
+    Failed
+};
+static AtomicInt gTestPrintBandState;
+
+struct TestPrintBandData {
+    PrintData* print;
+    int page;
+};
+
+static void RunTestPrintBand(TestPrintBandData* test) {
+    EngineBase* engine = test->print->engine;
+    RectF box = engine->PageMediabox(test->page);
+    AutoDeleteDC dc{CreateCompatibleDC(nullptr)};
+    AbortCookieManager cookie;
+    constexpr int kTargetSize = 128;
+    Pixmap* target = AllocPixmapDIB(kTargetSize, kTargetSize);
+    bool painted = false;
+    if (dc && target) {
+        HGDIOBJ previous = SelectObject(dc, target->hbmp);
+        PatBlt(dc, 0, 0, kTargetSize, kTargetSize, WHITENESS);
+        Rect stretch{0, 0, kTargetSize, kTargetSize};
+        bool blitted =
+            PrintPageInBands(*engine, dc, test->page, 1.f, 0, box, {}, &stretch, RenderTarget::Print, &cookie, {});
+        SelectObject(dc, previous);
+        GdiFlush();
+        for (int y = 0; y < target->height && blitted && !painted; y++) {
+            const u8* row = target->data + y * target->stride;
+            for (int x = 0; x < target->width && !painted; x++, row += 4) {
+                painted = (row[0] != 255 || row[1] != 255 || row[2] != 255);
+            }
+        }
+    }
+    FreePixmap(target);
+    engine->ReleaseThreadContext();
+    delete test->print;
+    delete test;
+    AtomicIntSet(&gTestPrintBandState, (int)(painted ? TestPrintBandState::Painted : TestPrintBandState::Failed));
+    AtomicIntDec(&gDangerousThreadCount);
+}
+
+bool TestStartPrintBand(EngineBase* engine, int page, int ms) {
+    if (AtomicIntGet(&gTestPrintBandState) == (int)TestPrintBandState::Running) {
+        return false;
+    }
+    Vec<PRINTPAGERANGE> ranges;
+    Print_Advanced_Data advanced{};
+    auto* print = new PrintData(engine, nullptr, ranges, advanced);
+    if (print->failedEngineClone) {
+        delete print;
+        return false;
+    }
+    TestArmRenderPark(RenderPark::Contents, page, ms, RenderParkMode::Abortable);
+    auto* test = new TestPrintBandData{print, page};
+    AtomicIntSet(&gTestPrintBandState, (int)TestPrintBandState::Running);
+    AtomicIntInc(&gDangerousThreadCount);
+    ThreadHandle thread = StartThread(MkFunc0(RunTestPrintBand, test), StrL("TestPrintBand"));
+    if (!thread) {
+        AtomicIntDec(&gDangerousThreadCount);
+        AtomicIntSet(&gTestPrintBandState, (int)TestPrintBandState::Failed);
+        delete print;
+        delete test;
+        return false;
+    }
+    SafeCloseThreadHandle(&thread);
+    return true;
+}
+
+TempStr TestPrintBandStateTemp() {
+    switch ((TestPrintBandState)AtomicIntGet(&gTestPrintBandState)) {
+        case TestPrintBandState::Running:
+            return StrL("running");
+        case TestPrintBandState::Painted:
+            return StrL("painted");
+        case TestPrintBandState::Failed:
+            return StrL("failed");
+        default:
+            return StrL("idle");
+    }
+}
+#endif
+
 // Ranges come from the print dialog or -print-settings and can name pages past
 // the end, e.g. when the document was reloaded with fewer pages
 static Vec<PRINTPAGERANGE> ClampPageRanges(const Vec<PRINTPAGERANGE>& ranges, int nPages) {

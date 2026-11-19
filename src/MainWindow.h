@@ -867,7 +867,6 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
 };
 
 bool HasOpenedDocuments(MainWindow*);
-void UpdateControlsColors(MainWindow*);
 void ScheduleRepaint(MainWindow*, int delay);
 void CreateMovePatternLazy(MainWindow*);
 void ClearMouseState(MainWindow*);

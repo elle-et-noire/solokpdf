@@ -90,6 +90,7 @@ WindowTab* FindFavoritesTab(MainWindow* win);
 void PopulateFavTreeIfNeeded(MainWindow* win);
 void GoToFavoriteByCmd(MainWindow* win, CustomCommand* cmd);
 void UpdateFavoritesTree(MainWindow* win);
+void UpdateFavColors(MainWindow* win);
 void UpdateFavoritesTreeForAllWindows();
 void RememberFavTreeExpansionState(MainWindow* win);
 bool IsPageInFavorites(Str filePath, int pageNo, DocController* ctrl = nullptr);

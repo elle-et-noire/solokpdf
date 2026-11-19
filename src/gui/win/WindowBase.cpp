@@ -650,9 +650,45 @@ static void CollectThemedHwnds(Vec<HWND>& out) {
     }
 }
 
+static Vec<HWND> gThemeWatchers;
+
+static LRESULT CALLBACK ThemeWatchProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR id, DWORD_PTR data) {
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, ThemeWatchProc, id);
+        VecRemove(gThemeWatchers, hwnd);
+        delete (Func0*)data;
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+// Native controls and layered windows register their own palette refresh for the life of the HWND.
+void WatchWindowTheme(HWND hwnd, Func0 refresh) {
+    auto* callback = new Func0(refresh);
+    if (!SetWindowSubclass(hwnd, ThemeWatchProc, 0, (DWORD_PTR)callback)) {
+        delete callback;
+        return;
+    }
+    VecAppend(gThemeWatchers, hwnd);
+}
+
 // The app pushed a new palette into GuiColors: refresh every window. Looked up
 // again per HWND: one window's UpdateTheme() may destroy another
 void UpdateThemeAllWindows() {
+    Vec<HWND> watchers;
+    for (HWND hwnd : gThemeWatchers) {
+        if (GetWindowThreadProcessId(hwnd, nullptr) == GetCurrentThreadId()) {
+            VecAppend(watchers, hwnd);
+        }
+    }
+    for (HWND hwnd : watchers) {
+        DWORD_PTR data = 0;
+        if (GetWindowSubclass(hwnd, ThemeWatchProc, 0, &data)) {
+            DpiScope dpi(hwnd);
+            Func0 refresh = *(Func0*)data;
+            refresh.Call();
+        }
+    }
+
     Vec<HWND> hwnds;
     CollectThemedHwnds(hwnds);
     for (HWND hwnd : hwnds) {
