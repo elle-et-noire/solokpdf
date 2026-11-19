@@ -71,6 +71,7 @@ import {
   getClientRect,
   getControlText,
   getForegroundWindow,
+  getParentWindow,
   getWindowLong,
   getWindowPid,
   getWindowRect,
@@ -130,6 +131,7 @@ const LINK_URL = "https://example.com/e100";
 const N_FILES = 6;
 const WS_EX_TOPMOST = 0x8;
 const WS_VISIBLE = 0x10000000;
+const SW_HIDE = 0;
 const SWP_NOSIZE = 0x0001;
 const WM_SETCURSOR = 0x0020;
 const HTCLIENT = 1;
@@ -1199,6 +1201,46 @@ export async function checkCanvasPopups(): Promise<void> {
       sidebar: "stays",
       hide: "find",
       esc: 1,
+    });
+
+    await step("find bar: toolbar moved or hid without the canvas", async () => {
+      const find = () => shownFindBar(pid, frame);
+      sendCommandSync(frame, cmdId("CmdFindFirst"));
+      const before = box(await waitShown(find, "find bar"));
+      const toolbar = findChildByClass(frame, TOOLBAR_CLASS);
+      check(toolbar !== 0 && isWindowVisible(toolbar), "no visible toolbar");
+      const bar = box(toolbar);
+      const origin = clientToScreen(getParentWindow(toolbar), 0, 0);
+      const canvasBefore = box(canvas);
+      const moveToolbar = (dy: number) => {
+        setWindowPos(
+          toolbar,
+          bar.x - origin.x,
+          bar.y - origin.y + dy,
+          0,
+          0,
+          SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+        );
+      };
+      try {
+        moveToolbar(MOVE_DY);
+        await waitAt(find, moved(before, 0, MOVE_DY), "find bar follows the toolbar");
+        moveToolbar(0);
+        await waitAt(find, before, "find bar follows the toolbar back");
+        showWindow(toolbar, SW_HIDE);
+        await waitAt(
+          find,
+          { ...before, y: box(frame).y + before.dy },
+          "find bar uses the frame while the toolbar hides",
+        );
+        showWindow(toolbar, SW_SHOWNOACTIVATE);
+        await waitAt(find, before, "find bar follows the shown toolbar");
+        check(show(box(canvas)) === show(canvasBefore), "the canvas moved with the toolbar");
+      } finally {
+        moveToolbar(0);
+        showWindow(toolbar, SW_SHOWNOACTIVATE);
+        await hideByOwner(client, "find");
+      }
     });
 
     let scrollBar = 0;

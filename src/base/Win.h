@@ -85,6 +85,7 @@ struct AnchorArgs {
     Func0 dismiss;
     // places the popup after the anchor moved or resized; unset keeps its offset
     Func0 place;
+    HWND placeWindow = nullptr;
     AnchorLeave leave = AnchorLeave::Keep;
     AnchorMinimize minimize = AnchorMinimize::Keep;
     // what of the anchor the popup describes (AnchorShows); null: anything

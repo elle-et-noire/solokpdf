@@ -2218,6 +2218,7 @@ struct OwnedPopup {
     Point placed;
     // the anchor's client area on screen when the popup was placed
     Rect anchorRc;
+    Rect placeRc;
     UINT_PTR id = 0;
     bool syncPosted = false;
     bool left = false;
@@ -2287,12 +2288,18 @@ static bool AnchorShown(HWND anchor) {
     return IsWindow(anchor) && IsWindowVisible(anchor) && !FrameMinimized(anchor);
 }
 
+static Rect PlaceWindowRect(OwnedPopup* ap) {
+    HWND hwnd = ap->args.placeWindow;
+    return hwnd && IsWindowVisible(hwnd) ? AnchorScreenRect(hwnd) : Rect{};
+}
+
 static void NoteAnchorOffset(OwnedPopup* ap) {
     Rect r = HwndWindowRect(ap->popup);
     Point o = AnchorOrigin(ap->args.anchor);
     ap->placed = {r.x, r.y};
     ap->offset = {r.x - o.x, r.y - o.y};
     ap->anchorRc = AnchorScreenRect(ap->args.anchor);
+    ap->placeRc = PlaceWindowRect(ap);
 }
 
 static void PostAnchorSync(OwnedPopup* ap) {
@@ -2325,6 +2332,7 @@ static LRESULT CALLBACK RefocusInputHook(int, WPARAM, LPARAM);
 static OwnedPopup* FindOwnedPopup(HWND popup);
 static void RefocusWhenActive(OwnedPopup* ap);
 static LRESULT CALLBACK AnchorChainProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
+static LRESULT CALLBACK PlaceWindowProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 
 static HHOOK gFocusMoveHook = nullptr;
 static HHOOK gRefocusInputHook = nullptr;
@@ -2527,6 +2535,9 @@ static LRESULT CALLBACK HeldFocusProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
 }
 
 static void ClearChain(OwnedPopup* ap) {
+    if (ap->args.placeWindow) {
+        RemoveWindowSubclass(ap->args.placeWindow, PlaceWindowProc, ap->id);
+    }
     for (HWND hwnd : ap->chain) {
         RemoveWindowSubclass(hwnd, AnchorChainProc, ap->id);
     }
@@ -2711,10 +2722,12 @@ static void SyncAnchoredPopup(OwnedPopup* ap) {
     RefocusWhenActive(ap);
     if (ap->args.place.IsValid()) {
         Rect rc = AnchorScreenRect(anchor);
-        if (rc == ap->anchorRc) {
+        Rect placeRc = PlaceWindowRect(ap);
+        if (rc == ap->anchorRc && placeRc == ap->placeRc) {
             return;
         }
         ap->anchorRc = rc;
+        ap->placeRc = placeRc;
         // may hide or destroy the popup, and ap with it
         Func0 place = ap->args.place;
         place.Call();
@@ -2768,6 +2781,19 @@ static LRESULT CALLBACK AnchorChainProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
                 ClearChain(ap);
             }
             break;
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
+// A placement window can move, hide or die while the anchor remains visible.
+static LRESULT CALLBACK PlaceWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR id, DWORD_PTR data) {
+    auto* ap = (OwnedPopup*)data;
+    if (msg == WM_NCDESTROY) {
+        ap->args.placeWindow = nullptr;
+        RemoveWindowSubclass(hwnd, PlaceWindowProc, id);
+        PostAnchorSync(ap);
+    } else if (msg == WM_WINDOWPOSCHANGED) {
+        PostAnchorSync(ap);
     }
     return DefSubclassProc(hwnd, msg, wp, lp);
 }
@@ -2935,10 +2961,13 @@ void AnchorPopup(HWND popup, const AnchorArgs& args) {
     if (!ap) {
         ap = TrackPopup(popup);
     }
-    if (ap->args.anchor != args.anchor) {
+    if (ap->args.anchor != args.anchor || ap->args.placeWindow != args.placeWindow) {
         ClearChain(ap);
         for (HWND hwnd = args.anchor; hwnd; hwnd = (GetWindowStyle(hwnd) & WS_CHILD) ? GetParent(hwnd) : nullptr) {
             SubclassChain(ap, hwnd);
+        }
+        if (args.placeWindow) {
+            SetWindowSubclass(args.placeWindow, PlaceWindowProc, ap->id, (DWORD_PTR)ap);
         }
     }
     ap->args = args;

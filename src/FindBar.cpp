@@ -57,6 +57,7 @@ int FindStatusDx(PlatformFont* font, int totalHits, bool capped) {
 
 struct FindBarWnd : WindowBase {
     MainWindow* win = nullptr;
+    HWND anchorToolbar = nullptr;
     // the status text and the buttons are virtual controls; the search field is
     // the only HWND child. Owned by `layout` once BuildLayout() runs
     DropDown* edit = nullptr;
@@ -648,6 +649,17 @@ static void PositionFindBar(FindBarWnd* bar) {
     SetWindowPos(bar->hwnd, AppWindowZOrder(bar->hwnd, HWND_TOP), r.x, r.y, r.dx, r.dy, SWP_NOACTIVATE);
 }
 
+static void AnchorFindBar(FindBarWnd* bar) {
+    MainWindow* win = bar->win;
+    bar->anchorToolbar = win->hwndToolbar;
+    AnchorArgs args;
+    args.anchor = win->hwndCanvas;
+    args.placeWindow = bar->anchorToolbar;
+    args.dismiss = MkFunc0(HideFindBar, win);
+    args.place = MkFunc0(FindBarReposition, win);
+    AnchorPopup(bar->hwnd, args);
+}
+
 void ShowCompactBar(MainWindow* win) {
     // one find UI at a time: SearchUIFloating can change while the window is up
     if (IsFindWindowVisible(win)) {
@@ -673,13 +685,7 @@ void ShowCompactBar(MainWindow* win) {
     FindBarSetMatchWholeWordChecked(win, win->findMatchWholeWord);
     PositionFindBar(bar);
     ShowAppWindow(bar->hwnd, SW_SHOW);
-    // placed again when the canvas moves or resizes: the frame moved or the
-    // toolbar's search icon did
-    AnchorArgs anchorArgs;
-    anchorArgs.anchor = win->hwndCanvas;
-    anchorArgs.dismiss = MkFunc0(HideFindBar, win);
-    anchorArgs.place = MkFunc0(FindBarReposition, win);
-    AnchorPopup(bar->hwnd, anchorArgs);
+    AnchorFindBar(bar);
     win->findEdit->SetFocus();
     CbEditSelectAll(win->findEdit);
     // the restored term is only a starting point, not a search request: hitting
@@ -860,7 +866,11 @@ void FindBarReposition(MainWindow* win) {
         HideFindBar(win);
         return;
     }
-    PositionFindBar(win->findBar);
+    FindBarWnd* bar = win->findBar;
+    PositionFindBar(bar);
+    if (bar->anchorToolbar != win->hwndToolbar) {
+        AnchorFindBar(bar);
+    }
 }
 
 // Widen the status slot only when a bigger count needs it. Relaying out on
