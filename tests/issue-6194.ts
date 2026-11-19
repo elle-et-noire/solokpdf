@@ -9,9 +9,9 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { assemblePdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
-import { packCoords, sendMessage, sleep, WM_MOUSEMOVE } from "./winapi.ts";
-import { findCanvas, killAndWait, launchControlled } from "./win-automation.ts";
+import { assemblePdf, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE, USE_NG } from "./util.ts";
+import { clientToScreen, packCoords, sendMessage, sleep, WM_MOUSEMOVE } from "./winapi.ts";
+import { findCanvas, killAndWait, launchControlled, moveTestCursor } from "./win-automation.ts";
 
 type Screen = { x: number; y: number; dx: number; dy: number };
 
@@ -37,14 +37,15 @@ async function dump(client: ControlClient): Promise<{ hover: boolean; screen: Sc
 }
 
 async function hoverAt(client: ControlClient, canvas: number, x: number, y: number): Promise<boolean> {
+  if (!USE_NG) {
+    const screen = clientToScreen(canvas, x, y);
+    await moveTestCursor(screen.x, screen.y, client);
+  }
   sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
   await sleep(100);
   return (await dump(client)).hover;
 }
 
-// Windows re-sends the position of the physical cursor, which sits wherever the
-// last test left it: such a move lands between the posted one and the read and
-// clears the hover, so post again until it sticks.
 async function hoverUntil(client: ControlClient, canvas: number, x: number, y: number): Promise<boolean> {
   const deadline = Date.now() + 2000 * SLOW_BUILD_FACTOR;
   do {

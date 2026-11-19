@@ -5,7 +5,8 @@ See the [remaining work plan](remaining-work-plan.md) for sequencing, dependenci
 
 ## Triage (2026-11-20)
 
-- Record full and ASan workflow results at the same revision (D15).
+- Recheck `issue-6151`, `issue-6194` and the post-test process check on hosted
+  Windows. [Local results](history.md#d15-targeted-rechecks-2026-11-20)
 
 Completed work and evidence go in [history.md](history.md#completed-backlog).
 Record new failures here with a trigger, observable outcome and acceptance
@@ -15,9 +16,9 @@ For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-| ID  | Acceptance criteria                                                                                                                                                                                    | Status |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| D15 | Record full hosted Debug runs on PDFium and MuPDF and a separate hosted ASan run at the same revision, including run IDs and exclusions. [Hosted results](history.md#hosted-verification-at-6c8946da4) | todo   |
+| ID  | Acceptance criteria                                                                                                                                                                                                                           | Status |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| D15 | Pass both hosted Debug suites and the separate hosted ASan run on the same revision. At `c1f07fea0`, ASan passed and both Debug suites failed. [Run IDs, failures and exclusions](history.md#d15-hosted-verification-at-c1f07fea0-2026-11-20) | open   |
 
 ## Watch
 

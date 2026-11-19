@@ -122,10 +122,10 @@ async function testSharpTiles(): Promise<void> {
   );
   const appdata = tmpPath("issue-6151-settings");
   mkdirSync(appdata, { recursive: true });
-  // Without rasterizer AA, intermediate grays can only come from bitmap scaling.
+  // Isolate tile scaling from rasterizer antialiasing and overlay scrollbars.
   writeFileSync(
     join(appdata, SETTINGS_FILE),
-    "DisableAntiAlias = true\nCustomScreenDPI = 96\nDocumentColorsFollowTheme = off\n",
+    "DisableAntiAlias = true\nCustomScreenDPI = 96\nDocumentColorsFollowTheme = off\nScrollbars = hidden\n",
   );
 
   await withControlledSumatra(

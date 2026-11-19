@@ -24,9 +24,9 @@ The [current status](README.md#status) summarizes the latest verification.
 | Project origin                  | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Completed work                  | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [finished plans](archive/README.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
-See the [November 18 status review](#hosted-validation-and-status-review-2026-11-18)
-for the latest CI results and [D13/E17](#ci-coverage-expansion-2026-11-10)
-for the original coverage expansion.
+See [D15](#d15-hosted-verification-at-c1f07fea0-2026-11-20) for the latest
+hosted results and [D13/E17](#ci-coverage-expansion-2026-11-10) for the
+original coverage expansion.
 The completed E18–E37 reviews and fixes have these records:
 
 - E21: [Color-stage selection](#e21-color-stage-policy-2026-11-10) and
@@ -3673,6 +3673,54 @@ interactive desktop.
   ASan workflows have no runs at this revision. The latest results and full
   suite exclusions are in the [November 18 record](#hosted-validation-and-status-review-2026-11-18).
   [Regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/44584401119)
+
+### D15 hosted verification at `c1f07fea0` (2026-11-20)
+
+All three manual runs use `c1f07fea0`, which changes only documentation
+since the passing regular CI run at `6c8946da4`.
+[Regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/44584401119)
+
+| Check         | Result                                                                                                                                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Debug, PDFium | Build passed. 36 of 627 tests failed, including 34 process detections. The suite excluded 13 tests and took 23m 13.3s. [Run 44597677524](https://github.com/elle-et-noire/solokpdf/actions/runs/44597677524/job/135820290607)              |
+| Debug, MuPDF  | Build passed. 51 of 630 tests failed, including 49 process detections. The suite excluded 10 tests and took 23m 53.0s. [Run 44597684214](https://github.com/elle-et-noire/solokpdf/actions/runs/44597684214/job/135820309413)              |
+| ASan          | Build, atomic PDF save and shutdown, tree lifetime and PDFium fallback passed. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44597692905](https://github.com/elle-et-noire/solokpdf/actions/runs/44597692905/job/135820340445) |
+
+Both engines failed `issue-6151` with 20,943 gray pixels in the initial
+125% capture and `issue-6194` because the annotation never entered the
+hover state. The other failures were `left app process(es)` reports from
+the runner's PID snapshots. The reports give the PID and test name. How
+long each process stayed alive remains unknown. Both runs uploaded failure
+artifacts. `selection-noop-colors` and `tts-engine-crash-recovery`, which
+failed in the November 16 runs, passed on both engines.
+
+Both runs excluded `issue-6279`, `issue-2254`, `issue-6323`, `issue-6025`,
+`issue-4967`, `issue-5065`, `issue-5353`, `print-auto-rotate`, `issue-6150`,
+and `issue-5040`. PDFium also excluded `issue-5937`, `issue-3731`, and
+`issue-6361`. See the [runner](../../tests/run-github-ci.ts) for the reasons.
+
+### D15 targeted rechecks (2026-11-20)
+
+- The gray pixels in `issue-6151` followed the overlay scrollbars.
+  With a 1024×720 window, hiding the bars yielded zero gray pixels at every
+  zoom, rotation and margin-trimming step. The test now hides scrollbars
+  for its tile capture.
+- In `issue-6194`, queuing a mouse move away from the annotation before
+  reading its hover state reproduced the hosted failure. The test now sets
+  the app-local cursor before sending each move. The hover assertions passed
+  with the extra move queued.
+- Both tests passed three individual hidden-desktop Debug runs per engine.
+  They run directly after `issue-5978` in the suite.
+- One of 32 instrumented `issue-6144` runs reported a different PID after
+  the test's app had exited. A follow-up identified the extra process by its
+  parent PID and `-crash-dump-helper` argument. The helper exited within
+  30 ms of parent cleanup in the probe. The runner now gives new app PIDs
+  one 250 ms deadline. The delayed-exit probe failed with zero wait and
+  passed with the deadline. An app deliberately left running still failed.
+  After the change, `issue-6144` passed 32 MuPDF runs and eight PDFium runs
+  through the CI runner on the hidden desktop.
+
+D15 remains open for hosted verification of these changes.
 
 ### E133 input queued behind a PDF write
 

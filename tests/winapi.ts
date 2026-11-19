@@ -2435,6 +2435,7 @@ const INVALID_HANDLE_VALUE = 0xffffffffffffffffn;
 const PROCESS_TERMINATE = 0x0001;
 const SYNCHRONIZE = 0x00100000;
 const WAIT_OBJECT_0 = 0;
+const ERROR_INVALID_PARAMETER = 87;
 // x64 PROCESSENTRY32W: DWORD fields, then ULONG_PTR, then WCHAR szExeFile[MAX_PATH]
 const PROCESSENTRY32W_SIZE = 568;
 const PROCESSENTRY32W_PID = 8;
@@ -2475,6 +2476,18 @@ export function listPidsByExeName(exeName: string): number[] {
     return pids;
   } finally {
     kernel32.symbols.CloseHandle(snap);
+  }
+}
+
+export function waitForProcessExit(pid: number, timeoutMs: number): boolean {
+  const h = kernel32.symbols.OpenProcess(SYNCHRONIZE, false, pid);
+  if (!h) {
+    return kernel32.symbols.GetLastError() === ERROR_INVALID_PARAMETER;
+  }
+  try {
+    return kernel32.symbols.WaitForSingleObject(h, timeoutMs) === WAIT_OBJECT_0;
+  } finally {
+    kernel32.symbols.CloseHandle(h);
   }
 }
 

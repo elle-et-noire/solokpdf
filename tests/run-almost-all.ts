@@ -637,6 +637,8 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["issue-6151", issue6151],
+  ["issue-6194", issue6194],
   ["issue-1914", issue1914],
   ["selection-noop-colors", selectionNoopColors],
   ["issue-6055", issue6055],
@@ -662,7 +664,6 @@ export const tests: NamedTest[] = [
   ["build-cli", buildCli],
   ["theme-annotation-failure", themeAnnotationFailure],
   ["toolbar-wrap", toolbarWrap],
-  ["issue-6151", issue6151],
   ["issue-6330", issue6330],
   ["issue-1293", issue1293],
   ["epub-first-page-image", epubFirstPageImage],
@@ -912,7 +913,6 @@ export const tests: NamedTest[] = [
   ["issue-2568", issue2568],
   ["issue-6190", issue6190],
   ["issue-6201", issue6201],
-  ["issue-6194", issue6194],
   ["ink-annotation-bounds", inkAnnotationBounds],
   ["issue-6197", issue6197],
   ["issue-find-match-select", findMatchSelect],

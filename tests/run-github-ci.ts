@@ -22,7 +22,7 @@
 
 import { existsSync } from "node:fs";
 import { EXE, formatDuration, resetTestTimes, runTest, type NamedTest } from "./util.ts";
-import { getWorkArea, listPidsByExeName, setTestWindowLayout, testWindowPos } from "./winapi.ts";
+import { getWorkArea, listPidsByExeName, setTestWindowLayout, testWindowPos, waitForProcessExit } from "./winapi.ts";
 import { tests as allTests } from "./run-all.ts";
 
 // Tests that need something a hosted runner doesn't have. Keep the reason with
@@ -70,6 +70,7 @@ type Failure = { name: string; msg: string };
 // One hung test (issue-5979 once sat for 2.5 h) must not eat the whole run:
 // fail it, kill the apps it left running and go on with the next test.
 const kTestTimeoutMs = 5 * 60 * 1000;
+const kProcessExitGraceMs = 250;
 const kAppImages = ["SumatraPDF.exe", "SumatraPDF-static.exe", "SolokPDF.exe"];
 
 function appPids(): Set<number> {
@@ -120,7 +121,13 @@ export async function testit(tests: NamedTest[] = ciTests()): Promise<void> {
     } catch (e) {
       error = e;
     }
-    const leaked = [...appPids()].filter((pid) => !before.has(pid));
+    // The crash-dump helper can outlive its parent.
+    const newPids = [...appPids()].filter((pid) => !before.has(pid));
+    const exitDeadline = performance.now() + kProcessExitGraceMs;
+    const leaked = newPids.filter((pid) => {
+      const waitMs = Math.max(0, Math.ceil(exitDeadline - performance.now()));
+      return !waitForProcessExit(pid, waitMs);
+    });
     if (leaked.length > 0) {
       error = new Error(`${(error as Error)?.message ?? ""} ${name} left app process(es): ${leaked.join(", ")}`.trim());
     }
