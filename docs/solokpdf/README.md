@@ -26,19 +26,19 @@ Current behavior and its limits are in [features.md](features.md) and
 [limitations.md](limitations.md). The last upstream merge incorporated
 `b1a8e2257` (D14). [Merge record](upstream-merges.md#current-status-2026-11-15)
 
-### Validation as of 2026-11-18
+### Validation as of 2026-11-20
 
-Reviewed revision `4751ec07a` on `solokpdf-dev`. PDFium is pinned to
+Reviewed revision `6c8946da4` on `solokpdf-dev`. PDFium is pinned to
 `158.0.8111.0`. [Pin](../../cmd/solok-pdfium-pin.json)
 
-| Check             | Tested revision | Result                                                                                                                                                                                                                                              |
-| ----------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Regular CI        | `4751ec07a`     | Debug build, PDFium cache migration, unit and feature tests passed. Release built, opened a PDF with PDFium from the extracted ZIP and uploaded the artifact. [Run 44310309155](https://github.com/elle-et-noire/solokpdf/actions/runs/44310309155) |
-| Hosted full suite | `b12535517`     | Last scheduled run failed nine tests per engine. E70 records the fixes and targeted rechecks. Validation for the current revision remains open (D15). [Run 43763953763](https://github.com/elle-et-noire/solokpdf/actions/runs/43763953763)         |
-| Hosted ASan       | `1ffb2fae1`     | Latest scheduled run passed its targeted save/shutdown, tree lifetime and PDFium fallback tests. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44203231694](https://github.com/elle-et-noire/solokpdf/actions/runs/44203231694)         |
+| Check             | Tested revision | Result                                                                                                                                                                                                                                                                           |
+| ----------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Regular CI        | `6c8946da4`     | Debug unit and feature steps passed, including E125. Release built and passed the extracted ZIP smoke test. [Run 44584401119](https://github.com/elle-et-noire/solokpdf/actions/runs/44584401119)                                                                                |
+| Hosted full suite | `542cc4098`     | Latest manual runs failed one PDFium test and two MuPDF tests. D15 tracks validation on the current revision. [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/43835410857) · [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/43835416476) |
+| Hosted ASan       | `1ffb2fae1`     | Latest scheduled run passed its targeted save/shutdown, tree lifetime and PDFium fallback tests. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44203231694](https://github.com/elle-et-noire/solokpdf/actions/runs/44203231694)                                      |
 
-The [November 18 record](history.md#hosted-validation-and-status-review-2026-11-18)
-includes the preceding CI failures and later full-workflow dispatches.
+The [November 20 record](history.md#hosted-verification-at-6c8946da4)
+covers the E125 recheck and links to the earlier full-workflow results.
 The [backlog](backlog.md) tracks remaining work and intermittent observations.
 Local seeded stress checks are in the [monkey-test record](history.md#e71-monkey-test-2026-11-16).
 The owner reported that F2 tree checks passed, with build and environment

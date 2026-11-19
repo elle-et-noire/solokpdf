@@ -5,7 +5,6 @@ See the [remaining work plan](remaining-work-plan.md) for sequencing, dependenci
 
 ## Triage (2026-11-20)
 
-- Verify that the annotation toolbar hides after scrolling off its page on hosted Windows (E125).
 - Record full and ASan workflow results at the same revision (D15).
 
 Completed work and evidence go in [history.md](history.md#completed-backlog).
@@ -16,10 +15,9 @@ For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-| ID   | Acceptance criteria                                                                                                                                                                                                                 | Status      |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| D15  | Record full hosted Debug runs on PDFium and MuPDF and a separate hosted ASan run at the same revision, including run IDs and exclusions. [Hosted results](history.md#hosted-backlog-verification-2026-11-20)                        | todo        |
-| E125 | The annotation toolbar stayed visible after Page Down on hosted Windows. Verify that it hides off the selected page and returns at the original click position. [Hosted results](history.md#hosted-backlog-verification-2026-11-20) | in progress |
+| ID  | Acceptance criteria                                                                                                                                                                                    | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| D15 | Record full hosted Debug runs on PDFium and MuPDF and a separate hosted ASan run at the same revision, including run IDs and exclusions. [Hosted results](history.md#hosted-verification-at-6c8946da4) | todo   |
 
 ## Watch
 

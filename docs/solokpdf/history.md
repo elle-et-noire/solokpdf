@@ -3660,6 +3660,20 @@ interactive desktop.
   Debug build and unit tests. The most recent full Debug runs still cover
   `542cc4098`, and the most recent ASan run covers `1ffb2fae1`.
 
+### Hosted verification at `6c8946da4`
+
+- **E125 complete.** The hosted Debug feature step passed on Windows. It runs
+  `ad-hoc-e98-anchored-popups` in `workArea` with the default PDFium engine.
+  The annotation toolbar case checks that Page Down hides the toolbar while
+  canvas redraw is suspended and that returning to page 1 restores its
+  click position. The job log reports the E125 case and all 119 feature tests passed.
+  [Debug job](https://github.com/elle-et-noire/solokpdf/actions/runs/44584401119/job/135773311875)
+- **D15 open.** Regular CI at this revision passed both builds, the portable
+  ZIP smoke test, and the Debug unit and feature steps. The full Debug and
+  ASan workflows have no runs at this revision. The latest results and full
+  suite exclusions are in the [November 18 record](#hosted-validation-and-status-review-2026-11-18).
+  [Regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/44584401119)
+
 ### E133 input queued behind a PDF write
 
 The two-page fixture queues Page Down at the write boundary while the UI
