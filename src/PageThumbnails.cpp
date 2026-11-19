@@ -128,7 +128,7 @@ static void DetachThumbnailCache(PageThumbnailsCache* cache) {
 }
 
 Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int rotation, int thumbDx, int thumbDy,
-                            const ViewPageOptions& viewOptions) {
+                            const ViewPageOptions& viewOptions, BackgroundPageRender* background) {
     // reflow docs share one mediabox; don't use a flat pageNo that a clone's
     // chapter layout may have already shifted
     int boxPage = loc.IsValid() && engine->isReflowable ? 1 : pageNo;
@@ -146,6 +146,7 @@ Pixmap* RenderPageThumbnail(EngineBase* engine, int pageNo, Location loc, int ro
     pageRect = engine->Transform(pageRect, boxPage, 1.0f, rotation, true);
     RenderPageArgs args(pageNo, zoom, rotation, &pageRect, RenderTarget::View);
     args.loc = loc;
+    args.background = background;
     ViewPageOptions options = viewOptions;
     options.imageProbeScale = kThumbnailImageProbeScale;
     return PixmapToBgr(RenderViewPage(engine, args, options));
@@ -202,15 +203,23 @@ static void FinishThumbnailWorker(PageThumbnailsCache* cache) {
     cache->ctrl->StartRendering();
 }
 
-static void RenderAndPostThumbnail(ThumbnailRenderWorker* worker, EngineBase* engine, int pageNo, Location loc) {
+static bool RenderAndPostThumbnail(ThumbnailRenderWorker* worker, EngineBase* engine, int pageNo, Location loc,
+                                   BackgroundPageRender& background) {
     auto* task = new ThumbnailRenderTask;
     task->cache = worker->cache;
     task->generation = worker->generation;
     task->pageNo = pageNo;
     task->loc = loc;
-    task->bitmap =
-        RenderPageThumbnail(engine, pageNo, loc, worker->rotation, worker->thumbDx, worker->thumbDy, worker->options);
+    task->bitmap = RenderPageThumbnail(engine, pageNo, loc, worker->rotation, worker->thumbDx, worker->thumbDy,
+                                       worker->options, &background);
+    if (background.FinishPage()) {
+        // Leave the cache slot pending so the next batch retries this page.
+        FreePixmap(task->bitmap);
+        delete task;
+        return false;
+    }
     uitask::Post(MkFunc0<ThumbnailRenderTask>(FinishThumbnailRender, task));
+    return true;
 }
 
 static void RenderThumbnailsInBackground(ThumbnailRenderWorker* worker) {
@@ -227,13 +236,16 @@ static void RenderThumbnailsInBackground(ThumbnailRenderWorker* worker) {
     }
     EngineBase* engine = cache->renderEngine;
     if (engine) {
+        BackgroundPageRender background(engine);
         int n = len(worker->pages);
         for (int i = 0; i < n; i++) {
-            if (cache->job.IsCanceled()) {
+            if (cache->job.IsCanceled() || background.IsCanceled()) {
                 break;
             }
             Location loc = i < len(worker->locs) ? worker->locs[i] : kInvalidLocation;
-            RenderAndPostThumbnail(worker, engine, worker->pages[i], loc);
+            if (!RenderAndPostThumbnail(worker, engine, worker->pages[i], loc, background)) {
+                break;
+            }
         }
     }
     uitask::Post(MkFunc0<PageThumbnailsCache>(FinishThumbnailWorker, cache));

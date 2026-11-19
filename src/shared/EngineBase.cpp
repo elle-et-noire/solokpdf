@@ -865,18 +865,80 @@ RenderPageArgs::RenderPageArgs(int pageNo, float zoom, int rotation, RectF* page
                                AbortCookie** cookie_out)
     : pageNo(pageNo), zoom(zoom), rotation(rotation), pageRect(pageRect), target(target), cookie_out(cookie_out) {}
 
+static Mutex gBackgroundRenderLock;
+static Vec<BackgroundPageRender*> gBackgroundRenders;
+
+BackgroundPageRender::BackgroundPageRender(EngineBase* engine) : lockId(engine->PageLockId()) {
+    ScopedMutex scope(&gBackgroundRenderLock);
+    VecAppend(gBackgroundRenders, this);
+}
+
+BackgroundPageRender::~BackgroundPageRender() {
+    {
+        ScopedMutex scope(&gBackgroundRenderLock);
+        VecRemove(gBackgroundRenders, this);
+    }
+    delete cookie;
+}
+
+void BackgroundPageRender::CancelFor(EngineBase* engine) {
+    const void* lock = engine->PageLockId();
+    ScopedMutex scope(&gBackgroundRenderLock);
+    for (BackgroundPageRender* render : gBackgroundRenders) {
+        if (render->lockId != lock) {
+            continue;
+        }
+        render->canceled = true;
+        if (render->cookie) {
+            render->cookie->Abort();
+        }
+    }
+}
+
+bool BackgroundPageRender::IsCanceled() const {
+    ScopedMutex scope(&gBackgroundRenderLock);
+    return canceled;
+}
+
+// An action can cancel the batch before the engine creates its cookie.
+void BackgroundPageRender::SetCookie(AbortCookie* newCookie) {
+    ScopedMutex scope(&gBackgroundRenderLock);
+    ReportIf(cookie);
+    cookie = newCookie;
+    if (canceled) {
+        cookie->Abort();
+    }
+}
+
+bool BackgroundPageRender::FinishPage() {
+    ScopedMutex scope(&gBackgroundRenderLock);
+    delete cookie;
+    cookie = nullptr;
+    return canceled;
+}
+
+void RenderPageArgs::SetCookie(AbortCookie* cookie) {
+    if (background) {
+        background->SetCookie(cookie);
+    } else {
+        *cookie_out = cookie;
+    }
+}
+
 static AtomicInt gRenderParkAt;
 static AtomicInt gRenderParkPage;
 static AtomicBool gRenderParkTaken;
 static AtomicInt gRenderParkMs;
+static AtomicInt gRenderParkMode;
 static AtomicInt gRenderParked;
 static AtomicInt gRenderParkCanceled;
 static AtomicInt gRenderParkExpired;
 
 // Test hook: the next render of pageNo to reach `at` parks there for up to ms (see TestRenderPark).
-void TestArmRenderPark(RenderPark at, int pageNo, int ms) {
+void TestArmRenderPark(RenderPark at, int pageNo, int ms, RenderParkMode mode) {
     AtomicIntSet(&gRenderParkPage, pageNo);
     AtomicIntSet(&gRenderParkMs, ms);
+    AtomicIntSet(&gRenderParkMode, (int)mode);
     AtomicIntSet(&gRenderParked, 0);
     AtomicIntSet(&gRenderParkCanceled, 0);
     AtomicIntSet(&gRenderParkExpired, 0);
@@ -887,17 +949,18 @@ void TestArmRenderPark(RenderPark at, int pageNo, int ms) {
 // A slow render between two checks of its cookie, for tests: the armed render stays here,
 // holding its locks, and checks isCanceled every millisecond until canceled or the time is up.
 void TestRenderPark(RenderPark at, int pageNo, bool (*isCanceled)(void*), void* cancelData) {
-    if (AtomicIntGet(&gRenderParkAt) != (int)at || AtomicIntGet(&gRenderParkPage) != pageNo || !cancelData ||
+    if (AtomicIntGet(&gRenderParkAt) != (int)at || AtomicIntGet(&gRenderParkPage) != pageNo ||
+        (!cancelData && AtomicIntGet(&gRenderParkMode) == (int)RenderParkMode::Abortable) ||
         AtomicBoolSwap(&gRenderParkTaken, true)) {
         return;
     }
+    auto canceled = [&] { return cancelData && isCanceled(cancelData); };
     AtomicIntSet(&gRenderParked, 1);
     u64 end = GetTickCount64() + (u64)AtomicIntGet(&gRenderParkMs);
-    while (!isCanceled(cancelData) && GetTickCount64() < end) {
+    while (!canceled() && GetTickCount64() < end) {
         SleepInMs(1);
     }
-    bool canceled = isCanceled(cancelData);
-    AtomicIntSet(canceled ? &gRenderParkCanceled : &gRenderParkExpired, 1);
+    AtomicIntSet(canceled() ? &gRenderParkCanceled : &gRenderParkExpired, 1);
     AtomicIntSet(&gRenderParked, 0);
 }
 

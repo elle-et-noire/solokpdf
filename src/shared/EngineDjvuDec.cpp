@@ -544,9 +544,9 @@ static Pixmap* ScaleDjvuPixelsToPixmap(const u8* src, int srcDx, int srcDy, int 
 Pixmap* EngineDjvuDec::RenderPage(RenderPageArgs& args) {
     DjvuDecAbortCookie* cookie = nullptr;
     const djvu_abort* ab = nullptr;
-    if (args.cookie_out) {
+    if (args.WantsCookie()) {
         cookie = new DjvuDecAbortCookie();
-        *args.cookie_out = cookie;
+        args.SetCookie(cookie);
         ab = &cookie->ab;
     }
     ScopedRenderSlot renderSlot(this, ab);

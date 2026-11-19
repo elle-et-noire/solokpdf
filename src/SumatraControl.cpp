@@ -99,6 +99,7 @@
 #if defined(SOLOKPDF_PDFIUM)
 #include "solokpdf/EnginePdfium.h"
 #endif
+#include "SumatraPDFCommon.h"
 #include "SumatraControl.h"
 #include "SumatraControlCommon.h"
 
@@ -2639,6 +2640,17 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             Str signAction = StringArg(req, 0);
+            if (gForTesting && str::Eq(signAction, StrL("render-home-thumbnail"))) {
+                FileState* fs = FileHistoryFindByPath(engine->FilePath());
+                if (!fs || fs->thumbnailPending) {
+                    AppendTestResult(req, 1, StrL("Home thumbnail busy or absent from history"));
+                    break;
+                }
+                engine->AddRef();
+                CreateThumbnailFromFileAsync(fs, engine);
+                AppendTestResult(req, 0, StrL("started"));
+                break;
+            }
 #if IS_DEBUG
             if (gForTesting && str::Eq(signAction, StrL("print-ready"))) {
                 HANDLE thread = tab->win->printThread;
@@ -2873,7 +2885,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 break;
             }
             if (str::Eq(StringArg(req, 0), StrL("park-render")) || str::Eq(StringArg(req, 0), StrL("park-state"))) {
-                // park-render ms stage [window] [page], park-state [window]
+                // park-render ms stage [window] [page] [any], park-state [window]
                 bool arm = str::Eq(StringArg(req, 0), StrL("park-render"));
                 i32 winIdx = 0;
                 IntArg(req, arm ? 3 : 1, winIdx);
@@ -2897,7 +2909,9 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     } else if (str::Eq(stage, StrL("display-list"))) {
                         at = RenderPark::DisplayList;
                     }
-                    TestArmRenderPark(at, page, ms);
+                    RenderParkMode mode =
+                        str::Eq(StringArg(req, 5), StrL("any")) ? RenderParkMode::Any : RenderParkMode::Abortable;
+                    TestArmRenderPark(at, page, ms, mode);
                     if (page == target->CurrentPageNo()) {
                         gRenderCache->InvalidateAll(target);
                         target->RepaintDisplay();

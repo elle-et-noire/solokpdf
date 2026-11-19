@@ -22,6 +22,12 @@ struct RefHoverRenderJob {
     RefHoverState* s = nullptr;
     RefHoverState::RenderRequest req;
     Pixmap* bmp = nullptr;
+    bool canceled = false;
+
+    ~RefHoverRenderJob() {
+        SafeEngineRelease(&req.engine);
+        FreePixmap(bmp);
+    }
 };
 
 static void RefHoverStartRenderJob(RefHoverRenderJob* job);
@@ -157,8 +163,11 @@ static Pixmap* StackPixmapsVertically(Pixmap* top, Pixmap* bottom) {
 static void RefHoverRenderDone(RefHoverRenderJob* job) {
     RefHoverState* s = job->s;
     if (!RefHoverIsLiveState(s)) {
-        FreePixmap(job->bmp);
         delete job;
+        return;
+    }
+    if (job->canceled && job->req.gen == s->renderGen) {
+        RefHoverStartRenderJob(job);
         return;
     }
     s->renderInFlight = false;
@@ -168,6 +177,7 @@ static void RefHoverRenderDone(RefHoverRenderJob* job) {
 #endif
         FreePixmap(s->bmp);
         s->bmp = job->bmp;
+        job->bmp = nullptr;
         if (job->req.showPopup) {
             s->displayed.destPageRaw = job->req.destPageRaw;
             s->displayed.destPage = job->req.pageNo;
@@ -184,8 +194,6 @@ static void RefHoverRenderDone(RefHoverRenderJob* job) {
             HwndInvalidate(s->hwndPopup, true);
 #endif
         }
-    } else {
-        FreePixmap(job->bmp);
     }
     delete job;
     if (s->queuedRender.valid) {
@@ -202,24 +210,52 @@ static void RefHoverRenderDone(RefHoverRenderJob* job) {
     }
 }
 
-static void RefHoverRenderThread(RefHoverRenderJob* job) {
-    RenderPageArgs args(job->req.pageNo, job->req.zoom, 0, &job->req.region);
-    job->bmp = job->req.engine->RenderPage(args);
-    RectF cont = job->req.continuationRegion;
-    if (job->bmp && cont.dx > 0.f && cont.dy > 0.f) {
-        RenderPageArgs contArgs(job->req.pageNo, job->req.zoom, 0, &cont);
-        Pixmap* contBmp = job->req.engine->RenderPage(contArgs);
-        if (contBmp) {
-            Pixmap* stacked = StackPixmapsVertically(job->bmp, contBmp);
-            FreePixmap(contBmp);
-            if (stacked) {
-                FreePixmap(job->bmp);
-                job->bmp = stacked;
-            }
-        }
+static Pixmap* RenderRegion(RefHoverRenderJob* job, RectF region, BackgroundPageRender* background) {
+    RenderPageArgs args(job->req.pageNo, job->req.zoom, 0, &region);
+    args.background = background;
+    Pixmap* bmp = job->req.engine->RenderPage(args);
+    if (background && background->FinishPage()) {
+        job->canceled = true;
+        FreePixmap(bmp);
+        return nullptr;
     }
-    job->req.engine->Release();
-    job->req.engine = nullptr;
+    return bmp;
+}
+
+static void RenderPreview(RefHoverRenderJob* job, BackgroundPageRender* background) {
+    job->bmp = RenderRegion(job, job->req.region, background);
+    RectF cont = job->req.continuationRegion;
+    if (!job->bmp || cont.dx <= 0.f || cont.dy <= 0.f) {
+        return;
+    }
+    Pixmap* contBmp = RenderRegion(job, cont, background);
+    if (!contBmp) {
+        return;
+    }
+    Pixmap* stacked = StackPixmapsVertically(job->bmp, contBmp);
+    FreePixmap(contBmp);
+    if (stacked) {
+        FreePixmap(job->bmp);
+        job->bmp = stacked;
+    }
+}
+
+static void RefHoverRenderThread(RefHoverRenderJob* job) {
+    job->canceled = false;
+#if defined(SUMATRA_NG)
+    RenderPreview(job, nullptr);
+#else
+    {
+        BackgroundPageRender background(job->req.engine);
+        RenderPreview(job, &background);
+    }
+#endif
+    if (job->canceled) {
+        FreePixmap(job->bmp);
+        job->bmp = nullptr;
+    } else {
+        SafeEngineRelease(&job->req.engine);
+    }
     auto fn = MkFunc0<RefHoverRenderJob>(RefHoverRenderDone, job);
     uitask::Post(fn, "RefHoverRenderDone");
 }

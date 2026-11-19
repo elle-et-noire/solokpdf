@@ -339,6 +339,10 @@ with no input (`park-state` doesn't paint). `lint-hover-lookups` keeps hover's
 `ad-hoc-e128-busy-render --display-list-only` parks the first MuPDF render of
 a cold page before display-list construction, clicks the page and verifies
 that the build is cancelled and the missing tile is rendered again.
+`--thumbnails-only`, `--citation-only` and `--home-thumbnail-only` park those
+workers during rendering on PDFium and MuPDF. A click or context menu cancels
+the render. The tests wait for the sidebar pages, the citation popup or the
+Home cache file to return without further input.
 After lifetime, notification or test-hook changes, also run the last four and
 `ad-hoc-tree-lifetime` under ASan. The
 [migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in

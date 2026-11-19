@@ -2972,9 +2972,8 @@ class EnginePdfium : public EngineBase {
             }
         }
         profile.Mark(StrL("page"));
-        if (args.cookie_out) {
-            TestRenderPark(RenderPark::Contents, args.pageNo, PdfiumCookie::IsCanceled, cookie);
-        }
+        TestRenderPark(RenderPark::Contents, args.pageNo, PdfiumCookie::IsCanceled,
+                       args.WantsCookie() ? cookie : nullptr);
         if (PdfiumCookie::IsCanceled(cookie)) {
             profile.Mark(StrL("canceled-page"));
             return {DrawStatus::Canceled};
@@ -3070,10 +3069,10 @@ class EnginePdfium : public EngineBase {
         PdfiumProfile profile(StrL("render"), args.pageNo);
         PdfiumCookie localCookie;
         PdfiumCookie* cookie = &localCookie;
-        if (args.cookie_out) {
+        if (args.WantsCookie()) {
             cookie = new PdfiumCookie();
             cookie->annots = NewMupdfAbortCookie();
-            *args.cookie_out = cookie;
+            args.SetCookie(cookie);
         }
         RectF box = LockedMediabox(args.pageNo);
         if (box.IsEmpty() || !isfinite(args.zoom) || args.zoom <= 0) {

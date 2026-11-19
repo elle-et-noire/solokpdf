@@ -406,9 +406,9 @@ Pixmap* EngineEbook::RenderPage(RenderPageArgs& args) {
     screen.Offset(-screen.x, -screen.y);
 
     EbookAbortCookie* cookie = nullptr;
-    if (args.cookie_out) {
+    if (args.WantsCookie()) {
         cookie = new EbookAbortCookie();
-        *args.cookie_out = cookie;
+        args.SetCookie(cookie);
     }
     if (cookie && cookie->abort) {
         return nullptr;

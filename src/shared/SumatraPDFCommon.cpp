@@ -3219,7 +3219,8 @@ void OnFrameKeyB(MainWindow* win, bool isShift) {
 
 // page 1 as the home page shows it: ThumbnailsType legacy is the top of the
 // page as wide as the frame, full the whole page scaled to fit the frame
-static Pixmap* RenderEngineThumbnail(EngineBase* engine, CreateThumbnailFromFileData* d = nullptr) {
+static Pixmap* RenderEngineThumbnail(EngineBase* engine, CreateThumbnailFromFileData* d = nullptr,
+                                     BackgroundPageRender* background = nullptr) {
     RectF pageRect = engine->PageMediabox(1);
     if (pageRect.IsEmpty()) {
         return nullptr;
@@ -3234,8 +3235,9 @@ static Pixmap* RenderEngineThumbnail(EngineBase* engine, CreateThumbnailFromFile
     }
     pageRect = engine->Transform(pageRect, 1, 1.0f, 0, true);
     RenderPageArgs args(1, zoom, 0, &pageRect);
+    args.background = background;
     Pixmap* bmp = engine->RenderPage(args);
-    if (bmp && d) {
+    if (bmp && d && (!background || !background->IsCanceled())) {
         d->colorClass = ClassifyViewEngine(engine);
         if (d->colorClass == ViewEngineClass::Pdfium || d->colorClass == ViewEngineClass::Mupdf) {
             CollectThumbnailSkipRects(engine, 1, zoom, 0, pageRect, Size(bmp->width, bmp->height), d->skipRects);
@@ -3244,7 +3246,24 @@ static Pixmap* RenderEngineThumbnail(EngineBase* engine, CreateThumbnailFromFile
     return bmp;
 }
 
-// the cover, or else the first page, of d->filePath. Releases d->engine
+static Pixmap* RenderHomePageThumb(EngineBase* engine, CreateThumbnailFromFileData* d) {
+#if !defined(SUMATRA_NG)
+    if (d->batchGen == 0) {
+        BackgroundPageRender background(engine);
+        Pixmap* bmp = RenderEngineThumbnail(engine, d, &background);
+        d->canceled = background.FinishPage();
+        if (d->canceled) {
+            FreePixmap(bmp);
+            VecReset(d->skipRects);
+            return nullptr;
+        }
+        return bmp;
+    }
+#endif
+    return RenderEngineThumbnail(engine, d);
+}
+
+// Keep the engine for a retry if a page action interrupts the thumbnail.
 static Pixmap* RenderFileThumbnail(CreateThumbnailFromFileData* d) {
     if (IsBrowserCapturedThumbnail(d->filePath)) {
         SafeEngineRelease(&d->engine);
@@ -3273,9 +3292,11 @@ static Pixmap* RenderFileThumbnail(CreateThumbnailFromFileData* d) {
     if (!engine) {
         return nullptr;
     }
-    Pixmap* bmp = RenderEngineThumbnail(engine, d);
-    engine->Release();
-    d->engine = nullptr;
+    Pixmap* bmp = RenderHomePageThumb(engine, d);
+    d->engine = engine;
+    if (!d->canceled) {
+        SafeEngineRelease(&d->engine);
+    }
     return bmp;
 }
 
@@ -3316,7 +3337,17 @@ static void ThumbnailThreadFinished() {
 #endif
 }
 
+static void StartThumbnailWorker(CreateThumbnailFromFileData* d);
+
 static void CreateThumbnailFromFileDone(CreateThumbnailFromFileData* d) {
+    if (d->canceled) {
+        FileState* fs = FileHistoryFindByPath(d->filePath);
+        if (fs && fs->thumbnailPending) {
+            d->canceled = false;
+            StartThumbnailWorker(d);
+            return;
+        }
+    }
     CreateThumbnailFromFileFinish(d);
     ThumbnailThreadFinished();
 }
@@ -3328,6 +3359,11 @@ static void CreateThumbnailFromFileThread(CreateThumbnailFromFileData* d) {
     DestroyTempArena();
 }
 
+static void StartThumbnailWorker(CreateThumbnailFromFileData* d) {
+    auto fn = MkFunc0<CreateThumbnailFromFileData>(CreateThumbnailFromFileThread, d);
+    RunAsync(fn, StrL("CreateThumbnailFromFile"));
+}
+
 // create a thumbnail by loading the file with a temporary engine
 // used for lazy-loaded files that don't have a loaded controller
 void CreateThumbnailFromFileAsync(FileState* ds, EngineBase* engine) {
@@ -3336,9 +3372,8 @@ void CreateThumbnailFromFileAsync(FileState* ds, EngineBase* engine) {
     d->filePath = str::Dup(ds->filePath);
     d->engine = engine;
     d->fileEBookUI = CopyFileEBookUI(ds->eBookUI);
-    auto fn = MkFunc0<CreateThumbnailFromFileData>(CreateThumbnailFromFileThread, d);
     ThumbnailThreadStarted();
-    RunAsync(fn, StrL("CreateThumbnailFromFile"));
+    StartThumbnailWorker(d);
 }
 
 static CreateThumbnailFromFileData* NewThumbnailData(FileState* fs) {

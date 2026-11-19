@@ -12,9 +12,11 @@
 //
 // Run: bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-e128-busy-render.ts --no-build
 
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { LINK_DEST_PAGE, makeCitationPdf } from "./ad-hoc-e120-busy-hover.ts";
 import { ControlCommand, type ControlClient } from "./control.ts";
+import { popupState } from "./issue-6252.ts";
 import {
   ALPHA,
   menuText,
@@ -123,7 +125,7 @@ async function checkCanceled(client: ControlClient, elapsed: number, window = 0)
   return null;
 }
 
-async function launch(engine: Engine, name: string, files: { file: string; pdf: string }[]) {
+async function launch(engine: Engine, name: string, files: { file: string; pdf: string }[], settings = "") {
   const dir = tmpPath(`ad-hoc-e128-${name}-${engine}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -132,7 +134,7 @@ async function launch(engine: Engine, name: string, files: { file: string; pdf: 
     writeFileSync(path, pdf, "latin1");
     return path;
   });
-  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\n");
+  writeFileSync(join(dir, SETTINGS_FILE), `UiLanguage = en\nCheckForUpdates = false\n${settings}`);
   const app = await launchControlled(["-appdata", dir, "-view", "single page", "-zoom", "fit page", ...paths], {
     env: { ...process.env, SOLOKPDF_ENGINE: engine } as Record<string, string>,
   });
@@ -421,9 +423,152 @@ async function checkNeedsEditorText(failures: string[]): Promise<void> {
   }
 }
 
+async function checkThumbnails(engine: Engine, failures: string[]): Promise<void> {
+  const { proc, client, frame } = await launch(engine, "thumbnails", [{ file: "doc.pdf", pdf: makePdf() }]);
+  try {
+    await client.waitForRenderIdle();
+    // In single-page view on page 1, canvas rendering only reaches pages 1 and 2.
+    await testPdf(client, ["park-render", BOUND_MS * 2, "contents", 0, DRAG_PAGE, "any"]);
+    sendCommandSync(frame, cmdId("CmdToggleThumbnails"));
+    await pollUntil(
+      () => testPdf(client, ["park-state"]),
+      (s) => field(s, "parked") === 1,
+      { timeoutMs: WAIT_MS, error: "sidebar thumbnail did not park" },
+    );
+    const canvas = findCanvas(frame);
+    const rc = getClientRect(canvas);
+    const x = Math.floor(rc.right / 2);
+    const y = Math.floor(rc.bottom / 2);
+    const start = Date.now();
+    await clickAt(canvas, x, y, 0, 0, client);
+    const err = await checkCanceled(client, Date.now() - start);
+    if (!err) {
+      await pollUntil(
+        async () => String((await client.request(ControlCommand.TestSidebarThumbnails, []))[1]),
+        (s) => field(s, "rendered") === WORD_PAGE,
+        { timeoutMs: WAIT_MS, error: "sidebar thumbnails did not resume" },
+      );
+    }
+    report(failures, `${engine} sidebar thumbnails`, err);
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
+async function checkCitationRender(engine: Engine, failures: string[]): Promise<void> {
+  const { proc, client, frame } = await launch(
+    engine,
+    "citation",
+    [{ file: "doc.pdf", pdf: makeCitationPdf() }],
+    "CitationHoverDelay = 100\n",
+  );
+  try {
+    await client.waitForRenderIdle();
+    const canvas = findCanvas(frame);
+    const rc = getClientRect(canvas);
+    const x = Math.floor(rc.right / 2);
+    const y = Math.floor((rc.bottom * 3) / 4);
+    const screen = clientToScreen(canvas, x, y);
+    await moveTestCursor(screen.x, screen.y, client);
+    await testPdf(client, ["park-render", BOUND_MS * 2, "contents", 0, LINK_DEST_PAGE, "any"]);
+    sendMessage(canvas, WM_MOUSEMOVE, 0, packCoords(x, y));
+    await pollUntil(
+      () => testPdf(client, ["park-state"]),
+      (s) => field(s, "parked") === 1,
+      { timeoutMs: WAIT_MS, error: "citation render did not park" },
+    );
+    // Open the menu on the hovered link without changing the test cursor.
+    const start = Date.now();
+    openContextMenu(canvas, screen.x, screen.y);
+    const popup = await waitForContextMenu(WAIT_MS * 2);
+    const elapsed = Date.now() - start;
+    if (!popup) throw new Error(`${engine}: no context menu after citation render`);
+    postMessage(popup, WM_KEYDOWN, VK_ESCAPE, 0);
+    const err = await checkCanceled(client, elapsed);
+    if (!err) {
+      await pollUntil(
+        () => popupState(client),
+        (s) => s.visible,
+        {
+          timeoutMs: WAIT_MS,
+          error: "canceled citation render did not resume",
+        },
+      );
+    }
+    report(failures, `${engine} citation preview`, err);
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
+async function checkHomeThumbnail(engine: Engine, failures: string[]): Promise<void> {
+  const { proc, client, frame, dir } = await launch(
+    engine,
+    "home-thumbnail",
+    [{ file: "doc.pdf", pdf: makePdf() }],
+    "ShowStartPage = true\nRememberOpenedFiles = true\nHomePageViewMode = thumbnails\n",
+  );
+  try {
+    await goToPage(client, WORD_PAGE);
+    await client.waitForRenderIdle();
+    const cache = join(dir, "sumatrapdfcache");
+    const png = await pollUntil(
+      () => (existsSync(cache) ? readdirSync(cache).find((name) => name.endsWith(".png")) : undefined),
+      (name) => !!name && existsSync(join(cache, `${name}.theme`)),
+      { timeoutMs: WAIT_MS, error: "initial Home thumbnail missing" },
+    );
+    const path = join(cache, png!);
+    rmSync(path);
+    // The canvas is on page 4, so only the Home worker renders page 1.
+    await testPdf(client, ["park-render", BOUND_MS * 2, "contents", 0, 1, "any"]);
+    await testPdf(client, ["render-home-thumbnail"]);
+    await pollUntil(
+      () => testPdf(client, ["park-state"]),
+      (s) => field(s, "parked") === 1,
+      { timeoutMs: WAIT_MS, error: "Home thumbnail did not park" },
+    );
+    const canvas = findCanvas(frame);
+    const rc = getClientRect(canvas);
+    const start = Date.now();
+    await clickAt(canvas, Math.floor(rc.right / 2), Math.floor(rc.bottom / 2), 0, 0, client);
+    const err = await checkCanceled(client, Date.now() - start);
+    if (!err) {
+      await pollUntil(
+        () => existsSync(path),
+        (saved) => saved,
+        {
+          timeoutMs: WAIT_MS,
+          error: "canceled Home thumbnail was not saved",
+        },
+      );
+    }
+    report(failures, `${engine} Home thumbnail`, err);
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 export async function testit(): Promise<void> {
   setProcessDpiAware();
   const failures: string[] = [];
+  if (process.argv.includes("--home-thumbnail-only")) {
+    for (const engine of ["pdfium", "mupdf"] as const) await checkHomeThumbnail(engine, failures);
+    if (failures.length) throw new Error(failures.join("\n"));
+    return;
+  }
+  if (process.argv.includes("--citation-only")) {
+    for (const engine of ["pdfium", "mupdf"] as const) await checkCitationRender(engine, failures);
+    if (failures.length) throw new Error(failures.join("\n"));
+    return;
+  }
+  if (process.argv.includes("--thumbnails-only")) {
+    for (const engine of ["pdfium", "mupdf"] as const) await checkThumbnails(engine, failures);
+    if (failures.length) throw new Error(failures.join("\n"));
+    return;
+  }
   if (process.argv.includes("--display-list-only")) {
     await checkDisplayList(failures);
     if (failures.length) throw new Error(failures.join("\n"));
@@ -441,6 +586,9 @@ export async function testit(): Promise<void> {
   await checkOtherWindow(failures);
   await checkNeedsEditorText(failures);
   await checkDisplayList(failures);
+  for (const engine of ["pdfium", "mupdf"] as const) await checkThumbnails(engine, failures);
+  for (const engine of ["pdfium", "mupdf"] as const) await checkCitationRender(engine, failures);
+  for (const engine of ["pdfium", "mupdf"] as const) await checkHomeThumbnail(engine, failures);
   if (failures.length) throw new Error(failures.join("\n"));
 }
 

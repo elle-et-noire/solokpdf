@@ -3492,6 +3492,8 @@ interactive desktop.
   At `039e4ec60`, the regular CI Debug build and unit tests passed, feature
   tests failed, and Release passed. The failed cases were the E128 PDFium
   link menu (E155) and the E144 CHM page transition (E151).
+  GitHub still reports `039e4ec60` as the latest regular CI revision.
+  It has no run for the local E151 fix.
   [Run 44469257975](https://github.com/elle-et-noire/solokpdf/actions/runs/44469257975)
 - **E151.** In run 44469257975, CHM reached logical page 2 and served page b.
   A late successful completion for page a then reset the page to 1. The next
@@ -3510,6 +3512,23 @@ interactive desktop.
   the missing tile rendered again. The rest of `ad-hoc-e128-busy-render`
   passed in both builds. The timing measures the injected cancellation
   boundary. MuPDF's interval between checks during page processing varies.
+- **E133 background renders.** A 10-second hold in the sidebar thumbnail,
+  citation preview or single Home cover delayed the action until expiry on both
+  engines. These renders now use the engine's cancellation cookie and retry
+  unfinished work. `ad-hoc-e128-busy-render` verified the four sidebar pages,
+  the citation popup and the saved Home PNG without further input.
+
+  | Action during render  | Debug PDFium / MuPDF | ASan PDFium / MuPDF |
+  | --------------------- | -------------------- | ------------------- |
+  | Sidebar click         | 11 / 8 ms            | 21 / 8 ms           |
+  | Citation context menu | 163 / 163 ms         | 327 / 245 ms        |
+  | Home cover click      | 31 / 19 ms           | 33 / 25 ms          |
+
+  Menu timings include the test's window poll. Bulk Home regeneration and the
+  remaining lock producers are tracked in the [lock inventory](limitations.md#engine-contention-e133).
+  Debug also passed `sidebar-thumbnails`, `ad-hoc-pdfium-thumb-theme`,
+  `ad-hoc-e120-busy-hover` and `issue-6252`.
+
 - **E117.** The simulated click on the selection toolbar ran Copy and
   wrongly made the toolbar active. The input helper now moves the test
   cursor, verifies the client hit and honors `WM_MOUSEACTIVATE`. In both

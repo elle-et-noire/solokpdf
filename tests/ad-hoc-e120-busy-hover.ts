@@ -33,7 +33,7 @@ const TIP_CLASS = "tooltips_class32";
 const WM_SETCURSOR = 0x0020;
 const WM_TIMER = 0x0113;
 const REF_HOVER_TIMER = 9; // kRefHoverTimerID
-const LINK_DEST_PAGE = 4;
+export const LINK_DEST_PAGE = 4;
 const HTCLIENT = 1;
 const HOLD_MS = 800;
 // a message the UI thread handles while the lock is held must not wait for it
@@ -43,7 +43,7 @@ const WAIT_MS = 3000;
 type Engine = "pdfium" | "mupdf";
 
 // Leave the internal link's destination outside the initial render range.
-function makePdf(): string {
+export function makeCitationPdf(): string {
   const text = "BT /F1 10 Tf 72 700 Td (Reference entry) Tj ET";
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
@@ -100,7 +100,7 @@ async function check(engine: Engine): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "doc.pdf");
-  writeFileSync(pdf, makePdf(), "latin1");
+  writeFileSync(pdf, makeCitationPdf(), "latin1");
   writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nCitationHoverDelay = 300\n");
   const { proc, client, frame } = await launchControlled(
     ["-appdata", dir, "-view", "single page", "-zoom", "fit page", pdf],

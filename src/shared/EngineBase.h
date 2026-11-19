@@ -510,6 +510,20 @@ class AbortCookie {
     virtual void* GetData() = 0;
 };
 
+class BackgroundPageRender : NonCopyable {
+    const void* lockId;
+    AbortCookie* cookie = nullptr;
+    bool canceled = false;
+
+  public:
+    explicit BackgroundPageRender(EngineBase* engine);
+    ~BackgroundPageRender();
+    static void CancelFor(EngineBase* engine);
+    bool IsCanceled() const;
+    void SetCookie(AbortCookie* cookie);
+    bool FinishPage();
+};
+
 // where a test-parked render waits, holding the locks it renders under
 enum class RenderPark {
     Off,
@@ -519,7 +533,11 @@ enum class RenderPark {
     Annotations,
     DisplayList,
 };
-void TestArmRenderPark(RenderPark at, int pageNo, int ms);
+enum class RenderParkMode {
+    Abortable,
+    Any
+};
+void TestArmRenderPark(RenderPark at, int pageNo, int ms, RenderParkMode mode);
 void TestRenderPark(RenderPark at, int pageNo, bool (*isCanceled)(void*), void* cancelData);
 TempStr TestRenderParkStateTemp();
 
@@ -548,6 +566,7 @@ struct RenderPageArgs {
     // or a checkerboard) shows through unpainted areas (issue #1809)
     bool transparentBackdrop = false;
     AbortCookie** cookie_out = nullptr;
+    BackgroundPageRender* background = nullptr;
     // dark/recolor rendering profile for View renders (see PdfDarkMode.h);
     // owned by the caller, only valid for the duration of RenderPage()
     const DarkModeProfile* darkProfile = nullptr;
@@ -555,6 +574,8 @@ struct RenderPageArgs {
 
     RenderPageArgs(int pageNo, float zoom, int rotation, RectF* pageRect = nullptr,
                    RenderTarget target = RenderTarget::View, AbortCookie** cookie_out = nullptr);
+    bool WantsCookie() const { return cookie_out || background; }
+    void SetCookie(AbortCookie* cookie);
 };
 
 // reported from the background chapter-layout thread after each chapter

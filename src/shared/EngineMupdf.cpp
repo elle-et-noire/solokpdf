@@ -9303,9 +9303,9 @@ Pixmap* EngineMupdf::RenderPage(RenderPageArgs& args) {
 
     fz_cookie* fzcookie = nullptr;
     FitzAbortCookie* cookie = nullptr;
-    if (args.cookie_out) {
+    if (args.WantsCookie()) {
         cookie = new FitzAbortCookie();
-        *args.cookie_out = cookie;
+        args.SetCookie(cookie);
         fzcookie = (fz_cookie*)cookie->GetData();
     }
 

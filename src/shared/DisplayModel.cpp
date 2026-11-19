@@ -2794,6 +2794,7 @@ static bool FreePageForAction(DisplayModel* dm) {
     return false;
 #else
     dm->actionPageFrees++;
+    BackgroundPageRender::CancelFor(dm->GetEngine());
     Vec<DisplayModel*> others;
     if (gRenderCache) {
         gRenderCache->AbortForAction(dm, others);

@@ -167,6 +167,7 @@ struct CreateThumbnailFromFileData {
     FileEBookUI* fileEBookUI = nullptr;
     // the regenerate batch it came from, 0 for a single thumbnail
     int batchGen = 0;
+    bool canceled = false;
     ~CreateThumbnailFromFileData() {
         str::Free(filePath);
         SafeEngineRelease(&engine);
