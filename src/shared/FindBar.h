@@ -57,7 +57,9 @@ void FocusFindEditSelectAll(MainWindow* win);
 gpui::InputState* EnsureFindEdit(MainWindow* win);
 // switch between the compact bar and the floating window (SearchUIFloating)
 void ToggleFloatingFindUI(MainWindow* win);
+#if defined(SUMATRA_NG)
 void RecreateFindBar(MainWindow* win);
+#endif
 TempStr FindUiStateResultTemp(Str action, int* exitCodeOut = nullptr);
 
 // ng: orig talks to the find box through the win32 combo box helpers

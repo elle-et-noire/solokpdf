@@ -77,7 +77,6 @@ struct FindBarWnd : WindowBase {
     int barDx = 0;
     int barDy = 0;
     // when set, programmatic edits to the text don't kick off a search
-    // (used while restoring text during a theme-change recreate)
     bool suppressTextChanged = false;
     // set while Layout() runs so the WM_SIZE its own SetWindowPos generates
     // doesn't re-enter Layout()
@@ -88,6 +87,7 @@ struct FindBarWnd : WindowBase {
 
     bool Create(MainWindow* win);
     void ApplyDarkMode() override;
+    void UpdateTheme() override;
     void CreateButtons();
     void UpdateButtonIcons(int dpi = 0);
     void BuildLayout();
@@ -177,6 +177,11 @@ void FindBarWnd::ApplyDarkMode() {
     DarkModeReapplyToPopupWindow(hwnd);
 }
 
+void FindBarWnd::UpdateTheme() {
+    UpdateButtonIcons();
+    WindowBase::UpdateTheme();
+}
+
 bool FindBarWnd::Create(MainWindow* mainWin) {
     win = mainWin;
     // Layout() sizes the HWND to content; don't let WM_SIZE DoLayout first
@@ -220,8 +225,7 @@ bool FindBarWnd::Create(MainWindow* mainWin) {
         edit->onCloseUp = MkMethod0<FindBarWnd, &FindBarWnd::OnHistoryCommitted>(this);
         ApplyFindHistory(edit);
         if (!win->findEdit) {
-            // don't steal it from the floating find window: this can run while
-            // that one is up (RecreateFindBar on a theme change)
+            // The floating find window can already own the active edit.
             win->findEdit = edit;
         }
     }
@@ -598,33 +602,6 @@ int FindBarWindowHeight(MainWindow* win) {
 }
 
 // rebuild the bar so it picks up new theme colors / icons (called on theme change)
-void RecreateFindBar(MainWindow* win) {
-    if (!win->findBar) {
-        return;
-    }
-    // stop any in-flight find/count that captured the old bar's state
-    AbortFinding(win, true);
-    FindBarWnd* oldBar = win->findBar;
-    bool wasVisible = HwndIsVisible(oldBar->hwnd);
-    bool wasActive = win->findEdit == oldBar->edit;
-    TempStr text = wasActive ? str::DupTemp(oldBar->edit->GetTextTemp()) : TempStr();
-    DeleteFindBar(win);
-    win->findBar = CreateFindBar(win);
-    if (!win->findBar) {
-        return;
-    }
-    if (wasActive && win->findEdit == win->findBar->edit) {
-        // Preserve the compact term even while the bar is hidden. F3 uses that
-        // edit after a theme change, so dropping it silently changes searches.
-        win->findBar->suppressTextChanged = true;
-        win->findEdit->SetText(text);
-        win->findBar->suppressTextChanged = false;
-    }
-    if (wasVisible) {
-        ShowFindBar(win);
-    }
-}
-
 // Position the bar at the right edge of the window so it doesn't cover the
 // toolbar (issue #5739). The x is always the same as if the toolbar were hidden;
 // only the y follows the toolbar: centered on the search icon when the toolbar

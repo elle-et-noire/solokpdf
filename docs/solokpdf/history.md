@@ -3560,6 +3560,52 @@ interactive desktop.
   zoom, page scrolling and continuous view changes in both hidden layouts in
   Debug. Dismissal counts and placement timing remain open.
 
+### Backlog verification (2026-11-20)
+
+- **D15 and E151.** Hosted CI at `8d2acf324` passed Release, the Debug build
+  and unit tests, and 118 of 119 Debug feature tests. Markdown and CHM both
+  navigated through page c in `ad-hoc-e144-focus-restores`. The only failure
+  was the E117 Go to page edit selection check. The hosted full and ASan runs
+  listed above still cover older revisions.
+  [Run 44538783397](https://github.com/elle-et-noire/solokpdf/actions/runs/44538783397)
+- **E112.** Opening the next PDF in the same tab previously left the compact
+  find bar visible. The test now records one hide in both Debug layouts and in
+  ASan `workArea`. In each Debug layout, 33 scroll commands made zero find bar
+  placements. The 11 placements measured per layout during the surrounding
+  geometry checks took 0.023–1.457 ms.
+- **E117.** The hosted log showed `DelayedEditSelectAll` after activation.
+  The edit can select all when it regains focus. The revised regression checks
+  focus in the page edit and uses a reactivating button click to navigate to
+  the requested page. It passed in both Debug layouts, including a repeat in
+  `workArea`, and in ASan `workArea`. The revised test awaits hosted Windows.
+- **E118.** Styled buttons now resolve colors from their host surface, style
+  and enabled state. Selected native controls use the Main surface selection
+  color. The compact find bar refreshes through `WindowBase` with its window,
+  input and anchor intact. The unit tests, `theme-open-windows`,
+  `control-color-roles`, `find-ui-state` and `find-bar-dpi` passed in Debug.
+  Before and after PNGs for Change Theme and Command Palette matched byte for
+  byte in both Light and Dark. Other main-window parts still use explicit refresh calls.
+- **E133.** An injected pause at the PDFium widget draw boundary held a form
+  click for 974–987 ms in Debug (1,000 ms hold) and 3,985 ms in ASan (4,000 ms
+  hold). The click opened the correct editor, the render saw cancellation at
+  the boundary, and the visible tiles recovered. The injected pause measures
+  the boundary, while the native call duration varies.
+- **E154.** Theme cycling previously replaced a visible zoom notification.
+  The notification layer now closes one visible target on Esc and preserves
+  replacement within each group. Debug verified zoom replacement, theme
+  cycling in both directions, Find before page information, one dismissal per
+  key press, page-info state, another window and a hidden tab. The stack and
+  window/tab cases also passed in ASan.
+- **E155.** At `8d2acf324` the parked-render PDFium menu contained Copy Link
+  Address and the test reported 976 ms. The earlier failure artifact lacked
+  command and popup details. The regression now limits popup lookup to the
+  app's process and saves the command, popup owner and menu listing. The
+  PDFium ASan trace shows `WM_CONTEXTMENU`, the frame passed to `TrackPopupMenu`,
+  a popup from the app's process with no `GW_OWNER`, and Copy Link Address.
+  The new trace awaits hosted Windows.
+  [Passing run](https://github.com/elle-et-noire/solokpdf/actions/runs/44538783397)
+  [Failed run](https://github.com/elle-et-noire/solokpdf/actions/runs/44469257975)
+
 ### E125 annotation toolbar position
 
 Scrolling away and back moved the toolbar 126 pixels left of the original

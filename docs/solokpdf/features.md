@@ -334,7 +334,10 @@ Themes change from the keyboard: the command palette (Ctrl+K) lists every
 theme as "Set theme '…'" (upstream hides them there), and the Change Theme
 dialog previews with the arrow keys, applies with Enter and cancels with Esc.
 `T` / `Shift+T` (`CmdNextTheme` / `CmdPrevTheme`, new) step through the themes
-in menu order, wrapping, and show the new theme's name.
+in menu order, wrapping, and show the new theme's name. Zoom and theme
+notifications can appear together. Esc dismisses one visible notification in
+the current window after handling open tools such as Find. Persistent warnings, page
+information and cursor position take priority over zoom and theme feedback.
 `tests/ad-hoc-theme-keyboard.ts` drives all three.
 
 `smart` is now the default (upstream: `off`); a settings file that saved `off`
@@ -416,6 +419,7 @@ canvas shows. They are placed again whenever the canvas moves or resizes,
 not only when the frame moves. The ones about the document go with its tab.
 The compact find bar also follows the toolbar's search button when the toolbar
 moves on its own. It uses the frame for placement while the toolbar is hidden.
+Opening the next or previous file in the same tab dismisses the find UI.
 The annotation toolbar keeps the original markup click position when the
 selection scrolls out of view or its tab is switched away and back (E125).
 The annotation toolbar no longer shows over the desktop while the window is

@@ -23,6 +23,14 @@ enum class NotifCloseReason {
     Program, // CloseNotification()
 };
 
+enum class NotifEscPriority {
+    None,
+    Display,
+    Cursor,
+    PageInfo,
+    Warning
+};
+
 struct NotificationClosedEvent {
     NotificationWnd* wnd = nullptr;
     NotifCloseReason reason = NotifCloseReason::Program;
@@ -57,6 +65,7 @@ struct NotificationCreateArgs {
     MainWindow* win = nullptr;
     PlatformFont* font = nullptr;
     Kind groupId = kNotifActionResponse;
+    NotifEscPriority escPriority = NotifEscPriority::None;
     bool warning = false;
     bool noClose = false; // if true, no close button; must have timeoutMs > 0
     int timeoutMs = 0;    // if 0 => persists until closed manually
@@ -91,6 +100,7 @@ void NotificationUpdateMessage(NotificationWnd* wnd, Str msg, int timeoutInMS = 
 TempStr NotificationGetMessageTemp(NotificationWnd* wnd);
 void RemoveNotification(NotificationWnd*);
 void CloseNotification(NotificationWnd*, NotifCloseReason reason = NotifCloseReason::Program);
+bool DismissNotificationOnEsc(MainWindow* win);
 void SetNotificationsEnabled(bool);
 bool RemoveNotificationsForGroup(HWND, Kind);
 void RemoveNotificationsForHwnd(HWND);

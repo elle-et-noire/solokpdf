@@ -956,9 +956,15 @@ void TestRenderPark(RenderPark at, int pageNo, bool (*isCanceled)(void*), void* 
     }
     auto canceled = [&] { return cancelData && isCanceled(cancelData); };
     AtomicIntSet(&gRenderParked, 1);
-    u64 end = GetTickCount64() + (u64)AtomicIntGet(&gRenderParkMs);
-    while (!canceled() && GetTickCount64() < end) {
-        SleepInMs(1);
+    int duration = std::max(0, AtomicIntGet(&gRenderParkMs));
+    if (at == RenderPark::Widgets) {
+        // FPDF_FFLDraw cannot check the cookie until it returns.
+        SleepInMs(duration);
+    } else {
+        u64 end = GetTickCount64() + (u64)duration;
+        while (!canceled() && GetTickCount64() < end) {
+            SleepInMs(1);
+        }
     }
     AtomicIntSet(canceled() ? &gRenderParkCanceled : &gRenderParkExpired, 1);
     AtomicIntSet(&gRenderParked, 0);

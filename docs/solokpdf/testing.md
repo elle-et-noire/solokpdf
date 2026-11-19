@@ -321,6 +321,8 @@ It checks that logical page b is retained before requesting page c and checking 
 For E112, `ad-hoc-e98-anchored-popups` moves and hides the toolbar independently
 of the canvas. It checks the find bar's placement on the toolbar and its
 fallback to the frame, then checks that showing the toolbar restores placement.
+`--find-replacement-only` opens the next PDF in the same tab and checks for one
+find bar hide in `replacement-trace.txt`.
 Dumps that report a popup shown (`visible=1`, `floatVisible=1`, the annotation
 toolbar's `annotEditToolbar visible=1`) read
 `HwndIsOnScreen()`: a popup hidden with its minimized frame reads hidden there,
@@ -339,6 +341,10 @@ with no input (`park-state` doesn't paint). `lint-hover-lookups` keeps hover's
 `ad-hoc-e128-busy-render --display-list-only` parks the first MuPDF render of
 a cold page before display-list construction, clicks the page and verifies
 that the build is cancelled and the missing tile is rendered again.
+`--widgets-only` injects a non-interruptible pause at PDFium widget drawing and
+checks the form click and tile recovery after cancellation reaches the boundary.
+`--link-menu-only` checks Copy Link Address and writes `link-menu-trace.txt`
+with command delivery, popup and menu handles, owner, and menu contents.
 `--thumbnails-only`, `--citation-only` and `--home-thumbnail-only` park those
 workers during rendering on PDFium and MuPDF. A click or context menu cancels
 the render. The tests wait for the sidebar pages, the citation popup or the

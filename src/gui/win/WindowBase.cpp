@@ -553,7 +553,6 @@ Color WindowBase::GetColor(int idx) const {
 // A control's colors follow from its role on the surface, so creation and every
 // theme refresh paint it the same, and nothing recolors it afterwards
 void WindowBase::ColorControl(ControlBase* c) const {
-    bool raised = surface == WinSurface::Raised;
     Color txt = gColsWin[kColWinText];
     Color bg = gColsWin[WinBgIdx(surface)];
     switch (c->role) {
@@ -562,9 +561,16 @@ void WindowBase::ColorControl(ControlBase* c) const {
         case ControlRole::Muted:
             txt = gColsWin[kColWinMutedText];
             break;
-        case ControlRole::Selected:
-            bg = gColsWin[raised ? kColWinRaisedSelectedBg : kColWinSelectedBg];
+        case ControlRole::Selected: {
+            int idx = kColWinSelectedBg;
+            if (surface == WinSurface::Raised) {
+                idx = kColWinRaisedSelectedBg;
+            } else if (surface == WinSurface::Main) {
+                idx = kColWinMainSelectedBg;
+            }
+            bg = gColsWin[idx];
             break;
+        }
         case ControlRole::ComboField:
             txt = gColsWin[kColWinComboText];
             bg = gColsWin[kColWinComboBg];

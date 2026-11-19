@@ -20,6 +20,7 @@
 #include "gui/Gfx.h"
 #include "gui/GuiColors.h"
 #include "gui/VirtCtrl.h"
+#include "gui/win/WinGui.h"
 
 #include "AppTools.h"
 #include "Settings.h"
@@ -383,6 +384,41 @@ static void OnlineURLAllowedTest() {
     utassert(!OnlineURLAllowed(StrL("https://user@web.sumatrapdfreader.org/api/files")));
 }
 
+static void ControlSurfaceTest() {
+    Color saved[kColWinCount];
+    memcpy(saved, gColsWin, sizeof(saved));
+    defer {
+        memcpy(gColsWin, saved, sizeof(saved));
+    };
+    gColsWin[kColWinBg] = kColWhite;
+    gColsWin[kColWinRaisedBg] = kColBlack;
+    gColsWin[kColWinSelectedBg] = kColRed;
+    gColsWin[kColWinMainSelectedBg] = kColBlue;
+
+    WindowBase host;
+    host.surface = WinSurface::Raised;
+    CreateCustomArgs args;
+    args.visible = false;
+    host.CreateCustom(args);
+    utassert(host.hwnd != nullptr);
+    VirtRoot root(host.hwnd);
+    VirtButton button(StrL("Apply"));
+    button.SetRoot(&root);
+    SetVirtButtonStyle(&button, VirtButtonStyle::Outline);
+    utassert(button.GetColor(kColBtnBg) == kColBlack);
+    SetVirtButtonStyle(&button, VirtButtonStyle::Filled);
+    utassert(button.GetColor(kColBtnText) == kColBlack);
+    Color enabled = button.GetColor(kColBtnBg);
+    button.SetFlag(vwfEnabled, false);
+    utassert(button.GetColor(kColBtnBg) != enabled);
+
+    host.surface = WinSurface::Main;
+    Edit edit;
+    edit.role = ControlRole::Selected;
+    host.ColorControl(&edit);
+    utassert(edit.bgColor == kColBlue);
+}
+
 static void SumatraPDF_UnitTests() {
     utassert(ThemeHighContrast_UnitTest());
     OnlineURLAllowedTest();
@@ -396,6 +432,7 @@ static void SumatraPDF_UnitTests() {
     PaletteRowColorTest();
     SidebarViewSettingTest();
     GhostButtonDisabledTest();
+    ControlSurfaceTest();
     DocPropertiesTest();
     parseCommandsTest();
     colorTest();

@@ -532,6 +532,7 @@ enum class RenderPark {
     // the annotation editor's locks, drawing annotations over PDFium's tile
     Annotations,
     DisplayList,
+    Widgets,
 };
 enum class RenderParkMode {
     Abortable,

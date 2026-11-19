@@ -54,6 +54,7 @@
 #include "ReadingBar.h"
 #include "TableOfContents.h"
 #include "SidebarPanel.h"
+#include "SumatraControl.h"
 #include "Menu.h"
 #include "MenuCommon.h"
 #include "MenuDefs.h"
@@ -1091,6 +1092,7 @@ void ForgetFileFromFrequentlyRead(MainWindow* win, Str filePath) {
 }
 
 void OnWindowContextMenu(MainWindow* win, int x, int y) {
+    TraceTestMenu(StrL("context-menu-dispatch"), win->hwndCanvas, MAKELPARAM(x, y));
     DisplayModel* dm = win->AsFixed();
     ReportIf(!dm);
     if (!dm) {
@@ -1273,6 +1275,7 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
 
     Point pt = HwndMapWindowPoint(win->hwndCanvas, HWND_DESKTOP, {x, y});
     UINT flags = TPM_RETURNCMD | TPM_RIGHTBUTTON;
+    TraceTestMenu(StrL("context-menu-track"), win->hwndFrame, GetMenuItemCount(popup));
     int cmdId = TrackPopupMenu(popup, flags, pt.x, pt.y, 0, win->hwndFrame, nullptr);
     DestroyMenu(popup);
 

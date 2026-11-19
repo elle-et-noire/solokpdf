@@ -30,20 +30,8 @@ VirtButton* NewThemedButton(HWND hwndForDpi, Str text, PlatformFont* font, bool 
     return b;
 }
 
-// the palette of `style` (GuiColors.h); a disabled Filled button fades
 void SetVirtButtonStyle(VirtButton* b, VirtButtonStyle style) {
-    GuiColorsInitIfNeeded();
-    switch (style) {
-        case VirtButtonStyle::Filled:
-            b->colorDefaults = b->HasFlag(vwfEnabled) ? gColsBtnFilled : gColsBtnFilledOff;
-            break;
-        case VirtButtonStyle::Outline:
-            b->colorDefaults = gColsBtnOutline;
-            break;
-        case VirtButtonStyle::Ghost:
-            b->colorDefaults = gColsBtnGhost;
-            break;
-    }
+    b->style = style;
 }
 
 static Kind kindVirtCtrl = "virtCtrl";
@@ -2987,6 +2975,41 @@ void VirtButton::SetIsDefault(bool v) {
 Size VirtButton::GetIdealSize() {
     Size s2 = VirtText::GetIdealSize();
     return {s2.dx + textPadding.left + textPadding.right, s2.dy + textPadding.top + textPadding.bottom};
+}
+
+Color VirtButton::GetColor(int idx) const {
+    if (style == VirtButtonStyle::Unstyled || idx == kColBtnTextDisabled || (colors && colors[idx] != kColorUnset)) {
+        return VirtCtrl::GetColor(idx);
+    }
+    WindowBase* host = root ? WindowBaseFromHwnd(root->hwnd) : nullptr;
+    Color surface = host ? host->GetColor(kColWinBg) : gColsWin[kColWinBg];
+    Color text = gColsWin[kColWinText];
+    Color fill = surface;
+    Color border = style == VirtButtonStyle::Outline ? gColsLine[kColLineFg] : kColorTransparent;
+    constexpr int kHoverShift = 14;
+    constexpr int kDarkFillHoverShift = 48;
+    constexpr int kDisabledFillShift = 28;
+    int hoverShift = kHoverShift;
+    if (style == VirtButtonStyle::Filled) {
+        if (HasFlag(vwfEnabled)) {
+            fill = border = text;
+            hoverShift = IsLightColor(fill) ? kHoverShift : kDarkFillHoverShift;
+        } else {
+            fill = AccentColor(surface, kDisabledFillShift);
+        }
+        text = surface;
+    }
+    switch (idx) {
+        case kColBtnText:
+            return text;
+        case kColBtnBg:
+            return fill;
+        case kColBtnBgHover:
+            return AccentColor(fill, hoverShift);
+        case kColBtnBorder:
+            return border;
+    }
+    return VirtCtrl::GetColor(idx);
 }
 
 // Disabled labels are muted, then lifted if they would vanish into `bg`.

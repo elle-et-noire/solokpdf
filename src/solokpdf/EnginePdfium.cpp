@@ -3004,6 +3004,8 @@ class EnginePdfium : public EngineBase {
             if (drawForm && drawAnnots && !hideAnnotations && status == FPDF_RENDER_DONE &&
                 !AtomicIntGet(&cookie->aborted)) {
                 gPdfium.FPDF_FFLDraw(drawForm, bmp, page, -(int)x, -(int)y, dx, dy, rotation, flags);
+                TestRenderPark(RenderPark::Widgets, args.pageNo, PdfiumCookie::IsCanceled,
+                               args.WantsCookie() ? cookie : nullptr);
                 profile.Mark(StrL("widgets"));
             }
             gPdfium.FPDF_RenderPage_Close(page);

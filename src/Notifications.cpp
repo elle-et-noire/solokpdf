@@ -106,6 +106,8 @@ struct NotificationWnd : WindowBase {
 
     bool highlight = false; // TODO: should really be a color
     bool noClose = false;
+    bool closePending = false;
+    NotifEscPriority escPriority = NotifEscPriority::None;
     // message is shown verbatim, no tip markup parsed (see NotificationCreateArgs)
     bool plainText = false;
     // caller-built message; not owned (it's txtCtrl's child once laid out) but
@@ -397,6 +399,7 @@ void NotificationWnd::BuildTree(ILayout* customContent) {
 HWND NotificationWnd::Create(const NotificationCreateArgs& args) {
     highlight = args.warning;
     noClose = args.noClose;
+    escPriority = args.escPriority;
     ReportIf(noClose && args.timeoutMs <= 0);
     shrinkLimit = args.shrinkLimit;
     if (shrinkLimit < 0.2f) {
@@ -688,7 +691,7 @@ bool UpdateNotificationProgress(NotificationWnd* wnd, Str msg, int perc) {
 
 static void NotifRemove(NotificationWnd* wnd) {
     // already removed (and freed) between ScheduleRemove and now
-    if (NotificationIndexOf(wnd) < 0) {
+    if (NotificationIndexOf(wnd) < 0 || !wnd->closePending) {
         return;
     }
     if (!wnd->closedCb.IsValid()) {
@@ -708,6 +711,10 @@ void NotificationWnd::CloseByUser(VirtMouseEvent*) {
 // Remove off the stack of the message being dispatched (uitask runs after
 // dispatch), so the wnd survives until the handler returns.
 void NotificationWnd::ScheduleRemove(NotifCloseReason reason) {
+    if (closePending) {
+        return;
+    }
+    closePending = true;
     closeReason = reason;
     auto fn = MkFunc0<NotificationWnd>(NotifRemove, this);
     uitask::Post(fn, "TaskNotifRemove");
@@ -957,6 +964,26 @@ NotificationWnd* GetNotificationForGroup(HWND hwnd, Kind kind) {
 
 static HWND CanvasOf(MainWindow* win) {
     return win ? win->hwndCanvas : nullptr;
+}
+
+// The newest visible notification wins among notifications with equal priority.
+bool DismissNotificationOnEsc(MainWindow* win) {
+    NotificationWnd* wnds[kMaxNotifs];
+    int count = GetForHwnd(CanvasOf(win), wnds);
+    NotifEscPriority priority = NotifEscPriority::None;
+    NotificationWnd* target = nullptr;
+    for (int i = count - 1; i >= 0; i--) {
+        auto* wnd = wnds[i];
+        if (wnd->escPriority > priority && !wnd->noClose && !wnd->closePending && IsWindowVisible(wnd->hwnd)) {
+            target = wnd;
+            priority = wnd->escPriority;
+        }
+    }
+    if (!target) {
+        return false;
+    }
+    CloseNotification(target, NotifCloseReason::User);
+    return true;
 }
 
 bool RemoveNotificationsForGroup(MainWindow* win, Kind kind) {

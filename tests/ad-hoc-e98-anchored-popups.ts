@@ -133,6 +133,7 @@ const WS_EX_TOPMOST = 0x8;
 const WS_VISIBLE = 0x10000000;
 const SW_HIDE = 0;
 const SWP_NOSIZE = 0x0001;
+const SWP_HIDEWINDOW = 0x0080;
 const WM_SETCURSOR = 0x0020;
 const HTCLIENT = 1;
 const VK_RIGHT = 0x27;
@@ -1503,6 +1504,45 @@ export async function checkCanvasPopups(): Promise<void> {
   }
 }
 
+async function checkFindReplacement(): Promise<void> {
+  const dir = tmpPath("e112-find-replacement");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const first = join(dir, "a.pdf");
+  writeFileSync(first, makeE110Pdf(), "latin1");
+  writeFileSync(join(dir, "b.pdf"), makeE110Pdf(), "latin1");
+  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n");
+  const { proc, client, frame } = await launchLogged("e112-find-replacement", ["-appdata", dir, first]);
+  const find = () => shownFindBar(proc.pid!, frame);
+  try {
+    await client.waitForRenderIdle();
+    sendCommandSync(frame, cmdId("CmdFindFirst"));
+    const bar = await waitShown(find, "find bar before replacement");
+    await client.request(ControlCommand.TestActivationTrace, ["start-focus"]);
+    sendCommandSync(frame, cmdId("CmdOpenNextFileInFolder"));
+    await pollUntil(
+      () => getWindowText(frame),
+      (title) => /\bb\.pdf\b/i.test(title),
+      {
+        timeoutMs: WAIT_MS,
+        error: (title) => `replacement did not open: ${title}`,
+      },
+    );
+    await client.waitForRenderIdle();
+    const [, trace] = await client.request(ControlCommand.TestActivationTrace, ["stop-focus"]);
+    writeFileSync(join(dir, "replacement-trace.txt"), String(trace));
+    const changes = new RegExp(`WM_WINDOWPOSCHANGED hwnd=0x${bar.toString(16)} wp=0x([0-9a-f]+)`, "gi");
+    const hides = [...String(trace).matchAll(changes)].filter((m) => (parseInt(m[1]!, 16) & SWP_HIDEWINDOW) !== 0);
+    check(
+      find() === 0 && hides.length === 1,
+      `find bar after replacement: visible=${find() !== 0}, hides=${hides.length}`,
+    );
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
 // E140: a popup the frame owns but no child window anchors
 type Floating = {
   name: string;
@@ -1835,7 +1875,7 @@ export async function checkOwnedWindows(): Promise<void> {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   const pdf = join(dir, "doc.pdf");
-  writeFileSync(pdf, makeE110Pdf(), "latin1");
+  writeFileSync(pdf, makeE110Pdf(true), "latin1");
   const settings = ["UiLanguage = en", "CheckForUpdates = false", "RestoreSession = false"];
   writeFileSync(join(dir, SETTINGS_FILE), settings.join("\n") + "\n");
   // A separate input queue can retain the real foreground on the hosted desktop.
@@ -1897,13 +1937,10 @@ async function checkOwnedInSession(dir: string, pdf: string, foreground?: Foregr
     sendCommandSync(frame, cmdId("CmdToggleToolbar"));
     const goToPage = { name: "Go to page", find: () => shownOwned(pid, frame, /^Go to page$/), cmd: "CmdGoToPage" };
     await checkModalMinimized(client, frame, goToPage, undefined, foreground);
-    await step("Go to page: reactivating click reaches the page edit", async () => {
-      const EM_GETSEL = 0x00b0;
-      const EM_SETSEL = 0x00b1;
+    await step("Go to page: reactivating clicks reach the edit and button", async () => {
       const dialog = await waitShown(goToPage.find, goToPage.name);
       const edit = findChildByClass(dialog, "Edit");
       check(edit !== 0, "no page edit");
-      sendMessage(edit, EM_SETSEL, 0, -1);
       const before = await focusState(client, "away");
       check(before.endsWith("active=away"), `the dialog is still active: ${before}`);
       const { right, bottom } = getClientRect(edit);
@@ -1918,14 +1955,25 @@ async function checkOwnedInSession(dir: string, pdf: string, foreground?: Foregr
           error: (hwnd) => `page edit ${edit} did not receive focus, got ${hwnd}`,
         },
       );
-      await pollUntil(
-        () => Number(sendMessage(edit, EM_GETSEL, 0, 0)),
-        (sel) => (sel & 0xffff) === sel >>> 16,
-        {
-          timeoutMs: WAIT_MS,
-          error: "the reactivating click did not clear the page edit selection",
-        },
+      // The page edit selects all when it gains focus. Use the dialog button to verify click delivery.
+      const page = (await client.chapterInfo()).page === 1 ? 2 : 1;
+      sendText(edit, String(page));
+      const button = (await client.virtTree(getClassName(dialog))).find(
+        (c) => c.hwnd === dialog && c.kind === "virtCtrlButton" && c.text === "Go to page",
       );
+      check(!!button, "no Go to page button");
+      const { x, y, dx, dy } = button!.rect;
+      const buttonAt = packCoords(x + Math.floor(dx / 2), y + Math.floor(dy / 2));
+      const away = await focusState(client, "away");
+      check(away.endsWith("active=away"), `the dialog is still active: ${away}`);
+      const [buttonCode, buttonResult] = await client.request(ControlCommand.TestFocusState, [
+        "activating-click",
+        dialog,
+        buttonAt,
+      ]);
+      check(buttonCode === 0, `click on Go to page: ${buttonResult}`);
+      await waitGone(goToPage.find, goToPage.name);
+      check((await client.chapterInfo()).page === page, `the reactivating click did not go to page ${page}`);
     });
     await closeWindow(goToPage.find, goToPage.name);
     sendCommandSync(frame, cmdId("CmdToggleToolbar"));
@@ -2168,6 +2216,10 @@ export async function testit(): Promise<void> {
     check(failures.length === 0, failures.join("\n"));
     return;
   }
+  if (process.argv.includes("--find-replacement-only")) {
+    await checkFindReplacement();
+    return;
+  }
   if (process.argv.includes("--annotation-anchor-only")) {
     await checkAnnotClickAnchor();
     check(failures.length === 0, failures.join("\n"));
@@ -2205,6 +2257,7 @@ export async function testit(): Promise<void> {
   }
   await step("citation hover", checkRefHover);
   await step("E110 popups", checkCanvasPopups);
+  await step("E112 find bar document replacement", checkFindReplacement);
   await step("E125 annotation toolbar position", checkAnnotClickAnchor);
   await step("E140 floating popups", checkFloatingPopups);
   await step("E143 owned windows", checkOwnedWindows);

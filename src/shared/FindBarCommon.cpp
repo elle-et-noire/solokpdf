@@ -21,6 +21,7 @@
 #include "SearchAndDDE.h"
 #include "FindWindow.h"
 #include "Translations.h"
+#include "Theme.h"
 #include "FindBar.h"
 #include "AppHelpersCommon.h"
 
@@ -62,9 +63,12 @@ TempStr FindUiStateResultTemp(Str action, int* exitCodeOut) {
         FindEditSetText(gWindows[0], StrL(""));
     } else if (str::Eq(action, StrL("hide-first"))) {
         HideFindBar(gWindows[0]);
-    } else if (str::Eq(action, StrL("theme-recreate-first"))) {
-        // RecreateFindBar is the compact bar's theme-change path.
+    } else if (str::Eq(action, StrL("theme-refresh"))) {
+#if defined(SUMATRA_NG)
         RecreateFindBar(gWindows[0]);
+#else
+        SumatraUpdateTheme();
+#endif
     } else if (!str::Eq(action, StrL("state"))) {
         out.Append(StrL("ERROR invalid action\n"));
         return finish(1);

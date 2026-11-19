@@ -207,9 +207,11 @@ renders that use the same lock.
 | Printing and PDF writes      | Printing uses a clone and checks between bands and inside supported renders via the print cookie. The action cancellation path leaves the print job running. PDF writers can hold `docLock` through a MuPDF write.                                                                                                                            | A user-canceled print aborts the spool job. PDF save keeps its existing failure and temporary-file handling.                                                                                           |
 
 E133 still needs deterministic holds, recovery checks and timings for text
-prefetch, PDFium widgets, printing and PDF writes. Opening a bulk cover's PDFium
-document precedes the render cookie. PDFium calls without pause callbacks and
-MuPDF's interval between abort checks have no measured duration bound.
+prefetch, printing and PDF writes. The widget test uses a timed pause under
+the PDFium lock and verifies that cancellation takes effect after the pause.
+Opening a bulk cover's PDFium document precedes the render cookie. PDFium calls
+without pause callbacks and MuPDF's interval between abort checks have no
+measured duration bound.
 
 ## Text, search and selection
 

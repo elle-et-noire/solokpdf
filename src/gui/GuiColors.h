@@ -150,6 +150,7 @@ enum {
     kColWinMutedText,
     kColWinSelectedBg,
     kColWinRaisedSelectedBg,
+    kColWinMainSelectedBg,
     kColWinComboText,
     kColWinComboBg,
     kColWinCount,
@@ -170,11 +171,6 @@ extern Color gColsRichTextRaised[kColRichCount];
 extern Color gColsRichTextRaisedMuted[kColRichCount];
 // a list on a WinSurface::Raised window
 extern Color gColsListBoxRaised[kColListCount];
-// VirtButtonStyle; a disabled Filled button fades into the surface
-extern Color gColsBtnFilled[kColBtnCount];
-extern Color gColsBtnFilledOff[kColBtnCount];
-extern Color gColsBtnOutline[kColBtnCount];
-extern Color gColsBtnGhost[kColBtnCount];
 
 //--- win32 Edit
 enum {

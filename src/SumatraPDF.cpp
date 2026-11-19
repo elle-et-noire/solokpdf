@@ -1548,6 +1548,13 @@ void ControllerCallbackHandler::UpdateScrollbars(DisplayModel* dm, Size canvas) 
 
 // Light separator between page-info values: space + U+00B7 MIDDLE DOT + space.
 
+static void ClosePageInfo(MainWindow* win, NotificationClosedEvent* ev) {
+    if (ev->reason == NotifCloseReason::User) {
+        win->pageInfoWanted = false;
+    }
+    RemoveNotification(ev->wnd);
+}
+
 // Show or refresh the page-info tip when the user wants it and a document is loaded.
 // CloseDocumentInCurrentTab / About / Favorites remove the notification; this restores it.
 void ShowPageInfoIfWanted(MainWindow* win) {
@@ -1568,6 +1575,8 @@ void ShowPageInfoIfWanted(MainWindow* win) {
     args.timeoutMs = 0;
     args.msg = StrL("");
     args.groupId = kNotifPageInfo;
+    args.escPriority = NotifEscPriority::PageInfo;
+    args.onClosed = MkFunc1<MainWindow, NotificationClosedEvent*>(ClosePageInfo, win);
     // the message carries page labels and image entry names from the document
     args.plainText = true;
     wnd = ShowNotification(args);
@@ -2440,6 +2449,7 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
         nargs.warning = true;
         nargs.timeoutMs = 16 * 1000; // auto-dismiss after 16 seconds
         nargs.groupId = kNotifPersistentWarning;
+        nargs.escPriority = NotifEscPriority::Warning;
         nargs.msg = msg;
         nargs.plainText = true; // `unsupported` is a document property
         nargs.tab = tab;        // only show while this tab is active
@@ -2484,6 +2494,7 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
         nargs.warning = true;
         nargs.timeoutMs = 16 * 1000; // auto-dismiss after 16 seconds
         nargs.groupId = kNotifPersistentWarning;
+        nargs.escPriority = NotifEscPriority::Warning;
         nargs.msg = msg;
         nargs.plainText = true; // the font name comes from the settings file
         nargs.tab = tab;
@@ -3296,7 +3307,6 @@ void UpdateAfterThemeChange() {
 
         RebuildMenuBarForWindow(win);
         UpdateToolbarAfterThemeChange(win);
-        RecreateFindBar(win);
         RefreshSelectionToolbarIcons(win);
         RefreshAnnotEditToolbar(win);
         RefreshAnnotationHoverOverlay(win);
@@ -5048,6 +5058,10 @@ static void CloseDocumentInCurrentTab(MainWindow* win, bool keepUIEnabled, bool 
         }
     }
     AbortFinding(win, true);
+
+    if (deleteModel && IsFindUIVisible(win)) {
+        HideFindBar(win);
+    }
 
     ClearMouseState(win);
     EndPdfEditOperation(win);
@@ -9127,17 +9141,7 @@ static void OnFrameKeyEsc(MainWindow* win) {
     if (AbortFinding(win, true)) {
         return;
     }
-    if (RemoveNotificationsForGroup(win, kNotifPersistentWarning)) {
-        return;
-    }
-    if (RemoveNotificationsForGroup(win, kNotifPageInfo)) {
-        win->pageInfoWanted = false;
-        return;
-    }
-    if (RemoveNotificationsForGroup(win, kNotifCursorPos)) {
-        return;
-    }
-    if (RemoveNotificationsForGroup(win, kNotifZoomOrView)) {
+    if (DismissNotificationOnEsc(win)) {
         return;
     }
     if (win->showSelection) {
@@ -9188,6 +9192,7 @@ void ToggleCursorPositionInDoc(MainWindow* win) {
         NotificationCreateArgs args;
         args.win = win;
         args.groupId = kNotifCursorPos;
+        args.escPriority = NotifEscPriority::Cursor;
         args.shrinkLimit = 0.7f;
         args.timeoutMs = 0;
         notif = ShowNotification(args);
@@ -12629,6 +12634,7 @@ static LRESULT FrameOnCommand(MainWindow* win, HWND hwnd, UINT msg, WPARAM wp, L
                 NotificationCreateArgs args;
                 args.win = win;
                 args.groupId = kNotifPersistentWarning;
+                args.escPriority = NotifEscPriority::Warning;
                 args.msg = StrL("This is a second notification\nMy friend.");
                 args.warning = false;
                 args.timeoutMs = kNotifDefaultTimeOut;

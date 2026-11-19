@@ -150,7 +150,7 @@ struct VirtCtrl : ILayout {
 
     void SetTooltip(Str);
 
-    Color GetColor(int idx) const;
+    virtual Color GetColor(int idx) const;
     void SetColor(int idx, Color);
 
     // ILayout
@@ -732,12 +732,20 @@ struct VirtLink : VirtText {
     void OnMouseLeave();
 };
 
+enum class VirtButtonStyle {
+    Unstyled,
+    Filled,
+    Outline,
+    Ghost
+};
+
 struct VirtButton : VirtText {
     // colors: kColBtn*, defaulting to gColsBtnDefault when isDefault
     Insets textPadding{.top = 4, .right = 8, .bottom = 4, .left = 8};
     int cornerRadius = 0;
     // the background and border keep this far inside the bounds
     Insets bgInsets{};
+    VirtButtonStyle style = VirtButtonStyle::Unstyled;
 
     VirtButton(Str s, PlatformFont* font = nullptr);
     ~VirtButton() override;
@@ -748,6 +756,7 @@ struct VirtButton : VirtText {
     void SetIsDefault(bool);
 
     Size GetIdealSize() override;
+    Color GetColor(int idx) const override;
     Color TextColor(Color bg) const;
     void Paint(VirtPaintCtx&) override;
     void OnMouseEnter();
@@ -761,14 +770,6 @@ struct VirtButton : VirtText {
 
 VirtButton* AsVirtButton(ILayout*);
 
-// the redrawn dialogs' buttons, in the gui colors the app pushes: the one
-// action filled with the text color, Cancel outlined, the quiet ones muted
-// words that fill on hover
-enum class VirtButtonStyle {
-    Filled,
-    Outline,
-    Ghost
-};
 void SetVirtButtonStyle(VirtButton* b, VirtButtonStyle style);
 
 struct VirtIconButton : VirtCtrl {

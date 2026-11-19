@@ -158,6 +158,10 @@ void TraceTestPageNav(Str event, HWND hwnd, int value, Str url) {
     TraceFocus(event, hwnd, value, 0, url);
 }
 
+void TraceTestMenu(Str event, HWND hwnd, uintptr_t value) {
+    TraceFocus(event, hwnd, value);
+}
+
 static void TraceFocusMessage(const CWPSTRUCT& msg) {
     if (!gTraceFocus) {
         return;
@@ -2908,6 +2912,8 @@ static void ExecuteControlRequest(ControlRequest* req) {
                         at = RenderPark::Annotations;
                     } else if (str::Eq(stage, StrL("display-list"))) {
                         at = RenderPark::DisplayList;
+                    } else if (str::Eq(stage, StrL("widgets"))) {
+                        at = RenderPark::Widgets;
                     }
                     RenderParkMode mode =
                         str::Eq(StringArg(req, 5), StrL("any")) ? RenderParkMode::Any : RenderParkMode::Abortable;

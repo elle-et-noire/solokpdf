@@ -186,6 +186,7 @@ void ThemeApplyPlatformColors() {
     gColsWin[kColWinMutedText] = ThemeWindowDarkerTextColor();
     gColsWin[kColWinSelectedBg] = btnSel;
     gColsWin[kColWinRaisedSelectedBg] = ThemeSelectedColorOn(ThemeRaisedColor());
+    gColsWin[kColWinMainSelectedBg] = ThemeSelectedColorOn(ThemeMainWindowBackgroundColor());
     // a native combobox paints its ring white unless darkmodelib themes it:
     // its edit stays native then, or the box is two-tone
     bool comboThemed = DarkModeThemesControls();

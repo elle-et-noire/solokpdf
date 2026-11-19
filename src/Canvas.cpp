@@ -72,6 +72,7 @@
 #include "Translations.h"
 
 #include "RefHover.h"
+#include "SumatraControl.h"
 #include "Canvas.h"
 #include "HexView.h"
 #include "PageGridDialogCommon.h"
@@ -4785,6 +4786,7 @@ static LRESULT WndProcCanvasFixedPageUI(MainWindow* win, HWND hwnd, UINT msg, WP
             return DefWindowProc(hwnd, msg, wp, lp);
 
         case WM_CONTEXTMENU: {
+            TraceTestMenu(StrL("context-menu-message"), hwnd, lp);
             bool fromKeyboard = (x == -1 || y == -1);
             if (fromKeyboard) {
                 // if invoked with a keyboard (shift-F10) use current mouse position

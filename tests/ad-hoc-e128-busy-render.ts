@@ -42,6 +42,8 @@ import {
   getClientRect,
   getControlText,
   getPopupMenuHandle,
+  getWindowOwner,
+  getWindowPid,
   MK_LBUTTON,
   packCoords,
   postMessage,
@@ -51,6 +53,7 @@ import {
   VK_ESCAPE,
   VK_RETURN,
   VK_TAB,
+  WM_CONTEXTMENU,
   WM_KEYDOWN,
   WM_LBUTTONDBLCLK,
   WM_LBUTTONDOWN,
@@ -78,7 +81,7 @@ const PARK_MS = 30000 * SLOW_BUILD_FACTOR;
 const BOUND_MS = 5000 * SLOW_BUILD_FACTOR;
 const WAIT_MS = 10000 * SLOW_BUILD_FACTOR;
 
-type Stage = "contents" | "annotations";
+type Stage = "contents" | "annotations" | "widgets";
 
 // page 1: no link, image, annotation or text
 const EMPTY = { x: 300, y: 100 };
@@ -151,7 +154,7 @@ function report(failures: string[], what: string, err: string | null): void {
 }
 
 async function checkActions(engine: Engine, failures: string[]): Promise<void> {
-  const { proc, client, frame } = await launch(engine, "actions", [{ file: "doc.pdf", pdf: makePdf() }]);
+  const { proc, client, frame, dir } = await launch(engine, "actions", [{ file: "doc.pdf", pdf: makePdf() }]);
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
@@ -171,16 +174,25 @@ async function checkActions(engine: Engine, failures: string[]): Promise<void> {
       const s = clientToScreen(canvas, at.x, at.y);
       await moveTo(at);
       await parkRender(client);
+      await client.request(ControlCommand.TestActivationTrace, ["start-focus"]);
       const start = Date.now();
-      openContextMenu(canvas, s.x, s.y);
-      const popup = await waitForContextMenu(WAIT_MS);
+      const posted = postMessage(canvas, WM_CONTEXTMENU, canvas, packCoords(s.x, s.y));
+      const popup = posted ? await waitForContextMenu(WAIT_MS, frame) : 0;
       const elapsed = Date.now() - start;
       const hmenu = popup ? getPopupMenuHandle(popup) : 0;
       const items = hmenu ? readMenuTree(hmenu) : [];
+      const owner = popup ? getWindowOwner(popup) : 0;
+      const pid = popup ? getWindowPid(popup) : 0;
       if (popup) postMessage(popup, WM_KEYDOWN, VK_ESCAPE, 0);
-      if (!items.some((it) => it.text === "Copy Link Address")) return `no Copy Link Address in ${menuText(items)}`;
-      return checkCanceled(client, elapsed);
+      const hasCopy = items.some((it) => it.text === "Copy Link Address");
+      const err = hasCopy ? await checkCanceled(client, elapsed) : "no Copy Link Address";
+      const [, trace] = await client.request(ControlCommand.TestActivationTrace, ["stop-focus"]);
+      const detail = `posted=${posted} canvas=${canvas} frame=${frame} at=${s.x},${s.y} popup=${popup} owner=${owner} pid=${pid} menu=${hmenu} elapsed=${elapsed} ms items=${menuText(items)}`;
+      writeFileSync(join(dir, "link-menu-trace.txt"), `${detail}\n${trace}\n`);
+      return err ? `${err} (${detail})` : null;
     });
+
+    if (process.argv.includes("--link-menu-only")) return;
 
     // nothing there: only the action's own repaint renders the canceled tiles again
     await step("empty click", async () => {
@@ -327,6 +339,32 @@ async function checkFormTab(engine: Engine, failures: string[]): Promise<void> {
     err ??= await checkCanceled(client, elapsed);
     report(failures, `${engine} form Tab`, err);
     if (next) sendMessage(next, WM_KEYDOWN, VK_ESCAPE, 0);
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
+async function checkWidgetBoundary(failures: string[]): Promise<void> {
+  const what = "pdfium form click during widget drawing";
+  const { proc, client, frame } = await launch("pdfium", "widgets", [{ file: "form.pdf", pdf: makeFormPdf() }]);
+  try {
+    await client.waitForRenderIdle();
+    const canvas = findCanvas(frame);
+    const at = await pagePoint(client, ALPHA);
+    const screen = clientToScreen(canvas, at.x, at.y);
+    await moveTestCursor(screen.x, screen.y, client);
+    const holdMs = 1000 * SLOW_BUILD_FACTOR;
+    await parkRender(client, "widgets", 0, holdMs);
+    const started = performance.now();
+    const coords = packCoords(at.x, at.y);
+    sendMessage(canvas, WM_LBUTTONDOWN, MK_LBUTTON, coords);
+    sendMessage(canvas, WM_LBUTTONUP, 0, coords);
+    const elapsed = Math.round(performance.now() - started);
+    const edit = findFormEditor(canvas);
+    const text = edit ? getControlText(edit) : "";
+    const err = text === "alpha" ? await checkCanceled(client, elapsed) : `editing '${text}' (editor=${edit})`;
+    report(failures, what, err);
   } finally {
     client.close();
     await killAndWait(proc);
@@ -636,6 +674,16 @@ async function checkBulkHomeThumbnails(engine: Engine, failures: string[]): Prom
 export async function testit(): Promise<void> {
   setProcessDpiAware();
   const failures: string[] = [];
+  if (process.argv.includes("--widgets-only")) {
+    await checkWidgetBoundary(failures);
+    if (failures.length) throw new Error(failures.join("\n"));
+    return;
+  }
+  if (process.argv.includes("--link-menu-only")) {
+    for (const engine of ["pdfium", "mupdf"] as const) await checkActions(engine, failures);
+    if (failures.length) throw new Error(failures.join("\n"));
+    return;
+  }
   if (process.argv.includes("--bulk-home-only")) {
     for (const engine of ["pdfium", "mupdf"] as const) await checkBulkHomeThumbnails(engine, failures);
     if (failures.length) throw new Error(failures.join("\n"));
@@ -670,6 +718,7 @@ export async function testit(): Promise<void> {
     await checkActions(engine, failures);
     await checkFormTab(engine, failures);
   }
+  await checkWidgetBoundary(failures);
   await checkOtherWindow(failures);
   await checkNeedsEditorText(failures);
   await checkDisplayList(failures);

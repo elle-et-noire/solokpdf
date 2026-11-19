@@ -3,14 +3,13 @@
 This is the live work scope. Completed results are in [history.md](history.md#completed-backlog).
 See the [remaining work plan](remaining-work-plan.md) for sequencing, dependencies and verification.
 
-## Triage (2026-11-18)
+## Triage (2026-11-20)
 
-- Investigate the hosted Markdown/CHM navigation timeout (E151) and restore
-  evidence for the full and ASan workflows at the current revision (D15).
+- Recheck the Go to page dialog and link menu with the new tests on hosted Windows.
+  Record full and ASan workflow results at the same revision (D15).
 - Address UI waits when engine work holds a lock (E133). E135 has
   one latency outlier with no confirmed cause.
-- Continue popup geometry and focus work under E112 and E117.
-  The corrected external-foreground case (E150) is under observation.
+- Continue test input and main-window theme refresh work (E117, E118).
 
 Completed work and evidence go in [history.md](history.md#completed-backlog).
 Record new failures here with a trigger, observable outcome and acceptance
@@ -20,16 +19,13 @@ For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-| ID   | Acceptance criteria                                                                                                                                                                                                                                                                            | Status      |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| D15  | Record full hosted Debug runs on PDFium and MuPDF and a separate hosted ASan run at the current revision, including run IDs and exclusions. [Hosted follow-up](history.md#backlog-follow-up-2026-11-19)                                                                                        | todo        |
-| E151 | The hosted trace isolated a late WebView2 completion. The fix passed on both formats and in both hidden layouts. Verify the fixed revision on hosted Windows. [Evidence](history.md#backlog-follow-up-2026-11-19)                                                                              | in progress |
-| E112 | The find bar follows toolbar movement and visibility and stays in place through scrolling, zoom and view changes. Verify one dismissal on content replacement and measure re-evaluation cost. [Results](history.md#backlog-follow-up-2026-11-19)                                               | in progress |
-| E117 | Model Windows mouse message order, foreground, focus, key state and capture in the test input layer. The client-click helper honors `WM_MOUSEACTIVATE`. Extend modal and owned-popup coverage in both layouts and on hosted Windows. [Local evidence](history.md#backlog-follow-up-2026-11-19) | in progress |
-| E118 | Resolve theme colors at paint from surface, role and state; refresh main-window parts without a per-part list. Test raised buttons and selected controls on the Main surface and compare theme screenshots.                                                                                    | todo        |
-| E133 | Verify cancellation, recovery and timing for the remaining producers in the [lock inventory](limitations.md#engine-contention-e133). Cold MuPDF display lists, sidebar thumbnails, citation previews and single and bulk Home covers pass. [Results](history.md#backlog-follow-up-2026-11-19)  | in progress |
-| E154 | Decouple Esc dismissal from notification replacement groups. The notification layer selects and closes the visible target in priority order. Check zoom, theme cycling and stacked notifications. [Plan](remaining-work-plan.md#e154-通知の上書きと-esc)                                       | todo        |
-| E155 | Hosted E128 reported an empty PDFium link-menu listing while a render was parked. Capture command delivery, popup ownership and menu contents. Verify Copy Link Address appears on the hosted runner. [Failed run](https://github.com/elle-et-noire/solokpdf/actions/runs/44469257975)         | todo        |
+| ID   | Acceptance criteria                                                                                                                                                                                                                                                 | Status      |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| D15  | Record full hosted Debug runs on PDFium and MuPDF and a separate hosted ASan run at the same revision, including run IDs and exclusions. [Hosted results](history.md#backlog-verification-2026-11-20)                                                               | todo        |
+| E117 | Model Windows mouse message order, foreground, focus, key state and capture in the test input layer. Verify the revised Go to page reactivation check and the real-foreground branch on hosted Windows. [Local results](history.md#backlog-verification-2026-11-20) | in progress |
+| E118 | Styled buttons and selected native controls resolve surface colors. The compact find bar updates through `WindowBase`. Move the remaining main-window theme refresh calls to their owners. [Results](history.md#backlog-verification-2026-11-20)                    | in progress |
+| E133 | Verify text prefetch, printing and PDF writes in the [lock inventory](limitations.md#engine-contention-e133). The PDFium widget-drawing cancellation boundary and tile recovery have a targeted test. [Results](history.md#backlog-verification-2026-11-20)         | in progress |
+| E155 | Copy Link Address passed on hosted Windows at `8d2acf324`. Check the new command, popup and menu trace on the hosted runner if the empty listing recurs. [Results](history.md#backlog-verification-2026-11-20)                                                      | in progress |
 
 ## Watch
 

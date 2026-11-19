@@ -4,9 +4,10 @@
 // Uses SolokPDF's settings file; build with solok-build.ts, then use --no-build.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { assemblePdf, cmdId, loadPng, runStandalone, tmpPath } from "./util.ts";
+import { assemblePdf, cmdId, loadPng, pollUntil, runStandalone, tmpPath } from "./util.ts";
 import {
   findCanvas,
+  FRAME_CLASS,
   killAndWait,
   launchControlled,
   paletteState,
@@ -20,9 +21,12 @@ import {
   captureWindowToPng,
   enumChildWindows,
   enumWindows,
+  getClassName,
+  getWindowPid,
   getWindowText,
   isWindowVisible,
   postMessage,
+  sendCopyDataW,
   setProcessDpiAware,
   sleep,
 } from "./winapi.ts";
@@ -38,10 +42,10 @@ const kDraculaBg = [0x28, 0x2a, 0x36];
 const kNebulaBg = [0x10, 0x0e, 0x23];
 const kSepiaBg = [0xf4, 0xec, 0xd8];
 
-function plainPdf(): string {
+function plainPdf(form = ""): string {
   const text = "BT /F1 24 Tf 72 700 Td (Hello) Tj ET";
   return assemblePdf([
-    "<< /Type /Catalog /Pages 2 0 R >>",
+    `<< /Type /Catalog /Pages 2 0 R ${form} >>`,
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
     `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
@@ -89,14 +93,19 @@ function pressT(frame: number) {
   postMessage(findCanvas(frame), WM_KEYDOWN, VK_T, 0);
 }
 
-async function expectEscDismisses(frame: number, command: string, title: string) {
-  sendCommandSync(frame, cmdId(command));
+function findNotification(frame: number, matches: (title: string) => boolean): number {
   let notification = 0;
   enumChildWindows(findCanvas(frame), (hwnd) => {
-    if (!isWindowVisible(hwnd) || getWindowText(hwnd) !== title) return true;
+    if (!isWindowVisible(hwnd) || !matches(getWindowText(hwnd))) return true;
     notification = hwnd;
     return false;
   });
+  return notification;
+}
+
+async function expectEscDismisses(frame: number, command: string, title: string) {
+  sendCommandSync(frame, cmdId(command));
+  const notification = findNotification(frame, (s) => s === title);
   if (!notification) throw new Error(`${command}: notification "${title}" did not appear`);
 
   await pressEscape(frame);
@@ -113,9 +122,96 @@ export async function testit(): Promise<void> {
   const pdf = join(dir, "plain.pdf");
   writeFileSync(pdf, plainPdf(), "latin1");
 
+  if (process.argv.includes("--stack-only")) {
+    await checkNotificationStack(dir, pdf);
+    await checkNotificationScope(dir, pdf);
+    return;
+  }
   const failures = await checkPaletteAndDialog(dir, pdf);
   failures.push(...(await checkCycleWraps(dir, pdf)));
   if (failures.length > 0) throw new Error(failures.join("\n"));
+  await checkNotificationStack(dir, pdf);
+  await checkNotificationScope(dir, pdf);
+}
+
+async function checkNotificationStack(dir: string, pdf: string): Promise<void> {
+  writeSettings(dir, "Light");
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
+  const command = (name: string) => sendCommandSync(frame, cmdId(name));
+  const shown = (title: RegExp) => findNotification(frame, (s) => title.test(s)) !== 0;
+  const zoom = /^Zoom: 125%$/;
+  const oldZoom = /^Zoom: 150%$/;
+  const theme = /^Sepia$/;
+  const page = /^Page: 1 \/ 1/;
+  try {
+    await client.waitForRenderIdle();
+    command("CmdZoom150");
+    if (!shown(oldZoom)) throw new Error("missing initial zoom notification");
+    command("CmdZoom125");
+    if (!shown(zoom) || shown(oldZoom)) throw new Error("the new zoom notification did not replace the previous one");
+    command("CmdPrevTheme");
+    if (!shown(zoom) || !shown(theme)) throw new Error("theme cycling replaced the zoom notification");
+    command("CmdTogglePageInfo");
+    command("CmdFindFirst");
+    await pressEscape(frame);
+    if (!shown(page) || !shown(theme) || !shown(zoom)) throw new Error("Esc closed a notification before Find");
+    await pressEscape(frame);
+    if (shown(page) || !shown(theme) || !shown(zoom)) throw new Error("Esc did not dismiss only page information");
+    await pressEscape(frame);
+    if (shown(theme) || !shown(zoom)) throw new Error("Esc did not dismiss only the newest display notification");
+    await pressEscape(frame);
+    if (shown(zoom)) throw new Error("Esc left the zoom notification visible");
+    command("CmdTogglePageInfo");
+    if (!shown(page)) throw new Error("Esc left page information enabled after dismissal");
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
+async function checkNotificationScope(dir: string, otherPdf: string): Promise<void> {
+  const xfa = join(dir, "xfa.pdf");
+  writeFileSync(xfa, plainPdf("/AcroForm << /Fields [] /XFA [] >>"), "latin1");
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, xfa], {
+    env: { ...process.env, SOLOKPDF_ENGINE: "mupdf" } as Record<string, string>,
+  });
+  const warning = (hwnd: number) => findNotification(hwnd, (s) => s === "XFA not supported");
+  try {
+    await pollUntil(() => warning(frame), Boolean, { error: "no XFA warning in first window" });
+    sendCommandSync(frame, cmdId("CmdDuplicateInNewWindow"));
+    const otherFrame = await pollUntil(
+      () => {
+        let other = 0;
+        enumWindows((hwnd) => {
+          if (hwnd === frame || getClassName(hwnd) !== FRAME_CLASS || getWindowPid(hwnd) !== proc.pid || !warning(hwnd))
+            return true;
+          other = hwnd;
+          return false;
+        });
+        return other;
+      },
+      Boolean,
+      { error: "no XFA warning in second window" },
+    );
+    await pressEscape(otherFrame);
+    if (warning(otherFrame) || !warning(frame))
+      throw new Error("Esc did not dismiss the warning in the second window only");
+
+    const DDE_COPYDATA = 0x44646557;
+    sendCopyDataW(frame, DDE_COPYDATA, `[Open("${otherPdf}", 0, 0, 0)]`);
+    await pollUntil(
+      () => getWindowText(frame),
+      (s) => /\bplain\.pdf\b/i.test(s),
+      { error: "plain tab did not open" },
+    );
+    if (warning(frame)) throw new Error("the XFA warning stayed visible on the plain tab");
+    await expectEscDismisses(frame, "CmdZoom125", "Zoom: 125%");
+    sendCommandSync(frame, cmdId("CmdPrevTab"));
+    await pollUntil(() => warning(frame), Boolean, { error: "Esc on the plain tab removed the XFA warning" });
+  } finally {
+    client.close();
+    await killAndWait(proc);
+  }
 }
 
 async function checkPaletteAndDialog(dir: string, pdf: string): Promise<string[]> {

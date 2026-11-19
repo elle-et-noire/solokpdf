@@ -1882,6 +1882,9 @@ void ShowZoomNotification(MainWindow* win, float zoomLevel) {
     }
     NotificationCreateArgs args;
     args.groupId = kNotifZoomOrView;
+#if !defined(SUMATRA_NG)
+    args.escPriority = NotifEscPriority::Display;
+#endif
     args.timeoutMs = 2000;
     args.win = win;
     args.msg = BuildZoomString(zoomLevel);
@@ -1906,6 +1909,9 @@ void ShowViewModeNotification(MainWindow* win, int cmdId) {
     TempStr msg = fmt("%s: %s", Tr("View"), viewName);
     NotificationCreateArgs args;
     args.groupId = kNotifZoomOrView;
+#if !defined(SUMATRA_NG)
+    args.escPriority = NotifEscPriority::Display;
+#endif
     args.timeoutMs = 2000;
     args.win = win;
     args.msg = msg;
@@ -1919,7 +1925,13 @@ void CycleThemeWithNotification(MainWindow* win, int step) {
     NotificationCreateArgs args;
     args.win = win;
     args.msg = name;
+#if defined(SUMATRA_NG)
     args.groupId = kNotifZoomOrView;
+#else
+    static Kind kThemeNotification = "themeCycle";
+    args.groupId = kThemeNotification;
+    args.escPriority = NotifEscPriority::Display;
+#endif
     args.timeoutMs = kNotifDefaultTimeOut;
     args.plainText = true;
     ShowNotification(args);
