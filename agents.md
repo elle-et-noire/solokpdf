@@ -46,7 +46,9 @@ After changing a .ts file under `cmd/` or `tests/`, run `bun cmd/format.ts` — 
 
 If Bun or Prettier is not on PATH, check the local setup in `docs/solokpdf/history.md` and ignored `.work/` before reporting it unavailable. Bun may be under `.work/tools/`; Prettier may be run with `node .work/build-deps/node_modules/prettier/bin/prettier.cjs`.
 
-Never commit changes automatically. Always wait for explicit command to commit changes.
+After verifying requested changes, commit and push them to the current branch's
+upstream by default. Include only changes for the task and use a normal push.
+Follow any user instruction to keep changes local.
 
 When committing a fix for a GitHub issue, end the commit message's **first line** with `(fixes #<issue-no>)`, e.g. `fix crash on committing an empty zoom value (fixes #5909)`. That is the line GitHub shows everywhere, so the link belongs there, not buried in the body.
 
@@ -115,7 +117,7 @@ the message must explain the context and reasoning.
   functions each app implements for the shared code (`// implemented by each
   app`). Put a function there instead of writing it twice. A new shared file
   goes in `premake5.files.lua`, `ng-shared.ts` and `ng-targets.ts`.
-- Ng follows the same coding and commit rules, including **no automatic commits**.
+- Ng follows the same coding, commit and push rules.
 
 Build with `bun cmd/ng-build.ts -dbg` or `-rel`; the host platform is implied.
 Use `-linux`, `-mac` or `-wasm` to select a platform. Outputs are
