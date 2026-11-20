@@ -24,7 +24,7 @@ The [current status](README.md#status) summarizes the latest verification.
 | Project origin                  | [Baseline](#baseline-2026-10-24), [engine map](#engine-map-at-baseline-842ea1be5), [portable identity](#phase-5-portable-development-identity)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Completed work                  | [Backlog archive](#completed-backlog), [upstream merges](upstream-merges.md), [finished plans](archive/README.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
-See [D15](#d15-hosted-verification-at-c1f07fea0-2026-11-20) for the latest
+See [current validation](README.md#validation-as-of-2026-11-20) for the latest
 hosted results and [D13/E17](#ci-coverage-expansion-2026-11-10) for the
 original coverage expansion.
 The completed E18–E37 reviews and fixes have these records:
@@ -3746,6 +3746,14 @@ The previous D15 fixes passed hosted Debug at `1a2d483c7`. Both engines ran
 report. Same-revision full Debug and ASan verification remains open.
 [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629587531) ·
 [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629592648)
+
+### D15 regular CI at `fd669ab17` (2026-11-20)
+
+The Debug build, unit tests and feature tests passed after the popup and PDFium
+review fixes. Release built and passed the extracted ZIP smoke test. GitHub
+Actions uploaded `SolokPDF-experimental-x64`. The most recent complete hosted
+Debug suites and ASan still cover `c1f07fea0`.
+[Regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/44633456280)
 
 ### E133 input queued behind a PDF write
 

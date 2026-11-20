@@ -1,16 +1,6 @@
 # SolokPDF backlog
 
 This is the live work scope. Completed results are in [history.md](history.md#completed-backlog).
-See the [remaining work plan](remaining-work-plan.md) for sequencing, dependencies and verification.
-
-## Triage (2026-11-20)
-
-- Both engines passed the hosted recheck of `issue-6151`, `issue-6194` and the
-  post-test process check. The popup and PDFium review fixes passed locally.
-  Verify the fixes in regular CI before the full D15 runs.
-  [Follow-up](history.md#d15-regular-ci-follow-up-at-1a2d483c7-2026-11-20)
-
-Completed work and evidence go in [history.md](history.md#completed-backlog).
 Record new failures here with a trigger, observable outcome and acceptance
 check. Add behavior changes to [features.md](features.md) or
 [limitations.md](limitations.md). Next free IDs are B78, C2, D16, E156 and F4.
@@ -18,9 +8,18 @@ For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-| ID  | Acceptance criteria                                                                                                                                                                                                                           | Status |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| D15 | Pass both hosted Debug suites and the separate hosted ASan run on the same revision. At `c1f07fea0`, ASan passed and both Debug suites failed. [Run IDs, failures and exclusions](history.md#d15-hosted-verification-at-c1f07fea0-2026-11-20) | open   |
+### D15 Hosted validation
+
+Regular CI passed at `fd669ab17`. Both engines passed the three targeted
+rechecks at `1a2d483c7`. [Validation record](README.md#validation-as-of-2026-11-20)
+
+1. When full-suite verification is requested, run hosted Debug with PDFium
+   and MuPDF with the `tests` input empty. Run hosted ASan on the same
+   revision. [Full-suite procedure](testing.md#hosted-full-suite) ·
+   [ASan procedure](testing.md#asan-ci)
+2. Record the tested revision, run IDs, exclusions and failures in
+   [history.md](history.md#d15-hosted-verification-at-c1f07fea0-2026-11-20).
+   Close D15 when all three runs pass on that revision.
 
 ## Watch
 
