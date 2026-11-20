@@ -1899,6 +1899,11 @@ bool MergePdfWnd::SaveTo(Str destPath) {
     }
     // unsaved changes of the document (annotations) are merged from a copy
     TempStr srcCopy;
+    defer {
+        if (len(srcCopy) > 0) {
+            file::Delete(srcCopy);
+        }
+    };
     EngineBase* docEngine = sources->all[0]->engine;
     if (EngineHasUnsavedAnnotations(docEngine)) {
         srcCopy = GetTempFilePathTemp(StrL("merge"));
@@ -1928,9 +1933,6 @@ bool MergePdfWnd::SaveTo(Str destPath) {
     }
     if (len(tmpPath) > 0) {
         file::Delete(tmpPath);
-    }
-    if (len(srcCopy) > 0) {
-        file::Delete(srcCopy);
     }
     logf("MergePdfWnd::SaveTo: %d pages from %d files to '%s', ok: %d\n", len(pages), len(srcs), destPath, (int)ok);
     return ok;

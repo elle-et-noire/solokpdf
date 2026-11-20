@@ -10,6 +10,15 @@ TempStr PageRangeCountTemp(Str s, int pageCount, bool isExtract);
 TempStr PageCountTextTemp(int nPages, int pageCount);
 Str PageRangeHint();
 
+struct PdfToolOutput : NonCopyable {
+    Str path;
+
+    explicit PdfToolOutput(Str dest, Str suffix = StrL(".pdf"));
+    ~PdfToolOutput();
+    bool Publish(Str dest);
+    int Run(int (*tool)(int, char**), int argc, char** argv, Str dest);
+};
+
 // the tool dialogs' layout, in dips: the lines the user types in, then the
 // files, then the footer, hairlines between them, as the palette draws
 constexpr int kToolDlgMinDx = 520;

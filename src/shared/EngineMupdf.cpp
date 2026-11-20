@@ -15295,7 +15295,7 @@ bool EngineMupdfExtractPagesToPdf(EngineBase* engine, const Vec<int>& pages, Str
             }
             pdf_write_options opts{};
             pdf_parse_write_options(ctx, &opts, "compress");
-            pdf_save_document(ctx, pdf, CStrTemp(destPath), &opts);
+            SavePdfFile(ctx, pdf, destPath, &opts);
         }
         fz_always(ctx) {
             fz_drop_outline_iterator(ctx, iter);
@@ -15312,7 +15312,6 @@ bool EngineMupdfExtractPagesToPdf(EngineBase* engine, const Vec<int>& pages, Str
     pdf_drop_document(ctx, pdf);
     if (!ok) {
         logf("EngineMupdfExtractPagesToPdf: failed for '%s'\n", destPath);
-        file::Delete(destPath);
     }
     return ok;
 }

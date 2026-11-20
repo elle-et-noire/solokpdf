@@ -152,6 +152,13 @@ Debug-only failures require `-for-testing`; Release/ng skip them.
 `ATOMIC_SAVE_CASE=<engine>-<small|big|merge|copy>-<w|r|p|f|empty>` selects one case;
 `copy` uses `f`, `p` and empty (success).
 
+`atomic-pdf-save --pdf-tools-only` selects eight additional SolokPDF cases.
+Extract Pages and Merge use a dedicated `TEMP` and check failed input copies,
+failed publication and retry with unsaved annotations on both engines.
+Extract Text tests a source that cannot be reopened after the tool starts.
+Compress tests rejected replacement of a read-only output. Both dialogs must
+preserve the existing file and publish readable output on retry.
+
 For E133, run `atomic-pdf-save` with `--queued-input-only` in Debug or ASan.
 It queues Page Down while the UI thread holds the document lock, then checks
 the saved annotation and page change. It measures incremental saves and full

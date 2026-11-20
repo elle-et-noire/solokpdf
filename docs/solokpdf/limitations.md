@@ -582,6 +582,11 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   `tests/pdf-tools-encrypted.ts`, `tests/ad-hoc-pdfium-tools.ts`,
   `merge-struct-parents.ts`, `tool-merge.ts` and `pdf-script.ts` cover these paths.
 
+- Bake, Compress, Decompress, Encrypt, Decrypt, Extract Pages, Delete Pages and
+  text export publish completed files. A failed export leaves existing output in
+  place. Extract Pages and Merge remove temporary copies of edited inputs on
+  both success and failure.
+
 ## Printing
 
 - Print **bitmap generation** passed. PDFium tabs read `/ViewerPreferences`

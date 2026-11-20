@@ -37,6 +37,58 @@ extern "C" int pdfclean_main(int argc, char** argv);
 extern "C" int muconvert_main(int argc, char** argv);
 extern "C" void fz_set_optind(int val);
 
+PdfToolOutput::PdfToolOutput(Str dest, Str suffix) {
+    if (len(dest) == 0) {
+        return;
+    }
+    TempStr reserved = file::CreateTempNear(dest);
+    if (len(reserved) == 0) {
+        return;
+    }
+    // MuPDF's CLI tools use the output suffix to recognize the filename or format.
+    if (len(suffix) > 0) {
+        TempStr named = str::JoinTemp(reserved, suffix);
+        if (!file::Rename(named, reserved)) {
+            file::Delete(reserved);
+            return;
+        }
+        reserved = named;
+    }
+    path = str::Dup(reserved);
+}
+
+PdfToolOutput::~PdfToolOutput() {
+    if (path) {
+        file::Delete(path);
+        str::Free(path);
+    }
+}
+
+bool PdfToolOutput::Publish(Str dest) {
+    auto h = file::OpenReadWrite(path, false);
+    bool flushed = h != file::kInvalidFileHandle && file::Flush(h);
+    file::Close(h);
+    if (!flushed || !file::RenameReplace(dest, path)) {
+        logf("PdfToolOutput: cannot publish '%s'\n", dest);
+        return false;
+    }
+    str::Free(path);
+    path = {};
+    return true;
+}
+
+int PdfToolOutput::Run(int (*tool)(int, char**), int argc, char** argv, Str dest) {
+    if (len(path) == 0) {
+        return EXIT_FAILURE;
+    }
+    fz_set_optind(0);
+    int res = tool(argc, argv);
+    if (res != 0) {
+        return res;
+    }
+    return Publish(dest) ? 0 : EXIT_FAILURE;
+}
+
 // a usable page range: Delete Pages cannot take every page
 // the value of -p for a tool re-opening srcPath, the current tab's file
 char* PdfToolPasswordTemp(MainWindow* win, Str srcPath) {
@@ -399,6 +451,11 @@ TempStr ExtractPdfPagesResultTemp(Str destPath, Str pagesSpec, int annotsOnly, i
     TempStr pageRange = FormatPageRangeTemp(parsedPages);
     Str inputPath = tab->filePath;
     TempStr tmpPath;
+    defer {
+        if (tmpPath) {
+            file::Delete(tmpPath);
+        }
+    };
     if (EngineHasUnsavedAnnotations(engine)) {
         tmpPath = GetTempFilePathTemp(StrL("extract-pages"));
         if (len(tmpPath) == 0 || !EngineMupdfSaveCopy(engine, tmpPath)) {
@@ -407,16 +464,13 @@ TempStr ExtractPdfPagesResultTemp(Str destPath, Str pagesSpec, int annotsOnly, i
         inputPath = tmpPath;
     }
     dir::CreateForFile(destPath);
+    PdfToolOutput output(destPath);
     char* argv[] = {(char*)"clean",     (char*)"-p",         PdfToolPasswordTemp(win, tab->filePath),
                     (char*)"-gggg",     (char*)"-e",         (char*)"100",
                     (char*)"-f",        (char*)"-i",         (char*)"-t",
-                    (char*)"-Z",        CStrTemp(inputPath), CStrTemp(destPath),
+                    (char*)"-Z",        CStrTemp(inputPath), CStrTemp(output.path),
                     CStrTemp(pageRange)};
-    fz_set_optind(0);
-    int res = pdfclean_main(dimofi(argv), argv);
-    if (tmpPath) {
-        file::Delete(tmpPath);
-    }
+    int res = output.Run(pdfclean_main, dimofi(argv), argv, destPath);
     if (res != 0) {
         return finish(1, str::DupTemp(StrL("ERROR pdfclean")));
     }
@@ -843,7 +897,8 @@ bool ExtractTextViaEngine(MainWindow* win, Str destPath, Str pages) {
             FreePageText(&pt);
         }
     }
-    return file::WriteFile(destPath, ToStr(text));
+    PdfToolOutput output(destPath, {});
+    return output.path && file::WriteFile(output.path, ToStr(text)) && output.Publish(destPath);
 }
 
 void SaveSelImgThread(SaveSelImgWork* d) {

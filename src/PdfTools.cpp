@@ -595,11 +595,9 @@ void PdfBakeDialog::DoIt(VirtMouseEvent*) {
 
     logf("PdfBakeDoIt: baking '%s' to '%s'\n", srcPath, destPath);
 
-    char* argv[] = {(char*)"bake", (char*)"-p", input.password, input.path, CStrTemp(destPath)};
-    int argc = dimofi(argv);
-
-    fz_set_optind(0);
-    int res = pdfbake_main(argc, argv);
+    PdfToolOutput output(destPath);
+    char* argv[] = {(char*)"bake", (char*)"-p", input.password, input.path, CStrTemp(output.path)};
+    int res = output.Run(pdfbake_main, dimofi(argv), argv, destPath);
     if (res == 0) {
         logf("PdfBakeDoIt: baked successfully\n");
         MainWindow* w = win;
@@ -650,6 +648,18 @@ struct PdfExtractTextDialog : PdfPagesDialog {
     void DoIt(VirtMouseEvent* ev = nullptr) override;
 };
 
+static Str TextOutputSuffix(Str dest) {
+    // The All Files filter also lets MuPDF select other writers, including per-page formats.
+    constexpr Str suffixes[] = {StrL(".txt"),   StrL(".text"),      StrL(".html"),       StrL(".xhtml"),
+                                StrL(".stext"), StrL(".stext.xml"), StrL(".stext.json"), StrL(".csv")};
+    for (Str suffix : suffixes) {
+        if (str::EndsWithI(dest, suffix)) {
+            return suffix;
+        }
+    }
+    return {};
+}
+
 void PdfExtractTextDialog::DoIt(VirtMouseEvent*) {
     TempStr destPath = destEdit->GetTextTemp();
     if (len(destPath) == 0) {
@@ -674,11 +684,17 @@ void PdfExtractTextDialog::DoIt(VirtMouseEvent*) {
         if (!GetPdfInput(tab->GetEngine(), input)) {
             return;
         }
-        char* argv[] = {(char*)"convert",   (char*)"-p", input.password, (char*)"-o",
-                        CStrTemp(destPath), input.path,  CStrTemp(pages)};
-        int argc = dimofi(argv);
-        fz_set_optind(0);
-        ok = muconvert_main(argc, argv) == 0;
+        Str suffix = TextOutputSuffix(destPath);
+        PdfToolOutput output(suffix ? destPath : Str(), suffix);
+        char* argv[] = {
+            (char*)"convert", (char*)"-p",    input.password, (char*)"-o", CStrTemp(suffix ? output.path : destPath),
+            input.path,       CStrTemp(pages)};
+        if (suffix) {
+            ok = output.Run(muconvert_main, dimofi(argv), argv, destPath) == 0;
+        } else {
+            fz_set_optind(0);
+            ok = muconvert_main(dimofi(argv), argv) == 0;
+        }
     } else {
         // use engine text extraction for other formats (DjVu, etc.)
         ok = win->CurrentTab() == tab && ExtractTextViaEngine(win, destPath, pages);
@@ -748,12 +764,10 @@ void PdfCompressDialog::DoIt(VirtMouseEvent*) {
     logf("PdfCompressDoIt: compressing '%s' to '%s'\n", srcPath, destPath);
 
     // equivalent of: clean -gggg -e 100 -f -i -t -Z input output
+    PdfToolOutput output(destPath);
     char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-gggg", (char*)"-e", (char*)"100",
-                    (char*)"-f",    (char*)"-i", (char*)"-t",    (char*)"-Z",    input.path,  CStrTemp(destPath)};
-    int argc = dimofi(argv);
-
-    fz_set_optind(0);
-    int res = pdfclean_main(argc, argv);
+                    (char*)"-f",    (char*)"-i", (char*)"-t",    (char*)"-Z",    input.path,  CStrTemp(output.path)};
+    int res = output.Run(pdfclean_main, dimofi(argv), argv, destPath);
     if (res == 0) {
         logf("PdfCompressDoIt: compressed successfully\n");
         MainWindow* w = win;
@@ -817,11 +831,9 @@ void PdfDecompressDialog::DoIt(VirtMouseEvent*) {
     logf("PdfDecompressDoIt: decompressing '%s' to '%s'\n", srcPath, destPath);
 
     // equivalent of: clean -d input output
-    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-d", input.path, CStrTemp(destPath)};
-    int argc = dimofi(argv);
-
-    fz_set_optind(0);
-    int res = pdfclean_main(argc, argv);
+    PdfToolOutput output(destPath);
+    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-d", input.path, CStrTemp(output.path)};
+    int res = output.Run(pdfclean_main, dimofi(argv), argv, destPath);
     if (res == 0) {
         logf("PdfDecompressDoIt: decompressed successfully\n");
         MainWindow* w = win;
@@ -934,13 +946,11 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
     // use the same compression flags as Compress PDF so the result is re-written
     // compactly; otherwise the kept pages drag along the original's full content
     // and the output is nearly as big as the source
-    char* argv[] = {(char*)"clean", (char*)"-p",        input.password,     (char*)"-gggg", (char*)"-e",
-                    (char*)"100",   (char*)"-f",        (char*)"-i",        (char*)"-t",    (char*)"-Z",
-                    input.path,     CStrTemp(destPath), CStrTemp(pageRange)};
-    int argc = dimofi(argv);
-
-    fz_set_optind(0);
-    int res = pdfclean_main(argc, argv);
+    PdfToolOutput output(destPath);
+    char* argv[] = {(char*)"clean", (char*)"-p",           input.password,     (char*)"-gggg", (char*)"-e",
+                    (char*)"100",   (char*)"-f",           (char*)"-i",        (char*)"-t",    (char*)"-Z",
+                    input.path,     CStrTemp(output.path), CStrTemp(pageRange)};
+    int res = output.Run(pdfclean_main, dimofi(argv), argv, destPath);
     if (res == 0) {
         logf("PdfDeletePageDoIt: %s pages successfully\n", op);
         MainWindow* w = win;
@@ -1067,11 +1077,10 @@ void PdfEncryptDialog::DoIt(VirtMouseEvent*) {
 
     // equivalent of: clean -E aes-256 -U <pwd> -O <pwd> input output
     char* pwdZ = CStrTemp(pwd);
-    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-E", (char*)"aes-256",  (char*)"-U",
-                    pwdZ,           (char*)"-O", pwdZ,           input.path,  CStrTemp(destPath)};
-
-    fz_set_optind(0);
-    int res = pdfclean_main(dimofi(argv), argv);
+    PdfToolOutput output(destPath);
+    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-E", (char*)"aes-256",     (char*)"-U",
+                    pwdZ,           (char*)"-O", pwdZ,           input.path,  CStrTemp(output.path)};
+    int res = output.Run(pdfclean_main, dimofi(argv), argv, destPath);
     if (res == 0) {
         logf("PdfEncryptDoIt: encrypted successfully\n");
         MainWindow* w = win;
@@ -1143,10 +1152,9 @@ void PdfDecryptDialog::DoIt(VirtMouseEvent*) {
     }
     logf("PdfDecryptDoIt: decrypting '%s' to '%s'\n", srcPath, destPath);
 
-    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-D", input.path, CStrTemp(destPath)};
-
-    fz_set_optind(0);
-    int res = pdfclean_main(dimofi(argv), argv);
+    PdfToolOutput output(destPath);
+    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-D", input.path, CStrTemp(output.path)};
+    int res = output.Run(pdfclean_main, dimofi(argv), argv, destPath);
     if (res == 0) {
         logf("PdfDecryptDoIt: decrypted successfully\n");
         MainWindow* w = win;

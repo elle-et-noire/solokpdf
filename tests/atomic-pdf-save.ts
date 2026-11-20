@@ -1,35 +1,63 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { strict as assert } from "node:assert";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { assemblePdf, EXE, makeTextPdf, pollUntil, runStandalone, tmpPath, USE_NG } from "./util.ts";
-import { findCanvas, FRAME_CLASS } from "./win-automation.ts";
 import {
+  APP_NAME,
+  assemblePdf,
+  cmdId,
+  EXE,
+  extractPageText,
+  makeTextPdf,
+  pollUntil,
+  runStandalone,
+  SETTINGS_FILE,
+  tmpPath,
+  USE_NG,
+} from "./util.ts";
+import {
+  findCanvas,
+  FRAME_CLASS,
+  killAndWait,
+  launchControlled,
+  pressEnter,
+  sendCommand,
+  waitToolWindow,
+} from "./win-automation.ts";
+import {
+  enumChildWindows,
+  getClassName,
+  getControlText,
   findTopWindow,
   isWindowVisible,
   observeProcessExit,
   postMessage,
   sendCopyDataW,
+  sendText,
   VK_NEXT,
   waitForTopWindow,
   WM_CLOSE,
   WM_KEYDOWN,
 } from "./winapi.ts";
 
-async function check(engine: string, size: "small" | "big" | "merge" | "copy", failure: string): Promise<boolean> {
-  const label = `${engine}-${size}-${failure}`;
-  const dir = tmpPath(`atomic-pdf-save/${label}`);
-  mkdirSync(dir, { recursive: true });
-  const source = join(dir, "source.pdf");
-  const dest = join(dir, "keep.pdf");
-  const original = makeTextPdf("KEEP THIS FILE");
+function copySource(padding: number, withAnnotation: boolean): Buffer {
   const content = "BT /F1 18 Tf 72 200 Td (COPIED SOURCE) Tj ET";
-  const padding = size === "merge" ? 0 : size === "big" ? 33 * 1024 * 1024 : 256 * 1024;
-  const data = Buffer.from(
+  return Buffer.from(
     assemblePdf(
       [
         "<< /Type /Catalog /Pages 2 0 R >>",
         "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
-        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R ${size === "copy" ? "/Annots [6 0 R]" : ""} >>`,
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R ${withAnnotation ? "/Annots [6 0 R]" : ""} >>`,
         `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
         "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
         "<< /Type /Annot /Subtype /Square /P 3 0 R /Rect [72 50 150 100] /Contents (ORIGINAL) >>",
@@ -38,6 +66,17 @@ async function check(engine: string, size: "small" | "big" | "merge" | "copy", f
     ),
     "latin1",
   );
+}
+
+async function check(engine: string, size: "small" | "big" | "merge" | "copy", failure: string): Promise<boolean> {
+  const label = `${engine}-${size}-${failure}`;
+  const dir = tmpPath(`atomic-pdf-save/${label}`);
+  mkdirSync(dir, { recursive: true });
+  const source = join(dir, "source.pdf");
+  const dest = join(dir, "keep.pdf");
+  const original = makeTextPdf("KEEP THIS FILE");
+  const padding = size === "merge" ? 0 : size === "big" ? 33 * 1024 * 1024 : 256 * 1024;
+  const data = copySource(padding, size === "copy");
   writeFileSync(source, data);
   writeFileSync(dest, original);
   if (failure === "p") chmodSync(dest, 0o444);
@@ -119,6 +158,146 @@ async function check(engine: string, size: "small" | "big" | "merge" | "copy", f
   return ran;
 }
 
+async function checkToolCopy(engine: string, tool: "extract" | "merge"): Promise<boolean> {
+  const dir = mkdtempSync(tmpPath("atomic-tool-copy-"));
+  const temp = join(dir, "temp");
+  mkdirSync(temp);
+  const source = join(dir, "source.pdf");
+  const dest = join(dir, "output.pdf");
+  const data = copySource(0, true);
+  const original = Buffer.from(makeTextPdf("KEEP THIS FILE"));
+  writeFileSync(source, data);
+  writeFileSync(dest, original);
+  return withControlledSumatra(
+    EXE,
+    async (client) => {
+      await client.waitForRenderIdle();
+      if ((await client.request(ControlCommand.TestCurrentPdf, ["save-faults"]))[1] !== "supported") {
+        console.log("SKIP PDF tool input copy: Debug fault injection unavailable");
+        return false;
+      }
+      const before = readdirSync(temp).sort();
+      const edit = await client.request(ControlCommand.TestCurrentPdf, ["set-annot-contents", "COPIED EDIT"]);
+      assert.match(String(edit[1]), /changed=1/);
+      if (tool === "merge") {
+        const opened = await client.request(ControlCommand.TestMergePdf, ["open", "", 0]);
+        assert.equal(opened[0], 0, String(opened[1]));
+      }
+      const save = () =>
+        tool === "merge"
+          ? client.request(ControlCommand.TestMergePdf, ["saveas", dest, 0])
+          : client.request(ControlCommand.TestExtractPages, [dest, "1", 0]);
+      const outputBefore = readdirSync(dir).sort();
+
+      for (const failure of ["copy write", "output publication", ""]) {
+        if (failure === "output publication") chmodSync(dest, 0o444);
+        const [status, result] = await save();
+        if (tool === "merge") assert.equal(result, `OK saved=${failure ? 0 : 1}`);
+        else assert.equal(status, failure ? 1 : 0, String(result));
+        if (failure === "output publication") chmodSync(dest, 0o666);
+        if (failure) assert.deepEqual(readFileSync(dest), original, `${failure}: destination changed`);
+        assert.deepEqual(readdirSync(temp).sort(), before, `${failure || "success"}: temporary input leaked`);
+        assert.deepEqual(readdirSync(dir).sort(), outputBefore, `${failure || "success"}: temporary output leaked`);
+      }
+
+      assert.match(extractPageText(dest, 1), /COPIED SOURCE/);
+      const decoded = join(dir, "decoded.pdf");
+      const result = Bun.spawnSync([EXE, "clean", "-d", dest, decoded]);
+      assert.equal(result.exitCode, 0, result.stderr.toString());
+      assert.match(readFileSync(decoded, "latin1"), /\/Contents\s*\(COPIED EDIT\)/);
+      assert.deepEqual(readFileSync(source), data);
+      await client.selectTab(0);
+      const state = await client.request(ControlCommand.TestMarkupAnnots);
+      assert.match(String(state[1]), /undo canUndo=1 canRedo=0 modified=1/);
+      return true;
+    },
+    ["-appdata", join(dir, "settings"), source],
+    { env: { ...process.env, TEMP: temp, TMP: temp, SOLOKPDF_ENGINE: engine, SOLOKPDF_TEST_SAVE_FAILURE: "f" } },
+  );
+}
+
+async function checkToolDestination(engine: string, tool: "text" | "compress"): Promise<void> {
+  const dir = mkdtempSync(tmpPath("atomic-tool-destination-"));
+  const source = join(dir, "source.pdf");
+  const moved = join(dir, "moved.pdf");
+  const text = tool === "text";
+  const dest = join(dir, text ? "output.txt" : "output.pdf");
+  const original = Buffer.from(text ? "KEEP THIS TEXT" : makeTextPdf("KEEP THIS FILE"));
+  const data = makeTextPdf("TOOL SOURCE");
+  writeFileSync(source, data);
+  writeFileSync(dest, original);
+  writeFileSync(join(dir, SETTINGS_FILE), "UiLanguage = en\nReloadModifiedDocuments = false\n");
+  const { proc, client, frame } = await launchControlled(["-appdata", dir, source], {
+    env: { SOLOKPDF_ENGINE: engine },
+  });
+  try {
+    await client.waitForRenderIdle();
+    const title = text ? "Extract Text From PDF" : "Compress PDF";
+    sendCommand(frame, cmdId(text ? "CmdDocumentExtractText" : "CmdPdfCompress"));
+    const dlg = await waitToolWindow(client, proc.pid, "pdftool", { title });
+    assert.ok(dlg, `Missing ${title}`);
+    let edit = 0;
+    enumChildWindows(dlg, (hwnd) => {
+      if (getClassName(hwnd) === "Edit" && /\.(pdf|txt)$/.test(getControlText(hwnd))) edit = hwnd;
+      return !edit;
+    });
+    assert.ok(edit, "Missing destination edit");
+    sendText(edit, dest);
+    const before = readdirSync(dir).sort();
+    if (text) renameSync(source, moved);
+    else chmodSync(dest, 0o444);
+
+    await pressEnter(edit);
+    const warning = await pollUntil(() => findTopWindow(proc.pid, "#32770"), isWindowVisible, {
+      error: `${title}: missing failure warning`,
+    });
+    postMessage(warning, WM_CLOSE, 0, 0);
+    await pollUntil(
+      () => isWindowVisible(warning),
+      (visible) => !visible,
+    );
+    if (text) renameSync(moved, source);
+    else chmodSync(dest, 0o666);
+    assert.deepEqual(readFileSync(dest), original, `${title}: failure changed the destination`);
+    assert.deepEqual(readdirSync(dir).sort(), before, `${title}: failed output leaked`);
+
+    await pressEnter(edit);
+    await pollUntil(
+      () => isWindowVisible(dlg),
+      (visible) => !visible,
+      { error: `${title}: retry did not finish` },
+    );
+    assert.match(text ? readFileSync(dest, "utf8") : extractPageText(dest, 1), /TOOL SOURCE/);
+    assert.deepEqual(readdirSync(dir).sort(), before, `${title}: successful output leaked`);
+    assert.deepEqual(readFileSync(source), data);
+  } finally {
+    if (existsSync(dest)) chmodSync(dest, 0o666);
+    client.close();
+    await killAndWait(proc);
+  }
+}
+
+async function checkPdfTools(): Promise<void> {
+  if (APP_NAME !== "SolokPDF") return;
+  const failures: string[] = [];
+  for (const engine of ["pdfium", "mupdf"]) {
+    for (const tool of ["extract", "merge", "text", "compress"] as const) {
+      const label = `${engine}-${tool}`;
+      try {
+        if (tool === "extract" || tool === "merge") {
+          if (!(await checkToolCopy(engine, tool))) continue;
+        } else {
+          await checkToolDestination(engine, tool);
+        }
+        console.log(`${label}: output and cleanup verified`);
+      } catch (error) {
+        failures.push(`${label}: ${error}`);
+      }
+    }
+  }
+  if (failures.length) throw new Error(failures.join("\n"));
+}
+
 async function checkQueuedInput(engine: string, action: "save-result" | "save-copy"): Promise<void> {
   const label = `${engine}-${action}`;
   const dir = tmpPath(`atomic-pdf-save/${label}`);
@@ -191,6 +370,7 @@ async function checkQueuedInput(engine: string, action: "save-result" | "save-co
 
 export async function testit(): Promise<void> {
   if (USE_NG) return;
+  if (process.argv.includes("--pdf-tools-only")) return checkPdfTools();
   if (process.argv.includes("--queued-input-only")) {
     for (const engine of ["pdfium", "mupdf"]) {
       await checkQueuedInput(engine, "save-result");
@@ -209,6 +389,7 @@ export async function testit(): Promise<void> {
       }
     }
   }
+  if (!process.env.ATOMIC_SAVE_CASE) await checkPdfTools();
 }
 
 if (import.meta.main) await runStandalone(testit);
