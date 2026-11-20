@@ -1,7 +1,9 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { assemblePdf, EXE, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { assemblePdf, cmdId, EXE, pollUntil, runStandalone, SLOW_BUILD_FACTOR, tmpPath } from "./util.ts";
+import { FRAME_CLASS, sendCommandAsync } from "./win-automation.ts";
+import { waitForTopWindow } from "./winapi.ts";
 
 const stream = (data: string) => `<< /Length ${data.length} >>\nstream\n${data}\nendstream`;
 const DER_SEQUENCE = 0x30;
@@ -68,7 +70,7 @@ function p7m(pdf: string): Buffer {
 async function inspect(path: string, engine: string, attachment: boolean, saved?: string): Promise<string> {
   return withControlledSumatra(
     EXE,
-    async (client) => {
+    async (client, proc) => {
       await client.waitForRenderIdle();
       if (attachment) {
         await pollUntil(
@@ -82,7 +84,11 @@ async function inspect(path: string, engine: string, attachment: boolean, saved?
       if (result[0] !== 0) throw new Error(`current PDF: ${result[1]}`);
       const info = await client.request(ControlCommand.TestPageInfo);
       if (info[0] !== 0 || !String(info[1]).includes("pages=1")) throw new Error(`page render: ${info[1]}`);
-      if (saved) {
+      if (saved && attachment) {
+        const frame = await waitForTopWindow(proc.pid!, FRAME_CLASS);
+        await client.request(ControlCommand.TestSaveFileName, [saved.slice(0, -".pdf".length)]);
+        await sendCommandAsync(frame, cmdId("CmdSaveAs"));
+      } else if (saved) {
         const save = await client.request(ControlCommand.TestSaveFileAs, [saved]);
         if (save[0] !== 0) throw new Error(`Save As: ${save[1]}`);
       }

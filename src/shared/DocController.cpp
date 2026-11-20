@@ -2,6 +2,10 @@
    License: GPLv3 */
 
 #include "base/Base.h"
+#if !defined(SUMATRA_NG)
+#include "base/File.h"
+#include "base/Win.h"
+#endif
 #include "gui/UIModels.h"
 #include "gui/BrowserView.h"
 #include "Settings.h"
@@ -9,6 +13,9 @@
 #include "EngineBase.h"
 #include "AppSettings.h"
 #include "PagePosition.h"
+#if defined(SOLOKPDF_PDFIUM)
+#include "solokpdf/EnginePdfium.h"
+#endif
 #include "DocController.h"
 
 // lets the app drop raw pointers it keeps to a controller (e.g. for DDE)
@@ -17,6 +24,64 @@ Func1<DocController*> gOnDocControllerDestroyed;
 DocController::~DocController() {
     gOnDocControllerDestroyed.Call(this);
 }
+
+#if !defined(SUMATRA_NG)
+SaveAsSource DocController::GetSaveAsSource(EngineBase* engine, Str displayName, Str pluginName) const {
+    SaveAsSource source;
+    source.path = len(pluginName) > 0 ? pluginName : GetFilePath();
+    source.name = source.path;
+    source.fileExt = GetDefaultFileExt();
+    source.engine = engine;
+#if defined(SOLOKPDF_PDFIUM)
+    source.retainedInput = source.engine && source.engine->kind == kindEnginePdfium;
+    if (EnginePdfiumIsDataBacked(source.engine)) {
+        Str name = source.name;
+        if (len(name) == 0) {
+            name = len(displayName) > 0 ? displayName : StrL("attachment.pdf");
+        }
+        source.name = fmt("%s.pdf", path::GetPathNoExtTemp(path::GetBaseNameTemp(name)));
+    }
+#else
+    (void)displayName;
+#endif
+    return source;
+}
+
+// Copy the original input or the engine's converted PDF for a .pdf target.
+TempStr SaveAsSource::SaveCopyAs(Str dstPath, TempStr& error) const {
+    bool convertedAsPdf =
+        engine && str::EndsWithI(dstPath, StrL(".pdf")) &&
+        (engine->kind == kindEnginePostScript || engine->kind == kindEngineDvi || engine->kind == kindEngineCaj);
+    TempStr dst = str::DupTemp(dstPath);
+    if (!convertedAsPdf && !str::EndsWithI(dst, fileExt)) {
+        dst = str::JoinTemp(dst, fileExt);
+    }
+
+    logf("Saving '%s' to '%s'\n", len(path) > 0 ? path : name, dst);
+    if (engine && (convertedAsPdf || retainedInput || !file::Exists(path))) {
+        if (!engine->SaveFileAs(dst)) {
+            return {};
+        }
+    } else if (!path::IsSame(path, dst)) {
+        if (!file::Copy(dst, path, false)) {
+            DWORD err = 0;
+            error = GetLastErrorStrTemp(err);
+            return {};
+        }
+        constexpr DWORD attributesToDrop = FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
+        DWORD attributes = file::GetAttributes(dst);
+        if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & attributesToDrop)) {
+            file::SetAttributes(dst, attributes & ~attributesToDrop);
+        }
+    }
+    // Some legacy engines can report success without writing the file (#1016).
+    if (!file::Exists(dst)) {
+        logf("SaveCopyAs(): '%s' doesn't exist after a reportedly successful save\n", dst);
+        return {};
+    }
+    return dst;
+}
+#endif
 
 Location DocController::CurrentLocation() {
     return LocFromPageNo(CurrentPageNo());

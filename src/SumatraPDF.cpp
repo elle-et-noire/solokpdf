@@ -6025,7 +6025,39 @@ void CloseWindow(MainWindow* win, bool quitIfLast, bool forceClose) {
     }
 }
 
-static bool SaveDocAs(MainWindow* win, Str dstPath);
+static SaveAsSource GetSaveAsSource(WindowTab* tab) {
+    TempStr pluginName;
+    if (gPluginMode) {
+        pluginName = url::GetFileNameTemp(gPluginURL);
+        if (len(pluginName) == 0) {
+            pluginName = StrL("filename");
+        }
+    }
+    return tab->ctrl->GetSaveAsSource(tab->GetEngine(), Str(tab->displayName), pluginName);
+}
+
+static bool SaveOriginalAs(MainWindow* win, const SaveAsSource& source, Str dstPath) {
+    if (len(source.name) == 0) {
+        ShowTemporaryNotification(win, Tr("File path not available"), kNotif5SecsTimeOut);
+        return false;
+    }
+    TempStr error;
+    TempStr savedPath = source.SaveCopyAs(dstPath, error);
+    if (len(savedPath) == 0) {
+        TempStr msg = Tr("Failed to save a file");
+        if (len(error) > 0) {
+            msg = fmt("%s\n\n%s", msg, error);
+        }
+        logf("SaveOriginalAs() failed with '%s'\n", msg);
+        MessageBoxWarning(win->hwndFrame, msg);
+        return false;
+    }
+
+    if (IsUntrustedFile(win->ctrl->GetFilePath(), gPluginURL)) {
+        file::SetZoneIdentifier(savedPath);
+    }
+    return true;
+}
 
 // A hook selects the Explorer-style dialog that supports CDM_* messages.
 static UINT_PTR CALLBACK TestSaveDialogHook(HWND, UINT, WPARAM, LPARAM) {
@@ -6044,41 +6076,25 @@ static void SaveCurrentFileAs(MainWindow* win) {
     if (!CommitTabInput(targetTab)) {
         return;
     }
-    auto* ctrl = win->ctrl;
-    TempStr srcFileName = ctrl->GetFilePath();
-    if (gPluginMode) {
-        // fall back to a generic "filename" instead of the more confusing temporary filename
-        srcFileName = StrL("filename");
-        TempStr urlName = url::GetFileNameTemp(gPluginURL);
-        if (urlName) {
-            srcFileName = urlName;
-        }
-    }
-
-    DisplayModel* dm = win->AsFixed();
-    EngineBase* engine = dm ? dm->GetEngine() : nullptr;
+    auto* ctrl = targetTab->ctrl;
+    EngineBase* engine = targetTab->GetEngine();
     if (engine) {
         engine->AddRef();
     }
     defer {
         SafeEngineRelease(&engine);
     };
-#if defined(SOLOKPDF_PDFIUM)
-    if (len(srcFileName) == 0 && EnginePdfiumIsDataBacked(engine)) {
-        WindowTab* tab = win->CurrentTab();
-        srcFileName = tab && tab->displayName ? Str(tab->displayName) : StrL("attachment.pdf");
-    }
-#endif
-    if (len(srcFileName) == 0) {
+    SaveAsSource source = GetSaveAsSource(targetTab);
+    if (len(source.name) == 0) {
         ShowTemporaryNotification(win, Tr("File path not available"), kNotif5SecsTimeOut);
         return;
     }
     if (EngineHasUnsavedAnnotations(engine)) {
-        SaveAnnotationsToMaybeNewPdfFile(win->CurrentTab());
+        SaveAnnotationsToMaybeNewPdfFile(targetTab);
         return;
     }
 
-    auto defExt = ctrl->GetDefaultFileExt();
+    Str defExt = source.fileExt;
     // Prepare the file filters (use \1 instead of \0 so that the
     // double-zero terminated string isn't cut by the string handling
     // methods too early on)
@@ -6093,12 +6109,7 @@ static void SaveCurrentFileAs(MainWindow* win) {
     str::TransCharsInPlace(fileFilterStr, StrL("\1"), StrL("\0"));
 
     WCHAR dstFileName[MAX_PATH];
-    TempStr baseName = path::GetBaseNameTemp(srcFileName);
-#if defined(SOLOKPDF_PDFIUM)
-    if (EnginePdfiumIsDataBacked(engine)) {
-        baseName = fmt("%s.pdf", path::GetPathNoExtTemp(baseName));
-    }
-#endif
+    TempStr baseName = path::GetBaseNameTemp(source.name);
     str::BufSet(dstFileName, dimof(dstFileName), baseName);
     if (wstr::ContainsChar(WStr(dstFileName), L':')) {
         // handle embed-marks (for embedded PDF documents):
@@ -6160,96 +6171,7 @@ static void SaveCurrentFileAs(MainWindow* win) {
         return;
     }
 
-    SaveDocAs(win, ToUtf8Temp(dstFileName));
-}
-
-// Writes the open document to dstPath. A PostScript document saved as .pdf gets
-// the PDF Ghostscript produced; anything else is a copy of the source file.
-static bool SaveDocAs(MainWindow* win, Str dstPath) {
-    auto* ctrl = win->ctrl;
-    TempStr srcFileName = ctrl->GetFilePath();
-    DisplayModel* dm = win->AsFixed();
-    EngineBase* engine = dm ? dm->GetEngine() : nullptr;
-    bool dataBacked = false;
-    bool retainedSource = false;
-#if defined(SOLOKPDF_PDFIUM)
-    dataBacked = EnginePdfiumIsDataBacked(engine);
-    if (len(srcFileName) == 0 && dataBacked) {
-        WindowTab* tab = win->CurrentTab();
-        srcFileName = tab && tab->displayName ? Str(tab->displayName) : StrL("attachment.pdf");
-    }
-#endif
-    if (gPluginMode) {
-        srcFileName = StrL("filename");
-        TempStr urlName = url::GetFileNameTemp(gPluginURL);
-        if (urlName) {
-            srcFileName = urlName;
-        }
-    }
-    if (len(srcFileName) == 0) {
-        ShowTemporaryNotification(win, Tr("File path not available"), kNotif5SecsTimeOut);
-        return false;
-    }
-    TempStr realDstFileName = str::DupTemp(dstPath);
-    bool convertedAsPdf =
-        engine && str::EndsWithI(realDstFileName, StrL(".pdf")) &&
-        (engine->kind == kindEnginePostScript || engine->kind == kindEngineDvi || engine->kind == kindEngineCaj);
-
-    // Make sure that the file has a valid extension
-    Str defExt = ctrl->GetDefaultFileExt();
-    if (!convertedAsPdf && !str::EndsWithI(realDstFileName, defExt)) {
-        realDstFileName = str::JoinTemp(realDstFileName, defExt);
-    }
-#if defined(SOLOKPDF_PDFIUM)
-    retainedSource = engine && engine->kind == kindEnginePdfium;
-#endif
-
-    logf("Saving '%s' to '%s'\n", srcFileName, realDstFileName);
-
-    // TODO: engine->SaveFileA() is stupid
-    // Replace with EngineGetDocumentData() and save that if not empty
-    bool ok = true;
-    TempStr errorMsg;
-    if (convertedAsPdf || dataBacked || retainedSource || (!file::Exists(srcFileName) && engine)) {
-        // Copy the open source, which may differ from the current file at its path.
-        logf("calling engine->SaveFileAs(%s)\n", realDstFileName);
-        ok = engine->SaveFileAs(realDstFileName);
-    } else if (!path::IsSame(srcFileName, realDstFileName)) {
-        ok = file::Copy(realDstFileName, srcFileName, false);
-        if (ok) {
-            // Make sure that the copy isn't write-locked or hidden
-            const DWORD attributesToDrop = FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
-            DWORD attributes = file::GetAttributes(realDstFileName);
-            if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & attributesToDrop)) {
-                file::SetAttributes(realDstFileName, attributes & ~attributesToDrop);
-            }
-        } else {
-            DWORD err = 0;
-            TempStr s = GetLastErrorStrTemp(err);
-            if (len(s) > 0) {
-                errorMsg = fmt("%s\n\n%s", Tr("Failed to save a file"), s);
-            }
-        }
-    }
-    // Belt-and-suspenders: some failure modes (e.g. a destination path longer
-    // than MAX_PATH) can report success while nothing was actually written, so
-    // the user has no way to tell the save silently failed (issue #1016).
-    if (ok && !file::Exists(realDstFileName)) {
-        logf("SaveDocAs(): '%s' doesn't exist after a reportedly successful save\n", realDstFileName);
-        ok = false;
-    }
-    if (!ok) {
-        TempStr msg = errorMsg ? errorMsg : Str(Tr("Failed to save a file"));
-        logf("SaveDocAs() failed with '%s'\n", msg);
-        MessageBoxWarning(win->hwndFrame, msg);
-        return false;
-    }
-
-    auto path = ctrl->GetFilePath();
-    if (IsUntrustedFile(path, gPluginURL)) {
-        file::SetZoneIdentifier(realDstFileName);
-    }
-    return true;
+    SaveOriginalAs(win, source, ToUtf8Temp(dstFileName));
 }
 
 // -dbg-control TestSaveFileAs: Save As without the dialog
@@ -6258,7 +6180,8 @@ TempStr SaveFileAsResultTemp(Str dstPath, int* exitCodeOut) {
     if (len(gWindows) == 0 || !gWindows[0] || !gWindows[0]->IsDocLoaded()) {
         return StrL("NOTREADY no-document");
     }
-    if (!SaveDocAs(gWindows[0], dstPath)) {
+    MainWindow* win = gWindows[0];
+    if (!SaveOriginalAs(win, GetSaveAsSource(win->CurrentTab()), dstPath)) {
         return StrL("FAIL save");
     }
     *exitCodeOut = 0;

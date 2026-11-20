@@ -6,6 +6,7 @@ struct ChmModel;
 struct MarkdownModel;
 struct BrowserDocController;
 struct DisplayModel;
+class EngineBase;
 struct IPageElement;
 struct IPageDestination;
 struct ILinkHandler;
@@ -20,6 +21,21 @@ struct BrowserViewCallback;
 struct Location;
 enum class DisplayMode;
 enum class DocProp : u8;
+
+#if !defined(SUMATRA_NG)
+struct SaveAsSource {
+    Str name;
+    Str fileExt;
+
+    TempStr SaveCopyAs(Str dstPath, TempStr& error) const;
+
+  private:
+    friend struct DocController;
+    Str path;
+    EngineBase* engine = nullptr;
+    bool retainedInput = false;
+};
+#endif
 
 enum class BrowserUrlType {
     Internal,
@@ -93,6 +109,9 @@ struct DocController {
     virtual Str GetDefaultFileExt() const = 0;
     virtual int PageCount() const = 0;
     virtual TempStr GetPropertyTemp(DocProp prop) = 0;
+#if !defined(SUMATRA_NG)
+    SaveAsSource GetSaveAsSource(EngineBase*, Str displayName, Str pluginName) const;
+#endif
 
     // page navigation (stateful)
     virtual int CurrentPageNo() const = 0;
