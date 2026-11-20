@@ -4825,3 +4825,33 @@ The original password opened the encrypted output, the source bytes were
 unchanged, and the plain source tab retained its dirty and Undo state.
 
 The [review plan](design-review-plan.md) continues with R02.
+
+### R02 Applied redactions in tool output
+
+At `17f4c84d2`, PDFium testing found five tools that reopened the saved PDF
+and reproduced the redacted marker. Save Trimmed Pages As left the marker in
+an obsolete PDF stream after removing it from the visible page.
+
+`24c7c7000` uses a copy of the edited source tab when it has unsaved edits.
+After redaction, the copy and trimmed export discard obsolete streams. MuPDF
+keeps the live document's incremental xrefs so Undo can restore the edited
+page. Trimming leaves text outside the CropBox in the PDF.
+
+| Output                            | Input                    | Marker before the fix | Encryption after the fix |
+| --------------------------------- | ------------------------ | --------------------- | ------------------------ |
+| Compress, Decompress              | Open tab                 | Extractable           | Preserved                |
+| Encrypt                           | Open tab                 | Extractable           | AES-256                  |
+| Decrypt                           | Open tab                 | Extractable           | Removed                  |
+| Extract Text                      | Open tab                 | In the text file      | Plain text               |
+| Save Trimmed Pages As             | Open tab                 | In an obsolete stream | Preserved                |
+| Bake, Extract Pages, Delete Pages | Open tab                 | Absent                | Preserved                |
+| Merge                             | Open tab and added files | —                     | Preserved from first PDF |
+| Convert to Images, print bitmap   | Open tab                 | —                     | Raster                   |
+
+The [output test](../../tests/pdf-tools-encrypted.ts) passed in Debug and ASan
+on PDFium and MuPDF. It verified that the marker was absent from extracted text
+and decoded PDF streams. It also checked the unchanged source bytes and dirty
+state, then restored the marker with Undo. The print bitmap, remembered-key
+decryption and crop geometry tests passed in Debug.
+
+The [review plan](design-review-plan.md) continues with R03.
