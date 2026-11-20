@@ -47,8 +47,8 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   Deleting the history entry deletes both stored values. Existing MuPDF
   keys still reopen in MuPDF. DPAPI is user-scoped and local to Windows, so
   copying settings to another account or machine does not carry the PDFium
-  password. Encrypted PDFs no longer reach the MuPDF-only PDF tools (e.g.
-  Decrypt) through the fallback. PDFium reads the effective print, copy,
+  password. See [Decrypt PDF](#decrypt-pdf) for creating an unencrypted copy.
+  PDFium reads the effective print, copy,
   annotation and form permissions from `FPDF_GetDocPermissions` and reads the
   underlying user mask with `FPDF_GetDocUserPermissions`; security revision
   `-1` means unencrypted. The effective mask gives an owner-password opener
@@ -586,6 +586,20 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   text export publish completed files. A failed export leaves existing output in
   place. Extract Pages and Merge remove temporary copies of edited inputs on
   both success and failure.
+
+### Decrypt PDF
+
+Open the encrypted PDF in either engine, then choose **Tools → PDF Operations
+→ Decrypt PDF** or find **Decrypt PDF** in the command palette. PDFium opens the
+source with a password, including one it remembered. MuPDF can also use the
+decryption key remembered in file history. The tool uses the unlocked tab's
+credentials. If the source changed on disk, reopen it before decrypting.
+
+Decrypt PDF writes an unencrypted copy that opens without a password and
+includes the tab's committed edits, including applied redactions. Bake,
+Compress, Decompress, Extract Pages and Delete Pages retain the source PDF's
+encryption. [Remembered-key test](../../tests/pdf-decrypt-remembered-key.ts) ·
+[Encrypted tool outputs](../../tests/pdf-tools-encrypted.ts)
 
 ## Printing
 

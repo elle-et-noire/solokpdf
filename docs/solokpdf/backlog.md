@@ -9,8 +9,8 @@ For code changes, select affected tests from [testing.md](testing.md).
 ## Open
 
 - E157 — [Win32 product and code design review plan](design-review-plan.md).
-  Next is R15, checking when tab selection and the canvas timer consume auto-reload notifications.
-  [R18 and R19 verification](history.md#r18-r19-palette-and-trimmed-pages).
+  Next is R09, reviewing how signature inspection identifies PDFs and reads signatures.
+  [R15 and R30–R32 verification](history.md#r15-r30-r31-r32-reload-ci-and-decrypt).
   The plan tracks each finding, its evidence, execution order and acceptance check.
 
 ## Not planned

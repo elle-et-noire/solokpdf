@@ -4992,3 +4992,37 @@ Debug build.
   the output on each engine and verified both pages' crop dimensions.
 
 The [review plan](design-review-plan.md) continues with R15.
+
+### R15 R30 R31 R32 reload CI and decrypt
+
+Started on 2026-11-21 at `0db2295fb`. The entry points were tab selection
+and the canvas timer, the hosted test runner and the Decrypt PDF command.
+The product and runner changes landed in `b7d3dcd82`.
+
+- R15 adopted. The previous build lost an external write immediately after
+  saving annotations on both engines. Tab selection and the timer now share
+  the file-stability, save-notification and password rules. Debug passed
+  [auto-reload-unsaved](../../tests/auto-reload-unsaved.ts),
+  [background-tab-reload](../../tests/background-tab-reload.ts),
+  [reload-debounce](../../tests/reload-debounce.ts) and
+  [ctx-menu-reload](../../tests/ctx-menu-reload.ts) with both engines.
+  The targeted save-notification test also passed on both engines after
+  restricting the saved-version match to one notification. It reproduced the
+  loss of a later replacement that preserved size and modification time.
+- R30 adopted. An intercepted timeout in the previous runner tried to kill by
+  executable name while the next test started before the timed-out body ended.
+  [The runner test](../../tests/github-ci-runner.ts) verified that a timeout
+  now stops the worker, child and grandchild before the next test starts.
+  A same-name process outside the job survived. The visible-window probe
+  verified that a child job inherits the local hidden desktop.
+- R31 adopted. Runtime skip and partial results have their own counts.
+  The runner test exercised both outcomes, a pass and a failure.
+  The named `keyboard-ime` run passed with Japanese IME available.
+- R32 adopted. [Decrypt PDF](limitations.md#decrypt-pdf) records the menu
+  and palette entries, the credentials used by each engine and the output
+  encryption state. [The remembered-key test](../../tests/pdf-decrypt-remembered-key.ts)
+  passed. A pinned Home tab in the initial build directory invalidated the
+  encrypted-tools test's tab-zero assumption. [The encrypted-tools test](../../tests/pdf-tools-encrypted.ts)
+  passed on both engines from a clean Debug stage.
+
+The [review plan](design-review-plan.md) continues with R09.

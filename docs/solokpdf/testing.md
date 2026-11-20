@@ -34,6 +34,18 @@ The B69 probe (`tests/ad-hoc-b69-hidden-desktop.ts`) creates a visible window
 and checks its desktop name against the input desktop. Run it first when
 checking the runner. Local app tests must never run on the owner's desktop.
 
+### Hosted test runner
+
+`tests/run-github-ci.ts` runs each named test in a separate Windows Job Object.
+A timeout terminates the worker and its children before the next test starts.
+The summary counts passes, partial runs, runtime skips, failures and tests
+excluded before execution. Passing a test name retries it regardless of the
+default exclusions.
+
+`bun tests/github-ci-runner.ts` verifies timeout cleanup and result counts with
+synthetic child processes. For a named test that opens the app, run the hosted
+runner through the hidden desktop locally.
+
 ### Portable ZIP
 
 Build and test the Debug ZIP locally.
@@ -91,7 +103,10 @@ reload and save behavior.
 `auto-reload-unsaved` also covers pending FreeText and toolbar contents input
 in both PDF engines. It checks that external updates preserve the input, cancel
 allows the deferred reload, and committed input stays protected until Undo
-returns the document to its clean state.
+returns the document to its clean state. `--save-notifications-only` checks
+that a save causes no second reload and a subsequent external write reloads
+once whether the tab is current or selected later. It also checks replacement
+with the same size and timestamp after the save notification has been consumed.
 
 ### Monkey test (E71)
 
