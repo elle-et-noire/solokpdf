@@ -624,7 +624,7 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 ## Tests and CI
 
 Hosted results apply to their recorded revisions. See the [validation summary](README.md#status)
-for current coverage and [D15](backlog.md#open) for pending full and ASan runs.
+for current coverage.
 
 Control connections allow 30 seconds, scaled for ASan. Startup timeouts capture
 diagnostics; the old timeout cause remains unknown. The palette helper locates

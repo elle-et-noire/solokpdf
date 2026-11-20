@@ -3768,11 +3768,26 @@ MuPDF [runner exclusions](#d15-hosted-verification-at-c1f07fea0-2026-11-20).
 The logs also show runtime skips for unavailable IME, manual, fixtures and
 mutool, and ng-only cases.
 
+A filtered PDFium rerun reproduced the same timeout.
+[Run 44745923799](https://github.com/elle-et-noire/solokpdf/actions/runs/44745923799)
+
 At 1024×720 on the hidden desktop, the first WebView2 tab still reported
 `scrollY=-1` when the test was about to request the TOC jump. The test now
 waits for the tab's initial scroll report, as `issue-5842` does, before
 requesting the heading. The 1024×720 check then passed, as did four filtered
 Debug runs per engine.
+
+### D15 hosted verification at `114a39233` (2026-11-20)
+
+| Check         | Result                                                                                                                                                                                                     |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Debug, PDFium | All 627 passed in 28m 46.9s. [Run 44747903044](https://github.com/elle-et-noire/solokpdf/actions/runs/44747903044)                                                                                         |
+| Debug, MuPDF  | All 630 passed in 29m 1.8s. [Run 44746803954](https://github.com/elle-et-noire/solokpdf/actions/runs/44746803954)                                                                                          |
+| ASan          | Build, save/shutdown, tree lifetime and PDFium fallback passed. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44746808978](https://github.com/elle-et-noire/solokpdf/actions/runs/44746808978) |
+
+Both Debug runs used an empty `tests` input and matched the previous
+[runner exclusions and runtime skips](#d15-hosted-verification-at-3a2c34ac0-2026-11-20).
+`issue-6140` and `issue-6167` passed on both engines. D15 is complete.
 
 ### E133 input queued behind a PDF write
 

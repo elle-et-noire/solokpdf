@@ -8,21 +8,7 @@ For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-Run local GUI checks on the [hidden desktop](testing.md#local-windows-runs).
-
-### D15 Hosted validation
-
-At `3a2c34ac0`, MuPDF Debug and ASan passed. PDFium Debug failed only
-`issue-6140`. The test now waits for the initial WebView2 scroll report.
-[Run record](history.md#d15-hosted-verification-at-3a2c34ac0-2026-11-20)
-
-1. When full-suite verification is requested, run hosted Debug with PDFium
-   and MuPDF with the `tests` input empty. Run hosted ASan on the same
-   revision. [Full-suite procedure](testing.md#hosted-full-suite) ·
-   [ASan procedure](testing.md#asan-ci)
-2. Record the tested revision, run IDs, exclusions and failures in
-   [history.md](history.md#d15-hosted-verification-at-3a2c34ac0-2026-11-20).
-   Close D15 when all three runs pass on that revision.
+No open items.
 
 ## Not planned
 
