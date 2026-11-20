@@ -4,7 +4,7 @@
 
 ## Sol が最初に行う作業
 
-**次は R18。** スマートタブ切り替え時のパレット候補収集を確認する。
+**次は R15。** タブ再選択とキャンバスタイマーが自動再読み込み通知を消費する条件を確認する。
 
 作業中の入口は [backlog.md](backlog.md)。次の順で未処理 ID を選ぶ。段階内は記載順。個別項目に依存がある場合はそちらを優先する。
 
@@ -63,9 +63,9 @@
 
 **R17 中・提案 — キーの配送先と実フォーカスの規則を複数段で解釈する。** `GetKeyTarget` は対象を分類済みだが、accelerator 選択、通常キー、Vim／回数プレフィックスが配送先と実フォーカスを別々に参照する。IME、ツリー、検索欄、本文で両者が一致／不一致の表を既存テストから作る。同じ規則の箇所だけ共通化し、IME 入力を奪わず文書ショートカットが従来どおり動くこと。[分類](../../src/MainWindow.cpp) · [Vim](../../src/VimKeys.cpp) · [配送](../../src/SumatraPDF.cpp) · [入力先テスト](../../tests/keyboard-input-targets.ts)
 
-**R18 中・差 — タブ切り替えで文書内の注釈まで読み始める。** パレットの smart-tab モードも `CollectStrings` を通り、目次・注釈・設定・履歴・コマンドを集める。注釈ありなら優先ページは同期、残りは背景で読み込む。モード分岐を候補収集の前に置き、タブ専用経路ではカーソル位置の文書照会も避ける。初回 Ctrl+Tab、逆順、MRU、タブを閉じた後の選択を確認し、注釈付き PDF で editor 未生成を確認。通常パレットは注釈を検索できること。[パレット](../../src/CommandPalette.cpp) · [注釈ロード](../../src/shared/AnnotEditToolbarCommon.cpp) · [editor 状態の観測例](../../tests/ad-hoc-pdfium-palette-editor.ts)
+**R18 完了。** [スマートタブの候補収集](history.md#r18-r19-palette-and-trimmed-pages)
 
-**R19 中・差 — コマンド可否が共通判定と Win32 メニューで二重に決まる。** `CmdSaveTrimmedPagesAs` は `ctx.hasTrimmedPages` を評価し、メニュー更新も同じクロップ式を直接計算する。まずこのコマンドだけ判定元を一本化し、無加工・手動クロップ・自動余白で実メニュー、パレット、実行入口を照合。表示面ごとの非表示と無効の違い、チェックマークは維持する。[共通状態](../../src/shared/MainWindowCommon.cpp) · [可否](../../src/shared/CommandAvailability.cpp) · [メニュー](../../src/Menu.cpp) · [既存テスト](../../tests/palette-command-availability.ts)
+**R19 完了。** [トリミング保存の可否](history.md#r18-r19-palette-and-trimmed-pages)
 
 **R20 中・調査 — 一項目の設定変更でも全窓の UI 再構成に波及する。** `ApplySettingsToOpenWindows` は各窓のメニュー再生成、ツールバー再作成、全タブの文字更新、再描画を行う。外部設定再読込ではカスタムコマンド ID が変わるため、この挙動が必要な場合もある。設定画面とパレットで一項目変更、外部ファイル差し替えの三経路を複数窓で計測。重い経路のみ影響範囲を狭める。テーマ、ツールバー、カスタムコマンドの更新とテストモード非永続化を確認。[設定の適用](../../src/shared/AppSettings.cpp) · [設定画面](../../tests/ad-hoc-b70-settings.ts) · [外部再読込](../../tests/adv-settings-external-reload.ts)
 

@@ -4969,3 +4969,26 @@ PDF tool cases and `pdf-tools-pending-input` on both engines. The ASan
 run completed after Debug released the shared test directory.
 
 The [review plan](design-review-plan.md) continues with R18.
+
+### R18 R19 palette and trimmed pages
+
+Started at `fd02533ca`. The PDFium palette test reproduced R18 on an annotated
+PDF. Opening the reverse tab switcher changed the editor state from `none` to
+`loaded` before the user chose a tab.
+
+Both changes were adopted in `7f3de27e5` and verified on one hidden-desktop
+Debug build.
+
+- R18. [The palette editor test](../../tests/ad-hoc-pdfium-palette-editor.ts)
+  passed forward and reverse selection in strip and MRU order, including
+  closing a candidate and selecting the next tab on Ctrl release. The editor
+  stayed unloaded. Both the ordinary palette and an explicit annotation search
+  from the tab switcher found the compressed note.
+- R19. The native menu, command palette and save action share the same
+  trimmed-PDF check. [The availability test](../../tests/palette-command-availability.ts)
+  passed for whole pages, a manual crop and automatic margins on PDFium and
+  MuPDF. It checked the menu checkmark, command availability and whether a
+  file was written. [The export test](../../tests/issue-6520.ts) reopened
+  the output on each engine and verified both pages' crop dimensions.
+
+The [review plan](design-review-plan.md) continues with R15.
