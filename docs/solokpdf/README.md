@@ -85,7 +85,7 @@ Responsibilities, state and API contracts are in [architecture.md](architecture.
 | Keyboard input     | [Current routing and results](keyboard-investigation.md)                                                                                           |
 | Test procedures    | [Local automated tests](testing.md#local-windows-runs), [physical tree checks](testing.md#physical-tree-checks), [ASan shutdown](asan-shutdown.md) |
 | Historical results | [History navigation](history.md#navigation), [upstream merges](upstream-merges.md)                                                                 |
-| Finished plans     | [Archive](archive/README.md), including the November 18 backlog plan                                                                               |
+| Finished plans     | [Archive](archive/README.md)                                                                                                                       |
 | Measurements       | [data/](data/), cited by `history.md`                                                                                                              |
 
 ## Keeping docs current
