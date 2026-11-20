@@ -226,6 +226,10 @@ void PdfToolDialog::OnBrowse(VirtMouseEvent*) {
 }
 
 bool PdfToolDialog::CreateToolDialog(MainWindow* w, WindowTab* tab, Str title) {
+    // Moving focus to the dialog dismisses an open form choice without saving it.
+    if (IsPdfDoc(tab) && (!CommitTabInput(tab) || !IsMainWindowValidAndNotClosing(w))) {
+        return false;
+    }
     win = w;
     sourceTab = tab;
     sourceLoadId = tab->documentLoadId;

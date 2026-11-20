@@ -567,7 +567,9 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 - Tool dialogs stay attached to the tab that opened them. Convert to Images
   uses that tab's current page and rotation. After closing or reloading the
-  source, reopen the tool to export.
+  source, reopen the tool to export. Bake, page extraction and the other
+  file-tool dialogs commit pending form and annotation input in their source
+  PDF before taking focus.
 
 - PDF tools accept a PDFium tab. The viewer stays in PDFium while MuPDF's
   existing file tools perform bake, compression, page extraction/deletion,

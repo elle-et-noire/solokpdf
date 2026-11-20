@@ -138,6 +138,12 @@ retry; every case reopens the saved PDF and checks the value. Multi-line FreeTex
 window close also checks the saved bounds.
 `PENDING_INPUT_CASE=<engine>-<input>-<action>` selects one case.
 
+Run `pdf-tools-pending-input` through the hidden runner in Debug and ASan for
+tool changes. It opens Bake and Extract Pages from the menu or a shortcut with
+form or annotation input still pending, then checks both engines' outputs and
+the original bytes. It also closes the target tab during commit and opens a
+tool in one window while a choice is pending in another.
+
 `atomic-pdf-save` checks small/large PDFium copies, both engines' Merge PDF and
 full MuPDF copies with pending annotations (20 cases).
 It compares existing output bytes after read/write failure or read-only

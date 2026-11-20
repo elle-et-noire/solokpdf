@@ -1432,6 +1432,17 @@ static LRESULT CALLBACK KillMovesFocusProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
     return res;
 }
 
+static LRESULT CALLBACK CloseOnEditDestroyProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR id,
+                                               DWORD_PTR editor) {
+    if (msg == WM_PARENTNOTIFY && LOWORD(wp) == WM_DESTROY && (DWORD_PTR)lp == editor) {
+        RemoveWindowSubclass(hwnd, CloseOnEditDestroyProc, id);
+        if (MainWindow* win = FindMainWindowByHwnd(hwnd)) {
+            CloseCurrentTab(win, false);
+        }
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+
 // the caret, by where it is: "focus" when the focus has it
 static Str CaretName(MainWindow* win) {
     GUITHREADINFO gti{};
@@ -4011,6 +4022,14 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 gKillMovesTo = win->hwndCanvas;
                 gKillMoved = 0;
                 SetWindowSubclass(GetFocus(), KillMovesFocusProc, 1, 0);
+            }
+            if (win && gForTesting && str::Eq(action, StrL("close-tab-on-edit-destroy"))) {
+                HWND editor = GetFocus();
+                if (!editor || GetParent(editor) != win->hwndCanvas ||
+                    !SetWindowSubclass(win->hwndCanvas, CloseOnEditDestroyProc, 1, (DWORD_PTR)editor)) {
+                    AppendTestResult(req, 1, StrL("no focused canvas editor"));
+                    break;
+                }
             }
             Str state =
                 fmt("focus=%s active=%s", FocusWindowName(GetFocus(), win), FocusWindowName(GetActiveWindow(), win));

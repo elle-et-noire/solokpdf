@@ -5178,7 +5178,7 @@ static void CloseDocumentInCurrentTab(MainWindow* win, bool keepUIEnabled, bool 
 }
 
 // Publish UI input before deciding whether the document needs saving.
-static bool CommitTabInput(WindowTab* tab) {
+bool CommitTabInput(WindowTab* tab) {
     MainWindow* win = FindMainWindowByTab(tab);
     if (!win) {
         return false;

@@ -23,24 +23,34 @@ const kSaveExisting = 101;
 const kSetSelection = 0x0186; // LB_SETCURSEL
 type AnnotType = "FreeText" | "Square";
 
-export function annotFixture(value: string, type: AnnotType): string {
+const kSecondPage = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 700] >>";
+
+function fixturePageTree(pageCount: 1 | 2): string {
+  return `<< /Type /Pages /Count ${pageCount} /Kids [3 0 R${pageCount === 2 ? " 6 0 R" : ""}] >>`;
+}
+
+export function annotFixture(value: string, type: AnnotType, pageCount: 1 | 2 = 1): string {
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R /AcroForm << /DR << /Font << /Helv 5 0 R >> >> >> >>",
-    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    fixturePageTree(pageCount),
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 700] /Annots [4 0 R] >>",
     `<< /Type /Annot /Subtype /${type} /P 3 0 R /Rect [100 300 500 400] /Contents (${value}) /DA (/Helv 18 Tf 0 g) >>`,
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ...(pageCount === 2 ? [kSecondPage] : []),
   ]);
 }
 
-export function fixture(value: string, type: "text" | "choice" = "text"): string {
+export function fixture(value: string, type: "text" | "choice" | "combo" = "text", pageCount: 1 | 2 = 1): string {
+  const comboFlag = 1 << 17;
   const field = type === "text" ? "/FT /Tx" : `/FT /Ch /Opt [(${kOriginal}) (${kEdited}) (${kDisk})]`;
+  const flags = type === "combo" ? ` /Ff ${comboFlag}` : "";
   return assemblePdf([
     "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /DR << /Font << /Helv 5 0 R >> >> >> >>",
-    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    fixturePageTree(pageCount),
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 700] /Annots [4 0 R] >>",
-    `<< /Type /Annot /Subtype /Widget ${field} /T (field) /V (${value}) /Rect [100 300 500 400] /P 3 0 R /F 4 /DA (/Helv 18 Tf 0 g) >>`,
+    `<< /Type /Annot /Subtype /Widget ${field}${flags} /T (field) /V (${value}) /Rect [100 300 500 400] /P 3 0 R /F 4 /DA (/Helv 18 Tf 0 g) >>`,
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ...(pageCount === 2 ? [kSecondPage] : []),
   ]);
 }
 
