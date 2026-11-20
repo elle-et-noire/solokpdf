@@ -4855,3 +4855,24 @@ state, then restored the marker with Undo. The print bitmap, remembered-key
 decryption and crop geometry tests passed in Debug.
 
 The [review plan](design-review-plan.md) continues with R03.
+
+### R03 Save As input selection
+
+Started at `d3c056b50` with `CmdSaveAs` and `TestSaveFileAs`.
+Adopted in `9c5fa91cb`. The controller supplies the suggested name, extension
+and original input for both entry points. `CmdSaveAs` sends edited PDFs through
+the annotation save API and rechecks the target after the file dialog.
+
+Hidden-desktop Debug passed `ad-hoc-pdfium-memory`, `ad-hoc-pdfium-saveas`,
+`ad-hoc-pdfium-source-lifetime`, `dialog-target-reentry`,
+`pending-document-input` (Save As), `atomic-pdf-save` and `issue-6216`.
+The tests covered attachment bytes, renamed and replaced sources, hard-link
+destinations, committed edits, previous output on failure, and the PostScript
+source copy and PDF conversion. Windows denied rename and deletion of the
+large MuPDF source while it was open, so those two cases skipped.
+
+ASan passed `ad-hoc-pdfium-memory` and `ad-hoc-pdfium-source-lifetime`.
+`dialog-target-reentry` passed twice consecutively after its first run failed
+to find the password edit control during MuPDF reload.
+
+The [review plan](design-review-plan.md) continues with R04.
