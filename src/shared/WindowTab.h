@@ -117,6 +117,7 @@ struct WindowTab {
     HexView* hex = nullptr;
     u64 loadStartedAt = 0;
 #if !defined(SUMATRA_NG)
+    u64 documentLoadId = 0;
     // network-drive copy progress while loading (-1 = not in copy phase)
     i64 loadCopyBytesCopied = -1;
     i64 loadCopyBytesTotal = 0;

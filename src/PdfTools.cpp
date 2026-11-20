@@ -123,7 +123,7 @@ struct PdfToolDialog : WindowBase {
     Str srcPath; // owned
     MainWindow* win = nullptr;
     WindowTab* sourceTab = nullptr;
-    DocController* sourceCtrl = nullptr;
+    u64 sourceLoadId = 0;
     // what the Browse button's save dialog offers
     WStr browseFilter;
     WStr browseDefExt;
@@ -155,6 +155,7 @@ struct PdfToolDialog : WindowBase {
     ~PdfToolDialog() override;
 
     bool CreateToolDialog(MainWindow*, WindowTab*, Str title);
+    WindowTab* FindSourceTab() const;
     WindowTab* GetSourceTab();
     bool GetPdfInput(EngineBase*, PdfToolInput&);
     HBox* NewRow();
@@ -227,7 +228,7 @@ void PdfToolDialog::OnBrowse(VirtMouseEvent*) {
 bool PdfToolDialog::CreateToolDialog(MainWindow* w, WindowTab* tab, Str title) {
     win = w;
     sourceTab = tab;
-    sourceCtrl = tab->ctrl;
+    sourceLoadId = tab->documentLoadId;
     srcPath = str::Dup(tab->filePath);
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
@@ -260,13 +261,21 @@ bool PdfToolDialog::CreateToolDialog(MainWindow* w, WindowTab* tab, Str title) {
     return true;
 }
 
-WindowTab* PdfToolDialog::GetSourceTab() {
-    if (IsMainWindowValidAndNotClosing(win) && win->GetTabIdx(sourceTab) >= 0 && sourceTab->ctrl == sourceCtrl &&
-        str::Eq(sourceTab->filePath, srcPath)) {
+// A reopened document can reuse both the tab address and the path.
+WindowTab* PdfToolDialog::FindSourceTab() const {
+    if (IsMainWindowValidAndNotClosing(win) && win->GetTabIdx(sourceTab) >= 0 && sourceTab->ctrl &&
+        sourceTab->documentLoadId == sourceLoadId && str::Eq(sourceTab->filePath, srcPath)) {
         return sourceTab;
     }
-    MessageBoxWarning(hwnd, StrL("The source document changed or was closed. Reopen the tool."), {});
     return nullptr;
+}
+
+WindowTab* PdfToolDialog::GetSourceTab() {
+    WindowTab* tab = FindSourceTab();
+    if (!tab) {
+        MessageBoxWarning(hwnd, StrL("The source document changed or was closed. Reopen the tool."), {});
+    }
+    return tab;
 }
 
 bool PdfToolDialog::GetPdfInput(EngineBase* engine, PdfToolInput& input) {
@@ -1198,11 +1207,11 @@ void ConvertToPdfDialog::DoIt(VirtMouseEvent*) {
     if (len(destPath) == 0) {
         return;
     }
-    if (!win || !win->IsDocLoaded()) {
+    WindowTab* tab = GetSourceTab();
+    if (!tab) {
         return;
     }
-    DisplayModel* dm = win->AsFixed();
-    EngineBase* engine = dm ? dm->GetEngine() : nullptr;
+    EngineBase* engine = tab->GetEngine();
     bool isOfd = EngineMupdfIsOfd(engine);
     if (!engine || !(engine->isImageCollection || isOfd)) {
         MessageBoxWarning(hwnd, Tr("Failed to save a file"), Tr("Convert to PDF"));
@@ -1312,6 +1321,9 @@ void ConvertEpubToPdfDialog::DoIt(VirtMouseEvent*) {
     if (len(destPath) == 0) {
         return;
     }
+    if (!GetSourceTab()) {
+        return;
+    }
     int fontSize = EbookPdfFontSizeFromText(dropFontSize->GetTextTemp());
     if (fontSize == 0) {
         MessageBoxWarning(hwnd, Tr("Invalid font size"), Tr("Convert EPUB to PDF"));
@@ -1382,6 +1394,9 @@ struct ConvertCajToPdfDialog : PdfToolDialog {
 void ConvertCajToPdfDialog::DoIt(VirtMouseEvent*) {
     TempStr destPath = destEdit->GetTextTemp();
     if (len(destPath) == 0) {
+        return;
+    }
+    if (!GetSourceTab()) {
         return;
     }
     logf("ConvertCajToPdf: '%s' -> '%s'\n", srcPath, destPath);
@@ -1598,7 +1613,8 @@ void ConvertPdfToImagesDialog::UpdateButton() {
 bool ConvertPdfToImagesDialog::SelectedPages(Vec<int>& pages) {
     VecReset(pages);
     if (radioCurrent && radioCurrent->IsChecked()) {
-        DisplayModel* dm = win ? win->AsFixed() : nullptr;
+        WindowTab* tab = FindSourceTab();
+        DisplayModel* dm = tab ? tab->AsFixed() : nullptr;
         int cur = dm ? dm->CurrentPageNo() : 0;
         if (cur < 1 || cur > pageCount) {
             return false;
@@ -1694,7 +1710,11 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
     if (len(destPath) == 0) {
         return;
     }
-    DisplayModel* dm = win ? win->AsFixed() : nullptr;
+    WindowTab* tab = GetSourceTab();
+    if (!tab) {
+        return;
+    }
+    DisplayModel* dm = tab->AsFixed();
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
     if (!engine) {
         MessageBoxWarning(hwnd, StrL("Failed to convert to images."), Tr("Convert to Images"));
@@ -1748,7 +1768,7 @@ bool ConvertPdfToImagesDialog::Create(MainWindow* w, WindowTab* tab) {
     if (!CreateToolDialog(w, tab, Tr("Convert to Images"))) {
         return false;
     }
-    pageCount = w->ctrl ? w->ctrl->PageCount() : 1;
+    pageCount = tab->ctrl->PageCount();
 
     HBox* row = AddLine(Tr("Pages"));
     radioCurrent = NewPagesRadio(hwnd, fontText, Tr("Current"), true, false);
@@ -1848,11 +1868,8 @@ struct SaveSelectionAsImageDialog : PdfToolDialog {
 
 // the line's right end: the image's size at this DPI
 void SaveSelectionAsImageDialog::UpdateSizeLabel() {
-    if (!win) {
-        return;
-    }
-    DisplayModel* dm = win->AsFixed();
-    EngineBase* engine = dm ? dm->GetEngine() : nullptr;
+    WindowTab* tab = FindSourceTab();
+    EngineBase* engine = tab ? tab->GetEngine() : nullptr;
     if (!engine) {
         return;
     }
@@ -1921,7 +1938,11 @@ void SaveSelectionAsImageDialog::DoIt(VirtMouseEvent*) {
     if (len(destPath) == 0) {
         return;
     }
-    DisplayModel* dm = win ? win->AsFixed() : nullptr;
+    WindowTab* tab = GetSourceTab();
+    if (!tab) {
+        return;
+    }
+    DisplayModel* dm = tab->AsFixed();
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
     if (!engine) {
         return;

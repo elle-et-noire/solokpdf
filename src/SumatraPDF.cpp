@@ -2135,6 +2135,8 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
         CloseAnnotationUiForTab(tab);
         tab->ClearAnnotationSelection();
     }
+    static u64 nextDocumentLoadId = 0;
+    tab->documentLoadId = ++nextDocumentLoadId;
     tab->ctrl = ctrl;
     win->ctrl = tab->ctrl;
     // a Discard answered for the previous document doesn't cover this one
