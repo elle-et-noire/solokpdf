@@ -32,12 +32,12 @@ PDFium is pinned to `158.0.8111.0`. [Pin](../../cmd/solok-pdfium-pin.json)
 
 | Check                   | Tested revision | Result                                                                                                                                                                                                                              |
 | ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Regular CI              | `64d9f5630`     | Debug stopped at the PDFium cache migration test. Release and the extracted ZIP smoke test passed. [Run 44714775080](https://github.com/elle-et-noire/solokpdf/actions/runs/44714775080)                                            |
-| Hosted full suite       | `82f8882c1`     | PDFium passed 626 of 627 tests. MuPDF passed all 630. [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44704796601) · [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44704821895)            |
+| Regular CI              | `3a2c34ac0`     | Debug build, cache migration, unit and feature tests passed. Release built and passed the extracted ZIP smoke test. [Run 44737652358](https://github.com/elle-et-noire/solokpdf/actions/runs/44737652358)                           |
+| Hosted full suite       | `3a2c34ac0`     | PDFium passed 626 of 627 tests. MuPDF passed all 630. [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44740526224) · [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44740531079)            |
 | Hosted targeted recheck | `1a2d483c7`     | Both engines passed `issue-6151`, `issue-6194` and `issue-6144`. [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629587531) · [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629592648) |
-| Hosted ASan             | `82f8882c1`     | Passed save/shutdown, tree lifetime and PDFium fallback tests. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44704820223](https://github.com/elle-et-noire/solokpdf/actions/runs/44704820223)                           |
+| Hosted ASan             | `3a2c34ac0`     | Passed save/shutdown, tree lifetime and PDFium fallback tests. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44740536377](https://github.com/elle-et-noire/solokpdf/actions/runs/44740536377)                           |
 
-The [D15 record](history.md#d15-hosted-verification-at-82f8882c1-2026-11-20)
+The [D15 record](history.md#d15-hosted-verification-at-3a2c34ac0-2026-11-20)
 lists the full-suite failures and exclusions. See the
 [backlog](backlog.md#open) for the remaining verification.
 Local seeded stress checks are in the [monkey-test record](history.md#e71-monkey-test-2026-11-16).

@@ -3755,6 +3755,25 @@ could expand the wrong root after a tab switch. The test now clicks the target
 root's expander and checks the restored grandchild. It passed 20 Debug runs
 per engine through the CI test runner on the hidden desktop.
 
+### D15 hosted verification at `3a2c34ac0` (2026-11-20)
+
+| Check         | Result                                                                                                                                                                                                     |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Debug, PDFium | 626 of 627 passed. `issue-6140` timed out with `scrollY=-1` on the Unicode filename in WebView2. [Run 44740526224](https://github.com/elle-et-noire/solokpdf/actions/runs/44740526224)                     |
+| Debug, MuPDF  | All 630 passed. [Run 44740531079](https://github.com/elle-et-noire/solokpdf/actions/runs/44740531079)                                                                                                      |
+| ASan          | Build, save/shutdown, tree lifetime and PDFium fallback passed. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44740536377](https://github.com/elle-et-noire/solokpdf/actions/runs/44740536377) |
+
+Both Debug runs passed `issue-6167` and used the same 13 PDFium and 10
+MuPDF [runner exclusions](#d15-hosted-verification-at-c1f07fea0-2026-11-20).
+The logs also show runtime skips for unavailable IME, manual, fixtures and
+mutool, and ng-only cases.
+
+At 1024×720 on the hidden desktop, the first WebView2 tab still reported
+`scrollY=-1` when the test was about to request the TOC jump. The test now
+waits for the tab's initial scroll report, as `issue-5842` does, before
+requesting the heading. The 1024×720 check then passed, as did four filtered
+Debug runs per engine.
+
 ### E133 input queued behind a PDF write
 
 The two-page fixture queues Page Down at the write boundary while the UI

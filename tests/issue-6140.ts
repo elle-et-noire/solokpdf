@@ -23,14 +23,13 @@ const MD_NAMES = ["Test Test.md", "100% & C#1 (v2)+[a]@b;c=d!.md", "Ünïcode T�
 const TARGET_DEST_NO = 3; // the file, "Start", then "Target Heading"
 const MIN_TARGET_SCROLL_Y = 500;
 
-async function tocNavigate(client: ControlClient, what: string, destNo: number, expected: string): Promise<string> {
+async function tocNavigate(client: ControlClient, what: string, destNo: number, minScrollY: number): Promise<string> {
   const deadline = Date.now() + 20_000 * SLOW_BUILD_FACTOR;
-  let last = "";
+  const expected = destNo > 0 ? "NAVIGATING" : "OK";
   for (;;) {
-    const res = await client.request(ControlCommand.TestMarkdownTocNavigate, [destNo, MIN_TARGET_SCROLL_Y]);
+    const res = await client.request(ControlCommand.TestMarkdownTocNavigate, [destNo, minScrollY]);
     const exitCode = res[0] as number;
     const output = String(res[1] ?? "").trim();
-    last = output;
     if (exitCode === 0 && output.startsWith(expected)) {
       return output;
     }
@@ -38,7 +37,7 @@ async function tocNavigate(client: ControlClient, what: string, destNo: number, 
       throw new Error(`issue-6140: ${what}: navigating failed: ${output}`);
     }
     if (Date.now() > deadline) {
-      throw new Error(`issue-6140: ${what}: never rendered (404?): ${last}`);
+      throw new Error(`issue-6140: ${what}: TOC check timed out: ${output}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
@@ -101,11 +100,13 @@ export async function testit(): Promise<void> {
           seen.add(i);
 
           const what = `${backend}: '${MD_NAMES[i]}'`;
-          const started = await tocNavigate(client, what, TARGET_DEST_NO, "NAVIGATING");
+          // Wait for the initial page to report its position before jumping to a heading.
+          await tocNavigate(client, what, 0, 0);
+          const started = await tocNavigate(client, what, TARGET_DEST_NO, 0);
           if (!started.includes("target-heading")) {
             throw new Error(`issue-6140: ${what}: dest ${TARGET_DEST_NO} is not the target heading: ${started}`);
           }
-          const landed = await tocNavigate(client, what, 0, "OK");
+          const landed = await tocNavigate(client, what, 0, MIN_TARGET_SCROLL_Y);
           console.log(`issue-6140: ${what} ${landed}`);
 
           if (n + 1 < mdPaths.length) {
