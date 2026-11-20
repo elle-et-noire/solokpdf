@@ -593,11 +593,14 @@ bool PagesFitDpi(EngineBase* engine, const Vec<int>& pages, int dpi) {
 }
 
 // render each page at dpi and write it to templatePath with <N> replaced by
-// the 1-based page number. Returns how many files were written.
+// the 1-based page number. Returns how many files were written and can report skipped pages.
 int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, const Vec<int>& pages, int dpi,
-                         Str* firstPathOwnedOut) {
+                         Str* firstPathOwnedOut, Vec<int>* failedPagesOut) {
     if (firstPathOwnedOut) {
         *firstPathOwnedOut = {};
+    }
+    if (failedPagesOut) {
+        VecReset(*failedPagesOut);
     }
     if (!engine || len(pages) == 0 || len(templatePath) == 0) {
         return 0;
@@ -613,6 +616,9 @@ int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, con
     for (int pageNo : pages) {
         if (!PageFitsDpi(engine, pageNo, dpi)) {
             logf("ConvertPagesToImages: page %d at %d DPI is too large\n", pageNo, dpi);
+            if (failedPagesOut) {
+                VecAppend(*failedPagesOut, pageNo);
+            }
             continue;
         }
         TempStr dest = ReplacePagePlaceholderTemp(templ, pageNo);
@@ -620,6 +626,9 @@ int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, con
         Pixmap* px = engine->RenderPage(args);
         if (!px) {
             logf("ConvertPagesToImages: RenderPage failed for page %d\n", pageNo);
+            if (failedPagesOut) {
+                VecAppend(*failedPagesOut, pageNo);
+            }
             continue;
         }
         px->xres = (float)dpi;
@@ -630,6 +639,9 @@ int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, con
         FreePixmap(px);
         if (!ok) {
             logf("ConvertPagesToImages: save failed for '%s'\n", dest);
+            if (failedPagesOut) {
+                VecAppend(*failedPagesOut, pageNo);
+            }
             continue;
         }
         if (nOk == 0 && firstPathOwnedOut) {

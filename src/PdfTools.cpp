@@ -1720,19 +1720,28 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
 
     HCURSOR prev = SetCursor(LoadCursor(nullptr, IDC_WAIT));
     Str firstPath;
-    int nOk = ConvertPagesToImages(engine, dm->GetRotation(), destPath, pages, dpi, &firstPath);
+    Vec<int> failedPages;
+    int nOk = ConvertPagesToImages(engine, dm->GetRotation(), destPath, pages, dpi, &firstPath, &failedPages);
     SetCursor(prev);
-
-    if (nOk == 0) {
+    defer {
         str::Free(firstPath);
-        MessageBoxWarning(hwnd, StrL("Failed to convert to images."), Tr("Convert to Images"));
+    };
+
+    logf("ConvertPdfToImages: wrote %d of %d file(s)\n", nOk, len(pages));
+    if (len(failedPages) > 0) {
+        TempStr msg =
+            fmt(Tr("Saved %d of %d images.\nFailed pages: %s").s, nOk, len(pages), FormatPageRangeTemp(failedPages));
+        HWND dialog = hwnd;
+        MessageBoxWarning(dialog, msg, Tr("Convert to Images"));
+        if (nOk == 0 || WindowBaseFromHwnd(dialog) != this) {
+            return;
+        }
+    } else if (nOk == 0) {
+        MessageBoxWarning(hwnd, Tr("Failed to convert to images."), Tr("Convert to Images"));
         return;
     }
-    logf("ConvertPdfToImages: wrote %d of %d file(s)\n", nOk, len(pages));
-    TempStr openPath = str::DupTemp(firstPath);
-    str::Free(firstPath);
     Close();
-    OpenPathInDefaultFileManager(openPath);
+    OpenPathInDefaultFileManager(firstPath);
 }
 
 bool ConvertPdfToImagesDialog::Create(MainWindow* w, WindowTab* tab) {

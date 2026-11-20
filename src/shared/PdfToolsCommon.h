@@ -54,7 +54,7 @@ TempStr UniqueImagesTemplateTemp(Str templatePath, const Vec<int>& pages);
 TempStr ExistingImagesTextTemp(int nExisting);
 bool PagesFitDpi(EngineBase* engine, const Vec<int>& pages, int dpi);
 int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, const Vec<int>& pages, int dpi,
-                         Str* firstPathOwnedOut);
+                         Str* firstPathOwnedOut, Vec<int>* failedPagesOut = nullptr);
 void CollectAllPages(int pageCount, Vec<int>& pages);
 Pixmap* RenderSelectionPixmap(EngineBase* engine, int rotation, int pageNo, RectF rect, float dpi);
 bool WriteSelectionPixmap(Pixmap* px, Str destPath);

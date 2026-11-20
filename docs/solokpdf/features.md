@@ -17,6 +17,8 @@ Debug and prerelease builds also show Debug.
 - Tools starts with Command Palette. It also contains Selection, Read Aloud,
   PDF Operations, Measurement and document AI chat. The palette offers hex
   view and either file picker for one-time use.
+- Convert to Images reports how many images were saved and lists the failed
+  pages. Images already saved remain on disk.
 - Right-click selected text for Copy and Highlight, a web link for Copy Link
   Address, or an image for Copy Image and Save Image. Page favorites, annotations
   and cursor-based reading stay on the page menu. A selection takes priority
