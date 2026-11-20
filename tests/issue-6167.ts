@@ -3,8 +3,8 @@ import { strict as assert } from "node:assert";
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand } from "./control";
 import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG, writeAppdata } from "./util";
-import { killAndWait, launchControlled, sendCommandSync } from "./win-automation";
-import { findSidebarTree, sidebarRows, sidebarRowText, sidebarSelection } from "./sidebar-tree";
+import { clickAt, killAndWait, launchControlled, sendCommandSync } from "./win-automation";
+import { findSidebarTree, sidebarItemHeight, sidebarRows, sidebarRowText, sidebarSelection } from "./sidebar-tree";
 import {
   countVisibleTreeRows,
   findChildWindow,
@@ -150,15 +150,18 @@ export async function testit(): Promise<void> {
       assert.equal(rows(), 9, "nested expansion shows children");
       select(1);
       key(VK_LEFT);
+      assert.equal(rows(), 3, "collapse hides the expanded child before the tab switch");
       switchBack();
       assert.equal(rows(), 3, "tab switch keeps collapsed branches hidden");
       switchBack();
       assert.equal(rows(), 3, "saving expansion state keeps branches hidden");
-      select(1);
-      key(VK_RIGHT);
-      assert.equal(rows(), 9, "hidden child keeps its saved expansion");
+      // Tab layout can reselect the current page between separate select and key messages.
+      const height = sidebarItemHeight(virtual);
+      const center = Math.floor(height / 2);
+      await clickAt(virtual.hwnd, center, height + center, 0);
       assert.equal(sidebarRowText(virtual, 1), "Node 7", "wrong root was expanded");
       assert.equal(sidebarRowText(virtual, 2), "Node 21", "wrong child was expanded");
+      assert.equal(rows(), 9, "hidden child keeps its saved expansion");
       assert.equal(sidebarRowText(virtual, 3), "Node 24", "wrong grandchild was restored");
       select(2);
       key(VK_LEFT);

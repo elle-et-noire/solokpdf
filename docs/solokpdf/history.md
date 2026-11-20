@@ -3740,6 +3740,21 @@ Actions uploaded `SolokPDF-experimental-x64`. The most recent complete hosted
 Debug suites and ASan still cover `c1f07fea0`.
 [Regular CI](https://github.com/elle-et-noire/solokpdf/actions/runs/44633456280)
 
+### D15 hosted verification at `82f8882c1` (2026-11-20)
+
+| Check         | Result                                                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Debug, PDFium | 626 of 627 passed. `issue-6167` opened six rows where the test expected nine. [Run 44704796601](https://github.com/elle-et-noire/solokpdf/actions/runs/44704796601) |
+| Debug, MuPDF  | All 630 passed. [Run 44704821895](https://github.com/elle-et-noire/solokpdf/actions/runs/44704821895)                                                               |
+| ASan          | Save/shutdown, tree lifetime and PDFium fallback passed. [Run 44704820223](https://github.com/elle-et-noire/solokpdf/actions/runs/44704820223)                      |
+
+The full runs used the same 13 PDFium and 10 MuPDF exclusions as
+[the previous pair](#d15-hosted-verification-at-c1f07fea0-2026-11-20).
+The local Debug reproduction showed that the separate select and key messages
+could expand the wrong root after a tab switch. The test now clicks the target
+root's expander and checks the restored grandchild. It passed 20 Debug runs
+per engine through the CI test runner on the hidden desktop.
+
 ### E133 input queued behind a PDF write
 
 The two-page fixture queues Page Down at the write boundary while the UI

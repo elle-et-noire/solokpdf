@@ -28,17 +28,16 @@ Current behavior and its limits are in [features.md](features.md) and
 
 ### Validation as of 2026-11-20
 
-Reviewed revision `fd669ab17` on `solokpdf-dev`. PDFium is pinned to
-`158.0.8111.0`. [Pin](../../cmd/solok-pdfium-pin.json)
+PDFium is pinned to `158.0.8111.0`. [Pin](../../cmd/solok-pdfium-pin.json)
 
-| Check                   | Tested revision | Result                                                                                                                                                                                                                                                                                           |
-| ----------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Regular CI              | `fd669ab17`     | Debug unit and feature tests passed. Release built, passed the extracted ZIP smoke test and uploaded the portable ZIP. [Run 44633456280](https://github.com/elle-et-noire/solokpdf/actions/runs/44633456280)                                                                                     |
-| Hosted full suite       | `c1f07fea0`     | PDFium failed 36 of 627 tests. MuPDF failed 51 of 630. Most failures were reports of app processes still present after tests. [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44597677524) · [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44597684214) |
-| Hosted targeted recheck | `1a2d483c7`     | Both engines passed `issue-6151`, `issue-6194` and `issue-6144`. [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629587531) · [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629592648)                                                              |
-| Hosted ASan             | `c1f07fea0`     | Passed save/shutdown, tree lifetime and PDFium fallback tests. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44597692905](https://github.com/elle-et-noire/solokpdf/actions/runs/44597692905)                                                                                        |
+| Check                   | Tested revision | Result                                                                                                                                                                                                                              |
+| ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Regular CI              | `64d9f5630`     | Debug stopped at the PDFium cache migration test. Release and the extracted ZIP smoke test passed. [Run 44714775080](https://github.com/elle-et-noire/solokpdf/actions/runs/44714775080)                                            |
+| Hosted full suite       | `82f8882c1`     | PDFium passed 626 of 627 tests. MuPDF passed all 630. [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44704796601) · [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44704821895)            |
+| Hosted targeted recheck | `1a2d483c7`     | Both engines passed `issue-6151`, `issue-6194` and `issue-6144`. [PDFium run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629587531) · [MuPDF run](https://github.com/elle-et-noire/solokpdf/actions/runs/44629592648) |
+| Hosted ASan             | `82f8882c1`     | Passed save/shutdown, tree lifetime and PDFium fallback tests. The prebuilt PDFium DLL has no ASan instrumentation. [Run 44704820223](https://github.com/elle-et-noire/solokpdf/actions/runs/44704820223)                           |
 
-The [D15 record](history.md#d15-hosted-verification-at-c1f07fea0-2026-11-20)
+The [D15 record](history.md#d15-hosted-verification-at-82f8882c1-2026-11-20)
 lists the full-suite failures and exclusions. See the
 [backlog](backlog.md#open) for the remaining verification.
 Local seeded stress checks are in the [monkey-test record](history.md#e71-monkey-test-2026-11-16).
