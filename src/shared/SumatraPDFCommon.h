@@ -122,7 +122,6 @@ void CycleThemeWithNotification(MainWindow* win, int step);
 void ZoomToSelection(MainWindow* win);
 void TrimPagesToSelection(MainWindow* win);
 void ShowWholePages(MainWindow* win);
-bool CanSaveTrimmedPages(MainWindow* win);
 TempStr TrimmedPagesPathTemp(Str srcPath);
 bool SaveTrimmedPages(MainWindow* win, Str dstPath);
 void ToggleReadColumns(MainWindow* win);

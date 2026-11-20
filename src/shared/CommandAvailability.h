@@ -105,6 +105,7 @@ AppCommandCtx NewAppCommandCtx(MainWindow* win, Point cursorPos);
 CommandVisibility GetCommandVisibility(int cmdId, const AppCommandCtx& ctx, CommandSurface surface);
 
 bool CmdWorksWithoutDocument(int cmdId);
+bool CanSaveTrimmedPages(MainWindow* win);
 
 void GetCommandIdState(AppCommandCtx* ctx, int cmdId, bool* removeOut, bool* disableOut);
 

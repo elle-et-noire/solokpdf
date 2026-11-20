@@ -474,6 +474,11 @@ static void FillUnderCursor(AppCommandCtx& ctx, MainWindow* win, DisplayModel* d
     }
 }
 
+bool CanSaveTrimmedPages(MainWindow* win) {
+    DisplayModel* dm = win ? win->AsFixed() : nullptr;
+    return dm && (!dm->GetUserCrop().IsEmpty() || dm->GetTrimEmptyMargins()) && IsPdfDoc(win->CurrentTab());
+}
+
 // cursorPos: the canvas point of a context menu or the palette; null for the
 // toolbar and menu bar, which have nothing under the cursor
 static AppCommandCtx NewCommandCtx(MainWindow* win, const Point* cursorPos) {
@@ -540,7 +545,7 @@ static AppCommandCtx NewCommandCtx(MainWindow* win, const Point* cursorPos) {
         ctx.hasDrawnRectSelection = ctx.hasSelection && IsDrawnRectSelection(win);
         ctx.supportsAnnots = EngineSupportsAnnotations(engine);
         ctx.hasUnsavedAnnotations = EngineHasUnsavedAnnotations(engine);
-        ctx.hasTrimmedPages = !dm->GetUserCrop().IsEmpty() || dm->GetTrimEmptyMargins();
+        ctx.hasTrimmedPages = CanSaveTrimmedPages(win);
         ctx.hasRedactMarks = EngineHasRedactMarksNoWait(engine);
         ctx.hasUserRedactMarks = EngineHasUserRedactMarks(engine);
         ctx.canUndo = EngineCanUndoRedo(engine, UndoDir::Undo, EngineWait::NoWait);

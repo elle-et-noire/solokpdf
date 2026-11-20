@@ -1353,7 +1353,6 @@ static void MenuUpdateDisplayMode(MainWindow* win, HMENU menu) {
         MenuSetEnabled(menu, CmdToggleTrimEmptyMargins, true);
         MenuSetChecked(menu, CmdToggleMirror, dm->GetMirror());
         MenuSetEnabled(menu, CmdShowWholePages, !dm->GetUserCrop().IsEmpty());
-        MenuSetEnabled(menu, CmdSaveTrimmedPagesAs, !dm->GetUserCrop().IsEmpty() || dm->GetTrimEmptyMargins());
         MenuSetChecked(menu, CmdToggleReadColumns, dm->GetReadColumns());
         MenuSetEnabled(menu, CmdToggleColumnsWholePage, dm->GetReadColumns());
         MenuSetChecked(menu, CmdToggleColumnsWholePage, dm->ShowsColumnsWholePage());
@@ -1365,6 +1364,7 @@ static void MenuUpdateStateForWindow(MainWindow* win, HMENU menu) {
 
     bool hasDocument = tab && tab->IsDocLoaded();
     MenuSetEnabledForDocumentCommands(menu, hasDocument);
+    MenuSetEnabled(menu, CmdSaveTrimmedPagesAs, CanSaveTrimmedPages(win));
 
     SetMenuStateForSelection(tab, menu);
     MenuSetEnabled(menu, CmdClose, IsFileCloseMenuEnabled());

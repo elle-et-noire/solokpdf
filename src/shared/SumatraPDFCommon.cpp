@@ -111,6 +111,7 @@
 #include "Version.h"
 #include "SumatraPDF.h"
 #include "PerfLog.h"
+#include "CommandAvailability.h"
 #include "SumatraPDFCommon.h"
 #include "RestrictedUseConfig.h"
 #include "VirtualDesktop.h"
@@ -2045,15 +2046,6 @@ void ToggleReadColumns(MainWindow* win) {
     if (dm) {
         dm->FitColumnToWindow();
     }
-}
-
-// a PDF shown trimmed, by Trim Pages To Selection or Trim Empty Margins
-bool CanSaveTrimmedPages(MainWindow* win) {
-    DisplayModel* dm = win ? win->AsFixed() : nullptr;
-    if (!dm || !IsPdfDoc(win->CurrentTab())) {
-        return false;
-    }
-    return !dm->GetUserCrop().IsEmpty() || dm->GetTrimEmptyMargins();
 }
 
 // "foo.pdf" => "foo trimmed.pdf", next to it

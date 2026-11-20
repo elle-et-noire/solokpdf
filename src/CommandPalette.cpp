@@ -104,6 +104,7 @@ struct CommandPaletteWnd : WindowBase, PaletteSources {
     bool tocMode = false;
     bool thumbnailMode = false;
     bool smartTabMode = false;
+    bool tabsOnly = false;
     bool stickyMode = false;
     // closing: a delete is posted, so it must not be reused
     bool deleteScheduled = false;
@@ -982,6 +983,7 @@ void CommandPaletteWnd::UpdateSettingHelp() {
 bool CommandPaletteWnd::Create(MainWindow* win, Str prefix, int smartTabAdvance) {
     if (str::Eq(prefix, Str(kPalettePrefixTabs))) {
         smartTabMode = smartTabAdvance != 0;
+        tabsOnly = smartTabMode;
     }
     tocMode = str::Eq(prefix, Str(kPalettePrefixTOC));
     CollectStrings(win);
@@ -1182,7 +1184,7 @@ void CommandPaletteBaseUpdateTheme() {
 
 void CommandPaletteOnAnnotationsChanged() {
     CommandPaletteWnd* wnd = gCommandPaletteWnd;
-    if (!wnd || !wnd->hwnd || !wnd->win) {
+    if (!wnd || wnd->tabsOnly || !wnd->hwnd || !wnd->win) {
         return;
     }
     if (!IsMainWindowValidAndNotClosing(wnd->win)) {
@@ -1670,18 +1672,20 @@ void CommandPaletteWnd::CollectSettings() {
 }
 
 void CommandPaletteWnd::CollectStrings(MainWindow* mainWin) {
-    Point cursorPos = HwndGetCursorPos(mainWin->hwndCanvas);
-    AppCommandCtx ctx = NewAppCommandCtx(mainWin, cursorPos);
-
+    WindowTab* tab = mainWin->CurrentTab();
     if (smartTabMode && gSettings->tabsMru) {
-        CollectTabsMru(mainWin, ctx.tab);
+        CollectTabsMru(mainWin, tab);
     } else {
-        CollectTabsRegular(mainWin, ctx.tab);
+        CollectTabsRegular(mainWin, tab);
+    }
+    if (tabsOnly) {
+        return;
     }
 
+    Point cursorPos = HwndGetCursorPos(mainWin->hwndCanvas);
+    AppCommandCtx ctx = NewAppCommandCtx(mainWin, cursorPos);
     CollectToc(mainWin);
     CollectFavorites(mainWin);
-    WindowTab* tab = mainWin->CurrentTab();
     if (tab && EngineSupportsAnnotations(tab->GetEngine())) {
         StartLoadingAnnotationsForUi(tab);
     }
@@ -1934,6 +1938,11 @@ void CommandPaletteWnd::DrawListBoxItem(VirtListBox::DrawItemEvent* ev) {
 
 void CommandPaletteWnd::QueryChanged() {
     Str filter = CommandPaletteSkipWS(Str(editQuery->GetTextTemp()));
+    // Ctrl+Tab needs only tabs until the user edits away the tab prefix.
+    if (tabsOnly && !str::StartsWith(filter, Str(kPalettePrefixTabs))) {
+        tabsOnly = false;
+        CollectStrings(win);
+    }
     if (win->AsFixed() && str::StartsWith(filter, Str(kPalettePrefixThumbnails))) {
         SetThumbnailMode(ThumbnailMode::Enabled);
         UpdateHelpRow();

@@ -2,17 +2,53 @@
 // (Disable on the menu, Hide on the palette). Context-menu-only copy/show
 // commands have no page element after palette dispatch, so they stay hidden.
 
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { strict as assert } from "node:assert";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { APP_NAME, assemblePdf, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
-import { postChar, postMessage, sleep, VK_END, WM_KEYDOWN, WM_KEYUP } from "./winapi.ts";
-import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import {
+  APP_NAME,
+  assemblePdf,
+  cmdId,
+  pollUntil,
+  runStandalone,
+  SLOW_BUILD_FACTOR,
+  tmpPath,
+  SETTINGS_FILE,
+  USE_NG,
+} from "./util.ts";
+import {
+  getPopupMenuHandle,
+  getMenuItemChecked,
+  getMenuItemCount,
+  getMenuItemDisabled,
+  getMenuItemId,
+  getMenuItemText,
+  getSubMenu,
+  postChar,
+  postMessage,
+  sleep,
+  VK_END,
+  VK_ESCAPE,
+  WM_KEYDOWN,
+  WM_KEYUP,
+} from "./winapi.ts";
+import {
+  killAndWait,
+  launchControlled,
+  paletteSetText,
+  paletteState,
+  sendCommand,
+  sendCommandSync,
+  waitForContextMenu,
+  waitForPalette,
+} from "./win-automation.ts";
 
 const SETTINGS = `UiLanguage = en
 CheckForUpdates = false
 RestoreSession = false
 RememberOpenedFiles = false
+ShowMenubarWithTabs = true
 `;
 
 function makePdf(): string {
@@ -73,6 +109,56 @@ async function selectLineWithKeyboard(client: ControlClient, frame: number): Pro
   await sleep(200);
 }
 
+async function checkTrimmedSave(client: ControlClient, frame: number, dir: string): Promise<void> {
+  const command = cmdId("CmdSaveTrimmedPagesAs");
+  const viewMenu = 50001;
+  for (const mode of ["whole", "manual", "automatic"]) {
+    if (mode === "manual") {
+      await client.seedTextSelection(1);
+      sendCommandSync(frame, cmdId("CmdTrimPagesToSelection"));
+    } else if (mode === "automatic") {
+      sendCommandSync(frame, cmdId("CmdShowWholePages"));
+      sendCommandSync(frame, cmdId("CmdToggleTrimEmptyMargins"));
+    }
+    const trimmed = mode !== "whole";
+    sendCommand(frame, viewMenu);
+    const popup = await waitForContextMenu(3000, frame);
+    assert.ok(popup, `${mode}: View menu`);
+    const view = getPopupMenuHandle(popup);
+    const positions = (menu: bigint) => Array.from({ length: getMenuItemCount(menu) }, (_, i) => i);
+    const group = positions(view).find((i) => getMenuItemText(view, i) === "Page Display");
+    assert.ok(group !== undefined, "Page Display submenu");
+    const menu = getSubMenu(view, group);
+    const save = positions(menu).find((i) => getMenuItemId(menu, i) === command);
+    const margins = positions(menu).find((i) => getMenuItemId(menu, i) === cmdId("CmdToggleTrimEmptyMargins"));
+    assert.ok(save !== undefined && margins !== undefined, mode);
+    assert.equal(!getMenuItemDisabled(menu, save), trimmed, mode);
+    assert.equal(getMenuItemChecked(menu, margins), mode === "automatic", mode);
+    postMessage(popup, WM_KEYDOWN, VK_ESCAPE, 0);
+
+    sendCommand(frame, cmdId("CmdCommandPalette"));
+    const handles = await waitForPalette(client, frame);
+    assert.ok(handles.edit, mode);
+    await paletteSetText(client, handles, "Save Trimmed Pages As");
+    const state = await paletteState(client);
+    assert.equal(state.cmd, trimmed ? command : 0, state.raw);
+    assert.equal(state.items, trimmed ? 1 : 0, state.raw);
+    postMessage(handles.edit, WM_KEYDOWN, VK_ESCAPE, 0);
+    await pollUntil(
+      () => paletteState(client),
+      (s) => !s.open,
+    );
+
+    const dst = join(dir, `${mode}.pdf`);
+    await client.request(ControlCommand.TestSaveFileName, [dst]);
+    sendCommandSync(frame, command);
+    assert.equal(existsSync(dst), trimmed, mode);
+    // Reopening the same menu within 500 ms toggles it closed.
+    await sleep(510);
+  }
+  sendCommandSync(frame, cmdId("CmdToggleTrimEmptyMargins"));
+}
+
 export async function testit(): Promise<void> {
   const dir = tmpPath("palette-command-availability");
   rmSync(dir, { recursive: true, force: true });
@@ -93,6 +179,9 @@ export async function testit(): Promise<void> {
   try {
     await client.waitForRenderIdle();
     await client.setNotificationsEnabled(false);
+    if (APP_NAME === "SolokPDF" && !USE_NG) {
+      await checkTrimmedSave(client, frame, dir);
+    }
 
     const paletteHide = [
       "CmdCopyAnnotation",

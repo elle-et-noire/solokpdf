@@ -157,6 +157,7 @@
 #include "SumatraPDF.h"
 #include "PerfLog.h"
 #include "CanvasCommon.h"
+#include "CommandAvailability.h"
 #include "SumatraPDFCommon.h"
 #include "VirtualDesktop.h"
 #include "SumatraCrashCommon.h"

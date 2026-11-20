@@ -4,20 +4,32 @@
 //
 // Run: bun tests/ad-hoc-pdfium-palette-editor.ts [--no-build]
 
+import { strict as assert } from "node:assert";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { ControlClient, ControlCommand, withControlledSumatra } from "./control.ts";
-import { assemblePdf, cmdId, EXE, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
+import { assemblePdf, cmdId, EXE, pollUntil, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 import {
   findCanvas,
   FRAME_CLASS,
   moveTestCursor,
+  paletteSetText,
   paletteState,
   sendCommand,
   waitForPalette,
 } from "./win-automation.ts";
-import { clientToScreen, getClientRect, sleep, waitForTopWindow } from "./winapi.ts";
+import {
+  clientToScreen,
+  getClientRect,
+  postMessage,
+  sleep,
+  VK_CONTROL,
+  VK_DELETE,
+  waitForTopWindow,
+  WM_KEYDOWN,
+  WM_KEYUP,
+} from "./winapi.ts";
 
 const CATALOG = "<< /Type /Catalog /Pages 2 0 R >>";
 const PAGES = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
@@ -144,6 +156,64 @@ export async function testit(): Promise<void> {
   );
   await check(dir, "links", linkOnlyPdf(), 0);
   await check(dir, "compressed-note", compressedNotePdf(), 1);
+  for (const mru of [false, true]) {
+    writeFileSync(join(dir, SETTINGS_FILE), `NoHomeTab = true\nTabsMru = ${mru}\nCtrlTabSimple = false\n`);
+    const names = ["first.pdf", "middle.pdf", "last.pdf"];
+    const paths = names.map((name) => join(dir, name));
+    for (const path of paths) writeFileSync(path, compressedNotePdf());
+    await withControlledSumatra(
+      EXE,
+      async (client, proc) => {
+        const frame = await waitForTopWindow(proc.pid!, FRAME_CLASS, 5000);
+        await client.selectTab(1);
+        await client.selectTab(2);
+        await client.waitForRenderIdle();
+        assert.equal(await editorState(client), "editor=none");
+
+        // From the last tab, forward wraps in strip order and revisits middle in MRU order.
+        for (const [command, target] of [
+          ["CmdPrevTabSmart", mru ? 0 : 1],
+          ["CmdNextTabSmart", mru ? 1 : 0],
+        ] as const) {
+          sendCommand(frame, cmdId(command));
+          const { edit } = await waitForPalette(client, frame);
+          assert.ok(edit, command);
+          const state = await paletteState(client);
+          assert.equal(state.selText, names[target], state.raw);
+          assert.equal(await editorState(client), "editor=none", command);
+          if (command === "CmdNextTabSmart") {
+            postMessage(edit, WM_KEYDOWN, VK_DELETE, 0);
+            await pollUntil(
+              () => paletteState(client),
+              (s) => s.items === 2 && s.selText === names[mru ? 0 : 1],
+              { error: (s) => s.raw },
+            );
+            assert.equal(await editorState(client), "editor=none", "refresh after closing a tab");
+          }
+          postMessage(edit, WM_KEYUP, VK_CONTROL, 0);
+          await pollUntil(
+            () => paletteState(client),
+            (s) => !s.open,
+          );
+          assert.equal((await client.selectTab()).idx, command === "CmdNextTabSmart" ? 0 : target);
+          if (command === "CmdPrevTabSmart") {
+            await client.selectTab(1);
+            await client.selectTab(2);
+          }
+        }
+        sendCommand(frame, cmdId("CmdNextTabSmart"));
+        const handles = await waitForPalette(client, frame);
+        await paletteSetText(client, handles, "* palette-note");
+        await pollUntil(
+          () => paletteState(client),
+          (s) => s.items === 1 && s.annotPage === 1,
+          { error: (s) => s.raw },
+        );
+      },
+      ["-appdata", dir, ...paths],
+      { env: { ...process.env, SOLOKPDF_ENGINE: "pdfium" } },
+    );
+  }
 }
 
 if (import.meta.main) await runStandalone(testit);
