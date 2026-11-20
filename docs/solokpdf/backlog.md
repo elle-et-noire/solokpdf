@@ -9,8 +9,8 @@ For code changes, select affected tests from [testing.md](testing.md).
 ## Open
 
 - E157 — [Win32 product and code design review plan](design-review-plan.md).
-  Next is R07, checking cleanup of temporary inputs after failed PDF copies.
-  [R06 verification](history.md#r06-pdf-tool-pending-input).
+  Next is R18, limiting smart-tab candidate collection to tabs.
+  [R07, R08 and R29 verification](history.md#r07-r08-r29-pdf-tool-output).
   The plan tracks each finding, its evidence, execution order and acceptance check.
 
 ## Not planned

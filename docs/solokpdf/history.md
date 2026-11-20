@@ -4938,3 +4938,34 @@ Debug also passed `pdf-tools-encrypted` on both engines and
 `convert-images-partial`.
 
 The [review plan](design-review-plan.md) continues with R07.
+
+### R07 R08 R29 PDF tool output
+
+Started at `700129614` with the Extract Pages and Merge PDF input copies,
+the Win32 tool dialogs, and `atomic-pdf-save`, `pdf-tools-encrypted` and
+`pdf-tools-pending-input`.
+
+Both engines left an empty input copy when the annotated PDF failed to save.
+Extract Text also truncated an existing output when the source could not be
+reopened. MuPDF's Bake and Clean writers remove the output before writing it.
+
+Implemented in `4989aa7dd`.
+
+- R07 adopted. Extract Pages and Merge own temporary input copies through
+  every exit from the operation.
+- R08 adopted. Single-file PDF and text tools stage their output beside the
+  destination, then flush and replace it after the write succeeds. Extraction
+  from XPS and EPUB uses the same full-save path as other generated PDFs.
+- R29 adopted. The existing [atomic save test](../../tests/atomic-pdf-save.ts)
+  now checks previous bytes, temporary inputs and outputs, the reopened PDF's
+  text and annotation, and the original tab's dirty and Undo state. The
+  encrypted and pending-input tests cover page selection, edit contents,
+  password handling and source identity.
+
+Hidden-desktop Debug passed all 28 cases of `atomic-pdf-save`,
+`pdf-tools-encrypted` on both engines, `pdf-tools-pending-input` and
+`issue-6509` (XPS and EPUB). ASan passed all eight `atomic-pdf-save`
+PDF tool cases and `pdf-tools-pending-input` on both engines. The ASan
+run completed after Debug released the shared test directory.
+
+The [review plan](design-review-plan.md) continues with R18.
