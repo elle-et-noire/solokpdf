@@ -9,7 +9,8 @@ For code changes, select affected tests from [testing.md](testing.md).
 ## Open
 
 - E157 — [Win32 product and code design review plan](design-review-plan.md).
-  Start with R01, comparing unsaved edits in extracted and retained pages.
+  Next is R02, checking applied redactions in tool output.
+  [R01 verification](history.md#r01-unsaved-edits-in-page-range-output).
   The plan tracks each finding, its evidence, execution order and acceptance check.
 
 ## Not planned

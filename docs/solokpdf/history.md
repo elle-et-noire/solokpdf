@@ -4810,3 +4810,18 @@ Windows handle shared reads and writes during publication. A worker now
 rechecks the pinned bytes after a sharing error and retries for up to four
 seconds. The Windows pin test passed 12 consecutive runs, restoring the DLL
 and missing header while preserving an unchanged header's timestamp.
+
+### R01 Unsaved edits in page-range output
+
+At `6328b5fff`, extracting pages 1–2 kept an unsaved annotation edit, while
+deleting page 3 brought back the saved annotation. Debug reproduced the
+difference with both PDFium and MuPDF in the two page-range dialogs.
+
+`b60944c3a` uses the live copy for both operations when the document is dirty.
+The expanded [pdf-tools-encrypted test](../../tests/pdf-tools-encrypted.ts)
+passed in Debug on both engines through the hidden desktop. It reopened plain
+and AES-256 output to verify page count, text order, and annotation contents.
+The original password opened the encrypted output, the source bytes were
+unchanged, and the plain source tab retained its dirty and Undo state.
+
+The [review plan](design-review-plan.md) continues with R02.
