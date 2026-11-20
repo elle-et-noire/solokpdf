@@ -9,8 +9,8 @@ For code changes, select affected tests from [testing.md](testing.md).
 ## Open
 
 - E157 — [Win32 product and code design review plan](design-review-plan.md).
-  Next is R06, verifying that PDF tools commit pending input before execution.
-  [R05 verification](history.md#r05-pdf-tool-source-tabs).
+  Next is R07, checking cleanup of temporary inputs after failed PDF copies.
+  [R06 verification](history.md#r06-pdf-tool-pending-input).
   The plan tracks each finding, its evidence, execution order and acceptance check.
 
 ## Not planned

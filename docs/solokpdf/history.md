@@ -4916,3 +4916,25 @@ Debug also passed `pdf-tools-encrypted` on both engines, `dialog-target-reentry`
 and `issue-6459`.
 
 The [review plan](design-review-plan.md) continues with R06.
+
+### R06 PDF tool pending input
+
+Started at `4b6587c5d` with Bake and Extract Pages and the existing
+`pending-document-input` and `pdf-tools-encrypted` tests. Both engines lost
+a pending form choice when the tool took focus. Bake omitted the selected
+value and page extraction kept the original value.
+
+Adopted in `06e0080b1`. The Win32 file-tool dialogs commit input in
+their source PDF before taking focus. A commit that closes or replaces the
+source aborts the tool.
+
+Hidden-desktop Debug and ASan passed
+[`pdf-tools-pending-input`](../../tests/pdf-tools-pending-input.ts) with both
+engines. The test checks export values and unchanged source files for
+text fields, choices, FreeText and annotation comments. It also checks tab
+closure during commit and a pending choice in another window.
+
+Debug also passed `pdf-tools-encrypted` on both engines and
+`convert-images-partial`.
+
+The [review plan](design-review-plan.md) continues with R07.
