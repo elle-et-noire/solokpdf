@@ -4894,3 +4894,25 @@ the output files. Debug also passed `issue-5991`, `issue-6422`, `issue-6424`,
 `issue-6439` and `issue-6505`.
 
 The [review plan](design-review-plan.md) continues with R05.
+
+### R05 PDF tool source tabs
+
+Started at `0310a8b62` with the Win32 PDF tool dialogs and the existing
+`convert-images-partial`, `dialog-target-reentry` and `pdf-tools-encrypted`
+tests. Before the fix, Convert to Images opened on page 2 of A and saved page
+1 of B when B was selected.
+
+Adopted in `4eb370bdf`. The dialogs resolve the load of the tab that opened
+them. Page and selection image exports use its renderer and rotation.
+
+Hidden-desktop Debug and ASan passed
+[`convert-images-partial`](../../tests/convert-images-partial.ts) on PDFium and
+MuPDF. With B selected and rotated, the exported PNG matched A's page 2
+byte for byte. Reloading or closing A, reopening the same path, and keeping a
+same-path duplicate after closing A all warned and produced no files.
+
+Debug also passed `pdf-tools-encrypted` on both engines, `dialog-target-reentry`,
+`issue-6439`, `issue-6505`, `issue-6127`, `convert-epub-to-pdf`, `issue-1930`
+and `issue-6459`.
+
+The [review plan](design-review-plan.md) continues with R06.
