@@ -4876,3 +4876,21 @@ ASan passed `ad-hoc-pdfium-memory` and `ad-hoc-pdfium-source-lifetime`.
 to find the password edit control during MuPDF reload.
 
 The [review plan](design-review-plan.md) continues with R04.
+
+### R04 Page image export failures
+
+Started at `42b542440` with `CmdConvertPdfToImages` and the conversion,
+overwrite and output-folder tests (`issue-5991`, `issue-6439`, `issue-6424`).
+The [regression test](../../tests/convert-images-partial.ts) reproduced a
+silent partial export by blocking one of two PNG paths with a directory.
+
+Adopted in `4e85c079b`. The warning reports the number saved and the failed
+page ranges. Successful images stay on disk. If every page fails, the
+conversion dialog stays open for retry.
+
+Hidden-desktop Debug and ASan verified full success, partial success and
+total failure with PDFium and MuPDF. The tests checked the warning text and
+the output files. Debug also passed `issue-5991`, `issue-6422`, `issue-6424`,
+`issue-6439` and `issue-6505`.
+
+The [review plan](design-review-plan.md) continues with R05.

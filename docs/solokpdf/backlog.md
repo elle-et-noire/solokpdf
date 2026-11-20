@@ -9,8 +9,8 @@ For code changes, select affected tests from [testing.md](testing.md).
 ## Open
 
 - E157 — [Win32 product and code design review plan](design-review-plan.md).
-  Next is R04, reporting partial failures when exporting page images.
-  [R03 verification](history.md#r03-save-as-input-selection).
+  Next is R05, verifying that PDF tools use the source shown in the dialog.
+  [R04 verification](history.md#r04-page-image-export-failures).
   The plan tracks each finding, its evidence, execution order and acceptance check.
 
 ## Not planned
