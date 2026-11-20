@@ -1,8 +1,8 @@
 # SolokPDF の現行設計
 
 E21 の色方針、E19 の描画結果、E22 のキャッシュ、E18 の読み取り契約、E20 の文書寿命を反映した Win32 版の責務と状態。
-初回点検は [レビュー結果](archive/full-review-results.md)、評価基準は [下記](#レビューの評価観点)、完了済みの見直しは [リファクタリング計画](archive/refactoring-plan.md)、
-実装・検証履歴は [history.md](history.md) を参照する。
+初回点検は [レビュー結果](archive/full-review-results.md)、評価基準は [下記](#レビューの評価観点)、
+実装・検証は [履歴](history.md#e21-color-stage-policy-2026-11-10)を参照する。
 
 ## PDF エンジンの役割
 
@@ -402,7 +402,7 @@ E29 はフォーム setter の試行後に全取得済み text cache を無効�
 
 ## 構造上の注意（2026-11-13 レビュー）
 
-作業項目ではない。
+`8b716234f..ce9903893` の差分をコードで追跡し、E39–E57 を記録した。
 
 - 色処理の段階の判断が `GetPageColorPass`、`BuildViewDarkModeProfile` と各エンジンに分かれる（E46 はその不一致）。
 - キーの経路は `GetKeyTarget` の結果を 3 か所で解釈する。
@@ -411,7 +411,7 @@ E29 はフォーム setter の試行後に全取得済み text cache を無効�
 
 ## レビューの評価観点
 
-E23–E25 の[構造とコードのレビュー](archive/full-review-plan.md)で定めた観点。
+E23–E25 の[構造とコードのレビュー](archive/full-review-results.md)で用いた観点。
 操作経路は調査の手掛かりとし、対象範囲や観点を限定する条件にはしない。問題が疑われる箇所は関連実装へ追う。
 読んだコードを記録し、ビルド・テスト基盤は調査や変更に必要な範囲で確認する。
 

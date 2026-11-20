@@ -42,14 +42,11 @@ The [D15 record](history.md#d15-hosted-verification-at-c1f07fea0-2026-11-20)
 lists the full-suite failures and exclusions. See the
 [backlog](backlog.md#open) for the remaining verification.
 Local seeded stress checks are in the [monkey-test record](history.md#e71-monkey-test-2026-11-16).
-The owner reported that F2 tree checks passed, with build and environment
-unspecified. F1 printing and F3 physical input are outside active scope and
-remain unverified. [Manual acceptance record](testing.md#owners-manual-acceptance-f1f3)
 
 ## Resuming work
 
 Read [agents.md](../../agents.md), [readme.md](../../readme.md), this file and
-[backlog.md](backlog.md), then the current behavior and plan for the area at hand.
+[backlog.md](backlog.md), then the documentation for the area at hand.
 
 - For design work, read the [current architecture](architecture.md), including
   its review criteria and structural notes.
@@ -80,12 +77,12 @@ Responsibilities, state and API contracts are in [architecture.md](architecture.
 | Purpose            | Documents                                                                                                                                          |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Current behavior   | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                               |
-| Work status        | [Open and excluded work, completed reviews](backlog.md)                                                                                            |
+| Work status        | [Open work and scope exclusions](backlog.md)                                                                                                       |
 | Design             | [Current architecture, review criteria and structural notes](architecture.md)                                                                      |
 | Keyboard input     | [Current routing and results](keyboard-investigation.md)                                                                                           |
 | Test procedures    | [Local automated tests](testing.md#local-windows-runs), [physical tree checks](testing.md#physical-tree-checks), [ASan shutdown](asan-shutdown.md) |
 | Historical results | [History navigation](history.md#navigation), [upstream merges](upstream-merges.md)                                                                 |
-| Finished plans     | [Archive](archive/README.md)                                                                                                                       |
+| Review evidence    | [Review reports](archive/README.md)                                                                                                                |
 | Measurements       | [data/](data/), cited by `history.md`                                                                                                              |
 
 ## Keeping docs current
@@ -93,12 +90,8 @@ Responsibilities, state and API contracts are in [architecture.md](architecture.
 Keep current behavior in `features.md` and `limitations.md`, open work in
 `backlog.md`, dated results in `history.md`, responsibilities and contracts in
 `architecture.md`, and test procedures in `testing.md`.
-Move completed backlog rows to [history.md](history.md#completed-backlog);
-list each finished review in one line under backlog's
-[completed reviews](backlog.md#completed-reviews).
-When a plan or review record is finished, move its current-state content to
-the current docs, `git mv` it to `archive/` and add a line to
-[archive/README.md](archive/README.md).
+Move closed items to [history.md](history.md#completed-backlog).
+When a plan finishes, update the current docs and record the results, then
+remove the plan. Keep detailed evidence in [review reports](archive/README.md).
 Record upstream merges in `upstream-merges.md` and measurements in `data/`.
-Keep active scope only in the backlog; link to it here rather than copying status.
 Keep test results dated and distinguish automated checks from pending manual checks.

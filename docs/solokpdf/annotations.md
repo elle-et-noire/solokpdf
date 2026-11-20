@@ -1,14 +1,12 @@
 # PDFium annotations
 
-PDFium documents used to have no annotation support: `EngineSupportsAnnotations`
-was true only for EngineMupdf, whose model wraps `pdf_annot` and relies on
-MuPDF's journal for undo. PDFium documents now edit their annotations through a
-hidden EngineMupdf of the same file; PDFium still draws the pages.
+PDFium draws the pages. A hidden MuPDF engine for the same file edits annotations
+and uses MuPDF's journal for Undo/Redo.
 
 ## Why not PDFium's annotation API
 
-Stages 1–2 ported editing to PDFium's annotation API (commits 680bf3c31,
-853a1f3f6). Two limits ended that:
+Early editing prototypes used PDFium's annotation API (commits 680bf3c31 and
+853a1f3f6). Saving and annotation creation exposed two limits.
 
 - `FPDF_SaveAsCopy` with `FPDF_INCREMENTAL` writes every object PDFium has
   parsed, not just the changed ones. Saving one annotation added 1.8 MB to a
@@ -38,12 +36,10 @@ MuPDF draws the annotations into the same pixels
   EnginePdfium has one. `AnnotEngineMupdf()` resolves the engine that holds a
   document's annotations, so the EngineMupdf\* annotation entry points and the
   UI work unchanged. The Annotation objects are the editor's.
-- The editor loads on the first annotation query: hover on an annotated page,
-  the annotation list, edit mode, or creation. Plain-page hover stays in PDFium
-  (B13/B47). Loading took 38–98 ms in a Debug build on the corpus papers.
-  Until then PDFium draws the annotations (`FPDF_ANNOT`), so viewing only
-  costs nothing. A tile reads the editor once, so it never gets annotations
-  from both engines.
+- The editor loads when editing or when a query needs MuPDF. PDFium can
+  answer some hover queries and skip annotation lists for PDFs without markup.
+  Until the editor loads, PDFium draws the annotations. Each tile takes its
+  annotation layer from one engine. [Annotation list checks](history.md#e68-annotation-lists-without-the-editor-2026-11-16)
 - The overlay matrix is PDFium's page-to-tile mapping, built from
   `EngineBase::Transform`. The annotations of a normal, a `/Rotate 90` and a
   cropped page landed within 1 px of MuPDF's own rendering, also with the
@@ -69,20 +65,6 @@ MuPDF draws the annotations into the same pixels
 - A clone reads saved annotations from the retained original input. Printing is the B52
   exception: after Apply Redactions and before Save, it uses the editor's
   redacted document.
-
-## Stages
-
-1. Done: text markup, contents, color, opacity, delete, save.
-2. Done: notes, Square, Circle, Ink, moving and resizing, ink erasing.
-3. Done: undo/redo, copy, cut and paste.
-4. Done: FreeText (Japanese included), Line, Polygon/PolyLine, Stamp, Caret,
-   FileAttachment.
-5. Done: filling text, choice, checkbox and radio fields. A PDFium document
-   loads the MuPDF editor on its first form query; a PDF without an AcroForm
-   skips that query. The existing widget editing and incremental save paths
-   then serve both engines. Once the editor is loaded, PDFium omits its widget
-   pass and MuPDF draws widgets with annotations, so edits appear without a
-   duplicate or stale field. XFA remains a separate gap.
 
 ## Tests
 

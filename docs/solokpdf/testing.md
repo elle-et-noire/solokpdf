@@ -368,9 +368,8 @@ position after scrolling, minimize and tab switches. `--home-tip-only` checks
 keyboard and hover tooltips through minimize and restore. Add `--work-area`
 to run either test with the full work area.
 After lifetime, notification or test-hook changes, also run the last four and
-`ad-hoc-tree-lifetime` under ASan. The
-[migration plan](archive/tree-view-replacement-plan.md#検証) lists them by stage. Rollout results are in
-[history.md](history.md#virtual-sidebar-rollout-2026-11-09). Use
+`ad-hoc-tree-lifetime` under ASan. See the
+[rollout results](history.md#virtual-sidebar-rollout-2026-11-09). Use
 `tests/sidebar-tree.ts` for item counts, selection and row operations.
 The tree probes remain outside `run-almost-all.ts`. The regular SolokPDF CI set
 now includes `ad-hoc-virtual-toc`, `ad-hoc-virtual-favorites`,
@@ -530,9 +529,8 @@ and remaining work is in the [backlog](backlog.md).
 
 Narrator/NVDA, real monitor DPI changes, native scrollbar thumb dragging and
 real-cursor smart-bar hover are manual checks. The owner reported all F2 checks
-OK on 2026-11-09; see the [results](archive/tree-view-screen-reader-check.md#実施結果).
-Rechecks use the owner's visible desktop; automated local
-runs continue to use the hidden desktop.
+OK on 2026-11-09. Rechecks use the owner's visible desktop.
+[F2 acceptance record](history.md#virtual-sidebar-acceptance-2026-11-09)
 
 From the repository root, prepare the PDF and dedicated settings in
 `.work/tree-reader-check` (overwritten on each run) and launch:
@@ -619,16 +617,6 @@ CI also saves the matching executable and PDBs in the failure artifact.
 Verify the capture locally with `bun tools/solokpdf/run-hidden.ts -- bun tests/ad-hoc-startup-diagnostics.ts --no-build`.
 The forced-timeout test passed on both engines in hosted run 42522810078;
 see the [D8 audit](history.md#d8-hosted-validation-audit-2026-11-09).
-
-### Hosted follow-ups (D8)
-
-`pdf-edit-toolbar-interaction` now prints `TestDpi` state before exercising
-the toolbar. Record its `frame` DPI along with the result: 96 means 100%.
-Local runs passed on both engines at 120 DPI (125%); they do not establish
-the hosted 100% result. The two filtered hosted runs subsequently passed at
-96 DPI on `3da0b8ee1`, completing D8. See the
-[results and recheck commands](history.md#d8-hosted-validation-audit-2026-11-09).
-No new full suite was run for D8.
 
 ### Desktop-dependent checks
 
@@ -754,41 +742,3 @@ selects one engine. Leave `tests` empty for the full suite or provide a
 comma-separated list for a targeted recheck. For a two-engine manual result,
 record the two run IDs and the tested commit. The runner logs tests excluded
 for each engine. [Current validation](README.md#status)
-
-## Owner's manual acceptance (F1–F3)
-
-Historical procedure: F2 passed by owner report on 2026-11-09. The owner removed
-F1/F3 from active work on 2026-11-10; neither was marked passed. The procedure below
-is retained for reference. Automated local runs follow the hidden desktop procedure above.
-
-Use `-for-testing` and a dedicated `-appdata` directory, as in the
-[tree procedure](#physical-tree-checks). Keep any custom test
-settings there; changes made in test mode last only for that process.
-
-| Item         | Procedure                                                              | Results                                                                                       |
-| ------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| F1: printing | [Below](#printing-f1)                                                  | Append dated results under this section.                                                      |
-| F2: trees    | [Screen readers, scrollbars and DPI](#physical-tree-checks)            | OK by owner report, 2026-11-09; [results](archive/tree-view-screen-reader-check.md#実施結果). |
-| F3: keyboard | [Physical input checklist](keyboard-investigation.md#実機入力の確認f3) | Append dated results beside that checklist.                                                   |
-
-For each result, record the date, source commit, Debug/Release, engine, Windows
-build, relevant device/software versions, settings and document used. Mark each
-check passed, failed or untested; include actual behavior for failures and a
-reason for skipped checks. These historical procedures do not reopen F1/F3
-or add new test results.
-
-### Printing (F1)
-
-Print bitmap generation has passed; physical printing remains unverified. See
-the [existing coverage](limitations.md#printing).
-
-1. Open a representative PDF using PDFium. Open Print, check the selected
-   printer, page range and available document print defaults, then cancel.
-   Confirm that cancellation creates no spooler job.
-2. Print a small page range to the physical printer. Check the queue reaches
-   completion and the paper has the expected pages, orientation, scale and
-   readable content. Record printer model, driver and print settings.
-3. Repeat with `SOLOKPDF_ENGINE=mupdf` in the test process's environment to
-   compare the same file and settings. Restore the environment after the run.
-4. Record PDF export separately if checked. Successful bitmap generation or
-   export alone does not establish physical-printer behavior.

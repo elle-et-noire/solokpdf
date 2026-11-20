@@ -4,7 +4,7 @@
 開始時の作業ツリーは変更なし。独立精読は `gpt-6-sol` / `high`、呼び出し側の照合と実行検証は親エージェントが担当した。
 製品コードの変更・コミットはなし。既存レビュー記録は変更していない。
 
-`AGENTS.md`、`testing.md`、`full-review-plan.md` を読み、計画の Windows SolokPDF 範囲を対象とする。
+Windows 版 SolokPDF を対象とする。[レビューの評価観点](../architecture.md#レビューの評価観点)に沿って確認した。
 現行コードと試験の assertion を判断根拠とし、以前の完了判定・実装モデルは品質の根拠にしない。
 
 根拠・プローブ最終ソース・実行出力は [検証記録](../data/full-review-sol-2026-11-11.json)。

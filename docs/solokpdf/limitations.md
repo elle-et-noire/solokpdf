@@ -346,10 +346,8 @@ between abort checks have no established duration bound.
 
 - Bookmarks and favorites use the [virtual-tree implementation](features.md#virtual-sidebar-trees)
   in Debug and Release, including normal launches. Both follow `Scrollbars`.
-  The owner reported the screen-reader and physical-display checks OK on
-  2026-11-09 (E10/F2); [results](archive/tree-view-screen-reader-check.md#実施結果)
-  distinguish that report from automated UIA/MSAA checks. Environment details
-  were not recorded.
+  [Physical acceptance results](history.md#virtual-sidebar-acceptance-2026-11-09)
+  cover screen readers, scrollbars and monitor DPI.
 
 - All eight destination views, link `/Contents` tooltips and GoToR/Launch file
   links match MuPDF on a fixture (links and outline). PDFium reports
@@ -582,7 +580,7 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   redacted document from the editor, not the file (B52,
   `ad-hoc-pdfium-redaction-undo`). Physical printers, print dialogs, spooler
   behavior and export
-  workflows were not comprehensively tested (F1 needs the owner).
+  workflows were not comprehensively tested.
 
 ## Sessions, memory and robustness
 

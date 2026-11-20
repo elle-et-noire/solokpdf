@@ -176,11 +176,8 @@ right of and below its center). They follow theme colors: the row's text
 color, softened at rest and full on the hovered row (upstream: OS theme
 glyphs in fixed grays). Without either font, Marlett triangles stand in.
 
-Implementation and validation results are in
-[history.md](history.md#virtual-sidebar-rollout-2026-11-09), with prototype details
-in the [migration plan](archive/tree-view-replacement-plan.md). The owner reported Narrator,
-NVDA, real monitor DPI changes, native thumb dragging and real-cursor smart-bar
-hover OK on 2026-11-09 (F2); environment details were not recorded.
+See the [rollout results](history.md#virtual-sidebar-rollout-2026-11-09) and
+[F2 acceptance record](history.md#virtual-sidebar-acceptance-2026-11-09).
 Use the [test setup](testing.md#virtual-sidebar-trees) and
 [physical check procedure](testing.md#physical-tree-checks) for rechecks.
 

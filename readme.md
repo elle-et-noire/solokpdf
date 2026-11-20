@@ -30,8 +30,8 @@ stages PDFium and the ASan runtime in `out/dbg64_asan/`; see the
 [ASan test procedure](docs/solokpdf/testing.md#asan-builds).
 Run app-launching tests through the [hidden-desktop runner](docs/solokpdf/testing.md).
 Use the [SolokPDF unit-test command](docs/solokpdf/testing.md#unit-tests) for unit tests.
-Keep `-for-testing` on ad-hoc launches; physical checks follow the
-[owner's manual acceptance procedure](docs/solokpdf/testing.md#owners-manual-acceptance-f1f3).
+Keep `-for-testing` on ad-hoc launches. See the
+[manual sidebar tree procedure](docs/solokpdf/testing.md#physical-tree-checks).
 
 PDFium is the default for PDFs in this build. Set `$env:SOLOKPDF_ENGINE='mupdf'`
 to compare using the same UI. Non-PDF formats retain their existing engines.
@@ -49,14 +49,11 @@ Upstream binary updates are disabled. Default-app association works through
 portable build. Existing copyright and license terms remain, including MuPDF's
 AGPL obligations; see `AUTHORS` and `COPYING`.
 
-See [SolokPDF docs](docs/solokpdf/README.md) for current status, open work,
-test setup and measurements. See the [current architecture](docs/solokpdf/architecture.md)
-for responsibilities and contracts; finished plans and reviews are in the
-[archive](docs/solokpdf/archive/README.md).
+See the [SolokPDF docs index](docs/solokpdf/README.md) for project status,
+architecture, test procedures and review reports.
 Bookmarks and favorites use virtual trees in Debug
 and Release, following the document's scrollbar mode. See the
-[tree migration](docs/solokpdf/archive/tree-view-replacement-plan.md) for validation
-results and the owner's completed physical-device checks.
+[tree rollout results](docs/solokpdf/history.md#virtual-sidebar-rollout-2026-11-09).
 
 ## Original SumatraPDF project
 
