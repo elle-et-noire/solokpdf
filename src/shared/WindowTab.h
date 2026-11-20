@@ -146,6 +146,10 @@ struct WindowTab {
     FILETIME autoReloadModTime{};
 #if defined(SUMATRA_NG)
     Countdown autoReload;
+#else
+    bool autoReloadNeedsStability = false;
+    i64 autoReloadSavedSize = 0;
+    FILETIME autoReloadSavedTime{};
 #endif
     ReadAloudHighlightMap* readAloudHighlight = nullptr;
     Str filePath;
@@ -232,8 +236,7 @@ struct WindowTab {
     // into a maximized window doesn't flash white in dark themes while the
     // first render is in flight
     bool everPaintedPage = false;
-    // Skip the next file-watcher auto-reload (e.g. after we save annotations
-    // and already call ReloadDocument ourselves). Consumed by kAutoReloadTimerID.
+    // Suppress watcher notifications for a version we already saved and loaded.
     bool ignoreNextAutoReload = false;
     // follow the spoken word while reading; disabled when the user scrolls away
     bool readAloudAutoScroll = false;

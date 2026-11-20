@@ -2572,11 +2572,6 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
         return;
     }
 
-    // Do not clear ignoreNextAutoReload here: SaveAnnotationsToExistingFile sets it
-    // so the file-watcher auto-reload from that write is skipped. Clearing it on every
-    // ReloadDocument caused a second full open right after the intentional post-save
-    // reload (race with render/RefHover on a just-rewritten PDF).
-
     if (!tab->IsDocLoaded()) {
         if (!autoRefresh) {
             if (len(tab->filePath) == 0) {
@@ -3369,10 +3364,42 @@ void ReloadTab(WindowTab* tab) {
         return;
     }
     tab->reloadOnFocus = true;
+    tab->autoReloadNeedsStability = true;
     if (IsCurrentTab(win, tab)) {
         // delay the reload slightly, in case we get another request immediately after this one
         SetTimer(win->hwndCanvas, kAutoReloadTimerID, kAutoReloadDelayInMs, nullptr);
     }
+}
+
+// Remember the saved version so an external write sharing its notification still reloads.
+void MarkSavedForAutoReload(WindowTab* tab) {
+    tab->ignoreNextAutoReload =
+        tab->watcher && file::GetSizeAndTime(tab->filePath, &tab->autoReloadSavedSize, &tab->autoReloadSavedTime);
+}
+
+void MaybeAutoReload(MainWindow* win) {
+    WindowTab* tab = win->CurrentTab();
+    if (!tab || !tab->reloadOnFocus) {
+        return;
+    }
+    // An open menu can still hold the controller. Wait for it and for the writer.
+    if (IsThreadInMenuMode() || (tab->autoReloadNeedsStability && AutoReloadFileStillChanging(tab))) {
+        SetTimer(win->hwndCanvas, kAutoReloadTimerID, kAutoReloadDelayInMs, nullptr);
+        return;
+    }
+    bool checkSavedVersion = tab->autoReloadNeedsStability && tab->ignoreNextAutoReload;
+    tab->reloadOnFocus = false;
+    tab->autoReloadNeedsStability = false;
+    if (checkSavedVersion) {
+        tab->ignoreNextAutoReload = false;
+        i64 size;
+        FILETIME modified;
+        if (file::GetSizeAndTime(tab->filePath, &size, &modified) && size == tab->autoReloadSavedSize &&
+            FileTimeEq(modified, tab->autoReloadSavedTime)) {
+            return;
+        }
+    }
+    ReloadDocument(win, true, false);
 }
 
 // return true if adjustd path
@@ -3707,6 +3734,9 @@ MainWindow* LoadDocumentFinish(LoadArgs* args) {
     // folder, multi-file open). Always drop it before re-subscribing.
     FileWatcherUnsubscribe(currTab->watcher);
     currTab->watcher = nullptr;
+    currTab->ignoreNextAutoReload = false;
+    currTab->autoReloadNeedsStability = false;
+    AutoReloadResetFileState(currTab);
 
     // Host-app cache extracts (OneNote, Outlook) and our copies of them are
     // not the user's file: don't watch, don't remember, don't pin the original
@@ -4740,16 +4770,7 @@ void LoadModelIntoTab(WindowTab* tab) {
         if (gSettings->lazyLoading && !tab->ctrl && tab->loadState == WindowTab::LoadState::None) {
             ReloadDocument(win, false);
         } else {
-            if (tab->reloadOnFocus) {
-                tab->reloadOnFocus = false;
-                if (tab->ignoreNextAutoReload) {
-                    // our own save's watcher event, not consumed by the timer
-                    // because the tab lost focus first
-                    tab->ignoreNextAutoReload = false;
-                } else {
-                    ReloadDocument(win, true);
-                }
-            }
+            MaybeAutoReload(win);
         }
     }
     if (!IsMainWindowValidAndNotClosing(win) || FindMainWindowByTab(tab) != win || win->CurrentTab() != tab) {
@@ -5274,7 +5295,6 @@ bool SaveAnnotationsToExistingFile(WindowTab* tab) {
     }
 #endif
     Str path = engine->FilePath();
-    tab->ignoreNextAutoReload = true;
     ShowErrorData data{tab, path};
     auto fn = MkFunc1(ShowSaveAnnotationError, &data);
     bool ok = EngineMupdfSaveUpdated(engine, {}, fn);
@@ -5282,16 +5302,12 @@ bool SaveAnnotationsToExistingFile(WindowTab* tab) {
         return ok;
     }
     if (!ok) {
-        tab->ignoreNextAutoReload = false;
         return false;
     }
+    MarkSavedForAutoReload(tab);
     ShowSavedAnnotationsNotification(win->hwndCanvas, path);
 
     ReloadDocument(win, false);
-    // Re-arm: the save notifies the file watcher, which schedules an auto-reload.
-    // We already reloaded above; skip that one watcher event so we do not open
-    // the PDF twice (and race background work against a just-rewritten file).
-    tab->ignoreNextAutoReload = true;
     return true;
 }
 
@@ -5679,8 +5695,11 @@ bool ResolveUnsavedChanges(WindowTab* tab, UnsavedChangesAction action, Str newP
             tab->askedToSaveAnnotations = true;
             return true;
         case UnsavedChangesAction::SaveExisting:
-            tab->ignoreNextAutoReload = true;
-            return EngineMupdfSaveUpdated(engine, {}, {});
+            if (!EngineMupdfSaveUpdated(engine, {}, {})) {
+                return false;
+            }
+            MarkSavedForAutoReload(tab);
+            return true;
         case UnsavedChangesAction::SaveNew:
             return EngineMupdfSaveUpdated(engine, newPath, {});
     }

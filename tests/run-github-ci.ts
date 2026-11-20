@@ -21,8 +21,9 @@
 // waiting for the whole suite.
 
 import { existsSync } from "node:fs";
+import { runInJob } from "../tools/solokpdf/run-job.ts";
 import { EXE, formatDuration, resetTestTimes, runTest, type NamedTest } from "./util.ts";
-import { getWorkArea, listPidsByExeName, setTestWindowLayout, testWindowPos, waitForProcessExit } from "./winapi.ts";
+import { getWorkArea, setTestWindowLayout, testWindowPos } from "./winapi.ts";
 import { tests as allTests } from "./run-all.ts";
 
 // Tests that need something a hosted runner doesn't have. Keep the reason with
@@ -56,45 +57,62 @@ const pdfiumExcludedTests: Record<string, string> = {
   "issue-3731": "PDFium has no external-stream image loader",
 };
 
-function isExcluded(name: string): boolean {
-  if (excludedTests[name]) return true;
-  return process.env.SOLOKPDF_ENGINE !== "mupdf" && !!pdfiumExcludedTests[name];
+function excludeReason(name: string): string | undefined {
+  return excludedTests[name] ?? (process.env.SOLOKPDF_ENGINE === "mupdf" ? undefined : pdfiumExcludedTests[name]);
 }
 
 export function ciTests(): NamedTest[] {
-  return allTests.filter(([name]) => !isExcluded(name));
+  return allTests.filter(([name]) => !excludeReason(name));
 }
 
-type Failure = { name: string; msg: string };
-
-// One hung test (issue-5979 once sat for 2.5 h) must not eat the whole run:
-// fail it, kill the apps it left running and go on with the next test.
 const kTestTimeoutMs = 5 * 60 * 1000;
 const kProcessExitGraceMs = 250;
-const kAppImages = ["SumatraPDF.exe", "SumatraPDF-static.exe", "SolokPDF.exe"];
 
-function appPids(): Set<number> {
-  return new Set(kAppImages.flatMap(listPidsByExeName));
+const enum WorkerExit {
+  Passed = 0,
+  Failed = 1,
+  Skipped = 3,
+  Partial = 4,
 }
 
-async function withTestTimeout(name: string, run: Promise<void>): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      for (const image of kAppImages) Bun.spawnSync(["taskkill", "/F", "/T", "/IM", image]);
-      reject(new Error(`${name} timed out after ${kTestTimeoutMs / 60000} min`));
-    }, kTestTimeoutMs);
-  });
-  try {
-    await Promise.race([run, timeout]);
-  } finally {
-    clearTimeout(timer);
+export async function runCiWorker([name, fn]: NamedTest): Promise<number> {
+  setTestWindowLayout("workArea");
+  const skip = await runTest(name, fn);
+  if (skip) return skip.scope === "all" ? WorkerExit.Skipped : WorkerExit.Partial;
+  return WorkerExit.Passed;
+}
+
+type CiJob = { name: string; command: string[] };
+
+export async function runCiJobs(jobs: CiJob[], timeoutMs = kTestTimeoutMs) {
+  const counts = { passed: 0, partial: 0, skipped: 0, failures: [] as string[] };
+  for (const { name, command } of jobs) {
+    console.log(`\n========== ${name} ==========`);
+    const result = await runInJob(command, { timeoutMs, leakGraceMs: kProcessExitGraceMs });
+    if (result.interrupted) throw new Error("CI test run interrupted");
+    if (result.timedOut) {
+      console.error(`❌ ${name} timed out after ${formatDuration(timeoutMs)}`);
+    } else if (result.leaked) {
+      console.error(`❌ ${name} left ${result.leaked} process(es) running (worker exit ${result.exitCode})`);
+    } else if (result.exitCode === WorkerExit.Passed) {
+      counts.passed++;
+      continue;
+    } else if (result.exitCode === WorkerExit.Skipped) {
+      counts.skipped++;
+      continue;
+    } else if (result.exitCode === WorkerExit.Partial) {
+      counts.partial++;
+      continue;
+    } else {
+      console.error(`❌ ${name} worker exited with code ${result.exitCode}`);
+    }
+    counts.failures.push(name);
   }
+  return counts;
 }
 
-// tests defaults to every test that can run here; pass a list to run a subset
-// (a smoke check of this runner, or reproducing one CI failure locally)
-export async function testit(tests: NamedTest[] = ciTests()): Promise<void> {
+async function testit(requested?: NamedTest[]): Promise<void> {
+  const tests = requested ?? ciTests();
   setTestWindowLayout("workArea");
   resetTestTimes();
 
@@ -107,47 +125,32 @@ export async function testit(tests: NamedTest[] = ciTests()): Promise<void> {
     throw new Error(`${EXE} doesn't exist: build it first (bun cmd/build.ts -asan -dbg)`);
   }
 
-  const skipped = allTests.map(([name]) => name).filter(isExcluded);
-  console.log(`running ${tests.length} tests, skipping ${skipped.length}: ${skipped.join(", ")}\n`);
+  const excluded = requested ? [] : allTests.filter(([name]) => excludeReason(name));
+  console.log(`running ${tests.length} tests, ${excluded.length} excluded before execution`);
+  for (const [name] of excluded) {
+    console.log(`  ${name}: ${excludeReason(name)}`);
+  }
 
-  const failures: Failure[] = [];
   const t0 = performance.now();
-  for (const [name, fn] of tests) {
-    console.log(`\n========== ${name} ==========`);
-    const before = appPids();
-    let error: unknown;
-    try {
-      await withTestTimeout(name, runTest(name, fn));
-    } catch (e) {
-      error = e;
-    }
-    // The crash-dump helper can outlive its parent.
-    const newPids = [...appPids()].filter((pid) => !before.has(pid));
-    const exitDeadline = performance.now() + kProcessExitGraceMs;
-    const leaked = newPids.filter((pid) => {
-      const waitMs = Math.max(0, Math.ceil(exitDeadline - performance.now()));
-      return !waitForProcessExit(pid, waitMs);
-    });
-    if (leaked.length > 0) {
-      error = new Error(`${(error as Error)?.message ?? ""} ${name} left app process(es): ${leaked.join(", ")}`.trim());
-    }
-    if (error) {
-      const msg = (error as Error)?.message ?? String(error);
-      console.error(`❌ ${msg}`);
-      failures.push({ name, msg });
-    }
-  }
-
+  const forwarded = process.argv.slice(2).filter((arg) => arg.startsWith("-"));
+  const jobs = tests.map(([name]) => ({
+    name,
+    command: [process.execPath, import.meta.path, "--ci-worker", name, ...forwarded],
+  }));
+  const { passed, partial, skipped, failures } = await runCiJobs(jobs);
   const elapsed = formatDuration(performance.now() - t0);
-  if (failures.length === 0) {
-    console.log(`\n✅ run-github-ci: ${tests.length} tests passed in ${elapsed}`);
-    return;
+  console.log(
+    `\nrun-github-ci: ${passed} passed, ${partial} partial, ${skipped} skipped, ${failures.length} failed, ${excluded.length} excluded in ${elapsed}`,
+  );
+  if (failures.length) {
+    throw new Error(`${failures.length} test(s) failed: ${failures.join(", ")}`);
   }
-  console.log(`\n❌ run-github-ci: ${failures.length} of ${tests.length} tests failed in ${elapsed}:`);
-  for (const f of failures) {
-    console.log(`  ${f.name}`);
-  }
-  throw new Error(`${failures.length} test(s) failed: ${failures.map((f) => f.name).join(", ")}`);
+}
+
+function namedTest(name: string): NamedTest {
+  const test = allTests.find(([testName]) => testName === name);
+  if (!test) throw new Error(`no test named '${name}' (it must be registered in run-all.ts)`);
+  return test;
 }
 
 // names given on the command line, if any: "issue-1195" or "issue-1195,issue-906"
@@ -160,22 +163,22 @@ function testsFromArgs(argv: string[]): NamedTest[] | undefined {
   if (names.length === 0) {
     return undefined;
   }
-  const byName = new Map(allTests);
-  return names.map((name) => {
-    const fn = byName.get(name);
-    if (!fn) {
-      throw new Error(`no test named '${name}' (it must be registered in run-all.ts)`);
-    }
-    return [name, fn] as NamedTest;
-  });
+  return names.map(namedTest);
 }
 
 if (import.meta.main) {
+  let exitCode: number;
   try {
-    await testit(testsFromArgs(process.argv));
+    if (process.argv[2] === "--ci-worker") {
+      // Exit after the test's own cleanup even if its event loop has leftover handles.
+      exitCode = await runCiWorker(namedTest(process.argv[3]!));
+    } else {
+      await testit(testsFromArgs(process.argv));
+      exitCode = WorkerExit.Passed;
+    }
   } catch (e) {
     console.error(`\n${(e as Error)?.message ?? e}`);
-    process.exit(1);
+    exitCode = WorkerExit.Failed;
   }
-  process.exit(0);
+  process.exit(exitCode);
 }

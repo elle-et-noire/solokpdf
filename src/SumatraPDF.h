@@ -185,7 +185,8 @@ int ToolbarPositionFromPrefs();
 bool ToolbarAtBottom();
 void UpdateTabFileDisplayStateForTab(WindowTab* tab);
 void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword = true);
-bool AutoReloadFileStillChanging(WindowTab* tab);
+void MaybeAutoReload(MainWindow* win);
+void MarkSavedForAutoReload(WindowTab* tab);
 void DeleteControllerAsync(DocController* ctrl);
 #if IS_DEBUG
 int TestPendingControllerDeletes();

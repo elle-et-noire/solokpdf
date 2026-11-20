@@ -5242,31 +5242,10 @@ static void OnTimer(MainWindow* win, HWND hwnd, WPARAM timerId) {
             }
             break;
 
-        case kAutoReloadTimerID: {
+        case kAutoReloadTimerID:
             KillTimer(hwnd, kAutoReloadTimerID);
-            auto* tab = win->CurrentTab();
-            if (tab && tab->reloadOnFocus) {
-                if (tab->ignoreNextAutoReload) {
-                    // consume the save-triggered watcher event; do not leave
-                    // reloadOnFocus set or a later tab focus would reload
-                    tab->ignoreNextAutoReload = false;
-                    tab->reloadOnFocus = false;
-                } else if (IsThreadInMenuMode() || AutoReloadFileStillChanging(tab)) {
-                    // an open menu's nested loop dispatches this timer while
-                    // OnWindowContextMenu still holds the controller, engine and
-                    // page element it cached: reload once the menu is gone.
-                    // a writer (LaTeX etc.) is still producing the file: reloading
-                    // now shows a half-written document ("cannot find startxref",
-                    // "document has no pages") and costs a second reload once the
-                    // write finishes. Wait for it to go quiet instead.
-                    SetTimer(hwnd, kAutoReloadTimerID, kAutoReloadDelayInMs, nullptr);
-                } else {
-                    // timer-driven: never ask for a password here (#3493)
-                    ReloadDocument(win, true, false);
-                }
-            }
+            MaybeAutoReload(win);
             break;
-        }
 
         case kSmoothScrollTimerID: {
             DisplayModel* dm = win->AsFixed();

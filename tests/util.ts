@@ -772,7 +772,7 @@ export function formatDuration(ms: number): string {
   return `${min}m ${remSec.toFixed(1)}s`;
 }
 
-// every runTest() appends "<ms>\t<name>\t<pass|FAIL>" here, so a run can be
+// every runTest() appends "<ms>\t<name>\t<result>" here, so a run can be
 // picked apart afterwards ("which tests are slow, and did that change?").
 // run-almost-all.ts / run-all.ts / run-pre-release.ts delete it before they start
 export const TEST_TIMES_FILE = join(ROOT, ".work", "test-times.txt");
@@ -782,10 +782,10 @@ export function resetTestTimes(): void {
   rmSync(TEST_TIMES_FILE, { force: true });
 }
 
-function recordTestTime(name: string, ms: number, ok: boolean): void {
+function recordTestTime(name: string, ms: number, result: "pass" | "FAIL" | "skip" | "partial"): void {
   try {
     mkdirSync(dirname(TEST_TIMES_FILE), { recursive: true });
-    appendFileSync(TEST_TIMES_FILE, `${ms.toFixed(0)}\t${name}\t${ok ? "pass" : "FAIL"}\n`);
+    appendFileSync(TEST_TIMES_FILE, `${ms.toFixed(0)}\t${name}\t${result}\n`);
   } catch {
     // timing is a nicety; never fail a test over it
   }
@@ -794,6 +794,13 @@ function recordTestTime(name: string, ms: number, ok: boolean): void {
 export type RunTestOptions = {
   silent?: boolean;
 };
+
+export type TestSkip = { scope: "all" | "part"; reason: string };
+type TestFn = () => void | TestSkip | Promise<void | TestSkip>;
+
+export function skipTest(reason: string, scope: TestSkip["scope"] = "all"): TestSkip {
+  return { scope, reason };
+}
 
 function muteConsole(): () => void {
   const log = console.log;
@@ -841,7 +848,7 @@ async function failureContext(): Promise<string> {
   }
 }
 
-export async function runTest(name: string, fn: () => void | Promise<void>, opts?: RunTestOptions): Promise<void> {
+export async function runTest(name: string, fn: TestFn, opts?: RunTestOptions): Promise<void | TestSkip> {
   const silent = opts?.silent ?? false;
   // a Ctrl the machine thinks is held chords every posted key and click.
   // Before the progress line and the muting, so what it says stays visible
@@ -862,24 +869,29 @@ export async function runTest(name: string, fn: () => void | Promise<void>, opts
   const t0 = performance.now();
   const unmute = silent ? muteConsole() : () => {};
   try {
-    await fn();
+    const skip = await fn();
     unmute();
-    recordTestTime(name, performance.now() - t0, true);
+    recordTestTime(name, performance.now() - t0, skip ? (skip.scope === "all" ? "skip" : "partial") : "pass");
     const elapsed = formatDuration(performance.now() - t0);
-    if (lineOpen) {
+    if (skip) {
+      if (lineOpen) console.log("");
+      const status = skip.scope === "all" ? "SKIP" : "PARTIAL";
+      console.log(`${status} ${name}: ${skip.reason}`);
+    } else if (lineOpen) {
       console.log(` in ${elapsed}`);
     } else if (silent) {
       console.log(`== ${name} in ${elapsed}`);
     } else {
       console.log(`✅ ${name} passed in ${elapsed}`);
     }
+    return skip;
   } catch (e) {
     unmute();
     if (lineOpen) {
       // don't glue the caller's error message onto the open line
       console.log("");
     }
-    recordTestTime(name, performance.now() - t0, false);
+    recordTestTime(name, performance.now() - t0, "FAIL");
     let msg = String((e as Error)?.message ?? e);
     const ctx = await failureContext();
     if (ctx) {
@@ -895,7 +907,7 @@ export function isSilentArg(argv: string[] = process.argv): boolean {
   return argv.includes("-silent") || argv.includes("--silent");
 }
 
-export type NamedTest = [string, () => void | Promise<void>];
+export type NamedTest = [string, TestFn];
 
 export type SuiteOptions = {
   silent?: boolean;
@@ -989,7 +1001,7 @@ export function buildApp(opts?: { silent?: boolean }): void {
 // entry point for running a single test file directly:
 //   bun tests/issue-<n>.ts [--no-build]
 // builds (unless --no-build), runs testit(), exits 0 on pass / 1 on failure.
-export async function runStandalone(testit: () => void | Promise<void>, name?: string): Promise<void> {
+export async function runStandalone(testit: TestFn, name?: string): Promise<void> {
   const label = name ?? (process.argv[1] ?? "test").replace(/\\/g, "/").split("/").pop()!.replace(/\.ts$/, "");
   try {
     if (!process.argv.includes("--no-build") && !EXE_FROM_ARGV) {

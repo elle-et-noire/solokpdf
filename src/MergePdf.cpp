@@ -1928,7 +1928,7 @@ bool MergePdfWnd::SaveTo(Str destPath) {
         ok = file::OverwriteAtomicRetry(destPath, tmpPath, 1, 0);
         WindowTab* tab = ok ? FindTabByFilePath(destPath) : nullptr;
         if (tab) {
-            tab->ignoreNextAutoReload = true;
+            MarkSavedForAutoReload(tab);
         }
     }
     if (len(tmpPath) > 0) {
@@ -1947,8 +1947,6 @@ void MergePdfWnd::AfterSave(Str path) {
     if (tab) {
         SelectTabInWindow(tab);
         ReloadDocument(tab->win, false);
-        // the write notifies the file watcher, which would reload it again
-        tab->ignoreNextAutoReload = true;
         return;
     }
     if (!w) {

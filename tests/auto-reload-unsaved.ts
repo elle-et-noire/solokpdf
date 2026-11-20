@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, withControlledSumatra, type ControlClient } from "./control.ts";
 import { assemblePdf, cmdId, EXE, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
@@ -308,6 +308,90 @@ async function check(engine: string, mode: Mode): Promise<void> {
   console.log(`${engine} ${mode}: preserved edits and pending reload`);
 }
 
+async function checkSaveNotifications(engine: string): Promise<void> {
+  const dir = tmpPath(`auto-reload-unsaved/${engine}-save-notifications`);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, SETTINGS_FILE),
+    "UiLanguage = en\nReloadModifiedDocuments = true\nRestoreSession = false\nLazyLoading = false\n",
+  );
+  const source = join(dir, "source.pdf");
+  const other = join(dir, "other.pdf");
+  const log = join(dir, "app.log");
+  writeFileSync(source, fixture(kOriginal), "latin1");
+  writeFileSync(other, fixture(kOriginal), "latin1");
+
+  await withControlledSumatra(
+    EXE,
+    async (client, proc) => {
+      const frame = await waitForTopWindow(proc.pid!, FRAME_CLASS);
+      sendCommandSync(frame, cmdId("CmdPrevTab"));
+      await client.waitForRenderIdle();
+
+      for (const mode of ["save only", "foreground", "background"]) {
+        const start = readFileSync(log, "utf8").length;
+        const autoReloads = () =>
+          (
+            readFileSync(log, "utf8")
+              .slice(start)
+              .match(/ReloadDocument: .*source\.pdf, auto refresh: 1/g) ?? []
+          ).length;
+        const savedValue = mode === "foreground" ? kOriginal : kEdited;
+        await client.setFormField(1, 0, savedValue);
+        sendCommandSync(frame, cmdId("CmdSaveAnnotations"));
+
+        if (mode !== "save only") {
+          if (mode === "background") sendCommandSync(frame, cmdId("CmdNextTab"));
+          writeFileSync(source, fixture(kDisk), "latin1");
+          if (mode === "background") {
+            await Bun.sleep(750);
+            if (autoReloads()) throw new Error("Inactive tab reloaded before selection");
+            sendCommandSync(frame, cmdId("CmdPrevTab"));
+          }
+          await until(() => autoReloads() > 0, `${mode}: external update after save was lost`);
+        }
+
+        await Bun.sleep(1750);
+        const expected = mode === "save only" ? 0 : 1;
+        if (autoReloads() !== expected)
+          throw new Error(`${mode}: expected ${expected} auto-reloads, got ${autoReloads()}`);
+        await value(client, mode === "save only" ? savedValue : kDisk);
+        if (mode === "save only") {
+          // A replace can preserve the saved file's size and timestamp.
+          const replacement = join(dir, "replacement.tmp");
+          const disk = fixture(kDisk);
+          const saved = statSync(source, { bigint: true });
+          const padding = Number(saved.size) - Buffer.byteLength(disk);
+          const eof = disk.lastIndexOf("%%EOF");
+          writeFileSync(replacement, disk.slice(0, eof) + "\n".repeat(padding) + disk.slice(eof), "latin1");
+          const setTime = Bun.spawnSync(
+            [
+              "powershell.exe",
+              "-NoProfile",
+              "-Command",
+              "(Get-Item -LiteralPath $env:RELOAD_REPLACEMENT).LastWriteTimeUtc = (Get-Item -LiteralPath $env:RELOAD_SOURCE).LastWriteTimeUtc",
+            ],
+            { env: { ...process.env, RELOAD_REPLACEMENT: replacement, RELOAD_SOURCE: source } },
+          );
+          if (setTime.exitCode) throw new Error(setTime.stderr.toString());
+          const staged = statSync(replacement, { bigint: true });
+          if (staged.size !== saved.size || staged.mtimeNs !== saved.mtimeNs) {
+            throw new Error("Replacement fixture did not preserve the saved metadata");
+          }
+          renameSync(replacement, source);
+          await until(() => autoReloads() > 0, "Replacement with the saved timestamp and size was lost");
+          await client.waitForRenderIdle();
+          await value(client, kDisk);
+        }
+      }
+    },
+    ["-appdata", dir, "-log-to-file", log, source, other],
+    { env: { ...process.env, SOLOKPDF_ENGINE: engine } },
+  );
+  console.log(`${engine}: one reload per external update after saving`);
+}
+
 export async function testit(): Promise<void> {
   if (USE_NG) {
     console.log("auto-reload-unsaved: Windows edit controls only");
@@ -315,6 +399,12 @@ export async function testit(): Promise<void> {
   }
   const failures: string[] = [];
   for (const engine of ["mupdf", "pdfium"]) {
+    try {
+      await checkSaveNotifications(engine);
+    } catch (error) {
+      failures.push(`${engine} save notifications: ${error}`);
+    }
+    if (process.argv.includes("--save-notifications-only")) continue;
     for (const type of ["FreeText", "Square"] as const) {
       try {
         await checkAnnot(engine, type);

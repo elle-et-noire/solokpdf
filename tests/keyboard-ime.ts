@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { ControlCommand } from "./control.ts";
 import { IS_WIN } from "./host.ts";
-import { cmdId, makeBlankPdf, runStandalone, tmpPath, USE_NG, writeAppdata } from "./util.ts";
+import { cmdId, makeBlankPdf, runStandalone, skipTest, type TestSkip, tmpPath, USE_NG, writeAppdata } from "./util.ts";
 import {
   activateTestFrame,
   canActivateTestFrame,
@@ -13,10 +13,9 @@ import {
 } from "./win-automation.ts";
 import { getControlText, sendText, sleep } from "./winapi.ts";
 
-export async function testit(): Promise<void> {
+export async function testit(): Promise<void | TestSkip> {
   if (!IS_WIN || USE_NG || !canActivateTestFrame()) {
-    console.log("SKIP keyboard-ime: Win32 app on a hidden desktop or CI required");
-    return;
+    return skipTest("Win32 app on a hidden desktop or CI required");
   }
   const pdf = tmpPath("keyboard-ime.pdf");
   writeFileSync(pdf, makeBlankPdf());
@@ -46,8 +45,7 @@ export async function testit(): Promise<void> {
     const find = await waitForFocusClass(frame, "Edit");
     const started = await request("ime-start");
     if (started.code === 2 && process.env.SOLOKPDF_REQUIRE_JAPANESE_IME !== "1") {
-      console.log(`SKIP keyboard-ime: ${started.value}`);
-      return;
+      return skipTest(started.value);
     }
     if (started.code !== 0) throw new Error(`find ime-start: ${started.value}`);
     try {
