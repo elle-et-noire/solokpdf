@@ -8,6 +8,12 @@ For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
+### Simplify the Win32 menus
+
+Follow the [implementation plan for Sol](menu-plan.md). A reader should be
+able to open a PDF, copy selected text and act on a link or image directly.
+Verify where each displaced command remains available before closing this item.
+
 ### D15 Hosted validation
 
 Regular CI passed at `fd669ab17`. Both engines passed the three targeted
