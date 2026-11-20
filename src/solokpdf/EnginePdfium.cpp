@@ -1,7 +1,6 @@
 /* Copyright 2026 SolokPDF contributors. License: GPLv3 */
 
 #include "base/Base.h"
-#include "base/Crypto.h"
 #include "base/File.h"
 #include "base/GuessFileType.h"
 #include "base/Pixmap.h"
@@ -16,6 +15,7 @@
 #include "PdfDarkMode.h"
 #include <psapi.h>
 #include <dpapi.h>
+#include <mupdf/fitz.h>
 #include <zlib.h>
 #include "PdfiumRuntime.h"
 #include "EnginePdfium.h"
@@ -410,10 +410,6 @@ enum PdfKeys {
 
 static int ScanObjStream(FPDF_FILEACCESS& access, unsigned long marker, int want);
 
-static bool HasName(Str data, int i, Str name) {
-    return i + len(name) <= len(data) && memcmp(data.s + i, name.s, len(name)) == 0;
-}
-
 static bool IsPdfSpace(char c) {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\0';
 }
@@ -422,16 +418,35 @@ static bool IsPdfDelimiter(char c) {
     return IsPdfSpace(c) || (c != 0 && strchr("/<>[]()%{}", c));
 }
 
-// Whether the /Subtype key at i names what may be a listed annotation: not a link, widget,
-// font, XObject or metadata. A value cut off by the end of data counts.
-static bool IsAnnotSubtype(Str data, int i) {
+static Str ReadPdfKey(Str data, int& at, char* key, int capacity) {
+    int size = 0;
+    while (at < len(data) && !IsPdfDelimiter(data.s[at])) {
+        if (size == capacity) {
+            return {};
+        }
+        char ch = data.s[at++];
+        if (ch == '#') {
+            if (len(data) - at < 2) {
+                return {};
+            }
+            int hi = str::HexDigitVal(data.s[at]);
+            int lo = str::HexDigitVal(data.s[at + 1]);
+            if (hi < 0 || lo < 0) {
+                return {};
+            }
+            ch = (char)((hi << 4) | lo);
+            at += 2;
+        }
+        key[size++] = ch;
+    }
+    return Str(key, size);
+}
+
+// Unknown or truncated /Subtype values may be listed annotations.
+static bool IsAnnotSubtype(Str data, int at) {
     static const char* kOtherSubtypes[] = {
         "Link",         "Widget", "Type0",         "Type1",    "MMType1", "Type3", "TrueType", "CIDFontType0",
         "CIDFontType2", "Type1C", "CIDFontType0C", "OpenType", "Image",   "Form",  "PS",       "XML"};
-    int at = i + len(StrL("/Subtype"));
-    if (at < len(data) && !IsPdfDelimiter(data.s[at])) {
-        return false; // a longer key, e.g. /Subtype2
-    }
     while (at < len(data) && IsPdfSpace(data.s[at])) {
         at++;
     }
@@ -464,32 +479,33 @@ static int ScanPdfKeys(Str data, int want, FPDF_FILEACCESS* access = nullptr, un
         if (!slash) {
             break;
         }
-        i = (int)(slash - data.s);
-        if (HasName(data, i, StrL("/ObjStm"))) {
-            found |= access ? ScanObjStream(*access, offset + i, want & ~found) : want;
+        int start = (int)(slash - data.s);
+        i = start + 1;
+        char key[sizeof("PageLayout") - 1]; // longest key scanned here
+        Str name = ReadPdfKey(data, i, key, dimofi(key));
+        if (str::Eq(name, StrL("ObjStm"))) {
+            found |= access ? ScanObjStream(*access, offset + start, want & ~found) : want;
         }
-        if (HasName(data, i, StrL("/OpenAction")) || HasName(data, i, StrL("/PageLayout")) ||
-            HasName(data, i, StrL("/Direction"))) {
+        if (str::Eq(name, StrL("OpenAction")) || str::Eq(name, StrL("PageLayout")) ||
+            str::Eq(name, StrL("Direction"))) {
             found |= kCatalogKeys & want;
         }
-        if (HasName(data, i, StrL("/Annots"))) {
+        if (str::Eq(name, StrL("Annots"))) {
             found |= kAnnotsKey & want;
         }
-        if ((want & kSubtypeKey) && HasName(data, i, StrL("/Subtype")) && IsAnnotSubtype(data, i)) {
+        if ((want & kSubtypeKey) && str::Eq(name, StrL("Subtype")) && IsAnnotSubtype(data, i)) {
             found |= kSubtypeKey;
         }
         if (!(want & kGeometryKeys)) {
-            i++;
             continue;
         }
-        if (HasName(data, i, StrL("/UserUnit"))) {
+        if (str::Eq(name, StrL("UserUnit"))) {
             found |= kGeometryKeys;
         }
-        if (!HasName(data, i, StrL("/Rotate"))) {
-            i++;
+        if (!str::Eq(name, StrL("Rotate"))) {
             continue;
         }
-        int at = i + len(StrL("/Rotate"));
+        int at = i;
         while (at < len(data) && (data.s[at] == ' ' || data.s[at] == '\r' || data.s[at] == '\n')) {
             at++;
         }
@@ -2205,7 +2221,34 @@ class EnginePdfium : public EngineBase {
         }
     }
 
-    // Caller holds gPdfiumLock; it's released while pwdUI asks, as a dialog may run a message loop.
+    bool Fingerprint(u8 digest[16]) {
+        fz_md5 md5;
+        fz_md5_init(&md5);
+        if (fileData.s) {
+            fz_md5_update(&md5, (const u8*)fileData.s, len(fileData));
+        } else {
+            constexpr unsigned long kChunkSize = 64 * 1024;
+            u8 data[kChunkSize];
+            for (unsigned long offset = 0; offset < access.m_FileLen;) {
+                unsigned long remaining = access.m_FileLen - offset;
+                unsigned long count = remaining < kChunkSize ? remaining : kChunkSize;
+                if (!ReadBlock(this, offset, data, count)) {
+                    return false;
+                }
+#if IS_DEBUG
+                if (gForTesting && offset == 0) {
+                    TestRenderPark(RenderPark::Fingerprint, 0, nullptr, nullptr);
+                }
+#endif
+                fz_md5_update(&md5, data, count);
+                offset += count;
+            }
+        }
+        fz_md5_final(&md5, digest);
+        return true;
+    }
+
+    // Release the PDFium lock during source I/O and password dialogs.
     FPDF_DOCUMENT LoadWithPassword(PasswordUI* pwdUI, TempStr* error, PdfiumFailure* failure) {
         *failure = PdfiumFailure::Final;
         *error = StrL("The document needs a password.");
@@ -2213,19 +2256,17 @@ class EnginePdfium : public EngineBase {
             return nullptr;
         }
         u8 digest[16]{};
-        Str data = fileData.s ? fileData : file::ReadFile(FilePath());
-        CalcMD5Digest(data, digest);
-        if (data.s != fileData.s) {
-            str::Free(data);
-        }
+        gPdfiumLock.Unlock();
+        bool hasDigest = Fingerprint(digest);
+        gPdfiumLock.Lock();
         u8 key[32]{};
         bool saveKey = false;
         while (true) {
             gPdfiumLock.Unlock();
-            Str pwd = pwdUI->GetPassword(FilePath(), digest, key, &saveKey);
+            Str pwd = pwdUI->GetPassword(FilePath(), hasDigest ? digest : nullptr, key, &saveKey);
             gPdfiumLock.Lock();
             if (len(pwd) == 0) {
-                if (saveKey) {
+                if (hasDigest && saveKey) {
                     *failure = PdfiumFailure::Fallback;
                     *error = StrL("PDFium can't use a remembered decryption key.");
                 }
@@ -2235,9 +2276,11 @@ class EnginePdfium : public EngineBase {
             if (d) {
                 password = pwd;
                 isPasswordProtected = true;
-                if (saveKey && !dataBacked) {
-                    decryptionKey = str::Dup(arena, PdfDecryptionKeyMupdfTemp(FilePath(), fileData, pwd));
+                if (hasDigest && saveKey && !dataBacked) {
+                    gPdfiumLock.Unlock();
+                    decryptionKey = str::Dup(arena, PdfDecryptionKeyMupdfTemp(ReadSource(), pwd, digest));
                     protectedPassword = str::Dup(arena, ProtectPdfPasswordTemp(pwd, digest));
+                    gPdfiumLock.Lock();
                 }
                 return d;
             }

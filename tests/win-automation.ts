@@ -64,6 +64,7 @@ import {
   clientToScreen,
   getCursorPos,
   setCursorPos, // desktop-input: cursor-import
+  sendCopyData,
   sendCopyDataW,
   getPopupMenuHandle,
   getMenuItemCount,
@@ -394,6 +395,12 @@ export async function waitForDocument(pid: number, timeoutMs = 12000): Promise<n
 // the main SUMATRA_PDF_FRAME window of a process (0 on timeout)
 export function waitForFrame(pid: number, timeoutMs = 12000): Promise<number> {
   return waitForTopWindow(pid, FRAME_CLASS, timeoutMs);
+}
+
+export function openDocumentAsync(hwnd: number, path: string): bigint {
+  const copyDataOpen = 0x4f70656e;
+  const newWindow = Buffer.alloc(4);
+  return sendCopyData(hwnd, copyDataOpen, Buffer.concat([newWindow, Buffer.from(path + "\0", "utf8")]));
 }
 
 // the document canvas (child of the frame)

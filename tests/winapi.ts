@@ -338,6 +338,7 @@ const kernel32 = loadDll("kernel32.dll", {
     args: [FFIType.ptr, FFIType.u32, FFIType.u32, FFIType.ptr, FFIType.u32, FFIType.u32, FFIType.u64],
     returns: FFIType.u64,
   },
+  LockFile: { args: [FFIType.u64, FFIType.u32, FFIType.u32, FFIType.u32, FFIType.u32], returns: FFIType.bool },
   DeleteFileW: { args: [FFIType.ptr], returns: FFIType.bool },
   GlobalLock: { args: [FFIType.u64], returns: FFIType.ptr },
   GlobalUnlock: { args: [FFIType.u64], returns: FFIType.bool },
@@ -987,13 +988,15 @@ export function sendMessage(hwnd: number, msg: number, wParam: number | bigint, 
 const kSmtoNormal = 0;
 const kSendMessageTimeoutMs = 120_000;
 
-// Send a null-terminated UTF-16 WM_COPYDATA payload. COPYDATASTRUCT is 24
-// bytes on x64: ULONG_PTR dwData, DWORD cbData + padding, PVOID lpData.
 export function sendCopyDataW(hwnd: number, dataId: number, text: string): bigint {
   if (IS_MAC) {
     return macDdeExecute(dataId, text);
   }
-  const payload = wideZ(text);
+  return sendCopyData(hwnd, dataId, wideZ(text));
+}
+
+// COPYDATASTRUCT is 24 bytes on x64.
+export function sendCopyData(hwnd: number, dataId: number, payload: Uint8Array): bigint {
   const cds = new Uint8Array(24);
   const view = new DataView(cds.buffer);
   view.setBigUint64(0, BigInt(dataId), true);
@@ -1324,9 +1327,48 @@ export function wideZ(s: string): Uint16Array {
   return buf;
 }
 
+const GENERIC_READ = 0x80000000;
 const GENERIC_WRITE = 0x40000000;
+const FILE_SHARE_READ = 1;
+const FILE_SHARE_WRITE = 2;
+const FILE_SHARE_DELETE = 4;
 const OPEN_EXISTING = 3;
 const FILE_ATTRIBUTE_NORMAL = 0x80;
+
+function openSharedRead(path: string, share: number): bigint {
+  const handle = kernel32.symbols.CreateFileW(
+    ptr(wideZ(path)),
+    GENERIC_READ,
+    share,
+    null,
+    OPEN_EXISTING,
+    FILE_ATTRIBUTE_NORMAL,
+    0n,
+  );
+  if (handle === 0xffffffffffffffffn || handle === -1n) {
+    throw new Error(`Cannot open ${path} (Win32 error ${kernel32.symbols.GetLastError()})`);
+  }
+  return handle;
+}
+
+export function holdFileAgainstReplace(path: string): () => void {
+  const handle = openSharedRead(path, FILE_SHARE_READ | FILE_SHARE_WRITE);
+  return () => {
+    kernel32.symbols.CloseHandle(handle);
+  };
+}
+
+export function lockFileRange(path: string, offset: number, size: number): () => void {
+  const handle = openSharedRead(path, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+  if (!kernel32.symbols.LockFile(handle, offset, 0, size, 0)) {
+    const error = kernel32.symbols.GetLastError();
+    kernel32.symbols.CloseHandle(handle);
+    throw new Error(`Cannot lock ${path} (Win32 error ${error})`);
+  }
+  return () => {
+    kernel32.symbols.CloseHandle(handle);
+  };
+}
 
 // CreateFileW with dwShareMode=0: what OneNote does when it tries to rewrite
 // an extracted attachment. ok=false means another process is still holding it.

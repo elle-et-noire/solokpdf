@@ -13,6 +13,7 @@ import {
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { fetchPdfium, pdfiumPin } from "../cmd/solok-fetch-pdfium";
+import { holdFileAgainstReplace } from "./winapi.ts";
 
 const asset = "pdfium-win-x64.tgz";
 const manifest = "solok-pin.json";
@@ -104,17 +105,38 @@ try {
 
   writeFileSync(nextDll, "damaged PDFium DLL");
   rmSync(nextHeader);
+  const unchangedHeader = join(upgraded, "include/solok_pdfium_version.h");
+  const unchangedMtime = statSync(unchangedHeader).mtimeMs;
   const fetchModule = pathToFileURL(resolve(import.meta.dir, "../cmd/solok-fetch-pdfium.ts")).href;
   const repairScript = `
     import { fetchPdfium } from ${JSON.stringify(fetchModule)};
     globalThis.fetch = () => { throw new Error("unexpected network during cache repair"); };
     await fetchPdfium(${JSON.stringify({ pin: next.pin, cacheDir })});
   `;
-  const repair = () =>
-    Bun.spawn([process.execPath, "-e", repairScript], { stdout: "inherit", stderr: "inherit" }).exited;
-  assert.deepEqual(await Promise.all([repair(), repair()]), [0, 0], "parallel builds must repair extraction offline");
+  const repair = () => Bun.spawn([process.execPath, "-e", repairScript], { stdout: "inherit", stderr: "inherit" });
+  const release = holdFileAgainstReplace(nextDll);
+  const repairs = [repair(), repair()];
+  try {
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline && repairs.every((proc) => proc.exitCode === null)) {
+      const ready = readdirSync(cacheDir).filter(
+        (name) => name.startsWith(".extract-") && existsSync(join(cacheDir, name, "package", manifest)),
+      );
+      if (ready.length === repairs.length) break;
+      await Bun.sleep(10);
+    }
+    await Bun.sleep(100);
+  } finally {
+    release();
+  }
+  assert.deepEqual(
+    await Promise.all(repairs.map((proc) => proc.exited)),
+    [0, 0],
+    "parallel builds must repair extraction offline",
+  );
   assert.equal(readFileSync(nextDll, "utf8"), next.pin.version);
   assert.equal(readFileSync(nextHeader, "utf8"), next.pin.version);
+  assert.equal(statSync(unchangedHeader).mtimeMs, unchangedMtime, "repair must keep unchanged header timestamps");
 
   const pinnedArchive = readdirSync(cacheDir).find((name) => name.includes(next.pin.sha256) && name.endsWith(asset));
   assert(pinnedArchive, "expected a verified archive cached by digest");

@@ -40,9 +40,11 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   `DefaultPasswords`; a canceled dialog isn't repeated by MuPDF. PDFium's open
   API accepts a password, not MuPDF's decryption key. When "Remember password"
   is checked, file history keeps the existing MuPDF key and a separate PDFium
-  password encrypted with current-user DPAPI. The file's MD5 digest is DPAPI
-  entropy, so a changed file cannot reuse it. The password is never stored as
-  plain text; deleting the history entry deletes both values. Existing MuPDF
+  password encrypted with current-user DPAPI. PDFium fingerprints the retained
+  source in 64 KiB reads for handle-backed files. The MD5 digest is DPAPI
+  entropy, so a changed file cannot reuse it. A fingerprint read failure leaves
+  manual entry available and disables remembered credentials for that open.
+  Deleting the history entry deletes both stored values. Existing MuPDF
   keys still reopen in MuPDF. DPAPI is user-scoped and local to Windows, so
   copying settings to another account or machine does not carry the PDFium
   password. Encrypted PDFs no longer reach the MuPDF-only PDF tools (e.g.
@@ -69,8 +71,9 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   The direct MuPDF engine's large-file handle still blocks rename/delete on Windows.
 - After rename, delete or replacement of the path, PDFium's editor, clones,
   print preferences and auxiliary links use the retained input. Save As copies
-  that input; saving edits uses the editor and then reloads. See
-  `tests/ad-hoc-pdfium-source-lifetime.ts`. Overwriting a large file in place
+  that input even when the destination is the original path. Saving edits uses
+  the editor and then reloads. See `tests/ad-hoc-pdfium-source-lifetime.ts`.
+  Overwriting a large file in place
   still requires reload; its open handle is not an immutable snapshot.
 - Closing a dirty document still asks Save/Discard/Cancel after its source
   path disappears. Small PDFs, memory attachments and PDFium's retained
@@ -89,11 +92,10 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   declaring R2L). The same read takes them before the display model is built.
   It does not load the hidden editor. Both engines pass `issue-2022`, including
   remembered state (B38). The page geometry byte scan also looks for
-  `/OpenAction`, `/PageLayout` and `/Direction`, including in Flate object
-  streams; without them PDFium skips the query. Encrypted
-  object streams and files of 32 MiB or more still query.
-  `ad-hoc-pdfium-catalog-layout` checks a plain catalog, a compressed one and a
-  catalog without these keys, whose open logs no query (B44).
+  `/OpenAction`, `/PageLayout` and `/Direction`, including escaped names and
+  Flate object streams. PDFium skips the query when the scan excludes these
+  keys. Encrypted object streams and files of 32 MiB or more still query.
+  `ad-hoc-pdfium-catalog-layout` covers these paths and escaped annotation keys.
 - Page labels match MuPDF in the toolbar and label lookup (fixture plus
   Attention/BERT/IPA). Labels are read eagerly at open, one call per page.
 

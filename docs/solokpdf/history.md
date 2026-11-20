@@ -4738,3 +4738,41 @@ external viewers were checked through their entries in the rebuilt File menu.
 The planned Debug tests passed on both engines. Targeted ASan runs passed
 `solok-menu-layout`, `tab-menu-close`, `ctx-menu-reload` and
 `ad-hoc-b65-menu-owner` on both engines.
+
+## PDFium backlog fixes (2026-11-20)
+
+### B78 Save As over a replaced source
+
+The small and 33 MiB fixtures first returned success while leaving the
+replacement PDF at the source path. Save As now uses PDFium's retained input
+for that destination too. Debug passed `ad-hoc-pdfium-source-lifetime`,
+`ad-hoc-pdfium-saveas` and `atomic-pdf-save`.
+
+### B79 Escaped PDF names
+
+The escaped layout fixture first opened in continuous view with `r2l=0`.
+The scanner now decodes PDF name escapes for catalog, geometry and annotation
+keys. Debug passed `ad-hoc-pdfium-catalog-layout`, including escaped and
+compressed catalogs, escaped annotations and two cases that skip the catalog
+query. The layout cases left the editor unloaded.
+
+### E156 Retained encrypted PDF fingerprint
+
+The 33 MiB fixture first saved the replacement PDF's fingerprint after its
+path changed during the password prompt. PDFium now hashes the retained
+input outside the global lock in 64 KiB chunks and uses that digest for both
+credential formats. Debug verified the saved key against the original digest,
+reopened the original in both engines and reused a previously saved DPAPI
+password. A byte-range lock forced a fingerprint read failure and manual
+opening still worked. A second tab acquired the PDFium lock during a paused
+fingerprint.
+
+ASan passed the password, source-lifetime and catalog-layout tests.
+
+### D16 Concurrent PDFium cache repair
+
+Both offline repair workers reproduced `EPERM` at the DLL rename when a
+Windows handle shared reads and writes during publication. A worker now
+rechecks the pinned bytes after a sharing error and retries for up to four
+seconds. The Windows pin test passed 12 consecutive runs, restoring the DLL
+and missing header while preserving an unchanged header's timestamp.

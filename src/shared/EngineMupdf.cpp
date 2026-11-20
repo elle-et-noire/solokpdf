@@ -7606,27 +7606,27 @@ int PdfOpenActionPageMupdf(PdfRenderProbe* probe, PageLayout* layout) {
     fz_catch_report(ctx) {}
     return PdfOpenActionPageNo(ctx, doc, pageCount);
 }
-#endif
 
 // Same format as EngineMupdf::decryptionKey: hex of the file's MD5 then the crypt key.
-TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password) {
+TempStr PdfDecryptionKeyMupdfTemp(const PdfRenderSource& source, Str password, const u8 digest[16]) {
     fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
     if (!ctx) {
         return {};
     }
     TempStr res;
-    pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
+    pdf_document* doc = OpenPdfForQuery(ctx, source, password);
     u8* key = doc && doc->crypt ? pdf_crypt_key(ctx, doc->crypt) : nullptr;
     if (key) {
-        u8 digest[16 + 32]{};
-        FzStreamFingerprint(ctx, doc->file, digest);
-        memcpy(digest + 16, key, 32);
-        res = str::MemToHexTemp(Str((const char*)digest, dimofi(digest)));
+        u8 credential[16 + 32];
+        memcpy(credential, digest, 16);
+        memcpy(credential + 16, key, 32);
+        res = str::MemToHexTemp(Str((const char*)credential, dimofi(credential)));
     }
     pdf_drop_document(ctx, doc);
     fz_drop_context(ctx);
     return res;
 }
+#endif
 
 // return a page but only if is fully loaded
 FzPageInfo* EngineMupdf::GetFzPageInfoFast(int pageNo) {

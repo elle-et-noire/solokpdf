@@ -17,6 +17,8 @@ const manifest = "solok-pin.json";
 const dll = "bin/pdfium.dll";
 const headers = "include/fpdfview.h";
 const versionHeader = "include/solok_pdfium_version.h";
+const publishTimeoutMs = 4000;
+const publishRetryMs = 50;
 export const pdfiumPin = {
   ...pin,
   url: `https://github.com/bblanchon/pdfium-binaries/releases/download/${pin.tag}/${asset}`,
@@ -48,12 +50,20 @@ async function pdfiumArchive(legacy: string, pin: typeof pdfiumPin): Promise<Buf
   return bytes;
 }
 
-function publishFile(source: string, target: string, bytes: Buffer): void {
-  if (readCached(target)?.equals(bytes)) return;
-  try {
-    renameSync(source, target);
-  } catch (error) {
-    if (!readCached(target)?.equals(bytes)) throw error;
+async function publishFile(source: string, target: string, bytes: Buffer): Promise<void> {
+  const deadline = performance.now() + publishTimeoutMs;
+  while (true) {
+    try {
+      // Another repair may have published the same pinned bytes while we waited.
+      if (readCached(target)?.equals(bytes)) return;
+      renameSync(source, target);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      const sharingError = code === "EPERM" || code === "EACCES" || code === "EBUSY";
+      if (!sharingError || performance.now() >= deadline) throw error;
+    }
+    await Bun.sleep(publishRetryMs);
   }
 }
 
@@ -63,7 +73,7 @@ function packageFiles(dir: string): string[] {
     .map((entry) => relative(dir, join(entry.parentPath, entry.name)));
 }
 
-function publishPackage(staging: string, dir: string): void {
+async function publishPackage(staging: string, dir: string): Promise<void> {
   try {
     renameSync(staging, dir);
     return;
@@ -77,7 +87,7 @@ function publishPackage(staging: string, dir: string): void {
     const source = join(staging, file);
     const target = join(dir, file);
     mkdirSync(dirname(target), { recursive: true });
-    publishFile(source, target, readFileSync(source));
+    await publishFile(source, target, readFileSync(source));
   }
   for (const file of packageFiles(dir)) {
     if (!files.has(file)) rmSync(join(dir, file), { force: true });
@@ -104,7 +114,7 @@ export async function fetchPdfium({
       // Retain the verified archive even if extraction is interrupted.
       const incoming = join(work, asset);
       writeFileSync(incoming, bytes);
-      publishFile(incoming, archive, bytes);
+      await publishFile(incoming, archive, bytes);
     }
     const staging = join(work, "package");
     mkdirSync(staging);
@@ -120,7 +130,7 @@ export async function fetchPdfium({
     }
     writeFileSync(join(staging, versionHeader), `#define SOLOKPDF_PDFIUM_VERSION "${pin.version}"\n`);
     writeFileSync(join(staging, manifest), JSON.stringify(pin, null, 2) + "\n");
-    publishPackage(staging, dir);
+    await publishPackage(staging, dir);
   } finally {
     rmSync(work, { recursive: true, force: true });
   }

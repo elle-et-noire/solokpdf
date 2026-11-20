@@ -91,9 +91,36 @@ export async function testit(): Promise<void> {
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nRememberOpenedFiles = false\nDefaultDisplayMode = automatic\n",
   );
   await openLog(dir, "layout", assemblePdf([CATALOG, PAGES, PAGE, PAGE]), true);
+  const escaped = CATALOG.replace("/PageLayout", "/Page#4Cayout").replace("/Direction", "/Directi#6Fn");
+  await openLog(dir, "escaped", assemblePdf([escaped, PAGES, PAGE, PAGE]), true);
   await openLog(dir, "compressed", compressedCatalogPdf(), true);
   // no /OpenAction, /PageLayout or /Direction: skip the MuPDF query
   await openLog(dir, "plain", assemblePdf(["<< /Type /Catalog /Pages 2 0 R >>", PAGES, PAGE, PAGE]), false);
+  const unrelated = "<< /Type /Catalog /Pages 2 0 R /Test#20Name /Unrelated#23Name >>";
+  await openLog(dir, "unrelated-escapes", assemblePdf([unrelated, PAGES, PAGE, PAGE]), false);
+
+  const annotated = join(dir, "escaped-annotations.pdf");
+  writeFileSync(
+    annotated,
+    assemblePdf([
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      PAGES,
+      PAGE.replace(" >>", " /Ann#6Fts [5 0 R] >>"),
+      PAGE,
+      "<< /Type /Annot /Sub#74ype /Text /Rect [20 20 40 40] /Contents (escaped) >>",
+    ]),
+    "latin1",
+  );
+  await withControlledSumatra(
+    EXE,
+    async (client) => {
+      const [status, result] = await client.request(ControlCommand.TestCurrentPdf, ["set-annot-contents", "found"]);
+      if (status !== 0 || !String(result).includes("before='escaped'")) {
+        throw new Error(`Escaped annotation keys: ${status}, ${result}`);
+      }
+    },
+    ["-appdata", dir, annotated],
+  );
 }
 
 if (import.meta.main) await runStandalone(testit);

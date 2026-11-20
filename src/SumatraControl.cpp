@@ -2915,6 +2915,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
                         at = RenderPark::DisplayList;
                     } else if (str::Eq(stage, StrL("widgets"))) {
                         at = RenderPark::Widgets;
+#if IS_DEBUG
+                    } else if (gForTesting && str::Eq(stage, StrL("fingerprint"))) {
+                        at = RenderPark::Fingerprint;
+                        page = 0;
+#endif
                     }
                     RenderParkMode mode =
                         str::Eq(StringArg(req, 5), StrL("any")) ? RenderParkMode::Any : RenderParkMode::Abortable;

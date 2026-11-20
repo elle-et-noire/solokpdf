@@ -687,7 +687,7 @@ Str HwndPasswordUI::GetPassword(Str path, u8* fileDigest, u8 decryptionKeyOut[32
     }
 
     // remembering the password requires saving per-document state
-    bool canRememberPwd = SettingsRememberOpenedFiles() && gSettings->rememberStatePerDocument;
+    bool canRememberPwd = fileDigest && SettingsRememberOpenedFiles() && gSettings->rememberStatePerDocument;
     bool* rememberPwd = canRememberPwd ? saveKey : nullptr;
     return ShowGetPasswordDialog(hwnd, path, rememberPwd, &gShowPassword);
 }
@@ -6201,7 +6201,7 @@ static bool SaveDocAs(MainWindow* win, Str dstPath) {
         realDstFileName = str::JoinTemp(realDstFileName, defExt);
     }
 #if defined(SOLOKPDF_PDFIUM)
-    retainedSource = engine && engine->kind == kindEnginePdfium && !path::IsSame(srcFileName, realDstFileName);
+    retainedSource = engine && engine->kind == kindEnginePdfium;
 #endif
 
     logf("Saving '%s' to '%s'\n", srcFileName, realDstFileName);

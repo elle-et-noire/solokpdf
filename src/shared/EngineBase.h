@@ -189,7 +189,7 @@ struct PdfLinkMupdf {
 struct PdfRenderProbe;
 void PdfLinksMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, Str password, int pageNo,
                    Vec<PdfLinkMupdf>& links);
-TempStr PdfDecryptionKeyMupdfTemp(Str path, Str data, Str password);
+TempStr PdfDecryptionKeyMupdfTemp(const PdfRenderSource& source, Str password, const u8 digest[16]);
 
 // a link destination
 struct IPageDestination : KindBase {
@@ -534,6 +534,7 @@ enum class RenderPark {
     DisplayList,
     Widgets,
     Text,
+    Fingerprint,
 };
 enum class RenderParkMode {
     Abortable,

@@ -101,6 +101,10 @@ async function check(size: "small" | "big", action: "rename" | "replace" | "dele
           if (result[0] !== 0 || !readFileSync(target).equals(original)) errors.push(`copy onto source: ${result}`);
         }
       }
+      if (action === "replace") {
+        const result = await client.request(ControlCommand.TestSaveFileAs, [path]);
+        if (result[0] !== 0 || !readFileSync(path).equals(original)) errors.push(`copy over replacement: ${result}`);
+      }
       if (errors.length) throw new Error(`${size} ${action}: ${errors.join("; ")}`);
     },
     ["-appdata", appdata, "-log-to-file", join(dir, "app.log"), "-view", "single page", "-page", "2", path],
