@@ -2621,6 +2621,7 @@ do_pdf_save_document(fz_context *ctx, pdf_document *doc, pdf_write_state *opts, 
 	int xref_len;
 	pdf_obj *id1, *id = NULL;
 	int changed;
+	int old_xref_style = doc->last_xref_was_old_style;
 	int64_t current_offset;
 
 	if (in_opts->do_snapshot_suffix && !in_opts->do_snapshot)
@@ -2667,7 +2668,7 @@ do_pdf_save_document(fz_context *ctx, pdf_document *doc, pdf_write_state *opts, 
 		if (in_opts->do_labels)
 			opts->labels = pdf_load_object_labels(ctx, doc);
 
-		if (!opts->dont_regenerate_id)
+		if (!opts->dont_regenerate_id && !in_opts->do_copy)
 		{
 			/* Update second half of ID array if it exists. */
 			id = pdf_dict_get(ctx, pdf_trailer(ctx, doc), PDF_NAME(ID));
@@ -2868,7 +2869,8 @@ do_pdf_save_document(fz_context *ctx, pdf_document *doc, pdf_write_state *opts, 
 			else
 				writexref(ctx, doc, opts, 0, xref_len, 1, current_offset);
 
-			doc->xref_sections[0].end_ofs = fz_tell_output(ctx, opts->out);
+			if (!in_opts->do_copy)
+				doc->xref_sections[0].end_ofs = fz_tell_output(ctx, opts->out);
 		}
 
 		if (!in_opts->do_snapshot)
@@ -2879,12 +2881,15 @@ do_pdf_save_document(fz_context *ctx, pdf_document *doc, pdf_write_state *opts, 
 		pdf_sync_open_pages(ctx, doc);
 
 		// mark incremental sections as having been saved
-		doc->num_incremental_sections = 0;
+		if (!in_opts->do_copy)
+			doc->num_incremental_sections = 0;
 
 		pdf_end_operation(ctx, doc);
 	}
 	fz_always(ctx)
 	{
+		if (in_opts->do_copy)
+			doc->last_xref_was_old_style = old_xref_style;
 		finalise_write_state(ctx, opts);
 		if (opts->crypt != doc->crypt)
 			pdf_drop_crypt(ctx, opts->crypt);
@@ -2912,6 +2917,14 @@ int pdf_has_unsaved_sigs(fz_context *ctx, pdf_document *doc)
 	return 0;
 }
 
+static void validate_copy_options(fz_context *ctx, pdf_document *doc, const pdf_write_options *opts)
+{
+	if (opts->do_copy && (opts->do_incremental || opts->do_snapshot || opts->do_garbage > 1 ||
+		opts->do_use_objstms || opts->do_encrypt != PDF_ENCRYPT_KEEP || opts->do_clean ||
+		opts->do_sanitize || opts->do_appearance || opts->do_preserve_metadata || pdf_has_unsaved_sigs(ctx, doc)))
+		fz_throw(ctx, FZ_ERROR_ARGUMENT, "Can't use these options when writing a PDF copy");
+}
+
 void pdf_write_document(fz_context *ctx, pdf_document *doc, fz_output *out, const pdf_write_options *in_opts)
 {
 	pdf_write_options opts_defaults = pdf_default_write_options;
@@ -2922,6 +2935,7 @@ void pdf_write_document(fz_context *ctx, pdf_document *doc, fz_output *out, cons
 
 	if (!in_opts)
 		in_opts = &opts_defaults;
+	validate_copy_options(ctx, doc, in_opts);
 
 	if (in_opts->do_incremental && doc->repair_attempted)
 		fz_throw(ctx, FZ_ERROR_ARGUMENT, "Can't do incremental writes on a repaired file");
@@ -2970,6 +2984,7 @@ void pdf_save_document(fz_context *ctx, pdf_document *doc, const char *filename,
 
 	if (!in_opts)
 		in_opts = &opts_defaults;
+	validate_copy_options(ctx, doc, in_opts);
 
 	if (in_opts->do_incremental && !doc->file)
 		fz_throw(ctx, FZ_ERROR_ARGUMENT, "Can't do incremental writes on a new document");

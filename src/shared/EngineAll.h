@@ -246,7 +246,7 @@ void EngineMupdfCancelHeadingToc(EngineBase* engine);
 TempStr EngineMupdfToolPasswordTemp(EngineBase* engine, Str srcPath);
 bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& showErrorFunc);
 bool EngineMupdfCanSave(EngineBase* engine);
-bool EngineMupdfSaveCopy(EngineBase* engine, Str path);
+bool EngineMupdfSaveCopy(EngineBase* engine, Str path, TempStr* password = nullptr);
 bool EngineMupdfSaveCropped(EngineBase* engine, Str path, const Vec<RectF>& cropBoxes);
 
 // digitally signing a PDF (SignDocumentDialog.cpp drives this)

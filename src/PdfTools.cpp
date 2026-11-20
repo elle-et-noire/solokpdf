@@ -98,6 +98,19 @@ static const ConvertImageEncoder kConvertImageEncoders[] = {
     {L"image/bmp", L"bmp"},
     {L"image/gif", L"gif"},
 };
+
+struct PdfToolInput {
+    char* path = nullptr;
+    char* password = nullptr;
+    Str copyPath;
+
+    ~PdfToolInput() {
+        if (copyPath) {
+            file::Delete(copyPath);
+            str::Free(copyPath);
+        }
+    }
+};
 static_assert(dimof(kConvertImageEncoders) == kConvertImageFormatCount);
 
 // Every dialog here has the same shape, drawn like the palette: the lines
@@ -109,6 +122,8 @@ static_assert(dimof(kConvertImageEncoders) == kConvertImageFormatCount);
 struct PdfToolDialog : WindowBase {
     Str srcPath; // owned
     MainWindow* win = nullptr;
+    WindowTab* sourceTab = nullptr;
+    DocController* sourceCtrl = nullptr;
     // what the Browse button's save dialog offers
     WStr browseFilter;
     WStr browseDefExt;
@@ -140,6 +155,8 @@ struct PdfToolDialog : WindowBase {
     ~PdfToolDialog() override;
 
     bool CreateToolDialog(MainWindow*, WindowTab*, Str title);
+    WindowTab* GetSourceTab();
+    bool GetPdfInput(EngineBase*, PdfToolInput&);
     HBox* NewRow();
     VirtText* NewLabel(Str s, PlatformFont* font, TextRole role, int dy = 0, int dx = 0);
     Edit* NewEdit(Str text, PlatformFont* font, bool isPassword = false);
@@ -209,6 +226,8 @@ void PdfToolDialog::OnBrowse(VirtMouseEvent*) {
 
 bool PdfToolDialog::CreateToolDialog(MainWindow* w, WindowTab* tab, Str title) {
     win = w;
+    sourceTab = tab;
+    sourceCtrl = tab->ctrl;
     srcPath = str::Dup(tab->filePath);
     colTxt = ThemeWindowTextColor();
     colBg = ThemeWindowControlBackgroundColor();
@@ -238,6 +257,34 @@ bool PdfToolDialog::CreateToolDialog(MainWindow* w, WindowTab* tab, Str title) {
     mainBox = new VBox();
     mainBox->alignCross = CrossAxisAlign::Stretch;
     layout = mainBox;
+    return true;
+}
+
+WindowTab* PdfToolDialog::GetSourceTab() {
+    if (IsMainWindowValidAndNotClosing(win) && win->GetTabIdx(sourceTab) >= 0 && sourceTab->ctrl == sourceCtrl &&
+        str::Eq(sourceTab->filePath, srcPath)) {
+        return sourceTab;
+    }
+    MessageBoxWarning(hwnd, StrL("The source document changed or was closed. Reopen the tool."), {});
+    return nullptr;
+}
+
+bool PdfToolDialog::GetPdfInput(EngineBase* engine, PdfToolInput& input) {
+    if (!EngineHasUnsavedAnnotations(engine)) {
+        input.path = CStrTemp(srcPath);
+        input.password = CStrTemp(EngineMupdfToolPasswordTemp(engine, srcPath));
+        return true;
+    }
+
+    // The file tools reopen their input. Use a copy of the edited PDF.
+    input.copyPath = str::Dup(GetTempFilePathTemp(StrL("pdf-tool")));
+    TempStr password;
+    if (len(input.copyPath) == 0 || !EngineMupdfSaveCopy(engine, input.copyPath, &password)) {
+        MessageBoxWarning(hwnd, Tr("Failed to save a file"), {});
+        return false;
+    }
+    input.path = CStrTemp(input.copyPath);
+    input.password = CStrTemp(password);
     return true;
 }
 
@@ -527,34 +574,19 @@ void PdfBakeDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
-    Str inputPath = srcPath;
-    TempStr tmpPath;
-    WindowTab* tab = win ? win->CurrentTab() : nullptr;
-    EngineBase* engine = tab ? tab->GetEngine() : nullptr;
-    // pdfbake_main re-opens the file from disk, so unsaved session
-    // annotations would be missing unless we write them out first (issue #5977).
-    if (engine && EngineHasUnsavedAnnotations(engine)) {
-        tmpPath = GetTempFilePathTemp(StrL("bake"));
-        if (len(tmpPath) == 0 || !EngineMupdfSaveCopy(engine, tmpPath)) {
-            MessageBoxWarning(hwnd, StrL("Failed to bake PDF file."), Tr("Bake PDF"));
-            return;
-        }
-        inputPath = tmpPath;
-        logf("PdfBakeDoIt: unsaved annotations, baking from temp '%s'\n", tmpPath);
+    WindowTab* tab = GetSourceTab();
+    PdfToolInput input;
+    if (!tab || !GetPdfInput(tab->GetEngine(), input)) {
+        return;
     }
 
-    logf("PdfBakeDoIt: baking '%s' to '%s'\n", inputPath, destPath);
+    logf("PdfBakeDoIt: baking '%s' to '%s'\n", srcPath, destPath);
 
-    // build argv for pdfbake_main: "bake" input output
-    char* argv[] = {(char*)"bake", (char*)"-p", PdfToolPasswordTemp(win, srcPath), CStrTemp(inputPath),
-                    CStrTemp(destPath)};
+    char* argv[] = {(char*)"bake", (char*)"-p", input.password, input.path, CStrTemp(destPath)};
     int argc = dimofi(argv);
 
     fz_set_optind(0);
     int res = pdfbake_main(argc, argv);
-    if (tmpPath) {
-        file::Delete(tmpPath);
-    }
     if (res == 0) {
         logf("PdfBakeDoIt: baked successfully\n");
         MainWindow* w = win;
@@ -618,20 +650,25 @@ void PdfExtractTextDialog::DoIt(VirtMouseEvent*) {
 
     logf("PdfExtractTextDoIt: extracting text from '%s' to '%s', pages: %s\n", srcPath, destPath, pages);
 
+    WindowTab* tab = GetSourceTab();
+    if (!tab) {
+        return;
+    }
     bool ok = false;
-    WindowTab* tab = win ? win->CurrentTab() : nullptr;
-    bool isPdf = tab && IsPdfDoc(tab);
+    bool isPdf = IsPdfDoc(tab);
     if (isPdf) {
-        // use muconvert for PDF
-        char* argv[] = {(char*)"convert", (char*)"-p",        PdfToolPasswordTemp(win, srcPath),
-                        (char*)"-o",      CStrTemp(destPath), CStrTemp(srcPath),
-                        CStrTemp(pages)};
+        PdfToolInput input;
+        if (!GetPdfInput(tab->GetEngine(), input)) {
+            return;
+        }
+        char* argv[] = {(char*)"convert",   (char*)"-p", input.password, (char*)"-o",
+                        CStrTemp(destPath), input.path,  CStrTemp(pages)};
         int argc = dimofi(argv);
         fz_set_optind(0);
         ok = muconvert_main(argc, argv) == 0;
     } else {
         // use engine text extraction for other formats (DjVu, etc.)
-        ok = ExtractTextViaEngine(win, destPath, pages);
+        ok = win->CurrentTab() == tab && ExtractTextViaEngine(win, destPath, pages);
     }
 
     if (ok) {
@@ -690,13 +727,16 @@ void PdfCompressDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
+    WindowTab* tab = GetSourceTab();
+    PdfToolInput input;
+    if (!tab || !GetPdfInput(tab->GetEngine(), input)) {
+        return;
+    }
     logf("PdfCompressDoIt: compressing '%s' to '%s'\n", srcPath, destPath);
 
     // equivalent of: clean -gggg -e 100 -f -i -t -Z input output
-    char* argv[] = {(char*)"clean", (char*)"-p",       PdfToolPasswordTemp(win, srcPath),
-                    (char*)"-gggg", (char*)"-e",       (char*)"100",
-                    (char*)"-f",    (char*)"-i",       (char*)"-t",
-                    (char*)"-Z",    CStrTemp(srcPath), CStrTemp(destPath)};
+    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-gggg", (char*)"-e", (char*)"100",
+                    (char*)"-f",    (char*)"-i", (char*)"-t",    (char*)"-Z",    input.path,  CStrTemp(destPath)};
     int argc = dimofi(argv);
 
     fz_set_optind(0);
@@ -756,11 +796,15 @@ void PdfDecompressDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
+    WindowTab* tab = GetSourceTab();
+    PdfToolInput input;
+    if (!tab || !GetPdfInput(tab->GetEngine(), input)) {
+        return;
+    }
     logf("PdfDecompressDoIt: decompressing '%s' to '%s'\n", srcPath, destPath);
 
     // equivalent of: clean -d input output
-    char* argv[] = {(char*)"clean", (char*)"-p",       PdfToolPasswordTemp(win, srcPath),
-                    (char*)"-d",    CStrTemp(srcPath), CStrTemp(destPath)};
+    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-d", input.path, CStrTemp(destPath)};
     int argc = dimofi(argv);
 
     fz_set_optind(0);
@@ -828,8 +872,11 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
+    WindowTab* docTab = GetSourceTab();
+    if (!docTab) {
+        return;
+    }
     // XPS, EPUB, ...: MuPDF draws the pages of the open document into a new PDF
-    WindowTab* docTab = FindTabByFilePath(srcPath, win);
     if (isExtract && IsMupdfNonPdfDoc(docTab)) {
         HCURSOR prev = SetCursor(LoadCursor(nullptr, IDC_WAIT));
         bool ok = ExtractPagesToNewPdf(docTab, parsedPages, destPath);
@@ -845,8 +892,6 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
         StartLoadDocument(&args);
         return;
     }
-
-    EngineBase* sourceEngine = docTab ? docTab->GetEngine() : nullptr;
 
     TempStr pageRange;
     if (isExtract) {
@@ -864,18 +909,9 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
     logf("PdfDeletePageDoIt: %s pages '%s' from '%s' to '%s', range for pdfclean: %s\n", op, pages, srcPath, destPath,
          pageRange);
 
-    Str inputPath = srcPath;
-    TempStr tmpPath;
-    if (sourceEngine && EngineHasUnsavedAnnotations(sourceEngine)) {
-        tmpPath = GetTempFilePathTemp(StrL("pdf-page-range"));
-        if (len(tmpPath) == 0 || !EngineMupdfSaveCopy(sourceEngine, tmpPath)) {
-            if (tmpPath) {
-                file::Delete(tmpPath);
-            }
-            MessageBoxWarning(hwnd, msg, title);
-            return;
-        }
-        inputPath = tmpPath;
+    PdfToolInput input;
+    if (!GetPdfInput(docTab->GetEngine(), input)) {
+        return;
     }
 
     // the destination folder may not exist yet (issue #6424)
@@ -885,18 +921,13 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
     // use the same compression flags as Compress PDF so the result is re-written
     // compactly; otherwise the kept pages drag along the original's full content
     // and the output is nearly as big as the source
-    char* argv[] = {(char*)"clean",     (char*)"-p",         PdfToolPasswordTemp(win, srcPath),
-                    (char*)"-gggg",     (char*)"-e",         (char*)"100",
-                    (char*)"-f",        (char*)"-i",         (char*)"-t",
-                    (char*)"-Z",        CStrTemp(inputPath), CStrTemp(destPath),
-                    CStrTemp(pageRange)};
+    char* argv[] = {(char*)"clean", (char*)"-p",        input.password,     (char*)"-gggg", (char*)"-e",
+                    (char*)"100",   (char*)"-f",        (char*)"-i",        (char*)"-t",    (char*)"-Z",
+                    input.path,     CStrTemp(destPath), CStrTemp(pageRange)};
     int argc = dimofi(argv);
 
     fz_set_optind(0);
     int res = pdfclean_main(argc, argv);
-    if (tmpPath) {
-        file::Delete(tmpPath);
-    }
     if (res == 0) {
         logf("PdfDeletePageDoIt: %s pages successfully\n", op);
         MainWindow* w = win;
@@ -1014,16 +1045,20 @@ void PdfEncryptDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
+    WindowTab* tab = GetSourceTab();
+    PdfToolInput input;
+    if (!tab || !GetPdfInput(tab->GetEngine(), input)) {
+        return;
+    }
     logf("PdfEncryptDoIt: encrypting '%s' to '%s' with AES-256\n", srcPath, destPath);
 
     // equivalent of: clean -E aes-256 -U <pwd> -O <pwd> input output
     char* pwdZ = CStrTemp(pwd);
-    char* argv[] = {(char*)"clean", (char*)"-E", (char*)"aes-256",  (char*)"-U",       pwdZ,
-                    (char*)"-O",    pwdZ,        CStrTemp(srcPath), CStrTemp(destPath)};
-    int argc = 9;
+    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-E", (char*)"aes-256",  (char*)"-U",
+                    pwdZ,           (char*)"-O", pwdZ,           input.path,  CStrTemp(destPath)};
 
     fz_set_optind(0);
-    int res = pdfclean_main(argc, argv);
+    int res = pdfclean_main(dimofi(argv), argv);
     if (res == 0) {
         logf("PdfEncryptDoIt: encrypted successfully\n");
         MainWindow* w = win;
@@ -1088,11 +1123,14 @@ void PdfDecryptDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
+    WindowTab* tab = GetSourceTab();
+    PdfToolInput input;
+    if (!tab || !GetPdfInput(tab->GetEngine(), input)) {
+        return;
+    }
     logf("PdfDecryptDoIt: decrypting '%s' to '%s'\n", srcPath, destPath);
 
-    // equivalent of: clean -p <key> -D input output
-    char* argv[] = {(char*)"clean", (char*)"-p",       PdfToolPasswordTemp(win, srcPath),
-                    (char*)"-D",    CStrTemp(srcPath), CStrTemp(destPath)};
+    char* argv[] = {(char*)"clean", (char*)"-p", input.password, (char*)"-D", input.path, CStrTemp(destPath)};
 
     fz_set_optind(0);
     int res = pdfclean_main(dimofi(argv), argv);

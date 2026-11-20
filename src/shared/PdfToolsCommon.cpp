@@ -42,9 +42,6 @@ extern "C" void fz_set_optind(int val);
 char* PdfToolPasswordTemp(MainWindow* win, Str srcPath) {
     WindowTab* tab = win ? win->CurrentTab() : nullptr;
     EngineBase* engine = tab ? tab->GetEngine() : nullptr;
-    if (engine && engine->isPasswordProtected && engine->HasAnnotationEditor()) {
-        engine = engine->AnnotationEditor(EditorLoad::Load);
-    }
     return CStrTemp(EngineMupdfToolPasswordTemp(engine, srcPath));
 }
 

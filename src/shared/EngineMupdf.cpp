@@ -11866,11 +11866,19 @@ static bool FileUnchangedSinceLoad(EngineMupdf* e, Str path) {
     return FileTimeEq(t, e->fileTimeAtLoad);
 }
 
+static TempStr PdfKeyPasswordTemp(EngineMupdf* e) {
+    u8* key = pdf_crypt_key(e->Ctx(), e->pdfdoc->crypt);
+    return fmt("%s%s", StrL(PDF_RAW_KEY_PASSWORD_PREFIX), str::MemToHexTemp(Str((char*)key, kPdfCryptKeyLen)));
+}
+
 // The password for a tool re-opening srcPath, the file the engine has open: the
 // engine's key, since one remembered in file history comes without a password.
 // Empty when none is needed or the key may no longer fit the file.
 TempStr EngineMupdfToolPasswordTemp(EngineBase* engine, Str srcPath) {
-    EngineMupdf* e = AsEngineMupdf(engine);
+    if (!engine || !engine->isPasswordProtected) {
+        return str::DupTemp(StrL(""));
+    }
+    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!e || !e->isPasswordProtected || !e->pdfdoc || !str::EqI(e->FilePath(), srcPath)) {
         return str::DupTemp(StrL(""));
     }
@@ -11879,8 +11887,7 @@ TempStr EngineMupdfToolPasswordTemp(EngineBase* engine, Str srcPath) {
         return str::DupTemp(StrL(""));
     }
     ScopedRecursiveMutex scope(&e->docLock);
-    u8* key = pdf_crypt_key(e->Ctx(), e->pdfdoc->crypt);
-    return fmt("%s%s", StrL(PDF_RAW_KEY_PASSWORD_PREFIX), str::MemToHexTemp(Str((char*)key, kPdfCryptKeyLen)));
+    return PdfKeyPasswordTemp(e);
 }
 
 // Point the document at the whole file in memory. Takes the locks every
@@ -12404,10 +12411,16 @@ bool EngineMupdfSaveUpdated(EngineBase* engine, Str path, const ShowErrorCb& sho
     return ok;
 }
 
-// Write a standalone (non-incremental) copy of the live PDF, including
-// unsaved annotations, without marking the document clean. Used so tools
-// that re-open the file from disk (bake) see the current session (issue #5977).
-bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
+static pdf_write_options PdfCopyOptions(EngineMupdf* e) {
+    pdf_write_options opts = gPdfDefaultWriteOptions;
+    opts.do_copy = !pdf_has_unsaved_sigs(e->Ctx(), e->pdfdoc);
+    // A redaction can replace streams that a full write would otherwise keep.
+    opts.do_garbage = e->pdfdoc->redacted ? 1 : 0;
+    return opts;
+}
+
+// Give file tools the edits in the open PDF, and the key for the copy if requested.
+bool EngineMupdfSaveCopy(EngineBase* engine, Str path, TempStr* password) {
     EngineMupdf* epdf = AnnotEngineMupdf(engine, EditorLoad::Load);
     if (!epdf || !epdf->pdfdoc || len(path) == 0) {
         return false;
@@ -12417,9 +12430,7 @@ bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
     }
     auto* ctx = epdf->Ctx();
     ScopedRecursiveMutex scope(&epdf->docLock);
-    pdf_write_options save_opts{};
-    save_opts = gPdfDefaultWriteOptions;
-    save_opts.do_incremental = 0;
+    pdf_write_options save_opts = PdfCopyOptions(epdf);
     save_opts.do_compress = 1;
     bool ok = false;
     fz_try(ctx) {
@@ -12437,6 +12448,9 @@ bool EngineMupdfSaveCopy(EngineBase* engine, Str path) {
     }
     fz_catch_report(ctx) {
         logf("EngineMupdfSaveCopy: saving '%s' failed: '%s'\n", path, Str(fz_caught_message(ctx)));
+    }
+    if (ok && password) {
+        *password = epdf->pdfdoc->crypt ? PdfKeyPasswordTemp(epdf) : StrL("");
     }
     return ok;
 }
@@ -12464,8 +12478,7 @@ bool EngineMupdfSaveCropped(EngineBase* engine, Str path, const Vec<RectF>& crop
     fz_var(page);
     fz_var(ok);
     fz_try(ctx) {
-        pdf_write_options opts = gPdfDefaultWriteOptions;
-        opts.do_incremental = 0;
+        pdf_write_options opts = PdfCopyOptions(epdf);
         buf = fz_new_buffer(ctx, 1024 * 1024);
         out = fz_new_output_with_buffer(ctx, buf);
         pdf_write_document(ctx, epdf->pdfdoc, out, &opts);
@@ -12474,9 +12487,7 @@ bool EngineMupdfSaveCropped(EngineBase* engine, Str path, const Vec<RectF>& crop
         stm = fz_open_buffer(ctx, buf);
         copy = pdf_open_document_with_stream(ctx, stm);
         if (pdf_needs_password(ctx, copy) && epdf->pdfdoc->crypt) {
-            TempStr key = str::MemToHexTemp(Str((const char*)pdf_crypt_key(ctx, epdf->pdfdoc->crypt), kPdfCryptKeyLen));
-            TempStr password = str::JoinTemp(StrL(PDF_RAW_KEY_PASSWORD_PREFIX), key);
-            if (!pdf_authenticate_password(ctx, copy, CStrTemp(password))) {
+            if (!pdf_authenticate_password(ctx, copy, CStrTemp(PdfKeyPasswordTemp(epdf)))) {
                 fz_throw(ctx, FZ_ERROR_ARGUMENT, "cannot unlock cropped copy");
             }
         }
@@ -12493,6 +12504,7 @@ bool EngineMupdfSaveCropped(EngineBase* engine, Str path, const Vec<RectF>& crop
             page = nullptr;
         }
         opts.do_compress = 1;
+        opts.do_copy = 0;
         pdf_save_document(ctx, copy, CStrTemp(path), &opts);
         ok = true;
     }

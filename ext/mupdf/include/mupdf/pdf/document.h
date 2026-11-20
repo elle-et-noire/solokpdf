@@ -801,6 +801,7 @@ typedef struct
 	int do_labels; /* Add labels to each object showing how it can be reached from the Root. */
 	int reproducible; /* Attempt to make operations 'reproducible'. For example, avoid writing MuPDF version number. */
 	int do_snapshot_suffix; /* Internal; use pdf_write_snapshot_suffix. */
+	int do_copy; /* Write a full copy and keep the original incremental xrefs unsaved. */
 } pdf_write_options;
 
 FZ_DATA extern const pdf_write_options pdf_default_write_options;
