@@ -3,12 +3,14 @@
 This is the live work scope. Completed results are in [history.md](history.md#completed-backlog).
 Record new failures here with a trigger, observable outcome and acceptance
 check. Add behavior changes to [features.md](features.md) or
-[limitations.md](limitations.md). Next free IDs are B80, C2, D17, E157 and F4.
+[limitations.md](limitations.md). Next free IDs are B80, C2, D17, E158 and F4.
 For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-No open items.
+- E157 — [Win32 product and code design review plan](design-review-plan.md).
+  Start with R01, comparing unsaved edits in extracted and retained pages.
+  The plan tracks each finding, its evidence, execution order and acceptance check.
 
 ## Not planned
 
