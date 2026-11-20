@@ -20,7 +20,7 @@ theme (owner, 2026-11-17); record the difference in [features.md](features.md).
 
 ## Status
 
-[Backlog](backlog.md) is the source of truth for open, deferred and excluded
+[Backlog](backlog.md) is the source of truth for open and excluded
 work. Completed results are in [history.md](history.md#completed-backlog).
 Current behavior and its limits are in [features.md](features.md) and
 [limitations.md](limitations.md). The last upstream merge incorporated
@@ -80,7 +80,7 @@ Responsibilities, state and API contracts are in [architecture.md](architecture.
 | Purpose            | Documents                                                                                                                                          |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Current behavior   | [features.md](features.md), [limitations.md](limitations.md), [annotations.md](annotations.md), [forms.md](forms.md)                               |
-| Work status        | [Open, deferred and excluded work; completed reviews](backlog.md)                                                                                  |
+| Work status        | [Open and excluded work, completed reviews](backlog.md)                                                                                            |
 | Design             | [Current architecture, review criteria and structural notes](architecture.md)                                                                      |
 | Keyboard input     | [Current routing and results](keyboard-investigation.md)                                                                                           |
 | Test procedures    | [Local automated tests](testing.md#local-windows-runs), [physical tree checks](testing.md#physical-tree-checks), [ASan shutdown](asan-shutdown.md) |

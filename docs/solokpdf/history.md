@@ -2139,10 +2139,12 @@ Validation:
   at the bottom (Y=730–751 in a 940×762 canvas). Visual inspection and the
   difference bounds confirmed identical thumbnail/content pixels. F12 images
   and the neutral cached PNG were identical throughout.
-- The initial baseline thumbnail test captured an empty `f12-light` image.
+- E153. The initial baseline thumbnail test captured an empty `f12-light` image.
   It then passed three standalone retries on the unchanged baseline; the
   third supplied the accepted baseline images. The changed version passed
-  on its first run. This test instability is unresolved; no test was changed.
+  on its first run. Later targeted runs passed. If it recurs, record the
+  thumbnail request, render completion and screenshot times to distinguish
+  a missing render from an early capture.
 - Executable and DLL hashes stayed fixed within each test batch. Debug exe
   SHA-256 changed from `7AF7366B975A08DC66954AC21DE4A0683E82DA6244FDEE11E3259D8B31652FE8`
   to `833FD3B6FD8C1EDBCCF8D43F8621357204E06F5D9908F86A9915B90F7F71483A`.
@@ -3210,6 +3212,7 @@ B71 follow-up: Compare tab views after a normal switch (B71).
 | ID  | Item                                                                             | Status                                                                                                                                                                                           |
 | --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | D1  | Release job in parallel with debug                                               | done — Run CI release build in parallel (D1)                                                                                                                                                     |
+| D3  | Shard the full suite across runners                                              | Closed on 2026-11-20. Per-test timeouts cut off hangs and the full hosted suite takes about 25 min per engine. [Measured runs](#d15-hosted-verification-at-c1f07fea0-2026-11-20)                 |
 | D4  | Weekly scheduled full suite once it passes                                       | done — Schedule weekly full tests (D4)                                                                                                                                                           |
 | D5  | Weekly upstream merge assessment; merge when worthwhile, then run the full suite | done — Merge upstream f45967f87 (D5)                                                                                                                                                             |
 | D6  | Merge upstream/master at 254c2ae7c into solokpdf-dev                             | done — Merge upstream/master 254c2ae7c (D6)                                                                                                                                                      |
@@ -3473,6 +3476,10 @@ test load the annotation editor explicitly.
   preceding runs. The latest regular run passed the feature suite.
   The cause of the missed requests remains open (E151).
   [Run](https://github.com/elle-et-noire/solokpdf/actions/runs/44280943472)
+
+If E150 recurs, trace the foreground HWND and process separately from the
+thread-local active window and focus. Check that restore leaves the other
+process in the foreground and that the reactivating click reaches its target.
 
 Both layouts of the E98 test and the E144 focus test passed locally on the
 hidden desktop. The Run PDF Script fixture exercises example selection while
@@ -3819,6 +3826,8 @@ engine passed all 120 attempts. In the instrumented series, median, 95th
 percentile and maximum were 82/83/166 ms on PDFium and 82/83/163 ms on
 MuPDF, including the test's 80 ms poll. Observed lock waits were at most
 16 ms at roughly 16 ms clock resolution. The outlier's cause remains unknown.
+If it recurs, trace action dispatch, render cancellation, lock acquisition
+and menu construction. Reproduce the delay before tightening the timing bound.
 
 ## SOL1–SOL3 corrections (2026-11-11)
 

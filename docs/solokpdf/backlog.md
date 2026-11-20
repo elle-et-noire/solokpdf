@@ -21,20 +21,6 @@ rechecks at `1a2d483c7`. [Validation record](README.md#validation-as-of-2026-11-
    [history.md](history.md#d15-hosted-verification-at-c1f07fea0-2026-11-20).
    Close D15 when all three runs pass on that revision.
 
-## Watch
-
-| ID   | Observation                                                                                                                                                                | Follow-up on recurrence                                                                                                                                                               |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E135 | One link-menu action took 1,938 ms. The next 120 attempts passed and did not identify the cause. [Measurements](history.md#hosted-validation-and-status-review-2026-11-18) | Trace action dispatch, render cancellation, lock acquisition and menu construction. Reproduce the cause before tightening the timing bound.                                           |
-| E150 | The corrected modal test passed with another process in the foreground. [Recorded runs](history.md#hosted-validation-and-status-review-2026-11-18)                         | Trace foreground ownership separately from thread-local active window and focus. Verify that restore preserves the external foreground and the reactivating click retains its target. |
-| E153 | The baseline thumbnail test once captured an empty `f12-light` image. Retries and later targeted runs passed. [E22 record](history.md#e22-cache-contracts-2026-11-10)      | Capture thumbnail request, render completion and screenshot timing. Check whether the blank image comes from the app or from capturing early.                                         |
-
-## Deferred
-
-| ID  | Item                                | Reason                                              |
-| --- | ----------------------------------- | --------------------------------------------------- |
-| D3  | Shard the full suite across runners | the suite takes ~25 min once a hung test is cut off |
-
 ## Dropped
 
 | ID   | Item                                                | Reason                                                                                         |

@@ -686,6 +686,6 @@ one point. Follow [testing.md](testing.md) for local runs and desktop constraint
   PDFium and MuPDF jobs; manual runs still accept an engine and test filter
   (D4). `run-github-ci.ts` skips the by-design PDFium gaps (`issue-5937`,
   `issue-6361`, `issue-3731`; unless `SOLOKPDF_ENGINE=mupdf`). A failing
-  run needs triage to distinguish app regressions from test or runner failures (B50). The suite takes
-  ~25 min once a hung test is cut off by the per-test timeout; sharding is
-  deferred (D3). Both engines passed in run 41349548951.
+  run needs triage to distinguish app regressions from test or runner failures (B50).
+  Per-test timeouts cut off hangs. The suite takes about 25 minutes per engine.
+  Both engines passed in run 41349548951.
