@@ -697,7 +697,8 @@ void RebuildReadAloudMenu(MainWindow* win, HMENU menu, bool includeCursorItem, b
     if (!menu || !win) {
         return;
     }
-    MenuEmpty(menu);
+    while (DeleteMenu(menu, 0, MF_BYPOSITION)) {
+    }
     BuildReadAloudMenuItems(menu, win, includeCursorItem, canReadFromCursor);
     RemoveBadMenuSeparators(menu);
 }

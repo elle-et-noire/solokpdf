@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand } from "./control.ts";
-import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
+import { APP_NAME, assemblePdf, cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import { killAndWait, launchControlled, pressKey, waitForContextMenu } from "./win-automation.ts";
 import {
   getMenuItemCount,
@@ -21,7 +21,7 @@ const WM_COMMAND = 0x0111;
 // the menu bar toolbar posts kMenuBarCmdFirst + <top level menu index> (Menu.cpp)
 const kMenuBarCmdFirst = 50000;
 // index of "F&avorites" in menuDefMenubar
-const kFavoritesMenuIdx = 6;
+const kFavoritesMenuIdx = APP_NAME === "SolokPDF" ? 3 : 6;
 // a re-open within 500ms of dismissing the popup is treated as toggle-close
 const kMenuReopenMs = 510;
 

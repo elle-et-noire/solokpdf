@@ -3,6 +3,29 @@
 Behavior SolokPDF adds to or changes from SumatraPDF. PDF engine behavior is in
 [limitations.md](limitations.md).
 
+## Windows menus
+
+The menu bar is File, View, Go To, Favorites, Tools, Settings and Help.
+Debug and prerelease builds also show Debug.
+
+- File starts with **Open…**, which opens the default picker. Change the default
+  under Settings. File groups other ways to open a document, external viewers
+  and email, and file management. Recent documents remain above Exit.
+- View puts page layouts, fit width, fit page, rotation and fullscreen at the
+  top level. Other magnifications are under Zoom. Page Display contains reading
+  and page options, and Window Layout contains sidebar and toolbar controls.
+- Tools starts with Command Palette. It also contains Selection, Read Aloud,
+  PDF Operations, Measurement and document AI chat. The palette offers hex
+  view and either file picker for one-time use.
+- Right-click selected text for Copy and Highlight, a web link for Copy Link
+  Address, or an image for Copy Image and Save Image. Page favorites, annotations
+  and cursor-based reading stay on the page menu. A selection takes priority
+  when the clicked point is also on a link or image.
+- Right-click a tab to close, duplicate or locate it. Close Multiple Tabs
+  groups the bulk actions. The bookmarks menu starts with chapter or embedded
+  file actions when available. On Home, Remove From History and Delete File are
+  separate actions.
+
 ## Portable identity
 
 SolokPDF disables upstream update checks, commands and settings UI. Existing

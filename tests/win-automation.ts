@@ -56,6 +56,7 @@ import {
   MK_LBUTTON,
   VK_RETURN,
   VK_DOWN,
+  VK_RIGHT,
   VK_TAB,
   VK_ESCAPE,
   ensureModifierKeysUp,
@@ -65,6 +66,9 @@ import {
   setCursorPos, // desktop-input: cursor-import
   sendCopyDataW,
   getPopupMenuHandle,
+  getMenuItemCount,
+  getMenuItemId,
+  getSubMenu,
   readMenuTree,
   getWindowText,
   getFocusedHwnd,
@@ -573,6 +577,41 @@ export async function fillFormFieldAt(canvas: number, x: number, y: number, text
 // (async) so we don't block on the modal menu; poll waitForContextMenu() after.
 export function openContextMenu(hwnd: number, screenX: number, screenY: number): void {
   postMessage(hwnd, WM_CONTEXTMENU, hwnd, packCoords(screenX, screenY));
+}
+
+const MN_SELECTITEM = 0x01e5;
+
+export function choosePopupCommand(popup: number, id: number): boolean {
+  const menu = getPopupMenuHandle(popup);
+  for (let i = 0; i < getMenuItemCount(menu); i++) {
+    if (getMenuItemId(menu, i) === id) {
+      postMessage(popup, MN_SELECTITEM, i, 0);
+      postMessage(popup, WM_KEYDOWN, VK_RETURN, 0);
+      return true;
+    }
+  }
+  return false;
+}
+
+export async function openPopupSubmenu(popup: number, pos: number): Promise<number> {
+  const submenu = getSubMenu(getPopupMenuHandle(popup), pos);
+  if (!submenu) return 0;
+  postMessage(popup, MN_SELECTITEM, pos, 0);
+  postMessage(popup, WM_KEYDOWN, VK_RIGHT, 0);
+  const deadline = Date.now() + 1500;
+  while (Date.now() < deadline) {
+    let result = 0;
+    enumWindows((h) => {
+      if (getClassName(h) === "#32768" && isWindowVisible(h) && getPopupMenuHandle(h) === submenu) {
+        result = h;
+        return false;
+      }
+      return true;
+    });
+    if (result) return result;
+    await sleep(40);
+  }
+  return 0;
 }
 
 // Wait for a popup menu window (#32768) to appear; returns its hwnd or 0.

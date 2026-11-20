@@ -307,6 +307,385 @@ static UINT_PTR menusNoTranslate[] = {
 };
 // clang-format on
 
+#ifdef SOLOKPDF_PDFIUM
+
+static MenuDef solokOpenOther[] = {
+    {TrN("Open from &URL..."), CmdOpenFromURL},
+    {StrL(kMenuSeparator)},
+    {TrN("&Next File In Folder"), CmdOpenNextFileInFolder},
+    {TrN("&Previous File In Folder"), CmdOpenPrevFileInFolder},
+    {TrN("&Browse Files In Folder..."), CmdNavigateFilesInFolder},
+    {},
+};
+
+static MenuDef solokOpenExternal[] = {
+    {TrN("Open Directory in &Explorer"), CmdOpenWithExplorer},
+    {TrN("Open Directory in Director&y Opus"), CmdOpenWithDirectoryOpus},
+    {TrN("Open Directory in &Total Commander"), CmdOpenWithTotalCommander},
+    {TrN("Open Directory in &Double Commander"), CmdOpenWithDoubleCommander},
+    {TrN("Open in &Adobe Reader"), CmdOpenWithAcrobat},
+    {TrN("Open in &Foxit Reader"), CmdOpenWithFoxit},
+    {TrN("Open &in PDF-XChange"), CmdOpenWithPdfXchange},
+    {TrN("Open in &Microsoft XPS-Viewer"), CmdOpenWithXpsViewer},
+    {TrN("Open in Microsoft &HTML Help"), CmdOpenWithHtmlHelp},
+    {TrN("Send &by E-mail..."), CmdSendByEmail},
+    {},
+};
+
+static MenuDef solokFileManagement[] = {
+    {TrN("Show in fo&lder"), CmdShowInFolder},
+#ifdef ENABLE_SAVE_SHORTCUT
+    {TrN("Save Shortc&ut..."), CmdCreateShortcutToFile},
+#else
+    {TrN("Re&name..."), CmdRenameFile},
+#endif
+    {TrN("Delete"), CmdDeleteFile},
+    {TrN("Lin&k SumatraPDF Web..."), CmdSumatraPDFWeb},
+    {},
+};
+
+static MenuDef solokFile[] = {
+    {TrN("&Open..."), CmdOpenFile},
+    {TrN("New &window"), CmdNewWindow},
+    {TrN("&Close"), CmdClose},
+    {TrN("&Save As..."), CmdSaveAs},
+    {TrN("&Print..."), CmdPrint},
+    {TrN("P&roperties"), CmdProperties},
+    {StrL(kMenuSeparator)},
+    {TrN("Other Ways to Open"), (UINT_PTR)solokOpenOther},
+    {TrN("Open Externally or Send"), (UINT_PTR)solokOpenExternal},
+    {TrN("File &Management"), (UINT_PTR)solokFileManagement},
+    {StrL(kMenuSeparator)},
+    {TrN("E&xit"), CmdExit},
+    {},
+};
+
+static MenuDef solokPageView[] = {
+    {TrN("Man&ga Mode"), CmdToggleMangaMode},
+    {TrN("Auto-Rotate Wide Pages"), CmdToggleAutoRotateWidePages},
+    {TrN("&Uniform Page Width"), CmdToggleUniformPageWidth},
+    {TrN("&Trim Empty Margins"), CmdToggleTrimEmptyMargins},
+    {TrN("Trim Pages To Selection"), CmdTrimPagesToSelection},
+    {TrN("Show Whole Pages"), CmdShowWholePages},
+    {TrN("Save Trimmed Pages As..."), CmdSaveTrimmedPagesAs},
+    {TrN("Read &Columns"), CmdToggleReadColumns},
+    {TrN("Read Columns: Show &Whole Page"), CmdToggleColumnsWholePage},
+    {TrN("Mirror Pages"), CmdToggleMirror},
+    {TrN("Read&ing Bar"), CmdToggleReadingBar},
+    {TrN("&Highlight Form Fields"), CmdToggleHighlightFormFields},
+    {TrN("Transparency Gri&d"), CmdToggleTransparencyGrid},
+    {},
+};
+
+static MenuDef solokWindowLayout[] = {
+    {TrN("Show Book&marks"), CmdToggleBookmarks},
+    {TrN("Sho&w Thumbnails"), CmdToggleThumbnails},
+    {TrN("Navigate Thumbnails"), CmdNavigateThumbnail},
+    {TrN("Show Me&nu"), CmdToggleMenuBar},
+    {TrN("Sh&ow Toolbar"), CmdToggleToolbar},
+    {TrN("Show Caption"), CmdToggleCaption},
+    {TrN("Auto-hide Sidebar"), CmdToggleSidebarAutoHide},
+    {},
+};
+
+static MenuDef solokView[] = {
+    {TrN("&Single Page"), CmdSinglePageView},
+    {TrN("&Facing"), CmdFacingView},
+    {TrN("&Book View"), CmdBookView},
+    {TrN("Show &Pages Continuously"), CmdToggleContinuousView},
+    {TrN("Fit &Width"), CmdZoomFitWidth},
+    {TrN("Fit Page"), CmdZoomFitPage},
+    {TrN("&Zoom"), (UINT_PTR)menuDefZoom},
+    {StrL(kMenuSeparator)},
+    {TrN("Rotate &Left"), CmdRotateLeft},
+    {TrN("Rotate &Right"), CmdRotateRight},
+    {TrN("Fulls&creen"), CmdToggleFullscreen},
+    {TrN("Pr&esentation"), CmdTogglePresentationMode},
+    {TrN("&Automatically Scroll"), CmdToggleAutomaticallyScroll},
+    {StrL(kMenuSeparator)},
+    {TrN("Page Display"), (UINT_PTR)solokPageView},
+    {TrN("Window Layout"), (UINT_PTR)solokWindowLayout},
+    {},
+};
+
+static MenuDef solokMeasure[] = {
+    {TrN("Page Grid"), CmdTogglePageGrid},
+    {TrN("Configure Page Grid..."), CmdConfigurePageGrid},
+    {TrN("Measure"), CmdMeasure},
+    {},
+};
+
+static MenuDef solokTools[] = {
+    {TrN("Command Palette"), CmdCommandPalette},
+    {TrN("S&election"), (UINT_PTR)menuDefMainSelection},
+    {TrN("Read Aloud"), (UINT_PTR)menuDefReadAloud},
+    {TrN("PDF Operations"), (UINT_PTR)menuDefDocumentOperations},
+    {TrN("Measurement"), (UINT_PTR)solokMeasure},
+    {TrN("AI chat with document using"), (UINT_PTR)menuDefDocumentAIChat},
+    {},
+};
+
+static MenuDef solokAdvanced[] = {
+    {TrN("&Open Advanced Settings File..."), CmdOpenSettingsFile},
+    {TrN("Configure &Restricted Use..."), CmdConfigureRestrictedUse},
+    {},
+};
+
+static MenuDef solokSettings[] = {
+    {TrN("&Settings..."), CmdOptions},
+    {TrN("&Theme"), (UINT_PTR)menuDefThemes},
+    {TrN("Change Language"), CmdChangeLanguage},
+    {TrN("Customize &Keyboard Shortcuts..."), CmdCustomizeShortcuts},
+    {TrN("Use SumatraPDF File Picker"), CmdToggleFilePicker},
+    {TrN("Vim Key Mode"), CmdToggleVimKeys},
+    {TrN("Advanced"), (UINT_PTR)solokAdvanced},
+    {},
+};
+
+static MenuDef solokDiagnostics[] = {
+    {TrN("Toggle Render Queue Info"), CmdDebugToggleRenderInfo},
+    {TrN("Toggle Cache Info"), CmdDebugToggleCacheInfo},
+    {TrN("Show Errors"), CmdShowErrors},
+    {},
+};
+
+static MenuDef solokHelp[] = {
+    {TrN("&Manual"), CmdHelpOpenManual},
+    {TrN("&Keyboard Shortcuts"), CmdHelpOpenKeyboardShortcuts},
+    {TrN("&About"), CmdHelpAbout},
+    {StrL(kMenuSeparator)},
+    {TrN("Manual On Website"), CmdHelpOpenManualOnWebsite},
+    {TrN("Visit &Website"), CmdHelpVisitWebsite},
+    {TrN("Check for &Updates"), CmdCheckUpdate},
+    {TrN("Diagnostics"), (UINT_PTR)solokDiagnostics},
+    {},
+};
+
+static MenuDef solokFavorites[] = {
+    {TrN("Add to favorites"), CmdFavoriteAdd},
+    {TrN("Remove from favorites"), CmdFavoriteDel},
+    {TrN("Show Favorites"), CmdFavoriteToggle},
+    {TrN("Show Favorites in Tab"), CmdFavoriteShowInTab},
+    {},
+};
+
+static MenuDef solokFavoritesMore[] = {
+    {StrL(kMenuSeparator)},
+    {TrN("Edit Favorites..."), CmdEditFavorites},
+    {TrN("Tab Groups"), (UINT_PTR)menuDefTabGroups},
+    {},
+};
+
+static MenuDef solokMenubar[] = {
+    {TrN("&File"), (UINT_PTR)solokFile},
+    {TrN("&View"), (UINT_PTR)solokView},
+    {TrN("&Go To"), (UINT_PTR)menuDefGoTo},
+    {TrN("F&avorites"), (UINT_PTR)solokFavorites},
+    {TrN("&Tools"), (UINT_PTR)solokTools},
+    {TrN("&Settings"), (UINT_PTR)solokSettings},
+    {TrN("&Help"), (UINT_PTR)solokHelp},
+    {StrL("Debug"), (UINT_PTR)menuDefDebug},
+    {},
+};
+
+static MenuDef solokContextSelection[] = {
+    {TrN("&Print Selection..."), CmdPrintSelection},
+    {TrN("Visual Search With Google &Lens"), CmdSearchGoogleLens},
+    {TrN("&Zoom To Selection"), CmdZoomToSelection},
+    {TrN("Trim Pages To &Selection"), CmdTrimPagesToSelection},
+    {TrN("Count &Words"), CmdCountWords},
+    {TrN("Show Selected Te&xt"), CmdShowSelectedText},
+    {StrL(kMenuSeparator)},
+    {TrN("&Translate with"), (UINT_PTR)menuDefTranslateWith},
+    {TrN("S&earch with"), (UINT_PTR)menuDefSearchWith},
+    {TrN("Select C&urrent Page"), CmdSelectCurrentPage},
+    {TrN("Select &All"), CmdSelectAll},
+    {},
+};
+
+static MenuDef solokContextImage[] = {
+    {TrN("Visual Search With Google &Lens"), CmdSearchGoogleLensImage},
+    {TrN("C&rop"), CmdCropImage},
+    {TrN("R&esize"), CmdResizeImage},
+    {TrN("Replace &Image..."), CmdReplaceImage},
+    {TrN("Edit Image in &Another App"), CmdEditImageExternally},
+    {TrN("Convert page to &PDF"), CmdConvertImageToPdf},
+    {},
+};
+
+static MenuDef solokPageLens[] = {
+    {TrN("&Page"), CmdSearchGoogleLensPage},
+    {},
+};
+
+static MenuDef solokContext[] = {
+    {TrN("E&xit Fullscreen"), CmdToggleFullscreen},
+    {TrN("&Copy To Clipboard"), CmdCopySelection},
+    {TrN("&Highlight"), CmdCreateAnnotHighlight},
+    {TrN("Copy As &Image To Clipboard"), CmdCopySelectionAsImage},
+    {TrN("&Save As Image..."), CmdSaveSelectionAsImage},
+    {TrN("Copy Link &Address"), CmdCopyLinkTarget},
+    {TrN("Save Attachment"), CmdSaveAttachment},
+    {TrN("Copy Image"), CmdCopyImage},
+    {TrN("Save Image..."), CmdSaveImage},
+    {TrN("Sho&w Comment"), CmdShowAnnotationText},
+    {TrN("Copy Co&mment"), CmdCopyComment},
+    {StrL("Add to favorites"), CmdFavoriteAdd},
+    {StrL("Remove from favorites"), CmdFavoriteDel},
+    {StrL(kMenuSeparator)},
+    {TrN("Selection Actions"), (UINT_PTR)solokContextSelection},
+    {TrN("Image Actions"), (UINT_PTR)solokContextImage},
+    {TrN("Annotations"), (UINT_PTR)menuDefContextAnnotations},
+    {TrN("Read Aloud"), (UINT_PTR)menuDefContextReadAloud},
+    {TrN("Visual Search With Google &Lens"), (UINT_PTR)solokPageLens},
+    {},
+};
+
+static MenuDef solokCloseTabs[] = {
+    {TrN("Close Other Tabs"), CmdCloseOtherTabs},
+    {TrN("Close Tabs To The Right"), CmdCloseTabsToTheRight},
+    {TrN("Close Tabs To The Left"), CmdCloseTabsToTheLeft},
+    {TrN("Close All Tabs"), CmdCloseAllTabs},
+    {},
+};
+
+static MenuDef solokDuplicateTab[] = {
+    {TrN("In New Window"), CmdDuplicateInNewWindow},
+    {TrN("In New Tab"), CmdDuplicateInNewTab},
+    {},
+};
+
+static MenuDef solokTabDetails[] = {
+    {TrN("Properties..."), CmdProperties},          {TrN("Copy File Path"), CmdCopyFilePath},
+    {TrN("Change Tab Color"), CmdSetTabColor},      {TrN("Save Tab Group"), CmdTabGroupSave},
+    {TrN("Restore Tab Group"), CmdTabGroupRestore}, {},
+};
+
+static MenuDef solokTab[] = {
+    {TrN("Close"), CmdClose},
+    {TrN("Duplicate"), (UINT_PTR)solokDuplicateTab},
+    {TrN("Show in folder"), CmdShowInFolder},
+    {TrN("&Save changes to existing PDF"), CmdSaveAnnotations},
+    {TrN("Save changes to &new PDF"), CmdSaveAnnotationsNewFile},
+    {TrN("&Discard changes"), CmdDiscardChanges},
+    {StrL(kMenuSeparator)},
+    {TrN("Close Multiple Tabs"), (UINT_PTR)solokCloseTabs},
+    {TrN("Tab Details"), (UINT_PTR)solokTabDetails},
+    {},
+};
+
+static MenuDef solokTocExpand[] = {
+    {TrN("Expand All"), CmdExpandAll},
+    {TrN("Collapse All"), CmdCollapseAll},
+    {TrN("Expand to Level 1"), CmdTocExpandToLevel1},
+    {TrN("Expand to Level 2"), CmdTocExpandToLevel2},
+    {TrN("Expand to Level 3"), CmdTocExpandToLevel3},
+    {TrN("Collapse Same Level"), CmdTocCollapseSameLevel},
+    {TrN("Expand to Current Page"), CmdExpandToCurrentPage},
+    {},
+};
+
+static MenuDef solokToc[] = {
+    {TrN("Expand Chapter"), CmdTocExpandChapter},   {TrN("Collapse Chapter"), CmdTocCollapseChapter},
+    {TrN("Open Embedded PDF"), CmdOpenEmbeddedPDF}, {TrN("Save Embedded File..."), CmdSaveEmbeddedFile},
+    {TrN("Open Attachment"), CmdOpenAttachment},    {TrN("Save Attachment..."), CmdSaveAttachment},
+    {StrL("Add to favorites"), CmdFavoriteAdd},     {StrL("Remove from favorites"), CmdFavoriteDel},
+    {TrN("Expand"), (UINT_PTR)solokTocExpand},      {},
+};
+
+static MenuDef solokFavorite[] = {
+    {TrN("Edit Favorites..."), CmdEditFavorites},
+    {TrN("Remove from favorites"), CmdFavoriteDel},
+    {StrL(kMenuSeparator)},
+    {TrN("Sort By Name"), CmdToggleFavoritesSort},
+    {},
+};
+
+static MenuDef solokHome[] = {
+    {TrN("&Open Document"), CmdOpenSelectedDocument},
+    {TrN("&Pin Document"), CmdPinSelectedDocument},
+    {TrN("&Remove From History"), CmdForgetSelectedDocument},
+    {StrL(kMenuSeparator)},
+    {TrN("Show in folder"), CmdShowInFolder},
+    {TrN("Delete File"), CmdDeleteFile},
+    {},
+};
+
+static Str SolokMenuTitle(Str title) {
+    if (str::Eq(trans::GetCurrentLangCode(), StrL("ja"))) {
+        static const struct {
+            Str en;
+            Str ja;
+        } labels[] = {
+            {StrL("&Tools"), StrL("ツール(&T)")},
+            {StrL("Other Ways to Open"), StrL("他の方法で開く")},
+            {StrL("Open Externally or Send"), StrL("外部で開く・送る")},
+            {StrL("File &Management"), StrL("ファイル管理(&M)")},
+            {StrL("Fit Page"), StrL("ページに合わせる")},
+            {StrL("Page Display"), StrL("ページ表示")},
+            {StrL("Window Layout"), StrL("画面構成")},
+            {StrL("PDF Operations"), StrL("PDF操作")},
+            {StrL("Measurement"), StrL("計測")},
+            {StrL("Advanced"), StrL("詳細設定")},
+            {StrL("Diagnostics"), StrL("診断")},
+            {StrL("Selection Actions"), StrL("選択の操作")},
+            {StrL("Trim Pages To &Selection"), StrL("選択範囲に合わせてページを切り抜く(&S)")},
+            {StrL("Image Actions"), StrL("画像の操作")},
+            {StrL("Copy Image"), StrL("画像をコピー")},
+            {StrL("Save Image..."), StrL("画像を保存…")},
+            {StrL("Replace &Image..."), StrL("画像を置換…(&I)")},
+            {StrL("Close Multiple Tabs"), StrL("まとめて閉じる")},
+            {StrL("Tab Details"), StrL("タブの詳細")},
+            {StrL("Expand"), StrL("展開")},
+        };
+        for (const auto& label : labels) {
+            if (str::Eq(title, label.en)) {
+                return label.ja;
+            }
+        }
+    }
+    return trans::GetTranslation(title);
+}
+
+static MenuDef* GetLiveMenuDef(HMENU menu) {
+    MENUINFO info{sizeof(info), MIM_MENUDATA};
+    GetMenuInfo(menu, &info);
+    return (MenuDef*)info.dwMenuData;
+}
+
+static void SetLiveMenuDef(HMENU menu, MenuDef* def) {
+    MENUINFO info{sizeof(info), MIM_MENUDATA};
+    info.dwMenuData = (ULONG_PTR)def;
+    SetMenuInfo(menu, &info);
+}
+
+static void ClearMenuTree(HMENU menu) {
+    while (DeleteMenu(menu, 0, MF_BYPOSITION)) {
+    }
+}
+
+static void PruneMenuTree(HMENU menu) {
+    for (int i = GetMenuItemCount(menu) - 1; i >= 0; i--) {
+        HMENU sub = GetSubMenu(menu, i);
+        if (!sub) {
+            continue;
+        }
+        PruneMenuTree(sub);
+        if (GetMenuItemCount(sub) == 0) {
+            DeleteMenu(menu, i, MF_BYPOSITION);
+        }
+    }
+    RemoveBadMenuSeparators(menu);
+}
+
+static void BuildMenuZoom(HMENU menu);
+
+static bool IsLiveMenuDef(MenuDef* def) {
+    return def == solokFile || def == solokView || def == menuDefGoTo || def == solokFavorites || def == solokTools ||
+           def == solokHelp || def == menuDefZoom || def == menuDefReadAloud || def == menuDefContextReadAloud;
+}
+#endif
+
 #define cmdIdInList(name) CmdIdInList(cmdId, name, dimof(name))
 
 static void AddFileMenuItem(HMENU menuFile, const FileHistoryEntry& fe, int index) {
@@ -448,9 +827,7 @@ static void AppendExternalViewersToMenu(HMENU menuFile, Str filePath) {
 }
 
 // shows duplicate separator if no external viewers
-static void DynamicPartOfFileMenu(HMENU menu, BuildMenuCtx* ctx) {
-    AppendRecentFilesToMenu(menu);
-
+static void RemoveMissingViewers(HMENU menu, BuildMenuCtx* ctx) {
     // Suppress menu items that depend on specific software being installed:
     // e-mail client, Adobe Reader, Foxit, PDF-XChange
     // Don't hide items here that won't always be hidden
@@ -463,6 +840,11 @@ static void DynamicPartOfFileMenu(HMENU menu, BuildMenuCtx* ctx) {
             MenuRemove(menu, cmdId);
         }
     }
+}
+
+static void DynamicPartOfFileMenu(HMENU menu, BuildMenuCtx* ctx) {
+    AppendRecentFilesToMenu(menu);
+    RemoveMissingViewers(menu, ctx);
 }
 
 void RemoveBadMenuSeparators(HMENU menu) {
@@ -504,6 +886,11 @@ again3:
 
 static void MenuSetEnabledForDocumentCommands(HMENU menu, bool hasDocument) {
     for (int cmdId = (int)CmdFirst; cmdId <= (int)CmdLast; cmdId++) {
+#ifdef SOLOKPDF_PDFIUM
+        if (cmdId == CmdFavoriteAdd || cmdId == CmdFavoriteDel) {
+            continue;
+        }
+#endif
         if (!CmdWorksWithoutDocument(cmdId)) {
             MenuSetEnabled(menu, cmdId, hasDocument);
         }
@@ -512,6 +899,25 @@ static void MenuSetEnabledForDocumentCommands(HMENU menu, bool hasDocument) {
 
 HMENU BuildMenuFromDef(MenuDef* menuDef, HMENU menu, BuildMenuCtx* ctx) {
     ReportIf(!menu);
+
+#ifdef SOLOKPDF_PDFIUM
+    if (menuDef == menuDefMenubar) {
+        menuDef = solokMenubar;
+    } else if (menuDef == menuDefContext) {
+        menuDef = solokContext;
+    } else if (menuDef == menuDefContextTab) {
+        menuDef = solokTab;
+    } else if (menuDef == menuDefContextToc) {
+        menuDef = solokToc;
+    } else if (menuDef == menuDefContextFav) {
+        menuDef = solokFavorite;
+    } else if (menuDef == menuDefContextStart) {
+        menuDef = solokHome;
+    }
+    if (IsLiveMenuDef(menuDef)) {
+        SetLiveMenuDef(menu, menuDef);
+    }
+#endif
 
     bool isDebugMenu = menuDef == menuDefDebug;
     int i = 0;
@@ -552,11 +958,20 @@ HMENU BuildMenuFromDef(MenuDef* menuDef, HMENU menu, BuildMenuCtx* ctx) {
         if (md.idOrSubmenu == (UINT_PTR)menuDefTranslateWith) {
             // handlers run on selected text; comics and images have none
             bool canSelectText = !ctx || !ctx->isImageCollection;
+#ifdef SOLOKPDF_PDFIUM
+            canSelectText &= HasPermission(Perm::CopySelection);
+#endif
             if (canSelectText && menuDef == menuDefMainSelection) {
                 AppendSelectionHandlersToMenu(menu, true);
             } else if (canSelectText && menuDef == menuDefSelection) {
                 AppendSelectionHandlersToMenu(menu, ctx ? ctx->hasSelection : false);
             }
+#ifdef SOLOKPDF_PDFIUM
+            if (canSelectText && menuDef == solokContextSelection && ctx && ctx->hasTextSelection &&
+                HasPermission(Perm::CopySelection)) {
+                AppendSelectionHandlersToMenu(menu, true);
+            }
+#endif
         }
 
         MenuDef* subMenuDef = (MenuDef*)md.idOrSubmenu;
@@ -612,6 +1027,33 @@ HMENU BuildMenuFromDef(MenuDef* menuDef, HMENU menu, BuildMenuCtx* ctx) {
                 removeMenu |= cmdId == CmdSearchGoogleLensImage && !onImage;
             }
         }
+#ifdef SOLOKPDF_PDFIUM
+        if (menuDef == menuDefZoom || menuDef == menuDefZoomShort) {
+            removeMenu |= cmdId == CmdZoomFitPage || cmdId == CmdZoomFitWidth;
+        }
+        bool canCopy = HasPermission(Perm::CopySelection);
+        if (!canCopy) {
+            removeMenu |= cmdId == CmdCopySelection || cmdId == CmdShowSelectedText;
+            removeMenu |= subMenuDef == menuDefTranslateWith || subMenuDef == menuDefSearchWith;
+        }
+        if (ctx && menuDef == solokContext) {
+            removeMenu |= cmdId == CmdCopySelection && !ctx->hasTextSelection;
+            removeMenu |= cmdId == CmdCreateAnnotHighlight && !ctx->hasTextSelection;
+            removeMenu |= !ctx->isCursorOnPage &&
+                          (subMenuDef == menuDefContextAnnotations || subMenuDef == menuDefContextReadAloud);
+            removeMenu |= subMenuDef == menuDefContextReadAloud && (!ctx->ttsAvailable || ctx->isImageCollection);
+        }
+        if (ctx && menuDef == solokContextSelection) {
+            bool isRect = ctx->hasSelection && !ctx->hasTextSelection;
+            bool isTextAction = subMenuDef == menuDefTranslateWith || subMenuDef == menuDefSearchWith;
+            removeMenu |= isTextAction && !ctx->hasTextSelection;
+            removeMenu |= (cmdId == CmdSearchGoogleLens || cmdId == CmdZoomToSelection) && !isRect;
+            removeMenu |= cmdId == CmdSelectCurrentPage && !ctx->isCursorOnPage;
+        }
+        if (ctx && menuDef == menuDefCreateAnnotFromSelection && ctx->hasTextSelection) {
+            removeMenu |= cmdId == CmdCreateAnnotHighlight;
+        }
+#endif
         removeMenu |= ((subMenuDef == menuDefDebug) && !ShowDebugMenu());
         // without Annotations.SignatureImage it would just be Insert Image
         removeMenu |= !isSubMenu && cmdId == CmdSignWithImage && len(gSettings->annotations.signatureImage) == 0;
@@ -623,7 +1065,11 @@ HMENU BuildMenuFromDef(MenuDef* menuDef, HMENU menu, BuildMenuCtx* ctx) {
         noTranslate |= (subMenuDef == menuDefDebug);
         Str title = md.title;
         if (!noTranslate) {
+#ifdef SOLOKPDF_PDFIUM
+            title = SolokMenuTitle(md.title);
+#else
             title = Str(trans::GetTranslation(md.title));
+#endif
         }
 
         if (isSubMenu) {
@@ -636,12 +1082,18 @@ HMENU BuildMenuFromDef(MenuDef* menuDef, HMENU menu, BuildMenuCtx* ctx) {
             if (subMenuDef == menuDefFile) {
                 DynamicPartOfFileMenu(subMenu, ctx);
             }
+#ifdef SOLOKPDF_PDFIUM
+            if (subMenuDef == menuDefZoom) {
+                BuildMenuZoom(subMenu);
+            }
+#else
             if (subMenuDef == menuDefReadAloud) {
                 SetReadAloudAppSubmenu(subMenu);
             }
             if (subMenuDef == menuDefContextReadAloud) {
                 SetReadAloudContextSubmenu(subMenu);
             }
+#endif
             WCHAR* ws = CWStrTemp(title);
             AppendMenuW(menu, flags, (UINT_PTR)subMenu, ws);
         } else {
@@ -661,6 +1113,14 @@ HMENU BuildMenuFromDef(MenuDef* menuDef, HMENU menu, BuildMenuCtx* ctx) {
             AppendMenuW(menu, flags, md.idOrSubmenu, ws);
         }
     }
+#ifdef SOLOKPDF_PDFIUM
+    if (menuDef == solokFile) {
+        AppendRecentFilesToMenu(menu);
+    }
+    if (menuDef == solokOpenExternal) {
+        RemoveMissingViewers(menu, ctx);
+    }
+#endif
     RemoveBadMenuSeparators(menu);
     return menu;
 }
@@ -742,11 +1202,18 @@ static void ZoomMenuItemCheck(HMENU m, int cmdId, bool canZoom) {
         if (CmdZoom100 == cmdId) {
             cmdId = CmdZoomActualSize;
         }
+#ifdef SOLOKPDF_PDFIUM
+        MenuSetChecked(m, cmdId, true);
+        if (cmdId == CmdZoomActualSize) {
+            MenuSetChecked(m, CmdZoom100, true);
+        }
+#else
         CheckMenuRadioItem(m, CmdZoomFirst, CmdZoomLast, cmdId, MF_BYCOMMAND);
         if (CmdZoomActualSize == cmdId) {
             // also mark 100% when present in the default menu
             CheckMenuRadioItem(m, CmdZoom100, CmdZoom100, CmdZoom100, MF_BYCOMMAND);
         }
+#endif
         return;
     }
 
@@ -761,7 +1228,7 @@ static void ZoomMenuItemCheck(HMENU m, int cmdId, bool canZoom) {
     }
 }
 
-static void MenuUpdateZoom(MainWindow* win) {
+static void MenuUpdateZoom(MainWindow* win, HMENU menu) {
     float zoomVirtual = gSettings->defaultZoomFloat;
     if (win->IsDocLoaded()) {
         zoomVirtual = win->ctrl->GetZoomVirtual();
@@ -776,7 +1243,7 @@ static void MenuUpdateZoom(MainWindow* win) {
     if (menuId == 0) {
         menuId = CmdIdFromVirtualZoom(zoomVirtual);
     }
-    ZoomMenuItemCheck(win->menu, menuId, win->IsDocLoaded());
+    ZoomMenuItemCheck(menu, menuId, win->IsDocLoaded());
 }
 
 static void MenuUpdatePrintItem(MainWindow* win, HMENU menu, bool disableOnly = false) {
@@ -807,12 +1274,20 @@ static void MenuUpdatePrintItem(MainWindow* win, HMENU menu, bool disableOnly = 
 }
 
 static void RebuildFileMenu(WindowTab* tab, HMENU menu) {
+#ifdef SOLOKPDF_PDFIUM
+    ClearMenuTree(menu);
+    auto* def = solokFile;
+#else
     MenuEmpty(menu);
+    auto* def = menuDefFile;
+#endif
     auto* ctx = NewBuildMenuCtx(tab);
     AutoDelete delCtx(ctx);
-    BuildMenuFromDef(menuDefFile, menu, ctx);
+    BuildMenuFromDef(def, menu, ctx);
+#ifndef SOLOKPDF_PDFIUM
     DynamicPartOfFileMenu(menu, ctx);
     RemoveBadMenuSeparators(menu);
+#endif
 }
 
 static bool IsFileCloseMenuEnabled() {
@@ -838,7 +1313,7 @@ static void SetMenuStateForSelection(WindowTab* tab, HMENU menu) {
     }
 }
 
-static void MenuUpdateDisplayMode(MainWindow* win) {
+static void MenuUpdateDisplayMode(MainWindow* win, HMENU menu) {
     bool enabled = win->IsDocLoaded();
     DisplayMode displayMode = gSettings->defaultDisplayModeEnum;
     if (enabled) {
@@ -846,7 +1321,7 @@ static void MenuUpdateDisplayMode(MainWindow* win) {
     }
 
     for (int id = CmdViewLayoutFirst; id <= CmdViewLayoutLast; id++) {
-        MenuSetEnabled(win->menu, id, enabled);
+        MenuSetEnabled(menu, id, enabled);
     }
 
     int id = 0;
@@ -860,70 +1335,70 @@ static void MenuUpdateDisplayMode(MainWindow* win) {
         ReportIf(win->ctrl || DisplayMode::Automatic != displayMode);
     }
 
-    CheckMenuRadioItem(win->menu, CmdViewLayoutFirst, CmdViewLayoutLast, id, MF_BYCOMMAND);
-    MenuSetChecked(win->menu, CmdToggleContinuousView, IsContinuous(displayMode));
-    MenuSetChecked(win->menu, CmdToggleAutomaticallyScroll, ReadingAutoScrollIsOn(win));
-    MenuSetChecked(win->menu, CmdToggleReadingBar, ReadingBarIsOn(win));
-    MenuSetChecked(win->menu, CmdToggleReadingBarInvert, gSettings && gSettings->readingBar.invert);
+    CheckMenuRadioItem(menu, CmdViewLayoutFirst, CmdViewLayoutLast, id, MF_BYCOMMAND);
+    MenuSetChecked(menu, CmdToggleContinuousView, IsContinuous(displayMode));
+    MenuSetChecked(menu, CmdToggleAutomaticallyScroll, ReadingAutoScrollIsOn(win));
+    MenuSetChecked(menu, CmdToggleReadingBar, ReadingBarIsOn(win));
+    MenuSetChecked(menu, CmdToggleReadingBarInvert, gSettings && gSettings->readingBar.invert);
 
     DisplayModel* dm = win->AsFixed();
     if (dm && win->CurrentTab()) {
         bool mangaMode = dm->GetDisplayR2L();
-        MenuSetChecked(win->menu, CmdToggleMangaMode, mangaMode);
-        MenuSetEnabled(win->menu, CmdToggleMangaMode, true);
-        MenuSetChecked(win->menu, CmdToggleAutoRotateWidePages, gSettings->comicBookUI.autoRotateWidePages);
-        MenuSetChecked(win->menu, CmdToggleUniformPageWidth, dm->GetUniformPageWidth());
-        MenuSetEnabled(win->menu, CmdToggleUniformPageWidth, true);
-        MenuSetChecked(win->menu, CmdToggleTrimEmptyMargins, dm->GetTrimEmptyMargins());
-        MenuSetEnabled(win->menu, CmdToggleTrimEmptyMargins, true);
-        MenuSetChecked(win->menu, CmdToggleMirror, dm->GetMirror());
-        MenuSetEnabled(win->menu, CmdShowWholePages, !dm->GetUserCrop().IsEmpty());
-        MenuSetEnabled(win->menu, CmdSaveTrimmedPagesAs, !dm->GetUserCrop().IsEmpty() || dm->GetTrimEmptyMargins());
-        MenuSetChecked(win->menu, CmdToggleReadColumns, dm->GetReadColumns());
-        MenuSetEnabled(win->menu, CmdToggleColumnsWholePage, dm->GetReadColumns());
-        MenuSetChecked(win->menu, CmdToggleColumnsWholePage, dm->ShowsColumnsWholePage());
+        MenuSetChecked(menu, CmdToggleMangaMode, mangaMode);
+        MenuSetEnabled(menu, CmdToggleMangaMode, true);
+        MenuSetChecked(menu, CmdToggleAutoRotateWidePages, gSettings->comicBookUI.autoRotateWidePages);
+        MenuSetChecked(menu, CmdToggleUniformPageWidth, dm->GetUniformPageWidth());
+        MenuSetEnabled(menu, CmdToggleUniformPageWidth, true);
+        MenuSetChecked(menu, CmdToggleTrimEmptyMargins, dm->GetTrimEmptyMargins());
+        MenuSetEnabled(menu, CmdToggleTrimEmptyMargins, true);
+        MenuSetChecked(menu, CmdToggleMirror, dm->GetMirror());
+        MenuSetEnabled(menu, CmdShowWholePages, !dm->GetUserCrop().IsEmpty());
+        MenuSetEnabled(menu, CmdSaveTrimmedPagesAs, !dm->GetUserCrop().IsEmpty() || dm->GetTrimEmptyMargins());
+        MenuSetChecked(menu, CmdToggleReadColumns, dm->GetReadColumns());
+        MenuSetEnabled(menu, CmdToggleColumnsWholePage, dm->GetReadColumns());
+        MenuSetChecked(menu, CmdToggleColumnsWholePage, dm->ShowsColumnsWholePage());
     }
 }
 
-static void MenuUpdateStateForWindow(MainWindow* win) {
+static void MenuUpdateStateForWindow(MainWindow* win, HMENU menu) {
     WindowTab* tab = win->CurrentTab();
 
     bool hasDocument = tab && tab->IsDocLoaded();
-    MenuSetEnabledForDocumentCommands(win->menu, hasDocument);
+    MenuSetEnabledForDocumentCommands(menu, hasDocument);
 
-    SetMenuStateForSelection(tab, win->menu);
-    MenuSetEnabled(win->menu, CmdClose, IsFileCloseMenuEnabled());
+    SetMenuStateForSelection(tab, menu);
+    MenuSetEnabled(menu, CmdClose, IsFileCloseMenuEnabled());
 
-    MenuUpdatePrintItem(win, win->menu);
+    MenuUpdatePrintItem(win, menu);
 
     bool enabled = win->IsDocLoaded() && tab && tab->ctrl->HasToc();
-    MenuSetEnabled(win->menu, CmdToggleBookmarks, enabled);
+    MenuSetEnabled(menu, CmdToggleBookmarks, enabled);
 
     bool documentSpecific = win->IsDocLoaded();
     bool bookmarksShown = IsSidebarViewShown(win, SidebarView::Bookmarks);
     bool checked = documentSpecific ? bookmarksShown : gSettings->showToc;
-    MenuSetChecked(win->menu, CmdToggleBookmarks, checked);
-    MenuSetEnabled(win->menu, CmdToggleThumbnails, CanShowThumbnails(tab));
-    MenuSetChecked(win->menu, CmdToggleThumbnails, IsSidebarViewShown(win, SidebarView::Thumbnails));
+    MenuSetChecked(menu, CmdToggleBookmarks, checked);
+    MenuSetEnabled(menu, CmdToggleThumbnails, CanShowThumbnails(tab));
+    MenuSetChecked(menu, CmdToggleThumbnails, IsSidebarViewShown(win, SidebarView::Thumbnails));
 
-    MenuSetChecked(win->menu, CmdFavoriteToggle, IsSidebarViewShown(win, SidebarView::Favorites));
-    MenuSetChecked(win->menu, CmdFavoriteShowInTab, FindFavoritesTab(win) != nullptr);
+    MenuSetChecked(menu, CmdFavoriteToggle, IsSidebarViewShown(win, SidebarView::Favorites));
+    MenuSetChecked(menu, CmdFavoriteShowInTab, FindFavoritesTab(win) != nullptr);
     {
         // checked when mode is not "hide" (show or overlay)
         bool toolbarOn =
             win->IsFullScreen() ? FullscreenToolbarModeFromPrefs() != kToolbarHide : !ToolbarModeIsHidden();
-        MenuSetChecked(win->menu, CmdToggleToolbar, toolbarOn);
+        MenuSetChecked(menu, CmdToggleToolbar, toolbarOn);
     }
-    MenuSetChecked(win->menu, CmdToggleMenuBar, gSettings->showMenubar);
-    MenuSetChecked(win->menu, CmdToggleCaption, gSettings->showCaption);
-    MenuSetChecked(win->menu, CmdToggleSidebarAutoHide, gSettings->sidebarAutoHide);
+    MenuSetChecked(menu, CmdToggleMenuBar, gSettings->showMenubar);
+    MenuSetChecked(menu, CmdToggleCaption, gSettings->showCaption);
+    MenuSetChecked(menu, CmdToggleSidebarAutoHide, gSettings->sidebarAutoHide);
     // CmdChangeScrollbar doesn't need a check mark - it opens a dialog
-    MenuUpdateDisplayMode(win);
-    MenuUpdateZoom(win);
+    MenuUpdateDisplayMode(win, menu);
+    MenuUpdateZoom(win, menu);
 
     if (win->IsDocLoaded() && tab) {
-        MenuSetEnabled(win->menu, CmdNavigateBack, tab->ctrl->CanNavigate(-1));
-        MenuSetEnabled(win->menu, CmdNavigateForward, tab->ctrl->CanNavigate(1));
+        MenuSetEnabled(menu, CmdNavigateBack, tab->ctrl->CanNavigate(-1));
+        MenuSetEnabled(menu, CmdNavigateForward, tab->ctrl->CanNavigate(1));
     }
 
     // TODO: is this check too expensive?
@@ -931,39 +1406,39 @@ static void MenuUpdateStateForWindow(MainWindow* win) {
 
     if (tab && tab->ctrl && !fileExists && dir::Exists(tab->filePath)) {
         for (int id : disableIfDirectoryOrBrokenPDF) {
-            MenuSetEnabled(win->menu, id, false);
+            MenuSetEnabled(menu, id, false);
         }
     } else if (fileExists && CouldBePDFDoc(tab)) {
         for (int id : disableIfDirectoryOrBrokenPDF) {
-            MenuSetEnabled(win->menu, id, true);
+            MenuSetEnabled(menu, id, true);
         }
     }
 
     DisplayModel* dm = tab ? tab->AsFixed() : nullptr;
     EngineBase* engine = dm ? dm->GetEngine() : nullptr;
     if (engine) {
-        MenuSetEnabled(win->menu, CmdFindFirst, !engine->isImageCollection);
+        MenuSetEnabled(menu, CmdFindFirst, !engine->isImageCollection);
     }
 
     if (win->IsDocLoaded() && !fileExists) {
-        MenuSetEnabled(win->menu, CmdRenameFile, false);
-        MenuSetEnabled(win->menu, CmdDeleteFile, false);
-        MenuSetEnabled(win->menu, CmdDeleteFileAndOpenNext, false);
+        MenuSetEnabled(menu, CmdRenameFile, false);
+        MenuSetEnabled(menu, CmdDeleteFile, false);
+        MenuSetEnabled(menu, CmdDeleteFileAndOpenNext, false);
     }
 
-    CheckMenuRadioItem(win->menu, gFirstSetThemeCmdId, gLastSetThemeCmdId, gCurrSetThemeCmdId, MF_BYCOMMAND);
+    CheckMenuRadioItem(menu, gFirstSetThemeCmdId, gLastSetThemeCmdId, gCurrSetThemeCmdId, MF_BYCOMMAND);
 
-    MenuSetChecked(win->menu, CmdToggleLinks, gSettings->showLinks);
-    MenuSetChecked(win->menu, CmdToggleVimKeys, gSettings->vimKeys);
-    MenuSetChecked(win->menu, CmdTogglePageBoxes, win->showPageBoxes);
-    MenuSetChecked(win->menu, CmdToggleHighlightFormFields, gSettings->highlightFormFields);
-    MenuSetChecked(win->menu, CmdToggleTransparencyGrid, ShowTransparencyGrid());
-    MenuSetChecked(win->menu, CmdTogglePageGrid, ShowPageGrid());
-    MenuSetChecked(win->menu, CmdMeasure, win->measurementToolbar != nullptr);
-    MenuSetChecked(win->menu, CmdToggleImages, ShowImageOutlines());
-    MenuSetChecked(win->menu, CmdDebugShowFitContentArea, ShowFitContentArea());
-    MenuSetEnabled(win->menu, CmdTabGroupSave, HasOpenedDocuments(win));
-    MenuSetChecked(win->menu, CmdToggleFilePicker, gSettings && str::EqI(gSettings->filePicker, StrL("sumatrapdf")));
+    MenuSetChecked(menu, CmdToggleLinks, gSettings->showLinks);
+    MenuSetChecked(menu, CmdToggleVimKeys, gSettings->vimKeys);
+    MenuSetChecked(menu, CmdTogglePageBoxes, win->showPageBoxes);
+    MenuSetChecked(menu, CmdToggleHighlightFormFields, gSettings->highlightFormFields);
+    MenuSetChecked(menu, CmdToggleTransparencyGrid, ShowTransparencyGrid());
+    MenuSetChecked(menu, CmdTogglePageGrid, ShowPageGrid());
+    MenuSetChecked(menu, CmdMeasure, win->measurementToolbar != nullptr);
+    MenuSetChecked(menu, CmdToggleImages, ShowImageOutlines());
+    MenuSetChecked(menu, CmdDebugShowFitContentArea, ShowFitContentArea());
+    MenuSetEnabled(menu, CmdTabGroupSave, HasOpenedDocuments(win));
+    MenuSetChecked(menu, CmdToggleFilePicker, gSettings && str::EqI(gSettings->filePicker, StrL("sumatrapdf")));
 }
 
 void OnAboutContextMenu(MainWindow* win, int x, int y) {
@@ -1113,8 +1588,9 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
     AutoDelete delCtx(ctx);
     HMENU popup = BuildMenuFromDef(menuDefContext, CreatePopupMenu(), ctx);
 
-    // in fullscreen, add "Menu" as first item containing the full menu bar
     bool isFullScreen = win->IsFullScreenOrPresentation();
+#ifndef SOLOKPDF_PDFIUM
+    // in fullscreen, add "Menu" as first item containing the full menu bar
     if (isFullScreen) {
         HMENU menuBarCopy = BuildMenuFromDef(menuDefMenubar, CreatePopupMenu(), ctx);
         WCHAR* menuLabel = CWStrTemp(Tr("Menu"));
@@ -1125,6 +1601,7 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
         mii.dwTypeData = menuLabel;
         InsertMenuItemW(popup, 0, TRUE, &mii);
     }
+#endif
 
     int pageNoUnderCursor = dm->GetPageNoByPoint(cursorPos);
     EngineBase* engine = dm->GetEngine();
@@ -1147,11 +1624,13 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
     bool isImageDoc = engine && (engine->isImageCollection || engine->kind == kindEngineImage ||
                                  engine->kind == kindEngineImageDir || engine->kind == kindEngineComicBooks);
     win->contextMenuPtValid = !isImageDoc && ReadAloudCanReadFromCursor(dm, cursorPos);
+#ifndef SOLOKPDF_PDFIUM
     HMENU readAloudCtxMenu = GetReadAloudContextSubmenu();
     // no text to speak on comics / image folders / single images
     if (readAloudCtxMenu && !isImageDoc) {
         RebuildReadAloudMenu(win, readAloudCtxMenu, true, win->contextMenuPtValid);
     }
+#endif
 
     if (!pageEl || !pageEl->Is(kindPageElementDest) || !PageDestHasAddress(pageEl->AsLink())) {
         MenuRemove(popup, CmdCopyLinkTarget);
@@ -1193,6 +1672,7 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
             MenuRemove(popup, CmdResizeImage);
             MenuRemove(popup, CmdConvertImageToPdf);
         }
+#ifndef SOLOKPDF_PDFIUM
         // remove the Image submenu entirely if no items left
         if (!onImage && !isImageEngine) {
             // find and remove the submenu by scanning top-level items
@@ -1205,6 +1685,7 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
                 }
             }
         }
+#endif
     }
 
     if (!engine || !engine->HasErrors()) {
@@ -1264,7 +1745,17 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
     if (gSettings->showToolbar) {
         MenuRemove(popup, CmdToggleToolbar);
     }
+#ifdef SOLOKPDF_PDFIUM
+    PruneMenuTree(popup);
+    if (isFullScreen) {
+        auto appCtx = NewAppCommandCtx(win);
+        HMENU menuBarCopy = BuildMenuFromDef(menuDefMenubar, CreatePopupMenu(), &appCtx);
+        MenuUpdateStateForWindow(win, menuBarCopy);
+        InsertMenuW(popup, 1, MF_BYPOSITION | MF_POPUP, (UINT_PTR)menuBarCopy, CWStrTemp(Tr("Menu")));
+    }
+#else
     RemoveBadMenuSeparators(popup);
+#endif
 
     // highlight the element under cursor while context menu is open
     if (pageEl && pageNoUnderEl > 0) {
@@ -1312,6 +1803,13 @@ void OnWindowContextMenu(MainWindow* win, int x, int y) {
     }
 
     switch (cmdId) {
+#ifdef SOLOKPDF_PDFIUM
+        case CmdToggleFullscreen:
+            if (isFullScreen) {
+                ExitFullScreen(win);
+            }
+            return;
+#endif
         case CmdSearchGoogleLens:
             SearchGoogleLensSelection(tab);
             return;
@@ -1455,9 +1953,30 @@ HMENU BuildMenu(MainWindow* win) {
     auto* ctx = NewBuildMenuCtx(tab);
     AutoDelete delCtx(ctx);
     HMENU mainMenu = BuildMenuFromDef(menuDefMenubar, CreateMenu(), ctx);
+#ifndef SOLOKPDF_PDFIUM
     // BuildMenuFromDef just set the global to this window's submenu
     win->menuReadAloud = GetReadAloudAppSubmenu();
+#endif
     return mainMenu;
+}
+
+static void RebuildFavoritesMenu(MainWindow* win, HMENU menu) {
+#ifdef SOLOKPDF_PDFIUM
+    ClearMenuTree(menu);
+#else
+    MenuEmpty(menu);
+#endif
+    auto* ctx = NewBuildMenuCtx(win->CurrentTab());
+    AutoDelete delCtx(ctx);
+#ifdef SOLOKPDF_PDFIUM
+    BuildMenuFromDef(solokFavorites, menu, ctx);
+    RebuildFavMenu(win, menu);
+    BuildMenuFromDef(solokFavoritesMore, menu, ctx);
+    MenuSetEnabled(menu, CmdEditFavorites, HasFavorites());
+#else
+    BuildMenuFromDef(menuDefFavorites, menu, ctx);
+    RebuildFavMenu(win, menu);
+#endif
 }
 
 void UpdateAppMenu(MainWindow* win, HMENU m) {
@@ -1465,19 +1984,31 @@ void UpdateAppMenu(MainWindow* win, HMENU m) {
     if (!win) {
         return;
     }
+#ifdef SOLOKPDF_PDFIUM
+    MenuDef* def = GetLiveMenuDef(m);
+    if (def == menuDefReadAloud || def == menuDefContextReadAloud) {
+        bool fromCanvas = def == menuDefContextReadAloud;
+        RebuildReadAloudMenu(win, m, fromCanvas, fromCanvas && win->contextMenuPtValid);
+    } else if (IsLiveMenuDef(def)) {
+        if (def == solokFile) {
+            RebuildFileMenu(win->CurrentTab(), m);
+        } else if (def == solokFavorites) {
+            RebuildFavoritesMenu(win, m);
+        } else if (def == menuDefZoom) {
+            BuildMenuZoom(m);
+        } else {
+            ClearMenuTree(m);
+            auto ctx = NewAppCommandCtx(win);
+            BuildMenuFromDef(def, m, &ctx);
+        }
+        MenuUpdateStateForWindow(win, m);
+    }
+#else
     UINT_PTR id = (UINT_PTR)GetMenuItemID(m, 0);
     if (id == menuDefFile[0].idOrSubmenu) {
         RebuildFileMenu(win->CurrentTab(), m);
     } else if (id == menuDefFavorites[0].idOrSubmenu) {
-        MenuEmpty(m);
-        // build with a real ctx (not nullptr): command-visibility now hides
-        // document-dependent commands when no document is loaded, and a null ctx
-        // looks like "no document" -- which dropped CmdFavoriteAdd/CmdFavoriteDel
-        // from the rebuilt menu, so RebuildFavMenu's MenuSetText then failed
-        auto* ctx = NewBuildMenuCtx(win->CurrentTab());
-        AutoDelete delCtx(ctx);
-        BuildMenuFromDef(menuDefFavorites, m, ctx);
-        RebuildFavMenu(win, m);
+        RebuildFavoritesMenu(win, m);
     } else if (id == menuDefZoom[0].idOrSubmenu) {
         BuildMenuZoom(m);
     } else if (m && m == win->menuReadAloud) {
@@ -1485,7 +2016,8 @@ void UpdateAppMenu(MainWindow* win, HMENU m) {
     } else if (IsReadAloudContextSubmenu(m)) {
         RebuildReadAloudMenu(win, m, true, win->contextMenuPtValid);
     }
-    MenuUpdateStateForWindow(win);
+#endif
+    MenuUpdateStateForWindow(win, win->menu);
 }
 
 // show/hide top-level menu bar. This doesn't persist across launches

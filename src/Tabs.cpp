@@ -386,6 +386,10 @@ static void TabsContextMenu(TabsCtrl* tabsCtrl, VirtMouseEvent* ev) {
     if (!IsMainWindowValidAndNotClosing(win)) {
         return;
     }
+    tabIdx = win->GetTabIdx(tabUnderMouse);
+    if (tabIdx < 0) {
+        return;
+    }
     switch (cmdId) {
         case CmdClose: {
             CloseTab(tabUnderMouse, false);

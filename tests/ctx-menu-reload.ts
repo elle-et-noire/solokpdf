@@ -6,9 +6,10 @@
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control";
-import { cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
+import { APP_NAME, cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util";
 import { clientToScreen, getClientRect, postMessage, sleep, VK_ESCAPE, WM_CHAR, WM_KEYDOWN } from "./winapi";
 import {
+  choosePopupCommand,
   findCanvas,
   killAndWait,
   launchControlled,
@@ -131,6 +132,10 @@ export async function testit(): Promise<void> {
     if (USE_NG) {
       await client.request(ControlCommand.TestUiState, ["ctxcmd", cmdId("CmdCopyImage")]);
       await dismissMenu(client, popup);
+    } else if (APP_NAME === "SolokPDF") {
+      if (!choosePopupCommand(popup, cmdId("CmdCopyImage"))) {
+        throw new Error("ctx-menu-reload: no direct Copy Image command");
+      }
     } else {
       await menuChar(client, popup, "i");
       await sleep(100);

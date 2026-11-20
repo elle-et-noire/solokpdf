@@ -4679,3 +4679,47 @@ The owner overruled the outline verdict the same day: E94 draws the
 selection in the selection color instead of a text-color ring. E91 gave the
 toolbar card a raised surface, shared with the command palette, and a drop
 shadow.
+
+## Win32 menu reorganization (2026-11-20)
+
+The baseline was `82f8882c1`. The starting HEAD, `5822a840c`, added the
+implementation plan and backlog entry. The migration table and native menu
+trees are in the ignored `.work/menu-plan/` directory.
+
+| Surface        | Before                                                                    | After                                                                                                       |
+| -------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Menu bar       | File, View, Go To, Zoom, Selection, Read Aloud, Favorites, Settings, Help | File, View, Go To, Favorites, Tools, Settings, Help                                                         |
+| Page margin    | Selection and Lens submenus appeared ahead of page favorites              | The page favorite comes first. Annotations, read aloud and page Lens remain available for the clicked page. |
+| Text selection | Copy under Selection, Highlight under Annotations > Create From Selection | Copy and Highlight are the first two commands.                                                              |
+| PDF image      | Copy and Save under Selected Image                                        | Copy Image and Save Image are the first two commands. Image Actions contains the editor and Lens commands.  |
+
+The Win32 regression test failed on the old hierarchy before implementation.
+The PDF/EPUB test checks the PDF Operations submenu after a tab switch. The
+menu now reads the active document when File, View, Go To, Favorites, Tools
+or Help opens. Read Aloud distinguishes the application menu from the canvas
+menu. Picking an image, link or snippet still passes the original page or
+canvas point.
+
+PDFium and MuPDF both copied the link address, selected word and 2 × 2 red
+image, saved that image as PNG and inserted a highlight and snippet at the
+expected page or point. MuPDF exposed PDF image replacement and external
+editing. PDFium hid both. File and Favorites rebuilds kept the custom viewer,
+email, history and favorite routes.
+
+Debug checks covered English and Japanese menus at 750 and 430 pixels.
+The Japanese run used a local fixture for menu labels because the local
+translation catalog was empty. The build inputs were restored afterward.
+The native menu tests exercised Right Arrow, Enter, Esc, the hidden-bar
+keyboard route and the Home and bookmark keyboard context menus. Both
+engines opened attached PDFs.
+A non-active tab kept its own Close target and offered a destination picker
+when it had unsaved annotations.
+
+The system-clipboard check in `issue-6360` skipped on the hidden desktop.
+The menu test read and checked the pixels copied to the app-local clipboard.
+Both engines opened the attachment save dialog, which the probe canceled. Email and
+external viewers were checked through their entries in the rebuilt File menu.
+
+The planned Debug tests passed on both engines. Targeted ASan runs passed
+`solok-menu-layout`, `tab-menu-close`, `ctx-menu-reload` and
+`ad-hoc-b65-menu-owner` on both engines.

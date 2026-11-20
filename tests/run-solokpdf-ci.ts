@@ -59,6 +59,7 @@ import { testit as testCursor } from "./ad-hoc-b59-cursor.ts";
 import { testit as issue6269 } from "./issue-6269.ts";
 import { testit as lastTabState } from "./ad-hoc-b65-last-tab.ts";
 import { testit as menuOwner } from "./ad-hoc-b65-menu-owner.ts";
+import { testit as menuLayout } from "./solok-menu-layout.ts";
 import { testit as rtlToast } from "./issue-6113.ts";
 import { testit as homeFocusB71 } from "./ad-hoc-b71-home-focus.ts";
 import { testit as homeFocusHover } from "./ad-hoc-e88-home-focus-hover.ts";
@@ -180,6 +181,7 @@ const tests: NamedTest[] = [
   ["issue-6269", issue6269],
   ["ad-hoc-b65-last-tab", lastTabState],
   ["ad-hoc-b65-menu-owner", menuOwner],
+  ["solok-menu-layout", menuLayout],
   ["issue-6464-tab-layout", testTabLayout],
   ["issue-6464-ctrl-t", testCtrlTShortcut],
   ["issue-6464-no-home-default", testNoHomeDefault],

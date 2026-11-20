@@ -8,12 +8,13 @@
 // Run: bun tests/file-menu-send-by-email.ts [--no-build]
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
+import { APP_NAME, cmdId, runStandalone, tmpPath, USE_NG, SETTINGS_FILE } from "./util.ts";
 import {
   getMenuItemCount,
   getMenuItemId,
   getMenuItemText,
   getPopupMenuHandle,
+  getSubMenu,
   postMessage,
   sendMessage,
   VK_ESCAPE,
@@ -24,6 +25,16 @@ const WM_COMMAND = 0x0111;
 const kMenuBarCmdFirst = 50000;
 const kFileMenuIdx = 0;
 const kViewerName = "MenuTestViewer";
+
+function menuEntries(menu: bigint): { ids: number[]; texts: string[] } {
+  const ids: number[] = [];
+  const texts: string[] = [];
+  for (let i = 0; i < getMenuItemCount(menu); i++) {
+    ids.push(getMenuItemId(menu, i));
+    texts.push(getMenuItemText(menu, i));
+  }
+  return { ids, texts };
+}
 
 const SETTINGS = `UiLanguage = en
 CheckForUpdates = false
@@ -55,22 +66,22 @@ export async function testit(): Promise<void> {
     postMessage(frame, WM_COMMAND, kMenuBarCmdFirst + kFileMenuIdx, 0);
     const popup = await waitForContextMenu();
     const hmenu = getPopupMenuHandle(popup);
-    const ids: number[] = [];
-    const texts: string[] = [];
-    for (let i = 0; i < getMenuItemCount(hmenu); i++) {
-      ids.push(getMenuItemId(hmenu, i));
-      texts.push(getMenuItemText(hmenu, i));
+    const file = menuEntries(hmenu);
+    let external = file;
+    if (APP_NAME === "SolokPDF") {
+      const i = file.texts.indexOf("Open Externally or Send");
+      external = menuEntries(i >= 0 ? getSubMenu(hmenu, i) : 0n);
     }
     await pressKey(frame, VK_ESCAPE, 0);
 
-    const got = texts.join(" | ");
-    if (!ids.includes(cmdId("CmdPrint"))) {
+    const got = [...file.texts, ...external.texts].join(" | ");
+    if (!file.ids.includes(cmdId("CmdPrint"))) {
       throw new Error(`file-menu-send-by-email: not the File menu: ${got}`);
     }
-    if (!texts.some((t) => t.includes(kViewerName))) {
+    if (!external.texts.some((t) => t.includes(kViewerName))) {
       throw new Error(`file-menu-send-by-email: external viewer missing: ${got}`);
     }
-    if (!ids.includes(cmdId("CmdSendByEmail"))) {
+    if (!external.ids.includes(cmdId("CmdSendByEmail"))) {
       throw new Error(`file-menu-send-by-email: CmdSendByEmail missing: ${got}`);
     }
   } finally {

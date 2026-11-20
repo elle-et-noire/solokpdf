@@ -6,16 +6,33 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pagePoint } from "./ad-hoc-e123-busy-actions.ts";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { IS_MAC } from "./host.ts";
-import { SETTINGS_FILE, assemblePdf, cmdId, runStandalone, tmpPath } from "./util.ts";
-import { postMessage, sendText, sleep, WM_KEYDOWN } from "./winapi.ts";
+import { APP_NAME, SETTINGS_FILE, assemblePdf, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
 import {
+  clientToScreen,
+  getMenuItemCount,
+  getMenuItemId,
+  getMenuItemText,
+  getPopupMenuHandle,
+  postMessage,
+  sendText,
+  sleep,
+  WM_KEYDOWN,
+} from "./winapi.ts";
+import {
+  choosePopupCommand,
+  findCanvas,
   killAndWait,
   launchControlled,
+  moveTestCursor,
+  openContextMenu,
+  openPopupSubmenu,
   paletteSetText,
   sendCommand,
   waitForPalette,
+  waitForContextMenu,
   paletteState,
 } from "./win-automation.ts";
 
@@ -102,6 +119,36 @@ async function waitFreeTexts(client: ControlClient, n: number): Promise<number[]
   }
 }
 
+async function snippetFromMenu(client: ControlClient, frame: number): Promise<void> {
+  const canvas = findCanvas(frame);
+  const at = await pagePoint(client, { x: 350, y: 510 });
+  const pt = clientToScreen(canvas, at.x, at.y);
+  await moveTestCursor(pt.x, pt.y, client);
+  openContextMenu(canvas, pt.x, pt.y);
+  let popup = await waitForContextMenu(1500, frame);
+  for (const label of ["Annotations", "Create Under Cursor", "Insert Text"]) {
+    const menu = getPopupMenuHandle(popup);
+    const pos = Array.from({ length: getMenuItemCount(menu) }, (_, i) => i).find(
+      (i) => getMenuItemText(menu, i) === label,
+    );
+    popup = pos === undefined ? 0 : await openPopupSubmenu(popup, pos);
+    if (!popup) throw new Error(`text-snippets: could not open ${label}`);
+  }
+  const menu = getPopupMenuHandle(popup);
+  const id = Array.from({ length: getMenuItemCount(menu) }, (_, i) => i)
+    .filter((i) => getMenuItemText(menu, i) === "Snippet One")
+    .map((i) => getMenuItemId(menu, i))[0];
+  if (!id || !choosePopupCommand(popup, id)) throw new Error("text-snippets: Snippet One missing in context menu");
+  await waitFreeTexts(client, 3);
+  const state = String((await client.request(ControlCommand.TestMarkupAnnots, []))[1] ?? "");
+  const positions = [...state.matchAll(/type=FreeText page=1 rect=([^,]+),([^,]+)/g)];
+  const x = 350;
+  const y = 792 - 510;
+  if (!positions.some((m) => Math.abs(Number(m[1]) - x) <= 2 && Math.abs(Number(m[2]) - y) <= 2)) {
+    throw new Error(`text-snippets: no annotation at the context-menu point\n${state}`);
+  }
+}
+
 export async function testit(): Promise<void> {
   const dir = tmpPath("text-snippets");
   rmSync(dir, { recursive: true, force: true });
@@ -140,6 +187,7 @@ export async function testit(): Promise<void> {
     if (!(twoLines > oneLine * 1.5)) {
       throw new Error(`text-snippets: a two-line snippet is ${twoLines} tall, a one-line one ${oneLine}`);
     }
+    if (!USE_NG && APP_NAME === "SolokPDF") await snippetFromMenu(client, frame);
     console.log("text-snippets: OK");
   } finally {
     client.close();

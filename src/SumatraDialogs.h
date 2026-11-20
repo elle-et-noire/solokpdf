@@ -14,7 +14,8 @@ enum class TextRole;
 enum class VirtButtonStyle;
 
 void ShowAddFavoriteDialog(MainWindow* win, Str filePath, int pageNo, Str pageLabel, Str name);
-void ShowEditFavoritesDialog(MainWindow* win);
+struct Favorite;
+void ShowEditFavoritesDialog(MainWindow* win, Favorite* selected = nullptr);
 void ShowAdvancedSettingsDialog(MainWindow* win);
 void ShowShortcutsDialog(MainWindow* win);
 TempStr ShortcutsDialogTestTemp(Str action, Str command, Str key, Str argument, int* exitCodeOut);

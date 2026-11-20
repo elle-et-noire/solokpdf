@@ -336,10 +336,13 @@ bool AddFavoriteWnd::Create(MainWindow* win, FavDlgMode modeIn, Str path, int pa
     return true;
 }
 
-static void ShowFavoriteDialog(MainWindow* win, FavDlgMode mode, Str filePath, int pageNo, Str pageLabel, Str name) {
+static void ShowFavoriteDialog(MainWindow* win, FavDlgMode mode, Str filePath, int pageNo, Str pageLabel, Str name,
+                               Favorite* selected = nullptr) {
     if (gAddFavoriteWnd && gAddFavoriteWnd->mode == mode) {
         if (mode == FavDlgMode::Add) {
             gAddFavoriteWnd->SetTarget(win, filePath, pageNo, pageLabel, name);
+        } else if (selected) {
+            gAddFavoriteWnd->Reload(selected);
         }
         if (gAddFavoriteWnd->hwnd) {
             gAddFavoriteWnd->DoLayout();
@@ -366,6 +369,9 @@ static void ShowFavoriteDialog(MainWindow* win, FavDlgMode mode, Str filePath, i
         delete wnd;
         return;
     }
+    if (selected) {
+        wnd->Reload(selected);
+    }
     gAddFavoriteWnd = wnd;
     RunModalWindow(wnd->hwnd, win ? win->hwndFrame : nullptr);
 }
@@ -374,6 +380,6 @@ void ShowAddFavoriteDialog(MainWindow* win, Str filePath, int pageNo, Str pageLa
     ShowFavoriteDialog(win, FavDlgMode::Add, filePath, pageNo, pageLabel, name);
 }
 
-void ShowEditFavoritesDialog(MainWindow* win) {
-    ShowFavoriteDialog(win, FavDlgMode::Edit, {}, 0, {}, {});
+void ShowEditFavoritesDialog(MainWindow* win, Favorite* selected) {
+    ShowFavoriteDialog(win, FavDlgMode::Edit, {}, 0, {}, {}, selected);
 }

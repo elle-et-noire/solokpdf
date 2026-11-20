@@ -499,13 +499,21 @@ static void FavTreeContextMenu(ContextMenuEvent* ev) {
     }
     HMENU popup = BuildMenuFromDef(menuDefContextFav, CreatePopupMenu(), nullptr);
     MenuSetChecked(popup, CmdToggleFavoritesSort, gSettings->sortFavoritesByName);
-    if (!ti) {
+    auto* item = (FavTreeItem*)ti;
+    Favorite* favorite = item ? item->favorite : nullptr;
+    bool isChild = item && item->parent;
+    if (!favorite) {
         // Sort By Name works with no selection; Remove needs a favorite row.
         MenuRemove(popup, CmdFavoriteDel);
+        MenuRemove(popup, CmdEditFavorites);
+        RemoveBadMenuSeparators(popup);
     }
     uint flags = TPM_RETURNCMD | TPM_RIGHTBUTTON;
     int cmd = TrackPopupMenu(popup, flags, pt.x, pt.y, 0, win->hwndFrame, nullptr);
     DestroyMenu(popup);
+    if (!IsMainWindowValidAndNotClosing(win)) {
+        return;
+    }
 
     // TODO: it would be nice to have a system for undo-ing things, like in Gmail,
     // so that we can do destructive operations without asking for permission via
@@ -515,12 +523,18 @@ static void FavTreeContextMenu(ContextMenuEvent* ev) {
         ToggleSortFavoritesByName();
         return;
     }
-    if (CmdFavoriteDel == cmd && ti) {
-        FavTreeItem* fti = (FavTreeItem*)ti;
-        Favorite* toDelete = fti->favorite;
-        FileState* f = GetByFavorite(toDelete);
-        if (fti->parent) {
-            DelFavorite(f, toDelete);
+    if (!favorite || (cmd != CmdFavoriteDel && cmd != CmdEditFavorites)) {
+        return;
+    }
+    FileState* f = GetByFavorite(favorite);
+    if (!f) {
+        return;
+    }
+    if (cmd == CmdEditFavorites) {
+        ShowEditFavoritesDialog(win, favorite);
+    } else {
+        if (isChild) {
+            DelFavorite(f, favorite);
         } else {
             RememberFavTreeExpansionStateForAllWindows();
             RemoveAllFavForFile(f->filePath);

@@ -6,11 +6,43 @@
 // Extract Pages stays: MuPDF draws an epub's pages into a new PDF (#6509).
 
 import { ControlCommand, withControlledSumatra } from "./control.ts";
-import { cmdId, EXE, runStandalone } from "./util.ts";
-import { sendCommandSync, waitForFrame } from "./win-automation.ts";
+import { APP_NAME, cmdId, EXE, runStandalone, USE_NG } from "./util.ts";
+import { sendCommand, sendCommandSync, waitForContextMenu, waitForFrame } from "./win-automation.ts";
+import {
+  getMenuItemCount,
+  getMenuItemId,
+  getPopupMenuHandle,
+  getSubMenu,
+  postMessage,
+  sleep,
+  VK_ESCAPE,
+  WM_KEYDOWN,
+} from "./winapi.ts";
 
 const kPdfCmds = ["CmdPdfShowInfo", "CmdPdfCompress", "CmdPdfExtractPages", "CmdPdfEncrypt"];
 const kEpubCmds = ["CmdPdfExtractPages"];
+const kToolsMenu = 50004;
+
+async function checkToolsMenu(frame: number, type: string, expected: string[]): Promise<void> {
+  sendCommand(frame, kToolsMenu);
+  const popup = await waitForContextMenu(1500, frame);
+  if (!popup) throw new Error("pdf-only-menu-items: Tools menu did not open");
+  const tools = getPopupMenuHandle(popup);
+  const pdfIds = kPdfCmds.map(cmdId);
+  const docs = Array.from({ length: getMenuItemCount(tools) }, (_, i) => getSubMenu(tools, i)).find((menu) =>
+    Array.from({ length: getMenuItemCount(menu) }, (_, i) => getMenuItemId(menu, i)).some((id) => pdfIds.includes(id)),
+  );
+  const ids = Array.from({ length: getMenuItemCount(docs ?? 0n) }, (_, i) => getMenuItemId(docs ?? 0n, i));
+  postMessage(popup, WM_KEYDOWN, VK_ESCAPE, 0);
+  for (const cmd of kPdfCmds) {
+    if (ids.includes(cmdId(cmd)) !== expected.includes(cmd)) {
+      throw new Error(
+        `pdf-only-menu-items: ${type} ${cmd} present=${ids.includes(cmdId(cmd))}, expected=${expected.join(", ")}; got ${ids}`,
+      );
+    }
+  }
+  await sleep(525);
+}
 
 async function vis(client: { request: Function }, cmd: string): Promise<string> {
   const res = await client.request(ControlCommand.TestCommandVisibility, [cmd, "menu"]);
@@ -27,6 +59,8 @@ export async function testit(): Promise<void> {
     EXE,
     async (client, proc) => {
       const frame = await waitForFrame(proc.pid!);
+      const checkNativeTools = !USE_NG && APP_NAME === "SolokPDF";
+      if (checkNativeTools) sendCommandSync(frame, cmdId("CmdToggleMenuBar"));
       for (const type of ["pdf", "epub"]) {
         await client.waitForRenderIdle();
         const shown = [];
@@ -43,6 +77,7 @@ export async function testit(): Promise<void> {
         if (type === "pdf" && shown.length === 0) {
           throw new Error("pdf-only-menu-items: pdf hid every PDF command");
         }
+        if (checkNativeTools) await checkToolsMenu(frame, type, shown);
         if (type === "pdf") {
           sendCommandSync(frame, cmdId("CmdPrevTab"));
         }

@@ -8,7 +8,7 @@
 import { writeFileSync } from "node:fs";
 import { ControlClient, ControlCommand } from "./control.ts";
 import { canUseRealClipboard } from "./test-clipboard.ts";
-import { assemblePdf, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
+import { APP_NAME, assemblePdf, cmdId, runStandalone, tmpPath, USE_NG } from "./util.ts";
 import {
   clientToScreen,
   clipboardSeqNo,
@@ -25,6 +25,7 @@ import {
   WM_CHAR,
 } from "./winapi.ts";
 import {
+  choosePopupCommand,
   findCanvas,
   killAndWait,
   launchControlled,
@@ -97,6 +98,12 @@ async function copyImageFromMenu(client: ControlClient, frame: number): Promise<
   const popup = await waitForContextMenu(3000);
   if (!popup) {
     throw new Error("issue-6360: context menu did not open");
+  }
+  if (APP_NAME === "SolokPDF") {
+    if (!choosePopupCommand(popup, cmdId("CmdCopyImage"))) {
+      throw new Error("issue-6360: no direct Copy Image command");
+    }
+    return;
   }
   // "Selected &Image", then "C&opy To Clipboard"
   postMessage(popup, WM_CHAR, "i".charCodeAt(0), 0);

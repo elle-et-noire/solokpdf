@@ -5,7 +5,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlClient, ControlCommand } from "./control.ts";
-import { assemblePdf, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
+import { APP_NAME, assemblePdf, cmdId, runStandalone, SLOW_BUILD_FACTOR, tmpPath, SETTINGS_FILE } from "./util.ts";
 import { postChar, postMessage, sleep, VK_END, WM_KEYDOWN, WM_KEYUP } from "./winapi.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 
@@ -121,6 +121,11 @@ export async function testit(): Promise<void> {
     }
     await expectVis(client, "CmdHideAnnotations", "palette", "show");
     await expectVis(client, "CmdToggleShowAnnotations", "palette", "show");
+    if (APP_NAME === "SolokPDF") {
+      for (const cmd of ["CmdViewAsHex", "CmdOpenFileWithOSFilePicker", "CmdOpenFileWithSumatraFilePicker"]) {
+        await expectVis(client, cmd, "palette", "show");
+      }
+    }
 
     await expectVis(client, "CmdUndo", "menu", "disable");
     await expectVis(client, "CmdCopyAnnotation", "menu", "disable");

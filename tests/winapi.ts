@@ -2632,6 +2632,11 @@ export const MF_BYPOSITION = 0x400;
 export const MF_GRAYED = 0x0001;
 export const MF_DISABLED = 0x0002;
 
+export function getMenuItemChecked(menu: bigint, pos: number): boolean {
+  const state = user32.symbols.GetMenuState(menu, pos, MF_BYPOSITION);
+  return state !== 0xffffffff && (state & 0x0008) !== 0; // MF_CHECKED
+}
+
 // the shortcut a menu item advertises (the part after the tab), "" if none
 export function getMenuItemAccel(hmenu: bigint, pos: number): string {
   const buf = new Uint16Array(512);

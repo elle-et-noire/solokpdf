@@ -13,7 +13,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { assemblePdf, cmdId, pollUntil, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
+import { APP_NAME, assemblePdf, cmdId, pollUntil, runStandalone, SETTINGS_FILE, tmpPath } from "./util.ts";
 import {
   clientToScreen,
   getControlText,
@@ -165,8 +165,8 @@ export async function goToPage(client: ControlClient, page: number): Promise<voi
 }
 
 // canvas point of page-1 point p, as the app maps it
-export async function pagePoint(client: ControlClient, p: Pt): Promise<Pt> {
-  const res = await client.request(ControlCommand.TestCurrentPdf, ["widget-cursor", 1, p.x, 792 - p.y]);
+export async function pagePoint(client: ControlClient, p: Pt, page = 1): Promise<Pt> {
+  const res = await client.request(ControlCommand.TestCurrentPdf, ["widget-cursor", page, p.x, 792 - p.y]);
   const m = /pt=(-?\d+),(-?\d+)/.exec(String(res[1] ?? ""));
   if (!m) throw new Error(`no canvas point: ${res[1]}`);
   return { x: +m[1]!, y: +m[2]! };
@@ -208,6 +208,11 @@ async function check(engine: Engine, failures: string[]): Promise<void> {
     await step("image menu", async () => {
       checkHeld(await holdLock(client, elementLock), "image menu");
       const items = await contextMenuAt(canvas, toCanvas(IMAGE), client);
+      if (APP_NAME === "SolokPDF") {
+        return items[0]?.text === "Copy Image" && items[1]?.text === "Save Image..."
+          ? null
+          : `no direct image copy and save in ${menuText(items)}`;
+      }
       const image = findSubMenu(items, "Selected Image");
       if (image?.items?.some((it) => it.text === "Copy To Clipboard")) return null;
       return `no Selected Image > Copy To Clipboard in ${menuText(items)}`;

@@ -11,7 +11,7 @@
 import { copyFileSync, writeFileSync } from "node:fs";
 import { ControlCommand, type ControlClient } from "./control.ts";
 import { IS_WIN } from "./host.ts";
-import { assemblePdf, makePng, runStandalone, SETTINGS_FILE, tmpPath, USE_NG } from "./util.ts";
+import { APP_NAME, assemblePdf, makePng, runStandalone, tmpPath, USE_NG } from "./util.ts";
 import {
   findCanvas,
   findSubMenu,
@@ -95,10 +95,13 @@ export async function testit(): Promise<void> {
 
     // right-click on the image: both commands are in its submenu
     const menu = await readContextMenuTree(findCanvas(frame));
-    const imageMenu = findSubMenu(menu, "Selected Image");
+    const imageMenu = findSubMenu(menu, APP_NAME === "SolokPDF" ? "Image Actions" : "Selected Image");
+    if (!imageMenu) {
+      throw new Error("replace-image: image submenu missing");
+    }
     const labels = (imageMenu?.items ?? []).map((it) => it.text);
     // SolokPDF hides both on PDFium tabs: PDFium draws the page from the file
-    if (SETTINGS_FILE === "SolokPDF-settings.txt" && process.env.SOLOKPDF_ENGINE !== "mupdf") {
+    if (APP_NAME === "SolokPDF" && process.env.SOLOKPDF_ENGINE !== "mupdf") {
       if (labels.includes("Replace Image...") || labels.includes("Edit Image in Another App")) {
         throw new Error(`replace-image: PDFium tab offers image replacement: ${JSON.stringify(labels)}`);
       }

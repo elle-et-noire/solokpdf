@@ -7,12 +7,23 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { makePdf, runStandalone, tmpPath } from "./util.ts";
-import { clientToScreen, getClientRect, postMessage, sleep } from "./winapi.ts";
+import { ControlCommand } from "./control.ts";
+import { APP_NAME, cmdId, makePdf, pollUntil, runStandalone, tmpPath } from "./util.ts";
 import {
+  clientToScreen,
+  getClientRect,
+  getMenuItemId,
+  getPopupMenuHandle,
+  getWindowText,
+  postMessage,
+  sleep,
+} from "./winapi.ts";
+import {
+  choosePopupCommand,
   findChildByClass,
   killAndWait,
   launchControlled,
+  moveTestCursor,
   openContextMenu,
   waitForContextMenu,
 } from "./win-automation.ts";
@@ -38,6 +49,33 @@ export async function testit(): Promise<void> {
     }
     // a document tab: the home tab has no menu, so probe along the bar
     const cr = getClientRect(tabs);
+    if (APP_NAME === "SolokPDF") {
+      const tabRows = async () => String((await client.request(ControlCommand.TestTabWidths, []))[1] ?? "");
+      const rows = [...(await tabRows()).matchAll(/^dx=(\d+) text=(.*)$/gm)];
+      const inactive = rows.findIndex((row) => row[2]!.includes("a.pdf"));
+      if (inactive < 0 || !getWindowText(frame).includes("b.pdf")) {
+        throw new Error("tab-menu-close: expected inactive a.pdf and active b.pdf");
+      }
+      const x =
+        rows.slice(0, inactive).reduce((sum, row) => sum + Number(row[1]), 0) +
+        Math.floor(Number(rows[inactive]![1]) / 2);
+      const point = clientToScreen(tabs, x, Math.floor(cr.bottom / 2));
+      await moveTestCursor(point.x, point.y, client);
+      openContextMenu(tabs, point.x, point.y);
+      const inactiveMenu = await waitForContextMenu(1500, frame);
+      const close = cmdId("CmdClose");
+      if (
+        !inactiveMenu ||
+        getMenuItemId(getPopupMenuHandle(inactiveMenu), 0) !== close ||
+        !choosePopupCommand(inactiveMenu, close)
+      ) {
+        throw new Error("tab-menu-close: no first Close item on inactive tab");
+      }
+      await pollUntil(tabRows, (raw) => !raw.includes("a.pdf") && raw.includes("b.pdf"), {
+        timeoutMs: 2000,
+        error: "tab-menu-close: Close did not act on the inactive tab",
+      });
+    }
     let menu = 0;
     for (let x = 40; x < cr.right && !menu; x += 80) {
       const pt = clientToScreen(tabs, x, Math.floor(cr.bottom / 2));
