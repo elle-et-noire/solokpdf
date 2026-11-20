@@ -556,8 +556,9 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
 
 - D14 supports Save Trimmed Pages As on PDFium tabs through the lazy editor,
   including unsaved annotations and encrypted input. Each page gets its shown
-  CropBox; outside content remains in the PDF. Extract Pages keeps encryption
-  and Convert to Images renders through PDFium without loading the editor.
+  CropBox; outside content remains in the PDF. Extract Pages and Delete Pages
+  keep encryption. Convert to Images renders through PDFium without loading
+  the editor.
   `ad-hoc-pdfium-d14` covers plain and AES-256 inputs; `issue-6520` checks
   saved page geometry. The editor records a disk version for retained input
   only when those bytes still match the file, so encrypted tools can reuse
@@ -567,10 +568,10 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   existing file tools perform bake, compression, page extraction/deletion,
   encryption/decryption, merge, text extraction and scripts on demand. Merge
   uses the lazy MuPDF editor only for an encrypted tab's password or unsaved
-  annotations; bake and extract likewise copy unsaved annotations. File tools
-  open or reload their output through the normal PDFium path. View rotation
-  already works in both engines; it does not rewrite page rotation in the
-  file. `tests/ad-hoc-pdfium-tools.ts`, `merge-struct-parents.ts`,
+  annotations. Bake, Extract Pages and Delete Pages also include unsaved
+  annotations in their output. File tools open or reload their output through
+  the normal PDFium path. View rotation already works in both engines; it does
+  not rewrite page rotation in the file. `tests/ad-hoc-pdfium-tools.ts`, `merge-struct-parents.ts`,
   `tool-merge.ts` and `pdf-script.ts` cover these paths.
 
 ## Printing

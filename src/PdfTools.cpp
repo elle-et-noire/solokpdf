@@ -846,8 +846,7 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
-    WindowTab* sourceTab = isExtract ? FindTabByFilePath(srcPath, win) : nullptr;
-    EngineBase* sourceEngine = sourceTab ? sourceTab->GetEngine() : nullptr;
+    EngineBase* sourceEngine = docTab ? docTab->GetEngine() : nullptr;
 
     TempStr pageRange;
     if (isExtract) {
@@ -859,15 +858,21 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
     }
 
     Str op = isExtract ? StrL("extract") : StrL("delete");
+    Str msg =
+        isExtract ? StrL("Failed to extract pages from PDF file.") : StrL("Failed to delete pages from PDF file.");
+    Str title = isExtract ? Tr("Extract Pages From PDF") : Tr("Delete Pages From PDF");
     logf("PdfDeletePageDoIt: %s pages '%s' from '%s' to '%s', range for pdfclean: %s\n", op, pages, srcPath, destPath,
          pageRange);
 
     Str inputPath = srcPath;
     TempStr tmpPath;
-    if (isExtract && sourceEngine && EngineHasUnsavedAnnotations(sourceEngine)) {
-        tmpPath = GetTempFilePathTemp(StrL("extract-pages"));
+    if (sourceEngine && EngineHasUnsavedAnnotations(sourceEngine)) {
+        tmpPath = GetTempFilePathTemp(StrL("pdf-page-range"));
         if (len(tmpPath) == 0 || !EngineMupdfSaveCopy(sourceEngine, tmpPath)) {
-            MessageBoxWarning(hwnd, StrL("Failed to extract pages from PDF file."), Tr("Extract Pages From PDF"));
+            if (tmpPath) {
+                file::Delete(tmpPath);
+            }
+            MessageBoxWarning(hwnd, msg, title);
             return;
         }
         inputPath = tmpPath;
@@ -901,9 +906,6 @@ void PdfDeletePageDialog::DoIt(VirtMouseEvent*) {
         StartLoadDocument(&args);
     } else {
         logf("PdfDeletePageDoIt: pdfclean_main failed with %d for %s\n", res, op);
-        Str msg =
-            isExtract ? StrL("Failed to extract pages from PDF file.") : StrL("Failed to delete pages from PDF file.");
-        Str title = isExtract ? Tr("Extract Pages From PDF") : Tr("Delete Pages From PDF");
         MessageBoxWarning(hwnd, msg, title);
     }
 }
