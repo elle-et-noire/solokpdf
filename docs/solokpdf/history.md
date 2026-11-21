@@ -5113,3 +5113,125 @@ keyboard input targets. R11 and R16 landed together in `298659fed`.
 The Debug batch passed all 14 invocations. The ASan batch passed all five
 after the Debug run released the shared test staging directory.
 Next is [R20](design-review-plan.md#4-ウィンドウ編集設定の状態).
+
+### R20 settings across windows
+
+Started at `782608c83` with Advanced Settings, palette value changes and the
+file watcher. The [E11 results](#e11-settings-application-2026-11-09) cover
+in-memory application and persistence.
+
+The dialog and palette value path rebuilt menus and toolbars twice per window.
+The external reload path rebuilt menu items but skipped showing or hiding the
+menu bar. The common window refresh now applies visibility before replacing the
+menu and updates layout once. The existing external reload test checks that
+two open windows hide and show their title-bar menus after file edits.
+
+R20 adopted in `a5dd0505f`. Hidden-desktop Debug passed
+`adv-settings-external-reload`, `adv-settings-home-reload`,
+`command-palette-settings`, `ad-hoc-b70-settings` on both engines,
+`ad-hoc-shortcuts-dialog` and `ad-hoc-pdfium-theme-switch`.
+B70 skipped translated labels because the build has no translation assets.
+External reload still regenerates commands and their menu IDs. Further
+setting-specific refresh changes would need evidence of a remaining cost.
+
+### R23 R24 recoloring and thumbnail publication
+
+Started at `a5dd0505f`. The [color policy](#e21-color-stage-policy-2026-11-10),
+[reflowable thumbnails](#e46-reflowable-thumbnail-colors-2026-11-15) and
+`ad-hoc-pdfium-thumb-theme` cover the document, F12 and Home paths.
+
+- R23. The Home key mapped adjustments `(0, 0)` and `(1, -31)` to the
+  same value. Home compares the captured view options by value, including
+  file-specific brightness and contrast. The document cache compares those
+  same color input fields for its generation.
+- R24. The PNG writer removed the old sidecar before attempting to replace
+  the PNG. Win32 now stages a neutral PNG containing the color metadata and
+  publishes it with one rename. Older cache entries can still use a sidecar.
+
+Both adopted in `f2ecf8b72`. Hidden-desktop Debug passed seven invocations.
+`ad-hoc-pdfium-thumb-theme` passed on both engines, including the adjusted
+photo pixels, a rejected read-only PNG replacement, preservation of the old
+PNG and sidecar bytes, retry, and a dark/light switch after restart.
+`theme-pdfium-cache`, `f12-gray-thumbnail` and `epub-theme-restyle` passed.
+The single-cover and bulk Home regression runs passed on both engines.
+
+### R12 R13 R14 R21 R22 PDF open and reads
+
+Started at `f2ecf8b72` with the PDFium open path, `PageTextCache` and the
+render lock. Prior coverage includes [retired text](#e42-retired-page-text-2026-11-15),
+[catalog loading](#e60-catalog-read-at-load-2026-11-16),
+[shared file buffers](#e65-shared-file-buffer-2026-11-16) and
+[engine contention](limitations.md#engine-contention-e133).
+
+- R13 held. PDFium skips enumeration for unlabeled files. For labeled files
+  it caches strings under the PDFium lock and derives the largest numeric
+  label. Reverse lookup returns the first matching label. The existing
+  `ad-hoc-pdfium` label case checks roman and decimal toolbar labels and a
+  jump by label. Reopen when a labeled document shows a material first-display
+  cost that this pass accounts for.
+- R14 held. The small-file scan can suppress unnecessary catalog and editor
+  queries. File-backed inputs from 32 MiB keep conservative defaults
+  for those queries and PDFium geometry. E60, E65, E68 and the catalog fixture
+  cover the existing design. Reopen with matched inputs that show a cost or a
+  feature discrepancy attributable to the shared cutoff.
+- R21 adopted for text lifetime. Replacing a second partial extraction with
+  full text freed the previous partial extraction despite outstanding borrows.
+  The document's retired list now owns replaced partial text until engine
+  destruction. The existing lifetime unit test keeps a borrow through two
+  refreshes. E42's unchanged-text reuse remains in effect. Reconsider earlier
+  release after measuring retention in a long-running editing session.
+- R22 held. Action reads cancel work sharing the lock and resume canceled
+  renders. Some PDFium text and widget API calls have no cancellation point.
+  Reopen with a real wait attributed to a producer whose scheduling can change.
+
+R21 landed in `f0ee85358`. The SolokPDF unit runner passed in Debug and ASan.
+Hidden-desktop Debug passed `form-text-cache` on both engines, including search,
+selection and Undo/Redo, and `ad-hoc-pdfium-try-reads`.
+
+R12 remains held. `ad-hoc-e120-busy-hover` passed on both engines, including
+cold citation text, a busy link, and retry after lock release. The cold read
+and paint probes did not reproduce a stop on these fixtures. Reopen with a
+document that reproduces a hover or paint stall during cold page analysis.
+
+### R25 multiple-page image export
+
+Reviewed at `f0ee85358`. `ConvertPdfToImagesDialog::DoIt` resolves the source
+tab, captures its rotation, then renders and writes each page on the UI
+thread. PNG recompression already uses a worker. The
+[R04](#r04-page-image-export-failures) and [R05](#r05-pdf-tool-source-tabs)
+Debug and ASan runs verify partial output, retry and the source tab. Those
+two-page checks provide no evidence about how long a typical batch blocks input.
+
+R25 held. An asynchronous render needs source ownership, cancellation and
+safe completion after the dialog or tab closes. Reopen with a representative
+export that demonstrates a material input delay. This review changed no code.
+
+### R26 R27 R28 build and distribution
+
+Started at `f0ee85358` with the SolokPDF build wrapper, the loose portable
+folder and the [existing ZIP smoke test](../../tests/ad-hoc-solok-portable.ts).
+
+- R26 retains the current product configuration. The wrapper always enables
+  `SOLOKPDF_PDFIUM`. It selects SolokPDF's identity, menu policy and disabled
+  updater at compile time. Runtime engine selection works within that same
+  build. A separate build flag would serve a product variant that is outside
+  the current build matrix. See [portable identity](#phase-5-portable-development-identity).
+- R27. The loose folder used to overwrite files in place without retiring old
+  ones. Its staging manifest keeps track of managed names, including the
+  optional PDB. Restaging removes retired managed files and preserves other
+  entries. The first tracked build also preserves files left by an older
+  untracked build. The ZIP uses this run's runtime and notice list.
+- R28. [Debug build selection](testing.md#choose-a-debug-build) records which
+  path runs asset generation and stages the portable outputs. Quick remains
+  available for app tests.
+
+R27 and R28 landed in `15f2231ef`. Normal Debug built the app, DLLs and tools
+and staged a 64-file ZIP. On the hidden desktop, the existing smoke test
+opened a sample PDF from a fresh extraction. Its new restaging case removed
+an obsolete nested notice and PDB, preserved local settings and notes, and
+checked the ZIP contents. `ad-hoc-solok-coexist` passed on both engines.
+The normal build reached asset generation. The missing website checkout
+left the manual and PDF examples unverified locally.
+
+The five batches are complete. The [backlog](backlog.md) links the remaining
+holds to their reopening conditions in the [review plan](design-review-plan.md).
