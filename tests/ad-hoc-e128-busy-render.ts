@@ -616,7 +616,7 @@ async function checkHomeThumbnail(engine: Engine, failures: string[]): Promise<v
     const cache = join(dir, "sumatrapdfcache");
     const png = await pollUntil(
       () => (existsSync(cache) ? readdirSync(cache).find((name) => name.endsWith(".png")) : undefined),
-      (name) => !!name && existsSync(join(cache, `${name}.theme`)),
+      Boolean,
       { timeoutMs: WAIT_MS, error: "initial Home thumbnail missing" },
     );
     const path = join(cache, png!);
@@ -663,10 +663,7 @@ async function checkBulkHomeThumbnails(engine: Engine, failures: string[]): Prom
     await goToPage(client, WORD_PAGE);
     await client.waitForRenderIdle();
     const cache = join(dir, "sumatrapdfcache");
-    const completed = () =>
-      existsSync(cache)
-        ? readdirSync(cache).filter((name) => name.endsWith(".png") && existsSync(join(cache, `${name}.theme`)))
-        : [];
+    const completed = () => (existsSync(cache) ? readdirSync(cache).filter((name) => name.endsWith(".png")) : []);
     const covers = await pollUntil(completed, (names) => names.length === docs.length, {
       timeoutMs: WAIT_MS,
       error: "initial Home covers missing",

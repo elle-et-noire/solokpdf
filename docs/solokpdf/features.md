@@ -332,12 +332,12 @@ original colors and transparency. Renderer selection is cached independently
 of theme colors and zoom.
 
 F12 page thumbnails use the same page colors as the view. Home saves neutral PNGs
-with a versioned sidecar containing the engine class and image rectangles. Both
+with the engine class and image rectangles embedded in the file. Both
 recolor cached bitmaps, so text or transparent areas inside an image rectangle
 can retain their original colors. Changing the theme or
-`DocumentColorsFollowTheme` refreshes the cached renders. Old PNGs color without
-image exclusions until that file is next opened. Covers and image files keep
-their pixels.
+`DocumentColorsFollowTheme` refreshes the cached renders. Home also reads older
+sidecars. A cached PNG without image rectangles uses whole-image recoloring
+when its file type calls for it. Covers and image files keep their pixels.
 
 New themes: Catppuccin Latte/Frappe/Macchiato, Gruvbox Light, Everforest Light,
 Rose Pine Dawn, Sepia.

@@ -598,13 +598,10 @@ static bool RenderCacheFree(WindowTab* currTab, CachedObject* o) {
 bool RenderCache::SetViewColors(const ViewPageOptions& options) {
     ScopedRecursiveMutex scopeReq(&requestAccess);
     ScopedRecursiveMutex scopeCache(&cacheAccess);
-    const PageColorInput& old = pageOptions.colors;
-    const PageColorInput& colors = options.colors;
-    if (old.mode == colors.mode && old.foreground == colors.foreground && old.pageBackground == colors.pageBackground &&
-        old.linkColor == colors.linkColor && pageOptions.grayscale == options.grayscale) {
+    if (pageOptions.colors == options.colors && pageOptions.grayscale == options.grayscale) {
         return false;
     }
-    pageOptions.colors = colors;
+    pageOptions.colors = options.colors;
     pageOptions.grayscale = options.grayscale;
     darkModeEpoch++;
     return true;

@@ -53,6 +53,8 @@ struct PageColorInput {
     Color foreground = kColBlack;
     Color pageBackground = kColWhite;
     Color linkColor = 0;
+
+    bool operator==(const PageColorInput&) const = default;
 };
 
 struct DarkModeProfile {
@@ -92,6 +94,8 @@ struct ViewPageOptions {
     int contrast = 0;
     bool grayscale = false;
     int imageProbeScale = 1;
+
+    bool operator==(const ViewPageOptions&) const = default;
 };
 ViewPageOptions CaptureViewOptions();
 Pixmap* ApplyViewPageAdjust(Pixmap* bmp, ViewPageOptions options);

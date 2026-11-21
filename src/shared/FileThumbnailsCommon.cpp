@@ -10,15 +10,19 @@
 #include "AppSettings.h"
 #include "ImageReader.h"
 #include "PdfDarkMode.h"
+#include "PngOptimizer.h"
 #include "AppTools.h"
 #include "FileThumbnails.h"
+#include "zopflipng/lodepng/lodepng.h"
 #include "FileThumbnailsCommon.h"
 
 constexpr u32 kThumbnailSidecarMagic = 0x31435453;
 constexpr u32 kThumbnailSidecarVersion = 1;
 constexpr u32 kMaxThumbnailSkipRects = 4096;
+constexpr int kPngChunkOverhead = 12;
+constexpr char kThumbnailColorChunk[] = "stMD";
 
-struct ThumbnailSidecar {
+struct ThumbnailColorHeader {
     u32 magic = kThumbnailSidecarMagic;
     u32 version = kThumbnailSidecarVersion;
     u32 engineClass = 0;
@@ -31,7 +35,7 @@ struct ThumbnailColorData {
     ViewEngineClass engineClass = ViewEngineClass::Image;
     Vec<Rect> skipRects;
     Pixmap* colored = nullptr;
-    u32 hash = 0;
+    ViewPageOptions options;
 
     ~ThumbnailColorData() { FreePixmap(colored); }
 };
@@ -62,13 +66,28 @@ TempStr GetThumbnailSidecarPathTemp(Str filePath) {
     return len(png) > 0 ? str::JoinTemp(png, StrL(".theme")) : TempStr();
 }
 
-static ThumbnailColorData* ReadColorData(FileState* fs) {
+static ThumbnailColorData* ReadColorData(FileState* fs, Str png) {
     auto* color = new ThumbnailColorData();
     bool valid = false;
-    TempStr path = GetThumbnailSidecarPathTemp(fs->filePath);
-    Str data = file::ReadFile(path);
-    if (len(data) >= (int)sizeof(ThumbnailSidecar)) {
-        ThumbnailSidecar header;
+    auto* start = (const u8*)png.s;
+    auto* end = start + len(png);
+    auto* chunk = lodepng_chunk_find_const(start, end, kThumbnailColorChunk);
+    Str legacy;
+    Str data;
+    if (chunk) {
+        u32 size = lodepng_chunk_length(chunk);
+        if (size <= (size_t)(end - chunk - kPngChunkOverhead) && lodepng_chunk_check_crc(chunk) == 0) {
+            data = Str((const char*)lodepng_chunk_data_const(chunk), (int)size);
+        }
+    } else {
+        legacy = file::ReadFile(GetThumbnailSidecarPathTemp(fs->filePath));
+        data = legacy;
+    }
+    defer {
+        str::Free(legacy);
+    };
+    if (len(data) >= (int)sizeof(ThumbnailColorHeader)) {
+        ThumbnailColorHeader header;
         memcpy(&header, data.s, sizeof(header));
         valid = header.magic == kThumbnailSidecarMagic && header.version == kThumbnailSidecarVersion &&
                 header.engineClass <= (u32)ViewEngineClass::Captured && header.width == (u32)fs->thumbnail->width &&
@@ -97,7 +116,6 @@ static ThumbnailColorData* ReadColorData(FileState* fs) {
             color->engineClass = ViewEngineClass::Fixed;
         }
     }
-    str::Free(data);
     return color;
 }
 
@@ -105,9 +123,6 @@ Pixmap* ColoredThumbnail(FileState* fs) {
     Pixmap* neutral = LoadThumbnail(fs);
     if (!neutral) {
         return nullptr;
-    }
-    if (!fs->thumbnailColorData) {
-        fs->thumbnailColorData = ReadColorData(fs);
     }
     auto* color = ColorData(fs);
     ViewPageOptions options = CaptureViewOptions();
@@ -119,16 +134,12 @@ Pixmap* ColoredThumbnail(FileState* fs) {
     if (colorPass == PageColorPass::None && !options.grayscale && options.brightness == 0 && options.contrast == 0) {
         return neutral;
     }
-    u32 hash = profile.hash;
-    hash = hash * 31 + (u32)options.grayscale;
-    hash = hash * 31 + (u32)options.brightness;
-    hash = hash * 31 + (u32)options.contrast;
-    if (color->colored && color->hash == hash) {
+    if (color->colored && color->options == options) {
         return color->colored;
     }
     FreePixmap(color->colored);
     color->colored = ClonePixmap(neutral);
-    color->hash = hash;
+    color->options = options;
     color->colored = ApplyViewPageAdjust(color->colored, options);
     if (colorPass == PageColorPass::Bitmap && color->colored && !color->colored->hasAlpha) {
         Vec<Rect>* skip =
@@ -283,8 +294,10 @@ Pixmap* LoadThumbnail(FileState* fs) {
         return nullptr;
     }
     // 24bpp: thumbnails stay in memory for every Home entry shown
+    defer {
+        str::Free(data);
+    };
     Pixmap* px = PixmapToBgr(PixmapFromData(data));
-    str::Free(data);
     if (PixmapIsEmpty(px)) {
         FreePixmap(px);
         return nullptr;
@@ -298,6 +311,7 @@ Pixmap* LoadThumbnail(FileState* fs) {
     }
 
     fs->thumbnail = px;
+    fs->thumbnailColorData = ReadColorData(fs, data);
     return fs->thumbnail;
 }
 
@@ -358,22 +372,34 @@ void SetThumbnail(FileState* fs, Pixmap* bmp) {
     SetThumbnail(fs, bmp, ViewEngineClass::Image);
 }
 
-void SaveThumbnailSidecar(FileState* fs) {
-    if (!fs || !fs->thumbnail || !fs->thumbnailColorData) {
-        return;
-    }
+// Keep color metadata inside the PNG so a single rename publishes both.
+Str EncodeThumbnailPng(FileState* fs, const Pixmap* px) {
+    Str png = EncodePngFromPixmap(px);
     auto* color = ColorData(fs);
-    ThumbnailSidecar header;
-    header.engineClass = (u32)color->engineClass;
-    header.width = fs->thumbnail->width;
-    header.height = fs->thumbnail->height;
-    header.rectCount = len(color->skipRects);
-    str::Builder data;
-    data.Append(Str((const char*)&header, sizeof(header)));
-    data.Append(Str((const char*)color->skipRects.els, header.rectCount * sizeof(Rect)));
-    TempStr path = GetThumbnailSidecarPathTemp(fs->filePath);
-    TempStr tmp = str::JoinTemp(path, StrL(".tmp"));
-    if (!file::WriteFile(tmp, Str(data.els, len(data))) || !file::RenameReplace(path, tmp)) {
-        file::Delete(tmp);
+    if (len(png) == 0 || !color) {
+        return png;
     }
+    ThumbnailColorHeader header;
+    header.engineClass = (u32)color->engineClass;
+    header.width = px->width;
+    header.height = px->height;
+    header.rectCount = std::min((u32)len(color->skipRects), kMaxThumbnailSkipRects);
+    str::Builder data;
+    if (!data.Append(Str((const char*)&header, sizeof(header))) ||
+        !data.Append(Str((const char*)color->skipRects.els, header.rectCount * sizeof(Rect)))) {
+        str::Free(png);
+        return {};
+    }
+
+    // lodepng emits IEND last. Insert the private ancillary chunk before it.
+    u8 iend[kPngChunkOverhead];
+    size_t size = len(png) - sizeof(iend);
+    memcpy(iend, png.s + size, sizeof(iend));
+    auto* bytes = (u8*)png.s;
+    if (lodepng_chunk_create(&bytes, &size, len(data), kThumbnailColorChunk, (const u8*)data.els) != 0 ||
+        lodepng_chunk_append(&bytes, &size, iend) != 0) {
+        free(bytes);
+        return {};
+    }
+    return Str((char*)bytes, (int)size);
 }

@@ -4,7 +4,6 @@
 #include "base/Base.h"
 #include "base/Crypto.h"
 #include "base/File.h"
-#include "base/GdiPlusUtil.h"
 #include "base/Pixmap.h"
 #include "base/UITask.h"
 #include "base/Win.h"
@@ -60,28 +59,23 @@ void SaveThumbnail(FileState* fs) {
         }
         thumbnail = converted;
     }
-    // Wrap (don't take ownership) so we can encode the in-memory thumbnail as PNG.
-    Gdiplus::Bitmap* bmp = WrapPixmapGdiplus(thumbnail);
-    if (!bmp) {
+    Str png = EncodeThumbnailPng(fs, thumbnail);
+    if (len(png) == 0) {
         return;
     }
-    CLSID tmpClsid = GetGdiPlusEncoderClsid(L"image/png");
-    // encode next to the final name and rename: a reader never sees a partial
-    // png, and a failed encode leaves no 0-byte png that reads back blank
-    // (issue #5932)
-    TempStr tmpPath = str::JoinTemp(thumbnailPath, StrL(".tmp"));
-    WCHAR* pathW = CWStrTemp(tmpPath);
-    Gdiplus::Status st = bmp->Save(pathW, &tmpClsid, nullptr);
-    delete bmp;
-    if (st == Gdiplus::Ok) {
-        file::Delete(GetThumbnailSidecarPathTemp(fs->filePath));
+    defer {
+        str::Free(png);
+    };
+    TempStr tmpPath = file::CreateTempNear(thumbnailPath);
+    if (len(tmpPath) == 0) {
+        return;
     }
-    if (st != Gdiplus::Ok || !file::RenameReplace(thumbnailPath, tmpPath)) {
-        logf("SaveThumbnail: Save('%s') failed with %d\n", thumbnailPath, (int)st);
+    if (!file::WriteFile(tmpPath, png) || !file::RenameReplace(thumbnailPath, tmpPath)) {
+        logf("SaveThumbnail: Save('%s') failed\n", thumbnailPath);
         file::Delete(tmpPath);
         return;
     }
-    SaveThumbnailSidecar(fs);
+    file::Delete(GetThumbnailSidecarPathTemp(fs->filePath));
 }
 
 struct ChmThumbnailTask : HtmlWindowCallback {
