@@ -9,8 +9,8 @@ For code changes, select affected tests from [testing.md](testing.md).
 ## Open
 
 - E157 — [Win32 product and code design review plan](design-review-plan.md).
-  Next is R11, reviewing what printing and thumbnails require from engine clones.
-  [R09 and R10 verification](history.md#r09-r10-signature-lookup-and-redacted-page-bounds).
+  Next is R20, measuring settings changes across open windows.
+  [R11, R12, R16 and R17 results](history.md#r11-r12-r16-r17-print-reads-and-input).
   The plan tracks each finding, its evidence, execution order and acceptance check.
 
 ## Not planned

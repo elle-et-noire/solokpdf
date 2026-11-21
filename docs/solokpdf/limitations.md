@@ -455,10 +455,13 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   MuPDF editor and, as on MuPDF tabs, leaves the file unsaved and the step
   undoable. Until Save reloads the tab, PDFium draws, extracts text and lists
   elements of a page that an applied redaction step rewrote through the
-  editor; undo returns the page to PDFium (B17). Print and the command
-  palette's page thumbnails render a copy read from the file, so while an
-  applied redaction is unsaved they render the editor's document instead, on
-  both engines (B52). Which pages are redacted is derived from the undo
+  editor. Undo returns the page to PDFium (B17). During unsaved redactions,
+  the command palette's page thumbnails render the live editor on both
+  engines (B52). Printing captures an in-memory copy of the redacted PDF
+  before rendering, so later Undo leaves the job's content intact (R11).
+  If the copy cannot be created, printing fails. Save prepared signatures
+  before printing a document with unsaved redactions.
+  Which pages are redacted is derived from the undo
   journal on apply, undo, redo and save and read without the editor's lock,
   so other pages never wait for it; text extracted while a redaction changes
   a page is dropped, so search can't find redacted words, and redacted pages

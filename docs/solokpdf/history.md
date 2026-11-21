@@ -5052,3 +5052,64 @@ changes landed in `56e5d43d8` and shared one Debug and one ASan build.
 
 R11 is next. The existing print and thumbnail callers can retain a live
 redacted engine. Undo during an active print job still needs verification.
+
+### R11 R12 R16 R17 print, reads and input
+
+Started at `20e7581b0` on 2026-11-21. Entry points are classic and Windows 11
+printing, the thumbnail worker, hover/paint and link actions, pending document
+input, and Win32 key dispatch. Existing coverage includes redaction Undo,
+sidebar close, busy renders, PDFium Try reads, pending document input, and
+keyboard input targets. R11 and R16 landed together in `298659fed`.
+
+- R11 adopted. In the pre-fix Debug build, Undo restored `SECRETWORD`
+  in the engine already acquired for printing. Both print paths now take
+  an independent in-memory copy when there are applied redactions. The
+  redaction regression compares print pixels and extracted text before and
+  after Undo and checks the tab's journal, dirty state and original file.
+  Sidebar thumbnails need the open document and use a generation to
+  reject superseded results. The palette needs a retained engine while
+  its worker runs and can share the edited document for redactions.
+  Debug and ASan passed the redaction, print-band and sidebar close checks
+  on both engines. Debug also passed the print confirmation and close test.
+  The print probes use in-memory output. Physical printing and the
+  Windows 11 preview remain unverified.
+  [Redaction and Undo](../../tests/ad-hoc-pdfium-redaction-undo.ts) ·
+  [Engine ownership](architecture.md#状態遷移)
+- R12 held. PDFium link hover and outlines can parse a cold page after
+  acquiring the lock. Text hover uses the cache and starts background
+  extraction when needed. Explicit link actions may wait for a complete
+  decision. Pending/partial text and the test that holds the editor lock
+  passed. Citations on cold text returned in 0.1 ms on PDFium and 0.3 ms
+  on MuPDF on the local fixtures. Reopen with a document and a timing
+  that identifies synchronous cold-page work delaying hover or paint.
+  [Try reads](../../tests/ad-hoc-pdfium-try-reads.ts) ·
+  [Hover](../../tests/ad-hoc-e120-busy-hover.ts) ·
+  [Read contracts](architecture.md#読み取り-api-の契約)
+- R16 adopted. The registration for form input, in-place FreeText and
+  annotation contents supplies both auto-reload deferral and ordered
+  commits. Each commit verifies the original tab, controller and engine.
+  Debug passed all 56 pending-input cases, automatic reload, PDF tools
+  and Quit with pending input. ASan passed the eight tab-close cases.
+  [Pending input](../../tests/pending-document-input.ts) ·
+  [Auto reload](../../tests/auto-reload-unsaved.ts) ·
+  [PDF tools](../../tests/pdf-tools-pending-input.ts)
+- R17 retained the existing routing. The posted message's HWND selects
+  the accelerator table. A Vim/count prefix needs a document message
+  and actual document focus. The distinction lets a find edit retain
+  text input when a key is posted to its combo or popup and lets toolbar
+  focus use normal document shortcuts without starting a prefix.
+  The keyboard targets and Japanese IME tests passed in Debug.
+  [Keyboard targets](../../tests/keyboard-input-targets.ts) ·
+  [IME](../../tests/keyboard-ime.ts)
+
+| Message target      | Actual focus    | Accelerator table | Vim/count  |
+| ------------------- | --------------- | ----------------- | ---------- |
+| Frame or canvas     | Frame or canvas | Document          | Eligible   |
+| Frame or canvas     | Another control | Document          | Ineligible |
+| Find combo or popup | Find edit       | Edit              | Ineligible |
+| Bookmarks tree      | Bookmarks tree  | Tree              | Ineligible |
+| Toolbar             | Toolbar         | Document          | Ineligible |
+
+The Debug batch passed all 14 invocations. The ASan batch passed all five
+after the Debug run released the shared test staging directory.
+Next is [R20](design-review-plan.md#4-ウィンドウ編集設定の状態).

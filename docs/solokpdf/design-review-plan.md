@@ -4,7 +4,7 @@
 
 ## Sol が最初に行う作業
 
-**次は R11。** 印刷とサムネイルがエンジン複製に求める寿命と、編集からの独立性を確認する。
+**次は R20。** 設定の変更経路ごとに、複数窓で UI 再構成の費用を測る。
 
 作業中の入口は [backlog.md](backlog.md)。次の順で未処理 ID を選ぶ。段階内は記載順。個別項目に依存がある場合はそちらを優先する。
 
@@ -47,9 +47,9 @@
 
 **R10 完了。** [墨消し後のコンテンツ境界](history.md#r09-r10-signature-lookup-and-redacted-page-bounds)
 
-**R11 中・差 — `Clone()` の戻り値から隔離の有無を判断できない。** 通常は再オープンするが、適用済み墨消しがあると現行エンジンを AddRef して返す。印刷・サムネイルでは正しい内容を届けるための意図的な共有である。呼び出し元が必要とするのが寿命、独立した設定、ある時点の内容のどれかを列挙し、独立性を実際に必要とする箇所だけ契約を分ける。出力中の Undo／タブを閉じる操作で古い本文の再出現、寿命違反、dirty の変化がないか確認。既存仕様を確認できれば明文化で完了。[Clone](../../src/solokpdf/EnginePdfium.cpp) · [共有する理由と参照保持](../../src/shared/EngineMupdf.cpp)
+**R11 完了。** [墨消し済み文書の印刷元とサムネイル](history.md#r11-r12-r16-r17-print-reads-and-input)
 
-**R12 中・差 — `Try` を呼んでも UI スレッド上の仕事量が一定しない。** 基底の `TryExtractPageText`／`TryGetElements` は同期 API に委譲する。PDF エンジンでもロックをすぐ取れてからの冷えたページ解析には時間がかかる。ホバー・クリック・先読みの各呼び出しを調べ、待ってよい操作と未確定を返せる操作を区別する。操作中の UI を止める具体例のみ修正し、既存の Pending／部分テキスト／完全取得の意味を保存する。[基底実装](../../src/shared/EngineBase.cpp) · [読取契約](architecture.md#読み取り-api-の契約) · [既存テスト](../../tests/ad-hoc-pdfium-try-reads.ts)
+**R12 中・保留。** 初回ページ解析で hover または paint が止まる文書と計測を得た時点で再開する。[読取契約](architecture.md#読み取り-api-の契約) · [確認結果](history.md#r11-r12-r16-r17-print-reads-and-input)
 
 **R13 低・調査 — ページラベル付き文書では初回表示前に全ページを調べる。** `LoadPageLabels` は先頭でラベルの有無を検査し、ある場合だけ全ページ分の文字列と論理ページ数を作る。ラベルなし、ラベルあり、重複・ローマ数字を含む合成多ページ PDF で `labels` の時間と保持量を比較する。負担が有意なら逆引きや論理ページ数を最初に要求した時点へ遅延できるか検討。初回表示・ジャンプ・重複ラベルの従来結果の三つが合う場合だけ採用。[LoadPageLabels](../../src/solokpdf/EnginePdfium.cpp)
 
@@ -59,9 +59,9 @@
 
 **R15 完了。** [自動再読み込みの通知](history.md#r15-r30-r31-r32-reload-ci-and-decrypt)
 
-**R16 中・提案 — 入力を確定すべき編集 UI が手書きの列挙になっている。** `CommitTabInput` はフォーム、FreeText、注釈本文を順に確定し、再入後に同じ対象か検証する。新しい編集面は個別登録を忘れると dirty 判定に乗らない。R06 の結果を取り込み、現在の対象検証と確定順を保って、次の編集 UI が従う登録先を一つにする。既存三種の保存・閉じる・終了・キャンセルを確認。新しい汎用イベント基盤は前提にしない。[入力確定と終了](../../src/SumatraPDF.cpp) · [複数タブの未確定入力](../../tests/ad-hoc-quit-pending-input.ts)
+**R16 完了。** [未確定入力の検出と確定](history.md#r11-r12-r16-r17-print-reads-and-input)
 
-**R17 中・提案 — キーの配送先と実フォーカスの規則を複数段で解釈する。** `GetKeyTarget` は対象を分類済みだが、accelerator 選択、通常キー、Vim／回数プレフィックスが配送先と実フォーカスを別々に参照する。IME、ツリー、検索欄、本文で両者が一致／不一致の表を既存テストから作る。同じ規則の箇所だけ共通化し、IME 入力を奪わず文書ショートカットが従来どおり動くこと。[分類](../../src/MainWindow.cpp) · [Vim](../../src/VimKeys.cpp) · [配送](../../src/SumatraPDF.cpp) · [入力先テスト](../../tests/keyboard-input-targets.ts)
+**R17 現状維持。** [キーの配送先と実フォーカスの役割](history.md#r11-r12-r16-r17-print-reads-and-input)
 
 **R18 完了。** [スマートタブの候補収集](history.md#r18-r19-palette-and-trimmed-pages)
 
