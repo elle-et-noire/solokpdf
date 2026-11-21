@@ -3366,11 +3366,6 @@ void ReloadSettingsUpdateWindows(bool showToolbarBefore) {
         UpdateSidebarSplitters(win);
         UpdateTocColors(win);
         UpdateFavColors(win);
-        if (DisplayModel* dm = win->AsFixed()) {
-            int dpi = win->frameDpi > 0 ? win->frameDpi : DpiGetForHwnd(win->hwndFrame);
-            dm->SetUiDpi(dpi);
-        }
-        ScheduleUiUpdate(win, kUiForceRelayout | kUiToolbarDirty);
     }
 }
 
@@ -9864,9 +9859,6 @@ static MainWindow* CollectPathsAndCloseWindows(StrVec& paths) {
     return nullptr;
 }
 
-// defined below; used by UseTabs transitions
-static void ApplyMenuBarVisibility(MainWindow* win);
-
 enum class TitlebarTabs {
     Off,
     On
@@ -9985,7 +9977,7 @@ static void TransitionToTabs() {
 // set a window's menu bar visibility to match the current showMenubar pref
 // (unlike ToggleMenuBar, which flips the pref). No-op in fullscreen /
 // presentation, where the menu bar is governed by that mode.
-static void ApplyMenuBarVisibility(MainWindow* win) {
+void ApplyMenuBarVisibility(MainWindow* win) {
     if (!win->menu || win->IsFullScreenOrPresentation()) {
         return;
     }
@@ -10000,12 +9992,14 @@ static void ApplyMenuBarVisibility(MainWindow* win) {
         ScheduleUiUpdate(win);
         ShowMenuBarRebar(win);
     } else {
-        SetMenu(win->hwndFrame, visible ? win->menu : nullptr);
+        HMENU menu = visible ? win->menu : nullptr;
+        if (GetMenu(win->hwndFrame) != menu) {
+            SetMenu(win->hwndFrame, menu);
+        }
     }
 }
 
-// apply settings changes that need explicit handling beyond a settings reload,
-// then re-layout all windows. `before` is a snapshot taken before the change.
+// Apply settings that need work beyond the window refresh.
 void ApplyChangedSettingsAndRelayout(const SettingsApplyState& before) {
     Settings* p = gSettings;
 
@@ -10035,20 +10029,9 @@ void ApplyChangedSettingsAndRelayout(const SettingsApplyState& before) {
         }
     }
 
-    bool menubarChanged =
-        (before.showMenubar != p->showMenubar) || (before.showMenubarWithTabs != p->showMenubarWithTabs);
-    if (menubarChanged) {
-        for (MainWindow* w : gWindows) {
-            ApplyMenuBarVisibility(w);
-        }
-    }
-
     if (before.explorerQuickLook != p->explorerQuickLook) {
         ExplorerQuickLookApplyFromSettings();
     }
-
-    // re-layout so toolbar / menu / findbox changes take effect
-    ApplySettingsToOpenWindows();
 
     Str prevLayout = before.ebookLayout;
     Str nowLayout = EbookLayoutSnapshot();

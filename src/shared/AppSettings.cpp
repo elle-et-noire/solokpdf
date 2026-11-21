@@ -450,6 +450,9 @@ void ApplySettingsToOpenWindows() {
                 CreateMenuBarRebar(win);
             }
         }
+        if (!win->isQuickLook && !gPluginMode && !gMyWindowWasEmbedded) {
+            ApplyMenuBarVisibility(win);
+        }
         RebuildMenuBarForWindow(win);
         ReCreateToolbar(win);
         ToolbarUpdateStateForWindow(win, true);

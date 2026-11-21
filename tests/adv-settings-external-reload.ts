@@ -6,9 +6,9 @@
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { SETTINGS_FILE, cmdId, runStandalone, tmpPath } from "./util.ts";
-import { sleep } from "./winapi.ts";
-import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import { SETTINGS_FILE, USE_NG, cmdId, runStandalone, tmpPath } from "./util.ts";
+import { enumWindows, findChildWindow, getClassName, getWindowPid, isWindowVisible, sleep } from "./winapi.ts";
+import { FRAME_CLASS, killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
 import { ControlCommand, type ControlClient } from "./control.ts";
 
 const kTag = "adv-settings-external-reload";
@@ -46,8 +46,28 @@ function settingsLine(name: string, value: string): string {
   return `${parts[0]} [\n\t${parts[1]} = ${value}\n]\n`;
 }
 
-function settingsText(boolValue: string): string {
-  return `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\n${settingsLine(kBoolName, boolValue)}`;
+function settingsText(boolValue: string, menuValue: string): string {
+  return (
+    `UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nUseTabs = true\n` +
+    `ShowMenubarWithTabs = ${menuValue}\n${settingsLine(kBoolName, boolValue)}`
+  );
+}
+
+async function waitForMenus(pid: number, visible: boolean): Promise<void> {
+  const deadline = Date.now() + kReloadWaitMs;
+  while (Date.now() < deadline) {
+    const menus: boolean[] = [];
+    enumWindows((hwnd) => {
+      if (getWindowPid(hwnd) === pid && getClassName(hwnd) === FRAME_CLASS) {
+        const rebar = findChildWindow(hwnd, "ReBarWindow32");
+        menus.push(!!rebar && isWindowVisible(rebar));
+      }
+      return true;
+    });
+    if (menus.length === 2 && menus.every((shown) => shown === visible)) return;
+    await sleep(50);
+  }
+  throw new Error(`${kTag}: expected both menu bars to be ${visible ? "shown" : "hidden"}`);
 }
 
 function loadCount(logPath: string): number {
@@ -75,11 +95,15 @@ export async function testit(): Promise<void> {
   mkdirSync(appdata, { recursive: true });
   const settingsPath = join(appdata, SETTINGS_FILE);
   const logPath = join(appdata, "log.txt");
-  writeFileSync(settingsPath, settingsText("false"));
+  writeFileSync(settingsPath, settingsText("false", "true"));
 
   const { proc, client, frame } = await launchControlled(["-appdata", appdata, "-log-to-file", logPath]);
   try {
     await waitForLoads(logPath, 1);
+    if (!USE_NG) {
+      sendCommandSync(frame, cmdId("CmdNewWindow"));
+      await waitForMenus(proc.pid!, true);
+    }
     sendCommandSync(frame, cmdId("CmdAdvancedSettings"));
 
     // sanity: the toggled item is the one the file edit below flips
@@ -94,8 +118,9 @@ export async function testit(): Promise<void> {
 
     // an external edit sets the bool to true; the watcher reloads gSettings
     const before = loadCount(logPath);
-    writeFileSync(settingsPath, settingsText("true"));
+    writeFileSync(settingsPath, settingsText("true", "false"));
     await waitForLoads(logPath, before + 1);
+    if (!USE_NG) await waitForMenus(proc.pid!, false);
 
     // the pending value now equals what's on disk, so nothing is changed.
     // With the stale pointer this compared against freed memory (or crashed)
@@ -106,6 +131,10 @@ export async function testit(): Promise<void> {
     const closed = await adv(client, "esc");
     if (!closed.includes("closed=1")) {
       throw new Error(`${kTag}: esc did not close the dialog: ${closed.trim()}`);
+    }
+    if (!USE_NG) {
+      writeFileSync(settingsPath, settingsText("true", "true"));
+      await waitForMenus(proc.pid!, true);
     }
   } finally {
     client.close();

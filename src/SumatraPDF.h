@@ -316,6 +316,7 @@ void EnterFullScreen(MainWindow* win, bool presentation = false);
 void ExitFullScreen(MainWindow* win);
 void SwitchToFullScreen(MainWindow* win, bool presentation);
 void SetCurrentLang(Str langCode);
+void ApplyMenuBarVisibility(MainWindow* win);
 void RebuildMenuBarForWindow(MainWindow* win);
 void DeleteMainWindow(MainWindow* win);
 
