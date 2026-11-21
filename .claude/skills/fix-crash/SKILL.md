@@ -53,7 +53,7 @@ Explain: exception, first in-repo frame, why it died, whether HEAD still has the
 
 If the cause is clear and the user asked to fix it:
 
-- Bug-fix rule: write the test first, see it fail, then fix, see it pass. Test naming: `tests/issue-<n>.ts` when there is a GitHub issue; otherwise a focused unit test or say nothing covers it.
+- Verify the fix with a focused test. Use `tests/issue-<n>.ts` for a GitHub issue, or a focused unit test. If no test covers the fix, say so.
 - Repro PDFs: `C:\Users\kjk\OneDrive\!sumatra\bugs\bug-<n>...`. Launch with `-for-testing`.
 - `ext/mupdf` changes need a matching `ext/patches/` file in the same commit.
 - clang-format `src/` edits; do not format `ext/`.

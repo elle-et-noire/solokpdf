@@ -89,8 +89,8 @@ failure — most dumps are not actionable.
 
 Only when the cause is clear:
 
-- write the test first, see it fail, then fix, see it pass. `tests/issue-<n>.ts`
-  when there is a GitHub issue; otherwise a unit test, or say plainly that nothing covers it
+- verify the fix with `tests/issue-<n>.ts` for a GitHub issue, or a focused unit
+  test. If no test covers the fix, say so
 - repro files: `C:\Users\kjk\OneDrive\!sumatra\bugs\bug-<n>...`; launch with `-for-testing`
 - `ext/mupdf` edits need a matching `ext/patches/` file in the same commit
 - clang-format the `src/` files you touched; never format `ext/`
