@@ -11509,7 +11509,7 @@ static void GetOfdSignatures(EngineMupdf* e, PdfSigResult* res, const Vec<Str>* 
 // trustedCerts: certificate files trusted as roots for OFD signatures
 PdfSigResult* EngineMupdfCheckSignatures(EngineBase* engine, const Vec<Str>* trustedCerts) {
     auto* res = new PdfSigResult();
-    EngineMupdf* e = AnnotEngineMupdf(engine, EditorLoad::IfLoaded);
+    EngineMupdf* e = AsEngineMupdf(engine);
     if (e && e->pdfdoc) {
         ScopedRecursiveMutex scope(&e->docLock);
         GetSignatures(e, res);

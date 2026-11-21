@@ -2848,7 +2848,10 @@ class EnginePdfium : public EngineBase {
         return p ? RectF(0, 0, p->size.dx, p->size.dy) : RectF{};
     }
 
-    RectF PageContentBox(int pageNo, RenderTarget) override {
+    RectF PageContentBox(int pageNo, RenderTarget target) override {
+        if (EngineBase* redacted = RedactedEditor(pageNo)) {
+            return redacted->PageContentBox(pageNo, target);
+        }
         ScopedMutex lock(&gPdfiumLock);
         auto* info = Page(pageNo);
         if (!info) {

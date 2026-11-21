@@ -163,6 +163,22 @@ int EngineMupdfCountSignedSignatures(EngineBase* engine) {
     return n;
 }
 
+bool EngineHasPdfSignatures(EngineBase* engine) {
+    if (EngineMupdfIsPdf(engine)) {
+        return EngineMupdfCountSignedSignatures(engine) > 0;
+    }
+    return engine && engine->HasSignatures();
+}
+
+#if OS_WIN
+EngineBase* EngineMupdfSignatureSource(EngineBase* engine) {
+    if (EngineHasPdfSignatures(engine)) {
+        return AnnotEngineMupdf(engine, EditorLoad::Load);
+    }
+    return EngineMupdfHasOfdSignatures(engine) ? engine : nullptr;
+}
+#endif
+
 #if OS_WIN || OS_DARWIN || defined(SUMATRA_HAVE_OPENSSL)
 
 enum class SignStage {

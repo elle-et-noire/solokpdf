@@ -287,6 +287,7 @@ constexpr int kPdfCertifyFormsSigningAndAnnots = 3;
 
 void EngineMupdfGetUnsignedSignatureFields(EngineBase*, StrVec& names, Vec<int>& pageNos);
 int EngineMupdfCountSignedSignatures(EngineBase*);
+bool EngineHasPdfSignatures(EngineBase*);
 bool EngineMupdfHasOfdSignatures(EngineBase*);
 bool EngineMupdfIsOfd(EngineBase*);
 bool EngineMupdfSaveAsPdf(EngineBase*, Str destPath);
@@ -334,6 +335,7 @@ struct PdfSigResult {
 #if OS_WIN
 struct EutlLookup;
 void SetEutlLookup(const EutlLookup* lookup);
+EngineBase* EngineMupdfSignatureSource(EngineBase*);
 void EngineMupdfFetchRevocation(EngineBase* engine);
 PdfSigResult* EngineMupdfCheckSignatures(EngineBase* engine, const Vec<Str>* trustedCerts = nullptr);
 struct PdfSigCert {

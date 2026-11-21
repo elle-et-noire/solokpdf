@@ -6332,6 +6332,7 @@ Kind kNotifTemporaryFile = "notifTemporaryFile";
 struct SigStatusJob {
     WindowTab* tab = nullptr;
     EngineBase* engine = nullptr;
+    EngineBase* signatureSource = nullptr; // owned by engine
     // only PDF signatures are checked against the EU trusted list
     bool needsEutl = false;
     // OfdTrustedCertificates, copied: the check runs on a thread
@@ -6377,7 +6378,7 @@ static void SigStatusThread(SigStatusJob* job) {
     for (int i = 0; i < len(job->trustedCerts); i++) {
         VecAppend(trusted, job->trustedCerts.At(i));
     }
-    job->res = EngineMupdfCheckSignatures(job->engine, &trusted);
+    job->res = EngineMupdfCheckSignatures(job->signatureSource, &trusted);
     uitask::Post(MkFunc0<SigStatusJob>(OnSigStatusDone, job), "SigStatusDone");
 }
 
@@ -6388,29 +6389,18 @@ static void MaybeShowSignatureStatus(MainWindow* win, WindowTab* tab) {
         return;
     }
     EngineBase* engine = tab->AsFixed()->GetEngine();
-    // OFD, XPS and SVG are kindEngineMupdf too; only EnginePdfium has an editor
-    bool isPdf = EngineMupdfIsPdf(engine) || engine->HasAnnotationEditor();
-    bool hasSignatures = false;
-    if (!isPdf) {
-        hasSignatures = EngineMupdfHasOfdSignatures(engine);
-    } else if (engine->HasAnnotationEditor()) {
-        hasSignatures = engine->HasSignatures();
-    } else {
-        hasSignatures = EngineMupdfCountSignedSignatures(engine) > 0;
-    }
-    if (!hasSignatures) {
+    EngineBase* signatureSource = EngineMupdfSignatureSource(engine);
+    if (!signatureSource) {
         delete tab->signatures;
         tab->signatures = nullptr;
-        return;
-    }
-    if (engine->HasAnnotationEditor() && !engine->AnnotationEditor(EditorLoad::Load)) {
         return;
     }
     EutlRegisterLookup();
     auto* job = new SigStatusJob;
     job->tab = tab;
     job->engine = engine;
-    job->needsEutl = isPdf;
+    job->signatureSource = signatureSource;
+    job->needsEutl = EngineMupdfIsPdf(signatureSource);
     if (gSettings->ofdTrustedCertificates) {
         for (Str path : *gSettings->ofdTrustedCertificates) {
             job->trustedCerts.Append(path);

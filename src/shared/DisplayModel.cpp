@@ -1723,6 +1723,17 @@ static bool IsFitContentZoom(float zoomVirtual) {
     return zoomVirtual == kZoomFitContent || zoomVirtual == kZoomFitVisible;
 }
 
+void DisplayModel::RefreshContentLayout() {
+    for (int i = 0; pagesInfo && i < pageCount; i++) {
+        pagesInfo[i].contentBox = {};
+        pagesInfo[i].contentBoxCalculated = false;
+        pagesInfo[i].columnGutterKnown = false;
+    }
+    if (trimEmptyMargins || IsFitContentZoom(zoomVirtual)) {
+        RelayoutForTrim();
+    }
+}
+
 static bool IsVirtualFitZoom(float zoomVirtual) {
     return zoomVirtual == kZoomFitWidth || zoomVirtual == kZoomFitHeight || zoomVirtual == kZoomFitPage ||
            IsFitContentZoom(zoomVirtual) || zoomVirtual == kZoomShrinkToFit || zoomVirtual == kZoomFitByOrientation;

@@ -305,6 +305,7 @@ struct DisplayModel : DocController {
     Size PanSlack() const;
     bool EnsureTrimEmptyMarginsForVisiblePages();
     void RelayoutForTrim();
+    void RefreshContentLayout();
     bool GoToPageHorizontal(bool toRight);
 
     bool ShouldCacheRendering(int pageNo) const;

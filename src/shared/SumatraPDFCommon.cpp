@@ -622,9 +622,7 @@ static TempStr PageInfoBarLeftTemp(DocController* ctrl) {
         if (engine->isPasswordProtected || EngineMupdfIsEncrypted(engine)) {
             AppendBarPart(out, Tr("Encrypted"));
         }
-        bool isSigned =
-            engine->HasAnnotationEditor() ? engine->HasSignatures() : EngineMupdfCountSignedSignatures(engine) > 0;
-        if (isSigned) {
+        if (EngineHasPdfSignatures(engine)) {
             AppendBarPart(out, Tr("Signed"));
         }
         if (EngineMupdfHasLayers(engine)) {
@@ -2776,6 +2774,9 @@ void UndoRedoInTab(WindowTab* tab, bool redo) {
     RefreshAnnotationLists(tab);
     NotifyAnnotationsChanged(tab);
     ToolbarUpdateStateForWindow(win, true);
+    if (ok) {
+        dm->RefreshContentLayout();
+    }
     MainWindowRerender(win, true);
     if (!ok) {
         ShowWarningNotification(win, redo ? Tr("Nothing to redo") : Tr("Nothing to undo"), kNotif5SecsTimeOut);
@@ -2994,6 +2995,7 @@ void ApplyRedactionsInTab(WindowTab* tab) {
     RefreshAnnotationLists(tab);
     ToolbarUpdateStateForWindow(win, true);
     if (ok || len(failedPages) > 0) {
+        dm->RefreshContentLayout();
         MainWindowRerender(win);
     }
     if (len(failedPages) > 0) {
