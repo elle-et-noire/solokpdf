@@ -4750,6 +4750,28 @@ bool EngineBase_UnitTestTextReuse() {
     return ok;
 }
 
+static bool PartialTextOutlivesRefresh() {
+    auto* engine = new TextFailureEngine();
+    engine->fail = false;
+    Str first;
+    Str values[] = {StrL("first partial"), StrL("second partial")};
+    for (Str value : values) {
+        engine->InvalidateTextForPage(1);
+        engine->partial = true;
+        engine->value = value;
+        engine->PrefetchTextForPage(1);
+        if (len(first) == 0) {
+            first = engine->CachedTextForPage(1).value;
+        }
+        engine->partial = false;
+        engine->value = StrL("full text");
+        engine->GetTextForPage(1);
+    }
+    bool ok = str::Eq(first, StrL("first partial"));
+    engine->Release();
+    return ok;
+}
+
 // GetTextForPage() hands out pointers that word count and search keep across
 // calls; an edit invalidating the page's text must not free them under them
 bool EngineBase_UnitTestTextOutlivesInvalidate() {
@@ -4779,7 +4801,7 @@ bool EngineBase_UnitTestTextOutlivesInvalidate() {
     Str again = engine->GetTextForPage(1);
     ok = ok && str::Contains(again, StrL("Invalidated"));
     SafeEngineRelease(&engine);
-    return ok;
+    return ok && PartialTextOutlivesRefresh();
 }
 
 // a code point above 255 after "10." is not a digit, and must not reach isdigit()

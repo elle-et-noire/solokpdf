@@ -1002,8 +1002,6 @@ static bool SamePageText(const PageText& a, const PageText& b) {
 
 struct TextCacheEntry {
     PageText data;
-    // partial text a full one replaced, kept alive for a reader still holding its pointers
-    PageText superseded;
     // invalidated text, reused if extraction gives the same: readers may still hold it
     PageText stale;
     TextExtractionState state = TextExtractionState::NotExtracted;
@@ -1013,7 +1011,7 @@ struct TextCacheEntry {
     int gen = 0;
 
     // Consume text; a concurrent extraction may have filled this slot.
-    void StoreText(PageText text) {
+    void StoreText(PageText text, Vec<PageText>& retired) {
         if (state == TextExtractionState::Finished || (text.partial && data.partial)) {
             FreePageText(&text);
             return;
@@ -1024,8 +1022,7 @@ struct TextCacheEntry {
             stale = {};
         }
         if (data.partial) {
-            FreePageText(&superseded);
-            superseded = data;
+            VecAppend(retired, data);
         } else {
             FreePageText(&data);
         }
@@ -1041,7 +1038,6 @@ struct ChapterTextCache {
     ~ChapterTextCache() {
         for (TextCacheEntry& page : pages) {
             FreePageText(&page.data);
-            FreePageText(&page.superseded);
             FreePageText(&page.stale);
         }
     }
@@ -1049,7 +1045,7 @@ struct ChapterTextCache {
 
 struct PageTextCache {
     Vec<ChapterTextCache*> chapters; // index = chapter - 1; entries lazily created
-    // invalidated text: callers may still hold its pointers, so it lives as long as the engine
+    // Replaced text remains valid until engine destruction for readers holding its pointers.
     Vec<PageText> retired;
     int generation = 0;
     int editorGeneration = 0;
@@ -1676,7 +1672,7 @@ bool EngineBase::ReadPageText(int pageNo, TextReadMode mode, Str& text, int* len
         TextCacheEntry* page = pageTextCache->Ensure(loc, count);
         if (page->gen == gen) {
             bool partial = extracted.partial;
-            page->StoreText(extracted);
+            page->StoreText(extracted, pageTextCache->retired);
             if (mode == TextReadMode::Blocking && partial) {
                 page->partialIsFinal = true;
                 page->state = TextExtractionState::Finished;
