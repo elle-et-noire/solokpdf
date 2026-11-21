@@ -19,8 +19,9 @@ Debug and prerelease builds also show Debug.
   view and either file picker for one-time use.
 - The Ctrl+Tab switcher opens with the list of tabs. It loads document
   annotations when you change its `@` query to an annotation search with `*`.
-- Convert to Images reports how many images were saved and lists the failed
-  pages. Images already saved remain on disk.
+- Convert to Images runs in the background for PDFs and reports how many
+  images were saved and which pages failed. Cancel stops the remaining work.
+  Images already saved remain on disk.
 - Right-click selected text for Copy and Highlight, a web link for Copy Link
   Address, or an image for Copy Image and Save Image. Page favorites, annotations
   and cursor-based reading stay on the page menu. A selection takes priority

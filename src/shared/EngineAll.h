@@ -28,6 +28,7 @@ enum class PdfRenderRoute {
 };
 
 struct PdfRenderProbe;
+struct PdfPageGeometry;
 struct PdfRenderCheck {
     PdfRenderRoute route = PdfRenderRoute::Failed;
     bool scannedContents = false;
@@ -38,6 +39,7 @@ void DeletePdfRenderProbe(PdfRenderProbe* probe);
 void TrimPdfRenderProbe(PdfRenderProbe* probe);
 PdfRenderCheck PdfPageRenderRouteMupdf(PdfRenderProbe* probe, const PdfRenderSource& source, int pageNo);
 int PdfOpenActionPageMupdf(PdfRenderProbe* probe, PageLayout* layout);
+void PdfPageGeometryMupdf(PdfRenderProbe* probe, int pageCount, Vec<PdfPageGeometry>& out);
 enum class PdfThemeLayout {
     Incremental,
     Rewritten,

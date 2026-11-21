@@ -119,11 +119,10 @@ This does not bound every shutdown callback or ordinary tab-close wait.
   positions and rendered geometry now match MuPDF for offset/intersected page
   boxes, snapped rotation and `/UserUnit` 0.5, 2 and 3.7
   (`tests/ad-hoc-pdfium-pagebox.ts`). That test also covers compressed page
-  dictionaries in plain and Flate object streams. Encrypted object streams
-  and files at least 32 MiB use PDFium's own geometry: unusual `/UserUnit` or
-  rotation there may differ from MuPDF. Scanning those cases added 18.3 ms
-  and 16.2 ms to the measured encrypted IPA and 41 MB vector load-info
-  medians, respectively. The 33 MiB fixture checks this limitation.
+  dictionaries in plain and Flate object streams and a 33 MiB file. PDFium
+  reads geometry from the MuPDF render probe when the key scan finds a
+  possible override or cannot rule one out. It uses its own geometry if the
+  probe cannot read the document geometry.
 - Opaque views use an identity gray palette when every rendered pixel is
   opaque and R=G=B; other opaque views use BGR. PDFium still renders unchanged
   BGRA.
@@ -569,10 +568,13 @@ Details: [annotations.md](annotations.md), [forms.md](forms.md).
   the unlocked key without accepting a changed source.
 
 - Tool dialogs stay attached to the tab that opened them. Convert to Images
-  uses that tab's current page and rotation. After closing or reloading the
-  source, reopen the tool to export. Bake, page extraction and the other
-  file-tool dialogs commit pending form and annotation input in their source
-  PDF before taking focus.
+  captures that tab's pages and rotation at the start. The source window's
+  controls are disabled during background export. Cancel closes the dialog and
+  stops after any write in progress. Documents with multiple chapters export
+  synchronously to keep page numbers stable while pagination can change.
+  After closing or reloading the source before starting an export, reopen the
+  tool. Bake, page extraction and the other file-tool dialogs commit pending
+  form and annotation input in their source PDF before taking focus.
 
 - PDF tools accept a PDFium tab. The viewer stays in PDFium while MuPDF's
   existing file tools perform bake, compression, page extraction/deletion,

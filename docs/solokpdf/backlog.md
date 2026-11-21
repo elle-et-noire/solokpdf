@@ -8,12 +8,7 @@ For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-- E157 — [Win32 product and code design review plan](design-review-plan.md).
-  The five batches are recorded from [R20](history.md#r20-settings-across-windows)
-  through [R28](history.md#r26-r27-r28-build-and-distribution).
-  R20, R21, R23, R24, R27 and R28 are complete. R26 retains the current design.
-  R12, R13, R14, R22 and R25 remain held. R21's early-release proposal also
-  needs retention data. The plan records each resumption condition.
+No open items. See [E157 closure](history.md#e157-closure) for the design review.
 
 ## Not planned
 

@@ -175,7 +175,6 @@ struct PdfPageGeometry {
     SizeF size;
     int rotation = 0;
 };
-bool PdfPageGeometryMupdf(Str path, Str data, Str password, int pageCount, Vec<PdfPageGeometry>& out);
 // a link EnginePdfium can't fully read: a Named page jump, GoToR named /D, or widget action
 struct PdfLinkMupdf {
     RectF rect;

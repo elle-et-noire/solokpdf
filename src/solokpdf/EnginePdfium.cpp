@@ -692,6 +692,7 @@ class EnginePdfium : public EngineBase {
     bool documentJs = false;
     // false when a byte scan found no /OpenAction, /PageLayout or /Direction
     bool catalogKeys = true;
+    bool geometryKeys = true;
     // false when a byte scan found no annotation other than links and widgets
     bool annotKeys = true;
     int openActionPageNo = 0;
@@ -1178,15 +1179,17 @@ class EnginePdfium : public EngineBase {
             FS_SIZEF size{};
             if (len(geometry) == pageCount) {
                 // runs before any AcquirePage of this page, so no cached handle misses the rotation
-                FPDF_PAGE page = LoadPage(doc, pageNo - 1);
-                if (!page) {
-                    return nullptr;
-                }
                 int rotation = geometry[pageNo - 1].rotation;
-                if (gPdfium.FPDFPage_GetRotation(page) != rotation) {
-                    gPdfium.FPDFPage_SetRotation(page, rotation);
+                if (rotation >= 0) {
+                    FPDF_PAGE page = LoadPage(doc, pageNo - 1);
+                    if (!page) {
+                        return nullptr;
+                    }
+                    if (gPdfium.FPDFPage_GetRotation(page) != rotation) {
+                        gPdfium.FPDFPage_SetRotation(page, rotation);
+                    }
+                    gPdfium.FPDF_ClosePage(page);
                 }
-                gPdfium.FPDF_ClosePage(page);
                 size.width = geometry[pageNo - 1].size.dx;
                 size.height = geometry[pageNo - 1].size.dy;
             } else if (!gPdfium.FPDF_GetPageSizeByIndexF(doc, pageNo - 1, &size)) {
@@ -2365,13 +2368,11 @@ class EnginePdfium : public EngineBase {
         int revision = gPdfium.FPDF_GetSecurityHandlerRevision(doc);
         // One byte scan gates the MuPDF geometry and catalog queries and annotation lists.
         if (fileData.s && len(fileData) < kMaxMemoryFileSize) {
-            int want = (isPasswordProtected ? kCatalogKeys : kGeometryKeys | kCatalogKeys) | kAnnotKeys;
+            int want = kGeometryKeys | kCatalogKeys | kAnnotKeys;
             int keys = ScanPdfKeys(fileData, want, revision >= 0 ? nullptr : &access);
             catalogKeys = (keys & kCatalogKeys) != 0;
+            geometryKeys = (keys & kGeometryKeys) != 0;
             annotKeys = (keys & kAnnotKeys) == kAnnotKeys;
-            if ((keys & kGeometryKeys) && !PdfPageGeometryMupdf(path, fileData, password, pageCount, geometry)) {
-                VecClear(geometry);
-            }
         }
         isPasswordProtected = revision >= 0;
         unsigned long permissions = gPdfium.FPDF_GetDocPermissions(doc);
@@ -2796,6 +2797,7 @@ class EnginePdfium : public EngineBase {
             clone->Release();
             return nullptr;
         }
+        clone->geometry = geometry;
         clone->LoadDocumentJs();
         clone->disableAutoLinks = disableAutoLinks;
         clone->openActionPageNo = openActionPageNo;
@@ -2803,13 +2805,14 @@ class EnginePdfium : public EngineBase {
         return clone;
     }
 
-    // Opens the render probe at load (the first tile needs it) and reads the catalog from it:
-    // one MuPDF parse per open, done before DisplayModel reads preferredLayout.
-    void ReadCatalog() {
-        if (!catalogKeys) {
+    // Read layout and geometry from the same retained parse the tiles will use.
+    void ReadPageLayout() {
+        if (!catalogKeys && !geometryKeys) {
             return;
         }
-        logf("PDFium: catalog query\n");
+        if (catalogKeys) {
+            logf("PDFium: catalog query\n");
+        }
         PdfiumProfile profile(StrL("openaction"));
         ScopedMutex probeScope(&probeLock);
         if (!renderProbe) {
@@ -2819,8 +2822,14 @@ class EnginePdfium : public EngineBase {
             }
             profile.Mark(StrL("probe"));
         }
-        openActionPageNo = PdfOpenActionPageMupdf(renderProbe, &preferredLayout);
-        profile.Mark(StrL("read"));
+        if (catalogKeys) {
+            openActionPageNo = PdfOpenActionPageMupdf(renderProbe, &preferredLayout);
+            profile.Mark(StrL("read"));
+        }
+        if (geometryKeys) {
+            PdfPageGeometryMupdf(renderProbe, pageCount, geometry);
+            profile.Mark(StrL("geometry"));
+        }
     }
 
     int GetOpenActionPageNo() override { return openActionPageNo; }
@@ -4092,7 +4101,7 @@ EngineBase* CreateEnginePdfium(Str path, PasswordUI* pwdUI, TempStr* errorOut, P
         *failureOut = failure;
     }
     if (ok) {
-        engine->ReadCatalog();
+        engine->ReadPageLayout();
         engine->LoadDocumentJs();
         return engine;
     }
@@ -4109,7 +4118,7 @@ EngineBase* CreateEnginePdfiumFromData(Str data, PasswordUI* pwdUI, TempStr* err
         *failureOut = failure;
     }
     if (ok) {
-        engine->ReadCatalog();
+        engine->ReadPageLayout();
         engine->LoadDocumentJs();
         return engine;
     }

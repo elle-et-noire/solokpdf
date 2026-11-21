@@ -505,6 +505,14 @@ The tests check the warning, text, marks, overlapping FreeText, dirty state,
 Undo/Redo, retry and saved output. Debug fault injection is unavailable in
 Release and ng; those configurations skip these tests.
 
+### Page geometry and image export (E157)
+
+Run `tests/ad-hoc-pdfium-pagebox.ts` and `tests/convert-images-partial.ts`
+through the hidden runner. Both engines cover 33 MiB page geometry, partial
+and total image write failures, the source tab, and cancellation while a
+page render is parked. Repeat the image export test with ASan for worker
+and dialog lifetime.
+
 ### ASan builds
 
 Build the PDFium-enabled static executable and stage both runtime DLLs with

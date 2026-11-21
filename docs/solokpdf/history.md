@@ -5233,5 +5233,37 @@ checked the ZIP contents. `ad-hoc-solok-coexist` passed on both engines.
 The normal build reached asset generation. The missing website checkout
 left the manual and PDF examples unverified locally.
 
-The five batches are complete. The [backlog](backlog.md) links the remaining
-holds to their reopening conditions in the [review plan](design-review-plan.md).
+### E157 closure
+
+Rechecked the remaining items at `aadc657b1`.
+
+- R12 retains the existing hover and paint reads. They skip a busy lock.
+  PDFium's first link lookup can do page analysis on the calling thread.
+  Later reads reuse the page's element list. Text hover uses background
+  extraction, and explicit actions can wait for a complete result.
+- R13 retains eager labels. Unlabeled documents skip enumeration. The
+  labeled path computes the toolbar's logical total and supports reverse
+  lookup from the first display.
+- R14 fixes the geometry discrepancy reproduced by the 33 MiB `/UserUnit`
+  fixture. PDFium reads geometry from the existing catalog/render probe when
+  the small-file scan cannot rule out an override. Small files with no
+  relevant keys still skip the probe at open.
+- R21 retains replaced buffers until engine destruction. Callers borrow text
+  and coordinates without a release operation, so earlier reclamation would
+  require changing the borrow contract.
+- R22 retains serialized PDFium calls and cancellation of competing renders
+  for complete action reads. The pinned PDFium API requires serialization.
+  [Engine contention](limitations.md#engine-contention-e133) records the calls
+  without cancellation points.
+- R25 moves DPI checks, rendering and writing to a worker that retains the
+  starting engine and rotation. Closing the dialog cancels the remaining
+  pages. The existing image-export test parks the second page and closes the
+  dialog while the render is still parked. Documents with multiple chapters
+  still export synchronously because layout updates can renumber pages.
+
+Hidden-desktop Debug passed `ad-hoc-pdfium-pagebox` (17 cases at two zooms),
+`ad-hoc-pdfium-catalog-layout`, `convert-images-partial`, `issue-6439` and
+`issue-6505`. The source-tab check compares decoded pixels so background PNG
+recompression can finish independently of the test.
+Hidden-desktop ASan passed `convert-images-partial` on both engines.
+`lint-posted-tasks` also passed.

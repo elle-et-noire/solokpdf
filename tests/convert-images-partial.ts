@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { type ControlClient, ControlCommand } from "./control.ts";
 import {
   cmdId,
+  loadPng,
   makeTextPdf,
   makeTopBottomPdf,
   pollUntil,
@@ -21,6 +22,7 @@ import {
   getControlText,
   getWindowPid,
   getWindowText,
+  isWindowEnabled,
   isWindowVisible,
   MK_LBUTTON,
   packCoords,
@@ -143,6 +145,27 @@ function openPdf(frame: number, path: string, reload = 0): void {
   assert.ok(sendCopyDataW(frame, ddeCopyData, `[Open("${path.replaceAll("\\", "/")}",0,0,${reload})]`));
 }
 
+async function checkCancel(client: ControlClient, frame: number, pid: number, dir: string): Promise<void> {
+  mkdirSync(dir);
+  const dlg = await openExport(frame, pid, dir);
+  const [status] = await client.request(ControlCommand.TestCurrentPdf, ["park-render", 4000, "contents", 0, 2, "any"]);
+  assert.equal(status, 0);
+  const parkState = async () => String((await client.request(ControlCommand.TestCurrentPdf, ["park-state"]))[1]);
+  await click(client, dlg, "Convert");
+  await pollUntil(parkState, (s) => /\bparked=1\b/.test(s), { error: "Export did not park rendering page 2" });
+  assert.equal(isWindowEnabled(frame), false, "Source editing must pause during the export");
+  postMessage(dlg, WM_CLOSE, 0, 0);
+  await pollUntil(() => !isWindowVisible(dlg) && isWindowEnabled(frame), Boolean, {
+    error: "Cancel did not close the dialog and restore the source controls",
+  });
+  assert.match(await parkState(), /\bparked=1\b/, "The dialog must close while rendering is still parked");
+  await pollUntil(parkState, (s) => /\bparked=0\b/.test(s), { error: "Parked render did not release" });
+  assert.deepEqual(
+    readdirSync(dir).filter((name) => name.endsWith(".png")),
+    ["page-1.png"],
+  );
+}
+
 async function checkSource(
   app: Awaited<ReturnType<typeof launchControlled>>,
   pdf: string,
@@ -151,7 +174,7 @@ async function checkSource(
 ): Promise<void> {
   const { client, frame, proc } = app;
   const pid = proc.pid;
-  const reference = readFileSync(join(dir, "reference", "page-2.png"));
+  const reference = loadPng(join(dir, "reference", "page-2.png"));
   sendCommandSync(frame, cmdId("CmdGoToNextPage"));
   assert.match(String((await client.request(ControlCommand.TestCurrentTab))[1]), /page=2$/);
   const switched = join(dir, "switched");
@@ -174,7 +197,24 @@ async function checkSource(
   await click(client, dlg, "Convert");
   await pollUntil(() => !isWindowVisible(dlg), Boolean, { error: "Switched export did not close" });
   assert.deepEqual(readdirSync(switched), ["page-2.png"], "Current page must come from the source tab");
-  assert.ok(readFileSync(join(switched, "page-2.png")).equals(reference), "Source pixels or rotation changed");
+  const exported = loadPng(join(switched, "page-2.png"));
+  assert.deepEqual([exported.w, exported.h], [reference.w, reference.h], "Source rotation changed");
+  for (let i = 0; i < reference.w * reference.h; i++) {
+    const a = i * reference.nComp;
+    const b = i * exported.nComp;
+    const expected = reference.data;
+    const actual = exported.data;
+    const expectedAlpha = reference.nComp === 4 ? expected[a + 3] : 255;
+    const actualAlpha = exported.nComp === 4 ? actual[b + 3] : 255;
+    if (
+      expected[a] !== actual[b] ||
+      expected[a + 1] !== actual[b + 1] ||
+      expected[a + 2] !== actual[b + 2] ||
+      expectedAlpha !== actualAlpha
+    ) {
+      throw new Error(`Source image differs at pixel ${i}`);
+    }
+  }
   assert.match(String((await client.request(ControlCommand.TestCurrentTab))[1]), /other\.pdf page=1$/);
 
   for (const mode of ["reload", "close", "reopen", "duplicate"]) {
@@ -249,6 +289,7 @@ export async function testit(): Promise<void> {
         const name = blocked === 0 ? "reference" : `blocked-${blocked}`;
         await checkExport(client, frame, proc.pid, join(engineDir, name), blocked);
       }
+      await checkCancel(client, frame, proc.pid, join(engineDir, "canceled"));
       await checkSource(app, pdf, other, engineDir);
     } finally {
       client.close();

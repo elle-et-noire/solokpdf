@@ -192,15 +192,15 @@ export async function testit(): Promise<void> {
   for (const item of fixtures) {
     const pdf = tmpPath(`pdfium-pagebox-${item.name}.pdf`);
     writeFileSync(pdf, item.data, "latin1");
-    failures.push(...(await compareFixture(pdf, item.cases, item.name === "large-unit")));
+    failures.push(...(await compareFixture(pdf, item.cases)));
   }
   if (failures.length) throw new Error(`page geometry differs:\n${failures.join("\n")}`);
   console.log(
-    `${fixtures.reduce((n, item) => n + item.cases.length, -1)} page-box cases match at ${zooms.join("% and ")}% (plus large-file limitation)`,
+    `${fixtures.reduce((n, item) => n + item.cases.length, 0)} page-box cases match at ${zooms.join("% and ")}%`,
   );
 }
 
-async function compareFixture(pdf: string, selected: Case[], expectLargeFileLimit = false): Promise<string[]> {
+async function compareFixture(pdf: string, selected: Case[]): Promise<string[]> {
   const reports = new Map<string, Report[]>();
   for (const engine of ["mupdf", "pdfium"]) {
     reports.set(
@@ -223,13 +223,6 @@ async function compareFixture(pdf: string, selected: Case[], expectLargeFileLimi
     const c = selected[i]!;
     const a = reports.get("mupdf")![i]!;
     const b = reports.get("pdfium")![i]!;
-    if (expectLargeFileLimit) {
-      // Files at least 32 MiB use PDFium's own geometry to bound open time.
-      if (a.media.every((v, index) => Math.abs(v - b.media[index]!) <= 0.05)) {
-        failures.push(`${c.name}: expected PDFium's large-file geometry limitation`);
-      }
-      continue;
-    }
     compare(`${c.name} size`, a.media, b.media, 0.05, failures);
     compare(`${c.name} link`, a.link, b.link, 0.1, failures);
     compare(`${c.name} link screen`, a.screen, b.screen, 0.2, failures);

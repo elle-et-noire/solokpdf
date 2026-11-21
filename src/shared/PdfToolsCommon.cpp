@@ -637,9 +637,9 @@ static bool PageFitsDpi(EngineBase* engine, int pageNo, int dpi) {
     return SaveSelectionSizeOk(w, h);
 }
 
-bool PagesFitDpi(EngineBase* engine, const Vec<int>& pages, int dpi) {
+bool PagesFitDpi(EngineBase* engine, const Vec<int>& pages, int dpi, AtomicBool* canceled) {
     for (int pageNo : pages) {
-        if (!PageFitsDpi(engine, pageNo, dpi)) {
+        if ((canceled && AtomicBoolGet(canceled)) || !PageFitsDpi(engine, pageNo, dpi)) {
             return false;
         }
     }
@@ -649,7 +649,7 @@ bool PagesFitDpi(EngineBase* engine, const Vec<int>& pages, int dpi) {
 // render each page at dpi and write it to templatePath with <N> replaced by
 // the 1-based page number. Returns how many files were written and can report skipped pages.
 int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, const Vec<int>& pages, int dpi,
-                         Str* firstPathOwnedOut, Vec<int>* failedPagesOut) {
+                         Str* firstPathOwnedOut, Vec<int>* failedPagesOut, AtomicBool* canceled) {
     if (firstPathOwnedOut) {
         *firstPathOwnedOut = {};
     }
@@ -668,6 +668,9 @@ int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, con
     int nOk = 0;
     StrVec pngs;
     for (int pageNo : pages) {
+        if (canceled && AtomicBoolGet(canceled)) {
+            break;
+        }
         if (!PageFitsDpi(engine, pageNo, dpi)) {
             logf("ConvertPagesToImages: page %d at %d DPI is too large\n", pageNo, dpi);
             if (failedPagesOut) {
@@ -678,6 +681,10 @@ int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, con
         TempStr dest = ReplacePagePlaceholderTemp(templ, pageNo);
         RenderPageArgs args(pageNo, zoom, rotation);
         Pixmap* px = engine->RenderPage(args);
+        if (canceled && AtomicBoolGet(canceled)) {
+            FreePixmap(px);
+            break;
+        }
         if (!px) {
             logf("ConvertPagesToImages: RenderPage failed for page %d\n", pageNo);
             if (failedPagesOut) {

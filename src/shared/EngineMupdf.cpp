@@ -6398,6 +6398,7 @@ int EngineMupdf::GetOpenActionPageNo() {
 
 //--- PDF facts read with MuPDF for engines without an API for them (EnginePdfium)
 
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 // Takes the stream reference; null when the PDF can't be opened or authenticated.
 static pdf_document* OpenPdfForQuery(fz_context* ctx, fz_stream* stm, Str password) {
     if (!stm) {
@@ -6422,27 +6423,6 @@ static pdf_document* OpenPdfForQuery(fz_context* ctx, fz_stream* stm, Str passwo
     return doc;
 }
 
-static pdf_document* OpenPdfForQuery(fz_context* ctx, Str path, Str data, Str password) {
-    fz_stream* stm = nullptr;
-    fz_var(stm);
-    fz_try(ctx) {
-        if (data.s) {
-            stm = fz_open_memory(ctx, (const u8*)data.s, (size_t)len(data));
-        } else {
-#if OS_WIN
-            stm = fz_open_file_w(ctx, CWStrTemp(path));
-#else
-            stm = fz_open_file(ctx, CStrTemp(path));
-#endif
-        }
-    }
-    fz_catch_report(ctx) {
-        return nullptr;
-    }
-    return OpenPdfForQuery(ctx, stm, password);
-}
-
-#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 struct ThemePdfOutput {
     fz_buffer* buffer;
     i64 position;
@@ -7484,18 +7464,16 @@ bool PdfViewerPrintPrefsMupdf(const PdfRenderSource& source, Str password, PdfVi
     fz_drop_context(ctx);
     return found;
 }
-#endif
 
-// Read uncommon page geometry once; ordinary PDFium pages do not open a MuPDF document.
-bool PdfPageGeometryMupdf(Str path, Str data, Str password, int pageCount, Vec<PdfPageGeometry>& out) {
-    fz_context* ctx = NewMupdfContext(FZ_STORE_DEFAULT);
-    if (!ctx) {
-        return false;
+// Use PDFium's page rotation for ordinary multiples of 90.
+void PdfPageGeometryMupdf(PdfRenderProbe* probe, int pageCount, Vec<PdfPageGeometry>& out) {
+    if (!probe) {
+        return;
     }
-    pdf_document* doc = OpenPdfForQuery(ctx, path, data, password);
-    bool ok = false;
+    fz_context* ctx = probe->ctx;
+    pdf_document* doc = probe->doc;
     fz_try(ctx) {
-        if (doc && pdf_count_pages(ctx, doc) == pageCount) {
+        if (pdf_count_pages(ctx, doc) == pageCount) {
             VecResize(out, pageCount);
             for (int i = 0; i < pageCount; i++) {
                 pdf_obj* page = pdf_lookup_page_obj(ctx, doc, i);
@@ -7504,25 +7482,20 @@ bool PdfPageGeometryMupdf(Str path, Str data, Str password, int pageCount, Vec<P
                 pdf_page_obj_transform(ctx, page, &box, &ctm);
                 box = fz_transform_rect(box, ctm);
                 int rotate = pdf_to_int(ctx, pdf_dict_get_inheritable(ctx, page, PDF_NAME(Rotate)));
-                rotate = ((rotate % 360) + 360) % 360;
-                rotate = (90 * ((rotate + 45) / 90)) % 360;
-                out[i] = {{box.x1 - box.x0, box.y1 - box.y0}, rotate / 90};
+                int overrideRotation = -1;
+                if (rotate % 90 != 0) {
+                    rotate = ((rotate % 360) + 360) % 360;
+                    overrideRotation = ((rotate + 45) / 90) % 4;
+                }
+                out[i] = {{box.x1 - box.x0, box.y1 - box.y0}, overrideRotation};
             }
-            ok = true;
         }
     }
-    fz_always(ctx) {
-        pdf_drop_document(ctx, doc);
-    }
-    fz_catch_report(ctx) {}
-    fz_drop_context(ctx);
-    if (!ok) {
+    fz_catch_report(ctx) {
         VecClear(out);
     }
-    return ok;
 }
 
-#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
 // Target of a /Named action on page pageIdx (0-based), as MuPDF's link parser resolves it; -1 if none.
 static int NamedActionTarget(fz_context* ctx, pdf_obj* action, int pageIdx, int pageCount) {
     pdf_obj* n = pdf_dict_get(ctx, action, PDF_NAME(N));

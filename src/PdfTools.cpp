@@ -1545,6 +1545,8 @@ bool SavePixmapAsImageFile(Pixmap* px, Str path) {
     return ok;
 }
 
+struct ImageExport;
+
 struct ConvertPdfToImagesDialog : PdfToolDialog {
     int pageCount = 0;
     Checkbox* radioCurrent = nullptr;
@@ -1553,7 +1555,10 @@ struct ConvertPdfToImagesDialog : PdfToolDialog {
     Edit* pagesEdit = nullptr;
     DropDown* dropDpi = nullptr;
     int dpi = kConvertPdfToImagesDpi; // 0 if what's typed is not a DPI
+    ImageExport* exporting = nullptr;
+    HWND disabledFrame = nullptr;
 
+    ~ConvertPdfToImagesDialog() override;
     bool Create(MainWindow* win, WindowTab* tab);
     void DoIt(VirtMouseEvent* ev = nullptr) override;
     void OnBrowseTemplate(VirtMouseEvent* ev = nullptr);
@@ -1564,7 +1569,66 @@ struct ConvertPdfToImagesDialog : PdfToolDialog {
     void OnPagesModeChanged();
     void OnDpiPicked();
     void OnDpiTyped();
+    void OnClose(CloseEvent*);
+    void OnDestroy(DestroyEvent*);
+    void CancelExport();
+    void FinishExport(ImageExport*);
+    void EnableFrame();
+    void UpdateInputs();
 };
+
+struct ImageExport {
+    ConvertPdfToImagesDialog* dialog = nullptr; // UI thread only
+    EngineBase* engine = nullptr;
+    Str destPath;
+    Vec<int> pages;
+    int dpi = 0;
+    int rotation = 0;
+    AtomicBool canceled = 0;
+    bool tooLarge = false;
+    int nOk = 0;
+    Str firstPath;
+    Vec<int> failedPages;
+
+    ~ImageExport() {
+        SafeEngineRelease(&engine);
+        str::Free(destPath);
+        str::Free(firstPath);
+    }
+};
+
+static ImageExport* gImageExport = nullptr;
+
+static void FinishImageExport(ImageExport* work) {
+    gImageExport = nullptr;
+    if (work->dialog) {
+        auto* dialog = work->dialog;
+        if (IsWindow(dialog->hwnd)) {
+            dialog->FinishExport(work);
+        } else {
+            dialog->CancelExport();
+            dialog->ScheduleDelete();
+        }
+    }
+    delete work;
+}
+
+static void RenderImageExport(ImageExport* work) {
+    if (PagesFitDpi(work->engine, work->pages, work->dpi, &work->canceled)) {
+        work->nOk = ConvertPagesToImages(work->engine, work->rotation, work->destPath, work->pages, work->dpi,
+                                         &work->firstPath, &work->failedPages, &work->canceled);
+    } else {
+        work->tooLarge = true;
+    }
+}
+
+static void RunImageExport(ImageExport* work) {
+    RenderImageExport(work);
+    work->engine->ReleaseThreadContext();
+    SafeEngineRelease(&work->engine);
+    uitask::Post(MkFunc0(FinishImageExport, work), "FinishImageExport");
+    AtomicIntDec(&gDangerousThreadCount);
+}
 
 static Checkbox* NewPagesRadio(HWND parent, PlatformFont* font, Str text, bool groupStart, bool checked) {
     Checkbox::CreateArgs args;
@@ -1602,7 +1666,7 @@ void ConvertPdfToImagesDialog::OnPagesModeChanged() {
 // the line's count follows the mode: the one page, all of them, or what the
 // custom range picks
 void ConvertPdfToImagesDialog::UpdateButton() {
-    if (!actionBtn) {
+    if (!actionBtn || exporting) {
         return;
     }
     TempStr dest = destEdit ? destEdit->GetTextTemp() : TempStr{};
@@ -1718,6 +1782,13 @@ void ConvertPdfToImagesDialog::OnBrowseTemplate(VirtMouseEvent*) {
 }
 
 void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
+    if (exporting) {
+        return;
+    }
+    if (gImageExport) {
+        MessageBoxWarning(hwnd, Tr("An image export is already running."), Tr("Convert to Images"));
+        return;
+    }
     TempStr destPath = destEdit->GetTextTemp();
     if (len(destPath) == 0) {
         return;
@@ -1743,43 +1814,126 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
     if (dpi < 1) {
         return;
     }
-    if (!PagesFitDpi(engine, pages, dpi)) {
+    logf("ConvertPdfToImages: '%s' -> '%s', %d page(s), %d DPI\n", srcPath, destPath, len(pages), dpi);
+
+    auto* work = new ImageExport();
+    engine->AddRef();
+    work->dialog = this;
+    work->engine = engine;
+    work->destPath = str::Dup(destPath);
+    work->pages = pages;
+    work->dpi = dpi;
+    work->rotation = dm->GetRotation();
+    exporting = gImageExport = work;
+    // Chapter layout can renumber pages while the UI processes layout updates.
+    if (engine->HasChapters()) {
+        HCURSOR prev = SetCursor(LoadCursor(nullptr, IDC_WAIT));
+        RenderImageExport(work);
+        SetCursor(prev);
+        FinishImageExport(work);
+        return;
+    }
+    UpdateInputs();
+    SetActionEnabled(false);
+    hintText->SetText(Tr("Converting..."));
+    footerBtn->SetIsVisible(false);
+    DoLayout();
+    HwndInvalidate(hwnd);
+
+    // Keep the source view and its edits stable while the worker renders it.
+    if (IsWindowEnabled(win->hwndFrame)) {
+        disabledFrame = win->hwndFrame;
+        EnableWindow(disabledFrame, FALSE);
+    }
+    AtomicIntInc(&gDangerousThreadCount);
+    ThreadHandle thread = StartThread(MkFunc0(RunImageExport, work), StrL("ImageExport"));
+    if (!thread) {
+        AtomicIntDec(&gDangerousThreadCount);
+        FinishImageExport(work);
+    }
+    SafeCloseThreadHandle(&thread);
+}
+
+void ConvertPdfToImagesDialog::EnableFrame() {
+    if (disabledFrame && IsMainWindowValidAndNotClosing(win) && win->hwndFrame == disabledFrame) {
+        EnableWindow(disabledFrame, TRUE);
+    }
+    disabledFrame = nullptr;
+}
+
+void ConvertPdfToImagesDialog::UpdateInputs() {
+    bool enabled = !exporting;
+    radioCurrent->SetIsEnabled(enabled);
+    radioAll->SetIsEnabled(enabled);
+    radioCustom->SetIsEnabled(enabled);
+    pagesEdit->SetIsEnabled(enabled && radioCustom->IsChecked());
+    dropDpi->SetIsEnabled(enabled);
+    destEdit->SetIsEnabled(enabled);
+    dropFormat->SetIsEnabled(enabled);
+    browseBtn->SetIsEnabled(enabled);
+}
+
+ConvertPdfToImagesDialog::~ConvertPdfToImagesDialog() {
+    CancelExport();
+}
+
+void ConvertPdfToImagesDialog::CancelExport() {
+    if (exporting) {
+        AtomicBoolSet(&exporting->canceled, true);
+        exporting->dialog = nullptr;
+        exporting = nullptr;
+    }
+    EnableFrame();
+}
+
+void ConvertPdfToImagesDialog::OnClose(CloseEvent* ev) {
+    CancelExport();
+    PdfToolDialogOnClose(ev);
+}
+
+void ConvertPdfToImagesDialog::OnDestroy(DestroyEvent*) {
+    CancelExport();
+    ScheduleDelete();
+}
+
+void ConvertPdfToImagesDialog::FinishExport(ImageExport* work) {
+    exporting = nullptr;
+    EnableFrame();
+    UpdateInputs();
+    if (work->tooLarge) {
+        UpdateButton();
         MessageBoxWarning(hwnd, Tr("Too large for this DPI"), Tr("Convert to Images"));
         return;
     }
-
-    logf("ConvertPdfToImages: '%s' -> '%s', %d page(s), %d DPI\n", srcPath, destPath, len(pages), dpi);
-
-    HCURSOR prev = SetCursor(LoadCursor(nullptr, IDC_WAIT));
-    Str firstPath;
-    Vec<int> failedPages;
-    int nOk = ConvertPagesToImages(engine, dm->GetRotation(), destPath, pages, dpi, &firstPath, &failedPages);
-    SetCursor(prev);
-    defer {
-        str::Free(firstPath);
-    };
-
-    logf("ConvertPdfToImages: wrote %d of %d file(s)\n", nOk, len(pages));
-    if (len(failedPages) > 0) {
+    int nOk = work->nOk;
+    int total = len(work->pages);
+    logf("ConvertPdfToImages: wrote %d of %d file(s)\n", nOk, total);
+    if (len(work->failedPages) > 0) {
         TempStr msg =
-            fmt(Tr("Saved %d of %d images.\nFailed pages: %s").s, nOk, len(pages), FormatPageRangeTemp(failedPages));
+            fmt(Tr("Saved %d of %d images.\nFailed pages: %s").s, nOk, total, FormatPageRangeTemp(work->failedPages));
+        if (nOk == 0) {
+            UpdateButton();
+        }
         HWND dialog = hwnd;
         MessageBoxWarning(dialog, msg, Tr("Convert to Images"));
         if (nOk == 0 || WindowBaseFromHwnd(dialog) != this) {
             return;
         }
     } else if (nOk == 0) {
+        UpdateButton();
         MessageBoxWarning(hwnd, Tr("Failed to convert to images."), Tr("Convert to Images"));
         return;
     }
     Close();
-    OpenPathInDefaultFileManager(firstPath);
+    OpenPathInDefaultFileManager(work->firstPath);
 }
 
 bool ConvertPdfToImagesDialog::Create(MainWindow* w, WindowTab* tab) {
     if (!CreateToolDialog(w, tab, Tr("Convert to Images"))) {
         return false;
     }
+    onClose = MkMethod1<ConvertPdfToImagesDialog, CloseEvent*, &ConvertPdfToImagesDialog::OnClose>(this);
+    onDestroy = MkMethod1<ConvertPdfToImagesDialog, DestroyEvent*, &ConvertPdfToImagesDialog::OnDestroy>(this);
     pageCount = tab->ctrl->PageCount();
 
     HBox* row = AddLine(Tr("Pages"));
