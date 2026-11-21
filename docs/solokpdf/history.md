@@ -5026,3 +5026,29 @@ The product and runner changes landed in `b7d3dcd82`.
   passed on both engines from a clean Debug stage.
 
 The [review plan](design-review-plan.md) continues with R09.
+
+### R09 R10 signature lookup and redacted page bounds
+
+Started at `f51599fe6` on 2026-11-21. The batch covered the signature bar and
+document information, and the page bounds used by content-based zoom. Both
+changes landed in `56e5d43d8` and shared one Debug and one ASan build.
+
+- R09 adopted. PDF signature detection and source selection use the engine's
+  signature queries. The worker borrows the selected source while retaining
+  its owning engine. The signature-status test passed on PDFium and MuPDF in
+  Debug and ASan. Unsigned PDFs kept the editor unloaded. PDFium's fixture
+  also covers a signature dictionary with no contents. Debug `sig-validation`
+  passed on both engines, and `issue-1909` passed the separate OFD verdicts and
+  trust checks. [Signature status](../../tests/ad-hoc-pdfium-sig-status.ts) ·
+  [PDF verdicts](../../tests/sig-validation.ts) · [OFD](../../tests/issue-1909.ts)
+- R10 adopted. The pre-fix Debug build applied the markup but left Fit
+  Visible at 347.389%. PDFium now asks the edited page for its content box.
+  Apply, Undo and Redo refresh the layout cache. The zoom regression passed
+  on both engines in Debug and ASan. Debug redaction tests checked rendering,
+  search, links, print clones, unchanged pages and partial failures. The form
+  cache test passed on both engines. [Zoom](../../tests/ad-hoc-pdfium-fit-content.ts) ·
+  [Redaction and Undo](../../tests/ad-hoc-pdfium-redaction-undo.ts) ·
+  [Partial failures](../../tests/redact-partial.ts) · [Forms](../../tests/form-text-cache.ts)
+
+R11 is next. The existing print and thumbnail callers can retain a live
+redacted engine. Undo during an active print job still needs verification.

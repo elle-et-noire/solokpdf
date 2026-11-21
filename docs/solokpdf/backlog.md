@@ -9,8 +9,8 @@ For code changes, select affected tests from [testing.md](testing.md).
 ## Open
 
 - E157 — [Win32 product and code design review plan](design-review-plan.md).
-  Next is R09, reviewing how signature inspection identifies PDFs and reads signatures.
-  [R15 and R30–R32 verification](history.md#r15-r30-r31-r32-reload-ci-and-decrypt).
+  Next is R11, reviewing what printing and thumbnails require from engine clones.
+  [R09 and R10 verification](history.md#r09-r10-signature-lookup-and-redacted-page-bounds).
   The plan tracks each finding, its evidence, execution order and acceptance check.
 
 ## Not planned

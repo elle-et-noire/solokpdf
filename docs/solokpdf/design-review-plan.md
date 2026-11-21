@@ -4,7 +4,7 @@
 
 ## Sol が最初に行う作業
 
-**次は R09。** 署名照会で PDF の形式判定と署名取得に使う API を確認する。
+**次は R11。** 印刷とサムネイルがエンジン複製に求める寿命と、編集からの独立性を確認する。
 
 作業中の入口は [backlog.md](backlog.md)。次の順で未処理 ID を選ぶ。段階内は記載順。個別項目に依存がある場合はそちらを優先する。
 
@@ -43,9 +43,9 @@
 
 ## 3. 文書・エンジンの責務
 
-**R09 中・差 — 編集エンジンの有無が PDF の型判定にも使われる。** 署名表示は `HasAnnotationEditor()` を形式判定に使い、さらに編集エンジンを明示ロードする。見出し目次や継承ページボックスの読み取りにも `AnnotationEditor` が登場する。まず署名照会一か所を、形式と問い合わせの目的を表す既存 API に寄せる。署名なしは editor 未生成、署名ありは両 PDF 経路で従来の結果、OFD の独立した署名経路も維持する。[署名表示](../../src/SumatraPDF.cpp) · [エンジン契約](../../src/shared/EngineBase.h) · [署名テスト](../../tests/ad-hoc-pdfium-sig-status.ts)
+**R09 完了。** [署名照会の入力](history.md#r09-r10-signature-lookup-and-redacted-page-bounds)
 
-**R10 中・差 — 編集後の正しい参照先を、読む機能ごとに判断する。** `RedactedEditor`、`TextEditor`、クローンはそれぞれ描画・要素・フォーム文字・複製で異なる単位を扱う。機能追加時に墨消し済みのページだけ元データを読み直す余地がある。R02 の出力表を用い、変更する読み取り箇所からページ単位・文書単位の既存判断を再利用する。墨消し、別ページ、Undo、フォーム変更で描画・検索・要素の期待値を個別に照合する。[PDFium の読取経路](../../src/solokpdf/EnginePdfium.cpp) · [フォーム検索](../../tests/form-text-cache.ts) · [墨消し Undo](../../tests/ad-hoc-pdfium-redaction-undo.ts)
+**R10 完了。** [墨消し後のコンテンツ境界](history.md#r09-r10-signature-lookup-and-redacted-page-bounds)
 
 **R11 中・差 — `Clone()` の戻り値から隔離の有無を判断できない。** 通常は再オープンするが、適用済み墨消しがあると現行エンジンを AddRef して返す。印刷・サムネイルでは正しい内容を届けるための意図的な共有である。呼び出し元が必要とするのが寿命、独立した設定、ある時点の内容のどれかを列挙し、独立性を実際に必要とする箇所だけ契約を分ける。出力中の Undo／タブを閉じる操作で古い本文の再出現、寿命違反、dirty の変化がないか確認。既存仕様を確認できれば明文化で完了。[Clone](../../src/solokpdf/EnginePdfium.cpp) · [共有する理由と参照保持](../../src/shared/EngineMupdf.cpp)
 
