@@ -1134,13 +1134,9 @@ class Win11PrintSession {
             return hr;
         }
 
-        EngineBase* printEngine = engine->Clone();
-        if (!printEngine && engine->FilePath()) {
-            printEngine = CreateEngineFromFile(engine->FilePath(), nullptr, false);
-        }
+        EngineBase* printEngine = CreatePrintEngine(engine);
         if (!printEngine) {
-            printEngine = engine;
-            printEngine->AddRef();
+            return E_FAIL;
         }
         hr = MakeAndInitialize<PrintDocumentSource>(&source, printEngine, currentPage, scale, previewDpi);
         printEngine->Release();

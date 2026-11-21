@@ -2991,7 +2991,8 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 AppendTestResult(req, held ? 0 : 1, held ? StrL("held") : StrL("not pdfium"));
                 break;
             }
-            if (str::Eq(StringArg(req, 0), StrL("clone-page")) ||
+            bool printPage = gForTesting && str::Eq(signAction, StrL("print-page"));
+            if (printPage || str::Eq(StringArg(req, 0), StrL("clone-page")) ||
                 str::Eq(StringArg(req, 0), StrL("clone-editor-page")) ||
                 str::Eq(StringArg(req, 0), StrL("clone-form-highlights"))) {
                 // a page of the copy print and palette thumbnails render, printed
@@ -3001,7 +3002,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
                     AppendTestResult(req, 1, StrL("invalid page"));
                     break;
                 }
-                EngineBase* clone = engine->Clone();
+                EngineBase* clone = printPage ? CreatePrintEngine(engine) : engine->Clone();
                 if (!clone) {
                     AppendTestResult(req, 1, StrL("clone failed"));
                     break;
@@ -3026,6 +3027,9 @@ static void ExecuteControlRequest(ControlRequest* req) {
                         AppendTestResult(req, 1, StrL("editor failed"));
                         break;
                     }
+                }
+                if (printPage && str::Eq(StringArg(req, 2), StrL("undo"))) {
+                    SendMessageW(gWindows[0]->hwndFrame, WM_COMMAND, CmdUndo, 0);
                 }
                 RenderPageArgs args(pageNo, 1.f, 0, nullptr, RenderTarget::Print);
                 Pixmap* raw = clone->RenderPage(args);

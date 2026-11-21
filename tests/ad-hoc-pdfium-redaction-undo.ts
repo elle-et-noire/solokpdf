@@ -53,12 +53,16 @@ function waitState(client: ControlClient, ok: (s: State) => boolean, what: strin
 }
 
 // page 1 of the copy print renders: its ink and text
-async function printed(client: ControlClient): Promise<{ ink: number; text: string; raw: string }> {
-  const res = await client.request(ControlCommand.TestCurrentPdf, ["clone-page", 1]);
+async function printed(
+  client: ControlClient,
+  source: "clone-page" | "print-page" = "clone-page",
+  action = "",
+): Promise<{ ink: number; text: string; raw: string }> {
+  const res = await client.request(ControlCommand.TestCurrentPdf, [source, 1, action]);
   const raw = String(res[1] ?? "");
   const m = /^ink=(-?\d+) text=([\s\S]*)$/.exec(raw);
   if (res[0] !== 0 || !m) {
-    throw new Error(`${kTag}: clone-page: ${raw}`);
+    throw new Error(`${kTag}: ${source}: ${raw}`);
   }
   return { ink: +m[1]!, text: m[2]!, raw };
 }
@@ -204,7 +208,10 @@ async function runEngine(engine: string): Promise<void> {
       { timeoutMs, error: (n) => `${kTag} ${engine}: no black box drawn (${before} -> ${n} dark pixels)` },
     );
 
-    sendCommandSync(frame, cmdId("CmdUndo"));
+    const inFlight = await printed(client, "print-page", "undo");
+    if (inFlight.text.includes(SECRET) || !inFlight.text.includes("KEEPWORD") || inFlight.ink !== printApplied.ink) {
+      throw new Error(`${kTag} ${engine}: Undo changed the ongoing print: ${inFlight.raw}`);
+    }
     s = await waitState(client, (st) => st.annotations === 1, "one undo did not bring back the mark");
     if (!s.text.includes(SECRET) || s.modified || s.canUndo) {
       throw new Error(`${kTag} ${engine}: undo must restore the original page\n${s.raw}`);

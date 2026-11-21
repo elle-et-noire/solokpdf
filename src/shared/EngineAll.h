@@ -202,6 +202,9 @@ void EngineMupdfCancelLoadAllAnnotations(EngineBase*);
 bool EngineMupdfApplyRedactions(EngineBase*, Vec<Annotation*>& deletedOut, Vec<int>& failedPages);
 bool EngineMupdfPageRedacted(EngineBase*, int pageNo);
 EngineBase* EngineMupdfRedactedEngine(EngineBase*);
+#if OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+EngineBase* EngineMupdfCopyForPrint(EngineBase*);
+#endif
 enum class MupdfLock {
     Doc,
     Pages,

@@ -153,6 +153,27 @@ class AbortCookieManager {
     }
 };
 
+EngineBase* CreatePrintEngine(EngineBase* engine) {
+#if defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+    if (EngineBase* redacted = EngineMupdfRedactedEngine(engine)) {
+        EngineBase* copy = EngineMupdfCopyForPrint(redacted);
+        redacted->Release();
+        return copy;
+    }
+#endif
+    EngineBase* copy = engine->Clone();
+    if (!copy && engine->FilePath()) {
+        copy = CreateEngineFromFile(engine->FilePath(), nullptr, false);
+    }
+    if (!copy) {
+        // The file may have moved or been deleted. Keep the loaded engine for printing.
+        logf("Print: clone/reload failed, printing from the original in-memory engine\n");
+        engine->AddRef();
+        copy = engine;
+    }
+    return copy;
+}
+
 struct PrintData {
     Printer* printer = nullptr;
     EngineBase* engine = nullptr;
@@ -164,39 +185,13 @@ struct PrintData {
     bool mirror = false;
     ProgressUpdateCb progressCb;
     AbortCookieManager* abortCookie = nullptr;
-    bool failedEngineClone = false;
 
     PrintData(EngineBase* engine, Printer* printer, Vec<PRINTPAGERANGE>& ranges, Print_Advanced_Data& advData,
               int rotation = 0, Vec<SelectionOnPage>* sel = nullptr) {
         this->printer = printer;
         this->advData = advData;
         this->rotation = rotation;
-        // prefer an independent engine for the print thread: Clone() and (as a
-        // fallback) re-loading from the file both re-read the document from disk.
-        this->engine = engine->Clone();
-        if (!this->engine) {
-            // re-create engine from file to avoid sharing with render cache
-            Str path = engine->FilePath();
-            logf("PrintData: engine->Clone() failed for '%s', re-creating\n", path ? path : StrL("(null)"));
-            if (path) {
-                this->engine = CreateEngineFromFile(path, nullptr, false);
-            }
-        }
-        if (!this->engine) {
-            // Clone and reload both failed - almost always because the file was
-            // moved or deleted after opening (issue #5790). The document is still
-            // loaded in memory, so print from the original engine directly.
-            // EngineMupdf is safe to use from the print thread (Ctx() hands out a
-            // per-thread fz_context) and printing only reads, so sharing it with
-            // the UI thread is fine. Before this, printing failed silently.
-            logf("PrintData: clone/reload failed, printing from the original in-memory engine\n");
-            this->engine = engine;
-            this->engine->AddRef();
-        }
-        if (!this->engine) {
-            logf("PrintData: failed to create engine for printing\n");
-            this->failedEngineClone = true;
-        }
+        this->engine = CreatePrintEngine(engine);
 
         if (!sel) {
             this->ranges = ranges;
@@ -955,7 +950,7 @@ bool TestStartPrintBand(EngineBase* engine, int page, int ms) {
     Vec<PRINTPAGERANGE> ranges;
     Print_Advanced_Data advanced{};
     auto* print = new PrintData(engine, nullptr, ranges, advanced);
-    if (print->failedEngineClone) {
+    if (!print->engine) {
         delete print;
         return false;
     }
@@ -1006,7 +1001,6 @@ static Vec<PRINTPAGERANGE> ClampPageRanges(const Vec<PRINTPAGERANGE>& ranges, in
 }
 
 static bool PrintToDevice(const PrintData& pd) {
-    ReportIf(!pd.engine);
     if (!pd.engine) {
         logf("PrintToDevice: !pd.engine\n");
         return false;
@@ -2010,9 +2004,10 @@ static void PrintCurrentFileCont(MainWindow* win, bool waitForCompletion, bool s
     pd->mirror = dm->GetMirror();
     SafeEngineRelease(&pinnedEngine);
 
-    if (pd->failedEngineClone) {
+    if (!pd->engine) {
         logf("PrintCurrentFile: failed to create engine for printing\n");
         delete pd;
+        PrintWarning(win, Tr("Couldn't prepare the document for printing"), Tr("Printing problem."));
         goto Exit;
     }
     if (!waitForCompletion) {

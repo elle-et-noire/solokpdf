@@ -4060,6 +4060,27 @@ class PasswordCloner : public PasswordUI {
     }
 };
 
+static void CopyCloneOptions(EngineMupdf* source, EngineMupdf* clone) {
+    TempStr layers;
+    {
+        ScopedRecursiveMutex scope(&source->docLock);
+        clone->disableAntiAlias = source->disableAntiAlias;
+        clone->disableAutoLinks = source->disableAutoLinks;
+        clone->cadDetectDone = source->cadDetectDone;
+        clone->cadDetectEnable = source->cadDetectEnable;
+        clone->cadDetectScore = source->cadDetectScore;
+        clone->cadRasterDominant = source->cadRasterDominant;
+        clone->cadHairlineVector = source->cadHairlineVector;
+        clone->cadEnhanceOverride = source->cadEnhanceOverride;
+        layers = str::DupTemp(source->layerStates);
+
+        if (!source->decryptionKey.s && source->pdfdoc && source->pdfdoc->crypt) {
+            clone->decryptionKey = Str();
+        }
+    }
+    EngineMupdfSetLayerStates(clone, layers);
+}
+
 EngineBase* EngineMupdf::Clone() {
     // the file still has what an applied redaction removed
     if (EngineBase* redacted = EngineMupdfRedactedEngine(this)) {
@@ -4113,26 +4134,7 @@ EngineBase* EngineMupdf::Clone() {
     }
     delete pwdUI;
 
-    TempStr layers;
-    {
-        ScopedRecursiveMutex scope(&docLock);
-        clone->disableAntiAlias = disableAntiAlias;
-        clone->disableAutoLinks = disableAutoLinks;
-        clone->cadDetectDone = cadDetectDone;
-        clone->cadDetectEnable = cadDetectEnable;
-        clone->cadDetectScore = cadDetectScore;
-        clone->cadRasterDominant = cadRasterDominant;
-        clone->cadHairlineVector = cadHairlineVector;
-        clone->cadEnhanceOverride = cadEnhanceOverride;
-        layers = str::DupTemp(layerStates);
-
-        if (!decryptionKey.s && pdfdoc && pdfdoc->crypt) {
-            clone->decryptionKey = Str();
-        }
-    }
-    // printing and thumbnails show the layers as the document does on screen
-    EngineMupdfSetLayerStates(clone, layers);
-
+    CopyCloneOptions(this, clone);
     return clone;
 }
 
@@ -12418,6 +12420,59 @@ static pdf_write_options PdfCopyOptions(EngineMupdf* e) {
     opts.do_garbage = e->pdfdoc->redacted ? 1 : 0;
     return opts;
 }
+
+#if OS_WIN && defined(SOLOKPDF_PDFIUM) && !defined(SUMATRA_NG)
+// Freeze the edited PDF for printing so Undo cannot affect later print bands.
+EngineBase* EngineMupdfCopyForPrint(EngineBase* engine) {
+    auto* source = AsEngineMupdf(engine);
+    auto* ctx = source->Ctx();
+    fz_buffer* buf = nullptr;
+    fz_output* out = nullptr;
+    u8 key[kPdfCryptKeyLen]{};
+    bool encrypted = false;
+    fz_var(buf);
+    fz_var(out);
+    defer {
+        fz_drop_buffer(ctx, buf);
+    };
+    {
+        ScopedRecursiveMutex lock(&source->docLock);
+        if (u8* current = pdf_crypt_key(ctx, source->pdfdoc->crypt)) {
+            memcpy(key, current, sizeof(key));
+            encrypted = true;
+        }
+        fz_try(ctx) {
+            auto opts = PdfCopyOptions(source);
+            if (!opts.do_copy) {
+                fz_throw(ctx, FZ_ERROR_ARGUMENT, "save prepared signatures before printing the redacted document");
+            }
+            buf = fz_new_buffer(ctx, 0);
+            out = fz_new_output_with_buffer(ctx, buf);
+            pdf_write_document(ctx, source->pdfdoc, out, &opts);
+            fz_close_output(ctx, out);
+        }
+        fz_always(ctx) {
+            fz_drop_output(ctx, out);
+        }
+        fz_catch_report(ctx) {
+            return nullptr;
+        }
+    }
+    u8* bytes = nullptr;
+    size_t size = fz_buffer_storage(ctx, buf, &bytes);
+    if (!size || size > INT_MAX) {
+        return nullptr;
+    }
+    PasswordCloner pwdUI(key);
+    Str data((char*)bytes, (int)size);
+    auto* copy = (EngineMupdf*)CreateEngineMupdfFromData(data, StrL("print.pdf"), encrypted ? &pwdUI : nullptr);
+    if (copy) {
+        copy->SetFilePath(source->FilePath());
+        CopyCloneOptions(source, copy);
+    }
+    return copy;
+}
+#endif
 
 // Give file tools the edits in the open PDF, and the key for the copy if requested.
 bool EngineMupdfSaveCopy(EngineBase* engine, Str path, TempStr* password) {

@@ -2537,6 +2537,25 @@ static bool IsSameDocument(MainWindow* win, WindowTab* tab, DocController* ctrl,
            tab->ctrl == ctrl && tab->GetEngine() == engine;
 }
 
+// Keep the pending-input check and commit order in one place.
+static const struct TabInput {
+    bool (*active)(MainWindow*);
+    void (*commit)(MainWindow*);
+} kTabInputs[] = {
+    {IsFormFieldEditActive, [](MainWindow*) { CommitFormFieldEdit(true); }},
+    {IsEditingFreeTextInPlace, [](MainWindow*) { EndFreeTextInPlaceEdit(true); }},
+    {IsEditingAnnotContents, CommitAnnotContents},
+};
+
+static bool HasPendingTabInput(MainWindow* win) {
+    for (const auto& input : kTabInputs) {
+        if (input.active(win)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
     WindowTab* tab = win->CurrentTab();
 
@@ -2558,8 +2577,7 @@ void ReloadDocument(MainWindow* win, bool autoRefresh, bool canAskForPassword) {
     };
 
     // Keep the pending update until this tab's edits can be replaced safely.
-    if (autoRefresh && (IsFormFieldEditActive(win) || IsEditingFreeTextInPlace(win) || IsEditingAnnotContents(win) ||
-                        EngineHasUnsavedAnnotations(tab->GetEngine()))) {
+    if (autoRefresh && (HasPendingTabInput(win) || EngineHasUnsavedAnnotations(tab->GetEngine()))) {
         tab->reloadOnFocus = true;
         logf("ReloadDocument: deferred automatic reload for %s\n", tab->filePath);
         return;
@@ -5220,20 +5238,14 @@ bool CommitTabInput(WindowTab* tab) {
         return IsMainWindowValid(win) && FindMainWindowByTab(tab) == win && IsCurrentTab(win, tab) &&
                tab->ctrl == ctrl && tab->GetEngine() == engine;
     };
-    if (IsFormFieldEditActive(win)) {
-        CommitFormFieldEdit(true);
+    for (const auto& input : kTabInputs) {
+        if (!input.active(win)) {
+            continue;
+        }
+        input.commit(win);
         if (!same()) {
             return false;
         }
-    }
-    if (IsEditingFreeTextInPlace(win)) {
-        EndFreeTextInPlaceEdit(true);
-        if (!same()) {
-            return false;
-        }
-    }
-    if (IsEditingAnnotContents(win)) {
-        CommitAnnotContents(win);
     }
     return same();
 }
