@@ -1,16 +1,62 @@
 import {
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { getGitSha1, runLogged } from "../util";
+
+const manifestName = ".solok-portable-files.json";
+
+function readStageFiles(manifest: string): string[] {
+  if (!existsSync(manifest)) return [];
+  const contents = readFileSync(manifest, "utf8");
+  let paths: unknown;
+  try {
+    paths = JSON.parse(contents);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(paths)) return [];
+  return paths.filter(
+    (path): path is string =>
+      typeof path === "string" &&
+      path !== manifestName &&
+      path.split("/").every((part) => part && !/[\\:\x00-\x1f]/.test(part) && !/[. ]$/.test(part)),
+  );
+}
+
+function writeStageFiles(manifest: string, paths: Set<string>): void {
+  const tmp = `${manifest}.${crypto.randomUUID()}.tmp`;
+  try {
+    writeFileSync(tmp, JSON.stringify([...paths], null, 2) + "\n", { flag: "wx" });
+    renameSync(tmp, manifest);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+}
+
+function pruneStageFiles(portable: string, previous: string[], current: Set<string>): void {
+  const root = realpathSync(portable);
+  const retained = new Set([...current].map((path) => path.toLowerCase()));
+  for (const path of previous) {
+    if (retained.has(path.toLowerCase())) continue;
+    const target = join(root, path);
+    if (!lstatSync(target, { throwIfNoEntry: false })?.isFile()) continue;
+    const parent = relative(root, realpathSync(dirname(target)));
+    if (parent === ".." || parent.startsWith(`..${sep}`) || isAbsolute(parent)) continue;
+    rmSync(target);
+  }
+}
 
 function collectNotices(dir: string, files: Map<string, string>): void {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -84,25 +130,38 @@ export async function packageSolokPdf(out: string, pdfium: string, portable: str
 
   const readme = await portableReadme();
   mkdirSync(portable, { recursive: true });
-  for (const [dest, source] of files) {
-    const target = join(portable, dest);
-    mkdirSync(dirname(target), { recursive: true });
-    copyFileSync(source, target);
-  }
-  // Keep symbols in the loose build for debugging.
   const pdb = join(out, "SumatraPDF.pdb");
-  if (existsSync(pdb)) copyFileSync(pdb, join(portable, "SolokPDF.pdb"));
-  writeFileSync(join(portable, "README.txt"), readme);
+  const hasPdb = existsSync(pdb);
   const entries = [...files.keys(), "README.txt"].map((path) => path.replaceAll("\\", "/"));
+  const stageFiles = new Set(entries);
+  if (hasPdb) stageFiles.add("SolokPDF.pdb");
+  const manifest = join(portable, manifestName);
+  const previousFiles = readStageFiles(manifest);
 
   // Windows' bsdtar writes ZIPs. Git's GNU tar can't.
   const work = mkdtempSync(join(dirname(resolve(zip)), ".solok-portable-"));
   try {
+    // Track files written by an interrupted stage so a retry can reconcile them.
+    const pendingFiles = new Set(previousFiles);
+    for (const path of stageFiles) {
+      if (!existsSync(join(portable, path))) pendingFiles.add(path);
+    }
+    writeStageFiles(manifest, pendingFiles);
+    for (const [dest, source] of files) {
+      const target = join(portable, dest);
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(source, target);
+    }
+    if (hasPdb) copyFileSync(pdb, join(portable, "SolokPDF.pdb"));
+    writeFileSync(join(portable, "README.txt"), readme);
+
     const list = join(work, "files.txt");
     writeFileSync(list, entries.join("\n") + "\n");
     const tmpZip = join(work, "portable.zip");
     const tar = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe");
     await runLogged(tar, ["--format", "zip", "-c", "-f", tmpZip, "-C", portable, "-T", list]);
+    pruneStageFiles(portable, previousFiles, stageFiles);
+    writeStageFiles(manifest, stageFiles);
     renameSync(tmpZip, zip);
   } finally {
     rmSync(work, { recursive: true, force: true });

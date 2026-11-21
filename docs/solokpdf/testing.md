@@ -46,6 +46,19 @@ default exclusions.
 synthetic child processes. For a named test that opens the app, run the hosted
 runner through the hidden desktop locally.
 
+### Choose a Debug build
+
+| What to check                                        | Build                                                                 |
+| ---------------------------------------------------- | --------------------------------------------------------------------- |
+| App code and the pinned PDFium runtime               | `bun cmd/solok-build.ts -quick`, then test `out/dbg64/SumatraPDF.exe` |
+| Embedded manual, PDF examples or other staged assets | `bun cmd/solok-build.ts -dbg`, then check the asset in the app        |
+| Portable folder or ZIP                               | `bun cmd/solok-build.ts -dbg`, then use the ZIP smoke test below      |
+
+Quick calls MSBuild directly. Its prebuild can pack existing staged files.
+Normal Debug runs asset generation first, then stages the portable folder and
+ZIP. The manual and PDF examples need the `sumatra-website` checkout. The build
+log reports when it omits them.
+
 ### Portable ZIP
 
 Build and test the Debug ZIP locally.
@@ -60,6 +73,11 @@ The release job runs the same check before upload. It verifies the runtime
 files, notices and README after a fresh extraction. It launches the extracted
 app, opens a sample PDF and checks the log and package manifest against the
 PDFium pin.
+
+The test also restages a synthetic loose package. The staging manifest lets
+the build remove retired files it previously managed. Settings and other
+untracked files stay in the loose folder. The ZIP contains this build's runtime
+and notices without the loose manifest or debugging symbols.
 
 The smoke test uses the resolved Windows TEMP directory before extracting
 the ZIP. On hosted Windows, TEMP can be an 8.3 path while the app reports the
