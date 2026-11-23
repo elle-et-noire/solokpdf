@@ -66,6 +66,8 @@ export function ciTests(): NamedTest[] {
 }
 
 const kTestTimeoutMs = 5 * 60 * 1000;
+// The first form-js-throw run compiles ng's test_mupdf from scratch.
+const kFormJsThrowTimeoutMs = 10 * 60 * 1000;
 const kProcessExitGraceMs = 250;
 // WebView2, the Windows print thunk and the MSVC PDB server can outlive their callers.
 const backgroundImages = new Set(["msedgewebview2.exe", "splwow64.exe", "mspdbsrv.exe"]);
@@ -84,11 +86,11 @@ export async function runCiWorker([name, fn]: NamedTest): Promise<number> {
   return WorkerExit.Passed;
 }
 
-type CiJob = { name: string; command: string[] };
+type CiJob = { name: string; command: string[]; timeoutMs?: number };
 
-export async function runCiJobs(jobs: CiJob[], timeoutMs = kTestTimeoutMs) {
+export async function runCiJobs(jobs: CiJob[], defaultTimeoutMs = kTestTimeoutMs) {
   const counts = { passed: 0, partial: 0, skipped: 0, failures: [] as string[] };
-  for (const { name, command } of jobs) {
+  for (const { name, command, timeoutMs = defaultTimeoutMs } of jobs) {
     console.log(`\n========== ${name} ==========`);
     const result = await runInJob(command, { timeoutMs, exitGraceMs: kProcessExitGraceMs });
     if (result.interrupted) throw new Error("CI test run interrupted");
@@ -146,6 +148,7 @@ async function testit(requested?: NamedTest[]): Promise<void> {
   const jobs = tests.map(([name]) => ({
     name,
     command: [process.execPath, import.meta.path, "--ci-worker", name, ...forwarded],
+    timeoutMs: name === "form-js-throw" ? kFormJsThrowTimeoutMs : undefined,
   }));
   const { passed, partial, skipped, failures } = await runCiJobs(jobs);
   const elapsed = formatDuration(performance.now() - t0);

@@ -637,6 +637,7 @@ export const tests: NamedTest[] = [
   // first: it drives the home page, whose thumbnail selection follows the
   // mouse, so it is the one test that cares what the machine was doing before
   ["issue-5978", issue5978],
+  ["form-js-throw", formJsThrow],
   ["issue-6140", issue6140],
   ["issue-6167", issue6167],
   ["issue-6151", issue6151],
@@ -828,7 +829,6 @@ export const tests: NamedTest[] = [
   ["lazy-tab-state-after-save", lazyTabStateAfterSave],
   ["lazy-tab-select-paint", lazyTabSelectPaint],
   ["pending-tab-freed-session-state", pendingTabFreedSessionState],
-  ["form-js-throw", formJsThrow],
   ["close-tab-during-placement", closeTabDuringPlacement],
   ["toggle-zoom-failed-tab", toggleZoomFailedTab],
   ["restore-chm-missing-tab", restoreChmMissingTab],
