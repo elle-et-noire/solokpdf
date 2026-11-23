@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { skipTest, tmpPath } from "./util.ts";
+import { pollUntil, skipTest, tmpPath } from "./util.ts";
 import { waitForProcessExit } from "./winapi.ts";
 
 const timeoutMs = 3500;
@@ -12,7 +12,7 @@ function command(mode: string, dir: string, dummyPid?: number): string[] {
 }
 
 async function worker(mode: string, dir: string, dummyPid: number): Promise<number> {
-  if (mode === "dummy" || mode === "grandchild") {
+  if (mode === "dummy" || mode === "grandchild" || mode === "orphan") {
     writeFileSync(join(dir, mode), String(process.pid));
     await Bun.sleep(sleepMs);
     return 0;
@@ -23,6 +23,11 @@ async function worker(mode: string, dir: string, dummyPid: number): Promise<numb
     await child.exited;
     return 0;
   }
+  if (mode === "leak") {
+    Bun.spawn(command("orphan", dir), { detached: true, stdio: ["ignore", "ignore", "ignore"] }).unref();
+    await pollUntil(() => existsSync(join(dir, "orphan")), Boolean);
+    return 0;
+  }
 
   const { runCiWorker } = await import("./run-github-ci.ts");
   return runCiWorker([
@@ -31,9 +36,9 @@ async function worker(mode: string, dir: string, dummyPid: number): Promise<numb
       if (mode === "skip") return skipTest("optional fixture unavailable");
       if (mode === "fail") throw new Error("intentional test failure");
       if (mode === "next") {
-        for (const member of ["timeout", "child", "grandchild"]) {
+        for (const member of ["timeout", "child", "grandchild", "orphan"]) {
           const pid = Number(readFileSync(join(dir, member), "utf8"));
-          assert.ok(waitForProcessExit(pid, 0), `${member} ${pid} survived the timeout`);
+          assert.ok(waitForProcessExit(pid, 0), `${member} ${pid} survived job cleanup`);
         }
         assert.ok(!waitForProcessExit(dummyPid, 0), "same-name process outside the job was terminated");
         appendFileSync(join(dir, "next"), "once\n");
@@ -48,7 +53,7 @@ export async function testit(): Promise<void> {
   const dir = mkdtempSync(tmpPath("github-ci-runner-"));
   const dummy = Bun.spawn(command("dummy", dir));
   try {
-    const jobs = ["timeout", "next", "pass", "skip", "fail"].map((name) => ({
+    const jobs = ["timeout", "leak", "next", "pass", "skip", "fail"].map((name) => ({
       name,
       command: command(name, dir, dummy.pid),
     }));
@@ -56,12 +61,12 @@ export async function testit(): Promise<void> {
       passed: 1,
       partial: 1,
       skipped: 1,
-      failures: ["timeout", "fail"],
+      failures: ["timeout", "leak", "fail"],
     });
     assert.equal(readFileSync(join(dir, "next"), "utf8"), "once\n");
     assert.equal(readFileSync(join(dir, "dummy"), "utf8"), String(dummy.pid));
     assert.ok(!waitForProcessExit(dummy.pid, 0));
-    console.log("github-ci-runner: isolated timeout and distinct test outcomes");
+    console.log("github-ci-runner: isolated timeout and leak cleanup, distinct test outcomes");
   } finally {
     dummy.kill();
     await dummy.exited;

@@ -1,7 +1,7 @@
 import { mkdtempSync, openSync, readSync, rmSync, closeSync } from "node:fs";
 import { once } from "node:events";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { dlopen, FFIType, ptr } from "bun:ffi";
 
 const ERROR_MODE = 0x0001 | 0x0002 | 0x8000;
@@ -12,6 +12,11 @@ const STARTF_USESTDHANDLES = 0x00000100;
 const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
 const JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9;
 const JOB_OBJECT_BASIC_ACCOUNTING_INFORMATION = 1;
+const JOB_OBJECT_BASIC_PROCESS_ID_LIST = 3;
+const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+const SYNCHRONIZE = 0x00100000;
+const ERROR_INVALID_PARAMETER = 87;
+const ERROR_MORE_DATA = 234;
 const JOB_STOP_TIMEOUT_MS = 5000;
 const WAIT_OBJECT_0 = 0;
 const WAIT_TIMEOUT = 258;
@@ -45,6 +50,12 @@ const kernel32 = dlopen("kernel32.dll", {
     returns: FFIType.bool,
   },
   AssignProcessToJobObject: { args: [FFIType.u64, FFIType.u64], returns: FFIType.bool },
+  IsProcessInJob: { args: [FFIType.u64, FFIType.u64, FFIType.ptr], returns: FFIType.bool },
+  OpenProcess: { args: [FFIType.u32, FFIType.bool, FFIType.u32], returns: FFIType.u64 },
+  QueryFullProcessImageNameW: {
+    args: [FFIType.u64, FFIType.u32, FFIType.ptr, FFIType.ptr],
+    returns: FFIType.bool,
+  },
   ResumeThread: { args: [FFIType.u64], returns: FFIType.u32 },
   GetExitCodeProcess: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.bool },
   WaitForSingleObject: { args: [FFIType.u64, FFIType.u32], returns: FFIType.u32 },
@@ -92,6 +103,51 @@ function activeProcesses(job: bigint): number {
     "QueryInformationJobObject",
   );
   return new DataView(accounting.buffer).getUint32(40, true); // ActiveProcesses
+}
+
+function readJobProcess(job: bigint, pid: number): JobProcess | undefined {
+  const proc = kernel32.symbols.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, false, pid);
+  if (!proc) return kernel32.symbols.GetLastError() === ERROR_INVALID_PARAMETER ? undefined : { pid };
+  try {
+    const inJob = new Uint32Array(1);
+    check(kernel32.symbols.IsProcessInJob(proc, job, ptr(inJob)), "IsProcessInJob");
+    if (!inJob[0] || kernel32.symbols.WaitForSingleObject(proc, 0) === WAIT_OBJECT_0) return;
+    const path = new Uint16Array(32768);
+    const size = new Uint32Array([path.length]);
+    if (kernel32.symbols.QueryFullProcessImageNameW(proc, 0, ptr(path), ptr(size))) {
+      const image = basename(Buffer.from(path.buffer, 0, size[0]! * 2).toString("utf16le"));
+      return { pid, image };
+    }
+    if (kernel32.symbols.WaitForSingleObject(proc, 0) !== WAIT_OBJECT_0) return { pid };
+  } finally {
+    kernel32.symbols.CloseHandle(proc);
+  }
+}
+
+function jobProcesses(job: bigint, active: number): JobProcess[] {
+  // Two DWORD counts followed by an array of x64 ULONG_PTR process IDs.
+  let capacity = active;
+  for (;;) {
+    const list = new Uint32Array(2 + capacity * 2);
+    const ok = kernel32.symbols.QueryInformationJobObject(
+      job,
+      JOB_OBJECT_BASIC_PROCESS_ID_LIST,
+      ptr(list),
+      list.byteLength,
+      null,
+    );
+    if (ok) {
+      const processes: JobProcess[] = [];
+      for (let i = 0; i < list[1]!; i++) {
+        const member = readJobProcess(job, list[2 + i * 2]!);
+        if (member) processes.push(member);
+      }
+      return processes;
+    }
+    const error = kernel32.symbols.GetLastError();
+    if (error !== ERROR_MORE_DATA) throw new Error(`could not list remaining test processes: ${error}`);
+    capacity = Math.max(capacity * 2, list[0]!);
+  }
 }
 
 async function waitForEmptyJob(job: bigint, timeoutMs: number): Promise<number> {
@@ -145,7 +201,7 @@ async function relay(
 
 type JobOptions = {
   timeoutMs: number;
-  leakGraceMs?: number;
+  exitGraceMs?: number;
   desktop?: string;
   env?: Record<string, string | undefined>;
 };
@@ -154,8 +210,10 @@ type JobResult = {
   exitCode: number;
   timedOut: boolean;
   interrupted: boolean;
-  leaked: number;
+  remaining: JobProcess[];
 };
+
+type JobProcess = { pid: number; image?: string };
 
 export async function runInJob(args: readonly string[], options: JobOptions): Promise<JobResult> {
   const exe = args[0]!.toLowerCase() === "bun" ? process.execPath : (Bun.which(args[0]!) ?? resolve(args[0]!));
@@ -269,15 +327,16 @@ export async function runInJob(args: readonly string[], options: JobOptions): Pr
     }
 
     // Drain the whole owned tree before the next test starts, even after timeout.
-    const leaked = exited && options.leakGraceMs !== undefined ? await waitForEmptyJob(job, options.leakGraceMs) : 0;
-    if (!exited || leaked) await stopJob(job);
+    const active = exited && options.exitGraceMs !== undefined ? await waitForEmptyJob(job, options.exitGraceMs) : 0;
+    const remaining = active ? jobProcesses(job, active) : [];
+    if (!exited || active) await stopJob(job);
     const drainDeadline = Date.now() + 1000;
     while (!interrupted && Date.now() < drainDeadline) {
       const out = await relay(stdoutPath, outState, process.stdout, drainDeadline, () => interrupted);
       const err = await relay(stderrPath, errState, process.stderr, drainDeadline, () => interrupted);
       if (!out && !err) break;
     }
-    return { exitCode: exitCode[0]!, timedOut: !exited && !interrupted, interrupted, leaked };
+    return { exitCode: exitCode[0]!, timedOut: !exited && !interrupted, interrupted, remaining };
   } finally {
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);

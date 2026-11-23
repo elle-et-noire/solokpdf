@@ -67,6 +67,8 @@ export function ciTests(): NamedTest[] {
 
 const kTestTimeoutMs = 5 * 60 * 1000;
 const kProcessExitGraceMs = 250;
+// WebView2, the Windows print thunk and the MSVC PDB server can outlive their callers.
+const backgroundImages = new Set(["msedgewebview2.exe", "splwow64.exe", "mspdbsrv.exe"]);
 
 const enum WorkerExit {
   Passed = 0,
@@ -88,12 +90,20 @@ export async function runCiJobs(jobs: CiJob[], timeoutMs = kTestTimeoutMs) {
   const counts = { passed: 0, partial: 0, skipped: 0, failures: [] as string[] };
   for (const { name, command } of jobs) {
     console.log(`\n========== ${name} ==========`);
-    const result = await runInJob(command, { timeoutMs, leakGraceMs: kProcessExitGraceMs });
+    const result = await runInJob(command, { timeoutMs, exitGraceMs: kProcessExitGraceMs });
     if (result.interrupted) throw new Error("CI test run interrupted");
+    const background = [];
+    const leaks = [];
+    for (const { image, pid } of result.remaining) {
+      const label = `${image ?? "unknown"} (${pid})`;
+      if (image && backgroundImages.has(image.toLowerCase())) background.push(label);
+      else leaks.push(label);
+    }
+    if (background.length) console.log(`${name}: cleaned up background processes: ${background.join(", ")}`);
     if (result.timedOut) {
       console.error(`❌ ${name} timed out after ${formatDuration(timeoutMs)}`);
-    } else if (result.leaked) {
-      console.error(`❌ ${name} left ${result.leaked} process(es) running (worker exit ${result.exitCode})`);
+    } else if (leaks.length) {
+      console.error(`❌ ${name} left processes running: ${leaks.join(", ")} (worker exit ${result.exitCode})`);
     } else if (result.exitCode === WorkerExit.Passed) {
       counts.passed++;
       continue;
