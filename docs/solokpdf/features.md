@@ -110,6 +110,10 @@ Home from "+", Ctrl+T or the Home command leaves the focus on its file list
 Plain keys on Home run their shortcuts, such as T for the next theme. A search
 starts by clicking the box, Ctrl+F, or `/` with Vim keys on (E90).
 
+The Home history exposes its current results to Windows UI Automation in
+both views. Item names include the folder so identical filenames can be
+distinguished. UI Automation can select and open files and find the Open link.
+
 `NoHomeTab` defaults to true: opening a file leaves no pinned Home tab behind.
 Home from "+" or the Home command is replaced when a file opens from it. Set
 `NoHomeTab = false` to keep the pinned Home tab.

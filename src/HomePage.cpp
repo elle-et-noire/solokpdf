@@ -38,6 +38,8 @@
 #include "DarkMode.h"
 #include "SvgIcons.h"
 #include "PagePosition.h"
+#include <uiautomationcore.h>
+#include "uia/Provider.h"
 #include "HomePage.h"
 #include "HomePageCommon.h"
 
@@ -1228,7 +1230,11 @@ static void EnsureHomeSearchCreated(MainWindow* win) {
 
 void HomePageHideSearch(MainWindow* win) {
     if (win && win->homeSearch) {
+        bool wasVisible = IsWindowVisible(win->homeSearch->hwnd);
         win->homeSearch->SetIsVisible(false);
+        if (wasVisible && win->uiaProvider) {
+            win->uiaProvider->OnHomeChanged();
+        }
     }
 }
 
@@ -3156,6 +3162,7 @@ void HomePageRelayout(MainWindow* win) {
 
     TempStr filterText = HomeSearchQueryTemp(win);
     bool usedCache = false;
+    bool changed = false;
     if (HomeLayoutCacheMatches(win, l.rc, filterText)) {
         Vec<FileState*> files;
         StrVec filterWords;
@@ -3167,6 +3174,11 @@ void HomePageRelayout(MainWindow* win) {
     }
     if (!usedCache) {
         LayoutHomePage(l);
+        auto& cache = HomeLayout(win);
+        changed = !str::Eq(cache.filterText, filterText) || len(cache.thumbs) != len(l.thumbnails);
+        for (int i = 0; !changed && i < len(l.thumbnails); i++) {
+            changed = cache.thumbs[i].fs != l.thumbnails[i].fs;
+        }
         SaveHomeLayoutCache(l, filterText, win->homePageScrollY);
     }
     HomePageSyncChrome(l);
@@ -3177,6 +3189,9 @@ void HomePageRelayout(MainWindow* win) {
     UpdateHomeSearchCueBanner(win);
     UpdateHomeOverlayScrollbar(win);
     UpdateHomeWinScrollbar(win);
+    if (changed && win->uiaProvider) {
+        win->uiaProvider->OnHomeChanged();
+    }
 }
 
 void DrawHomePage(MainWindow* win, Gfx* gfx) {
@@ -3560,6 +3575,78 @@ Str HomePageSelectedFilePathTemp(MainWindow* win) {
         return {};
     }
     return str::DupTemp(fs->filePath);
+}
+
+MainWindow* FindHomeUiaWindow(HWND canvas, SumatraUIAutomationProvider* root) {
+    MainWindow* win = FindMainWindowByHwnd(canvas);
+    return IsMainWindowValidAndNotClosing(win) && win->hwndCanvas == canvas && win->uiaProvider == root ? win : nullptr;
+}
+
+int HomeUiaCount(MainWindow* win) {
+    if (!HomePageShouldShow(win) || !win->homeLayout || !win->homeLayout->valid || !HomeChrome(win)) {
+        return -1;
+    }
+    return len(win->homeLayout->thumbs);
+}
+
+int HomeUiaSelected(MainWindow* win) {
+    int count = HomeUiaCount(win);
+    return count > 0 && win->homePageSelIdx < count ? win->homePageSelIdx : -1;
+}
+
+bool HomeUiaSearchFocus(MainWindow* win) {
+    return HomeSearchHasFocus(win);
+}
+
+bool HomeUiaHasFocus(MainWindow* win) {
+    HWND focus = GetFocus();
+    return win && (focus == win->hwndFrame || focus == win->hwndCanvas);
+}
+
+void HomeUiaFocus(MainWindow* win) {
+    HwndSetFocus(win->hwndFrame);
+}
+
+bool HomeUiaItem(MainWindow* win, int idx, Str& name, Str& path, Rect& bounds) {
+    int count = HomeUiaCount(win);
+    if (count < 0 || idx < kHomeUiaOpen || idx >= count) {
+        return false;
+    }
+    if (idx == kHomeUiaOpen) {
+        auto* open = HomeChrome(win)->openDoc;
+        name = open->text->s;
+        bounds = open->lastBounds;
+        return true;
+    }
+    auto& cache = *win->homeLayout;
+    const auto& item = cache.thumbs[idx];
+    path = HomeEntries(win)->EntryAt(idx)->filePath;
+    name = fmt("%s (%s)", path::GetBaseNameTemp(path), path::GetDirTemp(path));
+    bounds = HomeEntryRect(item).Intersect(cache.rcThumbsArea);
+    return true;
+}
+
+void HomeUiaSelect(MainWindow* win, int idx) {
+    win->homePageSelIdx = idx;
+    HomeScrollSelectionIntoView(win);
+    HwndInvalidate(win->hwndCanvas);
+    HomePageShowSelectionTooltip(win);
+}
+
+void HomeUiaInvoke(MainWindow* win, int idx) {
+    if (idx == kHomeUiaOpen) {
+        HomeOpenDocClicked(win, nullptr);
+        return;
+    }
+    Str path = str::DupTemp(HomeEntries(win)->EntryAt(idx)->filePath);
+    if (len(path) == 0) {
+        return;
+    }
+    win->homePageSelIdx = idx;
+    LoadArgs args(path, win);
+    args.activateExisting = true;
+    args.activateExistingInWindow = true;
+    StartLoadDocument(&args);
 }
 
 // keyboard navigation of the file list (issue #1136). dCol/dRow are in grid

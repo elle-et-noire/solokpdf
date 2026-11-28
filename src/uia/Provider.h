@@ -31,6 +31,8 @@ class SumatraUIAutomationProvider : public IRawElementProviderSimple,
     void OnDocumentLoad(DisplayModel* dm);
     void OnDocumentUnload();
     void OnSelectionChanged();
+    void OnHomeChanged();
+    void OnWindowClosed();
 
     // IUnknown
     HRESULT STDMETHODCALLTYPE QueryInterface(const IID&, void**) override;

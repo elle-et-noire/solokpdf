@@ -135,6 +135,7 @@ MainWindow::~MainWindow() {
     // Disconnect UIA clients and release our provider. Clients that still hold
     // refs get UIA_E_ELEMENTNOTAVAILABLE after FreeDocument.
     if (uiaProvider) {
+        uiaProvider->OnWindowClosed();
         uiaProvider->OnDocumentUnload();
         // Clears UIA's cached link for this hwnd (pairs with WM_GETOBJECT).
         UiaReturnRawElementProvider(hwndCanvas, 0, 0, nullptr);

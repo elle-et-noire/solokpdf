@@ -31,6 +31,7 @@ void SumatraUIAutomationProvider::OnDocumentLoad(DisplayModel* dm) {
     // Tab switches and reloads can load while a previous document is still
     // attached; drop it first so we never hold a stale DisplayModel*.
     OnDocumentUnload();
+    startpage->InvalidateItems();
 
     document = new SumatraUIAutomationDocumentProvider(canvasHwnd, this);
     document->LoadDocument(dm);
@@ -54,6 +55,17 @@ void SumatraUIAutomationProvider::OnSelectionChanged() {
     if (document) {
         UiaRaiseAutomationEvent(document, UIA_Text_TextSelectionChangedEventId);
     }
+}
+
+void SumatraUIAutomationProvider::OnHomeChanged() {
+    startpage->InvalidateItems();
+    if (!document && UiaClientsAreListening()) {
+        UiaRaiseStructureChangedEvent(startpage, StructureChangeType_ChildrenInvalidated, nullptr, 0);
+    }
+}
+
+void SumatraUIAutomationProvider::OnWindowClosed() {
+    startpage->DetachRoot();
 }
 
 HRESULT STDMETHODCALLTYPE SumatraUIAutomationProvider::QueryInterface(REFIID riid, void** ppv) {
@@ -199,7 +211,7 @@ HRESULT STDMETHODCALLTYPE SumatraUIAutomationProvider::GetFocus(IRawElementProvi
     if (document) {
         *pRetVal = document;
     } else {
-        *pRetVal = startpage;
+        return startpage->GetFocus(pRetVal);
     }
     if (*pRetVal) {
         (*pRetVal)->AddRef();

@@ -19,16 +19,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 import { EXE, ROOT, tmpPath, SETTINGS_FILE } from "./util";
 import { FRAME_CLASS } from "./win-automation";
-import {
-  moveWindow,
-  showWindow,
-  sleep,
-  waitForChildWindow,
-  waitForTopWindow,
-  SW_RESTORE,
-  killAndWait,
-  killProcessesNamed,
-} from "./winapi";
+import { moveWindow, showWindow, sleep, waitForChildWindow, waitForTopWindow, SW_RESTORE, killAndWait } from "./winapi";
 
 const PAGE_LINES = [
   ["Alpha line one", "Bravo line two", "Charlie line three", "Delta line four"],
@@ -146,7 +137,6 @@ export async function testit(): Promise<void> {
   mkdirSync(appdata, { recursive: true });
   writeFileSync(join(appdata, SETTINGS_FILE), SETTINGS);
 
-  await killProcessesNamed("SumatraPDF.exe");
   const logPath = tmpPath("ad-hoc-uia-log.txt");
   rmSync(logPath, { force: true });
   const args = [EXE, "-for-testing", "-appdata", appdata, "-log-to-file", logPath, pdf];

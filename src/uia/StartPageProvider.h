@@ -2,14 +2,25 @@
    License: GPLv3 */
 
 class SumatraUIAutomationProvider;
-class SumatraUIAutomationStartPageProvider : public IRawElementProviderFragment, public IRawElementProviderSimple {
+class HomeUiaChild;
+struct MainWindow;
+class SumatraUIAutomationStartPageProvider : public IRawElementProviderFragment,
+                                             public IRawElementProviderSimple,
+                                             public ISelectionProvider {
+    friend class HomeUiaChild;
     AtomicInt refCount;
     HWND canvasHwnd;
     SumatraUIAutomationProvider* root; // not ref-counted; nulled by DetachRoot()
+    int generation = 0;
+
+    MainWindow* Window() const;
+    void Child(int, IRawElementProviderFragment**);
 
   public:
     SumatraUIAutomationStartPageProvider(HWND canvasHwnd, SumatraUIAutomationProvider* root);
     void DetachRoot();
+    void InvalidateItems();
+    HRESULT GetFocus(IRawElementProviderFragment**);
     ~SumatraUIAutomationStartPageProvider();
 
     HRESULT STDMETHODCALLTYPE QueryInterface(const IID&, void**);
@@ -27,4 +38,7 @@ class SumatraUIAutomationStartPageProvider : public IRawElementProviderFragment,
     HRESULT STDMETHODCALLTYPE GetPropertyValue(PROPERTYID propertyId, VARIANT* pRetVal);
     HRESULT STDMETHODCALLTYPE get_HostRawElementProvider(IRawElementProviderSimple** pRetVal);
     HRESULT STDMETHODCALLTYPE get_ProviderOptions(ProviderOptions* pRetVal);
+    HRESULT STDMETHODCALLTYPE GetSelection(SAFEARRAY**) override;
+    HRESULT STDMETHODCALLTYPE get_CanSelectMultiple(BOOL*) override;
+    HRESULT STDMETHODCALLTYPE get_IsSelectionRequired(BOOL*) override;
 };

@@ -64,6 +64,19 @@ bool HomePageOnHover(MainWindow* win, int x, int y);
 void HomePageSelectAt(MainWindow* win, int x, int y);
 Str HomePageFilePathAtTemp(MainWindow* win, int x, int y);
 void HomePageClearActiveEntry(MainWindow* win);
+#if !defined(SUMATRA_NG)
+constexpr int kHomeUiaOpen = -1;
+class SumatraUIAutomationProvider;
+MainWindow* FindHomeUiaWindow(HWND, SumatraUIAutomationProvider*);
+int HomeUiaCount(MainWindow* win);
+int HomeUiaSelected(MainWindow* win);
+bool HomeUiaSearchFocus(MainWindow* win);
+bool HomeUiaHasFocus(MainWindow* win);
+void HomeUiaFocus(MainWindow* win);
+bool HomeUiaItem(MainWindow* win, int idx, Str& name, Str& path, Rect& bounds);
+void HomeUiaSelect(MainWindow* win, int idx);
+void HomeUiaInvoke(MainWindow* win, int idx);
+#endif
 #endif
 TempStr HomeListRowsResultTemp(int* exitCodeOut);
 TempStr HomeSelectionResultTemp(int* exitCodeOut);

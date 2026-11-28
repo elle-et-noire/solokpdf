@@ -5307,3 +5307,18 @@ Hidden-desktop Debug passed `find-ui-state` and `ad-hoc-find-tab-switch` with
 PDFium and MuPDF. With the callbacks delivered as A-2, B-80, then A's partial
 count, A displayed `4 A-2` and B kept `B-80`. B finished with 80 matches. A's
 replacement term finished with two matches and rejected the old partial update.
+
+### 2B — Expose Home history to UI Automation
+
+Fixed. Home exposes file entries with folder-qualified names, selection and
+invocation, plus the Open link. The provider resolves each item against the
+current Home results and invalidates references when those results change
+or the Home canvas is left.
+
+Hidden-desktop Debug and ASan passed `ad-hoc-home-uia` in list and thumbnail
+views. The external client selected one of two same-named PDFs without
+moving focus from the search edit, found the Open hyperlink and opened the
+intended PDF. References held across filtering, switching to a document and
+closing the original window returned `UIA_E_ELEMENTNOTAVAILABLE`. The process
+remained alive in a second window for the close check.
+The existing `ad-hoc-uia` document text and point queries passed in Debug.
