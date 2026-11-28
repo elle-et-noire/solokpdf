@@ -5285,3 +5285,16 @@ fixture bytes and left no staging files. Allowing deletion while denying
 writes produced complete images. Intentional replacements matched reference
 dimensions and pixels. Partial failures still reported the failed pages and
 kept the successful output.
+
+### 1B — Honor the image overwrite preview
+
+Fixed. The worker receives the overwrite decision for each previewed output.
+It publishes new files with a rename that fails on collision. A changed page
+selection refreshes the preview before the button can start an export.
+
+Hidden-desktop Debug passed `convert-images-partial` on both engines and
+`issue-6439`. The actual Convert and Overwrite buttons kept page 2's late
+arrival byte-for-byte and reported “Saved 1 of 2 images. Failed pages: 2”.
+Page 1 matched the reference pixels and dimensions, including when its
+replacement was approved. Use New Names preserved the old bytes and wrote
+two images matching the references.

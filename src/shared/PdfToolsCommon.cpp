@@ -64,11 +64,20 @@ PdfToolOutput::~PdfToolOutput() {
     }
 }
 
-bool PdfToolOutput::Publish(Str dest) {
+bool PdfToolOutput::Publish(Str dest, PdfToolReplace replace) {
     auto h = file::OpenReadWrite(path, false);
     bool flushed = h != file::kInvalidFileHandle && file::Flush(h);
     file::Close(h);
-    if (!flushed || !file::RenameReplace(dest, path)) {
+    bool published = false;
+    if (flushed && replace == PdfToolReplace::Allow) {
+        published = file::RenameReplace(dest, path);
+    }
+#if OS_WIN
+    if (flushed && replace == PdfToolReplace::Deny) {
+        published = file::Rename(dest, path);
+    }
+#endif
+    if (!published) {
         logf("PdfToolOutput: cannot publish '%s'\n", dest);
         return false;
     }
@@ -590,14 +599,21 @@ static TempStr ImagesTemplateTemp(Str templatePath, int nPages) {
 }
 
 // how many of the files converting pages to templatePath writes already exist
-int CountExistingImages(Str templatePath, const Vec<int>& pages) {
+int CountExistingImages(Str templatePath, const Vec<int>& pages, Vec<PdfToolReplace>* preview) {
+    if (preview) {
+        VecReset(*preview);
+    }
     TempStr templ = ImagesTemplateTemp(templatePath, len(pages));
     if (len(templ) == 0) {
         return 0;
     }
     int n = 0;
     for (int pageNo : pages) {
-        if (file::Exists(ReplacePagePlaceholderTemp(templ, pageNo))) {
+        bool exists = file::Exists(ReplacePagePlaceholderTemp(templ, pageNo));
+        if (preview) {
+            VecAppend(*preview, exists ? PdfToolReplace::Allow : PdfToolReplace::Deny);
+        }
+        if (exists) {
             n++;
         }
     }
@@ -646,16 +662,17 @@ bool PagesFitDpi(EngineBase* engine, const Vec<int>& pages, int dpi, AtomicBool*
     return true;
 }
 
-static bool SavePagePixmap(Pixmap* px, Str dest) {
+static bool SavePagePixmap(Pixmap* px, Str dest, PdfToolReplace replace = PdfToolReplace::Allow) {
     dir::CreateForFile(dest);
     PdfToolOutput output(dest, {});
-    return output.path && EncodePixmapToFile(px, output.path, dest) && output.Publish(dest);
+    return output.path && EncodePixmapToFile(px, output.path, dest) && output.Publish(dest, replace);
 }
 
 // Render each page at dpi and write it to templatePath with <N> replaced by
 // the 1-based page number. Returns how many were written.
 int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, const Vec<int>& pages, int dpi,
-                         Str* firstPathOwnedOut, Vec<int>* failedPagesOut, AtomicBool* canceled) {
+                         Str* firstPathOwnedOut, Vec<int>* failedPagesOut, AtomicBool* canceled,
+                         const Vec<PdfToolReplace>* preview) {
     if (firstPathOwnedOut) {
         *firstPathOwnedOut = {};
     }
@@ -665,15 +682,15 @@ int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, con
     if (!engine || len(pages) == 0 || len(templatePath) == 0) {
         return 0;
     }
-    TempStr withExt = WithDefaultImageExtTemp(templatePath);
-    if (len(withExt) == 0) {
+    TempStr templ = ImagesTemplateTemp(templatePath, len(pages));
+    if (len(templ) == 0 || (preview && len(*preview) != len(pages))) {
         return 0;
     }
-    TempStr templ = EnsurePagePlaceholderTemp(withExt, len(pages) > 1);
     float zoom = SaveSelectionZoom(engine, (float)dpi);
     int nOk = 0;
     StrVec pngs;
-    for (int pageNo : pages) {
+    for (int i = 0; i < len(pages); i++) {
+        int pageNo = pages[i];
         if (canceled && AtomicBoolGet(canceled)) {
             break;
         }
@@ -700,7 +717,8 @@ int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, con
         }
         px->xres = (float)dpi;
         px->yres = (float)dpi;
-        bool ok = SavePagePixmap(px, dest);
+        auto replace = preview ? (*preview)[i] : PdfToolReplace::Allow;
+        bool ok = SavePagePixmap(px, dest, replace);
         FreePixmap(px);
         if (!ok) {
             logf("ConvertPagesToImages: save failed for '%s'\n", dest);

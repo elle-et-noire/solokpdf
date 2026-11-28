@@ -10,12 +10,17 @@ TempStr PageRangeCountTemp(Str s, int pageCount, bool isExtract);
 TempStr PageCountTextTemp(int nPages, int pageCount);
 Str PageRangeHint();
 
+enum class PdfToolReplace {
+    Allow,
+    Deny
+};
+
 struct PdfToolOutput : NonCopyable {
     Str path;
 
     explicit PdfToolOutput(Str dest, Str suffix = StrL(".pdf"));
     ~PdfToolOutput();
-    bool Publish(Str dest);
+    bool Publish(Str dest, PdfToolReplace replace = PdfToolReplace::Allow);
     int Run(int (*tool)(int, char**), int argc, char** argv, Str dest);
 };
 
@@ -58,12 +63,13 @@ bool IsSupportedConvertImageExt(Str path);
 bool PathHasPagePlaceholder(Str path);
 TempStr EnsurePagePlaceholderTemp(Str path, bool multiPage);
 TempStr WithDefaultImageExtTemp(Str path);
-int CountExistingImages(Str templatePath, const Vec<int>& pages);
+int CountExistingImages(Str templatePath, const Vec<int>& pages, Vec<PdfToolReplace>* preview = nullptr);
 TempStr UniqueImagesTemplateTemp(Str templatePath, const Vec<int>& pages);
 TempStr ExistingImagesTextTemp(int nExisting);
 bool PagesFitDpi(EngineBase* engine, const Vec<int>& pages, int dpi, AtomicBool* canceled = nullptr);
 int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, const Vec<int>& pages, int dpi,
-                         Str* firstPathOwnedOut, Vec<int>* failedPagesOut = nullptr, AtomicBool* canceled = nullptr);
+                         Str* firstPathOwnedOut, Vec<int>* failedPagesOut = nullptr, AtomicBool* canceled = nullptr,
+                         const Vec<PdfToolReplace>* preview = nullptr);
 void CollectAllPages(int pageCount, Vec<int>& pages);
 Pixmap* RenderSelectionPixmap(EngineBase* engine, int rotation, int pageNo, RectF rect, float dpi);
 bool WriteSelectionPixmap(Pixmap* px, Str destPath);

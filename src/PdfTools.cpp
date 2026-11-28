@@ -1546,6 +1546,9 @@ struct ImageExport;
 
 struct ConvertPdfToImagesDialog : PdfToolDialog {
     int pageCount = 0;
+    Str previewPath;
+    Vec<int> previewPages;
+    Vec<PdfToolReplace> preview;
     Checkbox* radioCurrent = nullptr;
     Checkbox* radioAll = nullptr;
     Checkbox* radioCustom = nullptr;
@@ -1579,6 +1582,7 @@ struct ImageExport {
     EngineBase* engine = nullptr;
     Str destPath;
     Vec<int> pages;
+    Vec<PdfToolReplace> preview;
     int dpi = 0;
     int rotation = 0;
     AtomicBool canceled = 0;
@@ -1613,7 +1617,7 @@ static void FinishImageExport(ImageExport* work) {
 static void RenderImageExport(ImageExport* work) {
     if (PagesFitDpi(work->engine, work->pages, work->dpi, &work->canceled)) {
         work->nOk = ConvertPagesToImages(work->engine, work->rotation, work->destPath, work->pages, work->dpi,
-                                         &work->firstPath, &work->failedPages, &work->canceled);
+                                         &work->firstPath, &work->failedPages, &work->canceled, &work->preview);
     } else {
         work->tooLarge = true;
     }
@@ -1666,6 +1670,10 @@ void ConvertPdfToImagesDialog::UpdateButton() {
     if (!actionBtn || exporting) {
         return;
     }
+    WindowTab* tab = FindSourceTab();
+    if (tab && tab->ctrl) {
+        pageCount = tab->ctrl->PageCount();
+    }
     TempStr dest = destEdit ? destEdit->GetTextTemp() : TempStr{};
     bool destOk = len(dest) > 0;
     bool pagesOk = true;
@@ -1707,9 +1715,12 @@ bool ConvertPdfToImagesDialog::SelectedPages(Vec<int>& pages) {
 // becomes Overwrite and Use New Names picks free names (#6439)
 void ConvertPdfToImagesDialog::UpdateExisting(bool pagesOk) {
     int nExisting = 0;
-    Vec<int> pages;
-    if (pagesOk && SelectedPages(pages)) {
-        nExisting = CountExistingImages(destEdit->GetTextTemp(), pages);
+    str::FreePtr(&previewPath);
+    VecReset(previewPages);
+    VecReset(preview);
+    if (pagesOk && SelectedPages(previewPages)) {
+        previewPath = str::Dup(path::NormalizeTemp(destEdit->GetTextTemp()));
+        nExisting = CountExistingImages(previewPath, previewPages, &preview);
     }
     if (nExisting > 0) {
         hintText->SetText(ExistingImagesTextTemp(nExisting));
@@ -1801,8 +1812,18 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
         return;
     }
 
+    if (pageCount != engine->PageCount()) {
+        UpdateButton();
+        return;
+    }
     Vec<int> pages;
     if (!SelectedPages(pages)) {
+        return;
+    }
+    destPath = path::NormalizeTemp(destPath);
+    if (!str::Eq(destPath, previewPath) || len(pages) != len(previewPages) ||
+        memcmp(pages.els, previewPages.els, len(pages) * sizeof(int)) != 0) {
+        UpdateButton();
         return;
     }
 
@@ -1819,6 +1840,7 @@ void ConvertPdfToImagesDialog::DoIt(VirtMouseEvent*) {
     work->engine = engine;
     work->destPath = str::Dup(destPath);
     work->pages = pages;
+    work->preview = preview;
     work->dpi = dpi;
     work->rotation = dm->GetRotation();
     exporting = gImageExport = work;
@@ -1871,6 +1893,7 @@ void ConvertPdfToImagesDialog::UpdateInputs() {
 }
 
 ConvertPdfToImagesDialog::~ConvertPdfToImagesDialog() {
+    str::Free(previewPath);
     CancelExport();
 }
 

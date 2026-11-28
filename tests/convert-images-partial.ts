@@ -189,6 +189,57 @@ async function checkExport(
   await pollUntil(() => !isWindowVisible(dlg), Boolean, { error: "Conversion dialog stayed open" });
 }
 
+async function checkPreview(client: ControlClient, frame: number, pid: number, base: string): Promise<void> {
+  const keep = Buffer.from("new file from another writer\0\xff", "latin1");
+  for (const mode of ["convert", "overwrite", "new-names"]) {
+    const dir = join(base, mode);
+    mkdirSync(dir);
+    const page1 = join(dir, "page-1.png");
+    const page2 = join(dir, "page-2.png");
+    if (mode !== "convert") {
+      writeFileSync(page1, keep);
+    }
+    const dlg = await openExport(frame, pid, dir);
+    const action = mode === "overwrite" ? "Overwrite" : "Convert";
+    if (mode === "new-names") {
+      await click(client, dlg, "Use New Names");
+      await pollUntil(
+        () => client.virtTree(getClassName(dlg)),
+        (rows) => rows.some((r) => r.text === "Convert"),
+        {
+          error: "The new names were not previewed",
+        },
+      );
+    } else {
+      const rows = await client.virtTree(getClassName(dlg));
+      assert.ok(
+        rows.some((r) => r.text === action),
+        `Missing ${action} before the collision`,
+      );
+      writeFileSync(page2, keep, { flag: "wx" });
+    }
+    await click(client, dlg, action);
+    const warning = await pollUntil(
+      () => findWindow(pid, "warning"),
+      (h) => h !== 0 || !isWindowVisible(dlg),
+      { error: `${mode}: image export stayed open` },
+    );
+    const suffix = mode === "new-names" ? ".1.png" : ".png";
+    assert.deepEqual(loadPng(join(dir, "page-1" + suffix)), loadPng(join(base, "reference", "page-1.png")));
+    if (mode === "new-names") {
+      assert.equal(warning, 0);
+      assert.deepEqual(readFileSync(page1), keep);
+      assert.deepEqual(loadPng(join(dir, "page-2" + suffix)), loadPng(join(base, "reference", "page-2.png")));
+    } else {
+      assert.ok(warning, `${mode}: no collision warning`);
+      assert.match(warningText(warning), /Saved 1 of 2 images\.\s*Failed pages: 2\b/);
+      assert.deepEqual(readFileSync(page2), keep);
+      postMessage(warning, WM_CLOSE, 0, 0);
+      await pollUntil(() => !isWindowVisible(dlg), Boolean, { error: "Conversion dialog stayed open" });
+    }
+  }
+}
+
 function openPdf(frame: number, path: string, reload = 0): void {
   const ddeCopyData = 0x44646557;
   assert.ok(sendCopyDataW(frame, ddeCopyData, `[Open("${path.replaceAll("\\", "/")}",0,0,${reload})]`));
@@ -339,6 +390,7 @@ export async function testit(): Promise<void> {
         const name = blocked === 0 ? "reference" : `blocked-${blocked}`;
         await checkExport(client, frame, proc.pid, join(engineDir, name), blocked);
       }
+      await checkPreview(client, frame, proc.pid, engineDir);
       await checkCancel(client, frame, proc.pid, join(engineDir, "canceled"));
       await checkSource(app, pdf, other, engineDir);
     } finally {
