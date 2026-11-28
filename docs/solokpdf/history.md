@@ -5273,6 +5273,15 @@ Hidden-desktop ASan passed `convert-images-partial` on both engines.
 At `38b0a3ccd`, all six findings in the [review](reader-review-2026-11.md)
 still applied to the Windows code.
 
+| Item | Commit      |
+| ---- | ----------- |
+| 1A   | `ea62f30f9` |
+| 1B   | `0a324fe81` |
+| 2A   | `e911a1685` |
+| 2B   | `95c058aba` |
+| 3A   | `34b196a1d` |
+| 2C   | `78535b9d8` |
+
 ### 1A — Preserve existing images on save failure
 
 Fixed. Image encoders write to a staged file in the destination directory.
@@ -5352,3 +5361,6 @@ assertions covered first-run empty, one match, no matches and Esc in both
 views. Filtering and clearing the first window left the second window's
 filtered entry and selection intact.
 `ad-hoc-home-uia` also passed on the resulting layout.
+
+The visual checks used English. Japanese UI and screen-reader speech were
+outside this verification, as were ng and hosted Release.
