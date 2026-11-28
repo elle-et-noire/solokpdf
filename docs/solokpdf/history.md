@@ -5322,3 +5322,14 @@ intended PDF. References held across filtering, switching to a document and
 closing the original window returned `UIA_E_ELEMENTNOTAVAILABLE`. The process
 remained alive in a second window for the close check.
 The existing `ad-hoc-uia` document text and point queries passed in Debug.
+
+### 3A — Preserve the About links
+
+Fixed. The upstream source row explicitly requests build metadata. SolokPDF
+uses its static labels and link targets.
+
+Hidden-desktop Debug passed `ad-hoc-about-links` on the first display and
+after closing and reopening About. The displayed source linked to the fork,
+licenses linked to the fork's AUTHORS, and the footer linked to the upstream
+website and manual. The test read each rendered link's target without
+opening a browser.

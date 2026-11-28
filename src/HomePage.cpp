@@ -146,6 +146,7 @@ struct AboutRow {
     Str leftTxt;
     Str rightTxt;
     Str url;
+    bool showBuildSource = false;
 };
 
 #if defined(SOLOKPDF_PDFIUM)
@@ -169,8 +170,7 @@ static AboutRow gAboutRows[] = {
     {StrL("forums"), StrL("SumatraPDF forums"), StrL("https://github.com/sumatrapdfreader/sumatrapdf/discussions")},
     {StrL("licenses"), StrL("Various Open Source"),
      StrL("https://github.com/sumatrapdfreader/sumatrapdf/blob/master/AUTHORS")},
-    // filled in by AboutSourceRow()
-    {StrL("source"), {}, {}},
+    {StrL("source"), {}, {}, true},
     {StrL("more software by me"), StrL("Sumatra File Manager"), StrL("https://sumatrafilemanager.com")},
     {{}, StrL("Sumatra File Manager Web"), StrL("https://web.sumatrafilemanager.com")},
     {{}, {}, {}}};
@@ -179,7 +179,6 @@ static AboutRow gAboutRows[] = {
 // the rows from kAboutSoftwareRow on are the other software, in the footer
 constexpr int kAboutSoftwareEnd = dimofi(gAboutRows) - 1;
 constexpr int kAboutSoftwareRow = kAboutSoftwareEnd - 2;
-constexpr int kAboutSourceRow = kAboutSoftwareRow - 1;
 
 // The About box, the same in the About window, the home page's dropdown and
 // the About page: the brand over the version line, label / link rows, the
@@ -193,7 +192,7 @@ struct AboutCtrl : VirtCtrl {
     SumatraLogo* logo = nullptr;
     VirtText* version = nullptr;
     Vec<VirtText*> labels;
-    Vec<VirtText*> values;
+    Vec<VirtLink*> values;
     VirtText* note = nullptr;
     // copies version / OS / machine info for bug reports
     VirtLink* copyLink = nullptr;
@@ -214,6 +213,24 @@ struct AboutCtrl : VirtCtrl {
     void UpdateLayout(Rect clientRc);
     void Paint(VirtPaintCtx&) override;
 };
+
+TempStr AboutLinksResultTemp() {
+    if (!gAboutRoot || !IsVirtCtrlOfKind(gAboutRoot->owned, kindAboutCtrl)) {
+        return {};
+    }
+    auto* about = (AboutCtrl*)gAboutRoot->owned;
+    str::Builder out;
+    for (int i = 0; i < len(about->values); i++) {
+        auto* link = about->values[i];
+        out.Append(fmt("%s\t%s\t%s\n", about->labels[i]->s, link->s, link->target));
+    }
+    for (int i = 0; i < len(about->softwareLinks); i++) {
+        auto* link = about->softwareLinks[i];
+        Str label = i == 0 ? about->softwareHeader->s : Str{};
+        out.Append(fmt("%s\t%s\t%s\n", label, link->s, link->target));
+    }
+    return ToStrTemp(out);
+}
 
 static void OpenAboutUrl(VirtMouseEvent* ev) {
     auto* link = (VirtLink*)ev->target;
@@ -349,17 +366,18 @@ void AboutCtrl::Sync() {
     int n = kAboutSoftwareRow;
     bool canAccessDisk = CanAccessDisk();
     if (len(labels) == 0) {
-        AboutRow* source = &gAboutRows[kAboutSourceRow];
-        AboutSourceRow(&source->rightTxt, &source->url);
         for (int i = 0; i < n; i++) {
-            AboutRow* el = &gAboutRows[i];
-            auto* label = new VirtText(el->leftTxt);
+            AboutRow row = gAboutRows[i];
+            if (row.showBuildSource) {
+                AboutSourceRow(&row.rightTxt, &row.url);
+            }
+            auto* label = new VirtText(row.leftTxt);
             label->align = VirtTextAlign::Right;
             AddChild(label);
             VecAppend(labels, label);
-            auto* link = new VirtLink(TrimGitTemp(el->rightTxt));
-            link->SetTarget(el->url);
-            link->SetTooltip(el->url);
+            auto* link = new VirtLink(TrimGitTemp(row.rightTxt));
+            link->SetTarget(row.url);
+            link->SetTooltip(row.url);
             link->underlineOffsetY = -3;
             link->onClick = MkFunc1Void(OpenAboutUrl);
             AddChild(link);

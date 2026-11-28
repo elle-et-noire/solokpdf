@@ -3297,6 +3297,11 @@ static void ExecuteControlRequest(ControlRequest* req) {
         case ControlCmd::TestVirtTree: {
             str::Builder out;
             Str action = StringArg(req, 0);
+            if (str::Eq(action, StrL("about-links"))) {
+                TempStr links = AboutLinksResultTemp();
+                AppendTestResult(req, len(links) > 0 ? 0 : 1, links);
+                break;
+            }
             if (str::Eq(action, StrL("hit"))) {
                 Str cls = StringArg(req, 1);
                 i32 x = 0;

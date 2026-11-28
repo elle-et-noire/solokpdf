@@ -65,6 +65,7 @@ void HomePageSelectAt(MainWindow* win, int x, int y);
 Str HomePageFilePathAtTemp(MainWindow* win, int x, int y);
 void HomePageClearActiveEntry(MainWindow* win);
 #if !defined(SUMATRA_NG)
+TempStr AboutLinksResultTemp();
 constexpr int kHomeUiaOpen = -1;
 class SumatraUIAutomationProvider;
 MainWindow* FindHomeUiaWindow(HWND, SumatraUIAutomationProvider*);
