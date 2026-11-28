@@ -3,12 +3,17 @@
 This is the live work scope. Completed results are in [history.md](history.md#completed-backlog).
 Record new failures here with a trigger, observable outcome and acceptance
 check. Add behavior changes to [features.md](features.md) or
-[limitations.md](limitations.md). Next free IDs are B80, C2, D17, E158 and F4.
+[limitations.md](limitations.md). Next free IDs are B80, C2, D17, E159 and F4.
 For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-No open items. See [E157 closure](history.md#e157-closure) for the design review.
+- **E158 — Reader review.** Start with image export. A failed save deleted the
+  previous file, and Convert replaced a file created after the overwrite preview.
+  Verify the original bytes on failure or an unapproved collision. Follow the
+  [findings, repair order and acceptance checks](reader-review-2026-11.md)
+  for search progress, Home accessibility and feedback, and About links.
+  The [previous design review](history.md#e157-closure) is closed.
 
 ## Not planned
 
