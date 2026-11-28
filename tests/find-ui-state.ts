@@ -1,10 +1,12 @@
 // Switching the global find-UI mode must migrate every visible find UI, not
 // leave compact and floating variants mixed across multiple windows.
+import assert from "node:assert/strict";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ControlCommand, type ControlClient } from "./control.ts";
-import { cmdId, ROOT, runStandalone, tmpPath, SETTINGS_FILE } from "./util.ts";
+import { assemblePdf, cmdId, pollUntil, runStandalone, tmpPath, SETTINGS_FILE, USE_NG } from "./util.ts";
 import { killAndWait, launchControlled, sendCommandSync } from "./win-automation.ts";
+import { sendCopyDataW } from "./winapi.ts";
 
 type FindUiState = {
   windows: number;
@@ -58,6 +60,50 @@ function expectState(state: FindUiState, pref: number, compact: number, floating
   }
 }
 
+function labeledPdf(prefix: string, pages: number, text: string): string {
+  const stream = `BT /F1 14 Tf 20 100 Td (${text}) Tj ET`;
+  const kids = Array.from({ length: pages }, (_, i) => `${i + 5} 0 R`).join(" ");
+  return assemblePdf([
+    `<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [0 << /S /D /P (${prefix}) >>] >> >>`,
+    `<< /Type /Pages /Kids [${kids}] /Count ${pages} >>`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    ...Array.from(
+      { length: pages },
+      () =>
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>",
+    ),
+  ]);
+}
+
+async function checkProgress(client: ControlClient): Promise<void> {
+  const request = (action: string, idx: number, ...args: (string | number)[]) =>
+    client.request(ControlCommand.TestFindUiState, [action, idx, ...args]);
+  if (USE_NG || String((await request("status", 0))[1]).includes("invalid action")) return;
+  assert.equal((await request("progress", 0, 2, 0, -1))[1], "A-2");
+  assert.equal((await request("progress", 1, 80, 0, -1))[1], "B-80");
+  const [oldEpoch, status] = await request("progress", 0, 0, 4, -1);
+  assert.equal(status, "4 A-2");
+  assert.equal((await request("status", 1))[1], "B-80");
+
+  await request("count", 1, "gamma");
+  await pollUntil(
+    () => request("status", 1),
+    (r) => r[1] === "0 / 80",
+    { error: "B final count was not 80" },
+  );
+
+  await request("count", 0, "alpha");
+  await request("count", 0, "beta");
+  const stale = await request("progress", 0, 0, 999, Number(oldEpoch));
+  assert.doesNotMatch(String(stale[1]), /999/);
+  await pollUntil(
+    () => request("status", 0),
+    (r) => r[1] === "0 / 2",
+    { error: "A replacement count was not 2" },
+  );
+}
+
 export async function testit(): Promise<void> {
   const dir = tmpPath("find-ui-state");
   rmSync(dir, { recursive: true, force: true });
@@ -67,14 +113,22 @@ export async function testit(): Promise<void> {
     "UiLanguage = en\nCheckForUpdates = false\nRestoreSession = false\nSearchUIFloating = false\n",
   );
 
-  const pdf = join(ROOT, "ext", "a-zlib", "zlib.3.pdf");
+  const pdf = join(dir, "a.pdf");
+  const other = join(dir, "b.pdf");
+  writeFileSync(pdf, labeledPdf("A-", 2, "alpha alpha beta"), "latin1");
+  writeFileSync(other, labeledPdf("B-", 80, "gamma"), "latin1");
   const { proc, client, frame } = await launchControlled(["-appdata", dir, pdf]);
   try {
     await client.waitForRenderIdle();
-    sendCommandSync(frame, cmdId("CmdDuplicateInNewWindow"));
+    if (USE_NG) {
+      sendCommandSync(frame, cmdId("CmdDuplicateInNewWindow"));
+    } else {
+      assert.ok(sendCopyDataW(frame, 0x44646557, `[Open("${other.replaceAll("\\", "/")}",1,0,0)]`));
+    }
     await waitForTwoDocuments(client);
 
     expectState(await findUiRequest(client, "show-all"), 0, 2, 0);
+    await checkProgress(client);
     expectState(await findUiRequest(client, "toggle-first"), 1, 0, 2);
 
     let state = await findUiRequest(client, "set-first-text");

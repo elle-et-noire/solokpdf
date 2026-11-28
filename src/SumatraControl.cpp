@@ -2325,6 +2325,29 @@ static void ExecuteControlRequest(ControlRequest* req) {
 
         case ControlCmd::TestFindUiState: {
             Str action = StringArg(req, 0);
+#ifdef _DEBUG
+            if (str::Eq(action, StrL("progress")) || str::Eq(action, StrL("count")) ||
+                str::Eq(action, StrL("status"))) {
+                i32 idx = 0;
+                if (!IntArg(req, 1, idx) || idx < 0 || idx >= len(gWindows)) {
+                    AppendError(req, StrL("Expected a window index"));
+                    break;
+                }
+                MainWindow* win = gWindows[idx];
+                if (str::Eq(action, StrL("progress"))) {
+                    i32 page = 0, found = 0, epoch = 0;
+                    if (!IntArg(req, 2, page) || !IntArg(req, 3, found) || !IntArg(req, 4, epoch)) {
+                        AppendError(req, StrL("Expected a page, count and epoch"));
+                        break;
+                    }
+                    TestFindCountUpdate(win, page, found, epoch < 0 ? win->findCountEpoch : epoch);
+                } else if (str::Eq(action, StrL("count"))) {
+                    StartFindCount(win, StringArg(req, 2), false, false);
+                }
+                AppendTestResult(req, win->findCountEpoch, FindBarStatus(win));
+                break;
+            }
+#endif
             int exitCode = 0;
             Str res = FindUiStateResultTemp(action, &exitCode);
             AppendTestResult(req, exitCode, res);

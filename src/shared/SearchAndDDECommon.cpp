@@ -429,18 +429,13 @@ void FreeMatchSnippets(Vec<FindMatch>* matches) {
     }
 }
 
-// Page the running scan is on, so the in-progress status can show it. Only one
-// scan runs at a time (older ones are canceled by epoch), so a single global is
-// enough; reset when a scan starts.
-int gFindCountCurPage = 0;
-
 // status while a scan is in flight: matches so far and the page being scanned,
 // e.g. "12 34". ShowMatchCount replaces it with "n / m" when the scan ends.
 void SetFindCountProgressStatus(MainWindow* win, int nFound, int pageNo) {
     if (pageNo > 0) {
-        gFindCountCurPage = pageNo;
+        win->findCountPage = pageNo;
     }
-    pageNo = gFindCountCurPage;
+    pageNo = win->findCountPage;
     TempStr pageStr = {};
     if (pageNo > 0 && win->ctrl) {
         pageStr = win->ctrl->GetPageLabeTemp(pageNo);
@@ -1801,6 +1796,21 @@ static void CountPartialTask(CountPartialTaskData* d) {
     FindStatusChanged(win);
 }
 
+#if defined(_DEBUG) && !defined(SUMATRA_NG)
+void TestFindCountUpdate(MainWindow* win, int pageNo, int nFound, int epoch) {
+    if (pageNo > 0) {
+        CountProgressTask(new CountProgressTaskData{win, epoch, nFound, pageNo});
+        return;
+    }
+    auto* batch = new CountPartialTaskData();
+    batch->win = win;
+    batch->epoch = epoch;
+    batch->nFoundSoFar = nFound;
+    batch->matches = new Vec<FindMatch>();
+    CountPartialTask(batch);
+}
+#endif
+
 // One run of the scan. True when it's done: no more matches, canceled, or at
 // kMaxFindCount. False when the slice ran out of time (see kUiSliceMs); the
 // next call carries on.
@@ -1995,7 +2005,7 @@ void StartFindCount(MainWindow* win, Str text, bool matchCase, bool matchWholeWo
     // seed the progress status with the page the scan starts from, so it shows a
     // page right away instead of going blank until the first progress tick;
     // replaced with "n / m" when the scan finishes
-    gFindCountCurPage = 0;
+    win->findCountPage = 0;
     SetFindCountProgressStatus(win, 0, win->ctrl ? win->ctrl->CurrentPageNo() : 0);
 
     if (win->findCountThread) {

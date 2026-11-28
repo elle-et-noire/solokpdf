@@ -5298,3 +5298,12 @@ arrival byte-for-byte and reported “Saved 1 of 2 images. Failed pages: 2”.
 Page 1 matched the reference pixels and dimensions, including when its
 replacement was approved. Use New Names preserved the old bytes and wrote
 two images matching the references.
+
+### 2A — Keep search progress in its window
+
+Fixed. Count batches retain the last progress page of their own window.
+Starting a new count resets the page, and both update paths check the epoch.
+Hidden-desktop Debug passed `find-ui-state` and `ad-hoc-find-tab-switch` with
+PDFium and MuPDF. With the callbacks delivered as A-2, B-80, then A's partial
+count, A displayed `4 A-2` and B kept `B-80`. B finished with 80 matches. A's
+replacement term finished with two matches and rejected the old partial update.

@@ -398,6 +398,7 @@ struct MainWindow {
     // background thread rebuilds the cache when the term changes
     ThreadHandle findCountThread = nullptr;
     AtomicInt findCountEpoch = 0;
+    int findCountPage = 0;
     Str findCountText;
     Str findPageRangeText; // last applied Pages box text (issue #5694)
     Str findCountRangeText;

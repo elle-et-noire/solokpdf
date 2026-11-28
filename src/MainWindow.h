@@ -684,6 +684,7 @@ struct MainWindow { // NOLINT(clang-analyzer-optin.performance.Padding)
     // thread (re)builds the cache when the search term or match-case changes.
     ThreadHandle findCountThread = nullptr;
     AtomicInt findCountEpoch = 0;
+    int findCountPage = 0;
     Str findCountText;
     Str findPageRangeText; // last applied Pages box text (issue #5694)
     Str findCountRangeText;

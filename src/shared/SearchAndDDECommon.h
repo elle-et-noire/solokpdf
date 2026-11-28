@@ -23,8 +23,10 @@ int MatchIndexInCache(MainWindow* win, u64 key);
 constexpr int kMaxFindCount = 999;
 TempStr BuildSnippet(EngineBase* engine, const FindMatch& m);
 void FreeMatchSnippets(Vec<FindMatch>* matches);
-extern int gFindCountCurPage;
 void SetFindCountProgressStatus(MainWindow* win, int nFound, int pageNo);
+#if defined(_DEBUG) && !defined(SUMATRA_NG)
+void TestFindCountUpdate(MainWindow* win, int pageNo, int nFound, int epoch);
+#endif
 Vec<FindMatch>* CloneMatchesRange(Vec<FindMatch>* matches, int from, int to);
 bool FindMatchTouchesVisiblePages(const FindMatch& fm, int firstPage, int lastPage);
 void GetVisiblePageRange(DisplayModel* dm, int& firstOut, int& lastOut);

@@ -52,6 +52,9 @@ bool IsFindBarVisible(MainWindow* win);
 bool IsFindUIVisible(MainWindow* win);
 void FindBarReposition(MainWindow* win);
 void FindBarSetStatus(MainWindow* win, Str s, int totalHits = -1);
+#if defined(_DEBUG) && !defined(SUMATRA_NG)
+Str FindBarStatus(MainWindow* win);
+#endif
 void FocusFindEditSelectAll(MainWindow* win);
 // the find text field, shared by the compact bar and the floating window
 gpui::InputState* EnsureFindEdit(MainWindow* win);

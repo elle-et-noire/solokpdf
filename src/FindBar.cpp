@@ -867,6 +867,12 @@ bool FindBarWnd::UpdateStatusWidth(int totalHits, bool capped) {
     return true;
 }
 
+#ifdef _DEBUG
+Str FindBarStatus(MainWindow* win) {
+    return win->findBar && win->findBar->status ? win->findBar->status->s : Str{};
+}
+#endif
+
 // show n/m or "No matches" style status in the bar
 void FindBarSetStatus(MainWindow* win, Str s, int totalHits) {
     if (gSettings->searchUIFloating) {
