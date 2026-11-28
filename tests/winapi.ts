@@ -1358,6 +1358,14 @@ export function holdFileAgainstReplace(path: string): () => void {
   };
 }
 
+export function holdFileAgainstWrite(path: string, mode: "allow-delete" | "deny-delete"): () => void {
+  const share = FILE_SHARE_READ | (mode === "allow-delete" ? FILE_SHARE_DELETE : 0);
+  const handle = openSharedRead(path, share);
+  return () => {
+    kernel32.symbols.CloseHandle(handle);
+  };
+}
+
 export function lockFileRange(path: string, offset: number, size: number): () => void {
   const handle = openSharedRead(path, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
   if (!kernel32.symbols.LockFile(handle, offset, 0, size, 0)) {

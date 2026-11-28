@@ -1508,12 +1508,12 @@ static bool GetImageEncoderForPath(Str path, CLSID* encOut) {
     return true;
 }
 
-bool SavePixmapAsImageFile(Pixmap* px, Str path) {
+bool EncodePixmapToFile(Pixmap* px, Str path, Str formatPath) {
     if (!px || len(path) == 0) {
         return false;
     }
     CLSID enc{};
-    if (!GetImageEncoderForPath(path, &enc)) {
+    if (!GetImageEncoderForPath(formatPath, &enc)) {
         return false;
     }
     Pixmap* converted = nullptr;
@@ -1539,9 +1539,6 @@ bool SavePixmapAsImageFile(Pixmap* px, Str path) {
         ok = gbmp.Save(pathW, &enc, nullptr) == Gdiplus::Ok;
     }
     FreePixmap(converted);
-    if (!ok) {
-        file::Delete(path);
-    }
     return ok;
 }
 

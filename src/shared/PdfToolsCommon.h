@@ -69,7 +69,7 @@ Pixmap* RenderSelectionPixmap(EngineBase* engine, int rotation, int pageNo, Rect
 bool WriteSelectionPixmap(Pixmap* px, Str destPath);
 
 // implemented by each app
-bool SavePixmapAsImageFile(Pixmap* px, Str path);
+bool EncodePixmapToFile(Pixmap* px, Str path, Str formatPath);
 void ShowPdfPageRangeDialog(MainWindow* win, bool isExtract);
 
 bool ExtractTextViaEngine(MainWindow* win, Str destPath, Str pages);

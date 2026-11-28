@@ -5267,3 +5267,21 @@ Hidden-desktop Debug passed `ad-hoc-pdfium-pagebox` (17 cases at two zooms),
 recompression can finish independently of the test.
 Hidden-desktop ASan passed `convert-images-partial` on both engines.
 `lint-posted-tasks` also passed.
+
+## E158 reader review
+
+At `38b0a3ccd`, all six findings in the [review](reader-review-2026-11.md)
+still applied to the Windows code.
+
+### 1A — Preserve existing images on save failure
+
+Fixed. Image encoders write to a staged file in the destination directory.
+Publication follows a successful write and flush. PNG recompression starts
+after publication.
+
+Hidden-desktop Debug passed `convert-images-partial` and `issue-6127`.
+On both engines, blocking replacement preserved the original PNG and BMP
+fixture bytes and left no staging files. Allowing deletion while denying
+writes produced complete images. Intentional replacements matched reference
+dimensions and pixels. Partial failures still reported the failed pages and
+kept the successful output.

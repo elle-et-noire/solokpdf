@@ -8,9 +8,8 @@ For code changes, select affected tests from [testing.md](testing.md).
 
 ## Open
 
-- **E158 — Reader review.** Start with image export. A failed save deleted the
-  previous file, and Convert replaced a file created after the overwrite preview.
-  Verify the original bytes on failure or an unapproved collision. Follow the
+- **E158 — Reader review.** [1A is fixed](history.md#1a--preserve-existing-images-on-save-failure).
+  Next, verify that Convert preserves a file created after the preview. Follow the
   [findings, repair order and acceptance checks](reader-review-2026-11.md)
   for search progress, Home accessibility and feedback, and About links.
   The [previous design review](history.md#e157-closure) is closed.

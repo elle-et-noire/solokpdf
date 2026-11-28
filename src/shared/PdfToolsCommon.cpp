@@ -646,8 +646,14 @@ bool PagesFitDpi(EngineBase* engine, const Vec<int>& pages, int dpi, AtomicBool*
     return true;
 }
 
-// render each page at dpi and write it to templatePath with <N> replaced by
-// the 1-based page number. Returns how many files were written and can report skipped pages.
+static bool SavePagePixmap(Pixmap* px, Str dest) {
+    dir::CreateForFile(dest);
+    PdfToolOutput output(dest, {});
+    return output.path && EncodePixmapToFile(px, output.path, dest) && output.Publish(dest);
+}
+
+// Render each page at dpi and write it to templatePath with <N> replaced by
+// the 1-based page number. Returns how many were written.
 int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, const Vec<int>& pages, int dpi,
                          Str* firstPathOwnedOut, Vec<int>* failedPagesOut, AtomicBool* canceled) {
     if (firstPathOwnedOut) {
@@ -694,9 +700,7 @@ int ConvertPagesToImages(EngineBase* engine, int rotation, Str templatePath, con
         }
         px->xres = (float)dpi;
         px->yres = (float)dpi;
-        // the destination folder may not exist yet (issue #6424)
-        dir::CreateForFile(dest);
-        bool ok = SavePixmapAsImageFile(px, dest);
+        bool ok = SavePagePixmap(px, dest);
         FreePixmap(px);
         if (!ok) {
             logf("ConvertPagesToImages: save failed for '%s'\n", dest);
@@ -796,22 +800,20 @@ bool WriteSelectionPixmap(Pixmap* px, Str destPath) {
     if (!px || len(destPath) == 0) {
         return false;
     }
-    // the destination folder may not exist yet (issue #6424)
+    if (!str::EndsWithI(destPath, StrL(".png"))) {
+        return SavePagePixmap(px, destPath);
+    }
     dir::CreateForFile(destPath);
-    bool ok = false;
-    if (str::EndsWithI(destPath, StrL(".png"))) {
-        // lodepng (no pHYs, so EngineImages displays 1:1) now, zopfli in the
-        // background: a 300 dpi page takes it many seconds
-        Str png = EncodePngFromPixmap(px);
-        ok = len(png) > 0 && file::WriteFile(destPath, png);
-        str::Free(png);
-        if (!ok) {
-            file::Delete(destPath);
-        } else {
-            OptimizePngFileAsync(destPath);
-        }
-    } else {
-        ok = SavePixmapAsImageFile(px, destPath);
+    PdfToolOutput output(destPath, {});
+    if (len(output.path) == 0) {
+        return false;
+    }
+    // Omit pHYs so EngineImages displays the selection 1:1.
+    Str png = EncodePngFromPixmap(px);
+    bool ok = len(png) > 0 && file::WriteFile(output.path, png) && output.Publish(destPath);
+    str::Free(png);
+    if (ok) {
+        OptimizePngFileAsync(destPath);
     }
     return ok;
 }

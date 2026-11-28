@@ -22,6 +22,7 @@ import {
   getControlText,
   getWindowPid,
   getWindowText,
+  holdFileAgainstWrite,
   isWindowEnabled,
   isWindowVisible,
   MK_LBUTTON,
@@ -92,6 +93,54 @@ function warningText(warning: number): string {
     return true;
   });
   return lines.join("\n");
+}
+
+async function checkExistingBytes(client: ControlClient, dir: string): Promise<void> {
+  mkdirSync(dir);
+  const original = Buffer.from("ORIGINAL\0IMAGE\xff", "latin1");
+  for (const ext of ["png", "bmp"]) {
+    const reference = join(dir, `reference.${ext}`);
+    const dest = join(dir, `output.${ext}`);
+    const save = (path: string) =>
+      ext === "png"
+        ? client.request(ControlCommand.TestSaveSelectionAsImage, [path, 72, 1, 60, 55, 150, 50])
+        : client.request(ControlCommand.TestConvertToImages, [path, "1", 72]);
+    assert.equal((await save(reference))[0], 0);
+    const compareImage = () => {
+      if (ext === "png") {
+        const actual = loadPng(dest);
+        assert.deepEqual([actual.w, actual.h], [150, 50]);
+        assert.deepEqual(actual, loadPng(reference));
+      } else {
+        const bmp = readFileSync(dest);
+        assert.equal(bmp.toString("ascii", 0, 2), "BM");
+        assert.deepEqual([bmp.readInt32LE(18), bmp.readInt32LE(22)], [612, 792]);
+        assert.deepEqual(bmp, readFileSync(reference));
+      }
+    };
+    writeFileSync(dest, original);
+    const [status, message] = await save(dest);
+    assert.equal(status, 0, String(message));
+    compareImage();
+    for (const mode of ["deny-delete", "allow-delete"] as const) {
+      writeFileSync(dest, original);
+      const release = holdFileAgainstWrite(dest, mode);
+      let result;
+      try {
+        result = await save(dest);
+      } finally {
+        release();
+      }
+      if (mode === "allow-delete" && result[0] === 0) {
+        compareImage();
+      } else {
+        assert.equal(result[1], ext === "png" ? "ERROR save-failed" : "ERROR convert-failed");
+        assert.deepEqual(readFileSync(dest), original);
+      }
+      console.log(`${ext} ${mode}: ${result[0] === 0 ? "complete image" : "original bytes retained"}`);
+    }
+  }
+  assert.deepEqual(readdirSync(dir).sort(), ["output.bmp", "output.png", "reference.bmp", "reference.png"]);
 }
 
 async function checkExport(
@@ -285,6 +334,7 @@ export async function testit(): Promise<void> {
       const kind = engine === "pdfium" ? "enginePdfium" : "enginePdf";
       assert.equal(status, 0);
       assert.ok(String(pdfInfo).startsWith(`engine=${kind} `), `Unexpected engine: ${pdfInfo}`);
+      await checkExistingBytes(client, join(engineDir, "existing"));
       for (const blocked of [0, 1, 2]) {
         const name = blocked === 0 ? "reference" : `blocked-${blocked}`;
         await checkExport(client, frame, proc.pid, join(engineDir, name), blocked);

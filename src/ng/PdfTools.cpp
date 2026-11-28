@@ -66,11 +66,11 @@
 // PNG / JPEG / BMP / GIF, same core formats as the Save Image dialog
 // ng: orig encodes with GDI+; the image editor's host already writes PNG (via
 // zopfli), JPEG (mupdf) and BMP on every platform, so use that
-bool SavePixmapAsImageFile(Pixmap* px, Str path) {
+bool EncodePixmapToFile(Pixmap* px, Str path, Str formatPath) {
     if (!px || len(path) == 0) {
         return false;
     }
-    if (!IsSupportedConvertImageExt(path)) {
+    if (!IsSupportedConvertImageExt(formatPath)) {
         return false;
     }
     InitImageEditHost();
@@ -90,12 +90,9 @@ bool SavePixmapAsImageFile(Pixmap* px, Str path) {
         }
         use = converted;
     }
-    Str ext = kConvertImageFormats[ConvertImageFormatIdxFromPath(path)].ext;
+    Str ext = kConvertImageFormats[ConvertImageFormatIdxFromPath(formatPath)].ext;
     bool ok = gImageEditHost.SavePixmapAsImage(use, path, ext);
     FreePixmap(converted);
-    if (!ok) {
-        file::Delete(path);
-    }
     return ok;
 }
 
