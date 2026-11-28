@@ -5333,3 +5333,22 @@ after closing and reopening About. The displayed source linked to the fork,
 licenses linked to the fork's AUTHORS, and the footer linked to the upstream
 website and manual. The test read each rendered link's target without
 opening a browser.
+
+### 2C — Explain an empty Home search
+
+Adopted. The 820 × 640 Debug capture before the change showed a blank result
+area and an unrelated navigation tip. The revised list and thumbnail
+screens show “No matching files” at the start of the results area, with
+Open still visible. The general tip returns when the filter clears.
+The first-run screen keeps its tip and has no search failure message.
+
+One history collection per layout supplies the unfiltered count, ordered
+matches and filter words. The cue, layout cache, visible entries and UIA
+use that result. The unfiltered count still controls header alignment.
+
+Hidden-desktop Debug passed `ad-hoc-home-empty-search`, `home-two-windows`,
+`home-tip-double-click` and `ad-hoc-e88-home-focus-hover`. Captures and
+assertions covered first-run empty, one match, no matches and Esc in both
+views. Filtering and clearing the first window left the second window's
+filtered entry and selection intact.
+`ad-hoc-home-uia` also passed on the resulting layout.

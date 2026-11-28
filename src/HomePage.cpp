@@ -933,6 +933,8 @@ struct HomePageLayout {
     Gfx* gfx = nullptr;
     Rect rc;
     MainWindow* win = nullptr;
+    int totalFiles = 0;
+    Rect rcEmptySearch;
 
     Rect rcIconOpen;
     Rect rcIconListView;
@@ -1083,6 +1085,7 @@ static Kind kindHomeChromeCtrl = "homeChromeCtrl";
 
 struct HomeChromeCtrl : VirtCtrl {
     HomeTipCtrl* tip = nullptr;
+    VirtText* emptySearch = nullptr;
     HomeSearchBorderCtrl* searchBorder = nullptr;
     HomeEntriesCtrl* entries = nullptr;
     VirtText* hdr = nullptr;
@@ -1169,12 +1172,12 @@ struct HomeSearchEdit : Edit {
 };
 
 // Cue banner when the search field is empty: "Search N files (Ctrl + F)".
-static void UpdateHomeSearchCueBanner(MainWindow* win) {
+static void UpdateHomeSearchCueBanner(MainWindow* win, int totalFiles) {
     if (!win || !win->homeSearch) {
         return;
     }
     // Tr returns Str; pass .s into type-safe fmt for the format string.
-    TempStr cue = fmt(Tr("Search %d files (Ctrl + F)").s, CountHomePageFiles());
+    TempStr cue = fmt(Tr("Search %d files (Ctrl + F)").s, totalFiles);
     EditSetCueText(win->homeSearch, cue);
 }
 
@@ -1207,7 +1210,6 @@ static void UpdateHomeSearchColors(HomeSearchEdit* edit) {
 
 static void EnsureHomeSearchCreated(MainWindow* win) {
     if (win->homeSearch) {
-        UpdateHomeSearchCueBanner(win);
         return;
     }
     HWND parent = win->hwndCanvas;
@@ -1228,7 +1230,6 @@ static void EnsureHomeSearchCreated(MainWindow* win) {
     e->onFocus = MkFunc0(HomeSearchFocusChanged, win);
     e->onKillFocus = MkFunc0(HomeSearchFocusChanged, win);
     win->homeSearch = e;
-    UpdateHomeSearchCueBanner(win);
     // add left/right padding so text doesn't overlap the border
     int margin = DpiScale(6);
     EditSetMargins(e, margin, margin);
@@ -1301,6 +1302,8 @@ struct HomePageLayoutCache {
     Rect canvasRc;
     int scrollY = 0;
     int nFiles = 0;
+    int totalFiles = 0;
+    Rect rcEmptySearch;
     bool listView = false;
     bool sortByFreq = false;
     bool showTips = false;
@@ -1412,7 +1415,7 @@ static TempStr HomeSearchQueryTemp(MainWindow* win) {
     return win->homeSearchQuery;
 }
 
-static bool HomeLayoutCacheMatches(MainWindow* win, const Rect& rc, Str filterText) {
+static bool HomeLayoutCacheMatches(MainWindow* win, const Rect& rc, Str filterText, int totalFiles) {
     auto& c = HomeLayout(win);
     if (!c.valid) {
         return false;
@@ -1438,7 +1441,7 @@ static bool HomeLayoutCacheMatches(MainWindow* win, const Rect& rc, Str filterTe
     if (c.tipIdx != gSelectedTipIdx || c.tipIsPromo != gSelectedIsPromo) {
         return false;
     }
-    if (!str::Eq(c.filterText, filterText)) {
+    if (!str::Eq(c.filterText, filterText) || c.totalFiles != totalFiles) {
         return false;
     }
     // pin/remove/reorder changes FileState pointers or order → invalidate
@@ -1467,6 +1470,8 @@ static void SaveHomeLayoutCache(const HomePageLayout& l, Str filterText, int scr
     c.canvasRc = l.rc;
     c.scrollY = scrollY;
     c.nFiles = len(l.thumbnails);
+    c.totalFiles = l.totalFiles;
+    c.rcEmptySearch = l.rcEmptySearch;
     c.listView = HomePageIsListView();
     c.sortByFreq = gSettings && gSettings->homePageSortByFrequentlyRead;
     c.showTips = gSettings && gSettings->showTips;
@@ -1520,6 +1525,7 @@ static void ApplyHomeLayoutCache(HomePageLayout& l, int scrollY) {
     l.rcIconThumbnailView = c.rcIconThumbnailView;
     l.rcLogo = c.rcLogo;
     l.rcTip = c.rcTip;
+    l.rcEmptySearch = c.rcEmptySearch;
     l.totalContentDy = c.totalContentDy;
     l.thumbsVisibleDy = c.thumbsVisibleDy;
     l.rcTipText = c.rcTipText;
@@ -1552,45 +1558,17 @@ static void ApplyHomeLayoutCache(HomePageLayout& l, int scrollY) {
     l.openDoc = openDoc;
 }
 
-static void LayoutHomePage(HomePageLayout& l) {
+static void LayoutHomePage(HomePageLayout& l, const Vec<FileState*>& fileStates, Str filterText) {
     EnsureTipsParsed();
 
-    Vec<FileState*> allFileStates;
-    if (gSettings->homePageSortByFrequentlyRead) {
-        FileHistoryGetFrequencyOrder(allFileStates);
-    } else {
-        FileHistoryGetRecentlyOpenedOrder(allFileStates);
-    }
     auto rc = l.rc;
     auto* win = l.win;
-
-    TempStr searchQuery = HomeSearchQueryTemp(win);
-    bool hasFilter = searchQuery && searchQuery.s[0];
-    if (hasFilter) {
-        SplitFilterToWords(searchQuery, l.filterWords);
-    }
-    Vec<FileState*> fileStates;
-    for (int i = 0; i < len(allFileStates); i++) {
-        FileState* fs = allFileStates[i];
-        // a state without a path can't be opened or thumbnailed - don't show it
-        if (len(fs->filePath) == 0) {
-            continue;
-        }
-        if (hasFilter) {
-            TempStr baseName = path::GetBaseNameTemp(fs->filePath);
-            if (!FilterMatches(baseName, l.filterWords)) {
-                continue;
-            }
-        }
-        VecAppend(fileStates, fs);
-    }
 
     bool isRtl = IsUIRtl();
     PlatformFont* fontText = HomePageFont(kHomeOpenFontSize);
 
     // --- Pre-compute thumbnail grid x offset so header can align with it ---
     // use unfiltered count so layout stays stable when search filters results
-    int nFilesForLayout = len(allFileStates);
     Size frame = ThumbnailFrameSize();
     int colsForLayout =
         (rc.dx - kThumbsMarginLeft - kThumbsMarginRight + kThumbsSpaceBetweenX) / (frame.dx + kThumbsSpaceBetweenX);
@@ -1601,7 +1579,7 @@ static void LayoutHomePage(HomePageLayout& l) {
                         2);
     if (thumbsStartX < DpiScale(kInnerPadding)) {
         thumbsStartX = DpiScale(kInnerPadding);
-    } else if (nFilesForLayout == 0) {
+    } else if (l.totalFiles == 0) {
         thumbsStartX = kThumbsMarginLeft;
     }
     int thumbsContentWidth = (thumbsColsForLayout * frame.dx) + ((thumbsColsForLayout - 1) * kThumbsSpaceBetweenX);
@@ -1690,13 +1668,20 @@ static void LayoutHomePage(HomePageLayout& l) {
     l.openDoc = openDoc;
 
     int headerBottomY = hdrY + rowDy + searchThumbsGap;
+    bool noMatches = l.totalFiles > 0 && len(fileStates) == 0 && len(filterText) > 0;
+    if (noMatches) {
+        int x = isRtl ? rc.dx - hdrRow.rowX - hdrRow.rowDx : hdrRow.rowX;
+        l.rcEmptySearch =
+            Rect(x, headerBottomY + DpiScale(8), hdrRow.rowDx, PlatformFontMeasureText(fontText, StrL("A")).dy)
+                .Intersect(rc);
+    }
 
     // --- Step 2: calculate tip area at the bottom (before thumbnails) ---
     int tipHeight = 0;
     PlatformFont* fontTip = HomePageFont(12);
     HomeTipCtrl* tipCtrl = EnsureHomeChrome(l.win)->tip;
     tipCtrl->SetTipLine(SelectedTipLine(), fontTip);
-    VirtRichText* tip = tipCtrl->rich;
+    VirtRichText* tip = noMatches ? nullptr : tipCtrl->rich;
     if (tip) {
         int tipPadding = DpiScale(8);
         tipHeight = tip->MinIntrinsicHeight(hdrRow.rowDx) + (2 * tipPadding);
@@ -2104,14 +2089,14 @@ static bool HomeVScrollShown(MainWindow* win) {
 // flaky: a key posted while focus was still moving went to the wrong window.
 // search / outline / outlineFull are canvas rects so a test can check that the
 // hover outline does not paint over the search field (issue #5978).
-TempStr HomeSelectionResultTemp(int* exitCodeOut) {
+TempStr HomeSelectionForWindowTemp(int* exitCodeOut, int winIdx) {
     auto finish = [&](int code, TempStr s) -> TempStr {
         if (exitCodeOut) {
             *exitCodeOut = code;
         }
         return s;
     };
-    MainWindow* win = len(gWindows) > 0 ? gWindows[0] : nullptr;
+    MainWindow* win = winIdx >= 0 && winIdx < len(gWindows) ? gWindows[winIdx] : nullptr;
     if (!win) {
         return finish(2, str::DupTemp(StrL("NOTREADY no-window")));
     }
@@ -2789,6 +2774,9 @@ static HomeChromeCtrl* EnsureHomeChrome(MainWindow* win) {
     chrome->tip->hwndForCmds = win->hwndFrame;
     chrome->tip->onDoubleClick = MkFunc1(HomeTipBandDoubleClicked, win);
     chrome->AddChild(chrome->tip);
+    chrome->emptySearch = new VirtText(Tr("No matching files"));
+    chrome->emptySearch->SetFlag(vwfNoHitTest, true);
+    chrome->AddChild(chrome->emptySearch);
 
     chrome->searchBorder = new HomeSearchBorderCtrl();
     chrome->AddChild(chrome->searchBorder);
@@ -2927,6 +2915,13 @@ static void HomePageSyncChrome(HomePageLayout& l) {
     chrome->SetBounds(l.rc);
 
     chrome->tip->Sync(l.rcTip, l.rcTipText);
+    auto* emptySearch = chrome->emptySearch;
+    emptySearch->font = HomePageFont(kHomeOpenFontSize);
+    emptySearch->SetText(Tr("No matching files"));
+    emptySearch->SetColor(kColText, ThemeWindowDarkerTextColor());
+    emptySearch->isRtl = IsUIRtl();
+    emptySearch->align = emptySearch->isRtl ? VirtTextAlign::Right : VirtTextAlign::Left;
+    emptySearch->SetBounds(l.rcEmptySearch);
 
     chrome->searchBorder->visibility = l.rcSearchBorder.IsEmpty() ? Visibility::Collapse : Visibility::Visible;
     chrome->searchBorder->SetBounds(l.rcSearchBorder);
@@ -3179,24 +3174,13 @@ void HomePageRelayout(MainWindow* win) {
     }
 
     TempStr filterText = HomeSearchQueryTemp(win);
-    bool usedCache = false;
-    bool changed = false;
-    if (HomeLayoutCacheMatches(win, l.rc, filterText)) {
-        Vec<FileState*> files;
-        StrVec filterWords;
-        CollectHomePageFiles(HomeSearchQueryTemp(win), files, filterWords);
-        if (HomeLayoutCacheFilesMatch(win, files)) {
-            ApplyHomeLayoutCache(l, win->homePageScrollY);
-            usedCache = true;
-        }
-    }
-    if (!usedCache) {
-        LayoutHomePage(l);
-        auto& cache = HomeLayout(win);
-        changed = !str::Eq(cache.filterText, filterText) || len(cache.thumbs) != len(l.thumbnails);
-        for (int i = 0; !changed && i < len(l.thumbnails); i++) {
-            changed = cache.thumbs[i].fs != l.thumbnails[i].fs;
-        }
+    Vec<FileState*> files;
+    l.totalFiles = CollectHomePageFiles(filterText, files, l.filterWords);
+    bool changed = !str::Eq(HomeLayout(win).filterText, filterText) || !HomeLayoutCacheFilesMatch(win, files);
+    if (!changed && HomeLayoutCacheMatches(win, l.rc, filterText, l.totalFiles)) {
+        ApplyHomeLayoutCache(l, win->homePageScrollY);
+    } else {
+        LayoutHomePage(l, files, filterText);
         SaveHomeLayoutCache(l, filterText, win->homePageScrollY);
     }
     HomePageSyncChrome(l);
@@ -3204,7 +3188,7 @@ void HomePageRelayout(MainWindow* win) {
     if (win->homeSearch) {
         win->homeSearch->SetIsVisible(true);
     }
-    UpdateHomeSearchCueBanner(win);
+    UpdateHomeSearchCueBanner(win, l.totalFiles);
     UpdateHomeOverlayScrollbar(win);
     UpdateHomeWinScrollbar(win);
     if (changed && win->uiaProvider) {

@@ -3605,6 +3605,8 @@ static void ExecuteControlRequest(ControlRequest* req) {
 
         case ControlCmd::TestHomeSelection: {
             Str mode = StringArg(req, 0);
+            i32 winIdx = 0;
+            IntArg(req, mode ? 1 : 0, winIdx);
             if (mode) {
                 SetHomePageListView(str::EqI(mode, StrL("list")));
                 if (len(gWindows) > 0) {
@@ -3616,7 +3618,7 @@ static void ExecuteControlRequest(ControlRequest* req) {
                 }
             }
             int exitCode = 0;
-            Str res = HomeSelectionResultTemp(&exitCode);
+            Str res = HomeSelectionForWindowTemp(&exitCode, winIdx);
             AppendTestResult(req, exitCode, res);
             break;
         }

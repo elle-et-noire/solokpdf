@@ -109,6 +109,8 @@ Home from "+", Ctrl+T or the Home command leaves the focus on its file list
 (upstream focused the search box, which hid the selection outline).
 Plain keys on Home run their shortcuts, such as T for the next theme. A search
 starts by clicking the box, Ctrl+F, or `/` with Vim keys on (E90).
+If the history has files and a search finds none, Home shows “No matching
+files” in the results area and hides the general tip. Esc clears the search.
 
 The Home history exposes its current results to Windows UI Automation in
 both views. Item names include the folder so identical filenames can be

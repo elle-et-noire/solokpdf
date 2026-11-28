@@ -81,3 +81,4 @@ void HomeUiaInvoke(MainWindow* win, int idx);
 #endif
 TempStr HomeListRowsResultTemp(int* exitCodeOut);
 TempStr HomeSelectionResultTemp(int* exitCodeOut);
+TempStr HomeSelectionForWindowTemp(int* exitCodeOut, int winIdx);

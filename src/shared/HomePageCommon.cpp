@@ -130,7 +130,7 @@ void AboutSourceRow(Str* text, Str* url) {
 
 // Home-list entries with a path (same set as thumbnails when search is empty).
 // the history files the home page shows, in its sort order, matching searchQuery
-void CollectHomePageFiles(Str searchQuery, Vec<FileState*>& fileStates, StrVec& filterWords) {
+int CollectHomePageFiles(Str searchQuery, Vec<FileState*>& fileStates, StrVec& filterWords) {
     Vec<FileState*> allFileStates;
     if (gSettings->homePageSortByFrequentlyRead) {
         FileHistoryGetFrequencyOrder(allFileStates);
@@ -142,12 +142,14 @@ void CollectHomePageFiles(Str searchQuery, Vec<FileState*>& fileStates, StrVec& 
     if (hasFilter) {
         SplitFilterToWords(searchQuery, filterWords);
     }
+    int total = 0;
     for (int i = 0; i < len(allFileStates); i++) {
         FileState* fs = allFileStates[i];
         // a state without a path can't be opened or thumbnailed - don't show it
         if (len(fs->filePath) == 0) {
             continue;
         }
+        total++;
         if (hasFilter) {
             TempStr baseName = path::GetBaseNameTemp(fs->filePath);
             if (!FilterMatches(baseName, filterWords)) {
@@ -156,6 +158,7 @@ void CollectHomePageFiles(Str searchQuery, Vec<FileState*>& fileStates, StrVec& 
         }
         VecAppend(fileStates, fs);
     }
+    return total;
 }
 
 int CountHomePageFiles() {
